@@ -1,0 +1,17 @@
+[book]
+title = "Project Abundance"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+language = "en"
+multilingual = false
+
+[build]
+build-dir = "build"
+create-missing = false
+
+[rust]
+edition = "2021"
+
+[output.html]
+git-repository-url = "https://github.com/nazar-pc/abundance"
+mathjax-support = true
+preferred-dark-theme = "ayu"
