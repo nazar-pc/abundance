@@ -1,0 +1,15 @@
+[package]
+name = "ab-contracts-common"
+description = "Proc macros for contracts"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2021"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[dependencies]
+ab-contracts-io-type = { version = "0.0.1", path = "../ab-contracts-io-type" }
+derive_more = { version = "1.0.0", default-features = false, features = ["add", "add_assign", "display", "from", "into", "mul", "mul_assign"] }
