@@ -1,0 +1,15 @@
+[package]
+name = "ab-contracts-io-type"
+description = "I/O type used for crossing host/guest boundary"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2021"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[dependencies]
+ab-contracts-trivial-type-derive = { version = "0.0.1", path = "../ab-contracts-trivial-type-derive" }
+static_assertions = "1.1.0"
