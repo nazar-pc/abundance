@@ -40,7 +40,9 @@ jobs:
 
       - name: Build mdBook
         working-directory: book
-        run: mdbook build --dest-dir ../gh-pages
+        run: |
+          mdbook build
+          cp -r build/. gh-pages
 
       # This is needed for custom domain to work
       - name: CNAME
