@@ -28,7 +28,17 @@ jobs:
         run: |
           curl -fsSL https://d2lang.com/install.sh | sh -s --
 
-      - name: Build
+      - name: Create target dir
+        run: mkdir gh-pages
+
+      - name: Build rustdoc
+        run: |
+          cargo -Zgitoxide -Zgit doc --locked --all --no-deps --lib
+          cp -r target/doc gh-pages/rust-docs
+        env:
+          RUSTDOCFLAGS: "-D rustdoc::broken-intra-doc-links -D rustdoc::private_intra_doc_links -Z unstable-options --enable-index-page"
+
+      - name: Build mdBook
         working-directory: book
         run: mdbook build --dest-dir ../gh-pages
 
