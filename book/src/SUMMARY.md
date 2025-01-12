@@ -2,4 +2,12 @@
 
 [Introduction](Introduction.md)
 
-* [How?]()
+# How?
+
+* [Consensus](How/Consensus.md)
+* [Sharding]()
+* [Execution Environment]()
+
+---
+
+[Resources](Resources.md)

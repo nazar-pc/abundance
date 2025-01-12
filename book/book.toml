@@ -8,10 +8,13 @@ multilingual = false
 build-dir = "build"
 create-missing = false
 
+[preprocessor.alerts]
+[preprocessor.d2]
+
 [rust]
 edition = "2021"
 
 [output.html]
-git-repository-url = "https://github.com/nazar-pc/abundance"
+git-repository-url = "https://github.com/nazar-pc/abundance/tree/main/book"
 mathjax-support = true
 preferred-dark-theme = "ayu"
