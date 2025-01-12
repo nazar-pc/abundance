@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          submodules: 'true'
 
       - name: Install mdbook with extra preprocessors
         uses: taiki-e/install-action@acd25891978b4cdaebd139d3efef606d26513b14 # 2.47.0
@@ -38,11 +40,13 @@ jobs:
         env:
           RUSTDOCFLAGS: "-D rustdoc::broken-intra-doc-links -D rustdoc::private_intra_doc_links -Z unstable-options --enable-index-page"
 
-      - name: Build mdBook
-        working-directory: book
+      - name: Build main website
         run: |
-          mdbook build
-          cp -r build/. ../gh-pages
+          sudo apt-get install -y --no-install-recommends hugo
+          hugo --source website/main --destination $PWD/gh-pages
+
+      - name: Build mdBook
+        run: mdbook build website/book --dest-dir $PWD/gh-pages/book
 
       # This is needed for custom domain to work
       - name: CNAME

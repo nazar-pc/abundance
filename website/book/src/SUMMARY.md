@@ -7,7 +7,3 @@
 * [Consensus](How/Consensus.md)
 * [Sharding]()
 * [Execution Environment]()
-
----
-
-[Resources](Resources.md)
