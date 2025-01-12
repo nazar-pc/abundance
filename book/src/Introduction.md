@@ -1,10 +1,7 @@
 # Status quo
 
-<div class="warning">
-
+> [!NOTE]
 > State-of-the-art blockchains are yet to resolve the Blockchain Trilemma
-
-</div>
 
 Bitcoin and Ethereum de-facto lost decentralization due to their consensus algorithm, they are also very slow.
 
@@ -20,7 +17,7 @@ are not scalable by definition, those that are sharded have other inherent limit
 Only security is the property that is arguably achieved by many blockchains, but it is also debatable how real or useful
 it is without two other properties.
 
-# Project Abundance
+# 🚧 Project Abundance 🚧
 
 The goal here is to find a way to remove existing bottlenecks and unleash the full power of the blockchain.
 

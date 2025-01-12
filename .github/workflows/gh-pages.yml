@@ -1,4 +1,4 @@
-name: mdbook
+name: gh-pages
 
 on:
   pull_request:
@@ -8,30 +8,40 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: mdbook-${{ github.workflow }}-${{ github.ref }}
+  group: gh-pages-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  mdbook:
+  gh-pages:
     runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install mdbook
+      - name: Install mdbook with extra preprocessors
         uses: taiki-e/install-action@acd25891978b4cdaebd139d3efef606d26513b14 # 2.47.0
         with:
-          tool: mdbook@0.4
+          tool: mdbook@0.4,mdbook-alerts@0.7.0,mdbook-d2@0.3.1
+
+      - name: D2 CLI
+        run: |
+          curl -fsSL https://d2lang.com/install.sh | sh -s --
 
       - name: Build
         working-directory: book
-        run: mdbook build
+        run: mdbook build --dest-dir ../gh-pages
+
+      # This is needed for custom domain to work
+      - name: CNAME
+        run: |
+          echo "abundance.build" > gh-pages/CNAME
+        if: ${{ github.repository_owner == 'nazar-pc' }}
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@15de0f09300eea763baee31dff6c6184995c5f6a # v4.7.2
         with:
           branch: gh-pages
           single-commit: true
-          folder: book/build
+          folder: gh-pages
         if: ${{ github.event_name == 'push' }}
