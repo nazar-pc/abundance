@@ -1,0 +1,7 @@
+/*
+ * This makes article contents and a few other things occupy the whole width of the page, see
+ * https://github.com/nunocoracao/blowfish/issues/1578 for additional discussion
+ */
+.max-w-prose {
+    max-width: 100%;
+}
