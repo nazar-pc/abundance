@@ -1357,7 +1357,7 @@ impl MethodDetails {
 
         // Address of the contract
         method_args.push(quote! {
-            contract: &Address,
+            contract: &::ab_contracts_common::Address,
         });
 
         // For each slot argument generate an address argument
