@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(const_type_name)]
 
 pub mod maybe_data;
 pub mod trivial_type;
