@@ -1,7 +1,6 @@
 use crate::utils::concat_metadata_sources;
 use crate::{IoType, IoTypeMetadata};
 pub use ab_contracts_trivial_type_derive::TrivialType;
-use core::any::type_name;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::{mem, slice};
@@ -114,27 +113,8 @@ unsafe impl TrivialType for i128 {
     const METADATA: &[u8] = &[IoTypeMetadata::I128 as u8];
 }
 
-const fn equal_bytes(lhs: &[u8], rhs: &[u8]) -> bool {
-    if lhs.len() != rhs.len() {
-        return false;
-    }
-    let mut i = 0;
-    while i < lhs.len() {
-        if lhs[i] != rhs[i] {
-            return false;
-        }
-        i += 1;
-    }
-    true
-}
-
-const fn array_metadata<T>(size: u32, inner_metadata: &[u8]) -> ([u8; 4096], usize) {
-    // TODO: Should use TypeId, but its comparison is not possible in const environment due to `Eq`
-    //  trait being non-const. This is also not exactly safe way to do it, but good enough for our
-    //  limited purposes here.
-    // if TypeId::of::<T>() == TypeId::of::<u8>() {
-    if size_of::<T>() == 1 && equal_bytes(type_name::<T>().as_bytes(), type_name::<u8>().as_bytes())
-    {
+const fn array_metadata(size: u32, inner_metadata: &[u8]) -> ([u8; 4096], usize) {
+    if inner_metadata.len() == 1 && inner_metadata[0] == IoTypeMetadata::U8 as u8 {
         if size == 8 {
             return concat_metadata_sources(&[&[IoTypeMetadata::ArrayU8x8 as u8]]);
         } else if size == 16 {
@@ -181,9 +161,9 @@ where
 {
     const METADATA: &[u8] = {
         // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
-        array_metadata::<T>(SIZE as u32, T::METADATA)
+        array_metadata(SIZE as u32, T::METADATA)
             .0
-            .split_at(array_metadata::<T>(SIZE as u32, T::METADATA).1)
+            .split_at(array_metadata(SIZE as u32, T::METADATA).1)
             .0
     };
 }
