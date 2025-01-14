@@ -1,7 +1,7 @@
 #![feature(extract_if, iter_map_windows, let_chains)]
 
 //! `#[contract_impl]` macro will process *public* methods annotated with following attributes:
-//! * `#[constructor]` - method that can be called to produce an initial state of the contract,
+//! * `#[init]` - method that can be called to produce an initial state of the contract,
 //!   called once during contacts lifetime
 //! * `#[call]` - method that can read and/or modify state and/or slots of the contact, may be
 //!   called by user transaction directly or by another contract
@@ -19,9 +19,9 @@
 //! * `#[result]` - a single optional method result as an alternative to returning values from a
 //!   function directly, useful to reduce stack usage
 //!
-//! # #\[constructor]
+//! # #\[init]
 //!
-//! Constructor's purpose is to produce the initial state of the contract.
+//! Initializer's purpose is to produce the initial state of the contract.
 //!
 //! Following arguments are supported by this method (must be in this order):
 //! * `#[env]` read-only and read-write

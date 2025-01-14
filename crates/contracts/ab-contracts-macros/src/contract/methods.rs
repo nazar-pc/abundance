@@ -8,7 +8,7 @@ use syn::{
 
 #[derive(Copy, Clone)]
 pub(super) enum MethodType {
-    Constructor,
+    Init,
     Call,
     View,
 }
@@ -16,7 +16,7 @@ pub(super) enum MethodType {
 impl MethodType {
     fn attr_str(&self) -> &'static str {
         match self {
-            MethodType::Constructor => "constructor",
+            MethodType::Init => "init",
             MethodType::Call => "call",
             MethodType::View => "view",
         }
@@ -573,7 +573,7 @@ impl MethodDetails {
         impl_item_fn: &ImplItemFn,
     ) -> Result<TokenStream, Error> {
         let struct_name = &self.struct_name;
-        if matches!(self.method_type, MethodType::Constructor) {
+        if matches!(self.method_type, MethodType::Init) {
             let self_return_type = self.result_type.result_type() == struct_name;
             let self_result_type = self
                 .io
@@ -598,8 +598,8 @@ impl MethodDetails {
             if !(self_return_type || self_result_type) || (self_return_type && self_result_type) {
                 return Err(Error::new(
                     impl_item_fn.sig.span(),
-                    "`#[constructor]` must have result type of `Self` as either return type \
-                    or explicit `#[result]` argument, but not both",
+                    "`#[init]` must have result type of `Self` as either return type or explicit \
+                    `#[result]` argument, but not both",
                 ));
             }
         }
@@ -618,8 +618,7 @@ impl MethodDetails {
         let mut external_args_sizes = Vec::new();
         // `external_args_capacities` will generate capacities in `ExternalArgs` fields
         let mut external_args_capacities = Vec::new();
-        // `original_fn_args` will generate arguments for calling original constructor
-        // implementation
+        // `original_fn_args` will generate arguments for calling original method implementation
         let mut original_fn_args = Vec::new();
         // `method_metadata` will generate metadata about method arguments, each element in this
         // vector corresponds to one argument
@@ -1004,9 +1003,9 @@ impl MethodDetails {
                         pub #capacity_field: u32,
                     });
 
-                    // Constructor's return type will be `()` for caller, state is stored by the
+                    // Initializer's return type will be `()` for caller, state is stored by the
                     // host and not returned to the caller
-                    if matches!(self.method_type, MethodType::Constructor) {
+                    if matches!(self.method_type, MethodType::Init) {
                         external_args_pointers.push(quote! {
                             pub #ptr_field: ::core::ptr::NonNull<()>,
                         });
@@ -1218,9 +1217,9 @@ impl MethodDetails {
             // Result can be used through return type or argument, for argument no special handling
             // of return type is needed
             if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
-                // Constructor's return type will be `()` for caller, state is stored by the
-                // host and not returned to the caller
-                let result_type = if matches!(self.method_type, MethodType::Constructor) {
+                // Initializer's return type will be `()` for caller, state is stored by the host \
+                // and not returned to the caller
+                let result_type = if matches!(self.method_type, MethodType::Init) {
                     quote! { () }
                 } else {
                     let result_type = &self.result_type.result_type();
@@ -1270,7 +1269,7 @@ impl MethodDetails {
 
         let metadata = {
             let method_type = match self.method_type {
-                MethodType::Constructor => "Constructor",
+                MethodType::Init => "Init",
                 MethodType::Call => {
                     if let Some(mutable) = &self.state {
                         if mutable.is_some() {
@@ -1442,9 +1441,9 @@ impl MethodDetails {
                     type_name,
                     arg_name,
                 } => {
-                    // Constructor's return type will be `()` for caller, state is stored by the
+                    // Initializer's return type will be `()` for caller, state is stored by the
                     // host and not returned to the caller
-                    if matches!(self.method_type, MethodType::Constructor) {
+                    if matches!(self.method_type, MethodType::Init) {
                         method_args.push(quote! {
                             #arg_name: &mut ::ab_contracts_io_type::maybe_data::MaybeData<()>,
                         });
@@ -1471,9 +1470,9 @@ impl MethodDetails {
 
         let env_mutability = &self.env;
         let method_signature = if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
-            // Constructor's return type will be `()` for caller, state is stored by the
-            // host and not returned to the caller
-            let result_type = if matches!(self.method_type, MethodType::Constructor) {
+            // Initializer's return type will be `()` for caller, state is stored by the host and
+            // not returned to the caller
+            let result_type = if matches!(self.method_type, MethodType::Init) {
                 quote! { () }
             } else {
                 let result_type = &self.result_type.result_type();
