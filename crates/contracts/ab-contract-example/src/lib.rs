@@ -31,7 +31,7 @@ pub struct ExampleContract {
 
 #[contract_impl]
 impl ExampleContract {
-    #[constructor]
+    #[init]
     pub fn new(#[env] env: &mut Env, #[input] total_supply: &Balance) -> Self {
         Self {
             total_supply: *total_supply,
@@ -40,7 +40,7 @@ impl ExampleContract {
         }
     }
 
-    #[constructor]
+    #[init]
     pub fn new_result(
         #[env] env: &mut Env,
         #[input] total_supply: &Balance,

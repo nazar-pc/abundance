@@ -5,12 +5,12 @@ use std::collections::HashMap;
 use syn::spanned::Spanned;
 use syn::{Error, FnArg, ImplItemFn, Meta, Type};
 
-pub(super) fn process_constructor_fn(
+pub(super) fn process_init_fn(
     struct_name: Type,
     impl_item_fn: &mut ImplItemFn,
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
-    let mut methods_details = MethodDetails::new(MethodType::Constructor, struct_name);
+    let mut methods_details = MethodDetails::new(MethodType::Init, struct_name);
 
     methods_details.process_output(&impl_item_fn.sig.output)?;
 
@@ -41,7 +41,7 @@ pub(super) fn process_constructor_fn(
             FnArg::Receiver(_receiver) => {
                 return Err(Error::new(
                     impl_item_fn.sig.span(),
-                    "`#[constructor]` must return `Self`, not take it as an argument",
+                    "`#[init]` must return `Self`, not take it as an argument",
                 ));
             }
             FnArg::Typed(pat_type) => {
@@ -58,16 +58,16 @@ pub(super) fn process_constructor_fn(
                 let Some(attr) = attrs.next() else {
                     return Err(Error::new(
                         input_span,
-                        "Each `#[constructor]` argument must be annotated with exactly one of: \
-                        `#[env]` or `#[input]`, in that order",
+                        "Each `#[init]` argument must be annotated with exactly one of: `#[env]` \
+                        or `#[input]`, in that order",
                     ));
                 };
 
                 if let Some(next_attr) = attrs.take(1).next() {
                     return Err(Error::new(
                         next_attr.span(),
-                        "Each `#[constructor]` argument must be annotated with exactly one of: \
-                        `#[env]` or `#[input]`, in that order",
+                        "Each `#[init]` argument must be annotated with exactly one of: `#[env]` \
+                        or `#[input]`, in that order",
                     ));
                 }
 

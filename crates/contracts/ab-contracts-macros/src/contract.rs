@@ -1,10 +1,10 @@
 mod call;
-mod constructor;
+mod init;
 mod methods;
 mod view;
 
 use crate::contract::call::process_call_fn;
-use crate::contract::constructor::process_constructor_fn;
+use crate::contract::init::process_init_fn;
 use crate::contract::methods::{ExtTraitComponents, MethodDetails};
 use crate::contract::view::process_view_fn;
 use proc_macro2::{Ident, Literal, TokenStream, TokenTree};
@@ -157,7 +157,7 @@ fn process_fn(
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
     let supported_attrs = HashMap::<_, fn(_, _, _) -> _>::from_iter([
-        (format_ident!("constructor"), process_constructor_fn as _),
+        (format_ident!("init"), process_init_fn as _),
         (format_ident!("call"), process_call_fn as _),
         (format_ident!("view"), process_view_fn as _),
     ]);
@@ -181,8 +181,7 @@ fn process_fn(
     if let Some(next_attr) = attrs.take(1).next() {
         return Err(Error::new(
             next_attr.span(),
-            "Function can only have one of `#[constructor]`, `#[call]` or `#[view]` \
-            attributes specified",
+            "Function can only have one of `#[init]`, `#[call]` or `#[view]` attributes specified",
         ));
     }
 
