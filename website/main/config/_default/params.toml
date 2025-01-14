@@ -8,13 +8,14 @@ disableImageOptimization = false
 disableTextInHeader = false
 giteaDefaultServer = "https://git.fsfe.org"
 forgejoDefaultServer = "https://v8.next.forgejo.org"
+copyright = "<a href=\"https://creativecommons.org/publicdomain/zero/1.0/\" target=\"_blank\" rel=\"license noopener noreferrer\">CC0 1.0 Universal</a>"
 
 [header]
 layout = "basic"
 
 [footer]
 showMenu = true
-showCopyright = false
+showCopyright = true
 showThemeAttribution = true
 showAppearanceSwitcher = false
 showScrollToTop = true
