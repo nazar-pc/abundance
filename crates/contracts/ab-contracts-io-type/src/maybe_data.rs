@@ -33,66 +33,86 @@ where
 ///
 /// This is somewhat similar to [`VariableBytes`](crate::variable_bytes::VariableBytes), but instead
 /// of variable size data structure allows to either have it or not have the contents or not have
-/// it, which is simpler and sufficient in many cases.
+/// it, which is simpler and more convenient API that is also sufficient in many cases.
 pub struct MaybeData<Data>
 where
     Data: TrivialType,
 {
     data: NonNull<Data>,
-    used_size: NonNull<u32>,
+    size: NonNull<u32>,
+    capacity: u32,
 }
 
 unsafe impl<Data> IoType for MaybeData<Data>
 where
     Data: TrivialType,
 {
-    const CAPACITY: u32 = Data::CAPACITY;
     const METADATA: &[u8] = Data::METADATA;
 
     type PointerType = Data;
 
     #[inline]
-    fn used_bytes(&self) -> u32 {
+    fn size(&self) -> u32 {
         // SAFETY: guaranteed to be initialized by constructors
-        unsafe { self.used_size.read() }
+        unsafe { self.size.read() }
     }
 
-    unsafe fn set_used_bytes(&mut self, used_bytes: u32) {
+    #[inline]
+    fn capacity(&self) -> u32 {
+        self.size()
+    }
+
+    #[inline]
+    unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
-            used_bytes == 0 || used_bytes == Data::CAPACITY,
-            "`set_used_bytes` called with invalid input"
+            size == 0 || size == self.size(),
+            "`set_size` called with invalid input"
         );
 
         // SAFETY: guaranteed to be initialized by constructors
-        self.used_size.write(used_bytes);
+        self.size.write(size);
     }
 
+    #[inline]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
-        used_bytes: &'a u32,
+        size: &'a u32,
+        capacity: u32,
     ) -> impl Deref<Target = Self> + 'a {
-        debug_assert!(ptr.is_aligned());
-        debug_assert!(*used_bytes == 0 || *used_bytes == Self::CAPACITY);
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        debug_assert!(*size == 0 || *size == capacity, "Invalid size");
+        debug_assert!(capacity as usize == size_of::<Data>(), "Invalid capacity");
 
         let data = ptr.cast::<Data>();
         // TODO: Use `NonNull::from_ref()` once stable
-        let used_size = NonNull::from(used_bytes);
+        let size = NonNull::from(size);
 
-        MaybeDataWrapper(MaybeData { data, used_size })
+        MaybeDataWrapper(MaybeData {
+            data,
+            size,
+            capacity,
+        })
     }
 
+    #[inline]
     unsafe fn from_ptr_mut<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
-        used_bytes: &'a mut u32,
+        size: &'a mut u32,
+        capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a {
-        debug_assert!(ptr.is_aligned());
-        debug_assert!(*used_bytes == 0 || *used_bytes == Self::CAPACITY);
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        debug_assert!(*size == 0 || *size == capacity, "Invalid size");
+        debug_assert!(capacity as usize == size_of::<Data>(), "Invalid capacity");
 
         let data = ptr.cast::<Data>();
         // TODO: Use `NonNull::from_ref()` once stable
-        let used_size = NonNull::from(used_bytes);
+        let size = NonNull::from(size);
 
-        MaybeDataWrapper(MaybeData { data, used_size })
+        MaybeDataWrapper(MaybeData {
+            data,
+            size,
+            capacity,
+        })
     }
 }
 
@@ -114,7 +134,7 @@ where
     #[inline]
     pub fn get(&self) -> Option<&Data> {
         // SAFETY: guaranteed to be initialized by constructors
-        if unsafe { self.used_size.read() } == Data::CAPACITY {
+        if unsafe { self.size.read() } == self.capacity {
             // SAFETY: initialized
             Some(unsafe { self.data.as_ref() })
         } else {
@@ -126,7 +146,7 @@ where
     #[inline]
     pub fn get_mut(&mut self) -> Option<&mut Data> {
         // SAFETY: guaranteed to be initialized by constructors
-        if unsafe { self.used_size.read() } == Data::CAPACITY {
+        if unsafe { self.size.read() } == self.capacity {
             // SAFETY: initialized
             Some(unsafe { self.data.as_mut() })
         } else {
@@ -139,7 +159,7 @@ where
     pub fn replace(&mut self, data: Data) -> &mut Data {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe {
-            self.used_size.write(Data::CAPACITY);
+            self.size.write(self.capacity);
         }
         // SAFETY: constructor guarantees that memory is aligned
         unsafe {
@@ -153,7 +173,7 @@ where
     pub fn remove(&mut self) {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe {
-            self.used_size.write(0);
+            self.size.write(0);
         }
     }
 
@@ -165,14 +185,14 @@ where
         Init: FnOnce(NonNull<Data>) -> &'a mut Data,
     {
         // SAFETY: guaranteed to be initialized by constructors
-        if unsafe { self.used_size.read() } == Data::CAPACITY {
+        if unsafe { self.size.read() } == self.capacity {
             // SAFETY: initialized
             unsafe { self.data.as_mut() }
         } else {
             let data = init(self.data);
             // SAFETY: guaranteed to be initialized by constructors
             unsafe {
-                self.used_size.write(Data::CAPACITY);
+                self.size.write(self.capacity);
             }
             data
         }
@@ -185,7 +205,7 @@ where
     #[inline]
     pub unsafe fn assume_init(&mut self) -> &mut Data {
         // SAFETY: guaranteed to be initialized by constructors
-        self.used_size.write(Data::CAPACITY);
+        self.size.write(self.capacity);
         self.data.as_mut()
     }
 }

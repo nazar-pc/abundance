@@ -108,7 +108,7 @@ impl ExampleContract {
     }
 
     #[view]
-    pub fn var_bytes(#[output] _out: &mut VariableBytes<1000>) {
+    pub fn var_bytes(#[output] _out: &mut VariableBytes<1024>) {
         // TODO
     }
 
