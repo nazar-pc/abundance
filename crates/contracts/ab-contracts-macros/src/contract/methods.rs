@@ -1468,7 +1468,14 @@ impl MethodDetails {
             }
         }
 
-        let env_mutability = &self.env;
+        // Non-`#[view]` methods can only be called on `&mut Env`
+        let env_mut = (!matches!(self.method_type, MethodType::View)).then(|| quote! { &mut });
+        // `#[view]` methods do not require explicit method context
+        let method_context_arg = (!matches!(self.method_type, MethodType::View)).then(|| {
+            quote! {
+                method_context: &::ab_contracts_common::env::MethodContext,
+            }
+        });
         let method_signature = if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
             // Initializer's return type will be `()` for caller, state is stored by the host and
             // not returned to the caller
@@ -1500,16 +1507,16 @@ impl MethodDetails {
 
             quote! {
                 fn #original_method_name(
-                    &#env_mutability self,
-                    method_context: &::ab_contracts_common::env::MethodContext,
+                    self: &#env_mut Self,
+                    #method_context_arg
                     #( #method_args )*
                 ) -> ::core::result::Result<#result_type, ::ab_contracts_common::ContractError>
             }
         } else {
             quote! {
                 fn #original_method_name(
-                    &#env_mutability self,
-                    method_context: &::ab_contracts_common::env::MethodContext,
+                    self: &#env_mut Self,
+                    #method_context_arg
                     #( #method_args )*
                 ) -> ::core::result::Result<(), ::ab_contracts_common::ContractError>
             }
@@ -1519,6 +1526,12 @@ impl MethodDetails {
             #method_signature;
         };
 
+        // `#[view]` methods do not require explicit method context
+        let method_context_value = if matches!(self.method_type, MethodType::View) {
+            quote! { &::ab_contracts_common::env::MethodContext::Reset }
+        } else {
+            quote! { method_context }
+        };
         let impls = quote! {
             #[inline]
             #method_signature {
@@ -1530,7 +1543,7 @@ impl MethodDetails {
                     #( #args_capacities )*
                 };
 
-                self.call(&contract, &mut args, method_context)?;
+                self.call(&contract, &mut args, #method_context_value)?;
 
                 // SAFETY: Non-error result above indicates successful storing of the result
                 let result = unsafe {

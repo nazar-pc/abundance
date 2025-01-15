@@ -38,6 +38,7 @@ pub struct PreparedMethod<'a> {
     _phantom: PhantomData<&'a ()>,
 }
 
+// TODO: More APIs
 /// Ephemeral execution environment
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -49,15 +50,13 @@ pub struct Env {
 }
 
 impl Env {
-    // TODO: Platform-specific env
-
     /// Context of the execution
-    pub fn context(&mut self) -> &Address {
+    pub fn context<'a>(self: &'a &'a mut Self) -> &'a Address {
         &self.context
     }
 
     /// Caller of this contract
-    pub fn caller(&mut self) -> &Address {
+    pub fn caller<'a>(self: &'a &'a mut Self) -> &'a Address {
         &self.caller
     }
 
