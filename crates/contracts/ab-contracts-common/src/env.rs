@@ -5,16 +5,35 @@ use core::ffi::c_void;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 
-/// Method to be invoked by the host
+/// Context for method call.
+///
+/// Initially context is [`Address::NOBODY`]. For each call into another contract, context of the
+/// current method can be either preserved, reset to [`Address::NOBODY`] or replaced with current
+/// contract's address.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
+#[repr(u8)]
+pub enum MethodContext {
+    /// Keep current context
+    Keep,
+    /// Reset context to [`Address::NOBODY`]
+    Reset,
+    /// Replace context with current contract's address
+    Replace,
+}
+
+/// Method to be called by the host
 #[repr(C)]
 #[must_use]
-pub struct InvokeMethod<'a> {
+// TODO: Once solidified, replace some pointers with inline data
+pub struct PreparedMethod<'a> {
     /// Address of the contract that contains a function to below fingerprint
     address: NonNull<Address>,
     /// Fingerprint of the method being called
     fingerprint: NonNull<MethodFingerprint>,
     /// Anonymous pointer to the arguments of the method with above fingerprint
     args: NonNull<c_void>,
+    /// Context for method call
+    method_context: NonNull<MethodContext>,
     // TODO: Some flags that allow re-origin and other things or those will be separate host fns?
     _phantom: PhantomData<&'a ()>,
 }
@@ -41,33 +60,41 @@ impl Env {
         &self.own_address
     }
 
-    /// Invoke a single method at specified address and with specified arguments.
+    /// Call a single method at specified address and with specified arguments.
     ///
-    /// This is a shortcut for [`Self::prepare_invoke_method`] + [`Self::invoke_many`].
-    pub fn invoke<Args>(&self, contract: &Address, args: &mut Args) -> Result<(), ContractError>
+    /// This is a shortcut for [`Self::prepare_call_method`] + [`Self::call_many`].
+    pub fn call<Args>(
+        &self,
+        contract: &Address,
+        args: &mut Args,
+        method_context: &MethodContext,
+    ) -> Result<(), ContractError>
     where
         Args: ExternalArgs,
     {
-        let invoke_method = Self::prepare_invoke_method(contract, args);
-        let [result] = self.invoke_many([invoke_method]);
+        let invoke_method = Self::prepare_call_method(contract, args, method_context);
+        let [result] = self.call_many([invoke_method]);
         result
     }
 
     /// Prepare a single method for invocation at specified address and with specified arguments
-    pub fn prepare_invoke_method<'a, Args>(
+    pub fn prepare_call_method<'a, Args>(
         contract: &'a Address,
         args: &'a mut Args,
-    ) -> InvokeMethod<'a>
+        method_context: &'a MethodContext,
+    ) -> PreparedMethod<'a>
     where
         Args: ExternalArgs,
     {
-        InvokeMethod {
+        PreparedMethod {
             // TODO: Use `NonNull::from_ref()` once stable
             address: NonNull::from(contract),
             // TODO: Use `NonNull::from_ref()` once stable
             fingerprint: NonNull::from(Args::FINGERPRINT),
             // TODO: Use `NonNull::from_ref()` once stable
             args: NonNull::from(args).cast(),
+            // TODO: Use `NonNull::from_ref()` once stable
+            method_context: NonNull::from(method_context).cast(),
             _phantom: PhantomData,
         }
     }
@@ -75,9 +102,9 @@ impl Env {
     /// Invoke provided methods and wait for results.
     ///
     /// Remaining gas will be split equally between all individual invocations.
-    pub fn invoke_many<const N: usize>(
+    pub fn call_many<const N: usize>(
         &self,
-        methods: [InvokeMethod<'_>; N],
+        methods: [PreparedMethod<'_>; N],
     ) -> [Result<(), ContractError>; N] {
         let _ = methods;
         todo!()

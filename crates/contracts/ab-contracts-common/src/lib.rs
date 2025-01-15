@@ -442,5 +442,6 @@ impl fmt::Display for Address {
 impl Address {
     // TODO: Various system contracts
     /// System address
-    pub const SYSTEM: Self = Self([0; 8]);
+    pub const SYSTEM: Self = Self([1; 8]);
+    pub const NOBODY: Self = Self([0; 8]);
 }

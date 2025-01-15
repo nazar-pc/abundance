@@ -1501,6 +1501,7 @@ impl MethodDetails {
             quote! {
                 fn #original_method_name(
                     &#env_mutability self,
+                    method_context: &::ab_contracts_common::env::MethodContext,
                     #( #method_args )*
                 ) -> ::core::result::Result<#result_type, ::ab_contracts_common::ContractError>
             }
@@ -1508,6 +1509,7 @@ impl MethodDetails {
             quote! {
                 fn #original_method_name(
                     &#env_mutability self,
+                    method_context: &::ab_contracts_common::env::MethodContext,
                     #( #method_args )*
                 ) -> ::core::result::Result<(), ::ab_contracts_common::ContractError>
             }
@@ -1528,7 +1530,7 @@ impl MethodDetails {
                     #( #args_capacities )*
                 };
 
-                self.invoke(&contract, &mut args)?;
+                self.call(&contract, &mut args, method_context)?;
 
                 // SAFETY: Non-error result above indicates successful storing of the result
                 let result = unsafe {
