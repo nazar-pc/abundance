@@ -30,7 +30,7 @@ impl<const CAPACITY: u32> DerefMut for VariableBytesWrapper<CAPACITY> {
 /// on the heap in most cases.
 pub struct VariableBytes<const CAPACITY: u32> {
     bytes: NonNull<u8>,
-    used_size: NonNull<u32>,
+    size: NonNull<u32>,
 }
 
 unsafe impl<const CAPACITY: u32> IoType for VariableBytes<CAPACITY> {
@@ -88,47 +88,44 @@ unsafe impl<const CAPACITY: u32> IoType for VariableBytes<CAPACITY> {
     type PointerType = u8;
 
     #[inline]
-    fn used_bytes(&self) -> u32 {
-        self.used_bytes()
+    fn size(&self) -> u32 {
+        self.size()
     }
 
-    unsafe fn set_used_bytes(&mut self, used_bytes: u32) {
-        debug_assert!(
-            used_bytes <= CAPACITY,
-            "`set_used_bytes` called with invalid input"
-        );
+    unsafe fn set_size(&mut self, size: u32) {
+        debug_assert!(size <= CAPACITY, "`set_size` called with invalid input");
 
         // SAFETY: guaranteed to be initialized by constructors
-        self.used_size.write(used_bytes);
+        self.size.write(size);
     }
 
     #[inline]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
-        used_bytes: &'a u32,
+        size: &'a u32,
     ) -> impl Deref<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned());
-        debug_assert!(*used_bytes <= CAPACITY);
+        debug_assert!(*size <= CAPACITY);
 
         VariableBytesWrapper(Self {
             bytes: *ptr,
             // TODO: Use `NonNull::from_ref()` once stable
-            used_size: NonNull::from(used_bytes),
+            size: NonNull::from(size),
         })
     }
 
     #[inline]
     unsafe fn from_ptr_mut<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
-        used_bytes: &'a mut u32,
+        size: &'a mut u32,
     ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned());
-        debug_assert!(*used_bytes <= CAPACITY);
+        debug_assert!(*size <= CAPACITY);
 
         VariableBytesWrapper(Self {
             bytes: *ptr,
             // TODO: Use `NonNull::from_ref()` once stable
-            used_size: NonNull::from(used_bytes),
+            size: NonNull::from(size),
         })
     }
 }
@@ -142,27 +139,27 @@ impl<const CAPACITY: u32> IoTypeOptional for VariableBytes<CAPACITY> {
 
 impl<const CAPACITY: u32> VariableBytes<CAPACITY> {
     #[inline]
-    pub fn used_bytes(&self) -> u32 {
+    pub fn size(&self) -> u32 {
         // SAFETY: guaranteed to be initialized by constructors
-        unsafe { self.used_size.read() }
+        unsafe { self.size.read() }
     }
 
     /// Try to get access to initialized bytes
     #[inline]
     pub fn get_initialized(&self) -> &[u8] {
-        let used_size = self.used_bytes();
+        let size = self.size();
         let ptr = self.bytes.as_ptr();
         // SAFETY: guaranteed by constructor and explicit methods by the user
-        unsafe { slice::from_raw_parts(ptr, used_size as usize) }
+        unsafe { slice::from_raw_parts(ptr, size as usize) }
     }
 
     /// Try to get exclusive access to initialized `Data`, returns `None` if not initialized
     #[inline]
     pub fn get_initialized_mut(&mut self) -> &mut [u8] {
-        let used_size = self.used_bytes();
+        let size = self.size();
         let ptr = self.bytes.as_ptr();
         // SAFETY: guaranteed by constructor and explicit methods by the user
-        unsafe { slice::from_raw_parts_mut(ptr, used_size as usize) }
+        unsafe { slice::from_raw_parts_mut(ptr, size as usize) }
     }
 
     /// Append some bytes by using more of allocated, but currently unused bytes.
@@ -171,13 +168,13 @@ impl<const CAPACITY: u32> VariableBytes<CAPACITY> {
     #[inline]
     #[must_use = "Operation may fail"]
     pub fn append(&mut self, bytes: &[u8]) -> bool {
-        let used_size = self.used_bytes();
-        if bytes.len() as u32 > used_size + CAPACITY {
+        let size = self.size();
+        if bytes.len() as u32 > size + CAPACITY {
             return false;
         }
 
         // May overflow, which is not allowed
-        let Ok(offset) = isize::try_from(used_size) else {
+        let Ok(offset) = isize::try_from(size) else {
             return false;
         };
 
@@ -195,18 +192,18 @@ impl<const CAPACITY: u32> VariableBytes<CAPACITY> {
 
     /// Truncate internal initialized bytes to this size.
     ///
-    /// Returns `true` on success or `false` if `new_used_bytes` is larger than
-    /// [`Self::used_bytes()`].
+    /// Returns `true` on success or `false` if `new_size` is larger than
+    /// [`Self::size()`].
     #[inline]
     #[must_use = "Operation may fail"]
-    pub fn truncate(&mut self, new_used_bytes: u32) -> bool {
-        if new_used_bytes > self.used_bytes() {
+    pub fn truncate(&mut self, new_size: u32) -> bool {
+        if new_size > self.size() {
             return false;
         }
 
         // SAFETY: guaranteed to be initialized by constructors
         unsafe {
-            self.used_size.write(new_used_bytes);
+            self.size.write(new_size);
         }
 
         true
@@ -221,21 +218,21 @@ impl<const CAPACITY: u32> VariableBytes<CAPACITY> {
         &mut self.bytes
     }
 
-    /// Assume that the first `used_bytes` are initialized and can be read.
+    /// Assume that the first `size` are initialized and can be read.
     ///
-    /// Returns `Some(initialized_bytes)` on success or `None` if `used_bytes` is larger than
+    /// Returns `Some(initialized_bytes)` on success or `None` if `size` is larger than
     /// `CAPACITY`.
     ///
     /// # Safety
-    /// Caller must ensure `used_bytes` are actually initialized
+    /// Caller must ensure `size` are actually initialized
     #[inline]
-    pub unsafe fn assume_init(&mut self, used_bytes: u32) -> Option<&mut [u8]> {
-        if used_bytes > CAPACITY {
+    pub unsafe fn assume_init(&mut self, size: u32) -> Option<&mut [u8]> {
+        if size > CAPACITY {
             return None;
         }
 
         // SAFETY: guaranteed to be initialized by constructors
-        self.used_size.write(used_bytes);
+        self.size.write(size);
         Some(self.get_initialized_mut())
     }
 }

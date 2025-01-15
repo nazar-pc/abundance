@@ -324,18 +324,18 @@ pub unsafe trait IoType {
     /// This is the same as [`Self::CAPACITY`] for simple [`TrivialType`] and can vary between `0` and
     /// [`Self::CAPACITY`] for [`VariableBytes`](crate::variable_bytes::VariableBytes).
     #[inline]
-    fn used_bytes(&self) -> u32 {
+    fn size(&self) -> u32 {
         Self::CAPACITY
     }
 
     /// Set number of used bytes
     ///
     /// # Safety
-    /// `used_bytes` must be set to number of properly bytes
-    unsafe fn set_used_bytes(&mut self, used_bytes: u32) {
+    /// `size` must be set to number of properly bytes
+    unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
-            used_bytes == Self::CAPACITY,
-            "`set_used_bytes` called with invalid input"
+            size == Self::CAPACITY,
+            "`set_size` called with invalid input"
         );
     }
 
@@ -344,14 +344,14 @@ pub unsafe trait IoType {
     /// Memory must be correctly aligned and sufficient in size, but padding beyond the size of the
     /// type is allowed. Memory behind pointer must not be written to in the meantime either.
     ///
-    /// Only `used_bytes` are guaranteed to be allocated for types that can store variable amount of
+    /// Only `size` are guaranteed to be allocated for types that can store variable amount of
     /// data due to read-only nature of read-only access here.
     ///
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
-        used_bytes: &'a u32,
+        size: &'a u32,
     ) -> impl Deref<Target = Self> + 'a;
 
     /// Create a mutable reference to a type, which is represented by provided memory.
@@ -360,14 +360,14 @@ pub unsafe trait IoType {
     /// padding beyond the size of the type is allowed. Memory behind pointer must not be read or
     /// written to in the meantime either.
     ///
-    /// `used_bytes` indicates how many bytes are used within larger allocation for types that can
+    /// `size` indicates how many bytes are used within larger allocation for types that can
     /// store variable amount of data.
     ///
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
     unsafe fn from_ptr_mut<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
-        used_bytes: &'a mut u32,
+        size: &'a mut u32,
     ) -> impl DerefMut<Target = Self> + 'a;
 }
 

@@ -179,10 +179,10 @@ where
 
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
-        used_bytes: &'a u32,
+        size: &'a u32,
     ) -> impl Deref<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned());
-        debug_assert!(*used_bytes == Self::CAPACITY);
+        debug_assert!(*size == Self::CAPACITY);
 
         // SAFETY: guaranteed by this function signature
         ptr.as_ref()
@@ -190,10 +190,10 @@ where
 
     unsafe fn from_ptr_mut<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
-        used_bytes: &'a mut u32,
+        size: &'a mut u32,
     ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned());
-        debug_assert!(*used_bytes == Self::CAPACITY);
+        debug_assert!(*size == Self::CAPACITY);
 
         // SAFETY: guaranteed by this function signature
         ptr.as_mut()

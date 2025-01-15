@@ -1094,7 +1094,7 @@ impl MethodDetails {
                     quote! {
                         // Write result into `InternalArgs`, return exit code
                         args.ok_result_size =
-                            ::ab_contracts_io_type::IoType::used_bytes(&#result_var_name);
+                            ::ab_contracts_io_type::IoType::size(&#result_var_name);
                         args.ok_result_ptr.write(#result_var_name);
                         ::ab_contracts_common::ExitCode::Ok
                     }
@@ -1114,7 +1114,7 @@ impl MethodDetails {
                         match #result_var_name {
                             Ok(result) => {
                                 args.ok_result_size =
-                                    ::ab_contracts_io_type::IoType::used_bytes(&#result_var_name);
+                                    ::ab_contracts_io_type::IoType::size(&#result_var_name);
                                 args.ok_result_ptr.write(result);
                                 ::ab_contracts_common::ExitCode::Ok
                             }
@@ -1327,7 +1327,7 @@ impl MethodDetails {
             let struct_field_capacity = format_ident!("{arg_name}_capacity");
 
             args_sizes.push(quote! {
-                #struct_field_size: ::ab_contracts_io_type::IoType::used_bytes(#arg_name),
+                #struct_field_size: ::ab_contracts_io_type::IoType::size(#arg_name),
             });
             match io_arg {
                 IoArg::Input {
@@ -1356,7 +1356,7 @@ impl MethodDetails {
                         #struct_field_capacity: <#type_name as ::ab_contracts_io_type::IoType>::CAPACITY,
                     });
                     result_processing.push(quote! {
-                        ::ab_contracts_io_type::IoType::set_used_bytes(
+                        ::ab_contracts_io_type::IoType::set_size(
                             #arg_name,
                             args.#struct_field_size,
                         );
@@ -1384,7 +1384,7 @@ impl MethodDetails {
                         #struct_field_capacity: <#type_name as ::ab_contracts_io_type::IoType>::CAPACITY,
                     });
                     result_processing.push(quote! {
-                        ::ab_contracts_io_type::IoType::set_used_bytes(
+                        ::ab_contracts_io_type::IoType::set_size(
                             #arg_name,
                             args.#struct_field_size,
                         );

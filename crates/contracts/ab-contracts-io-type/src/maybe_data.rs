@@ -39,7 +39,7 @@ where
     Data: TrivialType,
 {
     data: NonNull<Data>,
-    used_size: NonNull<u32>,
+    size: NonNull<u32>,
 }
 
 unsafe impl<Data> IoType for MaybeData<Data>
@@ -52,47 +52,47 @@ where
     type PointerType = Data;
 
     #[inline]
-    fn used_bytes(&self) -> u32 {
+    fn size(&self) -> u32 {
         // SAFETY: guaranteed to be initialized by constructors
-        unsafe { self.used_size.read() }
+        unsafe { self.size.read() }
     }
 
-    unsafe fn set_used_bytes(&mut self, used_bytes: u32) {
+    unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
-            used_bytes == 0 || used_bytes == Data::CAPACITY,
-            "`set_used_bytes` called with invalid input"
+            size == 0 || size == Data::CAPACITY,
+            "`set_size` called with invalid input"
         );
 
         // SAFETY: guaranteed to be initialized by constructors
-        self.used_size.write(used_bytes);
+        self.size.write(size);
     }
 
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
-        used_bytes: &'a u32,
+        size: &'a u32,
     ) -> impl Deref<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned());
-        debug_assert!(*used_bytes == 0 || *used_bytes == Self::CAPACITY);
+        debug_assert!(*size == 0 || *size == Self::CAPACITY);
 
         let data = ptr.cast::<Data>();
         // TODO: Use `NonNull::from_ref()` once stable
-        let used_size = NonNull::from(used_bytes);
+        let size = NonNull::from(size);
 
-        MaybeDataWrapper(MaybeData { data, used_size })
+        MaybeDataWrapper(MaybeData { data, size })
     }
 
     unsafe fn from_ptr_mut<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
-        used_bytes: &'a mut u32,
+        size: &'a mut u32,
     ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned());
-        debug_assert!(*used_bytes == 0 || *used_bytes == Self::CAPACITY);
+        debug_assert!(*size == 0 || *size == Self::CAPACITY);
 
         let data = ptr.cast::<Data>();
         // TODO: Use `NonNull::from_ref()` once stable
-        let used_size = NonNull::from(used_bytes);
+        let size = NonNull::from(size);
 
-        MaybeDataWrapper(MaybeData { data, used_size })
+        MaybeDataWrapper(MaybeData { data, size })
     }
 }
 
@@ -114,7 +114,7 @@ where
     #[inline]
     pub fn get(&self) -> Option<&Data> {
         // SAFETY: guaranteed to be initialized by constructors
-        if unsafe { self.used_size.read() } == Data::CAPACITY {
+        if unsafe { self.size.read() } == Data::CAPACITY {
             // SAFETY: initialized
             Some(unsafe { self.data.as_ref() })
         } else {
@@ -126,7 +126,7 @@ where
     #[inline]
     pub fn get_mut(&mut self) -> Option<&mut Data> {
         // SAFETY: guaranteed to be initialized by constructors
-        if unsafe { self.used_size.read() } == Data::CAPACITY {
+        if unsafe { self.size.read() } == Data::CAPACITY {
             // SAFETY: initialized
             Some(unsafe { self.data.as_mut() })
         } else {
@@ -139,7 +139,7 @@ where
     pub fn replace(&mut self, data: Data) -> &mut Data {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe {
-            self.used_size.write(Data::CAPACITY);
+            self.size.write(Data::CAPACITY);
         }
         // SAFETY: constructor guarantees that memory is aligned
         unsafe {
@@ -153,7 +153,7 @@ where
     pub fn remove(&mut self) {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe {
-            self.used_size.write(0);
+            self.size.write(0);
         }
     }
 
@@ -165,14 +165,14 @@ where
         Init: FnOnce(NonNull<Data>) -> &'a mut Data,
     {
         // SAFETY: guaranteed to be initialized by constructors
-        if unsafe { self.used_size.read() } == Data::CAPACITY {
+        if unsafe { self.size.read() } == Data::CAPACITY {
             // SAFETY: initialized
             unsafe { self.data.as_mut() }
         } else {
             let data = init(self.data);
             // SAFETY: guaranteed to be initialized by constructors
             unsafe {
-                self.used_size.write(Data::CAPACITY);
+                self.size.write(Data::CAPACITY);
             }
             data
         }
@@ -185,7 +185,7 @@ where
     #[inline]
     pub unsafe fn assume_init(&mut self) -> &mut Data {
         // SAFETY: guaranteed to be initialized by constructors
-        self.used_size.write(Data::CAPACITY);
+        self.size.write(Data::CAPACITY);
         self.data.as_mut()
     }
 }
