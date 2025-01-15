@@ -43,16 +43,22 @@ pub struct PreparedMethod<'a> {
 #[repr(C)]
 #[non_exhaustive]
 pub struct Env {
-    origin: Address,
+    context: Address,
+    caller: Address,
     own_address: Address,
 }
 
 impl Env {
     // TODO: Platform-specific env
 
-    /// Method call origin
-    pub fn origin(&mut self) -> &Address {
-        &self.origin
+    /// Context of the execution
+    pub fn context(&mut self) -> &Address {
+        &self.context
+    }
+
+    /// Caller of this contract
+    pub fn caller(&mut self) -> &Address {
+        &self.caller
     }
 
     /// Address of this contract itself

@@ -339,7 +339,7 @@ pub enum ContractMethodMetadata {
 pub enum ContractError {
     InvalidState = 1,
     InvalidInput,
-    BadOrigin,
+    AccessDenied,
 }
 
 impl ContractError {
@@ -351,7 +351,7 @@ impl ContractError {
         match self {
             Self::InvalidState => ExitCode::InvalidState,
             Self::InvalidInput => ExitCode::InvalidInput,
-            Self::BadOrigin => ExitCode::BadOrigin,
+            Self::AccessDenied => ExitCode::BadOrigin,
         }
     }
 }
@@ -390,7 +390,7 @@ impl From<ExitCode> for Result<(), ContractError> {
             ExitCode::Ok => Ok(()),
             ExitCode::InvalidState => Err(ContractError::InvalidState),
             ExitCode::InvalidInput => Err(ContractError::InvalidInput),
-            ExitCode::BadOrigin => Err(ContractError::BadOrigin),
+            ExitCode::BadOrigin => Err(ContractError::AccessDenied),
         }
     }
 }
