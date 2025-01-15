@@ -33,8 +33,7 @@ pub enum ContractMethodMetadata {
     ///   * [`Self::SlotWithAddressRw`]
     ///   * [`Self::SlotWithoutAddressRo`]
     ///   * [`Self::SlotWithoutAddressRw`]
-    ///   * [`Self::InputRo`]
-    ///   * [`Self::InputRw`]
+    ///   * [`Self::Input`]
     ///   * [`Self::Output`]
     ///   * [`Self::Result`]
     /// * Length of the argument name in bytes (u8)
@@ -313,14 +312,10 @@ pub enum ContractMethodMetadata {
     ///
     /// Example: `#[slot] from: &mut MaybeData<Slot>,`
     SlotWithoutAddressRw,
-    /// Read-only `#[input]` argument.
+    /// `#[input]` argument.
     ///
     /// Example: `#[input] balance: &Balance,`
-    InputRo,
-    /// Read-write `#[input]` argument.
-    ///
-    /// Example: `#[input] balance: &mut Balance,`
-    InputRw,
+    Input,
     /// `#[output]` argument.
     ///
     /// Example: `#[output] out: &mut VariableBytes<1024>,`

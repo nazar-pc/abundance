@@ -33,24 +33,21 @@ struct Slot {
 
 #[derive(Clone)]
 enum IoArg {
-    InputRo { type_name: Type, arg_name: Ident },
-    InputRw { type_name: Type, arg_name: Ident },
+    Input { type_name: Type, arg_name: Ident },
     Output { type_name: Type, arg_name: Ident },
     Result { type_name: Type, arg_name: Ident },
 }
 
 impl IoArg {
     fn type_name(&self) -> &Type {
-        let (IoArg::InputRo { type_name, .. }
-        | IoArg::InputRw { type_name, .. }
+        let (IoArg::Input { type_name, .. }
         | IoArg::Output { type_name, .. }
         | IoArg::Result { type_name, .. }) = self;
         type_name
     }
 
     fn arg_name(&self) -> &Ident {
-        let (IoArg::InputRo { arg_name, .. }
-        | IoArg::InputRw { arg_name, .. }
+        let (IoArg::Input { arg_name, .. }
         | IoArg::Output { arg_name, .. }
         | IoArg::Result { arg_name, .. }) = self;
         arg_name
@@ -438,7 +435,7 @@ impl MethodDetails {
         if metadata
             .io
             .iter()
-            .any(|io_arg| !matches!(io_arg, IoArg::InputRo { .. } | IoArg::InputRw { .. }))
+            .any(|io_arg| !matches!(io_arg, IoArg::Input { .. }))
         {
             return Err(Error::new(
                 input_span,
@@ -455,21 +452,22 @@ impl MethodDetails {
                 ));
             };
             if type_reference.mutability.is_some() {
-                metadata.io.push(IoArg::InputRw {
-                    type_name: type_reference.elem.as_ref().clone(),
-                    arg_name,
-                });
-            } else {
-                metadata.io.push(IoArg::InputRo {
-                    type_name: type_reference.elem.as_ref().clone(),
-                    arg_name,
-                });
+                return Err(Error::new(
+                    input_span,
+                    "`#[input]` must be a shared reference",
+                ));
             }
+
+            metadata.io.push(IoArg::Input {
+                type_name: type_reference.elem.as_ref().clone(),
+                arg_name,
+            });
+
             Ok(())
         } else {
             Err(Error::new(
                 pat_type.span(),
-                "`#[input]` must be a reference to a type (can be shared or exclusive)",
+                "`#[input]` must be a shared reference to a type",
             ))
         }
     }
@@ -844,7 +842,7 @@ impl MethodDetails {
             let ptr_field_assert_msg = format!("`{ptr_field}` pointer is misaligned");
 
             let io_metadata_type = match io_arg {
-                IoArg::InputRo { .. } => {
+                IoArg::Input { .. } => {
                     internal_args_pointers.push(quote! {
                         pub #ptr_field: ::core::ptr::NonNull<
                             <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
@@ -881,59 +879,7 @@ impl MethodDetails {
                         )
                     });
 
-                    format_ident!("InputRo")
-                }
-                IoArg::InputRw { .. } => {
-                    internal_args_pointers.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
-                        >,
-                    });
-                    internal_args_sizes.push(quote! {
-                        #[doc = #size_doc]
-                        pub #size_field: u32,
-                    });
-                    internal_args_capacities.push(quote! {
-                        #[doc = #capacity_doc]
-                        pub #capacity_field: u32,
-                    });
-
-                    external_args_pointers.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
-                        >,
-                    });
-                    external_args_sizes.push(quote! {
-                        #[doc = #size_doc]
-                        pub #size_field: u32,
-                    });
-                    external_args_capacities.push(quote! {
-                        #[doc = #capacity_doc]
-                        pub #capacity_field: u32,
-                    });
-
-                    original_fn_args.push(quote! {
-                        // Ensure input type implements `IoType`, which is required for crossing
-                        // host/guest boundary
-                        const _: () = {
-                            const fn assert_impl_io_type<T: ::ab_contracts_io_type::IoType>() {}
-                            assert_impl_io_type::<#type_name>();
-                        };
-
-                        debug_assert!(args.#ptr_field.is_aligned(), #ptr_field_assert_msg);
-                        debug_assert_eq!(
-                            args.#capacity_field,
-                            <#type_name as ::ab_contracts_io_type::IoType>::CAPACITY,
-                            #capacity_field_assert_msg,
-                        );
-
-                        &mut <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
-                            &mut args.#ptr_field,
-                            &mut args.#size_field,
-                        )
-                    });
-
-                    format_ident!("InputRw")
+                    format_ident!("Input")
                 }
                 IoArg::Output { .. } => {
                     internal_args_pointers.push(quote! {
@@ -1373,7 +1319,7 @@ impl MethodDetails {
             });
         }
 
-        // For each I/O argument generate corresponding read-only, read-write or write-only argument
+        // For each I/O argument generate corresponding read-only or write-only argument
         for io_arg in &self.io {
             let arg_name = io_arg.arg_name();
             let struct_field_ptr = format_ident!("{arg_name}_ptr");
@@ -1384,7 +1330,7 @@ impl MethodDetails {
                 #struct_field_size: ::ab_contracts_io_type::IoType::used_bytes(#arg_name),
             });
             match io_arg {
-                IoArg::InputRo {
+                IoArg::Input {
                     type_name,
                     arg_name,
                 } => {
@@ -1394,27 +1340,6 @@ impl MethodDetails {
                     args_pointers.push(quote! {
                         // TODO: Use `NonNull::from_ref()` once stable
                         #struct_field_ptr: ::core::ptr::NonNull::from(#arg_name),
-                    });
-                }
-                IoArg::InputRw {
-                    type_name,
-                    arg_name,
-                } => {
-                    method_args.push(quote! {
-                        #arg_name: &mut #type_name,
-                    });
-                    args_pointers.push(quote! {
-                        // TODO: Use `NonNull::from_mut()` once stable
-                        #struct_field_ptr: ::core::ptr::NonNull::from(#arg_name),
-                    });
-                    args_capacities.push(quote! {
-                        #struct_field_capacity: <#type_name as ::ab_contracts_io_type::IoType>::CAPACITY,
-                    });
-                    result_processing.push(quote! {
-                        ::ab_contracts_io_type::IoType::set_used_bytes(
-                            #arg_name,
-                            args.#struct_field_size,
-                        );
                     });
                 }
                 IoArg::Output {

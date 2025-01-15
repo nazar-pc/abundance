@@ -13,8 +13,7 @@
 //! * `#[env]` - environment variable, used to access ephemeral execution environment, call methods
 //!   on other contracts, etc.
 //! * `#[slot]` - slot corresponding to this contract
-//! * `#[input]` - method input coming from user transaction or invocation from another contract,
-//!   inputs can also support in-place updates if needed
+//! * `#[input]` - method input coming from user transaction or invocation from another contract
 //! * `#[output]` - method output
 //! * `#[result]` - a single optional method result as an alternative to returning values from a
 //!   function directly, useful to reduce stack usage
@@ -26,7 +25,7 @@
 //! Following arguments are supported by this method (must be in this order):
 //! * `#[env]` read-only and read-write
 //! * `#[slot]` read-only and read-write
-//! * `#[input]` read-only and read-write
+//! * `#[input]`
 //! * `#[output]`
 //! * `#[result]`
 //!
@@ -41,7 +40,7 @@
 //! * `&self` or `&mut self` depending on whether state reads and/or modification are required
 //! * `#[env]` read-only and read-write
 //! * `#[slot]` read-only and read-write
-//! * `#[input]` read-only and read-write
+//! * `#[input]`
 //! * `#[output]`
 //! * `#[result]`
 //!
@@ -54,8 +53,8 @@
 //! * `&self`
 //! * `#[env]` read-only
 //! * `#[slot]` read-only
-//! * `#[input]` read-only and read-write, though read-write only makes sense within block context
-//! * `#[output]`, though only makes sense within block context
+//! * `#[input]`
+//! * `#[output]`
 //! * `#[result]`
 
 mod contract;

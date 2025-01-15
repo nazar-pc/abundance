@@ -67,7 +67,8 @@ pub(super) fn process_view_fn(
                     return Err(Error::new(
                         input_span,
                         "Each `#[view]` argument (except `&self`) must be annotated with \
-                        exactly one of: `#[slot]`, `#[input]` or `#[output]`, in that order",
+                        exactly one of: `#[env]`, `#[slot]`, `#[input]` or `#[output]`, in that \
+                        order",
                     ));
                 };
 
@@ -75,7 +76,8 @@ pub(super) fn process_view_fn(
                     return Err(Error::new(
                         next_attr.span(),
                         "Each `#[view]` argument (except `&self`) must be annotated with \
-                        exactly one of: `#[slot]`, `#[input]` or `#[output]`, in that order",
+                        exactly one of: `#[env]`, `#[slot]`, `#[input]` or `#[output]`, in that \
+                        order",
                     ));
                 }
 
