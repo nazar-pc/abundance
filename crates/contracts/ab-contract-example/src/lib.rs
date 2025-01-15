@@ -32,22 +32,24 @@ pub struct ExampleContract {
 #[contract_impl]
 impl ExampleContract {
     #[init]
-    pub fn new(#[env] env: &mut Env, #[input] total_supply: &Balance) -> Self {
+    pub fn new(
+        #[slot] (owner_addr, owner): (&Address, &mut MaybeData<Slot>),
+        #[input] total_supply: &Balance,
+    ) -> Self {
+        owner.replace(Slot {
+            balance: *total_supply,
+        });
         Self {
             total_supply: *total_supply,
-            owner: *env.context(),
+            owner: *owner_addr,
             padding: [0; 8],
         }
     }
 
     #[init]
-    pub fn new_result(
-        #[env] env: &mut Env,
-        #[input] total_supply: &Balance,
-        #[result] result: &mut MaybeData<Self>,
-    ) {
+    pub fn new_result(#[env] env: &mut Env, #[result] result: &mut MaybeData<Self>) {
         result.replace(Self {
-            total_supply: *total_supply,
+            total_supply: Balance::MIN,
             owner: *env.context(),
             padding: [0; 8],
         });
