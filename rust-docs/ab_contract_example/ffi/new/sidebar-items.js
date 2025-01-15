@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["FINGERPRINT","METADATA"],"fn":["new"],"struct":["ExternalArgs","InternalArgs"]};

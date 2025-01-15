@@ -1,0 +1,3 @@
+var srcIndex = new Map(JSON.parse('[["ab_contract_example",["",[],["lib.rs"]]],["ab_contracts_common",["",[],["env.rs","lib.rs","method.rs"]]],["ab_contracts_io_type",["",[],["lib.rs","maybe_data.rs","trivial_type.rs","utils.rs","variable_bytes.rs"]]],["ab_contracts_macros",["",[["contract",[],["init.rs","methods.rs","update.rs","view.rs"]]],["contract.rs","lib.rs"]]],["ab_contracts_trivial_type_derive",["",[],["lib.rs"]]]]'));
+createSrcSidebar();
+//{"start":36,"fragment_lengths":[42,64,109,119,56]}

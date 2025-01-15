@@ -1,0 +1,1 @@
+searchState.loadedDescShard("ab_contracts_macros", 0, "<code>#[contract_impl]</code> macro will process <em>public</em> methods …\n<code>#[contract_impl]</code> macro to derive smart contract …")

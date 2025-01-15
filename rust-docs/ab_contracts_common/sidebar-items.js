@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ContractError","ContractMethodMetadata","ExitCode"],"mod":["env","method"],"struct":["Address","Balance"]};

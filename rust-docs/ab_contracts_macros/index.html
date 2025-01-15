@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`#[contract_impl]` macro will process public methods annotated with following attributes:"><title>ab_contracts_macros - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ab_contracts_macros" data-themes="" data-resource-suffix="" data-rustdoc-version="1.85.0-nightly (bdc6b3de4 2024-12-23)" data-channel="nightly" data-search-js="search-036cda7a.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ab_contracts_macros/index.html">ab_<wbr>contracts_<wbr>macros</a><span class="version">0.0.1</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#init" title="#[init]">#[init]</a></li><li><a href="#update" title="#[update]">#[update]</a></li><li><a href="#view" title="#[view]">#[view]</a></li></ul><h3><a href="#attributes">Crate Items</a></h3><ul class="block"><li><a href="#attributes" title="Attribute Macros">Attribute Macros</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>ab_contracts_macros</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ab_contracts_macros/lib.rs.html#1-75">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><code>#[contract_impl]</code> macro will process <em>public</em> methods annotated with following attributes:</p>
+<ul>
+<li><code>#[init]</code> - method that can be called to produce an initial state of the contract,
+called once during contacts lifetime</li>
+<li><code>#[update]</code> - method that can read and/or modify state and/or slots of the contact, may be
+called by user transaction directly or by another contract</li>
+<li><code>#[view]</code> - method that can only read blockchain data, can read state or slots of the
+contract, but can’t modify their contents</li>
+</ul>
+<p>Each argument (except <code>self</code>) of these methods has to be annotated with one of the following
+attributes:</p>
+<ul>
+<li><code>#[env]</code> - environment variable, used to access ephemeral execution environment, call methods
+on other contracts, etc.</li>
+<li><code>#[slot]</code> - slot corresponding to this contract</li>
+<li><code>#[input]</code> - method input coming from user transaction or invocation from another contract</li>
+<li><code>#[output]</code> - method output</li>
+<li><code>#[result]</code> - a single optional method result as an alternative to returning values from a
+function directly, useful to reduce stack usage</li>
+</ul>
+<h2 id="init"><a class="doc-anchor" href="#init">§</a>#[init]</h2>
+<p>Initializer’s purpose is to produce the initial state of the contract.</p>
+<p>Following arguments are supported by this method (must be in this order):</p>
+<ul>
+<li><code>#[env]</code> read-only and read-write</li>
+<li><code>#[slot]</code> read-only and read-write</li>
+<li><code>#[input]</code></li>
+<li><code>#[output]</code></li>
+<li><code>#[result]</code></li>
+</ul>
+<p><code>self</code> argument is not supported in any way in this context since state of the contract is just
+being created.</p>
+<h2 id="update"><a class="doc-anchor" href="#update">§</a>#[update]</h2>
+<p>Generic method into contract that can both update contract’s own state and contents of slots.</p>
+<p>Following arguments are supported by this method (must be in this order):</p>
+<ul>
+<li><code>&amp;self</code> or <code>&amp;mut self</code> depending on whether state reads and/or modification are required</li>
+<li><code>#[env]</code> read-only and read-write</li>
+<li><code>#[slot]</code> read-only and read-write</li>
+<li><code>#[input]</code></li>
+<li><code>#[output]</code></li>
+<li><code>#[result]</code></li>
+</ul>
+<h2 id="view"><a class="doc-anchor" href="#view">§</a>#[view]</h2>
+<p>Similar to <code>#[update]</code>, but can only access read-only view of the state and slots, can be called
+outside of block context and can only call other <code>#[view]</code> methods.</p>
+<p>Following arguments are supported by this method (must be in this order):</p>
+<ul>
+<li><code>&amp;self</code></li>
+<li><code>#[env]</code> read-only</li>
+<li><code>#[slot]</code> read-only</li>
+<li><code>#[input]</code></li>
+<li><code>#[output]</code></li>
+<li><code>#[result]</code></li>
+</ul>
+</div></details><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.contract_impl.html" title="attr ab_contracts_macros::contract_impl">contract_<wbr>impl</a></div><div class="desc docblock-short"><code>#[contract_impl]</code> macro to derive smart contract implementation, see module description for
+details.</div></li></ul></section></div></main></body></html>
