@@ -9,7 +9,7 @@ use syn::{
 #[derive(Copy, Clone)]
 pub(super) enum MethodType {
     Init,
-    Call,
+    Update,
     View,
 }
 
@@ -17,7 +17,7 @@ impl MethodType {
     fn attr_str(&self) -> &'static str {
         match self {
             MethodType::Init => "init",
-            MethodType::Call => "call",
+            MethodType::Update => "update",
             MethodType::View => "view",
         }
     }
@@ -1270,7 +1270,7 @@ impl MethodDetails {
         let metadata = {
             let method_type = match self.method_type {
                 MethodType::Init => "Init",
-                MethodType::Call => {
+                MethodType::Update => {
                     if let Some(mutable) = &self.state {
                         if mutable.is_some() {
                             "CallStatefulRw"

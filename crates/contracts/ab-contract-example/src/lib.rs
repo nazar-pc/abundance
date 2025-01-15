@@ -53,7 +53,7 @@ impl ExampleContract {
         });
     }
 
-    #[call]
+    #[update]
     pub fn mint(
         &mut self,
         #[env] env: &mut Env,
@@ -112,7 +112,7 @@ impl ExampleContract {
         // TODO
     }
 
-    #[call]
+    #[update]
     pub fn transfer(
         #[env] env: &mut Env,
         #[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),

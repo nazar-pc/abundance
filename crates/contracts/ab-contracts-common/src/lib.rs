@@ -84,125 +84,125 @@ pub enum ContractMethodMetadata {
     /// Encoding is the same as [`Self::Init1`]
     Init10,
 
-    /// Stateless `#[call]` method with `1` argument (doesn't have `self` in its arguments).
+    /// Stateless `#[update]` method with `1` argument (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStateless1,
-    /// Stateless `#[call]` method with `2` arguments (doesn't have `self` in its arguments).
+    /// Stateless `#[update]` method with `2` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStateless2,
-    /// Stateless `#[call]` method with `3` arguments (doesn't have `self` in its arguments).
+    /// Stateless `#[update]` method with `3` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStateless3,
-    /// Stateless `#[call]` method with `4` arguments (doesn't have `self` in its arguments).
+    /// Stateless `#[update]` method with `4` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStateless4,
-    /// Stateless `#[call]` method with `5` arguments (doesn't have `self` in its arguments).
+    /// Stateless `#[update]` method with `5` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStateless5,
-    /// Stateless `#[call]` method with `6` arguments (doesn't have `self` in its arguments).
+    /// Stateless `#[update]` method with `6` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStateless6,
-    /// Stateless `#[call]` method with `7` arguments (doesn't have `self` in its arguments).
+    /// Stateless `#[update]` method with `7` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStateless7,
-    /// Stateless `#[call]` method with `8` arguments (doesn't have `self` in its arguments).
+    /// Stateless `#[update]` method with `8` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStateless8,
-    /// Stateless `#[call]` method with `9` arguments (doesn't have `self` in its arguments).
+    /// Stateless `#[update]` method with `9` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStateless9,
-    /// Stateless `#[call]` method with `10` arguments (doesn't have `self` in its arguments).
+    /// Stateless `#[update]` method with `10` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStateless10,
 
-    /// Stateful read-only `#[call]` method with `1` argument (has `&self` in its arguments).
+    /// Stateful read-only `#[update]` method with `1` argument (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRo1,
-    /// Stateful read-only `#[call]` method with `2` arguments (has `&self` in its arguments).
+    /// Stateful read-only `#[update]` method with `2` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRo2,
-    /// Stateful read-only `#[call]` method with `3` arguments (has `&self` in its arguments).
+    /// Stateful read-only `#[update]` method with `3` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRo3,
-    /// Stateful read-only `#[call]` method with `4` arguments (has `&self` in its arguments).
+    /// Stateful read-only `#[update]` method with `4` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRo4,
-    /// Stateful read-only `#[call]` method with `5` arguments (has `&self` in its arguments).
+    /// Stateful read-only `#[update]` method with `5` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRo5,
-    /// Stateful read-only `#[call]` method with `6` arguments (has `&self` in its arguments).
+    /// Stateful read-only `#[update]` method with `6` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRo6,
-    /// Stateful read-only `#[call]` method with `7` arguments (has `&self` in its arguments).
+    /// Stateful read-only `#[update]` method with `7` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRo7,
-    /// Stateful read-only `#[call]` method with `8` arguments (has `&self` in its arguments).
+    /// Stateful read-only `#[update]` method with `8` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRo8,
-    /// Stateful read-only `#[call]` method with `9` arguments (has `&self` in its arguments).
+    /// Stateful read-only `#[update]` method with `9` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRo9,
-    /// Stateful read-only `#[call]` method with `10` arguments (has `&self` in its arguments).
+    /// Stateful read-only `#[update]` method with `10` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRo10,
 
-    /// Stateful read-write `#[call]` method with `1` argument (has `&mut self` in its arguments).
+    /// Stateful read-write `#[update]` method with `1` argument (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRw1,
-    /// Stateful read-write `#[call]` method with `2` arguments (has `&mut self` in its arguments).
+    /// Stateful read-write `#[update]` method with `2` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRw2,
-    /// Stateful read-write `#[call]` method with `3` arguments (has `&mut self` in its arguments).
+    /// Stateful read-write `#[update]` method with `3` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRw3,
-    /// Stateful read-write `#[call]` method with `4` arguments (has `&mut self` in its arguments).
+    /// Stateful read-write `#[update]` method with `4` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRw4,
-    /// Stateful read-write `#[call]` method with `5` arguments (has `&mut self` in its arguments).
+    /// Stateful read-write `#[update]` method with `5` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRw5,
-    /// Stateful read-write `#[call]` method with `6` arguments (has `&mut self` in its arguments).
+    /// Stateful read-write `#[update]` method with `6` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRw6,
-    /// Stateful read-write `#[call]` method with `7` arguments (has `&mut self` in its arguments).
+    /// Stateful read-write `#[update]` method with `7` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRw7,
-    /// Stateful read-write `#[call]` method with `8` arguments (has `&mut self` in its arguments).
+    /// Stateful read-write `#[update]` method with `8` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRw8,
-    /// Stateful read-write `#[call]` method with `9` arguments (has `&mut self` in its arguments).
+    /// Stateful read-write `#[update]` method with `9` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRw9,
-    /// Stateful read-write `#[call]` method with `10` arguments (has `&mut self` in its arguments).
+    /// Stateful read-write `#[update]` method with `10` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
     CallStatefulRw10,
