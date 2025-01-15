@@ -92,6 +92,7 @@ unsafe impl<const CAPACITY: u32> IoType for VariableBytes<CAPACITY> {
         self.size()
     }
 
+    #[inline]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(size <= CAPACITY, "`set_size` called with invalid input");
 

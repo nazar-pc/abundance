@@ -177,6 +177,20 @@ where
 
     type PointerType = T;
 
+    #[inline]
+    fn size(&self) -> u32 {
+        size_of::<T>() as u32
+    }
+
+    #[inline]
+    unsafe fn set_size(&mut self, size: u32) {
+        debug_assert!(
+            size == Self::CAPACITY,
+            "`set_size` called with invalid input"
+        );
+    }
+
+    #[inline]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
@@ -188,6 +202,7 @@ where
         ptr.as_ref()
     }
 
+    #[inline]
     unsafe fn from_ptr_mut<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,

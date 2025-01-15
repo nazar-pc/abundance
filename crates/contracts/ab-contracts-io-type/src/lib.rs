@@ -319,25 +319,14 @@ pub unsafe trait IoType {
     /// Pointer with trivial type that this `IoType` represents
     type PointerType: TrivialType;
 
-    /// How many bytes are currently used to store data.
-    ///
-    /// This is the same as [`Self::CAPACITY`] for simple [`TrivialType`] and can vary between `0` and
-    /// [`Self::CAPACITY`] for [`VariableBytes`](crate::variable_bytes::VariableBytes).
-    #[inline]
-    fn size(&self) -> u32 {
-        Self::CAPACITY
-    }
+    /// How many bytes are currently used to store data
+    fn size(&self) -> u32;
 
     /// Set number of used bytes
     ///
     /// # Safety
     /// `size` must be set to number of properly bytes
-    unsafe fn set_size(&mut self, size: u32) {
-        debug_assert!(
-            size == Self::CAPACITY,
-            "`set_size` called with invalid input"
-        );
-    }
+    unsafe fn set_size(&mut self, size: u32);
 
     /// Create a reference to a type, which is represented by provided memory.
     ///

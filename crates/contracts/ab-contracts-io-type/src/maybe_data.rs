@@ -57,6 +57,7 @@ where
         unsafe { self.size.read() }
     }
 
+    #[inline]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
             size == 0 || size == Data::CAPACITY,
@@ -67,6 +68,7 @@ where
         self.size.write(size);
     }
 
+    #[inline]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
@@ -81,6 +83,7 @@ where
         MaybeDataWrapper(MaybeData { data, size })
     }
 
+    #[inline]
     unsafe fn from_ptr_mut<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
