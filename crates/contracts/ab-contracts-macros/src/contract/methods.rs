@@ -602,14 +602,14 @@ impl MethodDetails {
             }
         }
 
-        // `preparation` will generate code that is used before calling original function
-        let mut preparation = Vec::new();
         // `internal_args_pointers` will generate pointers in `InternalArgs` fields
         let mut internal_args_pointers = Vec::new();
         // `internal_args_sizes` will generate sizes in `InternalArgs` fields
         let mut internal_args_sizes = Vec::new();
         // `internal_args_capacities` will generate capacities in `InternalArgs` fields
         let mut internal_args_capacities = Vec::new();
+        // `preparation` will generate code that is used before calling original function
+        let mut preparation = Vec::new();
         // `external_args_pointers` will generate pointers in `ExternalArgs` fields
         let mut external_args_pointers = Vec::new();
         // `external_args_sizes` will generate sizes in `ExternalArgs` fields
@@ -649,16 +649,10 @@ impl MethodDetails {
                         assert_impl_io_type::<#struct_name>();
                     };
 
-                    debug_assert!(args.state_ptr.is_aligned(), "`state_ptr` pointer is misaligned");
-                    debug_assert_eq!(
-                        args.state_capacity,
-                        <#struct_name as ::ab_contracts_io_type::IoType>::CAPACITY,
-                        "`state_capacity` specified is too small for the type",
-                    );
-
                     &mut <#struct_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
                         &mut args.state_ptr,
                         &mut args.state_size,
+                        args.state_capacity,
                     )
                 }});
             } else {
@@ -670,11 +664,11 @@ impl MethodDetails {
                         assert_impl_io_type::<#struct_name>();
                     };
 
-                    debug_assert!(args.state_ptr.is_aligned(), "`state_ptr` pointer is misaligned");
-
                     &<#struct_name as ::ab_contracts_io_type::IoType>::from_ptr(
                         &args.state_ptr,
                         &args.state_size,
+                        // Size matches capacity for immutable inputs
+                        args.state_size,
                     )
                 }});
             }
@@ -744,15 +738,12 @@ impl MethodDetails {
                 pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_common::Address>,
             });
 
-            let ptr_field_assert_msg = format!("`{ptr_field}` pointer is misaligned");
             let arg_extraction = if mutability.is_some() {
                 internal_args_capacities.push(quote! {
                     #[doc = #capacity_doc]
                     pub #capacity_field: u32,
                 });
 
-                let capacity_field_assert_msg =
-                    format!("`{capacity_field}` specified is too small for the type");
                 quote! {{
                     // Ensure slot type implements `IoTypeOptional`, which is required for handling
                     // of slot that might be removed or not present and implies implementation of
@@ -762,16 +753,10 @@ impl MethodDetails {
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    debug_assert!(args.#ptr_field.is_aligned(), #ptr_field_assert_msg);
-                    debug_assert_eq!(
-                        args.#capacity_field,
-                        <#type_name as ::ab_contracts_io_type::IoType>::CAPACITY,
-                        #capacity_field_assert_msg,
-                    );
-
                     &mut <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
+                        args.#capacity_field,
                     )
                 }}
             } else {
@@ -784,11 +769,11 @@ impl MethodDetails {
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    debug_assert!(args.#ptr_field.is_aligned(), #ptr_field_assert_msg);
-
                     &<#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
                         &args.#ptr_field,
                         &args.#size_field,
+                        // Size matches capacity for immutable inputs
+                        args.#size_field,
                     )
                 }}
             };
@@ -796,10 +781,15 @@ impl MethodDetails {
             let slot_metadata_type;
             if let Some(address_arg) = &slot.with_address_arg {
                 let address_ptr = format_ident!("{address_arg}_ptr");
-                let address_ptr_assert_msg = format!("`{address_ptr}` pointer is misaligned");
                 original_fn_args.push(quote! {{
-                    debug_assert!(args.#address_ptr.is_aligned(), #address_ptr_assert_msg);
-                    (args.#address_ptr.as_ref(), #arg_extraction)
+                    (
+                        &<::ab_contracts_common::Address as ::ab_contracts_io_type::IoType>::from_ptr(
+                            &args.#address_ptr,
+                            &<::ab_contracts_common::Address as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
+                            <::ab_contracts_common::Address as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
+                        ),
+                        #arg_extraction,
+                    )
                 }});
 
                 slot_metadata_type = if mutability.is_some() {
@@ -837,10 +827,6 @@ impl MethodDetails {
             let capacity_field = format_ident!("{}_capacity", io_arg.arg_name());
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
 
-            let capacity_field_assert_msg =
-                format!("`{capacity_field}` specified is too small for the type");
-            let ptr_field_assert_msg = format!("`{ptr_field}` pointer is misaligned");
-
             let io_metadata_type = match io_arg {
                 IoArg::Input { .. } => {
                     internal_args_pointers.push(quote! {
@@ -871,11 +857,11 @@ impl MethodDetails {
                             assert_impl_io_type::<#type_name>();
                         };
 
-                        debug_assert!(args.#ptr_field.is_aligned(), #ptr_field_assert_msg);
-
                         &<#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
                             &args.#ptr_field,
                             &args.#size_field,
+                            // Size matches capacity for immutable inputs
+                            args.#size_field,
                         )
                     });
 
@@ -919,16 +905,10 @@ impl MethodDetails {
                             assert_impl_io_type_optional::<#type_name>();
                         };
 
-                        debug_assert!(args.#ptr_field.is_aligned(), #ptr_field_assert_msg);
-                        debug_assert_eq!(
-                            args.#capacity_field,
-                            <#type_name as ::ab_contracts_io_type::IoType>::CAPACITY,
-                            #capacity_field_assert_msg,
-                        );
-
                         &mut <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
                             &mut args.#ptr_field,
                             &mut args.#size_field,
+                            args.#capacity_field,
                         )
                     });
 
@@ -988,16 +968,10 @@ impl MethodDetails {
                             assert_impl_io_type_optional::<#type_name>();
                         };
 
-                        debug_assert!(args.#ptr_field.is_aligned(), #ptr_field_assert_msg);
-                        debug_assert_eq!(
-                            args.#capacity_field,
-                            <#type_name as ::ab_contracts_io_type::IoType>::CAPACITY,
-                            #capacity_field_assert_msg,
-                        );
-
                         &mut <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
                             &mut args.#ptr_field,
                             &mut args.#size_field,
+                            args.#capacity_field,
                         )
                     });
 
@@ -1023,17 +997,6 @@ impl MethodDetails {
             // Result can be used through return type or argument, for argument no special handling
             // of return type is needed
             if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
-                preparation.push(quote! {
-                    debug_assert!(
-                        args.ok_result_ptr.is_aligned(),
-                        "`ok_result_ptr` pointer is misaligned"
-                    );
-                    debug_assert_eq!(
-                        args.ok_result_capacity,
-                        <#result_type as ::ab_contracts_io_type::IoType>::CAPACITY,
-                        "`ok_result_capacity` specified is too small for the type",
-                    );
-                });
                 internal_args_pointers.push(quote! {
                     pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
                 });
@@ -1044,6 +1007,26 @@ impl MethodDetails {
                 internal_args_capacities.push(quote! {
                     /// Capacity of the allocated memory `ok_result_ptr` points to
                     pub ok_result_capacity: u32,
+                });
+
+                // Ensure return type implements not only `IoType`, which is required for crossing
+                // host/guest boundary, but also `TrivialType` that ensures size matches capacity
+                // and result handling is trivial, for variable size result `#[result]` must be used
+                preparation.push(quote! {
+                    debug_assert!(
+                        args.ok_result_ptr.is_aligned(),
+                        "`ok_result_ptr` pointer is misaligned"
+                    );
+                    debug_assert_eq!(
+                        args.ok_result_size,
+                        <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
+                        "`ok_result_size` specified is invalid",
+                    );
+                    debug_assert_eq!(
+                        args.ok_result_capacity,
+                        <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
+                        "`ok_result_capacity` specified is invalid",
+                    );
                 });
 
                 // Placeholder argument name to keep metadata consistent
@@ -1062,13 +1045,6 @@ impl MethodDetails {
                 explicitly except maybe in contract's own tests"
             );
             quote_spanned! {impl_item_fn.sig.span() =>
-                // Ensure return type implements `IoType`, which is required for crossing
-                // host/guest boundary
-                const _: () = {
-                    const fn assert_impl_io_type<T: ::ab_contracts_io_type::IoType>() {}
-                    assert_impl_io_type::<#result_type>();
-                };
-
                 #[doc = #args_struct_doc]
                 #[repr(C)]
                 pub struct InternalArgs
@@ -1092,9 +1068,12 @@ impl MethodDetails {
                 }
                 MethodResultType::Regular(_) => {
                     quote! {
+                        <#result_type as ::ab_contracts_io_type::IoType>::from_ptr(
+                            &mut args.ok_result_ptr,
+                            &mut args.ok_result_size,
+                            args.ok_result_capacity,
+                        );
                         // Write result into `InternalArgs`, return exit code
-                        args.ok_result_size =
-                            ::ab_contracts_io_type::IoType::size(&#result_var_name);
                         args.ok_result_ptr.write(#result_var_name);
                         ::ab_contracts_common::ExitCode::Ok
                     }
@@ -1113,8 +1092,6 @@ impl MethodDetails {
                         // Write result into `InternalArgs` if there is any, return exit code
                         match #result_var_name {
                             Ok(result) => {
-                                args.ok_result_size =
-                                    ::ab_contracts_io_type::IoType::size(&#result_var_name);
                                 args.ok_result_ptr.write(result);
                                 ::ab_contracts_common::ExitCode::Ok
                             }
@@ -1353,7 +1330,7 @@ impl MethodDetails {
                         #struct_field_ptr: *::ab_contracts_io_type::IoTypeOptional::as_mut_ptr(#arg_name),
                     });
                     args_capacities.push(quote! {
-                        #struct_field_capacity: <#type_name as ::ab_contracts_io_type::IoType>::CAPACITY,
+                        #struct_field_capacity: ::ab_contracts_io_type::IoType::capacity(#arg_name),
                     });
                     result_processing.push(quote! {
                         ::ab_contracts_io_type::IoType::set_size(
@@ -1381,7 +1358,7 @@ impl MethodDetails {
                         #struct_field_ptr: *::ab_contracts_io_type::IoTypeOptional::as_mut_ptr(#arg_name),
                     });
                     args_capacities.push(quote! {
-                        #struct_field_capacity: <#type_name as ::ab_contracts_io_type::IoType>::CAPACITY,
+                        #struct_field_capacity: ::ab_contracts_io_type::IoType::capacity(#arg_name),
                     });
                     result_processing.push(quote! {
                         ::ab_contracts_io_type::IoType::set_size(
@@ -1414,12 +1391,13 @@ impl MethodDetails {
                 },
             });
             args_sizes.push(quote! {
-                ok_result_size: 0,
+                ok_result_size: <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
             });
             args_capacities.push(quote! {
-                ok_result_capacity: <#result_type as ::ab_contracts_io_type::IoType>::CAPACITY,
+                ok_result_capacity: <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
             });
             result_processing.push(quote! {
+                // This is fine for `TrivialType` types
                 ok_result.assume_init()
             });
 

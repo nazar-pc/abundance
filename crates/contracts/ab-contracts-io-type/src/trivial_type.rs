@@ -24,6 +24,7 @@ pub unsafe trait TrivialType
 where
     Self: Copy + 'static,
 {
+    const SIZE: u32 = size_of::<Self>() as u32;
     // TODO: Compact metadata without field and struct names
     /// Data structure metadata in binary form, describing shape and types of the contents, see
     /// [`IoTypeMetadata`] for encoding details.
@@ -172,7 +173,6 @@ unsafe impl<T> IoType for T
 where
     T: TrivialType,
 {
-    const CAPACITY: u32 = size_of::<T>() as u32;
     const METADATA: &[u8] = T::METADATA;
 
     type PointerType = T;
@@ -183,9 +183,14 @@ where
     }
 
     #[inline]
+    fn capacity(&self) -> u32 {
+        self.size()
+    }
+
+    #[inline]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
-            size == Self::CAPACITY,
+            size == size_of::<Self>() as u32,
             "`set_size` called with invalid input"
         );
     }
@@ -194,9 +199,11 @@ where
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
+        capacity: u32,
     ) -> impl Deref<Target = Self> + 'a {
-        debug_assert!(ptr.is_aligned());
-        debug_assert!(*size == Self::CAPACITY);
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        debug_assert!(*size == capacity, "Size doesn't match capacity");
+        debug_assert!(capacity as usize == size_of::<Self>(), "Invalid capacity");
 
         // SAFETY: guaranteed by this function signature
         ptr.as_ref()
@@ -206,9 +213,11 @@ where
     unsafe fn from_ptr_mut<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
+        capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a {
-        debug_assert!(ptr.is_aligned());
-        debug_assert!(*size == Self::CAPACITY);
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        debug_assert!(*size == capacity, "Size doesn't match capacity");
+        debug_assert!(capacity as usize == size_of::<Self>(), "Invalid capacity");
 
         // SAFETY: guaranteed by this function signature
         ptr.as_mut()

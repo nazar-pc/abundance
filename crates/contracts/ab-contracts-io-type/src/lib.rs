@@ -226,20 +226,20 @@ pub enum IoTypeMetadata {
     ArrayU8x2028,
     /// Compact alias for `[u8; 4096]`
     ArrayU8x4096,
-    /// Variable bytes with up to 2^8 bytes capacity.
+    /// Variable bytes with up to 2^8 bytes recommended allocation.
     ///
     /// Variable bytes with up to 2^8 encoded as follows:
-    /// * 1 byte capacity in bytes
+    /// * 1 byte recommended allocation in bytes
     VariableBytes8b,
-    /// Variable bytes with up to 2^16 bytes capacity.
+    /// Variable bytes with up to 2^16 bytes recommended allocation.
     ///
     /// Variable bytes with up to 2^16 encoded as follows:
-    /// * 2 bytes capacity in bytes (little-endian)
+    /// * 2 bytes recommended allocation in bytes (little-endian)
     VariableBytes16b,
-    /// Variable bytes with up to 2^32 bytes capacity.
+    /// Variable bytes with up to 2^32 bytes recommended allocation.
     ///
     /// Variable bytes with up to 2^8 encoded as follows:
-    /// * 4 bytes capacity in bytes (little-endian)
+    /// * 4 bytes recommended allocation in bytes (little-endian)
     VariableBytes32b,
     /// Compact alias [`VariableBytes<512>`](crate::variable_bytes::VariableBytes)
     VariableBytes512,
@@ -306,12 +306,6 @@ impl IoTypeMetadata {
 /// In case of variable state size is needed, create a wrapper struct around `VariableBytes` and
 /// implement traits on it by forwarding everything to inner implementation.
 pub unsafe trait IoType {
-    /// Nominal size of the type.
-    ///
-    /// For fixed size types like those implementing [`TrivialType`] trait this is the final size,
-    /// while for types that can store variable amount of data the used bytes can be smaller than
-    /// this during read-only access even allocation itself can actually be smaller.
-    const CAPACITY: u32;
     /// Data structure metadata in binary form, describing shape and types of the contents, see
     /// [`IoTypeMetadata`] for encoding details.
     const METADATA: &[u8];
@@ -321,6 +315,9 @@ pub unsafe trait IoType {
 
     /// How many bytes are currently used to store data
     fn size(&self) -> u32;
+
+    /// How many bytes are allocated right now
+    fn capacity(&self) -> u32;
 
     /// Set number of used bytes
     ///
@@ -341,6 +338,7 @@ pub unsafe trait IoType {
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
+        capacity: u32,
     ) -> impl Deref<Target = Self> + 'a;
 
     /// Create a mutable reference to a type, which is represented by provided memory.
@@ -357,6 +355,7 @@ pub unsafe trait IoType {
     unsafe fn from_ptr_mut<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
+        capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a;
 }
 
