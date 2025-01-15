@@ -1,11 +1,11 @@
-mod call;
 mod init;
 mod methods;
+mod update;
 mod view;
 
-use crate::contract::call::process_call_fn;
 use crate::contract::init::process_init_fn;
 use crate::contract::methods::{ExtTraitComponents, MethodDetails};
+use crate::contract::update::process_update_fn;
 use crate::contract::view::process_view_fn;
 use proc_macro2::{Ident, Literal, TokenStream, TokenTree};
 use quote::{format_ident, quote};
@@ -158,7 +158,7 @@ fn process_fn(
 ) -> Result<MethodOutput, Error> {
     let supported_attrs = HashMap::<_, fn(_, _, _) -> _>::from_iter([
         (format_ident!("init"), process_init_fn as _),
-        (format_ident!("call"), process_call_fn as _),
+        (format_ident!("update"), process_update_fn as _),
         (format_ident!("view"), process_view_fn as _),
     ]);
     let mut attrs = impl_item_fn.attrs.extract_if(.., |attr| match &attr.meta {
@@ -181,7 +181,7 @@ fn process_fn(
     if let Some(next_attr) = attrs.take(1).next() {
         return Err(Error::new(
             next_attr.span(),
-            "Function can only have one of `#[init]`, `#[call]` or `#[view]` attributes specified",
+            "Function can only have one of `#[init]`, `#[update]` or `#[view]` attributes specified",
         ));
     }
 

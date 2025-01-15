@@ -5,12 +5,12 @@ use std::collections::HashMap;
 use syn::spanned::Spanned;
 use syn::{Error, FnArg, ImplItemFn, Meta, Type};
 
-pub(super) fn process_call_fn(
+pub(super) fn process_update_fn(
     struct_name: Type,
     impl_item_fn: &mut ImplItemFn,
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
-    let mut methods_details = MethodDetails::new(MethodType::Call, struct_name);
+    let mut methods_details = MethodDetails::new(MethodType::Update, struct_name);
 
     methods_details.process_output(&impl_item_fn.sig.output)?;
 
@@ -42,7 +42,7 @@ pub(super) fn process_call_fn(
                 if receiver.reference.is_none() {
                     return Err(Error::new(
                         impl_item_fn.sig.span(),
-                        "`#[call]` can't consume `Self`, use `&self` or `&mut self` instead",
+                        "`#[update]` can't consume `Self`, use `&self` or `&mut self` instead",
                     ));
                 }
 
@@ -66,7 +66,7 @@ pub(super) fn process_call_fn(
                 let Some(attr) = attrs.next() else {
                     return Err(Error::new(
                         input_span,
-                        "Each `#[call]` argument (except `&self`/`&mut self`) must be \
+                        "Each `#[update]` argument (except `&self`/`&mut self`) must be \
                         annotated with exactly one of: `#[env]`, `#[slot]`, `#[input]` or \
                         `#[output]`, in that order",
                     ));
@@ -75,7 +75,7 @@ pub(super) fn process_call_fn(
                 if let Some(next_attr) = attrs.take(1).next() {
                     return Err(Error::new(
                         next_attr.span(),
-                        "Each `#[call]` argument (except `&self`/`&mut self`) must be \
+                        "Each `#[update]` argument (except `&self`/`&mut self`) must be \
                         annotated with exactly one of: `#[env]`, `#[slot]`, `#[input]` or \
                         `#[output]`, in that order",
                     ));

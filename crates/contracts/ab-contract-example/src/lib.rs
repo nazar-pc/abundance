@@ -35,7 +35,7 @@ impl ExampleContract {
     pub fn new(#[env] env: &mut Env, #[input] total_supply: &Balance) -> Self {
         Self {
             total_supply: *total_supply,
-            owner: *env.origin(),
+            owner: *env.context(),
             padding: [0; 8],
         }
     }
@@ -48,20 +48,20 @@ impl ExampleContract {
     ) {
         result.replace(Self {
             total_supply: *total_supply,
-            owner: *env.origin(),
+            owner: *env.context(),
             padding: [0; 8],
         });
     }
 
-    #[call]
+    #[update]
     pub fn mint(
         &mut self,
         #[env] env: &mut Env,
         #[slot] to: &mut MaybeData<Slot>,
         #[input] &value: &Balance,
     ) -> Result<(), ContractError> {
-        if env.origin() != &self.owner {
-            return Err(ContractError::BadOrigin);
+        if env.context() != &self.owner && env.caller() != &self.owner {
+            return Err(ContractError::AccessDenied);
         }
 
         if Balance::MAX - value > self.total_supply {
@@ -112,15 +112,15 @@ impl ExampleContract {
         // TODO
     }
 
-    #[call]
+    #[update]
     pub fn transfer(
         #[env] env: &mut Env,
         #[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),
         #[slot] to: &mut MaybeData<Slot>,
         #[input] &value: &Balance,
     ) -> Result<(), ContractError> {
-        if env.origin() != from_address {
-            return Err(ContractError::BadOrigin);
+        if env.context() != from_address && env.caller() != from_address {
+            return Err(ContractError::AccessDenied);
         }
 
         {

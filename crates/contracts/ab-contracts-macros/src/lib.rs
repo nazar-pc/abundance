@@ -3,7 +3,7 @@
 //! `#[contract_impl]` macro will process *public* methods annotated with following attributes:
 //! * `#[init]` - method that can be called to produce an initial state of the contract,
 //!   called once during contacts lifetime
-//! * `#[call]` - method that can read and/or modify state and/or slots of the contact, may be
+//! * `#[update]` - method that can read and/or modify state and/or slots of the contact, may be
 //!   called by user transaction directly or by another contract
 //! * `#[view]` - method that can only read blockchain data, can read state or slots of the
 //!   contract, but can't modify their contents
@@ -32,9 +32,9 @@
 //! `self` argument is not supported in any way in this context since state of the contract is just
 //! being created.
 //!
-//! # #\[call]
+//! # #\[update]
 //!
-//! Generic call into contract that can both update contract's own state and contents of slots.
+//! Generic method into contract that can both update contract's own state and contents of slots.
 //!
 //! Following arguments are supported by this method (must be in this order):
 //! * `&self` or `&mut self` depending on whether state reads and/or modification are required
@@ -46,7 +46,7 @@
 //!
 //! # #\[view]
 //!
-//! Similar to `#[call]`, but can only access read-only view of the state and slots, can be called
+//! Similar to `#[update]`, but can only access read-only view of the state and slots, can be called
 //! outside of block context and can only call other `#[view]` methods.
 //!
 //! Following arguments are supported by this method (must be in this order):

@@ -9,7 +9,7 @@ use syn::{
 #[derive(Copy, Clone)]
 pub(super) enum MethodType {
     Init,
-    Call,
+    Update,
     View,
 }
 
@@ -17,7 +17,7 @@ impl MethodType {
     fn attr_str(&self) -> &'static str {
         match self {
             MethodType::Init => "init",
-            MethodType::Call => "call",
+            MethodType::Update => "update",
             MethodType::View => "view",
         }
     }
@@ -1193,7 +1193,7 @@ impl MethodDetails {
         let metadata = {
             let method_type = match self.method_type {
                 MethodType::Init => "Init",
-                MethodType::Call => {
+                MethodType::Update => {
                     if let Some(mutable) = &self.state {
                         if mutable.is_some() {
                             "CallStatefulRw"
@@ -1370,7 +1370,14 @@ impl MethodDetails {
             }
         }
 
-        let env_mutability = &self.env;
+        // Non-`#[view]` methods can only be called on `&mut Env`
+        let env_mut = (!matches!(self.method_type, MethodType::View)).then(|| quote! { &mut });
+        // `#[view]` methods do not require explicit method context
+        let method_context_arg = (!matches!(self.method_type, MethodType::View)).then(|| {
+            quote! {
+                method_context: &::ab_contracts_common::env::MethodContext,
+            }
+        });
         let method_signature = if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
             // Initializer's return type will be `()` for caller, state is stored by the host and
             // not returned to the caller
@@ -1403,14 +1410,16 @@ impl MethodDetails {
 
             quote! {
                 fn #original_method_name(
-                    &#env_mutability self,
+                    self: &#env_mut Self,
+                    #method_context_arg
                     #( #method_args )*
                 ) -> ::core::result::Result<#result_type, ::ab_contracts_common::ContractError>
             }
         } else {
             quote! {
                 fn #original_method_name(
-                    &#env_mutability self,
+                    self: &#env_mut Self,
+                    #method_context_arg
                     #( #method_args )*
                 ) -> ::core::result::Result<(), ::ab_contracts_common::ContractError>
             }
@@ -1420,6 +1429,12 @@ impl MethodDetails {
             #method_signature;
         };
 
+        // `#[view]` methods do not require explicit method context
+        let method_context_value = if matches!(self.method_type, MethodType::View) {
+            quote! { &::ab_contracts_common::env::MethodContext::Reset }
+        } else {
+            quote! { method_context }
+        };
         let impls = quote! {
             #[inline]
             #method_signature {
@@ -1431,7 +1446,7 @@ impl MethodDetails {
                     #( #args_capacities )*
                 };
 
-                self.invoke(&contract, &mut args)?;
+                self.call(&contract, &mut args, #method_context_value)?;
 
                 // SAFETY: Non-error result above indicates successful storing of the result
                 let result = unsafe {
