@@ -88,125 +88,125 @@ pub enum ContractMethodMetadata {
     /// Stateless `#[update]` method with `1` argument (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStateless1,
+    UpdateStateless1,
     /// Stateless `#[update]` method with `2` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStateless2,
+    UpdateStateless2,
     /// Stateless `#[update]` method with `3` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStateless3,
+    UpdateStateless3,
     /// Stateless `#[update]` method with `4` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStateless4,
+    UpdateStateless4,
     /// Stateless `#[update]` method with `5` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStateless5,
+    UpdateStateless5,
     /// Stateless `#[update]` method with `6` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStateless6,
+    UpdateStateless6,
     /// Stateless `#[update]` method with `7` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStateless7,
+    UpdateStateless7,
     /// Stateless `#[update]` method with `8` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStateless8,
+    UpdateStateless8,
     /// Stateless `#[update]` method with `9` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStateless9,
+    UpdateStateless9,
     /// Stateless `#[update]` method with `10` arguments (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStateless10,
+    UpdateStateless10,
 
     /// Stateful read-only `#[update]` method with `1` argument (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRo1,
+    UpdateStatefulRo1,
     /// Stateful read-only `#[update]` method with `2` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRo2,
+    UpdateStatefulRo2,
     /// Stateful read-only `#[update]` method with `3` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRo3,
+    UpdateStatefulRo3,
     /// Stateful read-only `#[update]` method with `4` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRo4,
+    UpdateStatefulRo4,
     /// Stateful read-only `#[update]` method with `5` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRo5,
+    UpdateStatefulRo5,
     /// Stateful read-only `#[update]` method with `6` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRo6,
+    UpdateStatefulRo6,
     /// Stateful read-only `#[update]` method with `7` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRo7,
+    UpdateStatefulRo7,
     /// Stateful read-only `#[update]` method with `8` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRo8,
+    UpdateStatefulRo8,
     /// Stateful read-only `#[update]` method with `9` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRo9,
+    UpdateStatefulRo9,
     /// Stateful read-only `#[update]` method with `10` arguments (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRo10,
+    UpdateStatefulRo10,
 
     /// Stateful read-write `#[update]` method with `1` argument (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRw1,
+    UpdateStatefulRw1,
     /// Stateful read-write `#[update]` method with `2` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRw2,
+    UpdateStatefulRw2,
     /// Stateful read-write `#[update]` method with `3` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRw3,
+    UpdateStatefulRw3,
     /// Stateful read-write `#[update]` method with `4` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRw4,
+    UpdateStatefulRw4,
     /// Stateful read-write `#[update]` method with `5` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRw5,
+    UpdateStatefulRw5,
     /// Stateful read-write `#[update]` method with `6` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRw6,
+    UpdateStatefulRw6,
     /// Stateful read-write `#[update]` method with `7` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRw7,
+    UpdateStatefulRw7,
     /// Stateful read-write `#[update]` method with `8` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRw8,
+    UpdateStatefulRw8,
     /// Stateful read-write `#[update]` method with `9` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRw9,
+    UpdateStatefulRw9,
     /// Stateful read-write `#[update]` method with `10` arguments (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init1`]
-    CallStatefulRw10,
+    UpdateStatefulRw10,
 
     /// Stateless `#[view]` method with `1` argument (doesn't have `self` in its arguments).
     ///

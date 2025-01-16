@@ -1329,12 +1329,12 @@ impl MethodDetails {
                 MethodType::Update => {
                     if let Some(mutable) = &self.state {
                         if mutable.is_some() {
-                            "CallStatefulRw"
+                            "UpdateStatefulRw"
                         } else {
-                            "CallStatefulRo"
+                            "UpdateStatefulRo"
                         }
                     } else {
-                        "CallStateless"
+                        "UpdateStateless"
                     }
                 }
                 MethodType::View => {
