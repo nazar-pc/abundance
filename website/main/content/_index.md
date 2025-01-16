@@ -5,11 +5,15 @@ title: ""
 <h1 class="text-center">
 🚧 Project Abundance 🚧
 </h1>
+
+Researching next-gen blockchain architecture (as of 2025) to achieve ultimate scalability in permissionles setting and
+fully resolve Blockchain Trilemma. May or may not succeed, but must be fun.
+
 <div class="flex justify-center">
-    <div class="grid gap-4 max-w-3xl print:hidden" style="grid-template-columns: repeat(3,minmax(0,1fr))">
+    <div class="grid gap-4 grid-cols-3 max-w-3xl print:hidden">
         <a href="https://github.com/nazar-pc/abundance" class="p-4 border-neutral-200 dark:border-neutral-700 border-2 rounded-md flex items-center">
             <span class="text-xl">{{< icon "github" >}}</span>
-            <div class="my-2 ml-3 text-lg">GitHub repository</div>
+            <div class="my-2 ml-3 text-lg">GitHub</div>
         </a>
         <a href="/book" class="p-4 border-neutral-200 dark:border-neutral-700 border-2 rounded-md flex items-center">
             <span class="text-xl">{{< icon "book" >}}</span>
