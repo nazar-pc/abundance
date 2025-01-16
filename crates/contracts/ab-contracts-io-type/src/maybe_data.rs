@@ -1,5 +1,6 @@
 use crate::trivial_type::TrivialType;
 use crate::{IoType, IoTypeOptional};
+use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 
@@ -130,6 +131,79 @@ impl<Data> MaybeData<Data>
 where
     Data: TrivialType,
 {
+    /// Create a new shared instance from provided data reference.
+    ///
+    /// `size` can be either `0` or `size_of::<Data>()`, indicating that value is missing or present
+    /// accordingly.
+    ///
+    /// # Panics
+    /// Panics if `size != 0 && size != size_of::<Data>()`
+    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
+    // shared reference for most practical purposes.
+    pub fn from_buffer<'a>(data: &'a Data, size: &'a u32) -> impl Deref<Target = Self> + 'a {
+        let capacity = size_of::<Data>() as u32;
+        debug_assert!(*size == 0 || *size == capacity, "Invalid size");
+
+        MaybeDataWrapper(Self {
+            // TODO: Use `NonNull::from_ref()` once stable
+            data: NonNull::from(data).cast::<<Self as IoType>::PointerType>(),
+            // TODO: Use `NonNull::from_ref()` once stable
+            size: NonNull::from(size),
+            capacity,
+        })
+    }
+
+    /// Create a new exclusive instance from provided data reference.
+    ///
+    /// `size` can be either `0` or `size_of::<Data>()`, indicating that value is missing or present
+    /// accordingly.
+    ///
+    /// # Panics
+    /// Panics if `size != 0 && size != size_of::<Data>()`
+    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
+    // exclusive reference for most practical purposes.
+    pub fn from_buffer_mut<'a>(
+        buffer: &'a mut Data,
+        size: &'a mut u32,
+    ) -> impl DerefMut<Target = Self> + 'a {
+        let capacity = size_of::<Data>() as u32;
+        debug_assert!(*size == 0 || *size == capacity, "Invalid size");
+
+        MaybeDataWrapper(Self {
+            // TODO: Use `NonNull::from_mut()` once stable
+            data: NonNull::from(buffer).cast::<<Self as IoType>::PointerType>(),
+            // TODO: Use `NonNull::from_mut()` once stable
+            size: NonNull::from(size),
+            capacity,
+        })
+    }
+
+    /// Create a new shared instance from provided memory buffer.
+    ///
+    /// `size` must be `0`.
+    ///
+    /// # Panics
+    /// Panics if `size != 0`
+    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
+    // shared reference for most practical purposes.
+    // TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
+    //  `CAPACITY as usize`
+    pub fn from_uninit<'a>(
+        uninit: &'a mut MaybeUninit<Data>,
+        size: &'a mut u32,
+    ) -> impl Deref<Target = Self> + 'a {
+        let capacity = size_of::<Data>() as u32;
+        debug_assert!(*size == 0, "Invalid size");
+
+        MaybeDataWrapper(Self {
+            // TODO: Use `NonNull::from_ref()` once stable
+            data: NonNull::from(uninit).cast::<<Self as IoType>::PointerType>(),
+            // TODO: Use `NonNull::from_mut()` once stable
+            size: NonNull::from(size),
+            capacity,
+        })
+    }
+
     /// Try to get access to initialized `Data`, returns `None` if not initialized
     #[inline]
     pub fn get(&self) -> Option<&Data> {
