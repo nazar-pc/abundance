@@ -9,7 +9,9 @@ build-dir = "build"
 create-missing = false
 
 [preprocessor.alerts]
+
 [preprocessor.d2]
+layout = "elk"
 
 [rust]
 edition = "2021"
