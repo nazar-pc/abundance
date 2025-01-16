@@ -60,6 +60,19 @@ pub(super) fn contract_impl(item: TokenStream) -> Result<TokenStream, Error> {
         }
     }
 
+    let same_tmp_types = MethodDetails::same_tmp_types(
+        contract_details
+            .methods
+            .iter()
+            .map(|method| &method.methods_details),
+    );
+    if !same_tmp_types {
+        return Err(Error::new(
+            item_impl.span(),
+            "All `#[tmp]` arguments must be of the same type",
+        ));
+    }
+
     let same_slot_types = MethodDetails::same_slot_types(
         contract_details
             .methods

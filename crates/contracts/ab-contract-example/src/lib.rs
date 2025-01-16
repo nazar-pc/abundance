@@ -8,11 +8,13 @@ use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract_impl;
 use core::cmp::Ordering;
 
-#[derive(Debug, Copy, Clone, TrivialType)]
+#[derive(Debug, Default, Copy, Clone, TrivialType)]
 #[repr(u8)]
-pub enum TestEnum {
-    A(u8),
-    B { f: u8 },
+pub enum LastAction {
+    #[default]
+    None,
+    Mint,
+    Transfer,
 }
 
 #[derive(Debug, Default, Copy, Clone, TrivialType)]
@@ -59,6 +61,7 @@ impl ExampleContract {
     pub fn mint(
         &mut self,
         #[env] env: &mut Env,
+        #[tmp] last_action: &mut MaybeData<LastAction>,
         #[slot] to: &mut MaybeData<Slot>,
         #[input] &value: &Balance,
     ) -> Result<(), ContractError> {
@@ -80,6 +83,8 @@ impl ExampleContract {
                 to.replace(Slot { balance: value });
             }
         }
+
+        last_action.replace(LastAction::Mint);
 
         Ok(())
     }
@@ -117,6 +122,7 @@ impl ExampleContract {
     #[update]
     pub fn transfer(
         #[env] env: &mut Env,
+        #[tmp] last_action: &mut MaybeData<LastAction>,
         #[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),
         #[slot] to: &mut MaybeData<Slot>,
         #[input] &value: &Balance,
@@ -153,6 +159,13 @@ impl ExampleContract {
             }
         }
 
+        last_action.replace(LastAction::Transfer);
+
         Ok(())
+    }
+
+    #[update]
+    pub fn last_action(#[tmp] maybe_last_action: &MaybeData<LastAction>) -> LastAction {
+        maybe_last_action.get().copied().unwrap_or_default()
     }
 }

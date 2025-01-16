@@ -19,6 +19,7 @@ pub(super) fn process_init_fn(
         // TODO: Moving this outside of the loop causes confusing lifetime issues
         let supported_attrs = HashMap::<_, fn(_, _, _) -> _>::from_iter([
             (format_ident!("env"), MethodDetails::process_env_arg_rw as _),
+            (format_ident!("tmp"), MethodDetails::process_tmp_arg as _),
             (
                 format_ident!("slot"),
                 MethodDetails::process_slot_arg_rw as _,

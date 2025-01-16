@@ -9,9 +9,10 @@
 //!   contract, but can't modify their contents
 //!
 //! Each argument (except `self`) of these methods has to be annotated with one of the following
-//! attributes:
+//! attributes (must be in this order):
 //! * `#[env]` - environment variable, used to access ephemeral execution environment, call methods
 //!   on other contracts, etc.
+//! * `#[tmp]` - temporary ephemeral value to store auxiliary data while processing a transaction
 //! * `#[slot]` - slot corresponding to this contract
 //! * `#[input]` - method input coming from user transaction or invocation from another contract
 //! * `#[output]` - method output
@@ -24,6 +25,7 @@
 //!
 //! Following arguments are supported by this method (must be in this order):
 //! * `#[env]` read-only and read-write
+//! * `#[tmp]`
 //! * `#[slot]` read-only and read-write
 //! * `#[input]`
 //! * `#[output]`
@@ -39,6 +41,7 @@
 //! Following arguments are supported by this method (must be in this order):
 //! * `&self` or `&mut self` depending on whether state reads and/or modification are required
 //! * `#[env]` read-only and read-write
+//! * `#[tmp]`
 //! * `#[slot]` read-only and read-write
 //! * `#[input]`
 //! * `#[output]`
