@@ -24,6 +24,13 @@ impl MethodType {
 }
 
 #[derive(Clone)]
+struct Tmp {
+    type_name: Type,
+    arg_name: Ident,
+    mutability: Option<Token![mut]>,
+}
+
+#[derive(Clone)]
 struct Slot {
     with_address_arg: Option<Ident>,
     type_name: Type,
@@ -105,6 +112,7 @@ pub(super) struct MethodDetails {
     struct_name: Type,
     state: Option<Option<Token![mut]>>,
     env: Option<Option<Token![mut]>>,
+    tmp: Option<Tmp>,
     slots: Vec<Slot>,
     io: Vec<IoArg>,
     result_type: MethodResultType,
@@ -117,10 +125,20 @@ impl MethodDetails {
             struct_name,
             state: None,
             env: None,
+            tmp: None,
             slots: vec![],
             io: vec![],
             result_type: MethodResultType::Unit(MethodResultType::unit_type()),
         }
+    }
+
+    pub(super) fn same_tmp_types<'a, I>(iter: I) -> bool
+    where
+        I: Iterator<Item = &'a Self> + 'a,
+    {
+        iter.flat_map(|method_metadata| &method_metadata.tmp)
+            .map_windows(|[a, b]| a.type_name == b.type_name)
+            .all(|same| same)
     }
 
     pub(super) fn same_slot_types<'a, I>(iter: I) -> bool
@@ -250,10 +268,10 @@ impl MethodDetails {
         metadata: &mut Self,
         allow_mut: bool,
     ) -> Result<(), Error> {
-        if metadata.env.is_some() || !metadata.io.is_empty() {
+        if metadata.env.is_some() || metadata.tmp.is_some() || !metadata.io.is_empty() {
             return Err(Error::new(
                 input_span,
-                "`#[env]` must be the first non-Self argument",
+                "`#[env]` must be the first non-Self argument and only appear once",
             ));
         }
 
@@ -319,6 +337,43 @@ impl MethodDetails {
                 "Can't consume `Self`, use `&self` or `&mut self` instead",
             ))
         }
+    }
+
+    pub(super) fn process_tmp_arg(
+        input_span: Span,
+        pat_type: &PatType,
+        metadata: &mut Self,
+    ) -> Result<(), Error> {
+        if metadata.tmp.is_some() || !metadata.io.is_empty() {
+            return Err(Error::new(
+                input_span,
+                "`#[tmp]` must appear only once before any inputs or outputs",
+            ));
+        }
+
+        // Check if input looks like `&Type` or `&mut Type`
+        if let Type::Reference(type_reference) = &*pat_type.ty {
+            let Some(arg_name) = extract_arg_name(&pat_type.pat) else {
+                return Err(Error::new(
+                    pat_type.span(),
+                    "`#[tmp]` argument name must be either a simple variable or a reference",
+                ));
+            };
+
+            metadata.tmp.replace(Tmp {
+                type_name: type_reference.elem.as_ref().clone(),
+                arg_name,
+                mutability: type_reference.mutability,
+            });
+
+            return Ok(());
+        }
+
+        Err(Error::new(
+            pat_type.span(),
+            "`#[tmp]` must be a reference to a type implementing `IoTypeOptional` (can be \
+            shared or exclusive) like `&MaybeData<Slot>` or `&mut VariableBytes<1024>`",
+        ))
     }
 
     pub(super) fn process_slot_arg_ro(
@@ -423,7 +478,7 @@ impl MethodDetails {
             pat_type.span(),
             "`#[slot]` must be a reference to a type implementing `IoTypeOptional` (can be \
             shared or exclusive) like `&MaybeData<Slot>` or a tuple of references to address and \
-            to slot type like `(&Address, &mut VariableBytes<1024>)",
+            to slot type like `(&Address, &mut VariableBytes<1024>)`",
         ))
     }
 
@@ -700,6 +755,84 @@ impl MethodDetails {
                     &[::ab_contracts_common::ContractMethodMetadata::EnvRo as u8],
                 });
             }
+        }
+
+        // Optional tmp argument with pointer to slot and size (+ capacity if mutable)
+        //
+        // Also asserting that type is safe for memory copying.
+        if let Some(tmp) = &self.tmp {
+            let type_name = &tmp.type_name;
+            let mutability = tmp.mutability;
+            let ptr_field = format_ident!("{}_ptr", tmp.arg_name);
+            let size_field = format_ident!("{}_size", tmp.arg_name);
+            let size_doc = format!("Size of the contents `{ptr_field}` points to");
+            let capacity_field = format_ident!("{}_capacity", tmp.arg_name);
+            let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
+
+            internal_args_pointers.push(quote! {
+                pub #ptr_field: ::core::ptr::NonNull<
+                    <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
+                >,
+            });
+            internal_args_sizes.push(quote! {
+                #[doc = #size_doc]
+                pub #size_field: u32,
+            });
+
+            if mutability.is_some() {
+                internal_args_capacities.push(quote! {
+                    #[doc = #capacity_doc]
+                    pub #capacity_field: u32,
+                });
+
+                original_fn_args.push(quote! {{
+                    // Ensure tmp type implements `IoTypeOptional`, which is required for handling
+                    // of tmp that might be removed or not present and implies implementation of
+                    // `IoType`, which is required for crossing host/guest boundary
+                    const _: () = {
+                        const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                        assert_impl_io_type_optional::<#type_name>();
+                    };
+
+                    &mut <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
+                        &mut args.#ptr_field,
+                        &mut args.#size_field,
+                        args.#capacity_field,
+                    )
+                }});
+            } else {
+                original_fn_args.push(quote! {{
+                    // Ensure tmp type implements `IoTypeOptional`, which is required for handling
+                    // of tmp that might be removed or not present and implies implementation of
+                    // `IoType`, which is required for crossing host/guest boundary
+                    const _: () = {
+                        const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                        assert_impl_io_type_optional::<#type_name>();
+                    };
+
+                    &<#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
+                        &args.#ptr_field,
+                        &args.#size_field,
+                        // Size matches capacity for immutable inputs
+                        args.#size_field,
+                    )
+                }});
+            }
+
+            let slot_metadata_type = if mutability.is_some() {
+                format_ident!("TmpRw")
+            } else {
+                format_ident!("TmpRo")
+            };
+
+            let arg_name_metadata = derive_ident_metadata(&tmp.arg_name)?;
+            method_metadata.push(quote! {
+                &[
+                    ::ab_contracts_common::ContractMethodMetadata::#slot_metadata_type as u8,
+                    #( #arg_name_metadata, )*
+                ],
+                <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
+            });
         }
 
         // Slot arguments with:

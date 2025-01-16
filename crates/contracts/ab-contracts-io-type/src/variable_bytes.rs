@@ -1,5 +1,6 @@
 use crate::utils::concat_metadata_sources;
 use crate::{IoType, IoTypeMetadata, IoTypeOptional};
+use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::{ptr, slice};
@@ -159,6 +160,74 @@ impl<const RECOMMENDED_ALLOCATION: u32> IoTypeOptional for VariableBytes<RECOMME
 }
 
 impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
+    /// Create a new shared instance from provided memory buffer.
+    ///
+    /// # Panics
+    /// Panics if `buffer.len() != size`
+    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
+    // shared reference for most practical purposes.
+    pub fn from_buffer<'a>(
+        buffer: &'a [<Self as IoType>::PointerType],
+        size: &'a u32,
+    ) -> impl Deref<Target = Self> + 'a {
+        debug_assert!(buffer.len() == *size as usize, "Invalid size");
+        let capacity = *size;
+
+        VariableBytesWrapper(Self {
+            // TODO: Use `NonNull::from_ref()` once stable
+            bytes: NonNull::from(buffer).cast::<<Self as IoType>::PointerType>(),
+            // TODO: Use `NonNull::from_ref()` once stable
+            size: NonNull::from(size),
+            capacity,
+        })
+    }
+
+    /// Create a new exclusive instance from provided memory buffer.
+    ///
+    /// # Panics
+    /// Panics if `buffer.len() != size`
+    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
+    // exclusive reference for most practical purposes.
+    pub fn from_buffer_mut<'a>(
+        buffer: &'a mut [<Self as IoType>::PointerType],
+        size: &'a mut u32,
+    ) -> impl DerefMut<Target = Self> + 'a {
+        debug_assert!(buffer.len() == *size as usize, "Invalid size");
+        let capacity = *size;
+
+        VariableBytesWrapper(Self {
+            // TODO: Use `NonNull::from_mut()` once stable
+            bytes: NonNull::from(buffer).cast::<<Self as IoType>::PointerType>(),
+            // TODO: Use `NonNull::from_mut()` once stable
+            size: NonNull::from(size),
+            capacity,
+        })
+    }
+
+    /// Create a new shared instance from provided memory buffer.
+    ///
+    /// # Panics
+    /// Panics if `size > SIZE`
+    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
+    // shared reference for most practical purposes.
+    // TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
+    //  `CAPACITY as usize`
+    pub fn from_uninit<'a, const CAPACITY: usize>(
+        uninit: &'a mut MaybeUninit<[<Self as IoType>::PointerType; CAPACITY]>,
+        size: &'a mut u32,
+    ) -> impl Deref<Target = Self> + 'a {
+        debug_assert!(*size as usize <= CAPACITY, "Size larger than capacity");
+        let capacity = CAPACITY as u32;
+
+        VariableBytesWrapper(Self {
+            // TODO: Use `NonNull::from_ref()` once stable
+            bytes: NonNull::from(uninit).cast::<<Self as IoType>::PointerType>(),
+            // TODO: Use `NonNull::from_mut()` once stable
+            size: NonNull::from(size),
+            capacity,
+        })
+    }
+
     #[inline]
     pub fn size(&self) -> u32 {
         // SAFETY: guaranteed to be initialized by constructors

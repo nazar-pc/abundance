@@ -335,6 +335,8 @@ pub unsafe trait IoType {
     ///
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
+    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
+    // shared reference for most practical purposes.
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
@@ -352,6 +354,8 @@ pub unsafe trait IoType {
     ///
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
+    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
+    // exclusive reference for most practical purposes.
     unsafe fn from_ptr_mut<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,

@@ -29,6 +29,8 @@ pub enum ContractMethodMetadata {
     /// * Argument type as u8, one of:
     ///   * [`Self::EnvRo`]
     ///   * [`Self::EnvRw`]
+    ///   * [`Self::TmpRo`]
+    ///   * [`Self::TmpRw`]
     ///   * [`Self::SlotWithAddressRo`]
     ///   * [`Self::SlotWithAddressRw`]
     ///   * [`Self::SlotWithoutAddressRo`]
@@ -296,6 +298,14 @@ pub enum ContractMethodMetadata {
     ///
     /// Example: `#[env] env: &mut Env,`
     EnvRw,
+    /// Read-only `#[tmp]` argument.
+    ///
+    /// Example: `#[tmp] tmp: &MaybeData<Slot>,`
+    TmpRo,
+    /// Read-write `#[tmp]` argument.
+    ///
+    /// Example: `#[tmp] tmp: &mut MaybeData<Slot>,`
+    TmpRw,
     /// Read-only `#[slot]` argument with an address.
     ///
     /// Example: `#[slot] (from_address, from): (&Address, &MaybeData<Slot>),`
