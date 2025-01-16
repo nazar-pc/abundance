@@ -11,7 +11,7 @@ use proc_macro2::{Ident, Literal, TokenStream, TokenTree};
 use quote::{format_ident, quote};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
-use syn::{parse, Error, ImplItem, ImplItemFn, ItemImpl, Meta, Type, Visibility};
+use syn::{parse2, Error, ImplItem, ImplItemFn, ItemImpl, Meta, Type, Visibility};
 
 #[derive(Default)]
 struct MethodOutput {
@@ -30,11 +30,8 @@ struct ContractDetails {
     methods: Vec<Method>,
 }
 
-pub(super) fn contract_impl(
-    _attr: proc_macro::TokenStream,
-    item: proc_macro::TokenStream,
-) -> Result<proc_macro::TokenStream, Error> {
-    let mut item_impl = parse::<ItemImpl>(item)?;
+pub(super) fn contract_impl(item: TokenStream) -> Result<TokenStream, Error> {
+    let mut item_impl = parse2::<ItemImpl>(item)?;
     let struct_name = item_impl.self_ty.as_ref();
 
     if let Some(trait_) = item_impl.trait_ {
@@ -148,7 +145,7 @@ pub(super) fn contract_impl(
         const _CONTRACT_DEFINED: () = ();
     };
 
-    Ok(output.into())
+    Ok(output)
 }
 
 fn process_fn(
