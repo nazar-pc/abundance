@@ -167,7 +167,7 @@ impl MyContract {
         slot: &MaybeData<u128>,
         input: &Balance,
         output: &mut MaybeData<u128>
-    ) -> Result<(), ExitCode> {
+    ) -> Result<(), ContractError> {
         if env.context() != &self.owner {
             return Err(ErrorCode::AccessDenied);
         }
