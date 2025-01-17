@@ -1,5 +1,5 @@
 use crate::method::{ExternalArgs, MethodFingerprint};
-use crate::{Address, ContractError};
+use crate::{Address, ContractError, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
 use core::marker::PhantomData;
@@ -44,12 +44,23 @@ pub struct PreparedMethod<'a> {
 #[repr(C)]
 #[non_exhaustive]
 pub struct Env {
+    shard_index: ShardIndex,
+    own_address: Address,
     context: Address,
     caller: Address,
-    own_address: Address,
 }
 
 impl Env {
+    /// Context of the execution
+    pub fn shard_index(&self) -> ShardIndex {
+        self.shard_index
+    }
+
+    /// Address of this contract itself
+    pub fn own_address(&self) -> &Address {
+        &self.own_address
+    }
+
     /// Context of the execution
     pub fn context<'a>(self: &'a &'a mut Self) -> &'a Address {
         &self.context
@@ -58,11 +69,6 @@ impl Env {
     /// Caller of this contract
     pub fn caller<'a>(self: &'a &'a mut Self) -> &'a Address {
         &self.caller
-    }
-
-    /// Address of this contract itself
-    pub fn own_address(&self) -> &Address {
-        &self.own_address
     }
 
     /// Call a single method at specified address and with specified arguments.
