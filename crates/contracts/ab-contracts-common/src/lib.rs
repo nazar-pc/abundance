@@ -430,12 +430,62 @@ impl Balance {
     pub const MAX: Self = Self(u128::MAX);
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, From, Into, TrivialType)]
+/// Shard index
+#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
+#[repr(transparent)]
+pub struct ShardIndex(
+    // Essentially 32-bit number, but using an array reduces alignment requirement to 1 byte
+    [u8; 4],
+);
+
+impl fmt::Display for ShardIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        u32::from_le_bytes(self.0).fmt(f)
+    }
+}
+
+impl ShardIndex {
+    /// Max possible shard index
+    pub const MAX_SHARD_INDEX: u32 = Self::MAX_SHARDS - 1;
+    /// Max possible number of shards
+    pub const MAX_SHARDS: u32 = 2u32.pow(20);
+
+    // TODO: Remove once traits work in const environment and `From` could be used
+    /// Convert shard index to `u32`.
+    ///
+    /// This is typically only necessary for low-level code.
+    pub const fn to_u32(self) -> u32 {
+        u32::from_le_bytes(self.0)
+    }
+
+    // TODO: Remove once traits work in const environment and `From` could be used
+    /// Create shard index from `u32`.
+    ///
+    /// Returns `None` if `shard_index > ShardIndex::MAX_SHARD_INDEX`
+    ///
+    /// This is typically only necessary for low-level code.
+    pub const fn from_u32(shard_index: u32) -> Option<Self> {
+        if shard_index > Self::MAX_SHARD_INDEX {
+            return None;
+        }
+
+        Some(Self(shard_index.to_le_bytes()))
+    }
+}
+
+#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
 #[repr(transparent)]
 pub struct Address(
     // Essentially 64-bit number, but using an array reduces alignment requirement to 1 byte
     [u8; 8],
 );
+
+impl From<u64> for Address {
+    #[inline]
+    fn from(value: u64) -> Self {
+        Self(value.to_le_bytes())
+    }
+}
 
 impl fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -446,7 +496,16 @@ impl fmt::Display for Address {
 
 impl Address {
     // TODO: Various system contracts
-    /// System address
-    pub const SYSTEM: Self = Self([1; 8]);
+    /// Sentinel contract address, inaccessible and not owned by anyone
     pub const NULL: Self = Self([0; 8]);
+    /// System contract for managing code of other contracts
+    pub const SYSTEM_CODE: Self = Self([1; 8]);
+
+    /// System contract for address allocation on a particular shard index
+    pub const fn system_address_allocator(shard_index: ShardIndex) -> Address {
+        // Shard `0` doesn't have its own allocator because there are no user-deployable contracts
+        // there, so address `0` is `NULL`, the rest up to `ShardIndex::MAX_SHARD_INDEX` correspond
+        // to address allocators of respective shards
+        Address((shard_index.to_u32() as u64).to_le_bytes())
+    }
 }
