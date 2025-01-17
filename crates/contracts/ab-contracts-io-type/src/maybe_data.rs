@@ -117,17 +117,19 @@ where
             capacity,
         })
     }
-}
 
-impl<Data> IoTypeOptional for MaybeData<Data>
-where
-    Data: TrivialType,
-{
     #[inline]
-    fn as_mut_ptr(&mut self) -> &mut NonNull<Self::PointerType> {
+    unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
+        &self.data
+    }
+
+    #[inline]
+    unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
         &mut self.data
     }
 }
+
+impl<Data> IoTypeOptional for MaybeData<Data> where Data: TrivialType {}
 
 impl<Data> MaybeData<Data>
 where

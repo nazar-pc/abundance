@@ -1448,8 +1448,12 @@ impl MethodDetails {
                         #arg_name: &#type_name,
                     });
                     args_pointers.push(quote! {
-                        // TODO: Use `NonNull::from_ref()` once stable
-                        #struct_field_ptr: ::core::ptr::NonNull::from(#arg_name),
+                        // SAFETY: This pointer is used as input to FFI call and underlying data
+                        // will not be modified, also pointer will not outlive the reference from
+                        // which it was created despite copying
+                        #struct_field_ptr: unsafe {
+                            *::ab_contracts_io_type::IoType::as_ptr(#arg_name)
+                        },
                     });
                 }
                 IoArg::Output {
@@ -1460,7 +1464,13 @@ impl MethodDetails {
                         #arg_name: &mut #type_name,
                     });
                     args_pointers.push(quote! {
-                        #struct_field_ptr: *::ab_contracts_io_type::IoTypeOptional::as_mut_ptr(#arg_name),
+                        // SAFETY: This pointer is used as input to FFI call and underlying data
+                        // will only be modified there, also pointer will not outlive the reference
+                        // from which it was created despite copying
+                        #struct_field_ptr: unsafe {
+                            let ptr = *::ab_contracts_io_type::IoType::as_mut_ptr(#arg_name);
+                            ptr
+                        },
                     });
                     args_capacities.push(quote! {
                         #struct_field_capacity: ::ab_contracts_io_type::IoType::capacity(#arg_name),
@@ -1488,7 +1498,13 @@ impl MethodDetails {
                         });
                     }
                     args_pointers.push(quote! {
-                        #struct_field_ptr: *::ab_contracts_io_type::IoTypeOptional::as_mut_ptr(#arg_name),
+                        // SAFETY: This pointer is used as input to FFI call and underlying data
+                        // will only be modified there, also pointer will not outlive the reference
+                        // from which it was created despite copying
+                        #struct_field_ptr: unsafe {
+                            let ptr = *::ab_contracts_io_type::IoType::as_mut_ptr(#arg_name);
+                            ptr
+                        },
                     });
                     args_capacities.push(quote! {
                         #struct_field_capacity: ::ab_contracts_io_type::IoType::capacity(#arg_name),

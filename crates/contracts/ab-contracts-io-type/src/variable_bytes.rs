@@ -152,14 +152,19 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
             capacity,
         })
     }
-}
 
-impl<const RECOMMENDED_ALLOCATION: u32> IoTypeOptional for VariableBytes<RECOMMENDED_ALLOCATION> {
     #[inline]
-    fn as_mut_ptr(&mut self) -> &mut NonNull<Self::PointerType> {
+    unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
+        &self.bytes
+    }
+
+    #[inline]
+    unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
         &mut self.bytes
     }
 }
+
+impl<const RECOMMENDED_ALLOCATION: u32> IoTypeOptional for VariableBytes<RECOMMENDED_ALLOCATION> {}
 
 impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     /// Create a new shared instance from provided memory buffer.

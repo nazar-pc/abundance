@@ -336,7 +336,8 @@ pub unsafe trait IoType {
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
-    // shared reference for most practical purposes.
+    // shared reference for most practical purposes. While lifetime here is somewhat superficial due
+    // to `Copy` nature of the value, it must be respected.
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
@@ -355,16 +356,33 @@ pub unsafe trait IoType {
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
-    // exclusive reference for most practical purposes.
+    // exclusive reference for most practical purposes. While lifetime here is somewhat superficial
+    // due to `Copy` nature of the value, it must be respected.
     unsafe fn from_ptr_mut<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a;
+
+    /// Get raw pointer to the underlying data with no checks
+    ///
+    /// # Safety
+    /// While calling this function is technically safe, it and allows to ignore many of its
+    /// invariants, so requires extra care. In particular no modifications must be done to the value
+    /// while this returned pointer might be used and no changes must be done through returned
+    /// pointer. Also, lifetimes are only superficial here and can be easily (and incorrectly)
+    /// ignored by using `Copy`.
+    unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>>;
+
+    /// Get exclusive raw pointer to the underlying data with no checks
+    ///
+    /// # Safety
+    /// While calling this function is technically safe, it and allows to ignore many of its
+    /// invariants, so requires extra care. In particular the value's contents must not be read or
+    /// written to while returned point might be used. Also, lifetimes are only superficial here and
+    /// can be easily (and incorrectly) ignored by using `Copy`.
+    unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>>;
 }
 
 /// Marker trait, companion to [`IoType`] that indicates ability to store optional contents
-pub trait IoTypeOptional: IoType {
-    /// Get exclusive access to underlying data with no checks
-    fn as_mut_ptr(&mut self) -> &mut NonNull<Self::PointerType>;
-}
+pub trait IoTypeOptional: IoType {}
