@@ -71,7 +71,9 @@ where
         );
 
         // SAFETY: guaranteed to be initialized by constructors
-        self.size.write(size);
+        unsafe {
+            self.size.write(size);
+        }
     }
 
     #[inline]
@@ -115,17 +117,19 @@ where
             capacity,
         })
     }
-}
 
-impl<Data> IoTypeOptional for MaybeData<Data>
-where
-    Data: TrivialType,
-{
     #[inline]
-    fn as_mut_ptr(&mut self) -> &mut NonNull<Self::PointerType> {
+    unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
+        &self.data
+    }
+
+    #[inline]
+    unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
         &mut self.data
     }
 }
+
+impl<Data> IoTypeOptional for MaybeData<Data> where Data: TrivialType {}
 
 impl<Data> MaybeData<Data>
 where
@@ -279,7 +283,11 @@ where
     #[inline]
     pub unsafe fn assume_init(&mut self) -> &mut Data {
         // SAFETY: guaranteed to be initialized by constructors
-        self.size.write(self.capacity);
-        self.data.as_mut()
+        unsafe {
+            self.size.write(self.capacity);
+        }
+        // SAFETY: guaranteed to be initialized by caller, the rest of guarantees are provided by
+        // constructors
+        unsafe { self.data.as_mut() }
     }
 }

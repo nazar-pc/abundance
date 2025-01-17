@@ -7,15 +7,15 @@ use core::ptr::NonNull;
 
 /// Context for method call.
 ///
-/// Initially context is [`Address::NOBODY`]. For each call into another contract, context of the
-/// current method can be either preserved, reset to [`Address::NOBODY`] or replaced with current
+/// Initially context is [`Address::NULL`]. For each call into another contract, context of the
+/// current method can be either preserved, reset to [`Address::NULL`] or replaced with current
 /// contract's address.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
 #[repr(u8)]
 pub enum MethodContext {
     /// Keep current context
     Keep,
-    /// Reset context to [`Address::NOBODY`]
+    /// Reset context to [`Address::NULL`]
     Reset,
     /// Replace context with current contract's address
     Replace,

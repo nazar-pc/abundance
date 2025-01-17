@@ -448,5 +448,5 @@ impl Address {
     // TODO: Various system contracts
     /// System address
     pub const SYSTEM: Self = Self([1; 8]);
-    pub const NOBODY: Self = Self([0; 8]);
+    pub const NULL: Self = Self([0; 8]);
 }

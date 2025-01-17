@@ -31,6 +31,8 @@ pub struct ExampleContract {
     pub padding: [u8; 8],
 }
 
+// TODO: Support traits
+// TODO: Can state possibly also be a slot so `#[init]` no longer needs to exit?
 #[contract_impl]
 impl ExampleContract {
     #[init]
