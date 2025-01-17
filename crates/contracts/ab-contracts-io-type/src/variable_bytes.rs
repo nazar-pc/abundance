@@ -311,6 +311,28 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         true
     }
 
+    /// Copy contents from another instance.
+    ///
+    /// Returns `false` if actual capacity of the instance is not enough to copy contents of `src`
+    #[inline]
+    #[must_use = "Operation may fail"]
+    pub fn copy_from(&mut self, src: &Self) -> bool {
+        let src_size = src.size();
+        if src_size > self.capacity {
+            return false;
+        }
+
+        // Safety: `src` can't be the same as `&mut self` if invariants of constructor arguments
+        // were upheld, size is checked to be within capacity above
+        unsafe {
+            self.bytes
+                .copy_from_nonoverlapping(src.bytes, src_size as usize);
+            self.size.write(src_size);
+        }
+
+        true
+    }
+
     /// Get exclusive access to underlying pointer with no checks.
     ///
     /// Can be used for initialization with [`Self::assume_init()`] called afterward to confirm how

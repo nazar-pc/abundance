@@ -55,6 +55,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-system-contract-code"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+ "ab-system-contract-address-allocator",
+]
+
+[[package]]
 name = "derive_more"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
