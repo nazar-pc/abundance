@@ -71,7 +71,9 @@ where
         );
 
         // SAFETY: guaranteed to be initialized by constructors
-        self.size.write(size);
+        unsafe {
+            self.size.write(size);
+        }
     }
 
     #[inline]
@@ -279,7 +281,11 @@ where
     #[inline]
     pub unsafe fn assume_init(&mut self) -> &mut Data {
         // SAFETY: guaranteed to be initialized by constructors
-        self.size.write(self.capacity);
-        self.data.as_mut()
+        unsafe {
+            self.size.write(self.capacity);
+        }
+        // SAFETY: guaranteed to be initialized by caller, the rest of guarantees are provided by
+        // constructors
+        unsafe { self.data.as_mut() }
     }
 }

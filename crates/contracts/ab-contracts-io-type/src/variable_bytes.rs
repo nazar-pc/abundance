@@ -114,7 +114,9 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
         );
 
         // SAFETY: guaranteed to be initialized by constructors
-        self.size.write(size);
+        unsafe {
+            self.size.write(size);
+        }
     }
 
     #[inline]
@@ -328,7 +330,9 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         }
 
         // SAFETY: guaranteed to be initialized by constructors
-        self.size.write(size);
+        unsafe {
+            self.size.write(size);
+        }
         Some(self.get_initialized_mut())
     }
 }

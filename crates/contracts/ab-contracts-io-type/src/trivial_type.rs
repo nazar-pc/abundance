@@ -206,7 +206,7 @@ where
         debug_assert!(capacity as usize == size_of::<Self>(), "Invalid capacity");
 
         // SAFETY: guaranteed by this function signature
-        ptr.as_ref()
+        unsafe { ptr.as_ref() }
     }
 
     #[inline]
@@ -220,6 +220,6 @@ where
         debug_assert!(capacity as usize == size_of::<Self>(), "Invalid capacity");
 
         // SAFETY: guaranteed by this function signature
-        ptr.as_mut()
+        unsafe { ptr.as_mut() }
     }
 }

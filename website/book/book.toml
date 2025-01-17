@@ -14,6 +14,8 @@ create-missing = false
 layout = "elk"
 
 [rust]
+# TODO: 2024 doesn't work in CI for reasons that are not very clear right now, consider updating it in the future when
+#  2024 is available on stable channel
 edition = "2021"
 
 [output.html]
