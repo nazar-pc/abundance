@@ -265,6 +265,8 @@ pub enum IoTypeMetadata {
     VariableBytes524288,
     /// Compact alias [`VariableBytes<1048576>`](crate::variable_bytes::VariableBytes)
     VariableBytes1048576,
+    /// Compact alias [`VariableBytes<2097152>`](crate::variable_bytes::VariableBytes)
+    VariableBytes2097152,
     /// Compact alias [`VariableBytes<4194304>`](crate::variable_bytes::VariableBytes)
     VariableBytes4194304,
     /// Compact alias [`VariableBytes<8388608>`](crate::variable_bytes::VariableBytes)

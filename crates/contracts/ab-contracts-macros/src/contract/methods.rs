@@ -1352,7 +1352,14 @@ impl MethodDetails {
                     }
                 }
             };
-            let method_type = format_ident!("{method_type}{}", method_metadata.len());
+            let method_type = format_ident!("{method_type}");
+            let number_of_arguments = u8::try_from(method_metadata.len()).map_err(|_error| {
+                Error::new(
+                    impl_item_fn.sig.span(),
+                    format!("Number of arguments must not be more than {}", u8::MAX),
+                )
+            })?;
+            let number_of_arguments = Literal::u8_unsuffixed(number_of_arguments);
 
             let method_name_metadata = derive_ident_metadata(original_method_name)?;
             quote_spanned! {impl_item_fn.sig.span() =>
@@ -1361,6 +1368,7 @@ impl MethodDetails {
                         &[
                             ::ab_contracts_common::ContractMethodMetadata::#method_type as u8,
                             #( #method_name_metadata, )*
+                            #number_of_arguments,
                         ],
                         #( #method_metadata )*
                     ])
@@ -1633,7 +1641,7 @@ fn derive_ident_metadata(ident: &Ident) -> Result<impl Iterator<Item = TokenTree
         Error::new(
             ident.span(),
             format!(
-                "Name of the field not be more than {} bytes in length",
+                "Name of the field must not be more than {} bytes in length",
                 u8::MAX
             ),
         )

@@ -100,6 +100,7 @@ pub(super) fn contract_impl(item: TokenStream) -> Result<TokenStream, Error> {
             .map(|method| &method.original_ident);
 
         // Encodes the following:
+        // * Metadata of the state type
         // * Number of methods
         // * Metadata of methods
         quote! {
@@ -112,17 +113,20 @@ pub(super) fn contract_impl(item: TokenStream) -> Result<TokenStream, Error> {
             /// See [`#struct_name::CONTRACT_METADATA`] for details.
             #[cfg(feature = "guest")]
             #[used]
-            #[unsafe(no_mangle)]
+            #[unsafe(link_section = "CONTRACT_METADATA")]
             static CONTRACT_METADATA: [u8; #struct_name::CONTRACT_METADATA.len()] =
                 unsafe { *#struct_name::CONTRACT_METADATA.as_ptr().cast() };
 
             impl #struct_name {
-                /// Contract metadata, starts with number of methods with their metadata next, see
-                /// [`ContractMethodMetadata`](::ab_contracts_common::ContractMethodMetadata) for
+                /// Contract metadata, starts with metadata of the state struct, followed by number
+                /// of methods with their metadata next, see [`ContractMethodMetadata`] for method
                 /// encoding details
+                ///
+                /// [`ContractMethodMetadata`]: ::ab_contracts_common::ContractMethodMetadata
                 pub const CONTRACT_METADATA: &[u8] = {
                     const fn metadata() -> ([u8; 4096], usize) {
                         ::ab_contracts_io_type::utils::concat_metadata_sources(&[
+                            <#struct_name as ::ab_contracts_io_type::IoType>::METADATA,
                             &[#num_methods],
                             #( ffi::#methods::METADATA, )*
                         ])
