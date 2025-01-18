@@ -40,7 +40,7 @@ static_assertions::const_assert_eq!(align_of::<i128>(), 16);
 // TODO: Function that generates compact metadata
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
-pub enum IoTypeMetadata {
+pub enum IoTypeMetadataKind {
     /// `()`
     Unit,
     /// `bool`
@@ -389,7 +389,7 @@ pub enum IoTypeMetadata {
     VariableBytes16777216,
 }
 
-impl IoTypeMetadata {
+impl IoTypeMetadataKind {
     /// This is helpful for host allocations that do not need to think about allocation alignment
     /// and can simply allocate all data structures at 4096 bytes alignment.
     ///
@@ -425,7 +425,7 @@ impl IoTypeMetadata {
 /// implement traits on it by forwarding everything to inner implementation.
 pub unsafe trait IoType {
     /// Data structure metadata in binary form, describing shape and types of the contents, see
-    /// [`IoTypeMetadata`] for encoding details.
+    /// [`IoTypeMetadataKind`] for encoding details.
     const METADATA: &[u8];
 
     /// Pointer with trivial type that this `IoType` represents

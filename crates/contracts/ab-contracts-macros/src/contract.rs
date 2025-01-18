@@ -119,10 +119,10 @@ pub(super) fn contract_impl(item: TokenStream) -> Result<TokenStream, Error> {
 
             impl #struct_name {
                 /// Contract metadata, starts with metadata of the state struct, followed by number
-                /// of methods with their metadata next, see [`ContractMethodMetadata`] for method
-                /// encoding details
+                /// method of methods with their metadata next, see [`ContractMetadataKind`]
+                /// for encoding details
                 ///
-                /// [`ContractMethodMetadata`]: ::ab_contracts_common::ContractMethodMetadata
+                /// [`ContractMetadataKind`]: ::ab_contracts_common::ContractMetadataKind
                 pub const CONTRACT_METADATA: &[u8] = {
                     const fn metadata() -> ([u8; 4096], usize) {
                         ::ab_contracts_io_type::utils::concat_metadata_sources(&[

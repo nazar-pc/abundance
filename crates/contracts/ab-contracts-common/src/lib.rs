@@ -18,7 +18,7 @@ use derive_more::{
 /// language bindings, auto-generate UI forms, etc.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
-pub enum ContractMethodMetadata {
+pub enum ContractMetadataKind {
     /// `#[init]` method.
     ///
     /// Initializers are encoded af follows:
@@ -42,7 +42,7 @@ pub enum ContractMethodMetadata {
     /// * Length of the argument name in bytes (u8)
     /// * Argument name as UTF-8 bytes
     /// * Recursive metadata of argument's type as described in
-    ///   [`IoTypeMetadata`](ab_contracts_io_type::IoTypeMetadata).
+    ///   [`IoTypeMetadataKind`](ab_contracts_io_type::IoTypeMetadataKind).
     ///
     /// NOTE: Result, regardless of whether it is a return type or explicit `#[result]` argument, is
     /// encoded as a separate argument and counts towards number of arguments. At the same time
