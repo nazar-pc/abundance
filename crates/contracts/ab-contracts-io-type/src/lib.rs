@@ -389,18 +389,6 @@ pub enum IoTypeMetadataKind {
     VariableBytes16777216,
 }
 
-impl IoTypeMetadataKind {
-    /// This is helpful for host allocations that do not need to think about allocation alignment
-    /// and can simply allocate all data structures at 4096 bytes alignment.
-    ///
-    /// Without this types metadata would have to store alignment alongside other details, but since
-    /// alignment beyond 4096 bytes is unlikely to be used in practice, metadata can be simplified.
-    // TODO: Reject alignment customizations instead, such that it can be inferred automatically
-    pub const MAX_ALIGNMENT: usize = 4096;
-    // TODO: Add more constants once above variants are extended with shortcuts for typical data
-    //  types
-}
-
 // TODO: A way to point output types to input types in order to avoid unnecessary memory copy
 //  (setting a pointer)
 /// Trait that is used for types that are crossing host/guest boundary in smart contracts.

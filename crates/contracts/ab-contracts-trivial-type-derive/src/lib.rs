@@ -83,12 +83,6 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         "Struct must not have implicit padding"
                     );
 
-                    // See constant description for details
-                    assert!(
-                        align_of::<#type_name>() <= ::ab_contracts_io_type::IoTypeMetadataKind::MAX_ALIGNMENT,
-                        "Alignment must not exceed `IoTypeMetadataKind::MAX_ALIGNMENT`"
-                    );
-
                     // Assert that type doesn't exceed 32-bit size limit
                     assert!(
                         u32::MAX as usize >= ::core::mem::size_of::<#type_name>(),
@@ -152,12 +146,6 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
             quote! {
                 const _: () = {
-                    // See constant description for details
-                    assert!(
-                        align_of::<#type_name>() <= ::ab_contracts_io_type::IoTypeMetadataKind::MAX_ALIGNMENT,
-                        "Alignment must not exceed `IoTypeMetadataKind::MAX_ALIGNMENT`"
-                    );
-
                     // Assert that type doesn't exceed 32-bit size limit
                     assert!(
                         u32::MAX as usize >= ::core::mem::size_of::<#type_name>(),
