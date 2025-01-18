@@ -40,6 +40,7 @@ impl Code {
     /// Store contact's code overriding previous code that might have been there.
     ///
     /// Updates can only be done by the contract itself with direct calls.
+    // TODO: Some code validation?
     #[update]
     pub fn store(
         #[env] env: &mut Env,
