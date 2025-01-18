@@ -65,9 +65,9 @@ pub enum IoTypeMetadata {
     I64,
     /// `i128`
     I128,
-    /// `struct`
+    /// `struct S {..}`
     ///
-    /// Structs are encoded af follows:
+    /// Structs with named fields are encoded af follows:
     /// * Length of struct name in bytes (u8)
     /// * Struct name as UTF-8 bytes
     /// * Number of fields (u8)
@@ -76,12 +76,10 @@ pub enum IoTypeMetadata {
     /// * Length of the field name in bytes (u8)
     /// * Field name as UTF-8 bytes
     /// * Recursive metadata of the field's type
-    ///
-    /// In tuple structs the first tuple element is treated as a field with name `0`, second with
-    /// `1` and so on, following above rules otherwise.
-    ///
-    /// Compact encoding doesn't encode names of structs and fields and their length.
     Struct,
+    /// Similar to [`Self::Struct`], but for exactly `0` struct fields and thus skips number of
+    /// fields after struct name
+    Struct0,
     /// Similar to [`Self::Struct`], but for exactly `1` struct fields and thus skips number of
     /// fields after struct name
     Struct1,
@@ -130,15 +128,72 @@ pub enum IoTypeMetadata {
     /// Similar to [`Self::Struct`], but for exactly `16` struct fields and thus skips number of
     /// fields after struct name
     Struct16,
-    /// `enum`
+    /// `struct S(..);`
     ///
-    /// Enums are encoded as follows:
+    /// Tuple structs are encoded af follows:
+    /// * Length of struct name in bytes (u8)
+    /// * Struct name as UTF-8 bytes
+    /// * Number of fields (u8)
+    ///
+    /// Each field is encoded follows:
+    /// * Recursive metadata of the field's type
+    TupleStruct,
+    /// Similar to [`Self::TupleStruct`], but for exactly `1` struct fields and thus skips number of
+    /// fields after struct name
+    TupleStruct1,
+    /// Similar to [`Self::TupleStruct`], but for exactly `2` struct fields and thus skips number of
+    /// fields after struct name
+    TupleStruct2,
+    /// Similar to [`Self::TupleStruct`], but for exactly `3` struct fields and thus skips number of
+    /// fields after struct name
+    TupleStruct3,
+    /// Similar to [`Self::TupleStruct`], but for exactly `4` struct fields and thus skips number of
+    /// fields after struct name
+    TupleStruct4,
+    /// Similar to [`Self::TupleStruct`], but for exactly `5` struct fields and thus skips number of
+    /// fields after struct name
+    TupleStruct5,
+    /// Similar to [`Self::TupleStruct`], but for exactly `6` struct fields and thus skips number of
+    /// fields after struct name
+    TupleStruct6,
+    /// Similar to [`Self::TupleStruct`], but for exactly `7` struct fields and thus skips number of
+    /// fields after struct name
+    TupleStruct7,
+    /// Similar to [`Self::TupleStruct`], but for exactly `8` struct fields and thus skips number of
+    /// fields after struct name
+    TupleStruct8,
+    /// Similar to [`Self::TupleStruct`], but for exactly `9` struct fields and thus skips number of
+    /// fields after struct name
+    TupleStruct9,
+    /// Similar to [`Self::TupleStruct`], but for exactly `10` struct fields and thus skips number
+    /// of fields after struct name
+    TupleStruct10,
+    /// Similar to [`Self::TupleStruct`], but for exactly `11` struct fields and thus skips number
+    /// of fields after struct name
+    TupleStruct11,
+    /// Similar to [`Self::TupleStruct`], but for exactly `12` struct fields and thus skips number
+    /// of fields after struct name
+    TupleStruct12,
+    /// Similar to [`Self::TupleStruct`], but for exactly `13` struct fields and thus skips number
+    /// of fields after struct name
+    TupleStruct13,
+    /// Similar to [`Self::TupleStruct`], but for exactly `14` struct fields and thus skips number
+    /// of fields after struct name
+    TupleStruct14,
+    /// Similar to [`Self::TupleStruct`], but for exactly `15` struct fields and thus skips number
+    /// of fields after struct name
+    TupleStruct15,
+    /// Similar to [`Self::TupleStruct`], but for exactly `16` struct fields and thus skips number
+    /// of fields after struct name
+    TupleStruct16,
+    /// `enum E { Variant {..} }`
+    ///
+    /// Enums with variants that have fields are encoded as follows:
     /// * Length of enum name in bytes (u8)
     /// * Enum name as UTF-8 bytes
     /// * Number of variants (u8)
-    /// * Each enum variant as if it was a struct, see [`Self::Struct`] for details
-    ///
-    /// Compact encoding doesn't encode names of enums, variants and fields and their length.
+    /// * Each enum variant as if it was a struct, see [`Self::Struct`] and [`Self::TupleStruct`]
+    ///   for details, depending on whether variant has named fields or looks like a tuple
     Enum,
     /// Similar to [`Self::Enum`], but for exactly `1` enum variants and thus skips number of
     /// variants after enum name
@@ -188,6 +243,65 @@ pub enum IoTypeMetadata {
     /// Similar to [`Self::Enum`], but for exactly `16` enum variants and thus skips number of
     /// variants after enum name
     Enum16,
+    /// `enum E { A, B }`
+    ///
+    /// Enums with variants that have no fields are encoded as follows:
+    /// * Length of enum name in bytes (u8)
+    /// * Enum name as UTF-8 bytes
+    /// * Number of variants (u8)
+    ///
+    /// Each enum variant is encoded follows:
+    /// * Length of the variant name in bytes (u8)
+    /// * Variant name as UTF-8 bytes
+    EnumNoFields,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `1` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields1,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `2` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields2,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `3` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields3,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `4` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields4,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `5` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields5,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `6` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields6,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `7` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields7,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `8` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields8,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `9` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields9,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `10` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields10,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `11` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields11,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `12` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields12,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `13` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields13,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `14` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields14,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `15` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields15,
+    /// Similar to [`Self::EnumNoFields`], but for exactly `16` enum variants and thus skips number
+    /// of variants after enum name
+    EnumNoFields16,
     /// Array `[T; N]` with up to 2^8 elements.
     ///
     /// Arrays with up to 2^8 encoded as follows:

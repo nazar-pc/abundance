@@ -268,9 +268,20 @@ fn parse_repr(
 
 fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<TokenStream, Error> {
     let num_fields = data_struct.fields.len();
+    let struct_with_fields = data_struct
+        .fields
+        .iter()
+        .next()
+        .map(|field| field.ident.is_some())
+        .unwrap_or_default();
+    let struct_type = if struct_with_fields {
+        "Struct"
+    } else {
+        "TupleStruct"
+    };
     let (io_type_metadata, with_num_fields) = match num_fields {
-        1..=16 => (format_ident!("Struct{num_fields}"), false),
-        _ => (format_ident!("Struct"), true),
+        1..=16 => (format_ident!("{struct_type}{num_fields}"), false),
+        _ => (format_ident!("{struct_type}"), true),
     };
     let inner_struct_metadata =
         generate_inner_struct_metadata(ident, &data_struct.fields, with_num_fields)
@@ -314,9 +325,20 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
             format!("Enum must not have more than {} variants", u8::MAX),
         )
     })?;
+    let variant_has_fields = data_enum
+        .variants
+        .iter()
+        .next()
+        .map(|variant| !variant.fields.is_empty())
+        .unwrap_or_default();
+    let enum_type = if variant_has_fields {
+        "Enum"
+    } else {
+        "EnumNoFields"
+    };
     let (io_type_metadata, with_num_variants) = match num_variants {
-        1..=16 => (format_ident!("Enum{num_variants}"), false),
-        _ => (format_ident!("Enum"), true),
+        1..=16 => (format_ident!("{enum_type}{num_variants}"), false),
+        _ => (format_ident!("{enum_type}"), true),
     };
 
     // Encodes the following:
@@ -428,28 +450,23 @@ fn generate_fields_metadata(
     fields: &Fields,
 ) -> impl Iterator<Item = Result<TokenStream, Error>> + '_ {
     // Encodes the following for each field:
-    // * Length of the field name in bytes (u8)
-    // * Field name as UTF-8 bytes
+    // * Length of the field name in bytes (u8, if not tuple)
+    // * Field name as UTF-8 bytes (if not tuple)
     // * Recursive metadata of the field's type
-    fields.iter().zip(0u8..).map(move |(field, index)| {
-        let field_name_string = if let Some(field_name) = &field.ident {
-            field_name.to_string()
-        } else {
-            index.to_string()
-        };
-        let field_name_bytes = field_name_string.as_bytes();
-        let field_name_len = u8::try_from(field_name_bytes.len()).map_err(|_error| {
-            Error::new(
-                field.span(),
-                format!(
-                    "Name of the field must not be more than {} bytes in length",
-                    u8::MAX
-                ),
-            )
-        })?;
-        let field_type = &field.ty;
+    fields.iter().map(move |field| {
+        let field_metadata = if let Some(field_name) = &field.ident {
+            let field_name_string = field_name.to_string();
+            let field_name_bytes = field_name_string.as_bytes();
+            let field_name_len = u8::try_from(field_name_bytes.len()).map_err(|_error| {
+                Error::new(
+                    field.span(),
+                    format!(
+                        "Name of the field must not be more than {} bytes in length",
+                        u8::MAX
+                    ),
+                )
+            })?;
 
-        let field_metadata = {
             let field_metadata = [TokenTree::Literal(Literal::u8_unsuffixed(field_name_len))]
                 .into_iter()
                 .chain(
@@ -458,8 +475,11 @@ fn generate_fields_metadata(
                         .map(|&char| TokenTree::Literal(Literal::byte_character(char))),
                 );
 
-            quote! { #( #field_metadata, )* }
+            Some(quote! { #( #field_metadata, )* })
+        } else {
+            None
         };
+        let field_type = &field.ty;
 
         Ok(quote! {
             &[ #field_metadata ],
