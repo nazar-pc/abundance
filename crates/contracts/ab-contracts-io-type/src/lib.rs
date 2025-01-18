@@ -265,6 +265,8 @@ pub enum IoTypeMetadata {
     VariableBytes524288,
     /// Compact alias [`VariableBytes<1048576>`](crate::variable_bytes::VariableBytes)
     VariableBytes1048576,
+    /// Compact alias [`VariableBytes<2097152>`](crate::variable_bytes::VariableBytes)
+    VariableBytes2097152,
     /// Compact alias [`VariableBytes<4194304>`](crate::variable_bytes::VariableBytes)
     VariableBytes4194304,
     /// Compact alias [`VariableBytes<8388608>`](crate::variable_bytes::VariableBytes)
@@ -285,6 +287,8 @@ impl IoTypeMetadata {
     //  types
 }
 
+// TODO: A way to point output types to input types in order to avoid unnecessary memory copy
+//  (setting a pointer)
 /// Trait that is used for types that are crossing host/guest boundary in smart contracts.
 ///
 /// Crucially it is implemented for any type that implements [`TrivialType`] and for
