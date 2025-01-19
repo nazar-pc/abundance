@@ -104,35 +104,38 @@ pub(super) fn contract_impl(item: TokenStream) -> Result<TokenStream, Error> {
         // * Number of methods
         // * Metadata of methods
         quote! {
-            /// Contract metadata
+            /// Main contract metadata
             ///
             /// Enabled with `guest` feature to appear in the final binary, also prevents from
             /// `guest` feature being enabled in dependencies at the same time since that'll cause
             /// duplicated symbols.
             ///
-            /// See [`#struct_name::CONTRACT_METADATA`] for details.
+            /// See [`#struct_name::MAIN_CONTRACT_METADATA`] for details.
             #[cfg(feature = "guest")]
             #[used]
+            #[unsafe(no_mangle)]
             #[unsafe(link_section = "CONTRACT_METADATA")]
-            static CONTRACT_METADATA: [u8; #struct_name::CONTRACT_METADATA.len()] =
-                unsafe { *#struct_name::CONTRACT_METADATA.as_ptr().cast() };
+            static MAIN_CONTRACT_METADATA: [u8; #struct_name::MAIN_CONTRACT_METADATA.len()] =
+                unsafe { *#struct_name::MAIN_CONTRACT_METADATA.as_ptr().cast() };
 
             impl #struct_name {
-                /// Contract metadata, starts with metadata of the state struct, followed by number
-                /// of methods with their metadata next, see [`ContractMethodMetadata`] for method
-                /// encoding details
+                /// Main contract metadata, see [`ContractMetadataKind`] for encoding details.
                 ///
-                /// [`ContractMethodMetadata`]: ::ab_contracts_common::ContractMethodMetadata
-                pub const CONTRACT_METADATA: &[u8] = {
+                /// More metadata can be contributed by trait implementations.
+                ///
+                /// [`ContractMetadataKind`]: ::ab_contracts_common::ContractMetadataKind
+                pub const MAIN_CONTRACT_METADATA: &[u8] = {
                     const fn metadata() -> ([u8; 4096], usize) {
                         ::ab_contracts_io_type::utils::concat_metadata_sources(&[
+                            &[::ab_contracts_common::ContractMetadataKind::Contract as u8],
                             <#struct_name as ::ab_contracts_io_type::IoType>::METADATA,
                             &[#num_methods],
                             #( ffi::#methods::METADATA, )*
                         ])
                     }
 
-                    // // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
+                    // Strange syntax to allow Rust to extend lifetime of metadata scratch
+                    // automatically
                     metadata()
                         .0
                         .split_at(metadata().1)

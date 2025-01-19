@@ -83,12 +83,6 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         "Struct must not have implicit padding"
                     );
 
-                    // See constant description for details
-                    assert!(
-                        align_of::<#type_name>() <= ::ab_contracts_io_type::IoTypeMetadata::MAX_ALIGNMENT,
-                        "Alignment must not exceed `IoTypeMetadata::MAX_ALIGNMENT`"
-                    );
-
                     // Assert that type doesn't exceed 32-bit size limit
                     assert!(
                         u32::MAX as usize >= ::core::mem::size_of::<#type_name>(),
@@ -152,12 +146,6 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
             quote! {
                 const _: () = {
-                    // See constant description for details
-                    assert!(
-                        align_of::<#type_name>() <= ::ab_contracts_io_type::IoTypeMetadata::MAX_ALIGNMENT,
-                        "Alignment must not exceed `IoTypeMetadata::MAX_ALIGNMENT`"
-                    );
-
                     // Assert that type doesn't exceed 32-bit size limit
                     assert!(
                         u32::MAX as usize >= ::core::mem::size_of::<#type_name>(),
@@ -293,7 +281,7 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
     Ok(quote! {{
         const fn metadata() -> ([u8; 4096], usize) {
             ::ab_contracts_io_type::utils::concat_metadata_sources(&[
-                &[::ab_contracts_io_type::IoTypeMetadata::#io_type_metadata as u8],
+                &[::ab_contracts_io_type::IoTypeMetadataKind::#io_type_metadata as u8],
                 #( #inner_struct_metadata )*
             ])
         }
@@ -362,7 +350,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
 
         quote! {
             &[
-                ::ab_contracts_io_type::IoTypeMetadata::#io_type_metadata as u8,
+                ::ab_contracts_io_type::IoTypeMetadataKind::#io_type_metadata as u8,
                 #( #enum_metadata_header, )*
             ]
         }

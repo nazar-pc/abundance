@@ -1,5 +1,5 @@
 use crate::utils::concat_metadata_sources;
-use crate::{IoType, IoTypeMetadata, IoTypeOptional};
+use crate::{IoType, IoTypeMetadataKind, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
@@ -40,45 +40,61 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
     const METADATA: &[u8] = {
         const fn metadata(max_capacity: u32) -> ([u8; 4096], usize) {
             if max_capacity == 512 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes512 as u8]]);
+                return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableBytes512 as u8]]);
             } else if max_capacity == 1024 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes1024 as u8]]);
+                return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableBytes1024 as u8]]);
             } else if max_capacity == 2028 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes2028 as u8]]);
+                return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableBytes2028 as u8]]);
             } else if max_capacity == 4096 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes4096 as u8]]);
+                return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableBytes4096 as u8]]);
             } else if max_capacity == 8192 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes8192 as u8]]);
+                return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableBytes8192 as u8]]);
             } else if max_capacity == 16384 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes16384 as u8]]);
+                return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableBytes16384 as u8]]);
             } else if max_capacity == 32768 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes32768 as u8]]);
+                return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableBytes32768 as u8]]);
             } else if max_capacity == 65536 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes65536 as u8]]);
+                return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableBytes65536 as u8]]);
             } else if max_capacity == 131072 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes131072 as u8]]);
+                return concat_metadata_sources(&[
+                    &[IoTypeMetadataKind::VariableBytes131072 as u8],
+                ]);
             } else if max_capacity == 262144 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes262144 as u8]]);
+                return concat_metadata_sources(&[
+                    &[IoTypeMetadataKind::VariableBytes262144 as u8],
+                ]);
             } else if max_capacity == 524288 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes524288 as u8]]);
+                return concat_metadata_sources(&[
+                    &[IoTypeMetadataKind::VariableBytes524288 as u8],
+                ]);
             } else if max_capacity == 1048576 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes1048576 as u8]]);
+                return concat_metadata_sources(&[&[
+                    IoTypeMetadataKind::VariableBytes1048576 as u8
+                ]]);
             } else if max_capacity == 2097152 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes2097152 as u8]]);
+                return concat_metadata_sources(&[&[
+                    IoTypeMetadataKind::VariableBytes2097152 as u8
+                ]]);
             } else if max_capacity == 4194304 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes4194304 as u8]]);
+                return concat_metadata_sources(&[&[
+                    IoTypeMetadataKind::VariableBytes4194304 as u8
+                ]]);
             } else if max_capacity == 8388608 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes8388608 as u8]]);
+                return concat_metadata_sources(&[&[
+                    IoTypeMetadataKind::VariableBytes8388608 as u8
+                ]]);
             } else if max_capacity == 16777216 {
-                return concat_metadata_sources(&[&[IoTypeMetadata::VariableBytes16777216 as u8]]);
+                return concat_metadata_sources(&[&[
+                    IoTypeMetadataKind::VariableBytes16777216 as u8
+                ]]);
             }
 
             let (io_type, size_bytes) = if max_capacity < 2u32.pow(8) {
-                (IoTypeMetadata::VariableBytes8b, 1)
+                (IoTypeMetadataKind::VariableBytes8b, 1)
             } else if max_capacity < 2u32.pow(16) {
-                (IoTypeMetadata::VariableBytes16b, 2)
+                (IoTypeMetadataKind::VariableBytes16b, 2)
             } else {
-                (IoTypeMetadata::VariableBytes32b, 4)
+                (IoTypeMetadataKind::VariableBytes32b, 4)
             };
 
             concat_metadata_sources(&[

@@ -1,5 +1,5 @@
 use crate::utils::concat_metadata_sources;
-use crate::{IoType, IoTypeMetadata};
+use crate::{IoType, IoTypeMetadataKind};
 pub use ab_contracts_trivial_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
@@ -43,7 +43,7 @@ where
     const SIZE: u32 = size_of::<Self>() as u32;
     // TODO: Compact metadata without field and struct names
     /// Data structure metadata in binary form, describing shape and types of the contents, see
-    /// [`IoTypeMetadata`] for encoding details.
+    /// [`IoTypeMetadataKind`] for encoding details.
     const METADATA: &[u8];
 
     /// Create a reference to a type, which is represented by provided memory.
@@ -94,73 +94,73 @@ where
 }
 
 unsafe impl TrivialType for () {
-    const METADATA: &[u8] = &[IoTypeMetadata::Unit as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::Unit as u8];
 }
 unsafe impl TrivialType for bool {
-    const METADATA: &[u8] = &[IoTypeMetadata::Bool as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::Bool as u8];
 }
 unsafe impl TrivialType for u8 {
-    const METADATA: &[u8] = &[IoTypeMetadata::U8 as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::U8 as u8];
 }
 unsafe impl TrivialType for u16 {
-    const METADATA: &[u8] = &[IoTypeMetadata::U16 as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::U16 as u8];
 }
 unsafe impl TrivialType for u32 {
-    const METADATA: &[u8] = &[IoTypeMetadata::U32 as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::U32 as u8];
 }
 unsafe impl TrivialType for u64 {
-    const METADATA: &[u8] = &[IoTypeMetadata::U64 as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::U64 as u8];
 }
 unsafe impl TrivialType for u128 {
-    const METADATA: &[u8] = &[IoTypeMetadata::U128 as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::U128 as u8];
 }
 unsafe impl TrivialType for i8 {
-    const METADATA: &[u8] = &[IoTypeMetadata::I8 as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::I8 as u8];
 }
 unsafe impl TrivialType for i16 {
-    const METADATA: &[u8] = &[IoTypeMetadata::I16 as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::I16 as u8];
 }
 unsafe impl TrivialType for i32 {
-    const METADATA: &[u8] = &[IoTypeMetadata::I32 as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::I32 as u8];
 }
 unsafe impl TrivialType for i64 {
-    const METADATA: &[u8] = &[IoTypeMetadata::I64 as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::I64 as u8];
 }
 unsafe impl TrivialType for i128 {
-    const METADATA: &[u8] = &[IoTypeMetadata::I128 as u8];
+    const METADATA: &[u8] = &[IoTypeMetadataKind::I128 as u8];
 }
 
 const fn array_metadata(size: u32, inner_metadata: &[u8]) -> ([u8; 4096], usize) {
-    if inner_metadata.len() == 1 && inner_metadata[0] == IoTypeMetadata::U8 as u8 {
+    if inner_metadata.len() == 1 && inner_metadata[0] == IoTypeMetadataKind::U8 as u8 {
         if size == 8 {
-            return concat_metadata_sources(&[&[IoTypeMetadata::ArrayU8x8 as u8]]);
+            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x8 as u8]]);
         } else if size == 16 {
-            return concat_metadata_sources(&[&[IoTypeMetadata::ArrayU8x16 as u8]]);
+            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x16 as u8]]);
         } else if size == 32 {
-            return concat_metadata_sources(&[&[IoTypeMetadata::ArrayU8x32 as u8]]);
+            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x32 as u8]]);
         } else if size == 64 {
-            return concat_metadata_sources(&[&[IoTypeMetadata::ArrayU8x64 as u8]]);
+            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x64 as u8]]);
         } else if size == 128 {
-            return concat_metadata_sources(&[&[IoTypeMetadata::ArrayU8x128 as u8]]);
+            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x128 as u8]]);
         } else if size == 256 {
-            return concat_metadata_sources(&[&[IoTypeMetadata::ArrayU8x256 as u8]]);
+            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x256 as u8]]);
         } else if size == 512 {
-            return concat_metadata_sources(&[&[IoTypeMetadata::ArrayU8x512 as u8]]);
+            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x512 as u8]]);
         } else if size == 1024 {
-            return concat_metadata_sources(&[&[IoTypeMetadata::ArrayU8x1024 as u8]]);
+            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x1024 as u8]]);
         } else if size == 2028 {
-            return concat_metadata_sources(&[&[IoTypeMetadata::ArrayU8x2028 as u8]]);
+            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x2028 as u8]]);
         } else if size == 4096 {
-            return concat_metadata_sources(&[&[IoTypeMetadata::ArrayU8x4096 as u8]]);
+            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x4096 as u8]]);
         }
     }
 
     let (io_type, size_bytes) = if size < 2u32.pow(8) {
-        (IoTypeMetadata::Array8b, 1)
+        (IoTypeMetadataKind::Array8b, 1)
     } else if size < 2u32.pow(16) {
-        (IoTypeMetadata::Array16b, 2)
+        (IoTypeMetadataKind::Array16b, 2)
     } else {
-        (IoTypeMetadata::Array32b, 4)
+        (IoTypeMetadataKind::Array32b, 4)
     };
 
     concat_metadata_sources(&[

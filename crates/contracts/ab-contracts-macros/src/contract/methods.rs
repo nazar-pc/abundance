@@ -743,7 +743,7 @@ impl MethodDetails {
                 });
 
                 method_metadata.push(quote! {
-                    &[::ab_contracts_common::ContractMethodMetadata::EnvRw as u8],
+                    &[::ab_contracts_common::ContractMetadataKind::EnvRw as u8],
                 });
             } else {
                 original_fn_args.push(quote! {
@@ -752,7 +752,7 @@ impl MethodDetails {
                 });
 
                 method_metadata.push(quote! {
-                    &[::ab_contracts_common::ContractMethodMetadata::EnvRo as u8],
+                    &[::ab_contracts_common::ContractMetadataKind::EnvRo as u8],
                 });
             }
         }
@@ -828,7 +828,7 @@ impl MethodDetails {
             let arg_name_metadata = derive_ident_metadata(&tmp.arg_name)?;
             method_metadata.push(quote! {
                 &[
-                    ::ab_contracts_common::ContractMethodMetadata::#slot_metadata_type as u8,
+                    ::ab_contracts_common::ContractMetadataKind::#slot_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
                 <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
@@ -943,7 +943,7 @@ impl MethodDetails {
             let arg_name_metadata = derive_ident_metadata(&slot.arg_name)?;
             method_metadata.push(quote! {
                 &[
-                    ::ab_contracts_common::ContractMethodMetadata::#slot_metadata_type as u8,
+                    ::ab_contracts_common::ContractMetadataKind::#slot_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
                 <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
@@ -1115,7 +1115,7 @@ impl MethodDetails {
             let arg_name_metadata = derive_ident_metadata(io_arg.arg_name())?;
             method_metadata.push(quote! {
                 &[
-                    ::ab_contracts_common::ContractMethodMetadata::#io_metadata_type as u8,
+                    ::ab_contracts_common::ContractMetadataKind::#io_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
                 <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
@@ -1166,7 +1166,7 @@ impl MethodDetails {
                 let arg_name_metadata = derive_ident_metadata(&result_var_name)?;
                 method_metadata.push(quote! {
                     &[
-                        ::ab_contracts_common::ContractMethodMetadata::Result as u8,
+                        ::ab_contracts_common::ContractMetadataKind::Result as u8,
                         #( #arg_name_metadata, )*
                     ],
                     <#result_type as ::ab_contracts_io_type::IoType>::METADATA,
@@ -1366,7 +1366,7 @@ impl MethodDetails {
                 const fn metadata() -> ([u8; 4096], usize) {
                     ::ab_contracts_io_type::utils::concat_metadata_sources(&[
                         &[
-                            ::ab_contracts_common::ContractMethodMetadata::#method_type as u8,
+                            ::ab_contracts_common::ContractMetadataKind::#method_type as u8,
                             #( #method_name_metadata, )*
                             #number_of_arguments,
                         ],
@@ -1374,9 +1374,9 @@ impl MethodDetails {
                     ])
                 }
 
-                /// Method metadata, see
-                /// [`ContractMethodMetadata`](::ab_contracts_common::ContractMethodMetadata) for
-                /// encoding details
+                /// Method metadata, see [`ContractMetadataKind`] for encoding details
+                ///
+                /// [`ContractMetadataKind`]: ::ab_contracts_common::ContractMetadataKind
                 // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
                 pub const METADATA: &[u8] =
                     metadata()
