@@ -9,6 +9,7 @@ dependencies = [
  "ab-contracts-common",
  "ab-contracts-io-type",
  "ab-contracts-macros",
+ "ab-contracts-standards",
 ]
 
 [[package]]
@@ -31,9 +32,19 @@ dependencies = [
 name = "ab-contracts-macros"
 version = "0.0.1"
 dependencies = [
+ "ident_case",
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "ab-contracts-standards"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
 ]
 
 [[package]]
@@ -84,6 +95,12 @@ dependencies = [
  "syn",
  "unicode-xid",
 ]
+
+[[package]]
+name = "ident_case"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "proc-macro2"

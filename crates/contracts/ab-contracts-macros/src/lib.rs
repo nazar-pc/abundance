@@ -19,7 +19,9 @@
 //! * `#[result]` - a single optional method result as an alternative to returning values from a
 //!   function directly, useful to reduce stack usage
 //!
-//! # #\[init]
+//! # For struct implementation
+//!
+//! ## #\[init]
 //!
 //! Initializer's purpose is to produce the initial state of the contract.
 //!
@@ -34,9 +36,9 @@
 //! `self` argument is not supported in any way in this context since state of the contract is just
 //! being created.
 //!
-//! # #\[update]
+//! ## #\[update]
 //!
-//! Generic method into contract that can both update contract's own state and contents of slots.
+//! Generic method contract that can both update contract's own state and contents of slots.
 //!
 //! Following arguments are supported by this method (must be in this order):
 //! * `&self` or `&mut self` depending on whether state reads and/or modification are required
@@ -47,7 +49,7 @@
 //! * `#[output]`
 //! * `#[result]`
 //!
-//! # #\[view]
+//! ## #\[view]
 //!
 //! Similar to `#[update]`, but can only access read-only view of the state and slots, can be called
 //! outside of block context and can only call other `#[view]` methods.
@@ -56,6 +58,31 @@
 //! * `&self`
 //! * `#[env]` read-only
 //! * `#[slot]` read-only
+//! * `#[input]`
+//! * `#[output]`
+//! * `#[result]`
+//!
+//! # For trait definition and trait implementation
+//!
+//! ## #\[update]
+//!
+//! Generic method contract that can (in case of trait indirectly) both update contract's own state
+//! and contents of slots.
+//!
+//! Following arguments are supported by this method in trait context (must be in this order):
+//! * `#[env]` read-only and read-write
+//! * `#[input]`
+//! * `#[output]`
+//! * `#[result]`
+//!
+//! ## #\[view]
+//!
+//! Similar to `#[update]`, but can only access (in case of trait indirectly) read-only view of the
+//! state and slots, can be called outside of block context and can only call other `#[view]`
+//! methods.
+//!
+//! Following arguments are supported by this method in trait context (must be in this order):
+//! * `#[env]` read-only
 //! * `#[input]`
 //! * `#[output]`
 //! * `#[result]`

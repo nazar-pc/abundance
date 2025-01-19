@@ -1,5 +1,5 @@
 [package]
-name = "ab-contract-example"
+name = "ab-contracts-standards"
 description = ""
 license = "0BSD"
 version = "0.0.1"
@@ -14,9 +14,6 @@ include = [
 ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
 ab-contracts-io-type = { version = "0.0.1", path = "../ab-contracts-io-type" }
 ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
-ab-contracts-standards = { version = "0.0.1", path = "../ab-contracts-standards" }
 
 [features]
-guest = [
-    "ab-contracts-standards/guest"
-]
+guest = []

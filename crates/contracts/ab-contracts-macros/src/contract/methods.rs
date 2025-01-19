@@ -1,4 +1,5 @@
 use crate::contract::common::derive_ident_metadata;
+use ident_case::RenameRule;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
@@ -617,7 +618,11 @@ impl MethodDetails {
         }
     }
 
-    pub(super) fn generate_guest_ffi(&self, fn_sig: &Signature) -> Result<TokenStream, Error> {
+    pub(super) fn generate_guest_ffi(
+        &self,
+        fn_sig: &Signature,
+        trait_name: Option<&Ident>,
+    ) -> Result<TokenStream, Error> {
         let self_type = &self.self_type;
         if matches!(self.method_type, MethodType::Init) {
             let self_return_type = self.result_type.result_type() == self_type;
@@ -652,9 +657,9 @@ impl MethodDetails {
 
         let original_method_name = &fn_sig.ident;
 
-        let guest_fn = self.generate_guest_fn(fn_sig)?;
-        let external_args_struct = self.generate_external_args_struct(fn_sig)?;
-        let metadata = self.generate_metadata(fn_sig)?;
+        let guest_fn = self.generate_guest_fn(fn_sig, trait_name)?;
+        let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name)?;
+        let metadata = self.generate_metadata(fn_sig, trait_name)?;
 
         Ok(quote! {
             pub mod #original_method_name {
@@ -667,7 +672,31 @@ impl MethodDetails {
         })
     }
 
-    pub(super) fn generate_guest_fn(&self, fn_sig: &Signature) -> Result<TokenStream, Error> {
+    pub(super) fn generate_guest_trait_ffi(
+        &self,
+        fn_sig: &Signature,
+        trait_name: Option<&Ident>,
+    ) -> Result<TokenStream, Error> {
+        let original_method_name = &fn_sig.ident;
+
+        let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name)?;
+        let metadata = self.generate_metadata(fn_sig, trait_name)?;
+
+        Ok(quote! {
+            pub mod #original_method_name {
+                use super::*;
+
+                #external_args_struct
+                #metadata
+            }
+        })
+    }
+
+    pub(super) fn generate_guest_fn(
+        &self,
+        fn_sig: &Signature,
+        trait_name: Option<&Ident>,
+    ) -> Result<TokenStream, Error> {
         let self_type = &self.self_type;
 
         // `internal_args_pointers` will generate pointers in `InternalArgs` fields
@@ -994,6 +1023,12 @@ impl MethodDetails {
         }
 
         let original_method_name = &fn_sig.ident;
+        let ffi_fn_name = if let Some(trait_name) = trait_name {
+            let ffi_fn_prefix = RenameRule::SnakeCase.apply_to_variant(trait_name.to_string());
+            format_ident!("{ffi_fn_prefix}_{original_method_name}")
+        } else {
+            format_ident!("{original_method_name}")
+        };
         let result_type = self.result_type.result_type();
 
         let result_var_name = format_ident!("result");
@@ -1034,9 +1069,9 @@ impl MethodDetails {
                 });
             }
             let args_struct_doc = format!(
-                "Data structure containing expected input to [`{original_method_name}()`], it is \
-                used internally by the contract, there should be no need to construct it \
-                explicitly except maybe in contract's own tests"
+                "Data structure containing expected input to [`{ffi_fn_name}()`], it is used \
+                internally by the contract, there should be no need to construct it explicitly \
+                except maybe in contract's own tests"
             );
             quote_spanned! {fn_sig.span() =>
                 #[doc = #args_struct_doc]
@@ -1095,6 +1130,18 @@ impl MethodDetails {
                 }
             };
 
+            let ffi_fn_name = if let Some(trait_name) = trait_name {
+                let ffi_fn_prefix = RenameRule::SnakeCase.apply_to_variant(trait_name.to_string());
+                format_ident!("{ffi_fn_prefix}_{original_method_name}")
+            } else {
+                format_ident!("{original_method_name}")
+            };
+            let full_struct_name = if let Some(trait_name) = trait_name {
+                quote! { <#self_type as #trait_name> }
+            } else {
+                quote! { #self_type }
+            };
+
             // Generate FFI function with original name (hiding original implementation), but
             // exported as shortcut name
             quote_spanned! {fn_sig.span() =>
@@ -1108,7 +1155,7 @@ impl MethodDetails {
                 /// Caller must ensure provided pointer corresponds to expected ABI.
                 #[cfg_attr(feature = "guest", unsafe(no_mangle))]
                 #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes")]
-                pub unsafe extern "C" fn #original_method_name(
+                pub unsafe extern "C" fn #ffi_fn_name(
                     mut args: ::core::ptr::NonNull<InternalArgs>,
                 ) -> ::ab_contracts_common::ExitCode {
                     debug_assert!(args.is_aligned(), "`args` pointer is misaligned");
@@ -1121,7 +1168,7 @@ impl MethodDetails {
                         unused_braces,
                         reason = "Boilerplate to suppress when not used, seems to be false-positive"
                     )]
-                    let #result_var_name = #self_type::#original_method_name(
+                    let #result_var_name = #full_struct_name::#original_method_name(
                         #( { #original_fn_args }, )*
                     );
 
@@ -1136,7 +1183,11 @@ impl MethodDetails {
         })
     }
 
-    fn generate_external_args_struct(&self, fn_sig: &Signature) -> Result<TokenStream, Error> {
+    fn generate_external_args_struct(
+        &self,
+        fn_sig: &Signature,
+        trait_name: Option<&Ident>,
+    ) -> Result<TokenStream, Error> {
         // `external_args_pointers` will generate pointers in `ExternalArgs` fields
         let mut external_args_pointers = Vec::new();
         // `external_args_sizes` will generate sizes in `ExternalArgs` fields
@@ -1212,6 +1263,12 @@ impl MethodDetails {
         }
 
         let original_method_name = &fn_sig.ident;
+        let ffi_fn_name = if let Some(trait_name) = trait_name {
+            let ffi_fn_prefix = RenameRule::SnakeCase.apply_to_variant(trait_name.to_string());
+            format_ident!("{ffi_fn_prefix}_{original_method_name}")
+        } else {
+            format_ident!("{original_method_name}")
+        };
 
         // Initializer's return type will be `()` for caller, state is stored by the host and not
         // returned to the caller, also if explicit `#[result]` argument is used return type is
@@ -1235,7 +1292,7 @@ impl MethodDetails {
         }
         let args_struct_doc = format!(
             "Data structure containing expected input for external method invocation, eventually \
-            calling [`{original_method_name}()`] on the other side by the host.\n\n\
+            calling `{ffi_fn_name}()` on the other side by the host.\n\n\
             This can be used with [`Env`](::ab_contracts_common::env::Env), though there are \
             helper methods on this provided by extension trait that allow not dealing with this \
             struct directly in simpler cases."
@@ -1263,7 +1320,11 @@ impl MethodDetails {
         })
     }
 
-    fn generate_metadata(&self, fn_sig: &Signature) -> Result<TokenStream, Error> {
+    fn generate_metadata(
+        &self,
+        fn_sig: &Signature,
+        trait_name: Option<&Ident>,
+    ) -> Result<TokenStream, Error> {
         // `method_metadata` will generate metadata about method arguments, each element in this
         // vector corresponds to one argument
         let mut method_metadata = Vec::new();
@@ -1392,7 +1453,14 @@ impl MethodDetails {
         })?;
         let number_of_arguments = Literal::u8_unsuffixed(number_of_arguments);
 
-        let method_name_metadata = derive_ident_metadata(&fn_sig.ident)?;
+        let original_method_name = &fn_sig.ident;
+        let ffi_fn_name = if let Some(trait_name) = trait_name {
+            let ffi_fn_prefix = RenameRule::SnakeCase.apply_to_variant(trait_name.to_string());
+            format_ident!("{ffi_fn_prefix}_{original_method_name}")
+        } else {
+            format_ident!("{original_method_name}")
+        };
+        let method_name_metadata = derive_ident_metadata(&ffi_fn_name)?;
         Ok(quote_spanned! {fn_sig.span() =>
             const fn metadata() -> ([u8; 4096], usize) {
                 ::ab_contracts_io_type::utils::concat_metadata_sources(&[
@@ -1424,9 +1492,11 @@ impl MethodDetails {
         })
     }
 
-    pub(super) fn generate_trait_ext_components(&self, fn_sig: &Signature) -> ExtTraitComponents {
-        let original_method_name = &fn_sig.ident;
-
+    pub(super) fn generate_trait_ext_components(
+        &self,
+        fn_sig: &Signature,
+        trait_name: Option<&Ident>,
+    ) -> ExtTraitComponents {
         let mut preparation = Vec::new();
         let mut method_args = Vec::new();
         let mut args_pointers = Vec::new();
@@ -1546,6 +1616,13 @@ impl MethodDetails {
             }
         }
 
+        let original_method_name = &fn_sig.ident;
+        let ffi_fn_name = if let Some(trait_name) = trait_name {
+            let ffi_fn_prefix = RenameRule::SnakeCase.apply_to_variant(trait_name.to_string());
+            format_ident!("{ffi_fn_prefix}_{original_method_name}")
+        } else {
+            format_ident!("{original_method_name}")
+        };
         // Non-`#[view]` methods can only be called on `&mut Env`
         let env_mut = (!matches!(self.method_type, MethodType::View)).then(|| quote! { &mut });
         // `#[view]` methods do not require explicit method context
@@ -1561,7 +1638,7 @@ impl MethodDetails {
             || matches!(self.method_type, MethodType::Init)
         {
             quote! {
-                fn #original_method_name(
+                fn #ffi_fn_name(
                     self: &#env_mut Self,
                     #method_context_arg
                     #( #method_args )*
@@ -1593,7 +1670,7 @@ impl MethodDetails {
             });
 
             quote! {
-                fn #original_method_name(
+                fn #ffi_fn_name(
                     self: &#env_mut Self,
                     #method_context_arg
                     #( #method_args )*

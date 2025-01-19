@@ -1,11 +1,12 @@
 #![no_std]
 
-use ab_contracts_common::env::Env;
+use ab_contracts_common::env::{Env, MethodContext};
 use ab_contracts_common::{Address, Balance, ContractError};
 use ab_contracts_io_type::maybe_data::MaybeData;
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract;
+use ab_contracts_standards::Fungible;
 use core::cmp::Ordering;
 
 #[derive(Debug, Default, Copy, Clone, TrivialType)]
@@ -31,7 +32,24 @@ pub struct ExampleContract {
     pub padding: [u8; 8],
 }
 
-// TODO: Support traits
+#[contract]
+impl Fungible for ExampleContract {
+    #[update]
+    fn transfer(
+        #[env] env: &mut Env,
+        #[input] from: &Address,
+        #[input] to: &Address,
+        #[input] amount: &Balance,
+    ) -> Result<(), ContractError> {
+        env.transfer(&MethodContext::Keep, env.own_address(), from, to, amount)
+    }
+
+    #[view]
+    fn balance(#[env] env: &Env, #[input] address: &Address) -> Result<Balance, ContractError> {
+        env.balance(env.own_address(), address)
+    }
+}
+
 // TODO: Can state possibly also be a slot so `#[init]` no longer needs to exit?
 #[contract]
 impl ExampleContract {
@@ -127,7 +145,7 @@ impl ExampleContract {
         #[tmp] last_action: &mut MaybeData<LastAction>,
         #[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),
         #[slot] to: &mut MaybeData<Slot>,
-        #[input] &value: &Balance,
+        #[input] &amount: &Balance,
     ) -> Result<(), ContractError> {
         if env.context() != from_address && env.caller() != from_address {
             return Err(ContractError::AccessDenied);
@@ -138,7 +156,7 @@ impl ExampleContract {
                 return Err(ContractError::InvalidState);
             };
 
-            match contents.balance.cmp(&value) {
+            match contents.balance.cmp(&amount) {
                 Ordering::Less => {
                     return Err(ContractError::InvalidInput);
                 }
@@ -147,17 +165,17 @@ impl ExampleContract {
                     from.remove();
                 }
                 Ordering::Greater => {
-                    contents.balance -= value;
+                    contents.balance -= amount;
                 }
             }
         }
 
         match to.get_mut() {
             Some(contents) => {
-                contents.balance += value;
+                contents.balance += amount;
             }
             None => {
-                to.replace(Slot { balance: value });
+                to.replace(Slot { balance: amount });
             }
         }
 

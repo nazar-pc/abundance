@@ -1,5 +1,6 @@
 use crate::contract::methods::{MethodDetails, MethodType};
 use crate::contract::{ContractDetails, Method, MethodOutput};
+use proc_macro2::Ident;
 use quote::format_ident;
 use std::collections::HashMap;
 use syn::spanned::Spanned;
@@ -7,6 +8,7 @@ use syn::{Error, FnArg, Meta, Signature, Type};
 
 pub(super) fn process_init_fn(
     self_type: Type,
+    _trait_name: Option<&Ident>,
     fn_sig: &mut Signature,
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
@@ -81,8 +83,8 @@ pub(super) fn process_init_fn(
         }
     }
 
-    let guest_ffi = methods_details.generate_guest_ffi(fn_sig)?;
-    let trait_ext_components = methods_details.generate_trait_ext_components(fn_sig);
+    let guest_ffi = methods_details.generate_guest_ffi(fn_sig, None)?;
+    let trait_ext_components = methods_details.generate_trait_ext_components(fn_sig, None);
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),
