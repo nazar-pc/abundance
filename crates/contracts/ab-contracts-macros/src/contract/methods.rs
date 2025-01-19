@@ -673,9 +673,6 @@ impl MethodDetails {
         let mut external_args_capacities = Vec::new();
         // `original_fn_args` will generate arguments for calling original method implementation
         let mut original_fn_args = Vec::new();
-        // `method_metadata` will generate metadata about method arguments, each element in this
-        // vector corresponds to one argument
-        let mut method_metadata = Vec::new();
 
         // Optional state argument with pointer and size (+ capacity if mutable)
         if let Some(mutability) = self.state {
@@ -741,18 +738,10 @@ impl MethodDetails {
                     debug_assert!(args.env_ptr.is_aligned(), "`env_ptr` pointer is misaligned");
                     args.env_ptr.as_mut()
                 });
-
-                method_metadata.push(quote! {
-                    &[::ab_contracts_common::ContractMetadataKind::EnvRw as u8],
-                });
             } else {
                 original_fn_args.push(quote! {
                     debug_assert!(args.env_ptr.is_aligned(), "`env_ptr` pointer is misaligned");
                     args.env_ptr.as_ref()
-                });
-
-                method_metadata.push(quote! {
-                    &[::ab_contracts_common::ContractMetadataKind::EnvRo as u8],
                 });
             }
         }
@@ -818,21 +807,6 @@ impl MethodDetails {
                     )
                 }});
             }
-
-            let slot_metadata_type = if mutability.is_some() {
-                format_ident!("TmpRw")
-            } else {
-                format_ident!("TmpRo")
-            };
-
-            let arg_name_metadata = derive_ident_metadata(&tmp.arg_name)?;
-            method_metadata.push(quote! {
-                &[
-                    ::ab_contracts_common::ContractMetadataKind::#slot_metadata_type as u8,
-                    #( #arg_name_metadata, )*
-                ],
-                <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
-            });
         }
 
         // Slot arguments with:
@@ -911,7 +885,6 @@ impl MethodDetails {
                 }}
             };
 
-            let slot_metadata_type;
             if let Some(address_arg) = &slot.with_address_arg {
                 let address_ptr = format_ident!("{address_arg}_ptr");
                 original_fn_args.push(quote! {{
@@ -924,30 +897,9 @@ impl MethodDetails {
                         #arg_extraction,
                     )
                 }});
-
-                slot_metadata_type = if mutability.is_some() {
-                    format_ident!("SlotWithAddressRw")
-                } else {
-                    format_ident!("SlotWithAddressRo")
-                };
             } else {
                 original_fn_args.push(arg_extraction);
-
-                slot_metadata_type = if mutability.is_some() {
-                    format_ident!("SlotWithoutAddressRw")
-                } else {
-                    format_ident!("SlotWithoutAddressRo")
-                };
             }
-
-            let arg_name_metadata = derive_ident_metadata(&slot.arg_name)?;
-            method_metadata.push(quote! {
-                &[
-                    ::ab_contracts_common::ContractMetadataKind::#slot_metadata_type as u8,
-                    #( #arg_name_metadata, )*
-                ],
-                <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
-            });
         }
 
         // Inputs and outputs with pointer and size (+ capacity if mutable).
@@ -960,7 +912,7 @@ impl MethodDetails {
             let capacity_field = format_ident!("{}_capacity", io_arg.arg_name());
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
 
-            let io_metadata_type = match io_arg {
+            match io_arg {
                 IoArg::Input { .. } => {
                     internal_args_pointers.push(quote! {
                         pub #ptr_field: ::core::ptr::NonNull<
@@ -997,8 +949,6 @@ impl MethodDetails {
                             args.#size_field,
                         )
                     });
-
-                    format_ident!("Input")
                 }
                 IoArg::Output { .. } => {
                     internal_args_pointers.push(quote! {
@@ -1044,8 +994,6 @@ impl MethodDetails {
                             args.#capacity_field,
                         )
                     });
-
-                    format_ident!("Output")
                 }
                 IoArg::Result { .. } => {
                     internal_args_pointers.push(quote! {
@@ -1107,19 +1055,8 @@ impl MethodDetails {
                             args.#capacity_field,
                         )
                     });
-
-                    format_ident!("Result")
                 }
-            };
-
-            let arg_name_metadata = derive_ident_metadata(io_arg.arg_name())?;
-            method_metadata.push(quote! {
-                &[
-                    ::ab_contracts_common::ContractMetadataKind::#io_metadata_type as u8,
-                    #( #arg_name_metadata, )*
-                ],
-                <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
-            });
+            }
         }
 
         let original_method_name = &impl_item_fn.sig.ident;
@@ -1160,16 +1097,6 @@ impl MethodDetails {
                         <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
                         "`ok_result_capacity` specified is invalid",
                     );
-                });
-
-                // Placeholder argument name to keep metadata consistent
-                let arg_name_metadata = derive_ident_metadata(&result_var_name)?;
-                method_metadata.push(quote! {
-                    &[
-                        ::ab_contracts_common::ContractMetadataKind::Result as u8,
-                        #( #arg_name_metadata, )*
-                    ],
-                    <#result_type as ::ab_contracts_io_type::IoType>::METADATA,
                 });
             }
             let args_struct_doc = format!(
@@ -1323,75 +1250,7 @@ impl MethodDetails {
             }
         };
 
-        let metadata = {
-            let method_type = match self.method_type {
-                MethodType::Init => "Init",
-                MethodType::Update => {
-                    if let Some(mutable) = &self.state {
-                        if mutable.is_some() {
-                            "UpdateStatefulRw"
-                        } else {
-                            "UpdateStatefulRo"
-                        }
-                    } else {
-                        "UpdateStateless"
-                    }
-                }
-                MethodType::View => {
-                    if let Some(mutable) = &self.state {
-                        if mutable.is_some() {
-                            return Err(Error::new(
-                                impl_item_fn.sig.span(),
-                                "Stateful view methods are not supported",
-                            ));
-                        } else {
-                            "ViewStateful"
-                        }
-                    } else {
-                        "ViewStateless"
-                    }
-                }
-            };
-            let method_type = format_ident!("{method_type}");
-            let number_of_arguments = u8::try_from(method_metadata.len()).map_err(|_error| {
-                Error::new(
-                    impl_item_fn.sig.span(),
-                    format!("Number of arguments must not be more than {}", u8::MAX),
-                )
-            })?;
-            let number_of_arguments = Literal::u8_unsuffixed(number_of_arguments);
-
-            let method_name_metadata = derive_ident_metadata(original_method_name)?;
-            quote_spanned! {impl_item_fn.sig.span() =>
-                const fn metadata() -> ([u8; 4096], usize) {
-                    ::ab_contracts_io_type::utils::concat_metadata_sources(&[
-                        &[
-                            ::ab_contracts_common::ContractMetadataKind::#method_type as u8,
-                            #( #method_name_metadata, )*
-                            #number_of_arguments,
-                        ],
-                        #( #method_metadata )*
-                    ])
-                }
-
-                /// Method metadata, see [`ContractMetadataKind`] for encoding details
-                ///
-                /// [`ContractMetadataKind`]: ::ab_contracts_common::ContractMetadataKind
-                // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
-                pub const METADATA: &[u8] =
-                    metadata()
-                        .0
-                        .split_at(metadata().1)
-                        .0;
-
-                /// Method fingerprint
-                // TODO: Reduce metadata to essentials from above full metadata by collapsing tuple
-                //  structs, removing field and struct names, leaving just function signatures and
-                //  compact representation of data structures used for arguments
-                pub const FINGERPRINT: ::ab_contracts_common::method::MethodFingerprint =
-                    ::ab_contracts_common::method::MethodFingerprint::new(METADATA);
-            }
-        };
+        let metadata = self.generate_metadata(impl_item_fn)?;
 
         Ok(quote! {
             pub mod #original_method_name {
@@ -1402,6 +1261,154 @@ impl MethodDetails {
                 #external_args_struct
                 #metadata
             }
+        })
+    }
+
+    fn generate_metadata(&self, impl_item_fn: &ImplItemFn) -> Result<TokenStream, Error> {
+        // `method_metadata` will generate metadata about method arguments, each element in this
+        // vector corresponds to one argument
+        let mut method_metadata = Vec::new();
+
+        if let Some(mutability) = self.env {
+            let env_metadata_type = if mutability.is_some() {
+                "EnvRw"
+            } else {
+                "EnvRo"
+            };
+
+            let env_metadata_type = format_ident!("{env_metadata_type}");
+            method_metadata.push(quote! {
+                &[::ab_contracts_common::ContractMetadataKind::#env_metadata_type as u8],
+            });
+        }
+
+        if let Some(tmp) = &self.tmp {
+            let tmp_metadata_type = if tmp.mutability.is_some() {
+                "TmpRw"
+            } else {
+                "TmpRo"
+            };
+
+            let tmp_metadata_type = format_ident!("{tmp_metadata_type}");
+            let type_name = &tmp.type_name;
+            let arg_name_metadata = derive_ident_metadata(&tmp.arg_name)?;
+            method_metadata.push(quote! {
+                &[
+                    ::ab_contracts_common::ContractMetadataKind::#tmp_metadata_type as u8,
+                    #( #arg_name_metadata, )*
+                ],
+                <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
+            });
+        }
+
+        for slot in &self.slots {
+            let with_address = slot.with_address_arg.is_some();
+            let mutable = slot.mutability.is_some();
+            let slot_metadata_type = match (with_address, mutable) {
+                (true, true) => "SlotWithAddressRw",
+                (true, false) => "SlotWithAddressRo",
+                (false, true) => "SlotWithoutAddressRw",
+                (false, false) => "SlotWithoutAddressRo",
+            };
+
+            let slot_metadata_type = format_ident!("{slot_metadata_type}");
+            let type_name = &slot.type_name;
+            let arg_name_metadata = derive_ident_metadata(&slot.arg_name)?;
+            method_metadata.push(quote! {
+                &[
+                    ::ab_contracts_common::ContractMetadataKind::#slot_metadata_type as u8,
+                    #( #arg_name_metadata, )*
+                ],
+                <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
+            });
+        }
+
+        for io_arg in &self.io {
+            let io_metadata_type = match io_arg {
+                IoArg::Input { .. } => "Input",
+                IoArg::Output { .. } => "Output",
+                IoArg::Result { .. } => "Result",
+            };
+
+            let io_metadata_type = format_ident!("{io_metadata_type}");
+            let type_name = io_arg.type_name();
+            let arg_name_metadata = derive_ident_metadata(io_arg.arg_name())?;
+            method_metadata.push(quote! {
+                &[
+                    ::ab_contracts_common::ContractMetadataKind::#io_metadata_type as u8,
+                    #( #arg_name_metadata, )*
+                ],
+                <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
+            });
+        }
+
+        let method_type = match self.method_type {
+            MethodType::Init => "Init",
+            MethodType::Update => {
+                if let Some(mutable) = &self.state {
+                    if mutable.is_some() {
+                        "UpdateStatefulRw"
+                    } else {
+                        "UpdateStatefulRo"
+                    }
+                } else {
+                    "UpdateStateless"
+                }
+            }
+            MethodType::View => {
+                if let Some(mutable) = &self.state {
+                    if mutable.is_some() {
+                        return Err(Error::new(
+                            impl_item_fn.sig.span(),
+                            "Stateful view methods are not supported",
+                        ));
+                    } else {
+                        "ViewStateful"
+                    }
+                } else {
+                    "ViewStateless"
+                }
+            }
+        };
+
+        let method_type = format_ident!("{method_type}");
+        let number_of_arguments = u8::try_from(method_metadata.len()).map_err(|_error| {
+            Error::new(
+                impl_item_fn.sig.span(),
+                format!("Number of arguments must not be more than {}", u8::MAX),
+            )
+        })?;
+        let number_of_arguments = Literal::u8_unsuffixed(number_of_arguments);
+
+        let method_name_metadata = derive_ident_metadata(&impl_item_fn.sig.ident)?;
+        Ok(quote_spanned! {impl_item_fn.sig.span() =>
+            const fn metadata() -> ([u8; 4096], usize) {
+                ::ab_contracts_io_type::utils::concat_metadata_sources(&[
+                    &[
+                        ::ab_contracts_common::ContractMetadataKind::#method_type as u8,
+                        #( #method_name_metadata, )*
+                        #number_of_arguments,
+                    ],
+                    #( #method_metadata )*
+                ])
+            }
+
+            /// Method metadata, see [`ContractMetadataKind`] for encoding details
+            ///
+            /// [`ContractMetadataKind`]: ::ab_contracts_common::ContractMetadataKind
+            // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
+            pub const METADATA: &[u8] =
+                metadata()
+                    .0
+                    .split_at(metadata().1)
+                    .0;
+
+            /// Method fingerprint
+            // TODO: Reduce metadata to essentials from above full metadata by collapsing tuple
+            //  structs, removing field and struct names, leaving just function signatures and
+            //  compact representation of data structures used for arguments
+            pub const FINGERPRINT: ::ab_contracts_common::method::MethodFingerprint =
+                ::ab_contracts_common::method::MethodFingerprint::new(METADATA);
         })
     }
 
