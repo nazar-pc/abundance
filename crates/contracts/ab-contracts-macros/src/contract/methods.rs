@@ -247,28 +247,28 @@ impl MethodDetails {
     }
 
     pub(super) fn process_env_arg_ro(
+        &mut self,
         input_span: Span,
         pat_type: &PatType,
-        details: &mut Self,
     ) -> Result<(), Error> {
-        Self::process_env_arg(input_span, pat_type, details, false)
+        self.process_env_arg(input_span, pat_type, false)
     }
 
     pub(super) fn process_env_arg_rw(
+        &mut self,
         input_span: Span,
         pat_type: &PatType,
-        details: &mut Self,
     ) -> Result<(), Error> {
-        Self::process_env_arg(input_span, pat_type, details, true)
+        self.process_env_arg(input_span, pat_type, true)
     }
 
     fn process_env_arg(
+        &mut self,
         input_span: Span,
         pat_type: &PatType,
-        details: &mut Self,
         allow_mut: bool,
     ) -> Result<(), Error> {
-        if details.env.is_some() || details.tmp.is_some() || !details.io.is_empty() {
+        if self.env.is_some() || self.tmp.is_some() || !self.io.is_empty() {
             return Err(Error::new(
                 input_span,
                 "`#[env]` must be the first non-Self argument and only appear once",
@@ -285,7 +285,7 @@ impl MethodDetails {
                 ));
             }
 
-            details.env.replace(type_reference.mutability);
+            self.env.replace(type_reference.mutability);
             Ok(())
         } else {
             Err(Error::new(
@@ -296,25 +296,25 @@ impl MethodDetails {
     }
 
     pub(super) fn process_state_arg_ro(
+        &mut self,
         input_span: Span,
         ty: &Type,
-        details: &mut Self,
     ) -> Result<(), Error> {
-        Self::process_state_arg(input_span, ty, details, false)
+        self.process_state_arg(input_span, ty, false)
     }
 
     pub(super) fn process_state_arg_rw(
+        &mut self,
         input_span: Span,
         ty: &Type,
-        details: &mut Self,
     ) -> Result<(), Error> {
-        Self::process_state_arg(input_span, ty, details, true)
+        self.process_state_arg(input_span, ty, true)
     }
 
     fn process_state_arg(
+        &mut self,
         input_span: Span,
         ty: &Type,
-        details: &mut Self,
         allow_mut: bool,
     ) -> Result<(), Error> {
         // Only accept `&self` or `&mut self`
@@ -329,7 +329,7 @@ impl MethodDetails {
                 ));
             }
 
-            details.state.replace(type_reference.mutability);
+            self.state.replace(type_reference.mutability);
             Ok(())
         } else {
             Err(Error::new(
@@ -340,11 +340,11 @@ impl MethodDetails {
     }
 
     pub(super) fn process_tmp_arg(
+        &mut self,
         input_span: Span,
         pat_type: &PatType,
-        details: &mut Self,
     ) -> Result<(), Error> {
-        if details.tmp.is_some() || !details.io.is_empty() {
+        if self.tmp.is_some() || !self.io.is_empty() {
             return Err(Error::new(
                 input_span,
                 "`#[tmp]` must appear only once before any inputs or outputs",
@@ -360,7 +360,7 @@ impl MethodDetails {
                 ));
             };
 
-            details.tmp.replace(Tmp {
+            self.tmp.replace(Tmp {
                 type_name: type_reference.elem.as_ref().clone(),
                 arg_name,
                 mutability: type_reference.mutability,
@@ -377,28 +377,28 @@ impl MethodDetails {
     }
 
     pub(super) fn process_slot_arg_ro(
+        &mut self,
         input_span: Span,
         pat_type: &PatType,
-        details: &mut Self,
     ) -> Result<(), Error> {
-        Self::process_slot_arg(input_span, pat_type, details, false)
+        self.process_slot_arg(input_span, pat_type, false)
     }
 
     pub(super) fn process_slot_arg_rw(
+        &mut self,
         input_span: Span,
         pat_type: &PatType,
-        details: &mut Self,
     ) -> Result<(), Error> {
-        Self::process_slot_arg(input_span, pat_type, details, true)
+        self.process_slot_arg(input_span, pat_type, true)
     }
 
     fn process_slot_arg(
+        &mut self,
         input_span: Span,
         pat_type: &PatType,
-        details: &mut Self,
         allow_mut: bool,
     ) -> Result<(), Error> {
-        if !details.io.is_empty() {
+        if !self.io.is_empty() {
             return Err(Error::new(
                 input_span,
                 "`#[slot]` must appear before any inputs or outputs",
@@ -422,7 +422,7 @@ impl MethodDetails {
                     ));
                 };
 
-                details.slots.push(Slot {
+                self.slots.push(Slot {
                     with_address_arg: None,
                     type_name: type_reference.elem.as_ref().clone(),
                     arg_name,
@@ -460,7 +460,7 @@ impl MethodDetails {
                         ));
                     };
 
-                    details.slots.push(Slot {
+                    self.slots.push(Slot {
                         with_address_arg: Some(address_arg),
                         type_name: outer_slot_type.elem.as_ref().clone(),
                         arg_name,
@@ -483,11 +483,11 @@ impl MethodDetails {
     }
 
     pub(super) fn process_input_arg(
+        &mut self,
         input_span: Span,
         pat_type: &PatType,
-        details: &mut Self,
     ) -> Result<(), Error> {
-        if details
+        if self
             .io
             .iter()
             .any(|io_arg| !matches!(io_arg, IoArg::Input { .. }))
@@ -513,7 +513,7 @@ impl MethodDetails {
                 ));
             }
 
-            details.io.push(IoArg::Input {
+            self.io.push(IoArg::Input {
                 type_name: type_reference.elem.as_ref().clone(),
                 arg_name,
             });
@@ -528,11 +528,11 @@ impl MethodDetails {
     }
 
     pub(super) fn process_output_arg(
+        &mut self,
         input_span: Span,
         pat_type: &PatType,
-        details: &mut Self,
     ) -> Result<(), Error> {
-        if details
+        if self
             .io
             .iter()
             .any(|io_arg| matches!(io_arg, IoArg::Result { .. }))
@@ -554,7 +554,7 @@ impl MethodDetails {
                 ));
             };
 
-            details.io.push(IoArg::Output {
+            self.io.push(IoArg::Output {
                 type_name: type_reference.elem.as_ref().clone(),
                 arg_name: pat_ident.ident.clone(),
             });
@@ -569,11 +569,11 @@ impl MethodDetails {
     }
 
     pub(super) fn process_result_arg(
+        &mut self,
         input_span: Span,
         pat_type: &PatType,
-        details: &mut Self,
     ) -> Result<(), Error> {
-        if !details.result_type.unit_result_type() {
+        if !self.result_type.unit_result_type() {
             return Err(Error::new(
                 input_span,
                 "`#[result]` must only be used with methods that either return `()` or \
@@ -604,10 +604,10 @@ impl MethodDetails {
                 && let Type::Path(type_path) = &first_generic_argument
                 && type_path.path.is_ident("Self")
             {
-                *first_generic_argument = details.struct_name.clone();
+                *first_generic_argument = self.struct_name.clone();
             }
 
-            details.io.push(IoArg::Result {
+            self.io.push(IoArg::Result {
                 type_name,
                 arg_name: pat_ident.ident.clone(),
             });

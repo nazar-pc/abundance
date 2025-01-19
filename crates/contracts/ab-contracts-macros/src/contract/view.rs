@@ -46,11 +46,7 @@ pub(super) fn process_view_fn(
                     ));
                 }
 
-                MethodDetails::process_state_arg_ro(
-                    input_span,
-                    &receiver.ty,
-                    &mut methods_details,
-                )?;
+                methods_details.process_state_arg_ro(input_span, &receiver.ty)?;
             }
             FnArg::Typed(pat_type) => {
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {
@@ -85,7 +81,7 @@ pub(super) fn process_view_fn(
                     .get(&attr.path().segments[0].ident)
                     .expect("Matched above to be one of the supported attributes; qed");
 
-                processor(input_span, &*pat_type, &mut methods_details)?;
+                processor(&mut methods_details, input_span, &*pat_type)?;
             }
         }
     }
