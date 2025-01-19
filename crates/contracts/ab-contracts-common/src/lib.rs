@@ -19,12 +19,28 @@ use derive_more::{
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ContractMetadataKind {
+    /// Main contract metadata.
+    ///
+    /// Contracts are encoded af follows:
+    /// * Encoding of the state struct as described in [`IoTypeMetadataKind`]
+    /// * Number of methods (u8)
+    /// * Recursive metadata of methods as defined in one of:
+    ///   * [`Self::Init`]
+    ///   * [`Self::UpdateStateless`]
+    ///   * [`Self::UpdateStatefulRo`]
+    ///   * [`Self::UpdateStatefulRw`]
+    ///   * [`Self::ViewStateless`]
+    ///   * [`Self::ViewStatefulRo`]
+    ///
+    /// [`IoTypeMetadataKind`]: ab_contracts_io_type::IoTypeMetadataKind
+    Contract,
+
     /// `#[init]` method.
     ///
     /// Initializers are encoded af follows:
     /// * Length of method name in bytes (u8)
     /// * Method name as UTF-8 bytes
-    /// * Number of arguments (u8)
+    /// * Number of named arguments (u8, excluding state argument `&self` or `&mut self`)
     ///
     /// Each argument is encoded as follows:
     /// * Argument type as u8, one of:
@@ -41,35 +57,31 @@ pub enum ContractMetadataKind {
     ///   * [`Self::Result`]
     /// * Length of the argument name in bytes (u8)
     /// * Argument name as UTF-8 bytes
-    /// * Recursive metadata of argument's type as described in
-    ///   [`IoTypeMetadataKind`](ab_contracts_io_type::IoTypeMetadataKind).
+    /// * Recursive metadata of argument's type as described in [`IoTypeMetadataKind`]
+    ///
+    /// [`IoTypeMetadataKind`]: ab_contracts_io_type::IoTypeMetadataKind
     ///
     /// NOTE: Result, regardless of whether it is a return type or explicit `#[result]` argument, is
     /// encoded as a separate argument and counts towards number of arguments. At the same time
     /// `self` doesn't count towards the number of arguments as it is implicitly defined by the
     /// variant of this struct.
     Init,
-
     /// Stateless `#[update]` method (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init`].
     UpdateStateless,
-
     /// Stateful read-only `#[update]` method (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init`].
     UpdateStatefulRo,
-
     /// Stateful read-write `#[update]` method (has `&mut self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init`].
     UpdateStatefulRw,
-
     /// Stateless `#[view]` method (doesn't have `self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init`].
     ViewStateless,
-
     /// Stateful read-only `#[view]` method (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init`].

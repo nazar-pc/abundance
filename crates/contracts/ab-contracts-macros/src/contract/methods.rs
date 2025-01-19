@@ -1374,9 +1374,9 @@ impl MethodDetails {
                     ])
                 }
 
-                /// Method metadata, see
-                /// [`ContractMetadataKind`](::ab_contracts_common::ContractMetadataKind) for
-                /// encoding details
+                /// Method metadata, see [`ContractMetadataKind`] for encoding details
+                ///
+                /// [`ContractMetadataKind`]: ::ab_contracts_common::ContractMetadataKind
                 // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
                 pub const METADATA: &[u8] =
                     metadata()
