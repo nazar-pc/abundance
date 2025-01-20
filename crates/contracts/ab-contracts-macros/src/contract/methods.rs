@@ -793,7 +793,10 @@ impl MethodDetails {
                     // of tmp that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
                     const _: () = {
-                        const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                        const fn assert_impl_io_type_optional<T>()
+                        where
+                            T: ::ab_contracts_io_type::IoTypeOptional,
+                        {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
@@ -809,7 +812,10 @@ impl MethodDetails {
                     // of tmp that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
                     const _: () = {
-                        const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                        const fn assert_impl_io_type_optional<T>()
+                        where
+                            T: ::ab_contracts_io_type::IoTypeOptional,
+                        {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
@@ -867,7 +873,10 @@ impl MethodDetails {
                     // of slot that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
                     const _: () = {
-                        const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                        const fn assert_impl_io_type_optional<T>()
+                        where
+                            T: ::ab_contracts_io_type::IoTypeOptional,
+                        {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
@@ -883,7 +892,10 @@ impl MethodDetails {
                     // of slot that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
                     const _: () = {
-                        const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                        const fn assert_impl_io_type_optional<T>()
+                        where
+                            T: ::ab_contracts_io_type::IoTypeOptional,
+                        {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
@@ -971,7 +983,10 @@ impl MethodDetails {
                         // handling of initially uninitialized type and implies implementation of
                         // `IoType`, which is required for crossing host/guest boundary
                         const _: () = {
-                            const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                            const fn assert_impl_io_type_optional<T>()
+                            where
+                                T: ::ab_contracts_io_type::IoTypeOptional,
+                            {}
                             assert_impl_io_type_optional::<#type_name>();
                         };
 
