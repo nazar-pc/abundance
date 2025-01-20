@@ -4,7 +4,7 @@ use ab_contracts_common::env::{Env, MethodContext};
 use ab_contracts_common::{Address, ContractError};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_io_type::variable_bytes::VariableBytes;
-use ab_contracts_macros::contract_impl;
+use ab_contracts_macros::contract;
 use ab_system_contract_address_allocator::AddressAllocatorExt;
 
 // TODO: How/where should this limit defined?
@@ -14,7 +14,7 @@ pub const MAX_CODE_SIZE: u32 = 1024 * 1024;
 #[repr(C)]
 pub struct Code;
 
-#[contract_impl]
+#[contract]
 impl Code {
     /// Deploy a new contract with specified code
     #[update]

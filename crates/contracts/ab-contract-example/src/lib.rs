@@ -5,7 +5,7 @@ use ab_contracts_common::{Address, Balance, ContractError};
 use ab_contracts_io_type::maybe_data::MaybeData;
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_io_type::variable_bytes::VariableBytes;
-use ab_contracts_macros::contract_impl;
+use ab_contracts_macros::contract;
 use core::cmp::Ordering;
 
 #[derive(Debug, Default, Copy, Clone, TrivialType)]
@@ -33,7 +33,7 @@ pub struct ExampleContract {
 
 // TODO: Support traits
 // TODO: Can state possibly also be a slot so `#[init]` no longer needs to exit?
-#[contract_impl]
+#[contract]
 impl ExampleContract {
     #[init]
     pub fn new(

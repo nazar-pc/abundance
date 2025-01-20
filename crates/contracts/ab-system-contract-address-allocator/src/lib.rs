@@ -3,7 +3,7 @@
 use ab_contracts_common::env::Env;
 use ab_contracts_common::{Address, ContractError, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
-use ab_contracts_macros::contract_impl;
+use ab_contracts_macros::contract;
 
 #[derive(Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -14,7 +14,7 @@ pub struct AddressAllocator {
     pub max_address: u64,
 }
 
-#[contract_impl]
+#[contract]
 impl AddressAllocator {
     /// Initialize address allocator for a shard
     #[init]

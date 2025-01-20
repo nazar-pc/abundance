@@ -70,7 +70,7 @@ use proc_macro::TokenStream;
 /// This macro is supposed to be applied to an implementation of the struct that in turn implements
 /// `IoType` trait.
 #[proc_macro_attribute]
-pub fn contract_impl(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     contract::contract_impl(item.into())
         .unwrap_or_else(|error| error.to_compile_error())
         .into()
