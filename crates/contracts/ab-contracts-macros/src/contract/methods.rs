@@ -1215,7 +1215,7 @@ impl MethodDetails {
         // Result can be used through return type or argument, for argument no special handling
         // of return type is needed
         if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
-            // Initializer's return type will be `()` for caller, state is stored by the host \
+            // Initializer's return type will be `()` for caller, state is stored by the host
             // and not returned to the caller
             let result_type = if matches!(self.method_type, MethodType::Init) {
                 quote! { () }
@@ -1506,8 +1506,8 @@ impl MethodDetails {
                     // Initializer's return type will be `()` for caller, state is stored by the
                     // host and not returned to the caller
                     if matches!(self.method_type, MethodType::Init) {
-                        method_args.push(quote! {
-                            #arg_name: &mut ::ab_contracts_io_type::maybe_data::MaybeData<()>,
+                        preparation.push(quote! {
+                            let #arg_name = &mut ();
                         });
                     } else {
                         method_args.push(quote! {
