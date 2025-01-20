@@ -1351,6 +1351,19 @@ impl MethodDetails {
             });
         }
 
+        if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
+            let result_type = self.result_type.result_type();
+            // There isn't an explicit name in case of return type
+            let arg_name_metadata = Literal::u8_unsuffixed(0);
+            method_metadata.push(quote! {
+                &[
+                    ::ab_contracts_common::ContractMetadataKind::Result as u8,
+                    #arg_name_metadata,
+                ],
+                <#result_type as ::ab_contracts_io_type::IoType>::METADATA,
+            });
+        }
+
         let method_type = match self.method_type {
             MethodType::Init => "Init",
             MethodType::Update => {
@@ -1568,7 +1581,7 @@ impl MethodDetails {
                 ) -> ::core::result::Result<(), ::ab_contracts_common::ContractError>
             }
         } else {
-            let result_type = &self.result_type.result_type();
+            let result_type = self.result_type.result_type();
 
             preparation.push(quote! {
                 let mut ok_result = ::core::mem::MaybeUninit::uninit();
