@@ -76,7 +76,7 @@ pub(super) fn process_init_fn(
                     .get(&attr.path().segments[0].ident)
                     .expect("Matched above to be one of the supported attributes; qed");
 
-                processor(input_span, &*pat_type, &mut methods_details)?;
+                processor(&mut methods_details, input_span, &*pat_type)?;
             }
         }
     }
