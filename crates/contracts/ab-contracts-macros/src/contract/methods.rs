@@ -47,16 +47,16 @@ enum IoArg {
 
 impl IoArg {
     fn type_name(&self) -> &Type {
-        let (IoArg::Input { type_name, .. }
-        | IoArg::Output { type_name, .. }
-        | IoArg::Result { type_name, .. }) = self;
+        let (Self::Input { type_name, .. }
+        | Self::Output { type_name, .. }
+        | Self::Result { type_name, .. }) = self;
         type_name
     }
 
     fn arg_name(&self) -> &Ident {
-        let (IoArg::Input { arg_name, .. }
-        | IoArg::Output { arg_name, .. }
-        | IoArg::Result { arg_name, .. }) = self;
+        let (Self::Input { arg_name, .. }
+        | Self::Output { arg_name, .. }
+        | Self::Result { arg_name, .. }) = self;
         arg_name
     }
 }
@@ -93,10 +93,7 @@ impl MethodResultType {
 
     fn result_type(&self) -> &Type {
         match self {
-            MethodResultType::Unit(ty)
-            | MethodResultType::Regular(ty)
-            | MethodResultType::ResultUnit(ty)
-            | MethodResultType::Result(ty) => ty,
+            Self::Unit(ty) | Self::Regular(ty) | Self::ResultUnit(ty) | Self::Result(ty) => ty,
         }
     }
 }
@@ -954,7 +951,7 @@ impl MethodDetails {
                         )
                     });
                 }
-                IoArg::Output { .. } => {
+                IoArg::Output { .. } | IoArg::Result { .. } => {
                     internal_args_pointers.push(quote! {
                         pub #ptr_field: ::core::ptr::NonNull<
                             <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
@@ -971,37 +968,6 @@ impl MethodDetails {
 
                     original_fn_args.push(quote! {
                         // Ensure output type implements `IoTypeOptional`, which is required for
-                        // handling of initially uninitialized type and implies implementation of
-                        // `IoType`, which is required for crossing host/guest boundary
-                        const _: () = {
-                            const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
-                            assert_impl_io_type_optional::<#type_name>();
-                        };
-
-                        &mut <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
-                            &mut args.#ptr_field,
-                            &mut args.#size_field,
-                            args.#capacity_field,
-                        )
-                    });
-                }
-                IoArg::Result { .. } => {
-                    internal_args_pointers.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
-                        >,
-                    });
-                    internal_args_sizes.push(quote! {
-                        #[doc = #size_doc]
-                        pub #size_field: u32,
-                    });
-                    internal_args_capacities.push(quote! {
-                        #[doc = #capacity_doc]
-                        pub #capacity_field: u32,
-                    });
-
-                    original_fn_args.push(quote! {
-                        // Ensure result type implements `IoTypeOptional`, which is required for
                         // handling of initially uninitialized type and implies implementation of
                         // `IoType`, which is required for crossing host/guest boundary
                         const _: () = {
@@ -1225,29 +1191,21 @@ impl MethodDetails {
                         external_args_pointers.push(quote! {
                             pub #ptr_field: ::core::ptr::NonNull<()>,
                         });
-                        external_args_sizes.push(quote! {
-                            #[doc = #size_doc]
-                            pub #size_field: u32,
-                        });
-                        external_args_capacities.push(quote! {
-                            #[doc = #capacity_doc]
-                            pub #capacity_field: u32,
-                        });
                     } else {
                         external_args_pointers.push(quote! {
                             pub #ptr_field: ::core::ptr::NonNull<
                                 <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
                             >,
                         });
-                        external_args_sizes.push(quote! {
-                            #[doc = #size_doc]
-                            pub #size_field: u32,
-                        });
-                        external_args_capacities.push(quote! {
-                            #[doc = #capacity_doc]
-                            pub #capacity_field: u32,
-                        });
                     }
+                    external_args_sizes.push(quote! {
+                        #[doc = #size_doc]
+                        pub #size_field: u32,
+                    });
+                    external_args_capacities.push(quote! {
+                        #[doc = #capacity_doc]
+                        pub #capacity_field: u32,
+                    });
                 }
             }
         }
