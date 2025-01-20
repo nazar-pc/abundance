@@ -657,6 +657,29 @@ impl MethodDetails {
             }
         }
 
+        let original_method_name = &impl_item_fn.sig.ident;
+
+        let guest_fn = self.generate_guest_fn(impl_item_fn)?;
+        let external_args_struct = self.generate_external_args_struct(impl_item_fn)?;
+        let metadata = self.generate_metadata(impl_item_fn)?;
+
+        Ok(quote! {
+            pub mod #original_method_name {
+                use super::*;
+
+                #guest_fn
+                #external_args_struct
+                #metadata
+            }
+        })
+    }
+
+    pub(super) fn generate_guest_fn(
+        &self,
+        impl_item_fn: &ImplItemFn,
+    ) -> Result<TokenStream, Error> {
+        let struct_name = &self.struct_name;
+
         // `internal_args_pointers` will generate pointers in `InternalArgs` fields
         let mut internal_args_pointers = Vec::new();
         // `internal_args_sizes` will generate sizes in `InternalArgs` fields
@@ -1133,18 +1156,9 @@ impl MethodDetails {
             }
         };
 
-        let external_args_struct = self.generate_external_args_struct(impl_item_fn)?;
-        let metadata = self.generate_metadata(impl_item_fn)?;
-
         Ok(quote! {
-            pub mod #original_method_name {
-                use super::*;
-
-                #internal_args_struct
-                #guest_fn
-                #external_args_struct
-                #metadata
-            }
+            #internal_args_struct
+            #guest_fn
         })
     }
 
