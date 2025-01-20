@@ -3,18 +3,18 @@ use crate::contract::{ContractDetails, Method, MethodOutput};
 use quote::format_ident;
 use std::collections::HashMap;
 use syn::spanned::Spanned;
-use syn::{Error, FnArg, ImplItemFn, Meta, Type};
+use syn::{Error, FnArg, Meta, Signature, Type};
 
 pub(super) fn process_update_fn(
-    struct_name: Type,
-    impl_item_fn: &mut ImplItemFn,
+    self_type: Type,
+    fn_sig: &mut Signature,
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
-    let mut methods_details = MethodDetails::new(MethodType::Update, struct_name);
+    let mut methods_details = MethodDetails::new(MethodType::Update, self_type);
 
-    methods_details.process_output(&impl_item_fn.sig.output)?;
+    methods_details.process_output(&fn_sig.output)?;
 
-    for input in impl_item_fn.sig.inputs.iter_mut() {
+    for input in fn_sig.inputs.iter_mut() {
         let input_span = input.span();
         // TODO: Moving this outside of the loop causes confusing lifetime issues
         let supported_attrs = HashMap::<_, fn(_, _, _) -> _>::from_iter([
@@ -42,7 +42,7 @@ pub(super) fn process_update_fn(
             FnArg::Receiver(receiver) => {
                 if receiver.reference.is_none() {
                     return Err(Error::new(
-                        impl_item_fn.sig.span(),
+                        fn_sig.span(),
                         "`#[update]` can't consume `Self`, use `&self` or `&mut self` instead",
                     ));
                 }
@@ -87,11 +87,11 @@ pub(super) fn process_update_fn(
         }
     }
 
-    let guest_ffi = methods_details.generate_guest_ffi(impl_item_fn)?;
-    let trait_ext_components = methods_details.generate_trait_ext_components(impl_item_fn);
+    let guest_ffi = methods_details.generate_guest_ffi(fn_sig)?;
+    let trait_ext_components = methods_details.generate_trait_ext_components(fn_sig);
 
     contract_details.methods.push(Method {
-        original_ident: impl_item_fn.sig.ident.clone(),
+        original_ident: fn_sig.ident.clone(),
         methods_details,
     });
 

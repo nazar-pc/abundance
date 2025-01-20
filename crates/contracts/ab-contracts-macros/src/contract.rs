@@ -1,3 +1,4 @@
+mod common;
 mod init;
 mod methods;
 mod update;
@@ -7,7 +8,7 @@ use crate::contract::init::process_init_fn;
 use crate::contract::methods::{ExtTraitComponents, MethodDetails};
 use crate::contract::update::process_update_fn;
 use crate::contract::view::process_view_fn;
-use proc_macro2::{Ident, Literal, TokenStream, TokenTree};
+use proc_macro2::{Ident, Literal, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
@@ -30,21 +31,26 @@ struct ContractDetails {
     methods: Vec<Method>,
 }
 
-pub(super) fn contract_impl(item: TokenStream) -> Result<TokenStream, Error> {
-    let mut item_impl = parse2::<ItemImpl>(item)?;
+pub(super) fn contract(item: TokenStream) -> Result<TokenStream, Error> {
+    let item_impl = parse2::<ItemImpl>(item)?;
+
+    process_struct_impl(item_impl)
+}
+
+fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
     let struct_name = item_impl.self_ty.as_ref();
 
     if let Some(trait_) = item_impl.trait_ {
         return Err(Error::new(
             trait_.1.span(),
-            "`#[contract_impl]` is not applicable to trait implementations",
+            "`#[contract]` is not applicable to trait implementations",
         ));
     }
 
     if !item_impl.generics.params.is_empty() {
         return Err(Error::new(
             item_impl.generics.span(),
-            "`#[contract_impl]` is not applicable to generic implementations",
+            "`#[contract]` does not support generics",
         ));
     }
 
@@ -54,7 +60,8 @@ pub(super) fn contract_impl(item: TokenStream) -> Result<TokenStream, Error> {
 
     for item in &mut item_impl.items {
         if let ImplItem::Fn(impl_item_fn) = item {
-            let method_output = process_fn(struct_name, impl_item_fn, &mut contract_details)?;
+            let method_output =
+                process_fn(struct_name.clone(), impl_item_fn, &mut contract_details)?;
             guest_ffis.push(method_output.guest_ffi);
             trait_ext_components.push(method_output.trait_ext_components);
         }
@@ -86,71 +93,87 @@ pub(super) fn contract_impl(item: TokenStream) -> Result<TokenStream, Error> {
         ));
     }
 
-    let metadata = {
+    let metadata_const = {
         let num_methods = u8::try_from(contract_details.methods.len()).map_err(|_error| {
             Error::new(
                 item_impl.span(),
                 format!("Struct can't have more than {} methods", u8::MAX),
             )
         })?;
-        let num_methods = TokenTree::Literal(Literal::u8_unsuffixed(num_methods));
+        let num_methods = Literal::u8_unsuffixed(num_methods);
         let methods = contract_details
             .methods
             .iter()
             .map(|method| &method.original_ident);
 
         // Encodes the following:
+        // * Type: contract
         // * Metadata of the state type
         // * Number of methods
         // * Metadata of methods
         quote! {
-            /// Main contract metadata
+            /// Main contract metadata, see [`ContractMetadataKind`] for encoding details.
             ///
-            /// Enabled with `guest` feature to appear in the final binary, also prevents from
-            /// `guest` feature being enabled in dependencies at the same time since that'll cause
-            /// duplicated symbols.
+            /// More metadata can be contributed by trait implementations.
             ///
-            /// See [`#struct_name::MAIN_CONTRACT_METADATA`] for details.
-            #[cfg(feature = "guest")]
-            #[used]
-            #[unsafe(no_mangle)]
-            #[unsafe(link_section = "CONTRACT_METADATA")]
-            static MAIN_CONTRACT_METADATA: [u8; #struct_name::MAIN_CONTRACT_METADATA.len()] =
-                unsafe { *#struct_name::MAIN_CONTRACT_METADATA.as_ptr().cast() };
+            /// [`ContractMetadataKind`]: ::ab_contracts_common::ContractMetadataKind
+            pub const MAIN_CONTRACT_METADATA: &[u8] = {
+                const fn metadata() -> ([u8; 4096], usize) {
+                    ::ab_contracts_io_type::utils::concat_metadata_sources(&[
+                        &[::ab_contracts_common::ContractMetadataKind::Contract as u8],
+                        <#struct_name as ::ab_contracts_io_type::IoType>::METADATA,
+                        &[#num_methods],
+                        #( ffi::#methods::METADATA, )*
+                    ])
+                }
 
-            impl #struct_name {
-                /// Main contract metadata, see [`ContractMetadataKind`] for encoding details.
-                ///
-                /// More metadata can be contributed by trait implementations.
-                ///
-                /// [`ContractMetadataKind`]: ::ab_contracts_common::ContractMetadataKind
-                pub const MAIN_CONTRACT_METADATA: &[u8] = {
-                    const fn metadata() -> ([u8; 4096], usize) {
-                        ::ab_contracts_io_type::utils::concat_metadata_sources(&[
-                            &[::ab_contracts_common::ContractMetadataKind::Contract as u8],
-                            <#struct_name as ::ab_contracts_io_type::IoType>::METADATA,
-                            &[#num_methods],
-                            #( ffi::#methods::METADATA, )*
-                        ])
-                    }
-
-                    // Strange syntax to allow Rust to extend lifetime of metadata scratch
-                    // automatically
-                    metadata()
-                        .0
-                        .split_at(metadata().1)
-                        .0
-                };
-            }
+                // Strange syntax to allow Rust to extend lifetime of metadata scratch
+                // automatically
+                metadata()
+                    .0
+                    .split_at(metadata().1)
+                    .0
+            };
         }
     };
 
-    let ext_trait = generate_extension_trait(struct_name, &trait_ext_components)?;
+    item_impl
+        .items
+        .insert(0, ImplItem::Verbatim(metadata_const));
 
-    let output = quote! {
+    let ext_trait = {
+        let Type::Path(type_path) = struct_name else {
+            return Err(Error::new(
+                struct_name.span(),
+                "`#[contract]` must be applied to simple struct implementation",
+            ));
+        };
+        let Some(struct_name) = type_path.path.get_ident() else {
+            return Err(Error::new(
+                struct_name.span(),
+                "`#[contract]` must be applied to simple struct implementation",
+            ));
+        };
+
+        generate_extension_trait(struct_name, &trait_ext_components)?
+    };
+
+    Ok(quote! {
+        /// Main contract metadata
+        ///
+        /// Enabled with `guest` feature to appear in the final binary, also prevents from
+        /// `guest` feature being enabled in dependencies at the same time since that'll cause
+        /// duplicated symbols.
+        ///
+        /// See [`#struct_name::MAIN_CONTRACT_METADATA`] for details.
+        #[cfg(feature = "guest")]
+        #[used]
+        #[unsafe(no_mangle)]
+        #[unsafe(link_section = "CONTRACT_METADATA")]
+        static MAIN_CONTRACT_METADATA: [u8; #struct_name::MAIN_CONTRACT_METADATA.len()] =
+            unsafe { *#struct_name::MAIN_CONTRACT_METADATA.as_ptr().cast() };
+
         #item_impl
-
-        #metadata
 
         #ext_trait
 
@@ -160,16 +183,11 @@ pub(super) fn contract_impl(item: TokenStream) -> Result<TokenStream, Error> {
 
             #( #guest_ffis )*
         }
-
-        // Prevent macro from being called more than once in the same module at least
-        const _CONTRACT_DEFINED: () = ();
-    };
-
-    Ok(output)
+    })
 }
 
 fn process_fn(
-    struct_name: &Type,
+    struct_name: Type,
     impl_item_fn: &mut ImplItemFn,
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
@@ -227,32 +245,16 @@ fn process_fn(
     let processor = supported_attrs
         .get(&attr.path().segments[0].ident)
         .expect("Matched above to be one of the supported attributes; qed");
-    processor(struct_name.clone(), impl_item_fn, contract_details)
+    processor(struct_name, &mut impl_item_fn.sig, contract_details)
 }
 
 fn generate_extension_trait(
-    struct_name: &Type,
+    ident: &Ident,
     trait_ext_components: &[ExtTraitComponents],
 ) -> Result<TokenStream, Error> {
-    let struct_name = {
-        let Type::Path(type_path) = struct_name else {
-            return Err(Error::new(
-                struct_name.span(),
-                "`#[contract_impl]` must be applied to simple trait implementation",
-            ));
-        };
-        let Some(struct_name) = type_path.path.get_ident() else {
-            return Err(Error::new(
-                struct_name.span(),
-                "`#[contract_impl]` must be applied to simple trait implementation",
-            ));
-        };
-        struct_name
-    };
-
-    let trait_name = format_ident!("{struct_name}Ext");
+    let trait_name = format_ident!("{ident}Ext");
     let trait_doc = format!(
-        "Extension trait that provides helper methods for calling [`{struct_name}`]'s methods on \
+        "Extension trait that provides helper methods for calling [`{ident}`]'s methods on \
         [`Env`](::ab_contracts_common::env::Env) for convenience purposes"
     );
     let definitions = trait_ext_components

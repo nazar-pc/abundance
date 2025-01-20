@@ -1,6 +1,6 @@
 #![feature(extract_if, iter_map_windows, let_chains)]
 
-//! `#[contract_impl]` macro will process *public* methods annotated with following attributes:
+//! `#[contract]` macro will process *public* methods annotated with following attributes:
 //! * `#[init]` - method that can be called to produce an initial state of the contract,
 //!   called once during contacts lifetime
 //! * `#[update]` - method that can read and/or modify state and/or slots of the contact, may be
@@ -64,14 +64,14 @@ mod contract;
 
 use proc_macro::TokenStream;
 
-/// `#[contract_impl]` macro to derive smart contract implementation, see module description for
+/// `#[contract]` macro to derive smart contract implementation, see module description for
 /// details.
 ///
 /// This macro is supposed to be applied to an implementation of the struct that in turn implements
 /// `IoType` trait.
 #[proc_macro_attribute]
 pub fn contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    contract::contract_impl(item.into())
+    contract::contract(item.into())
         .unwrap_or_else(|error| error.to_compile_error())
         .into()
 }
