@@ -47,16 +47,16 @@ enum IoArg {
 
 impl IoArg {
     fn type_name(&self) -> &Type {
-        let (IoArg::Input { type_name, .. }
-        | IoArg::Output { type_name, .. }
-        | IoArg::Result { type_name, .. }) = self;
+        let (Self::Input { type_name, .. }
+        | Self::Output { type_name, .. }
+        | Self::Result { type_name, .. }) = self;
         type_name
     }
 
     fn arg_name(&self) -> &Ident {
-        let (IoArg::Input { arg_name, .. }
-        | IoArg::Output { arg_name, .. }
-        | IoArg::Result { arg_name, .. }) = self;
+        let (Self::Input { arg_name, .. }
+        | Self::Output { arg_name, .. }
+        | Self::Result { arg_name, .. }) = self;
         arg_name
     }
 }
@@ -93,10 +93,7 @@ impl MethodResultType {
 
     fn result_type(&self) -> &Type {
         match self {
-            MethodResultType::Unit(ty)
-            | MethodResultType::Regular(ty)
-            | MethodResultType::ResultUnit(ty)
-            | MethodResultType::Result(ty) => ty,
+            Self::Unit(ty) | Self::Regular(ty) | Self::ResultUnit(ty) | Self::Result(ty) => ty,
         }
     }
 }
@@ -796,7 +793,10 @@ impl MethodDetails {
                     // of tmp that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
                     const _: () = {
-                        const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                        const fn assert_impl_io_type_optional<T>()
+                        where
+                            T: ::ab_contracts_io_type::IoTypeOptional,
+                        {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
@@ -812,7 +812,10 @@ impl MethodDetails {
                     // of tmp that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
                     const _: () = {
-                        const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                        const fn assert_impl_io_type_optional<T>()
+                        where
+                            T: ::ab_contracts_io_type::IoTypeOptional,
+                        {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
@@ -870,7 +873,10 @@ impl MethodDetails {
                     // of slot that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
                     const _: () = {
-                        const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                        const fn assert_impl_io_type_optional<T>()
+                        where
+                            T: ::ab_contracts_io_type::IoTypeOptional,
+                        {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
@@ -886,7 +892,10 @@ impl MethodDetails {
                     // of slot that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
                     const _: () = {
-                        const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                        const fn assert_impl_io_type_optional<T>()
+                        where
+                            T: ::ab_contracts_io_type::IoTypeOptional,
+                        {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
@@ -954,7 +963,7 @@ impl MethodDetails {
                         )
                     });
                 }
-                IoArg::Output { .. } => {
+                IoArg::Output { .. } | IoArg::Result { .. } => {
                     internal_args_pointers.push(quote! {
                         pub #ptr_field: ::core::ptr::NonNull<
                             <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
@@ -974,38 +983,10 @@ impl MethodDetails {
                         // handling of initially uninitialized type and implies implementation of
                         // `IoType`, which is required for crossing host/guest boundary
                         const _: () = {
-                            const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
-                            assert_impl_io_type_optional::<#type_name>();
-                        };
-
-                        &mut <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
-                            &mut args.#ptr_field,
-                            &mut args.#size_field,
-                            args.#capacity_field,
-                        )
-                    });
-                }
-                IoArg::Result { .. } => {
-                    internal_args_pointers.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
-                        >,
-                    });
-                    internal_args_sizes.push(quote! {
-                        #[doc = #size_doc]
-                        pub #size_field: u32,
-                    });
-                    internal_args_capacities.push(quote! {
-                        #[doc = #capacity_doc]
-                        pub #capacity_field: u32,
-                    });
-
-                    original_fn_args.push(quote! {
-                        // Ensure result type implements `IoTypeOptional`, which is required for
-                        // handling of initially uninitialized type and implies implementation of
-                        // `IoType`, which is required for crossing host/guest boundary
-                        const _: () = {
-                            const fn assert_impl_io_type_optional<T: ::ab_contracts_io_type::IoTypeOptional>() {}
+                            const fn assert_impl_io_type_optional<T>()
+                            where
+                                T: ::ab_contracts_io_type::IoTypeOptional,
+                            {}
                             assert_impl_io_type_optional::<#type_name>();
                         };
 
@@ -1220,20 +1201,8 @@ impl MethodDetails {
                 }
                 IoArg::Result { .. } => {
                     // Initializer's return type will be `()` for caller, state is stored by the
-                    // host and not returned to the caller
-                    if matches!(self.method_type, MethodType::Init) {
-                        external_args_pointers.push(quote! {
-                            pub #ptr_field: ::core::ptr::NonNull<()>,
-                        });
-                        external_args_sizes.push(quote! {
-                            #[doc = #size_doc]
-                            pub #size_field: u32,
-                        });
-                        external_args_capacities.push(quote! {
-                            #[doc = #capacity_doc]
-                            pub #capacity_field: u32,
-                        });
-                    } else {
+                    // host and not returned to the caller, hence no explicit argument is needed
+                    if !matches!(self.method_type, MethodType::Init) {
                         external_args_pointers.push(quote! {
                             pub #ptr_field: ::core::ptr::NonNull<
                                 <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
@@ -1254,17 +1223,13 @@ impl MethodDetails {
 
         let original_method_name = &impl_item_fn.sig.ident;
 
-        // Result can be used through return type or argument, for argument no special handling
-        // of return type is needed
-        if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
-            // Initializer's return type will be `()` for caller, state is stored by the host \
-            // and not returned to the caller
-            let result_type = if matches!(self.method_type, MethodType::Init) {
-                quote! { () }
-            } else {
-                let result_type = &self.result_type.result_type();
-                quote! { #result_type }
-            };
+        // Initializer's return type will be `()` for caller, state is stored by the host and not
+        // returned to the caller, also if explicit `#[result]` argument is used return type is
+        // also `()`. In both cases explicit arguments are not needed in `ExternalArgs` struct.
+        if !(matches!(self.io.last(), Some(IoArg::Result { .. }))
+            || matches!(self.method_type, MethodType::Init))
+        {
+            let result_type = &self.result_type.result_type();
 
             external_args_pointers.push(quote! {
                 pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
@@ -1280,8 +1245,8 @@ impl MethodDetails {
         }
         let args_struct_doc = format!(
             "Data structure containing expected input for external method invocation, eventually \
-            calling [`{original_method_name}()`] on the other side by the host.\
-            \n\nThis can be used with [`Env`](::ab_contracts_common::env::Env), though there are \
+            calling [`{original_method_name}()`] on the other side by the host.\n\n\
+            This can be used with [`Env`](::ab_contracts_common::env::Env), though there are \
             helper methods on this provided by extension trait that allow not dealing with this \
             struct directly in simpler cases."
         );
@@ -1383,6 +1348,19 @@ impl MethodDetails {
                     #( #arg_name_metadata, )*
                 ],
                 <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
+            });
+        }
+
+        if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
+            let result_type = self.result_type.result_type();
+            // There isn't an explicit name in case of return type
+            let arg_name_metadata = Literal::u8_unsuffixed(0);
+            method_metadata.push(quote! {
+                &[
+                    ::ab_contracts_common::ContractMetadataKind::Result as u8,
+                    #arg_name_metadata,
+                ],
+                <#result_type as ::ab_contracts_io_type::IoType>::METADATA,
             });
         }
 
@@ -1495,9 +1473,6 @@ impl MethodDetails {
             let struct_field_size = format_ident!("{arg_name}_size");
             let struct_field_capacity = format_ident!("{arg_name}_capacity");
 
-            args_sizes.push(quote! {
-                #struct_field_size: ::ab_contracts_io_type::IoType::size(#arg_name),
-            });
             match io_arg {
                 IoArg::Input {
                     type_name,
@@ -1513,6 +1488,9 @@ impl MethodDetails {
                         #struct_field_ptr: unsafe {
                             *::ab_contracts_io_type::IoType::as_ptr(#arg_name)
                         },
+                    });
+                    args_sizes.push(quote! {
+                        #struct_field_size: ::ab_contracts_io_type::IoType::size(#arg_name),
                     });
                 }
                 IoArg::Output {
@@ -1531,6 +1509,9 @@ impl MethodDetails {
                             ptr
                         },
                     });
+                    args_sizes.push(quote! {
+                        #struct_field_size: ::ab_contracts_io_type::IoType::size(#arg_name),
+                    });
                     args_capacities.push(quote! {
                         #struct_field_capacity: ::ab_contracts_io_type::IoType::capacity(#arg_name),
                     });
@@ -1547,33 +1528,33 @@ impl MethodDetails {
                 } => {
                     // Initializer's return type will be `()` for caller, state is stored by the
                     // host and not returned to the caller
-                    if matches!(self.method_type, MethodType::Init) {
-                        method_args.push(quote! {
-                            #arg_name: &mut ::ab_contracts_io_type::maybe_data::MaybeData<()>,
-                        });
-                    } else {
+                    if !matches!(self.method_type, MethodType::Init) {
                         method_args.push(quote! {
                             #arg_name: &mut #type_name,
                         });
+                        args_pointers.push(quote! {
+                            // SAFETY: This pointer is used as input to FFI call and underlying data
+                            // will only be modified there, also pointer will not outlive the
+                            // reference from which it was created despite copying
+                            #struct_field_ptr: unsafe {
+                                let ptr = *::ab_contracts_io_type::IoType::as_mut_ptr(#arg_name);
+                                ptr
+                            },
+                        });
+                        args_sizes.push(quote! {
+                            #struct_field_size: ::ab_contracts_io_type::IoType::size(#arg_name),
+                        });
+                        args_capacities.push(quote! {
+                            #struct_field_capacity:
+                                ::ab_contracts_io_type::IoType::capacity(#arg_name),
+                        });
+                        result_processing.push(quote! {
+                            ::ab_contracts_io_type::IoType::set_size(
+                                #arg_name,
+                                args.#struct_field_size,
+                            );
+                        });
                     }
-                    args_pointers.push(quote! {
-                        // SAFETY: This pointer is used as input to FFI call and underlying data
-                        // will only be modified there, also pointer will not outlive the reference
-                        // from which it was created despite copying
-                        #struct_field_ptr: unsafe {
-                            let ptr = *::ab_contracts_io_type::IoType::as_mut_ptr(#arg_name);
-                            ptr
-                        },
-                    });
-                    args_capacities.push(quote! {
-                        #struct_field_capacity: ::ab_contracts_io_type::IoType::capacity(#arg_name),
-                    });
-                    result_processing.push(quote! {
-                        ::ab_contracts_io_type::IoType::set_size(
-                            #arg_name,
-                            args.#struct_field_size,
-                        );
-                    });
                 }
             }
         }
@@ -1586,15 +1567,21 @@ impl MethodDetails {
                 method_context: &::ab_contracts_common::env::MethodContext,
             }
         });
-        let method_signature = if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
-            // Initializer's return type will be `()` for caller, state is stored by the host and
-            // not returned to the caller
-            let result_type = if matches!(self.method_type, MethodType::Init) {
-                quote! { () }
-            } else {
-                let result_type = &self.result_type.result_type();
-                quote! { #result_type }
-            };
+        // Initializer's return type will be `()` for caller, state is stored by the host and not
+        // returned to the caller, also if explicit `#[result]` argument is used return type is
+        // also `()`.
+        let method_signature = if matches!(self.io.last(), Some(IoArg::Result { .. }))
+            || matches!(self.method_type, MethodType::Init)
+        {
+            quote! {
+                fn #original_method_name(
+                    self: &#env_mut Self,
+                    #method_context_arg
+                    #( #method_args )*
+                ) -> ::core::result::Result<(), ::ab_contracts_common::ContractError>
+            }
+        } else {
+            let result_type = self.result_type.result_type();
 
             preparation.push(quote! {
                 let mut ok_result = ::core::mem::MaybeUninit::uninit();
@@ -1606,10 +1593,12 @@ impl MethodDetails {
                 },
             });
             args_sizes.push(quote! {
-                ok_result_size: <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
+                ok_result_size:
+                    <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
             });
             args_capacities.push(quote! {
-                ok_result_capacity: <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
+                ok_result_capacity:
+                    <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
             });
             result_processing.push(quote! {
                 // This is fine for `TrivialType` types
@@ -1622,14 +1611,6 @@ impl MethodDetails {
                     #method_context_arg
                     #( #method_args )*
                 ) -> ::core::result::Result<#result_type, ::ab_contracts_common::ContractError>
-            }
-        } else {
-            quote! {
-                fn #original_method_name(
-                    self: &#env_mut Self,
-                    #method_context_arg
-                    #( #method_args )*
-                ) -> ::core::result::Result<(), ::ab_contracts_common::ContractError>
             }
         };
 
