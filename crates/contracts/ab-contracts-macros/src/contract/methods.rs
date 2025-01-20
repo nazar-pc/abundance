@@ -665,12 +665,6 @@ impl MethodDetails {
         let mut internal_args_capacities = Vec::new();
         // `preparation` will generate code that is used before calling original function
         let mut preparation = Vec::new();
-        // `external_args_pointers` will generate pointers in `ExternalArgs` fields
-        let mut external_args_pointers = Vec::new();
-        // `external_args_sizes` will generate sizes in `ExternalArgs` fields
-        let mut external_args_sizes = Vec::new();
-        // `external_args_capacities` will generate capacities in `ExternalArgs` fields
-        let mut external_args_capacities = Vec::new();
         // `original_fn_args` will generate arguments for calling original method implementation
         let mut original_fn_args = Vec::new();
 
@@ -841,9 +835,6 @@ impl MethodDetails {
                 #[doc = #size_doc]
                 pub #size_field: u32,
             });
-            external_args_pointers.push(quote! {
-                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_common::Address>,
-            });
 
             let arg_extraction = if mutability.is_some() {
                 internal_args_capacities.push(quote! {
@@ -924,16 +915,6 @@ impl MethodDetails {
                         pub #size_field: u32,
                     });
 
-                    external_args_pointers.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
-                        >,
-                    });
-                    external_args_sizes.push(quote! {
-                        #[doc = #size_doc]
-                        pub #size_field: u32,
-                    });
-
                     original_fn_args.push(quote! {
                         // Ensure input type implements `IoType`, which is required for crossing
                         // host/guest boundary
@@ -961,20 +942,6 @@ impl MethodDetails {
                         pub #size_field: u32,
                     });
                     internal_args_capacities.push(quote! {
-                        #[doc = #capacity_doc]
-                        pub #capacity_field: u32,
-                    });
-
-                    external_args_pointers.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
-                        >,
-                    });
-                    external_args_sizes.push(quote! {
-                        #[doc = #size_doc]
-                        pub #size_field: u32,
-                    });
-                    external_args_capacities.push(quote! {
                         #[doc = #capacity_doc]
                         pub #capacity_field: u32,
                     });
@@ -1009,36 +976,6 @@ impl MethodDetails {
                         #[doc = #capacity_doc]
                         pub #capacity_field: u32,
                     });
-
-                    // Initializer's return type will be `()` for caller, state is stored by the
-                    // host and not returned to the caller
-                    if matches!(self.method_type, MethodType::Init) {
-                        external_args_pointers.push(quote! {
-                            pub #ptr_field: ::core::ptr::NonNull<()>,
-                        });
-                        external_args_sizes.push(quote! {
-                            #[doc = #size_doc]
-                            pub #size_field: u32,
-                        });
-                        external_args_capacities.push(quote! {
-                            #[doc = #capacity_doc]
-                            pub #capacity_field: u32,
-                        });
-                    } else {
-                        external_args_pointers.push(quote! {
-                            pub #ptr_field: ::core::ptr::NonNull<
-                                <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
-                            >,
-                        });
-                        external_args_sizes.push(quote! {
-                            #[doc = #size_doc]
-                            pub #size_field: u32,
-                        });
-                        external_args_capacities.push(quote! {
-                            #[doc = #capacity_doc]
-                            pub #capacity_field: u32,
-                        });
-                    }
 
                     original_fn_args.push(quote! {
                         // Ensure result type implements `IoTypeOptional`, which is required for
@@ -1196,60 +1133,7 @@ impl MethodDetails {
             }
         };
 
-        let external_args_struct = {
-            // Result can be used through return type or argument, for argument no special handling
-            // of return type is needed
-            if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
-                // Initializer's return type will be `()` for caller, state is stored by the host \
-                // and not returned to the caller
-                let result_type = if matches!(self.method_type, MethodType::Init) {
-                    quote! { () }
-                } else {
-                    let result_type = &self.result_type.result_type();
-                    quote! { #result_type }
-                };
-
-                external_args_pointers.push(quote! {
-                    pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
-                });
-                external_args_sizes.push(quote! {
-                    /// Size of the contents `ok_result_ptr` points to
-                    pub ok_result_size: u32,
-                });
-                external_args_capacities.push(quote! {
-                    /// Capacity of the allocated memory `ok_result_ptr` points to
-                    pub ok_result_capacity: u32,
-                });
-            }
-            let args_struct_doc = format!(
-                "Data structure containing expected input for external method invocation, \
-                eventually calling [`{original_method_name}()`] on the other side by the host. \
-                \n\nThis can be used with [`Env`](::ab_contracts_common::env::Env), though there \
-                are helper methods on this provided by extension trait that allow not dealing with \
-                this struct directly in simpler cases."
-            );
-            quote_spanned! {impl_item_fn.sig.span() =>
-                #[doc = #args_struct_doc]
-                #[repr(C)]
-                pub struct ExternalArgs
-                {
-                    #( #external_args_pointers )*
-                    #( #external_args_sizes )*
-                    #( #external_args_capacities )*
-                }
-
-                #[automatically_derived]
-                unsafe impl ::ab_contracts_common::method::ExternalArgs for ExternalArgs {
-                    const FINGERPRINT: &::ab_contracts_common::method::MethodFingerprint =
-                        &FINGERPRINT;
-                }
-
-                // TODO: `ExternalArgs` constructor for easier usage (that fills in default
-                //  capacities and sized), use it in extension trait implementation to reduce code
-                //  duplication
-            }
-        };
-
+        let external_args_struct = self.generate_external_args_struct(impl_item_fn)?;
         let metadata = self.generate_metadata(impl_item_fn)?;
 
         Ok(quote! {
@@ -1261,6 +1145,152 @@ impl MethodDetails {
                 #external_args_struct
                 #metadata
             }
+        })
+    }
+
+    fn generate_external_args_struct(
+        &self,
+        impl_item_fn: &ImplItemFn,
+    ) -> Result<TokenStream, Error> {
+        // `external_args_pointers` will generate pointers in `ExternalArgs` fields
+        let mut external_args_pointers = Vec::new();
+        // `external_args_sizes` will generate sizes in `ExternalArgs` fields
+        let mut external_args_sizes = Vec::new();
+        // `external_args_capacities` will generate capacities in `ExternalArgs` fields
+        let mut external_args_capacities = Vec::new();
+
+        // For slots in external args only address is needed
+        for slot in &self.slots {
+            let ptr_field = format_ident!("{}_ptr", slot.arg_name);
+
+            external_args_pointers.push(quote! {
+                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_common::Address>,
+            });
+        }
+
+        // Inputs and outputs with pointer and size (+ capacity if mutable)
+        for io_arg in &self.io {
+            let type_name = io_arg.type_name();
+            let ptr_field = format_ident!("{}_ptr", io_arg.arg_name());
+            let size_field = format_ident!("{}_size", io_arg.arg_name());
+            let size_doc = format!("Size of the contents `{ptr_field}` points to");
+            let capacity_field = format_ident!("{}_capacity", io_arg.arg_name());
+            let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
+
+            match io_arg {
+                IoArg::Input { .. } => {
+                    external_args_pointers.push(quote! {
+                        pub #ptr_field: ::core::ptr::NonNull<
+                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
+                        >,
+                    });
+                    external_args_sizes.push(quote! {
+                        #[doc = #size_doc]
+                        pub #size_field: u32,
+                    });
+                }
+                IoArg::Output { .. } => {
+                    external_args_pointers.push(quote! {
+                        pub #ptr_field: ::core::ptr::NonNull<
+                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
+                        >,
+                    });
+                    external_args_sizes.push(quote! {
+                        #[doc = #size_doc]
+                        pub #size_field: u32,
+                    });
+                    external_args_capacities.push(quote! {
+                        #[doc = #capacity_doc]
+                        pub #capacity_field: u32,
+                    });
+                }
+                IoArg::Result { .. } => {
+                    // Initializer's return type will be `()` for caller, state is stored by the
+                    // host and not returned to the caller
+                    if matches!(self.method_type, MethodType::Init) {
+                        external_args_pointers.push(quote! {
+                            pub #ptr_field: ::core::ptr::NonNull<()>,
+                        });
+                        external_args_sizes.push(quote! {
+                            #[doc = #size_doc]
+                            pub #size_field: u32,
+                        });
+                        external_args_capacities.push(quote! {
+                            #[doc = #capacity_doc]
+                            pub #capacity_field: u32,
+                        });
+                    } else {
+                        external_args_pointers.push(quote! {
+                            pub #ptr_field: ::core::ptr::NonNull<
+                                <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
+                            >,
+                        });
+                        external_args_sizes.push(quote! {
+                            #[doc = #size_doc]
+                            pub #size_field: u32,
+                        });
+                        external_args_capacities.push(quote! {
+                            #[doc = #capacity_doc]
+                            pub #capacity_field: u32,
+                        });
+                    }
+                }
+            }
+        }
+
+        let original_method_name = &impl_item_fn.sig.ident;
+
+        // Result can be used through return type or argument, for argument no special handling
+        // of return type is needed
+        if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
+            // Initializer's return type will be `()` for caller, state is stored by the host \
+            // and not returned to the caller
+            let result_type = if matches!(self.method_type, MethodType::Init) {
+                quote! { () }
+            } else {
+                let result_type = &self.result_type.result_type();
+                quote! { #result_type }
+            };
+
+            external_args_pointers.push(quote! {
+                pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
+            });
+            external_args_sizes.push(quote! {
+                /// Size of the contents `ok_result_ptr` points to
+                pub ok_result_size: u32,
+            });
+            external_args_capacities.push(quote! {
+                /// Capacity of the allocated memory `ok_result_ptr` points to
+                pub ok_result_capacity: u32,
+            });
+        }
+        let args_struct_doc = format!(
+            "Data structure containing expected input for external method invocation, eventually \
+            calling [`{original_method_name}()`] on the other side by the host.\
+            \n\nThis can be used with [`Env`](::ab_contracts_common::env::Env), though there are \
+            helper methods on this provided by extension trait that allow not dealing with this \
+            struct directly in simpler cases."
+        );
+
+        Ok(quote_spanned! {impl_item_fn.sig.span() =>
+            #[doc = #args_struct_doc]
+            #[repr(C)]
+            pub struct ExternalArgs
+            {
+                #( #external_args_pointers )*
+                #( #external_args_sizes )*
+                #( #external_args_capacities )*
+            }
+
+            #[automatically_derived]
+            unsafe impl ::ab_contracts_common::method::ExternalArgs for ExternalArgs {
+                const FINGERPRINT: &::ab_contracts_common::method::MethodFingerprint =
+                    &FINGERPRINT;
+            }
+
+            // TODO: `ExternalArgs` constructor for easier usage (that fills in default
+            //  capacities and sized), use it in extension trait implementation to reduce code
+            //  duplication
         })
     }
 
