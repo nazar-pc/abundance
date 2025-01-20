@@ -87,6 +87,7 @@ pub enum ContractMetadataKind {
     /// Encoding is the same as [`Self::Init`].
     ViewStatefulRo,
 
+    // TODO: `#[env] can be made implicit assuming the name is of the struct is always the same
     /// Read-only `#[env]` argument.
     ///
     /// Example: `#[env] env: &Env,`
@@ -97,12 +98,14 @@ pub enum ContractMetadataKind {
     EnvRw,
     /// Read-only `#[tmp]` argument.
     ///
-    /// Example: `#[tmp] tmp: &MaybeData<Slot>,`
+    /// Example: `#[tmp] tmp: &MaybeData<Tmp>,`
     TmpRo,
     /// Read-write `#[tmp]` argument.
     ///
-    /// Example: `#[tmp] tmp: &mut MaybeData<Slot>,`
+    /// Example: `#[tmp] tmp: &mut MaybeData<Tmp>,`
     TmpRw,
+    // TODO: What if address is mandatory for slots? Then it would be possible to make `#[slot]`
+    //  implicit
     /// Read-only `#[slot]` argument with an address.
     ///
     /// Example: `#[slot] (from_address, from): (&Address, &MaybeData<Slot>),`
@@ -127,6 +130,7 @@ pub enum ContractMetadataKind {
     ///
     /// Example: `#[output] out: &mut VariableBytes<1024>,`
     Output,
+    // TODO: Is explicit result needed? If not then `#[input]` and `#[output]` can be made implicit
     /// Explicit `#[result`] argument or `T` of [`Result<T, ContractError>`] return type or simply
     /// return type if it is not fallible.
     ///
