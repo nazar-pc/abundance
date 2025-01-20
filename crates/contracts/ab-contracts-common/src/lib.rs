@@ -34,6 +34,16 @@ pub enum ContractMetadataKind {
     ///
     /// [`IoTypeMetadataKind`]: ab_contracts_io_type::IoTypeMetadataKind
     Contract,
+    /// Trait metadata.
+    ///
+    /// Traits are encoded af follows:
+    /// * Length of trait name in bytes (u8)
+    /// * Trait name as UTF-8 bytes
+    /// * Number of methods (u8)
+    /// * Recursive metadata of methods as defined in one of:
+    ///   * [`Self::UpdateStateless`]
+    ///   * [`Self::ViewStateless`]
+    Trait,
 
     /// `#[init]` method.
     ///

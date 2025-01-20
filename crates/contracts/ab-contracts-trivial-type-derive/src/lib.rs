@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, Literal, TokenStream, TokenTree};
+use proc_macro2::{Ident, Literal, TokenStream};
 use quote::{format_ident, quote};
 use std::iter;
 use syn::spanned::Spanned;
@@ -335,18 +335,14 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
     // * Enum name as UTF-8 bytes
     // * Number of variants (u8, if requested)
     let enum_metadata_header = {
-        let enum_metadata_header = [TokenTree::Literal(Literal::u8_unsuffixed(
-            type_name_bytes_len,
-        ))]
-        .into_iter()
-        .chain(
-            type_name_bytes
-                .iter()
-                .map(|&char| TokenTree::Literal(Literal::byte_character(char))),
-        )
-        .chain(
-            with_num_variants.then_some(TokenTree::Literal(Literal::u8_unsuffixed(num_variants))),
-        );
+        let enum_metadata_header = [Literal::u8_unsuffixed(type_name_bytes_len)]
+            .into_iter()
+            .chain(
+                type_name_bytes
+                    .iter()
+                    .map(|&char| Literal::byte_character(char)),
+            )
+            .chain(with_num_variants.then_some(Literal::u8_unsuffixed(num_variants)));
 
         quote! {
             &[
@@ -417,16 +413,14 @@ fn generate_inner_struct_metadata_header(
     // * Identifier as UTF-8 bytes
     // * Number of fields (u8, if requested)
     Ok({
-        let struct_metadata_header = [TokenTree::Literal(Literal::u8_unsuffixed(ident_bytes_len))]
+        let struct_metadata_header = [Literal::u8_unsuffixed(ident_bytes_len)]
             .into_iter()
             .chain(
                 ident_bytes
                     .iter()
-                    .map(|&char| TokenTree::Literal(Literal::byte_character(char))),
+                    .map(|&char| Literal::byte_character(char)),
             )
-            .chain(
-                with_num_fields.then_some(TokenTree::Literal(Literal::u8_unsuffixed(num_fields))),
-            );
+            .chain(with_num_fields.then_some(Literal::u8_unsuffixed(num_fields)));
 
         quote! {
             &[#( #struct_metadata_header, )*],
@@ -455,13 +449,11 @@ fn generate_fields_metadata(
                 )
             })?;
 
-            let field_metadata = [TokenTree::Literal(Literal::u8_unsuffixed(field_name_len))]
-                .into_iter()
-                .chain(
-                    field_name_bytes
-                        .iter()
-                        .map(|&char| TokenTree::Literal(Literal::byte_character(char))),
-                );
+            let field_metadata = [Literal::u8_unsuffixed(field_name_len)].into_iter().chain(
+                field_name_bytes
+                    .iter()
+                    .map(|&char| Literal::byte_character(char)),
+            );
 
             Some(quote! { #( #field_metadata, )* })
         } else {

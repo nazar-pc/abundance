@@ -1,20 +1,22 @@
 use crate::contract::methods::{MethodDetails, MethodType};
 use crate::contract::{ContractDetails, Method, MethodOutput};
+use proc_macro2::Ident;
 use quote::format_ident;
 use std::collections::HashMap;
 use syn::spanned::Spanned;
-use syn::{Error, FnArg, ImplItemFn, Meta, Type};
+use syn::{Error, FnArg, Meta, Signature, Type};
 
 pub(super) fn process_init_fn(
-    struct_name: Type,
-    impl_item_fn: &mut ImplItemFn,
+    self_type: Type,
+    _trait_name: Option<&Ident>,
+    fn_sig: &mut Signature,
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
-    let mut methods_details = MethodDetails::new(MethodType::Init, struct_name);
+    let mut methods_details = MethodDetails::new(MethodType::Init, self_type);
 
-    methods_details.process_output(&impl_item_fn.sig.output)?;
+    methods_details.process_output(&fn_sig.output)?;
 
-    for input in impl_item_fn.sig.inputs.iter_mut() {
+    for input in fn_sig.inputs.iter_mut() {
         let input_span = input.span();
         // TODO: Moving this outside of the loop causes confusing lifetime issues
         let supported_attrs = HashMap::<_, fn(_, _, _) -> _>::from_iter([
@@ -41,7 +43,7 @@ pub(super) fn process_init_fn(
         match input {
             FnArg::Receiver(_receiver) => {
                 return Err(Error::new(
-                    impl_item_fn.sig.span(),
+                    fn_sig.span(),
                     "`#[init]` must return `Self`, not take it as an argument",
                 ));
             }
@@ -81,11 +83,11 @@ pub(super) fn process_init_fn(
         }
     }
 
-    let guest_ffi = methods_details.generate_guest_ffi(impl_item_fn)?;
-    let trait_ext_components = methods_details.generate_trait_ext_components(impl_item_fn);
+    let guest_ffi = methods_details.generate_guest_ffi(fn_sig, None)?;
+    let trait_ext_components = methods_details.generate_trait_ext_components(fn_sig, None);
 
     contract_details.methods.push(Method {
-        original_ident: impl_item_fn.sig.ident.clone(),
+        original_ident: fn_sig.ident.clone(),
         methods_details,
     });
 
