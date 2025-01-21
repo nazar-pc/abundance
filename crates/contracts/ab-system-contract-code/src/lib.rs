@@ -22,12 +22,12 @@ impl Code {
         #[env] env: &mut Env,
         #[input] code: &VariableBytes<MAX_CODE_SIZE>,
     ) -> Result<Address, ContractError> {
-        let new_contract_address = env.allocate_address(
+        let new_contract_address = env.address_allocator_allocate_address(
             &MethodContext::Replace,
             &Address::system_address_allocator(env.shard_index()),
         )?;
 
-        env.store(
+        env.code_store(
             &MethodContext::Replace,
             env.own_address(),
             &new_contract_address,
@@ -44,20 +44,33 @@ impl Code {
     #[update]
     pub fn store(
         #[env] env: &mut Env,
-        #[slot] (target_address, target): (&Address, &mut VariableBytes<MAX_CODE_SIZE>),
-        #[input] code: &VariableBytes<MAX_CODE_SIZE>,
+        #[slot] (address, contract_code): (&Address, &mut VariableBytes<MAX_CODE_SIZE>),
+        #[input] new_code: &VariableBytes<MAX_CODE_SIZE>,
     ) -> Result<(), ContractError> {
         // TODO: Would it be helpful to allow indirect updates?
         // Allow updates to system deploy contract (for initial deployment) and to contract itself
         // for upgrades, but only direct calls
-        if !(env.caller() == env.own_address() || env.caller() == target_address) {
+        if !(env.caller() == env.own_address() || env.caller() == address) {
             return Err(ContractError::AccessDenied);
         }
 
-        if !target.copy_from(code) {
+        if !contract_code.copy_from(new_code) {
             return Err(ContractError::InvalidInput);
         }
 
         Ok(())
+    }
+
+    /// Read contract's code
+    #[view]
+    pub fn read(
+        #[slot] contract_code: &VariableBytes<MAX_CODE_SIZE>,
+        #[output] code: &mut VariableBytes<MAX_CODE_SIZE>,
+    ) -> Result<(), ContractError> {
+        if code.copy_from(contract_code) {
+            Ok(())
+        } else {
+            Err(ContractError::InvalidInput)
+        }
     }
 }

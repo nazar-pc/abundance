@@ -26,14 +26,14 @@ pub struct Slot {
 
 #[derive(Copy, Clone, TrivialType)]
 #[repr(C)]
-pub struct ExampleContract {
+pub struct Example {
     pub total_supply: Balance,
     pub owner: Address,
     pub padding: [u8; 8],
 }
 
 #[contract]
-impl Fungible for ExampleContract {
+impl Fungible for Example {
     #[update]
     fn transfer(
         #[env] env: &mut Env,
@@ -45,18 +45,17 @@ impl Fungible for ExampleContract {
             return Err(ContractError::AccessDenied);
         }
 
-        env.transfer(&MethodContext::Keep, env.own_address(), from, to, amount)
+        env.example_transfer(&MethodContext::Keep, env.own_address(), from, to, amount)
     }
 
     #[view]
     fn balance(#[env] env: &Env, #[input] address: &Address) -> Result<Balance, ContractError> {
-        env.balance(env.own_address(), address)
+        env.example_balance(env.own_address(), address)
     }
 }
 
-// TODO: Can state possibly also be a slot so `#[init]` no longer needs to exit?
 #[contract]
-impl ExampleContract {
+impl Example {
     #[init]
     pub fn new(
         #[slot] (owner_addr, owner): (&Address, &mut MaybeData<Slot>),
