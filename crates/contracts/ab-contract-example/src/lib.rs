@@ -41,6 +41,10 @@ impl Fungible for ExampleContract {
         #[input] to: &Address,
         #[input] amount: &Balance,
     ) -> Result<(), ContractError> {
+        if from == env.own_address() && env.caller() != env.own_address() {
+            return Err(ContractError::AccessDenied);
+        }
+
         env.transfer(&MethodContext::Keep, env.own_address(), from, to, amount)
     }
 
