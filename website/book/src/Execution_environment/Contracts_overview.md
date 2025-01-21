@@ -104,23 +104,23 @@ vars: {
 
 direction: right
 
-Mutates: Mutates own state {
-    update: fn update(&mut self, ...)
-}
-
-Reads: Reads state {
-    read: fn read(&self, ...)
-}
-
-Stateless: No state {
+Stateless: No state (Contract 1) {
     compute: fn compute(...)
 }
 
+Mutates: Mutates own state (Contract 2) {
+    update: fn update(&mut self, ...)
+}
+
+Reads: Reads state (Contract 3) {
+    read: fn read(&self, ...)
+}
+
+Stateless.compute -> Stateless.compute: ✅
+Stateless.compute -> Mutates.update: ✅
 Mutates.update -> Mutates.update: ❌
 Mutates.update -> Reads.read: ✅
 Reads.read -> Reads.read: ✅
-Stateless.compute -> Stateless.compute: ✅
-Stateless.compute -> Mutates.update: ✅
 
 ```
 
@@ -143,11 +143,11 @@ vars: {
 
 direction: right
 
-Mutates: Mutates own state {
+Mutates: Mutates own state (Contract 1) {
     update: fn update(&mut self, ...)
 }
 
-Reads: Reads state {
+Reads: Reads state (Contract 2) {
     read: fn read(&self, ...)
 }
 
