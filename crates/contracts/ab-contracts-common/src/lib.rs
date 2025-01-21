@@ -311,6 +311,8 @@ impl Address {
     pub const NULL: Self = Self([0; 8]);
     /// System contract for managing code of other contracts
     pub const SYSTEM_CODE: Self = Self([1; 8]);
+    /// System contract for managing state of other contracts
+    pub const SYSTEM_STATE: Self = Self([2; 8]);
 
     /// System contract for address allocation on a particular shard index
     pub const fn system_address_allocator(shard_index: ShardIndex) -> Address {

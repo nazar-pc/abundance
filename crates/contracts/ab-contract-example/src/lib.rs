@@ -54,7 +54,6 @@ impl Fungible for Example {
     }
 }
 
-// TODO: Can state possibly also be a slot so `#[init]` no longer needs to exit?
 #[contract]
 impl Example {
     #[init]
