@@ -21,11 +21,11 @@ This helps to reduce number of special cases for built-in functions vs something
 
 # Storage model
 
-In contrast to most other blockchains, contract's storage is organized into a container that has state and slots inside,
-together forming a tree with the root being the root of contract's storage.
+In contrast to most other blockchains, contract's storage is organized into a container that has slots inside, which
+form a tree with the root being the root of contract's storage.
 
-State can only be read or modified by the contract itself, while each slot belongs to one of the existing contracts and
-can only be modified by that contract.
+Each slot belongs to one of the existing contracts and can only be modified by that contract. Contract's code and state
+are also slots belonging to system contracts, even though developer-facing API might abstract it in a more friendly way.
 
 Visually it looks something like this:
 
@@ -44,40 +44,47 @@ vars: {
     }
 }
 
-direction: up
+direction: right
 
-Wallet: Wallet's Storage {
-    State: Own State
-    Slot1: Slot for contract 1
-    Slot2: Slot for contract 2
+Wallet: Wallet {
+    Code: Code
+    State: State
+    Balance: Balance
 }
 
-Contract1: Contract 1 {
+CodeContract: Code contract {
+    Code
 }
 
-Contract2: Contract 2 {
-    State: Own State
-    Slot1: Slot for contract 1
+StateContract: State contract {
+    Code
 }
 
-Wallet -> Wallet.State
-Contract1 -> Wallet.Slot1
-Contract1 -> Contract2.Slot1
-Contract2 -> Contract2.State
-Contract2 -> Wallet.Slot2
+Token: Token contract {
+    State
+    Code
+}
+
+CodeContract -> Wallet.Code
+CodeContract -> CodeContract.Code
+CodeContract -> StateContract.Code
+CodeContract -> Token.Code
+StateContract -> Wallet.State
+StateContract -> Token.State
+Token -> Wallet.Balance
 ```
 
 Contracts do not have access to underlying storage implementation in form of key-value database, instead they modify
-state and/or slots as the only way of persisting data.
+slots as the only way of persisting data.
 
 # Transaction processing
 
-Each method call of the contract includes metadata about what state or slots it will read or modify alongside with any
-inputs or outputs it expects and their type information. With this information contract execution engine can run
-non-conflicting transactions in parallel.
+Each method call of the contract includes metadata about what slots it will read or modify alongside with any inputs or
+outputs it expects and their type information. With this information contract execution engine can run non-conflicting
+transactions in parallel.
 
 Not only that, it can follow the chain of calls ensuring Rust-like ownership model where contract can't recursively call
-its own method that mutates state because it'll violate safety invariants. Recursive calls of stateless or read-only
+its own method that mutates slots because it'll violate safety invariants. Recursive calls of stateless or read-only
 methods is fine though.
 
 ```d2
@@ -154,7 +161,7 @@ Reads.read -> Mutates.update: ❌
 # Contract I/O
 
 Not only contract methods do not have access to general purpose key-value store (even if private to the contract), they
-don't have access to any other state except such that was explicitly provided as method input and can't return data in
+don't have access to any other data except such that was explicitly provided as method input and can't return data in
 any other way except through return arguments.
 
 Conceptually all methods look something like this:
@@ -186,9 +193,9 @@ impl MyContract {
 }
 ```
 
-Environment handle allows to call other contracts and request ephemeral state, contract's state and slots can be read
-and written to, inputs are read-only and outputs are write-only. `&` or `&mut` in Rust limits what can be done with
-these types, there is no other implicit  "global" way to read or update ephemeral or permanent state of the blockchain.
+Environment handle allows to call other contracts and request ephemeral state, contract's slots can be read and written
+to, inputs are read-only and outputs are write-only. `&` or `&mut` in Rust limits what can be done with these types,
+there is no other implicit  "global" way to read or update ephemeral or permanent state of the blockchain.
 
 Handling everything through explicit inputs and outputs results in straightforward implementation, analysis and testing
 approach without side effects. In many cases even heap allocations can be avoided completely, leading to fast and
