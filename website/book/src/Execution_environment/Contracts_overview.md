@@ -47,9 +47,9 @@ vars: {
 direction: right
 
 Wallet: Wallet {
-    Code: Code
     State: State
     Balance: Balance
+    Code: Code
 }
 
 CodeContract: Code contract {
