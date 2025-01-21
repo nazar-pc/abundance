@@ -1023,12 +1023,7 @@ impl MethodDetails {
         }
 
         let original_method_name = &fn_sig.ident;
-        let ffi_fn_name = if let Some(trait_name) = trait_name {
-            let ffi_fn_prefix = RenameRule::SnakeCase.apply_to_variant(trait_name.to_string());
-            format_ident!("{ffi_fn_prefix}_{original_method_name}")
-        } else {
-            format_ident!("{original_method_name}")
-        };
+        let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
         let result_type = self.result_type.result_type();
 
         let result_var_name = format_ident!("result");
@@ -1130,12 +1125,6 @@ impl MethodDetails {
                 }
             };
 
-            let ffi_fn_name = if let Some(trait_name) = trait_name {
-                let ffi_fn_prefix = RenameRule::SnakeCase.apply_to_variant(trait_name.to_string());
-                format_ident!("{ffi_fn_prefix}_{original_method_name}")
-            } else {
-                format_ident!("{original_method_name}")
-            };
             let full_struct_name = if let Some(trait_name) = trait_name {
                 quote! { <#self_type as #trait_name> }
             } else {
@@ -1263,12 +1252,7 @@ impl MethodDetails {
         }
 
         let original_method_name = &fn_sig.ident;
-        let ffi_fn_name = if let Some(trait_name) = trait_name {
-            let ffi_fn_prefix = RenameRule::SnakeCase.apply_to_variant(trait_name.to_string());
-            format_ident!("{ffi_fn_prefix}_{original_method_name}")
-        } else {
-            format_ident!("{original_method_name}")
-        };
+        let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
 
         // Initializer's return type will be `()` for caller, state is stored by the host and not
         // returned to the caller, also if explicit `#[result]` argument is used return type is
@@ -1454,12 +1438,7 @@ impl MethodDetails {
         let number_of_arguments = Literal::u8_unsuffixed(number_of_arguments);
 
         let original_method_name = &fn_sig.ident;
-        let ffi_fn_name = if let Some(trait_name) = trait_name {
-            let ffi_fn_prefix = RenameRule::SnakeCase.apply_to_variant(trait_name.to_string());
-            format_ident!("{ffi_fn_prefix}_{original_method_name}")
-        } else {
-            format_ident!("{original_method_name}")
-        };
+        let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
         let method_name_metadata = derive_ident_metadata(&ffi_fn_name)?;
         Ok(quote_spanned! {fn_sig.span() =>
             const fn metadata() -> ([u8; 4096], usize) {
@@ -1727,5 +1706,14 @@ fn extract_arg_name(mut pat: &Pat) -> Option<Ident> {
                 return None;
             }
         }
+    }
+}
+
+fn derive_ffi_fn_name(original_method_name: &Ident, trait_name: Option<&Ident>) -> Ident {
+    if let Some(trait_name) = trait_name {
+        let ffi_fn_prefix = RenameRule::SnakeCase.apply_to_variant(trait_name.to_string());
+        format_ident!("{ffi_fn_prefix}_{original_method_name}")
+    } else {
+        format_ident!("{original_method_name}")
     }
 }
