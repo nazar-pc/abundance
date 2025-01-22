@@ -1,4 +1,4 @@
-use crate::method::{ExternalArgs, MethodFingerprint};
+use crate::methods::{ExternalArgs, MethodFingerprint};
 use crate::{Address, ContractError, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
