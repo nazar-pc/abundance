@@ -2,6 +2,7 @@ use crate::methods::{ExternalArgs, MethodFingerprint};
 use crate::{Address, ContractError, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
+use core::iter;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 
@@ -73,7 +74,7 @@ impl Env {
 
     /// Call a single method at specified address and with specified arguments.
     ///
-    /// This is a shortcut for [`Self::prepare_call_method`] + [`Self::call_many`].
+    /// This is a shortcut for [`Self::prepare_method_call()`] + [`Self::call_many()`].
     pub fn call<Args>(
         &self,
         contract: &Address,
@@ -83,13 +84,14 @@ impl Env {
     where
         Args: ExternalArgs,
     {
-        let invoke_method = Self::prepare_call_method(contract, args, method_context);
-        let [result] = self.call_many([invoke_method]);
-        result
+        let prepared_method = Self::prepare_method_call(contract, args, method_context);
+        self.call_many(iter::once(prepared_method))
     }
 
-    /// Prepare a single method for invocation at specified address and with specified arguments
-    pub fn prepare_call_method<'a, Args>(
+    /// Prepare a single method for calling at specified address and with specified arguments.
+    ///
+    /// Result is to be used with [`Self::call_many()`] afterward.
+    pub fn prepare_method_call<'a, Args>(
         contract: &'a Address,
         args: &'a mut Args,
         method_context: &'a MethodContext,
@@ -113,10 +115,10 @@ impl Env {
     /// Invoke provided methods and wait for results.
     ///
     /// Remaining gas will be split equally between all individual invocations.
-    pub fn call_many<const N: usize>(
-        &self,
-        methods: [PreparedMethod<'_>; N],
-    ) -> [Result<(), ContractError>; N] {
+    pub fn call_many<'a, Methods>(&'a self, methods: Methods) -> Result<(), ContractError>
+    where
+        Methods: IntoIterator<Item = PreparedMethod<'a>>,
+    {
         let _ = methods;
         todo!()
     }

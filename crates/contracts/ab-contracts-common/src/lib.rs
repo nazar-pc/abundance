@@ -308,11 +308,11 @@ impl fmt::Display for Address {
 impl Address {
     // TODO: Various system contracts
     /// Sentinel contract address, inaccessible and not owned by anyone
-    pub const NULL: Self = Self([0; 8]);
+    pub const NULL: Self = Self(0u64.to_le_bytes());
     /// System contract for managing code of other contracts
-    pub const SYSTEM_CODE: Self = Self([1; 8]);
+    pub const SYSTEM_CODE: Self = Self(1u64.to_le_bytes());
     /// System contract for managing state of other contracts
-    pub const SYSTEM_STATE: Self = Self([2; 8]);
+    pub const SYSTEM_STATE: Self = Self(2u64.to_le_bytes());
 
     /// System contract for address allocation on a particular shard index
     pub const fn system_address_allocator(shard_index: ShardIndex) -> Address {
