@@ -26,5 +26,5 @@ impl MethodFingerprint {
 /// macro which generates smart contract implementation.
 pub unsafe trait ExternalArgs {
     /// Fingerprint of the method being called
-    const FINGERPRINT: &MethodFingerprint;
+    const FINGERPRINT: MethodFingerprint;
 }

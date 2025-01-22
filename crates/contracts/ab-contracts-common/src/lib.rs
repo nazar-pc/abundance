@@ -1,7 +1,7 @@
 #![no_std]
 
 pub mod env;
-pub mod method;
+pub mod methods;
 
 use ab_contracts_io_type::trivial_type::TrivialType;
 use core::fmt;

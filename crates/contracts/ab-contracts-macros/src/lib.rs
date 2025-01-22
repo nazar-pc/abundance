@@ -1,5 +1,3 @@
-#![feature(extract_if, iter_map_windows, let_chains)]
-
 //! `#[contract]` macro will process *public* methods annotated with following attributes:
 //! * `#[init]` - method that can be called to produce an initial state of the contract,
 //!   called once during contacts lifetime
@@ -87,18 +85,7 @@
 //! * `#[output]`
 //! * `#[result]`
 
-mod contract;
+#[doc(hidden)]
+pub mod __private;
 
-use proc_macro::TokenStream;
-
-/// `#[contract]` macro to derive smart contract implementation, see module description for
-/// details.
-///
-/// This macro is supposed to be applied to an implementation of the struct that in turn implements
-/// `IoType` trait.
-#[proc_macro_attribute]
-pub fn contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    contract::contract(item.into())
-        .unwrap_or_else(|error| error.to_compile_error())
-        .into()
-}
+pub use ab_contracts_macros_impl::contract;

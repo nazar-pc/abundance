@@ -714,7 +714,7 @@ impl MethodDetails {
         if let Some(mutability) = self.state {
             internal_args_pointers.push(quote! {
                 pub state_ptr: ::core::ptr::NonNull<
-                    <#self_type as ::ab_contracts_io_type::IoType>::PointerType,
+                    <#self_type as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
             });
 
@@ -733,11 +733,14 @@ impl MethodDetails {
                     // Ensure state type implements `IoType`, which is required for crossing
                     // host/guest boundary
                     const _: () = {
-                        const fn assert_impl_io_type<T: ::ab_contracts_io_type::IoType>() {}
+                        const fn assert_impl_io_type<T>()
+                        where
+                            T: ::ab_contracts_macros::__private::IoType,
+                        {}
                         assert_impl_io_type::<#self_type>();
                     };
 
-                    <#self_type as ::ab_contracts_io_type::IoType>::from_ptr_mut(
+                    <#self_type as ::ab_contracts_macros::__private::IoType>::from_ptr_mut(
                         &mut args.state_ptr,
                         &mut args.state_size,
                         args.state_capacity,
@@ -748,11 +751,14 @@ impl MethodDetails {
                     // Ensure state type implements `IoType`, which is required for crossing
                     // host/guest boundary
                     const _: () = {
-                        const fn assert_impl_io_type<T: ::ab_contracts_io_type::IoType>() {}
+                        const fn assert_impl_io_type<T>()
+                        where
+                            T: ::ab_contracts_macros::__private::IoType,
+                        {}
                         assert_impl_io_type::<#self_type>();
                     };
 
-                    <#self_type as ::ab_contracts_io_type::IoType>::from_ptr(
+                    <#self_type as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.state_ptr,
                         &args.state_size,
                         // Size matches capacity for immutable inputs
@@ -766,7 +772,7 @@ impl MethodDetails {
         if let Some(mutability) = self.env {
             internal_args_pointers.push(quote! {
                 // Use `Env` to check if method argument had correct type at compile time
-                pub env_ptr: ::core::ptr::NonNull<::ab_contracts_common::env::Env>,
+                pub env_ptr: ::core::ptr::NonNull<::ab_contracts_macros::__private::Env>,
             });
 
             if mutability.is_some() {
@@ -796,7 +802,7 @@ impl MethodDetails {
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
-                    <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
             });
             internal_args_sizes.push(quote! {
@@ -817,12 +823,12 @@ impl MethodDetails {
                     const _: () = {
                         const fn assert_impl_io_type_optional<T>()
                         where
-                            T: ::ab_contracts_io_type::IoTypeOptional,
+                            T: ::ab_contracts_macros::__private::IoTypeOptional,
                         {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr_mut(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
                         args.#capacity_field,
@@ -836,12 +842,12 @@ impl MethodDetails {
                     const _: () = {
                         const fn assert_impl_io_type_optional<T>()
                         where
-                            T: ::ab_contracts_io_type::IoTypeOptional,
+                            T: ::ab_contracts_macros::__private::IoTypeOptional,
                         {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    <#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
                         &args.#size_field,
                         // Size matches capacity for immutable inputs
@@ -862,7 +868,7 @@ impl MethodDetails {
                 let address_ptr = format_ident!("{address_arg}_ptr");
                 internal_args_pointers.push(quote! {
                     // Use `Address` to check if method argument had correct type at compile time
-                    pub #address_ptr: ::core::ptr::NonNull<::ab_contracts_common::Address>,
+                    pub #address_ptr: ::core::ptr::NonNull<::ab_contracts_macros::__private::Address>,
                 });
             }
 
@@ -876,7 +882,7 @@ impl MethodDetails {
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
-                    <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
             });
             internal_args_sizes.push(quote! {
@@ -897,12 +903,12 @@ impl MethodDetails {
                     const _: () = {
                         const fn assert_impl_io_type_optional<T>()
                         where
-                            T: ::ab_contracts_io_type::IoTypeOptional,
+                            T: ::ab_contracts_macros::__private::IoTypeOptional,
                         {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr_mut(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
                         args.#capacity_field,
@@ -916,12 +922,12 @@ impl MethodDetails {
                     const _: () = {
                         const fn assert_impl_io_type_optional<T>()
                         where
-                            T: ::ab_contracts_io_type::IoTypeOptional,
+                            T: ::ab_contracts_macros::__private::IoTypeOptional,
                         {}
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    <#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
                         &args.#size_field,
                         // Size matches capacity for immutable inputs
@@ -934,10 +940,10 @@ impl MethodDetails {
                 let address_ptr = format_ident!("{address_arg}_ptr");
                 original_fn_args.push(quote! {
                     (
-                        &<::ab_contracts_common::Address as ::ab_contracts_io_type::IoType>::from_ptr(
+                        &<::ab_contracts_macros::__private::Address as ::ab_contracts_macros::__private::IoType>::from_ptr(
                             &args.#address_ptr,
-                            &<::ab_contracts_common::Address as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
-                            <::ab_contracts_common::Address as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
+                            &<::ab_contracts_macros::__private::Address as ::ab_contracts_macros::__private::TrivialType>::SIZE,
+                            <::ab_contracts_macros::__private::Address as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                         ),
                         #arg_extraction,
                     )
@@ -961,7 +967,7 @@ impl MethodDetails {
                 IoArg::Input { .. } => {
                     internal_args_pointers.push(quote! {
                         pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
+                            <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                         >,
                     });
                     internal_args_sizes.push(quote! {
@@ -973,11 +979,14 @@ impl MethodDetails {
                         // Ensure input type implements `IoType`, which is required for crossing
                         // host/guest boundary
                         const _: () = {
-                            const fn assert_impl_io_type<T: ::ab_contracts_io_type::IoType>() {}
+                            const fn assert_impl_io_type<T>()
+                            where
+                                T: ::ab_contracts_macros::__private::IoType,
+                            {}
                             assert_impl_io_type::<#type_name>();
                         };
 
-                        <#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
+                        <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                             &args.#ptr_field,
                             &args.#size_field,
                             // Size matches capacity for immutable inputs
@@ -988,7 +997,7 @@ impl MethodDetails {
                 IoArg::Output { .. } | IoArg::Result { .. } => {
                     internal_args_pointers.push(quote! {
                         pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
+                            <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                         >,
                     });
                     internal_args_sizes.push(quote! {
@@ -1007,12 +1016,12 @@ impl MethodDetails {
                         const _: () = {
                             const fn assert_impl_io_type_optional<T>()
                             where
-                                T: ::ab_contracts_io_type::IoTypeOptional,
+                                T: ::ab_contracts_macros::__private::IoTypeOptional,
                             {}
                             assert_impl_io_type_optional::<#type_name>();
                         };
 
-                        <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
+                        <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr_mut(
                             &mut args.#ptr_field,
                             &mut args.#size_field,
                             args.#capacity_field,
@@ -1053,12 +1062,12 @@ impl MethodDetails {
                     );
                     debug_assert_eq!(
                         args.ok_result_size,
-                        <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
+                        <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                         "`ok_result_size` specified is invalid",
                     );
                     debug_assert_eq!(
                         args.ok_result_capacity,
-                        <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
+                        <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                         "`ok_result_capacity` specified is invalid",
                     );
                 });
@@ -1087,7 +1096,7 @@ impl MethodDetails {
                 MethodResultType::Unit(_) => {
                     quote! {
                         // Return exit code
-                        ::ab_contracts_common::ExitCode::Ok
+                        ::ab_contracts_macros::__private::ExitCode::Ok
                     }
                 }
                 MethodResultType::Regular(_) => {
@@ -1096,14 +1105,14 @@ impl MethodDetails {
                         // It is okay to not write the size because return type is for `TrivialType`
                         // only, whose size is always fixed.
                         args.ok_result_ptr.write(#result_var_name);
-                        ::ab_contracts_common::ExitCode::Ok
+                        ::ab_contracts_macros::__private::ExitCode::Ok
                     }
                 }
                 MethodResultType::ResultUnit(_) => {
                     quote! {
                         // Return exit code
                         match #result_var_name {
-                            Ok(()) => ::ab_contracts_common::ExitCode::Ok,
+                            Ok(()) => ::ab_contracts_macros::__private::ExitCode::Ok,
                             Err(error) => error.exit_code(),
                         }
                     }
@@ -1116,7 +1125,7 @@ impl MethodDetails {
                                 // It is okay to not write the size because return type is for
                                 // `TrivialType` only, whose size is always fixed
                                 args.ok_result_ptr.write(result);
-                                ::ab_contracts_common::ExitCode::Ok
+                                ::ab_contracts_macros::__private::ExitCode::Ok
                             }
                             Err(error) => error.exit_code(),
                         }
@@ -1145,7 +1154,7 @@ impl MethodDetails {
                 #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes")]
                 pub unsafe extern "C" fn #ffi_fn_name(
                     mut args: ::core::ptr::NonNull<InternalArgs>,
-                ) -> ::ab_contracts_common::ExitCode {
+                ) -> ::ab_contracts_macros::__private::ExitCode {
                     // SAFETY: Must be upheld by the caller (executor)
                     unsafe {
                         debug_assert!(args.is_aligned(), "`args` pointer is misaligned");
@@ -1195,7 +1204,7 @@ impl MethodDetails {
             let ptr_field = format_ident!("{}_ptr", slot.arg_name);
 
             external_args_pointers.push(quote! {
-                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_common::Address>,
+                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Address>,
             });
         }
 
@@ -1212,7 +1221,7 @@ impl MethodDetails {
                 IoArg::Input { .. } => {
                     external_args_pointers.push(quote! {
                         pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
+                            <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                         >,
                     });
                     external_args_sizes.push(quote! {
@@ -1223,7 +1232,7 @@ impl MethodDetails {
                 IoArg::Output { .. } => {
                     external_args_pointers.push(quote! {
                         pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
+                            <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                         >,
                     });
                     external_args_sizes.push(quote! {
@@ -1241,7 +1250,7 @@ impl MethodDetails {
                     if !matches!(self.method_type, MethodType::Init) {
                         external_args_pointers.push(quote! {
                             pub #ptr_field: ::core::ptr::NonNull<
-                                <#type_name as ::ab_contracts_io_type::IoType>::PointerType,
+                                <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                             >,
                         });
                         external_args_sizes.push(quote! {
@@ -1283,7 +1292,7 @@ impl MethodDetails {
         let args_struct_doc = format!(
             "Data structure containing expected input for external method invocation, eventually \
             calling `{ffi_fn_name}()` on the other side by the host.\n\n\
-            This can be used with [`Env`](::ab_contracts_common::env::Env), though there are \
+            This can be used with [`Env`](::ab_contracts_macros::__private::Env), though there are \
             helper methods on this provided by extension trait that allow not dealing with this \
             struct directly in simpler cases."
         );
@@ -1299,9 +1308,9 @@ impl MethodDetails {
             }
 
             #[automatically_derived]
-            unsafe impl ::ab_contracts_common::method::ExternalArgs for ExternalArgs {
-                const FINGERPRINT: &::ab_contracts_common::method::MethodFingerprint =
-                    &FINGERPRINT;
+            unsafe impl ::ab_contracts_macros::__private::ExternalArgs for ExternalArgs {
+                const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
+                    FINGERPRINT;
             }
 
             // TODO: `ExternalArgs` constructor for easier usage (that fills in default
@@ -1328,7 +1337,7 @@ impl MethodDetails {
 
             let env_metadata_type = format_ident!("{env_metadata_type}");
             method_metadata.push(quote! {
-                &[::ab_contracts_common::ContractMetadataKind::#env_metadata_type as u8],
+                &[::ab_contracts_macros::__private::ContractMetadataKind::#env_metadata_type as u8],
             });
         }
 
@@ -1344,10 +1353,10 @@ impl MethodDetails {
             let arg_name_metadata = derive_ident_metadata(&tmp.arg_name)?;
             method_metadata.push(quote! {
                 &[
-                    ::ab_contracts_common::ContractMetadataKind::#tmp_metadata_type as u8,
+                    ::ab_contracts_macros::__private::ContractMetadataKind::#tmp_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
-                <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
+                <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
             });
         }
 
@@ -1366,10 +1375,10 @@ impl MethodDetails {
             let arg_name_metadata = derive_ident_metadata(&slot.arg_name)?;
             method_metadata.push(quote! {
                 &[
-                    ::ab_contracts_common::ContractMetadataKind::#slot_metadata_type as u8,
+                    ::ab_contracts_macros::__private::ContractMetadataKind::#slot_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
-                <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
+                <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
             });
         }
 
@@ -1385,10 +1394,10 @@ impl MethodDetails {
             let arg_name_metadata = derive_ident_metadata(io_arg.arg_name())?;
             method_metadata.push(quote! {
                 &[
-                    ::ab_contracts_common::ContractMetadataKind::#io_metadata_type as u8,
+                    ::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
-                <#type_name as ::ab_contracts_io_type::IoType>::METADATA,
+                <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
             });
         }
 
@@ -1398,10 +1407,10 @@ impl MethodDetails {
             let arg_name_metadata = Literal::u8_unsuffixed(0);
             method_metadata.push(quote! {
                 &[
-                    ::ab_contracts_common::ContractMetadataKind::Result as u8,
+                    ::ab_contracts_macros::__private::ContractMetadataKind::Result as u8,
                     #arg_name_metadata,
                 ],
-                <#result_type as ::ab_contracts_io_type::IoType>::METADATA,
+                <#result_type as ::ab_contracts_macros::__private::IoType>::METADATA,
             });
         }
 
@@ -1448,9 +1457,9 @@ impl MethodDetails {
         let method_name_metadata = derive_ident_metadata(&ffi_fn_name)?;
         Ok(quote_spanned! {fn_sig.span() =>
             const fn metadata() -> ([u8; 4096], usize) {
-                ::ab_contracts_io_type::utils::concat_metadata_sources(&[
+                ::ab_contracts_macros::__private::concat_metadata_sources(&[
                     &[
-                        ::ab_contracts_common::ContractMetadataKind::#method_type as u8,
+                        ::ab_contracts_macros::__private::ContractMetadataKind::#method_type as u8,
                         #( #method_name_metadata, )*
                         #number_of_arguments,
                     ],
@@ -1460,7 +1469,7 @@ impl MethodDetails {
 
             /// Method metadata, see [`ContractMetadataKind`] for encoding details
             ///
-            /// [`ContractMetadataKind`]: ::ab_contracts_common::ContractMetadataKind
+            /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
             // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
             pub const METADATA: &[u8] =
                 metadata()
@@ -1472,8 +1481,8 @@ impl MethodDetails {
             // TODO: Reduce metadata to essentials from above full metadata by collapsing tuple
             //  structs, removing field and struct names, leaving just function signatures and
             //  compact representation of data structures used for arguments
-            pub const FINGERPRINT: ::ab_contracts_common::method::MethodFingerprint =
-                ::ab_contracts_common::method::MethodFingerprint::new(METADATA);
+            pub const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
+                ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA);
         })
     }
 
@@ -1491,7 +1500,7 @@ impl MethodDetails {
 
         // Address of the contract
         method_args.push(quote! {
-            contract: &::ab_contracts_common::Address,
+            contract: &::ab_contracts_macros::__private::Address,
         });
 
         // For each slot argument generate an address argument
@@ -1500,7 +1509,7 @@ impl MethodDetails {
             let struct_field_ptr = format_ident!("{arg_name}_ptr");
 
             method_args.push(quote! {
-                #arg_name: &::ab_contracts_common::Address,
+                #arg_name: &::ab_contracts_macros::__private::Address,
             });
             args_pointers.push(quote! {
                 // TODO: Use `NonNull::from_ref()` once stable
@@ -1528,11 +1537,11 @@ impl MethodDetails {
                         // will not be modified, also pointer will not outlive the reference from
                         // which it was created despite copying
                         #struct_field_ptr: unsafe {
-                            *::ab_contracts_io_type::IoType::as_ptr(#arg_name)
+                            *::ab_contracts_macros::__private::IoType::as_ptr(#arg_name)
                         },
                     });
                     args_sizes.push(quote! {
-                        #struct_field_size: ::ab_contracts_io_type::IoType::size(#arg_name),
+                        #struct_field_size: ::ab_contracts_macros::__private::IoType::size(#arg_name),
                     });
                 }
                 IoArg::Output {
@@ -1547,18 +1556,21 @@ impl MethodDetails {
                         // will only be modified there, also pointer will not outlive the reference
                         // from which it was created despite copying
                         #struct_field_ptr: unsafe {
-                            let ptr = *::ab_contracts_io_type::IoType::as_mut_ptr(#arg_name);
+                            let ptr =
+                                *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name);
                             ptr
                         },
                     });
                     args_sizes.push(quote! {
-                        #struct_field_size: ::ab_contracts_io_type::IoType::size(#arg_name),
+                        #struct_field_size:
+                            ::ab_contracts_macros::__private::IoType::size(#arg_name),
                     });
                     args_capacities.push(quote! {
-                        #struct_field_capacity: ::ab_contracts_io_type::IoType::capacity(#arg_name),
+                        #struct_field_capacity:
+                            ::ab_contracts_macros::__private::IoType::capacity(#arg_name),
                     });
                     result_processing.push(quote! {
-                        ::ab_contracts_io_type::IoType::set_size(
+                        ::ab_contracts_macros::__private::IoType::set_size(
                             #arg_name,
                             args.#struct_field_size,
                         );
@@ -1579,19 +1591,22 @@ impl MethodDetails {
                             // will only be modified there, also pointer will not outlive the
                             // reference from which it was created despite copying
                             #struct_field_ptr: unsafe {
-                                let ptr = *::ab_contracts_io_type::IoType::as_mut_ptr(#arg_name);
+                                let ptr = *::ab_contracts_macros::__private::IoType::as_mut_ptr(
+                                    #arg_name,
+                                );
                                 ptr
                             },
                         });
                         args_sizes.push(quote! {
-                            #struct_field_size: ::ab_contracts_io_type::IoType::size(#arg_name),
+                            #struct_field_size:
+                                ::ab_contracts_macros::__private::IoType::size(#arg_name),
                         });
                         args_capacities.push(quote! {
                             #struct_field_capacity:
-                                ::ab_contracts_io_type::IoType::capacity(#arg_name),
+                                ::ab_contracts_macros::__private::IoType::capacity(#arg_name),
                         });
                         result_processing.push(quote! {
-                            ::ab_contracts_io_type::IoType::set_size(
+                            ::ab_contracts_macros::__private::IoType::set_size(
                                 #arg_name,
                                 args.#struct_field_size,
                             );
@@ -1628,7 +1643,7 @@ impl MethodDetails {
         // `#[view]` methods do not require explicit method context
         let method_context_arg = (!matches!(self.method_type, MethodType::View)).then(|| {
             quote! {
-                method_context: &::ab_contracts_common::env::MethodContext,
+                method_context: &::ab_contracts_macros::__private::MethodContext,
             }
         });
         // Initializer's return type will be `()` for caller, state is stored by the host and not
@@ -1642,7 +1657,7 @@ impl MethodDetails {
                     #env_self,
                     #method_context_arg
                     #( #method_args )*
-                ) -> ::core::result::Result<(), ::ab_contracts_common::ContractError>
+                ) -> ::core::result::Result<(), ::ab_contracts_macros::__private::ContractError>
             }
         } else {
             let result_type = self.result_type.result_type();
@@ -1658,11 +1673,11 @@ impl MethodDetails {
             });
             args_sizes.push(quote! {
                 ok_result_size:
-                    <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
+                    <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
             });
             args_capacities.push(quote! {
                 ok_result_capacity:
-                    <#result_type as ::ab_contracts_io_type::trivial_type::TrivialType>::SIZE,
+                    <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
             });
             result_processing.push(quote! {
                 // This is fine for `TrivialType` types
@@ -1674,7 +1689,10 @@ impl MethodDetails {
                     #env_self,
                     #method_context_arg
                     #( #method_args )*
-                ) -> ::core::result::Result<#result_type, ::ab_contracts_common::ContractError>
+                ) -> ::core::result::Result<
+                    #result_type,
+                    ::ab_contracts_macros::__private::ContractError,
+                >
             }
         };
 
@@ -1684,7 +1702,7 @@ impl MethodDetails {
 
         // `#[view]` methods do not require explicit method context
         let method_context_value = if matches!(self.method_type, MethodType::View) {
-            quote! { &::ab_contracts_common::env::MethodContext::Reset }
+            quote! { &::ab_contracts_macros::__private::MethodContext::Reset }
         } else {
             quote! { method_context }
         };

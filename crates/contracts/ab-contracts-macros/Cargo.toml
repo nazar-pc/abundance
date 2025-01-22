@@ -1,6 +1,6 @@
 [package]
 name = "ab-contracts-macros"
-description = "Common code for contracts"
+description = "Common code for contracts (implementation)"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
@@ -10,11 +10,7 @@ include = [
     "/Cargo.toml",
 ]
 
-[lib]
-proc-macro = true
-
 [dependencies]
-ident_case = "1.0.1"
-proc-macro2 = "1.0.92"
-quote = "1.0.38"
-syn = { version = "2.0.93", features = ["full"] }
+ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
+ab-contracts-io-type = { version = "0.0.1", path = "../ab-contracts-io-type" }
+ab-contracts-macros-impl = { version = "0.0.1", path = "../ab-contracts-macros-impl" }
