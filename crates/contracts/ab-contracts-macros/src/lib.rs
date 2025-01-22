@@ -85,4 +85,7 @@
 //! * `#[output]`
 //! * `#[result]`
 
+#[doc(hidden)]
+pub mod __private;
+
 pub use ab_contracts_macros_impl::contract;

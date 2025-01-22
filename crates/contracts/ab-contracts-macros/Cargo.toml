@@ -11,4 +11,6 @@ include = [
 ]
 
 [dependencies]
+ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
+ab-contracts-io-type = { version = "0.0.1", path = "../ab-contracts-io-type" }
 ab-contracts-macros-impl = { version = "0.0.1", path = "../ab-contracts-macros-impl" }
