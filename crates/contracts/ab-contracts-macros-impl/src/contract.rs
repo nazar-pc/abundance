@@ -4,7 +4,7 @@ mod methods;
 mod update;
 mod view;
 
-use crate::contract::common::derive_ident_metadata;
+use crate::contract::common::{derive_ident_metadata, extract_ident_from_type};
 use crate::contract::init::process_init_fn;
 use crate::contract::methods::{ExtTraitComponents, MethodDetails};
 use crate::contract::update::{process_update_fn, process_update_fn_definition};
@@ -368,18 +368,12 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         .insert(0, ImplItem::Verbatim(metadata_const));
 
     let ext_trait = {
-        let Type::Path(type_path) = struct_name else {
-            return Err(Error::new(
+        let struct_name = extract_ident_from_type(struct_name).ok_or_else(|| {
+            Error::new(
                 struct_name.span(),
                 "`#[contract]` must be applied to simple struct implementation",
-            ));
-        };
-        let Some(struct_name) = type_path.path.get_ident() else {
-            return Err(Error::new(
-                struct_name.span(),
-                "`#[contract]` must be applied to simple struct implementation",
-            ));
-        };
+            )
+        })?;
 
         generate_extension_trait(struct_name, &trait_ext_components)?
     };

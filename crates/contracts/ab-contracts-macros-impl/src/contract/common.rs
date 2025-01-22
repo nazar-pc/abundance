@@ -1,5 +1,12 @@
 use proc_macro2::{Ident, Literal};
-use syn::Error;
+use syn::{Error, Type};
+
+pub(super) fn extract_ident_from_type(ty: &Type) -> Option<&Ident> {
+    let Type::Path(type_path) = ty else {
+        return None;
+    };
+    type_path.path.get_ident()
+}
 
 pub(super) fn derive_ident_metadata(ident: &Ident) -> Result<impl Iterator<Item = Literal>, Error> {
     let ident_string = ident.to_string();
