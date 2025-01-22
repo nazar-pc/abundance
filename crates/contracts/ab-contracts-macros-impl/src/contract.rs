@@ -243,12 +243,12 @@ fn generate_trait_metadata(
     Ok(quote! {
         /// Trait metadata, see [`ContractMetadataKind`] for encoding details
         ///
-        /// [`ContractMetadataKind`]: ::ab_contracts_common::ContractMetadataKind
+        /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
         const METADATA: &[u8] = {
             const fn metadata() -> ([u8; 4096], usize) {
-                ::ab_contracts_io_type::utils::concat_metadata_sources(&[
+                ::ab_contracts_macros::__private::concat_metadata_sources(&[
                     &[
-                        ::ab_contracts_common::ContractMetadataKind::Trait as u8,
+                        ::ab_contracts_macros::__private::ContractMetadataKind::Trait as u8,
                         #( #trait_name_metadata, )*
                         #num_methods
                     ],
@@ -342,12 +342,12 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
             ///
             /// More metadata can be contributed by trait implementations.
             ///
-            /// [`ContractMetadataKind`]: ::ab_contracts_common::ContractMetadataKind
+            /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
             pub const MAIN_CONTRACT_METADATA: &[u8] = {
                 const fn metadata() -> ([u8; 4096], usize) {
-                    ::ab_contracts_io_type::utils::concat_metadata_sources(&[
-                        &[::ab_contracts_common::ContractMetadataKind::Contract as u8],
-                        <#struct_name as ::ab_contracts_io_type::IoType>::METADATA,
+                    ::ab_contracts_macros::__private::concat_metadata_sources(&[
+                        &[::ab_contracts_macros::__private::ContractMetadataKind::Contract as u8],
+                        <#struct_name as ::ab_contracts_macros::__private::IoType>::METADATA,
                         &[#num_methods],
                         #( ffi::#methods::METADATA, )*
                     ])
@@ -537,7 +537,7 @@ fn generate_extension_trait(
     let trait_name = format_ident!("{ident}Ext");
     let trait_doc = format!(
         "Extension trait that provides helper methods for calling [`{ident}`]'s methods on \
-        [`Env`](::ab_contracts_common::env::Env) for convenience purposes"
+        [`Env`](::ab_contracts_macros::__private::Env) for convenience purposes"
     );
     let definitions = trait_ext_components
         .iter()
@@ -554,7 +554,7 @@ fn generate_extension_trait(
             #( #definitions )*
         }
 
-        impl #trait_name for ::ab_contracts_common::env::Env {
+        impl #trait_name for ::ab_contracts_macros::__private::Env {
             #( #impls )*
         }
     })

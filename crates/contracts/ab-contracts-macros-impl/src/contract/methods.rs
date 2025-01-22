@@ -1309,8 +1309,8 @@ impl MethodDetails {
 
             #[automatically_derived]
             unsafe impl ::ab_contracts_macros::__private::ExternalArgs for ExternalArgs {
-                const FINGERPRINT: &::ab_contracts_macros::__private::MethodFingerprint =
-                    &FINGERPRINT;
+                const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
+                    FINGERPRINT;
             }
 
             // TODO: `ExternalArgs` constructor for easier usage (that fills in default

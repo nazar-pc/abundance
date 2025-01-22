@@ -101,7 +101,7 @@ impl Env {
             // TODO: Use `NonNull::from_ref()` once stable
             address: NonNull::from(contract),
             // TODO: Use `NonNull::from_ref()` once stable
-            fingerprint: NonNull::from(Args::FINGERPRINT),
+            fingerprint: NonNull::from(&Args::FINGERPRINT),
             // TODO: Use `NonNull::from_ref()` once stable
             args: NonNull::from(args).cast(),
             // TODO: Use `NonNull::from_ref()` once stable

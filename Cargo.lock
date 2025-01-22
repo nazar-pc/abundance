@@ -52,7 +52,6 @@ name = "ab-contracts-standards"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
 ]
 
