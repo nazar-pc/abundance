@@ -1,5 +1,6 @@
 use crate::metadata::ContractMetadataKind;
 use const_sha1::sha1;
+use core::fmt;
 
 /// Hash of method's compact metadata, which uniquely represents method signature.
 ///
@@ -9,6 +10,15 @@ use const_sha1::sha1;
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[repr(C)]
 pub struct MethodFingerprint([u8; 32]);
+
+impl fmt::Display for MethodFingerprint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{:02x}", byte)?;
+        }
+        Ok(())
+    }
+}
 
 impl MethodFingerprint {
     /// Create new method fingerprint from its metadata.
