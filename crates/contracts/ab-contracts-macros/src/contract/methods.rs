@@ -729,7 +729,7 @@ impl MethodDetails {
                     pub state_capacity: u32,
                 });
 
-                original_fn_args.push(quote! {{
+                original_fn_args.push(quote! {&mut *{
                     // Ensure state type implements `IoType`, which is required for crossing
                     // host/guest boundary
                     const _: () = {
@@ -737,14 +737,14 @@ impl MethodDetails {
                         assert_impl_io_type::<#self_type>();
                     };
 
-                    &mut <#self_type as ::ab_contracts_io_type::IoType>::from_ptr_mut(
+                    <#self_type as ::ab_contracts_io_type::IoType>::from_ptr_mut(
                         &mut args.state_ptr,
                         &mut args.state_size,
                         args.state_capacity,
                     )
                 }});
             } else {
-                original_fn_args.push(quote! {{
+                original_fn_args.push(quote! {&*{
                     // Ensure state type implements `IoType`, which is required for crossing
                     // host/guest boundary
                     const _: () = {
@@ -752,7 +752,7 @@ impl MethodDetails {
                         assert_impl_io_type::<#self_type>();
                     };
 
-                    &<#self_type as ::ab_contracts_io_type::IoType>::from_ptr(
+                    <#self_type as ::ab_contracts_io_type::IoType>::from_ptr(
                         &args.state_ptr,
                         &args.state_size,
                         // Size matches capacity for immutable inputs
@@ -770,15 +770,15 @@ impl MethodDetails {
             });
 
             if mutability.is_some() {
-                original_fn_args.push(quote! {
+                original_fn_args.push(quote! {{
                     debug_assert!(args.env_ptr.is_aligned(), "`env_ptr` pointer is misaligned");
                     args.env_ptr.as_mut()
-                });
+                }});
             } else {
-                original_fn_args.push(quote! {
+                original_fn_args.push(quote! {{
                     debug_assert!(args.env_ptr.is_aligned(), "`env_ptr` pointer is misaligned");
                     args.env_ptr.as_ref()
-                });
+                }});
             }
         }
 
@@ -810,7 +810,7 @@ impl MethodDetails {
                     pub #capacity_field: u32,
                 });
 
-                original_fn_args.push(quote! {{
+                original_fn_args.push(quote! {&mut *{
                     // Ensure tmp type implements `IoTypeOptional`, which is required for handling
                     // of tmp that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
@@ -822,14 +822,14 @@ impl MethodDetails {
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    &mut <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
+                    <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
                         args.#capacity_field,
                     )
                 }});
             } else {
-                original_fn_args.push(quote! {{
+                original_fn_args.push(quote! {&*{
                     // Ensure tmp type implements `IoTypeOptional`, which is required for handling
                     // of tmp that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
@@ -841,7 +841,7 @@ impl MethodDetails {
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    &<#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
+                    <#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
                         &args.#ptr_field,
                         &args.#size_field,
                         // Size matches capacity for immutable inputs
@@ -890,7 +890,7 @@ impl MethodDetails {
                     pub #capacity_field: u32,
                 });
 
-                quote! {{
+                quote! {&mut *{
                     // Ensure slot type implements `IoTypeOptional`, which is required for handling
                     // of slot that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
@@ -902,14 +902,14 @@ impl MethodDetails {
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    &mut <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
+                    <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
                         args.#capacity_field,
                     )
                 }}
             } else {
-                quote! {{
+                quote! {&*{
                     // Ensure slot type implements `IoTypeOptional`, which is required for handling
                     // of slot that might be removed or not present and implies implementation of
                     // `IoType`, which is required for crossing host/guest boundary
@@ -921,7 +921,7 @@ impl MethodDetails {
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    &<#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
+                    <#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
                         &args.#ptr_field,
                         &args.#size_field,
                         // Size matches capacity for immutable inputs
@@ -932,7 +932,7 @@ impl MethodDetails {
 
             if let Some(address_arg) = &slot.with_address_arg {
                 let address_ptr = format_ident!("{address_arg}_ptr");
-                original_fn_args.push(quote! {{
+                original_fn_args.push(quote! {
                     (
                         &<::ab_contracts_common::Address as ::ab_contracts_io_type::IoType>::from_ptr(
                             &args.#address_ptr,
@@ -941,7 +941,7 @@ impl MethodDetails {
                         ),
                         #arg_extraction,
                     )
-                }});
+                });
             } else {
                 original_fn_args.push(arg_extraction);
             }
@@ -969,7 +969,7 @@ impl MethodDetails {
                         pub #size_field: u32,
                     });
 
-                    original_fn_args.push(quote! {
+                    original_fn_args.push(quote! {&*{
                         // Ensure input type implements `IoType`, which is required for crossing
                         // host/guest boundary
                         const _: () = {
@@ -977,13 +977,13 @@ impl MethodDetails {
                             assert_impl_io_type::<#type_name>();
                         };
 
-                        &<#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
+                        <#type_name as ::ab_contracts_io_type::IoType>::from_ptr(
                             &args.#ptr_field,
                             &args.#size_field,
                             // Size matches capacity for immutable inputs
                             args.#size_field,
                         )
-                    });
+                    }});
                 }
                 IoArg::Output { .. } | IoArg::Result { .. } => {
                     internal_args_pointers.push(quote! {
@@ -1000,7 +1000,7 @@ impl MethodDetails {
                         pub #capacity_field: u32,
                     });
 
-                    original_fn_args.push(quote! {
+                    original_fn_args.push(quote! {&mut *{
                         // Ensure output type implements `IoTypeOptional`, which is required for
                         // handling of initially uninitialized type and implies implementation of
                         // `IoType`, which is required for crossing host/guest boundary
@@ -1012,12 +1012,12 @@ impl MethodDetails {
                             assert_impl_io_type_optional::<#type_name>();
                         };
 
-                        &mut <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
+                        <#type_name as ::ab_contracts_io_type::IoType>::from_ptr_mut(
                             &mut args.#ptr_field,
                             &mut args.#size_field,
                             args.#capacity_field,
                         )
-                    });
+                    }});
                 }
             }
         }
@@ -1092,12 +1092,9 @@ impl MethodDetails {
                 }
                 MethodResultType::Regular(_) => {
                     quote! {
-                        <#result_type as ::ab_contracts_io_type::IoType>::from_ptr(
-                            &mut args.ok_result_ptr,
-                            &mut args.ok_result_size,
-                            args.ok_result_capacity,
-                        );
-                        // Write result into `InternalArgs`, return exit code
+                        // Write result into `InternalArgs`, return exit code.
+                        // It is okay to not write the size because return type is for `TrivialType`
+                        // only, whose size is always fixed.
                         args.ok_result_ptr.write(#result_var_name);
                         ::ab_contracts_common::ExitCode::Ok
                     }
@@ -1116,6 +1113,8 @@ impl MethodDetails {
                         // Write result into `InternalArgs` if there is any, return exit code
                         match #result_var_name {
                             Ok(result) => {
+                                // It is okay to not write the size because return type is for
+                                // `TrivialType` only, whose size is always fixed
                                 args.ok_result_ptr.write(result);
                                 ::ab_contracts_common::ExitCode::Ok
                             }
@@ -1147,21 +1146,28 @@ impl MethodDetails {
                 pub unsafe extern "C" fn #ffi_fn_name(
                     mut args: ::core::ptr::NonNull<InternalArgs>,
                 ) -> ::ab_contracts_common::ExitCode {
-                    debug_assert!(args.is_aligned(), "`args` pointer is misaligned");
-                    let args = args.as_mut();
+                    // SAFETY: Must be upheld by the caller (executor)
+                    unsafe {
+                        debug_assert!(args.is_aligned(), "`args` pointer is misaligned");
+                        let args = args.as_mut();
 
-                    #( #preparation )*
+                        #( #preparation )*
 
-                    // Call inner function via normal Rust API
-                    #[allow(
-                        unused_braces,
-                        reason = "Boilerplate to suppress when not used, seems to be false-positive"
-                    )]
-                    let #result_var_name = #full_struct_name::#original_method_name(
-                        #( { #original_fn_args }, )*
-                    );
+                        // Call inner function via normal Rust API
+                        #[allow(
+                            unused_variables,
+                            reason = "Sometimes result is `()`"
+                        )]
+                        #[allow(
+                            clippy::let_unit_value,
+                            reason = "Sometimes result is `()`"
+                        )]
+                        let #result_var_name = #full_struct_name::#original_method_name(
+                            #( #original_fn_args, )*
+                        );
 
-                    #result_handling
+                        #result_handling
+                    }
                 }
             }
         };
@@ -1614,7 +1620,11 @@ impl MethodDetails {
             original_method_name.clone()
         };
         // Non-`#[view]` methods can only be called on `&mut Env`
-        let env_mut = (!matches!(self.method_type, MethodType::View)).then(|| quote! { &mut });
+        let env_self = if matches!(self.method_type, MethodType::View) {
+            quote! { &self }
+        } else {
+            quote! { self: &&mut Self }
+        };
         // `#[view]` methods do not require explicit method context
         let method_context_arg = (!matches!(self.method_type, MethodType::View)).then(|| {
             quote! {
@@ -1629,7 +1639,7 @@ impl MethodDetails {
         {
             quote! {
                 fn #ext_method_name(
-                    self: &#env_mut Self,
+                    #env_self,
                     #method_context_arg
                     #( #method_args )*
                 ) -> ::core::result::Result<(), ::ab_contracts_common::ContractError>
@@ -1661,7 +1671,7 @@ impl MethodDetails {
 
             quote! {
                 fn #ext_method_name(
-                    self: &#env_mut Self,
+                    #env_self,
                     #method_context_arg
                     #( #method_args )*
                 ) -> ::core::result::Result<#result_type, ::ab_contracts_common::ContractError>
@@ -1689,9 +1699,17 @@ impl MethodDetails {
                     #( #args_capacities )*
                 };
 
-                self.call(&contract, &mut args, #method_context_value)?;
+                self.call(contract, &mut args, #method_context_value)?;
 
                 // SAFETY: Non-error result above indicates successful storing of the result
+                #[allow(
+                    unused_unsafe,
+                    reason = "Sometimes there is no result to process and block is empty"
+                )]
+                #[allow(
+                    clippy::let_unit_value,
+                    reason = "Sometimes there is no result to process and block is empty"
+                )]
                 let result = unsafe {
                     #( #result_processing )*
                 };

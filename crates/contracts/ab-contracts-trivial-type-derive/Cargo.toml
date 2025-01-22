@@ -4,7 +4,7 @@ description = "Implements derive for `TrivialType` on custom data structures"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
-edition = "2021"
+edition = "2024"
 include = [
     "/src",
     "/Cargo.toml",
