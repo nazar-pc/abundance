@@ -4,8 +4,8 @@ use std::iter;
 use syn::spanned::Spanned;
 use syn::token::Paren;
 use syn::{
-    parenthesized, parse_macro_input, Attribute, Data, DataEnum, DataStruct, DeriveInput, Error,
-    Fields, LitInt,
+    Attribute, Data, DataEnum, DataStruct, DeriveInput, Error, Fields, LitInt, parenthesized,
+    parse_macro_input,
 };
 
 #[proc_macro_derive(TrivialType)]

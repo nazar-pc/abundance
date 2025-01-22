@@ -1,7 +1,7 @@
 use crate::contract::methods::{MethodDetails, MethodType};
 use crate::contract::{ContractDetails, Method, MethodOutput};
 use proc_macro2::Ident;
-use quote::{format_ident, ToTokens};
+use quote::{ToTokens, format_ident};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
 use syn::{Error, FnArg, Meta, Signature, Type};
@@ -19,7 +19,8 @@ pub(super) fn process_view_fn(
     for input in fn_sig.inputs.iter_mut() {
         let input_span = input.span();
         // TODO: Moving this outside of the loop causes confusing lifetime issues
-        let supported_attrs = HashMap::<_, fn(_, _, _) -> _>::from_iter([
+        // TODO: Simplify `-> Result<(), Error>` to `-> _` once https://github.com/rust-lang/rust/issues/135864 is resolved
+        let supported_attrs = HashMap::<_, fn(_, _, _) -> Result<(), Error>>::from_iter([
             (format_ident!("env"), MethodDetails::process_env_arg_ro as _),
             (
                 format_ident!("slot"),
@@ -117,7 +118,8 @@ pub(super) fn process_view_fn_definition(
     for input in fn_sig.inputs.iter_mut() {
         let input_span = input.span();
         // TODO: Moving this outside of the loop causes confusing lifetime issues
-        let supported_attrs = HashMap::<_, fn(_, _, _) -> _>::from_iter([
+        // TODO: Simplify `-> Result<(), Error>` to `-> _` once https://github.com/rust-lang/rust/issues/135864 is resolved
+        let supported_attrs = HashMap::<_, fn(_, _, _) -> Result<(), Error>>::from_iter([
             (format_ident!("env"), MethodDetails::process_env_arg_ro as _),
             (
                 format_ident!("input"),

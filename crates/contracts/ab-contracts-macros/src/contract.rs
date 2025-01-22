@@ -15,8 +15,8 @@ use quote::{format_ident, quote};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
 use syn::{
-    parse2, Error, ImplItem, ImplItemFn, ItemImpl, ItemTrait, Meta, TraitItem, TraitItemFn, Type,
-    Visibility,
+    Error, ImplItem, ImplItemFn, ItemImpl, ItemTrait, Meta, TraitItem, TraitItemFn, Type,
+    Visibility, parse2,
 };
 
 #[derive(Default)]
@@ -42,8 +42,7 @@ pub(super) fn contract(item: TokenStream) -> Result<TokenStream, Error> {
         return process_trait_definition(item_trait);
     }
 
-    let error_message =
-        "`#[contract]` must be applied to struct implementation, trait definition or trait \
+    let error_message = "`#[contract]` must be applied to struct implementation, trait definition or trait \
         implementation";
 
     let item_impl =
