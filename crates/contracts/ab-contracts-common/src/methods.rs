@@ -1,18 +1,23 @@
-// TODO: This should probably be reduced to something like 32-bit or 64-bit with compile-time
-//  checks for collisions, 256-bit is unnecessarily redundant here
-// TODO: Probably more efficient metadata structure to locate fingerprints and metadata of specific methods
-//  quicker
+use const_sha1::sha1;
+
 /// Hash of method's compact metadata
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct MethodFingerprint([u8; 32]);
 
 impl MethodFingerprint {
-    /// Create new method fingerprint from compact metadata hash
-    pub const fn new(compact_metadata: &[u8]) -> Self {
-        // TODO: Hash
-        let _ = compact_metadata;
-        Self([0; 32])
+    /// Create new method fingerprint from its metadata
+    pub const fn new(method_metadata: &[u8]) -> Self {
+        // TODO: Compact metadata
+        // TODO: Switch to blake3 once https://github.com/BLAKE3-team/BLAKE3/pull/439 is upstreamed
+        //  and const hashing version is exposed
+        let hash = sha1(method_metadata).as_bytes();
+
+        Self([
+            hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7], hash[8],
+            hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15], hash[16],
+            hash[17], hash[18], hash[19], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ])
     }
 }
 

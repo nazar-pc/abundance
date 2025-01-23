@@ -16,6 +16,8 @@ pub const fn concat_metadata_sources(sources: &[&[u8]]) -> ([u8; 4096], usize) {
         let target;
         (target, remainder) = remainder.split_at_mut(source.len());
 
+        // TODO: Switch to `copy_from_slice` once stable:
+        //  https://github.com/rust-lang/rust/issues/131415
         // The same as `target.copy_from_slice(&source);`, but it doesn't work in const environment
         // yet
         // SAFETY: Size is correct due to slicing above, pointers are created from valid independent
