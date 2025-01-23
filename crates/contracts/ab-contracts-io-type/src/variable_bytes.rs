@@ -1,5 +1,5 @@
-use crate::utils::concat_metadata_sources;
-use crate::{IoType, IoTypeMetadataKind, IoTypeOptional};
+use crate::metadata::{IoTypeMetadataKind, concat_metadata_sources};
+use crate::{IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;

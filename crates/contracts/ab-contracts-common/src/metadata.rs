@@ -21,7 +21,7 @@ pub enum ContractMetadataKind {
     ///   * [`Self::ViewStateless`]
     ///   * [`Self::ViewStatefulRo`]
     ///
-    /// [`IoTypeMetadataKind`]: ab_contracts_io_type::IoTypeMetadataKind
+    /// [`IoTypeMetadataKind`]: ab_contracts_io_type::metadata::IoTypeMetadataKind
     Contract,
     /// Trait metadata.
     ///
@@ -58,7 +58,7 @@ pub enum ContractMetadataKind {
     /// * Argument name as UTF-8 bytes
     /// * Recursive metadata of argument's type as described in [`IoTypeMetadataKind`]
     ///
-    /// [`IoTypeMetadataKind`]: ab_contracts_io_type::IoTypeMetadataKind
+    /// [`IoTypeMetadataKind`]: ab_contracts_io_type::metadata::IoTypeMetadataKind
     ///
     /// NOTE: Result, regardless of whether it is a return type or explicit `#[result]` argument, is
     /// encoded as a separate argument and counts towards number of arguments. At the same time

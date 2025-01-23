@@ -1,5 +1,5 @@
-use crate::utils::concat_metadata_sources;
-use crate::{IoType, IoTypeMetadataKind};
+use crate::IoType;
+use crate::metadata::{IoTypeMetadataKind, concat_metadata_sources};
 pub use ab_contracts_trivial_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
