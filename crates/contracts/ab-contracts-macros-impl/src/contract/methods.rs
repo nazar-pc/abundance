@@ -1310,7 +1310,7 @@ impl MethodDetails {
             #[automatically_derived]
             unsafe impl ::ab_contracts_macros::__private::ExternalArgs for ExternalArgs {
                 const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
-                    FINGERPRINT;
+                    ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA);
             }
 
             // TODO: `ExternalArgs` constructor for easier usage (that fills in default
@@ -1476,13 +1476,6 @@ impl MethodDetails {
                     .0
                     .split_at(metadata().1)
                     .0;
-
-            /// Method fingerprint
-            // TODO: Reduce metadata to essentials from above full metadata by collapsing tuple
-            //  structs, removing field and struct names, leaving just function signatures and
-            //  compact representation of data structures used for arguments
-            pub const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
-                ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA);
         })
     }
 
