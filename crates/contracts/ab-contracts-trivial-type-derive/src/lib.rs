@@ -279,7 +279,9 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
     // * Type: struct
     // * The rest as inner struct metadata
     Ok(quote! {{
-        const fn metadata() -> ([u8; 4096], usize) {
+        const fn metadata()
+            -> ([u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY], usize)
+        {
             ::ab_contracts_io_type::metadata::concat_metadata_sources(&[
                 &[::ab_contracts_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as u8],
                 #( #inner_struct_metadata )*
@@ -360,7 +362,9 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
         .collect::<Result<Vec<TokenStream>, Error>>()?;
 
     Ok(quote! {{
-        const fn metadata() -> ([u8; 4096], usize) {
+        const fn metadata()
+            -> ([u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY], usize)
+        {
             ::ab_contracts_io_type::metadata::concat_metadata_sources(&[
                 #enum_metadata_header,
                 #( #inner )*

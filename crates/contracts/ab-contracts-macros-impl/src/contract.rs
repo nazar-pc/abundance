@@ -245,7 +245,9 @@ fn generate_trait_metadata(
         ///
         /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
         const METADATA: &[u8] = {
-            const fn metadata() -> ([u8; 4096], usize) {
+            const fn metadata()
+                -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
+            {
                 ::ab_contracts_macros::__private::concat_metadata_sources(&[
                     &[
                         ::ab_contracts_macros::__private::ContractMetadataKind::Trait as u8,
@@ -344,7 +346,9 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
             ///
             /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
             pub const MAIN_CONTRACT_METADATA: &[u8] = {
-                const fn metadata() -> ([u8; 4096], usize) {
+                const fn metadata()
+                    -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
+                {
                     ::ab_contracts_macros::__private::concat_metadata_sources(&[
                         &[::ab_contracts_macros::__private::ContractMetadataKind::Contract as u8],
                         <#struct_name as ::ab_contracts_macros::__private::IoType>::METADATA,

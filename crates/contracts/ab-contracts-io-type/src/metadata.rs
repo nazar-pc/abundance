@@ -1,10 +1,13 @@
 use core::ptr;
 
+/// Max capacity for metadata bytes used in fixed size buffers
+pub const MAX_METADATA_CAPACITY: usize = 8192;
+
 /// Concatenates metadata sources.
 ///
 /// Returns both a scratch memory and number of bytes in it that correspond to metadata
-pub const fn concat_metadata_sources(sources: &[&[u8]]) -> ([u8; 4096], usize) {
-    let mut metadata_scratch = [0u8; 4096];
+pub const fn concat_metadata_sources(sources: &[&[u8]]) -> ([u8; MAX_METADATA_CAPACITY], usize) {
+    let mut metadata_scratch = [0u8; MAX_METADATA_CAPACITY];
     // Just a way to convert above array into slice, `as_mut_slice` is not yet
     // stable in const environment
     let (_, mut remainder) = metadata_scratch.split_at_mut(0);

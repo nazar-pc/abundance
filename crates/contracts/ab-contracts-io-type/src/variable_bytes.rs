@@ -1,4 +1,4 @@
-use crate::metadata::{IoTypeMetadataKind, concat_metadata_sources};
+use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::{IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
@@ -38,7 +38,7 @@ pub struct VariableBytes<const RECOMMENDED_ALLOCATION: u32> {
 
 unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMENDED_ALLOCATION> {
     const METADATA: &[u8] = {
-        const fn metadata(max_capacity: u32) -> ([u8; 4096], usize) {
+        const fn metadata(max_capacity: u32) -> ([u8; MAX_METADATA_CAPACITY], usize) {
             if max_capacity == 512 {
                 return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableBytes512 as u8]]);
             } else if max_capacity == 1024 {
