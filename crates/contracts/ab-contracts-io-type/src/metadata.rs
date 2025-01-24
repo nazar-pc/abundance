@@ -201,8 +201,7 @@ pub enum IoTypeMetadataKind {
     /// * Length of enum name in bytes (u8)
     /// * Enum name as UTF-8 bytes
     /// * Number of variants (u8)
-    /// * Each enum variant as if it was a struct, see [`Self::Struct`] and [`Self::TupleStruct`]
-    ///   for details, depending on whether variant has named fields or looks like a tuple
+    /// * Each enum variant as if it was a struct with fields, see [`Self::Struct`] for details
     Enum,
     /// Similar to [`Self::Enum`], but for exactly `1` enum variants and thus skips number of
     /// variants after enum name

@@ -358,7 +358,27 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
     let inner = data_enum
         .variants
         .iter()
-        .flat_map(|variant| generate_inner_struct_metadata(&variant.ident, &variant.fields, true))
+        .flat_map(|variant| {
+            variant
+                .fields
+                .iter()
+                .find_map(|field| {
+                    if field.ident.is_none() {
+                        Some(Err(Error::new(
+                            field.span(),
+                            "Variant must have named fields",
+                        )))
+                    } else {
+                        None
+                    }
+                })
+                .into_iter()
+                .chain(generate_inner_struct_metadata(
+                    &variant.ident,
+                    &variant.fields,
+                    true,
+                ))
+        })
         .collect::<Result<Vec<TokenStream>, Error>>()?;
 
     Ok(quote! {{
