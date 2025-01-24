@@ -1,23 +1,42 @@
+use crate::metadata::ContractMetadataKind;
 use const_sha1::sha1;
 
-/// Hash of method's compact metadata
-#[derive(Debug, Copy, Clone)]
+/// Hash of method's compact metadata, which uniquely represents method signature.
+///
+/// While nothing can be said about method implementation, matching method fingerprint means method
+/// name, inputs and outputs are what they are expected to be (struct and field names are ignored as
+/// explained in [`ContractMetadataKind::compact`].
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[repr(C)]
 pub struct MethodFingerprint([u8; 32]);
 
 impl MethodFingerprint {
-    /// Create new method fingerprint from its metadata
-    pub const fn new(method_metadata: &[u8]) -> Self {
-        // TODO: Compact metadata
-        // TODO: Switch to blake3 once https://github.com/BLAKE3-team/BLAKE3/pull/439 is upstreamed
-        //  and const hashing version is exposed
-        let hash = sha1(method_metadata).as_bytes();
+    /// Create new method fingerprint from its metadata.
+    ///
+    /// `None` is returned for invalid metadata (see [`ContractMetadataKind::compact`] for details).
+    pub const fn new(method_metadata: &[u8]) -> Option<Self> {
+        // `?` is not supported in `const` environment
+        let Some((compact_metadata_scratch, compact_metadata_size)) =
+            ContractMetadataKind::compact(method_metadata)
+        else {
+            return None;
+        };
+        // The same as `&compact_metadata_scratch[..compact_metadata_size]`, but it is not allowed
+        // in const environment yet
+        let compact_metadata = compact_metadata_scratch.split_at(compact_metadata_size).0;
 
-        Self([
+        let hash = sha1(compact_metadata).as_bytes();
+
+        Some(Self([
             hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7], hash[8],
             hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15], hash[16],
             hash[17], hash[18], hash[19], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ])
+        ]))
+    }
+
+    #[inline]
+    pub const fn to_bytes(&self) -> &[u8; 32] {
+        &self.0
     }
 }
 

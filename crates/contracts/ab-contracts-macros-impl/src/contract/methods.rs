@@ -1310,7 +1310,8 @@ impl MethodDetails {
             #[automatically_derived]
             unsafe impl ::ab_contracts_macros::__private::ExternalArgs for ExternalArgs {
                 const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
-                    ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA);
+                    ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA)
+                        .expect("Metadata is statically correct; qed");
             }
 
             // TODO: `ExternalArgs` constructor for easier usage (that fills in default
