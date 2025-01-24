@@ -1310,7 +1310,8 @@ impl MethodDetails {
             #[automatically_derived]
             unsafe impl ::ab_contracts_macros::__private::ExternalArgs for ExternalArgs {
                 const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
-                    FINGERPRINT;
+                    ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA)
+                        .expect("Metadata is statically correct; qed");
             }
 
             // TODO: `ExternalArgs` constructor for easier usage (that fills in default
@@ -1456,7 +1457,9 @@ impl MethodDetails {
         let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
         let method_name_metadata = derive_ident_metadata(&ffi_fn_name)?;
         Ok(quote_spanned! {fn_sig.span() =>
-            const fn metadata() -> ([u8; 4096], usize) {
+            const fn metadata()
+                -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
+            {
                 ::ab_contracts_macros::__private::concat_metadata_sources(&[
                     &[
                         ::ab_contracts_macros::__private::ContractMetadataKind::#method_type as u8,
@@ -1476,13 +1479,6 @@ impl MethodDetails {
                     .0
                     .split_at(metadata().1)
                     .0;
-
-            /// Method fingerprint
-            // TODO: Reduce metadata to essentials from above full metadata by collapsing tuple
-            //  structs, removing field and struct names, leaving just function signatures and
-            //  compact representation of data structures used for arguments
-            pub const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
-                ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA);
         })
     }
 

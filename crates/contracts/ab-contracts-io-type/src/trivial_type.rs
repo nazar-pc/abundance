@@ -1,5 +1,5 @@
-use crate::utils::concat_metadata_sources;
-use crate::{IoType, IoTypeMetadataKind};
+use crate::IoType;
+use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 pub use ab_contracts_trivial_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
@@ -130,7 +130,7 @@ unsafe impl TrivialType for i128 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I128 as u8];
 }
 
-const fn array_metadata(size: u32, inner_metadata: &[u8]) -> ([u8; 4096], usize) {
+const fn array_metadata(size: u32, inner_metadata: &[u8]) -> ([u8; MAX_METADATA_CAPACITY], usize) {
     if inner_metadata.len() == 1 && inner_metadata[0] == IoTypeMetadataKind::U8 as u8 {
         if size == 8 {
             return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x8 as u8]]);

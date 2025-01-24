@@ -262,14 +262,16 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
         .next()
         .map(|field| field.ident.is_some())
         .unwrap_or_default();
-    let struct_type = if struct_with_fields {
-        "Struct"
+    let (io_type_metadata, with_num_fields) = if struct_with_fields {
+        match num_fields {
+            0..=16 => (format_ident!("Struct{num_fields}"), false),
+            _ => (format_ident!("Struct"), true),
+        }
     } else {
-        "TupleStruct"
-    };
-    let (io_type_metadata, with_num_fields) = match num_fields {
-        1..=16 => (format_ident!("{struct_type}{num_fields}"), false),
-        _ => (format_ident!("{struct_type}"), true),
+        match num_fields {
+            1..=16 => (format_ident!("TupleStruct{num_fields}"), false),
+            _ => (format_ident!("TupleStruct"), true),
+        }
     };
     let inner_struct_metadata =
         generate_inner_struct_metadata(ident, &data_struct.fields, with_num_fields)
@@ -279,9 +281,11 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
     // * Type: struct
     // * The rest as inner struct metadata
     Ok(quote! {{
-        const fn metadata() -> ([u8; 4096], usize) {
-            ::ab_contracts_io_type::utils::concat_metadata_sources(&[
-                &[::ab_contracts_io_type::IoTypeMetadataKind::#io_type_metadata as u8],
+        const fn metadata()
+            -> ([u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY], usize)
+        {
+            ::ab_contracts_io_type::metadata::concat_metadata_sources(&[
+                &[::ab_contracts_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as u8],
                 #( #inner_struct_metadata )*
             ])
         }
@@ -346,7 +350,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
 
         quote! {
             &[
-                ::ab_contracts_io_type::IoTypeMetadataKind::#io_type_metadata as u8,
+                ::ab_contracts_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as u8,
                 #( #enum_metadata_header, )*
             ]
         }
@@ -356,12 +360,34 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
     let inner = data_enum
         .variants
         .iter()
-        .flat_map(|variant| generate_inner_struct_metadata(&variant.ident, &variant.fields, true))
+        .flat_map(|variant| {
+            variant
+                .fields
+                .iter()
+                .find_map(|field| {
+                    if field.ident.is_none() {
+                        Some(Err(Error::new(
+                            field.span(),
+                            "Variant must have named fields",
+                        )))
+                    } else {
+                        None
+                    }
+                })
+                .into_iter()
+                .chain(generate_inner_struct_metadata(
+                    &variant.ident,
+                    &variant.fields,
+                    true,
+                ))
+        })
         .collect::<Result<Vec<TokenStream>, Error>>()?;
 
     Ok(quote! {{
-        const fn metadata() -> ([u8; 4096], usize) {
-            ::ab_contracts_io_type::utils::concat_metadata_sources(&[
+        const fn metadata()
+            -> ([u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY], usize)
+        {
+            ::ab_contracts_io_type::metadata::concat_metadata_sources(&[
                 #enum_metadata_header,
                 #( #inner )*
             ])
