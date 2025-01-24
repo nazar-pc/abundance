@@ -262,14 +262,16 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
         .next()
         .map(|field| field.ident.is_some())
         .unwrap_or_default();
-    let struct_type = if struct_with_fields {
-        "Struct"
+    let (io_type_metadata, with_num_fields) = if struct_with_fields {
+        match num_fields {
+            0..=16 => (format_ident!("Struct{num_fields}"), false),
+            _ => (format_ident!("Struct"), true),
+        }
     } else {
-        "TupleStruct"
-    };
-    let (io_type_metadata, with_num_fields) = match num_fields {
-        1..=16 => (format_ident!("{struct_type}{num_fields}"), false),
-        _ => (format_ident!("{struct_type}"), true),
+        match num_fields {
+            1..=16 => (format_ident!("TupleStruct{num_fields}"), false),
+            _ => (format_ident!("TupleStruct"), true),
+        }
     };
     let inner_struct_metadata =
         generate_inner_struct_metadata(ident, &data_struct.fields, with_num_fields)

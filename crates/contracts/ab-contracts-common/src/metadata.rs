@@ -58,8 +58,8 @@ pub enum ContractMetadataKind {
     ///   * [`Self::Input`]
     ///   * [`Self::Output`]
     ///   * [`Self::Result`]
-    /// * Length of the argument name in bytes (u8)
-    /// * Argument name as UTF-8 bytes
+    /// * Length of the argument name in bytes (u8, except for [`Self::EnvRo`] and [`Self::EnvRw`])
+    /// * Argument name as UTF-8 bytes (except for [`Self::EnvRo`] and [`Self::EnvRw`])
     /// * Recursive metadata of argument's type as described in [`IoTypeMetadataKind`] with
     ///   following exceptions:
     ///   * This is skipped for [`Self::EnvRo`] and [`Self::EnvRw`]
