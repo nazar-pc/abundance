@@ -76,9 +76,9 @@ fn process_trait_definition(mut item_trait: ItemTrait) -> Result<TokenStream, Er
     let mut contract_details = ContractDetails::default();
 
     for item in &mut item_trait.items {
-        if let TraitItem::Fn(impl_item_fn) = item {
+        if let TraitItem::Fn(trait_item_fn) = item {
             let method_output =
-                process_fn_definition(trait_name, impl_item_fn, &mut contract_details)?;
+                process_fn_definition(trait_name, trait_item_fn, &mut contract_details)?;
             guest_ffis.push(method_output.guest_ffi);
             trait_ext_components.push(method_output.trait_ext_components);
         }
@@ -451,6 +451,14 @@ fn process_fn_definition(
                 "Function with `#[{}]` attribute must have default ABI",
                 attr.meta.path().segments[0].ident
             ),
+        ));
+    }
+
+    if trait_item_fn.default.is_some() {
+        return Err(Error::new(
+            trait_item_fn.span(),
+            "`#[contract]` does not support `#[update]` or `#[view]` methods with default implementation \
+            in trait definition",
         ));
     }
 
