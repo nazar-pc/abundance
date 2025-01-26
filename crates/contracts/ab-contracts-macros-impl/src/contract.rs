@@ -15,8 +15,8 @@ use quote::{format_ident, quote};
 use std::collections::HashMap;
 use syn::spanned::Spanned;
 use syn::{
-    Error, ImplItem, ImplItemFn, ItemImpl, ItemTrait, Meta, TraitItem, TraitItemFn, Type,
-    Visibility, parse_quote, parse2,
+    Error, ImplItem, ImplItemFn, ItemImpl, ItemTrait, Meta, TraitItem, TraitItemConst, TraitItemFn,
+    Type, Visibility, parse_quote, parse2,
 };
 
 #[derive(Default)]
@@ -86,17 +86,12 @@ fn process_trait_definition(mut item_trait: ItemTrait) -> Result<TokenStream, Er
 
     let metadata_const = generate_trait_metadata(&contract_details, trait_name, item_trait.span())?;
 
-    item_trait
-        .items
-        .insert(0, TraitItem::Verbatim(metadata_const));
-    item_trait.items.insert(
-        0,
-        TraitItem::Verbatim(quote! {
-            #[cfg(feature = "guest")]
-            #[doc(hidden)]
-            const GUEST_FEATURE_ENABLED: () = ();
-        }),
-    );
+    item_trait.items.insert(0, TraitItem::Const(metadata_const));
+    item_trait.items.insert(0, parse_quote! {
+        #[cfg(feature = "guest")]
+        #[doc(hidden)]
+        const GUEST_FEATURE_ENABLED: () = ();
+    });
 
     if let Some(where_clause) = &mut item_trait.generics.where_clause {
         where_clause.predicates.push(parse_quote! {
@@ -233,7 +228,7 @@ fn generate_trait_metadata(
     contract_details: &ContractDetails,
     trait_name: &Ident,
     span: Span,
-) -> Result<TokenStream, Error> {
+) -> Result<TraitItemConst, Error> {
     let num_methods = u8::try_from(contract_details.methods.len()).map_err(|_error| {
         Error::new(
             span,
@@ -253,7 +248,7 @@ fn generate_trait_metadata(
     // * Trait name as UTF-8 bytes
     // * Number of methods
     // * Metadata of methods
-    Ok(quote! {
+    Ok(parse_quote! {
         /// Trait metadata, see [`ContractMetadataKind`] for encoding details
         ///
         /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
