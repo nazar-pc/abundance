@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use syn::spanned::Spanned;
 use syn::{
     Error, ImplItem, ImplItemFn, ItemImpl, ItemTrait, Meta, TraitItem, TraitItemFn, Type,
-    Visibility, parse2,
+    Visibility, parse_quote, parse2,
 };
 
 #[derive(Default)]
@@ -97,6 +97,17 @@ fn process_trait_definition(mut item_trait: ItemTrait) -> Result<TokenStream, Er
             const GUEST_FEATURE_ENABLED: () = ();
         }),
     );
+
+    if let Some(where_clause) = &mut item_trait.generics.where_clause {
+        where_clause.predicates.push(parse_quote! {
+            Self: ::ab_contracts_macros::__private::Contract
+        });
+    } else {
+        item_trait.generics.where_clause.replace(parse_quote! {
+            where
+                Self: ::ab_contracts_macros::__private::Contract
+        });
+    }
 
     let ext_trait = generate_extension_trait(trait_name, &trait_ext_components)?;
 
