@@ -10,6 +10,19 @@ use derive_more::{
     Add, AddAssign, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub, SubAssign,
 };
 
+/// A trait that indicates the struct is a contact definition.
+///
+/// NOTE: This trait is required, but not sufficient for contract implementation, do not implement
+/// this trait manually, use `#[contract]` attribute macro instead.
+pub trait Contract {
+    /// Main contract metadata, see [`ContractMetadataKind`] for encoding details.
+    ///
+    /// More metadata can be contributed by trait implementations.
+    ///
+    /// [`ContractMetadataKind`]: crate::metadata::ContractMetadataKind
+    const MAIN_CONTRACT_METADATA: &[u8];
+}
+
 #[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ContractError {
