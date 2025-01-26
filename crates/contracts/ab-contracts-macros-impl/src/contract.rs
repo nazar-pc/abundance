@@ -1,12 +1,12 @@
 mod common;
 mod init;
-mod methods;
+mod method;
 mod update;
 mod view;
 
 use crate::contract::common::{derive_ident_metadata, extract_ident_from_type};
 use crate::contract::init::process_init_fn;
-use crate::contract::methods::{ExtTraitComponents, MethodDetails};
+use crate::contract::method::{ExtTraitComponents, MethodDetails};
 use crate::contract::update::{process_update_fn, process_update_fn_definition};
 use crate::contract::view::{process_view_fn, process_view_fn_definition};
 use ident_case::RenameRule;

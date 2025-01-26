@@ -1,4 +1,4 @@
-use crate::contract::methods::{MethodDetails, MethodType};
+use crate::contract::method::{MethodDetails, MethodType};
 use crate::contract::{ContractDetails, Method, MethodOutput};
 use proc_macro2::Ident;
 use quote::format_ident;

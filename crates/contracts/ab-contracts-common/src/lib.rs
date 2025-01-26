@@ -2,7 +2,7 @@
 
 pub mod env;
 pub mod metadata;
-pub mod methods;
+pub mod method;
 
 use ab_contracts_io_type::trivial_type::TrivialType;
 use core::fmt;

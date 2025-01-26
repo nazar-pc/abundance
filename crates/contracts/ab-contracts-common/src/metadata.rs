@@ -188,7 +188,7 @@ impl ContractMetadataKind {
     /// opportunities without changing compact metadata shape, which is important for
     /// [`MethodFingerprint`].
     ///
-    /// [`MethodFingerprint`]: crate::methods::MethodFingerprint
+    /// [`MethodFingerprint`]: crate::method::MethodFingerprint
     ///
     /// Returns `None` if input is invalid or too long.
     pub const fn compact(metadata: &[u8]) -> Option<([u8; MAX_METADATA_CAPACITY], usize)> {
