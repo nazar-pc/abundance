@@ -34,7 +34,7 @@ impl<T> DerefMut for PtrWrapper<T> {
 /// Helper functions are provided to make casting to/from bytes a bit safer than it would otherwise,
 /// but extra care is still needed.
 ///
-/// **Do not implement this type explicitly!** Use `#[derive(TrivialType)]` instead, which will
+/// **Do not implement this trait explicitly!** Use `#[derive(TrivialType)]` instead, which will
 /// ensure safety requirements are upheld.
 pub unsafe trait TrivialType
 where

@@ -1,4 +1,4 @@
-use crate::contract::common::derive_ident_metadata;
+use crate::contract::common::{derive_ident_metadata, extract_ident_from_type};
 use ident_case::RenameRule;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
@@ -1089,6 +1089,12 @@ impl MethodDetails {
             }
         };
 
+        let full_struct_name = if let Some(trait_name) = trait_name {
+            quote! { <#self_type as #trait_name> }
+        } else {
+            quote! { #self_type }
+        };
+
         let guest_fn = {
             // Depending on whether `T` or `Result<T, ContractError>` is used as return type,
             // generate different code for result handling
@@ -1133,12 +1139,6 @@ impl MethodDetails {
                 }
             };
 
-            let full_struct_name = if let Some(trait_name) = trait_name {
-                quote! { <#self_type as #trait_name> }
-            } else {
-                quote! { #self_type }
-            };
-
             // Generate FFI function with original name (hiding original implementation), but
             // exported as shortcut name
             quote_spanned! {fn_sig.span() =>
@@ -1181,9 +1181,50 @@ impl MethodDetails {
             }
         };
 
+        let fn_pointer_static = {
+            let struct_name = extract_ident_from_type(self_type).ok_or_else(|| {
+                Error::new(
+                    self_type.span(),
+                    "`#[contract]` must be applied to simple struct implementation",
+                )
+            })?;
+            let adapter_ffi_fn_name = format_ident!("{ffi_fn_name}_adapter");
+
+            quote! {
+                #[cfg(any(unix, windows))]
+                mod fn_pointer {
+                    use super::*;
+
+                    unsafe extern "C" fn #adapter_ffi_fn_name(
+                        ptr: ::core::ptr::NonNull<::core::ffi::c_void>,
+                    ) -> ::ab_contracts_macros::__private::ExitCode {
+                        // SAFETY: Caller must ensure correct ABI of the void pointer, not much can
+                        // be done here
+                        unsafe { #ffi_fn_name(ptr.cast::<InternalArgs>()) }
+                    }
+
+                    #[::ab_contracts_macros::__private::linkme::distributed_slice(
+                        ::ab_contracts_macros::__private::CONTRACTS_METHODS_FN_POINTERS
+                    )]
+                    static FN_POINTER: (
+                        &str,
+                        fn() -> usize,
+                        &::ab_contracts_macros::__private::MethodFingerprint,
+                        unsafe extern "C" fn(::core::ptr::NonNull<::core::ffi::c_void>) -> ::ab_contracts_macros::__private::ExitCode,
+                    ) = (
+                        <#struct_name as ::ab_contracts_macros::__private::Contract>::CRATE_NAME,
+                        || #full_struct_name::#original_method_name as usize,
+                        &<ExternalArgs as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
+                        #adapter_ffi_fn_name,
+                    );
+                }
+            }
+        };
+
         Ok(quote! {
             #internal_args_struct
             #guest_fn
+            #fn_pointer_static
         })
     }
 
