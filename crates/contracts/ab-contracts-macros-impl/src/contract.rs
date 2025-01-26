@@ -167,7 +167,9 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
         ///
         /// Enabled with `guest` feature to appear in the final binary.
         ///
-        /// See [`#struct_name::MAIN_CONTRACT_METADATA`] for details.
+        /// See [`Contract::MAIN_CONTRACT_METADATA`] for details.
+        ///
+        /// [`Contract::MAIN_CONTRACT_METADATA`]: ::ab_contracts_macros::__private::Contract::MAIN_CONTRACT_METADATA
         #[cfg(feature = "guest")]
         #[used]
         #[unsafe(no_mangle)]
@@ -340,12 +342,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         // * Number of methods
         // * Metadata of methods
         quote! {
-            /// Main contract metadata, see [`ContractMetadataKind`] for encoding details.
-            ///
-            /// More metadata can be contributed by trait implementations.
-            ///
-            /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
-            pub const MAIN_CONTRACT_METADATA: &[u8] = {
+            const MAIN_CONTRACT_METADATA: &[u8] = {
                 const fn metadata()
                     -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
                 {
@@ -367,10 +364,6 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         }
     };
 
-    item_impl
-        .items
-        .insert(0, ImplItem::Verbatim(metadata_const));
-
     let ext_trait = {
         let struct_name = extract_ident_from_type(struct_name).ok_or_else(|| {
             Error::new(
@@ -389,13 +382,26 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         /// `guest` feature being enabled in dependencies at the same time since that'll cause
         /// duplicated symbols.
         ///
-        /// See [`#struct_name::MAIN_CONTRACT_METADATA`] for details.
+        /// See [`Contract::MAIN_CONTRACT_METADATA`] for details.
+        ///
+        /// [`Contract::MAIN_CONTRACT_METADATA`]: ::ab_contracts_macros::__private::Contract::MAIN_CONTRACT_METADATA
         #[cfg(feature = "guest")]
         #[used]
         #[unsafe(no_mangle)]
         #[unsafe(link_section = "CONTRACT_METADATA")]
-        static MAIN_CONTRACT_METADATA: [u8; #struct_name::MAIN_CONTRACT_METADATA.len()] =
-            unsafe { *#struct_name::MAIN_CONTRACT_METADATA.as_ptr().cast() };
+        static MAIN_CONTRACT_METADATA: [
+            u8;
+            <#struct_name as ::ab_contracts_macros::__private::Contract>::MAIN_CONTRACT_METADATA
+                .len()
+        ] = unsafe {
+            *<#struct_name as ::ab_contracts_macros::__private::Contract>::MAIN_CONTRACT_METADATA
+                .as_ptr()
+                .cast()
+        };
+
+        impl ::ab_contracts_macros::__private::Contract for #struct_name {
+            #metadata_const
+        }
 
         #item_impl
 
