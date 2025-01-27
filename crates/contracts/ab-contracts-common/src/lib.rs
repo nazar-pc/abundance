@@ -27,7 +27,6 @@ use linkme::distributed_slice;
 #[distributed_slice]
 pub static CONTRACTS_METHODS_FN_POINTERS: [(
     &str,
-    fn() -> usize,
     &MethodFingerprint,
     unsafe extern "C" fn(NonNull<c_void>) -> ExitCode,
 )];
