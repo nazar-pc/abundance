@@ -19,3 +19,6 @@ derive_more = { version = "1.0.0", default-features = false, features = ["add", 
 
 [target.'cfg(any(unix, windows))'.dependencies]
 linkme = "0.3.31"
+
+[features]
+guest = []

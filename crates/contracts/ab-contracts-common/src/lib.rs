@@ -47,6 +47,13 @@ pub trait Contract {
     /// NOTE: It is unlikely to be necessary to interact with this directly.
     #[cfg(any(unix, windows))]
     const CRATE_NAME: &str;
+    // Default value is provided to only fail to compile when contract that uses
+    // `ab-contracts-common` has feature specified, but `ab-contracts-common` does not, but not the
+    // other way around (as will be the case with dependencies where `guest` feature must not be
+    // enabled)
+    #[cfg(feature = "guest")]
+    #[doc(hidden)]
+    const GUEST_FEATURE_ENABLED: () = ();
 }
 
 #[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]

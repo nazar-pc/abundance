@@ -20,5 +20,6 @@ linkme = "0.3.31"
 
 [features]
 guest = [
-    "ab-contracts-standards/guest"
+    "ab-contracts-common/guest",
+    "ab-contracts-standards/guest",
 ]

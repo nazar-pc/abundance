@@ -407,9 +407,11 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
 
         impl ::ab_contracts_macros::__private::Contract for #struct_name {
             #metadata_const
-
             #[cfg(any(unix, windows))]
             const CRATE_NAME: &str = env!("CARGO_PKG_NAME");
+            // Ensure `guest` feature is enabled for `ab-contracts-common` crate
+            #[cfg(feature = "guest")]
+            const GUEST_FEATURE_ENABLED: () = ();
         }
 
         #item_impl

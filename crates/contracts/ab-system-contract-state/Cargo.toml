@@ -18,4 +18,6 @@ ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
 linkme = "0.3.31"
 
 [features]
-guest = []
+guest = [
+    "ab-contracts-common/guest",
+]
