@@ -16,9 +16,7 @@ use linkme::distributed_slice;
 
 /// Pointers to methods of all contracts.
 ///
-/// List entries `(CrateName, MethodAddressGetter, &MethodFingerprint, FnPointer)`.
-/// `MethodAddressGetter` returns pointer to contract's method (can't be known in const environment,
-/// hence getter) cast to usize.
+/// List entries `(CrateName, MethodFingerprint, MethodMetadata, FnPointer)`.
 /// `FnPointer`'s argument is actually `NonNull<InternalArgs>` of corresponding method and must have
 /// corresponding ABI.
 ///
@@ -28,6 +26,7 @@ use linkme::distributed_slice;
 pub static CONTRACTS_METHODS_FN_POINTERS: [(
     &str,
     &MethodFingerprint,
+    &[u8],
     unsafe extern "C" fn(NonNull<c_void>) -> ExitCode,
 )];
 
