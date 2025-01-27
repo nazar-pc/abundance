@@ -137,22 +137,21 @@ where
 {
     /// Create a new shared instance from provided data reference.
     ///
-    /// `size` can be either `0` or `size_of::<Data>()`, indicating that value is missing or present
-    /// accordingly.
-    ///
-    /// # Panics
-    /// Panics if `size != 0 && size != size_of::<Data>()`
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
-    pub fn from_buffer<'a>(data: &'a Data, size: &'a u32) -> impl Deref<Target = Self> + 'a {
+    pub fn from_buffer(data: Option<&'_ Data>) -> impl Deref<Target = Self> + '_ {
         let capacity = size_of::<Data>() as u32;
-        debug_assert!(*size == 0 || *size == capacity, "Invalid size");
+        let (data, size) = if let Some(data) = data {
+            (NonNull::from(data), capacity)
+        } else {
+            (NonNull::dangling(), 0)
+        };
 
         MaybeDataWrapper(Self {
             // TODO: Use `NonNull::from_ref()` once stable
-            data: NonNull::from(data).cast::<<Self as IoType>::PointerType>(),
+            data: data.cast::<<Self as IoType>::PointerType>(),
             // TODO: Use `NonNull::from_ref()` once stable
-            size: NonNull::from(size),
+            size: NonNull::from(&size),
             capacity,
         })
     }
