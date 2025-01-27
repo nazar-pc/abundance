@@ -1,10 +1,10 @@
 use crate::contract::method::{MethodDetails, MethodType};
 use crate::contract::{ContractDetails, Method, MethodOutput};
 use proc_macro2::Ident;
-use quote::{ToTokens, format_ident};
+use quote::format_ident;
 use std::collections::HashMap;
 use syn::spanned::Spanned;
-use syn::{Error, FnArg, Meta, Signature, Type};
+use syn::{Error, FnArg, Meta, Signature, Type, parse_quote};
 
 pub(super) fn process_view_fn(
     self_type: Type,
@@ -90,7 +90,7 @@ pub(super) fn process_view_fn(
     }
 
     let guest_ffi = methods_details.generate_guest_ffi(fn_sig, trait_name)?;
-    let trait_ext_components = methods_details.generate_trait_ext_components(fn_sig, trait_name);
+    let trait_ext_components = methods_details.generate_trait_ext_components(fn_sig, trait_name)?;
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),
@@ -108,10 +108,8 @@ pub(super) fn process_view_fn_definition(
     fn_sig: &mut Signature,
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
-    let mut methods_details = MethodDetails::new(
-        MethodType::View,
-        Type::Verbatim(trait_name.to_token_stream()),
-    );
+    let mut methods_details =
+        MethodDetails::new(MethodType::View, Type::Path(parse_quote! { #trait_name }));
 
     methods_details.process_output(&fn_sig.output)?;
 
@@ -181,7 +179,7 @@ pub(super) fn process_view_fn_definition(
 
     let guest_ffi = methods_details.generate_guest_trait_ffi(fn_sig, Some(trait_name))?;
     let trait_ext_components =
-        methods_details.generate_trait_ext_components(fn_sig, Some(trait_name));
+        methods_details.generate_trait_ext_components(fn_sig, Some(trait_name))?;
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),

@@ -1185,10 +1185,15 @@ impl MethodDetails {
             let struct_name = extract_ident_from_type(self_type).ok_or_else(|| {
                 Error::new(
                     self_type.span(),
-                    "`#[contract]` must be applied to simple struct implementation",
+                    "`#[contract]` must be applied to a simple struct without generics",
                 )
             })?;
             let adapter_ffi_fn_name = format_ident!("{ffi_fn_name}_adapter");
+            let args_struct_name = derive_external_args_struct_name(
+                &self.self_type,
+                trait_name,
+                original_method_name,
+            )?;
 
             quote! {
                 #[cfg(any(unix, windows))]
@@ -1214,7 +1219,7 @@ impl MethodDetails {
                     ) = (
                         <#struct_name as ::ab_contracts_macros::__private::Contract>::CRATE_NAME,
                         || #full_struct_name::#original_method_name as usize,
-                        &<ExternalArgs as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
+                        &<#args_struct_name as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
                         #adapter_ffi_fn_name,
                     );
                 }
@@ -1233,11 +1238,15 @@ impl MethodDetails {
         fn_sig: &Signature,
         trait_name: Option<&Ident>,
     ) -> Result<TokenStream, Error> {
-        // `external_args_pointers` will generate pointers in `ExternalArgs` fields
+        let original_method_name = &fn_sig.ident;
+
+        let args_struct_name =
+            derive_external_args_struct_name(&self.self_type, trait_name, original_method_name)?;
+        // `external_args_pointers` will generate pointers in `*Args` fields
         let mut external_args_pointers = Vec::new();
-        // `external_args_sizes` will generate sizes in `ExternalArgs` fields
+        // `external_args_sizes` will generate sizes in `*Args` fields
         let mut external_args_sizes = Vec::new();
-        // `external_args_capacities` will generate capacities in `ExternalArgs` fields
+        // `external_args_capacities` will generate capacities in `*Args` fields
         let mut external_args_capacities = Vec::new();
 
         // For slots in external args only address is needed
@@ -1307,12 +1316,11 @@ impl MethodDetails {
             }
         }
 
-        let original_method_name = &fn_sig.ident;
         let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
 
         // Initializer's return type will be `()` for caller, state is stored by the host and not
         // returned to the caller, also if explicit `#[result]` argument is used return type is
-        // also `()`. In both cases explicit arguments are not needed in `ExternalArgs` struct.
+        // also `()`. In both cases explicit arguments are not needed in `*Args` struct.
         if !(matches!(self.io.last(), Some(IoArg::Result { .. }))
             || matches!(self.method_type, MethodType::Init))
         {
@@ -1341,7 +1349,7 @@ impl MethodDetails {
         Ok(quote_spanned! {fn_sig.span() =>
             #[doc = #args_struct_doc]
             #[repr(C)]
-            pub struct ExternalArgs
+            pub struct #args_struct_name
             {
                 #( #external_args_pointers )*
                 #( #external_args_sizes )*
@@ -1349,13 +1357,13 @@ impl MethodDetails {
             }
 
             #[automatically_derived]
-            unsafe impl ::ab_contracts_macros::__private::ExternalArgs for ExternalArgs {
+            unsafe impl ::ab_contracts_macros::__private::ExternalArgs for #args_struct_name {
                 const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
                     ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA)
                         .expect("Metadata is statically correct; qed");
             }
 
-            // TODO: `ExternalArgs` constructor for easier usage (that fills in default
+            // TODO: `*Args` constructor for easier usage (that fills in default
             //  capacities and sized), use it in extension trait implementation to reduce code
             //  duplication
         })
@@ -1527,7 +1535,7 @@ impl MethodDetails {
         &self,
         fn_sig: &Signature,
         trait_name: Option<&Ident>,
-    ) -> ExtTraitComponents {
+    ) -> Result<ExtTraitComponents, Error> {
         let mut preparation = Vec::new();
         let mut method_args = Vec::new();
         let mut args_pointers = Vec::new();
@@ -1737,6 +1745,8 @@ impl MethodDetails {
             #method_signature;
         };
 
+        let args_struct_name =
+            derive_external_args_struct_name(&self.self_type, trait_name, original_method_name)?;
         // `#[view]` methods do not require explicit method context
         let method_context_value = if matches!(self.method_type, MethodType::View) {
             quote! { &::ab_contracts_macros::__private::MethodContext::Reset }
@@ -1748,7 +1758,7 @@ impl MethodDetails {
             #method_signature {
                 #( #preparation )*
 
-                let mut args = #original_method_name::ExternalArgs {
+                let mut args = #original_method_name::#args_struct_name {
                     #( #args_pointers )*
                     #( #args_sizes )*
                     #( #args_capacities )*
@@ -1773,7 +1783,7 @@ impl MethodDetails {
             }
         };
 
-        ExtTraitComponents { definitions, impls }
+        Ok(ExtTraitComponents { definitions, impls })
     }
 }
 
@@ -1800,4 +1810,22 @@ fn derive_ffi_fn_name(original_method_name: &Ident, trait_name: Option<&Ident>) 
     } else {
         format_ident!("{original_method_name}")
     }
+}
+
+fn derive_external_args_struct_name(
+    type_name: &Type,
+    trait_name: Option<&Ident>,
+    method_name: &Ident,
+) -> Result<Ident, Error> {
+    let type_name = extract_ident_from_type(type_name).ok_or_else(|| {
+        Error::new(
+            type_name.span(),
+            "`#[contract]` must be applied to a simple struct without generics",
+        )
+    })?;
+    Ok(format_ident!(
+        "{}{}Args",
+        trait_name.unwrap_or(type_name),
+        RenameRule::PascalCase.apply_to_field(method_name.to_string())
+    ))
 }

@@ -85,7 +85,7 @@ pub(super) fn process_init_fn(
     }
 
     let guest_ffi = methods_details.generate_guest_ffi(fn_sig, None)?;
-    let trait_ext_components = methods_details.generate_trait_ext_components(fn_sig, None);
+    let trait_ext_components = methods_details.generate_trait_ext_components(fn_sig, None)?;
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),
