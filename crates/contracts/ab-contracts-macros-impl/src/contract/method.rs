@@ -1089,12 +1089,6 @@ impl MethodDetails {
             }
         };
 
-        let full_struct_name = if let Some(trait_name) = trait_name {
-            quote! { <#self_type as #trait_name> }
-        } else {
-            quote! { #self_type }
-        };
-
         let guest_fn = {
             // Depending on whether `T` or `Result<T, ContractError>` is used as return type,
             // generate different code for result handling
@@ -1137,6 +1131,12 @@ impl MethodDetails {
                         }
                     }
                 }
+            };
+
+            let full_struct_name = if let Some(trait_name) = trait_name {
+                quote! { <#self_type as #trait_name> }
+            } else {
+                quote! { #self_type }
             };
 
             // Generate FFI function with original name (hiding original implementation), but
@@ -1213,13 +1213,13 @@ impl MethodDetails {
                     )]
                     static FN_POINTER: (
                         &str,
-                        fn() -> usize,
                         &::ab_contracts_macros::__private::MethodFingerprint,
+                        &[u8],
                         unsafe extern "C" fn(::core::ptr::NonNull<::core::ffi::c_void>) -> ::ab_contracts_macros::__private::ExitCode,
                     ) = (
                         <#struct_name as ::ab_contracts_macros::__private::Contract>::CRATE_NAME,
-                        || #full_struct_name::#original_method_name as usize,
                         &<#args_struct_name as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
+                        &METADATA,
                         #adapter_ffi_fn_name,
                     );
                 }

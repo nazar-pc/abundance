@@ -16,9 +16,7 @@ use linkme::distributed_slice;
 
 /// Pointers to methods of all contracts.
 ///
-/// List entries `(CrateName, MethodAddressGetter, &MethodFingerprint, FnPointer)`.
-/// `MethodAddressGetter` returns pointer to contract's method (can't be known in const environment,
-/// hence getter) cast to usize.
+/// List entries `(CrateName, MethodFingerprint, MethodMetadata, FnPointer)`.
 /// `FnPointer`'s argument is actually `NonNull<InternalArgs>` of corresponding method and must have
 /// corresponding ABI.
 ///
@@ -27,8 +25,8 @@ use linkme::distributed_slice;
 #[distributed_slice]
 pub static CONTRACTS_METHODS_FN_POINTERS: [(
     &str,
-    fn() -> usize,
     &MethodFingerprint,
+    &[u8],
     unsafe extern "C" fn(NonNull<c_void>) -> ExitCode,
 )];
 
@@ -49,6 +47,13 @@ pub trait Contract {
     /// NOTE: It is unlikely to be necessary to interact with this directly.
     #[cfg(any(unix, windows))]
     const CRATE_NAME: &str;
+    // Default value is provided to only fail to compile when contract that uses
+    // `ab-contracts-common` has feature specified, but `ab-contracts-common` does not, but not the
+    // other way around (as will be the case with dependencies where `guest` feature must not be
+    // enabled)
+    #[cfg(feature = "guest")]
+    #[doc(hidden)]
+    const GUEST_FEATURE_ENABLED: () = ();
 }
 
 #[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]

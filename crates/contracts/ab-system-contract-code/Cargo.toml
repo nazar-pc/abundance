@@ -19,4 +19,6 @@ ab-system-contract-address-allocator = { version = "0.0.1", path = "../ab-system
 linkme = "0.3.31"
 
 [features]
-guest = []
+guest = [
+    "ab-contracts-common/guest",
+]
