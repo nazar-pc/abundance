@@ -1,4 +1,5 @@
 mod compact;
+pub mod decode;
 #[cfg(test)]
 mod tests;
 
@@ -67,7 +68,7 @@ pub enum ContractMetadataKind {
     ///   following exceptions:
     ///   * This is skipped for [`Self::EnvRo`] and [`Self::EnvRw`]
     ///   * For [`Self::SlotWithAddressRo`] and [`Self::SlotWithAddressRw`] only slot's metadata is
-    ///     included
+    ///     included, not `Address`
     ///
     /// [`IoTypeMetadataKind`]: ab_contracts_io_type::metadata::IoTypeMetadataKind
     ///
