@@ -1226,7 +1226,7 @@ impl MethodDetails {
                     use super::*;
 
                     unsafe extern "C" fn #adapter_ffi_fn_name(
-                        ptr: ::core::ptr::NonNull<::core::ffi::c_void>,
+                        ptr: ::core::ptr::NonNull<::core::ptr::NonNull<::core::ffi::c_void>>,
                     ) -> ::ab_contracts_macros::__private::ExitCode {
                         // SAFETY: Caller must ensure correct ABI of the void pointer, not much can
                         // be done here
@@ -1238,11 +1238,15 @@ impl MethodDetails {
                     )]
                     static FN_POINTER: (
                         &str,
+                        &[u8],
                         &::ab_contracts_macros::__private::MethodFingerprint,
                         &[u8],
-                        unsafe extern "C" fn(::core::ptr::NonNull<::core::ffi::c_void>) -> ::ab_contracts_macros::__private::ExitCode,
+                        unsafe extern "C" fn(
+                            ::core::ptr::NonNull<::core::ptr::NonNull<::core::ffi::c_void>>,
+                        ) -> ::ab_contracts_macros::__private::ExitCode,
                     ) = (
                         <#struct_name as ::ab_contracts_macros::__private::Contract>::CRATE_NAME,
+                        <#struct_name as ::ab_contracts_macros::__private::Contract>::MAIN_CONTRACT_METADATA,
                         &<#args_struct_name as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
                         &METADATA,
                         #adapter_ffi_fn_name,

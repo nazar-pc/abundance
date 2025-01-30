@@ -18,7 +18,7 @@ use linkme::distributed_slice;
 
 /// Pointers to methods of all contracts.
 ///
-/// List entries `(CrateName, MethodFingerprint, MethodMetadata, FnPointer)`.
+/// List entries `(CrateName, MainContractMetadata, MethodFingerprint, MethodMetadata, FnPointer)`.
 /// `FnPointer`'s argument is actually `NonNull<InternalArgs>` of corresponding method and must have
 /// corresponding ABI.
 ///
@@ -27,9 +27,10 @@ use linkme::distributed_slice;
 #[distributed_slice]
 pub static CONTRACTS_METHODS_FN_POINTERS: [(
     &str,
+    &[u8],
     &MethodFingerprint,
     &[u8],
-    unsafe extern "C" fn(NonNull<c_void>) -> ExitCode,
+    unsafe extern "C" fn(NonNull<NonNull<c_void>>) -> ExitCode,
 )];
 
 // TODO: Add `Slot` and `Tmp` associated types such that it is not necessary to repeat them in
