@@ -290,7 +290,7 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
             ])
         }
 
-        // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
+        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
         metadata()
             .0
             .split_at(metadata().1)
@@ -393,7 +393,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
             ])
         }
 
-        // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
+        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
         metadata()
             .0
             .split_at(metadata().1)

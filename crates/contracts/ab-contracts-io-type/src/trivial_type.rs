@@ -177,7 +177,7 @@ where
     T: TrivialType,
 {
     const METADATA: &[u8] = {
-        // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
+        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
         array_metadata(SIZE as u32, T::METADATA)
             .0
             .split_at(array_metadata(SIZE as u32, T::METADATA).1)

@@ -34,13 +34,13 @@ static_assertions::const_assert_eq!(align_of::<i128>(), 16);
 //  (setting a pointer)
 /// Trait that is used for types that are crossing host/guest boundary in smart contracts.
 ///
-/// Crucially it is implemented for any type that implements [`TrivialType`] and for
+/// Crucially, it is implemented for any type that implements [`TrivialType`] and for
 /// [`VariableBytes`](crate::variable_bytes::VariableBytes).
 ///
 /// # Safety
 /// This trait is used for types with memory transmutation capabilities, it must not be relied on
 /// with untrusted data. Serializing and deserializing of types that implement this trait is simply
-/// casting of underlying memory, as the result all the types implementing this trait must not use
+/// casting of underlying memory. As a result, all the types implementing this trait must not use
 /// implicit padding, unions or anything similar that might make it unsound to access any bits of
 /// the type.
 ///
@@ -62,22 +62,22 @@ pub unsafe trait IoType {
     /// Pointer with trivial type that this `IoType` represents
     type PointerType: TrivialType;
 
-    /// How many bytes are currently used to store data
+    /// Number of bytes are currently used to store data
     fn size(&self) -> u32;
 
-    /// How many bytes are allocated right now
+    /// Number of bytes are allocated right now
     fn capacity(&self) -> u32;
 
-    /// Set number of used bytes
+    /// Set the number of used bytes
     ///
     /// # Safety
-    /// `size` must be set to number of properly bytes
+    /// `size` must be set to number of properly initialized bytes
     unsafe fn set_size(&mut self, size: u32);
 
     /// Create a reference to a type, which is represented by provided memory.
     ///
     /// Memory must be correctly aligned and sufficient in size, but padding beyond the size of the
-    /// type is allowed. Memory behind pointer must not be written to in the meantime either.
+    /// type is allowed. Memory behind a pointer must not be written to in the meantime either.
     ///
     /// Only `size` are guaranteed to be allocated for types that can store variable amount of
     /// data due to read-only nature of read-only access here.
