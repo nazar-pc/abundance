@@ -4,7 +4,7 @@ use core::str;
 use core::str::Utf8Error;
 
 #[derive(Debug, thiserror::Error)]
-pub enum MethodMetadataDecodingError<'a> {
+pub enum MetadataDecodingError<'a> {
     #[error("Not enough metadata to decode")]
     NotEnoughMetadata,
     #[error("Invalid first metadata byte")]
@@ -51,91 +51,32 @@ pub enum MethodKind {
     ViewStatefulRo,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum ArgumentKind {
-    /// Corresponds to [`ContractMetadataKind::EnvRo`]
-    EnvRo,
-    /// Corresponds to [`ContractMetadataKind::EnvRw`]
-    EnvRw,
-    /// Corresponds to [`ContractMetadataKind::TmpRo`]
-    TmpRo,
-    /// Corresponds to [`ContractMetadataKind::TmpRw`]
-    TmpRw,
-    /// Corresponds to [`ContractMetadataKind::SlotWithAddressRo`]
-    SlotWithAddressRo,
-    /// Corresponds to [`ContractMetadataKind::SlotWithAddressRw`]
-    SlotWithAddressRw,
-    /// Corresponds to [`ContractMetadataKind::SlotWithoutAddressRo`]
-    SlotWithoutAddressRo,
-    /// Corresponds to [`ContractMetadataKind::SlotWithoutAddressRw`]
-    SlotWithoutAddressRw,
-    /// Corresponds to [`ContractMetadataKind::Input`]
-    Input,
-    /// Corresponds to [`ContractMetadataKind::Output`]
-    Output,
-    /// Corresponds to [`ContractMetadataKind::Result`]
-    Result,
-}
-
 pub struct MethodMetadataItem<'a> {
     pub method_name: &'a str,
     pub method_kind: MethodKind,
     pub num_arguments: u8,
 }
 
-pub struct ArgumentMetadataItem<'a> {
-    pub argument_name: &'a str,
-    pub argument_kind: ArgumentKind,
-    pub recommended_capacity: u32,
-}
-
-mod private {
-    pub trait Stage {}
-}
-
-pub struct StageMethod {}
-
-impl private::Stage for StageMethod {}
-
-pub struct StageArguments {
-    method_kind: MethodKind,
-    remaining: u8,
-}
-
-impl private::Stage for StageArguments {}
-
-pub struct MethodMetadataDecoder<'a, Stage>
-where
-    Stage: private::Stage,
-{
+pub struct MethodMetadataDecoder<'a> {
     metadata: &'a [u8],
-    stage: Stage,
 }
 
-impl<'a> MethodMetadataDecoder<'a, StageMethod> {
+impl<'a> MethodMetadataDecoder<'a> {
     pub fn new(metadata: &'a [u8]) -> Self {
-        Self {
-            metadata,
-            stage: StageMethod {},
-        }
+        Self { metadata }
     }
 
     pub fn decode_next(
         mut self,
-    ) -> Result<
-        (
-            MethodMetadataDecoder<'a, StageArguments>,
-            MethodMetadataItem<'a>,
-        ),
-        MethodMetadataDecodingError<'a>,
-    > {
+    ) -> Result<(ArgumentsMetadataDecoder<'a>, MethodMetadataItem<'a>), MetadataDecodingError<'a>>
+    {
         if self.metadata.is_empty() {
-            return Err(MethodMetadataDecodingError::NotEnoughMetadata);
+            return Err(MetadataDecodingError::NotEnoughMetadata);
         }
 
         // Decode method kind
         let metadata_kind = ContractMetadataKind::try_from_u8(self.metadata[0]).ok_or(
-            MethodMetadataDecodingError::InvalidFirstMetadataByte {
+            MetadataDecodingError::InvalidFirstMetadataByte {
                 byte: self.metadata[0],
             },
         )?;
@@ -162,12 +103,12 @@ impl<'a> MethodMetadataDecoder<'a, StageMethod> {
             | ContractMetadataKind::Input
             | ContractMetadataKind::Output
             | ContractMetadataKind::Result => {
-                return Err(MethodMetadataDecodingError::ExpectedMethodKind { metadata_kind });
+                return Err(MetadataDecodingError::ExpectedMethodKind { metadata_kind });
             }
         };
 
         if self.metadata.is_empty() {
-            return Err(MethodMetadataDecodingError::NotEnoughMetadata);
+            return Err(MetadataDecodingError::NotEnoughMetadata);
         }
 
         // Decode method name
@@ -176,24 +117,21 @@ impl<'a> MethodMetadataDecoder<'a, StageMethod> {
 
         // +1 for number of arguments
         if self.metadata.len() < method_name_length + 1 {
-            return Err(MethodMetadataDecodingError::NotEnoughMetadata);
+            return Err(MetadataDecodingError::NotEnoughMetadata);
         }
 
         let method_name = &self.metadata[..method_name_length];
         self.metadata = &self.metadata[method_name_length..];
-        let method_name = str::from_utf8(method_name).map_err(|error| {
-            MethodMetadataDecodingError::InvalidMethodName { method_name, error }
-        })?;
+        let method_name = str::from_utf8(method_name)
+            .map_err(|error| MetadataDecodingError::InvalidMethodName { method_name, error })?;
 
         let num_arguments = self.metadata[0];
         self.metadata = &self.metadata[1..];
 
-        let decoder = MethodMetadataDecoder {
+        let decoder = ArgumentsMetadataDecoder {
             metadata: self.metadata,
-            stage: StageArguments {
-                method_kind,
-                remaining: num_arguments,
-            },
+            method_kind,
+            remaining: num_arguments,
         };
         let item = MethodMetadataItem {
             method_name,
@@ -205,29 +143,67 @@ impl<'a> MethodMetadataDecoder<'a, StageMethod> {
     }
 }
 
-impl<'a> MethodMetadataDecoder<'a, StageArguments> {
+#[derive(Debug, Copy, Clone)]
+pub enum ArgumentKind {
+    /// Corresponds to [`ContractMetadataKind::EnvRo`]
+    EnvRo,
+    /// Corresponds to [`ContractMetadataKind::EnvRw`]
+    EnvRw,
+    /// Corresponds to [`ContractMetadataKind::TmpRo`]
+    TmpRo,
+    /// Corresponds to [`ContractMetadataKind::TmpRw`]
+    TmpRw,
+    /// Corresponds to [`ContractMetadataKind::SlotWithAddressRo`]
+    SlotWithAddressRo,
+    /// Corresponds to [`ContractMetadataKind::SlotWithAddressRw`]
+    SlotWithAddressRw,
+    /// Corresponds to [`ContractMetadataKind::SlotWithoutAddressRo`]
+    SlotWithoutAddressRo,
+    /// Corresponds to [`ContractMetadataKind::SlotWithoutAddressRw`]
+    SlotWithoutAddressRw,
+    /// Corresponds to [`ContractMetadataKind::Input`]
+    Input,
+    /// Corresponds to [`ContractMetadataKind::Output`]
+    Output,
+    /// Corresponds to [`ContractMetadataKind::Result`]
+    Result,
+}
+
+pub struct ArgumentMetadataItem<'a> {
+    pub argument_name: &'a str,
+    pub argument_kind: ArgumentKind,
+    pub recommended_capacity: u32,
+}
+
+pub struct ArgumentsMetadataDecoder<'a> {
+    metadata: &'a [u8],
+    method_kind: MethodKind,
+    remaining: u8,
+}
+
+impl<'a> ArgumentsMetadataDecoder<'a> {
     pub fn decode_next(
         &'a mut self,
-    ) -> Option<Result<ArgumentMetadataItem<'a>, MethodMetadataDecodingError<'a>>> {
-        if self.stage.remaining == 0 {
+    ) -> Option<Result<ArgumentMetadataItem<'a>, MetadataDecodingError<'a>>> {
+        if self.remaining == 0 {
             return None;
         }
 
-        self.stage.remaining -= 1;
+        self.remaining -= 1;
 
         Some(self.decode_argument())
     }
 
     fn decode_argument(
         &'a mut self,
-    ) -> Result<ArgumentMetadataItem<'a>, MethodMetadataDecodingError<'a>> {
+    ) -> Result<ArgumentMetadataItem<'a>, MetadataDecodingError<'a>> {
         if self.metadata.is_empty() {
-            return Err(MethodMetadataDecodingError::NotEnoughMetadata);
+            return Err(MetadataDecodingError::NotEnoughMetadata);
         }
 
         // Decode method kind
         let metadata_kind = ContractMetadataKind::try_from_u8(self.metadata[0]).ok_or(
-            MethodMetadataDecodingError::InvalidFirstMetadataByte {
+            MetadataDecodingError::InvalidFirstMetadataByte {
                 byte: self.metadata[0],
             },
         )?;
@@ -254,11 +230,11 @@ impl<'a> MethodMetadataDecoder<'a, StageArguments> {
             | ContractMetadataKind::UpdateStatefulRw
             | ContractMetadataKind::ViewStateless
             | ContractMetadataKind::ViewStatefulRo => {
-                return Err(MethodMetadataDecodingError::ExpectedArgumentKind { metadata_kind });
+                return Err(MetadataDecodingError::ExpectedArgumentKind { metadata_kind });
             }
         };
 
-        let argument_allowed = match self.stage.method_kind {
+        let argument_allowed = match self.method_kind {
             MethodKind::Init
             | MethodKind::UpdateStateless
             | MethodKind::UpdateStatefulRo
@@ -291,9 +267,9 @@ impl<'a> MethodMetadataDecoder<'a, StageArguments> {
         };
 
         if !argument_allowed {
-            return Err(MethodMetadataDecodingError::UnexpectedArgumentKind {
+            return Err(MetadataDecodingError::UnexpectedArgumentKind {
                 argument_kind,
-                method_kind: self.stage.method_kind,
+                method_kind: self.method_kind,
             });
         }
 
@@ -309,7 +285,7 @@ impl<'a> MethodMetadataDecoder<'a, StageArguments> {
             | ArgumentKind::Output
             | ArgumentKind::Result => {
                 if self.metadata.is_empty() {
-                    return Err(MethodMetadataDecodingError::NotEnoughMetadata);
+                    return Err(MetadataDecodingError::NotEnoughMetadata);
                 }
 
                 // Decode argument name
@@ -318,13 +294,13 @@ impl<'a> MethodMetadataDecoder<'a, StageArguments> {
 
                 // +1 for number of arguments
                 if self.metadata.len() < argument_name_length {
-                    return Err(MethodMetadataDecodingError::NotEnoughMetadata);
+                    return Err(MetadataDecodingError::NotEnoughMetadata);
                 }
 
                 let argument_name = &self.metadata[..argument_name_length];
                 self.metadata = &self.metadata[argument_name_length..];
                 let argument_name = str::from_utf8(argument_name).map_err(|error| {
-                    MethodMetadataDecodingError::InvalidArgumentName {
+                    MetadataDecodingError::InvalidArgumentName {
                         argument_name,
                         error,
                     }
@@ -334,7 +310,7 @@ impl<'a> MethodMetadataDecoder<'a, StageArguments> {
                 (recommended_capacity, self.metadata) = IoTypeMetadataKind::recommended_capacity(
                     self.metadata,
                 )
-                .ok_or(MethodMetadataDecodingError::InvalidArgumentIoType {
+                .ok_or(MetadataDecodingError::InvalidArgumentIoType {
                     argument_name,
                     argument_kind,
                 })?;
