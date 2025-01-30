@@ -27,9 +27,10 @@ impl<const RECOMMENDED_ALLOCATION: u32> DerefMut for VariableBytesWrapper<RECOMM
 
 /// Container for storing variable number of bytes.
 ///
-/// `RECOMMENDED_ALLOCATION` is what is being used when host needs to allocate memory for call into
-/// guest, but guest may receive an allocation with more or less memory in practice depending on
-/// other circumstances, like when called from another contract with specific allocation specified.
+/// `RECOMMENDED_ALLOCATION` is what is being used when a host needs to allocate memory for call
+/// into guest, but guest may receive an allocation with more or less memory in practice depending
+/// on other circumstances, like when called from another contract with specific allocation
+/// specified.
 pub struct VariableBytes<const RECOMMENDED_ALLOCATION: u32> {
     bytes: NonNull<u8>,
     size: NonNull<u32>,
@@ -103,7 +104,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
             ])
         }
 
-        // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
+        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
         metadata(RECOMMENDED_ALLOCATION)
             .0
             .split_at(metadata(RECOMMENDED_ALLOCATION).1)

@@ -1522,7 +1522,7 @@ impl MethodDetails {
             /// Method metadata, see [`ContractMetadataKind`] for encoding details
             ///
             /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
-            // Strange syntax to allow Rust to extend lifetime of metadata scratch automatically
+            // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
             pub const METADATA: &[u8] =
                 metadata()
                     .0
