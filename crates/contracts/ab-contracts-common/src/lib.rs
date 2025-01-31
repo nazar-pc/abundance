@@ -207,6 +207,20 @@ pub struct Address(
     [u8; 8],
 );
 
+impl PartialEq<&Address> for Address {
+    #[inline]
+    fn eq(&self, other: &&Address) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl PartialEq<Address> for &Address {
+    #[inline]
+    fn eq(&self, other: &Address) -> bool {
+        self.0 == other.0
+    }
+}
+
 impl From<u64> for Address {
     #[inline]
     fn from(value: u64) -> Self {

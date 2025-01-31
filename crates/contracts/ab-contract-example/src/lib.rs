@@ -88,7 +88,7 @@ impl Example {
         #[slot] to: &mut MaybeData<Slot>,
         #[input] &value: &Balance,
     ) -> Result<(), ContractError> {
-        if env.context() != &self.owner && env.caller() != &self.owner {
+        if env.context() != self.owner && env.caller() != self.owner {
             return Err(ContractError::AccessDenied);
         }
 
