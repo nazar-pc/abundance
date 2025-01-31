@@ -237,7 +237,7 @@ impl<'a, 'metadata> MethodsMetadataDecoder<'a, 'metadata> {
         }
     }
 
-    pub fn decode_next(&'a mut self) -> Option<MethodMetadataDecoder<'a, 'metadata>> {
+    pub fn decode_next<'b>(&'b mut self) -> Option<MethodMetadataDecoder<'b, 'metadata>> {
         if self.remaining == 0 {
             return None;
         }
@@ -448,8 +448,8 @@ pub struct ArgumentsMetadataDecoder<'a, 'metadata> {
     remaining: u8,
 }
 
-impl<'a, 'metadata> ArgumentsMetadataDecoder<'a, 'metadata> {
-    pub fn decode_next(
+impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
+    pub fn decode_next<'a>(
         &'a mut self,
     ) -> Option<Result<ArgumentMetadataItem<'metadata>, MetadataDecodingError<'metadata>>> {
         if self.remaining == 0 {
@@ -461,7 +461,7 @@ impl<'a, 'metadata> ArgumentsMetadataDecoder<'a, 'metadata> {
         Some(self.decode_argument())
     }
 
-    fn decode_argument(
+    fn decode_argument<'a>(
         &'a mut self,
     ) -> Result<ArgumentMetadataItem<'metadata>, MetadataDecodingError<'metadata>> {
         if self.metadata.is_empty() {
