@@ -1038,7 +1038,7 @@ impl MethodDetails {
         let result_var_name = format_ident!("result");
         let internal_args_struct = {
             // Result can be used through return type or argument, for argument no special handling
-            // of return type is needed
+            // of the return type is needed
             if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
                 internal_args_pointers.push(quote! {
                     pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
@@ -1440,27 +1440,46 @@ impl MethodDetails {
             };
 
             let io_metadata_type = format_ident!("{io_metadata_type}");
-            let type_name = io_arg.type_name();
             let arg_name_metadata = derive_ident_metadata(io_arg.arg_name())?;
+            // Skip type metadata for `#[init]`'s result since it is known statically
+            let with_type_metadata = if matches!(
+                (self.method_type, io_arg),
+                (MethodType::Init, IoArg::Result { .. })
+            ) {
+                None
+            } else {
+                let type_name = io_arg.type_name();
+                Some(quote! {
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
+                })
+            };
             method_metadata.push(quote! {
                 &[
                     ::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
-                <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
+                #with_type_metadata
             });
         }
 
         if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
-            let result_type = self.result_type.result_type();
-            // There isn't an explicit name in case of return type
+            // There isn't an explicit name in case of the return type
             let arg_name_metadata = Literal::u8_unsuffixed(0);
+            // Skip type metadata for `#[init]`'s result since it is known statically
+            let with_type_metadata = if matches!(self.method_type, MethodType::Init) {
+                None
+            } else {
+                let result_type = self.result_type.result_type();
+                Some(quote! {
+                    <#result_type as ::ab_contracts_macros::__private::IoType>::METADATA,
+                })
+            };
             method_metadata.push(quote! {
                 &[
                     ::ab_contracts_macros::__private::ContractMetadataKind::Result as u8,
                     #arg_name_metadata,
                 ],
-                <#result_type as ::ab_contracts_macros::__private::IoType>::METADATA,
+                #with_type_metadata
             });
         }
 

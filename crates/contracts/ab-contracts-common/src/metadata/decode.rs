@@ -268,7 +268,7 @@ pub enum MethodKind {
 }
 
 impl MethodKind {
-    pub fn has_state(&self) -> bool {
+    pub fn has_self(&self) -> bool {
         match self {
             MethodKind::Init | MethodKind::UpdateStateless | MethodKind::ViewStateless => false,
             MethodKind::UpdateStatefulRo
@@ -438,7 +438,10 @@ pub enum ArgumentKind {
 pub struct ArgumentMetadataItem<'metadata> {
     pub argument_name: &'metadata str,
     pub argument_kind: ArgumentKind,
-    pub recommended_capacity: u32,
+    /// Exceptions:
+    /// * `None` for `#[env]`
+    /// * `None` for `#[result]` in `#[init]`
+    pub recommended_capacity: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -542,7 +545,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
         }
 
         let (argument_name, recommended_capacity) = match argument_kind {
-            ArgumentKind::EnvRo | ArgumentKind::EnvRw => ("env", 0),
+            ArgumentKind::EnvRo | ArgumentKind::EnvRw => ("env", None),
             ArgumentKind::TmpRo
             | ArgumentKind::TmpRw
             | ArgumentKind::SlotWithAddressRo
@@ -574,14 +577,23 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                     }
                 })?;
 
-                let recommended_capacity;
-                (recommended_capacity, *self.metadata) = IoTypeMetadataKind::recommended_capacity(
-                    self.metadata,
-                )
-                .ok_or(MetadataDecodingError::InvalidArgumentIoType {
-                    argument_name,
-                    argument_kind,
-                })?;
+                let recommended_capacity = if matches!(
+                    (self.method_kind, argument_kind),
+                    (MethodKind::Init, ArgumentKind::Result)
+                ) {
+                    None
+                } else {
+                    let recommended_capacity;
+                    (recommended_capacity, *self.metadata) =
+                        IoTypeMetadataKind::recommended_capacity(self.metadata).ok_or(
+                            MetadataDecodingError::InvalidArgumentIoType {
+                                argument_name,
+                                argument_kind,
+                            },
+                        )?;
+
+                    Some(recommended_capacity)
+                };
 
                 (argument_name, recommended_capacity)
             }

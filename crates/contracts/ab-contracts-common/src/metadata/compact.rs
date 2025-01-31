@@ -117,7 +117,7 @@ const fn compact_metadata_inner<'i, 'o>(
                     return None;
                 }
 
-                (input, output) = forward_option!(compact_method_argument(input, output));
+                (input, output) = forward_option!(compact_method_argument(input, output, kind));
 
                 num_arguments -= 1;
             }
@@ -144,6 +144,7 @@ const fn compact_metadata_inner<'i, 'o>(
 const fn compact_method_argument<'i, 'o>(
     mut input: &'i [u8],
     mut output: &'o mut [u8],
+    method_kind: ContractMetadataKind,
 ) -> Option<(&'i [u8], &'o mut [u8])> {
     if input.is_empty() || output.is_empty() {
         return None;
@@ -186,8 +187,13 @@ const fn compact_method_argument<'i, 'o>(
             (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
             input = forward_option!(skip_n_bytes(input, argument_name_length));
 
-            // Compact argument type
-            (input, output) = forward_option!(IoTypeMetadataKind::compact(input, output));
+            if !matches!(
+                (method_kind, kind),
+                (ContractMetadataKind::Init, ContractMetadataKind::Result)
+            ) {
+                // Compact argument type
+                (input, output) = forward_option!(IoTypeMetadataKind::compact(input, output));
+            }
         }
     }
 

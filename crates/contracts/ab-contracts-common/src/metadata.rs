@@ -69,6 +69,7 @@ pub enum ContractMetadataKind {
     ///   * This is skipped for [`Self::EnvRo`] and [`Self::EnvRw`]
     ///   * For [`Self::SlotWithAddressRo`] and [`Self::SlotWithAddressRw`] only slot's metadata is
     ///     included, not `Address`
+    ///   * For [`Self::Result`] this is skipped if method is [`Self::Init`] and present otherwise
     ///
     /// [`IoTypeMetadataKind`]: ab_contracts_io_type::metadata::IoTypeMetadataKind
     ///
