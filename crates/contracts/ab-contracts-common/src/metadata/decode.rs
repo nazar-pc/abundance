@@ -13,11 +13,8 @@ pub enum MetadataDecodingError<'metadata> {
     MultipleContractsFound,
     #[error("Expected contract or trait kind, found something else: {metadata_kind:?}")]
     ExpectedContractOrTrait { metadata_kind: ContractMetadataKind },
-    #[error("Invalid state type name {state_type_name:?}: {error}")]
-    InvalidStateTypeName {
-        state_type_name: &'metadata [u8],
-        error: Utf8Error,
-    },
+    #[error("Failed to decode state type name")]
+    FailedToDecodeStateTypeName,
     #[error("Invalid state I/O type")]
     InvalidStateIoType,
     #[error("Invalid trait name {trait_name:?}: {error}")]
@@ -143,21 +140,8 @@ impl<'metadata> MetadataDecoder<'metadata> {
         &'a mut self,
     ) -> Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>> {
         // Decode state type name without moving metadata cursor
-        let state_type_name = {
-            let state_type_name_length = usize::from(self.metadata[0]);
-
-            if self.metadata.len() < 1 + state_type_name_length {
-                return Err(MetadataDecodingError::NotEnoughMetadata);
-            }
-
-            let state_type_name = &self.metadata[1..][..state_type_name_length];
-            str::from_utf8(state_type_name).map_err(|error| {
-                MetadataDecodingError::InvalidStateTypeName {
-                    state_type_name,
-                    error,
-                }
-            })?
-        };
+        let state_type_name = IoTypeMetadataKind::type_name(self.metadata)
+            .ok_or(MetadataDecodingError::FailedToDecodeStateTypeName)?;
 
         // Decode recommended capacity of the state type
         let recommended_state_capacity;

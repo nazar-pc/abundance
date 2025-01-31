@@ -1,8 +1,10 @@
 mod compact;
 mod recommended_capacity;
+mod type_name;
 
 use crate::metadata::compact::compact_metadata;
 use crate::metadata::recommended_capacity::recommended_capacity;
+use crate::metadata::type_name::type_name;
 use core::ptr;
 
 /// Max capacity for metadata bytes used in fixed size buffers
@@ -549,6 +551,12 @@ impl IoTypeMetadataKind {
     }
 
     // TODO: Create wrapper type for metadata bytes and move this method there
+    /// Decode type name
+    pub const fn type_name(metadata: &[u8]) -> Option<&str> {
+        type_name(metadata)
+    }
+
+    // TODO: Create wrapper type for metadata bytes and move this method there
     /// Decode type, return its recommended capacity that should be allocated by the host.
     ///
     /// If actual data is larger, it will be passed down to the guest as it is, if smaller than host
@@ -556,7 +564,7 @@ impl IoTypeMetadataKind {
     ///
     /// Returns recommended capacity and whatever slice of bytes from `input` that is left after
     /// type decoding.
-    pub const fn recommended_capacity(input: &[u8]) -> Option<(u32, &[u8])> {
-        recommended_capacity(input)
+    pub const fn recommended_capacity(metadata: &[u8]) -> Option<(u32, &[u8])> {
+        recommended_capacity(metadata)
     }
 }
