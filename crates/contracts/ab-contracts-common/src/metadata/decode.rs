@@ -3,49 +3,64 @@ use ab_contracts_io_type::metadata::IoTypeMetadataKind;
 use core::str;
 use core::str::Utf8Error;
 
+/// Metadata decoding error
 #[derive(Debug, thiserror::Error)]
 pub enum MetadataDecodingError<'metadata> {
+    /// Not enough metadata to decode
     #[error("Not enough metadata to decode")]
     NotEnoughMetadata,
+    /// Invalid first metadata byte
     #[error("Invalid first metadata byte")]
     InvalidFirstMetadataByte { byte: u8 },
+    /// Multiple contracts found
     #[error("Multiple contracts found")]
     MultipleContractsFound,
+    /// Expected contract or trait kind, found something else
     #[error("Expected contract or trait kind, found something else: {metadata_kind:?}")]
     ExpectedContractOrTrait { metadata_kind: ContractMetadataKind },
+    /// Failed to decode state type name
     #[error("Failed to decode state type name")]
     FailedToDecodeStateTypeName,
+    /// Invalid state I/O type
     #[error("Invalid state I/O type")]
     InvalidStateIoType,
+    /// Invalid trait name
     #[error("Invalid trait name {trait_name:?}: {error}")]
     InvalidTraitName {
         trait_name: &'metadata [u8],
         error: Utf8Error,
     },
+    /// Unexpected method kind
     #[error("Unexpected method kind {method_kind:?} for container kind {container_kind:?}")]
     UnexpectedMethodKind {
         method_kind: MethodKind,
         container_kind: MethodsContainerKind,
     },
+    /// Expected method kind, found something else
     #[error("Expected method kind, found something else: {metadata_kind:?}")]
     ExpectedMethodKind { metadata_kind: ContractMetadataKind },
+    /// Invalid method name
     #[error("Invalid method name {method_name:?}: {error}")]
     InvalidMethodName {
         method_name: &'metadata [u8],
         error: Utf8Error,
     },
+    /// Expected argument kind, found something else
     #[error("Expected argument kind, found something else: {metadata_kind:?}")]
     ExpectedArgumentKind { metadata_kind: ContractMetadataKind },
+    /// Unexpected argument kind
     #[error("Unexpected argument kind {argument_kind:?} for method kind {method_kind:?}")]
     UnexpectedArgumentKind {
         argument_kind: ArgumentKind,
         method_kind: MethodKind,
     },
+    /// Invalid argument name
     #[error("Invalid argument name {argument_name:?}: {error}")]
     InvalidArgumentName {
         argument_name: &'metadata [u8],
         error: Utf8Error,
     },
+    /// Invalid argument I/O type
     #[error("Invalid argument I/O type of kind {argument_kind:?} for {argument_name}")]
     InvalidArgumentIoType {
         argument_name: &'metadata str,
