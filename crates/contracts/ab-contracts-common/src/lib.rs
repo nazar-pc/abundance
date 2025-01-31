@@ -5,6 +5,7 @@ pub mod metadata;
 pub mod method;
 
 use crate::method::MethodFingerprint;
+use ab_contracts_io_type::IoType;
 use ab_contracts_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
 use core::fmt;
@@ -56,6 +57,10 @@ pub trait Contract {
     #[cfg(feature = "guest")]
     #[doc(hidden)]
     const GUEST_FEATURE_ENABLED: () = ();
+    /// Slot type used by this contract
+    type Slot: IoType;
+    /// Tmp type used by this contract
+    type Tmp: IoType;
 }
 
 #[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]

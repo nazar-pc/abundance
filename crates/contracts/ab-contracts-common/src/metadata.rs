@@ -20,6 +20,8 @@ pub enum ContractMetadataKind {
     ///
     /// Contracts are encoded af follows:
     /// * Encoding of the state type as described in [`IoTypeMetadataKind`]
+    /// * Encoding of the `#[slot]` type as described in [`IoTypeMetadataKind`]
+    /// * Encoding of the `#[tmp]` type as described in [`IoTypeMetadataKind`]
     /// * Number of methods (u8)
     /// * Recursive metadata of methods as defined in one of:
     ///   * [`Self::Init`]
@@ -64,11 +66,8 @@ pub enum ContractMetadataKind {
     ///   * [`Self::Result`]
     /// * Length of the argument name in bytes (u8, except for [`Self::EnvRo`] and [`Self::EnvRw`])
     /// * Argument name as UTF-8 bytes (except for [`Self::EnvRo`] and [`Self::EnvRw`])
-    /// * Recursive metadata of argument's type as described in [`IoTypeMetadataKind`] with
-    ///   following exceptions:
-    ///   * This is skipped for [`Self::EnvRo`] and [`Self::EnvRw`]
-    ///   * For [`Self::SlotWithAddressRo`] and [`Self::SlotWithAddressRw`] only slot's metadata is
-    ///     included, not `Address`
+    /// * Only for [`Self::Input`], [`Self::Output`] and [`Self::Result`] recursive metadata of
+    ///   argument's type as described in [`IoTypeMetadataKind`] with following exceptions:
     ///   * For [`Self::Result`] this is skipped if method is [`Self::Init`] and present otherwise
     ///
     /// [`IoTypeMetadataKind`]: ab_contracts_io_type::metadata::IoTypeMetadataKind

@@ -131,22 +131,48 @@ impl MethodDetails {
         }
     }
 
-    pub(super) fn same_tmp_types<'a, I>(iter: I) -> bool
+    /// Returns `#[tmp]` type (or `()` if it is not used) if all methods have the same slots type
+    pub(super) fn tmp_type<'a, I>(iter: I) -> Option<Type>
     where
         I: Iterator<Item = &'a Self> + 'a,
     {
-        iter.flat_map(|method_details| &method_details.tmp)
-            .map_windows(|[a, b]| a.type_name == b.type_name)
-            .all(|same| same)
+        let mut tmp_type = None;
+        for slot in iter.flat_map(|method_details| &method_details.tmp) {
+            match &tmp_type {
+                Some(tmp_type) => {
+                    if tmp_type != &slot.type_name {
+                        return None;
+                    }
+                }
+                None => {
+                    tmp_type.replace(slot.type_name.clone());
+                }
+            }
+        }
+
+        Some(tmp_type.unwrap_or_else(MethodResultType::unit_type))
     }
 
-    pub(super) fn same_slot_types<'a, I>(iter: I) -> bool
+    /// Returns `#[slot]` type (or `()` if it is not used) if all methods have the same slots type
+    pub(super) fn slot_type<'a, I>(iter: I) -> Option<Type>
     where
         I: Iterator<Item = &'a Self> + 'a,
     {
-        iter.flat_map(|method_details| method_details.slots.iter())
-            .map_windows(|[a, b]| a.type_name == b.type_name)
-            .all(|same| same)
+        let mut slot_type = None;
+        for slot in iter.flat_map(|method_details| &method_details.slots) {
+            match &slot_type {
+                Some(slot_type) => {
+                    if slot_type != &slot.type_name {
+                        return None;
+                    }
+                }
+                None => {
+                    slot_type.replace(slot.type_name.clone());
+                }
+            }
+        }
+
+        Some(slot_type.unwrap_or_else(MethodResultType::unit_type))
     }
 
     pub(super) fn process_output(&mut self, output: &ReturnType) -> Result<(), Error> {
@@ -1399,14 +1425,12 @@ impl MethodDetails {
             };
 
             let tmp_metadata_type = format_ident!("{tmp_metadata_type}");
-            let type_name = &tmp.type_name;
             let arg_name_metadata = derive_ident_metadata(&tmp.arg_name)?;
             method_metadata.push(quote! {
                 &[
                     ::ab_contracts_macros::__private::ContractMetadataKind::#tmp_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
-                <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
             });
         }
 
@@ -1421,14 +1445,12 @@ impl MethodDetails {
             };
 
             let slot_metadata_type = format_ident!("{slot_metadata_type}");
-            let type_name = &slot.type_name;
             let arg_name_metadata = derive_ident_metadata(&slot.arg_name)?;
             method_metadata.push(quote! {
                 &[
                     ::ab_contracts_macros::__private::ContractMetadataKind::#slot_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
-                <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
             });
         }
 

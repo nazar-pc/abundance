@@ -59,8 +59,10 @@ pub enum MetadataDecodingError<'metadata> {
 #[derive(Debug)]
 pub enum MetadataItem<'a, 'metadata> {
     Contract {
-        recommended_state_capacity: u32,
         state_type_name: &'metadata str,
+        recommended_state_capacity: u32,
+        recommended_slot_capacity: u32,
+        recommended_tmp_capacity: u32,
         decoder: MethodsMetadataDecoder<'a, 'metadata>,
     },
     Trait {
@@ -158,8 +160,20 @@ impl<'metadata> MetadataDecoder<'metadata> {
         };
 
         // Decode recommended capacity of the state type
-        let recommended_capacity;
-        (recommended_capacity, self.metadata) =
+        let recommended_state_capacity;
+        (recommended_state_capacity, self.metadata) =
+            IoTypeMetadataKind::recommended_capacity(self.metadata)
+                .ok_or(MetadataDecodingError::InvalidStateIoType)?;
+
+        // Decode recommended capacity of the `#[slot]` type
+        let recommended_slot_capacity;
+        (recommended_slot_capacity, self.metadata) =
+            IoTypeMetadataKind::recommended_capacity(self.metadata)
+                .ok_or(MetadataDecodingError::InvalidStateIoType)?;
+
+        // Decode recommended capacity of the `#[tmp]` type
+        let recommended_tmp_capacity;
+        (recommended_tmp_capacity, self.metadata) =
             IoTypeMetadataKind::recommended_capacity(self.metadata)
                 .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
@@ -168,8 +182,10 @@ impl<'metadata> MetadataDecoder<'metadata> {
         self.metadata = &self.metadata[1..];
 
         Ok(MetadataItem::Contract {
-            recommended_state_capacity: recommended_capacity,
             state_type_name,
+            recommended_state_capacity,
+            recommended_slot_capacity,
+            recommended_tmp_capacity,
             decoder: MethodsMetadataDecoder::new(
                 &mut self.metadata,
                 MethodsContainerKind::Contract,
