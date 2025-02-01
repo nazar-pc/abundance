@@ -3,52 +3,64 @@ use ab_contracts_io_type::metadata::IoTypeMetadataKind;
 use core::str;
 use core::str::Utf8Error;
 
+/// Metadata decoding error
 #[derive(Debug, thiserror::Error)]
 pub enum MetadataDecodingError<'metadata> {
+    /// Not enough metadata to decode
     #[error("Not enough metadata to decode")]
     NotEnoughMetadata,
+    /// Invalid first metadata byte
     #[error("Invalid first metadata byte")]
     InvalidFirstMetadataByte { byte: u8 },
+    /// Multiple contracts found
     #[error("Multiple contracts found")]
     MultipleContractsFound,
+    /// Expected contract or trait kind, found something else
     #[error("Expected contract or trait kind, found something else: {metadata_kind:?}")]
     ExpectedContractOrTrait { metadata_kind: ContractMetadataKind },
-    #[error("Invalid state type name {state_type_name:?}: {error}")]
-    InvalidStateTypeName {
-        state_type_name: &'metadata [u8],
-        error: Utf8Error,
-    },
+    /// Failed to decode state type name
+    #[error("Failed to decode state type name")]
+    FailedToDecodeStateTypeName,
+    /// Invalid state I/O type
     #[error("Invalid state I/O type")]
     InvalidStateIoType,
+    /// Invalid trait name
     #[error("Invalid trait name {trait_name:?}: {error}")]
     InvalidTraitName {
         trait_name: &'metadata [u8],
         error: Utf8Error,
     },
+    /// Unexpected method kind
     #[error("Unexpected method kind {method_kind:?} for container kind {container_kind:?}")]
     UnexpectedMethodKind {
         method_kind: MethodKind,
         container_kind: MethodsContainerKind,
     },
+    /// Expected method kind, found something else
     #[error("Expected method kind, found something else: {metadata_kind:?}")]
     ExpectedMethodKind { metadata_kind: ContractMetadataKind },
+    /// Invalid method name
     #[error("Invalid method name {method_name:?}: {error}")]
     InvalidMethodName {
         method_name: &'metadata [u8],
         error: Utf8Error,
     },
+    /// Expected argument kind, found something else
     #[error("Expected argument kind, found something else: {metadata_kind:?}")]
     ExpectedArgumentKind { metadata_kind: ContractMetadataKind },
+    /// Unexpected argument kind
     #[error("Unexpected argument kind {argument_kind:?} for method kind {method_kind:?}")]
     UnexpectedArgumentKind {
         argument_kind: ArgumentKind,
         method_kind: MethodKind,
     },
+    /// Invalid argument name
     #[error("Invalid argument name {argument_name:?}: {error}")]
     InvalidArgumentName {
         argument_name: &'metadata [u8],
         error: Utf8Error,
     },
+    /// Invalid argument I/O type
     #[error("Invalid argument I/O type of kind {argument_kind:?} for {argument_name}")]
     InvalidArgumentIoType {
         argument_name: &'metadata str,
@@ -59,8 +71,10 @@ pub enum MetadataDecodingError<'metadata> {
 #[derive(Debug)]
 pub enum MetadataItem<'a, 'metadata> {
     Contract {
-        recommended_state_capacity: u32,
         state_type_name: &'metadata str,
+        recommended_state_capacity: u32,
+        recommended_slot_capacity: u32,
+        recommended_tmp_capacity: u32,
         decoder: MethodsMetadataDecoder<'a, 'metadata>,
     },
     Trait {
@@ -141,25 +155,24 @@ impl<'metadata> MetadataDecoder<'metadata> {
         &'a mut self,
     ) -> Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>> {
         // Decode state type name without moving metadata cursor
-        let state_type_name = {
-            let state_type_name_length = usize::from(self.metadata[0]);
-
-            if self.metadata.len() < 1 + state_type_name_length {
-                return Err(MetadataDecodingError::NotEnoughMetadata);
-            }
-
-            let state_type_name = &self.metadata[1..][..state_type_name_length];
-            str::from_utf8(state_type_name).map_err(|error| {
-                MetadataDecodingError::InvalidStateTypeName {
-                    state_type_name,
-                    error,
-                }
-            })?
-        };
+        let state_type_name = IoTypeMetadataKind::type_name(self.metadata)
+            .ok_or(MetadataDecodingError::FailedToDecodeStateTypeName)?;
 
         // Decode recommended capacity of the state type
-        let recommended_capacity;
-        (recommended_capacity, self.metadata) =
+        let recommended_state_capacity;
+        (recommended_state_capacity, self.metadata) =
+            IoTypeMetadataKind::recommended_capacity(self.metadata)
+                .ok_or(MetadataDecodingError::InvalidStateIoType)?;
+
+        // Decode recommended capacity of the `#[slot]` type
+        let recommended_slot_capacity;
+        (recommended_slot_capacity, self.metadata) =
+            IoTypeMetadataKind::recommended_capacity(self.metadata)
+                .ok_or(MetadataDecodingError::InvalidStateIoType)?;
+
+        // Decode recommended capacity of the `#[tmp]` type
+        let recommended_tmp_capacity;
+        (recommended_tmp_capacity, self.metadata) =
             IoTypeMetadataKind::recommended_capacity(self.metadata)
                 .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
@@ -168,8 +181,10 @@ impl<'metadata> MetadataDecoder<'metadata> {
         self.metadata = &self.metadata[1..];
 
         Ok(MetadataItem::Contract {
-            recommended_state_capacity: recommended_capacity,
             state_type_name,
+            recommended_state_capacity,
+            recommended_slot_capacity,
+            recommended_tmp_capacity,
             decoder: MethodsMetadataDecoder::new(
                 &mut self.metadata,
                 MethodsContainerKind::Contract,
@@ -237,7 +252,7 @@ impl<'a, 'metadata> MethodsMetadataDecoder<'a, 'metadata> {
         }
     }
 
-    pub fn decode_next(&'a mut self) -> Option<MethodMetadataDecoder<'a, 'metadata>> {
+    pub fn decode_next<'b>(&'b mut self) -> Option<MethodMetadataDecoder<'b, 'metadata>> {
         if self.remaining == 0 {
             return None;
         }
@@ -268,7 +283,7 @@ pub enum MethodKind {
 }
 
 impl MethodKind {
-    pub fn has_state(&self) -> bool {
+    pub fn has_self(&self) -> bool {
         match self {
             MethodKind::Init | MethodKind::UpdateStateless | MethodKind::ViewStateless => false,
             MethodKind::UpdateStatefulRo
@@ -438,7 +453,10 @@ pub enum ArgumentKind {
 pub struct ArgumentMetadataItem<'metadata> {
     pub argument_name: &'metadata str,
     pub argument_kind: ArgumentKind,
-    pub recommended_capacity: u32,
+    /// Exceptions:
+    /// * `None` for `#[env]`
+    /// * `None` for `#[result]` in `#[init]`
+    pub recommended_capacity: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -448,8 +466,8 @@ pub struct ArgumentsMetadataDecoder<'a, 'metadata> {
     remaining: u8,
 }
 
-impl<'a, 'metadata> ArgumentsMetadataDecoder<'a, 'metadata> {
-    pub fn decode_next(
+impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
+    pub fn decode_next<'a>(
         &'a mut self,
     ) -> Option<Result<ArgumentMetadataItem<'metadata>, MetadataDecodingError<'metadata>>> {
         if self.remaining == 0 {
@@ -461,7 +479,7 @@ impl<'a, 'metadata> ArgumentsMetadataDecoder<'a, 'metadata> {
         Some(self.decode_argument())
     }
 
-    fn decode_argument(
+    fn decode_argument<'a>(
         &'a mut self,
     ) -> Result<ArgumentMetadataItem<'metadata>, MetadataDecodingError<'metadata>> {
         if self.metadata.is_empty() {
@@ -542,7 +560,7 @@ impl<'a, 'metadata> ArgumentsMetadataDecoder<'a, 'metadata> {
         }
 
         let (argument_name, recommended_capacity) = match argument_kind {
-            ArgumentKind::EnvRo | ArgumentKind::EnvRw => ("env", 0),
+            ArgumentKind::EnvRo | ArgumentKind::EnvRw => ("env", None),
             ArgumentKind::TmpRo
             | ArgumentKind::TmpRw
             | ArgumentKind::SlotWithAddressRo
@@ -574,14 +592,23 @@ impl<'a, 'metadata> ArgumentsMetadataDecoder<'a, 'metadata> {
                     }
                 })?;
 
-                let recommended_capacity;
-                (recommended_capacity, *self.metadata) = IoTypeMetadataKind::recommended_capacity(
-                    self.metadata,
-                )
-                .ok_or(MetadataDecodingError::InvalidArgumentIoType {
-                    argument_name,
-                    argument_kind,
-                })?;
+                let recommended_capacity = if matches!(
+                    (self.method_kind, argument_kind),
+                    (MethodKind::Init, ArgumentKind::Result)
+                ) {
+                    None
+                } else {
+                    let recommended_capacity;
+                    (recommended_capacity, *self.metadata) =
+                        IoTypeMetadataKind::recommended_capacity(self.metadata).ok_or(
+                            MetadataDecodingError::InvalidArgumentIoType {
+                                argument_name,
+                                argument_kind,
+                            },
+                        )?;
+
+                    Some(recommended_capacity)
+                };
 
                 (argument_name, recommended_capacity)
             }

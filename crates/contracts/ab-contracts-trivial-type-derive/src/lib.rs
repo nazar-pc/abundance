@@ -378,7 +378,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
                 .chain(generate_inner_struct_metadata(
                     &variant.ident,
                     &variant.fields,
-                    true,
+                    variant_has_fields,
                 ))
         })
         .collect::<Result<Vec<TokenStream>, Error>>()?;

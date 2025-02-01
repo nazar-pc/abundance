@@ -473,10 +473,6 @@ const fn compact_enum<'i, 'o>(
             return None;
         }
 
-        // Remove variant name
-        let field_name_length = input[0] as usize;
-        input = forward_option!(skip_n_bytes(input, 1 + field_name_length));
-
         if has_fields {
             // Compact variant as if it was a struct
             (input, output) = forward_option!(compact_struct(input, output, None, false));

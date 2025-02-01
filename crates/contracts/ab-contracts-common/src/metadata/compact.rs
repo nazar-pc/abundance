@@ -50,6 +50,10 @@ const fn compact_metadata_inner<'i, 'o>(
         ContractMetadataKind::Contract => {
             // Compact contract state type
             (input, output) = forward_option!(IoTypeMetadataKind::compact(input, output));
+            // Compact contract `#[slot]` type
+            (input, output) = forward_option!(IoTypeMetadataKind::compact(input, output));
+            // Compact contract `#[tmp]` type
+            (input, output) = forward_option!(IoTypeMetadataKind::compact(input, output));
 
             if input.is_empty() {
                 return None;
@@ -117,7 +121,7 @@ const fn compact_metadata_inner<'i, 'o>(
                     return None;
                 }
 
-                (input, output) = forward_option!(compact_method_argument(input, output));
+                (input, output) = forward_option!(compact_method_argument(input, output, kind));
 
                 num_arguments -= 1;
             }
@@ -144,6 +148,7 @@ const fn compact_metadata_inner<'i, 'o>(
 const fn compact_method_argument<'i, 'o>(
     mut input: &'i [u8],
     mut output: &'o mut [u8],
+    method_kind: ContractMetadataKind,
 ) -> Option<(&'i [u8], &'o mut [u8])> {
     if input.is_empty() || output.is_empty() {
         return None;
@@ -172,8 +177,18 @@ const fn compact_method_argument<'i, 'o>(
         | ContractMetadataKind::SlotWithAddressRo
         | ContractMetadataKind::SlotWithAddressRw
         | ContractMetadataKind::SlotWithoutAddressRo
-        | ContractMetadataKind::SlotWithoutAddressRw
-        | ContractMetadataKind::Input
+        | ContractMetadataKind::SlotWithoutAddressRw => {
+            if input.is_empty() || output.is_empty() {
+                return None;
+            }
+
+            // Remove argument name
+            let argument_name_length = input[0] as usize;
+            output[0] = 0;
+            (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
+            input = forward_option!(skip_n_bytes(input, argument_name_length));
+        }
+        ContractMetadataKind::Input
         | ContractMetadataKind::Output
         | ContractMetadataKind::Result => {
             if input.is_empty() || output.is_empty() {
@@ -186,8 +201,13 @@ const fn compact_method_argument<'i, 'o>(
             (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
             input = forward_option!(skip_n_bytes(input, argument_name_length));
 
-            // Compact argument type
-            (input, output) = forward_option!(IoTypeMetadataKind::compact(input, output));
+            if !matches!(
+                (method_kind, kind),
+                (ContractMetadataKind::Init, ContractMetadataKind::Result)
+            ) {
+                // Compact argument type
+                (input, output) = forward_option!(IoTypeMetadataKind::compact(input, output));
+            }
         }
     }
 

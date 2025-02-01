@@ -131,22 +131,48 @@ impl MethodDetails {
         }
     }
 
-    pub(super) fn same_tmp_types<'a, I>(iter: I) -> bool
+    /// Returns `#[tmp]` type (or `()` if it is not used) if all methods have the same slots type
+    pub(super) fn tmp_type<'a, I>(iter: I) -> Option<Type>
     where
         I: Iterator<Item = &'a Self> + 'a,
     {
-        iter.flat_map(|method_details| &method_details.tmp)
-            .map_windows(|[a, b]| a.type_name == b.type_name)
-            .all(|same| same)
+        let mut tmp_type = None;
+        for slot in iter.flat_map(|method_details| &method_details.tmp) {
+            match &tmp_type {
+                Some(tmp_type) => {
+                    if tmp_type != &slot.type_name {
+                        return None;
+                    }
+                }
+                None => {
+                    tmp_type.replace(slot.type_name.clone());
+                }
+            }
+        }
+
+        Some(tmp_type.unwrap_or_else(MethodResultType::unit_type))
     }
 
-    pub(super) fn same_slot_types<'a, I>(iter: I) -> bool
+    /// Returns `#[slot]` type (or `()` if it is not used) if all methods have the same slots type
+    pub(super) fn slot_type<'a, I>(iter: I) -> Option<Type>
     where
         I: Iterator<Item = &'a Self> + 'a,
     {
-        iter.flat_map(|method_details| method_details.slots.iter())
-            .map_windows(|[a, b]| a.type_name == b.type_name)
-            .all(|same| same)
+        let mut slot_type = None;
+        for slot in iter.flat_map(|method_details| &method_details.slots) {
+            match &slot_type {
+                Some(slot_type) => {
+                    if slot_type != &slot.type_name {
+                        return None;
+                    }
+                }
+                None => {
+                    slot_type.replace(slot.type_name.clone());
+                }
+            }
+        }
+
+        Some(slot_type.unwrap_or_else(MethodResultType::unit_type))
     }
 
     pub(super) fn process_output(&mut self, output: &ReturnType) -> Result<(), Error> {
@@ -1038,7 +1064,7 @@ impl MethodDetails {
         let result_var_name = format_ident!("result");
         let internal_args_struct = {
             // Result can be used through return type or argument, for argument no special handling
-            // of return type is needed
+            // of the return type is needed
             if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
                 internal_args_pointers.push(quote! {
                     pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
@@ -1399,14 +1425,12 @@ impl MethodDetails {
             };
 
             let tmp_metadata_type = format_ident!("{tmp_metadata_type}");
-            let type_name = &tmp.type_name;
             let arg_name_metadata = derive_ident_metadata(&tmp.arg_name)?;
             method_metadata.push(quote! {
                 &[
                     ::ab_contracts_macros::__private::ContractMetadataKind::#tmp_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
-                <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
             });
         }
 
@@ -1421,14 +1445,12 @@ impl MethodDetails {
             };
 
             let slot_metadata_type = format_ident!("{slot_metadata_type}");
-            let type_name = &slot.type_name;
             let arg_name_metadata = derive_ident_metadata(&slot.arg_name)?;
             method_metadata.push(quote! {
                 &[
                     ::ab_contracts_macros::__private::ContractMetadataKind::#slot_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
-                <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
             });
         }
 
@@ -1440,27 +1462,46 @@ impl MethodDetails {
             };
 
             let io_metadata_type = format_ident!("{io_metadata_type}");
-            let type_name = io_arg.type_name();
             let arg_name_metadata = derive_ident_metadata(io_arg.arg_name())?;
+            // Skip type metadata for `#[init]`'s result since it is known statically
+            let with_type_metadata = if matches!(
+                (self.method_type, io_arg),
+                (MethodType::Init, IoArg::Result { .. })
+            ) {
+                None
+            } else {
+                let type_name = io_arg.type_name();
+                Some(quote! {
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
+                })
+            };
             method_metadata.push(quote! {
                 &[
                     ::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as u8,
                     #( #arg_name_metadata, )*
                 ],
-                <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
+                #with_type_metadata
             });
         }
 
         if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
-            let result_type = self.result_type.result_type();
-            // There isn't an explicit name in case of return type
+            // There isn't an explicit name in case of the return type
             let arg_name_metadata = Literal::u8_unsuffixed(0);
+            // Skip type metadata for `#[init]`'s result since it is known statically
+            let with_type_metadata = if matches!(self.method_type, MethodType::Init) {
+                None
+            } else {
+                let result_type = self.result_type.result_type();
+                Some(quote! {
+                    <#result_type as ::ab_contracts_macros::__private::IoType>::METADATA,
+                })
+            };
             method_metadata.push(quote! {
                 &[
                     ::ab_contracts_macros::__private::ContractMetadataKind::Result as u8,
                     #arg_name_metadata,
                 ],
-                <#result_type as ::ab_contracts_macros::__private::IoType>::METADATA,
+                #with_type_metadata
             });
         }
 

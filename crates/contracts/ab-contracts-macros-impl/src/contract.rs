@@ -303,31 +303,32 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         }
     }
 
-    let same_tmp_types = MethodDetails::same_tmp_types(
+    let maybe_slot_type = MethodDetails::slot_type(
         contract_details
             .methods
             .iter()
             .map(|method| &method.methods_details),
     );
-    if !same_tmp_types {
-        return Err(Error::new(
-            item_impl.span(),
-            "All `#[tmp]` arguments must be of the same type",
-        ));
-    }
-
-    let same_slot_types = MethodDetails::same_slot_types(
-        contract_details
-            .methods
-            .iter()
-            .map(|method| &method.methods_details),
-    );
-    if !same_slot_types {
+    let Some(slot_type) = maybe_slot_type else {
         return Err(Error::new(
             item_impl.span(),
             "All `#[slot]` arguments must be of the same type",
         ));
-    }
+    };
+
+    let maybe_tmp_type = MethodDetails::tmp_type(
+        contract_details
+            .methods
+            .iter()
+            .map(|method| &method.methods_details),
+    );
+
+    let Some(tmp_type) = maybe_tmp_type else {
+        return Err(Error::new(
+            item_impl.span(),
+            "All `#[tmp]` arguments must be of the same type",
+        ));
+    };
 
     let metadata_const = {
         let num_methods = u8::try_from(contract_details.methods.len()).map_err(|_error| {
@@ -355,6 +356,8 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
                     ::ab_contracts_macros::__private::concat_metadata_sources(&[
                         &[::ab_contracts_macros::__private::ContractMetadataKind::Contract as u8],
                         <#struct_name as ::ab_contracts_macros::__private::IoType>::METADATA,
+                        <#slot_type as ::ab_contracts_macros::__private::IoType>::METADATA,
+                        <#tmp_type as ::ab_contracts_macros::__private::IoType>::METADATA,
                         &[#num_methods],
                         #( ffi::#methods::METADATA, )*
                     ])
@@ -412,6 +415,8 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
             // Ensure `guest` feature is enabled for `ab-contracts-common` crate
             #[cfg(feature = "guest")]
             const GUEST_FEATURE_ENABLED: () = ();
+            type Slot = #slot_type;
+            type Tmp = #tmp_type;
         }
 
         #item_impl
