@@ -1,25 +1,9 @@
-use crate::IoType;
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
+use crate::{DerefWrapper, IoType};
 pub use ab_contracts_trivial_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::{mem, slice};
-
-struct PtrWrapper<T>(NonNull<T>);
-
-impl<T> Deref for PtrWrapper<T> {
-    type Target = NonNull<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> DerefMut for PtrWrapper<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 
 /// Simple wrapper data type that is designed in such a way that its serialization/deserialization
 /// is the same as the type itself.
@@ -199,8 +183,23 @@ where
     }
 
     #[inline]
+    unsafe fn size_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
+        DerefWrapper(NonNull::from_ref(&(size_of::<T>() as u32)))
+    }
+
+    #[inline]
+    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<u32>> {
+        DerefWrapper(NonNull::from_mut(&mut (size_of::<T>() as u32)))
+    }
+
+    #[inline]
     fn capacity(&self) -> u32 {
         self.size()
+    }
+
+    #[inline]
+    unsafe fn capacity_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
+        DerefWrapper(NonNull::from_ref(&(size_of::<T>() as u32)))
     }
 
     #[inline]
@@ -226,7 +225,7 @@ where
     }
 
     #[inline]
-    unsafe fn from_ptr_mut<'a>(
+    unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
@@ -241,13 +240,11 @@ where
 
     #[inline]
     unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
-        // TODO: Use `NonNull::from_ref()` once stable
-        PtrWrapper(NonNull::from(self))
+        DerefWrapper(NonNull::from_ref(self))
     }
 
     #[inline]
     unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
-        // TODO: Use `NonNull::from_mut()` once stable
-        PtrWrapper(NonNull::from(self))
+        DerefWrapper(NonNull::from_mut(self))
     }
 }

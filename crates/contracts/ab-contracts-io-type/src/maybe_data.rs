@@ -1,40 +1,14 @@
 use crate::trivial_type::TrivialType;
-use crate::{IoType, IoTypeOptional};
+use crate::{DerefWrapper, IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
-
-struct MaybeDataWrapper<Data>(MaybeData<Data>)
-where
-    Data: TrivialType;
-
-impl<Data> Deref for MaybeDataWrapper<Data>
-where
-    Data: TrivialType,
-{
-    type Target = MaybeData<Data>;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<Data> DerefMut for MaybeDataWrapper<Data>
-where
-    Data: TrivialType,
-{
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 
 /// Wrapper type for `Data` that may or may not be filled with contents.
 ///
 /// This is somewhat similar to [`VariableBytes`](crate::variable_bytes::VariableBytes), but instead
 /// of variable size data structure allows to either have it or not have the contents or not have
-/// it, which is simpler and more convenient API that is also sufficient in many cases.
+/// it, which is a simpler and more convenient API that is also sufficient in many cases.
 pub struct MaybeData<Data>
 where
     Data: TrivialType,
@@ -59,8 +33,23 @@ where
     }
 
     #[inline]
+    unsafe fn size_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
+        DerefWrapper(self.size)
+    }
+
+    #[inline]
+    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<u32>> {
+        DerefWrapper(self.size)
+    }
+
+    #[inline]
     fn capacity(&self) -> u32 {
         self.size()
+    }
+
+    #[inline]
+    unsafe fn capacity_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
+        DerefWrapper(NonNull::from_ref(&self.capacity))
     }
 
     #[inline]
@@ -87,10 +76,9 @@ where
         debug_assert!(capacity as usize == size_of::<Data>(), "Invalid capacity");
 
         let data = ptr.cast::<Data>();
-        // TODO: Use `NonNull::from_ref()` once stable
-        let size = NonNull::from(size);
+        let size = NonNull::from_ref(size);
 
-        MaybeDataWrapper(MaybeData {
+        DerefWrapper(MaybeData {
             data,
             size,
             capacity,
@@ -98,7 +86,7 @@ where
     }
 
     #[inline]
-    unsafe fn from_ptr_mut<'a>(
+    unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
@@ -108,10 +96,9 @@ where
         debug_assert!(capacity as usize == size_of::<Data>(), "Invalid capacity");
 
         let data = ptr.cast::<Data>();
-        // TODO: Use `NonNull::from_ref()` once stable
-        let size = NonNull::from(size);
+        let size = NonNull::from_ref(size);
 
-        MaybeDataWrapper(MaybeData {
+        DerefWrapper(MaybeData {
             data,
             size,
             capacity,
@@ -142,16 +129,14 @@ where
     pub fn from_buffer(data: Option<&'_ Data>) -> impl Deref<Target = Self> + '_ {
         let capacity = size_of::<Data>() as u32;
         let (data, size) = if let Some(data) = data {
-            (NonNull::from(data), capacity)
+            (NonNull::from_ref(data), capacity)
         } else {
             (NonNull::dangling(), 0)
         };
 
-        MaybeDataWrapper(Self {
-            // TODO: Use `NonNull::from_ref()` once stable
+        DerefWrapper(Self {
             data: data.cast::<<Self as IoType>::PointerType>(),
-            // TODO: Use `NonNull::from_ref()` once stable
-            size: NonNull::from(&size),
+            size: NonNull::from_ref(&size),
             capacity,
         })
     }
@@ -172,11 +157,9 @@ where
         let capacity = size_of::<Data>() as u32;
         debug_assert!(*size == 0 || *size == capacity, "Invalid size");
 
-        MaybeDataWrapper(Self {
-            // TODO: Use `NonNull::from_mut()` once stable
-            data: NonNull::from(buffer).cast::<<Self as IoType>::PointerType>(),
-            // TODO: Use `NonNull::from_mut()` once stable
-            size: NonNull::from(size),
+        DerefWrapper(Self {
+            data: NonNull::from_mut(buffer).cast::<<Self as IoType>::PointerType>(),
+            size: NonNull::from_ref(size),
             capacity,
         })
     }
@@ -198,11 +181,9 @@ where
         let capacity = size_of::<Data>() as u32;
         debug_assert!(*size == 0, "Invalid size");
 
-        MaybeDataWrapper(Self {
-            // TODO: Use `NonNull::from_ref()` once stable
-            data: NonNull::from(uninit).cast::<<Self as IoType>::PointerType>(),
-            // TODO: Use `NonNull::from_mut()` once stable
-            size: NonNull::from(size),
+        DerefWrapper(Self {
+            data: NonNull::from_mut(uninit).cast::<<Self as IoType>::PointerType>(),
+            size: NonNull::from_mut(size),
             capacity,
         })
     }

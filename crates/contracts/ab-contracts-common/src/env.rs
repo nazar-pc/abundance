@@ -90,7 +90,7 @@ impl Env {
 
     /// Prepare a single method for calling at specified address and with specified arguments.
     ///
-    /// Result is to be used with [`Self::call_many()`] afterward.
+    /// The result is to be used with [`Self::call_many()`] afterward.
     pub fn prepare_method_call<'a, Args>(
         contract: &'a Address,
         args: &'a mut Args,
@@ -100,21 +100,17 @@ impl Env {
         Args: ExternalArgs,
     {
         PreparedMethod {
-            // TODO: Use `NonNull::from_ref()` once stable
-            address: NonNull::from(contract),
-            // TODO: Use `NonNull::from_ref()` once stable
-            fingerprint: NonNull::from(&Args::FINGERPRINT),
-            // TODO: Use `NonNull::from_ref()` once stable
-            args: NonNull::from(args).cast(),
-            // TODO: Use `NonNull::from_ref()` once stable
-            method_context: NonNull::from(method_context).cast(),
+            address: NonNull::from_ref(contract),
+            fingerprint: NonNull::from_ref(&Args::FINGERPRINT),
+            args: NonNull::from_mut(args).cast(),
+            method_context: NonNull::from_ref(method_context).cast(),
             _phantom: PhantomData,
         }
     }
 
-    /// Invoke provided methods and wait for results.
+    /// Invoke provided methods and wait for the result.
     ///
-    /// Remaining gas will be split equally between all individual invocations.
+    /// The remaining gas will be split equally between all individual invocations.
     pub fn call_many<'a, Methods>(&'a self, methods: Methods) -> Result<(), ContractError>
     where
         Methods: IntoIterator<Item = PreparedMethod<'a>>,
