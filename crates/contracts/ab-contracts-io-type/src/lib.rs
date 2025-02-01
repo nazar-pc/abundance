@@ -14,8 +14,8 @@ use core::ptr::NonNull;
 static_assertions::const_assert!(size_of::<usize>() >= size_of::<u32>());
 
 // Only support little-endian environments, in big-endian byte order will be different, and
-// it'll not be possible to simply send bytes of data structures that implement `TrivialType` from host
-// to guest environment
+// it'll not be possible to simply send bytes of data structures that implement `TrivialType` from
+// host to guest environment
 static_assertions::const_assert_eq!(u16::from_ne_bytes(1u16.to_le_bytes()), 1u16);
 
 // Only support targets with expected alignment and refuse to compile on other targets
@@ -81,11 +81,40 @@ pub unsafe trait IoType {
     /// Pointer with trivial type that this `IoType` represents
     type PointerType: TrivialType;
 
-    /// Number of bytes are currently used to store data
+    /// Number of bytes that are currently used to store data
     fn size(&self) -> u32;
+
+    /// Pointer to the number of bytes that are currently used to store data.
+    ///
+    /// # Safety
+    /// While calling this function is technically safe, it and allows to ignore many of its
+    /// invariants, so requires extra care. In particular, no modifications must be done to the
+    /// value while this returned pointer might be used and no changes must be done through the
+    /// returned pointer. Also, lifetimes are only superficial here and can be easily (and
+    /// incorrectly) ignored by using `Copy`.
+    unsafe fn size_ptr(&self) -> impl Deref<Target = NonNull<u32>>;
+
+    /// An exclusive pointer to the number of bytes that are currently used to store data.
+    ///
+    /// # Safety
+    /// While calling this function is technically safe, it and allows to ignore many of its
+    /// invariants, so requires extra care. In particular, the value's contents must not be read or
+    /// written to while returned point might be used. Also, lifetimes are only superficial here and
+    /// can be easily (and incorrectly) ignored by using `Copy`.
+    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<u32>>;
 
     /// Number of bytes are allocated right now
     fn capacity(&self) -> u32;
+
+    /// Number of bytes are allocated right now
+    ///
+    /// # Safety
+    /// While calling this function is technically safe, it and allows to ignore many of its
+    /// invariants, so requires extra care. In particular, no modifications must be done to the
+    /// value while this returned pointer might be used and no changes must be done through the
+    /// returned pointer. Also, lifetimes are only superficial here and can be easily (and
+    /// incorrectly) ignored by using `Copy`.
+    unsafe fn capacity_ptr(&self) -> impl Deref<Target = NonNull<u32>>;
 
     /// Set the number of used bytes
     ///
@@ -132,21 +161,21 @@ pub unsafe trait IoType {
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a;
 
-    /// Get raw pointer to the underlying data with no checks
+    /// Get a raw pointer to the underlying data with no checks.
     ///
     /// # Safety
     /// While calling this function is technically safe, it and allows to ignore many of its
-    /// invariants, so requires extra care. In particular no modifications must be done to the value
-    /// while this returned pointer might be used and no changes must be done through returned
-    /// pointer. Also, lifetimes are only superficial here and can be easily (and incorrectly)
-    /// ignored by using `Copy`.
+    /// invariants, so requires extra care. In particular, no modifications must be done to the
+    /// value while this returned pointer might be used and no changes must be done through the
+    /// returned pointer. Also, lifetimes are only superficial here and can be easily (and
+    /// incorrectly) ignored by using `Copy`.
     unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>>;
 
-    /// Get exclusive raw pointer to the underlying data with no checks
+    /// Get an exclusive raw pointer to the underlying data with no checks.
     ///
     /// # Safety
     /// While calling this function is technically safe, it and allows to ignore many of its
-    /// invariants, so requires extra care. In particular the value's contents must not be read or
+    /// invariants, so requires extra care. In particular, the value's contents must not be read or
     /// written to while returned point might be used. Also, lifetimes are only superficial here and
     /// can be easily (and incorrectly) ignored by using `Copy`.
     unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>>;

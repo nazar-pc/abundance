@@ -101,8 +101,23 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
     }
 
     #[inline]
+    unsafe fn size_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
+        DerefWrapper(self.size)
+    }
+
+    #[inline]
+    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<u32>> {
+        DerefWrapper(self.size)
+    }
+
+    #[inline]
     fn capacity(&self) -> u32 {
         self.capacity
+    }
+
+    #[inline]
+    unsafe fn capacity_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
+        DerefWrapper(NonNull::from_ref(&self.capacity))
     }
 
     #[inline]
