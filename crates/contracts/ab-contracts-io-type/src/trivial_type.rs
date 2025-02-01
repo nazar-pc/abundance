@@ -1,25 +1,9 @@
-use crate::IoType;
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
+use crate::{DerefWrapper, IoType};
 pub use ab_contracts_trivial_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::{mem, slice};
-
-struct PtrWrapper<T>(NonNull<T>);
-
-impl<T> Deref for PtrWrapper<T> {
-    type Target = NonNull<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> DerefMut for PtrWrapper<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 
 /// Simple wrapper data type that is designed in such a way that its serialization/deserialization
 /// is the same as the type itself.
@@ -242,12 +226,12 @@ where
     #[inline]
     unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
         // TODO: Use `NonNull::from_ref()` once stable
-        PtrWrapper(NonNull::from(self))
+        DerefWrapper(NonNull::from(self))
     }
 
     #[inline]
     unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
         // TODO: Use `NonNull::from_mut()` once stable
-        PtrWrapper(NonNull::from(self))
+        DerefWrapper(NonNull::from(self))
     }
 }

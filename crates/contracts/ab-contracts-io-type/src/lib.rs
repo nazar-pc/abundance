@@ -30,6 +30,24 @@ static_assertions::const_assert_eq!(align_of::<i32>(), 4);
 static_assertions::const_assert_eq!(align_of::<i64>(), 8);
 static_assertions::const_assert_eq!(align_of::<i128>(), 16);
 
+struct DerefWrapper<T>(T);
+
+impl<T> Deref for DerefWrapper<T> {
+    type Target = T;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for DerefWrapper<T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 // TODO: A way to point output types to input types in order to avoid unnecessary memory copy
 //  (setting a pointer)
 /// Trait that is used for types that are crossing host/guest boundary in smart contracts.

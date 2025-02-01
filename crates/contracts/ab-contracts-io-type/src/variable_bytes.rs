@@ -1,29 +1,9 @@
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
-use crate::{IoType, IoTypeOptional};
+use crate::{DerefWrapper, IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::{ptr, slice};
-
-struct VariableBytesWrapper<const RECOMMENDED_ALLOCATION: u32>(
-    VariableBytes<RECOMMENDED_ALLOCATION>,
-);
-
-impl<const RECOMMENDED_ALLOCATION: u32> Deref for VariableBytesWrapper<RECOMMENDED_ALLOCATION> {
-    type Target = VariableBytes<RECOMMENDED_ALLOCATION>;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<const RECOMMENDED_ALLOCATION: u32> DerefMut for VariableBytesWrapper<RECOMMENDED_ALLOCATION> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 
 /// Container for storing variable number of bytes.
 ///
@@ -147,7 +127,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(*size <= capacity, "Size larger than capacity");
 
-        VariableBytesWrapper(Self {
+        DerefWrapper(Self {
             bytes: *ptr,
             // TODO: Use `NonNull::from_ref()` once stable
             size: NonNull::from(size),
@@ -164,7 +144,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(*size <= capacity, "Size larger than capacity");
 
-        VariableBytesWrapper(Self {
+        DerefWrapper(Self {
             bytes: *ptr,
             // TODO: Use `NonNull::from_ref()` once stable
             size: NonNull::from(size),
@@ -194,7 +174,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         let size = buffer.len() as u32;
         let capacity = size;
 
-        VariableBytesWrapper(Self {
+        DerefWrapper(Self {
             // TODO: Use `NonNull::from_ref()` once stable
             bytes: NonNull::from(buffer).cast::<<Self as IoType>::PointerType>(),
             // TODO: Use `NonNull::from_ref()` once stable
@@ -216,7 +196,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         debug_assert!(buffer.len() == *size as usize, "Invalid size");
         let capacity = *size;
 
-        VariableBytesWrapper(Self {
+        DerefWrapper(Self {
             // TODO: Use `NonNull::from_mut()` once stable
             bytes: NonNull::from(buffer).cast::<<Self as IoType>::PointerType>(),
             // TODO: Use `NonNull::from_mut()` once stable
@@ -240,7 +220,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         debug_assert!(*size as usize <= CAPACITY, "Size larger than capacity");
         let capacity = CAPACITY as u32;
 
-        VariableBytesWrapper(Self {
+        DerefWrapper(Self {
             // TODO: Use `NonNull::from_ref()` once stable
             bytes: NonNull::from(uninit).cast::<<Self as IoType>::PointerType>(),
             // TODO: Use `NonNull::from_mut()` once stable
