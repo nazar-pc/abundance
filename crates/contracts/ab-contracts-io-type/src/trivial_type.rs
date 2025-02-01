@@ -225,13 +225,11 @@ where
 
     #[inline]
     unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
-        // TODO: Use `NonNull::from_ref()` once stable
-        DerefWrapper(NonNull::from(self))
+        DerefWrapper(NonNull::from_ref(self))
     }
 
     #[inline]
     unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
-        // TODO: Use `NonNull::from_mut()` once stable
-        DerefWrapper(NonNull::from(self))
+        DerefWrapper(NonNull::from_mut(self))
     }
 }

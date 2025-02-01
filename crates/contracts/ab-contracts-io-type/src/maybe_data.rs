@@ -61,8 +61,7 @@ where
         debug_assert!(capacity as usize == size_of::<Data>(), "Invalid capacity");
 
         let data = ptr.cast::<Data>();
-        // TODO: Use `NonNull::from_ref()` once stable
-        let size = NonNull::from(size);
+        let size = NonNull::from_ref(size);
 
         DerefWrapper(MaybeData {
             data,
@@ -82,8 +81,7 @@ where
         debug_assert!(capacity as usize == size_of::<Data>(), "Invalid capacity");
 
         let data = ptr.cast::<Data>();
-        // TODO: Use `NonNull::from_ref()` once stable
-        let size = NonNull::from(size);
+        let size = NonNull::from_ref(size);
 
         DerefWrapper(MaybeData {
             data,
@@ -116,16 +114,14 @@ where
     pub fn from_buffer(data: Option<&'_ Data>) -> impl Deref<Target = Self> + '_ {
         let capacity = size_of::<Data>() as u32;
         let (data, size) = if let Some(data) = data {
-            (NonNull::from(data), capacity)
+            (NonNull::from_ref(data), capacity)
         } else {
             (NonNull::dangling(), 0)
         };
 
         DerefWrapper(Self {
-            // TODO: Use `NonNull::from_ref()` once stable
             data: data.cast::<<Self as IoType>::PointerType>(),
-            // TODO: Use `NonNull::from_ref()` once stable
-            size: NonNull::from(&size),
+            size: NonNull::from_ref(&size),
             capacity,
         })
     }
@@ -147,10 +143,8 @@ where
         debug_assert!(*size == 0 || *size == capacity, "Invalid size");
 
         DerefWrapper(Self {
-            // TODO: Use `NonNull::from_mut()` once stable
-            data: NonNull::from(buffer).cast::<<Self as IoType>::PointerType>(),
-            // TODO: Use `NonNull::from_mut()` once stable
-            size: NonNull::from(size),
+            data: NonNull::from_mut(buffer).cast::<<Self as IoType>::PointerType>(),
+            size: NonNull::from_ref(size),
             capacity,
         })
     }
@@ -173,10 +167,8 @@ where
         debug_assert!(*size == 0, "Invalid size");
 
         DerefWrapper(Self {
-            // TODO: Use `NonNull::from_ref()` once stable
-            data: NonNull::from(uninit).cast::<<Self as IoType>::PointerType>(),
-            // TODO: Use `NonNull::from_mut()` once stable
-            size: NonNull::from(size),
+            data: NonNull::from_mut(uninit).cast::<<Self as IoType>::PointerType>(),
+            size: NonNull::from_mut(size),
             capacity,
         })
     }

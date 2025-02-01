@@ -129,8 +129,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
 
         DerefWrapper(Self {
             bytes: *ptr,
-            // TODO: Use `NonNull::from_ref()` once stable
-            size: NonNull::from(size),
+            size: NonNull::from_ref(size),
             capacity,
         })
     }
@@ -146,8 +145,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
 
         DerefWrapper(Self {
             bytes: *ptr,
-            // TODO: Use `NonNull::from_ref()` once stable
-            size: NonNull::from(size),
+            size: NonNull::from_mut(size),
             capacity,
         })
     }
@@ -175,10 +173,8 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         let capacity = size;
 
         DerefWrapper(Self {
-            // TODO: Use `NonNull::from_ref()` once stable
-            bytes: NonNull::from(buffer).cast::<<Self as IoType>::PointerType>(),
-            // TODO: Use `NonNull::from_ref()` once stable
-            size: NonNull::from(&size),
+            bytes: NonNull::from_ref(buffer).cast::<<Self as IoType>::PointerType>(),
+            size: NonNull::from_ref(&size),
             capacity,
         })
     }
@@ -197,10 +193,8 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         let capacity = *size;
 
         DerefWrapper(Self {
-            // TODO: Use `NonNull::from_mut()` once stable
-            bytes: NonNull::from(buffer).cast::<<Self as IoType>::PointerType>(),
-            // TODO: Use `NonNull::from_mut()` once stable
-            size: NonNull::from(size),
+            bytes: NonNull::from_mut(buffer).cast::<<Self as IoType>::PointerType>(),
+            size: NonNull::from_mut(size),
             capacity,
         })
     }
@@ -221,10 +215,8 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         let capacity = CAPACITY as u32;
 
         DerefWrapper(Self {
-            // TODO: Use `NonNull::from_ref()` once stable
-            bytes: NonNull::from(uninit).cast::<<Self as IoType>::PointerType>(),
-            // TODO: Use `NonNull::from_mut()` once stable
-            size: NonNull::from(size),
+            bytes: NonNull::from_mut(uninit).cast::<<Self as IoType>::PointerType>(),
+            size: NonNull::from_mut(size),
             capacity,
         })
     }
