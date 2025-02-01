@@ -766,7 +766,7 @@ impl MethodDetails {
                         assert_impl_io_type::<#self_type>();
                     };
 
-                    <#self_type as ::ab_contracts_macros::__private::IoType>::from_ptr_mut(
+                    <#self_type as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.state_ptr,
                         &mut args.state_size,
                         args.state_capacity,
@@ -854,7 +854,7 @@ impl MethodDetails {
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr_mut(
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
                         args.#capacity_field,
@@ -934,7 +934,7 @@ impl MethodDetails {
                         assert_impl_io_type_optional::<#type_name>();
                     };
 
-                    <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr_mut(
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
                         args.#capacity_field,
@@ -1047,7 +1047,7 @@ impl MethodDetails {
                             assert_impl_io_type_optional::<#type_name>();
                         };
 
-                        <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr_mut(
+                        <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                             &mut args.#ptr_field,
                             &mut args.#size_field,
                             args.#capacity_field,

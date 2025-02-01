@@ -155,7 +155,7 @@ pub unsafe trait IoType {
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes. While lifetime here is somewhat superficial
     // due to `Copy` nature of the value, it must be respected.
-    unsafe fn from_ptr_mut<'a>(
+    unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
