@@ -3,7 +3,7 @@ use crate::{DerefWrapper, IoType};
 pub use ab_contracts_trivial_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
-use core::{mem, slice};
+use core::{mem, ptr, slice};
 
 /// Simple wrapper data type that is designed in such a way that its serialization/deserialization
 /// is the same as the type itself.
@@ -184,12 +184,12 @@ where
 
     #[inline]
     unsafe fn size_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
-        DerefWrapper(NonNull::from_ref(&(size_of::<T>() as u32)))
+        DerefWrapper(NonNull::from_ref(&T::SIZE))
     }
 
     #[inline]
-    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<u32>> {
-        DerefWrapper(NonNull::from_mut(&mut (size_of::<T>() as u32)))
+    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = *mut u32> {
+        DerefWrapper(ptr::null_mut())
     }
 
     #[inline]
@@ -217,8 +217,8 @@ where
         capacity: u32,
     ) -> impl Deref<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        debug_assert!(*size == capacity, "Size doesn't match capacity");
-        debug_assert!(capacity as usize == size_of::<Self>(), "Invalid capacity");
+        debug_assert!(*size as usize == size_of::<Self>(), "Invalid size");
+        debug_assert!(*size <= capacity, "Size must not exceed capacity");
 
         // SAFETY: guaranteed by this function signature
         unsafe { ptr.as_ref() }
@@ -227,12 +227,11 @@ where
     #[inline]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
-        size: &'a mut u32,
+        _size: &'a mut *mut u32,
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        debug_assert!(*size == capacity, "Size doesn't match capacity");
-        debug_assert!(capacity as usize == size_of::<Self>(), "Invalid capacity");
+        debug_assert!(Self::SIZE <= capacity, "Size must not exceed capacity");
 
         // SAFETY: guaranteed by this function signature
         unsafe { ptr.as_mut() }

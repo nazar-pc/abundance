@@ -738,12 +738,12 @@ impl MethodDetails {
                 pub state_ptr: ::core::ptr::NonNull<
                     <#self_type as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
-                /// Size of the contents `state_ptr` points to
-                pub state_size: ::core::ptr::NonNull<u32>,
             });
 
             if mutability.is_some() {
                 internal_args_pointers.push(quote! {
+                    /// Size of the contents `state_ptr` points to
+                    pub state_size: *mut u32,
                     /// Capacity of the allocated memory following `state_ptr` points to
                     pub state_capacity: ::core::ptr::NonNull<u32>,
                 });
@@ -761,13 +761,17 @@ impl MethodDetails {
 
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.state_ptr,
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.state_size.as_mut() },
+                        &mut args.state_size,
                         // SAFETY: Must be initialized by host
                         unsafe { args.state_capacity.read() },
                     )
                 }});
             } else {
+                internal_args_pointers.push(quote! {
+                    /// Size of the contents `state_ptr` points to
+                    pub state_size: ::core::ptr::NonNull<u32>,
+                });
+
                 original_fn_args.push(quote! {&*{
                     // Ensure state type implements `IoType`, which is required for crossing
                     // host/guest boundary
@@ -781,8 +785,7 @@ impl MethodDetails {
 
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.state_ptr,
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.state_size.as_ref() },
+                        args.state_size.as_ref(),
                         // Size matches capacity for immutable inputs
                         //
                         // SAFETY: Must be initialized by host
@@ -828,12 +831,12 @@ impl MethodDetails {
                 pub #ptr_field: ::core::ptr::NonNull<
                     <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
-                #[doc = #size_doc]
-                pub #size_field: ::core::ptr::NonNull<u32>,
             });
 
             if mutability.is_some() {
                 internal_args_pointers.push(quote! {
+                    #[doc = #size_doc]
+                    pub #size_field: *mut u32,
                     #[doc = #capacity_doc]
                     pub #capacity_field: ::core::ptr::NonNull<u32>,
                 });
@@ -852,13 +855,17 @@ impl MethodDetails {
 
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.#size_field.as_mut() },
+                        &mut args.#size_field,
                         // SAFETY: Must be initialized by host
                         unsafe { args.#capacity_field.read() },
                     )
                 }});
             } else {
+                internal_args_pointers.push(quote! {
+                    #[doc = #size_doc]
+                    pub #size_field: ::core::ptr::NonNull<u32>,
+                });
+
                 original_fn_args.push(quote! {&*{
                     // Ensure tmp type implements `IoTypeOptional`, which is required for handling
                     // of tmp that might be removed or not present and implies implementation of
@@ -873,8 +880,7 @@ impl MethodDetails {
 
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.#size_field.as_ref() },
+                        args.#size_field.as_ref(),
                         // Size matches capacity for immutable inputs
                         //
                         // SAFETY: Must be initialized by host
@@ -911,12 +917,12 @@ impl MethodDetails {
                 pub #ptr_field: ::core::ptr::NonNull<
                     <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
-                #[doc = #size_doc]
-                pub #size_field: ::core::ptr::NonNull<u32>,
             });
 
             let arg_extraction = if mutability.is_some() {
                 internal_args_pointers.push(quote! {
+                    #[doc = #size_doc]
+                    pub #size_field: *mut u32,
                     #[doc = #capacity_doc]
                     pub #capacity_field: ::core::ptr::NonNull<u32>,
                 });
@@ -935,13 +941,17 @@ impl MethodDetails {
 
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.#size_field.as_mut() },
+                        &mut args.#size_field,
                         // SAFETY: Must be initialized by host
                         unsafe { args.#capacity_field.read() },
                     )
                 }}
             } else {
+                internal_args_pointers.push(quote! {
+                    #[doc = #size_doc]
+                    pub #size_field: ::core::ptr::NonNull<u32>,
+                });
+
                 quote! {&*{
                     // Ensure slot type implements `IoTypeOptional`, which is required for handling
                     // of slot that might be removed or not present and implies implementation of
@@ -956,8 +966,7 @@ impl MethodDetails {
 
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.#size_field.as_ref() },
+                        args.#size_field.as_ref(),
                         // Size matches capacity for immutable inputs
                         //
                         // SAFETY: Must be initialized by host
@@ -1016,8 +1025,7 @@ impl MethodDetails {
 
                         <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                             &args.#ptr_field,
-                            // SAFETY: Must be initialized by host
-                            unsafe { args.#size_field.as_ref() },
+                            args.#size_field.as_ref(),
                             // Size matches capacity for immutable inputs
                             //
                             // SAFETY: Must be initialized by host
@@ -1031,7 +1039,7 @@ impl MethodDetails {
                             <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                         >,
                         #[doc = #size_doc]
-                        pub #size_field: ::core::ptr::NonNull<u32>,
+                        pub #size_field: *mut u32,
                         #[doc = #capacity_doc]
                         pub #capacity_field: ::core::ptr::NonNull<u32>,
                     });
@@ -1050,8 +1058,7 @@ impl MethodDetails {
 
                         <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                             &mut args.#ptr_field,
-                            // SAFETY: Must be initialized by host
-                            unsafe { args.#size_field.as_mut() },
+                            &mut args.#size_field,
                             // SAFETY: Must be initialized by host
                             unsafe { args.#capacity_field.read() },
                         )
@@ -1071,8 +1078,8 @@ impl MethodDetails {
             if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
                 internal_args_pointers.push(quote! {
                     pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
-                    /// Size of the contents `ok_result_ptr` points to
-                    pub ok_result_size: ::core::ptr::NonNull<u32>,
+                    /// The size of the contents `ok_result_ptr` points to
+                    pub ok_result_size: *mut u32,
                     /// Capacity of the allocated memory `ok_result_ptr` points to
                     pub ok_result_capacity: ::core::ptr::NonNull<u32>,
                 });
@@ -1084,12 +1091,6 @@ impl MethodDetails {
                     debug_assert!(
                         args.ok_result_ptr.is_aligned(),
                         "`ok_result_ptr` pointer is misaligned"
-                    );
-                    debug_assert_eq!(
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.ok_result_size.read() },
-                        <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
-                        "`ok_result_size` specified is invalid",
                     );
                     debug_assert_eq!(
                         // SAFETY: Must be initialized by host
@@ -1126,10 +1127,13 @@ impl MethodDetails {
                 }
                 MethodResultType::Regular(_) => {
                     quote! {
-                        // Write result into `InternalArgs`, return exit code.
-                        // It is okay to not write the size because return type is for `TrivialType`
-                        // only, whose size is always fixed.
+                        if !args.ok_result_size.is_null() {
+                            args.ok_result_size.write(
+                                <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
+                            );
+                        }
                         args.ok_result_ptr.write(#result_var_name);
+                        // Return exit code
                         ::ab_contracts_macros::__private::ExitCode::Ok
                     }
                 }
@@ -1147,9 +1151,13 @@ impl MethodDetails {
                         // Write result into `InternalArgs` if there is any, return exit code
                         match #result_var_name {
                             Ok(result) => {
-                                // It is okay to not write the size because return type is for
-                                // `TrivialType` only, whose size is always fixed
+                                if !args.ok_result_size.is_null() {
+                                    args.ok_result_size.write(
+                                        <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
+                                    );
+                                }
                                 args.ok_result_ptr.write(result);
+                                // Return exit code
                                 ::ab_contracts_macros::__private::ExitCode::Ok
                             }
                             Err(error) => error.exit_code(),
@@ -1174,7 +1182,7 @@ impl MethodDetails {
                 ///
                 /// # Safety
                 ///
-                /// Caller must ensure provided pointer corresponds to expected ABI.
+                /// Caller must ensure the provided pointer corresponds to expected ABI.
                 #[cfg_attr(feature = "guest", unsafe(no_mangle))]
                 #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes")]
                 pub unsafe extern "C" fn #ffi_fn_name(
@@ -1228,8 +1236,8 @@ impl MethodDetails {
                     unsafe extern "C" fn #adapter_ffi_fn_name(
                         ptr: ::core::ptr::NonNull<::core::ptr::NonNull<::core::ffi::c_void>>,
                     ) -> ::ab_contracts_macros::__private::ExitCode {
-                        // SAFETY: Caller must ensure correct ABI of the void pointer, not much can
-                        // be done here
+                        // SAFETY: Caller must ensure correct ABI of the void pointer, little can be
+                        // done here
                         unsafe { #ffi_fn_name(ptr.cast::<InternalArgs>()) }
                     }
 
@@ -1299,7 +1307,7 @@ impl MethodDetails {
                             <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                         >,
                         #[doc = #size_doc]
-                        pub #size_field: ::core::ptr::NonNull<u32>,
+                        pub #size_field: *mut u32,
                         #[doc = #capacity_doc]
                         pub #capacity_field: ::core::ptr::NonNull<u32>,
                     });
@@ -1313,7 +1321,7 @@ impl MethodDetails {
                                 <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                             >,
                             #[doc = #size_doc]
-                            pub #size_field: ::core::ptr::NonNull<u32>,
+                            pub #size_field: *mut u32,
                             #[doc = #capacity_doc]
                             pub #capacity_field: ::core::ptr::NonNull<u32>,
                         });
@@ -1335,7 +1343,7 @@ impl MethodDetails {
             external_args_fields.push(quote! {
                 pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
                 /// Size of the contents `ok_result_ptr` points to
-                pub ok_result_size: ::core::ptr::NonNull<u32>,
+                pub ok_result_size: *mut u32,
                 /// Capacity of the allocated memory `ok_result_ptr` points to
                 pub ok_result_capacity: ::core::ptr::NonNull<u32>,
             });
@@ -1728,8 +1736,7 @@ impl MethodDetails {
                 ok_result_ptr: unsafe {
                     ::core::ptr::NonNull::new_unchecked(ok_result.as_mut_ptr())
                 },
-                // TODO: Use `NonNull::from_mut()` once stable
-                ok_result_size: ::core::ptr::NonNull::from(&mut ok_result_size),
+                ok_result_size: &raw mut ok_result_size,
                 // This is for `TrivialType` and will never be modified
                 // TODO: Use `NonNull::from_ref()` once stable
                 ok_result_capacity: ::core::ptr::NonNull::from(

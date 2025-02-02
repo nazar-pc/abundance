@@ -38,8 +38,8 @@ where
     }
 
     #[inline]
-    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<u32>> {
-        DerefWrapper(self.size)
+    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = *mut u32> {
+        DerefWrapper(self.size.as_ptr())
     }
 
     #[inline]
@@ -88,15 +88,21 @@ where
     #[inline]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
-        size: &'a mut u32,
+        size: &'a mut *mut u32,
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a {
+        debug_assert!(!size.is_null(), "`null` pointer for non-`TrivialType` size");
+        // SAFETY: Must be guaranteed by the caller + debug check above
+        let size = unsafe { NonNull::new_unchecked(*size) };
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        debug_assert!(*size == 0 || *size == capacity, "Invalid size");
+        // SAFETY: Must be guaranteed by the caller
+        debug_assert!(
+            unsafe { size.read() == 0 || size.read() == capacity },
+            "Invalid size"
+        );
         debug_assert!(capacity as usize == size_of::<Data>(), "Invalid capacity");
 
         let data = ptr.cast::<Data>();
-        let size = NonNull::from_ref(size);
 
         DerefWrapper(MaybeData {
             data,
