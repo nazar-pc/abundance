@@ -73,7 +73,7 @@ where
     ) -> impl Deref<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(*size == 0 || *size == capacity, "Invalid size");
-        debug_assert!(capacity as usize == size_of::<Data>(), "Invalid capacity");
+        debug_assert!(capacity == Data::SIZE, "Invalid capacity");
 
         let data = ptr.cast::<Data>();
         let size = NonNull::from_ref(size);
@@ -100,7 +100,7 @@ where
             unsafe { size.read() == 0 || size.read() == capacity },
             "Invalid size"
         );
-        debug_assert!(capacity as usize == size_of::<Data>(), "Invalid capacity");
+        debug_assert!(capacity == Data::SIZE, "Invalid capacity");
 
         let data = ptr.cast::<Data>();
 
@@ -129,44 +129,43 @@ where
     Data: TrivialType,
 {
     /// Create a new shared instance from provided data reference.
-    ///
+    //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
     pub fn from_buffer(data: Option<&'_ Data>) -> impl Deref<Target = Self> + '_ {
-        let capacity = size_of::<Data>() as u32;
         let (data, size) = if let Some(data) = data {
-            (NonNull::from_ref(data), capacity)
+            (NonNull::from_ref(data), &Data::SIZE)
         } else {
-            (NonNull::dangling(), 0)
+            (NonNull::dangling(), &0)
         };
 
         DerefWrapper(Self {
             data: data.cast::<<Self as IoType>::PointerType>(),
-            size: NonNull::from_ref(&size),
-            capacity,
+            size: NonNull::from_ref(size),
+            capacity: Data::SIZE,
         })
     }
 
     /// Create a new exclusive instance from provided data reference.
     ///
-    /// `size` can be either `0` or `size_of::<Data>()`, indicating that value is missing or present
+    /// `size` can be either `0` or `Data::SIZE`, indicating that value is missing or present
     /// accordingly.
     ///
     /// # Panics
-    /// Panics if `size != 0 && size != size_of::<Data>()`
+    /// Panics if `size != 0 && size != Data::SIZE`
+    //
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
     pub fn from_buffer_mut<'a>(
         buffer: &'a mut Data,
         size: &'a mut u32,
     ) -> impl DerefMut<Target = Self> + 'a {
-        let capacity = size_of::<Data>() as u32;
-        debug_assert!(*size == 0 || *size == capacity, "Invalid size");
+        debug_assert!(*size == 0 || *size == Data::SIZE, "Invalid size");
 
         DerefWrapper(Self {
             data: NonNull::from_mut(buffer).cast::<<Self as IoType>::PointerType>(),
             size: NonNull::from_ref(size),
-            capacity,
+            capacity: Data::SIZE,
         })
     }
 
@@ -176,6 +175,7 @@ where
     ///
     /// # Panics
     /// Panics if `size != 0`
+    //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
     // TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
@@ -184,13 +184,12 @@ where
         uninit: &'a mut MaybeUninit<Data>,
         size: &'a mut u32,
     ) -> impl Deref<Target = Self> + 'a {
-        let capacity = size_of::<Data>() as u32;
         debug_assert!(*size == 0, "Invalid size");
 
         DerefWrapper(Self {
             data: NonNull::from_mut(uninit).cast::<<Self as IoType>::PointerType>(),
             size: NonNull::from_mut(size),
-            capacity,
+            capacity: Data::SIZE,
         })
     }
 

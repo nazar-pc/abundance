@@ -187,16 +187,21 @@ impl<const RECOMMENDED_ALLOCATION: u32> IoTypeOptional for VariableBytes<RECOMME
 impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     /// Create a new shared instance from provided memory buffer.
     ///
+    /// # Panics
+    /// Panics if `size != buffer.len()`
+    //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
-    pub fn from_buffer(buffer: &[<Self as IoType>::PointerType]) -> impl Deref<Target = Self> + '_ {
-        let size = buffer.len() as u32;
-        let capacity = size;
+    pub fn from_buffer<'a>(
+        buffer: &'a [<Self as IoType>::PointerType],
+        size: &'a u32,
+    ) -> impl Deref<Target = Self> + 'a {
+        debug_assert!(buffer.len() == *size as usize, "Invalid size");
 
         DerefWrapper(Self {
             bytes: NonNull::from_ref(buffer).cast::<<Self as IoType>::PointerType>(),
-            size: NonNull::from_ref(&size),
-            capacity,
+            size: NonNull::from_ref(size),
+            capacity: *size,
         })
     }
 
@@ -204,6 +209,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     ///
     /// # Panics
     /// Panics if `buffer.len() != size`
+    //
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
     pub fn from_buffer_mut<'a>(
@@ -211,12 +217,11 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         size: &'a mut u32,
     ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert!(buffer.len() == *size as usize, "Invalid size");
-        let capacity = *size;
 
         DerefWrapper(Self {
             bytes: NonNull::from_mut(buffer).cast::<<Self as IoType>::PointerType>(),
             size: NonNull::from_mut(size),
-            capacity,
+            capacity: *size,
         })
     }
 
@@ -224,6 +229,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     ///
     /// # Panics
     /// Panics if `size > CAPACITY`
+    //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
     // TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
