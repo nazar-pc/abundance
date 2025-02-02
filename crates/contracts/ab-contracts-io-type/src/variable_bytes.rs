@@ -121,6 +121,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
             size <= self.capacity,
@@ -134,6 +135,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
@@ -150,6 +152,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut *mut u32,
@@ -192,6 +195,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
+    #[track_caller]
     pub fn from_buffer<'a>(
         buffer: &'a [<Self as IoType>::PointerType],
         size: &'a u32,
@@ -212,6 +216,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     //
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
+    #[track_caller]
     pub fn from_buffer_mut<'a>(
         buffer: &'a mut [<Self as IoType>::PointerType],
         size: &'a mut u32,
@@ -234,6 +239,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     // shared reference for most practical purposes.
     // TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
     //  `CAPACITY as usize`
+    #[track_caller]
     pub fn from_uninit<'a, const CAPACITY: usize>(
         uninit: &'a mut MaybeUninit<[<Self as IoType>::PointerType; CAPACITY]>,
         size: &'a mut u32,

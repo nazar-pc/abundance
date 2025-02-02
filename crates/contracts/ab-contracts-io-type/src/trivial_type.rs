@@ -203,6 +203,7 @@ where
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
             size == size_of::<Self>() as u32,
@@ -211,6 +212,7 @@ where
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
@@ -225,6 +227,7 @@ where
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         _size: &'a mut *mut u32,

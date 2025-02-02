@@ -53,6 +53,7 @@ where
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
             size == 0 || size == self.size(),
@@ -66,6 +67,7 @@ where
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
@@ -86,6 +88,7 @@ where
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut *mut u32,
@@ -156,6 +159,7 @@ where
     //
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
+    #[track_caller]
     pub fn from_buffer_mut<'a>(
         buffer: &'a mut Data,
         size: &'a mut u32,
@@ -180,6 +184,7 @@ where
     // shared reference for most practical purposes.
     // TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
     //  `CAPACITY as usize`
+    #[track_caller]
     pub fn from_uninit<'a>(
         uninit: &'a mut MaybeUninit<Data>,
         size: &'a mut u32,

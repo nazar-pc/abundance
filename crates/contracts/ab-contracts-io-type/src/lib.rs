@@ -142,6 +142,7 @@ pub unsafe trait IoType {
     // shared reference for most practical purposes. While lifetime here is somewhat superficial due
     // to `Copy` nature of the value, it must be respected. Size must point to properly initialized
     // memory.
+    #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
@@ -166,6 +167,7 @@ pub unsafe trait IoType {
     // exclusive reference for most practical purposes. While lifetime here is somewhat superficial
     // due to `Copy` nature of the value, it must be respected. Size must point to properly
     // initialized memory for non-[`TrivialType`].
+    #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut *mut u32,
