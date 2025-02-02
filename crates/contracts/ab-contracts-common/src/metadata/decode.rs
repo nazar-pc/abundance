@@ -592,22 +592,43 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                     }
                 })?;
 
-                let recommended_capacity = if matches!(
-                    (self.method_kind, argument_kind),
-                    (MethodKind::Init, ArgumentKind::Result)
-                ) {
-                    None
-                } else {
-                    let recommended_capacity;
-                    (recommended_capacity, *self.metadata) =
-                        IoTypeMetadataKind::recommended_capacity(self.metadata).ok_or(
-                            MetadataDecodingError::InvalidArgumentIoType {
-                                argument_name,
-                                argument_kind,
-                            },
-                        )?;
+                let recommended_capacity = match argument_kind {
+                    ArgumentKind::EnvRo
+                    | ArgumentKind::EnvRw
+                    | ArgumentKind::TmpRo
+                    | ArgumentKind::TmpRw
+                    | ArgumentKind::SlotWithAddressRo
+                    | ArgumentKind::SlotWithAddressRw
+                    | ArgumentKind::SlotWithoutAddressRo
+                    | ArgumentKind::SlotWithoutAddressRw => None,
+                    ArgumentKind::Input | ArgumentKind::Output => {
+                        let recommended_capacity;
+                        (recommended_capacity, *self.metadata) =
+                            IoTypeMetadataKind::recommended_capacity(self.metadata).ok_or(
+                                MetadataDecodingError::InvalidArgumentIoType {
+                                    argument_name,
+                                    argument_kind,
+                                },
+                            )?;
 
-                    Some(recommended_capacity)
+                        Some(recommended_capacity)
+                    }
+                    ArgumentKind::Result => {
+                        if matches!(self.method_kind, MethodKind::Init) {
+                            None
+                        } else {
+                            let recommended_capacity;
+                            (recommended_capacity, *self.metadata) =
+                                IoTypeMetadataKind::recommended_capacity(self.metadata).ok_or(
+                                    MetadataDecodingError::InvalidArgumentIoType {
+                                        argument_name,
+                                        argument_kind,
+                                    },
+                                )?;
+
+                            Some(recommended_capacity)
+                        }
+                    }
                 };
 
                 (argument_name, recommended_capacity)
