@@ -96,12 +96,15 @@ pub unsafe trait IoType {
 
     /// An exclusive pointer to the number of bytes that are currently used to store data.
     ///
+    /// NOTE: Pointer might be `null` for [`TrivialType`]s that don't store size internally, in
+    /// which case type's capacity should be used as size.
+    ///
     /// # Safety
     /// While calling this function is technically safe, it and allows to ignore many of its
     /// invariants, so requires extra care. In particular, the value's contents must not be read or
     /// written to while returned point might be used. Also, lifetimes are only superficial here and
     /// can be easily (and incorrectly) ignored by using `Copy`.
-    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<u32>>;
+    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = *mut u32>;
 
     /// Number of bytes are allocated right now
     fn capacity(&self) -> u32;
@@ -130,11 +133,15 @@ pub unsafe trait IoType {
     /// Only `size` are guaranteed to be allocated for types that can store variable amount of
     /// data due to read-only nature of read-only access here.
     ///
+    /// # Panics
+    /// Panics if `size` is a `null` pointer in case of non-[`TrivialType`]
+    ///
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes. While lifetime here is somewhat superficial due
-    // to `Copy` nature of the value, it must be respected.
+    // to `Copy` nature of the value, it must be respected. Size must point to properly initialized
+    // memory.
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
@@ -150,14 +157,18 @@ pub unsafe trait IoType {
     /// `size` indicates how many bytes are used within larger allocation for types that can
     /// store variable amount of data.
     ///
+    /// # Panics
+    /// Panics if `size` is a `null` pointer in case of non-[`TrivialType`]
+    ///
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes. While lifetime here is somewhat superficial
-    // due to `Copy` nature of the value, it must be respected.
+    // due to `Copy` nature of the value, it must be respected. Size must point to properly
+    // initialized memory for non-[`TrivialType`].
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
-        size: &'a mut u32,
+        size: &'a mut *mut u32,
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a;
 

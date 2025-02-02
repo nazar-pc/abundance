@@ -14,23 +14,25 @@ use core::ptr::NonNull;
 use derive_more::{
     Add, AddAssign, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub, SubAssign,
 };
-use linkme::distributed_slice;
 
 /// Pointers to methods of all contracts.
 ///
-/// List entries `(CrateName, MethodFingerprint, MethodMetadata, FnPointer)`.
-/// `FnPointer`'s argument is actually `NonNull<InternalArgs>` of corresponding method and must have
-/// corresponding ABI.
+/// `fn_pointer`'s argument is actually `NonNull<InternalArgs>` of corresponding method and must
+/// have corresponding ABI.
 ///
 /// NOTE: It is unlikely to be necessary to interact with this directly.
+#[derive(Debug, Copy, Clone)]
 #[cfg(any(unix, windows))]
-#[distributed_slice]
-pub static CONTRACTS_METHODS_FN_POINTERS: [(
-    &str,
-    &MethodFingerprint,
-    &[u8],
-    unsafe extern "C" fn(NonNull<c_void>) -> ExitCode,
-)];
+pub struct ContractsMethodsFnPointer {
+    pub crate_name: &'static str,
+    pub main_contract_metadata: &'static [u8],
+    pub method_fingerprint: &'static MethodFingerprint,
+    pub method_metadata: &'static [u8],
+    pub ffi_fn: unsafe extern "C" fn(NonNull<NonNull<c_void>>) -> ExitCode,
+}
+
+#[cfg(any(unix, windows))]
+inventory::collect!(ContractsMethodsFnPointer);
 
 // TODO: Add `Slot` and `Tmp` associated types such that it is not necessary to repeat them in
 //  arguments
@@ -204,6 +206,20 @@ pub struct Address(
     // Essentially 64-bit number, but using an array reduces alignment requirement to 1 byte
     [u8; 8],
 );
+
+impl PartialEq<&Address> for Address {
+    #[inline]
+    fn eq(&self, other: &&Address) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl PartialEq<Address> for &Address {
+    #[inline]
+    fn eq(&self, other: &Address) -> bool {
+        self.0 == other.0
+    }
+}
 
 impl From<u64> for Address {
     #[inline]

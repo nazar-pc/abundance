@@ -31,7 +31,7 @@ impl AddressAllocator {
     /// This can only be called by [`Address::SYSTEM_CODE`] contract.
     #[update]
     pub fn allocate_address(&mut self, #[env] env: &mut Env) -> Result<Address, ContractError> {
-        if env.caller() != &Address::SYSTEM_CODE {
+        if env.caller() != Address::SYSTEM_CODE {
             return Err(ContractError::AccessDenied);
         }
 
