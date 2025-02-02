@@ -762,8 +762,7 @@ impl MethodDetails {
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.state_ptr,
                         &mut args.state_size,
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.state_capacity.read() },
+                        args.state_capacity.read(),
                     )
                 }});
             } else {
@@ -787,9 +786,7 @@ impl MethodDetails {
                         &args.state_ptr,
                         args.state_size.as_ref(),
                         // Size matches capacity for immutable inputs
-                        //
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.state_size.read() },
+                        args.state_size.read(),
                     )
                 }});
             }
@@ -856,8 +853,7 @@ impl MethodDetails {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.#capacity_field.read() },
+                        args.#capacity_field.read(),
                     )
                 }});
             } else {
@@ -882,9 +878,7 @@ impl MethodDetails {
                         &args.#ptr_field,
                         args.#size_field.as_ref(),
                         // Size matches capacity for immutable inputs
-                        //
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.#size_field.read() },
+                        args.#size_field.read(),
                     )
                 }});
             }
@@ -942,8 +936,7 @@ impl MethodDetails {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.#capacity_field.read() },
+                        args.#capacity_field.read(),
                     )
                 }}
             } else {
@@ -968,9 +961,7 @@ impl MethodDetails {
                         &args.#ptr_field,
                         args.#size_field.as_ref(),
                         // Size matches capacity for immutable inputs
-                        //
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.#size_field.read() },
+                        args.#size_field.read(),
                     )
                 }}
             };
@@ -1027,9 +1018,7 @@ impl MethodDetails {
                             &args.#ptr_field,
                             args.#size_field.as_ref(),
                             // Size matches capacity for immutable inputs
-                            //
-                            // SAFETY: Must be initialized by host
-                            unsafe { args.#size_field.read() },
+                            args.#size_field.read(),
                         )
                     }});
                 }
@@ -1059,8 +1048,7 @@ impl MethodDetails {
                         <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                             &mut args.#ptr_field,
                             &mut args.#size_field,
-                            // SAFETY: Must be initialized by host
-                            unsafe { args.#capacity_field.read() },
+                            args.#capacity_field.read(),
                         )
                     }});
                 }
@@ -1093,8 +1081,7 @@ impl MethodDetails {
                         "`ok_result_ptr` pointer is misaligned"
                     );
                     debug_assert_eq!(
-                        // SAFETY: Must be initialized by host
-                        unsafe { args.ok_result_capacity.read() },
+                        args.ok_result_capacity.read(),
                         <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                         "`ok_result_capacity` specified is invalid",
                     );
@@ -1246,7 +1233,7 @@ impl MethodDetails {
                             crate_name: <#struct_name as ::ab_contracts_macros::__private::Contract>::CRATE_NAME,
                             main_contract_metadata: <#struct_name as ::ab_contracts_macros::__private::Contract>::MAIN_CONTRACT_METADATA,
                             method_fingerprint: &<#args_struct_name as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
-                            method_metadata: &METADATA,
+                            method_metadata: METADATA,
                             ffi_fn: #adapter_ffi_fn_name,
                         }
                     }
