@@ -1233,24 +1233,15 @@ impl MethodDetails {
                         unsafe { #ffi_fn_name(ptr.cast::<InternalArgs>()) }
                     }
 
-                    #[::ab_contracts_macros::__private::linkme::distributed_slice(
-                        ::ab_contracts_macros::__private::CONTRACTS_METHODS_FN_POINTERS
-                    )]
-                    static FN_POINTER: (
-                        &str,
-                        &[u8],
-                        &::ab_contracts_macros::__private::MethodFingerprint,
-                        &[u8],
-                        unsafe extern "C" fn(
-                            ::core::ptr::NonNull<::core::ptr::NonNull<::core::ffi::c_void>>,
-                        ) -> ::ab_contracts_macros::__private::ExitCode,
-                    ) = (
-                        <#struct_name as ::ab_contracts_macros::__private::Contract>::CRATE_NAME,
-                        <#struct_name as ::ab_contracts_macros::__private::Contract>::MAIN_CONTRACT_METADATA,
-                        &<#args_struct_name as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
-                        &METADATA,
-                        #adapter_ffi_fn_name,
-                    );
+                    ::ab_contracts_macros::__private::inventory::submit! {
+                        ::ab_contracts_macros::__private::ContractsMethodsFnPointer {
+                            crate_name: <#struct_name as ::ab_contracts_macros::__private::Contract>::CRATE_NAME,
+                            main_contract_metadata: <#struct_name as ::ab_contracts_macros::__private::Contract>::MAIN_CONTRACT_METADATA,
+                            method_fingerprint: &<#args_struct_name as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
+                            method_metadata: &METADATA,
+                            ffi_fn: #adapter_ffi_fn_name,
+                        }
+                    }
                 }
             }
         };
