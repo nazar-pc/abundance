@@ -203,35 +203,42 @@ where
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn set_size(&mut self, size: u32) {
-        debug_assert!(
-            size == size_of::<Self>() as u32,
-            "`set_size` called with invalid input"
-        );
+        debug_assert_eq!(size, T::SIZE, "`set_size` called with invalid input");
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
     ) -> impl Deref<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        debug_assert!(*size as usize == size_of::<Self>(), "Invalid size");
-        debug_assert!(*size <= capacity, "Size must not exceed capacity");
+        debug_assert_eq!(*size, T::SIZE, "Invalid size");
+        debug_assert!(
+            *size <= capacity,
+            "Size {size} must not exceed capacity {capacity}"
+        );
 
         // SAFETY: guaranteed by this function signature
         unsafe { ptr.as_ref() }
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         _size: &'a mut *mut u32,
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        debug_assert!(Self::SIZE <= capacity, "Size must not exceed capacity");
+        debug_assert!(
+            Self::SIZE <= capacity,
+            "Size {} must not exceed capacity {capacity}",
+            Self::SIZE
+        );
 
         // SAFETY: guaranteed by this function signature
         unsafe { ptr.as_mut() }

@@ -278,14 +278,16 @@ const fn enum_capacity(
             return None;
         }
 
-        let variant_capacity;
-        if has_fields {
-            // Variant capacity as if it was a struct
-            (variant_capacity, input) = forward_option!(struct_capacity(input, None, false));
-        } else {
-            // Variant capacity as if it was a struct without fields
-            (variant_capacity, input) = forward_option!(struct_capacity(input, Some(0), false));
-        }
+        let mut variant_capacity;
+
+        // Variant capacity as if it was a struct
+        (variant_capacity, input) = forward_option!(struct_capacity(
+            input,
+            if has_fields { None } else { Some(0) },
+            false
+        ));
+        // `+ 1` is for the discriminant
+        variant_capacity += 1;
 
         match enum_capacity {
             Some(capacity) => {

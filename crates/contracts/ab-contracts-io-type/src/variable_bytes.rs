@@ -121,10 +121,12 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
             size <= self.capacity,
-            "`set_size` called with invalid input"
+            "`set_size` called with invalid input {size} for capacity {}",
+            self.capacity
         );
 
         // SAFETY: guaranteed to be initialized by constructors
@@ -134,13 +136,17 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
     ) -> impl Deref<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        debug_assert!(*size <= capacity, "Size must not exceed capacity");
+        debug_assert!(
+            *size <= capacity,
+            "Size {size} must not exceed capacity {capacity}"
+        );
 
         DerefWrapper(Self {
             bytes: *ptr,
@@ -150,6 +156,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut *mut u32,
@@ -159,10 +166,13 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
         // SAFETY: Must be guaranteed by the caller + debug check above
         let size = unsafe { NonNull::new_unchecked(*size) };
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        debug_assert!(
-            unsafe { size.read() } <= capacity,
-            "Size must not exceed capacity"
-        );
+        {
+            let size = unsafe { size.read() };
+            debug_assert!(
+                size <= capacity,
+                "Size {size} must not exceed capacity {capacity}"
+            );
+        }
 
         DerefWrapper(Self {
             bytes: *ptr,
@@ -192,11 +202,12 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
+    #[track_caller]
     pub fn from_buffer<'a>(
         buffer: &'a [<Self as IoType>::PointerType],
         size: &'a u32,
     ) -> impl Deref<Target = Self> + 'a {
-        debug_assert!(buffer.len() == *size as usize, "Invalid size");
+        debug_assert_eq!(buffer.len(), *size as usize, "Invalid size");
 
         DerefWrapper(Self {
             bytes: NonNull::from_ref(buffer).cast::<<Self as IoType>::PointerType>(),
@@ -212,11 +223,12 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     //
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
+    #[track_caller]
     pub fn from_buffer_mut<'a>(
         buffer: &'a mut [<Self as IoType>::PointerType],
         size: &'a mut u32,
     ) -> impl DerefMut<Target = Self> + 'a {
-        debug_assert!(buffer.len() == *size as usize, "Invalid size");
+        debug_assert_eq!(buffer.len(), *size as usize, "Invalid size");
 
         DerefWrapper(Self {
             bytes: NonNull::from_mut(buffer).cast::<<Self as IoType>::PointerType>(),
@@ -234,11 +246,15 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     // shared reference for most practical purposes.
     // TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
     //  `CAPACITY as usize`
+    #[track_caller]
     pub fn from_uninit<'a, const CAPACITY: usize>(
         uninit: &'a mut MaybeUninit<[<Self as IoType>::PointerType; CAPACITY]>,
         size: &'a mut u32,
     ) -> impl Deref<Target = Self> + 'a {
-        debug_assert!(*size as usize <= CAPACITY, "Size must not exceed capacity");
+        debug_assert!(
+            *size as usize <= CAPACITY,
+            "Size {size} must not exceed capacity {CAPACITY}"
+        );
         let capacity = CAPACITY as u32;
 
         DerefWrapper(Self {

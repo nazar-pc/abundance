@@ -53,10 +53,12 @@ where
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
             size == 0 || size == self.size(),
-            "`set_size` called with invalid input"
+            "`set_size` called with invalid input {size} (self size {})",
+            self.size()
         );
 
         // SAFETY: guaranteed to be initialized by constructors
@@ -66,14 +68,18 @@ where
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
     ) -> impl Deref<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        debug_assert!(*size == 0 || *size == capacity, "Invalid size");
-        debug_assert!(capacity == Data::SIZE, "Invalid capacity");
+        debug_assert!(
+            *size == 0 || *size == capacity,
+            "Invalid size {size} for capacity {capacity}"
+        );
+        debug_assert_eq!(capacity, Data::SIZE, "Invalid capacity");
 
         let data = ptr.cast::<Data>();
         let size = NonNull::from_ref(size);
@@ -86,6 +92,7 @@ where
     }
 
     #[inline]
+    #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut *mut u32,
@@ -96,11 +103,14 @@ where
         let size = unsafe { NonNull::new_unchecked(*size) };
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         // SAFETY: Must be guaranteed by the caller
-        debug_assert!(
-            unsafe { size.read() == 0 || size.read() == capacity },
-            "Invalid size"
-        );
-        debug_assert!(capacity == Data::SIZE, "Invalid capacity");
+        {
+            let size = unsafe { size.read() };
+            debug_assert!(
+                size == 0 || size == capacity,
+                "Invalid size {size} for capacity {capacity}"
+            );
+        }
+        debug_assert_eq!(capacity, Data::SIZE, "Invalid capacity");
 
         let data = ptr.cast::<Data>();
 
@@ -156,11 +166,16 @@ where
     //
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
+    #[track_caller]
     pub fn from_buffer_mut<'a>(
         buffer: &'a mut Data,
         size: &'a mut u32,
     ) -> impl DerefMut<Target = Self> + 'a {
-        debug_assert!(*size == 0 || *size == Data::SIZE, "Invalid size");
+        debug_assert!(
+            *size == 0 || *size == Data::SIZE,
+            "Invalid size {size} (self size {})",
+            Data::SIZE
+        );
 
         DerefWrapper(Self {
             data: NonNull::from_mut(buffer).cast::<<Self as IoType>::PointerType>(),
@@ -180,11 +195,12 @@ where
     // shared reference for most practical purposes.
     // TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
     //  `CAPACITY as usize`
+    #[track_caller]
     pub fn from_uninit<'a>(
         uninit: &'a mut MaybeUninit<Data>,
         size: &'a mut u32,
     ) -> impl Deref<Target = Self> + 'a {
-        debug_assert!(*size == 0, "Invalid size");
+        debug_assert_eq!(*size, 0, "Invalid size");
 
         DerefWrapper(Self {
             data: NonNull::from_mut(uninit).cast::<<Self as IoType>::PointerType>(),

@@ -257,11 +257,9 @@ fn generate_trait_metadata(
                 -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
             {
                 ::ab_contracts_macros::__private::concat_metadata_sources(&[
-                    &[
-                        ::ab_contracts_macros::__private::ContractMetadataKind::Trait as u8,
-                        #( #trait_name_metadata, )*
-                        #num_methods
-                    ],
+                    &[::ab_contracts_macros::__private::ContractMetadataKind::Trait as u8],
+                    #trait_name_metadata,
+                    &[#num_methods],
                     #( ffi::#methods::METADATA, )*
                 ])
             }
