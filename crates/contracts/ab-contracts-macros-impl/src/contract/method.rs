@@ -26,6 +26,12 @@ impl MethodType {
 }
 
 #[derive(Clone)]
+struct Env {
+    arg_name: Ident,
+    mutability: Option<Token![mut]>,
+}
+
+#[derive(Clone)]
 struct Tmp {
     type_name: Type,
     arg_name: Ident,
@@ -110,7 +116,7 @@ pub(super) struct MethodDetails {
     method_type: MethodType,
     self_type: Type,
     state: Option<Option<Token![mut]>>,
-    env: Option<Option<Token![mut]>>,
+    env: Option<Env>,
     tmp: Option<Tmp>,
     slots: Vec<Slot>,
     io: Vec<IoArg>,
@@ -300,6 +306,7 @@ impl MethodDetails {
 
         if let Type::Reference(type_reference) = &*pat_type.ty
             && let Type::Path(_type_path) = &*type_reference.elem
+            && let Pat::Ident(pat_ident) = &*pat_type.pat
         {
             if type_reference.mutability.is_some() && !allow_mut {
                 return Err(Error::new(
@@ -308,7 +315,10 @@ impl MethodDetails {
                 ));
             }
 
-            self.env.replace(type_reference.mutability);
+            self.env.replace(Env {
+                arg_name: pat_ident.ident.clone(),
+                mutability: type_reference.mutability,
+            });
             Ok(())
         } else {
             Err(Error::new(
@@ -735,17 +745,17 @@ impl MethodDetails {
         // Optional state argument with pointer and size (+ capacity if mutable)
         if let Some(mutability) = self.state {
             internal_args_pointers.push(quote! {
-                pub state_ptr: ::core::ptr::NonNull<
+                pub self_ptr: ::core::ptr::NonNull<
                     <#self_type as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
             });
 
             if mutability.is_some() {
                 internal_args_pointers.push(quote! {
-                    /// Size of the contents `state_ptr` points to
-                    pub state_size: *mut u32,
-                    /// Capacity of the allocated memory following `state_ptr` points to
-                    pub state_capacity: ::core::ptr::NonNull<u32>,
+                    /// Size of the contents `self_ptr` points to
+                    pub self_size: *mut u32,
+                    /// Capacity of the allocated memory following `self_ptr` points to
+                    pub self_capacity: ::core::ptr::NonNull<u32>,
                 });
 
                 original_fn_args.push(quote! {&mut *{
@@ -760,15 +770,15 @@ impl MethodDetails {
                     };
 
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
-                        &mut args.state_ptr,
-                        &mut args.state_size,
-                        args.state_capacity.read(),
+                        &mut args.self_ptr,
+                        &mut args.self_size,
+                        args.self_capacity.read(),
                     )
                 }});
             } else {
                 internal_args_pointers.push(quote! {
-                    /// Size of the contents `state_ptr` points to
-                    pub state_size: ::core::ptr::NonNull<u32>,
+                    /// Size of the contents `self_ptr` points to
+                    pub self_size: ::core::ptr::NonNull<u32>,
                 });
 
                 original_fn_args.push(quote! {&*{
@@ -783,36 +793,40 @@ impl MethodDetails {
                     };
 
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_ptr(
-                        &args.state_ptr,
-                        args.state_size.as_ref(),
+                        &args.self_ptr,
+                        args.self_size.as_ref(),
                         // Size matches capacity for immutable inputs
-                        args.state_size.read(),
+                        args.self_size.read(),
                     )
                 }});
             }
         }
 
         // Optional environment argument with just a pointer
-        if let Some(mutability) = self.env {
+        if let Some(env) = &self.env {
+            let ptr_field = format_ident!("{}_ptr", env.arg_name);
+            let assert_msg = format!("`{ptr_field}` pointer is misaligned");
+            let mutability = env.mutability;
+
             internal_args_pointers.push(quote! {
-                // Use `Env` to check if method argument had correct type at compile time
-                pub env_ptr: ::core::ptr::NonNull<::ab_contracts_macros::__private::Env>,
+                // Use `Env` to check if method argument had the correct type at compile time
+                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Env>,
             });
 
             if mutability.is_some() {
                 original_fn_args.push(quote! {{
-                    debug_assert!(args.env_ptr.is_aligned(), "`env_ptr` pointer is misaligned");
-                    args.env_ptr.as_mut()
+                    debug_assert!(args.#ptr_field.is_aligned(), #assert_msg);
+                    args.#ptr_field.as_mut()
                 }});
             } else {
                 original_fn_args.push(quote! {{
-                    debug_assert!(args.env_ptr.is_aligned(), "`env_ptr` pointer is misaligned");
-                    args.env_ptr.as_ref()
+                    debug_assert!(args.#ptr_field.is_aligned(), #assert_msg);
+                    args.#ptr_field.as_ref()
                 }});
             }
         }
 
-        // Optional tmp argument with pointer to slot and size (+ capacity if mutable)
+        // Optional tmp argument with pointer and size (+ capacity if mutable)
         //
         // Also asserting that type is safe for memory copying.
         if let Some(tmp) = &self.tmp {
@@ -826,7 +840,10 @@ impl MethodDetails {
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
-                    <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
+                    <
+                        // Make sure `#[tmp]` type matches expected type
+                        <#self_type as ::ab_contracts_macros::__private::Contract>::Tmp as ::ab_contracts_macros::__private::IoType
+                    >::PointerType,
                 >,
             });
 
@@ -1373,8 +1390,8 @@ impl MethodDetails {
         // vector corresponds to one argument
         let mut method_metadata = Vec::new();
 
-        if let Some(mutability) = self.env {
-            let env_metadata_type = if mutability.is_some() {
+        if let Some(env) = &self.env {
+            let env_metadata_type = if env.mutability.is_some() {
                 "EnvRw"
             } else {
                 "EnvRo"
