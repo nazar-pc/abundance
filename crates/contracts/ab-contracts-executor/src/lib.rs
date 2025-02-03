@@ -373,7 +373,7 @@ impl ExecutorContext for NativeExecutorContext {
                             internal_args_cursor = internal_args_cursor.offset(1);
                         }
                     }
-                    ArgumentKind::SlotWithAddressRo => {
+                    ArgumentKind::SlotRo => {
                         let address_ptr = external_args_cursor.cast::<*const Address>();
                         // SAFETY: `external_args_cursor`'s must contain a pointer to address,
                         // moving right past that is safe
@@ -412,7 +412,7 @@ impl ExecutorContext for NativeExecutorContext {
                             internal_args_cursor = internal_args_cursor.offset(1);
                         }
                     }
-                    ArgumentKind::SlotWithAddressRw => {
+                    ArgumentKind::SlotRw => {
                         let address_ptr = external_args_cursor.cast::<*const Address>();
                         // SAFETY: `external_args_cursor`'s must contain a pointer to address,
                         // moving right past that is safe
@@ -451,91 +451,6 @@ impl ExecutorContext for NativeExecutorContext {
                             internal_args_cursor.cast::<*const Address>().write(address);
                             internal_args_cursor = internal_args_cursor.offset(1);
 
-                            let slot_ptr = internal_args_cursor.cast::<*mut u8>();
-                            *data_ptr = slot_ptr;
-
-                            slot_ptr.write(slot_bytes.as_mut_ptr());
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            internal_args_cursor.cast::<*mut u32>().write(size);
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            internal_args_cursor.cast::<*const u32>().write(capacity);
-                            internal_args_cursor = internal_args_cursor.offset(1);
-                        }
-                    }
-                    ArgumentKind::SlotWithoutAddressRo => {
-                        let address_ptr = external_args_cursor.cast::<*const Address>();
-                        // SAFETY: `external_args_cursor`'s must contain a pointer to address,
-                        // moving right past that is safe
-                        unsafe {
-                            external_args_cursor = external_args_cursor.offset(1);
-                        }
-
-                        // SAFETY: Address pointer must be correct in `external_args`
-                        let address = unsafe { &**address_ptr.as_ref() };
-
-                        let slot_bytes = used_slots.use_ro(address, contract)?;
-
-                        delayed_processing.push(DelayedProcessing::SlotReadOnly {
-                            size: slot_bytes.len() as u32,
-                        });
-                        let Some(DelayedProcessing::SlotReadOnly { size }) =
-                            delayed_processing.last()
-                        else {
-                            unreachable!("Just inserted `SlotReadOnly` entry; qed");
-                        };
-
-                        // Write data pointer + size
-                        //
-                        // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
-                        // above and aligned correctly
-                        unsafe {
-                            internal_args_cursor
-                                .cast::<*const u8>()
-                                .write(slot_bytes.as_ptr());
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            internal_args_cursor.cast::<*const u32>().write(size);
-                            internal_args_cursor = internal_args_cursor.offset(1);
-                        }
-                    }
-                    ArgumentKind::SlotWithoutAddressRw => {
-                        let address_ptr = external_args_cursor.cast::<*const Address>();
-                        // SAFETY: `external_args_cursor`'s must contain a pointer to address,
-                        // moving right past that is safe
-                        unsafe {
-                            external_args_cursor = external_args_cursor.offset(1);
-                        }
-
-                        // SAFETY: Address pointer must be correct in `external_args`
-                        let address = unsafe { &**address_ptr.as_ref() };
-
-                        let slot_bytes =
-                            used_slots.use_rw(address, contract, recommended_slot_capacity)?;
-
-                        delayed_processing.push(DelayedProcessing::SlotReadWrite {
-                            // Is updated below
-                            data_ptr: NonNull::dangling(),
-                            slot_ptr: NonNull::from_mut(&mut *slot_bytes),
-                            size: slot_bytes.len() as u32,
-                            capacity: slot_bytes.capacity() as u32,
-                        });
-                        let Some(DelayedProcessing::SlotReadWrite {
-                            data_ptr,
-                            size,
-                            capacity,
-                            ..
-                        }) = delayed_processing.last_mut()
-                        else {
-                            unreachable!("Just inserted `SlotReadWrite` entry; qed");
-                        };
-
-                        // Write data pointer + size + capacity
-                        //
-                        // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
-                        // above and aligned correctly
-                        unsafe {
                             let slot_ptr = internal_args_cursor.cast::<*mut u8>();
                             *data_ptr = slot_ptr;
 

@@ -137,10 +137,8 @@ impl<'metadata> MetadataDecoder<'metadata> {
             | ContractMetadataKind::EnvRw
             | ContractMetadataKind::TmpRo
             | ContractMetadataKind::TmpRw
-            | ContractMetadataKind::SlotWithAddressRo
-            | ContractMetadataKind::SlotWithAddressRw
-            | ContractMetadataKind::SlotWithoutAddressRo
-            | ContractMetadataKind::SlotWithoutAddressRw
+            | ContractMetadataKind::SlotRo
+            | ContractMetadataKind::SlotRw
             | ContractMetadataKind::Input
             | ContractMetadataKind::Output
             | ContractMetadataKind::Result => {
@@ -350,10 +348,8 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
             | ContractMetadataKind::EnvRw
             | ContractMetadataKind::TmpRo
             | ContractMetadataKind::TmpRw
-            | ContractMetadataKind::SlotWithAddressRo
-            | ContractMetadataKind::SlotWithAddressRw
-            | ContractMetadataKind::SlotWithoutAddressRo
-            | ContractMetadataKind::SlotWithoutAddressRw
+            | ContractMetadataKind::SlotRo
+            | ContractMetadataKind::SlotRw
             | ContractMetadataKind::Input
             | ContractMetadataKind::Output
             | ContractMetadataKind::Result => {
@@ -433,14 +429,10 @@ pub enum ArgumentKind {
     TmpRo,
     /// Corresponds to [`ContractMetadataKind::TmpRw`]
     TmpRw,
-    /// Corresponds to [`ContractMetadataKind::SlotWithAddressRo`]
-    SlotWithAddressRo,
-    /// Corresponds to [`ContractMetadataKind::SlotWithAddressRw`]
-    SlotWithAddressRw,
-    /// Corresponds to [`ContractMetadataKind::SlotWithoutAddressRo`]
-    SlotWithoutAddressRo,
-    /// Corresponds to [`ContractMetadataKind::SlotWithoutAddressRw`]
-    SlotWithoutAddressRw,
+    /// Corresponds to [`ContractMetadataKind::SlotRo`]
+    SlotRo,
+    /// Corresponds to [`ContractMetadataKind::SlotRw`]
+    SlotRw,
     /// Corresponds to [`ContractMetadataKind::Input`]
     Input,
     /// Corresponds to [`ContractMetadataKind::Output`]
@@ -499,10 +491,8 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             ContractMetadataKind::EnvRw => ArgumentKind::EnvRw,
             ContractMetadataKind::TmpRo => ArgumentKind::TmpRo,
             ContractMetadataKind::TmpRw => ArgumentKind::TmpRw,
-            ContractMetadataKind::SlotWithAddressRo => ArgumentKind::SlotWithAddressRo,
-            ContractMetadataKind::SlotWithAddressRw => ArgumentKind::SlotWithAddressRw,
-            ContractMetadataKind::SlotWithoutAddressRo => ArgumentKind::SlotWithoutAddressRo,
-            ContractMetadataKind::SlotWithoutAddressRw => ArgumentKind::SlotWithoutAddressRw,
+            ContractMetadataKind::SlotRo => ArgumentKind::SlotRo,
+            ContractMetadataKind::SlotRw => ArgumentKind::SlotRw,
             ContractMetadataKind::Input => ArgumentKind::Input,
             ContractMetadataKind::Output => ArgumentKind::Output,
             ContractMetadataKind::Result => ArgumentKind::Result,
@@ -529,26 +519,22 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                 | ArgumentKind::EnvRw
                 | ArgumentKind::TmpRo
                 | ArgumentKind::TmpRw
-                | ArgumentKind::SlotWithAddressRo
-                | ArgumentKind::SlotWithAddressRw
-                | ArgumentKind::SlotWithoutAddressRo
-                | ArgumentKind::SlotWithoutAddressRw
+                | ArgumentKind::SlotRo
+                | ArgumentKind::SlotRw
                 | ArgumentKind::Input
                 | ArgumentKind::Output
                 | ArgumentKind::Result => true,
             },
             MethodKind::ViewStateless | MethodKind::ViewStatefulRo => match argument_kind {
                 ArgumentKind::EnvRo
-                | ArgumentKind::SlotWithAddressRo
-                | ArgumentKind::SlotWithoutAddressRo
+                | ArgumentKind::SlotRo
                 | ArgumentKind::Input
                 | ArgumentKind::Output
                 | ArgumentKind::Result => true,
                 ArgumentKind::EnvRw
                 | ArgumentKind::TmpRo
                 | ArgumentKind::TmpRw
-                | ArgumentKind::SlotWithAddressRw
-                | ArgumentKind::SlotWithoutAddressRw => false,
+                | ArgumentKind::SlotRw => false,
             },
         };
 
@@ -563,10 +549,8 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             ArgumentKind::EnvRo | ArgumentKind::EnvRw => ("env", None),
             ArgumentKind::TmpRo
             | ArgumentKind::TmpRw
-            | ArgumentKind::SlotWithAddressRo
-            | ArgumentKind::SlotWithAddressRw
-            | ArgumentKind::SlotWithoutAddressRo
-            | ArgumentKind::SlotWithoutAddressRw
+            | ArgumentKind::SlotRo
+            | ArgumentKind::SlotRw
             | ArgumentKind::Input
             | ArgumentKind::Output
             | ArgumentKind::Result => {
@@ -597,10 +581,8 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                     | ArgumentKind::EnvRw
                     | ArgumentKind::TmpRo
                     | ArgumentKind::TmpRw
-                    | ArgumentKind::SlotWithAddressRo
-                    | ArgumentKind::SlotWithAddressRw
-                    | ArgumentKind::SlotWithoutAddressRo
-                    | ArgumentKind::SlotWithoutAddressRw => None,
+                    | ArgumentKind::SlotRo
+                    | ArgumentKind::SlotRw => None,
                     ArgumentKind::Input | ArgumentKind::Output => {
                         let recommended_capacity;
                         (recommended_capacity, *self.metadata) =

@@ -130,10 +130,8 @@ const fn compact_metadata_inner<'i, 'o>(
         | ContractMetadataKind::EnvRw
         | ContractMetadataKind::TmpRo
         | ContractMetadataKind::TmpRw
-        | ContractMetadataKind::SlotWithAddressRo
-        | ContractMetadataKind::SlotWithAddressRw
-        | ContractMetadataKind::SlotWithoutAddressRo
-        | ContractMetadataKind::SlotWithoutAddressRw
+        | ContractMetadataKind::SlotRo
+        | ContractMetadataKind::SlotRw
         | ContractMetadataKind::Input
         | ContractMetadataKind::Output
         | ContractMetadataKind::Result => {
@@ -174,10 +172,8 @@ const fn compact_method_argument<'i, 'o>(
         }
         ContractMetadataKind::TmpRo
         | ContractMetadataKind::TmpRw
-        | ContractMetadataKind::SlotWithAddressRo
-        | ContractMetadataKind::SlotWithAddressRw
-        | ContractMetadataKind::SlotWithoutAddressRo
-        | ContractMetadataKind::SlotWithoutAddressRw => {
+        | ContractMetadataKind::SlotRo
+        | ContractMetadataKind::SlotRw => {
             if input.is_empty() || output.is_empty() {
                 return None;
             }

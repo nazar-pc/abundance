@@ -57,10 +57,8 @@ pub enum ContractMetadataKind {
     ///   * [`Self::EnvRw`]
     ///   * [`Self::TmpRo`]
     ///   * [`Self::TmpRw`]
-    ///   * [`Self::SlotWithAddressRo`]
-    ///   * [`Self::SlotWithAddressRw`]
-    ///   * [`Self::SlotWithoutAddressRo`]
-    ///   * [`Self::SlotWithoutAddressRw`]
+    ///   * [`Self::SlotRo`]
+    ///   * [`Self::SlotRw`]
     ///   * [`Self::Input`]
     ///   * [`Self::Output`]
     ///   * [`Self::Result`]
@@ -120,19 +118,11 @@ pub enum ContractMetadataKind {
     /// Read-only `#[slot]` argument with an address.
     ///
     /// Example: `#[slot] (from_address, from): (&Address, &MaybeData<Slot>),`
-    SlotWithAddressRo,
+    SlotRo,
     /// Read-write `#[slot]` argument with an address.
     ///
     /// Example: `#[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),`
-    SlotWithAddressRw,
-    /// Read-only `#[slot]` argument without an address.
-    ///
-    /// Example: `#[slot] from: &MaybeData<Slot>,`
-    SlotWithoutAddressRo,
-    /// Read-write `#[slot]` argument without an address.
-    ///
-    /// Example: `#[slot] from: &mut MaybeData<Slot>,`
-    SlotWithoutAddressRw,
+    SlotRw,
     /// `#[input]` argument.
     ///
     /// Example: `#[input] balance: &Balance,`
@@ -168,13 +158,11 @@ impl ContractMetadataKind {
             9 => Self::EnvRw,
             10 => Self::TmpRo,
             11 => Self::TmpRw,
-            12 => Self::SlotWithAddressRo,
-            13 => Self::SlotWithAddressRw,
-            14 => Self::SlotWithoutAddressRo,
-            15 => Self::SlotWithoutAddressRw,
-            16 => Self::Input,
-            17 => Self::Output,
-            18 => Self::Result,
+            12 => Self::SlotRo,
+            13 => Self::SlotRw,
+            14 => Self::Input,
+            15 => Self::Output,
+            16 => Self::Result,
             _ => {
                 return None;
             }

@@ -26,6 +26,12 @@ impl MethodType {
 }
 
 #[derive(Clone)]
+struct Env {
+    arg_name: Ident,
+    mutability: Option<Token![mut]>,
+}
+
+#[derive(Clone)]
 struct Tmp {
     type_name: Type,
     arg_name: Ident,
@@ -34,7 +40,7 @@ struct Tmp {
 
 #[derive(Clone)]
 struct Slot {
-    with_address_arg: Option<Ident>,
+    with_address_arg: bool,
     type_name: Type,
     arg_name: Ident,
     mutability: Option<Token![mut]>,
@@ -110,7 +116,7 @@ pub(super) struct MethodDetails {
     method_type: MethodType,
     self_type: Type,
     state: Option<Option<Token![mut]>>,
-    env: Option<Option<Token![mut]>>,
+    env: Option<Env>,
     tmp: Option<Tmp>,
     slots: Vec<Slot>,
     io: Vec<IoArg>,
@@ -300,6 +306,7 @@ impl MethodDetails {
 
         if let Type::Reference(type_reference) = &*pat_type.ty
             && let Type::Path(_type_path) = &*type_reference.elem
+            && let Pat::Ident(pat_ident) = &*pat_type.pat
         {
             if type_reference.mutability.is_some() && !allow_mut {
                 return Err(Error::new(
@@ -308,7 +315,10 @@ impl MethodDetails {
                 ));
             }
 
-            self.env.replace(type_reference.mutability);
+            self.env.replace(Env {
+                arg_name: pat_ident.ident.clone(),
+                mutability: type_reference.mutability,
+            });
             Ok(())
         } else {
             Err(Error::new(
@@ -446,7 +456,7 @@ impl MethodDetails {
                 };
 
                 self.slots.push(Slot {
-                    with_address_arg: None,
+                    with_address_arg: false,
                     type_name: type_reference.elem.as_ref().clone(),
                     arg_name,
                     mutability: type_reference.mutability,
@@ -461,6 +471,9 @@ impl MethodDetails {
                     && address_type.mutability.is_none()
                     && let Type::Reference(outer_slot_type) =
                         type_tuple.elems.last().expect("Checked above; qed")
+                    && let Pat::Tuple(pat_tuple) = &*pat_type.pat
+                    && pat_tuple.elems.len() == 2
+                    && let Some(slot_arg) = extract_arg_name(&pat_tuple.elems[1])
                 {
                     if outer_slot_type.mutability.is_some() && !allow_mut {
                         return Err(Error::new(
@@ -469,27 +482,19 @@ impl MethodDetails {
                         ));
                     }
 
-                    let (address_arg, arg_name) = if let Pat::Tuple(pat_tuple) = &*pat_type.pat
-                        && pat_tuple.elems.len() == 2
-                        && let Some(address_arg) = extract_arg_name(&pat_tuple.elems[0])
-                        && let Some(slot_arg) = extract_arg_name(&pat_tuple.elems[1])
-                    {
-                        (address_arg, slot_arg)
-                    } else {
-                        return Err(Error::new(
-                            pat_type.span(),
-                            "`#[slot]` with address must be a tuple of arguments, each of \
-                            which is either a simple variable or a reference",
-                        ));
-                    };
-
                     self.slots.push(Slot {
-                        with_address_arg: Some(address_arg),
+                        with_address_arg: true,
                         type_name: outer_slot_type.elem.as_ref().clone(),
-                        arg_name,
+                        arg_name: slot_arg,
                         mutability: outer_slot_type.mutability,
                     });
                     return Ok(());
+                } else {
+                    return Err(Error::new(
+                        pat_type.span(),
+                        "`#[slot]` with address must be a tuple of arguments, each of which is \
+                        either a simple variable or a reference",
+                    ));
                 }
             }
             _ => {
@@ -735,17 +740,17 @@ impl MethodDetails {
         // Optional state argument with pointer and size (+ capacity if mutable)
         if let Some(mutability) = self.state {
             internal_args_pointers.push(quote! {
-                pub state_ptr: ::core::ptr::NonNull<
+                pub self_ptr: ::core::ptr::NonNull<
                     <#self_type as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
             });
 
             if mutability.is_some() {
                 internal_args_pointers.push(quote! {
-                    /// Size of the contents `state_ptr` points to
-                    pub state_size: *mut u32,
-                    /// Capacity of the allocated memory following `state_ptr` points to
-                    pub state_capacity: ::core::ptr::NonNull<u32>,
+                    /// Size of the contents `self_ptr` points to
+                    pub self_size: *mut u32,
+                    /// Capacity of the allocated memory following `self_ptr` points to
+                    pub self_capacity: ::core::ptr::NonNull<u32>,
                 });
 
                 original_fn_args.push(quote! {&mut *{
@@ -760,15 +765,15 @@ impl MethodDetails {
                     };
 
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
-                        &mut args.state_ptr,
-                        &mut args.state_size,
-                        args.state_capacity.read(),
+                        &mut args.self_ptr,
+                        &mut args.self_size,
+                        args.self_capacity.read(),
                     )
                 }});
             } else {
                 internal_args_pointers.push(quote! {
-                    /// Size of the contents `state_ptr` points to
-                    pub state_size: ::core::ptr::NonNull<u32>,
+                    /// Size of the contents `self_ptr` points to
+                    pub self_size: ::core::ptr::NonNull<u32>,
                 });
 
                 original_fn_args.push(quote! {&*{
@@ -783,36 +788,40 @@ impl MethodDetails {
                     };
 
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_ptr(
-                        &args.state_ptr,
-                        args.state_size.as_ref(),
+                        &args.self_ptr,
+                        args.self_size.as_ref(),
                         // Size matches capacity for immutable inputs
-                        args.state_size.read(),
+                        args.self_size.read(),
                     )
                 }});
             }
         }
 
         // Optional environment argument with just a pointer
-        if let Some(mutability) = self.env {
+        if let Some(env) = &self.env {
+            let ptr_field = format_ident!("{}_ptr", env.arg_name);
+            let assert_msg = format!("`{ptr_field}` pointer is misaligned");
+            let mutability = env.mutability;
+
             internal_args_pointers.push(quote! {
-                // Use `Env` to check if method argument had correct type at compile time
-                pub env_ptr: ::core::ptr::NonNull<::ab_contracts_macros::__private::Env>,
+                // Use `Env` to check if method argument had the correct type at compile time
+                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Env>,
             });
 
             if mutability.is_some() {
                 original_fn_args.push(quote! {{
-                    debug_assert!(args.env_ptr.is_aligned(), "`env_ptr` pointer is misaligned");
-                    args.env_ptr.as_mut()
+                    debug_assert!(args.#ptr_field.is_aligned(), #assert_msg);
+                    args.#ptr_field.as_mut()
                 }});
             } else {
                 original_fn_args.push(quote! {{
-                    debug_assert!(args.env_ptr.is_aligned(), "`env_ptr` pointer is misaligned");
-                    args.env_ptr.as_ref()
+                    debug_assert!(args.#ptr_field.is_aligned(), #assert_msg);
+                    args.#ptr_field.as_ref()
                 }});
             }
         }
 
-        // Optional tmp argument with pointer to slot and size (+ capacity if mutable)
+        // Optional tmp argument with pointer and size (+ capacity if mutable)
         //
         // Also asserting that type is safe for memory copying.
         if let Some(tmp) = &self.tmp {
@@ -826,7 +835,10 @@ impl MethodDetails {
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
-                    <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
+                    <
+                        // Make sure `#[tmp]` type matches expected type
+                        <#self_type as ::ab_contracts_macros::__private::Contract>::Tmp as ::ab_contracts_macros::__private::IoType
+                    >::PointerType,
                 >,
             });
 
@@ -891,16 +903,9 @@ impl MethodDetails {
         //
         // Also asserting that type is safe for memory copying.
         for slot in &self.slots {
-            if let Some(address_arg) = &slot.with_address_arg {
-                let address_ptr = format_ident!("{address_arg}_ptr");
-                internal_args_pointers.push(quote! {
-                    // Use `Address` to check if method argument had correct type at compile time
-                    pub #address_ptr: ::core::ptr::NonNull<::ab_contracts_macros::__private::Address>,
-                });
-            }
-
             let type_name = &slot.type_name;
             let mutability = slot.mutability;
+            let address_ptr_field = format_ident!("{}_address_ptr", slot.arg_name);
             let ptr_field = format_ident!("{}_ptr", slot.arg_name);
             let size_field = format_ident!("{}_size", slot.arg_name);
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
@@ -908,6 +913,8 @@ impl MethodDetails {
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
 
             internal_args_pointers.push(quote! {
+                // Use `Address` to check if method argument had the correct type at compile time
+                pub #address_ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Address>,
                 pub #ptr_field: ::core::ptr::NonNull<
                     <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
@@ -966,12 +973,11 @@ impl MethodDetails {
                 }}
             };
 
-            if let Some(address_arg) = &slot.with_address_arg {
-                let address_ptr = format_ident!("{address_arg}_ptr");
+            if slot.with_address_arg {
                 original_fn_args.push(quote! {
                     (
                         &<::ab_contracts_macros::__private::Address as ::ab_contracts_macros::__private::IoType>::from_ptr(
-                            &args.#address_ptr,
+                            &args.#address_ptr_field,
                             &<::ab_contracts_macros::__private::Address as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                             <::ab_contracts_macros::__private::Address as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                         ),
@@ -1373,8 +1379,8 @@ impl MethodDetails {
         // vector corresponds to one argument
         let mut method_metadata = Vec::new();
 
-        if let Some(mutability) = self.env {
-            let env_metadata_type = if mutability.is_some() {
+        if let Some(env) = &self.env {
+            let env_metadata_type = if env.mutability.is_some() {
                 "EnvRw"
             } else {
                 "EnvRo"
@@ -1402,13 +1408,10 @@ impl MethodDetails {
         }
 
         for slot in &self.slots {
-            let with_address = slot.with_address_arg.is_some();
-            let mutable = slot.mutability.is_some();
-            let slot_metadata_type = match (with_address, mutable) {
-                (true, true) => "SlotWithAddressRw",
-                (true, false) => "SlotWithAddressRo",
-                (false, true) => "SlotWithoutAddressRw",
-                (false, false) => "SlotWithoutAddressRo",
+            let slot_metadata_type = if slot.mutability.is_some() {
+                "SlotRw"
+            } else {
+                "SlotRo"
             };
 
             let slot_metadata_type = format_ident!("{slot_metadata_type}");
