@@ -1396,10 +1396,8 @@ impl MethodDetails {
             let tmp_metadata_type = format_ident!("{tmp_metadata_type}");
             let arg_name_metadata = derive_ident_metadata(&tmp.arg_name)?;
             method_metadata.push(quote! {
-                &[
-                    ::ab_contracts_macros::__private::ContractMetadataKind::#tmp_metadata_type as u8,
-                    #( #arg_name_metadata, )*
-                ],
+                &[::ab_contracts_macros::__private::ContractMetadataKind::#tmp_metadata_type as u8],
+                #arg_name_metadata,
             });
         }
 
@@ -1416,10 +1414,8 @@ impl MethodDetails {
             let slot_metadata_type = format_ident!("{slot_metadata_type}");
             let arg_name_metadata = derive_ident_metadata(&slot.arg_name)?;
             method_metadata.push(quote! {
-                &[
-                    ::ab_contracts_macros::__private::ContractMetadataKind::#slot_metadata_type as u8,
-                    #( #arg_name_metadata, )*
-                ],
+                &[::ab_contracts_macros::__private::ContractMetadataKind::#slot_metadata_type as u8],
+                #arg_name_metadata,
             });
         }
 
@@ -1445,10 +1441,8 @@ impl MethodDetails {
                 })
             };
             method_metadata.push(quote! {
-                &[
-                    ::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as u8,
-                    #( #arg_name_metadata, )*
-                ],
+                &[::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as u8],
+                #arg_name_metadata,
                 #with_type_metadata
             });
         }
@@ -1520,11 +1514,9 @@ impl MethodDetails {
                 -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
             {
                 ::ab_contracts_macros::__private::concat_metadata_sources(&[
-                    &[
-                        ::ab_contracts_macros::__private::ContractMetadataKind::#method_type as u8,
-                        #( #method_name_metadata, )*
-                        #number_of_arguments,
-                    ],
+                    &[::ab_contracts_macros::__private::ContractMetadataKind::#method_type as u8],
+                    #method_name_metadata,
+                    &[#number_of_arguments],
                     #( #method_metadata )*
                 ])
             }
