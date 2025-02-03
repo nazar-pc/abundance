@@ -25,7 +25,7 @@
 //!
 //! Following arguments are supported by this method (must be in this order):
 //! * `#[env]` read-only and read-write
-//! * `#[tmp]`
+//! * `#[tmp]` read-only and read-write
 //! * `#[slot]` read-only and read-write
 //! * `#[input]`
 //! * `#[output]`
@@ -41,7 +41,7 @@
 //! Following arguments are supported by this method (must be in this order):
 //! * `&self` or `&mut self` depending on whether state reads and/or modification are required
 //! * `#[env]` read-only and read-write
-//! * `#[tmp]`
+//! * `#[tmp]` read-only and read-write
 //! * `#[slot]` read-only and read-write
 //! * `#[input]`
 //! * `#[output]`

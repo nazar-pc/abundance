@@ -41,11 +41,11 @@ impl Fungible for Example {
         #[input] to: &Address,
         #[input] amount: &Balance,
     ) -> Result<(), ContractError> {
-        if from == env.own_address() && env.caller() != env.own_address() {
+        if !(env.context() == from || env.caller() == from || env.caller() == env.own_address()) {
             return Err(ContractError::AccessDenied);
         }
 
-        env.example_transfer(&MethodContext::Keep, env.own_address(), from, to, amount)
+        env.example_transfer(&MethodContext::Replace, env.own_address(), from, to, amount)
     }
 
     #[view]
@@ -150,7 +150,10 @@ impl Example {
         #[slot] to: &mut MaybeData<Slot>,
         #[input] &amount: &Balance,
     ) -> Result<(), ContractError> {
-        if env.context() != from_address && env.caller() != from_address {
+        if !(env.context() == from_address
+            || env.caller() == from_address
+            || env.caller() == env.own_address())
+        {
             return Err(ContractError::AccessDenied);
         }
 

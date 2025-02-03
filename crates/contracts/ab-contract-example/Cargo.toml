@@ -16,6 +16,11 @@ ab-contracts-io-type = { version = "0.0.1", path = "../ab-contracts-io-type" }
 ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
 ab-contracts-standards = { version = "0.0.1", path = "../ab-contracts-standards" }
 
+[dev-dependencies]
+ab-contracts-executor = { version = "0.0.1", path = "../ab-contracts-executor", features = ["system-contracts"] }
+ab-system-contract-code = { version = "0.0.1", path = "../ab-system-contract-code" }
+tracing-subscriber = "0.3.19"
+
 [features]
 guest = [
     "ab-contracts-common/guest",

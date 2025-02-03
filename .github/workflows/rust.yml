@@ -97,6 +97,6 @@ jobs:
         with:
           tool: cargo-nextest
 
-      - name: cargo nextest run --locked --no-tests=pass
+      - name: cargo nextest run --locked
         run: |
-          cargo -Zgitoxide -Zgit nextest run --locked --no-tests=pass
+          cargo -Zgitoxide -Zgit nextest run --locked
