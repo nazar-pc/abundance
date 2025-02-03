@@ -916,7 +916,10 @@ impl MethodDetails {
                 // Use `Address` to check if method argument had the correct type at compile time
                 pub #address_ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Address>,
                 pub #ptr_field: ::core::ptr::NonNull<
-                    <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
+                    <
+                        // Make sure `#[slot]` type matches expected type
+                        <#self_type as ::ab_contracts_macros::__private::Contract>::Slot as ::ab_contracts_macros::__private::IoType
+                    >::PointerType,
                 >,
             });
 
@@ -1352,8 +1355,7 @@ impl MethodDetails {
         Ok(quote_spanned! {fn_sig.span() =>
             #[doc = #args_struct_doc]
             #[repr(C)]
-            pub struct #args_struct_name
-            {
+            pub struct #args_struct_name {
                 #( #external_args_fields )*
             }
 
