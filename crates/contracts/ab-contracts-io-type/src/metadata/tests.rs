@@ -15,13 +15,11 @@ fn check_repr() {
         (ContractMetadataKind::EnvRw, 9),
         (ContractMetadataKind::TmpRo, 10),
         (ContractMetadataKind::TmpRw, 11),
-        (ContractMetadataKind::SlotWithAddressRo, 12),
-        (ContractMetadataKind::SlotWithAddressRw, 13),
-        (ContractMetadataKind::SlotWithoutAddressRo, 14),
-        (ContractMetadataKind::SlotWithoutAddressRw, 15),
-        (ContractMetadataKind::Input, 16),
-        (ContractMetadataKind::Output, 17),
-        (ContractMetadataKind::Result, 18),
+        (ContractMetadataKind::SlotRo, 12),
+        (ContractMetadataKind::SlotRw, 13),
+        (ContractMetadataKind::Input, 14),
+        (ContractMetadataKind::Output, 15),
+        (ContractMetadataKind::Result, 16),
     ];
 
     for (kind, repr_byte) in known_variants {
