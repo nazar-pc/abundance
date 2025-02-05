@@ -51,11 +51,11 @@ impl Code {
         // Allow updates to system deploy contract (for initial deployment) and to contract itself
         // for upgrades, but only direct calls
         if !(env.caller() == env.own_address() || env.caller() == address) {
-            return Err(ContractError::AccessDenied);
+            return Err(ContractError::Forbidden);
         }
 
         if !contract_code.copy_from(new_code) {
-            return Err(ContractError::InvalidInput);
+            return Err(ContractError::BadInput);
         }
 
         Ok(())
@@ -70,7 +70,7 @@ impl Code {
         if code.copy_from(contract_code) {
             Ok(())
         } else {
-            Err(ContractError::InvalidInput)
+            Err(ContractError::BadInput)
         }
     }
 }

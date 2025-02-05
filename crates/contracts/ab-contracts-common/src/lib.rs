@@ -67,11 +67,14 @@ pub trait Contract: IoType {
 #[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ContractError {
-    NotFound = 1,
-    InvalidState,
-    InvalidInput,
-    InvalidOutput,
-    AccessDenied,
+    BadInput = 1,
+    BadOutput,
+    Forbidden,
+    NotFound,
+    Conflict,
+    PreconditionFailed,
+    InternalError = 128,
+    NotImplemented,
 }
 
 impl ContractError {
@@ -81,11 +84,14 @@ impl ContractError {
     #[inline]
     pub const fn exit_code(self) -> ExitCode {
         match self {
+            Self::BadInput => ExitCode::BadInput,
+            Self::BadOutput => ExitCode::BadOutput,
+            Self::Forbidden => ExitCode::Forbidden,
             Self::NotFound => ExitCode::NotFound,
-            Self::InvalidState => ExitCode::InvalidState,
-            Self::InvalidInput => ExitCode::InvalidInput,
-            Self::InvalidOutput => ExitCode::InvalidOutput,
-            Self::AccessDenied => ExitCode::AccessDenied,
+            Self::Conflict => ExitCode::Conflict,
+            Self::PreconditionFailed => ExitCode::PreconditionFailed,
+            Self::InternalError => ExitCode::InternalError,
+            Self::NotImplemented => ExitCode::NotImplemented,
         }
     }
 }
@@ -95,11 +101,14 @@ impl ContractError {
 #[must_use = "Code can be Ok or one of the errors, consider converting to Result<(), ContractCode>"]
 pub enum ExitCode {
     Ok = 0,
-    NotFound = 1,
-    InvalidState,
-    InvalidInput,
-    InvalidOutput,
-    AccessDenied,
+    BadInput = 1,
+    BadOutput,
+    Forbidden,
+    NotFound,
+    Conflict,
+    PreconditionFailed,
+    InternalError = 128,
+    NotImplemented,
 }
 
 impl From<ContractError> for ExitCode {
@@ -124,11 +133,14 @@ impl From<ExitCode> for Result<(), ContractError> {
     fn from(value: ExitCode) -> Self {
         match value {
             ExitCode::Ok => Ok(()),
+            ExitCode::BadInput => Err(ContractError::BadInput),
+            ExitCode::BadOutput => Err(ContractError::BadOutput),
+            ExitCode::Forbidden => Err(ContractError::Forbidden),
             ExitCode::NotFound => Err(ContractError::NotFound),
-            ExitCode::InvalidState => Err(ContractError::InvalidState),
-            ExitCode::InvalidInput => Err(ContractError::InvalidInput),
-            ExitCode::InvalidOutput => Err(ContractError::InvalidOutput),
-            ExitCode::AccessDenied => Err(ContractError::AccessDenied),
+            ExitCode::Conflict => Err(ContractError::Conflict),
+            ExitCode::PreconditionFailed => Err(ContractError::PreconditionFailed),
+            ExitCode::InternalError => Err(ContractError::InternalError),
+            ExitCode::NotImplemented => Err(ContractError::NotImplemented),
         }
     }
 }

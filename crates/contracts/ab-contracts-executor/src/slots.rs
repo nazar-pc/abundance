@@ -57,7 +57,7 @@ impl SlotAccess {
                 *counter += 1;
                 Ok(bytes)
             }
-            SlotAccess::ReadWrite { .. } => Err(ContractError::InvalidInput),
+            SlotAccess::ReadWrite { .. } => Err(ContractError::BadInput),
         }
     }
 }
@@ -125,7 +125,7 @@ impl<'a> UsedSlots<'a> {
         match self.used_slots.entry(UsedSlot { owner, contract }) {
             Entry::Occupied(_entry) => {
                 warn!(%owner, "Failed to access rw slot");
-                Err(ContractError::InvalidInput)
+                Err(ContractError::BadInput)
             }
             Entry::Vacant(entry) => {
                 // TODO: If there were no recursive calls, we could simply remove original bytes and

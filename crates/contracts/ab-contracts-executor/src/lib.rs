@@ -175,13 +175,13 @@ impl ExecutorContext for NativeExecutorContext {
                     .ok_or_else(|| {
                         let code = String::from_utf8_lossy(&code);
                         error!(%code, "Contract's code not found in methods map");
-                        ContractError::InvalidState
+                        ContractError::InternalError
                     })?
                     .get(fingerprint)
                     .ok_or_else(|| {
                         let code = String::from_utf8_lossy(&code);
                         error!(%code, %fingerprint, "Method's fingerprint not found");
-                        ContractError::InvalidState
+                        ContractError::NotImplemented
                     })?
             };
 
@@ -200,7 +200,7 @@ impl ExecutorContext for NativeExecutorContext {
                     Ok(result) => result,
                     Err(error) => {
                         error!(%error, "Method metadata decoding error");
-                        return Err(ContractError::InvalidState);
+                        return Err(ContractError::InternalError);
                     }
                 };
             let MethodMetadataItem {
@@ -296,7 +296,7 @@ impl ExecutorContext for NativeExecutorContext {
                     Ok(result) => result,
                     Err(error) => {
                         error!(%error, "Argument metadata decoding error");
-                        return Err(ContractError::InvalidState);
+                        return Err(ContractError::InternalError);
                     }
                 };
 
@@ -481,7 +481,7 @@ impl ExecutorContext for NativeExecutorContext {
 
                             if !state_bytes.is_empty() {
                                 debug!("Can't initialize already initialized contract");
-                                return Err(ContractError::AccessDenied);
+                                return Err(ContractError::Forbidden);
                             }
 
                             delayed_processing.push(DelayedProcessing::SlotReadWrite {
@@ -561,7 +561,7 @@ impl ExecutorContext for NativeExecutorContext {
                         if data_ptr != slot_bytes.as_mut_ptr() {
                             if data_ptr.is_null() {
                                 error!("Contract returned `null` pointer for slot data");
-                                return Err(ContractError::InvalidOutput);
+                                return Err(ContractError::BadOutput);
                             }
                             // SAFETY: For native execution guest behavior is assumed to be trusted
                             // and provide a correct pointer and size
@@ -576,7 +576,7 @@ impl ExecutorContext for NativeExecutorContext {
                                 capacity = %slot_bytes.capacity(),
                                 "Contract returned invalid size for slot data in source allocation"
                             );
-                            return Err(ContractError::InvalidOutput);
+                            return Err(ContractError::BadOutput);
                         }
                         // Otherwise, set the size to what guest claims
                         //

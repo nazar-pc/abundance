@@ -40,13 +40,13 @@ impl AddressAllocator {
     #[update]
     pub fn allocate_address(&mut self, #[env] env: &mut Env) -> Result<Address, ContractError> {
         if env.caller() != Address::SYSTEM_CODE {
-            return Err(ContractError::AccessDenied);
+            return Err(ContractError::Forbidden);
         }
 
         let next_address = self.next_address;
         if next_address == self.max_address {
             // No more addresses can be allocated on this shard
-            return Err(ContractError::InvalidState);
+            return Err(ContractError::Forbidden);
         }
 
         self.next_address += 1;

@@ -42,7 +42,7 @@ impl Fungible for Example {
         #[input] amount: &Balance,
     ) -> Result<(), ContractError> {
         if !(env.context() == from || env.caller() == from || env.caller() == env.own_address()) {
-            return Err(ContractError::AccessDenied);
+            return Err(ContractError::Forbidden);
         }
 
         env.example_transfer(&MethodContext::Replace, env.own_address(), from, to, amount)
@@ -89,11 +89,11 @@ impl Example {
         #[input] &value: &Balance,
     ) -> Result<(), ContractError> {
         if env.context() != self.owner && env.caller() != self.owner {
-            return Err(ContractError::AccessDenied);
+            return Err(ContractError::Forbidden);
         }
 
         if Balance::MAX - value > self.total_supply {
-            return Err(ContractError::InvalidInput);
+            return Err(ContractError::BadInput);
         }
 
         self.total_supply += value;
@@ -154,17 +154,17 @@ impl Example {
             || env.caller() == from_address
             || env.caller() == env.own_address())
         {
-            return Err(ContractError::AccessDenied);
+            return Err(ContractError::Forbidden);
         }
 
         {
             let Some(contents) = from.get_mut() else {
-                return Err(ContractError::InvalidState);
+                return Err(ContractError::PreconditionFailed);
             };
 
             match contents.balance.cmp(&amount) {
                 Ordering::Less => {
-                    return Err(ContractError::InvalidInput);
+                    return Err(ContractError::BadInput);
                 }
                 Ordering::Equal => {
                     // All balance is transferred out, remove slot contents

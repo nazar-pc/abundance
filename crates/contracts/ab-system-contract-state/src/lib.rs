@@ -24,11 +24,11 @@ impl State {
     ) -> Result<(), ContractError> {
         // TODO: Check shard
         if env.caller() != address {
-            return Err(ContractError::AccessDenied);
+            return Err(ContractError::Forbidden);
         }
 
         if !contract_state.copy_from(new_state) {
-            return Err(ContractError::InvalidInput);
+            return Err(ContractError::BadInput);
         }
 
         Ok(())
@@ -43,7 +43,7 @@ impl State {
         if state.copy_from(contract_state) {
             Ok(())
         } else {
-            Err(ContractError::InvalidInput)
+            Err(ContractError::BadInput)
         }
     }
 
