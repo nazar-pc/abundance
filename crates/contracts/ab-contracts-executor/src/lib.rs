@@ -23,9 +23,52 @@ use ab_system_contract_state::State;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ptr::NonNull;
+use std::slice;
 use std::sync::{Arc, Weak};
-use std::{ptr, slice};
 use tracing::{debug, error, info_span};
+
+/// Read a pointer of type `$ty` from `$external` and advance `$external` past it
+macro_rules! read_ptr {
+    ($external:ident as $ty:ty) => {{
+        let ptr = NonNull::<NonNull<c_void>>::cast::<$ty>($external).read();
+
+        $external = $external.offset(1);
+
+        ptr
+    }};
+}
+
+/// Write a `$src` pointer of type `$ty` into `$internal`, advance `$internal` past written pointer
+/// and return pointer to the written location
+macro_rules! write_ptr {
+    ($src:expr => $internal:ident as $ty:ty) => {{
+        let ptr = NonNull::<*mut c_void>::cast::<$ty>($internal);
+        ptr.write($src);
+
+        $internal = $internal.offset(1);
+
+        ptr
+    }};
+}
+
+/// Read a pointer from `$external`, write into `$internal`, advance both `$external` and
+/// `$internal` by pointer size and return read pointer
+macro_rules! copy_ptr {
+    ($external:ident => $internal:ident as $ty:ty) => {{
+        let ptr;
+        {
+            let src = NonNull::<NonNull<c_void>>::cast::<$ty>($external);
+            let dst = NonNull::<*mut c_void>::cast::<$ty>($internal);
+            ptr = src.read();
+            dst.write(ptr);
+        }
+
+        $external = $external.offset(1);
+        $internal = $internal.offset(1);
+
+        ptr
+    }};
+}
 
 /// Stores details about arguments that need to be processed after FFI call
 enum DelayedProcessing {
@@ -205,18 +248,11 @@ impl ExecutorContext for NativeExecutorContext {
                         unreachable!("Just inserted `SlotReadOnly` entry; qed");
                     };
 
-                    // Write data pointer + size
-                    //
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
                     unsafe {
-                        internal_args_cursor
-                            .cast::<*const u8>()
-                            .write(state_bytes.as_ptr());
-                        internal_args_cursor = internal_args_cursor.offset(1);
-
-                        internal_args_cursor.cast::<*const u32>().write(size);
-                        internal_args_cursor = internal_args_cursor.offset(1);
+                        write_ptr!(state_bytes.as_ptr() => internal_args_cursor as *const u8);
+                        write_ptr!(size => internal_args_cursor as *const u32);
                     }
                 }
                 MethodKind::UpdateStatefulRw => {
@@ -243,22 +279,13 @@ impl ExecutorContext for NativeExecutorContext {
                         unreachable!("Just inserted `SlotReadWrite` entry; qed");
                     };
 
-                    // Write data pointer + size + capacity
-                    //
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
                     unsafe {
-                        let state_ptr = internal_args_cursor.cast::<*mut u8>();
-                        *data_ptr = state_ptr;
-
-                        state_ptr.write(state_bytes.as_mut_ptr());
-                        internal_args_cursor = internal_args_cursor.offset(1);
-
-                        internal_args_cursor.cast::<*mut u32>().write(size);
-                        internal_args_cursor = internal_args_cursor.offset(1);
-
-                        internal_args_cursor.cast::<*const u32>().write(capacity);
-                        internal_args_cursor = internal_args_cursor.offset(1);
+                        *data_ptr =
+                            write_ptr!(state_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
+                        write_ptr!(size => internal_args_cursor as *mut u32);
+                        write_ptr!(capacity => internal_args_cursor as *const u32);
                     }
                 }
             }
@@ -280,10 +307,7 @@ impl ExecutorContext for NativeExecutorContext {
                         // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                         // above and aligned correctly
                         unsafe {
-                            internal_args_cursor
-                                .cast::<*const c_void>()
-                                .write(ptr::from_ref(&env).cast::<c_void>());
-                            internal_args_cursor = internal_args_cursor.offset(1);
+                            write_ptr!(&env => internal_args_cursor as *const Env);
                         }
 
                         // Size for `#[env]` is implicit and doesn't need to be added to
@@ -293,10 +317,7 @@ impl ExecutorContext for NativeExecutorContext {
                         // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                         // above and aligned correctly
                         unsafe {
-                            internal_args_cursor
-                                .cast::<*mut c_void>()
-                                .write(ptr::from_mut(&mut env).cast::<c_void>());
-                            internal_args_cursor = internal_args_cursor.offset(1);
+                            write_ptr!(&mut env => internal_args_cursor as *mut Env);
                         }
 
                         // Size for `#[env]` is implicit and doesn't need to be added to
@@ -316,18 +337,11 @@ impl ExecutorContext for NativeExecutorContext {
                             unreachable!("Just inserted `SlotReadOnly` entry; qed");
                         };
 
-                        // Write data pointer + size
-                        //
                         // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                         // above and aligned correctly
                         unsafe {
-                            internal_args_cursor
-                                .cast::<*const u8>()
-                                .write(tmp_bytes.as_ptr());
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            internal_args_cursor.cast::<*const u32>().write(size);
-                            internal_args_cursor = internal_args_cursor.offset(1);
+                            write_ptr!(tmp_bytes.as_ptr() => internal_args_cursor as *const u8);
+                            write_ptr!(size => internal_args_cursor as *const u32);
                         }
                     }
                     ArgumentKind::TmpRw => {
@@ -356,34 +370,19 @@ impl ExecutorContext for NativeExecutorContext {
                             unreachable!("Just inserted `SlotReadWrite` entry; qed");
                         };
 
-                        // Write data pointer + size + capacity
-                        //
                         // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                         // above and aligned correctly
                         unsafe {
-                            let tmp_ptr = internal_args_cursor.cast::<*mut u8>();
-                            *data_ptr = tmp_ptr;
-
-                            tmp_ptr.write(tmp_bytes.as_mut_ptr());
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            internal_args_cursor.cast::<*mut u32>().write(size);
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            internal_args_cursor.cast::<*const u32>().write(capacity);
-                            internal_args_cursor = internal_args_cursor.offset(1);
+                            *data_ptr = write_ptr!(tmp_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
+                            write_ptr!(size => internal_args_cursor as *mut u32);
+                            write_ptr!(capacity => internal_args_cursor as *const u32);
                         }
                     }
                     ArgumentKind::SlotRo => {
-                        let address_ptr = external_args_cursor.cast::<*const Address>();
-                        // SAFETY: `external_args_cursor`'s must contain a pointer to address,
+                        // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
                         // moving right past that is safe
-                        unsafe {
-                            external_args_cursor = external_args_cursor.offset(1);
-                        }
-
-                        // SAFETY: Address pointer must be correct in `external_args`
-                        let address = unsafe { &**address_ptr.as_ref() };
+                        let address =
+                            unsafe { &*read_ptr!(external_args_cursor as *const Address) };
 
                         let slot_bytes = used_slots.use_ro(address, contract)?;
 
@@ -396,33 +395,19 @@ impl ExecutorContext for NativeExecutorContext {
                             unreachable!("Just inserted `SlotReadOnly` entry; qed");
                         };
 
-                        // Write address + data pointer + size
-                        //
                         // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                         // above and aligned correctly
                         unsafe {
-                            internal_args_cursor.cast::<*const Address>().write(address);
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            internal_args_cursor
-                                .cast::<*const u8>()
-                                .write(slot_bytes.as_ptr());
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            internal_args_cursor.cast::<*const u32>().write(size);
-                            internal_args_cursor = internal_args_cursor.offset(1);
+                            write_ptr!(address => internal_args_cursor as *const Address);
+                            write_ptr!(slot_bytes.as_ptr() => internal_args_cursor as *const u8);
+                            write_ptr!(size => internal_args_cursor as *const u32);
                         }
                     }
                     ArgumentKind::SlotRw => {
-                        let address_ptr = external_args_cursor.cast::<*const Address>();
-                        // SAFETY: `external_args_cursor`'s must contain a pointer to address,
+                        // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
                         // moving right past that is safe
-                        unsafe {
-                            external_args_cursor = external_args_cursor.offset(1);
-                        }
-
-                        // SAFETY: Address pointer must be correct in `external_args`
-                        let address = unsafe { &**address_ptr.as_ref() };
+                        let address =
+                            unsafe { &*read_ptr!(external_args_cursor as *const Address) };
 
                         let slot_bytes =
                             used_slots.use_rw(address, contract, recommended_slot_capacity)?;
@@ -444,25 +429,13 @@ impl ExecutorContext for NativeExecutorContext {
                             unreachable!("Just inserted `SlotReadWrite` entry; qed");
                         };
 
-                        // Write address + data pointer + size + capacity
-                        //
                         // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                         // above and aligned correctly
                         unsafe {
-                            internal_args_cursor.cast::<*const Address>().write(address);
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            let slot_ptr = internal_args_cursor.cast::<*mut u8>();
-                            *data_ptr = slot_ptr;
-
-                            slot_ptr.write(slot_bytes.as_mut_ptr());
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            internal_args_cursor.cast::<*mut u32>().write(size);
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            internal_args_cursor.cast::<*const u32>().write(capacity);
-                            internal_args_cursor = internal_args_cursor.offset(1);
+                            write_ptr!(address => internal_args_cursor as *const Address);
+                            *data_ptr = write_ptr!(slot_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
+                            write_ptr!(size => internal_args_cursor as *mut u32);
+                            write_ptr!(capacity => internal_args_cursor as *const u32);
                         }
                     }
                     ArgumentKind::Input => {
@@ -470,21 +443,10 @@ impl ExecutorContext for NativeExecutorContext {
                         // `internal_args_cursor`'s memory is allocated with sufficient size above
                         // and aligned correctly.
                         unsafe {
-                            let input_ptr = external_args_cursor.cast::<*const u8>();
-                            external_args_cursor = external_args_cursor.offset(1);
-
-                            internal_args_cursor
-                                .cast::<*const u8>()
-                                .write(input_ptr.read());
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            let size_ptr = external_args_cursor.cast::<*const u32>();
-                            external_args_cursor = external_args_cursor.offset(1);
-
-                            internal_args_cursor
-                                .cast::<*const u32>()
-                                .write(size_ptr.read());
-                            internal_args_cursor = internal_args_cursor.offset(1);
+                            // Input
+                            copy_ptr!(external_args_cursor => internal_args_cursor as *const u8);
+                            // Size
+                            copy_ptr!(external_args_cursor => internal_args_cursor as *const u32);
                         }
                     }
                     ArgumentKind::Output => {
@@ -493,34 +455,18 @@ impl ExecutorContext for NativeExecutorContext {
                         // `internal_args_cursor`'s memory is allocated with sufficient size above
                         // and aligned correctly.
                         unsafe {
-                            let input_ptr = external_args_cursor.cast::<*const u8>();
-                            external_args_cursor = external_args_cursor.offset(1);
-
-                            internal_args_cursor
-                                .cast::<*const u8>()
-                                .write(input_ptr.read());
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            let size_ptr = external_args_cursor.cast::<*mut u32>();
-                            if !size_ptr.read().is_null() {
-                                // Override output size to be zero even if guest caller tried to put
+                            // Output
+                            copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
+                            // Size
+                            let size_ptr =
+                                copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
+                            if !size_ptr.is_null() {
+                                // Override output size to be zero even if caller guest tried to put
                                 // something there
-                                **size_ptr.as_ptr() = 0;
+                                size_ptr.write(0);
                             }
-                            external_args_cursor = external_args_cursor.offset(1);
-
-                            internal_args_cursor
-                                .cast::<*mut u32>()
-                                .write(size_ptr.read());
-                            internal_args_cursor = internal_args_cursor.offset(1);
-
-                            let capacity_ptr = external_args_cursor.cast::<*const u32>();
-                            external_args_cursor = external_args_cursor.offset(1);
-
-                            internal_args_cursor
-                                .cast::<*const u32>()
-                                .write(capacity_ptr.read());
-                            internal_args_cursor = internal_args_cursor.offset(1);
+                            // Capacity
+                            copy_ptr!(external_args_cursor => internal_args_cursor as *const u32);
                         }
                     }
                     ArgumentKind::Result => {
@@ -558,17 +504,9 @@ impl ExecutorContext for NativeExecutorContext {
                             // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient
                             // size above and aligned correctly
                             unsafe {
-                                let state_ptr = internal_args_cursor.cast::<*mut u8>();
-                                *data_ptr = state_ptr;
-
-                                state_ptr.write(state_bytes.as_mut_ptr());
-                                internal_args_cursor = internal_args_cursor.offset(1);
-
-                                internal_args_cursor.cast::<*mut u32>().write(size);
-                                internal_args_cursor = internal_args_cursor.offset(1);
-
-                                internal_args_cursor.cast::<*const u32>().write(capacity);
-                                internal_args_cursor = internal_args_cursor.offset(1);
+                                *data_ptr = write_ptr!(state_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
+                                write_ptr!(size => internal_args_cursor as *mut u32);
+                                write_ptr!(capacity => internal_args_cursor as *const u32);
                             }
                         } else {
                             // SAFETY: `external_args_cursor`'s must contain a pointers to input
@@ -576,34 +514,17 @@ impl ExecutorContext for NativeExecutorContext {
                             // `internal_args_cursor`'s memory is allocated with sufficient size
                             // above and aligned correctly.
                             unsafe {
-                                let input_ptr = external_args_cursor.cast::<*const u8>();
-                                external_args_cursor = external_args_cursor.offset(1);
-
-                                internal_args_cursor
-                                    .cast::<*const u8>()
-                                    .write(input_ptr.read());
-                                internal_args_cursor = internal_args_cursor.offset(1);
-
-                                let size_ptr = external_args_cursor.cast::<*mut u32>();
-                                if !size_ptr.read().is_null() {
-                                    // Override output size to be zero even if caller guest tried to put
-                                    // something there
-                                    **size_ptr.as_ptr() = 0;
+                                // Output
+                                copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
+                                // Size
+                                let size_ptr = copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
+                                if !size_ptr.is_null() {
+                                    // Override output size to be zero even if caller guest tried to
+                                    // put something there
+                                    size_ptr.write(0);
                                 }
-                                external_args_cursor = external_args_cursor.offset(1);
-
-                                internal_args_cursor
-                                    .cast::<*mut u32>()
-                                    .write(size_ptr.read());
-                                internal_args_cursor = internal_args_cursor.offset(1);
-
-                                let capacity_ptr = external_args_cursor.cast::<*const u32>();
-                                external_args_cursor = external_args_cursor.offset(1);
-
-                                internal_args_cursor
-                                    .cast::<*const u32>()
-                                    .write(capacity_ptr.read());
-                                internal_args_cursor = internal_args_cursor.offset(1);
+                                // Capacity
+                                copy_ptr!(external_args_cursor => internal_args_cursor as *const u32);
                             }
                         }
                     }
