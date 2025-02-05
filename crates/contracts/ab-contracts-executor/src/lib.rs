@@ -1,7 +1,9 @@
-#![feature(non_null_from_ref)]
+#![feature(non_null_from_ref, pointer_is_aligned_to)]
 
+mod aligned_buffer;
 mod slots;
 
+use crate::aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use crate::slots::{Slots, UsedSlots};
 use ab_contracts_common::env::{Env, EnvState, ExecutorContext, MethodContext, PreparedMethod};
 use ab_contracts_common::metadata::decode::{
@@ -18,7 +20,6 @@ use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt
 use ab_system_contract_code::Code;
 #[cfg(feature = "system-contracts")]
 use ab_system_contract_state::State;
-use bytes::{Bytes, BytesMut};
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ptr::NonNull;
@@ -37,7 +38,7 @@ enum DelayedProcessing {
         data_ptr: NonNull<*mut u8>,
         /// Pointer to slot's bytes buffer here bytes from `data_ptr` will need to be written
         /// after FFI function call
-        slot_ptr: NonNull<BytesMut>,
+        slot_ptr: NonNull<OwnedAlignedBuffer>,
         /// Pointer to `InternalArgs` where guest will store potentially updated slot size,
         /// corresponds to `data_ptr`, filled during the second pass through the arguments
         /// (while reading `ExternalArgs`)
@@ -127,7 +128,7 @@ impl ExecutorContext for NativeExecutorContext {
                     })?;
                 *self
                     .methods_by_code
-                    .get(code.as_ref())
+                    .get(code.as_slice())
                     .ok_or_else(|| {
                         let code = String::from_utf8_lossy(&code);
                         error!(%code, "Contract's code not found in methods map");
@@ -197,7 +198,7 @@ impl ExecutorContext for NativeExecutorContext {
                     let state_bytes = used_slots.use_ro(contract, &Address::SYSTEM_STATE)?;
 
                     delayed_processing.push(DelayedProcessing::SlotReadOnly {
-                        size: state_bytes.len() as u32,
+                        size: state_bytes.len(),
                     });
                     let Some(DelayedProcessing::SlotReadOnly { size }) = delayed_processing.last()
                     else {
@@ -229,8 +230,8 @@ impl ExecutorContext for NativeExecutorContext {
                         // Is updated below
                         data_ptr: NonNull::dangling(),
                         slot_ptr: NonNull::from_mut(&mut *state_bytes),
-                        size: state_bytes.len() as u32,
-                        capacity: state_bytes.capacity() as u32,
+                        size: state_bytes.len(),
+                        capacity: state_bytes.capacity(),
                     });
                     let Some(DelayedProcessing::SlotReadWrite {
                         data_ptr,
@@ -307,7 +308,7 @@ impl ExecutorContext for NativeExecutorContext {
                         let tmp_bytes = used_slots.use_ro(contract, &Address::NULL)?;
 
                         delayed_processing.push(DelayedProcessing::SlotReadOnly {
-                            size: tmp_bytes.len() as u32,
+                            size: tmp_bytes.len(),
                         });
                         let Some(DelayedProcessing::SlotReadOnly { size }) =
                             delayed_processing.last()
@@ -342,8 +343,8 @@ impl ExecutorContext for NativeExecutorContext {
                             // Is updated below
                             data_ptr: NonNull::dangling(),
                             slot_ptr: NonNull::from_mut(&mut *tmp_bytes),
-                            size: tmp_bytes.len() as u32,
-                            capacity: tmp_bytes.capacity() as u32,
+                            size: tmp_bytes.len(),
+                            capacity: tmp_bytes.capacity(),
                         });
                         let Some(DelayedProcessing::SlotReadWrite {
                             data_ptr,
@@ -387,7 +388,7 @@ impl ExecutorContext for NativeExecutorContext {
                         let slot_bytes = used_slots.use_ro(address, contract)?;
 
                         delayed_processing.push(DelayedProcessing::SlotReadOnly {
-                            size: slot_bytes.len() as u32,
+                            size: slot_bytes.len(),
                         });
                         let Some(DelayedProcessing::SlotReadOnly { size }) =
                             delayed_processing.last()
@@ -430,8 +431,8 @@ impl ExecutorContext for NativeExecutorContext {
                             // Is updated below
                             data_ptr: NonNull::dangling(),
                             slot_ptr: NonNull::from_mut(&mut *slot_bytes),
-                            size: slot_bytes.len() as u32,
-                            capacity: slot_bytes.capacity() as u32,
+                            size: slot_bytes.len(),
+                            capacity: slot_bytes.capacity(),
                         });
                         let Some(DelayedProcessing::SlotReadWrite {
                             data_ptr,
@@ -542,7 +543,7 @@ impl ExecutorContext for NativeExecutorContext {
                                 data_ptr: NonNull::dangling(),
                                 slot_ptr: NonNull::from_mut(&mut *state_bytes),
                                 size: 0,
-                                capacity: state_bytes.capacity() as u32,
+                                capacity: state_bytes.capacity(),
                             });
                             let Some(DelayedProcessing::SlotReadWrite {
                                 data_ptr,
@@ -626,7 +627,6 @@ impl ExecutorContext for NativeExecutorContext {
                         size,
                         ..
                     } => {
-                        let size = size as usize;
                         // SAFETY: Correct pointer created earlier that is not used for anything
                         // else at the moment
                         let data_ptr = unsafe { data_ptr.as_ptr().read().cast_const() };
@@ -642,11 +642,9 @@ impl ExecutorContext for NativeExecutorContext {
                                 error!("Contract returned `null` pointer for slot data");
                                 return Err(ContractError::InvalidOutput);
                             }
-                            slot_bytes.truncate(0);
-                            slot_bytes.reserve(size);
                             // SAFETY: For native execution guest behavior is assumed to be trusted
                             // and provide a correct pointer and size
-                            let data = unsafe { slice::from_raw_parts(data_ptr, size) };
+                            let data = unsafe { slice::from_raw_parts(data_ptr, size as usize) };
                             slot_bytes.copy_from_slice(data);
                             continue;
                         }
@@ -831,8 +829,10 @@ impl NativeExecutor {
     {
         // TODO: Replace with a call into a contract once that is implemented instead of direct
         //  manipulation of data structures
-        self.context
-            .slots
-            .put(address, Address::SYSTEM_CODE, Bytes::from(C::CRATE_NAME));
+        self.context.slots.put(
+            address,
+            Address::SYSTEM_CODE,
+            SharedAlignedBuffer::from_bytes(C::CRATE_NAME.as_bytes()),
+        );
     }
 }

@@ -79,7 +79,11 @@ where
             *size == 0 || *size == capacity,
             "Invalid size {size} for capacity {capacity}"
         );
-        debug_assert_eq!(capacity, Data::SIZE, "Invalid capacity");
+        debug_assert!(
+            capacity >= Data::SIZE,
+            "Invalid capacity {capacity} for size {}",
+            Data::SIZE
+        );
 
         let data = ptr.cast::<Data>();
         let size = NonNull::from_ref(size);
@@ -110,7 +114,11 @@ where
                 "Invalid size {size} for capacity {capacity}"
             );
         }
-        debug_assert_eq!(capacity, Data::SIZE, "Invalid capacity");
+        debug_assert!(
+            capacity >= Data::SIZE,
+            "Invalid capacity {capacity} for size {}",
+            Data::SIZE
+        );
 
         let data = ptr.cast::<Data>();
 
