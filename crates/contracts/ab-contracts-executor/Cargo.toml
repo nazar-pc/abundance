@@ -15,7 +15,6 @@ ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
 ab-system-contract-address-allocator = { version = "0.0.1", path = "../ab-system-contract-address-allocator", optional = true }
 ab-system-contract-code = { version = "0.0.1", path = "../ab-system-contract-code", optional = true }
 ab-system-contract-state = { version = "0.0.1", path = "../ab-system-contract-state", optional = true }
-bytes = "1.9.0"
 inventory = "0.3.19"
 parking_lot = "0.12.3"
 thiserror = "2.0.11"

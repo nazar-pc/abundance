@@ -1,5 +1,5 @@
+use crate::aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_contracts_common::{Address, ContractError};
-use bytes::{Bytes, BytesMut};
 use parking_lot::Mutex;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -8,15 +8,15 @@ use tracing::warn;
 #[derive(Debug, Default)]
 pub(super) struct Slots {
     // TODO: Think about optimizing locking
-    slots: Mutex<HashMap<Address, HashMap<Address, Bytes>>>,
+    slots: Mutex<HashMap<Address, HashMap<Address, SharedAlignedBuffer>>>,
 }
 
 impl Slots {
-    pub(super) fn get(&self, owner: &Address, contract: &Address) -> Option<Bytes> {
+    pub(super) fn get(&self, owner: &Address, contract: &Address) -> Option<SharedAlignedBuffer> {
         self.slots.lock().get(owner)?.get(contract).cloned()
     }
 
-    pub(super) fn put(&self, owner: Address, contract: Address, value: Bytes) {
+    pub(super) fn put(&self, owner: Address, contract: Address, value: SharedAlignedBuffer) {
         self.slots
             .lock()
             .entry(owner)
@@ -28,22 +28,22 @@ impl Slots {
 enum SlotAccess {
     ReadOnly {
         counter: usize,
-        bytes: Bytes,
+        bytes: SharedAlignedBuffer,
     },
     ReadWrite {
-        original_bytes: Bytes,
-        bytes: BytesMut,
+        original_bytes: SharedAlignedBuffer,
+        bytes: OwnedAlignedBuffer,
     },
 }
 
 impl SlotAccess {
-    fn new_ro(bytes: Bytes) -> Self {
+    fn new_ro(bytes: SharedAlignedBuffer) -> Self {
         Self::ReadOnly { counter: 1, bytes }
     }
 
-    fn new_rw(original_bytes: Bytes, capacity: u32) -> Self {
-        let mut bytes = BytesMut::with_capacity(original_bytes.len().max(capacity as usize));
-        bytes.extend_from_slice(&original_bytes);
+    fn new_rw(original_bytes: SharedAlignedBuffer, capacity: u32) -> Self {
+        let mut bytes = OwnedAlignedBuffer::with_capacity(original_bytes.len().max(capacity));
+        bytes.copy_from_slice(&original_bytes);
 
         Self::ReadWrite {
             original_bytes,
@@ -51,7 +51,7 @@ impl SlotAccess {
         }
     }
 
-    fn inc_ro(&mut self) -> Result<&Bytes, ContractError> {
+    fn inc_ro(&mut self) -> Result<&SharedAlignedBuffer, ContractError> {
         match self {
             SlotAccess::ReadOnly { counter, bytes } => {
                 *counter += 1;
@@ -88,7 +88,7 @@ impl<'a> UsedSlots<'a> {
         &'c mut self,
         owner: &'b Address,
         contract: &'b Address,
-    ) -> Result<&'c Bytes, ContractError>
+    ) -> Result<&'c SharedAlignedBuffer, ContractError>
     where
         'b: 'a,
     {
@@ -118,7 +118,7 @@ impl<'a> UsedSlots<'a> {
         owner: &'b Address,
         contract: &'b Address,
         capacity: u32,
-    ) -> Result<&'c mut BytesMut, ContractError>
+    ) -> Result<&'c mut OwnedAlignedBuffer, ContractError>
     where
         'b: 'a,
     {
@@ -187,7 +187,7 @@ impl<'a> UsedSlots<'a> {
                 slots
                     .entry(*owner)
                     .or_default()
-                    .insert(*contract, bytes.freeze());
+                    .insert(*contract, bytes.into_shared());
             }
         }
     }
