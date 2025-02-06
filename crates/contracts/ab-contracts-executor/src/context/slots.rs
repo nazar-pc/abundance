@@ -1,4 +1,4 @@
-use crate::aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use crate::context::aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_contracts_common::{Address, ContractError};
 use parking_lot::Mutex;
 use std::collections::hash_map::Entry;

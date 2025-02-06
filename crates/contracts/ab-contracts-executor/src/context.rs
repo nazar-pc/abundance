@@ -1,5 +1,8 @@
-use crate::aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
-use crate::slots::{Slots, UsedSlots};
+mod aligned_buffer;
+mod slots;
+
+use crate::context::aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use crate::context::slots::{Slots, UsedSlots};
 use ab_contracts_common::env::{Env, EnvState, ExecutorContext, MethodContext, PreparedMethod};
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, ArgumentMetadataItem, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
@@ -592,12 +595,8 @@ impl NativeExecutorContext {
         self.shard_index
     }
 
-    pub(super) fn force_insert(
-        &self,
-        owner: Address,
-        contract: Address,
-        value: SharedAlignedBuffer,
-    ) {
-        self.slots.put(owner, contract, value);
+    pub(super) fn force_insert(&self, owner: Address, contract: Address, value: &[u8]) {
+        self.slots
+            .put(owner, contract, SharedAlignedBuffer::from_bytes(value));
     }
 }

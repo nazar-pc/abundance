@@ -1,10 +1,7 @@
 #![feature(non_null_from_ref, pointer_is_aligned_to)]
 
-mod aligned_buffer;
 mod context;
-mod slots;
 
-use crate::aligned_buffer::SharedAlignedBuffer;
 use crate::context::{MethodDetails, NativeExecutorContext};
 use ab_contracts_common::env::{Env, EnvState, MethodContext};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
@@ -185,10 +182,7 @@ impl NativeExecutor {
     where
         C: Contract,
     {
-        self.context.force_insert(
-            address,
-            Address::SYSTEM_CODE,
-            SharedAlignedBuffer::from_bytes(C::CRATE_NAME.as_bytes()),
-        );
+        self.context
+            .force_insert(address, Address::SYSTEM_CODE, C::CRATE_NAME.as_bytes());
     }
 }
