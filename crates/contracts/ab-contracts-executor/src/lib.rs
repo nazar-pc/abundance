@@ -22,6 +22,8 @@ use ab_system_contract_code::Code;
 use ab_system_contract_state::State;
 use std::collections::HashMap;
 use std::ffi::c_void;
+use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 use std::slice;
 use std::sync::{Arc, Weak};
@@ -68,6 +70,27 @@ macro_rules! copy_ptr {
 
         ptr
     }};
+}
+
+pub struct NativeEnv<'a> {
+    env: Env,
+    phantom_data: PhantomData<&'a ()>,
+}
+
+impl Deref for NativeEnv<'_> {
+    type Target = Env;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.env
+    }
+}
+
+impl DerefMut for NativeEnv<'_> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.env
+    }
 }
 
 /// Stores details about arguments that need to be processed after FFI call
@@ -693,15 +716,7 @@ impl NativeExecutor {
     }
 
     /// Run a function under fresh execution environment
-    pub fn with_env<F, T>(
-        &mut self,
-        context: Address,
-        caller: Address,
-        mut f: F,
-    ) -> Result<T, ContractError>
-    where
-        F: FnMut(&mut Env) -> Result<T, ContractError>,
-    {
+    pub fn env(&mut self, context: Address, caller: Address) -> NativeEnv<'_> {
         let env_state = EnvState {
             shard_index: self.context.shard_index,
             own_address: Address::NULL,
@@ -709,17 +724,18 @@ impl NativeExecutor {
             caller,
         };
 
-        let mut env = Env::with_executor_context(env_state, Arc::clone(&self.context) as _);
-        f(&mut env)
+        let env = Env::with_executor_context(env_state, Arc::clone(&self.context) as _);
+
+        NativeEnv {
+            env,
+            phantom_data: PhantomData,
+        }
     }
 
-    /// Shortcut for [`Self::with_env`] with context and caller set to [`Address::NULL`]
+    /// Shortcut for [`Self::env`] with context and caller set to [`Address::NULL`]
     #[inline]
-    pub fn with_env_null<F, T>(&mut self, f: F) -> Result<T, ContractError>
-    where
-        F: FnMut(&mut Env) -> Result<T, ContractError>,
-    {
-        self.with_env(Address::NULL, Address::NULL, f)
+    pub fn null_env(&mut self) -> NativeEnv<'_> {
+        self.env(Address::NULL, Address::NULL)
     }
 
     /// Deploy typical system contracts at default addresses.
@@ -733,9 +749,8 @@ impl NativeExecutor {
         self.deploy_system_contract_at::<State>(Address::SYSTEM_STATE);
 
         // Initialize shard state
-        self.with_env_null(|env| {
-            env.address_allocator_new(&MethodContext::Keep, &address_allocator_address)
-        })?;
+        let env = &mut *self.null_env();
+        env.address_allocator_new(&MethodContext::Keep, &address_allocator_address)?;
 
         Ok(())
     }
