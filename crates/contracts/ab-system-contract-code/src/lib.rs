@@ -23,12 +23,12 @@ impl Code {
         #[input] code: &VariableBytes<MAX_CODE_SIZE>,
     ) -> Result<Address, ContractError> {
         let new_contract_address = env.address_allocator_allocate_address(
-            &MethodContext::Replace,
-            &Address::system_address_allocator(env.shard_index()),
+            MethodContext::Replace,
+            Address::system_address_allocator(env.shard_index()),
         )?;
 
         env.code_store(
-            &MethodContext::Replace,
+            MethodContext::Replace,
             env.own_address(),
             &new_contract_address,
             code,

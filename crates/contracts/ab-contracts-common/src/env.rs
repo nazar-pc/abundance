@@ -30,18 +30,16 @@ pub enum MethodContext {
 #[derive(Debug)]
 #[repr(C)]
 #[must_use]
-// TODO: Once solidified, replace some pointers with inline data
 pub struct PreparedMethod<'a> {
     /// Address of the contract that contains a function to below fingerprint
-    pub contract: NonNull<Address>,
+    pub contract: Address,
     /// Fingerprint of the method being called
-    pub fingerprint: NonNull<MethodFingerprint>,
+    pub fingerprint: MethodFingerprint,
     /// Anonymous pointer to a struct that implements `ExternalArgs` of the method with above
     /// `fingerprint`
     pub external_args: NonNull<NonNull<c_void>>,
     /// Context for method call
-    pub method_context: NonNull<MethodContext>,
-    // TODO: Some flags that allow re-origin and other things or those will be separate host fns?
+    pub method_context: MethodContext,
     _phantom: PhantomData<&'a ()>,
 }
 
@@ -66,7 +64,7 @@ pub trait ExecutorContext: alloc::fmt::Debug {
     fn call_many(
         &self,
         previous_env_state: &EnvState,
-        prepared_methods: &[PreparedMethod<'_>],
+        prepared_methods: &[PreparedMethod],
     ) -> Result<(), ContractError>;
 }
 
@@ -88,6 +86,7 @@ pub struct Env {
 impl Env {
     /// Instantiate environment with executor context
     #[cfg(any(unix, windows))]
+    #[inline]
     pub fn with_executor_context(
         state: EnvState,
         executor_context: Arc<dyn ExecutorContext>,
@@ -99,33 +98,38 @@ impl Env {
     }
 
     /// Shard index where execution is happening
+    #[inline]
     pub fn shard_index(&self) -> ShardIndex {
         self.state.shard_index
     }
 
     /// Own address of the contract
-    pub fn own_address(&self) -> &Address {
-        &self.state.own_address
+    #[inline]
+    pub fn own_address(&self) -> Address {
+        self.state.own_address
     }
 
     /// Context of the execution
-    pub fn context<'a>(self: &'a &'a mut Self) -> &'a Address {
-        &self.state.context
+    #[inline]
+    pub fn context<'a>(self: &'a &'a mut Self) -> Address {
+        self.state.context
     }
 
     /// Caller of this contract
-    pub fn caller<'a>(self: &'a &'a mut Self) -> &'a Address {
-        &self.state.caller
+    #[inline]
+    pub fn caller<'a>(self: &'a &'a mut Self) -> Address {
+        self.state.caller
     }
 
     /// Call a single method at specified address and with specified arguments.
     ///
     /// This is a shortcut for [`Self::prepare_method_call()`] + [`Self::call_many()`].
+    #[inline]
     pub fn call<Args>(
         &self,
-        contract: &Address,
+        contract: Address,
         args: &mut Args,
-        method_context: &MethodContext,
+        method_context: MethodContext,
     ) -> Result<(), ContractError>
     where
         Args: ExternalArgs,
@@ -137,19 +141,20 @@ impl Env {
     /// Prepare a single method for calling at specified address and with specified arguments.
     ///
     /// The result is to be used with [`Self::call_many()`] afterward.
-    pub fn prepare_method_call<'a, Args>(
-        contract: &'a Address,
-        args: &'a mut Args,
-        method_context: &'a MethodContext,
-    ) -> PreparedMethod<'a>
+    #[inline]
+    pub fn prepare_method_call<Args>(
+        contract: Address,
+        args: &mut Args,
+        method_context: MethodContext,
+    ) -> PreparedMethod<'_>
     where
         Args: ExternalArgs,
     {
         PreparedMethod {
-            contract: NonNull::from_ref(contract),
-            fingerprint: NonNull::from_ref(&Args::FINGERPRINT),
+            contract,
+            fingerprint: Args::FINGERPRINT,
             external_args: NonNull::from_mut(args).cast::<NonNull<c_void>>(),
-            method_context: NonNull::from_ref(method_context).cast(),
+            method_context,
             _phantom: PhantomData,
         }
     }
@@ -157,9 +162,10 @@ impl Env {
     /// Invoke provided methods and wait for the result.
     ///
     /// The remaining gas will be split equally between all individual invocations.
-    pub fn call_many<'a, const N: usize>(
-        &'a self,
-        methods: [PreparedMethod<'a>; N],
+    #[inline]
+    pub fn call_many<const N: usize>(
+        &self,
+        methods: [PreparedMethod<'_>; N],
     ) -> Result<(), ContractError> {
         #[cfg(any(unix, windows))]
         {

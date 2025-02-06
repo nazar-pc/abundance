@@ -45,7 +45,7 @@ impl Fungible for Example {
             return Err(ContractError::Forbidden);
         }
 
-        env.example_transfer(&MethodContext::Replace, env.own_address(), from, to, amount)
+        env.example_transfer(MethodContext::Replace, env.own_address(), from, to, amount)
     }
 
     #[view]
@@ -75,7 +75,7 @@ impl Example {
     pub fn new_result(#[env] env: &mut Env, #[result] result: &mut MaybeData<Self>) {
         result.replace(Self {
             total_supply: Balance::MIN,
-            owner: *env.context(),
+            owner: env.context(),
             padding: [0; 8],
         });
     }

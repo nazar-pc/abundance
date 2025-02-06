@@ -18,8 +18,8 @@ fn basic() {
 
         let example_address = env
             .code_deploy(
-                &MethodContext::Keep,
-                &Address::SYSTEM_CODE,
+                MethodContext::Keep,
+                Address::SYSTEM_CODE,
                 &VariableBytes::from_buffer(
                     Example::CRATE_NAME.as_bytes(),
                     &(Example::CRATE_NAME.len() as u32),
@@ -27,8 +27,8 @@ fn basic() {
             )
             .unwrap();
         env.example_new(
-            &MethodContext::Keep,
-            &example_address,
+            MethodContext::Keep,
+            example_address,
             &example_address,
             &Balance::MAX,
         )
@@ -48,31 +48,31 @@ fn basic() {
 
         // Direct
         assert_eq!(
-            env.example_balance(&example_token, &from).unwrap(),
+            env.example_balance(example_token, &from).unwrap(),
             previous_from_balance
         );
         // Through `Fungible` trait
         assert_eq!(
-            env.fungible_balance(&example_token, &from).unwrap(),
+            env.fungible_balance(example_token, &from).unwrap(),
             previous_from_balance
         );
 
         // Direct
-        env.example_transfer(&MethodContext::Keep, &example_token, &from, &to, &amount)
+        env.example_transfer(MethodContext::Keep, example_token, &from, &to, &amount)
             .unwrap();
 
         // Direct
         {
-            let remaining_balance = env.example_balance(&example_token, &from).unwrap();
-            let code_balance = env.example_balance(&example_token, &to).unwrap();
+            let remaining_balance = env.example_balance(example_token, &from).unwrap();
+            let code_balance = env.example_balance(example_token, &to).unwrap();
 
             assert_eq!(remaining_balance, previous_from_balance - amount);
             assert_eq!(code_balance, previous_to_balance + amount);
         }
         // Through `Fungible` trait
         {
-            let remaining_balance = env.fungible_balance(&example_token, &from).unwrap();
-            let code_balance = env.fungible_balance(&example_token, &to).unwrap();
+            let remaining_balance = env.fungible_balance(example_token, &from).unwrap();
+            let code_balance = env.fungible_balance(example_token, &to).unwrap();
 
             assert_eq!(remaining_balance, previous_from_balance - amount);
             assert_eq!(code_balance, previous_to_balance + amount);
@@ -82,21 +82,21 @@ fn basic() {
         previous_to_balance += amount;
 
         // Through `Fungible` trait
-        env.fungible_transfer(&MethodContext::Keep, &example_token, &from, &to, &amount)
+        env.fungible_transfer(MethodContext::Keep, example_token, &from, &to, &amount)
             .unwrap();
 
         // Direct
         {
-            let remaining_balance = env.example_balance(&example_token, &from).unwrap();
-            let code_balance = env.example_balance(&example_token, &to).unwrap();
+            let remaining_balance = env.example_balance(example_token, &from).unwrap();
+            let code_balance = env.example_balance(example_token, &to).unwrap();
 
             assert_eq!(remaining_balance, previous_from_balance - amount);
             assert_eq!(code_balance, previous_to_balance + amount);
         }
         // Through `Fungible` trait
         {
-            let remaining_balance = env.fungible_balance(&example_token, &from).unwrap();
-            let code_balance = env.fungible_balance(&example_token, &to).unwrap();
+            let remaining_balance = env.fungible_balance(example_token, &from).unwrap();
+            let code_balance = env.fungible_balance(example_token, &to).unwrap();
 
             assert_eq!(remaining_balance, previous_from_balance - amount);
             assert_eq!(code_balance, previous_to_balance + amount);

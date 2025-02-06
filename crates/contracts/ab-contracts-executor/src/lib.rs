@@ -156,15 +156,7 @@ impl ExecutorContext for NativeExecutorContext {
                 method_context,
                 ..
             } = prepared_method;
-            // SAFETY: For native execution environment pointers correspond to the native pointers
-            // and obey lifetime rules, essentially they are "trusted"
-            let contract = unsafe { contract.as_ref() };
-            // SAFETY: For native execution environment pointers correspond to the native pointers
-            // and obey lifetime rules, essentially they are "trusted"
-            let fingerprint = unsafe { fingerprint.as_ref() };
-            // SAFETY: For native execution environment pointers correspond to the native pointers
-            // and obey lifetime rules, essentially they are "trusted"
-            let method_context = unsafe { method_context.as_ref() };
+
             let mut env = Env::with_executor_context(
                 EnvState {
                     shard_index: self.shard_index,
@@ -750,7 +742,7 @@ impl NativeExecutor {
 
         // Initialize shard state
         let env = &mut *self.null_env();
-        env.address_allocator_new(&MethodContext::Keep, &address_allocator_address)?;
+        env.address_allocator_new(MethodContext::Keep, address_allocator_address)?;
 
         Ok(())
     }
