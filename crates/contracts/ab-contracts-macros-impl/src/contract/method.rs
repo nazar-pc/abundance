@@ -1550,7 +1550,7 @@ impl MethodDetails {
 
         // Address of the contract
         method_args.push(quote! {
-            contract: &::ab_contracts_macros::__private::Address,
+            contract: ::ab_contracts_macros::__private::Address,
         });
 
         // For each slot argument generate an address argument
@@ -1689,7 +1689,7 @@ impl MethodDetails {
         // `#[view]` methods do not require explicit method context
         let method_context_arg = (!matches!(self.method_type, MethodType::View)).then(|| {
             quote! {
-                method_context: &::ab_contracts_macros::__private::MethodContext,
+                method_context: ::ab_contracts_macros::__private::MethodContext,
             }
         });
         // Initializer's return type will be `()` for caller, state is stored by the host and not
@@ -1752,7 +1752,7 @@ impl MethodDetails {
             derive_external_args_struct_name(&self.self_type, trait_name, original_method_name)?;
         // `#[view]` methods do not require explicit method context
         let method_context_value = if matches!(self.method_type, MethodType::View) {
-            quote! { &::ab_contracts_macros::__private::MethodContext::Reset }
+            quote! { ::ab_contracts_macros::__private::MethodContext::Reset }
         } else {
             quote! { method_context }
         };

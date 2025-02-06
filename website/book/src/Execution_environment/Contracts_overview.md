@@ -164,7 +164,7 @@ Not only contract methods do not have access to general purpose key-value store 
 don't have access to any other data except such that was explicitly provided as method input and can't return data in
 any other way except through return arguments.
 
-Conceptually all methods look something like this:
+Conceptually, all methods look something like this:
 
 ```rust,ignore
 impl MyContract {
@@ -176,10 +176,10 @@ impl MyContract {
         output: &mut MaybeData<u128>
     ) -> Result<(), ContractError> {
         if env.context() != &self.owner {
-            return Err(ErrorCode::AccessDenied);
+            return Err(ErrorCode::Forbidden);
         }
         let Some(slot_value) = slot.get().copied() else {
-            return Err(ErrorCode::InvalidState);
+            return Err(ErrorCode::PreconditionFailed);
         };
         if input > slot_value {
             return Err(ErrorCode::InvalidInput);
