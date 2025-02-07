@@ -1,14 +1,15 @@
-use crate::context::aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use crate::aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_contracts_common::{Address, ContractError};
 use parking_lot::Mutex;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tracing::warn;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(super) struct Slots {
     // TODO: Think about optimizing locking
-    slots: Mutex<HashMap<Address, HashMap<Address, SharedAlignedBuffer>>>,
+    slots: Arc<Mutex<HashMap<Address, HashMap<Address, SharedAlignedBuffer>>>>,
 }
 
 impl Slots {

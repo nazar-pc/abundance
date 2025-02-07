@@ -5,7 +5,7 @@ use crate::method::{ExternalArgs, MethodFingerprint};
 use crate::{Address, ContractError, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
 #[cfg(any(unix, windows))]
-use alloc::sync::Arc;
+use alloc::boxed::Box;
 use core::ffi::c_void;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
@@ -82,7 +82,7 @@ pub trait ExecutorContext: alloc::fmt::Debug {
 pub struct Env<'a> {
     state: EnvState,
     #[cfg(any(unix, windows))]
-    executor_context: Arc<dyn ExecutorContext>,
+    executor_context: Box<dyn ExecutorContext>,
     phantom_data: PhantomData<&'a ()>,
 }
 
@@ -95,7 +95,7 @@ impl Env<'_> {
     #[inline]
     pub fn with_executor_context(
         state: EnvState,
-        executor_context: Arc<dyn ExecutorContext>,
+        executor_context: Box<dyn ExecutorContext>,
     ) -> Self {
         Self {
             state,

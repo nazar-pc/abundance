@@ -1,8 +1,5 @@
-mod aligned_buffer;
-mod slots;
-
-use crate::context::aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
-use crate::context::slots::{Slots, UsedSlots};
+use crate::aligned_buffer::OwnedAlignedBuffer;
+use crate::slots::{Slots, UsedSlots};
 use ab_contracts_common::env::{Env, EnvState, ExecutorContext, MethodContext, PreparedMethod};
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, ArgumentMetadataItem, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
@@ -14,7 +11,7 @@ use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ptr::NonNull;
 use std::slice;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 use tracing::{debug, error, info_span};
 
 /// Read a pointer of type `$ty` from `$external` and advance `$external` past it
@@ -96,10 +93,9 @@ pub(super) struct MethodDetails {
 pub(super) struct NativeExecutorContext {
     shard_index: ShardIndex,
     /// Indexed by contract's code (crate name is treated as "code")
-    methods_by_code: HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>,
+    methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
     // TODO: Think about optimizing locking
     slots: Slots,
-    weak: Weak<Self>,
 }
 
 impl ExecutorContext for NativeExecutorContext {
@@ -135,9 +131,11 @@ impl ExecutorContext for NativeExecutorContext {
                     },
                     caller: previous_env_state.own_address,
                 },
-                self.weak
-                    .upgrade()
-                    .expect("Reference to itself, hence upgrade always succeeds; qed"),
+                Box::new(Self::new(
+                    self.shard_index,
+                    Arc::clone(&self.methods_by_code),
+                    self.slots.clone(),
+                )),
             );
 
             let span = info_span!("NativeExecutorContext", %contract);
@@ -298,6 +296,7 @@ impl ExecutorContext for NativeExecutorContext {
                     ArgumentKind::EnvRw => {
                         // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                         // above and aligned correctly
+                        // TODO: Switch to `&mut *` once `DerefMut` is implemented: https://github.com/rust-lang/rust/pull/129334
                         unsafe {
                             write_ptr!(&mut env => internal_args_cursor as *mut Env);
                         }
@@ -581,22 +580,13 @@ impl ExecutorContext for NativeExecutorContext {
 impl NativeExecutorContext {
     pub(super) fn new(
         shard_index: ShardIndex,
-        methods_by_code: HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>,
-    ) -> Arc<Self> {
-        Arc::new_cyclic(|weak| NativeExecutorContext {
+        methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
+        slots: Slots,
+    ) -> Self {
+        Self {
             shard_index,
             methods_by_code,
-            slots: Slots::default(),
-            weak: weak.clone(),
-        })
-    }
-
-    pub(super) fn shard_index(&self) -> ShardIndex {
-        self.shard_index
-    }
-
-    pub(super) fn force_insert(&self, owner: Address, contract: Address, value: &[u8]) {
-        self.slots
-            .put(owner, contract, SharedAlignedBuffer::from_bytes(value));
+            slots,
+        }
     }
 }
