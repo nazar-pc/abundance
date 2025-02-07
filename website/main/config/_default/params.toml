@@ -23,7 +23,7 @@ showScrollToTop = true
 [homepage]
 layout = "page"
 showRecent = true
-showRecentItems = 5
+showRecentItems = 3
 showMoreLink = true
 showMoreLinkDest = "/blog/"
 cardView = false
@@ -61,7 +61,7 @@ showHero = false
 layoutBackgroundBlur = true
 layoutBackgroundHeaderSpace = false
 showBreadcrumbs = false
-showSummary = false
+showSummary = true
 showViews = false
 showLikes = false
 showTableOfContents = false

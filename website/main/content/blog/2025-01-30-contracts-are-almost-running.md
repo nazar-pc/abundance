@@ -7,7 +7,6 @@ tags: [ status-update ]
 authors: [ nazar-pc ]
 ---
 
-## Last week updates
 
 Last week was busy with refactoring with the primary goal of being able to run contracts in test execution environment.
 The environment is not quite ready yet, but a lot of progress was done, and it'll hopefully be ready next week.
