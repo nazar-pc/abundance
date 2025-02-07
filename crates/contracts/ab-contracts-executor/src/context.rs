@@ -96,6 +96,7 @@ pub(super) struct NativeExecutorContext {
     methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
     // TODO: Think about optimizing locking
     slots: Slots,
+    allow_env_mutation: bool,
 }
 
 impl ExecutorContext for NativeExecutorContext {
@@ -105,7 +106,6 @@ impl ExecutorContext for NativeExecutorContext {
         prepared_methods: &[PreparedMethod<'_>],
     ) -> Result<(), ContractError> {
         // TODO: Check slot misuse across recursive calls
-        // TODO: Check read/write environment access permissions
         // `used_slots` must be before processing of the method because in the process of method
         // handling, some data structures will store pointers to `UsedSlot`'s internals.
         let mut used_slots = UsedSlots::new(&self.slots);
@@ -120,23 +120,17 @@ impl ExecutorContext for NativeExecutorContext {
                 ..
             } = prepared_method;
 
-            let mut env = Env::with_executor_context(
-                EnvState {
-                    shard_index: self.shard_index,
-                    own_address: *contract,
-                    context: match method_context {
-                        MethodContext::Keep => previous_env_state.context,
-                        MethodContext::Reset => Address::NULL,
-                        MethodContext::Replace => previous_env_state.own_address,
-                    },
-                    caller: previous_env_state.own_address,
+            let env_state = EnvState {
+                shard_index: self.shard_index,
+                own_address: *contract,
+                context: match method_context {
+                    MethodContext::Keep => previous_env_state.context,
+                    MethodContext::Reset => Address::NULL,
+                    MethodContext::Replace => previous_env_state.own_address,
                 },
-                Box::new(Self::new(
-                    self.shard_index,
-                    Arc::clone(&self.methods_by_code),
-                    self.slots.clone(),
-                )),
-            );
+                caller: previous_env_state.own_address,
+            };
+            let mut maybe_env = None::<Env>;
 
             let span = info_span!("NativeExecutorContext", %contract);
             let _span_guard = span.enter();
@@ -284,21 +278,34 @@ impl ExecutorContext for NativeExecutorContext {
 
                 match argument_kind {
                     ArgumentKind::EnvRo => {
+                        let env_ro = &*maybe_env.insert(Env::with_executor_context(
+                            env_state,
+                            Box::new(self.new_nested(false)),
+                        ));
                         // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                         // above and aligned correctly
                         unsafe {
-                            write_ptr!(&env => internal_args_cursor as *const Env);
+                            write_ptr!(env_ro => internal_args_cursor as *const Env);
                         }
 
                         // Size for `#[env]` is implicit and doesn't need to be added to
                         // `InternalArgs`
                     }
                     ArgumentKind::EnvRw => {
+                        if !self.allow_env_mutation {
+                            return Err(ContractError::Forbidden);
+                        }
+
+                        let env_rw = maybe_env.insert(Env::with_executor_context(
+                            env_state,
+                            Box::new(self.new_nested(true)),
+                        ));
+
                         // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                         // above and aligned correctly
                         // TODO: Switch to `&mut *` once `DerefMut` is implemented: https://github.com/rust-lang/rust/pull/129334
                         unsafe {
-                            write_ptr!(&mut env => internal_args_cursor as *mut Env);
+                            write_ptr!(env_rw => internal_args_cursor as *mut Env);
                         }
 
                         // Size for `#[env]` is implicit and doesn't need to be added to
@@ -582,11 +589,22 @@ impl NativeExecutorContext {
         shard_index: ShardIndex,
         methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
         slots: Slots,
+        allow_env_mutation: bool,
     ) -> Self {
         Self {
             shard_index,
             methods_by_code,
             slots,
+            allow_env_mutation,
         }
+    }
+
+    fn new_nested(&self, allow_env_mutation: bool) -> Self {
+        Self::new(
+            self.shard_index,
+            Arc::clone(&self.methods_by_code),
+            self.slots.clone(),
+            allow_env_mutation,
+        )
     }
 }

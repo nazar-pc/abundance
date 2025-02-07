@@ -137,6 +137,7 @@ impl NativeExecutor {
                 self.shard_index,
                 Arc::clone(&self.methods_by_code),
                 self.slots.clone(),
+                true,
             )),
         )
     }
