@@ -7,8 +7,6 @@ tags: [ status-update ]
 authors: [ nazar-pc ]
 ---
 
-## Last week updates
-
 Last week was busy on various improvements for contracts infrastructure, trying to clarify existing API and ensuring
 everything that might be built is actually possible. First system contracts were introduced, trait support was added and
 more, below is a recap of key updates.
