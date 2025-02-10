@@ -108,7 +108,7 @@ impl ExecutorContext for NativeExecutorContext {
         // TODO: Check slot misuse across recursive calls
         // `used_slots` must be before processing of the method because in the process of method
         // handling, some data structures will store pointers to `UsedSlot`'s internals.
-        let mut used_slots = UsedSlots::new(&self.slots);
+        let mut used_slots = UsedSlots::new(self.slots.clone());
 
         // TODO: Parallelism
         for prepared_method in prepared_methods {
@@ -212,7 +212,7 @@ impl ExecutorContext for NativeExecutorContext {
                     // No state handling is needed
                 }
                 MethodKind::UpdateStatefulRo | MethodKind::ViewStateful => {
-                    let state_bytes = used_slots.use_ro(contract, &Address::SYSTEM_STATE)?;
+                    let state_bytes = used_slots.use_ro(*contract, Address::SYSTEM_STATE)?;
 
                     delayed_processing.push(DelayedProcessing::SlotReadOnly {
                         size: state_bytes.len(),
@@ -231,8 +231,8 @@ impl ExecutorContext for NativeExecutorContext {
                 }
                 MethodKind::UpdateStatefulRw => {
                     let state_bytes = used_slots.use_rw(
-                        contract,
-                        &Address::SYSTEM_STATE,
+                        *contract,
+                        Address::SYSTEM_STATE,
                         recommended_state_capacity,
                     )?;
 
@@ -314,7 +314,7 @@ impl ExecutorContext for NativeExecutorContext {
                     ArgumentKind::TmpRo => {
                         // Null contact is used implicitly for `#[tmp]` since it is not possible for
                         // this contract to write something there directly
-                        let tmp_bytes = used_slots.use_ro(contract, &Address::NULL)?;
+                        let tmp_bytes = used_slots.use_ro(*contract, Address::NULL)?;
 
                         delayed_processing.push(DelayedProcessing::SlotReadOnly {
                             size: tmp_bytes.len(),
@@ -336,8 +336,8 @@ impl ExecutorContext for NativeExecutorContext {
                         // Null contact is used implicitly for `#[tmp]` since it is not possible for
                         // this contract to write something there directly
                         let tmp_bytes = used_slots.use_rw(
-                            contract,
-                            &Address::NULL,
+                            *contract,
+                            Address::NULL,
                             recommended_tmp_capacity,
                         )?;
 
@@ -372,7 +372,7 @@ impl ExecutorContext for NativeExecutorContext {
                         let address =
                             unsafe { &*read_ptr!(external_args_cursor as *const Address) };
 
-                        let slot_bytes = used_slots.use_ro(address, contract)?;
+                        let slot_bytes = used_slots.use_ro(*address, *contract)?;
 
                         delayed_processing.push(DelayedProcessing::SlotReadOnly {
                             size: slot_bytes.len(),
@@ -398,7 +398,7 @@ impl ExecutorContext for NativeExecutorContext {
                             unsafe { &*read_ptr!(external_args_cursor as *const Address) };
 
                         let slot_bytes =
-                            used_slots.use_rw(address, contract, recommended_slot_capacity)?;
+                            used_slots.use_rw(*address, *contract, recommended_slot_capacity)?;
 
                         delayed_processing.push(DelayedProcessing::SlotReadWrite {
                             // Is updated below
@@ -462,8 +462,8 @@ impl ExecutorContext for NativeExecutorContext {
                         // accordingly
                         if matches!(method_kind, MethodKind::Init) {
                             let state_bytes = used_slots.use_rw(
-                                contract,
-                                &Address::SYSTEM_STATE,
+                                *contract,
+                                Address::SYSTEM_STATE,
                                 recommended_state_capacity,
                             )?;
 

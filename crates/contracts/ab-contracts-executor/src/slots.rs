@@ -64,35 +64,32 @@ impl SlotAccess {
 }
 
 #[derive(Eq, PartialEq, Hash)]
-struct UsedSlot<'a> {
+struct UsedSlot {
     /// Address of the contract whose tree contains the slot
-    owner: &'a Address,
+    owner: Address,
     /// Address of the contract that manages the slot under `owner`'s tree
-    contract: &'a Address,
+    contract: Address,
 }
 
 // TODO: Some notion of branching/generations that allows to persist only some slots
-pub(super) struct UsedSlots<'a> {
-    used_slots: HashMap<UsedSlot<'a>, SlotAccess>,
-    slots: &'a Slots,
+pub(super) struct UsedSlots {
+    used_slots: HashMap<UsedSlot, SlotAccess>,
+    slots: Slots,
 }
 
-impl<'a> UsedSlots<'a> {
-    pub(super) fn new(slots: &'a Slots) -> Self {
+impl UsedSlots {
+    pub(super) fn new(slots: Slots) -> Self {
         Self {
             used_slots: HashMap::new(),
             slots,
         }
     }
 
-    pub(super) fn use_ro<'b, 'c>(
-        &'c mut self,
-        owner: &'b Address,
-        contract: &'b Address,
-    ) -> Result<&'c SharedAlignedBuffer, ContractError>
-    where
-        'b: 'a,
-    {
+    pub(super) fn use_ro(
+        &mut self,
+        owner: Address,
+        contract: Address,
+    ) -> Result<&SharedAlignedBuffer, ContractError> {
         match self.used_slots.entry(UsedSlot { owner, contract }) {
             Entry::Occupied(entry) => entry.into_mut().inc_ro().inspect_err(|_error| {
                 warn!(%owner, "Failed to access ro slot");
@@ -102,8 +99,8 @@ impl<'a> UsedSlots<'a> {
                     .slots
                     .slots
                     .lock()
-                    .get(owner)
-                    .and_then(|slots| slots.get(contract).cloned())
+                    .get(&owner)
+                    .and_then(|slots| slots.get(&contract).cloned())
                     .unwrap_or_default();
                 let SlotAccess::ReadOnly { bytes, .. } = entry.insert(SlotAccess::new_ro(bytes))
                 else {
@@ -114,15 +111,12 @@ impl<'a> UsedSlots<'a> {
         }
     }
 
-    pub(super) fn use_rw<'b, 'c>(
-        &'c mut self,
-        owner: &'b Address,
-        contract: &'b Address,
+    pub(super) fn use_rw(
+        &mut self,
+        owner: Address,
+        contract: Address,
         capacity: u32,
-    ) -> Result<&'c mut OwnedAlignedBuffer, ContractError>
-    where
-        'b: 'a,
-    {
+    ) -> Result<&mut OwnedAlignedBuffer, ContractError> {
         match self.used_slots.entry(UsedSlot { owner, contract }) {
             Entry::Occupied(_entry) => {
                 warn!(%owner, "Failed to access rw slot");
@@ -139,8 +133,8 @@ impl<'a> UsedSlots<'a> {
                     .slots
                     .slots
                     .lock()
-                    .get(owner)
-                    .and_then(|slots| slots.get(contract).cloned())
+                    .get(&owner)
+                    .and_then(|slots| slots.get(&contract).cloned())
                     .unwrap_or_default();
                 let SlotAccess::ReadWrite { bytes, .. } =
                     entry.insert(SlotAccess::new_rw(bytes, capacity))
@@ -181,14 +175,14 @@ impl<'a> UsedSlots<'a> {
             }
 
             if bytes.is_empty() {
-                if let Some(owner_slots) = slots.get_mut(owner) {
-                    owner_slots.remove(contract);
+                if let Some(owner_slots) = slots.get_mut(&owner) {
+                    owner_slots.remove(&contract);
                 }
             } else {
                 slots
-                    .entry(*owner)
+                    .entry(owner)
                     .or_default()
-                    .insert(*contract, bytes.into_shared());
+                    .insert(contract, bytes.into_shared());
             }
         }
     }
