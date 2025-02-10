@@ -6,26 +6,29 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::warn;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub(super) struct Slots {
     // TODO: Think about optimizing locking
-    slots: Arc<Mutex<HashMap<Address, HashMap<Address, SharedAlignedBuffer>>>>,
+    slots: HashMap<Address, HashMap<Address, SharedAlignedBuffer>>,
 }
 
 impl Slots {
     pub(super) fn get(&self, owner: &Address, contract: &Address) -> Option<SharedAlignedBuffer> {
-        self.slots.lock().get(owner)?.get(contract).cloned()
+        self.slots.get(owner)?.get(contract).cloned()
     }
 
-    pub(super) fn put(&self, owner: Address, contract: Address, value: SharedAlignedBuffer) {
-        self.slots
-            .lock()
-            .entry(owner)
-            .or_default()
-            .insert(contract, value);
+    pub(super) fn put(&mut self, owner: Address, contract: Address, value: SharedAlignedBuffer) {
+        self.slots.entry(owner).or_default().insert(contract, value);
+    }
+
+    pub(super) fn remove(&mut self, owner: &Address, contract: &Address) {
+        if let Some(owner_slots) = self.slots.get_mut(owner) {
+            owner_slots.remove(contract);
+        }
     }
 }
 
+#[derive(Debug)]
 enum SlotAccess {
     ReadOnly {
         counter: usize,
@@ -63,7 +66,7 @@ impl SlotAccess {
     }
 }
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 struct UsedSlot {
     /// Address of the contract whose tree contains the slot
     owner: Address,
@@ -72,13 +75,14 @@ struct UsedSlot {
 }
 
 // TODO: Some notion of branching/generations that allows to persist only some slots
+#[derive(Debug)]
 pub(super) struct UsedSlots {
     used_slots: HashMap<UsedSlot, SlotAccess>,
-    slots: Slots,
+    slots: Arc<Mutex<Slots>>,
 }
 
 impl UsedSlots {
-    pub(super) fn new(slots: Slots) -> Self {
+    pub(super) fn new(slots: Arc<Mutex<Slots>>) -> Self {
         Self {
             used_slots: HashMap::new(),
             slots,
@@ -95,13 +99,7 @@ impl UsedSlots {
                 warn!(%owner, "Failed to access ro slot");
             }),
             Entry::Vacant(entry) => {
-                let bytes = self
-                    .slots
-                    .slots
-                    .lock()
-                    .get(&owner)
-                    .and_then(|slots| slots.get(&contract).cloned())
-                    .unwrap_or_default();
+                let bytes = self.slots.lock().get(&owner, &contract).unwrap_or_default();
                 let SlotAccess::ReadOnly { bytes, .. } = entry.insert(SlotAccess::new_ro(bytes))
                 else {
                     unreachable!("Just inserted `ReadOnly` entry; qed");
@@ -129,13 +127,7 @@ impl UsedSlots {
                 //  `Slots` because modification of one recursive call doesn't necessarily mean
                 //  other recursive calls will fail that may try to modify the same data that failed
                 //  call tried
-                let bytes = self
-                    .slots
-                    .slots
-                    .lock()
-                    .get(&owner)
-                    .and_then(|slots| slots.get(&contract).cloned())
-                    .unwrap_or_default();
+                let bytes = self.slots.lock().get(&owner, &contract).unwrap_or_default();
                 let SlotAccess::ReadWrite { bytes, .. } =
                     entry.insert(SlotAccess::new_rw(bytes, capacity))
                 else {
@@ -148,7 +140,7 @@ impl UsedSlots {
 
     /// Persist changes to modified slots
     pub(super) fn persist(self) {
-        let mut slots = self.slots.slots.lock();
+        let mut slots = self.slots.lock();
         for (used_slot, slot_access) in self.used_slots {
             let bytes = match slot_access {
                 SlotAccess::ReadOnly { .. } => {
@@ -175,14 +167,9 @@ impl UsedSlots {
             }
 
             if bytes.is_empty() {
-                if let Some(owner_slots) = slots.get_mut(&owner) {
-                    owner_slots.remove(&contract);
-                }
+                slots.remove(&owner, &contract);
             } else {
-                slots
-                    .entry(owner)
-                    .or_default()
-                    .insert(contract, bytes.into_shared());
+                slots.put(owner, contract, bytes.into_shared());
             }
         }
     }

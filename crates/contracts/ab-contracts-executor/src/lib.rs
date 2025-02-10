@@ -19,6 +19,7 @@ use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt
 use ab_system_contract_code::Code;
 #[cfg(feature = "system-contracts")]
 use ab_system_contract_state::State;
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::error;
@@ -52,7 +53,7 @@ pub enum NativeExecutorError {
 pub struct NativeExecutor {
     shard_index: ShardIndex,
     methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
-    slots: Slots,
+    slots: Arc<Mutex<Slots>>,
 }
 
 impl NativeExecutor {
@@ -118,7 +119,7 @@ impl NativeExecutor {
         Ok(Self {
             shard_index,
             methods_by_code,
-            slots: Slots::default(),
+            slots: Arc::default(),
         })
     }
 
@@ -136,7 +137,7 @@ impl NativeExecutor {
             Box::new(NativeExecutorContext::new(
                 self.shard_index,
                 Arc::clone(&self.methods_by_code),
-                self.slots.clone(),
+                Arc::clone(&self.slots),
                 true,
             )),
         )
@@ -173,7 +174,7 @@ impl NativeExecutor {
     where
         C: Contract,
     {
-        self.slots.put(
+        self.slots.lock().put(
             address,
             Address::SYSTEM_CODE,
             SharedAlignedBuffer::from_bytes(C::code().get_initialized()),

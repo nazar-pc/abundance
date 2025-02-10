@@ -6,6 +6,7 @@ use crate::slots::{Slots, UsedSlots};
 use ab_contracts_common::env::{EnvState, ExecutorContext, MethodContext, PreparedMethod};
 use ab_contracts_common::method::MethodFingerprint;
 use ab_contracts_common::{Address, ContractError, ExitCode, ShardIndex};
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ptr::NonNull;
@@ -46,8 +47,7 @@ pub(super) struct NativeExecutorContext {
     shard_index: ShardIndex,
     /// Indexed by contract's code (crate name is treated as "code")
     methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
-    // TODO: Think about optimizing locking
-    slots: Slots,
+    slots: Arc<Mutex<Slots>>,
     allow_env_mutation: bool,
 }
 
@@ -60,7 +60,7 @@ impl ExecutorContext for NativeExecutorContext {
         // TODO: Check slot misuse across recursive calls
         // `used_slots` must be before processing of the method because in the process of method
         // handling, some data structures will store pointers to `UsedSlot`'s internals.
-        let mut used_slots = UsedSlots::new(self.slots.clone());
+        let mut used_slots = UsedSlots::new(Arc::clone(&self.slots));
 
         // TODO: Parallelism
         for prepared_method in prepared_methods {
@@ -89,6 +89,7 @@ impl ExecutorContext for NativeExecutorContext {
             let method_details = {
                 let code = self
                     .slots
+                    .lock()
                     .get(contract, &Address::SYSTEM_CODE)
                     .ok_or_else(|| {
                         error!("Contract or its code not found");
@@ -133,7 +134,7 @@ impl NativeExecutorContext {
     pub(super) fn new(
         shard_index: ShardIndex,
         methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
-        slots: Slots,
+        slots: Arc<Mutex<Slots>>,
         allow_env_mutation: bool,
     ) -> Self {
         Self {
@@ -148,7 +149,7 @@ impl NativeExecutorContext {
         Self::new(
             self.shard_index,
             Arc::clone(&self.methods_by_code),
-            self.slots.clone(),
+            Arc::clone(&self.slots),
             allow_env_mutation,
         )
     }
