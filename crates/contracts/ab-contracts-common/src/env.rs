@@ -69,7 +69,7 @@ pub trait ExecutorContext: alloc::fmt::Debug {
     fn call_many(
         &self,
         previous_env_state: &EnvState,
-        prepared_methods: &[PreparedMethod],
+        prepared_methods: &mut [PreparedMethod],
     ) -> Result<(), ContractError>;
 }
 
@@ -172,11 +172,11 @@ impl Env<'_> {
     #[inline]
     pub fn call_many<const N: usize>(
         &self,
-        methods: [PreparedMethod<'_>; N],
+        mut methods: [PreparedMethod<'_>; N],
     ) -> Result<(), ContractError> {
         #[cfg(any(unix, windows))]
         {
-            self.executor_context.call_many(&self.state, &methods)
+            self.executor_context.call_many(&self.state, &mut methods)
         }
         #[cfg(all(feature = "guest", not(any(unix, windows))))]
         {
