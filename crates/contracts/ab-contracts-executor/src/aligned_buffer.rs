@@ -45,7 +45,8 @@ impl DerefMut for OwnedAlignedBuffer {
 impl PartialEq for OwnedAlignedBuffer {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.len == other.len && self.as_slice() == other.as_slice()
+        (self.len == other.len && self.as_ptr() == other.as_ptr())
+            || (self.as_slice() == other.as_slice())
     }
 }
 
@@ -191,21 +192,24 @@ impl Deref for SharedAlignedBuffer {
 impl PartialEq for SharedAlignedBuffer {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.len == other.len && self.as_slice() == other.as_slice()
+        (self.len == other.len && self.as_ptr() == other.as_ptr())
+            || (self.as_slice() == other.as_slice())
     }
 }
 
 impl PartialEq<OwnedAlignedBuffer> for SharedAlignedBuffer {
     #[inline]
     fn eq(&self, other: &OwnedAlignedBuffer) -> bool {
-        self.len == other.len && self.as_slice() == other.as_slice()
+        (self.len == other.len && self.as_ptr() == other.as_ptr())
+            || (self.as_slice() == other.as_slice())
     }
 }
 
 impl PartialEq<SharedAlignedBuffer> for OwnedAlignedBuffer {
     #[inline]
     fn eq(&self, other: &SharedAlignedBuffer) -> bool {
-        self.len == other.len && self.as_slice() == other.as_slice()
+        (self.len == other.len && self.as_ptr() == other.as_ptr())
+            || (self.as_slice() == other.as_slice())
     }
 }
 
