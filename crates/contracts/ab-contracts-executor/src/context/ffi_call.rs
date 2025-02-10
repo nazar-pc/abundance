@@ -194,7 +194,7 @@ impl<'a> FfiCall<'a> {
         // Handle `&self` and `&mut self`
         match method_kind {
             MethodKind::Init => {
-                // Handled after the rest of the arguments if needed
+                // No state handling is needed
             }
             MethodKind::UpdateStateless | MethodKind::ViewStateless => {
                 // No state handling is needed
@@ -252,6 +252,14 @@ impl<'a> FfiCall<'a> {
             }
         }
 
+        let method_allows_env_mut = match method_kind {
+            MethodKind::Init
+            | MethodKind::UpdateStateless
+            | MethodKind::UpdateStatefulRo
+            | MethodKind::UpdateStatefulRw => parent_context.allow_env_mutation,
+            MethodKind::ViewStateless | MethodKind::ViewStateful => false,
+        };
+
         // Handle all other arguments one by one
         while let Some(result) = arguments_metadata_decoder.decode_next() {
             let item = match result {
@@ -279,7 +287,7 @@ impl<'a> FfiCall<'a> {
                     // Size for `#[env]` is implicit and doesn't need to be added to `InternalArgs`
                 }
                 ArgumentKind::EnvRw => {
-                    if !parent_context.allow_env_mutation {
+                    if !method_allows_env_mut {
                         return Err(ContractError::Forbidden);
                     }
 
