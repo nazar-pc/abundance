@@ -612,7 +612,7 @@ fn generate_extension_trait(
             #( #definitions )*
         }
 
-        impl #trait_name for ::ab_contracts_macros::__private::Env {
+        impl #trait_name for ::ab_contracts_macros::__private::Env<'_> {
             #( #impls )*
         }
     })

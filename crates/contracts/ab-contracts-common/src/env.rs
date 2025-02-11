@@ -79,16 +79,17 @@ pub trait ExecutorContext: alloc::fmt::Debug {
 /// context is also present
 #[derive(Debug)]
 #[repr(C)]
-pub struct Env {
+pub struct Env<'a> {
     state: EnvState,
     #[cfg(any(unix, windows))]
     executor_context: Arc<dyn ExecutorContext>,
+    phantom_data: PhantomData<&'a ()>,
 }
 
 // TODO: API to "attach" data structures to the environment to make sure pointers to it can be
 //  returned safely, will likely require `Pin` and return some reference from which pointer is to
 //  be created
-impl Env {
+impl Env<'_> {
     /// Instantiate environment with executor context
     #[cfg(any(unix, windows))]
     #[inline]
@@ -99,6 +100,7 @@ impl Env {
         Self {
             state,
             executor_context,
+            phantom_data: PhantomData,
         }
     }
 

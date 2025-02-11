@@ -805,7 +805,7 @@ impl MethodDetails {
 
             internal_args_pointers.push(quote! {
                 // Use `Env` to check if method argument had the correct type at compile time
-                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Env>,
+                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Env<'__internal_args>>,
             });
 
             if mutability.is_some() {
@@ -1111,9 +1111,10 @@ impl MethodDetails {
             quote_spanned! {fn_sig.span() =>
                 #[doc = #args_struct_doc]
                 #[repr(C)]
-                pub struct InternalArgs
+                pub struct InternalArgs<'__internal_args>
                 {
                     #( #internal_args_pointers )*
+                    _phantom: ::core::marker::PhantomData<&'__internal_args ()>,
                 }
             }
         };
@@ -1192,7 +1193,7 @@ impl MethodDetails {
                 #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes without `Self`")]
                 #[allow(clippy::absurd_extreme_comparisons, reason = "Macro-generated code doesn't know the size upfront")]
                 pub unsafe extern "C" fn #ffi_fn_name(
-                    mut args: ::core::ptr::NonNull<InternalArgs>,
+                    mut args: ::core::ptr::NonNull<InternalArgs<'_>>,
                 ) -> ::ab_contracts_macros::__private::ExitCode {
                     // SAFETY: Must be upheld by the caller (executor)
                     unsafe {
@@ -1694,7 +1695,7 @@ impl MethodDetails {
         let env_self = if matches!(self.method_type, MethodType::View) {
             quote! { &self }
         } else {
-            quote! { self: &&mut Self }
+            quote! { &mut self }
         };
         // `#[view]` methods do not require explicit method context
         let method_context_arg = (!matches!(self.method_type, MethodType::View)).then(|| {

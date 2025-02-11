@@ -16,31 +16,8 @@ use ab_system_contract_code::Code;
 #[cfg(feature = "system-contracts")]
 use ab_system_contract_state::State;
 use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use tracing::error;
-
-pub struct NativeEnv<'a> {
-    env: Env,
-    phantom_data: PhantomData<&'a ()>,
-}
-
-impl Deref for NativeEnv<'_> {
-    type Target = Env;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.env
-    }
-}
-
-impl DerefMut for NativeEnv<'_> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.env
-    }
-}
 
 /// Native executor errors
 #[derive(Debug, thiserror::Error)]
@@ -136,7 +113,7 @@ impl NativeExecutor {
     }
 
     /// Run a function under fresh execution environment
-    pub fn env(&mut self, context: Address, caller: Address) -> NativeEnv<'_> {
+    pub fn env(&mut self, context: Address, caller: Address) -> Env<'_> {
         let env_state = EnvState {
             shard_index: self.context.shard_index(),
             own_address: Address::NULL,
@@ -144,17 +121,12 @@ impl NativeExecutor {
             caller,
         };
 
-        let env = Env::with_executor_context(env_state, Arc::clone(&self.context) as _);
-
-        NativeEnv {
-            env,
-            phantom_data: PhantomData,
-        }
+        Env::with_executor_context(env_state, Arc::clone(&self.context) as _)
     }
 
     /// Shortcut for [`Self::env`] with context and caller set to [`Address::NULL`]
     #[inline]
-    pub fn null_env(&mut self) -> NativeEnv<'_> {
+    pub fn null_env(&mut self) -> Env<'_> {
         self.env(Address::NULL, Address::NULL)
     }
 
@@ -170,7 +142,7 @@ impl NativeExecutor {
         self.deploy_system_contract_at::<State>(Address::SYSTEM_STATE);
 
         // Initialize shard state
-        let env = &mut *self.null_env();
+        let env = &mut self.null_env();
         env.address_allocator_new(MethodContext::Keep, address_allocator_address)?;
 
         Ok(())

@@ -10,7 +10,7 @@ fn basic() {
     let mut executor = NativeExecutor::in_memory(shard_index).unwrap();
     executor.deploy_typical_system_contracts().unwrap();
 
-    let env = &mut *executor.null_env();
+    let mut env = executor.null_env();
 
     // Deploy
     let flipper_address = env

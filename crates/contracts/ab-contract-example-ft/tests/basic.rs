@@ -11,7 +11,7 @@ fn basic() {
     let mut executor = NativeExecutor::in_memory(shard_index).unwrap();
     executor.deploy_typical_system_contracts().unwrap();
     let token_address = {
-        let env = &mut *executor.null_env();
+        let mut env = executor.null_env();
 
         let token_address = env
             .code_deploy(
@@ -32,7 +32,7 @@ fn basic() {
     };
 
     {
-        let env = &mut *executor.env(token_address, Address::NULL);
+        let mut env = executor.env(token_address, Address::NULL);
 
         let from = token_address;
         let mut previous_from_balance = Balance::MAX;
