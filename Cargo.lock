@@ -3,7 +3,30 @@
 version = 4
 
 [[package]]
-name = "ab-contract-example"
+name = "ab-contract-example-flipper"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-executor",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+ "ab-system-contract-code",
+]
+
+[[package]]
+name = "ab-contract-example-ft"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-executor",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+ "ab-contracts-standards",
+ "ab-system-contract-code",
+]
+
+[[package]]
+name = "ab-contract-playground"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
@@ -55,6 +78,7 @@ dependencies = [
  "ab-contracts-common",
  "ab-contracts-io-type",
  "ab-contracts-macros-impl",
+ "const_format",
  "inventory",
 ]
 
@@ -136,6 +160,26 @@ name = "const-sha1"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d8a42181e0652c2997ae4d217f25b63c5337a52fd2279736e97b832fa0a3cff"
+
+[[package]]
+name = "const_format"
+version = "0.2.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "126f97965c8ad46d6d9163268ff28432e8f6a1196a55578867832e3049df63dd"
+dependencies = [
+ "const_format_proc_macros",
+]
+
+[[package]]
+name = "const_format_proc_macros"
+version = "0.2.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d57c2eccfb16dbac1f4e61e206105db5820c9d26c3c472bc17c774259ef7744"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-xid",
+]
 
 [[package]]
 name = "derive_more"

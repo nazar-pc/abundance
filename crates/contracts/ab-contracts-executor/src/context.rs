@@ -219,7 +219,7 @@ impl ExecutorContext for NativeExecutorContext {
                 MethodKind::UpdateStateless | MethodKind::ViewStateless => {
                     // No state handling is needed
                 }
-                MethodKind::UpdateStatefulRo | MethodKind::ViewStatefulRo => {
+                MethodKind::UpdateStatefulRo | MethodKind::ViewStateful => {
                     let state_bytes = used_slots.use_ro(contract, &Address::SYSTEM_STATE)?;
 
                     delayed_processing.push(DelayedProcessing::SlotReadOnly {
@@ -247,7 +247,7 @@ impl ExecutorContext for NativeExecutorContext {
                     delayed_processing.push(DelayedProcessing::SlotReadWrite {
                         // Is updated below
                         data_ptr: NonNull::dangling(),
-                        slot_ptr: NonNull::from_mut(&mut *state_bytes),
+                        slot_ptr: NonNull::from_mut(state_bytes),
                         size: state_bytes.len(),
                         capacity: state_bytes.capacity(),
                     });
@@ -338,7 +338,7 @@ impl ExecutorContext for NativeExecutorContext {
                         delayed_processing.push(DelayedProcessing::SlotReadWrite {
                             // Is updated below
                             data_ptr: NonNull::dangling(),
-                            slot_ptr: NonNull::from_mut(&mut *tmp_bytes),
+                            slot_ptr: NonNull::from_mut(tmp_bytes),
                             size: tmp_bytes.len(),
                             capacity: tmp_bytes.capacity(),
                         });
@@ -397,7 +397,7 @@ impl ExecutorContext for NativeExecutorContext {
                         delayed_processing.push(DelayedProcessing::SlotReadWrite {
                             // Is updated below
                             data_ptr: NonNull::dangling(),
-                            slot_ptr: NonNull::from_mut(&mut *slot_bytes),
+                            slot_ptr: NonNull::from_mut(slot_bytes),
                             size: slot_bytes.len(),
                             capacity: slot_bytes.capacity(),
                         });
@@ -439,7 +439,7 @@ impl ExecutorContext for NativeExecutorContext {
                         unsafe {
                             // Output
                             copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
-                            // Size
+                            // Size (might be a null pointer for trivial types)
                             let size_ptr =
                                 copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
                             if !size_ptr.is_null() {
@@ -469,7 +469,7 @@ impl ExecutorContext for NativeExecutorContext {
                             delayed_processing.push(DelayedProcessing::SlotReadWrite {
                                 // Is updated below
                                 data_ptr: NonNull::dangling(),
-                                slot_ptr: NonNull::from_mut(&mut *state_bytes),
+                                slot_ptr: NonNull::from_mut(state_bytes),
                                 size: 0,
                                 capacity: state_bytes.capacity(),
                             });
@@ -498,7 +498,7 @@ impl ExecutorContext for NativeExecutorContext {
                             unsafe {
                                 // Output
                                 copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
-                                // Size
+                                // Size (might be a null pointer for trivial types)
                                 let size_ptr = copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
                                 if !size_ptr.is_null() {
                                     // Override output size to be zero even if caller guest tried to

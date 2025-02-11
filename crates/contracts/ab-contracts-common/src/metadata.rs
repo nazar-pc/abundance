@@ -29,7 +29,7 @@ pub enum ContractMetadataKind {
     ///   * [`Self::UpdateStatefulRo`]
     ///   * [`Self::UpdateStatefulRw`]
     ///   * [`Self::ViewStateless`]
-    ///   * [`Self::ViewStatefulRo`]
+    ///   * [`Self::ViewStateful`]
     ///
     /// [`IoTypeMetadataKind`]: ab_contracts_io_type::metadata::IoTypeMetadataKind
     Contract,
@@ -94,7 +94,7 @@ pub enum ContractMetadataKind {
     /// Stateful read-only `#[view]` method (has `&self` in its arguments).
     ///
     /// Encoding is the same as [`Self::Init`].
-    ViewStatefulRo,
+    ViewStateful,
 
     // TODO: `#[env] can be made implicit assuming the name is of the struct is always the same
     /// Read-only `#[env]` argument.
@@ -153,7 +153,7 @@ impl ContractMetadataKind {
             4 => Self::UpdateStatefulRo,
             5 => Self::UpdateStatefulRw,
             6 => Self::ViewStateless,
-            7 => Self::ViewStatefulRo,
+            7 => Self::ViewStateful,
             8 => Self::EnvRo,
             9 => Self::EnvRw,
             10 => Self::TmpRo,

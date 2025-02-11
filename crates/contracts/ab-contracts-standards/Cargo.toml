@@ -15,4 +15,7 @@ ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
 ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
 
 [features]
-guest = []
+guest = [
+    "ab-contracts-common/guest",
+    "ab-contracts-macros/guest",
+]

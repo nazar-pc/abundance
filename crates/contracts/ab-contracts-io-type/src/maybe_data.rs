@@ -9,6 +9,7 @@ use core::ptr::NonNull;
 /// This is somewhat similar to [`VariableBytes`](crate::variable_bytes::VariableBytes), but instead
 /// of variable size data structure allows to either have it or not have the contents or not have
 /// it, which is a simpler and more convenient API that is also sufficient in many cases.
+#[derive(Debug)]
 pub struct MaybeData<Data>
 where
     Data: TrivialType,
@@ -150,7 +151,7 @@ where
     //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
-    pub fn from_buffer(data: Option<&'_ Data>) -> impl Deref<Target = Self> + '_ {
+    pub const fn from_buffer(data: Option<&'_ Data>) -> impl Deref<Target = Self> + '_ {
         let (data, size) = if let Some(data) = data {
             (NonNull::from_ref(data), &Data::SIZE)
         } else {
@@ -219,7 +220,7 @@ where
 
     /// Try to get access to initialized `Data`, returns `None` if not initialized
     #[inline]
-    pub fn get(&self) -> Option<&Data> {
+    pub const fn get(&self) -> Option<&Data> {
         // SAFETY: guaranteed to be initialized by constructors
         if unsafe { self.size.read() } == self.capacity {
             // SAFETY: initialized

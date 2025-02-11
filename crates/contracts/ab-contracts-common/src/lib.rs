@@ -8,12 +8,17 @@ pub mod method;
 use crate::method::MethodFingerprint;
 use ab_contracts_io_type::IoType;
 use ab_contracts_io_type::trivial_type::TrivialType;
+use ab_contracts_io_type::variable_bytes::VariableBytes;
 use core::ffi::c_void;
 use core::fmt;
+use core::ops::Deref;
 use core::ptr::NonNull;
 use derive_more::{
     Add, AddAssign, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub, SubAssign,
 };
+
+/// Max allowed size of the contract code
+pub const MAX_CODE_SIZE: u32 = 1024 * 1024;
 
 /// Pointers to methods of all contracts.
 ///
@@ -24,7 +29,7 @@ use derive_more::{
 #[derive(Debug, Copy, Clone)]
 #[cfg(any(unix, windows))]
 pub struct ContractsMethodsFnPointer {
-    pub crate_name: &'static str,
+    pub contact_code: &'static str,
     pub main_contract_metadata: &'static [u8],
     pub method_fingerprint: &'static MethodFingerprint,
     pub method_metadata: &'static [u8],
@@ -46,11 +51,10 @@ pub trait Contract: IoType {
     ///
     /// [`ContractMetadataKind`]: crate::metadata::ContractMetadataKind
     const MAIN_CONTRACT_METADATA: &[u8];
-    /// Name of the crate where contact is located.
-    ///
-    /// NOTE: It is unlikely to be necessary to interact with this directly.
+    /// Something that can be used as "code" in native execution environment
     #[cfg(any(unix, windows))]
-    const CRATE_NAME: &str;
+    #[doc(hidden)]
+    const CODE: &str;
     // Default value is provided to only fail to compile when contract that uses
     // `ab-contracts-common` has feature specified, but `ab-contracts-common` does not, but not the
     // other way around (as will be the case with dependencies where `guest` feature must not be
@@ -62,6 +66,10 @@ pub trait Contract: IoType {
     type Slot: IoType;
     /// Tmp type used by this contract
     type Tmp: IoType;
+    /// Something that can be used as "code" in native execution environment
+    // TODO: Make `const` when possible
+    #[cfg(any(unix, windows))]
+    fn code() -> impl Deref<Target = VariableBytes<MAX_CODE_SIZE>>;
 }
 
 #[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]

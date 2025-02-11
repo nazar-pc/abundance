@@ -19,4 +19,5 @@ ab-system-contract-address-allocator = { version = "0.0.1", path = "../ab-system
 [features]
 guest = [
     "ab-contracts-common/guest",
+    "ab-contracts-macros/guest",
 ]
