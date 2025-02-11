@@ -132,7 +132,7 @@ impl<'metadata> MetadataDecoder<'metadata> {
             | ContractMetadataKind::UpdateStatefulRo
             | ContractMetadataKind::UpdateStatefulRw
             | ContractMetadataKind::ViewStateless
-            | ContractMetadataKind::ViewStatefulRo
+            | ContractMetadataKind::ViewStateful
             | ContractMetadataKind::EnvRo
             | ContractMetadataKind::EnvRw
             | ContractMetadataKind::TmpRo
@@ -276,8 +276,8 @@ pub enum MethodKind {
     UpdateStatefulRw,
     /// Corresponds to [`ContractMetadataKind::ViewStateless`]
     ViewStateless,
-    /// Corresponds to [`ContractMetadataKind::ViewStatefulRo`]
-    ViewStatefulRo,
+    /// Corresponds to [`ContractMetadataKind::ViewStateful`]
+    ViewStateful,
 }
 
 impl MethodKind {
@@ -286,7 +286,7 @@ impl MethodKind {
             MethodKind::Init | MethodKind::UpdateStateless | MethodKind::ViewStateless => false,
             MethodKind::UpdateStatefulRo
             | MethodKind::UpdateStatefulRw
-            | MethodKind::ViewStatefulRo => true,
+            | MethodKind::ViewStateful => true,
         }
     }
 }
@@ -340,7 +340,7 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
             ContractMetadataKind::UpdateStatefulRo => MethodKind::UpdateStatefulRo,
             ContractMetadataKind::UpdateStatefulRw => MethodKind::UpdateStatefulRw,
             ContractMetadataKind::ViewStateless => MethodKind::ViewStateless,
-            ContractMetadataKind::ViewStatefulRo => MethodKind::ViewStatefulRo,
+            ContractMetadataKind::ViewStateful => MethodKind::ViewStateful,
             // The rest are not methods and can't appear here
             ContractMetadataKind::Contract
             | ContractMetadataKind::Trait
@@ -364,13 +364,13 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
                 | MethodKind::UpdateStatefulRo
                 | MethodKind::UpdateStatefulRw
                 | MethodKind::ViewStateless
-                | MethodKind::ViewStatefulRo => true,
+                | MethodKind::ViewStateful => true,
             },
             MethodsContainerKind::Trait => match method_kind {
                 MethodKind::Init
                 | MethodKind::UpdateStatefulRo
                 | MethodKind::UpdateStatefulRw
-                | MethodKind::ViewStatefulRo => false,
+                | MethodKind::ViewStateful => false,
                 MethodKind::UpdateStateless | MethodKind::ViewStateless => true,
             },
         };
@@ -504,7 +504,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             | ContractMetadataKind::UpdateStatefulRo
             | ContractMetadataKind::UpdateStatefulRw
             | ContractMetadataKind::ViewStateless
-            | ContractMetadataKind::ViewStatefulRo => {
+            | ContractMetadataKind::ViewStateful => {
                 return Err(MetadataDecodingError::ExpectedArgumentKind { metadata_kind });
             }
         };
@@ -525,7 +525,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                 | ArgumentKind::Output
                 | ArgumentKind::Result => true,
             },
-            MethodKind::ViewStateless | MethodKind::ViewStatefulRo => match argument_kind {
+            MethodKind::ViewStateless | MethodKind::ViewStateful => match argument_kind {
                 ArgumentKind::EnvRo
                 | ArgumentKind::SlotRo
                 | ArgumentKind::Input

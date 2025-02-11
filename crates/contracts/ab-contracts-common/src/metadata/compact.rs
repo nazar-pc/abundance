@@ -103,7 +103,7 @@ const fn compact_metadata_inner<'i, 'o>(
         | ContractMetadataKind::UpdateStatefulRo
         | ContractMetadataKind::UpdateStatefulRw
         | ContractMetadataKind::ViewStateless
-        | ContractMetadataKind::ViewStatefulRo => {
+        | ContractMetadataKind::ViewStateful => {
             // Copy method name
             let method_name_length = input[0] as usize;
             (input, output) = forward_option!(copy_n_bytes(input, output, 1 + method_name_length));
@@ -163,7 +163,7 @@ const fn compact_method_argument<'i, 'o>(
         | ContractMetadataKind::UpdateStatefulRo
         | ContractMetadataKind::UpdateStatefulRw
         | ContractMetadataKind::ViewStateless
-        | ContractMetadataKind::ViewStatefulRo => {
+        | ContractMetadataKind::ViewStateful => {
             // Expected argument here
             return None;
         }

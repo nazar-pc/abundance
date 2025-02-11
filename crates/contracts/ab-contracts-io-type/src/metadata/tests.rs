@@ -10,7 +10,7 @@ fn check_repr() {
         (ContractMetadataKind::UpdateStatefulRo, 4),
         (ContractMetadataKind::UpdateStatefulRw, 5),
         (ContractMetadataKind::ViewStateless, 6),
-        (ContractMetadataKind::ViewStatefulRo, 7),
+        (ContractMetadataKind::ViewStateful, 7),
         (ContractMetadataKind::EnvRo, 8),
         (ContractMetadataKind::EnvRw, 9),
         (ContractMetadataKind::TmpRo, 10),

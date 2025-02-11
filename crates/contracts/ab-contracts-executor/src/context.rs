@@ -219,7 +219,7 @@ impl ExecutorContext for NativeExecutorContext {
                 MethodKind::UpdateStateless | MethodKind::ViewStateless => {
                     // No state handling is needed
                 }
-                MethodKind::UpdateStatefulRo | MethodKind::ViewStatefulRo => {
+                MethodKind::UpdateStatefulRo | MethodKind::ViewStateful => {
                     let state_bytes = used_slots.use_ro(contract, &Address::SYSTEM_STATE)?;
 
                     delayed_processing.push(DelayedProcessing::SlotReadOnly {
