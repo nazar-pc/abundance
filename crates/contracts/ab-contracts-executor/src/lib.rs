@@ -1,8 +1,12 @@
 #![feature(non_null_from_ref, pointer_is_aligned_to)]
 
+mod aligned_buffer;
 mod context;
+mod slots;
 
+use crate::aligned_buffer::SharedAlignedBuffer;
 use crate::context::{MethodDetails, NativeExecutorContext};
+use crate::slots::Slots;
 use ab_contracts_common::env::{Env, EnvState, MethodContext};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
 use ab_contracts_common::method::MethodFingerprint;
@@ -15,6 +19,7 @@ use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt
 use ab_system_contract_code::Code;
 #[cfg(feature = "system-contracts")]
 use ab_system_contract_state::State;
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::error;
@@ -46,7 +51,9 @@ pub enum NativeExecutorError {
 // TODO: `NativeExecutorBuilder` that allows to inject contracts and trait implementations
 //  explicitly instead of relying on `inventory` that silently doesn't work under Miri
 pub struct NativeExecutor {
-    context: Arc<NativeExecutorContext>,
+    shard_index: ShardIndex,
+    methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
+    slots: Arc<Mutex<Slots>>,
 }
 
 impl NativeExecutor {
@@ -107,21 +114,33 @@ impl NativeExecutor {
             }
         }
 
-        let context = NativeExecutorContext::new(shard_index, methods_by_code);
+        let methods_by_code = Arc::new(methods_by_code);
 
-        Ok(Self { context })
+        Ok(Self {
+            shard_index,
+            methods_by_code,
+            slots: Arc::default(),
+        })
     }
 
     /// Run a function under fresh execution environment
     pub fn env(&mut self, context: Address, caller: Address) -> Env<'_> {
         let env_state = EnvState {
-            shard_index: self.context.shard_index(),
+            shard_index: self.shard_index,
             own_address: Address::NULL,
             context,
             caller,
         };
 
-        Env::with_executor_context(env_state, Arc::clone(&self.context) as _)
+        Env::with_executor_context(
+            env_state,
+            Box::new(NativeExecutorContext::new(
+                self.shard_index,
+                Arc::clone(&self.methods_by_code),
+                Arc::clone(&self.slots),
+                true,
+            )),
+        )
     }
 
     /// Shortcut for [`Self::env`] with context and caller set to [`Address::NULL`]
@@ -135,8 +154,7 @@ impl NativeExecutor {
     /// It uses low-level method [`Self::deploy_system_contract_at()`].
     #[cfg(feature = "system-contracts")]
     pub fn deploy_typical_system_contracts(&mut self) -> Result<(), ContractError> {
-        let address_allocator_address =
-            Address::system_address_allocator(self.context.shard_index());
+        let address_allocator_address = Address::system_address_allocator(self.shard_index);
         self.deploy_system_contract_at::<AddressAllocator>(address_allocator_address);
         self.deploy_system_contract_at::<Code>(Address::SYSTEM_CODE);
         self.deploy_system_contract_at::<State>(Address::SYSTEM_STATE);
@@ -156,7 +174,10 @@ impl NativeExecutor {
     where
         C: Contract,
     {
-        self.context
-            .force_insert(address, Address::SYSTEM_CODE, C::code().get_initialized());
+        self.slots.lock().put(
+            address,
+            Address::SYSTEM_CODE,
+            SharedAlignedBuffer::from_bytes(C::code().get_initialized()),
+        );
     }
 }

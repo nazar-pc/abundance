@@ -1,4 +1,4 @@
-use crate::context::aligned_buffer::{AlignedBytes, OwnedAlignedBuffer};
+use crate::aligned_buffer::{AlignedBytes, OwnedAlignedBuffer};
 
 const EXPECTED_ALIGNMENT: usize = size_of::<AlignedBytes>();
 

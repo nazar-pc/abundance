@@ -71,11 +71,11 @@ where
     #[inline]
     #[track_caller]
     unsafe fn from_ptr<'a>(
-        ptr: &'a NonNull<Self::PointerType>,
+        data: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
     ) -> impl Deref<Target = Self> + 'a {
-        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        debug_assert!(data.is_aligned(), "Misaligned pointer");
         debug_assert!(
             *size == 0 || *size == capacity,
             "Invalid size {size} for capacity {capacity}"
@@ -86,11 +86,10 @@ where
             Data::SIZE
         );
 
-        let data = ptr.cast::<Data>();
         let size = NonNull::from_ref(size);
 
         DerefWrapper(MaybeData {
-            data,
+            data: *data,
             size,
             capacity,
         })
@@ -99,14 +98,14 @@ where
     #[inline]
     #[track_caller]
     unsafe fn from_mut_ptr<'a>(
-        ptr: &'a mut NonNull<Self::PointerType>,
+        data: &'a mut NonNull<Self::PointerType>,
         size: &'a mut *mut u32,
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert!(!size.is_null(), "`null` pointer for non-`TrivialType` size");
         // SAFETY: Must be guaranteed by the caller + debug check above
         let size = unsafe { NonNull::new_unchecked(*size) };
-        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        debug_assert!(data.is_aligned(), "Misaligned pointer");
         // SAFETY: Must be guaranteed by the caller
         {
             let size = unsafe { size.read() };
@@ -121,10 +120,8 @@ where
             Data::SIZE
         );
 
-        let data = ptr.cast::<Data>();
-
         DerefWrapper(MaybeData {
-            data,
+            data: *data,
             size,
             capacity,
         })
@@ -159,7 +156,7 @@ where
         };
 
         DerefWrapper(Self {
-            data: data.cast::<<Self as IoType>::PointerType>(),
+            data,
             size: NonNull::from_ref(size),
             capacity: Data::SIZE,
         })
@@ -187,7 +184,7 @@ where
         );
 
         DerefWrapper(Self {
-            data: NonNull::from_mut(buffer).cast::<<Self as IoType>::PointerType>(),
+            data: NonNull::from_mut(buffer),
             size: NonNull::from_ref(size),
             capacity: Data::SIZE,
         })
@@ -212,7 +209,7 @@ where
         debug_assert_eq!(*size, 0, "Invalid size");
 
         DerefWrapper(Self {
-            data: NonNull::from_mut(uninit).cast::<<Self as IoType>::PointerType>(),
+            data: NonNull::from_mut(uninit).cast::<Data>(),
             size: NonNull::from_mut(size),
             capacity: Data::SIZE,
         })

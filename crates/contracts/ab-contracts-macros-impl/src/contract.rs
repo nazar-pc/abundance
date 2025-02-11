@@ -180,8 +180,8 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
         #[used]
         #[unsafe(no_mangle)]
         #[unsafe(link_section = "CONTRACT_METADATA")]
-        static #static_name: [u8; <#struct_name as #trait_name>::METADATA.len()] = {
-            unsafe { *<#struct_name as #trait_name>::METADATA.as_ptr().cast() }
+        static #static_name: [u8; <#struct_name as #trait_name>::METADATA.len()] = unsafe {
+            *<#struct_name as #trait_name>::METADATA.as_ptr().cast()
         };
 
         // Sanity check that trait implementation fully matches trait definition
