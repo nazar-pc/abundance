@@ -247,7 +247,7 @@ impl ExecutorContext for NativeExecutorContext {
                     delayed_processing.push(DelayedProcessing::SlotReadWrite {
                         // Is updated below
                         data_ptr: NonNull::dangling(),
-                        slot_ptr: NonNull::from_mut(&mut *state_bytes),
+                        slot_ptr: NonNull::from_mut(state_bytes),
                         size: state_bytes.len(),
                         capacity: state_bytes.capacity(),
                     });
@@ -338,7 +338,7 @@ impl ExecutorContext for NativeExecutorContext {
                         delayed_processing.push(DelayedProcessing::SlotReadWrite {
                             // Is updated below
                             data_ptr: NonNull::dangling(),
-                            slot_ptr: NonNull::from_mut(&mut *tmp_bytes),
+                            slot_ptr: NonNull::from_mut(tmp_bytes),
                             size: tmp_bytes.len(),
                             capacity: tmp_bytes.capacity(),
                         });
@@ -397,7 +397,7 @@ impl ExecutorContext for NativeExecutorContext {
                         delayed_processing.push(DelayedProcessing::SlotReadWrite {
                             // Is updated below
                             data_ptr: NonNull::dangling(),
-                            slot_ptr: NonNull::from_mut(&mut *slot_bytes),
+                            slot_ptr: NonNull::from_mut(slot_bytes),
                             size: slot_bytes.len(),
                             capacity: slot_bytes.capacity(),
                         });
@@ -469,7 +469,7 @@ impl ExecutorContext for NativeExecutorContext {
                             delayed_processing.push(DelayedProcessing::SlotReadWrite {
                                 // Is updated below
                                 data_ptr: NonNull::dangling(),
-                                slot_ptr: NonNull::from_mut(&mut *state_bytes),
+                                slot_ptr: NonNull::from_mut(state_bytes),
                                 size: 0,
                                 capacity: state_bytes.capacity(),
                             });
