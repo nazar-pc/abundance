@@ -3,6 +3,18 @@
 version = 4
 
 [[package]]
+name = "ab-contract-example-ft"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-executor",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+ "ab-contracts-standards",
+ "ab-system-contract-code",
+]
+
+[[package]]
 name = "ab-contract-playground"
 version = "0.0.1"
 dependencies = [

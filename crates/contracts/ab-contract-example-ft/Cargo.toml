@@ -1,0 +1,27 @@
+[package]
+name = "ab-contract-example-ft"
+description = ""
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[dependencies]
+ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
+ab-contracts-io-type = { version = "0.0.1", path = "../ab-contracts-io-type" }
+ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
+ab-contracts-standards = { version = "0.0.1", path = "../ab-contracts-standards" }
+
+[dev-dependencies]
+ab-contracts-executor = { version = "0.0.1", path = "../ab-contracts-executor", features = ["system-contracts"] }
+ab-system-contract-code = { version = "0.0.1", path = "../ab-system-contract-code" }
+
+[features]
+guest = [
+    "ab-contracts-common/guest",
+    "ab-contracts-standards/guest",
+]
