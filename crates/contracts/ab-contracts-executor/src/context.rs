@@ -439,7 +439,7 @@ impl ExecutorContext for NativeExecutorContext {
                         unsafe {
                             // Output
                             copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
-                            // Size
+                            // Size (might be a null pointer for trivial types)
                             let size_ptr =
                                 copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
                             if !size_ptr.is_null() {
@@ -498,7 +498,7 @@ impl ExecutorContext for NativeExecutorContext {
                             unsafe {
                                 // Output
                                 copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
-                                // Size
+                                // Size (might be a null pointer for trivial types)
                                 let size_ptr = copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
                                 if !size_ptr.is_null() {
                                     // Override output size to be zero even if caller guest tried to

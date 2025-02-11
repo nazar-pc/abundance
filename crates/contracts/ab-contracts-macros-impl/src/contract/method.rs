@@ -1082,16 +1082,23 @@ impl MethodDetails {
                 });
 
                 // Ensure return type implements not only `IoType`, which is required for crossing
-                // host/guest boundary, but also `TrivialType` that ensures size matches capacity
-                // and result handling is trivial, for variable size result `#[result]` must be used
+                // host/guest boundary, but also `TrivialType` and result handling is trivial.
+                // `#[result]` must be used for a variable size result.
                 preparation.push(quote! {
                     debug_assert!(
                         args.ok_result_ptr.is_aligned(),
                         "`ok_result_ptr` pointer is misaligned"
                     );
-                    debug_assert_eq!(
-                        args.ok_result_capacity.read(),
-                        <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
+                    if !args.ok_result_size.is_null() {
+                        debug_assert_eq!(
+                            args.ok_result_size.read(),
+                            0,
+                            "`ok_result_size` must be zero initially",
+                        );
+                    }
+                    debug_assert!(
+                        args.ok_result_capacity.read() >=
+                            <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                         "`ok_result_capacity` specified is invalid",
                     );
                 });
@@ -1123,6 +1130,7 @@ impl MethodDetails {
                 }
                 MethodResultType::Regular(_) => {
                     quote! {
+                        // Size ight be a null pointer for trivial types
                         if !args.ok_result_size.is_null() {
                             args.ok_result_size.write(
                                 <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
@@ -1144,9 +1152,10 @@ impl MethodDetails {
                 }
                 MethodResultType::Result(_) => {
                     quote! {
-                        // Write result into `InternalArgs` if there is any, return exit code
+                        // Write a result into `InternalArgs` if there is any, return exit code
                         match #result_var_name {
                             Ok(result) => {
+                                // Size ight be a null pointer for trivial types
                                 if !args.ok_result_size.is_null() {
                                     args.ok_result_size.write(
                                         <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,

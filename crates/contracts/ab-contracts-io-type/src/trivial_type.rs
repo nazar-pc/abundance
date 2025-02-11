@@ -199,7 +199,7 @@ where
 
     #[inline]
     unsafe fn capacity_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
-        DerefWrapper(NonNull::from_ref(&(size_of::<T>() as u32)))
+        DerefWrapper(NonNull::from_ref(&Self::SIZE))
     }
 
     #[inline]
