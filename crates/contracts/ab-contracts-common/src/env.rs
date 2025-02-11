@@ -12,9 +12,14 @@ use core::ptr::NonNull;
 
 /// Context for method call.
 ///
+/// The correct mental model for context is "user of the child process", where "process" is a method
+/// call. Essentially, something executed with a context of a contract can be thought as done
+/// "on behalf" of that contract, which depending on circumstances may or may not be desired.
+///
 /// Initially, context is [`Address::NULL`]. For each call into another contract, the context of the
 /// current method can be either preserved, reset to [`Address::NULL`] or replaced with the current
-/// contract's address.
+/// contract's address. Those are the only options. Contracts do not have privileges to change
+/// context to the address of an arbitrary contract.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
 #[repr(u8)]
 pub enum MethodContext {
