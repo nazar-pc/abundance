@@ -26,14 +26,14 @@ pub struct Slot {
 
 #[derive(Copy, Clone, TrivialType)]
 #[repr(C)]
-pub struct Example {
+pub struct Playground {
     pub total_supply: Balance,
     pub owner: Address,
     pub padding: [u8; 8],
 }
 
 #[contract]
-impl Fungible for Example {
+impl Fungible for Playground {
     #[update]
     fn transfer(
         #[env] env: &mut Env,
@@ -45,17 +45,17 @@ impl Fungible for Example {
             return Err(ContractError::Forbidden);
         }
 
-        env.example_transfer(MethodContext::Replace, env.own_address(), from, to, amount)
+        env.playground_transfer(MethodContext::Replace, env.own_address(), from, to, amount)
     }
 
     #[view]
     fn balance(#[env] env: &Env, #[input] address: &Address) -> Result<Balance, ContractError> {
-        env.example_balance(env.own_address(), address)
+        env.playground_balance(env.own_address(), address)
     }
 }
 
 #[contract]
-impl Example {
+impl Playground {
     #[init]
     pub fn new(
         #[slot] (owner_addr, owner): (&Address, &mut MaybeData<Slot>),

@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "ab-contract-example"
+name = "ab-contract-playground"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
