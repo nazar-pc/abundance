@@ -252,12 +252,12 @@ fn generate_trait_metadata(
         /// Trait metadata, see [`ContractMetadataKind`] for encoding details
         ///
         /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
-        const METADATA: &[u8] = {
+        const METADATA: &[::core::primitive::u8] = {
             const fn metadata()
                 -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
             {
                 ::ab_contracts_macros::__private::concat_metadata_sources(&[
-                    &[::ab_contracts_macros::__private::ContractMetadataKind::Trait as u8],
+                    &[::ab_contracts_macros::__private::ContractMetadataKind::Trait as ::core::primitive::u8],
                     #trait_name_metadata,
                     &[#num_methods],
                     #( ffi::#methods::METADATA, )*
@@ -347,12 +347,12 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         // * Number of methods
         // * Metadata of methods
         quote! {
-            const MAIN_CONTRACT_METADATA: &[u8] = {
+            const MAIN_CONTRACT_METADATA: &[::core::primitive::u8] = {
                 const fn metadata()
                     -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
                 {
                     ::ab_contracts_macros::__private::concat_metadata_sources(&[
-                        &[::ab_contracts_macros::__private::ContractMetadataKind::Contract as u8],
+                        &[::ab_contracts_macros::__private::ContractMetadataKind::Contract as ::core::primitive::u8],
                         <#struct_name as ::ab_contracts_macros::__private::IoType>::METADATA,
                         <#slot_type as ::ab_contracts_macros::__private::IoType>::METADATA,
                         <#tmp_type as ::ab_contracts_macros::__private::IoType>::METADATA,
@@ -371,17 +371,16 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         }
     };
 
-    let ext_trait = {
-        let struct_name = extract_ident_from_type(struct_name).ok_or_else(|| {
-            Error::new(
-                struct_name.span(),
-                "`#[contract]` must be applied to simple struct implementation",
-            )
-        })?;
+    let struct_name_ident = extract_ident_from_type(struct_name).ok_or_else(|| {
+        Error::new(
+            struct_name.span(),
+            "`#[contract]` must be applied to simple struct implementation",
+        )
+    })?;
 
-        generate_extension_trait(struct_name, &trait_ext_components)?
-    };
+    let ext_trait = generate_extension_trait(struct_name_ident, &trait_ext_components)?;
 
+    let struct_name_str = struct_name_ident.to_string();
     Ok(quote! {
         /// Main contract metadata
         ///
@@ -409,12 +408,45 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         impl ::ab_contracts_macros::__private::Contract for #struct_name {
             #metadata_const
             #[cfg(any(unix, windows))]
-            const CRATE_NAME: &str = env!("CARGO_PKG_NAME");
+            const CODE: &::core::primitive::str = ::ab_contracts_macros::__private::concatcp!(
+                #struct_name_str,
+                '[',
+                ::core::env!("CARGO_PKG_NAME"),
+                '/',
+                ::core::file!(),
+                ':',
+                ::core::line!(),
+                ':',
+                ::core::column!(),
+                ']',
+            );
             // Ensure `guest` feature is enabled for `ab-contracts-common` crate
             #[cfg(feature = "guest")]
             const GUEST_FEATURE_ENABLED: () = ();
             type Slot = #slot_type;
             type Tmp = #tmp_type;
+
+            #[cfg(any(unix, windows))]
+            fn code() -> impl ::core::ops::Deref<
+                Target = ::ab_contracts_macros::__private::VariableBytes<
+                    { ::ab_contracts_macros::__private::MAX_CODE_SIZE },
+                >,
+            > {
+                const fn code_bytes() -> &'static [::core::primitive::u8] {
+                    <#struct_name as ::ab_contracts_macros::__private::Contract>::CODE.as_bytes()
+                }
+
+                const fn code_size() -> ::core::primitive::u32 {
+                    code_bytes().len() as ::core::primitive::u32
+                }
+
+                static CODE_SIZE: ::core::primitive::u32 = code_size();
+
+                ::ab_contracts_macros::__private::VariableBytes::from_buffer(
+                    code_bytes(),
+                    &CODE_SIZE
+                )
+            }
         }
 
         #item_impl

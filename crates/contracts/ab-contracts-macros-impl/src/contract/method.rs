@@ -748,9 +748,9 @@ impl MethodDetails {
             if mutability.is_some() {
                 internal_args_pointers.push(quote! {
                     /// Size of the contents `self_ptr` points to
-                    pub self_size: *mut u32,
+                    pub self_size: *mut ::core::primitive::u32,
                     /// Capacity of the allocated memory following `self_ptr` points to
-                    pub self_capacity: ::core::ptr::NonNull<u32>,
+                    pub self_capacity: ::core::ptr::NonNull<::core::primitive::u32>,
                 });
 
                 original_fn_args.push(quote! {&mut *{
@@ -773,7 +773,7 @@ impl MethodDetails {
             } else {
                 internal_args_pointers.push(quote! {
                     /// Size of the contents `self_ptr` points to
-                    pub self_size: ::core::ptr::NonNull<u32>,
+                    pub self_size: ::core::ptr::NonNull<::core::primitive::u32>,
                 });
 
                 original_fn_args.push(quote! {&*{
@@ -845,9 +845,9 @@ impl MethodDetails {
             if mutability.is_some() {
                 internal_args_pointers.push(quote! {
                     #[doc = #size_doc]
-                    pub #size_field: *mut u32,
+                    pub #size_field: *mut ::core::primitive::u32,
                     #[doc = #capacity_doc]
-                    pub #capacity_field: ::core::ptr::NonNull<u32>,
+                    pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
                 });
 
                 original_fn_args.push(quote! {&mut *{
@@ -871,7 +871,7 @@ impl MethodDetails {
             } else {
                 internal_args_pointers.push(quote! {
                     #[doc = #size_doc]
-                    pub #size_field: ::core::ptr::NonNull<u32>,
+                    pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
                 });
 
                 original_fn_args.push(quote! {&*{
@@ -926,9 +926,9 @@ impl MethodDetails {
             let arg_extraction = if mutability.is_some() {
                 internal_args_pointers.push(quote! {
                     #[doc = #size_doc]
-                    pub #size_field: *mut u32,
+                    pub #size_field: *mut ::core::primitive::u32,
                     #[doc = #capacity_doc]
-                    pub #capacity_field: ::core::ptr::NonNull<u32>,
+                    pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
                 });
 
                 quote! {&mut *{
@@ -952,7 +952,7 @@ impl MethodDetails {
             } else {
                 internal_args_pointers.push(quote! {
                     #[doc = #size_doc]
-                    pub #size_field: ::core::ptr::NonNull<u32>,
+                    pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
                 });
 
                 quote! {&*{
@@ -1009,7 +1009,7 @@ impl MethodDetails {
                             <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                         >,
                         #[doc = #size_doc]
-                        pub #size_field: ::core::ptr::NonNull<u32>,
+                        pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
                     });
 
                     original_fn_args.push(quote! {&*{
@@ -1037,9 +1037,9 @@ impl MethodDetails {
                             <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                         >,
                         #[doc = #size_doc]
-                        pub #size_field: *mut u32,
+                        pub #size_field: *mut ::core::primitive::u32,
                         #[doc = #capacity_doc]
-                        pub #capacity_field: ::core::ptr::NonNull<u32>,
+                        pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
                     });
 
                     original_fn_args.push(quote! {&mut *{
@@ -1076,9 +1076,9 @@ impl MethodDetails {
                 internal_args_pointers.push(quote! {
                     pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
                     /// The size of the contents `ok_result_ptr` points to
-                    pub ok_result_size: *mut u32,
+                    pub ok_result_size: *mut ::core::primitive::u32,
                     /// Capacity of the allocated memory `ok_result_ptr` points to
-                    pub ok_result_capacity: ::core::ptr::NonNull<u32>,
+                    pub ok_result_capacity: ::core::ptr::NonNull<::core::primitive::u32>,
                 });
 
                 // Ensure return type implements not only `IoType`, which is required for crossing
@@ -1189,7 +1189,8 @@ impl MethodDetails {
                 ///
                 /// Caller must ensure the provided pointer corresponds to expected ABI.
                 #[cfg_attr(feature = "guest", unsafe(no_mangle))]
-                #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes")]
+                #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes without `Self`")]
+                #[allow(clippy::absurd_extreme_comparisons, reason = "Macro-generated code doesn't know the size upfront")]
                 pub unsafe extern "C" fn #ffi_fn_name(
                     mut args: ::core::ptr::NonNull<InternalArgs>,
                 ) -> ::ab_contracts_macros::__private::ExitCode {
@@ -1248,7 +1249,7 @@ impl MethodDetails {
 
                     ::ab_contracts_macros::__private::inventory::submit! {
                         ::ab_contracts_macros::__private::ContractsMethodsFnPointer {
-                            crate_name: <#struct_name as ::ab_contracts_macros::__private::Contract>::CRATE_NAME,
+                            contact_code: <#struct_name as ::ab_contracts_macros::__private::Contract>::CODE,
                             main_contract_metadata: <#struct_name as ::ab_contracts_macros::__private::Contract>::MAIN_CONTRACT_METADATA,
                             method_fingerprint: &<#args_struct_name as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
                             method_metadata: METADATA,
@@ -1303,7 +1304,7 @@ impl MethodDetails {
                             <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                         >,
                         #[doc = #size_doc]
-                        pub #size_field: ::core::ptr::NonNull<u32>,
+                        pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
                     });
                 }
                 IoArg::Output { .. } => {
@@ -1312,9 +1313,9 @@ impl MethodDetails {
                             <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                         >,
                         #[doc = #size_doc]
-                        pub #size_field: *mut u32,
+                        pub #size_field: *mut ::core::primitive::u32,
                         #[doc = #capacity_doc]
-                        pub #capacity_field: ::core::ptr::NonNull<u32>,
+                        pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
                     });
                 }
                 IoArg::Result { .. } => {
@@ -1326,9 +1327,9 @@ impl MethodDetails {
                                 <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                             >,
                             #[doc = #size_doc]
-                            pub #size_field: *mut u32,
+                            pub #size_field: *mut ::core::primitive::u32,
                             #[doc = #capacity_doc]
-                            pub #capacity_field: ::core::ptr::NonNull<u32>,
+                            pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
                         });
                     }
                 }
@@ -1348,9 +1349,9 @@ impl MethodDetails {
             external_args_fields.push(quote! {
                 pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
                 /// Size of the contents `ok_result_ptr` points to
-                pub ok_result_size: *mut u32,
+                pub ok_result_size: *mut ::core::primitive::u32,
                 /// Capacity of the allocated memory `ok_result_ptr` points to
-                pub ok_result_capacity: ::core::ptr::NonNull<u32>,
+                pub ok_result_capacity: ::core::ptr::NonNull<::core::primitive::u32>,
             });
         }
         let args_struct_doc = format!(
@@ -1399,7 +1400,7 @@ impl MethodDetails {
 
             let env_metadata_type = format_ident!("{env_metadata_type}");
             method_metadata.push(quote! {
-                &[::ab_contracts_macros::__private::ContractMetadataKind::#env_metadata_type as u8],
+                &[::ab_contracts_macros::__private::ContractMetadataKind::#env_metadata_type as ::core::primitive::u8],
             });
         }
 
@@ -1413,7 +1414,7 @@ impl MethodDetails {
             let tmp_metadata_type = format_ident!("{tmp_metadata_type}");
             let arg_name_metadata = derive_ident_metadata(&tmp.arg_name)?;
             method_metadata.push(quote! {
-                &[::ab_contracts_macros::__private::ContractMetadataKind::#tmp_metadata_type as u8],
+                &[::ab_contracts_macros::__private::ContractMetadataKind::#tmp_metadata_type as ::core::primitive::u8],
                 #arg_name_metadata,
             });
         }
@@ -1428,7 +1429,7 @@ impl MethodDetails {
             let slot_metadata_type = format_ident!("{slot_metadata_type}");
             let arg_name_metadata = derive_ident_metadata(&slot.arg_name)?;
             method_metadata.push(quote! {
-                &[::ab_contracts_macros::__private::ContractMetadataKind::#slot_metadata_type as u8],
+                &[::ab_contracts_macros::__private::ContractMetadataKind::#slot_metadata_type as ::core::primitive::u8],
                 #arg_name_metadata,
             });
         }
@@ -1455,7 +1456,7 @@ impl MethodDetails {
                 })
             };
             method_metadata.push(quote! {
-                &[::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as u8],
+                &[::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as ::core::primitive::u8],
                 #arg_name_metadata,
                 #with_type_metadata
             });
@@ -1475,7 +1476,7 @@ impl MethodDetails {
             };
             method_metadata.push(quote! {
                 &[
-                    ::ab_contracts_macros::__private::ContractMetadataKind::Result as u8,
+                    ::ab_contracts_macros::__private::ContractMetadataKind::Result as ::core::primitive::u8,
                     #arg_name_metadata,
                 ],
                 #with_type_metadata
@@ -1528,7 +1529,7 @@ impl MethodDetails {
                 -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
             {
                 ::ab_contracts_macros::__private::concat_metadata_sources(&[
-                    &[::ab_contracts_macros::__private::ContractMetadataKind::#method_type as u8],
+                    &[::ab_contracts_macros::__private::ContractMetadataKind::#method_type as ::core::primitive::u8],
                     #method_name_metadata,
                     &[#number_of_arguments],
                     #( #method_metadata )*
@@ -1539,7 +1540,7 @@ impl MethodDetails {
             ///
             /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
             // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
-            pub const METADATA: &[u8] =
+            pub const METADATA: &[::core::primitive::u8] =
                 metadata()
                     .0
                     .split_at(metadata().1)

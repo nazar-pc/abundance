@@ -2,7 +2,6 @@ use ab_contract_playground::{Playground, PlaygroundExt};
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Balance, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
-use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_standards::FungibleExt;
 use ab_system_contract_code::CodeExt;
 
@@ -20,10 +19,7 @@ fn basic() {
             .code_deploy(
                 MethodContext::Keep,
                 Address::SYSTEM_CODE,
-                &VariableBytes::from_buffer(
-                    Playground::CRATE_NAME.as_bytes(),
-                    &(Playground::CRATE_NAME.len() as u32),
-                ),
+                &Playground::code(),
             )
             .unwrap();
         env.playground_new(

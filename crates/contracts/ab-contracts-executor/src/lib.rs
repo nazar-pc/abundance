@@ -57,15 +57,17 @@ pub enum NativeExecutorError {
     #[error("Expected contract metadata, found trait")]
     ExpectedContractMetadataFoundTrait,
     /// Duplicate method in contract
-    #[error("Duplicate method in contract {crate_name}: {method_fingerprint}")]
+    #[error("Duplicate method fingerprint {method_fingerprint} for contract code {contact_code}")]
     DuplicateMethodInContract {
         /// Name of the crate in which method was duplicated
-        crate_name: &'static str,
+        contact_code: &'static str,
         /// Method fingerprint
         method_fingerprint: &'static MethodFingerprint,
     },
 }
 
+// TODO: `NativeExecutorBuilder` that allows to inject contracts and trait implementations
+//  explicitly instead of relying on `inventory` that silently doesn't work under Miri
 pub struct NativeExecutor {
     context: Arc<NativeExecutorContext>,
 }
@@ -78,7 +80,7 @@ impl NativeExecutor {
         let mut methods_by_code = HashMap::<_, HashMap<_, _>>::new();
         for &contract_methods_fn_pointer in inventory::iter::<ContractsMethodsFnPointer> {
             let ContractsMethodsFnPointer {
-                crate_name,
+                contact_code,
                 main_contract_metadata,
                 method_fingerprint,
                 method_metadata,
@@ -107,7 +109,7 @@ impl NativeExecutor {
                 recommended_capacities;
 
             if methods_by_code
-                .entry(crate_name.as_bytes())
+                .entry(contact_code.as_bytes())
                 .or_default()
                 .insert(
                     *method_fingerprint,
@@ -122,7 +124,7 @@ impl NativeExecutor {
                 .is_some()
             {
                 return Err(NativeExecutorError::DuplicateMethodInContract {
-                    crate_name,
+                    contact_code,
                     method_fingerprint,
                 });
             }
@@ -183,6 +185,6 @@ impl NativeExecutor {
         C: Contract,
     {
         self.context
-            .force_insert(address, Address::SYSTEM_CODE, C::CRATE_NAME.as_bytes());
+            .force_insert(address, Address::SYSTEM_CODE, C::code().get_initialized());
     }
 }

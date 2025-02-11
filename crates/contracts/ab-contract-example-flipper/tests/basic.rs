@@ -2,7 +2,6 @@ use ab_contract_example_flipper::{Flipper, FlipperExt};
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
-use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_system_contract_code::CodeExt;
 
 #[test]
@@ -15,14 +14,7 @@ fn basic() {
 
     // Deploy
     let flipper_address = env
-        .code_deploy(
-            MethodContext::Keep,
-            Address::SYSTEM_CODE,
-            &VariableBytes::from_buffer(
-                Flipper::CRATE_NAME.as_bytes(),
-                &(Flipper::CRATE_NAME.len() as u32),
-            ),
-        )
+        .code_deploy(MethodContext::Keep, Address::SYSTEM_CODE, &Flipper::code())
         .unwrap();
 
     let init_value = true;

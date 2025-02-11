@@ -11,6 +11,7 @@ use core::{ptr, slice};
 /// into guest, but guest may receive an allocation with more or less memory in practice depending
 /// on other circumstances, like when called from another contract with specific allocation
 /// specified.
+#[derive(Debug)]
 pub struct VariableBytes<const RECOMMENDED_ALLOCATION: u32> {
     bytes: NonNull<u8>,
     size: NonNull<u32>,
@@ -203,11 +204,13 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
     #[track_caller]
-    pub fn from_buffer<'a>(
+    pub const fn from_buffer<'a>(
         buffer: &'a [<Self as IoType>::PointerType],
         size: &'a u32,
     ) -> impl Deref<Target = Self> + 'a {
-        debug_assert_eq!(buffer.len(), *size as usize, "Invalid size");
+        debug_assert!(buffer.len() == *size as usize, "Invalid size");
+        // TODO: Use `debug_assert_eq` when it is available in const environment
+        // debug_assert_eq!(buffer.len(), *size as usize, "Invalid size");
 
         DerefWrapper(Self {
             bytes: NonNull::from_ref(buffer).cast::<<Self as IoType>::PointerType>(),
@@ -265,7 +268,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     }
 
     #[inline]
-    pub fn size(&self) -> u32 {
+    pub const fn size(&self) -> u32 {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe { self.size.read() }
     }
@@ -277,7 +280,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
 
     /// Try to get access to initialized bytes
     #[inline]
-    pub fn get_initialized(&self) -> &[u8] {
+    pub const fn get_initialized(&self) -> &[u8] {
         let size = self.size();
         let ptr = self.bytes.as_ptr();
         // SAFETY: guaranteed by constructor and explicit methods by the user

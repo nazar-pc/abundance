@@ -2,7 +2,6 @@ use ab_contract_example_ft::{ExampleFt, ExampleFtExt};
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Balance, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
-use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_standards::FungibleExt;
 use ab_system_contract_code::CodeExt;
 
@@ -18,10 +17,7 @@ fn basic() {
             .code_deploy(
                 MethodContext::Keep,
                 Address::SYSTEM_CODE,
-                &VariableBytes::from_buffer(
-                    ExampleFt::CRATE_NAME.as_bytes(),
-                    &(ExampleFt::CRATE_NAME.len() as u32),
-                ),
+                &ExampleFt::code(),
             )
             .unwrap();
         env.example_ft_new(
