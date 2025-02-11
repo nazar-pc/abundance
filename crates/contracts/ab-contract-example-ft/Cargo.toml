@@ -23,5 +23,6 @@ ab-system-contract-code = { version = "0.0.1", path = "../ab-system-contract-cod
 [features]
 guest = [
     "ab-contracts-common/guest",
+    "ab-contracts-macros/guest",
     "ab-contracts-standards/guest",
 ]

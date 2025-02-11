@@ -18,4 +18,5 @@ ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
 [features]
 guest = [
     "ab-contracts-common/guest",
+    "ab-contracts-macros/guest",
 ]
