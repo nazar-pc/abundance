@@ -1,4 +1,4 @@
-#![feature(non_null_from_ref, pointer_is_aligned_to)]
+#![feature(non_null_from_ref, pointer_is_aligned_to, try_blocks)]
 
 mod aligned_buffer;
 mod context;
@@ -13,11 +13,8 @@ use ab_contracts_common::method::MethodFingerprint;
 use ab_contracts_common::{
     Address, Contract, ContractError, ContractsMethodsFnPointer, ShardIndex,
 };
-#[cfg(feature = "system-contracts")]
 use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt};
-#[cfg(feature = "system-contracts")]
-use ab_system_contract_code::Code;
-#[cfg(feature = "system-contracts")]
+use ab_system_contract_code::{Code, CodeExt};
 use ab_system_contract_state::State;
 use parking_lot::Mutex;
 use std::collections::HashMap;
@@ -46,10 +43,14 @@ pub enum NativeExecutorError {
         /// Method fingerprint
         method_fingerprint: &'static MethodFingerprint,
     },
+    /// Failed to deploy system contracts
+    #[error("Failed to deploy system contracts: {error}")]
+    FailedToDeploySystemContracts { error: ContractError },
 }
 
 // TODO: `NativeExecutorBuilder` that allows to inject contracts and trait implementations
 //  explicitly instead of relying on `inventory` that silently doesn't work under Miri
+// TODO: Some kind of transaction notion with `#[tmp]` wiped at the end of it
 pub struct NativeExecutor {
     shard_index: ShardIndex,
     methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
@@ -57,10 +58,8 @@ pub struct NativeExecutor {
 }
 
 impl NativeExecutor {
-    /// Instantiate in-memory native executor.
-    ///
-    /// Returns error in case of method duplicates.
-    pub fn in_memory(shard_index: ShardIndex) -> Result<Self, NativeExecutorError> {
+    /// Instantiate in-memory native executor with empty storage
+    pub fn in_memory_empty(shard_index: ShardIndex) -> Result<Self, NativeExecutorError> {
         let mut methods_by_code = HashMap::<_, HashMap<_, _>>::new();
         for &contract_methods_fn_pointer in inventory::iter::<ContractsMethodsFnPointer> {
             let ContractsMethodsFnPointer {
@@ -114,20 +113,66 @@ impl NativeExecutor {
             }
         }
 
-        let methods_by_code = Arc::new(methods_by_code);
+        let mut slots = HashMap::<_, HashMap<_, _>>::with_capacity(5);
+        // Manually deploy code of system code contract
+        slots.entry(Address::SYSTEM_CODE).or_default().insert(
+            Address::SYSTEM_CODE,
+            SharedAlignedBuffer::from_bytes(Code::code().get_initialized()),
+        );
 
-        Ok(Self {
+        let address_allocator_address = Address::system_address_allocator(shard_index);
+        let slots = Slots::new(slots);
+        {
+            let nested_slots = slots.lock().new_nested();
+            let nested_slots = &mut *nested_slots.lock();
+            // Allow deployment of system address allocator and state contracts
+            assert!(nested_slots.add_new_contract(address_allocator_address));
+            assert!(nested_slots.add_new_contract(Address::SYSTEM_STATE));
+        }
+
+        let mut instance = Self {
             shard_index,
-            methods_by_code,
-            slots: Arc::default(),
-        })
+            methods_by_code: Arc::new(methods_by_code),
+            // TODO: Allow to specify initial slots as an argument and extract it from executor
+            //  for persistence
+            slots,
+        };
+
+        // Deploy and initialize other system contacts
+        {
+            let mut env = instance.env(Address::SYSTEM_CODE, Address::SYSTEM_CODE);
+            env.code_store(
+                MethodContext::Keep,
+                Address::SYSTEM_CODE,
+                &Address::SYSTEM_STATE,
+                &State::code(),
+            )
+            .map_err(|error| NativeExecutorError::FailedToDeploySystemContracts { error })?;
+            env.code_store(
+                MethodContext::Keep,
+                Address::SYSTEM_CODE,
+                &address_allocator_address,
+                &AddressAllocator::code(),
+            )
+            .map_err(|error| NativeExecutorError::FailedToDeploySystemContracts { error })?;
+            env.address_allocator_new(MethodContext::Keep, address_allocator_address)
+                .map_err(|error| NativeExecutorError::FailedToDeploySystemContracts { error })?;
+        }
+
+        Ok(instance)
+    }
+
+    // TODO: Remove this once there is a better way to do this
+    /// Mark slot as used, such that execution environment can read/write from/to it
+    pub fn use_slot(&mut self, owner: Address, contract: Address) {
+        self.slots.lock().use_slot(owner, contract);
     }
 
     /// Run a function under fresh execution environment
     pub fn env(&mut self, context: Address, caller: Address) -> Env<'_> {
         let env_state = EnvState {
             shard_index: self.shard_index,
-            own_address: Address::NULL,
+            own_address: caller,
             context,
             caller,
         };
@@ -138,7 +183,6 @@ impl NativeExecutor {
                 self.shard_index,
                 Arc::clone(&self.methods_by_code),
                 Arc::clone(&self.slots),
-                true,
             )),
         )
     }
@@ -147,37 +191,5 @@ impl NativeExecutor {
     #[inline]
     pub fn null_env(&mut self) -> Env<'_> {
         self.env(Address::NULL, Address::NULL)
-    }
-
-    /// Deploy typical system contracts at default addresses.
-    ///
-    /// It uses low-level method [`Self::deploy_system_contract_at()`].
-    #[cfg(feature = "system-contracts")]
-    pub fn deploy_typical_system_contracts(&mut self) -> Result<(), ContractError> {
-        let address_allocator_address = Address::system_address_allocator(self.shard_index);
-        self.deploy_system_contract_at::<AddressAllocator>(address_allocator_address);
-        self.deploy_system_contract_at::<Code>(Address::SYSTEM_CODE);
-        self.deploy_system_contract_at::<State>(Address::SYSTEM_STATE);
-
-        // Initialize shard state
-        let env = &mut self.null_env();
-        env.address_allocator_new(MethodContext::Keep, address_allocator_address)?;
-
-        Ok(())
-    }
-
-    /// Deploy a system contract at a known address.
-    ///
-    /// It is used by convenient high-level helper method `Self::deploy_typical_system_contracts()`
-    /// and often doesn't need to be called directly.
-    pub fn deploy_system_contract_at<C>(&mut self, address: Address)
-    where
-        C: Contract,
-    {
-        self.slots.lock().put(
-            address,
-            Address::SYSTEM_CODE,
-            SharedAlignedBuffer::from_bytes(C::code().get_initialized()),
-        );
     }
 }

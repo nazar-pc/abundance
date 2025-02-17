@@ -64,7 +64,7 @@ pub struct EnvState {
 
 /// Executor context that can be used to interact with executor
 #[cfg(any(unix, windows))]
-pub trait ExecutorContext: alloc::fmt::Debug {
+pub trait ExecutorContext: alloc::fmt::Debug + Send {
     /// Call multiple methods
     fn call_many(
         &self,
@@ -166,9 +166,12 @@ impl Env<'_> {
         }
     }
 
-    /// Invoke provided methods and wait for the result.
+    /// Invoke provided methods and wait for the results.
     ///
-    /// The remaining gas will be split equally between all individual invocations.
+    /// Only `#[view]` methods may be called if more than one method is provided as an argument.
+    ///
+    /// In most cases, this doesn't need to be called directly. Extension traits provide a more
+    /// convenient way to make method calls and are enough in most cases.
     #[inline]
     pub fn call_many<const N: usize>(
         &self,

@@ -1,17 +1,21 @@
-use crate::context::{DelayedProcessing, MethodDetails, NativeExecutorContext};
-use crate::slots::UsedSlots;
+use crate::aligned_buffer::OwnedAlignedBuffer;
+use crate::context::{MethodDetails, NativeExecutorContext};
+use crate::slots::Slots;
 use ab_contracts_common::env::{Env, EnvState};
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, ArgumentMetadataItem, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
     MethodsContainerKind,
 };
 use ab_contracts_common::{Address, ContractError, ExitCode};
+use ab_system_contract_address_allocator::AddressAllocator;
+use parking_lot::Mutex;
 use std::ffi::c_void;
 use std::mem::MaybeUninit;
 use std::pin::Pin;
 use std::ptr::NonNull;
 use std::slice;
-use tracing::{debug, error};
+use std::sync::Arc;
+use tracing::{debug, error, warn};
 
 /// Read a pointer of type `$ty` from `$external` and advance `$external` past it
 macro_rules! read_ptr {
@@ -56,6 +60,26 @@ macro_rules! copy_ptr {
     }};
 }
 
+/// Stores details about arguments that need to be processed after FFI call
+enum DelayedProcessing {
+    SlotReadOnly {
+        size: u32,
+    },
+    SlotReadWrite {
+        /// Pointer to `InternalArgs` where guest will store a pointer to potentially updated slot
+        /// contents
+        data_ptr: NonNull<*mut u8>,
+        /// Pointer to slot's bytes buffer where bytes from `data_ptr` will need to be written
+        /// after FFI function call
+        slot_ptr: NonNull<OwnedAlignedBuffer>,
+        /// Pointer to `InternalArgs` where guest will store potentially updated slot size,
+        /// corresponds to `data_ptr`, filled during the second pass through the arguments
+        /// (while reading `ExternalArgs`)
+        size: u32,
+        capacity: u32,
+    },
+}
+
 #[must_use]
 pub(super) struct FfiCallResult<'a> {
     delayed_processing: Vec<DelayedProcessing>,
@@ -66,6 +90,9 @@ pub(super) struct FfiCallResult<'a> {
     // pointers to its memory (indirectly by asking environment to keep allocation around) could try
     // to read deallocated memory
     _maybe_env: Option<Pin<Box<Env<'a>>>>,
+    // Store slots instance, to make pointers to its contents remain valid for the duration of the
+    // call
+    _slots: Arc<Mutex<Slots>>,
 }
 
 impl FfiCallResult<'_> {
@@ -132,20 +159,23 @@ pub(super) struct FfiCall<'a> {
     delayed_processing: Vec<DelayedProcessing>,
     maybe_env: Option<Pin<Box<Env<'a>>>>,
     internal_args: Pin<Box<[MaybeUninit<*mut c_void>]>>,
+    slots: Arc<Mutex<Slots>>,
+    new_address_ptr: Option<*mut Address>,
     ffi_fn: unsafe extern "C" fn(NonNull<NonNull<c_void>>) -> ExitCode,
 }
 
 impl<'a> FfiCall<'a> {
+    #[allow(clippy::too_many_arguments, reason = "Internal API")]
     pub(super) fn new(
         parent_context: &NativeExecutorContext,
-        used_slots: &mut UsedSlots,
+        force_view_only: bool,
+        is_allocate_new_address_method: bool,
+        slots: Arc<Mutex<Slots>>,
         contract: Address,
         method_details: MethodDetails,
-        external_args: &mut NonNull<NonNull<c_void>>,
+        external_args: &'a mut NonNull<NonNull<c_void>>,
         env_state: EnvState,
-    ) -> Result<FfiCall<'a>, ContractError> {
-        let mut maybe_env = None::<Pin<Box<Env>>>;
-
+    ) -> Result<Self, ContractError> {
         let MethodDetails {
             recommended_state_capacity,
             recommended_slot_capacity,
@@ -191,6 +221,25 @@ impl<'a> FfiCall<'a> {
         // arguments first
         let mut delayed_processing = Vec::with_capacity(total_arguments);
 
+        // `true` when only `#[view]` method is allowed
+        let view_only = match method_kind {
+            MethodKind::Init
+            | MethodKind::UpdateStateless
+            | MethodKind::UpdateStatefulRo
+            | MethodKind::UpdateStatefulRw => {
+                if force_view_only || !parent_context.allow_env_mutation {
+                    return Err(ContractError::Forbidden);
+                }
+
+                false
+            }
+            MethodKind::ViewStateless | MethodKind::ViewStateful => true,
+        };
+
+        // Order is important here, `maybe_env` must be before `slots_guard` to avoid deadlock
+        let mut maybe_env = None::<Pin<Box<Env>>>;
+        let mut slots_guard = slots.lock();
+
         // Handle `&self` and `&mut self`
         match method_kind {
             MethodKind::Init => {
@@ -200,7 +249,9 @@ impl<'a> FfiCall<'a> {
                 // No state handling is needed
             }
             MethodKind::UpdateStatefulRo | MethodKind::ViewStateful => {
-                let state_bytes = used_slots.use_ro(contract, Address::SYSTEM_STATE)?;
+                let state_bytes = slots_guard
+                    .use_ro(contract, Address::SYSTEM_STATE)
+                    .ok_or(ContractError::Forbidden)?;
 
                 delayed_processing.push(DelayedProcessing::SlotReadOnly {
                     size: state_bytes.len(),
@@ -218,11 +269,13 @@ impl<'a> FfiCall<'a> {
                 }
             }
             MethodKind::UpdateStatefulRw => {
-                let state_bytes = used_slots.use_rw(
-                    contract,
-                    Address::SYSTEM_STATE,
-                    recommended_state_capacity,
-                )?;
+                if view_only {
+                    return Err(ContractError::Forbidden);
+                }
+
+                let state_bytes = slots_guard
+                    .use_rw(contract, Address::SYSTEM_STATE, recommended_state_capacity)
+                    .ok_or(ContractError::Forbidden)?;
 
                 delayed_processing.push(DelayedProcessing::SlotReadWrite {
                     // Is updated below
@@ -252,13 +305,7 @@ impl<'a> FfiCall<'a> {
             }
         }
 
-        let method_allows_env_mut = match method_kind {
-            MethodKind::Init
-            | MethodKind::UpdateStateless
-            | MethodKind::UpdateStatefulRo
-            | MethodKind::UpdateStatefulRw => parent_context.allow_env_mutation,
-            MethodKind::ViewStateless | MethodKind::ViewStateful => false,
-        };
+        let mut new_address_ptr = None;
 
         // Handle all other arguments one by one
         while let Some(result) = arguments_metadata_decoder.decode_next() {
@@ -276,7 +323,7 @@ impl<'a> FfiCall<'a> {
                 ArgumentKind::EnvRo => {
                     let env_ro = &**maybe_env.insert(Box::pin(Env::with_executor_context(
                         env_state,
-                        Box::new(parent_context.new_nested(false)),
+                        Box::new(parent_context.new_nested(Arc::clone(&slots), false)),
                     )));
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
@@ -287,13 +334,13 @@ impl<'a> FfiCall<'a> {
                     // Size for `#[env]` is implicit and doesn't need to be added to `InternalArgs`
                 }
                 ArgumentKind::EnvRw => {
-                    if !method_allows_env_mut {
+                    if view_only {
                         return Err(ContractError::Forbidden);
                     }
 
                     let env_rw = &mut **maybe_env.insert(Box::pin(Env::with_executor_context(
                         env_state,
-                        Box::new(parent_context.new_nested(true)),
+                        Box::new(parent_context.new_nested(Arc::clone(&slots), true)),
                     )));
 
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
@@ -306,9 +353,15 @@ impl<'a> FfiCall<'a> {
                     // Size for `#[env]` is implicit and doesn't need to be added to `InternalArgs`
                 }
                 ArgumentKind::TmpRo => {
+                    if view_only {
+                        return Err(ContractError::Forbidden);
+                    }
+
                     // Null contact is used implicitly for `#[tmp]` since it is not possible for
                     // this contract to write something there directly
-                    let tmp_bytes = used_slots.use_ro(contract, Address::NULL)?;
+                    let tmp_bytes = slots_guard
+                        .use_ro(contract, Address::NULL)
+                        .ok_or(ContractError::Forbidden)?;
 
                     delayed_processing.push(DelayedProcessing::SlotReadOnly {
                         size: tmp_bytes.len(),
@@ -326,10 +379,15 @@ impl<'a> FfiCall<'a> {
                     }
                 }
                 ArgumentKind::TmpRw => {
+                    if view_only {
+                        return Err(ContractError::Forbidden);
+                    }
+
                     // Null contact is used implicitly for `#[tmp]` since it is not possible for
                     // this contract to write something there directly
-                    let tmp_bytes =
-                        used_slots.use_rw(contract, Address::NULL, recommended_tmp_capacity)?;
+                    let tmp_bytes = slots_guard
+                        .use_rw(contract, Address::NULL, recommended_tmp_capacity)
+                        .ok_or(ContractError::Forbidden)?;
 
                     delayed_processing.push(DelayedProcessing::SlotReadWrite {
                         // Is updated below
@@ -362,7 +420,9 @@ impl<'a> FfiCall<'a> {
                     // moving right past that is safe
                     let address = unsafe { &*read_ptr!(external_args_cursor as *const Address) };
 
-                    let slot_bytes = used_slots.use_ro(*address, contract)?;
+                    let slot_bytes = slots_guard
+                        .use_ro(*address, contract)
+                        .ok_or(ContractError::Forbidden)?;
 
                     delayed_processing.push(DelayedProcessing::SlotReadOnly {
                         size: slot_bytes.len(),
@@ -381,12 +441,17 @@ impl<'a> FfiCall<'a> {
                     }
                 }
                 ArgumentKind::SlotRw => {
+                    if view_only {
+                        return Err(ContractError::Forbidden);
+                    }
+
                     // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
                     // moving right past that is safe
                     let address = unsafe { &*read_ptr!(external_args_cursor as *const Address) };
 
-                    let slot_bytes =
-                        used_slots.use_rw(*address, contract, recommended_slot_capacity)?;
+                    let slot_bytes = slots_guard
+                        .use_rw(*address, contract, recommended_slot_capacity)
+                        .ok_or(ContractError::Forbidden)?;
 
                     delayed_processing.push(DelayedProcessing::SlotReadWrite {
                         // Is updated below
@@ -450,11 +515,13 @@ impl<'a> FfiCall<'a> {
                     // `#[init]` method returns state of the contract and needs to be stored
                     // accordingly
                     if matches!(method_kind, MethodKind::Init) {
-                        let state_bytes = used_slots.use_rw(
-                            contract,
-                            Address::SYSTEM_STATE,
-                            recommended_state_capacity,
-                        )?;
+                        if view_only {
+                            return Err(ContractError::Forbidden);
+                        }
+
+                        let state_bytes = slots_guard
+                            .use_rw(contract, Address::SYSTEM_STATE, recommended_state_capacity)
+                            .ok_or(ContractError::Forbidden)?;
 
                         if !state_bytes.is_empty() {
                             debug!("Can't initialize already initialized contract");
@@ -492,7 +559,11 @@ impl<'a> FfiCall<'a> {
                         // and aligned correctly.
                         unsafe {
                             // Output
-                            copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
+                            let ptr =
+                                copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
+                            if is_allocate_new_address_method {
+                                new_address_ptr.replace(ptr.cast::<Address>());
+                            }
                             // Size (might be a null pointer for trivial types)
                             let size_ptr =
                                 copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
@@ -509,10 +580,14 @@ impl<'a> FfiCall<'a> {
             }
         }
 
+        drop(slots_guard);
+
         Ok(Self {
             delayed_processing,
             maybe_env,
             internal_args,
+            slots,
+            new_address_ptr,
             ffi_fn,
         })
     }
@@ -528,10 +603,26 @@ impl<'a> FfiCall<'a> {
         // match ABI of the fingerprint or else it wouldn't compile
         Result::<(), ContractError>::from(unsafe { (self.ffi_fn)(internal_args) })?;
 
+        // Catch new address allocation and add it to new contracts in slots for code and other
+        // things to become usable for it
+        if let Some(new_address_ptr) = self.new_address_ptr {
+            // Assert that the API has expected shape
+            let _: fn(&mut AddressAllocator, &mut Env) -> Result<Address, ContractError> =
+                AddressAllocator::allocate_address;
+            // SAFETY: Method call to address allocator succeeded, so it must have returned an
+            // address
+            let new_address = unsafe { new_address_ptr.read() };
+            if !self.slots.lock().add_new_contract(new_address) {
+                warn!("Failed to add new account returned by address allocator");
+                return Err(ContractError::InternalError);
+            }
+        }
+
         Ok(FfiCallResult {
             delayed_processing: self.delayed_processing,
             _internal_args: self.internal_args,
             _maybe_env: self.maybe_env,
+            _slots: self.slots,
         })
     }
 }

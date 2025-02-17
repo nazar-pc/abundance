@@ -17,7 +17,7 @@ ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
 ab-contracts-standards = { version = "0.0.1", path = "../ab-contracts-standards" }
 
 [dev-dependencies]
-ab-contracts-executor = { version = "0.0.1", path = "../ab-contracts-executor", features = ["system-contracts"] }
+ab-contracts-executor = { version = "0.0.1", path = "../ab-contracts-executor" }
 ab-system-contract-code = { version = "0.0.1", path = "../ab-system-contract-code" }
 
 [features]

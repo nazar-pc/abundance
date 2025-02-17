@@ -1,4 +1,4 @@
-use crate::aligned_buffer::{AlignedBytes, OwnedAlignedBuffer};
+use crate::aligned_buffer::{AlignedBytes, OwnedAlignedBuffer, SharedAlignedBuffer};
 
 const EXPECTED_ALIGNMENT: usize = size_of::<AlignedBytes>();
 
@@ -45,10 +45,13 @@ fn basic() {
             );
 
             let mut owned2 = OwnedAlignedBuffer::from_bytes(&bytes);
-            assert_eq!(owned, owned2, "Capacity {capacity}");
+            let shared = SharedAlignedBuffer::from_bytes(&bytes);
             assert_eq!(owned.len(), owned2.len(), "Capacity {capacity}");
+            assert_eq!(owned.len(), shared.len(), "Capacity {capacity}");
             assert_eq!(owned.is_empty(), owned2.is_empty(), "Capacity {capacity}");
+            assert_eq!(owned.is_empty(), shared.is_empty(), "Capacity {capacity}");
             assert_eq!(owned.as_slice(), owned2.as_slice(), "Capacity {capacity}");
+            assert_eq!(owned.as_slice(), shared.as_slice(), "Capacity {capacity}");
             assert_eq!(
                 owned.as_mut_slice(),
                 owned2.as_mut_slice(),
@@ -82,10 +85,13 @@ fn basic() {
             );
 
             let mut owned2 = OwnedAlignedBuffer::from_bytes(&bytes);
-            assert_eq!(owned, owned2, "Capacity {capacity}");
+            let shared = SharedAlignedBuffer::from_bytes(&bytes);
             assert_eq!(owned.len(), owned2.len(), "Capacity {capacity}");
+            assert_eq!(owned.len(), shared.len(), "Capacity {capacity}");
             assert_eq!(owned.is_empty(), owned2.is_empty(), "Capacity {capacity}");
+            assert_eq!(owned.is_empty(), shared.is_empty(), "Capacity {capacity}");
             assert_eq!(owned.as_slice(), owned2.as_slice(), "Capacity {capacity}");
+            assert_eq!(owned.as_slice(), shared.as_slice(), "Capacity {capacity}");
             assert_eq!(
                 owned.as_mut_slice(),
                 owned2.as_mut_slice(),
@@ -117,10 +123,13 @@ fn basic() {
             );
 
             let mut owned2 = OwnedAlignedBuffer::from_bytes(&bytes);
-            assert_eq!(owned, owned2, "Capacity {capacity}");
+            let shared = SharedAlignedBuffer::from_bytes(&bytes);
             assert_eq!(owned.len(), owned2.len(), "Capacity {capacity}");
+            assert_eq!(owned.len(), shared.len(), "Capacity {capacity}");
             assert_eq!(owned.is_empty(), owned2.is_empty(), "Capacity {capacity}");
+            assert_eq!(owned.is_empty(), shared.is_empty(), "Capacity {capacity}");
             assert_eq!(owned.as_slice(), owned2.as_slice(), "Capacity {capacity}");
+            assert_eq!(owned.as_slice(), shared.as_slice(), "Capacity {capacity}");
             assert_eq!(
                 owned.as_mut_slice(),
                 owned2.as_mut_slice(),
@@ -147,10 +156,8 @@ fn basic() {
         assert_ne!(owned.as_ptr(), ptr_before, "Capacity {capacity}");
 
         let shared2 = shared.clone();
-        assert_eq!(shared, shared2, "Capacity {capacity}");
-        assert_eq!(shared2, shared, "Capacity {capacity}");
-        assert_eq!(shared, owned, "Capacity {capacity}");
-        assert_eq!(owned, shared, "Capacity {capacity}");
+        assert_eq!(shared.as_slice(), shared2.as_slice(), "Capacity {capacity}");
+        assert_eq!(owned.as_slice(), shared.as_slice(), "Capacity {capacity}");
 
         assert_eq!(shared.len(), shared2.len(), "Capacity {capacity}");
         assert_eq!(shared.len(), owned.len(), "Capacity {capacity}");
