@@ -1,10 +1,22 @@
 use crate::aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_contracts_common::Address;
+use halfbrown::{DefaultHashBuilder, Entry, SizedHashMap};
 use parking_lot::Mutex;
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use smallvec::SmallVec;
 use std::mem;
 use std::sync::{Arc, Weak};
+
+/// Small number of elements to store without heap allocation in some data structures.
+///
+/// This is both large enough for many practical use cases and small enough to bring significant
+/// performance improvement.
+const INLINE_SIZE: usize = 8;
+pub(super) type HashMap<K, V, S = DefaultHashBuilder> = SizedHashMap<K, V, S, INLINE_SIZE>;
+/// It should be rare that more than 2 contracts are created in the same transaction
+const NEW_CONTRACTS_INLINE: usize = 2;
+
+/// A tuple of `(owner, contract)` that corresponds to a slot
+pub(super) type SlotKey = (Address, Address);
 
 #[derive(Debug)]
 enum Slot {
@@ -22,12 +34,19 @@ enum Slot {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 struct SlotAccess {
-    /// Address of the contract whose tree contains the slot
-    owner: Address,
-    /// Address of the contract that manages the slot under `owner`'s tree
-    contract: Address,
+    slot_key: SlotKey,
     /// `false` for read-only and `true` for read-write
     read_write: bool,
+}
+
+impl SlotAccess {
+    fn owner(&self) -> &Address {
+        &self.slot_key.0
+    }
+
+    fn contract(&self) -> &Address {
+        &self.slot_key.1
+    }
 }
 
 #[derive(Debug)]
@@ -38,15 +57,14 @@ struct SlotsParent {
 
 #[derive(Debug)]
 pub(super) struct Slots {
-    // TODO: Vector instead of hashmap
-    slots: HashMap<Address, HashMap<Address, Slot>>,
-    slot_access: Vec<SlotAccess>,
+    slots: HashMap<SlotKey, Slot>,
+    slot_access: SmallVec<[SlotAccess; INLINE_SIZE]>,
     /// The list of new addresses that were created during transaction processing and couldn't be
     /// known beforehand.
     ///
     /// Addresses in this list are allowed to create slots for any owner, and other contacts are
     /// allowed to create slots owned by these addresses.
-    new_contracts: Vec<Address>,
+    new_contracts: SmallVec<[Address; NEW_CONTRACTS_INLINE]>,
     access_violation: bool,
     weak: Weak<Mutex<Self>>,
     parent: Option<SlotsParent>,
@@ -72,15 +90,10 @@ impl Drop for Slots {
         mem::swap(&mut parent.slots, &mut self.slots);
 
         // Fix-up slots that were modified during access
-        for SlotAccess {
-            owner, contract, ..
-        } in self.slot_access.drain(parent_slot_access_len..)
-        {
+        for slot_access in self.slot_access.drain(parent_slot_access_len..) {
             let slot = parent
                 .slots
-                .get_mut(&owner)
-                .expect("Accessed slot exists; qed")
-                .get_mut(&contract)
+                .get_mut(&slot_access.slot_key)
                 .expect("Accessed slot exists; qed");
             match slot {
                 Slot::Original(_buffer) => {
@@ -114,35 +127,25 @@ impl Slots {
     /// owners created during runtime and initialized with [`Self::add_new_contract()`].
     ///
     /// "Empty" slots must still have a value in the form of an empty [`SharedAlignedBuffer`].
-    pub(super) fn new(
-        slots: HashMap<Address, HashMap<Address, SharedAlignedBuffer>>,
-    ) -> Arc<Mutex<Self>> {
+    pub(super) fn new(slots: HashMap<SlotKey, SharedAlignedBuffer>) -> Arc<Mutex<Self>> {
         let slots = slots
             .into_iter()
-            .map(|(owner, owner_slots)| {
-                (
-                    owner,
-                    owner_slots
-                        .into_iter()
-                        .filter_map(|(contract, slot)| {
-                            // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and
-                            // writes are allowed for any owner, and they will all be thrown away
-                            // after transaction processing if finished.
-                            if contract == Address::NULL {
-                                return None;
-                            }
+            .filter_map(|((owner, contract), slot)| {
+                // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
+                // allowed for any owner, and they will all be thrown away after transaction
+                // processing if finished.
+                if contract == Address::NULL {
+                    return None;
+                }
 
-                            Some((contract, Slot::Original(slot)))
-                        })
-                        .collect(),
-                )
+                Some(((owner, contract), Slot::Original(slot)))
             })
             .collect();
         Arc::new_cyclic(|weak| {
             Mutex::new(Self {
                 slots,
-                slot_access: Vec::new(),
-                new_contracts: Vec::new(),
+                slot_access: SmallVec::new(),
+                new_contracts: SmallVec::new(),
                 access_violation: false,
                 weak: weak.clone(),
                 parent: None,
@@ -188,11 +191,9 @@ impl Slots {
         self.access_violation
     }
 
-    pub(super) fn use_slot(&mut self, owner: Address, contract: Address) {
+    pub(super) fn use_slot(&mut self, slot_key: SlotKey) {
         self.slots
-            .entry(owner)
-            .or_default()
-            .entry(contract)
+            .entry(slot_key)
             .or_insert(Slot::Original(SharedAlignedBuffer::default()));
     }
 
@@ -232,19 +233,21 @@ impl Slots {
 
     fn get_code_internal(
         owner: Address,
-        slots: &HashMap<Address, HashMap<Address, Slot>>,
+        slots: &HashMap<SlotKey, Slot>,
         slot_access: &[SlotAccess],
     ) -> Option<SharedAlignedBuffer> {
         let contract = Address::SYSTEM_CODE;
 
         // Ensure code is not currently being written to
         if slot_access.iter().any(|slot_access| {
-            slot_access.owner == owner && slot_access.contract == contract && slot_access.read_write
+            slot_access.owner() == owner
+                && slot_access.contract() == contract
+                && slot_access.read_write
         }) {
             return None;
         }
 
-        let slot = match slots.get(&owner)?.get(&contract)? {
+        let slot = match slots.get(&(owner, contract))? {
             Slot::Original(slot)
             | Slot::ReadOnlyAccessed(slot)
             | Slot::ReadOnlyModified(slot)
@@ -257,15 +260,12 @@ impl Slots {
         Some(slot.clone())
     }
 
+    /// Read-only access to a slot with specified owner and contract, marks it as used.
+    ///
     /// Returns `None` in case of access violation.
-    pub(super) fn use_ro(
-        &mut self,
-        owner: Address,
-        contract: Address,
-    ) -> Option<&SharedAlignedBuffer> {
+    pub(super) fn use_ro(&mut self, slot_key: SlotKey) -> Option<&SharedAlignedBuffer> {
         let result = Self::use_ro_internal(
-            owner,
-            contract,
+            slot_key,
             &mut self.slots,
             &mut self.slot_access,
             &self.new_contracts,
@@ -279,15 +279,15 @@ impl Slots {
     }
 
     fn use_ro_internal<'a>(
-        owner: Address,
-        contract: Address,
-        slots: &'a mut HashMap<Address, HashMap<Address, Slot>>,
-        slot_access: &mut Vec<SlotAccess>,
+        slot_key: SlotKey,
+        slots: &'a mut HashMap<SlotKey, Slot>,
+        slot_access: &mut SmallVec<[SlotAccess; INLINE_SIZE]>,
         new_contracts: &[Address],
     ) -> Option<&'a SharedAlignedBuffer> {
+        let (owner, contract) = &slot_key;
         // Ensure that slot is not currently being written to
         if let Some(read_write) = slot_access.iter().find_map(|slot_access| {
-            (slot_access.owner == owner && slot_access.contract == contract)
+            (slot_access.owner() == owner && slot_access.contract() == contract)
                 .then_some(slot_access.read_write)
         }) {
             if read_write {
@@ -295,30 +295,15 @@ impl Slots {
             }
         } else {
             slot_access.push(SlotAccess {
-                owner,
-                contract,
+                slot_key,
                 read_write: false,
             });
         }
 
-        match slots.entry(owner) {
-            Entry::Occupied(owner_slots_entry) => {
-                // Get a slot or create an empty one if new address
-                let slot = match owner_slots_entry.into_mut().entry(contract) {
-                    Entry::Occupied(entry) => entry.into_mut(),
-                    Entry::Vacant(entry) => {
-                        // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes
-                        // are allowed for any owner, and they will all be thrown away after
-                        // transaction processing if finished.
-                        if !(contract == Address::NULL || new_contracts.contains(&contract)) {
-                            return None;
-                        }
-
-                        entry
-                            .insert_entry(Slot::ReadOnlyAccessed(SharedAlignedBuffer::default()))
-                            .into_mut()
-                    }
-                };
+        // Get a slot or create an empty one if new address
+        match slots.entry(slot_key) {
+            Entry::Occupied(slot_entry) => {
+                let slot = slot_entry.into_mut();
 
                 // The slot that is currently being written to is not allowed for read access
                 match slot {
@@ -344,21 +329,20 @@ impl Slots {
                     Slot::ReadWrite(_buffer) => None,
                 }
             }
-            Entry::Vacant(owner_slots_entry) => {
-                if !new_contracts.contains(&owner) {
+            Entry::Vacant(slot_entry) => {
+                // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
+                // allowed for any owner, and they will all be thrown away after transaction
+                // processing if finished.
+                if !(contract == Address::NULL
+                    || new_contracts
+                        .iter()
+                        .any(|candidate| candidate == owner || candidate == contract))
+                {
                     return None;
                 }
 
-                // Create owner and slot entries for new address
-                let Slot::ReadOnlyAccessed(buffer) = owner_slots_entry
-                    .insert_entry(HashMap::from([(
-                        contract,
-                        Slot::ReadOnlyAccessed(SharedAlignedBuffer::default()),
-                    )]))
-                    .into_mut()
-                    .get(&contract)
-                    .expect("Just inserted; qed")
-                else {
+                let slot = Slot::ReadOnlyAccessed(SharedAlignedBuffer::default());
+                let Slot::ReadOnlyAccessed(buffer) = slot_entry.insert(slot) else {
                     unreachable!("Just inserted; qed");
                 };
 
@@ -367,16 +351,16 @@ impl Slots {
         }
     }
 
+    /// Read-write access to a slot with specified owner and contract, marks it as used.
+    ///
     /// Returns `None` in case of access violation.
     pub(super) fn use_rw(
         &mut self,
-        owner: Address,
-        contract: Address,
+        slot_key: SlotKey,
         capacity: u32,
     ) -> Option<&mut OwnedAlignedBuffer> {
         let result = Self::use_rw_internal(
-            owner,
-            contract,
+            slot_key,
             capacity,
             &mut self.slots,
             &mut self.slot_access,
@@ -391,47 +375,29 @@ impl Slots {
     }
 
     fn use_rw_internal<'a>(
-        owner: Address,
-        contract: Address,
+        slot_key: SlotKey,
         capacity: u32,
-        slots: &'a mut HashMap<Address, HashMap<Address, Slot>>,
-        slot_access: &mut Vec<SlotAccess>,
+        slots: &'a mut HashMap<SlotKey, Slot>,
+        slot_access: &mut SmallVec<[SlotAccess; INLINE_SIZE]>,
         new_contracts: &[Address],
     ) -> Option<&'a mut OwnedAlignedBuffer> {
+        let (owner, contract) = &slot_key;
         // Ensure that slot is not accessed right now
         if slot_access
             .iter()
-            .any(|slot_access| slot_access.owner == owner && slot_access.contract == contract)
+            .any(|slot_access| slot_access.owner() == owner && slot_access.contract() == contract)
         {
             return None;
         }
 
         slot_access.push(SlotAccess {
-            owner,
-            contract,
+            slot_key,
             read_write: true,
         });
 
-        match slots.entry(owner) {
-            Entry::Occupied(owner_slots_entry) => {
-                // Get a slot or create an empty one if new address
-                let slot = match owner_slots_entry.into_mut().entry(contract) {
-                    Entry::Occupied(entry) => entry.into_mut(),
-                    Entry::Vacant(entry) => {
-                        // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes
-                        // are allowed for any owner, and they will all be thrown away after
-                        // transaction processing if finished.
-                        if !(contract == Address::NULL || new_contracts.contains(&contract)) {
-                            return None;
-                        }
-
-                        entry
-                            .insert_entry(Slot::ReadWrite(OwnedAlignedBuffer::with_capacity(
-                                capacity,
-                            )))
-                            .into_mut()
-                    }
-                };
+        match slots.entry(slot_key) {
+            Entry::Occupied(slot_entry) => {
+                let slot = slot_entry.into_mut();
 
                 // The slot that is currently being accessed to is not allowed for writing
                 let buffer = match slot {
@@ -452,26 +418,48 @@ impl Slots {
                 buffer.ensure_capacity(capacity);
                 Some(buffer)
             }
-            Entry::Vacant(owner_slots_entry) => {
-                if !new_contracts.contains(&owner) {
+            Entry::Vacant(slot_entry) => {
+                // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
+                // allowed for any owner, and they will all be thrown away after transaction
+                // processing if finished.
+                if !(contract == Address::NULL
+                    || new_contracts
+                        .iter()
+                        .any(|candidate| candidate == owner || candidate == contract))
+                {
                     return None;
                 }
 
-                // Create owner and slot entries for new address
-                let Slot::ReadWrite(buffer) = owner_slots_entry
-                    .insert_entry(HashMap::from([(
-                        contract,
-                        Slot::ReadWrite(OwnedAlignedBuffer::with_capacity(capacity)),
-                    )]))
-                    .into_mut()
-                    .get_mut(&contract)
-                    .expect("Just inserted; qed")
-                else {
+                let slot = Slot::ReadWrite(OwnedAlignedBuffer::with_capacity(capacity));
+                let Slot::ReadWrite(buffer) = slot_entry.insert(slot) else {
                     unreachable!("Just inserted; qed");
                 };
 
                 Some(buffer)
             }
+        }
+    }
+
+    /// Read-write access to a slot with specified owner and contract, that is currently marked as
+    /// used due to earlier call to [`Self::use_rw()`].
+    ///
+    /// Returns `None` in case of access violation.
+    pub(super) fn access_used_rw(&mut self, slot_key: &SlotKey) -> Option<&mut OwnedAlignedBuffer> {
+        let Some(slot) = self.slots.get_mut(slot_key) else {
+            self.access_violation = true;
+            return None;
+        };
+
+        // Must be currently accessed for writing
+        match slot {
+            Slot::Original(_buffer)
+            | Slot::ReadOnlyAccessed(_buffer)
+            | Slot::ReadOnlyModified(_buffer)
+            | Slot::ReadOnlyModifiedAccessed(_buffer) => {
+                self.access_violation = true;
+                None
+            }
+            Slot::ReadWrite(buffer) => Some(buffer),
         }
     }
 }

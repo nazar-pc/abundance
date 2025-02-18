@@ -20,7 +20,7 @@ impl AlignedBytes {
 ///
 /// Data is aligned to 16 bytes (128 bits), which is the largest alignment required by primitive
 /// types and by extension any type that implements `TrivialType`/`IoType`.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub(super) struct OwnedAlignedBuffer {
     buffer: Arc<[MaybeUninit<AlignedBytes>]>,
     len: u32,

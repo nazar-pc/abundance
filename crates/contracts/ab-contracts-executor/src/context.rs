@@ -1,13 +1,12 @@
 mod ffi_call;
 
 use crate::context::ffi_call::FfiCall;
-use crate::slots::Slots;
+use crate::slots::{HashMap, Slots};
 use ab_contracts_common::env::{EnvState, ExecutorContext, MethodContext, PreparedMethod};
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_contracts_common::{Address, ContractError, ExitCode, ShardIndex};
 use ab_system_contract_address_allocator::ffi::allocate_address::AddressAllocatorAllocateAddressArgs;
 use parking_lot::Mutex;
-use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -26,8 +25,8 @@ pub(super) struct MethodDetails {
 pub(super) struct NativeExecutorContext {
     shard_index: ShardIndex,
     system_allocator_address: Address,
-    /// Indexed by contract's code (crate name is treated as "code")
-    methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
+    /// Indexed by contract's code and method fingerprint
+    methods_by_code: Arc<HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>>,
     slots: Arc<Mutex<Slots>>,
     allow_env_mutation: bool,
 }
@@ -82,16 +81,14 @@ impl ExecutorContext for NativeExecutorContext {
                         })?;
                         *self
                             .methods_by_code
-                            .get(code.as_slice())
+                            .get(&(code.as_slice(), fingerprint))
                             .ok_or_else(|| {
                                 let code = String::from_utf8_lossy(&code);
-                                error!(%code, "Contract's code not found in methods map");
-                                ContractError::InternalError
-                            })?
-                            .get(fingerprint)
-                            .ok_or_else(|| {
-                                let code = String::from_utf8_lossy(&code);
-                                error!(%code, %fingerprint, "Method's fingerprint not found");
+                                error!(
+                                    %code,
+                                    %fingerprint,
+                                    "Contract's code or fingerprint not found in methods map"
+                                );
                                 ContractError::NotImplemented
                             })?
                     };
@@ -139,7 +136,7 @@ impl NativeExecutorContext {
     #[inline]
     pub(super) fn new(
         shard_index: ShardIndex,
-        methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
+        methods_by_code: Arc<HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>>,
         slots: Arc<Mutex<Slots>>,
     ) -> Self {
         Self {

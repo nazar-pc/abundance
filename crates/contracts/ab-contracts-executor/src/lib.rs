@@ -6,7 +6,7 @@ mod slots;
 
 use crate::aligned_buffer::SharedAlignedBuffer;
 use crate::context::{MethodDetails, NativeExecutorContext};
-use crate::slots::Slots;
+use crate::slots::{HashMap, Slots};
 use ab_contracts_common::env::{Env, EnvState, MethodContext};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
 use ab_contracts_common::method::MethodFingerprint;
@@ -17,7 +17,6 @@ use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt
 use ab_system_contract_code::{Code, CodeExt};
 use ab_system_contract_state::State;
 use parking_lot::Mutex;
-use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::error;
 
@@ -53,14 +52,19 @@ pub enum NativeExecutorError {
 // TODO: Some kind of transaction notion with `#[tmp]` wiped at the end of it
 pub struct NativeExecutor {
     shard_index: ShardIndex,
-    methods_by_code: Arc<HashMap<&'static [u8], HashMap<MethodFingerprint, MethodDetails>>>,
+    /// Indexed by contract's code and method fingerprint
+    methods_by_code: Arc<HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>>,
     slots: Arc<Mutex<Slots>>,
 }
 
 impl NativeExecutor {
     /// Instantiate in-memory native executor with empty storage
     pub fn in_memory_empty(shard_index: ShardIndex) -> Result<Self, NativeExecutorError> {
-        let mut methods_by_code = HashMap::<_, HashMap<_, _>>::new();
+        let mut methods_by_code = HashMap::with_capacity(
+            inventory::iter::<ContractsMethodsFnPointer>
+                .into_iter()
+                .count(),
+        );
         for &contract_methods_fn_pointer in inventory::iter::<ContractsMethodsFnPointer> {
             let ContractsMethodsFnPointer {
                 contact_code,
@@ -92,10 +96,8 @@ impl NativeExecutor {
                 recommended_capacities;
 
             if methods_by_code
-                .entry(contact_code.as_bytes())
-                .or_default()
                 .insert(
-                    *method_fingerprint,
+                    (contact_code.as_bytes(), method_fingerprint),
                     MethodDetails {
                         recommended_state_capacity,
                         recommended_slot_capacity,
@@ -113,12 +115,11 @@ impl NativeExecutor {
             }
         }
 
-        let mut slots = HashMap::<_, HashMap<_, _>>::with_capacity(5);
         // Manually deploy code of system code contract
-        slots.entry(Address::SYSTEM_CODE).or_default().insert(
-            Address::SYSTEM_CODE,
+        let slots = HashMap::from_iter([(
+            (Address::SYSTEM_CODE, Address::SYSTEM_CODE),
             SharedAlignedBuffer::from_bytes(Code::code().get_initialized()),
-        );
+        )]);
 
         let address_allocator_address = Address::system_address_allocator(shard_index);
         let slots = Slots::new(slots);
@@ -165,7 +166,7 @@ impl NativeExecutor {
     // TODO: Remove this once there is a better way to do this
     /// Mark slot as used, such that execution environment can read/write from/to it
     pub fn use_slot(&mut self, owner: Address, contract: Address) {
-        self.slots.lock().use_slot(owner, contract);
+        self.slots.lock().use_slot((owner, contract));
     }
 
     /// Run a function under fresh execution environment
