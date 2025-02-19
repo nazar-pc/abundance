@@ -1,11 +1,12 @@
 mod ffi_call;
 
 use crate::context::ffi_call::FfiCall;
-use crate::slots::{HashMap, Slots};
+use crate::slots::Slots;
 use ab_contracts_common::env::{EnvState, ExecutorContext, MethodContext, PreparedMethod};
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_contracts_common::{Address, ContractError, ExitCode, ShardIndex};
 use ab_system_contract_address_allocator::ffi::allocate_address::AddressAllocatorAllocateAddressArgs;
+use halfbrown::HashMap;
 use parking_lot::Mutex;
 use std::ffi::c_void;
 use std::ptr::NonNull;

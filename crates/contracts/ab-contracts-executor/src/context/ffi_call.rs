@@ -1,5 +1,5 @@
 use crate::context::{MethodDetails, NativeExecutorContext};
-use crate::slots::{SlotKey, Slots};
+use crate::slots::{SlotIndex, Slots};
 use ab_contracts_common::env::{Env, EnvState};
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, ArgumentMetadataItem, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
@@ -68,7 +68,7 @@ enum DelayedProcessing {
         /// Pointer to `InternalArgs` where guest will store a pointer to potentially updated slot
         /// contents
         data_ptr: NonNull<*mut u8>,
-        slot_key: SlotKey,
+        slot_index: SlotIndex,
         /// Pointer to `InternalArgs` where guest will store potentially updated slot size,
         /// corresponds to `data_ptr`, filled during the second pass through the arguments
         /// (while reading `ExternalArgs`)
@@ -108,7 +108,7 @@ impl FfiCallResult<'_> {
                 }
                 DelayedProcessing::SlotReadWrite {
                     data_ptr,
-                    slot_key,
+                    slot_index,
                     size,
                     must_be_not_empty,
                     ..
@@ -126,7 +126,7 @@ impl FfiCallResult<'_> {
                     // else at the moment
                     let data_ptr = unsafe { data_ptr.as_ptr().read().cast_const() };
                     let slot_bytes = slots
-                        .access_used_rw(&slot_key)
+                        .access_used_rw(slot_index)
                         .expect("Was used in `FfiCall` and must `Slots` was not dropped yet; qed");
 
                     // Guest created a different allocation for slot, copy bytes
@@ -301,7 +301,7 @@ impl<'a> FfiCall<'a> {
                 }
 
                 let slot_key = (contract, Address::SYSTEM_STATE);
-                let state_bytes = slots_guard
+                let (slot_index, state_bytes) = slots_guard
                     .use_rw(slot_key, recommended_state_capacity)
                     .ok_or(ContractError::Forbidden)?;
 
@@ -315,7 +315,7 @@ impl<'a> FfiCall<'a> {
                 delayed_processing.push(DelayedProcessing::SlotReadWrite {
                     // Is updated below
                     data_ptr: NonNull::dangling(),
-                    slot_key,
+                    slot_index,
                     size: state_bytes.len(),
                     capacity: state_bytes.capacity(),
                     must_be_not_empty: false,
@@ -422,14 +422,14 @@ impl<'a> FfiCall<'a> {
                     // Null contact is used implicitly for `#[tmp]` since it is not possible for
                     // this contract to write something there directly
                     let slot_key = (contract, Address::NULL);
-                    let tmp_bytes = slots_guard
+                    let (slot_index, tmp_bytes) = slots_guard
                         .use_rw(slot_key, recommended_tmp_capacity)
                         .ok_or(ContractError::Forbidden)?;
 
                     delayed_processing.push(DelayedProcessing::SlotReadWrite {
                         // Is updated below
                         data_ptr: NonNull::dangling(),
-                        slot_key,
+                        slot_index,
                         size: tmp_bytes.len(),
                         capacity: tmp_bytes.capacity(),
                         must_be_not_empty: false,
@@ -489,14 +489,14 @@ impl<'a> FfiCall<'a> {
                     let address = unsafe { &*read_ptr!(external_args_cursor as *const Address) };
 
                     let slot_key = (*address, contract);
-                    let slot_bytes = slots_guard
+                    let (slot_index, slot_bytes) = slots_guard
                         .use_rw(slot_key, recommended_slot_capacity)
                         .ok_or(ContractError::Forbidden)?;
 
                     delayed_processing.push(DelayedProcessing::SlotReadWrite {
                         // Is updated below
                         data_ptr: NonNull::dangling(),
-                        slot_key,
+                        slot_index,
                         size: slot_bytes.len(),
                         capacity: slot_bytes.capacity(),
                         must_be_not_empty: false,
@@ -561,7 +561,7 @@ impl<'a> FfiCall<'a> {
                         }
 
                         let slot_key = (contract, Address::SYSTEM_STATE);
-                        let state_bytes = slots_guard
+                        let (slot_index, state_bytes) = slots_guard
                             .use_rw(slot_key, recommended_state_capacity)
                             .ok_or(ContractError::Forbidden)?;
 
@@ -573,7 +573,7 @@ impl<'a> FfiCall<'a> {
                         delayed_processing.push(DelayedProcessing::SlotReadWrite {
                             // Is updated below
                             data_ptr: NonNull::dangling(),
-                            slot_key,
+                            slot_index,
                             size: 0,
                             capacity: state_bytes.capacity(),
                             must_be_not_empty: true,
