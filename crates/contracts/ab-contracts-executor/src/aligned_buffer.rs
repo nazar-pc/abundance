@@ -20,7 +20,7 @@ impl AlignedBytes {
 ///
 /// Data is aligned to 16 bytes (128 bits), which is the largest alignment required by primitive
 /// types and by extension any type that implements `TrivialType`/`IoType`.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(super) struct OwnedAlignedBuffer {
     buffer: Arc<[MaybeUninit<AlignedBytes>]>,
     len: u32,
@@ -41,16 +41,6 @@ impl DerefMut for OwnedAlignedBuffer {
         self.as_mut_slice()
     }
 }
-
-impl PartialEq for OwnedAlignedBuffer {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        (self.len == other.len && self.as_ptr() == other.as_ptr())
-            || (self.as_slice() == other.as_slice())
-    }
-}
-
-impl Eq for OwnedAlignedBuffer {}
 
 impl OwnedAlignedBuffer {
     /// Create a new instance with at least specified capacity.
@@ -107,6 +97,18 @@ impl OwnedAlignedBuffer {
         SharedAlignedBuffer {
             buffer: self.buffer,
             len: self.len,
+        }
+    }
+
+    /// Ensure capacity of the buffer is at least `capacity`.
+    ///
+    /// Will re-allocate if necessary.
+    #[inline]
+    pub(super) fn ensure_capacity(&mut self, capacity: u32) {
+        if capacity > self.capacity() {
+            let mut new_buffer = Self::with_capacity(capacity);
+            new_buffer.copy_from_slice(self.as_slice());
+            *self = new_buffer;
         }
     }
 
@@ -189,32 +191,6 @@ impl Deref for SharedAlignedBuffer {
     }
 }
 
-impl PartialEq for SharedAlignedBuffer {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        (self.len == other.len && self.as_ptr() == other.as_ptr())
-            || (self.as_slice() == other.as_slice())
-    }
-}
-
-impl PartialEq<OwnedAlignedBuffer> for SharedAlignedBuffer {
-    #[inline]
-    fn eq(&self, other: &OwnedAlignedBuffer) -> bool {
-        (self.len == other.len && self.as_ptr() == other.as_ptr())
-            || (self.as_slice() == other.as_slice())
-    }
-}
-
-impl PartialEq<SharedAlignedBuffer> for OwnedAlignedBuffer {
-    #[inline]
-    fn eq(&self, other: &SharedAlignedBuffer) -> bool {
-        (self.len == other.len && self.as_ptr() == other.as_ptr())
-            || (self.as_slice() == other.as_slice())
-    }
-}
-
-impl Eq for SharedAlignedBuffer {}
-
 impl SharedAlignedBuffer {
     /// Create a new instance from provided bytes.
     ///
@@ -232,7 +208,6 @@ impl SharedAlignedBuffer {
     ///
     /// Returns `None` if there exit other shared instances.
     #[inline]
-    #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     pub(super) fn into_owned(mut self) -> OwnedAlignedBuffer {
         // Check if this is the last instance of the buffer
         if Arc::get_mut(&mut self.buffer).is_some() {

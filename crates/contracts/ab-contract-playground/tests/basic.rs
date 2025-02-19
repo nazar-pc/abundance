@@ -10,8 +10,7 @@ fn basic() {
     tracing_subscriber::fmt::init();
 
     let shard_index = ShardIndex::from_u32(1).unwrap();
-    let mut executor = NativeExecutor::in_memory(shard_index).unwrap();
-    executor.deploy_typical_system_contracts().unwrap();
+    let mut executor = NativeExecutor::in_memory_empty(shard_index).unwrap();
     let playground_token = {
         let mut env = executor.null_env();
 

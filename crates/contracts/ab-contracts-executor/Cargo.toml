@@ -12,18 +12,14 @@ include = [
 
 [dependencies]
 ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
-ab-system-contract-address-allocator = { version = "0.0.1", path = "../ab-system-contract-address-allocator", optional = true }
-ab-system-contract-code = { version = "0.0.1", path = "../ab-system-contract-code", optional = true }
-ab-system-contract-state = { version = "0.0.1", path = "../ab-system-contract-state", optional = true }
+ab-system-contract-address-allocator = { version = "0.0.1", path = "../ab-system-contract-address-allocator" }
+ab-system-contract-code = { version = "0.0.1", path = "../ab-system-contract-code" }
+ab-system-contract-state = { version = "0.0.1", path = "../ab-system-contract-state" }
+halfbrown = { version = "0.3.0", features = ["arraybackend", "fxhash"] }
 inventory = "0.3.19"
-parking_lot = "0.12.3"
+parking_lot = { version = "0.12.3", features = ["arc_lock"] }
+smallvec = "1.14.0"
 thiserror = "2.0.11"
 tracing = "0.1.41"
 
 [features]
-# Enables support for built-in contracts, which helps with boilerplate
-system-contracts = [
-    "dep:ab-system-contract-address-allocator",
-    "dep:ab-system-contract-code",
-    "dep:ab-system-contract-state",
-]

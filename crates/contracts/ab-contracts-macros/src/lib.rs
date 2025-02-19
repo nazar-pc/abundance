@@ -227,9 +227,9 @@ pub mod __private;
 /// pointer field is generated:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs {
+/// pub struct InternalArgs<'__internal_args> {
 ///     // ...
-///     pub env_ptr: NonNull<Env>,
+///     pub env_ptr: NonNull<Env<'__internal_args>>,
 ///     // ...
 /// }
 /// ```
@@ -241,9 +241,9 @@ pub mod __private;
 /// is generated:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs {
+/// pub struct InternalArgs<'__internal_args> {
 ///     // ...
-///     pub env_ptr: NonNull<Env>,
+///     pub env_ptr: NonNull<Env<'__internal_args>>,
 ///     // ...
 /// }
 /// ```
