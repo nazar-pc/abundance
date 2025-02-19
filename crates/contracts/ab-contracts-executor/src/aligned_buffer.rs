@@ -2,7 +2,6 @@
 mod tests;
 
 use std::mem::MaybeUninit;
-use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::{mem, slice};
 
@@ -26,27 +25,10 @@ pub(super) struct OwnedAlignedBuffer {
     len: u32,
 }
 
-impl Deref for OwnedAlignedBuffer {
-    type Target = [u8];
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        self.as_slice()
-    }
-}
-
-impl DerefMut for OwnedAlignedBuffer {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.as_mut_slice()
-    }
-}
-
 impl OwnedAlignedBuffer {
     /// Create a new instance with at least specified capacity.
     ///
     /// NOTE: Actual capacity might be larger due to alignment requirements.
-    #[inline]
     pub(super) fn with_capacity(capacity: u32) -> Self {
         Self {
             buffer: Arc::new_uninit_slice((capacity as usize).div_ceil(AlignedBytes::SIZE)),
@@ -58,33 +40,29 @@ impl OwnedAlignedBuffer {
     ///
     /// # Panics
     /// If `bytes.len()` doesn't fit into `u32`
-    #[inline]
     pub(super) fn from_bytes(bytes: &[u8]) -> Self {
         let mut instance = Self::with_capacity(0);
         instance.copy_from_slice(bytes);
         instance
     }
 
-    #[inline]
     pub(super) fn as_slice(&self) -> &[u8] {
         let len = self.len as usize;
         // SAFETY: Not null and length is a protected invariant of the implementation
         unsafe { slice::from_raw_parts(self.as_ptr(), len) }
     }
 
-    #[inline]
+    #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     pub(super) fn as_mut_slice(&mut self) -> &mut [u8] {
         let len = self.len as usize;
         // SAFETY: Not null and length is a protected invariant of the implementation
         unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), len) }
     }
 
-    #[inline]
     pub(super) fn as_ptr(&self) -> *const u8 {
         self.buffer.as_ptr().cast::<u8>()
     }
 
-    #[inline]
     pub(super) fn as_mut_ptr(&mut self) -> *mut u8 {
         Arc::get_mut(&mut self.buffer)
             .expect("Owned by this data structure; qed")
@@ -92,7 +70,6 @@ impl OwnedAlignedBuffer {
             .cast::<u8>()
     }
 
-    #[inline]
     pub(super) fn into_shared(self) -> SharedAlignedBuffer {
         SharedAlignedBuffer {
             buffer: self.buffer,
@@ -103,7 +80,6 @@ impl OwnedAlignedBuffer {
     /// Ensure capacity of the buffer is at least `capacity`.
     ///
     /// Will re-allocate if necessary.
-    #[inline]
     pub(super) fn ensure_capacity(&mut self, capacity: u32) {
         if capacity > self.capacity() {
             let mut new_buffer = Self::with_capacity(capacity);
@@ -116,7 +92,6 @@ impl OwnedAlignedBuffer {
     ///
     /// # Panics
     /// If `bytes.len()` doesn't fit into `u32`
-    #[inline]
     pub(super) fn copy_from_slice(&mut self, bytes: &[u8]) {
         let Ok(len) = u32::try_from(bytes.len()) else {
             panic!("Too many bytes");
@@ -139,17 +114,14 @@ impl OwnedAlignedBuffer {
         self.len = len;
     }
 
-    #[inline]
     pub(super) fn is_empty(&self) -> bool {
         self.len == 0
     }
 
-    #[inline]
     pub(super) fn len(&self) -> u32 {
         self.len
     }
 
-    #[inline]
     pub(super) fn capacity(&self) -> u32 {
         (self.buffer.len() * AlignedBytes::SIZE) as u32
     }
@@ -161,7 +133,6 @@ impl OwnedAlignedBuffer {
     ///
     /// # Panics
     /// If `bytes.len()` doesn't fit into `u32`
-    #[inline]
     pub(super) unsafe fn set_len(&mut self, new_len: u32) {
         if new_len > self.capacity() {
             panic!("Too many bytes");
@@ -182,21 +153,11 @@ pub(super) struct SharedAlignedBuffer {
     len: u32,
 }
 
-impl Deref for SharedAlignedBuffer {
-    type Target = [u8];
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        self.as_slice()
-    }
-}
-
 impl SharedAlignedBuffer {
     /// Create a new instance from provided bytes.
     ///
     /// # Panics
     /// If `bytes.len()` doesn't fit into `u32`
-    #[inline]
     pub(super) fn from_bytes(bytes: &[u8]) -> Self {
         OwnedAlignedBuffer::from_bytes(bytes).into_shared()
     }
@@ -207,7 +168,6 @@ impl SharedAlignedBuffer {
     /// allocation will be created.
     ///
     /// Returns `None` if there exit other shared instances.
-    #[inline]
     pub(super) fn into_owned(mut self) -> OwnedAlignedBuffer {
         // Check if this is the last instance of the buffer
         if Arc::get_mut(&mut self.buffer).is_some() {
@@ -222,28 +182,23 @@ impl SharedAlignedBuffer {
         }
     }
 
-    #[inline]
     pub(super) fn as_slice(&self) -> &[u8] {
         // SAFETY: Not null and size is a protected invariant of the implementation
         unsafe { slice::from_raw_parts(self.buffer.as_ptr().cast::<u8>(), self.len as usize) }
     }
 
-    #[inline]
     pub(super) fn as_ptr(&self) -> *const u8 {
         self.buffer.as_ptr().cast::<u8>()
     }
 
-    #[inline]
     pub(super) fn is_empty(&self) -> bool {
         self.len == 0
     }
 
-    #[inline]
     pub(super) fn len(&self) -> u32 {
         self.len
     }
 
-    #[inline]
     pub(super) fn capacity(&self) -> u32 {
         (self.buffer.len() * AlignedBytes::SIZE) as u32
     }

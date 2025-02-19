@@ -24,7 +24,6 @@ pub(super) struct SlotKey {
 pub(super) struct SlotIndex(usize);
 
 impl From<SlotIndex> for usize {
-    #[inline]
     fn from(value: SlotIndex) -> Self {
         value.0
     }
