@@ -139,7 +139,7 @@ fn basic() {
             let shorter_len = owned2.len() - 1;
             // SAFETY: length is guaranteed to be within stored bytes
             unsafe { owned2.set_len(shorter_len) };
-            assert_eq!(&owned[..shorter_len as usize], owned2.as_slice());
+            assert_eq!(&owned.as_slice()[..shorter_len as usize], owned2.as_slice());
         }
 
         // Create a shared instance
