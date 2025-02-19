@@ -9,9 +9,9 @@ use ab_contracts_macros::contract;
 #[repr(C)]
 pub struct AddressAllocator {
     /// Next address to be allocated on this shard
-    pub next_address: u64,
+    pub next_address: u128,
     /// Max address to be allocated on this shard
-    pub max_address: u64,
+    pub max_address: u128,
 }
 
 #[contract]
@@ -21,7 +21,8 @@ impl AddressAllocator {
     pub fn new(#[env] env: &Env) -> Self {
         let shard_index = env.shard_index();
 
-        let expected_self_address = shard_index.to_u32() as u64 * ShardIndex::MAX_SHARDS as u64;
+        let expected_self_address =
+            shard_index.to_u32() as u128 * ShardIndex::MAX_ADDRESSES_PER_SHARD.get();
         debug_assert_eq!(
             env.own_address(),
             Address::from(expected_self_address),
@@ -30,7 +31,7 @@ impl AddressAllocator {
 
         Self {
             next_address: expected_self_address + 1,
-            max_address: (shard_index.to_u32() as u64 + 1) * ShardIndex::MAX_SHARDS as u64 - 1,
+            max_address: expected_self_address + ShardIndex::MAX_ADDRESSES_PER_SHARD.get() - 1,
         }
     }
 
@@ -44,7 +45,7 @@ impl AddressAllocator {
         }
 
         let next_address = self.next_address;
-        if next_address == self.max_address {
+        if next_address >= self.max_address {
             // No more addresses can be allocated on this shard
             return Err(ContractError::Forbidden);
         }

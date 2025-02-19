@@ -10,7 +10,7 @@ use ab_contracts_io_type::IoType;
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_io_type::variable_bytes::VariableBytes;
 use core::ffi::c_void;
-use core::fmt;
+use core::num::{NonZeroU32, NonZeroU128};
 use core::ops::Deref;
 use core::ptr::NonNull;
 use derive_more::{
@@ -184,31 +184,26 @@ impl Balance {
 }
 
 /// Shard index
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
+#[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
 #[repr(transparent)]
-pub struct ShardIndex(
-    // Essentially 32-bit number, but using an array reduces alignment requirement to 1 byte
-    [u8; 4],
-);
-
-impl fmt::Display for ShardIndex {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        u32::from_le_bytes(self.0).fmt(f)
-    }
-}
+pub struct ShardIndex(u32);
 
 impl ShardIndex {
     /// Max possible shard index
-    pub const MAX_SHARD_INDEX: u32 = Self::MAX_SHARDS - 1;
+    pub const MAX_SHARD_INDEX: u32 = Self::MAX_SHARDS.get() - 1;
     /// Max possible number of shards
-    pub const MAX_SHARDS: u32 = 2u32.pow(20);
+    pub const MAX_SHARDS: NonZeroU32 = NonZeroU32::new(2u32.pow(20)).expect("Not zero; qed");
+    /// Max possible number of addresses per shard
+    pub const MAX_ADDRESSES_PER_SHARD: NonZeroU128 =
+        NonZeroU128::new((u128::MAX / 2 + 1) / (Self::MAX_SHARDS.get() as u128 / 2))
+            .expect("Not zero; qed");
 
     // TODO: Remove once traits work in const environment and `From` could be used
     /// Convert shard index to `u32`.
     ///
     /// This is typically only necessary for low-level code.
     pub const fn to_u32(self) -> u32 {
-        u32::from_le_bytes(self.0)
+        self.0
     }
 
     // TODO: Remove once traits work in const environment and `From` could be used
@@ -222,16 +217,13 @@ impl ShardIndex {
             return None;
         }
 
-        Some(Self(shard_index.to_le_bytes()))
+        Some(Self(shard_index))
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
+#[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
 #[repr(transparent)]
-pub struct Address(
-    // Essentially 64-bit number, but using an array reduces alignment requirement to 1 byte
-    [u8; 8],
-);
+pub struct Address(u128);
 
 impl PartialEq<&Address> for Address {
     #[inline]
@@ -247,17 +239,10 @@ impl PartialEq<Address> for &Address {
     }
 }
 
-impl From<u64> for Address {
+impl From<u128> for Address {
     #[inline]
-    fn from(value: u64) -> Self {
-        Self(value.to_le_bytes())
-    }
-}
-
-impl fmt::Display for Address {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // TODO: Would it be better to represent address as something non-decimal that is shorter?
-        u64::from_le_bytes(self.0).fmt(f)
+    fn from(value: u128) -> Self {
+        Self(value)
     }
 }
 
@@ -266,11 +251,11 @@ impl fmt::Display for Address {
 impl Address {
     // TODO: Various system contracts
     /// Sentinel contract address, inaccessible and not owned by anyone
-    pub const NULL: Self = Self(0u64.to_le_bytes());
+    pub const NULL: Self = Self(0);
     /// System contract for managing code of other contracts
-    pub const SYSTEM_CODE: Self = Self(1u64.to_le_bytes());
+    pub const SYSTEM_CODE: Self = Self(1);
     /// System contract for managing state of other contracts
-    pub const SYSTEM_STATE: Self = Self(2u64.to_le_bytes());
+    pub const SYSTEM_STATE: Self = Self(2);
 
     /// System contract for address allocation on a particular shard index
     #[inline]
@@ -278,6 +263,6 @@ impl Address {
         // Shard `0` doesn't have its own allocator because there are no user-deployable contracts
         // there, so address `0` is `NULL`, the rest up to `ShardIndex::MAX_SHARD_INDEX` correspond
         // to address allocators of respective shards
-        Address((shard_index.to_u32() as u64 * ShardIndex::MAX_SHARDS as u64).to_le_bytes())
+        Address(shard_index.to_u32() as u128 * ShardIndex::MAX_ADDRESSES_PER_SHARD.get())
     }
 }

@@ -173,6 +173,7 @@ impl NativeExecutor {
     pub fn env(&mut self, context: Address, caller: Address) -> Env<'_> {
         let env_state = EnvState {
             shard_index: self.shard_index,
+            padding_0: Default::default(),
             own_address: caller,
             context,
             caller,

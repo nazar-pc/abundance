@@ -54,6 +54,8 @@ pub struct PreparedMethod<'a> {
 pub struct EnvState {
     /// Shard index where execution is happening
     pub shard_index: ShardIndex,
+    /// Explicit padding, contents does not matter
+    pub padding_0: [u8; 12],
     /// Own address of the contract
     pub own_address: Address,
     /// Context of the execution

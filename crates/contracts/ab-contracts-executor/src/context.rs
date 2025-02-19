@@ -62,6 +62,7 @@ impl ExecutorContext for NativeExecutorContext {
 
                     let env_state = EnvState {
                         shard_index: self.shard_index,
+                        padding_0: Default::default(),
                         own_address: *contract,
                         context: match method_context {
                             MethodContext::Keep => previous_env_state.context,
