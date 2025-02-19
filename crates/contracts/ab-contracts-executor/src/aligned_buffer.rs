@@ -234,7 +234,6 @@ impl SharedAlignedBuffer {
     }
 
     #[inline]
-    #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     pub(super) fn is_empty(&self) -> bool {
         self.len == 0
     }

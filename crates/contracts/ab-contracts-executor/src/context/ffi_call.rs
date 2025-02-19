@@ -74,6 +74,10 @@ enum DelayedProcessing {
         /// (while reading `ExternalArgs`)
         size: u32,
         capacity: u32,
+        /// Whether slot written must be non-empty.
+        ///
+        /// This is the case for state in `#[init]` methods.
+        must_be_not_empty: bool,
     },
 }
 
@@ -106,8 +110,18 @@ impl FfiCallResult<'_> {
                     data_ptr,
                     slot_key,
                     size,
+                    must_be_not_empty,
                     ..
                 } => {
+                    if must_be_not_empty && size == 0 {
+                        error!(
+                            %size,
+                            "Contract returned empty size where it is not allowed, likely state of \
+                            `#[init]` method"
+                        );
+                        return Err(ContractError::BadOutput);
+                    }
+
                     // SAFETY: Correct pointer created earlier that is not used for anything
                     // else at the moment
                     let data_ptr = unsafe { data_ptr.as_ptr().read().cast_const() };
@@ -215,7 +229,10 @@ impl<'a> FfiCall<'a> {
         // will keep pointing to the beginning
         let mut external_args_cursor = *external_args;
         // Delayed processing of sizes as capacities since knowing them requires processing all
-        // arguments first
+        // arguments first.
+        //
+        // NOTE: It is important that this is never reallocated as it will invalidate all the
+        // pointers to elements of this vector!
         let mut delayed_processing = Vec::with_capacity(total_arguments);
 
         // `true` when only `#[view]` method is allowed
@@ -225,6 +242,11 @@ impl<'a> FfiCall<'a> {
             | MethodKind::UpdateStatefulRo
             | MethodKind::UpdateStatefulRw => {
                 if force_view_only || !parent_context.allow_env_mutation {
+                    warn!(
+                        force_view_only,
+                        allow_env_mutation = %parent_context.allow_env_mutation,
+                        "Only `#[view]` methods are allowed"
+                    );
                     return Err(ContractError::Forbidden);
                 }
 
@@ -250,6 +272,13 @@ impl<'a> FfiCall<'a> {
                     .use_ro((contract, Address::SYSTEM_STATE))
                     .ok_or(ContractError::Forbidden)?;
 
+                if state_bytes.is_empty() {
+                    warn!(
+                        "Contract does not have state yet, can't call stateful method before init"
+                    );
+                    return Err(ContractError::Forbidden);
+                }
+
                 delayed_processing.push(DelayedProcessing::SlotReadOnly {
                     size: state_bytes.len(),
                 });
@@ -267,6 +296,7 @@ impl<'a> FfiCall<'a> {
             }
             MethodKind::UpdateStatefulRw => {
                 if view_only {
+                    warn!("Only `#[view]` methods are allowed");
                     return Err(ContractError::Forbidden);
                 }
 
@@ -275,12 +305,20 @@ impl<'a> FfiCall<'a> {
                     .use_rw(slot_key, recommended_state_capacity)
                     .ok_or(ContractError::Forbidden)?;
 
+                if state_bytes.is_empty() {
+                    warn!(
+                        "Contract does not have state yet, can't call stateful method before init"
+                    );
+                    return Err(ContractError::Forbidden);
+                }
+
                 delayed_processing.push(DelayedProcessing::SlotReadWrite {
                     // Is updated below
                     data_ptr: NonNull::dangling(),
                     slot_key,
                     size: state_bytes.len(),
                     capacity: state_bytes.capacity(),
+                    must_be_not_empty: false,
                 });
                 let Some(DelayedProcessing::SlotReadWrite {
                     data_ptr,
@@ -343,7 +381,6 @@ impl<'a> FfiCall<'a> {
 
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
-                    // TODO: Switch to `&mut *` once `DerefMut` is implemented: https://github.com/rust-lang/rust/pull/129334
                     unsafe {
                         write_ptr!(env_rw => internal_args_cursor as *mut Env);
                     }
@@ -395,6 +432,7 @@ impl<'a> FfiCall<'a> {
                         slot_key,
                         size: tmp_bytes.len(),
                         capacity: tmp_bytes.capacity(),
+                        must_be_not_empty: false,
                     });
                     let Some(DelayedProcessing::SlotReadWrite {
                         data_ptr,
@@ -461,6 +499,7 @@ impl<'a> FfiCall<'a> {
                         slot_key,
                         size: slot_bytes.len(),
                         capacity: slot_bytes.capacity(),
+                        must_be_not_empty: false,
                     });
                     let Some(DelayedProcessing::SlotReadWrite {
                         data_ptr,
@@ -537,6 +576,7 @@ impl<'a> FfiCall<'a> {
                             slot_key,
                             size: 0,
                             capacity: state_bytes.capacity(),
+                            must_be_not_empty: true,
                         });
                         let Some(DelayedProcessing::SlotReadWrite {
                             data_ptr,

@@ -5,6 +5,7 @@ use parking_lot::Mutex;
 use smallvec::SmallVec;
 use std::mem;
 use std::sync::{Arc, Weak};
+use tracing::debug;
 
 /// Small number of elements to store without heap allocation in some data structures.
 ///
@@ -207,6 +208,7 @@ impl Slots {
     #[must_use]
     pub(super) fn add_new_contract(&mut self, owner: Address) -> bool {
         if self.new_contracts.contains(&owner) {
+            debug!(%owner, "Not adding new contract duplicate");
             self.access_violation = true;
             return false;
         }
@@ -225,6 +227,7 @@ impl Slots {
         let result = Self::get_code_internal(owner, &self.slots, &self.slot_access);
 
         if result.is_none() {
+            debug!(%owner, "`get_code` state access violation");
             self.access_violation = true;
         }
 
@@ -272,6 +275,7 @@ impl Slots {
         );
 
         if result.is_none() {
+            debug!(?slot_key, "`use_ro` state access violation");
             self.access_violation = true;
         }
 
@@ -368,6 +372,7 @@ impl Slots {
         );
 
         if result.is_none() {
+            debug!(?slot_key, "`use_rw` state access violation");
             self.access_violation = true;
         }
 
@@ -446,6 +451,10 @@ impl Slots {
     /// Returns `None` in case of access violation.
     pub(super) fn access_used_rw(&mut self, slot_key: &SlotKey) -> Option<&mut OwnedAlignedBuffer> {
         let Some(slot) = self.slots.get_mut(slot_key) else {
+            debug!(
+                ?slot_key,
+                "`access_used_rw` state access violation (not found)"
+            );
             self.access_violation = true;
             return None;
         };
@@ -456,6 +465,10 @@ impl Slots {
             | Slot::ReadOnlyAccessed(_buffer)
             | Slot::ReadOnlyModified(_buffer)
             | Slot::ReadOnlyModifiedAccessed(_buffer) => {
+                debug!(
+                    ?slot_key,
+                    "`access_used_rw` state access violation (read only)"
+                );
                 self.access_violation = true;
                 None
             }
