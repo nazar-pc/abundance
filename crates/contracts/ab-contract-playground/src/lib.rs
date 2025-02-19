@@ -29,7 +29,6 @@ pub struct Slot {
 pub struct Playground {
     pub total_supply: Balance,
     pub owner: Address,
-    pub padding: [u8; 8],
 }
 
 #[contract]
@@ -67,7 +66,6 @@ impl Playground {
         Self {
             total_supply: *total_supply,
             owner: *owner_addr,
-            padding: [0; 8],
         }
     }
 
@@ -76,7 +74,6 @@ impl Playground {
         result.replace(Self {
             total_supply: Balance::MIN,
             owner: env.context(),
-            padding: [0; 8],
         });
     }
 

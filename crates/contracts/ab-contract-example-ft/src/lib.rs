@@ -19,7 +19,6 @@ pub struct Slot {
 pub struct ExampleFt {
     pub total_supply: Balance,
     pub owner: Address,
-    pub padding: [u8; 8],
 }
 
 #[contract]
@@ -57,7 +56,6 @@ impl ExampleFt {
         Self {
             total_supply: *total_supply,
             owner: *owner_addr,
-            padding: [0; 8],
         }
     }
 

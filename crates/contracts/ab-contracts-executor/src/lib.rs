@@ -6,7 +6,7 @@ mod slots;
 
 use crate::aligned_buffer::SharedAlignedBuffer;
 use crate::context::{MethodDetails, NativeExecutorContext};
-use crate::slots::{HashMap, Slots};
+use crate::slots::{SlotKey, Slots};
 use ab_contracts_common::env::{Env, EnvState, MethodContext};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
 use ab_contracts_common::method::MethodFingerprint;
@@ -16,6 +16,7 @@ use ab_contracts_common::{
 use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt};
 use ab_system_contract_code::{Code, CodeExt};
 use ab_system_contract_state::State;
+use halfbrown::HashMap;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use tracing::error;
@@ -116,10 +117,13 @@ impl NativeExecutor {
         }
 
         // Manually deploy code of system code contract
-        let slots = HashMap::from_iter([(
-            (Address::SYSTEM_CODE, Address::SYSTEM_CODE),
+        let slots = [(
+            SlotKey {
+                owner: Address::SYSTEM_CODE,
+                contract: Address::SYSTEM_CODE,
+            },
             SharedAlignedBuffer::from_bytes(Code::code().get_initialized()),
-        )]);
+        )];
 
         let address_allocator_address = Address::system_address_allocator(shard_index);
         let slots = Slots::new(slots);
@@ -166,13 +170,14 @@ impl NativeExecutor {
     // TODO: Remove this once there is a better way to do this
     /// Mark slot as used, such that execution environment can read/write from/to it
     pub fn use_slot(&mut self, owner: Address, contract: Address) {
-        self.slots.lock().use_slot((owner, contract));
+        self.slots.lock().use_slot(SlotKey { owner, contract });
     }
 
     /// Run a function under fresh execution environment
     pub fn env(&mut self, context: Address, caller: Address) -> Env<'_> {
         let env_state = EnvState {
             shard_index: self.shard_index,
+            padding_0: Default::default(),
             own_address: caller,
             context,
             caller,
