@@ -1,5 +1,5 @@
 use crate::context::{MethodDetails, NativeExecutorContext};
-use crate::slots::{SlotIndex, Slots};
+use crate::slots::{SlotIndex, SlotKey, Slots};
 use ab_contracts_common::env::{Env, EnvState};
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, ArgumentMetadataItem, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
@@ -269,7 +269,10 @@ impl<'a> FfiCall<'a> {
             }
             MethodKind::UpdateStatefulRo | MethodKind::ViewStateful => {
                 let state_bytes = slots_guard
-                    .use_ro((contract, Address::SYSTEM_STATE))
+                    .use_ro(SlotKey {
+                        owner: contract,
+                        contract: Address::SYSTEM_STATE,
+                    })
                     .ok_or(ContractError::Forbidden)?;
 
                 if state_bytes.is_empty() {
@@ -300,7 +303,10 @@ impl<'a> FfiCall<'a> {
                     return Err(ContractError::Forbidden);
                 }
 
-                let slot_key = (contract, Address::SYSTEM_STATE);
+                let slot_key = SlotKey {
+                    owner: contract,
+                    contract: Address::SYSTEM_STATE,
+                };
                 let (slot_index, state_bytes) = slots_guard
                     .use_rw(slot_key, recommended_state_capacity)
                     .ok_or(ContractError::Forbidden)?;
@@ -394,7 +400,10 @@ impl<'a> FfiCall<'a> {
 
                     // Null contact is used implicitly for `#[tmp]` since it is not possible for
                     // this contract to write something there directly
-                    let slot_key = (contract, Address::NULL);
+                    let slot_key = SlotKey {
+                        owner: contract,
+                        contract: Address::NULL,
+                    };
                     let tmp_bytes = slots_guard
                         .use_ro(slot_key)
                         .ok_or(ContractError::Forbidden)?;
@@ -421,7 +430,10 @@ impl<'a> FfiCall<'a> {
 
                     // Null contact is used implicitly for `#[tmp]` since it is not possible for
                     // this contract to write something there directly
-                    let slot_key = (contract, Address::NULL);
+                    let slot_key = SlotKey {
+                        owner: contract,
+                        contract: Address::NULL,
+                    };
                     let (slot_index, tmp_bytes) = slots_guard
                         .use_rw(slot_key, recommended_tmp_capacity)
                         .ok_or(ContractError::Forbidden)?;
@@ -458,7 +470,10 @@ impl<'a> FfiCall<'a> {
                     // moving right past that is safe
                     let address = unsafe { &*read_ptr!(external_args_cursor as *const Address) };
 
-                    let slot_key = (*address, contract);
+                    let slot_key = SlotKey {
+                        owner: *address,
+                        contract,
+                    };
                     let slot_bytes = slots_guard
                         .use_ro(slot_key)
                         .ok_or(ContractError::Forbidden)?;
@@ -488,7 +503,10 @@ impl<'a> FfiCall<'a> {
                     // moving right past that is safe
                     let address = unsafe { &*read_ptr!(external_args_cursor as *const Address) };
 
-                    let slot_key = (*address, contract);
+                    let slot_key = SlotKey {
+                        owner: *address,
+                        contract,
+                    };
                     let (slot_index, slot_bytes) = slots_guard
                         .use_rw(slot_key, recommended_slot_capacity)
                         .ok_or(ContractError::Forbidden)?;
@@ -560,7 +578,10 @@ impl<'a> FfiCall<'a> {
                             return Err(ContractError::Forbidden);
                         }
 
-                        let slot_key = (contract, Address::SYSTEM_STATE);
+                        let slot_key = SlotKey {
+                            owner: contract,
+                            contract: Address::SYSTEM_STATE,
+                        };
                         let (slot_index, state_bytes) = slots_guard
                             .use_rw(slot_key, recommended_state_capacity)
                             .ok_or(ContractError::Forbidden)?;

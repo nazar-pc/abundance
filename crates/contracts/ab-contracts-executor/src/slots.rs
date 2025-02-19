@@ -14,8 +14,12 @@ const INLINE_SIZE: usize = 8;
 /// It should be rare that more than 2 contracts are created in the same transaction
 const NEW_CONTRACTS_INLINE: usize = 2;
 
-/// A tuple of `(owner, contract)` that corresponds to a slot
-pub(super) type SlotKey = (Address, Address);
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub(super) struct SlotKey {
+    pub(super) owner: Address,
+    pub(super) contract: Address,
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub(super) struct SlotIndex(usize);
 
@@ -133,15 +137,15 @@ impl Slots {
     {
         let slots = slots
             .into_iter()
-            .filter_map(|((owner, contract), slot)| {
+            .filter_map(|(slot_key, slot)| {
                 // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
                 // allowed for any owner, and they will all be thrown away after transaction
                 // processing if finished.
-                if contract == Address::NULL {
+                if slot_key.contract == Address::NULL {
                     return None;
                 }
 
-                Some(((owner, contract), Slot::Original(slot)))
+                Some((slot_key, Slot::Original(slot)))
             })
             .collect();
         Arc::new_cyclic(|weak| {
@@ -248,12 +252,9 @@ impl Slots {
     ) -> Option<SharedAlignedBuffer> {
         let contract = Address::SYSTEM_CODE;
 
-        let slot_index =
-            slots
-                .iter()
-                .position(|((slot_key_owner, slot_key_contract), _slot)| {
-                    slot_key_owner == owner && slot_key_contract == contract
-                })?;
+        let slot_index = slots.iter().position(|(slot_key, _slot)| {
+            slot_key.owner == owner && slot_key.contract == contract
+        })?;
         let slot_index = SlotIndex(slot_index);
 
         // Ensure code is not currently being written to
@@ -306,12 +307,9 @@ impl Slots {
         slot_access: &mut SmallVec<[SlotAccess; INLINE_SIZE]>,
         new_contracts: &[Address],
     ) -> Option<&'a SharedAlignedBuffer> {
-        let (owner, contract) = &slot_key;
         let maybe_slot_index = slots
             .iter()
-            .position(|((slot_key_owner, slot_key_contract), _slot)| {
-                slot_key_owner == owner && slot_key_contract == contract
-            })
+            .position(|(slot_key_candidate, _slot)| slot_key_candidate == &slot_key)
             .map(SlotIndex);
 
         match maybe_slot_index {
@@ -363,10 +361,10 @@ impl Slots {
                 // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
                 // allowed for any owner, and they will all be thrown away after transaction
                 // processing if finished.
-                if !(contract == Address::NULL
-                    || new_contracts
-                        .iter()
-                        .any(|candidate| candidate == owner || candidate == contract))
+                if !(slot_key.contract == Address::NULL
+                    || new_contracts.iter().any(|candidate| {
+                        candidate == slot_key.owner || candidate == slot_key.contract
+                    }))
                 {
                     return None;
                 }
@@ -419,12 +417,9 @@ impl Slots {
         slot_access: &mut SmallVec<[SlotAccess; INLINE_SIZE]>,
         new_contracts: &[Address],
     ) -> Option<(SlotIndex, &'a mut OwnedAlignedBuffer)> {
-        let (owner, contract) = &slot_key;
         let maybe_slot_index = slots
             .iter()
-            .position(|((slot_key_owner, slot_key_contract), _slot)| {
-                slot_key_owner == owner && slot_key_contract == contract
-            })
+            .position(|(slot_key_candidate, _slot)| slot_key_candidate == &slot_key)
             .map(SlotIndex);
 
         match maybe_slot_index {
@@ -470,10 +465,10 @@ impl Slots {
                 // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
                 // allowed for any owner, and they will all be thrown away after transaction
                 // processing if finished.
-                if !(contract == Address::NULL
-                    || new_contracts
-                        .iter()
-                        .any(|candidate| candidate == owner || candidate == contract))
+                if !(slot_key.contract == Address::NULL
+                    || new_contracts.iter().any(|candidate| {
+                        candidate == slot_key.owner || candidate == slot_key.contract
+                    }))
                 {
                     return None;
                 }
