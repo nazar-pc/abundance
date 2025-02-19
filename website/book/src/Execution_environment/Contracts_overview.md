@@ -4,7 +4,9 @@ In contrast to many blockchains, the address is just a monotonically increasing 
 case of end user wallet) or code (in case of what is typically understood as "smart contract" in other blockchains).
 
 The address is allocated on account creation and doesn't change regardless of how the contract evolves in the future.
-This means that externally, all contracts essentially look the same regardless of what they represent.
+This means that externally, all contracts essentially look the same regardless of what they represent. This enables a
+wallet contract to change its logic from verifying a single signature to multisig to 2FA to use a completely different
+cryptography in the future, all while retaining its address/identity.
 
 This not only includes contracts created/deployed by users/developers, but also some fundamental blockchain features.
 For example, in most blockchains code of the contract is stored in a special location by the node retrieves before
@@ -29,9 +31,13 @@ This helps to reduce the number of special cases for built-in functions vs. some
 
 # Storage model
 
-All storage owned by a contract is organized into a container that has slots inside, which forms a tree with the root
-being the root of contract's storage. This is unlike many other blockchains where contract may have access to a form of
-key-value database.
+All storage owned by a contract is organized into a container that has slots inside. It forms a tree with the root
+being the root of contract's storage, which can be used to generation inclusion/exclusion proofs when processing
+transactions (see [Transaction processing]). Having a per-contract tree with storage proofs allows consensus nodes to
+not be required to store the state of all contracts, just their storage roots. This is unlike many other blockchains
+where contract may have access to a form of key-value database.
+
+[Transaction processing]: #transaction-processing
 
 Each slot is managed by exactly one of the existing contracts and can only be read or modified by that contract.
 Contract's code and state are also slots managed by contracts (system contracts), even though developer-facing API might
@@ -43,11 +49,15 @@ things that might belong to end-users. The right mental model is to think of it 
 
 Let's take a generic fungible token as an example. System `state` contract will manage its state, stored in
 corresponding slot owned by the token contract. State will contain things like total supply and potentially useful
-metadata like number of decimal places and ticker, but not balances of individual users. In contrast to most
-blockchains, the state of the contract is typically bounded in size and defined by contract developer upfront, which
-means there can't be unbounded hashmap there. Instead, balances are stored in slots of contracts that own the balance
-(like smart wallet owned by end user), but managed by the token contract. This is similar to how contract's state and
-code are managed by corresponding system contracts.
+metadata like number of decimal places and ticker, but not balances of individual users.
+
+In contrast to most blockchains, the state of the contract is typically bounded in size and defined by contract
+developer upfront. Bounded size allows execution environment to allocate the necessary amount of memory and to limit the
+amount of data that potentially needs to be sent with the transaction over the network (see [Transaction processing]).
+
+This implies there can't be more traditional unbounded hashmap there. Instead, balances are stored in slots of contracts
+that own the balance (like smart wallet owned by end user), but managed by the token contract. This is similar to how
+contract's state and code are managed by corresponding system contracts.
 
 Visually, it looks something like this:
 
@@ -100,6 +110,11 @@ Contracts do not have access to underlying storage implementation in the form of
 slots as the only way of persisting data between transactions.
 
 # Transaction processing
+
+A transaction submitted to the network includes not only inputs to the contract call, but also storage proofs of the
+storage items (code, state, other slots) required for the transaction to be processed alongside corresponding storage
+proofs. This allows nodes to not store state of contracts beyond a small root, yet being able to process incoming
+transactions (it is of course possible to have a cache to remove the need to download frequently used storage items).
 
 Each method call of the contract includes metadata about what slots it will read or modify alongside any inputs or
 outputs it expects and their type information. With this information, contract execution engine can run non-conflicting
@@ -220,7 +235,11 @@ Reads.read -> Mutates.update: ❌
 
 Not only contract methods do not have access to general purpose key-value store (even if private to the contract), they
 don't have access to any other data except such that was explicitly provided as method input. They also can't return
-data in any other way except through return arguments.
+data in any other way except through return arguments. Execution environment will pre-allocate memory for all
+slots/outputs and provide it to the method to work with, removing a need for heap allocation in many cases.
+
+One can think about contract logic as a pure function: it takes inputs and slots, potentially modifies slots and returns
+outputs.
 
 Conceptually, all methods look something like this:
 

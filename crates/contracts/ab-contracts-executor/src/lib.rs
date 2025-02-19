@@ -178,9 +178,12 @@ impl NativeExecutor {
         let env_state = EnvState {
             shard_index: self.shard_index,
             padding_0: Default::default(),
+            // `own_address` will be observed as a caller
             own_address: caller,
             context,
-            caller,
+            // There is no direct caller on the highest level, and it doesn't matter either since mo
+            // method call will be able to observe this
+            caller: Address::NULL,
         };
 
         Env::with_executor_context(

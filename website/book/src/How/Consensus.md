@@ -1,8 +1,7 @@
 # Consensus
 
 While [Proof-of-Work] and [Proof-of-Stake] have solidified as primary ways to achieve consensus in blockchains, they
-both
-inevitably lead to centralization and potentially to reduction of security.
+both inevitably lead to centralization and potentially to reduction of security.
 
 [Proof-of-Work]: https://wikipedia.org/wiki/Proof_of_work
 
@@ -79,4 +78,4 @@ rewards for even relatively small farmers.
 
 > [!IMPORTANT]
 > As a result, Proof-of-Archival-Storage seems to be the closest ideal consensus mechanism that is both permissionless,
-> decentralized and secure.
+> distributed and secure.
