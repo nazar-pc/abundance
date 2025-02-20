@@ -5,7 +5,7 @@ use ab_contracts_common::{Address, Balance, ContractError};
 use ab_contracts_io_type::maybe_data::MaybeData;
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
-use ab_contracts_standards::Fungible;
+use ab_contracts_standards::fungible::Fungible;
 use core::cmp::Ordering;
 
 #[derive(Debug, Default, Copy, Clone, TrivialType)]
