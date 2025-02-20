@@ -1222,12 +1222,6 @@ impl MethodDetails {
         };
 
         let fn_pointer_static = {
-            let struct_name = extract_ident_from_type(self_type).ok_or_else(|| {
-                Error::new(
-                    self_type.span(),
-                    "`#[contract]` must be applied to a simple struct without generics",
-                )
-            })?;
             let adapter_ffi_fn_name = format_ident!("{ffi_fn_name}_adapter");
             let args_struct_name = derive_external_args_struct_name(
                 &self.self_type,
@@ -1237,7 +1231,8 @@ impl MethodDetails {
 
             quote! {
                 #[cfg(any(unix, windows))]
-                mod fn_pointer {
+                #[doc(hidden)]
+                pub mod fn_pointer {
                     use super::*;
 
                     unsafe extern "C" fn #adapter_ffi_fn_name(
@@ -1248,15 +1243,12 @@ impl MethodDetails {
                         unsafe { #ffi_fn_name(ptr.cast::<InternalArgs>()) }
                     }
 
-                    ::ab_contracts_macros::__private::inventory::submit! {
-                        ::ab_contracts_macros::__private::ContractsMethodsFnPointer {
-                            contact_code: <#struct_name as ::ab_contracts_macros::__private::Contract>::CODE,
-                            main_contract_metadata: <#struct_name as ::ab_contracts_macros::__private::Contract>::MAIN_CONTRACT_METADATA,
+                    pub const METHOD_FN_POINTER: ::ab_contracts_macros::__private::NativeExecutorContactMethod =
+                        ::ab_contracts_macros::__private::NativeExecutorContactMethod {
                             method_fingerprint: &<#args_struct_name as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
                             method_metadata: METADATA,
                             ffi_fn: #adapter_ffi_fn_name,
-                        }
-                    }
+                        };
                 }
             }
         };

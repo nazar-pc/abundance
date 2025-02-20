@@ -81,33 +81,42 @@ fn process_trait_definition(mut item_trait: ItemTrait) -> Result<TokenStream, Er
                 process_fn_definition(trait_name, trait_item_fn, &mut contract_details)?;
             guest_ffis.push(method_output.guest_ffi);
             trait_ext_components.push(method_output.trait_ext_components);
+
+            // This is needed to make trait itself object safe, which is in turn used as a hack for
+            // some APIs
+            if let Some(where_clause) = &mut trait_item_fn.sig.generics.where_clause {
+                where_clause.predicates.push(parse_quote! {
+                    Self: ::core::marker::Sized
+                });
+            } else {
+                trait_item_fn
+                    .sig
+                    .generics
+                    .where_clause
+                    .replace(parse_quote! {
+                        where
+                            Self: ::core::marker::Sized
+                    });
+            }
         }
     }
 
     let metadata_const = generate_trait_metadata(&contract_details, trait_name, item_trait.span())?;
-
-    item_trait.items.insert(0, TraitItem::Const(metadata_const));
-    item_trait.items.insert(0, parse_quote! {
-        #[cfg(feature = "guest")]
-        #[doc(hidden)]
-        const GUEST_FEATURE_ENABLED: () = ();
-    });
-
-    if let Some(where_clause) = &mut item_trait.generics.where_clause {
-        where_clause.predicates.push(parse_quote! {
-            Self: ::ab_contracts_macros::__private::Contract
-        });
-    } else {
-        item_trait.generics.where_clause.replace(parse_quote! {
-            where
-                Self: ::ab_contracts_macros::__private::Contract
-        });
-    }
-
     let ext_trait = generate_extension_trait(trait_name, &trait_ext_components)?;
 
     Ok(quote! {
         #item_trait
+
+        // `dyn ContractTrait` here is a bit of a hack that allows treating a trait as a type. These
+        // constants specifically can't be implemented on a trait itself because that'll make trait
+        // not object safe, which is needed for `ContractTrait` that uses a similar hack with
+        // `dyn ContractTrait`.
+        impl ::ab_contracts_macros::__private::ContractTraitDefinition for dyn #trait_name {
+            #[cfg(feature = "guest")]
+            #[doc(hidden)]
+            const GUEST_FEATURE_ENABLED: () = ();
+            #metadata_const
+        }
 
         #ext_trait
 
@@ -143,6 +152,21 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
                     &mut contract_details,
                 )?;
                 guest_ffis.push(method_output.guest_ffi);
+
+                if let Some(where_clause) = &mut impl_item_fn.sig.generics.where_clause {
+                    where_clause.predicates.push(parse_quote! {
+                        Self: ::core::marker::Sized
+                    });
+                } else {
+                    impl_item_fn
+                        .sig
+                        .generics
+                        .where_clause
+                        .replace(parse_quote! {
+                            where
+                                Self: ::core::marker::Sized
+                        });
+                }
             }
             ImplItem::Const(impl_item_const) => {
                 if impl_item_const.ident == "METADATA" {
@@ -167,6 +191,20 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
         RenameRule::SnakeCase.apply_to_variant(trait_name.to_string())
     );
     let metadata_const = generate_trait_metadata(&contract_details, trait_name, item_impl.span())?;
+    let method_fn_pointers_const = {
+        let methods = contract_details
+            .methods
+            .iter()
+            .map(|method| &method.original_ident);
+
+        quote! {
+            #[cfg(any(unix, windows))]
+            #[doc(hidden)]
+            const NATIVE_EXECUTOR_METHODS: &[::ab_contracts_macros::__private::NativeExecutorContactMethod] = &[
+                #( #ffi_mod_ident::#methods::fn_pointer::METHOD_FN_POINTER, )*
+            ];
+        }
+    };
 
     Ok(quote! {
         /// Contribute trait metadata to contract's metadata
@@ -180,8 +218,8 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
         #[used]
         #[unsafe(no_mangle)]
         #[unsafe(link_section = "CONTRACT_METADATA")]
-        static #static_name: [u8; <#struct_name as #trait_name>::METADATA.len()] = unsafe {
-            *<#struct_name as #trait_name>::METADATA.as_ptr().cast()
+        static #static_name: [u8; <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA.len()] = unsafe {
+            *<dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA.as_ptr().cast()
         };
 
         // Sanity check that trait implementation fully matches trait definition
@@ -195,13 +233,13 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
             // TODO: This two-step awkwardness because simple comparison doesn't work in const
             //  environment yet
             assert!(
-                METADATA.len() == <#struct_name as #trait_name>::METADATA.len(),
+                METADATA.len() == <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA.len(),
                 "Trait implementation must match trait definition exactly"
             );
             let mut i = 0;
             while METADATA.len() > i {
                 assert!(
-                    METADATA[i] == <#struct_name as #trait_name>::METADATA[i],
+                    METADATA[i] == <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA[i],
                     "Trait implementation must match trait definition exactly"
                 );
                 i += 1;
@@ -210,9 +248,15 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
 
         // Ensure `guest` feature is enabled for crate with trait definition
         #[cfg(feature = "guest")]
-        const _: () = <#struct_name as #trait_name>::GUEST_FEATURE_ENABLED;
+        const _: () = <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::GUEST_FEATURE_ENABLED;
 
         #item_impl
+
+        // `dyn ContractTrait` here is a bit of a hack that allows treating a trait as a type for
+        // convenient API in native execution environment
+        impl ::ab_contracts_macros::__private::ContractTrait<dyn #trait_name> for #struct_name {
+            #method_fn_pointers_const
+        }
 
         /// FFI code generated by procedural macro
         pub mod #ffi_mod_ident {
@@ -370,6 +414,20 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
             };
         }
     };
+    let method_fn_pointers_const = {
+        let methods = contract_details
+            .methods
+            .iter()
+            .map(|method| &method.original_ident);
+
+        quote! {
+            #[cfg(any(unix, windows))]
+            #[doc(hidden)]
+            const NATIVE_EXECUTOR_METHODS: &[::ab_contracts_macros::__private::NativeExecutorContactMethod] = &[
+                #( ffi::#methods::fn_pointer::METHOD_FN_POINTER, )*
+            ];
+        }
+    };
 
     let struct_name_ident = extract_ident_from_type(struct_name).ok_or_else(|| {
         Error::new(
@@ -407,7 +465,9 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
 
         impl ::ab_contracts_macros::__private::Contract for #struct_name {
             #metadata_const
+            #method_fn_pointers_const
             #[cfg(any(unix, windows))]
+            #[doc(hidden)]
             const CODE: &::core::primitive::str = ::ab_contracts_macros::__private::concatcp!(
                 #struct_name_str,
                 '[',
@@ -422,6 +482,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
             );
             // Ensure `guest` feature is enabled for `ab-contracts-common` crate
             #[cfg(feature = "guest")]
+            #[doc(hidden)]
             const GUEST_FEATURE_ENABLED: () = ();
             type Slot = #slot_type;
             type Tmp = #tmp_type;

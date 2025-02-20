@@ -45,7 +45,6 @@ dependencies = [
  "ab-contracts-io-type",
  "const-sha1",
  "derive_more",
- "inventory",
  "thiserror",
 ]
 
@@ -58,7 +57,6 @@ dependencies = [
  "ab-system-contract-code",
  "ab-system-contract-state",
  "halfbrown",
- "inventory",
  "parking_lot",
  "smallvec",
  "thiserror",
@@ -81,7 +79,6 @@ dependencies = [
  "ab-contracts-io-type",
  "ab-contracts-macros-impl",
  "const_format",
- "inventory",
 ]
 
 [[package]]
@@ -257,15 +254,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
-name = "inventory"
-version = "0.3.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54b12ebb6799019b044deaf431eadfe23245b259bba5a2c0796acec3943a3cdb"
-dependencies = [
- "rustversion",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -376,12 +364,6 @@ name = "rustc-hash"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
-
-[[package]]
-name = "rustversion"
-version = "1.0.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7c45b9784283f1b2e7fb61b42047c2fd678ef0960d4f6f1eba131594cc369d4"
 
 [[package]]
 name = "scopeguard"
