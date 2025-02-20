@@ -2,13 +2,17 @@ use ab_contract_example_ft::{ExampleFt, ExampleFtExt};
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Balance, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
-use ab_contracts_standards::FungibleExt;
+use ab_contracts_standards::{Fungible, FungibleExt};
 use ab_system_contract_code::CodeExt;
 
 #[test]
 fn basic() {
     let shard_index = ShardIndex::from_u32(1).unwrap();
-    let mut executor = NativeExecutor::in_memory_empty(shard_index).unwrap();
+    let mut executor = NativeExecutor::in_memory_empty(shard_index)
+        .with_contract::<ExampleFt>()
+        .with_contract_trait::<ExampleFt, dyn Fungible>()
+        .build()
+        .unwrap();
     let token_address = {
         let mut env = executor.null_env();
 

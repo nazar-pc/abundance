@@ -7,7 +7,10 @@ use ab_system_contract_code::CodeExt;
 #[test]
 fn basic() {
     let shard_index = ShardIndex::from_u32(1).unwrap();
-    let mut executor = NativeExecutor::in_memory_empty(shard_index).unwrap();
+    let mut executor = NativeExecutor::in_memory_empty(shard_index)
+        .with_contract::<Flipper>()
+        .build()
+        .unwrap();
 
     let mut env = executor.null_env();
 

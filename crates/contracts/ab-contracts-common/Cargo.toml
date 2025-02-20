@@ -18,8 +18,5 @@ const-sha1 = "0.3.0"
 derive_more = { version = "1.0.0", default-features = false, features = ["add", "add_assign", "display", "from", "into", "mul", "mul_assign"] }
 thiserror = "2.0.11"
 
-[target.'cfg(any(unix, windows))'.dependencies]
-inventory = "0.3.19"
-
 [features]
 guest = []

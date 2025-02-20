@@ -51,7 +51,7 @@ impl<T> DerefMut for DerefWrapper<T> {
 
 // TODO: A way to point output types to input types in order to avoid unnecessary memory copy
 //  (setting a pointer)
-/// Trait that is used for types that are crossing host/guest boundary in smart contracts.
+/// Trait that is used for types that are crossing host/guest boundary in contracts.
 ///
 /// Crucially, it is implemented for any type that implements [`TrivialType`] and for
 /// [`VariableBytes`](crate::variable_bytes::VariableBytes).

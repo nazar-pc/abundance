@@ -4,7 +4,7 @@ pub mod __private;
 
 // TODO: Should size + capacity be a single tuple struct that can be passed down as a single
 //  pointer?
-/// `#[contract]` macro to derive smart contract implementation.
+/// `#[contract]` macro to derive contract implementation.
 ///
 /// This macro is supposed to be applied to an implementation of the struct that in turn implements
 /// [`IoType`] trait. [`IoType`] is most commonly obtained by deriving [`TrivialType`] ([`IoType`]

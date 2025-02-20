@@ -17,7 +17,6 @@ ab-contracts-macros-impl = { version = "0.0.1", path = "../ab-contracts-macros-i
 
 [target.'cfg(any(unix, windows))'.dependencies]
 const_format = "0.2.34"
-inventory = "0.3.19"
 
 [features]
 guest = [
