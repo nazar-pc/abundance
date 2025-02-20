@@ -132,8 +132,7 @@ pub enum ContractError {
     Forbidden,
     NotFound,
     Conflict,
-    PreconditionFailed,
-    InternalError = 128,
+    InternalError,
     NotImplemented,
 }
 
@@ -149,7 +148,6 @@ impl ContractError {
             Self::Forbidden => ExitCode::Forbidden,
             Self::NotFound => ExitCode::NotFound,
             Self::Conflict => ExitCode::Conflict,
-            Self::PreconditionFailed => ExitCode::PreconditionFailed,
             Self::InternalError => ExitCode::InternalError,
             Self::NotImplemented => ExitCode::NotImplemented,
         }
@@ -166,8 +164,7 @@ pub enum ExitCode {
     Forbidden,
     NotFound,
     Conflict,
-    PreconditionFailed,
-    InternalError = 128,
+    InternalError,
     NotImplemented,
 }
 
@@ -198,7 +195,6 @@ impl From<ExitCode> for Result<(), ContractError> {
             ExitCode::Forbidden => Err(ContractError::Forbidden),
             ExitCode::NotFound => Err(ContractError::NotFound),
             ExitCode::Conflict => Err(ContractError::Conflict),
-            ExitCode::PreconditionFailed => Err(ContractError::PreconditionFailed),
             ExitCode::InternalError => Err(ContractError::InternalError),
             ExitCode::NotImplemented => Err(ContractError::NotImplemented),
         }

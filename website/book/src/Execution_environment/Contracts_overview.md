@@ -256,10 +256,10 @@ impl MyContract {
             return Err(ContractError::Forbidden);
         }
         let Some(slot_value) = slot.get().copied() else {
-            return Err(ContractError::PreconditionFailed);
+            return Err(ContractError::BadInput);
         };
         if input > slot_value {
-            return Err(ContractError::InvalidInput);
+            return Err(ContractError::BadInput);
         }
 
         let num = env.call_other_contract(slot_value)?;
