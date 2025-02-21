@@ -68,12 +68,12 @@ struct DelayedProcessingSlotReadWrite {
     /// Pointer to `InternalArgs` where guest will store a pointer to potentially updated slot
     /// contents
     data_ptr: NonNull<*mut u8>,
-    slot_index: SlotIndex,
     /// Pointer to `InternalArgs` where guest will store potentially updated slot size,
     /// corresponds to `data_ptr`, filled during the second pass through the arguments
     /// (while reading `ExternalArgs`)
     size: u32,
     capacity: u32,
+    slot_index: SlotIndex,
     /// Whether slot written must be non-empty.
     ///
     /// This is the case for state in `#[init]` methods.
@@ -157,8 +157,8 @@ impl FfiCallResult<'_> {
                 }
                 DelayedProcessing::SlotReadWrite(DelayedProcessingSlotReadWrite {
                     data_ptr,
-                    slot_index,
                     size,
+                    slot_index,
                     must_be_not_empty,
                     ..
                 }) => {
@@ -374,9 +374,9 @@ impl<'a> FfiCall<'a> {
                 let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
                     // Is updated below
                     data_ptr: NonNull::dangling(),
-                    slot_index,
                     size: state_bytes.len(),
                     capacity: state_bytes.capacity(),
+                    slot_index,
                     must_be_not_empty: false,
                 });
 
@@ -485,9 +485,9 @@ impl<'a> FfiCall<'a> {
                     let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
                         // Is updated below
                         data_ptr: NonNull::dangling(),
-                        slot_index,
                         size: tmp_bytes.len(),
                         capacity: tmp_bytes.capacity(),
+                        slot_index,
                         must_be_not_empty: false,
                     });
 
@@ -545,9 +545,9 @@ impl<'a> FfiCall<'a> {
                     let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
                         // Is updated below
                         data_ptr: NonNull::dangling(),
-                        slot_index,
                         size: slot_bytes.len(),
                         capacity: slot_bytes.capacity(),
+                        slot_index,
                         must_be_not_empty: false,
                     });
 
@@ -616,9 +616,9 @@ impl<'a> FfiCall<'a> {
                         let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
                             // Is updated below
                             data_ptr: NonNull::dangling(),
-                            slot_index,
                             size: 0,
                             capacity: state_bytes.capacity(),
+                            slot_index,
                             must_be_not_empty: true,
                         });
 
