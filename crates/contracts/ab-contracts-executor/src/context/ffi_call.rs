@@ -7,10 +7,11 @@ use ab_contracts_common::metadata::decode::{
 };
 use ab_contracts_common::{Address, ContractError, ExitCode};
 use ab_system_contract_address_allocator::AddressAllocator;
+use aliasable::boxed::AliasableBox;
 use parking_lot::Mutex;
+use std::cell::UnsafeCell;
 use std::ffi::c_void;
 use std::mem::MaybeUninit;
-use std::pin::Pin;
 use std::ptr::NonNull;
 use std::slice;
 use std::sync::Arc;
@@ -59,38 +60,86 @@ macro_rules! copy_ptr {
     }};
 }
 
+struct DelayedProcessingSlotReadOnly {
+    size: u32,
+}
+
+struct DelayedProcessingSlotReadWrite {
+    /// Pointer to `InternalArgs` where guest will store a pointer to potentially updated slot
+    /// contents
+    data_ptr: NonNull<*mut u8>,
+    slot_index: SlotIndex,
+    /// Pointer to `InternalArgs` where guest will store potentially updated slot size,
+    /// corresponds to `data_ptr`, filled during the second pass through the arguments
+    /// (while reading `ExternalArgs`)
+    size: u32,
+    capacity: u32,
+    /// Whether slot written must be non-empty.
+    ///
+    /// This is the case for state in `#[init]` methods.
+    must_be_not_empty: bool,
+}
+
 /// Stores details about arguments that need to be processed after FFI call
 enum DelayedProcessing {
-    SlotReadOnly {
-        size: u32,
-    },
-    SlotReadWrite {
-        /// Pointer to `InternalArgs` where guest will store a pointer to potentially updated slot
-        /// contents
-        data_ptr: NonNull<*mut u8>,
-        slot_index: SlotIndex,
-        /// Pointer to `InternalArgs` where guest will store potentially updated slot size,
-        /// corresponds to `data_ptr`, filled during the second pass through the arguments
-        /// (while reading `ExternalArgs`)
-        size: u32,
-        capacity: u32,
-        /// Whether slot written must be non-empty.
-        ///
-        /// This is the case for state in `#[init]` methods.
-        must_be_not_empty: bool,
-    },
+    SlotReadOnly(DelayedProcessingSlotReadOnly),
+    SlotReadWrite(DelayedProcessingSlotReadWrite),
+}
+
+struct DelayedProcessingCollection {
+    inner: Vec<UnsafeCell<DelayedProcessing>>,
+}
+
+impl DelayedProcessingCollection {
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            inner: Vec::with_capacity(capacity),
+        }
+    }
+
+    /// Insert new entry and get mutable reference to it, which doesn't inherit stack borrows tag
+    fn insert_ro(
+        &mut self,
+        entry: DelayedProcessingSlotReadOnly,
+    ) -> &DelayedProcessingSlotReadOnly {
+        self.inner
+            .push(UnsafeCell::new(DelayedProcessing::SlotReadOnly(entry)));
+        let Some(DelayedProcessing::SlotReadOnly(entry)) =
+            self.inner.last().map(|d| unsafe { &mut *d.get() })
+        else {
+            unreachable!("Just inserted `DelayedProcessing::SlotReadOnly` entry; qed");
+        };
+
+        entry
+    }
+
+    /// Insert new entry and get mutable reference to it, which doesn't inherit stack borrows tag
+    fn insert_rw(
+        &mut self,
+        entry: DelayedProcessingSlotReadWrite,
+    ) -> &mut DelayedProcessingSlotReadWrite {
+        self.inner
+            .push(UnsafeCell::new(DelayedProcessing::SlotReadWrite(entry)));
+        let Some(DelayedProcessing::SlotReadWrite(entry)) =
+            self.inner.last().map(|d| unsafe { &mut *d.get() })
+        else {
+            unreachable!("Just inserted `DelayedProcessing::SlotReadWrite` entry; qed");
+        };
+
+        entry
+    }
 }
 
 #[must_use]
 pub(super) struct FfiCallResult<'a> {
-    delayed_processing: Vec<DelayedProcessing>,
+    delayed_processing: DelayedProcessingCollection,
     // It is important to keep this allocation around or else `delayed_processing` that may contain
     // pointers to its memory could try to read deallocated memory
-    _internal_args: Pin<Box<[MaybeUninit<*mut c_void>]>>,
+    _internal_args: AliasableBox<UnsafeCell<[MaybeUninit<*mut c_void>]>>,
     // It is important to keep this allocation around or else `_internal_args` that may contain
     // pointers to its memory (indirectly by asking environment to keep allocation around) could try
     // to read deallocated memory
-    _maybe_env: Option<Pin<Box<Env<'a>>>>,
+    _maybe_env: Option<AliasableBox<UnsafeCell<Env<'a>>>>,
     // Store slots instance, to make pointers to its contents remain valid for the duration of the
     // call
     slots: Arc<Mutex<Slots>>,
@@ -101,18 +150,18 @@ impl FfiCallResult<'_> {
     pub(super) fn persist(self) -> Result<(), ContractError> {
         let slots = &mut *self.slots.lock();
 
-        for entry in self.delayed_processing {
-            match entry {
+        for entry in self.delayed_processing.inner {
+            match entry.into_inner() {
                 DelayedProcessing::SlotReadOnly { .. } => {
                     // No processing is necessary
                 }
-                DelayedProcessing::SlotReadWrite {
+                DelayedProcessing::SlotReadWrite(DelayedProcessingSlotReadWrite {
                     data_ptr,
                     slot_index,
                     size,
                     must_be_not_empty,
                     ..
-                } => {
+                }) => {
                     if must_be_not_empty && size == 0 {
                         error!(
                             %size,
@@ -167,9 +216,9 @@ impl FfiCallResult<'_> {
 
 #[must_use]
 pub(super) struct FfiCall<'a> {
-    delayed_processing: Vec<DelayedProcessing>,
-    maybe_env: Option<Pin<Box<Env<'a>>>>,
-    internal_args: Pin<Box<[MaybeUninit<*mut c_void>]>>,
+    delayed_processing: DelayedProcessingCollection,
+    internal_args: AliasableBox<UnsafeCell<[MaybeUninit<*mut c_void>]>>,
+    maybe_env: Option<AliasableBox<UnsafeCell<Env<'a>>>>,
     slots: Arc<Mutex<Slots>>,
     new_address_ptr: Option<*mut Address>,
     ffi_fn: unsafe extern "C" fn(NonNull<NonNull<c_void>>) -> ExitCode,
@@ -217,14 +266,22 @@ impl<'a> FfiCall<'a> {
         // expects, according to its metadata.
         // `* 4` is due to slots having 2 pointers (detecting this accurately is more code, so this
         // just assumes the worst case), otherwise it would be 3 pointers: data + size + capacity.
-        let mut internal_args =
-            Pin::new(Box::<[*mut c_void]>::new_uninit_slice(total_arguments * 4));
+        let internal_args = Box::<[*mut c_void]>::new_uninit_slice(total_arguments * 4);
+        let internal_args = unsafe {
+            std::mem::transmute::<
+                Box<[MaybeUninit<*mut c_void>]>,
+                Box<UnsafeCell<[MaybeUninit<*mut c_void>]>>,
+            >(internal_args)
+        };
+        let internal_args = AliasableBox::from_unique(internal_args);
 
         // This pointer will be moving as the data structure is being constructed, while
         // `internal_args` will keep pointing to the beginning
-        let mut internal_args_cursor =
-            NonNull::<[MaybeUninit<*mut c_void>]>::from_mut(&mut *internal_args)
-                .cast::<*mut c_void>();
+        let mut internal_args_cursor = NonNull::<MaybeUninit<*mut c_void>>::new(
+            internal_args.get().cast::<MaybeUninit<*mut c_void>>(),
+        )
+        .expect("Taken from non-null instance; qed")
+        .cast::<*mut c_void>();
         // This pointer will be moving as the data structure is being read, while `external_args`
         // will keep pointing to the beginning
         let mut external_args_cursor = *external_args;
@@ -233,7 +290,7 @@ impl<'a> FfiCall<'a> {
         //
         // NOTE: It is important that this is never reallocated as it will invalidate all the
         // pointers to elements of this vector!
-        let mut delayed_processing = Vec::with_capacity(total_arguments);
+        let mut delayed_processing = DelayedProcessingCollection::with_capacity(total_arguments);
 
         // `true` when only `#[view]` method is allowed
         let view_only = match method_kind {
@@ -256,7 +313,7 @@ impl<'a> FfiCall<'a> {
         };
 
         // Order is important here, `maybe_env` must be before `slots_guard` to avoid deadlock
-        let mut maybe_env = None::<Pin<Box<Env>>>;
+        let mut maybe_env = None::<AliasableBox<UnsafeCell<Env>>>;
         let mut slots_guard = slots.lock();
 
         // Handle `&self` and `&mut self`
@@ -282,19 +339,15 @@ impl<'a> FfiCall<'a> {
                     return Err(ContractError::Forbidden);
                 }
 
-                delayed_processing.push(DelayedProcessing::SlotReadOnly {
+                let result = delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
                     size: state_bytes.len(),
                 });
-                let Some(DelayedProcessing::SlotReadOnly { size }) = delayed_processing.last()
-                else {
-                    unreachable!("Just inserted `SlotReadOnly` entry; qed");
-                };
 
                 // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
                 // and aligned correctly
                 unsafe {
                     write_ptr!(state_bytes.as_ptr() => internal_args_cursor as *const u8);
-                    write_ptr!(size => internal_args_cursor as *const u32);
+                    write_ptr!(&result.size => internal_args_cursor as *const u32);
                 }
             }
             MethodKind::UpdateStatefulRw => {
@@ -318,7 +371,7 @@ impl<'a> FfiCall<'a> {
                     return Err(ContractError::Forbidden);
                 }
 
-                delayed_processing.push(DelayedProcessing::SlotReadWrite {
+                let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
                     // Is updated below
                     data_ptr: NonNull::dangling(),
                     slot_index,
@@ -326,23 +379,14 @@ impl<'a> FfiCall<'a> {
                     capacity: state_bytes.capacity(),
                     must_be_not_empty: false,
                 });
-                let Some(DelayedProcessing::SlotReadWrite {
-                    data_ptr,
-                    size,
-                    capacity,
-                    ..
-                }) = delayed_processing.last_mut()
-                else {
-                    unreachable!("Just inserted `SlotReadWrite` entry; qed");
-                };
 
                 // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
                 // and aligned correctly
                 unsafe {
-                    *data_ptr =
+                    result.data_ptr =
                         write_ptr!(state_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
-                    write_ptr!(size => internal_args_cursor as *mut u32);
-                    write_ptr!(capacity => internal_args_cursor as *const u32);
+                    write_ptr!(&mut result.size => internal_args_cursor as *mut u32);
+                    write_ptr!(&result.capacity => internal_args_cursor as *const u32);
                 }
             }
         }
@@ -363,10 +407,12 @@ impl<'a> FfiCall<'a> {
 
             match argument_kind {
                 ArgumentKind::EnvRo => {
-                    let env_ro = &**maybe_env.insert(Box::pin(Env::with_executor_context(
+                    let env = Box::new(UnsafeCell::new(Env::with_executor_context(
                         env_state,
                         Box::new(parent_context.new_nested(Arc::clone(&slots), false)),
                     )));
+                    let env = AliasableBox::from_unique(env);
+                    let env_ro = maybe_env.insert(env).get().cast_const();
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
                     unsafe {
@@ -380,10 +426,12 @@ impl<'a> FfiCall<'a> {
                         return Err(ContractError::Forbidden);
                     }
 
-                    let env_rw = &mut **maybe_env.insert(Box::pin(Env::with_executor_context(
+                    let env = Box::new(UnsafeCell::new(Env::with_executor_context(
                         env_state,
                         Box::new(parent_context.new_nested(Arc::clone(&slots), true)),
                     )));
+                    let env = AliasableBox::from_unique(env);
+                    let env_rw = maybe_env.insert(env).get();
 
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
@@ -408,19 +456,15 @@ impl<'a> FfiCall<'a> {
                         .use_ro(slot_key)
                         .ok_or(ContractError::Forbidden)?;
 
-                    delayed_processing.push(DelayedProcessing::SlotReadOnly {
+                    let result = delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
                         size: tmp_bytes.len(),
                     });
-                    let Some(DelayedProcessing::SlotReadOnly { size }) = delayed_processing.last()
-                    else {
-                        unreachable!("Just inserted `SlotReadOnly` entry; qed");
-                    };
 
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
                     unsafe {
                         write_ptr!(tmp_bytes.as_ptr() => internal_args_cursor as *const u8);
-                        write_ptr!(size => internal_args_cursor as *const u32);
+                        write_ptr!(&result.size => internal_args_cursor as *const u32);
                     }
                 }
                 ArgumentKind::TmpRw => {
@@ -438,7 +482,7 @@ impl<'a> FfiCall<'a> {
                         .use_rw(slot_key, recommended_tmp_capacity)
                         .ok_or(ContractError::Forbidden)?;
 
-                    delayed_processing.push(DelayedProcessing::SlotReadWrite {
+                    let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
                         // Is updated below
                         data_ptr: NonNull::dangling(),
                         slot_index,
@@ -446,23 +490,14 @@ impl<'a> FfiCall<'a> {
                         capacity: tmp_bytes.capacity(),
                         must_be_not_empty: false,
                     });
-                    let Some(DelayedProcessing::SlotReadWrite {
-                        data_ptr,
-                        size,
-                        capacity,
-                        ..
-                    }) = delayed_processing.last_mut()
-                    else {
-                        unreachable!("Just inserted `SlotReadWrite` entry; qed");
-                    };
 
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
                     unsafe {
-                        *data_ptr =
+                        result.data_ptr =
                             write_ptr!(tmp_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
-                        write_ptr!(size => internal_args_cursor as *mut u32);
-                        write_ptr!(capacity => internal_args_cursor as *const u32);
+                        write_ptr!(&mut result.size => internal_args_cursor as *mut u32);
+                        write_ptr!(&result.capacity => internal_args_cursor as *const u32);
                     }
                 }
                 ArgumentKind::SlotRo => {
@@ -478,20 +513,16 @@ impl<'a> FfiCall<'a> {
                         .use_ro(slot_key)
                         .ok_or(ContractError::Forbidden)?;
 
-                    delayed_processing.push(DelayedProcessing::SlotReadOnly {
+                    let result = delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
                         size: slot_bytes.len(),
                     });
-                    let Some(DelayedProcessing::SlotReadOnly { size }) = delayed_processing.last()
-                    else {
-                        unreachable!("Just inserted `SlotReadOnly` entry; qed");
-                    };
 
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
                     unsafe {
                         write_ptr!(address => internal_args_cursor as *const Address);
                         write_ptr!(slot_bytes.as_ptr() => internal_args_cursor as *const u8);
-                        write_ptr!(size => internal_args_cursor as *const u32);
+                        write_ptr!(&result.size => internal_args_cursor as *const u32);
                     }
                 }
                 ArgumentKind::SlotRw => {
@@ -511,7 +542,7 @@ impl<'a> FfiCall<'a> {
                         .use_rw(slot_key, recommended_slot_capacity)
                         .ok_or(ContractError::Forbidden)?;
 
-                    delayed_processing.push(DelayedProcessing::SlotReadWrite {
+                    let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
                         // Is updated below
                         data_ptr: NonNull::dangling(),
                         slot_index,
@@ -519,24 +550,15 @@ impl<'a> FfiCall<'a> {
                         capacity: slot_bytes.capacity(),
                         must_be_not_empty: false,
                     });
-                    let Some(DelayedProcessing::SlotReadWrite {
-                        data_ptr,
-                        size,
-                        capacity,
-                        ..
-                    }) = delayed_processing.last_mut()
-                    else {
-                        unreachable!("Just inserted `SlotReadWrite` entry; qed");
-                    };
 
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
                     unsafe {
                         write_ptr!(address => internal_args_cursor as *const Address);
-                        *data_ptr =
+                        result.data_ptr =
                             write_ptr!(slot_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
-                        write_ptr!(size => internal_args_cursor as *mut u32);
-                        write_ptr!(capacity => internal_args_cursor as *const u32);
+                        write_ptr!(&mut result.size => internal_args_cursor as *mut u32);
+                        write_ptr!(&result.capacity => internal_args_cursor as *const u32);
                     }
                 }
                 ArgumentKind::Input => {
@@ -591,7 +613,7 @@ impl<'a> FfiCall<'a> {
                             return Err(ContractError::Forbidden);
                         }
 
-                        delayed_processing.push(DelayedProcessing::SlotReadWrite {
+                        let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
                             // Is updated below
                             data_ptr: NonNull::dangling(),
                             slot_index,
@@ -599,22 +621,13 @@ impl<'a> FfiCall<'a> {
                             capacity: state_bytes.capacity(),
                             must_be_not_empty: true,
                         });
-                        let Some(DelayedProcessing::SlotReadWrite {
-                            data_ptr,
-                            size,
-                            capacity,
-                            ..
-                        }) = delayed_processing.last_mut()
-                        else {
-                            unreachable!("Just inserted `SlotReadWrite` entry; qed");
-                        };
 
                         // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                         // above and aligned correctly
                         unsafe {
-                            *data_ptr = write_ptr!(state_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
-                            write_ptr!(size => internal_args_cursor as *mut u32);
-                            write_ptr!(capacity => internal_args_cursor as *const u32);
+                            result.data_ptr = write_ptr!(state_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
+                            write_ptr!(&mut result.size => internal_args_cursor as *mut u32);
+                            write_ptr!(&result.capacity => internal_args_cursor as *const u32);
                         }
                     } else {
                         // SAFETY: `external_args_cursor`'s must contain a pointers to input + size
@@ -648,8 +661,8 @@ impl<'a> FfiCall<'a> {
 
         Ok(Self {
             delayed_processing,
-            maybe_env,
             internal_args,
+            maybe_env,
             slots,
             new_address_ptr,
             ffi_fn,
@@ -660,7 +673,8 @@ impl<'a> FfiCall<'a> {
         // Will only read initialized number of pointers, hence `NonNull<c_void>` even though
         // there is likely slack capacity with uninitialized data
         let internal_args =
-            NonNull::<[MaybeUninit<*mut c_void>]>::from_mut(&mut *self.internal_args)
+            NonNull::<MaybeUninit<*mut c_void>>::new(self.internal_args.get_mut().as_mut_ptr())
+                .expect("Taken from non-null instance; qed")
                 .cast::<NonNull<c_void>>();
 
         // SAFETY: FFI function was generated at the same time as corresponding `Args` and must

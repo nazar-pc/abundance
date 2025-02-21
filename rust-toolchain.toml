@@ -1,5 +1,5 @@
 [toolchain]
 channel = "nightly-2024-12-24"
-components = ["rust-src"]
+components = ["miri", "rust-src"]
 targets = []
 profile = "default"

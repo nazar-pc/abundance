@@ -100,3 +100,7 @@ jobs:
       - name: cargo nextest run --locked
         run: |
           cargo -Zgitoxide -Zgit nextest run --locked
+
+      - name: cargo miri nextest run --locked
+        run: |
+          cargo -Zgitoxide -Zgit miri nextest run --locked
