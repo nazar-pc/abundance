@@ -104,8 +104,9 @@ impl DelayedProcessingCollection {
     ) -> &DelayedProcessingSlotReadOnly {
         self.inner
             .push(UnsafeCell::new(DelayedProcessing::SlotReadOnly(entry)));
+        // SAFETY: Created from a live value, which was just inserted
         let Some(DelayedProcessing::SlotReadOnly(entry)) =
-            self.inner.last().map(|d| unsafe { &mut *d.get() })
+            self.inner.last().map(|value| unsafe { &mut *value.get() })
         else {
             unreachable!("Just inserted `DelayedProcessing::SlotReadOnly` entry; qed");
         };
@@ -120,8 +121,9 @@ impl DelayedProcessingCollection {
     ) -> &mut DelayedProcessingSlotReadWrite {
         self.inner
             .push(UnsafeCell::new(DelayedProcessing::SlotReadWrite(entry)));
+        // SAFETY: Created from a live value, which was just inserted
         let Some(DelayedProcessing::SlotReadWrite(entry)) =
-            self.inner.last().map(|d| unsafe { &mut *d.get() })
+            self.inner.last().map(|value| unsafe { &mut *value.get() })
         else {
             unreachable!("Just inserted `DelayedProcessing::SlotReadWrite` entry; qed");
         };
