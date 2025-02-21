@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["ab_contract_example_ft",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ab_contract_example_ft/struct.Slot.html\" title=\"struct ab_contract_example_ft::Slot\">Slot</a>"]]],["ab_contract_playground",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"enum\" href=\"ab_contract_playground/enum.LastAction.html\" title=\"enum ab_contract_playground::LastAction\">LastAction</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ab_contract_playground/struct.Slot.html\" title=\"struct ab_contract_playground::Slot\">Slot</a>"]]],["ab_contracts_common",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ab_contracts_common/struct.Balance.html\" title=\"struct ab_contracts_common::Balance\">Balance</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[310,605,311]}

@@ -1,0 +1,2 @@
+window.ALL_CRATES = ["ab_contract_example_flipper","ab_contract_example_ft","ab_contract_playground","ab_contracts_common","ab_contracts_executor","ab_contracts_io_type","ab_contracts_macros","ab_contracts_macros_impl","ab_contracts_standards","ab_contracts_trivial_type_derive","ab_system_contract_address_allocator","ab_system_contract_code","ab_system_contract_state"];
+//{"start":21,"fragment_lengths":[29,25,25,22,24,23,22,27,25,35,39,26,27]}

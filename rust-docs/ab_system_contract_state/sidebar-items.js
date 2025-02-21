@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_STATE_SIZE"],"mod":["ffi"],"struct":["State"],"trait":["StateExt"]};
