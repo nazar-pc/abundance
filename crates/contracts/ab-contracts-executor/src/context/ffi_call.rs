@@ -441,69 +441,22 @@ impl<'a> FfiCall<'a> {
 
                     // Size for `#[env]` is implicit and doesn't need to be added to `InternalArgs`
                 }
-                ArgumentKind::TmpRo => {
-                    if view_only {
-                        return Err(ContractError::Forbidden);
-                    }
+                ArgumentKind::TmpRo | ArgumentKind::SlotRo => {
+                    let tmp = matches!(argument_kind, ArgumentKind::TmpRo);
 
-                    // Null contact is used implicitly for `#[tmp]` since it is not possible for
-                    // this contract to write something there directly
-                    let slot_key = SlotKey {
-                        owner: contract,
-                        contract: Address::NULL,
+                    let address = if tmp {
+                        if view_only {
+                            return Err(ContractError::Forbidden);
+                        }
+
+                        // Null contact is used implicitly for `#[tmp]` since it is not possible for
+                        // this contract to write something there directly
+                        &Address::NULL
+                    } else {
+                        // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
+                        // moving right past that is safe
+                        unsafe { &*read_ptr!(external_args_cursor as *const Address) }
                     };
-                    let tmp_bytes = slots_guard
-                        .use_ro(slot_key)
-                        .ok_or(ContractError::Forbidden)?;
-
-                    let result = delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
-                        size: tmp_bytes.len(),
-                    });
-
-                    // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
-                    // above and aligned correctly
-                    unsafe {
-                        write_ptr!(tmp_bytes.as_ptr() => internal_args_cursor as *const u8);
-                        write_ptr!(&result.size => internal_args_cursor as *const u32);
-                    }
-                }
-                ArgumentKind::TmpRw => {
-                    if view_only {
-                        return Err(ContractError::Forbidden);
-                    }
-
-                    // Null contact is used implicitly for `#[tmp]` since it is not possible for
-                    // this contract to write something there directly
-                    let slot_key = SlotKey {
-                        owner: contract,
-                        contract: Address::NULL,
-                    };
-                    let (slot_index, tmp_bytes) = slots_guard
-                        .use_rw(slot_key, recommended_tmp_capacity)
-                        .ok_or(ContractError::Forbidden)?;
-
-                    let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
-                        // Is updated below
-                        data_ptr: NonNull::dangling(),
-                        size: tmp_bytes.len(),
-                        capacity: tmp_bytes.capacity(),
-                        slot_index,
-                        must_be_not_empty: false,
-                    });
-
-                    // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
-                    // above and aligned correctly
-                    unsafe {
-                        result.data_ptr =
-                            write_ptr!(tmp_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
-                        write_ptr!(&mut result.size => internal_args_cursor as *mut u32);
-                        write_ptr!(&result.capacity => internal_args_cursor as *const u32);
-                    }
-                }
-                ArgumentKind::SlotRo => {
-                    // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
-                    // moving right past that is safe
-                    let address = unsafe { &*read_ptr!(external_args_cursor as *const Address) };
 
                     let slot_key = SlotKey {
                         owner: *address,
@@ -520,26 +473,39 @@ impl<'a> FfiCall<'a> {
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
                     unsafe {
-                        write_ptr!(address => internal_args_cursor as *const Address);
+                        if !tmp {
+                            write_ptr!(address => internal_args_cursor as *const Address);
+                        }
                         write_ptr!(slot_bytes.as_ptr() => internal_args_cursor as *const u8);
                         write_ptr!(&result.size => internal_args_cursor as *const u32);
                     }
                 }
-                ArgumentKind::SlotRw => {
+                ArgumentKind::TmpRw | ArgumentKind::SlotRw => {
                     if view_only {
                         return Err(ContractError::Forbidden);
                     }
 
-                    // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
-                    // moving right past that is safe
-                    let address = unsafe { &*read_ptr!(external_args_cursor as *const Address) };
+                    let tmp = matches!(argument_kind, ArgumentKind::TmpRw);
+
+                    let (address, capacity) = if tmp {
+                        // Null contact is used implicitly for `#[tmp]` since it is not possible for
+                        // this contract to write something there directly
+                        (&Address::NULL, recommended_tmp_capacity)
+                    } else {
+                        // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
+                        // moving right past that is safe
+                        let address =
+                            unsafe { &*read_ptr!(external_args_cursor as *const Address) };
+
+                        (address, recommended_slot_capacity)
+                    };
 
                     let slot_key = SlotKey {
                         owner: *address,
                         contract,
                     };
                     let (slot_index, slot_bytes) = slots_guard
-                        .use_rw(slot_key, recommended_slot_capacity)
+                        .use_rw(slot_key, capacity)
                         .ok_or(ContractError::Forbidden)?;
 
                     let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
@@ -554,7 +520,9 @@ impl<'a> FfiCall<'a> {
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
                     unsafe {
-                        write_ptr!(address => internal_args_cursor as *const Address);
+                        if !tmp {
+                            write_ptr!(address => internal_args_cursor as *const Address);
+                        }
                         result.data_ptr =
                             write_ptr!(slot_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
                         write_ptr!(&mut result.size => internal_args_cursor as *mut u32);
