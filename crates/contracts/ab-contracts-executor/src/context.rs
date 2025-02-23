@@ -174,10 +174,6 @@ impl NativeExecutorContext {
         previous_env_state: &EnvState,
         prepared_methods: &mut [PreparedMethod<'_>],
     ) -> Result<(), ContractError> {
-        if prepared_methods.is_empty() {
-            return Ok(());
-        }
-
         let nested_slots = self.nested_slots();
 
         let ffi_calls = prepared_methods
