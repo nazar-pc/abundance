@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>categories on Project Abundance</title>
+    <link>https://abundance.build/categories/</link>
+    <description>Recent content in categories on Project Abundance</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <copyright>&lt;a href=&#34;https://creativecommons.org/publicdomain/zero/1.0/&#34; target=&#34;_blank&#34; rel=&#34;license noopener noreferrer&#34;&gt;CC0 1.0 Universal&lt;/a&gt;</copyright>
+    <atom:link href="https://abundance.build/categories/index.xml" rel="self" type="application/rss+xml" />
+    
+  </channel>
+</rss>

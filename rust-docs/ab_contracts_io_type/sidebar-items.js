@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["maybe_data","metadata","trivial_type","variable_bytes"],"trait":["IoType","IoTypeOptional"]};

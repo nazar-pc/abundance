@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["balance3"],"struct":["InternalArgs","PlaygroundBalance3Args"]};
