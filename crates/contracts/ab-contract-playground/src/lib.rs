@@ -156,7 +156,7 @@ impl Playground {
 
         {
             let Some(contents) = from.get_mut() else {
-                return Err(ContractError::PreconditionFailed);
+                return Err(ContractError::BadInput);
             };
 
             match contents.balance.cmp(&amount) {

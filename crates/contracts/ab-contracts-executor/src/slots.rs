@@ -193,10 +193,12 @@ impl Slots {
         })
     }
 
+    /// Check if there was an access violation up until this point
     pub(super) fn access_violation(&self) -> bool {
         self.access_violation
     }
 
+    /// Mark slot as used, such that execution environment can read/write from/to it
     pub(super) fn use_slot(&mut self, slot_key: SlotKey) {
         if !self
             .slots
