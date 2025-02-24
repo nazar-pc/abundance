@@ -402,6 +402,14 @@ pub enum IoTypeMetadataKind {
     VariableBytes8388608,
     /// Compact alias [`VariableBytes<16777216>`](crate::variable_bytes::VariableBytes)
     VariableBytes16777216,
+    /// Address of a contract.
+    ///
+    /// Internally `u128` with `8` byte alignment
+    Address = 128,
+    /// Balance of a token.
+    ///
+    /// Internally `u128` with `8` byte alignment
+    Balance,
 }
 
 impl IoTypeMetadataKind {
@@ -522,6 +530,8 @@ impl IoTypeMetadataKind {
             110 => Self::VariableBytes4194304,
             111 => Self::VariableBytes8388608,
             112 => Self::VariableBytes16777216,
+            128 => Self::Address,
+            129 => Self::Balance,
             _ => {
                 return None;
             }

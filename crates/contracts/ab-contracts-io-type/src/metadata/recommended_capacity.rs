@@ -190,6 +190,7 @@ pub(super) const fn recommended_capacity(mut metadata: &[u8]) -> Option<(u32, &[
         IoTypeMetadataKind::VariableBytes4194304 => Some((4194304, metadata)),
         IoTypeMetadataKind::VariableBytes8388608 => Some((8388608, metadata)),
         IoTypeMetadataKind::VariableBytes16777216 => Some((16777216, metadata)),
+        IoTypeMetadataKind::Address | IoTypeMetadataKind::Balance => Some((16, metadata)),
     }
 }
 

@@ -1,6 +1,8 @@
 #![feature(non_null_from_ref)]
 #![no_std]
 
+mod address;
+mod balance;
 pub mod env;
 pub mod metadata;
 pub mod method;
@@ -9,13 +11,13 @@ use crate::method::MethodFingerprint;
 use ab_contracts_io_type::IoType;
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_io_type::variable_bytes::VariableBytes;
+pub use address::Address;
+pub use balance::Balance;
 use core::ffi::c_void;
 use core::num::{NonZeroU32, NonZeroU128};
 use core::ops::Deref;
 use core::ptr::NonNull;
-use derive_more::{
-    Add, AddAssign, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub, SubAssign,
-};
+use derive_more::{Display, From};
 
 /// Max allowed size of the contract code
 pub const MAX_CODE_SIZE: u32 = 1024 * 1024;
@@ -201,36 +203,6 @@ impl From<ExitCode> for Result<(), ContractError> {
     }
 }
 
-#[derive(
-    Debug,
-    Display,
-    Default,
-    Copy,
-    Clone,
-    Ord,
-    PartialOrd,
-    Eq,
-    PartialEq,
-    Add,
-    AddAssign,
-    Sub,
-    SubAssign,
-    Mul,
-    MulAssign,
-    Div,
-    DivAssign,
-    From,
-    Into,
-    TrivialType,
-)]
-#[repr(transparent)]
-pub struct Balance(u128);
-
-impl Balance {
-    pub const MIN: Self = Self(0);
-    pub const MAX: Self = Self(u128::MAX);
-}
-
 /// Shard index
 #[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
 #[repr(transparent)]
@@ -266,51 +238,5 @@ impl ShardIndex {
         }
 
         Some(Self(shard_index))
-    }
-}
-
-#[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
-#[repr(transparent)]
-pub struct Address(u128);
-
-impl PartialEq<&Address> for Address {
-    #[inline]
-    fn eq(&self, other: &&Address) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl PartialEq<Address> for &Address {
-    #[inline]
-    fn eq(&self, other: &Address) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl From<u128> for Address {
-    #[inline]
-    fn from(value: u128) -> Self {
-        Self(value)
-    }
-}
-
-// TODO: Method for getting creation shard out of the address
-// TODO: There should be a notion of global address
-impl Address {
-    // TODO: Various system contracts
-    /// Sentinel contract address, inaccessible and not owned by anyone
-    pub const NULL: Self = Self(0);
-    /// System contract for managing code of other contracts
-    pub const SYSTEM_CODE: Self = Self(1);
-    /// System contract for managing state of other contracts
-    pub const SYSTEM_STATE: Self = Self(2);
-
-    /// System contract for address allocation on a particular shard index
-    #[inline]
-    pub const fn system_address_allocator(shard_index: ShardIndex) -> Address {
-        // Shard `0` doesn't have its own allocator because there are no user-deployable contracts
-        // there, so address `0` is `NULL`, the rest up to `ShardIndex::MAX_SHARD_INDEX` correspond
-        // to address allocators of respective shards
-        Address(shard_index.to_u32() as u128 * ShardIndex::MAX_ADDRESSES_PER_SHARD.get())
     }
 }
