@@ -1,5 +1,7 @@
 mod compact;
 mod recommended_capacity;
+#[cfg(test)]
+mod tests;
 mod type_name;
 
 use crate::metadata::compact::compact_metadata;
