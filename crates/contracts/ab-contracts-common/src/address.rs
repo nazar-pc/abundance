@@ -1,0 +1,113 @@
+use crate::ShardIndex;
+use ab_contracts_io_type::metadata::IoTypeMetadataKind;
+use ab_contracts_io_type::trivial_type::TrivialType;
+use core::cmp::Ordering;
+use core::mem::MaybeUninit;
+use core::{fmt, ptr};
+
+/// Logically the same as `u128`, but aligned to `8` bytes instead of `16`.
+///
+/// Byte layout is the same as `u128`, just alignment is different
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[repr(C)]
+pub struct Address(u64, u64);
+
+unsafe impl TrivialType for Address {
+    const METADATA: &[u8] = &[IoTypeMetadataKind::Address as u8];
+}
+
+impl fmt::Debug for Address {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("Address").field(&self.into_u128()).finish()
+    }
+}
+
+impl fmt::Display for Address {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: Human-readable formatting rather than a huge number
+        self.into_u128().fmt(f)
+    }
+}
+
+impl PartialEq<&Address> for Address {
+    #[inline]
+    fn eq(&self, other: &&Address) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl PartialEq<Address> for &Address {
+    #[inline]
+    fn eq(&self, other: &Address) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl Ord for Address {
+    #[inline]
+    fn cmp(&self, other: &Address) -> Ordering {
+        self.into_u128().cmp(&other.into_u128())
+    }
+}
+
+impl PartialOrd for Address {
+    #[inline]
+    fn partial_cmp(&self, other: &Address) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl From<u128> for Address {
+    #[inline]
+    fn from(value: u128) -> Self {
+        Self::from_u128(value)
+    }
+}
+
+impl From<Address> for u128 {
+    #[inline]
+    fn from(value: Address) -> Self {
+        value.into_u128()
+    }
+}
+
+// TODO: Method for getting creation shard out of the address
+// TODO: There should be a notion of global address
+impl Address {
+    // TODO: Various system contracts
+    /// Sentinel contract address, inaccessible and not owned by anyone
+    pub const NULL: Self = Self::from_u128(0);
+    /// System contract for managing code of other contracts
+    pub const SYSTEM_CODE: Self = Self::from_u128(1);
+    /// System contract for managing state of other contracts
+    pub const SYSTEM_STATE: Self = Self::from_u128(2);
+
+    /// Turn value into `u128`
+    #[inline]
+    const fn into_u128(self) -> u128 {
+        // SAFETY: correct size, valid pointer, and all bits are valid
+        unsafe { ptr::from_ref(&self).cast::<u128>().read_unaligned() }
+    }
+
+    /// Create a value from `u128`
+    #[inline]
+    const fn from_u128(n: u128) -> Self {
+        let mut result = MaybeUninit::<Self>::uninit();
+        // SAFETY: correct size, valid pointer, and all bits are valid
+        unsafe {
+            result.as_mut_ptr().cast::<u128>().write_unaligned(n);
+            result.assume_init()
+        }
+    }
+
+    /// System contract for address allocation on a particular shard index
+    #[inline]
+    pub const fn system_address_allocator(shard_index: ShardIndex) -> Self {
+        // Shard `0` doesn't have its own allocator because there are no user-deployable contracts
+        // there, so address `0` is `NULL`, the rest up to `ShardIndex::MAX_SHARD_INDEX` correspond
+        // to address allocators of respective shards
+        Self::from_u128(shard_index.to_u32() as u128 * ShardIndex::MAX_ADDRESSES_PER_SHARD.get())
+    }
+}

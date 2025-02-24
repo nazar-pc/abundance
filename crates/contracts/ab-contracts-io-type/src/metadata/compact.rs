@@ -382,7 +382,9 @@ pub(super) const fn compact_metadata<'i, 'o>(
         | IoTypeMetadataKind::VariableBytes2097152
         | IoTypeMetadataKind::VariableBytes4194304
         | IoTypeMetadataKind::VariableBytes8388608
-        | IoTypeMetadataKind::VariableBytes16777216 => copy_n_bytes(input, output, 1),
+        | IoTypeMetadataKind::VariableBytes16777216
+        | IoTypeMetadataKind::Address
+        | IoTypeMetadataKind::Balance => copy_n_bytes(input, output, 1),
     }
 }
 

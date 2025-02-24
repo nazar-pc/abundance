@@ -152,6 +152,8 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&str> {
         | IoTypeMetadataKind::VariableBytes4194304
         | IoTypeMetadataKind::VariableBytes8388608
         | IoTypeMetadataKind::VariableBytes16777216 => "VariableBytes",
+        IoTypeMetadataKind::Address => "Address",
+        IoTypeMetadataKind::Balance => "Balance",
     })
 }
 
