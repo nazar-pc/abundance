@@ -661,7 +661,7 @@ impl<'a> FfiCall<'a> {
             // address
             let new_address = unsafe { new_address_ptr.read() };
             if !self.slots.lock().add_new_contract(new_address) {
-                warn!("Failed to add new account returned by address allocator");
+                warn!("Failed to add new contract returned by address allocator");
                 return Err(ContractError::InternalError);
             }
         }

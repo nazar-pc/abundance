@@ -210,12 +210,12 @@ impl Slots {
         }
     }
 
-    /// Add a new account that didn't exist before.
+    /// Add a new contract that didn't exist before.
     ///
-    /// In contrast to accounts in [`Self::new()`], this account will be allowed to have any of its
+    /// In contrast to contracts in [`Self::new()`], this contract will be allowed to have any of its
     /// slots modified.
     ///
-    /// Returns `false` if an account already exits in a map, this is also considered as an access
+    /// Returns `false` if a contract already exits in a map, this is also considered as an access
     /// violation.
     #[must_use]
     pub(super) fn add_new_contract(&mut self, owner: Address) -> bool {
