@@ -5,6 +5,7 @@ pub mod maybe_data;
 pub mod metadata;
 pub mod trivial_type;
 pub mod variable_bytes;
+pub mod variable_elements;
 
 use crate::trivial_type::TrivialType;
 use core::ops::{Deref, DerefMut};
@@ -194,5 +195,5 @@ pub unsafe trait IoType {
     unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>>;
 }
 
-/// Marker trait, companion to [`IoType`] that indicates ability to store optional contents
+/// Marker trait, companion to [`IoType`] that indicates the ability to store optional contents
 pub trait IoTypeOptional: IoType {}

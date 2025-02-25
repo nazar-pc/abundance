@@ -102,42 +102,6 @@ pub(super) const fn compact_metadata<'i, 'o>(
             (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
             compact_struct(input, output, Some(10), false)
         }
-        IoTypeMetadataKind::Struct11 => {
-            // Convert struct with field names to tuple struct
-            output[0] = IoTypeMetadataKind::TupleStruct11 as u8;
-            (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
-            compact_struct(input, output, Some(11), false)
-        }
-        IoTypeMetadataKind::Struct12 => {
-            // Convert struct with field names to tuple struct
-            output[0] = IoTypeMetadataKind::TupleStruct12 as u8;
-            (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
-            compact_struct(input, output, Some(12), false)
-        }
-        IoTypeMetadataKind::Struct13 => {
-            // Convert struct with field names to tuple struct
-            output[0] = IoTypeMetadataKind::TupleStruct13 as u8;
-            (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
-            compact_struct(input, output, Some(13), false)
-        }
-        IoTypeMetadataKind::Struct14 => {
-            // Convert struct with field names to tuple struct
-            output[0] = IoTypeMetadataKind::TupleStruct14 as u8;
-            (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
-            compact_struct(input, output, Some(14), false)
-        }
-        IoTypeMetadataKind::Struct15 => {
-            // Convert struct with field names to tuple struct
-            output[0] = IoTypeMetadataKind::TupleStruct15 as u8;
-            (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
-            compact_struct(input, output, Some(15), false)
-        }
-        IoTypeMetadataKind::Struct16 => {
-            // Convert struct with field names to tuple struct
-            output[0] = IoTypeMetadataKind::TupleStruct16 as u8;
-            (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
-            compact_struct(input, output, Some(16), false)
-        }
         IoTypeMetadataKind::TupleStruct => {
             (input, output) = forward_option!(copy_n_bytes(input, output, 1));
             compact_struct(input, output, None, true)
@@ -181,30 +145,6 @@ pub(super) const fn compact_metadata<'i, 'o>(
         IoTypeMetadataKind::TupleStruct10 => {
             (input, output) = forward_option!(copy_n_bytes(input, output, 1));
             compact_struct(input, output, Some(10), true)
-        }
-        IoTypeMetadataKind::TupleStruct11 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_struct(input, output, Some(11), true)
-        }
-        IoTypeMetadataKind::TupleStruct12 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_struct(input, output, Some(12), true)
-        }
-        IoTypeMetadataKind::TupleStruct13 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_struct(input, output, Some(13), true)
-        }
-        IoTypeMetadataKind::TupleStruct14 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_struct(input, output, Some(14), true)
-        }
-        IoTypeMetadataKind::TupleStruct15 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_struct(input, output, Some(15), true)
-        }
-        IoTypeMetadataKind::TupleStruct16 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_struct(input, output, Some(16), true)
         }
         IoTypeMetadataKind::Enum => {
             (input, output) = forward_option!(copy_n_bytes(input, output, 1));
@@ -250,30 +190,6 @@ pub(super) const fn compact_metadata<'i, 'o>(
             (input, output) = forward_option!(copy_n_bytes(input, output, 1));
             compact_enum(input, output, Some(10), true)
         }
-        IoTypeMetadataKind::Enum11 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(11), true)
-        }
-        IoTypeMetadataKind::Enum12 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(12), true)
-        }
-        IoTypeMetadataKind::Enum13 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(13), true)
-        }
-        IoTypeMetadataKind::Enum14 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(14), true)
-        }
-        IoTypeMetadataKind::Enum15 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(15), true)
-        }
-        IoTypeMetadataKind::Enum16 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(16), true)
-        }
         IoTypeMetadataKind::EnumNoFields => {
             (input, output) = forward_option!(copy_n_bytes(input, output, 1));
             compact_enum(input, output, None, false)
@@ -318,30 +234,6 @@ pub(super) const fn compact_metadata<'i, 'o>(
             (input, output) = forward_option!(copy_n_bytes(input, output, 1));
             compact_enum(input, output, Some(10), false)
         }
-        IoTypeMetadataKind::EnumNoFields11 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(11), false)
-        }
-        IoTypeMetadataKind::EnumNoFields12 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(12), false)
-        }
-        IoTypeMetadataKind::EnumNoFields13 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(13), false)
-        }
-        IoTypeMetadataKind::EnumNoFields14 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(14), false)
-        }
-        IoTypeMetadataKind::EnumNoFields15 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(15), false)
-        }
-        IoTypeMetadataKind::EnumNoFields16 => {
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-            compact_enum(input, output, Some(16), false)
-        }
         IoTypeMetadataKind::Array8b => {
             (input, output) = forward_option!(copy_n_bytes(input, output, 1 + 1));
             compact_metadata(input, output)
@@ -367,7 +259,8 @@ pub(super) const fn compact_metadata<'i, 'o>(
         IoTypeMetadataKind::VariableBytes8b => copy_n_bytes(input, output, 1 + 1),
         IoTypeMetadataKind::VariableBytes16b => copy_n_bytes(input, output, 1 + 2),
         IoTypeMetadataKind::VariableBytes32b => copy_n_bytes(input, output, 1 + 4),
-        IoTypeMetadataKind::VariableBytes512
+        IoTypeMetadataKind::VariableBytes0
+        | IoTypeMetadataKind::VariableBytes512
         | IoTypeMetadataKind::VariableBytes1024
         | IoTypeMetadataKind::VariableBytes2028
         | IoTypeMetadataKind::VariableBytes4096
@@ -379,10 +272,10 @@ pub(super) const fn compact_metadata<'i, 'o>(
         | IoTypeMetadataKind::VariableBytes262144
         | IoTypeMetadataKind::VariableBytes524288
         | IoTypeMetadataKind::VariableBytes1048576
-        | IoTypeMetadataKind::VariableBytes2097152
-        | IoTypeMetadataKind::VariableBytes4194304
-        | IoTypeMetadataKind::VariableBytes8388608
-        | IoTypeMetadataKind::VariableBytes16777216
+        | IoTypeMetadataKind::VariableElements8b
+        | IoTypeMetadataKind::VariableElements16b
+        | IoTypeMetadataKind::VariableElements32b
+        | IoTypeMetadataKind::VariableElements0
         | IoTypeMetadataKind::Address
         | IoTypeMetadataKind::Balance => copy_n_bytes(input, output, 1),
     }

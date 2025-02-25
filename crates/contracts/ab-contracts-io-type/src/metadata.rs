@@ -126,24 +126,6 @@ pub enum IoTypeMetadataKind {
     /// Similar to [`Self::Struct`], but for exactly `10` struct fields and thus skips number of
     /// fields after struct name
     Struct10,
-    /// Similar to [`Self::Struct`], but for exactly `11` struct fields and thus skips number of
-    /// fields after struct name
-    Struct11,
-    /// Similar to [`Self::Struct`], but for exactly `12` struct fields and thus skips number of
-    /// fields after struct name
-    Struct12,
-    /// Similar to [`Self::Struct`], but for exactly `13` struct fields and thus skips number of
-    /// fields after struct name
-    Struct13,
-    /// Similar to [`Self::Struct`], but for exactly `14` struct fields and thus skips number of
-    /// fields after struct name
-    Struct14,
-    /// Similar to [`Self::Struct`], but for exactly `15` struct fields and thus skips number of
-    /// fields after struct name
-    Struct15,
-    /// Similar to [`Self::Struct`], but for exactly `16` struct fields and thus skips number of
-    /// fields after struct name
-    Struct16,
     /// `struct S(..);`
     ///
     /// Tuple structs are encoded af follows:
@@ -184,24 +166,6 @@ pub enum IoTypeMetadataKind {
     /// Similar to [`Self::TupleStruct`], but for exactly `10` struct fields and thus skips number
     /// of fields after struct name
     TupleStruct10,
-    /// Similar to [`Self::TupleStruct`], but for exactly `11` struct fields and thus skips number
-    /// of fields after struct name
-    TupleStruct11,
-    /// Similar to [`Self::TupleStruct`], but for exactly `12` struct fields and thus skips number
-    /// of fields after struct name
-    TupleStruct12,
-    /// Similar to [`Self::TupleStruct`], but for exactly `13` struct fields and thus skips number
-    /// of fields after struct name
-    TupleStruct13,
-    /// Similar to [`Self::TupleStruct`], but for exactly `14` struct fields and thus skips number
-    /// of fields after struct name
-    TupleStruct14,
-    /// Similar to [`Self::TupleStruct`], but for exactly `15` struct fields and thus skips number
-    /// of fields after struct name
-    TupleStruct15,
-    /// Similar to [`Self::TupleStruct`], but for exactly `16` struct fields and thus skips number
-    /// of fields after struct name
-    TupleStruct16,
     /// `enum E { Variant {..} }`
     ///
     /// Enums with variants that have fields are encoded as follows:
@@ -240,24 +204,6 @@ pub enum IoTypeMetadataKind {
     /// Similar to [`Self::Enum`], but for exactly `10` enum variants and thus skips number of
     /// variants after enum name
     Enum10,
-    /// Similar to [`Self::Enum`], but for exactly `11` enum variants and thus skips number of
-    /// variants after enum name
-    Enum11,
-    /// Similar to [`Self::Enum`], but for exactly `12` enum variants and thus skips number of
-    /// variants after enum name
-    Enum12,
-    /// Similar to [`Self::Enum`], but for exactly `13` enum variants and thus skips number of
-    /// variants after enum name
-    Enum13,
-    /// Similar to [`Self::Enum`], but for exactly `14` enum variants and thus skips number of
-    /// variants after enum name
-    Enum14,
-    /// Similar to [`Self::Enum`], but for exactly `15` enum variants and thus skips number of
-    /// variants after enum name
-    Enum15,
-    /// Similar to [`Self::Enum`], but for exactly `16` enum variants and thus skips number of
-    /// variants after enum name
-    Enum16,
     /// `enum E { A, B }`
     ///
     /// Enums with variants that have no fields are encoded as follows:
@@ -299,24 +245,6 @@ pub enum IoTypeMetadataKind {
     /// Similar to [`Self::EnumNoFields`], but for exactly `10` enum variants and thus skips number
     /// of variants after enum name
     EnumNoFields10,
-    /// Similar to [`Self::EnumNoFields`], but for exactly `11` enum variants and thus skips number
-    /// of variants after enum name
-    EnumNoFields11,
-    /// Similar to [`Self::EnumNoFields`], but for exactly `12` enum variants and thus skips number
-    /// of variants after enum name
-    EnumNoFields12,
-    /// Similar to [`Self::EnumNoFields`], but for exactly `13` enum variants and thus skips number
-    /// of variants after enum name
-    EnumNoFields13,
-    /// Similar to [`Self::EnumNoFields`], but for exactly `14` enum variants and thus skips number
-    /// of variants after enum name
-    EnumNoFields14,
-    /// Similar to [`Self::EnumNoFields`], but for exactly `15` enum variants and thus skips number
-    /// of variants after enum name
-    EnumNoFields15,
-    /// Similar to [`Self::EnumNoFields`], but for exactly `16` enum variants and thus skips number
-    /// of variants after enum name
-    EnumNoFields16,
     /// Array `[T; N]` with up to 2^8 elements.
     ///
     /// Arrays with up to 2^8 encoded as follows:
@@ -357,19 +285,21 @@ pub enum IoTypeMetadataKind {
     ArrayU8x4096,
     /// Variable bytes with up to 2^8 bytes recommended allocation.
     ///
-    /// Variable bytes with up to 2^8 encoded as follows:
+    /// Variable bytes with up to 2^8 bytes encoded as follows:
     /// * 1 byte recommended allocation in bytes
     VariableBytes8b,
     /// Variable bytes with up to 2^16 bytes recommended allocation.
     ///
-    /// Variable bytes with up to 2^16 encoded as follows:
+    /// Variable bytes with up to 2^16 bytes encoded as follows:
     /// * 2 bytes recommended allocation in bytes (little-endian)
     VariableBytes16b,
     /// Variable bytes with up to 2^32 bytes recommended allocation.
     ///
-    /// Variable bytes with up to 2^8 encoded as follows:
+    /// Variable bytes with up to 2^8 bytes encoded as follows:
     /// * 4 bytes recommended allocation in bytes (little-endian)
     VariableBytes32b,
+    /// Compact alias [`VariableBytes<0>`](crate::variable_bytes::VariableBytes)
+    VariableBytes0,
     /// Compact alias [`VariableBytes<512>`](crate::variable_bytes::VariableBytes)
     VariableBytes512,
     /// Compact alias [`VariableBytes<1024>`](crate::variable_bytes::VariableBytes)
@@ -394,14 +324,23 @@ pub enum IoTypeMetadataKind {
     VariableBytes524288,
     /// Compact alias [`VariableBytes<1048576>`](crate::variable_bytes::VariableBytes)
     VariableBytes1048576,
-    /// Compact alias [`VariableBytes<2097152>`](crate::variable_bytes::VariableBytes)
-    VariableBytes2097152,
-    /// Compact alias [`VariableBytes<4194304>`](crate::variable_bytes::VariableBytes)
-    VariableBytes4194304,
-    /// Compact alias [`VariableBytes<8388608>`](crate::variable_bytes::VariableBytes)
-    VariableBytes8388608,
-    /// Compact alias [`VariableBytes<16777216>`](crate::variable_bytes::VariableBytes)
-    VariableBytes16777216,
+    /// Variable elements with up to 2^8 elements recommended allocation.
+    ///
+    /// Variable elements with up to 2^8 elements encoded as follows:
+    /// * 1 byte recommended allocation in bytes
+    VariableElements8b,
+    /// Variable elements with up to 2^16 elements recommended allocation.
+    ///
+    /// Variable elements with up to 2^16 elements encoded as follows:
+    /// * 2 bytes recommended allocation in elements (little-endian)
+    VariableElements16b,
+    /// Variable elements with up to 2^32 elements recommended allocation.
+    ///
+    /// Variable elements with up to 2^8 elements encoded as follows:
+    /// * 4 bytes recommended allocation in elements (little-endian)
+    VariableElements32b,
+    /// Compact alias [`VariableElements<0, T>`](crate::variable_elements::VariableElements)
+    VariableElements0,
     /// Address of a contract.
     ///
     /// Internally `u128` with `8` byte alignment
@@ -441,95 +380,72 @@ impl IoTypeMetadataKind {
             21 => Self::Struct8,
             22 => Self::Struct9,
             23 => Self::Struct10,
-            24 => Self::Struct11,
-            25 => Self::Struct12,
-            26 => Self::Struct13,
-            27 => Self::Struct14,
-            28 => Self::Struct15,
-            29 => Self::Struct16,
-            30 => Self::TupleStruct,
-            31 => Self::TupleStruct1,
-            32 => Self::TupleStruct2,
-            33 => Self::TupleStruct3,
-            34 => Self::TupleStruct4,
-            35 => Self::TupleStruct5,
-            36 => Self::TupleStruct6,
-            37 => Self::TupleStruct7,
-            38 => Self::TupleStruct8,
-            39 => Self::TupleStruct9,
-            40 => Self::TupleStruct10,
-            41 => Self::TupleStruct11,
-            42 => Self::TupleStruct12,
-            43 => Self::TupleStruct13,
-            44 => Self::TupleStruct14,
-            45 => Self::TupleStruct15,
-            46 => Self::TupleStruct16,
-            47 => Self::Enum,
-            48 => Self::Enum1,
-            49 => Self::Enum2,
-            50 => Self::Enum3,
-            51 => Self::Enum4,
-            52 => Self::Enum5,
-            53 => Self::Enum6,
-            54 => Self::Enum7,
-            55 => Self::Enum8,
-            56 => Self::Enum9,
-            57 => Self::Enum10,
-            58 => Self::Enum11,
-            59 => Self::Enum12,
-            60 => Self::Enum13,
-            61 => Self::Enum14,
-            62 => Self::Enum15,
-            63 => Self::Enum16,
-            64 => Self::EnumNoFields,
-            65 => Self::EnumNoFields1,
-            66 => Self::EnumNoFields2,
-            67 => Self::EnumNoFields3,
-            68 => Self::EnumNoFields4,
-            69 => Self::EnumNoFields5,
-            70 => Self::EnumNoFields6,
-            71 => Self::EnumNoFields7,
-            72 => Self::EnumNoFields8,
-            73 => Self::EnumNoFields9,
-            74 => Self::EnumNoFields10,
-            75 => Self::EnumNoFields11,
-            76 => Self::EnumNoFields12,
-            77 => Self::EnumNoFields13,
-            78 => Self::EnumNoFields14,
-            79 => Self::EnumNoFields15,
-            80 => Self::EnumNoFields16,
-            81 => Self::Array8b,
-            82 => Self::Array16b,
-            83 => Self::Array32b,
-            84 => Self::ArrayU8x8,
-            85 => Self::ArrayU8x16,
-            86 => Self::ArrayU8x32,
-            87 => Self::ArrayU8x64,
-            88 => Self::ArrayU8x128,
-            89 => Self::ArrayU8x256,
-            90 => Self::ArrayU8x512,
-            91 => Self::ArrayU8x1024,
-            92 => Self::ArrayU8x2028,
-            93 => Self::ArrayU8x4096,
-            94 => Self::VariableBytes8b,
-            95 => Self::VariableBytes16b,
-            96 => Self::VariableBytes32b,
-            97 => Self::VariableBytes512,
-            98 => Self::VariableBytes1024,
-            99 => Self::VariableBytes2028,
-            100 => Self::VariableBytes4096,
-            101 => Self::VariableBytes8192,
-            102 => Self::VariableBytes16384,
-            103 => Self::VariableBytes32768,
-            104 => Self::VariableBytes65536,
-            105 => Self::VariableBytes131072,
-            106 => Self::VariableBytes262144,
-            107 => Self::VariableBytes524288,
-            108 => Self::VariableBytes1048576,
-            109 => Self::VariableBytes2097152,
-            110 => Self::VariableBytes4194304,
-            111 => Self::VariableBytes8388608,
-            112 => Self::VariableBytes16777216,
+            24 => Self::TupleStruct,
+            25 => Self::TupleStruct1,
+            26 => Self::TupleStruct2,
+            27 => Self::TupleStruct3,
+            28 => Self::TupleStruct4,
+            29 => Self::TupleStruct5,
+            30 => Self::TupleStruct6,
+            31 => Self::TupleStruct7,
+            32 => Self::TupleStruct8,
+            33 => Self::TupleStruct9,
+            34 => Self::TupleStruct10,
+            35 => Self::Enum,
+            36 => Self::Enum1,
+            37 => Self::Enum2,
+            38 => Self::Enum3,
+            39 => Self::Enum4,
+            40 => Self::Enum5,
+            41 => Self::Enum6,
+            42 => Self::Enum7,
+            43 => Self::Enum8,
+            44 => Self::Enum9,
+            45 => Self::Enum10,
+            46 => Self::EnumNoFields,
+            47 => Self::EnumNoFields1,
+            48 => Self::EnumNoFields2,
+            49 => Self::EnumNoFields3,
+            50 => Self::EnumNoFields4,
+            51 => Self::EnumNoFields5,
+            52 => Self::EnumNoFields6,
+            53 => Self::EnumNoFields7,
+            54 => Self::EnumNoFields8,
+            55 => Self::EnumNoFields9,
+            56 => Self::EnumNoFields10,
+            57 => Self::Array8b,
+            58 => Self::Array16b,
+            59 => Self::Array32b,
+            60 => Self::ArrayU8x8,
+            61 => Self::ArrayU8x16,
+            62 => Self::ArrayU8x32,
+            63 => Self::ArrayU8x64,
+            64 => Self::ArrayU8x128,
+            65 => Self::ArrayU8x256,
+            66 => Self::ArrayU8x512,
+            67 => Self::ArrayU8x1024,
+            68 => Self::ArrayU8x2028,
+            69 => Self::ArrayU8x4096,
+            70 => Self::VariableBytes8b,
+            71 => Self::VariableBytes16b,
+            72 => Self::VariableBytes32b,
+            73 => Self::VariableBytes0,
+            74 => Self::VariableBytes512,
+            75 => Self::VariableBytes1024,
+            76 => Self::VariableBytes2028,
+            77 => Self::VariableBytes4096,
+            78 => Self::VariableBytes8192,
+            79 => Self::VariableBytes16384,
+            80 => Self::VariableBytes32768,
+            81 => Self::VariableBytes65536,
+            82 => Self::VariableBytes131072,
+            83 => Self::VariableBytes262144,
+            84 => Self::VariableBytes524288,
+            85 => Self::VariableBytes1048576,
+            86 => Self::VariableElements8b,
+            87 => Self::VariableElements16b,
+            88 => Self::VariableElements32b,
+            89 => Self::VariableElements0,
             128 => Self::Address,
             129 => Self::Balance,
             _ => {

@@ -44,12 +44,6 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&str> {
         | IoTypeMetadataKind::Struct8
         | IoTypeMetadataKind::Struct9
         | IoTypeMetadataKind::Struct10
-        | IoTypeMetadataKind::Struct11
-        | IoTypeMetadataKind::Struct12
-        | IoTypeMetadataKind::Struct13
-        | IoTypeMetadataKind::Struct14
-        | IoTypeMetadataKind::Struct15
-        | IoTypeMetadataKind::Struct16
         | IoTypeMetadataKind::TupleStruct
         | IoTypeMetadataKind::TupleStruct1
         | IoTypeMetadataKind::TupleStruct2
@@ -61,12 +55,6 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&str> {
         | IoTypeMetadataKind::TupleStruct8
         | IoTypeMetadataKind::TupleStruct9
         | IoTypeMetadataKind::TupleStruct10
-        | IoTypeMetadataKind::TupleStruct11
-        | IoTypeMetadataKind::TupleStruct12
-        | IoTypeMetadataKind::TupleStruct13
-        | IoTypeMetadataKind::TupleStruct14
-        | IoTypeMetadataKind::TupleStruct15
-        | IoTypeMetadataKind::TupleStruct16
         | IoTypeMetadataKind::Enum
         | IoTypeMetadataKind::Enum1
         | IoTypeMetadataKind::Enum2
@@ -78,12 +66,6 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&str> {
         | IoTypeMetadataKind::Enum8
         | IoTypeMetadataKind::Enum9
         | IoTypeMetadataKind::Enum10
-        | IoTypeMetadataKind::Enum11
-        | IoTypeMetadataKind::Enum12
-        | IoTypeMetadataKind::Enum13
-        | IoTypeMetadataKind::Enum14
-        | IoTypeMetadataKind::Enum15
-        | IoTypeMetadataKind::Enum16
         | IoTypeMetadataKind::EnumNoFields
         | IoTypeMetadataKind::EnumNoFields1
         | IoTypeMetadataKind::EnumNoFields2
@@ -94,13 +76,7 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&str> {
         | IoTypeMetadataKind::EnumNoFields7
         | IoTypeMetadataKind::EnumNoFields8
         | IoTypeMetadataKind::EnumNoFields9
-        | IoTypeMetadataKind::EnumNoFields10
-        | IoTypeMetadataKind::EnumNoFields11
-        | IoTypeMetadataKind::EnumNoFields12
-        | IoTypeMetadataKind::EnumNoFields13
-        | IoTypeMetadataKind::EnumNoFields14
-        | IoTypeMetadataKind::EnumNoFields15
-        | IoTypeMetadataKind::EnumNoFields16 => {
+        | IoTypeMetadataKind::EnumNoFields10 => {
             if metadata.is_empty() {
                 return None;
             }
@@ -136,6 +112,7 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&str> {
         IoTypeMetadataKind::VariableBytes8b
         | IoTypeMetadataKind::VariableBytes16b
         | IoTypeMetadataKind::VariableBytes32b
+        | IoTypeMetadataKind::VariableBytes0
         | IoTypeMetadataKind::VariableBytes512
         | IoTypeMetadataKind::VariableBytes1024
         | IoTypeMetadataKind::VariableBytes2028
@@ -147,11 +124,11 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&str> {
         | IoTypeMetadataKind::VariableBytes131072
         | IoTypeMetadataKind::VariableBytes262144
         | IoTypeMetadataKind::VariableBytes524288
-        | IoTypeMetadataKind::VariableBytes1048576
-        | IoTypeMetadataKind::VariableBytes2097152
-        | IoTypeMetadataKind::VariableBytes4194304
-        | IoTypeMetadataKind::VariableBytes8388608
-        | IoTypeMetadataKind::VariableBytes16777216 => "VariableBytes",
+        | IoTypeMetadataKind::VariableBytes1048576 => "VariableBytes",
+        IoTypeMetadataKind::VariableElements8b
+        | IoTypeMetadataKind::VariableElements16b
+        | IoTypeMetadataKind::VariableElements32b
+        | IoTypeMetadataKind::VariableElements0 => "VariableElements",
         IoTypeMetadataKind::Address => "Address",
         IoTypeMetadataKind::Balance => "Balance",
     })
