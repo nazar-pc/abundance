@@ -11,7 +11,7 @@ include = [
 ]
 
 [dependencies]
-ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
+ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common", features = ["executor"] }
 ab-system-contract-address-allocator = { version = "0.0.1", path = "../ab-system-contract-address-allocator" }
 ab-system-contract-code = { version = "0.0.1", path = "../ab-system-contract-code" }
 ab-system-contract-state = { version = "0.0.1", path = "../ab-system-contract-state" }

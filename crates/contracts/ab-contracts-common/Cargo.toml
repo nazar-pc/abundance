@@ -20,3 +20,5 @@ thiserror = "2.0.11"
 
 [features]
 guest = []
+alloc = []
+executor = ["alloc"]

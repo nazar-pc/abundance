@@ -1,10 +1,10 @@
-#[cfg(any(unix, windows))]
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
 use crate::method::{ExternalArgs, MethodFingerprint};
 use crate::{Address, ContractError, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
-#[cfg(any(unix, windows))]
+#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::ffi::c_void;
 use core::marker::PhantomData;
@@ -65,7 +65,7 @@ pub struct EnvState {
 }
 
 /// Executor context that can be used to interact with executor
-#[cfg(any(unix, windows))]
+#[cfg(feature = "executor")]
 pub trait ExecutorContext: alloc::fmt::Debug + Send {
     /// Call multiple methods
     fn call_many(
@@ -83,7 +83,7 @@ pub trait ExecutorContext: alloc::fmt::Debug + Send {
 #[repr(C)]
 pub struct Env<'a> {
     state: EnvState,
-    #[cfg(any(unix, windows))]
+    #[cfg(feature = "executor")]
     executor_context: Box<dyn ExecutorContext>,
     phantom_data: PhantomData<&'a ()>,
 }
@@ -93,7 +93,7 @@ pub struct Env<'a> {
 //  be created
 impl Env<'_> {
     /// Instantiate environment with executor context
-    #[cfg(any(unix, windows))]
+    #[cfg(feature = "executor")]
     #[inline]
     pub fn with_executor_context(
         state: EnvState,
@@ -179,19 +179,16 @@ impl Env<'_> {
         &self,
         mut methods: [PreparedMethod<'_>; N],
     ) -> Result<(), ContractError> {
-        #[cfg(any(unix, windows))]
+        #[cfg(feature = "executor")]
         {
             self.executor_context.call_many(&self.state, &mut methods)
         }
-        #[cfg(all(feature = "guest", not(any(unix, windows))))]
+        #[cfg(all(feature = "guest", not(feature = "executor")))]
         {
             let _ = methods;
             todo!()
         }
-        #[cfg(not(any(unix, windows, feature = "guest")))]
-        compile_error!(
-            "Contracts support either native environment with Unix or Windows target OS or guest \
-            environment with `guest` feature, but neither is configured"
-        )
+        #[cfg(not(any(feature = "executor", feature = "guest")))]
+        Err(ContractError::InternalError)
     }
 }

@@ -29,7 +29,6 @@ pub const MAX_CODE_SIZE: u32 = 1024 * 1024;
 ///
 /// NOTE: It is unlikely to be necessary to interact with this directly.
 #[derive(Debug, Copy, Clone)]
-#[cfg(any(unix, windows))]
 #[doc(hidden)]
 pub struct NativeExecutorContactMethod {
     pub method_fingerprint: &'static MethodFingerprint,
@@ -52,13 +51,11 @@ pub trait Contract: IoType {
     /// Something that can be used as "code" in native execution environment.
     ///
     /// NOTE: It is unlikely to be necessary to interact with this directly.
-    #[cfg(any(unix, windows))]
     #[doc(hidden)]
     const CODE: &str;
     /// Methods of a contract used in native execution environment.
     ///
     /// NOTE: It is unlikely to be necessary to interact with this directly.
-    #[cfg(any(unix, windows))]
     #[doc(hidden)]
     const NATIVE_EXECUTOR_METHODS: &[NativeExecutorContactMethod];
     // Default value is provided to only fail to compile when contract that uses
@@ -72,9 +69,11 @@ pub trait Contract: IoType {
     type Slot: IoType;
     /// Tmp type used by this contract
     type Tmp: IoType;
-    /// Something that can be used as "code" in native execution environment
+    /// Something that can be used as "code" in native execution environment and primarily used for
+    /// testing.
+    ///
+    /// This is NOT the code compiled for guest architecture!
     // TODO: Make `const` when possible
-    #[cfg(any(unix, windows))]
     fn code() -> impl Deref<Target = VariableBytes<MAX_CODE_SIZE>>;
 }
 
@@ -93,7 +92,6 @@ where
     DynTrait: ?Sized,
 {
     /// Methods of a trait used in native execution environment
-    #[cfg(any(unix, windows))]
     #[doc(hidden)]
     const NATIVE_EXECUTOR_METHODS: &[NativeExecutorContactMethod];
 }
