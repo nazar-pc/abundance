@@ -259,7 +259,8 @@ pub(super) const fn compact_metadata<'i, 'o>(
         IoTypeMetadataKind::VariableBytes8b => copy_n_bytes(input, output, 1 + 1),
         IoTypeMetadataKind::VariableBytes16b => copy_n_bytes(input, output, 1 + 2),
         IoTypeMetadataKind::VariableBytes32b => copy_n_bytes(input, output, 1 + 4),
-        IoTypeMetadataKind::VariableBytes512
+        IoTypeMetadataKind::VariableBytes0
+        | IoTypeMetadataKind::VariableBytes512
         | IoTypeMetadataKind::VariableBytes1024
         | IoTypeMetadataKind::VariableBytes2028
         | IoTypeMetadataKind::VariableBytes4096
@@ -271,6 +272,10 @@ pub(super) const fn compact_metadata<'i, 'o>(
         | IoTypeMetadataKind::VariableBytes262144
         | IoTypeMetadataKind::VariableBytes524288
         | IoTypeMetadataKind::VariableBytes1048576
+        | IoTypeMetadataKind::VariableElements8b
+        | IoTypeMetadataKind::VariableElements16b
+        | IoTypeMetadataKind::VariableElements32b
+        | IoTypeMetadataKind::VariableElements0
         | IoTypeMetadataKind::Address
         | IoTypeMetadataKind::Balance => copy_n_bytes(input, output, 1),
     }

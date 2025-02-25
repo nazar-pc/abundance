@@ -285,19 +285,21 @@ pub enum IoTypeMetadataKind {
     ArrayU8x4096,
     /// Variable bytes with up to 2^8 bytes recommended allocation.
     ///
-    /// Variable bytes with up to 2^8 encoded as follows:
+    /// Variable bytes with up to 2^8 bytes encoded as follows:
     /// * 1 byte recommended allocation in bytes
     VariableBytes8b,
     /// Variable bytes with up to 2^16 bytes recommended allocation.
     ///
-    /// Variable bytes with up to 2^16 encoded as follows:
+    /// Variable bytes with up to 2^16 bytes encoded as follows:
     /// * 2 bytes recommended allocation in bytes (little-endian)
     VariableBytes16b,
     /// Variable bytes with up to 2^32 bytes recommended allocation.
     ///
-    /// Variable bytes with up to 2^8 encoded as follows:
+    /// Variable bytes with up to 2^8 bytes encoded as follows:
     /// * 4 bytes recommended allocation in bytes (little-endian)
     VariableBytes32b,
+    /// Compact alias [`VariableBytes<0>`](crate::variable_bytes::VariableBytes)
+    VariableBytes0,
     /// Compact alias [`VariableBytes<512>`](crate::variable_bytes::VariableBytes)
     VariableBytes512,
     /// Compact alias [`VariableBytes<1024>`](crate::variable_bytes::VariableBytes)
@@ -322,6 +324,23 @@ pub enum IoTypeMetadataKind {
     VariableBytes524288,
     /// Compact alias [`VariableBytes<1048576>`](crate::variable_bytes::VariableBytes)
     VariableBytes1048576,
+    /// Variable elements with up to 2^8 elements recommended allocation.
+    ///
+    /// Variable elements with up to 2^8 elements encoded as follows:
+    /// * 1 byte recommended allocation in bytes
+    VariableElements8b,
+    /// Variable elements with up to 2^16 elements recommended allocation.
+    ///
+    /// Variable elements with up to 2^16 elements encoded as follows:
+    /// * 2 bytes recommended allocation in elements (little-endian)
+    VariableElements16b,
+    /// Variable elements with up to 2^32 elements recommended allocation.
+    ///
+    /// Variable elements with up to 2^8 elements encoded as follows:
+    /// * 4 bytes recommended allocation in elements (little-endian)
+    VariableElements32b,
+    /// Compact alias [`VariableElements<0, T>`](crate::variable_elements::VariableElements)
+    VariableElements0,
     /// Address of a contract.
     ///
     /// Internally `u128` with `8` byte alignment
@@ -410,18 +429,23 @@ impl IoTypeMetadataKind {
             70 => Self::VariableBytes8b,
             71 => Self::VariableBytes16b,
             72 => Self::VariableBytes32b,
-            73 => Self::VariableBytes512,
-            74 => Self::VariableBytes1024,
-            75 => Self::VariableBytes2028,
-            76 => Self::VariableBytes4096,
-            77 => Self::VariableBytes8192,
-            78 => Self::VariableBytes16384,
-            79 => Self::VariableBytes32768,
-            80 => Self::VariableBytes65536,
-            81 => Self::VariableBytes131072,
-            82 => Self::VariableBytes262144,
-            83 => Self::VariableBytes524288,
-            84 => Self::VariableBytes1048576,
+            73 => Self::VariableBytes0,
+            74 => Self::VariableBytes512,
+            75 => Self::VariableBytes1024,
+            76 => Self::VariableBytes2028,
+            77 => Self::VariableBytes4096,
+            78 => Self::VariableBytes8192,
+            79 => Self::VariableBytes16384,
+            80 => Self::VariableBytes32768,
+            81 => Self::VariableBytes65536,
+            82 => Self::VariableBytes131072,
+            83 => Self::VariableBytes262144,
+            84 => Self::VariableBytes524288,
+            85 => Self::VariableBytes1048576,
+            86 => Self::VariableElements8b,
+            87 => Self::VariableElements16b,
+            88 => Self::VariableElements32b,
+            89 => Self::VariableElements0,
             128 => Self::Address,
             129 => Self::Balance,
             _ => {

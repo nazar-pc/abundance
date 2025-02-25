@@ -73,7 +73,7 @@ pub(super) const fn recommended_capacity(mut metadata: &[u8]) -> Option<(u32, &[
         IoTypeMetadataKind::EnumNoFields8 => enum_capacity(metadata, Some(8), false),
         IoTypeMetadataKind::EnumNoFields9 => enum_capacity(metadata, Some(9), false),
         IoTypeMetadataKind::EnumNoFields10 => enum_capacity(metadata, Some(10), false),
-        IoTypeMetadataKind::Array8b => {
+        IoTypeMetadataKind::Array8b | IoTypeMetadataKind::VariableElements8b => {
             if metadata.is_empty() {
                 return None;
             }
@@ -88,7 +88,7 @@ pub(super) const fn recommended_capacity(mut metadata: &[u8]) -> Option<(u32, &[
                 metadata,
             ))
         }
-        IoTypeMetadataKind::Array16b => {
+        IoTypeMetadataKind::Array16b | IoTypeMetadataKind::VariableElements16b => {
             let mut num_elements = [0; size_of::<u16>()];
             (metadata, _) =
                 forward_option!(copy_n_bytes(metadata, &mut num_elements, size_of::<u16>()));
@@ -101,7 +101,7 @@ pub(super) const fn recommended_capacity(mut metadata: &[u8]) -> Option<(u32, &[
                 metadata,
             ))
         }
-        IoTypeMetadataKind::Array32b => {
+        IoTypeMetadataKind::Array32b | IoTypeMetadataKind::VariableElements32b => {
             let mut num_elements = [0; size_of::<u32>()];
             (metadata, _) =
                 forward_option!(copy_n_bytes(metadata, &mut num_elements, size_of::<u32>()));
@@ -138,18 +138,19 @@ pub(super) const fn recommended_capacity(mut metadata: &[u8]) -> Option<(u32, &[
             let mut num_bytes = [0; size_of::<u16>()];
             (metadata, _) =
                 forward_option!(copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>()));
-            let num_elements = u16::from_le_bytes(num_bytes) as u32;
+            let num_bytes = u16::from_le_bytes(num_bytes) as u32;
 
-            Some((num_elements, metadata))
+            Some((num_bytes, metadata))
         }
         IoTypeMetadataKind::VariableBytes32b => {
             let mut num_bytes = [0; size_of::<u32>()];
             (metadata, _) =
                 forward_option!(copy_n_bytes(metadata, &mut num_bytes, size_of::<u32>()));
-            let num_elements = u32::from_le_bytes(num_bytes);
+            let num_bytes = u32::from_le_bytes(num_bytes);
 
-            Some((num_elements, metadata))
+            Some((num_bytes, metadata))
         }
+        IoTypeMetadataKind::VariableBytes0 => Some((0, metadata)),
         IoTypeMetadataKind::VariableBytes512 => Some((512, metadata)),
         IoTypeMetadataKind::VariableBytes1024 => Some((1024, metadata)),
         IoTypeMetadataKind::VariableBytes2028 => Some((2028, metadata)),
@@ -162,6 +163,14 @@ pub(super) const fn recommended_capacity(mut metadata: &[u8]) -> Option<(u32, &[
         IoTypeMetadataKind::VariableBytes262144 => Some((262144, metadata)),
         IoTypeMetadataKind::VariableBytes524288 => Some((524288, metadata)),
         IoTypeMetadataKind::VariableBytes1048576 => Some((1048576, metadata)),
+        IoTypeMetadataKind::VariableElements0 => {
+            if metadata.is_empty() {
+                return None;
+            }
+
+            (_, metadata) = forward_option!(recommended_capacity(metadata));
+            Some((0, metadata))
+        }
         IoTypeMetadataKind::Address | IoTypeMetadataKind::Balance => Some((16, metadata)),
     }
 }
