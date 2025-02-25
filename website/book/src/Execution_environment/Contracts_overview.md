@@ -3,7 +3,7 @@
 In contrast to many blockchains, the address is just a monotonically increasing number, decoupled from a public key (in
 case of end user wallet) or code (in case of what is typically understood as "smart contract" in other blockchains).
 
-The address is allocated on account creation and doesn't change regardless of how the contract evolves in the future.
+The address is allocated on contract creation and doesn't change regardless of how the contract evolves in the future.
 This means that externally, all contracts essentially look the same regardless of what they represent. This enables a
 wallet contract to change its logic from verifying a single signature to multisig to 2FA to use a completely different
 cryptography in the future, all while retaining its address/identity.

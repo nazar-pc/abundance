@@ -2,7 +2,7 @@ use ab_contract_playground::{Playground, PlaygroundExt};
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Balance, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
-use ab_contracts_standards::{Fungible, FungibleExt};
+use ab_contracts_standards::fungible::{Fungible, FungibleExt};
 use ab_system_contract_code::CodeExt;
 
 #[test]

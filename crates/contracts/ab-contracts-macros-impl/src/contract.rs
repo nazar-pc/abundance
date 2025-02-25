@@ -223,22 +223,29 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
 
         // Sanity check that trait implementation fully matches trait definition
         const _: () = {
-            // Import as `ffi` for generated metadata constant to pick up correct version
+            // Import as `ffi` for generated metadata constant to pick up a correct version
             use #ffi_mod_ident as ffi;
             #metadata_const
 
-            // TODO: Relax this by using fingerprint (to ignore names of arguments) when fingerprint
-            //  is implemented properly
+            // Comparing compact metadata to allow argument name differences and similar things
             // TODO: This two-step awkwardness because simple comparison doesn't work in const
             //  environment yet
+            let (impl_compact_metadata, impl_compact_metadata_size) =
+                ::ab_contracts_macros::__private::ContractMetadataKind::compact(METADATA)
+                    .expect("Generated metadata is correct; qed");
+            let (def_compact_metadata, def_compact_metadata_size) =
+                ::ab_contracts_macros::__private::ContractMetadataKind::compact(
+                    <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA,
+                )
+                    .expect("Generated metadata is correct; qed");
             assert!(
-                METADATA.len() == <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA.len(),
+                impl_compact_metadata_size == def_compact_metadata_size,
                 "Trait implementation must match trait definition exactly"
             );
             let mut i = 0;
-            while METADATA.len() > i {
+            while impl_compact_metadata_size > i {
                 assert!(
-                    METADATA[i] == <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA[i],
+                    impl_compact_metadata[i] == def_compact_metadata[i],
                     "Trait implementation must match trait definition exactly"
                 );
                 i += 1;

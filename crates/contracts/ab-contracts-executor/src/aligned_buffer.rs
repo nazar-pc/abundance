@@ -12,6 +12,13 @@ impl AlignedBytes {
     const SIZE: usize = 16;
 }
 
+const _: () = {
+    assert!(
+        align_of::<AlignedBytes>() == size_of::<AlignedBytes>(),
+        "Size and alignment are both 16 bytes"
+    );
+};
+
 /// Owned aligned buffer for executor purposes.
 ///
 /// See [`SharedAlignedBuffer`] for a version that can be cheaply cloned, while reusing the original
