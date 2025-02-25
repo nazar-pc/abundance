@@ -53,22 +53,6 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
                 return concat_metadata_sources(&[&[
                     IoTypeMetadataKind::VariableBytes1048576 as u8
                 ]]);
-            } else if max_capacity == 2097152 {
-                return concat_metadata_sources(&[&[
-                    IoTypeMetadataKind::VariableBytes2097152 as u8
-                ]]);
-            } else if max_capacity == 4194304 {
-                return concat_metadata_sources(&[&[
-                    IoTypeMetadataKind::VariableBytes4194304 as u8
-                ]]);
-            } else if max_capacity == 8388608 {
-                return concat_metadata_sources(&[&[
-                    IoTypeMetadataKind::VariableBytes8388608 as u8
-                ]]);
-            } else if max_capacity == 16777216 {
-                return concat_metadata_sources(&[&[
-                    IoTypeMetadataKind::VariableBytes16777216 as u8
-                ]]);
             }
 
             let (io_type, size_bytes) = if max_capacity < 2u32.pow(8) {
