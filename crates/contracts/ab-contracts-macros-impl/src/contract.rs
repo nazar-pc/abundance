@@ -198,7 +198,6 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
             .map(|method| &method.original_ident);
 
         quote! {
-            #[cfg(any(unix, windows))]
             #[doc(hidden)]
             const NATIVE_EXECUTOR_METHODS: &[::ab_contracts_macros::__private::NativeExecutorContactMethod] = &[
                 #( #ffi_mod_ident::#methods::fn_pointer::METHOD_FN_POINTER, )*
@@ -421,7 +420,6 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
             .map(|method| &method.original_ident);
 
         quote! {
-            #[cfg(any(unix, windows))]
             #[doc(hidden)]
             const NATIVE_EXECUTOR_METHODS: &[::ab_contracts_macros::__private::NativeExecutorContactMethod] = &[
                 #( ffi::#methods::fn_pointer::METHOD_FN_POINTER, )*
@@ -466,7 +464,6 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         impl ::ab_contracts_macros::__private::Contract for #struct_name {
             #metadata_const
             #method_fn_pointers_const
-            #[cfg(any(unix, windows))]
             #[doc(hidden)]
             const CODE: &::core::primitive::str = ::ab_contracts_macros::__private::concatcp!(
                 #struct_name_str,
@@ -487,7 +484,6 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
             type Slot = #slot_type;
             type Tmp = #tmp_type;
 
-            #[cfg(any(unix, windows))]
             fn code() -> impl ::core::ops::Deref<
                 Target = ::ab_contracts_macros::__private::VariableBytes<
                     { ::ab_contracts_macros::__private::MAX_CODE_SIZE },

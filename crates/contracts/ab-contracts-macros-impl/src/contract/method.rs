@@ -1230,7 +1230,6 @@ impl MethodDetails {
             )?;
 
             quote! {
-                #[cfg(any(unix, windows))]
                 #[doc(hidden)]
                 pub mod fn_pointer {
                     use super::*;
