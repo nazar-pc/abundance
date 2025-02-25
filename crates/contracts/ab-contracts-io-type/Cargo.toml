@@ -12,4 +12,3 @@ include = [
 
 [dependencies]
 ab-contracts-trivial-type-derive = { version = "0.0.1", path = "../ab-contracts-trivial-type-derive" }
-static_assertions = "1.1.0"

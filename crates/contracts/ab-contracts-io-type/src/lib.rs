@@ -11,26 +11,33 @@ use crate::trivial_type::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 
-// Refuse to compile on lower than 32-bit platforms
-static_assertions::const_assert!(size_of::<usize>() >= size_of::<u32>());
+const _: () = {
+    assert!(
+        size_of::<usize>() >= size_of::<u32>(),
+        "At least 32-bit platform required"
+    );
 
-// Only support little-endian environments, in big-endian byte order will be different, and
-// it'll not be possible to simply send bytes of data structures that implement `TrivialType` from
-// host to guest environment
-static_assertions::const_assert_eq!(u16::from_ne_bytes(1u16.to_le_bytes()), 1u16);
+    // Only support little-endian environments, in big-endian byte order will be different, and
+    // it'll not be possible to simply send bytes of data structures that implement `TrivialType`
+    // from host to guest environment
+    assert!(
+        u16::from_ne_bytes(1u16.to_le_bytes()) == 1u16,
+        "Only little-endian platform supported"
+    );
 
-// Only support targets with expected alignment and refuse to compile on other targets
-static_assertions::const_assert_eq!(align_of::<()>(), 1);
-static_assertions::const_assert_eq!(align_of::<u8>(), 1);
-static_assertions::const_assert_eq!(align_of::<u16>(), 2);
-static_assertions::const_assert_eq!(align_of::<u32>(), 4);
-static_assertions::const_assert_eq!(align_of::<u64>(), 8);
-static_assertions::const_assert_eq!(align_of::<u128>(), 16);
-static_assertions::const_assert_eq!(align_of::<i8>(), 1);
-static_assertions::const_assert_eq!(align_of::<i16>(), 2);
-static_assertions::const_assert_eq!(align_of::<i32>(), 4);
-static_assertions::const_assert_eq!(align_of::<i64>(), 8);
-static_assertions::const_assert_eq!(align_of::<i128>(), 16);
+    // Only support targets with expected alignment and refuse to compile on other targets
+    assert!(align_of::<()>() == 1, "Unsupported alignment of `()`");
+    assert!(align_of::<u8>() == 1, "Unsupported alignment of `u8`");
+    assert!(align_of::<u16>() == 2, "Unsupported alignment of `u16`");
+    assert!(align_of::<u32>() == 4, "Unsupported alignment of `u32`");
+    assert!(align_of::<u64>() == 8, "Unsupported alignment of `u64`");
+    assert!(align_of::<u128>() == 16, "Unsupported alignment of `u128`");
+    assert!(align_of::<i8>() == 1, "Unsupported alignment of `i8`");
+    assert!(align_of::<i16>() == 2, "Unsupported alignment of `i16`");
+    assert!(align_of::<i32>() == 4, "Unsupported alignment of `i32`");
+    assert!(align_of::<i64>() == 8, "Unsupported alignment of `i64`");
+    assert!(align_of::<i128>() == 16, "Unsupported alignment of `i128`");
+};
 
 struct DerefWrapper<T>(T);
 
