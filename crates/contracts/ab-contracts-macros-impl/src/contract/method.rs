@@ -1468,6 +1468,7 @@ impl MethodDetails {
                 const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
                     ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA)
                         .expect("Metadata is statically correct; qed");
+                const METADATA: &[::core::primitive::u8] = METADATA;
             }
 
             impl #args_struct_name {
@@ -1634,7 +1635,7 @@ impl MethodDetails {
         let method_name_metadata = derive_ident_metadata(&ffi_fn_name)?;
         Ok(quote_spanned! {fn_sig.span() =>
             const fn metadata()
-                -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
+                -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
             {
                 ::ab_contracts_macros::__private::concat_metadata_sources(&[
                     &[::ab_contracts_macros::__private::ContractMetadataKind::#method_type as ::core::primitive::u8],

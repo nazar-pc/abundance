@@ -61,4 +61,6 @@ impl MethodFingerprint {
 pub unsafe trait ExternalArgs {
     /// Fingerprint of the method being called
     const FINGERPRINT: MethodFingerprint;
+    /// Metadata that corresponds to a method being called
+    const METADATA: &[u8];
 }
