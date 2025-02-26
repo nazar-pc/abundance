@@ -1270,23 +1270,37 @@ impl MethodDetails {
             derive_external_args_struct_name(&self.self_type, trait_name, original_method_name)?;
         // `external_args_pointers` will generate pointers in `ExternalArgs` fields
         let mut external_args_fields = Vec::new();
+        // Arguments of `::new()` method
+        let mut method_args = Vec::new();
+        // Fields set on `Self` in `::new()` method
+        let mut method_args_fields = Vec::new();
 
         // For slots in external args only address is needed
         for slot in &self.slots {
-            let ptr_field = format_ident!("{}_ptr", slot.arg_name);
+            let arg_name = &slot.arg_name;
+            let ptr_field = format_ident!("{arg_name}_ptr");
 
             external_args_fields.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Address>,
+            });
+
+            method_args.push(quote! {
+                #arg_name: &::ab_contracts_macros::__private::Address,
+            });
+            method_args_fields.push(quote! {
+                // TODO: Use `NonNull::from_ref()` once stable
+                #ptr_field: ::core::ptr::NonNull::from(#arg_name),
             });
         }
 
         // Inputs and outputs with pointer and size (+ capacity if mutable)
         for io_arg in &self.io {
             let type_name = io_arg.type_name();
-            let ptr_field = format_ident!("{}_ptr", io_arg.arg_name());
-            let size_field = format_ident!("{}_size", io_arg.arg_name());
+            let arg_name = io_arg.arg_name();
+            let ptr_field = format_ident!("{arg_name}_ptr");
+            let size_field = format_ident!("{arg_name}_size");
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
-            let capacity_field = format_ident!("{}_capacity", io_arg.arg_name());
+            let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
 
             match io_arg {
@@ -1298,6 +1312,24 @@ impl MethodDetails {
                         #[doc = #size_doc]
                         pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
                     });
+
+                    method_args.push(quote! {
+                        #arg_name: &#type_name,
+                    });
+                    method_args_fields.push(quote! {
+                        // SAFETY: This pointer is used as input to FFI call, and underlying data
+                        // will not be modified, also the pointer will not outlive the reference
+                        // from which it was created despite copying
+                        #ptr_field: unsafe {
+                            *::ab_contracts_macros::__private::IoType::as_ptr(#arg_name)
+                        },
+                        // SAFETY: This pointer is used as input to FFI call, and underlying data
+                        // will not be modified, also the pointer will not outlive the reference
+                        // from which it was created despite copying
+                        #size_field: unsafe {
+                            *::ab_contracts_macros::__private::IoType::size_ptr(#arg_name)
+                        },
+                    });
                 }
                 IoArg::Output { .. } => {
                     external_args_fields.push(quote! {
@@ -1308,6 +1340,30 @@ impl MethodDetails {
                         pub #size_field: *mut ::core::primitive::u32,
                         #[doc = #capacity_doc]
                         pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
+                    });
+
+                    method_args.push(quote! {
+                        #arg_name: &mut #type_name,
+                    });
+                    method_args_fields.push(quote! {
+                        // SAFETY: This pointer is used as input to FFI call, and underlying data
+                        // will only be modified there, also the pointer will not outlive the
+                        // reference from which it was created despite copying
+                        #ptr_field: unsafe {
+                            *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name)
+                        },
+                        // SAFETY: This pointer is used as input to FFI call, and underlying data
+                        // will only be modified there, also the pointer will not outlive the
+                        // reference from which it was created despite copying
+                        #size_field: unsafe {
+                            *::ab_contracts_macros::__private::IoType::size_mut_ptr(#arg_name)
+                        },
+                        // SAFETY: This pointer is used as input to FFI call, and underlying data
+                        // will not be modified, also the pointer will not outlive the reference
+                        // from which it was created despite copying
+                        #capacity_field: unsafe {
+                            *::ab_contracts_macros::__private::IoType::capacity_ptr(#arg_name)
+                        },
                     });
                 }
                 IoArg::Result { .. } => {
@@ -1322,6 +1378,30 @@ impl MethodDetails {
                             pub #size_field: *mut ::core::primitive::u32,
                             #[doc = #capacity_doc]
                             pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
+                        });
+
+                        method_args.push(quote! {
+                            #arg_name: &mut #type_name,
+                        });
+                        method_args_fields.push(quote! {
+                            // SAFETY: This pointer is used as input to FFI call, and underlying data
+                            // will only be modified there, also the pointer will not outlive the
+                            // reference from which it was created despite copying
+                            #ptr_field: unsafe {
+                                *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name)
+                            },
+                            // SAFETY: This pointer is used as input to FFI call, and underlying data
+                            // will only be modified there, also the pointer will not outlive the
+                            // reference from which it was created despite copying
+                            #size_field: unsafe {
+                                *::ab_contracts_macros::__private::IoType::size_mut_ptr(#arg_name)
+                            },
+                            // SAFETY: This pointer is used as input to FFI call, and underlying data
+                            // will not be modified, also the pointer will not outlive the reference
+                            // from which it was created despite copying
+                            #capacity_field: unsafe {
+                                *::ab_contracts_macros::__private::IoType::capacity_ptr(#arg_name)
+                            },
                         });
                     }
                 }
@@ -1344,6 +1424,23 @@ impl MethodDetails {
                 pub ok_result_size: *mut ::core::primitive::u32,
                 /// Capacity of the allocated memory `ok_result_ptr` points to
                 pub ok_result_capacity: ::core::ptr::NonNull<::core::primitive::u32>,
+            });
+
+            method_args.push(quote! {
+                ok_result: &mut ::core::mem::MaybeUninit<#result_type>,
+                ok_result_size: &mut ::core::primitive::u32,
+            });
+            method_args_fields.push(quote! {
+                // SAFETY: Pointer created from an allocated struct
+                ok_result_ptr: unsafe {
+                    ::core::ptr::NonNull::new_unchecked(ok_result.as_mut_ptr())
+                },
+                ok_result_size: ::core::ptr::from_mut(ok_result_size),
+                // This is for `TrivialType` and will never be modified
+                // TODO: Use `NonNull::from_ref()` once stable
+                ok_result_capacity: ::core::ptr::NonNull::from(
+                    &<#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
+                ),
             });
         }
         let args_struct_doc = format!(
@@ -1368,9 +1465,20 @@ impl MethodDetails {
                         .expect("Metadata is statically correct; qed");
             }
 
-            // TODO: `ExternalArgs` constructor for easier usage (that fills in default
-            //  capacities and sized), use it in extension trait implementation to reduce code
-            //  duplication
+            impl #args_struct_name {
+                /// Create a new instance
+                #[allow(
+                    clippy::new_without_default,
+                    reason = "Do not want `Default` in auto-generated code"
+                )]
+                pub fn new(
+                    #( #method_args )*
+                ) -> Self {
+                    Self {
+                        #( #method_args_fields )*
+                    }
+                }
+            }
         })
     }
 
@@ -1547,7 +1655,7 @@ impl MethodDetails {
     ) -> Result<ExtTraitComponents, Error> {
         let mut preparation = Vec::new();
         let mut method_args = Vec::new();
-        let mut args_fields = Vec::new();
+        let mut external_args_args = Vec::new();
         let mut result_processing = Vec::new();
 
         // Address of the contract
@@ -1558,24 +1666,15 @@ impl MethodDetails {
         // For each slot argument generate an address argument
         for slot in &self.slots {
             let arg_name = &slot.arg_name;
-            let struct_field_ptr = format_ident!("{arg_name}_ptr");
 
             method_args.push(quote! {
                 #arg_name: &::ab_contracts_macros::__private::Address,
             });
-            args_fields.push(quote! {
-                // TODO: Use `NonNull::from_ref()` once stable
-                #struct_field_ptr: ::core::ptr::NonNull::from(#arg_name),
-            });
+            external_args_args.push(quote! { #arg_name });
         }
 
         // For each I/O argument, generate corresponding read-only or write-only argument
         for io_arg in &self.io {
-            let arg_name = io_arg.arg_name();
-            let struct_field_ptr = format_ident!("{arg_name}_ptr");
-            let struct_field_size = format_ident!("{arg_name}_size");
-            let struct_field_capacity = format_ident!("{arg_name}_capacity");
-
             match io_arg {
                 IoArg::Input {
                     type_name,
@@ -1584,20 +1683,7 @@ impl MethodDetails {
                     method_args.push(quote! {
                         #arg_name: &#type_name,
                     });
-                    args_fields.push(quote! {
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will not be modified, also the pointer will not outlive the reference
-                        // from which it was created despite copying
-                        #struct_field_ptr: unsafe {
-                            *::ab_contracts_macros::__private::IoType::as_ptr(#arg_name)
-                        },
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will not be modified, also the pointer will not outlive the reference
-                        // from which it was created despite copying
-                        #struct_field_size: unsafe {
-                            *::ab_contracts_macros::__private::IoType::size_ptr(#arg_name)
-                        },
-                    });
+                    external_args_args.push(quote! { #arg_name });
                 }
                 IoArg::Output {
                     type_name,
@@ -1606,26 +1692,7 @@ impl MethodDetails {
                     method_args.push(quote! {
                         #arg_name: &mut #type_name,
                     });
-                    args_fields.push(quote! {
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will only be modified there, also the pointer will not outlive the
-                        // reference from which it was created despite copying
-                        #struct_field_ptr: unsafe {
-                            *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name)
-                        },
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will only be modified there, also the pointer will not outlive the
-                        // reference from which it was created despite copying
-                        #struct_field_size: unsafe {
-                            *::ab_contracts_macros::__private::IoType::size_mut_ptr(#arg_name)
-                        },
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will not be modified, also the pointer will not outlive the reference
-                        // from which it was created despite copying
-                        #struct_field_capacity: unsafe {
-                            *::ab_contracts_macros::__private::IoType::capacity_ptr(#arg_name)
-                        },
-                    });
+                    external_args_args.push(quote! { #arg_name });
                 }
                 IoArg::Result {
                     type_name,
@@ -1640,26 +1707,7 @@ impl MethodDetails {
                     method_args.push(quote! {
                         #arg_name: &mut #type_name,
                     });
-                    args_fields.push(quote! {
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will only be modified there, also the pointer will not outlive the
-                        // reference from which it was created despite copying
-                        #struct_field_ptr: unsafe {
-                            *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name)
-                        },
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will only be modified there, also the pointer will not outlive the
-                        // reference from which it was created despite copying
-                        #struct_field_size: unsafe {
-                            *::ab_contracts_macros::__private::IoType::size_mut_ptr(#arg_name)
-                        },
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will not be modified, also the pointer will not outlive the reference
-                        // from which it was created despite copying
-                        #struct_field_capacity: unsafe {
-                            *::ab_contracts_macros::__private::IoType::capacity_ptr(#arg_name)
-                        },
-                    });
+                    external_args_args.push(quote! { #arg_name });
                 }
             }
         }
@@ -1717,17 +1765,9 @@ impl MethodDetails {
                 let mut ok_result_size =
                     <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE;
             });
-            args_fields.push(quote! {
-                // SAFETY: Pointer created from an allocated struct
-                ok_result_ptr: unsafe {
-                    ::core::ptr::NonNull::new_unchecked(ok_result.as_mut_ptr())
-                },
-                ok_result_size: &raw mut ok_result_size,
-                // This is for `TrivialType` and will never be modified
-                // TODO: Use `NonNull::from_ref()` once stable
-                ok_result_capacity: ::core::ptr::NonNull::from(
-                    &<#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
-                ),
+            external_args_args.push(quote! {
+                &mut ok_result,
+                &mut ok_result_size
             });
             result_processing.push(quote! {
                 // This is fine for `TrivialType` types
@@ -1763,9 +1803,9 @@ impl MethodDetails {
             #method_signature {
                 #( #preparation )*
 
-                let mut args = #original_method_name::#args_struct_name {
-                    #( #args_fields )*
-                };
+                let mut args = #original_method_name::#args_struct_name::new(
+                    #( #external_args_args, )*
+                );
 
                 self.call(contract, &mut args, #method_context_value)?;
 
