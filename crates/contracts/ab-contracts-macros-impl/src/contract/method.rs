@@ -221,7 +221,7 @@ impl MethodDetails {
                                         .unwrap_or_default()
                                 {
                                     // Swap `Self` for an actual struct name
-                                    self.set_result_type(MethodResultType::Regular(
+                                    self.set_result_type(MethodResultType::Result(
                                         self.self_type.clone(),
                                     ));
                                 } else {
