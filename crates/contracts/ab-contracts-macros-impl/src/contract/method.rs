@@ -70,7 +70,7 @@ impl IoArg {
 }
 
 enum MethodResultType {
-    /// Function doesn't have any return type defined
+    /// The function doesn't have any return type defined
     Unit(Type),
     /// Returns a type without [`Result`]
     Regular(Type),
@@ -1068,11 +1068,12 @@ impl MethodDetails {
         let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
         let result_type = self.result_type.result_type();
 
-        let result_var_name = format_ident!("result");
         let internal_args_struct = {
             // Result can be used through return type or argument, for argument no special handling
-            // of the return type is needed
-            if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
+            // of the return type is needed. Similarly, it is skipped for a unit return type.
+            if !(matches!(self.io.last(), Some(IoArg::Result { .. }))
+                || self.result_type.unit_result_type())
+            {
                 internal_args_pointers.push(quote! {
                     pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
                     /// The size of the contents `ok_result_ptr` points to
@@ -1119,6 +1120,7 @@ impl MethodDetails {
             }
         };
 
+        let result_var_name = format_ident!("result");
         let guest_fn = {
             // Depending on whether `T` or `Result<T, ContractError>` is used as return type,
             // generate different code for result handling
@@ -1367,8 +1369,9 @@ impl MethodDetails {
                     });
                 }
                 IoArg::Result { .. } => {
-                    // Initializer's return type will be `()` for caller, state is stored by the
-                    // host and not returned to the caller, hence no explicit argument is needed
+                    // Initializer's return type will be `()` for caller of `#[init]`, state is
+                    // stored by the host and not returned to the caller, hence no explicit argument
+                    // is needed
                     if !matches!(self.method_type, MethodType::Init) {
                         external_args_fields.push(quote! {
                             pub #ptr_field: ::core::ptr::NonNull<
@@ -1410,11 +1413,13 @@ impl MethodDetails {
 
         let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
 
-        // Initializer's return type will be `()` for caller, state is stored by the host and not
-        // returned to the caller, also if explicit `#[result]` argument is used return type is
-        // also `()`. In both cases, explicit arguments are not needed in `ExternalArgs` struct.
+        // Initializer's return type will be `()` for caller of `#[init]`, state is stored by the
+        // host and not returned to the caller, also if explicit `#[result]` argument is used return
+        // type is also `()`. In both cases, explicit arguments are not needed in `ExternalArgs`
+        // struct. Similarly, it is skipped for a unit return type.
         if !(matches!(self.io.last(), Some(IoArg::Result { .. }))
-            || matches!(self.method_type, MethodType::Init))
+            || matches!(self.method_type, MethodType::Init)
+            || self.result_type.unit_result_type())
         {
             let result_type = &self.result_type.result_type();
 
@@ -1562,7 +1567,10 @@ impl MethodDetails {
             });
         }
 
-        if !matches!(self.io.last(), Some(IoArg::Result { .. })) {
+        // Skipped if return type is unit
+        if !(matches!(self.io.last(), Some(IoArg::Result { .. }))
+            || self.result_type.unit_result_type())
+        {
             // There isn't an explicit name in case of the return type
             let arg_name_metadata = Literal::u8_unsuffixed(0);
             // Skip type metadata for `#[init]`'s result since it is known statically
@@ -1698,8 +1706,8 @@ impl MethodDetails {
                     type_name,
                     arg_name,
                 } => {
-                    // Initializer's return type will be `()` for caller, state is stored by the
-                    // host and not returned to the caller
+                    // Initializer's return type will be `()` for caller of `#[init]`, state is
+                    // stored by the host and not returned to the caller
                     if matches!(self.method_type, MethodType::Init) {
                         continue;
                     }
@@ -1744,9 +1752,10 @@ impl MethodDetails {
         });
         // Initializer's return type will be `()` for caller, state is stored by the host and not
         // returned to the caller, also if explicit `#[result]` argument is used return type is
-        // also `()`.
+        // also `()`. Similarly, it is skipped for a unit return type.
         let method_signature = if matches!(self.io.last(), Some(IoArg::Result { .. }))
             || matches!(self.method_type, MethodType::Init)
+            || self.result_type.unit_result_type()
         {
             quote! {
                 fn #ext_method_name(

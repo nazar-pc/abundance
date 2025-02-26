@@ -397,9 +397,12 @@ pub mod __private;
 /// }
 /// ```
 ///
-/// `#[result]` is an alternative to `-> Result<ResultValue, ContractError>` in case the data
-/// structure is large and allocation on the stack is undesirable, which is especially helpful in
-/// case of a variable-sized contract state.
+/// `#[result]` is an alternative to `-> ResultValue` and `-> Result<ResultValue, ContractError>`
+/// in case the data structure is large and allocation on the stack is undesirable, which is
+/// especially helpful in case of a variable-sized contract state.
+///
+/// NOTE: In case `ResultValue` in `-> ResultValue` or `-> Result<ResultValue, ContractError>` is
+/// `()`, it will be skipped in `InternalArgs`.
 ///
 /// The only big difference from `#[output]` is that in case of `#[init]` method result will be
 /// returning contract's initial state, in which case its pointer can be changed to point to a
@@ -509,6 +512,9 @@ pub mod __private;
 ///     // ...
 /// }
 /// ```
+///
+/// NOTE: In case `ResultValue` in `-> ResultValue` or `-> Result<ResultValue, ContractError>` is
+/// `()`, it will be skipped in `ExternalArgs`.
 ///
 /// ## Extension trait
 ///
