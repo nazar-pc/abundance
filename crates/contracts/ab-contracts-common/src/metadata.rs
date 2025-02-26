@@ -135,6 +135,8 @@ pub enum ContractMetadataKind {
     /// Explicit `#[result`] argument or `T` of [`Result<T, ContractError>`] return type or simply
     /// return type if it is not fallible.
     ///
+    /// NOTE: Skipped if return type's `T` is `().
+    ///
     /// Example: `#[result] result: &mut MaybeData<Balance>,`
     ///
     /// NOTE: There is always exactly one result in a method.
