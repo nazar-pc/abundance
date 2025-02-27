@@ -35,7 +35,7 @@ jobs:
 
       - name: Build rustdoc
         run: |
-          cargo -Zgitoxide -Zgit doc --locked --all --no-deps --lib
+          cargo -Zgitoxide -Zgit doc --locked --all --no-deps --lib --all-features
           cp -r target/doc gh-pages/rust-docs
         env:
           RUSTDOCFLAGS: "-D rustdoc::broken-intra-doc-links -D rustdoc::private_intra_doc_links -Z unstable-options --enable-index-page"

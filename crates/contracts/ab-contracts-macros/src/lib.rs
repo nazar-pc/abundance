@@ -227,9 +227,9 @@ pub mod __private;
 /// pointer field is generated:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs<'__internal_args> {
+/// pub struct InternalArgs<'internal_args> {
 ///     // ...
-///     pub env_ptr: NonNull<Env<'__internal_args>>,
+///     pub env_ptr: NonNull<Env<'internal_args>>,
 ///     // ...
 /// }
 /// ```
@@ -241,9 +241,9 @@ pub mod __private;
 /// is generated:
 /// ```ignore
 /// #[repr(C)]
-/// pub struct InternalArgs<'__internal_args> {
+/// pub struct InternalArgs<'internal_args> {
 ///     // ...
-///     pub env_ptr: NonNull<Env<'__internal_args>>,
+///     pub env_ptr: NonNull<Env<'internal_args>>,
 ///     // ...
 /// }
 /// ```
@@ -518,7 +518,8 @@ pub mod __private;
 /// ```
 ///
 /// NOTE: In case `ResultValue` in `-> ResultValue` or `-> Result<ResultValue, ContractError>` is
-/// `()`, it will be skipped in `ExternalArgs`.
+/// `()`, it will be skipped in `ExternalArgs`.Also in the case of `#[init]` method, it is skipped
+/// in `ExternalArgs` since the result is handled by the host.
 ///
 /// ## Extension trait
 ///

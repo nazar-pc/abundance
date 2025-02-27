@@ -805,7 +805,7 @@ impl MethodDetails {
 
             internal_args_pointers.push(quote! {
                 // Use `Env` to check if method argument had the correct type at compile time
-                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Env<'__internal_args>>,
+                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Env<'internal_args>>,
             });
 
             if mutability.is_some() {
@@ -1112,10 +1112,10 @@ impl MethodDetails {
             quote_spanned! {fn_sig.span() =>
                 #[doc = #args_struct_doc]
                 #[repr(C)]
-                pub struct InternalArgs<'__internal_args>
+                pub struct InternalArgs<'internal_args>
                 {
                     #( #internal_args_pointers )*
-                    _phantom: ::core::marker::PhantomData<&'__internal_args ()>,
+                    _phantom: ::core::marker::PhantomData<&'internal_args ()>,
                 }
             }
         };
