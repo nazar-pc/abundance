@@ -518,7 +518,8 @@ pub mod __private;
 /// ```
 ///
 /// NOTE: In case `ResultValue` in `-> ResultValue` or `-> Result<ResultValue, ContractError>` is
-/// `()`, it will be skipped in `ExternalArgs`.
+/// `()`, it will be skipped in `ExternalArgs`.Also in the case of `#[init]` method, it is skipped
+/// in `ExternalArgs` since the result is handled by the host.
 ///
 /// ## Extension trait
 ///
