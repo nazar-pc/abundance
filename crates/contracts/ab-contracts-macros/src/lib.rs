@@ -385,6 +385,8 @@ pub mod __private;
 /// host will not follow it to the new address, the output size is fully constrained by capacity
 /// specified in `output_capacity`.
 ///
+/// NOTE: Even in case the method call fails, the host may modify the contents of the output.
+///
 /// ### `#[result] result: &mut MaybeData<ResultValue>` and `-> Result<ResultValue, ContractError>`
 ///
 /// `#[result] result: &mut MaybeData<ResultValue>` and regular return type (only one of those can
