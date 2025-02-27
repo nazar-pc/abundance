@@ -26,7 +26,7 @@ const _: () = {
 ///
 /// Data is aligned to 16 bytes (128 bits), which is the largest alignment required by primitive
 /// types and by extension any type that implements `TrivialType`/`IoType`.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(super) struct OwnedAlignedBuffer {
     buffer: Arc<[MaybeUninit<AlignedBytes>]>,
     len: u32,
@@ -175,6 +175,7 @@ impl SharedAlignedBuffer {
     /// allocation will be created.
     ///
     /// Returns `None` if there exit other shared instances.
+    #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     pub(super) fn into_owned(mut self) -> OwnedAlignedBuffer {
         // Check if this is the last instance of the buffer
         if Arc::get_mut(&mut self.buffer).is_some() {

@@ -156,17 +156,30 @@ impl NativeExecutorContext {
         previous_env_state: &EnvState,
         prepared_method: &mut PreparedMethod<'_>,
     ) -> Result<(), ContractError> {
+        // TODO: Special read-only access that doesn't track any changes at all because there will
+        //  be none
         let nested_slots = self.nested_slots();
 
-        self.prepare_ffi_call(
-            previous_env_state,
-            prepared_method,
-            // For call to multiple methods only read-only `#[view]` is allowed
-            false,
-            Arc::clone(&nested_slots),
-        )?
-        .dispatch()?
-        .persist()
+        let result: Result<(), ContractError> = try {
+            self.prepare_ffi_call(
+                previous_env_state,
+                prepared_method,
+                // For call to multiple methods only read-only `#[view]` is allowed
+                false,
+                Arc::clone(&nested_slots),
+            )?
+            .dispatch()?
+            .persist()?
+        };
+
+        if result.is_err() {
+            Arc::into_inner(nested_slots)
+                .expect("All child references already dropped; qed")
+                .into_inner()
+                .reset();
+        }
+
+        result
     }
 
     fn call_many_methods(
@@ -174,6 +187,8 @@ impl NativeExecutorContext {
         previous_env_state: &EnvState,
         prepared_methods: &mut [PreparedMethod<'_>],
     ) -> Result<(), ContractError> {
+        // TODO: Special read-only access that doesn't track any changes at all because there will
+        //  be none
         let nested_slots = self.nested_slots();
 
         let ffi_calls = prepared_methods

@@ -29,18 +29,28 @@ impl From<SlotIndex> for usize {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Slot {
     /// Original slot as given to the execution environment, not accessed yet
     Original(SharedAlignedBuffer),
-    /// Read-only slot that is currently being accessed
-    ReadOnlyAccessed(SharedAlignedBuffer),
-    /// Read-only slot that is not currently accessed, but was modified earlier
-    ReadOnlyModified(SharedAlignedBuffer),
-    /// Read-only slot that is not currently accessed, but was modified earlier
-    ReadOnlyModifiedAccessed(SharedAlignedBuffer),
-    /// Slot that is currently being modified
-    ReadWrite(OwnedAlignedBuffer),
+    /// Original slot as given to the execution environment that is currently being accessed
+    OriginalAccessed(SharedAlignedBuffer),
+    /// Previously modified slot
+    Modified(SharedAlignedBuffer),
+    /// Previously modified slot that is currently being accessed for reads
+    ModifiedAccessed(SharedAlignedBuffer),
+    /// Original slot as given to the execution environment that is currently being modified
+    ReadWriteOriginal {
+        buffer: OwnedAlignedBuffer,
+        /// What it was in [`Self::Original`] before becoming [`Self::ReadWriteOriginal`]
+        previous: SharedAlignedBuffer,
+    },
+    /// Previously modified slot that is currently being modified
+    ReadWriteModified {
+        buffer: OwnedAlignedBuffer,
+        /// What it was in [`Self::ReadOnlyModified`] before becoming [`Self::ReadWriteModified`]
+        previous: SharedAlignedBuffer,
+    },
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -102,20 +112,20 @@ impl Drop for Slots {
                 Slot::Original(_buffer) => {
                     unreachable!("Slot can't be in Original state after being accessed")
                 }
-                Slot::ReadOnlyAccessed(buffer) => {
+                Slot::OriginalAccessed(buffer) => {
                     let buffer = mem::take(buffer);
                     *slot = Slot::Original(buffer);
                 }
-                Slot::ReadOnlyModified(_buffer) => {
+                Slot::Modified(_buffer) => {
                     // Remains modified
                 }
-                Slot::ReadOnlyModifiedAccessed(buffer) => {
+                Slot::ModifiedAccessed(buffer) => {
                     let buffer = mem::take(buffer);
-                    *slot = Slot::ReadOnlyModified(buffer);
+                    *slot = Slot::Modified(buffer);
                 }
-                Slot::ReadWrite(buffer) => {
+                Slot::ReadWriteOriginal { buffer, .. } | Slot::ReadWriteModified { buffer, .. } => {
                     let buffer = mem::take(buffer);
-                    *slot = Slot::ReadOnlyModified(buffer.into_shared());
+                    *slot = Slot::Modified(buffer.into_shared());
                 }
             }
         }
@@ -272,10 +282,10 @@ impl Slots {
             .1
         {
             Slot::Original(buffer)
-            | Slot::ReadOnlyAccessed(buffer)
-            | Slot::ReadOnlyModified(buffer)
-            | Slot::ReadOnlyModifiedAccessed(buffer) => buffer,
-            Slot::ReadWrite(_buffer) => {
+            | Slot::OriginalAccessed(buffer)
+            | Slot::Modified(buffer)
+            | Slot::ModifiedAccessed(buffer) => buffer,
+            Slot::ReadWriteOriginal { .. } | Slot::ReadWriteModified { .. } => {
                 return None;
             }
         };
@@ -338,24 +348,22 @@ impl Slots {
                 match slot {
                     Slot::Original(buffer) => {
                         let buffer = mem::take(buffer);
-                        *slot = Slot::ReadOnlyAccessed(buffer);
-                        let Slot::ReadOnlyAccessed(buffer) = slot else {
+                        *slot = Slot::OriginalAccessed(buffer);
+                        let Slot::OriginalAccessed(buffer) = slot else {
                             unreachable!("Just inserted; qed");
                         };
                         Some(buffer)
                     }
-                    Slot::ReadOnlyAccessed(buffer) | Slot::ReadOnlyModifiedAccessed(buffer) => {
-                        Some(buffer)
-                    }
-                    Slot::ReadOnlyModified(buffer) => {
+                    Slot::OriginalAccessed(buffer) | Slot::ModifiedAccessed(buffer) => Some(buffer),
+                    Slot::Modified(buffer) => {
                         let buffer = mem::take(buffer);
-                        *slot = Slot::ReadOnlyModifiedAccessed(buffer);
-                        let Slot::ReadOnlyModifiedAccessed(buffer) = slot else {
+                        *slot = Slot::ModifiedAccessed(buffer);
+                        let Slot::ModifiedAccessed(buffer) = slot else {
                             unreachable!("Just inserted; qed");
                         };
                         Some(buffer)
                     }
-                    Slot::ReadWrite(_buffer) => None,
+                    Slot::ReadWriteOriginal { .. } | Slot::ReadWriteModified { .. } => None,
                 }
             }
             None => {
@@ -375,10 +383,10 @@ impl Slots {
                     read_write: false,
                 });
 
-                let slot = Slot::ReadOnlyAccessed(SharedAlignedBuffer::default());
+                let slot = Slot::OriginalAccessed(SharedAlignedBuffer::default());
                 slots.push((slot_key, slot));
                 let slot = &slots.last().expect("Just inserted; qed").1;
-                let Slot::ReadOnlyAccessed(buffer) = slot else {
+                let Slot::OriginalAccessed(buffer) = slot else {
                     unreachable!("Just inserted; qed");
                 };
 
@@ -445,21 +453,44 @@ impl Slots {
 
                 // The slot that is currently being accessed to is not allowed for writing
                 let buffer = match slot {
-                    Slot::ReadOnlyAccessed(_buffer) | Slot::ReadOnlyModifiedAccessed(_buffer) => {
+                    Slot::OriginalAccessed(_buffer) | Slot::ModifiedAccessed(_buffer) => {
                         return None;
                     }
-                    Slot::Original(buffer) | Slot::ReadOnlyModified(buffer) => {
-                        let buffer = mem::take(buffer);
-                        *slot = Slot::ReadWrite(buffer.into_owned());
-                        let Slot::ReadWrite(buffer) = slot else {
+                    Slot::Original(buffer) => {
+                        let mut new_buffer =
+                            OwnedAlignedBuffer::with_capacity(capacity.max(buffer.len()));
+                        new_buffer.copy_from_slice(buffer.as_slice());
+
+                        *slot = Slot::ReadWriteOriginal {
+                            buffer: new_buffer,
+                            previous: mem::take(buffer),
+                        };
+                        let Slot::ReadWriteOriginal { buffer, .. } = slot else {
                             unreachable!("Just inserted; qed");
                         };
                         buffer
                     }
-                    Slot::ReadWrite(buffer) => buffer,
+                    Slot::Modified(buffer) => {
+                        let mut new_buffer =
+                            OwnedAlignedBuffer::with_capacity(capacity.max(buffer.len()));
+                        new_buffer.copy_from_slice(buffer.as_slice());
+
+                        *slot = Slot::ReadWriteModified {
+                            buffer: new_buffer,
+                            previous: mem::take(buffer),
+                        };
+                        let Slot::ReadWriteModified { buffer, .. } = slot else {
+                            unreachable!("Just inserted; qed");
+                        };
+                        buffer
+                    }
+                    Slot::ReadWriteOriginal { buffer, .. }
+                    | Slot::ReadWriteModified { buffer, .. } => {
+                        buffer.ensure_capacity(capacity);
+                        buffer
+                    }
                 };
 
-                buffer.ensure_capacity(capacity);
                 Some((slot_index, buffer))
             }
             None => {
@@ -480,10 +511,13 @@ impl Slots {
                     read_write: true,
                 });
 
-                let slot = Slot::ReadWrite(OwnedAlignedBuffer::with_capacity(capacity));
+                let slot = Slot::ReadWriteOriginal {
+                    buffer: OwnedAlignedBuffer::with_capacity(capacity),
+                    previous: SharedAlignedBuffer::default(),
+                };
                 slots.push((slot_key, slot));
                 let slot = &mut slots.last_mut().expect("Just inserted; qed").1;
-                let Slot::ReadWrite(buffer) = slot else {
+                let Slot::ReadWriteOriginal { buffer, .. } = slot else {
                     unreachable!("Just inserted; qed");
                 };
 
@@ -517,9 +551,9 @@ impl Slots {
         // Must be currently accessed for writing
         match slot {
             Slot::Original(_buffer)
-            | Slot::ReadOnlyAccessed(_buffer)
-            | Slot::ReadOnlyModified(_buffer)
-            | Slot::ReadOnlyModifiedAccessed(_buffer) => {
+            | Slot::OriginalAccessed(_buffer)
+            | Slot::Modified(_buffer)
+            | Slot::ModifiedAccessed(_buffer) => {
                 debug!(
                     ?slot_index,
                     "`access_used_rw` state access violation (read only)"
@@ -527,7 +561,61 @@ impl Slots {
                 self.access_violation = true;
                 None
             }
-            Slot::ReadWrite(buffer) => Some(buffer),
+            Slot::ReadWriteOriginal { buffer, .. } | Slot::ReadWriteModified { buffer, .. } => {
+                Some(buffer)
+            }
+        }
+    }
+
+    /// Reset any changes that might have been done on this level
+    pub(super) fn reset(mut self) {
+        let Some(SlotsParent {
+            parent_slot_access_len,
+            parent,
+        }) = self.parent.take()
+        else {
+            return;
+        };
+
+        let parent = &mut *parent.lock();
+
+        parent.access_violation = self.access_violation;
+        if self.access_violation {
+            return;
+        }
+        mem::swap(&mut parent.slots, &mut self.slots);
+        mem::swap(&mut parent.slot_access, &mut self.slot_access);
+        mem::swap(&mut parent.new_contracts, &mut self.new_contracts);
+
+        // Fix-up slots that were modified during access
+        for slot_access in parent.slot_access.drain(parent_slot_access_len..) {
+            let slot = &mut parent
+                .slots
+                .get_mut(usize::from(slot_access.slot_index))
+                .expect("Accessed slot exists; qed")
+                .1;
+            match slot {
+                Slot::Original(_buffer) => {
+                    unreachable!("Slot can't be in Original state after being accessed")
+                }
+                Slot::OriginalAccessed(buffer) => {
+                    let buffer = mem::take(buffer);
+                    *slot = Slot::Original(buffer);
+                }
+                Slot::Modified(_buffer) => {
+                    // Remains modified
+                }
+                Slot::ModifiedAccessed(buffer) => {
+                    let buffer = mem::take(buffer);
+                    *slot = Slot::Modified(buffer);
+                }
+                Slot::ReadWriteOriginal { previous, .. } => {
+                    *slot = Slot::Original(mem::take(previous));
+                }
+                Slot::ReadWriteModified { previous, .. } => {
+                    *slot = Slot::Modified(mem::take(previous));
+                }
+            }
         }
     }
 }

@@ -348,6 +348,8 @@ pub mod __private;
 /// updated value from. This is helpful in case increase of the value size beyond allocated capacity
 /// is needed.
 ///
+/// Slot changes done by the method call will not be persisted if it returns an error.
+///
 /// ### `#[input] input: &InputValue`
 ///
 /// `#[input] input: &InputValue` is a read-only input to the contract call and generates two
