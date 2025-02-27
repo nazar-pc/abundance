@@ -348,6 +348,8 @@ pub mod __private;
 /// updated value from. This is helpful in case increase of the value size beyond allocated capacity
 /// is needed.
 ///
+/// Slot changes done by the method call will not be persisted if it returns an error.
+///
 /// ### `#[input] input: &InputValue`
 ///
 /// `#[input] input: &InputValue` is a read-only input to the contract call and generates two
@@ -382,6 +384,8 @@ pub mod __private;
 /// be propagated back to the caller to observe. `output_ptr` pointer must not be changed as the
 /// host will not follow it to the new address, the output size is fully constrained by capacity
 /// specified in `output_capacity`.
+///
+/// NOTE: Even in case the method call fails, the host may modify the contents of the output.
 ///
 /// ### `#[result] result: &mut MaybeData<ResultValue>` and `-> Result<ResultValue, ContractError>`
 ///
