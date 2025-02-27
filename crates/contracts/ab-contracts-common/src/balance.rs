@@ -16,6 +16,14 @@ unsafe impl TrivialType for Balance {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Balance as u8];
 }
 
+// Ensure this never mismatches with code in `ab-contracts-io-type` despite being in different crate
+const _: () = {
+    let (type_details, _metadata) = IoTypeMetadataKind::type_details(Balance::METADATA)
+        .expect("Statically correct metadata; qed");
+    assert!(size_of::<Balance>() == type_details.recommended_capacity as usize);
+    assert!(align_of::<Balance>() == type_details.alignment as usize);
+};
+
 impl fmt::Debug for Balance {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

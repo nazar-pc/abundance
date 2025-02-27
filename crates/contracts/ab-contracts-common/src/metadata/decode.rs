@@ -1,5 +1,5 @@
 use crate::metadata::ContractMetadataKind;
-use ab_contracts_io_type::metadata::IoTypeMetadataKind;
+use ab_contracts_io_type::metadata::{IoTypeDetails, IoTypeMetadataKind};
 use core::str;
 use core::str::Utf8Error;
 
@@ -72,15 +72,32 @@ pub enum MetadataDecodingError<'metadata> {
 pub enum MetadataItem<'a, 'metadata> {
     Contract {
         state_type_name: &'metadata str,
-        recommended_state_capacity: u32,
-        recommended_slot_capacity: u32,
-        recommended_tmp_capacity: u32,
+        state_type_details: IoTypeDetails,
+        slot_type_details: IoTypeDetails,
+        tmp_type_details: IoTypeDetails,
+        num_methods: u8,
         decoder: MethodsMetadataDecoder<'a, 'metadata>,
     },
     Trait {
         trait_name: &'metadata str,
+        num_methods: u8,
         decoder: MethodsMetadataDecoder<'a, 'metadata>,
     },
+}
+
+impl<'a, 'metadata> MetadataItem<'a, 'metadata> {
+    pub fn num_methods(&self) -> u8 {
+        match self {
+            MetadataItem::Contract { num_methods, .. }
+            | MetadataItem::Trait { num_methods, .. } => *num_methods,
+        }
+    }
+
+    pub fn into_decoder(self) -> MethodsMetadataDecoder<'a, 'metadata> {
+        match self {
+            MetadataItem::Contract { decoder, .. } | MetadataItem::Trait { decoder, .. } => decoder,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -157,22 +174,19 @@ impl<'metadata> MetadataDecoder<'metadata> {
             .ok_or(MetadataDecodingError::FailedToDecodeStateTypeName)?;
 
         // Decode recommended capacity of the state type
-        let recommended_state_capacity;
-        (recommended_state_capacity, self.metadata) =
-            IoTypeMetadataKind::recommended_capacity(self.metadata)
-                .ok_or(MetadataDecodingError::InvalidStateIoType)?;
+        let state_type_details;
+        (state_type_details, self.metadata) = IoTypeMetadataKind::type_details(self.metadata)
+            .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
         // Decode recommended capacity of the `#[slot]` type
-        let recommended_slot_capacity;
-        (recommended_slot_capacity, self.metadata) =
-            IoTypeMetadataKind::recommended_capacity(self.metadata)
-                .ok_or(MetadataDecodingError::InvalidStateIoType)?;
+        let slot_type_details;
+        (slot_type_details, self.metadata) = IoTypeMetadataKind::type_details(self.metadata)
+            .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
         // Decode recommended capacity of the `#[tmp]` type
-        let recommended_tmp_capacity;
-        (recommended_tmp_capacity, self.metadata) =
-            IoTypeMetadataKind::recommended_capacity(self.metadata)
-                .ok_or(MetadataDecodingError::InvalidStateIoType)?;
+        let tmp_type_details;
+        (tmp_type_details, self.metadata) = IoTypeMetadataKind::type_details(self.metadata)
+            .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
         // Decode the number of methods
         let num_methods = self.metadata[0];
@@ -180,9 +194,10 @@ impl<'metadata> MetadataDecoder<'metadata> {
 
         Ok(MetadataItem::Contract {
             state_type_name,
-            recommended_state_capacity,
-            recommended_slot_capacity,
-            recommended_tmp_capacity,
+            state_type_details,
+            slot_type_details,
+            tmp_type_details,
+            num_methods,
             decoder: MethodsMetadataDecoder::new(
                 &mut self.metadata,
                 MethodsContainerKind::Contract,
@@ -214,6 +229,7 @@ impl<'metadata> MetadataDecoder<'metadata> {
 
         Ok(MetadataItem::Trait {
             trait_name,
+            num_methods,
             decoder: MethodsMetadataDecoder::new(
                 &mut self.metadata,
                 MethodsContainerKind::Trait,
@@ -448,7 +464,7 @@ pub struct ArgumentMetadataItem<'metadata> {
     /// Exceptions:
     /// * `None` for `#[env]`
     /// * `None` for `#[result]` in `#[init]`
-    pub recommended_capacity: Option<u32>,
+    pub type_details: Option<IoTypeDetails>,
 }
 
 #[derive(Debug)]
@@ -545,7 +561,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             });
         }
 
-        let (argument_name, recommended_capacity) = match argument_kind {
+        let (argument_name, type_details) = match argument_kind {
             ArgumentKind::EnvRo | ArgumentKind::EnvRw => ("env", None),
             ArgumentKind::TmpRo
             | ArgumentKind::TmpRw
@@ -586,7 +602,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                     ArgumentKind::Input | ArgumentKind::Output => {
                         let recommended_capacity;
                         (recommended_capacity, *self.metadata) =
-                            IoTypeMetadataKind::recommended_capacity(self.metadata).ok_or(
+                            IoTypeMetadataKind::type_details(self.metadata).ok_or(
                                 MetadataDecodingError::InvalidArgumentIoType {
                                     argument_name,
                                     argument_kind,
@@ -601,7 +617,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                         } else {
                             let recommended_capacity;
                             (recommended_capacity, *self.metadata) =
-                                IoTypeMetadataKind::recommended_capacity(self.metadata).ok_or(
+                                IoTypeMetadataKind::type_details(self.metadata).ok_or(
                                     MetadataDecodingError::InvalidArgumentIoType {
                                         argument_name,
                                         argument_kind,
@@ -620,7 +636,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
         Ok(ArgumentMetadataItem {
             argument_name,
             argument_kind,
-            recommended_capacity,
+            type_details,
         })
     }
 }

@@ -157,14 +157,14 @@ impl NativeExecutorBuilder {
                     .map_err(|error| NativeExecutorError::ContractMetadataDecodingError { error })?
                 {
                     MetadataItem::Contract {
-                        recommended_state_capacity,
-                        recommended_slot_capacity,
-                        recommended_tmp_capacity,
+                        state_type_details,
+                        slot_type_details,
+                        tmp_type_details,
                         ..
                     } => (
-                        recommended_state_capacity,
-                        recommended_slot_capacity,
-                        recommended_tmp_capacity,
+                        state_type_details.recommended_capacity,
+                        slot_type_details.recommended_capacity,
+                        tmp_type_details.recommended_capacity,
                     ),
                     MetadataItem::Trait { .. } => {
                         return Err(NativeExecutorError::ExpectedContractMetadataFoundTrait);
