@@ -1,11 +1,11 @@
 mod compact;
-mod recommended_capacity;
 #[cfg(test)]
 mod tests;
+mod type_details;
 mod type_name;
 
 use crate::metadata::compact::compact_metadata;
-use crate::metadata::recommended_capacity::recommended_capacity;
+use crate::metadata::type_details::decode_type_details;
 use crate::metadata::type_name::type_name;
 use core::ptr;
 
@@ -42,6 +42,26 @@ pub const fn concat_metadata_sources(sources: &[&[u8]]) -> ([u8; MAX_METADATA_CA
     let remainder_len = remainder.len();
     let size = metadata_scratch.len() - remainder_len;
     (metadata_scratch, size)
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct IoTypeDetails {
+    /// Recommended capacity that must be allocated by the host.
+    ///
+    /// If actual data is larger, it will be passed down to the guest as it is, if smaller than host
+    /// must allocate the recommended capacity for guest anyway.
+    pub recommended_capacity: u32,
+    /// Alignment of the type
+    pub alignment: u8,
+}
+
+impl IoTypeDetails {
+    const fn bytes(recommended_capacity: u32) -> Self {
+        Self {
+            recommended_capacity,
+            alignment: 1,
+        }
+    }
 }
 
 /// Metadata types contained in [`TrivialType::METADATA`] and [`IoType::METADATA`].
@@ -490,9 +510,9 @@ impl IoTypeMetadataKind {
     /// If actual data is larger, it will be passed down to the guest as it is, if smaller than host
     /// should allocate recommended capacity for guest anyway.
     ///
-    /// Returns recommended capacity and whatever slice of bytes from `input` that is left after
+    /// Returns type details and whatever slice of bytes from `input` that is left after
     /// type decoding.
-    pub const fn recommended_capacity(metadata: &[u8]) -> Option<(u32, &[u8])> {
-        recommended_capacity(metadata)
+    pub const fn type_details(metadata: &[u8]) -> Option<(IoTypeDetails, &[u8])> {
+        decode_type_details(metadata)
     }
 }

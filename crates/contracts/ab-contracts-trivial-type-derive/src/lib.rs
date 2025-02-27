@@ -85,9 +85,18 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
                     // Assert that type doesn't exceed 32-bit size limit
                     assert!(
-                        u32::MAX as usize >= ::core::mem::size_of::<#type_name>(),
+                        u32::MAX as ::core::primitive::usize >= ::core::mem::size_of::<#type_name>(),
                         "Type size must be smaller than 2^32"
                     );
+
+                    // Ensure capacity and alignment are correctly decoded from metadata
+                    let (type_details, _metadata) =
+                        ::ab_contracts_io_type::metadata::IoTypeMetadataKind::type_details(
+                            <#type_name as ::ab_contracts_io_type::trivial_type::TrivialType>::METADATA,
+                        )
+                            .expect("Statically correct metadata; qed");
+                    assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
+                    assert!(align_of::<#type_name>() == type_details.alignment as ::core::primitive::usize);
                 };
 
                 #[automatically_derived]
@@ -95,7 +104,7 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 where
                     #( #field_types: ::ab_contracts_io_type::trivial_type::TrivialType, )*
                 {
-                    const METADATA: &[u8] = #struct_metadata;
+                    const METADATA: &[::core::primitive::u8] = #struct_metadata;
                 }
             }
         }
@@ -129,7 +138,7 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     assert!(
                         0 == (
                             ::core::mem::size_of::<#type_name>()
-                            - ::core::mem::size_of::<#repr_numeric>()
+                            - ::core::mem::size_of::<::core::primitive::#repr_numeric>()
                             #(- ::core::mem::size_of::<#field_types>() )*
                         ),
                         "Enum must not have implicit padding"
@@ -148,19 +157,28 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 const _: () = {
                     // Assert that type doesn't exceed 32-bit size limit
                     assert!(
-                        u32::MAX as usize >= ::core::mem::size_of::<#type_name>(),
+                        u32::MAX as ::core::primitive::usize >= ::core::mem::size_of::<#type_name>(),
                         "Type size must be smaller than 2^32"
                     );
+
+                    // Ensure capacity and alignment are correctly decoded from metadata
+                    let (type_details, _metadata) =
+                        ::ab_contracts_io_type::metadata::IoTypeMetadataKind::type_details(
+                            <#type_name as ::ab_contracts_io_type::trivial_type::TrivialType>::METADATA,
+                        )
+                            .expect("Statically correct metadata; qed");
+                    assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
+                    assert!(align_of::<#type_name>() == type_details.alignment as ::core::primitive::usize);
 
                     #( #padding_assertions )*;
                 };
 
-                //#[automatically_derived]
+                #[automatically_derived]
                 unsafe impl ::ab_contracts_io_type::trivial_type::TrivialType for #type_name
                 where
                     #( #field_types: ::ab_contracts_io_type::trivial_type::TrivialType, )*
                 {
-                    const METADATA: &[u8] = #enum_metadata;
+                    const METADATA: &[::core::primitive::u8] = #enum_metadata;
                 }
             }
         }
@@ -281,11 +299,13 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
     // * Type: struct
     // * The rest as inner struct metadata
     Ok(quote! {{
-        const fn metadata()
-            -> ([u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY], usize)
+        const fn metadata() -> (
+            [::core::primitive::u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY],
+            usize,
+        )
         {
             ::ab_contracts_io_type::metadata::concat_metadata_sources(&[
-                &[::ab_contracts_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as u8],
+                &[::ab_contracts_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as ::core::primitive::u8],
                 #( #inner_struct_metadata )*
             ])
         }
@@ -350,7 +370,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
 
         quote! {
             &[
-                ::ab_contracts_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as u8,
+                ::ab_contracts_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as ::core::primitive::u8,
                 #( #enum_metadata_header, )*
             ]
         }
@@ -384,8 +404,10 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
         .collect::<Result<Vec<TokenStream>, Error>>()?;
 
     Ok(quote! {{
-        const fn metadata()
-            -> ([u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY], usize)
+        const fn metadata() -> (
+            [::core::primitive::u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY],
+            usize,
+        )
         {
             ::ab_contracts_io_type::metadata::concat_metadata_sources(&[
                 #enum_metadata_header,

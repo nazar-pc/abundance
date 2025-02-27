@@ -16,6 +16,14 @@ unsafe impl TrivialType for Address {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Address as u8];
 }
 
+// Ensure this never mismatches with code in `ab-contracts-io-type` despite being in different crate
+const _: () = {
+    let (type_details, _metadata) = IoTypeMetadataKind::type_details(Address::METADATA)
+        .expect("Statically correct metadata; qed");
+    assert!(size_of::<Address>() == type_details.recommended_capacity as usize);
+    assert!(align_of::<Address>() == type_details.alignment as usize);
+};
+
 impl fmt::Debug for Address {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
