@@ -21,7 +21,7 @@ const _: () = {
     let (type_details, _metadata) = IoTypeMetadataKind::type_details(Balance::METADATA)
         .expect("Statically correct metadata; qed");
     assert!(size_of::<Balance>() == type_details.recommended_capacity as usize);
-    assert!(align_of::<Balance>() == type_details.alignment as usize);
+    assert!(align_of::<Balance>() == type_details.alignment.get() as usize);
 };
 
 impl fmt::Debug for Balance {
