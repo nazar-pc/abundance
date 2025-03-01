@@ -6,9 +6,36 @@ use crate::{Address, ContractError, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 use core::ffi::c_void;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
+
+// TODO: New type
+pub type Blake3Hash = [u8; 32];
+
+/// A measure of compute resources, 1 Gas == 1 ns of compute on reference hardware
+#[derive(Debug, Copy, Clone, TrivialType)]
+#[repr(C)]
+pub struct Gas(u64);
+
+#[derive(Debug, Copy, Clone, TrivialType)]
+#[repr(C)]
+pub struct TransactionHeader {
+    pub genesis_hash: Blake3Hash,
+    pub block_hash: Blake3Hash,
+    pub gas_limit: Gas,
+    pub contract: Address,
+}
+
+#[derive(Debug)]
+#[cfg(feature = "alloc")]
+pub struct Transaction {
+    pub header: TransactionHeader,
+    pub payload: Vec<u128>,
+    pub seal: Vec<u8>,
+}
 
 /// Context for method call.
 ///
@@ -45,7 +72,8 @@ pub struct PreparedMethod<'a> {
     pub external_args: NonNull<NonNull<c_void>>,
     /// Context for method call
     pub method_context: MethodContext,
-    _phantom: PhantomData<&'a ()>,
+    /// Used to tie the lifetime to `ExternalArgs`
+    pub phantom: PhantomData<&'a ()>,
 }
 
 /// Environment state
@@ -162,9 +190,10 @@ impl Env<'_> {
         PreparedMethod {
             contract,
             fingerprint: Args::FINGERPRINT,
+            // TODO: Method on `ExternalArgs` that returns an iterator over pointers
             external_args: NonNull::from_mut(args).cast::<NonNull<c_void>>(),
             method_context,
-            _phantom: PhantomData,
+            phantom: PhantomData,
         }
     }
 
@@ -177,10 +206,11 @@ impl Env<'_> {
     #[inline]
     pub fn call_many<const N: usize>(
         &self,
-        mut methods: [PreparedMethod<'_>; N],
+        methods: [PreparedMethod<'_>; N],
     ) -> Result<(), ContractError> {
         #[cfg(feature = "executor")]
         {
+            let mut methods = methods;
             self.executor_context.call_many(&self.state, &mut methods)
         }
         #[cfg(all(feature = "guest", not(feature = "executor")))]

@@ -4,6 +4,9 @@ use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_io_type::variable_elements::VariableElements;
 use ab_contracts_macros::contract;
 
+pub type TxHandlerPayload = VariableElements<0, u128>;
+pub type TxHandlerSeal = VariableBytes<0>;
+
 /// A transaction handler interface prototype
 #[contract]
 pub trait TxHandler {
@@ -35,8 +38,8 @@ pub trait TxHandler {
     fn authorize(
         #[env] env: &Env,
         #[input] header: &TransactionHeader,
-        #[input] payload: &VariableElements<0, u128>,
-        #[input] seal: &VariableBytes<0>,
+        #[input] payload: &TxHandlerPayload,
+        #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError>;
 
     /// Execute previously verified transaction.
@@ -54,7 +57,7 @@ pub trait TxHandler {
     fn execute(
         #[env] env: &mut Env,
         #[input] header: &TransactionHeader,
-        #[input] payload: &VariableElements<0, u128>,
-        #[input] seal: &VariableBytes<0>,
+        #[input] payload: &TxHandlerPayload,
+        #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError>;
 }

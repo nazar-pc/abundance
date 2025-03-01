@@ -239,7 +239,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     pub fn from_uninit<'a, const CAPACITY: usize>(
         uninit: &'a mut [MaybeUninit<<Self as IoType>::PointerType>; CAPACITY],
         size: &'a mut u32,
-    ) -> impl Deref<Target = Self> + 'a {
+    ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert!(
             *size as usize <= CAPACITY,
             "Size {size} must not exceed capacity {CAPACITY}"
@@ -330,12 +330,15 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         true
     }
 
-    /// Copy contents from another instance.
+    /// Copy contents from another `IoType`.
     ///
     /// Returns `false` if actual capacity of the instance is not enough to copy contents of `src`
     #[inline]
     #[must_use = "Operation may fail"]
-    pub fn copy_from(&mut self, src: &Self) -> bool {
+    pub fn copy_from<T>(&mut self, src: &T) -> bool
+    where
+        T: IoType,
+    {
         let src_size = src.size();
         if src_size > self.capacity {
             return false;
@@ -345,7 +348,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         // were upheld, size is checked to be within capacity above
         unsafe {
             self.bytes
-                .copy_from_nonoverlapping(src.bytes, src_size as usize);
+                .copy_from_nonoverlapping(src.as_ptr().cast::<u8>(), src_size as usize);
             self.size.write(src_size);
         }
 

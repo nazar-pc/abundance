@@ -252,7 +252,7 @@ where
     pub fn from_uninit<'a, const CAPACITY: usize>(
         uninit: &'a mut [MaybeUninit<<Self as IoType>::PointerType>; CAPACITY],
         size: &'a mut u32,
-    ) -> impl Deref<Target = Self> + 'a {
+    ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert!(
             *size as usize <= CAPACITY,
             "Size {size} must not exceed capacity {CAPACITY}"

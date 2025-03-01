@@ -16,6 +16,7 @@ use ab_contracts_common::{
 };
 use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt};
 use ab_system_contract_code::{Code, CodeExt};
+use ab_system_contract_simple_wallet_base::SimpleWalletBase;
 use ab_system_contract_state::State;
 use halfbrown::HashMap;
 use parking_lot::Mutex;
@@ -211,9 +212,10 @@ impl NativeExecutorBuilder {
         {
             let nested_slots = slots.lock().new_nested();
             let nested_slots = &mut *nested_slots.lock();
-            // Allow deployment of system address allocator and state contracts
+            // Allow deployment of system contracts
             assert!(nested_slots.add_new_contract(address_allocator_address));
             assert!(nested_slots.add_new_contract(Address::SYSTEM_STATE));
+            assert!(nested_slots.add_new_contract(Address::SYSTEM_SIMPLE_WALLET_BASE));
         }
 
         let mut instance = NativeExecutor {
@@ -227,6 +229,7 @@ impl NativeExecutorBuilder {
         // Deploy and initialize other system contacts
         {
             let mut env = instance.env(Address::SYSTEM_CODE, Address::SYSTEM_CODE);
+
             env.code_store(
                 MethodContext::Keep,
                 Address::SYSTEM_CODE,
@@ -234,6 +237,7 @@ impl NativeExecutorBuilder {
                 &State::code(),
             )
             .map_err(|error| NativeExecutorError::FailedToDeploySystemContracts { error })?;
+
             env.code_store(
                 MethodContext::Keep,
                 Address::SYSTEM_CODE,
@@ -243,6 +247,14 @@ impl NativeExecutorBuilder {
             .map_err(|error| NativeExecutorError::FailedToDeploySystemContracts { error })?;
             env.address_allocator_new(MethodContext::Keep, address_allocator_address)
                 .map_err(|error| NativeExecutorError::FailedToDeploySystemContracts { error })?;
+
+            env.code_store(
+                MethodContext::Keep,
+                Address::SYSTEM_CODE,
+                &Address::SYSTEM_SIMPLE_WALLET_BASE,
+                &SimpleWalletBase::code(),
+            )
+            .map_err(|error| NativeExecutorError::FailedToDeploySystemContracts { error })?;
         }
 
         Ok(instance)

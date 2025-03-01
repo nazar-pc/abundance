@@ -205,7 +205,7 @@ where
     pub fn from_uninit<'a>(
         uninit: &'a mut MaybeUninit<Data>,
         size: &'a mut u32,
-    ) -> impl Deref<Target = Self> + 'a {
+    ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert_eq!(*size, 0, "Invalid size");
 
         DerefWrapper(Self {

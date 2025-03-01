@@ -1,4 +1,6 @@
+use crate::env::Blake3Hash;
 use crate::metadata::ContractMetadataKind;
+use ab_contracts_io_type::trivial_type::TrivialType;
 use const_sha1::sha1;
 use core::fmt;
 
@@ -7,9 +9,9 @@ use core::fmt;
 /// While nothing can be said about method implementation, matching method fingerprint means method
 /// name, inputs and outputs are what they are expected to be (struct and field names are ignored as
 /// explained in [`ContractMetadataKind::compact`].
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, TrivialType)]
 #[repr(C)]
-pub struct MethodFingerprint([u8; 32]);
+pub struct MethodFingerprint(Blake3Hash);
 
 impl fmt::Display for MethodFingerprint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -21,7 +23,7 @@ impl fmt::Display for MethodFingerprint {
 }
 
 impl MethodFingerprint {
-    /// Create new method fingerprint from its metadata.
+    /// Create a new method fingerprint from its metadata.
     ///
     /// `None` is returned for invalid metadata (see [`ContractMetadataKind::compact`] for details).
     pub const fn new(method_metadata: &[u8]) -> Option<Self> {
@@ -45,7 +47,7 @@ impl MethodFingerprint {
     }
 
     #[inline]
-    pub const fn to_bytes(&self) -> &[u8; 32] {
+    pub const fn to_bytes(&self) -> &Blake3Hash {
         &self.0
     }
 }

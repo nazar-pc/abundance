@@ -11,6 +11,10 @@ use crate::trivial_type::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 
+/// The maximum alignment supported by [`IoType`] types (16 bytes, corresponds to alignment of
+/// `u128`)
+pub const MAX_ALIGNMENT: u8 = 16;
+
 const _: () = {
     assert!(
         size_of::<usize>() >= size_of::<u32>(),
@@ -23,6 +27,12 @@ const _: () = {
     assert!(
         u16::from_ne_bytes(1u16.to_le_bytes()) == 1u16,
         "Only little-endian platform supported"
+    );
+
+    // Max alignment is expected to match that of `u128`
+    assert!(
+        align_of::<u128>() == MAX_ALIGNMENT as usize,
+        "Max alignment mismatch"
     );
 
     // Only support targets with expected alignment and refuse to compile on other targets
@@ -160,7 +170,7 @@ pub unsafe trait IoType {
     /// Create a mutable reference to a type, which is represented by provided memory.
     ///
     /// Memory must be correctly aligned and sufficient in size or else `None` will be returned, but
-    /// padding beyond the size of the type is allowed. Memory behind pointer must not be read or
+    /// padding beyond the size of the type is allowed. Memory behind a pointer must not be read or
     /// written to in the meantime either.
     ///
     /// `size` indicates how many bytes are used within larger allocation for types that can

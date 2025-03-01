@@ -6,8 +6,8 @@ use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract;
 
-// TODO: How/where should this limit defined?
-pub const MAX_STATE_SIZE: u32 = 1024 * 1024;
+// TODO: How/where should this limit be defined?
+pub const RECOMMENDED_STATE_CAPACITY: u32 = 1024;
 
 #[derive(Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -15,14 +15,21 @@ pub struct State;
 
 #[contract]
 impl State {
-    /// Write contract's state
+    /// Write state.
+    ///
+    /// Only direct caller is allowed to write its own state for security reasons.
     #[update]
     pub fn write(
         #[env] env: &mut Env,
-        #[slot] (address, contract_state): (&Address, &mut VariableBytes<MAX_STATE_SIZE>),
-        #[input] new_state: &VariableBytes<MAX_STATE_SIZE>,
+        // TODO: Allow to replace slot pointer with input pointer to make the input size zero and
+        //  allow zero-copy
+        #[slot] (address, contract_state): (
+            &Address,
+            &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        ),
+        #[input] new_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
     ) -> Result<(), ContractError> {
-        // TODO: Check shard
+        // TODO: Check shard?
         if env.caller() != address {
             return Err(ContractError::Forbidden);
         }
@@ -34,11 +41,11 @@ impl State {
         Ok(())
     }
 
-    /// Read contract's state
+    /// Read state
     #[view]
     pub fn read(
-        #[slot] contract_state: &VariableBytes<MAX_STATE_SIZE>,
-        #[output] state: &mut VariableBytes<MAX_STATE_SIZE>,
+        #[slot] contract_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        #[output] state: &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
     ) -> Result<(), ContractError> {
         if state.copy_from(contract_state) {
             Ok(())
@@ -47,9 +54,9 @@ impl State {
         }
     }
 
-    /// Check if contract's state is empty
+    /// Check if the state is empty
     #[view]
-    pub fn is_empty(#[slot] contract_state: &VariableBytes<MAX_STATE_SIZE>) -> bool {
+    pub fn is_empty(#[slot] contract_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>) -> bool {
         contract_state.size() == 0
     }
 }
