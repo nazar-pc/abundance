@@ -1,0 +1,1 @@
+searchState.loadedDescShard("ab_contracts_macros_impl", 0, "See and use <code>ab-contracts-macros</code> crate instead, this is its …")

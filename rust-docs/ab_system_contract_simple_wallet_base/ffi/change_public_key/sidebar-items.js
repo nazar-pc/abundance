@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["change_public_key"],"struct":["InternalArgs","SimpleWalletBaseChangePublicKeyArgs"]};
