@@ -1,4 +1,4 @@
-#![feature(non_null_from_ref)]
+#![feature(maybe_uninit_slice, non_null_from_ref)]
 #![no_std]
 
 pub mod maybe_data;
