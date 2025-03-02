@@ -21,13 +21,17 @@ impl TxHandler for ExampleWallet {
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
-        env.simple_wallet_base_authorize(
-            Address::SYSTEM_SIMPLE_WALLET_BASE,
-            &env.own_address(),
-            header,
-            payload,
-            seal,
-        )
+        with_state_buffer(|state| {
+            env.state_read(Address::SYSTEM_STATE, &env.own_address(), state)?;
+
+            env.simple_wallet_base_authorize(
+                Address::SYSTEM_SIMPLE_WALLET_BASE,
+                state.cast_ref(),
+                header,
+                payload,
+                seal,
+            )
+        })
     }
 
     #[update]
@@ -52,21 +56,25 @@ impl TxHandler for ExampleWallet {
 
         // Manual state management due to the possibility that one of the calls during execution
         // above may update the state.
-        with_state_buffer(|state| {
-            // Fill `state` with updated state containing increased nonce
-            env.simple_wallet_base_increase_nonce(
-                Address::SYSTEM_SIMPLE_WALLET_BASE,
-                &env.own_address(),
-                seal,
-                state,
-            )?;
-            // Write new state of the contract, this can only be done by the direct owner
-            env.state_write(
-                MethodContext::Reset,
-                Address::SYSTEM_STATE,
-                &env.own_address(),
-                state,
-            )
+        with_state_buffer(|old_state| {
+            env.state_read(Address::SYSTEM_STATE, &env.own_address(), old_state)?;
+
+            with_state_buffer(|new_state| {
+                // Fill `state` with updated state containing increased nonce
+                env.simple_wallet_base_increase_nonce(
+                    Address::SYSTEM_SIMPLE_WALLET_BASE,
+                    old_state.cast_ref(),
+                    seal,
+                    new_state.cast_mut(),
+                )?;
+                // Write new state of the contract, this can only be done by the direct owner
+                env.state_write(
+                    MethodContext::Reset,
+                    Address::SYSTEM_STATE,
+                    &env.own_address(),
+                    new_state,
+                )
+            })
         })
     }
 }
@@ -85,7 +93,7 @@ impl ExampleWallet {
             env.simple_wallet_base_initialize(
                 Address::SYSTEM_SIMPLE_WALLET_BASE,
                 public_key,
-                state,
+                state.cast_mut(),
             )?;
             // Initialize state of the contract, this can only be done by the direct owner
             env.state_initialize(
@@ -111,21 +119,25 @@ impl ExampleWallet {
             return Err(ContractError::Forbidden);
         }
 
-        with_state_buffer(|state| {
-            // Fill `state` with updated state containing changed public key
-            env.simple_wallet_base_change_public_key(
-                Address::SYSTEM_SIMPLE_WALLET_BASE,
-                &env.own_address(),
-                public_key,
-                state,
-            )?;
-            // Write new state of the contract, this can only be done by the direct owner
-            env.state_write(
-                MethodContext::Reset,
-                Address::SYSTEM_STATE,
-                &env.own_address(),
-                state,
-            )
+        with_state_buffer(|old_state| {
+            env.state_read(Address::SYSTEM_STATE, &env.own_address(), old_state)?;
+
+            with_state_buffer(|new_state| {
+                // Fill `state` with updated state containing changed public key
+                env.simple_wallet_base_change_public_key(
+                    Address::SYSTEM_SIMPLE_WALLET_BASE,
+                    old_state.cast_ref(),
+                    public_key,
+                    new_state.cast_mut(),
+                )?;
+                // Write new state of the contract, this can only be done by the direct owner
+                env.state_write(
+                    MethodContext::Reset,
+                    Address::SYSTEM_STATE,
+                    &env.own_address(),
+                    new_state,
+                )
+            })
         })
     }
 }

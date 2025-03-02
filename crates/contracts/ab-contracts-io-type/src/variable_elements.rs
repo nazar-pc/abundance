@@ -13,6 +13,7 @@ use core::{ptr, slice};
 /// on other circumstances, like when called from another contract with specific allocation
 /// specified.
 #[derive(Debug)]
+#[repr(C)]
 pub struct VariableElements<const RECOMMENDED_ALLOCATION: u32, Element>
 where
     Element: TrivialType,
@@ -386,6 +387,36 @@ where
     #[inline]
     pub fn as_mut_ptr(&mut self) -> &mut NonNull<Element> {
         &mut self.elements
+    }
+
+    /// Cast a shared reference to this instance into a reference to an instance of a different
+    /// recommended allocation
+    #[inline]
+    pub fn cast_ref<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
+        &self,
+    ) -> &VariableElements<DIFFERENT_RECOMMENDED_ALLOCATION, Element> {
+        // SAFETY: `VariableElements` has a fixed layout due to `#[repr(C)]`, which doesn't depend
+        // on recommended allocation
+        unsafe {
+            NonNull::from_ref(self)
+                .cast::<VariableElements<DIFFERENT_RECOMMENDED_ALLOCATION, Element>>()
+                .as_ref()
+        }
+    }
+
+    /// Cast an exclusive reference to this instance into a reference to an instance of a different
+    /// recommended allocation
+    #[inline]
+    pub fn cast_mut<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
+        &mut self,
+    ) -> &mut VariableElements<DIFFERENT_RECOMMENDED_ALLOCATION, Element> {
+        // SAFETY: `VariableElements` has a fixed layout due to `#[repr(C)]`, which doesn't depend
+        // on recommended allocation
+        unsafe {
+            NonNull::from_mut(self)
+                .cast::<VariableElements<DIFFERENT_RECOMMENDED_ALLOCATION, Element>>()
+                .as_mut()
+        }
     }
 
     /// Assume that the first `size` are initialized and can be read.

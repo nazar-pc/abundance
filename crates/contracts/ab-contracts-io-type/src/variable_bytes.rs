@@ -1,4 +1,5 @@
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
+use crate::trivial_type::TrivialType;
 use crate::{DerefWrapper, IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
@@ -12,6 +13,7 @@ use core::{ptr, slice};
 /// on other circumstances, like when called from another contract with specific allocation
 /// specified.
 #[derive(Debug)]
+#[repr(C)]
 pub struct VariableBytes<const RECOMMENDED_ALLOCATION: u32> {
     bytes: NonNull<u8>,
     size: NonNull<u32>,
@@ -362,6 +364,61 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     #[inline]
     pub fn as_mut_ptr(&mut self) -> &mut NonNull<u8> {
         &mut self.bytes
+    }
+
+    /// Cast a shared reference to this instance into a reference to an instance of a different
+    /// recommended allocation
+    #[inline]
+    pub fn cast_ref<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
+        &self,
+    ) -> &VariableBytes<DIFFERENT_RECOMMENDED_ALLOCATION> {
+        // SAFETY: `VariableBytes` has a fixed layout due to `#[repr(C)]`, which doesn't depend on
+        // recommended allocation
+        unsafe {
+            NonNull::from_ref(self)
+                .cast::<VariableBytes<DIFFERENT_RECOMMENDED_ALLOCATION>>()
+                .as_ref()
+        }
+    }
+
+    /// Cast an exclusive reference to this instance into a reference to an instance of a different
+    /// recommended allocation
+    #[inline]
+    pub fn cast_mut<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
+        &mut self,
+    ) -> &mut VariableBytes<DIFFERENT_RECOMMENDED_ALLOCATION> {
+        // SAFETY: `VariableBytes` has a fixed layout due to `#[repr(C)]`, which doesn't depend on
+        // recommended allocation
+        unsafe {
+            NonNull::from_mut(self)
+                .cast::<VariableBytes<DIFFERENT_RECOMMENDED_ALLOCATION>>()
+                .as_mut()
+        }
+    }
+
+    /// Reads and returns value of type `T` or `None` if there is not enough data.
+    ///
+    /// Checks alignment internally to support both aligned and unaligned reads.
+    #[inline]
+    pub fn read_trivial_type<T>(&self) -> Option<T>
+    where
+        T: TrivialType,
+    {
+        if self.size() < T::SIZE {
+            return None;
+        }
+
+        let ptr = self.bytes.cast::<T>();
+
+        let value = unsafe {
+            if ptr.is_aligned() {
+                ptr.read()
+            } else {
+                ptr.read_unaligned()
+            }
+        };
+
+        Some(value)
     }
 
     /// Assume that the first `size` are initialized and can be read.

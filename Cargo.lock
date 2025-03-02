@@ -149,7 +149,6 @@ dependencies = [
  "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
- "ab-system-contract-state",
  "blake3",
  "schnorrkel",
  "thiserror",

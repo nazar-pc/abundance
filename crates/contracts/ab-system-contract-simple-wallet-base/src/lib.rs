@@ -18,13 +18,12 @@
 pub mod payload;
 
 use crate::payload::{TransactionMethodContext, TransactionPayloadDecoder};
+use ab_contracts_common::ContractError;
 use ab_contracts_common::env::{Env, MethodContext, TransactionHeader};
-use ab_contracts_common::{Address, ContractError};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::{TxHandlerPayload, TxHandlerSeal};
-use ab_system_contract_state::{RECOMMENDED_STATE_CAPACITY, StateExt};
 use core::mem::MaybeUninit;
 use core::{ptr, slice};
 use schnorrkel::context::SigningContext;
@@ -95,7 +94,7 @@ impl SimpleWalletBase {
     #[view]
     pub fn initialize(
         #[input] &public_key: &[u8; 32],
-        #[output] state: &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        #[output] state: &mut VariableBytes<0>,
     ) -> Result<(), ContractError> {
         // TODO: Storing some lower-level representation of the public key might reduce the cost of
         //  verification in `Self::authorize()` method
@@ -115,16 +114,15 @@ impl SimpleWalletBase {
     /// Reads state of `owner` and returns `Ok(())` if authorization succeeds
     #[view]
     pub fn authorize(
-        #[env] env: &Env,
-        #[input] owner: &Address,
+        #[input] state: &VariableBytes<0>,
         #[input] header: &TransactionHeader,
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
-        let state = Self::read_state(env, owner)?;
-        // SAFETY: Any set of bytes is valid and will be verified
-        let maybe_seal = unsafe { Seal::from_bytes(seal.get_initialized()) };
-        let Some(seal) = maybe_seal else {
+        let Some(state) = state.read_trivial_type::<WalletState>() else {
+            return Err(ContractError::BadInput);
+        };
+        let Some(seal) = seal.read_trivial_type::<Seal>() else {
             return Err(ContractError::BadInput);
         };
 
@@ -200,12 +198,13 @@ impl SimpleWalletBase {
     /// Returns state with increased nonce
     #[view]
     pub fn increase_nonce(
-        #[env] env: &Env,
-        #[input] owner: &Address,
+        #[input] state: &VariableBytes<0>,
         #[input] _seal: &TxHandlerSeal,
-        #[output] new_state: &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        #[output] new_state: &mut VariableBytes<0>,
     ) -> Result<(), ContractError> {
-        let mut state = Self::read_state(env, owner)?;
+        let Some(mut state) = state.read_trivial_type::<WalletState>() else {
+            return Err(ContractError::BadInput);
+        };
 
         state.nonce = state.nonce.checked_add(1).ok_or(ContractError::Forbidden)?;
 
@@ -219,12 +218,13 @@ impl SimpleWalletBase {
     /// Returns state with a changed public key
     #[view]
     pub fn change_public_key(
-        #[env] env: &Env,
-        #[input] owner: &Address,
+        #[input] state: &VariableBytes<0>,
         #[input] &public_key: &[u8; 32],
-        #[output] new_state: &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        #[output] new_state: &mut VariableBytes<0>,
     ) -> Result<(), ContractError> {
-        let mut state = Self::read_state(env, owner)?;
+        let Some(mut state) = state.read_trivial_type::<WalletState>() else {
+            return Err(ContractError::BadInput);
+        };
         // Ensure public key is valid
         schnorrkel::PublicKey::from_bytes(&public_key).map_err(|_error| ContractError::BadInput)?;
 
@@ -235,27 +235,5 @@ impl SimpleWalletBase {
         }
 
         Ok(())
-    }
-
-    /// Read state of the owner
-    fn read_state(env: &Env, owner: &Address) -> Result<WalletState, ContractError> {
-        let mut state = WalletState {
-            public_key: [0; 32],
-            nonce: 0,
-        };
-
-        let mut size = 0;
-        // SAFETY: All bytes are valid for `WalletState`, size doesn't matter since it
-        let mut bytes = VariableBytes::from_buffer_mut(unsafe { state.as_bytes_mut() }, &mut size);
-
-        env.state_read(Address::SYSTEM_STATE, owner, &mut bytes)?;
-
-        drop(bytes);
-
-        if size != WalletState::SIZE {
-            return Err(ContractError::InternalError);
-        }
-
-        Ok(state)
     }
 }
