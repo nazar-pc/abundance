@@ -18,7 +18,6 @@ ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
 ab-contracts-io-type = { version = "0.0.1", path = "../ab-contracts-io-type" }
 ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
 ab-contracts-standards = { version = "0.0.1", path = "../ab-contracts-standards" }
-ab-system-contract-state = { version = "0.0.1", path = "../ab-system-contract-state" }
 blake3 = { version = "1.6.0", default-features = false }
 schnorrkel = { version = "0.11.4", default-features = false }
 thiserror = { version = "2.0.11", default-features = false }
