@@ -96,7 +96,7 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         )
                             .expect("Statically correct metadata; qed");
                     assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
-                    assert!(align_of::<#type_name>() == type_details.alignment as ::core::primitive::usize);
+                    assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
                 };
 
                 #[automatically_derived]
@@ -168,7 +168,7 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         )
                             .expect("Statically correct metadata; qed");
                     assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
-                    assert!(align_of::<#type_name>() == type_details.alignment as ::core::primitive::usize);
+                    assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
 
                     #( #padding_assertions )*;
                 };

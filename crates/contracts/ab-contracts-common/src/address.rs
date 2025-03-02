@@ -21,7 +21,7 @@ const _: () = {
     let (type_details, _metadata) = IoTypeMetadataKind::type_details(Address::METADATA)
         .expect("Statically correct metadata; qed");
     assert!(size_of::<Address>() == type_details.recommended_capacity as usize);
-    assert!(align_of::<Address>() == type_details.alignment as usize);
+    assert!(align_of::<Address>() == type_details.alignment.get() as usize);
 };
 
 impl fmt::Debug for Address {
@@ -91,6 +91,8 @@ impl Address {
     pub const SYSTEM_CODE: Self = Self::from_u128(1);
     /// System contract for managing state of other contracts
     pub const SYSTEM_STATE: Self = Self::from_u128(2);
+    /// System simple wallet base contract that can be used by end user wallets
+    pub const SYSTEM_SIMPLE_WALLET_BASE: Self = Self::from_u128(3);
 
     /// Turn value into `u128`
     #[inline]

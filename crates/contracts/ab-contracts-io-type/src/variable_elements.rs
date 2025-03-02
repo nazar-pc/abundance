@@ -206,7 +206,7 @@ where
         // debug_assert_eq!(buffer.len(), *size as usize, "Invalid size");
 
         DerefWrapper(Self {
-            elements: NonNull::from_ref(buffer).cast::<<Self as IoType>::PointerType>(),
+            elements: NonNull::new(buffer.as_ptr().cast_mut()).expect("Not null; qed"),
             size: NonNull::from_ref(size),
             capacity: *size,
         })
@@ -231,7 +231,7 @@ where
         );
 
         DerefWrapper(Self {
-            elements: NonNull::from_mut(buffer).cast::<<Self as IoType>::PointerType>(),
+            elements: NonNull::new(buffer.as_mut_ptr()).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity: *size,
         })
@@ -250,9 +250,9 @@ where
     //  `CAPACITY as usize`
     #[track_caller]
     pub fn from_uninit<'a, const CAPACITY: usize>(
-        uninit: &'a mut MaybeUninit<[<Self as IoType>::PointerType; CAPACITY]>,
+        uninit: &'a mut [MaybeUninit<<Self as IoType>::PointerType>; CAPACITY],
         size: &'a mut u32,
-    ) -> impl Deref<Target = Self> + 'a {
+    ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert!(
             *size as usize <= CAPACITY,
             "Size {size} must not exceed capacity {CAPACITY}"
@@ -266,7 +266,7 @@ where
         let capacity = CAPACITY as u32;
 
         DerefWrapper(Self {
-            elements: NonNull::from_mut(uninit).cast::<<Self as IoType>::PointerType>(),
+            elements: NonNull::new(MaybeUninit::slice_as_mut_ptr(uninit)).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity,
         })

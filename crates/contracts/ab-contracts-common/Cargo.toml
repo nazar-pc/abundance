@@ -23,5 +23,7 @@ thiserror = "2.0.11"
 
 [features]
 guest = []
+# APIs that require `alloc` crate
 alloc = []
+# APIs needed for native executor
 executor = ["alloc"]

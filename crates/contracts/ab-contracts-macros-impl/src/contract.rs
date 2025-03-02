@@ -217,7 +217,7 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
         #[used]
         #[unsafe(no_mangle)]
         #[unsafe(link_section = "CONTRACT_METADATA")]
-        static #static_name: [u8; <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA.len()] = unsafe {
+        static #static_name: [::core::primitive::u8; <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA.len()] = unsafe {
             *<dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA.as_ptr().cast()
         };
 
@@ -304,7 +304,7 @@ fn generate_trait_metadata(
         /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
         const METADATA: &[::core::primitive::u8] = {
             const fn metadata()
-                -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
+                -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
             {
                 ::ab_contracts_macros::__private::concat_metadata_sources(&[
                     &[::ab_contracts_macros::__private::ContractMetadataKind::Trait as ::core::primitive::u8],
@@ -399,7 +399,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         quote! {
             const MAIN_CONTRACT_METADATA: &[::core::primitive::u8] = {
                 const fn metadata()
-                    -> ([u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
+                    -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
                 {
                     ::ab_contracts_macros::__private::concat_metadata_sources(&[
                         &[::ab_contracts_macros::__private::ContractMetadataKind::Contract as ::core::primitive::u8],
@@ -459,7 +459,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         #[unsafe(no_mangle)]
         #[unsafe(link_section = "CONTRACT_METADATA")]
         static MAIN_CONTRACT_METADATA: [
-            u8;
+            ::core::primitive::u8;
             <#struct_name as ::ab_contracts_macros::__private::Contract>::MAIN_CONTRACT_METADATA
                 .len()
         ] = unsafe {

@@ -1,4 +1,5 @@
 use crate::metadata::{IoTypeDetails, IoTypeMetadataKind};
+use core::num::NonZeroU8;
 use core::ptr;
 
 /// This macro is necessary to reduce boilerplate due to lack of `?` in const environment
@@ -23,42 +24,42 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
         IoTypeMetadataKind::Unit => Some((
             IoTypeDetails {
                 recommended_capacity: 0,
-                alignment: 1,
+                alignment: NonZeroU8::new(1).expect("Not zero; qed"),
             },
             metadata,
         )),
         IoTypeMetadataKind::Bool | IoTypeMetadataKind::U8 | IoTypeMetadataKind::I8 => Some((
             IoTypeDetails {
                 recommended_capacity: 1,
-                alignment: 1,
+                alignment: NonZeroU8::new(1).expect("Not zero; qed"),
             },
             metadata,
         )),
         IoTypeMetadataKind::U16 | IoTypeMetadataKind::I16 => Some((
             IoTypeDetails {
                 recommended_capacity: 2,
-                alignment: 2,
+                alignment: NonZeroU8::new(2).expect("Not zero; qed"),
             },
             metadata,
         )),
         IoTypeMetadataKind::U32 | IoTypeMetadataKind::I32 => Some((
             IoTypeDetails {
                 recommended_capacity: 4,
-                alignment: 4,
+                alignment: NonZeroU8::new(4).expect("Not zero; qed"),
             },
             metadata,
         )),
         IoTypeMetadataKind::U64 | IoTypeMetadataKind::I64 => Some((
             IoTypeDetails {
                 recommended_capacity: 8,
-                alignment: 8,
+                alignment: NonZeroU8::new(8).expect("Not zero; qed"),
             },
             metadata,
         )),
         IoTypeMetadataKind::U128 | IoTypeMetadataKind::I128 => Some((
             IoTypeDetails {
                 recommended_capacity: 16,
-                alignment: 16,
+                alignment: NonZeroU8::new(16).expect("Not zero; qed"),
             },
             metadata,
         )),
@@ -221,7 +222,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             Some((
                 IoTypeDetails {
                     recommended_capacity: 0,
-                    alignment: 1,
+                    alignment: NonZeroU8::new(1).expect("Not zero; qed"),
                 },
                 metadata,
             ))
@@ -229,7 +230,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
         IoTypeMetadataKind::Address | IoTypeMetadataKind::Balance => Some((
             IoTypeDetails {
                 recommended_capacity: 16,
-                alignment: 8,
+                alignment: NonZeroU8::new(8).expect("Not zero; qed"),
             },
             metadata,
         )),
@@ -282,8 +283,8 @@ const fn struct_type_details(
         (type_details, input) = forward_option!(decode_type_details(input));
         capacity = forward_option!(capacity.checked_add(type_details.recommended_capacity));
         // TODO: `core::cmp::max()` isn't const yet due to trait bounds
-        alignment = if type_details.alignment > alignment {
-            type_details.alignment
+        alignment = if type_details.alignment.get() > alignment {
+            type_details.alignment.get()
         } else {
             alignment
         };
@@ -294,7 +295,7 @@ const fn struct_type_details(
     Some((
         IoTypeDetails {
             recommended_capacity: capacity,
-            alignment,
+            alignment: NonZeroU8::new(alignment).expect("At least zero; qed"),
         },
         input,
     ))
@@ -346,8 +347,8 @@ const fn enum_capacity(
         // `+ 1` is for the discriminant
         let variant_capacity = variant_type_details.recommended_capacity + 1;
         // TODO: `core::cmp::max()` isn't const yet due to trait bounds
-        alignment = if variant_type_details.alignment > alignment {
-            variant_type_details.alignment
+        alignment = if variant_type_details.alignment.get() > alignment {
+            variant_type_details.alignment.get()
         } else {
             alignment
         };
@@ -375,7 +376,7 @@ const fn enum_capacity(
     Some((
         IoTypeDetails {
             recommended_capacity: enum_capacity,
-            alignment,
+            alignment: NonZeroU8::new(alignment).expect("At least zero; qed"),
         },
         input,
     ))
