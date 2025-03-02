@@ -3,15 +3,16 @@ use crate::{DerefWrapper, IoType};
 pub use ab_contracts_trivial_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
-use core::{mem, ptr, slice};
+use core::{ptr, slice};
 
 /// Simple wrapper data type that is designed in such a way that its serialization/deserialization
 /// is the same as the type itself.
 ///
 /// # Safety
-/// This trait is used for types with memory transmutation capabilities, it must not be relied on
-/// with untrusted data. Serializing and deserializing of types that implement this trait is simply
-/// casting of underlying memory, as the result all the types implementing this trait must not use
+/// This trait is used for types with memory layout that can be treated as bytes. It must not be
+/// relied on with untrusted data (it can be constructed from bytes, and internal invariants might
+/// not be invalid). Serializing and deserializing of types that implement this trait is simply
+/// casting of underlying memory. As a result, all the types implementing this trait must not use
 /// implicit padding, unions or anything similar that might make it unsound to access any bits of
 /// the type.
 ///
@@ -58,22 +59,22 @@ where
         before.is_empty().then(|| slice.first_mut()).flatten()
     }
 
-    /// Access underlying byte representation of a data structure
+    /// Access the underlying byte representation of a data structure
     #[inline]
     fn as_bytes(&self) -> &[u8] {
-        let self_ptr = unsafe { mem::transmute::<*const Self, *const u8>(self) };
-        unsafe { slice::from_raw_parts(self_ptr, size_of::<Self>()) }
+        // SAFETY: All bits are valid for reading as bytes, see `TrivialType` description
+        unsafe { slice::from_raw_parts(ptr::from_ref(self).cast::<u8>(), size_of::<Self>()) }
     }
 
-    /// Access underlying mutable byte representation of a data structure.
+    /// Access the underlying mutable byte representation of a data structure.
     ///
     /// # Safety
     /// While calling this function is technically safe, modifying returned memory buffer may result
     /// in broken invariants of underlying data structure and should be done with extra care.
     #[inline]
     unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
-        let self_ptr = unsafe { mem::transmute::<*mut Self, *mut u8>(self) };
-        unsafe { slice::from_raw_parts_mut(self_ptr, size_of::<Self>()) }
+        // SAFETY: All bits are valid for reading as bytes, see `TrivialType` description
+        unsafe { slice::from_raw_parts_mut(ptr::from_mut(self).cast::<u8>(), size_of::<Self>()) }
     }
 }
 
