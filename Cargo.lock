@@ -26,6 +26,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-contract-example-wallet"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+ "ab-contracts-standards",
+ "ab-system-contract-simple-wallet-base",
+ "ab-system-contract-state",
+]
+
+[[package]]
 name = "ab-contract-playground"
 version = "0.0.1"
 dependencies = [

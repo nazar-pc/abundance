@@ -1,0 +1,29 @@
+[package]
+name = "ab-contract-example-wallet"
+description = ""
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
+ab-contracts-io-type = { version = "0.0.1", path = "../ab-contracts-io-type" }
+ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
+ab-contracts-standards = { version = "0.0.1", path = "../ab-contracts-standards" }
+ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "../ab-system-contract-simple-wallet-base" }
+ab-system-contract-state = { version = "0.0.1", path = "../ab-system-contract-state" }
+
+[features]
+guest = [
+    "ab-contracts-common/guest",
+    "ab-contracts-macros/guest",
+    "ab-contracts-standards/guest",
+]
