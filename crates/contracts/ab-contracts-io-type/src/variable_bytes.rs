@@ -1,4 +1,5 @@
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
+use crate::trivial_type::TrivialType;
 use crate::{DerefWrapper, IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
@@ -393,6 +394,31 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
                 .cast::<VariableBytes<DIFFERENT_RECOMMENDED_ALLOCATION>>()
                 .as_mut()
         }
+    }
+
+    /// Reads and returns value of type `T` or `None` if there is not enough data.
+    ///
+    /// Checks alignment internally to support both aligned and unaligned reads.
+    #[inline]
+    pub fn read_trivial_type<T>(&self) -> Option<T>
+    where
+        T: TrivialType,
+    {
+        if self.size() < T::SIZE {
+            return None;
+        }
+
+        let ptr = self.bytes.cast::<T>();
+
+        let value = unsafe {
+            if ptr.is_aligned() {
+                ptr.read()
+            } else {
+                ptr.read_unaligned()
+            }
+        };
+
+        Some(value)
     }
 
     /// Assume that the first `size` are initialized and can be read.

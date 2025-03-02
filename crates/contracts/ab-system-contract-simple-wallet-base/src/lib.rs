@@ -122,9 +122,7 @@ impl SimpleWalletBase {
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
         let state = Self::read_state(env, owner)?;
-        // SAFETY: Any set of bytes is valid and will be verified
-        let maybe_seal = unsafe { Seal::from_bytes(seal.get_initialized()) };
-        let Some(seal) = maybe_seal else {
+        let Some(seal) = seal.read_trivial_type::<Seal>() else {
             return Err(ContractError::BadInput);
         };
 
