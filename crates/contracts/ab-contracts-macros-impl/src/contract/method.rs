@@ -47,24 +47,25 @@ struct Slot {
 }
 
 #[derive(Clone)]
-enum IoArg {
-    Input { type_name: Type, arg_name: Ident },
+struct Input {
+    type_name: Type,
+    arg_name: Ident,
+}
+
+#[derive(Clone)]
+enum Output {
     Output { type_name: Type, arg_name: Ident },
     Result { type_name: Type, arg_name: Ident },
 }
 
-impl IoArg {
+impl Output {
     fn type_name(&self) -> &Type {
-        let (Self::Input { type_name, .. }
-        | Self::Output { type_name, .. }
-        | Self::Result { type_name, .. }) = self;
+        let (Self::Output { type_name, .. } | Self::Result { type_name, .. }) = self;
         type_name
     }
 
     fn arg_name(&self) -> &Ident {
-        let (Self::Input { arg_name, .. }
-        | Self::Output { arg_name, .. }
-        | Self::Result { arg_name, .. }) = self;
+        let (Self::Output { arg_name, .. } | Self::Result { arg_name, .. }) = self;
         arg_name
     }
 }
@@ -119,7 +120,8 @@ pub(super) struct MethodDetails {
     env: Option<Env>,
     tmp: Option<Tmp>,
     slots: Vec<Slot>,
-    io: Vec<IoArg>,
+    inputs: Vec<Input>,
+    outputs: Vec<Output>,
     result_type: MethodResultType,
 }
 
@@ -132,7 +134,8 @@ impl MethodDetails {
             env: None,
             tmp: None,
             slots: Vec::new(),
-            io: Vec::new(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
             result_type: MethodResultType::Unit(MethodResultType::unit_type()),
         }
     }
@@ -203,7 +206,10 @@ impl MethodDetails {
         pat_type: &PatType,
         allow_mut: bool,
     ) -> Result<(), Error> {
-        if self.env.is_some() || self.tmp.is_some() || !self.io.is_empty() {
+        if self.env.is_some()
+            || self.tmp.is_some()
+            || !(self.inputs.is_empty() && self.outputs.is_empty())
+        {
             return Err(Error::new(
                 input_span,
                 "`#[env]` must be the first non-Self argument and only appear once",
@@ -283,10 +289,10 @@ impl MethodDetails {
         input_span: Span,
         pat_type: &PatType,
     ) -> Result<(), Error> {
-        if self.tmp.is_some() || !self.io.is_empty() {
+        if self.tmp.is_some() || !(self.inputs.is_empty() && self.outputs.is_empty()) {
             return Err(Error::new(
                 input_span,
-                "`#[tmp]` must appear only once before any inputs or outputs",
+                "`#[tmp]` must appear only once before any `#[input]` or `#[output]`",
             ));
         }
 
@@ -337,10 +343,10 @@ impl MethodDetails {
         pat_type: &PatType,
         allow_mut: bool,
     ) -> Result<(), Error> {
-        if !self.io.is_empty() {
+        if !(self.inputs.is_empty() && self.outputs.is_empty()) {
             return Err(Error::new(
                 input_span,
-                "`#[slot]` must appear before any inputs or outputs",
+                "`#[slot]` must appear before any `#[input]` or `#[output]`",
             ));
         }
 
@@ -421,14 +427,10 @@ impl MethodDetails {
         input_span: Span,
         pat_type: &PatType,
     ) -> Result<(), Error> {
-        if self
-            .io
-            .iter()
-            .any(|io_arg| !matches!(io_arg, IoArg::Input { .. }))
-        {
+        if !self.outputs.is_empty() {
             return Err(Error::new(
                 input_span,
-                "`#[input]` must appear before any outputs or result",
+                "`#[input]` must appear before any `#[output]` or `#[result]`",
             ));
         }
 
@@ -447,7 +449,7 @@ impl MethodDetails {
                 ));
             }
 
-            self.io.push(IoArg::Input {
+            self.inputs.push(Input {
                 type_name: type_reference.elem.as_ref().clone(),
                 arg_name,
             });
@@ -467,13 +469,13 @@ impl MethodDetails {
         pat_type: &PatType,
     ) -> Result<(), Error> {
         if self
-            .io
+            .outputs
             .iter()
-            .any(|io_arg| matches!(io_arg, IoArg::Result { .. }))
+            .any(|output| matches!(output, Output::Result { .. }))
         {
             return Err(Error::new(
                 input_span,
-                "`#[output]` must appear before result",
+                "`#[output]` must appear before `#[result]`",
             ));
         }
 
@@ -488,7 +490,7 @@ impl MethodDetails {
                 ));
             };
 
-            self.io.push(IoArg::Output {
+            self.outputs.push(Output::Output {
                 type_name: type_reference.elem.as_ref().clone(),
                 arg_name: pat_ident.ident.clone(),
             });
@@ -541,7 +543,7 @@ impl MethodDetails {
                 *first_generic_argument = self.self_type.clone();
             }
 
-            self.io.push(IoArg::Result {
+            self.outputs.push(Output::Result {
                 type_name,
                 arg_name: pat_ident.ident.clone(),
             });
@@ -658,11 +660,11 @@ impl MethodDetails {
         if matches!(self.method_type, MethodType::Init) {
             let self_return_type = self.result_type.result_type() == self_type;
             let self_result_type = self
-                .io
+                .outputs
                 .last()
-                .map(|io_arg| {
+                .map(|output| {
                     // Match things like `MaybeData<#self_type>`
-                    if let IoArg::Result { type_name, .. } = io_arg
+                    if let Output::Result { type_name, .. } = output
                         && let Type::Path(type_path) = type_name
                         && let Some(path_segment) = type_path.path.segments.last()
                         && let PathArguments::AngleBracketed(generic_arguments) =
@@ -992,46 +994,56 @@ impl MethodDetails {
             }
         }
 
-        // Inputs and outputs with pointer and size (+ capacity if mutable).
+        // Inputs with a pointer and size.
         // Also asserting that type is safe for memory copying.
-        for io_arg in &self.io {
-            let type_name = io_arg.type_name();
-            let ptr_field = format_ident!("{}_ptr", io_arg.arg_name());
-            let size_field = format_ident!("{}_size", io_arg.arg_name());
+        for input in &self.inputs {
+            let type_name = &input.type_name;
+            let arg_name = &input.arg_name;
+            let ptr_field = format_ident!("{arg_name}_ptr");
+            let size_field = format_ident!("{arg_name}_size");
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
-            let capacity_field = format_ident!("{}_capacity", io_arg.arg_name());
+
+            internal_args_pointers.push(quote! {
+                pub #ptr_field: ::core::ptr::NonNull<
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
+                >,
+                #[doc = #size_doc]
+                pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
+            });
+
+            original_fn_args.push(quote! {&*{
+                // Ensure input type implements `IoType`, which is required for crossing
+                // host/guest boundary
+                const _: () = {
+                    const fn assert_impl_io_type<T>()
+                    where
+                        T: ::ab_contracts_macros::__private::IoType,
+                    {}
+                    assert_impl_io_type::<#type_name>();
+                };
+
+                <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
+                    &args.#ptr_field,
+                    args.#size_field.as_ref(),
+                    // Size matches capacity for immutable inputs
+                    args.#size_field.read(),
+                )
+            }});
+        }
+
+        // Outputs with a pointer, size and capacity.
+        // Also asserting that type is safe for memory copying.
+        for output in &self.outputs {
+            let type_name = output.type_name();
+            let arg_name = output.arg_name();
+            let ptr_field = format_ident!("{arg_name}_ptr");
+            let size_field = format_ident!("{arg_name}_size");
+            let size_doc = format!("Size of the contents `{ptr_field}` points to");
+            let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
 
-            match io_arg {
-                IoArg::Input { .. } => {
-                    internal_args_pointers.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
-                        >,
-                        #[doc = #size_doc]
-                        pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
-                    });
-
-                    original_fn_args.push(quote! {&*{
-                        // Ensure input type implements `IoType`, which is required for crossing
-                        // host/guest boundary
-                        const _: () = {
-                            const fn assert_impl_io_type<T>()
-                            where
-                                T: ::ab_contracts_macros::__private::IoType,
-                            {}
-                            assert_impl_io_type::<#type_name>();
-                        };
-
-                        <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
-                            &args.#ptr_field,
-                            args.#size_field.as_ref(),
-                            // Size matches capacity for immutable inputs
-                            args.#size_field.read(),
-                        )
-                    }});
-                }
-                IoArg::Output { .. } | IoArg::Result { .. } => {
+            match output {
+                Output::Output { .. } | Output::Result { .. } => {
                     internal_args_pointers.push(quote! {
                         pub #ptr_field: ::core::ptr::NonNull<
                             <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
@@ -1071,7 +1083,7 @@ impl MethodDetails {
         let internal_args_struct = {
             // Result can be used through return type or argument, for argument no special handling
             // of the return type is needed. Similarly, it is skipped for a unit return type.
-            if !(matches!(self.io.last(), Some(IoArg::Result { .. }))
+            if !(matches!(self.outputs.last(), Some(Output::Result { .. }))
                 || self.result_type.unit_result_type())
             {
                 internal_args_pointers.push(quote! {
@@ -1295,45 +1307,53 @@ impl MethodDetails {
             });
         }
 
-        // Inputs and outputs with pointer and size (+ capacity if mutable)
-        for io_arg in &self.io {
-            let type_name = io_arg.type_name();
-            let arg_name = io_arg.arg_name();
+        // Inputs with a pointer and size
+        for input in &self.inputs {
+            let type_name = &input.type_name;
+            let arg_name = &input.arg_name;
+            let ptr_field = format_ident!("{arg_name}_ptr");
+            let size_field = format_ident!("{arg_name}_size");
+            let size_doc = format!("Size of the contents `{ptr_field}` points to");
+
+            external_args_fields.push(quote! {
+                pub #ptr_field: ::core::ptr::NonNull<
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
+                >,
+                #[doc = #size_doc]
+                pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
+            });
+
+            method_args.push(quote! {
+                #arg_name: &#type_name,
+            });
+            method_args_fields.push(quote! {
+                // SAFETY: This pointer is used as input to FFI call, and underlying data
+                // will not be modified, also the pointer will not outlive the reference
+                // from which it was created despite copying
+                #ptr_field: unsafe {
+                    *::ab_contracts_macros::__private::IoType::as_ptr(#arg_name)
+                },
+                // SAFETY: This pointer is used as input to FFI call, and underlying data
+                // will not be modified, also the pointer will not outlive the reference
+                // from which it was created despite copying
+                #size_field: unsafe {
+                    *::ab_contracts_macros::__private::IoType::size_ptr(#arg_name)
+                },
+            });
+        }
+
+        // Outputs with a pointer, size and capacity
+        for output in &self.outputs {
+            let type_name = output.type_name();
+            let arg_name = output.arg_name();
             let ptr_field = format_ident!("{arg_name}_ptr");
             let size_field = format_ident!("{arg_name}_size");
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
 
-            match io_arg {
-                IoArg::Input { .. } => {
-                    external_args_fields.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
-                        >,
-                        #[doc = #size_doc]
-                        pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
-                    });
-
-                    method_args.push(quote! {
-                        #arg_name: &#type_name,
-                    });
-                    method_args_fields.push(quote! {
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will not be modified, also the pointer will not outlive the reference
-                        // from which it was created despite copying
-                        #ptr_field: unsafe {
-                            *::ab_contracts_macros::__private::IoType::as_ptr(#arg_name)
-                        },
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will not be modified, also the pointer will not outlive the reference
-                        // from which it was created despite copying
-                        #size_field: unsafe {
-                            *::ab_contracts_macros::__private::IoType::size_ptr(#arg_name)
-                        },
-                    });
-                }
-                IoArg::Output { .. } => {
+            match output {
+                Output::Output { .. } => {
                     external_args_fields.push(quote! {
                         pub #ptr_field: ::core::ptr::NonNull<
                             <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
@@ -1368,7 +1388,7 @@ impl MethodDetails {
                         },
                     });
                 }
-                IoArg::Result { .. } => {
+                Output::Result { .. } => {
                     // Initializer's return type will be `()` for caller of `#[init]`, state is
                     // stored by the host and not returned to the caller, hence no explicit argument
                     // is needed
@@ -1417,7 +1437,7 @@ impl MethodDetails {
         // host and not returned to the caller, also if explicit `#[result]` argument is used return
         // type is also `()`. In both cases, explicit arguments are not needed in `ExternalArgs`
         // struct. Similarly, it is skipped for a unit return type.
-        if !(matches!(self.io.last(), Some(IoArg::Result { .. }))
+        if !(matches!(self.outputs.last(), Some(Output::Result { .. }))
             || matches!(self.method_type, MethodType::Init)
             || self.result_type.unit_result_type())
         {
@@ -1540,23 +1560,34 @@ impl MethodDetails {
             });
         }
 
-        for io_arg in &self.io {
-            let io_metadata_type = match io_arg {
-                IoArg::Input { .. } => "Input",
-                IoArg::Output { .. } => "Output",
-                IoArg::Result { .. } => "Result",
+        for input in &self.inputs {
+            let io_metadata_type = format_ident!("Input");
+            let arg_name_metadata = derive_ident_metadata(&input.arg_name)?;
+            let type_name = &input.type_name;
+
+            method_metadata.push(quote! {
+                &[::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as ::core::primitive::u8],
+                #arg_name_metadata,
+                <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
+            });
+        }
+
+        for output in &self.outputs {
+            let io_metadata_type = match output {
+                Output::Output { .. } => "Output",
+                Output::Result { .. } => "Result",
             };
 
             let io_metadata_type = format_ident!("{io_metadata_type}");
-            let arg_name_metadata = derive_ident_metadata(io_arg.arg_name())?;
+            let arg_name_metadata = derive_ident_metadata(output.arg_name())?;
             // Skip type metadata for `#[init]`'s result since it is known statically
             let with_type_metadata = if matches!(
-                (self.method_type, io_arg),
-                (MethodType::Init, IoArg::Result { .. })
+                (self.method_type, output),
+                (MethodType::Init, Output::Result { .. })
             ) {
                 None
             } else {
-                let type_name = io_arg.type_name();
+                let type_name = output.type_name();
                 Some(quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
                 })
@@ -1569,7 +1600,7 @@ impl MethodDetails {
         }
 
         // Skipped if return type is unit
-        if !(matches!(self.io.last(), Some(IoArg::Result { .. }))
+        if !(matches!(self.outputs.last(), Some(Output::Result { .. }))
             || self.result_type.unit_result_type())
         {
             // There isn't an explicit name in case of the return type
@@ -1682,19 +1713,21 @@ impl MethodDetails {
             external_args_args.push(quote! { #arg_name });
         }
 
-        // For each I/O argument, generate corresponding read-only or write-only argument
-        for io_arg in &self.io {
-            match io_arg {
-                IoArg::Input {
-                    type_name,
-                    arg_name,
-                } => {
-                    method_args.push(quote! {
-                        #arg_name: &#type_name,
-                    });
-                    external_args_args.push(quote! { #arg_name });
-                }
-                IoArg::Output {
+        // For each input argument, generate a corresponding read-only argument
+        for input in &self.inputs {
+            let type_name = &input.type_name;
+            let arg_name = &input.arg_name;
+
+            method_args.push(quote! {
+                #arg_name: &#type_name,
+            });
+            external_args_args.push(quote! { #arg_name });
+        }
+
+        // For each output argument, generate a corresponding write-only argument
+        for output in &self.outputs {
+            match output {
+                Output::Output {
                     type_name,
                     arg_name,
                 } => {
@@ -1703,7 +1736,7 @@ impl MethodDetails {
                     });
                     external_args_args.push(quote! { #arg_name });
                 }
-                IoArg::Result {
+                Output::Result {
                     type_name,
                     arg_name,
                 } => {
@@ -1754,7 +1787,7 @@ impl MethodDetails {
         // Initializer's return type will be `()` for caller, state is stored by the host and not
         // returned to the caller, also if explicit `#[result]` argument is used return type is
         // also `()`. Similarly, it is skipped for a unit return type.
-        let method_signature = if matches!(self.io.last(), Some(IoArg::Result { .. }))
+        let method_signature = if matches!(self.outputs.last(), Some(Output::Result { .. }))
             || matches!(self.method_type, MethodType::Init)
             || self.result_type.unit_result_type()
         {
