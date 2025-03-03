@@ -57,6 +57,7 @@ struct Output {
     type_name: Type,
     arg_name: Ident,
     is_result: bool,
+    has_self: bool,
 }
 
 enum MethodResultType {
@@ -479,6 +480,8 @@ impl MethodDetails {
                 type_name: type_reference.elem.as_ref().clone(),
                 arg_name: pat_ident.ident.clone(),
                 is_result: false,
+                // Might be `Self,` but doesn't matter here, hence not worth checking
+                has_self: false,
             });
             Ok(())
         } else {
@@ -515,6 +518,7 @@ impl MethodDetails {
             };
 
             let mut type_name = type_reference.elem.as_ref().clone();
+            let mut has_self = false;
 
             // Replace things like `MaybeData<Self>` with `MaybeData<#self_type>`
             if let Type::Path(type_path) = &mut type_name
@@ -527,12 +531,14 @@ impl MethodDetails {
                 && type_path.path.is_ident("Self")
             {
                 *first_generic_argument = self.self_type.clone();
+                has_self = true;
             }
 
             self.outputs.push(Output {
                 type_name,
                 arg_name: pat_ident.ident.clone(),
                 is_result: true,
+                has_self,
             });
             Ok(())
         } else {
@@ -646,21 +652,10 @@ impl MethodDetails {
         let self_type = &self.self_type;
         if matches!(self.method_type, MethodType::Init) {
             let self_return_type = self.result_type.result_type() == self_type;
-            let self_result_type = self.outputs.last().is_some_and(|output| {
-                // Match things like `MaybeData<#self_type>`
-                if output.is_result
-                    && let Type::Path(type_path) = &output.type_name
-                    && let Some(path_segment) = type_path.path.segments.last()
-                    && let PathArguments::AngleBracketed(generic_arguments) =
-                        &path_segment.arguments
-                    && let Some(GenericArgument::Type(first_generic_argument)) =
-                        generic_arguments.args.first()
-                {
-                    first_generic_argument == self_type
-                } else {
-                    false
-                }
-            });
+            let self_result_type = self
+                .outputs
+                .last()
+                .is_some_and(|output| output.is_result && output.has_self);
 
             if !(self_return_type || self_result_type) || (self_return_type && self_result_type) {
                 return Err(Error::new(
