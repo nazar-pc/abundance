@@ -131,8 +131,8 @@ impl MethodDetails {
             state: None,
             env: None,
             tmp: None,
-            slots: vec![],
-            io: vec![],
+            slots: Vec::new(),
+            io: Vec::new(),
             result_type: MethodResultType::Unit(MethodResultType::unit_type()),
         }
     }
@@ -179,100 +179,6 @@ impl MethodDetails {
         }
 
         Some(slot_type.unwrap_or_else(MethodResultType::unit_type))
-    }
-
-    pub(super) fn process_output(&mut self, output: &ReturnType) -> Result<(), Error> {
-        // Check if return type is `T` or `Result<T, ContractError>`
-        let error_message = format!(
-            "`#[{}]` must return `()` or `T` or `Result<T, ContractError>",
-            self.method_type.attr_str()
-        );
-        match output {
-            ReturnType::Default => {
-                self.set_result_type(MethodResultType::unit());
-            }
-            ReturnType::Type(_r_arrow, return_type) => match return_type.as_ref() {
-                Type::Array(_type_array) => {
-                    self.set_result_type(MethodResultType::Regular(return_type.as_ref().clone()));
-                }
-                Type::Path(type_path) => {
-                    // Check for `-> Result<T, ContractError>`
-                    if let Some(last_path_segment) = type_path.path.segments.last() {
-                        if last_path_segment.ident == "Result" {
-                            if let PathArguments::AngleBracketed(result_arguments) =
-                                &last_path_segment.arguments
-                                && result_arguments.args.len() == 2
-                                && let GenericArgument::Type(ok_type) = &result_arguments.args[0]
-                                && let GenericArgument::Type(error_type) = &result_arguments.args[1]
-                                && let Type::Path(error_path) = error_type
-                                && error_path
-                                    .path
-                                    .segments
-                                    .last()
-                                    .map(|s| s.ident == "ContractError")
-                                    .unwrap_or_default()
-                            {
-                                if let Type::Path(ok_path) = ok_type
-                                    && ok_path
-                                        .path
-                                        .segments
-                                        .first()
-                                        .map(|s| s.ident == "Self")
-                                        .unwrap_or_default()
-                                {
-                                    // Swap `Self` for an actual struct name
-                                    self.set_result_type(MethodResultType::Result(
-                                        self.self_type.clone(),
-                                    ));
-                                } else {
-                                    self.set_result_type(MethodResultType::Result(ok_type.clone()));
-                                }
-                            } else {
-                                return Err(Error::new(return_type.span(), error_message));
-                            }
-                        } else if last_path_segment.ident == "Self" {
-                            // Swap `Self` for an actual struct name
-                            self.set_result_type(MethodResultType::Regular(self.self_type.clone()));
-                        } else {
-                            self.set_result_type(MethodResultType::Regular(
-                                return_type.as_ref().clone(),
-                            ));
-                        }
-                    } else {
-                        self.set_result_type(MethodResultType::Regular(
-                            return_type.as_ref().clone(),
-                        ));
-                    }
-                }
-                return_type => {
-                    return Err(Error::new(return_type.span(), error_message));
-                }
-            },
-        }
-
-        Ok(())
-    }
-
-    fn set_result_type(&mut self, result_type: MethodResultType) {
-        let unit_type = MethodResultType::unit_type();
-        self.result_type = match result_type {
-            MethodResultType::Unit(ty) => MethodResultType::Unit(ty),
-            MethodResultType::Regular(ty) => {
-                if ty == unit_type {
-                    MethodResultType::Unit(ty)
-                } else {
-                    MethodResultType::Regular(ty)
-                }
-            }
-            MethodResultType::ResultUnit(ty) => MethodResultType::ResultUnit(ty),
-            MethodResultType::Result(ty) => {
-                if ty == unit_type {
-                    MethodResultType::ResultUnit(ty)
-                } else {
-                    MethodResultType::Result(ty)
-                }
-            }
-        };
     }
 
     pub(super) fn process_env_arg_ro(
@@ -647,6 +553,100 @@ impl MethodDetails {
                 `IoTypeOptional`, likely `MaybeData` container",
             ))
         }
+    }
+
+    pub(super) fn process_return(&mut self, output: &ReturnType) -> Result<(), Error> {
+        // Check if return type is `T` or `Result<T, ContractError>`
+        let error_message = format!(
+            "`#[{}]` must return `()` or `T` or `Result<T, ContractError>",
+            self.method_type.attr_str()
+        );
+        match output {
+            ReturnType::Default => {
+                self.set_result_type(MethodResultType::unit());
+            }
+            ReturnType::Type(_r_arrow, return_type) => match return_type.as_ref() {
+                Type::Array(_type_array) => {
+                    self.set_result_type(MethodResultType::Regular(return_type.as_ref().clone()));
+                }
+                Type::Path(type_path) => {
+                    // Check for `-> Result<T, ContractError>`
+                    if let Some(last_path_segment) = type_path.path.segments.last() {
+                        if last_path_segment.ident == "Result" {
+                            if let PathArguments::AngleBracketed(result_arguments) =
+                                &last_path_segment.arguments
+                                && result_arguments.args.len() == 2
+                                && let GenericArgument::Type(ok_type) = &result_arguments.args[0]
+                                && let GenericArgument::Type(error_type) = &result_arguments.args[1]
+                                && let Type::Path(error_path) = error_type
+                                && error_path
+                                    .path
+                                    .segments
+                                    .last()
+                                    .map(|s| s.ident == "ContractError")
+                                    .unwrap_or_default()
+                            {
+                                if let Type::Path(ok_path) = ok_type
+                                    && ok_path
+                                        .path
+                                        .segments
+                                        .first()
+                                        .map(|s| s.ident == "Self")
+                                        .unwrap_or_default()
+                                {
+                                    // Swap `Self` for an actual struct name
+                                    self.set_result_type(MethodResultType::Result(
+                                        self.self_type.clone(),
+                                    ));
+                                } else {
+                                    self.set_result_type(MethodResultType::Result(ok_type.clone()));
+                                }
+                            } else {
+                                return Err(Error::new(return_type.span(), error_message));
+                            }
+                        } else if last_path_segment.ident == "Self" {
+                            // Swap `Self` for an actual struct name
+                            self.set_result_type(MethodResultType::Regular(self.self_type.clone()));
+                        } else {
+                            self.set_result_type(MethodResultType::Regular(
+                                return_type.as_ref().clone(),
+                            ));
+                        }
+                    } else {
+                        self.set_result_type(MethodResultType::Regular(
+                            return_type.as_ref().clone(),
+                        ));
+                    }
+                }
+                return_type => {
+                    return Err(Error::new(return_type.span(), error_message));
+                }
+            },
+        }
+
+        Ok(())
+    }
+
+    fn set_result_type(&mut self, result_type: MethodResultType) {
+        let unit_type = MethodResultType::unit_type();
+        self.result_type = match result_type {
+            MethodResultType::Unit(ty) => MethodResultType::Unit(ty),
+            MethodResultType::Regular(ty) => {
+                if ty == unit_type {
+                    MethodResultType::Unit(ty)
+                } else {
+                    MethodResultType::Regular(ty)
+                }
+            }
+            MethodResultType::ResultUnit(ty) => MethodResultType::ResultUnit(ty),
+            MethodResultType::Result(ty) => {
+                if ty == unit_type {
+                    MethodResultType::ResultUnit(ty)
+                } else {
+                    MethodResultType::Result(ty)
+                }
+            }
+        };
     }
 
     pub(super) fn generate_guest_ffi(

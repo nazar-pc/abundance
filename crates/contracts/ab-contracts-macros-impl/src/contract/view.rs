@@ -14,8 +14,6 @@ pub(super) fn process_view_fn(
 ) -> Result<MethodOutput, Error> {
     let mut methods_details = MethodDetails::new(MethodType::View, self_type);
 
-    methods_details.process_output(&fn_sig.output)?;
-
     for input in fn_sig.inputs.iter_mut() {
         let input_span = input.span();
         // TODO: Moving this outside of the loop causes confusing lifetime issues
@@ -89,6 +87,8 @@ pub(super) fn process_view_fn(
         }
     }
 
+    methods_details.process_return(&fn_sig.output)?;
+
     let guest_ffi = methods_details.generate_guest_ffi(fn_sig, trait_name)?;
     let trait_ext_components = methods_details.generate_trait_ext_components(fn_sig, trait_name)?;
 
@@ -110,8 +110,6 @@ pub(super) fn process_view_fn_definition(
 ) -> Result<MethodOutput, Error> {
     let mut methods_details =
         MethodDetails::new(MethodType::View, Type::Path(parse_quote! { #trait_name }));
-
-    methods_details.process_output(&fn_sig.output)?;
 
     for input in fn_sig.inputs.iter_mut() {
         let input_span = input.span();
@@ -176,6 +174,8 @@ pub(super) fn process_view_fn_definition(
             }
         }
     }
+
+    methods_details.process_return(&fn_sig.output)?;
 
     let guest_ffi = methods_details.generate_guest_trait_ffi(fn_sig, Some(trait_name))?;
     let trait_ext_components =
