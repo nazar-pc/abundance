@@ -1128,7 +1128,7 @@ impl MethodDetails {
                 MethodResultType::Unit(_) => {
                     quote! {
                         // Return exit code
-                        ::ab_contracts_macros::__private::ExitCode::Ok
+                        ::ab_contracts_macros::__private::ExitCode::ok()
                     }
                 }
                 MethodResultType::Regular(_) => {
@@ -1141,14 +1141,14 @@ impl MethodDetails {
                         }
                         args.ok_result_ptr.write(#result_var_name);
                         // Return exit code
-                        ::ab_contracts_macros::__private::ExitCode::Ok
+                        ::ab_contracts_macros::__private::ExitCode::ok()
                     }
                 }
                 MethodResultType::ResultUnit(_) => {
                     quote! {
                         // Return exit code
                         match #result_var_name {
-                            Ok(()) => ::ab_contracts_macros::__private::ExitCode::Ok,
+                            Ok(()) => ::ab_contracts_macros::__private::ExitCode::ok(),
                             Err(error) => error.exit_code(),
                         }
                     }
@@ -1166,7 +1166,7 @@ impl MethodDetails {
                                 }
                                 args.ok_result_ptr.write(result);
                                 // Return exit code
-                                ::ab_contracts_macros::__private::ExitCode::Ok
+                                ::ab_contracts_macros::__private::ExitCode::ok()
                             }
                             Err(error) => error.exit_code(),
                         }
