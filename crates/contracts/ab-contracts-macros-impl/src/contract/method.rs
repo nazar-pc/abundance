@@ -47,26 +47,16 @@ struct Slot {
 }
 
 #[derive(Clone)]
-enum IoArg {
-    Input { type_name: Type, arg_name: Ident },
-    Output { type_name: Type, arg_name: Ident },
-    Result { type_name: Type, arg_name: Ident },
+struct Input {
+    type_name: Type,
+    arg_name: Ident,
 }
 
-impl IoArg {
-    fn type_name(&self) -> &Type {
-        let (Self::Input { type_name, .. }
-        | Self::Output { type_name, .. }
-        | Self::Result { type_name, .. }) = self;
-        type_name
-    }
-
-    fn arg_name(&self) -> &Ident {
-        let (Self::Input { arg_name, .. }
-        | Self::Output { arg_name, .. }
-        | Self::Result { arg_name, .. }) = self;
-        arg_name
-    }
+#[derive(Clone)]
+struct Output {
+    type_name: Type,
+    arg_name: Ident,
+    is_result: bool,
 }
 
 enum MethodResultType {
@@ -119,7 +109,8 @@ pub(super) struct MethodDetails {
     env: Option<Env>,
     tmp: Option<Tmp>,
     slots: Vec<Slot>,
-    io: Vec<IoArg>,
+    inputs: Vec<Input>,
+    outputs: Vec<Output>,
     result_type: MethodResultType,
 }
 
@@ -131,8 +122,9 @@ impl MethodDetails {
             state: None,
             env: None,
             tmp: None,
-            slots: vec![],
-            io: vec![],
+            slots: Vec::new(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
             result_type: MethodResultType::Unit(MethodResultType::unit_type()),
         }
     }
@@ -181,7 +173,378 @@ impl MethodDetails {
         Some(slot_type.unwrap_or_else(MethodResultType::unit_type))
     }
 
-    pub(super) fn process_output(&mut self, output: &ReturnType) -> Result<(), Error> {
+    pub(super) fn process_env_arg_ro(
+        &mut self,
+        input_span: Span,
+        pat_type: &PatType,
+    ) -> Result<(), Error> {
+        self.process_env_arg(input_span, pat_type, false)
+    }
+
+    pub(super) fn process_env_arg_rw(
+        &mut self,
+        input_span: Span,
+        pat_type: &PatType,
+    ) -> Result<(), Error> {
+        self.process_env_arg(input_span, pat_type, true)
+    }
+
+    fn process_env_arg(
+        &mut self,
+        input_span: Span,
+        pat_type: &PatType,
+        allow_mut: bool,
+    ) -> Result<(), Error> {
+        if self.env.is_some()
+            || self.tmp.is_some()
+            || !(self.inputs.is_empty() && self.outputs.is_empty())
+        {
+            return Err(Error::new(
+                input_span,
+                "`#[env]` must be the first non-Self argument and only appear once",
+            ));
+        }
+
+        if let Type::Reference(type_reference) = &*pat_type.ty
+            && let Type::Path(_type_path) = &*type_reference.elem
+            && let Pat::Ident(pat_ident) = &*pat_type.pat
+        {
+            if type_reference.mutability.is_some() && !allow_mut {
+                return Err(Error::new(
+                    input_span,
+                    "`#[env]` is not allowed to mutate data here",
+                ));
+            }
+
+            self.env.replace(Env {
+                arg_name: pat_ident.ident.clone(),
+                mutability: type_reference.mutability,
+            });
+            Ok(())
+        } else {
+            Err(Error::new(
+                pat_type.span(),
+                "`#[env]` must be a reference to `Env` type (can be shared or exclusive)",
+            ))
+        }
+    }
+
+    pub(super) fn process_state_arg_ro(
+        &mut self,
+        input_span: Span,
+        ty: &Type,
+    ) -> Result<(), Error> {
+        self.process_state_arg(input_span, ty, false)
+    }
+
+    pub(super) fn process_state_arg_rw(
+        &mut self,
+        input_span: Span,
+        ty: &Type,
+    ) -> Result<(), Error> {
+        self.process_state_arg(input_span, ty, true)
+    }
+
+    fn process_state_arg(
+        &mut self,
+        input_span: Span,
+        ty: &Type,
+        allow_mut: bool,
+    ) -> Result<(), Error> {
+        // Only accept `&self` or `&mut self`
+        if let Type::Reference(type_reference) = ty
+            && let Type::Path(type_path) = &*type_reference.elem
+            && type_path.path.is_ident("Self")
+        {
+            if type_reference.mutability.is_some() && !allow_mut {
+                return Err(Error::new(
+                    input_span,
+                    "`#[arg]` is not allowed to mutate data here",
+                ));
+            }
+
+            self.state.replace(type_reference.mutability);
+            Ok(())
+        } else {
+            Err(Error::new(
+                ty.span(),
+                "Can't consume `Self`, use `&self` or `&mut self` instead",
+            ))
+        }
+    }
+
+    pub(super) fn process_tmp_arg(
+        &mut self,
+        input_span: Span,
+        pat_type: &PatType,
+    ) -> Result<(), Error> {
+        if self.tmp.is_some() || !(self.inputs.is_empty() && self.outputs.is_empty()) {
+            return Err(Error::new(
+                input_span,
+                "`#[tmp]` must appear only once before any `#[input]` or `#[output]`",
+            ));
+        }
+
+        // Check if input looks like `&Type` or `&mut Type`
+        if let Type::Reference(type_reference) = &*pat_type.ty {
+            let Some(arg_name) = extract_arg_name(&pat_type.pat) else {
+                return Err(Error::new(
+                    pat_type.span(),
+                    "`#[tmp]` argument name must be either a simple variable or a reference",
+                ));
+            };
+
+            self.tmp.replace(Tmp {
+                type_name: type_reference.elem.as_ref().clone(),
+                arg_name,
+                mutability: type_reference.mutability,
+            });
+
+            return Ok(());
+        }
+
+        Err(Error::new(
+            pat_type.span(),
+            "`#[tmp]` must be a reference to a type implementing `IoTypeOptional` (can be \
+            shared or exclusive) like `&MaybeData<Slot>` or `&mut VariableBytes<1024>`",
+        ))
+    }
+
+    pub(super) fn process_slot_arg_ro(
+        &mut self,
+        input_span: Span,
+        pat_type: &PatType,
+    ) -> Result<(), Error> {
+        self.process_slot_arg(input_span, pat_type, false)
+    }
+
+    pub(super) fn process_slot_arg_rw(
+        &mut self,
+        input_span: Span,
+        pat_type: &PatType,
+    ) -> Result<(), Error> {
+        self.process_slot_arg(input_span, pat_type, true)
+    }
+
+    fn process_slot_arg(
+        &mut self,
+        input_span: Span,
+        pat_type: &PatType,
+        allow_mut: bool,
+    ) -> Result<(), Error> {
+        if !(self.inputs.is_empty() && self.outputs.is_empty()) {
+            return Err(Error::new(
+                input_span,
+                "`#[slot]` must appear before any `#[input]` or `#[output]`",
+            ));
+        }
+
+        match &*pat_type.ty {
+            // Check if input looks like `&Type` or `&mut Type`
+            Type::Reference(type_reference) => {
+                if type_reference.mutability.is_some() && !allow_mut {
+                    return Err(Error::new(
+                        input_span,
+                        "`#[slot]` is not allowed to mutate data here",
+                    ));
+                }
+
+                let Some(arg_name) = extract_arg_name(&pat_type.pat) else {
+                    return Err(Error::new(
+                        pat_type.span(),
+                        "`#[slot]` argument name must be either a simple variable or a reference",
+                    ));
+                };
+
+                self.slots.push(Slot {
+                    with_address_arg: false,
+                    type_name: type_reference.elem.as_ref().clone(),
+                    arg_name,
+                    mutability: type_reference.mutability,
+                });
+                return Ok(());
+            }
+            // Check if input looks like `(&Address, &Type)` or `(&Address, &mut Type)`
+            Type::Tuple(type_tuple) => {
+                if type_tuple.elems.len() == 2
+                    && let Type::Reference(address_type) =
+                        type_tuple.elems.first().expect("Checked above; qed")
+                    && address_type.mutability.is_none()
+                    && let Type::Reference(outer_slot_type) =
+                        type_tuple.elems.last().expect("Checked above; qed")
+                    && let Pat::Tuple(pat_tuple) = &*pat_type.pat
+                    && pat_tuple.elems.len() == 2
+                    && let Some(slot_arg) = extract_arg_name(&pat_tuple.elems[1])
+                {
+                    if outer_slot_type.mutability.is_some() && !allow_mut {
+                        return Err(Error::new(
+                            input_span,
+                            "`#[slot]` is not allowed to mutate data here",
+                        ));
+                    }
+
+                    self.slots.push(Slot {
+                        with_address_arg: true,
+                        type_name: outer_slot_type.elem.as_ref().clone(),
+                        arg_name: slot_arg,
+                        mutability: outer_slot_type.mutability,
+                    });
+                    return Ok(());
+                } else {
+                    return Err(Error::new(
+                        pat_type.span(),
+                        "`#[slot]` with address must be a tuple of arguments, each of which is \
+                        either a simple variable or a reference",
+                    ));
+                }
+            }
+            _ => {
+                // Ignore
+            }
+        }
+
+        Err(Error::new(
+            pat_type.span(),
+            "`#[slot]` must be a reference to a type implementing `IoTypeOptional` (can be \
+            shared or exclusive) like `&MaybeData<Slot>` or a tuple of references to address and \
+            to slot type like `(&Address, &mut VariableBytes<1024>)`",
+        ))
+    }
+
+    pub(super) fn process_input_arg(
+        &mut self,
+        input_span: Span,
+        pat_type: &PatType,
+    ) -> Result<(), Error> {
+        if !self.outputs.is_empty() {
+            return Err(Error::new(
+                input_span,
+                "`#[input]` must appear before any `#[output]` or `#[result]`",
+            ));
+        }
+
+        // Ensure input looks like `&Type` or `&mut Type`, but not `Type`
+        if let Type::Reference(type_reference) = &*pat_type.ty {
+            let Some(arg_name) = extract_arg_name(&pat_type.pat) else {
+                return Err(Error::new(
+                    pat_type.span(),
+                    "`#[input]` argument name must be either a simple variable or a reference",
+                ));
+            };
+            if type_reference.mutability.is_some() {
+                return Err(Error::new(
+                    input_span,
+                    "`#[input]` must be a shared reference",
+                ));
+            }
+
+            self.inputs.push(Input {
+                type_name: type_reference.elem.as_ref().clone(),
+                arg_name,
+            });
+
+            Ok(())
+        } else {
+            Err(Error::new(
+                pat_type.span(),
+                "`#[input]` must be a shared reference to a type",
+            ))
+        }
+    }
+
+    pub(super) fn process_output_arg(
+        &mut self,
+        input_span: Span,
+        pat_type: &PatType,
+    ) -> Result<(), Error> {
+        if self.outputs.iter().any(|output| output.is_result) {
+            return Err(Error::new(
+                input_span,
+                "`#[output]` must appear before `#[result]`",
+            ));
+        }
+
+        // Ensure input looks like `&mut Type`
+        if let Type::Reference(type_reference) = &*pat_type.ty
+            && type_reference.mutability.is_some()
+        {
+            let Pat::Ident(pat_ident) = &*pat_type.pat else {
+                return Err(Error::new(
+                    pat_type.span(),
+                    "`#[output]` argument name must be an exclusive reference",
+                ));
+            };
+
+            self.outputs.push(Output {
+                type_name: type_reference.elem.as_ref().clone(),
+                arg_name: pat_ident.ident.clone(),
+                is_result: false,
+            });
+            Ok(())
+        } else {
+            Err(Error::new(
+                pat_type.span(),
+                "`#[output]` must be an exclusive reference to a type implementing \
+                `IoTypeOptional`, likely `MaybeData` container",
+            ))
+        }
+    }
+
+    pub(super) fn process_result_arg(
+        &mut self,
+        input_span: Span,
+        pat_type: &PatType,
+    ) -> Result<(), Error> {
+        if !self.result_type.unit_result_type() {
+            return Err(Error::new(
+                input_span,
+                "`#[result]` must only be used with methods that either return `()` or \
+                `Result<(), ContractError>`",
+            ));
+        }
+
+        // Ensure input looks like `&mut Type`
+        if let Type::Reference(type_reference) = &*pat_type.ty
+            && type_reference.mutability.is_some()
+        {
+            let Pat::Ident(pat_ident) = &*pat_type.pat else {
+                return Err(Error::new(
+                    pat_type.span(),
+                    "`#[result]` argument name must be an exclusive reference",
+                ));
+            };
+
+            let mut type_name = type_reference.elem.as_ref().clone();
+
+            // Replace things like `MaybeData<Self>` with `MaybeData<#self_type>`
+            if let Type::Path(type_path) = &mut type_name
+                && let Some(path_segment) = type_path.path.segments.first_mut()
+                && let PathArguments::AngleBracketed(generic_arguments) =
+                    &mut path_segment.arguments
+                && let Some(GenericArgument::Type(first_generic_argument)) =
+                    generic_arguments.args.first_mut()
+                && let Type::Path(type_path) = &first_generic_argument
+                && type_path.path.is_ident("Self")
+            {
+                *first_generic_argument = self.self_type.clone();
+            }
+
+            self.outputs.push(Output {
+                type_name,
+                arg_name: pat_ident.ident.clone(),
+                is_result: true,
+            });
+            Ok(())
+        } else {
+            Err(Error::new(
+                pat_type.span(),
+                "`#[result]` must be an exclusive reference to a type implementing \
+                `IoTypeOptional`, likely `MaybeData` container",
+            ))
+        }
+    }
+
+    pub(super) fn process_return(&mut self, output: &ReturnType) -> Result<(), Error> {
         // Check if return type is `T` or `Result<T, ContractError>`
         let error_message = format!(
             "`#[{}]` must return `()` or `T` or `Result<T, ContractError>",
@@ -275,380 +638,6 @@ impl MethodDetails {
         };
     }
 
-    pub(super) fn process_env_arg_ro(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-    ) -> Result<(), Error> {
-        self.process_env_arg(input_span, pat_type, false)
-    }
-
-    pub(super) fn process_env_arg_rw(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-    ) -> Result<(), Error> {
-        self.process_env_arg(input_span, pat_type, true)
-    }
-
-    fn process_env_arg(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-        allow_mut: bool,
-    ) -> Result<(), Error> {
-        if self.env.is_some() || self.tmp.is_some() || !self.io.is_empty() {
-            return Err(Error::new(
-                input_span,
-                "`#[env]` must be the first non-Self argument and only appear once",
-            ));
-        }
-
-        if let Type::Reference(type_reference) = &*pat_type.ty
-            && let Type::Path(_type_path) = &*type_reference.elem
-            && let Pat::Ident(pat_ident) = &*pat_type.pat
-        {
-            if type_reference.mutability.is_some() && !allow_mut {
-                return Err(Error::new(
-                    input_span,
-                    "`#[env]` is not allowed to mutate data here",
-                ));
-            }
-
-            self.env.replace(Env {
-                arg_name: pat_ident.ident.clone(),
-                mutability: type_reference.mutability,
-            });
-            Ok(())
-        } else {
-            Err(Error::new(
-                pat_type.span(),
-                "`#[env]` must be a reference to `Env` type (can be shared or exclusive)",
-            ))
-        }
-    }
-
-    pub(super) fn process_state_arg_ro(
-        &mut self,
-        input_span: Span,
-        ty: &Type,
-    ) -> Result<(), Error> {
-        self.process_state_arg(input_span, ty, false)
-    }
-
-    pub(super) fn process_state_arg_rw(
-        &mut self,
-        input_span: Span,
-        ty: &Type,
-    ) -> Result<(), Error> {
-        self.process_state_arg(input_span, ty, true)
-    }
-
-    fn process_state_arg(
-        &mut self,
-        input_span: Span,
-        ty: &Type,
-        allow_mut: bool,
-    ) -> Result<(), Error> {
-        // Only accept `&self` or `&mut self`
-        if let Type::Reference(type_reference) = ty
-            && let Type::Path(type_path) = &*type_reference.elem
-            && type_path.path.is_ident("Self")
-        {
-            if type_reference.mutability.is_some() && !allow_mut {
-                return Err(Error::new(
-                    input_span,
-                    "`#[arg]` is not allowed to mutate data here",
-                ));
-            }
-
-            self.state.replace(type_reference.mutability);
-            Ok(())
-        } else {
-            Err(Error::new(
-                ty.span(),
-                "Can't consume `Self`, use `&self` or `&mut self` instead",
-            ))
-        }
-    }
-
-    pub(super) fn process_tmp_arg(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-    ) -> Result<(), Error> {
-        if self.tmp.is_some() || !self.io.is_empty() {
-            return Err(Error::new(
-                input_span,
-                "`#[tmp]` must appear only once before any inputs or outputs",
-            ));
-        }
-
-        // Check if input looks like `&Type` or `&mut Type`
-        if let Type::Reference(type_reference) = &*pat_type.ty {
-            let Some(arg_name) = extract_arg_name(&pat_type.pat) else {
-                return Err(Error::new(
-                    pat_type.span(),
-                    "`#[tmp]` argument name must be either a simple variable or a reference",
-                ));
-            };
-
-            self.tmp.replace(Tmp {
-                type_name: type_reference.elem.as_ref().clone(),
-                arg_name,
-                mutability: type_reference.mutability,
-            });
-
-            return Ok(());
-        }
-
-        Err(Error::new(
-            pat_type.span(),
-            "`#[tmp]` must be a reference to a type implementing `IoTypeOptional` (can be \
-            shared or exclusive) like `&MaybeData<Slot>` or `&mut VariableBytes<1024>`",
-        ))
-    }
-
-    pub(super) fn process_slot_arg_ro(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-    ) -> Result<(), Error> {
-        self.process_slot_arg(input_span, pat_type, false)
-    }
-
-    pub(super) fn process_slot_arg_rw(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-    ) -> Result<(), Error> {
-        self.process_slot_arg(input_span, pat_type, true)
-    }
-
-    fn process_slot_arg(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-        allow_mut: bool,
-    ) -> Result<(), Error> {
-        if !self.io.is_empty() {
-            return Err(Error::new(
-                input_span,
-                "`#[slot]` must appear before any inputs or outputs",
-            ));
-        }
-
-        match &*pat_type.ty {
-            // Check if input looks like `&Type` or `&mut Type`
-            Type::Reference(type_reference) => {
-                if type_reference.mutability.is_some() && !allow_mut {
-                    return Err(Error::new(
-                        input_span,
-                        "`#[slot]` is not allowed to mutate data here",
-                    ));
-                }
-
-                let Some(arg_name) = extract_arg_name(&pat_type.pat) else {
-                    return Err(Error::new(
-                        pat_type.span(),
-                        "`#[slot]` argument name must be either a simple variable or a reference",
-                    ));
-                };
-
-                self.slots.push(Slot {
-                    with_address_arg: false,
-                    type_name: type_reference.elem.as_ref().clone(),
-                    arg_name,
-                    mutability: type_reference.mutability,
-                });
-                return Ok(());
-            }
-            // Check if input looks like `(&Address, &Type)` or `(&Address, &mut Type)`
-            Type::Tuple(type_tuple) => {
-                if type_tuple.elems.len() == 2
-                    && let Type::Reference(address_type) =
-                        type_tuple.elems.first().expect("Checked above; qed")
-                    && address_type.mutability.is_none()
-                    && let Type::Reference(outer_slot_type) =
-                        type_tuple.elems.last().expect("Checked above; qed")
-                    && let Pat::Tuple(pat_tuple) = &*pat_type.pat
-                    && pat_tuple.elems.len() == 2
-                    && let Some(slot_arg) = extract_arg_name(&pat_tuple.elems[1])
-                {
-                    if outer_slot_type.mutability.is_some() && !allow_mut {
-                        return Err(Error::new(
-                            input_span,
-                            "`#[slot]` is not allowed to mutate data here",
-                        ));
-                    }
-
-                    self.slots.push(Slot {
-                        with_address_arg: true,
-                        type_name: outer_slot_type.elem.as_ref().clone(),
-                        arg_name: slot_arg,
-                        mutability: outer_slot_type.mutability,
-                    });
-                    return Ok(());
-                } else {
-                    return Err(Error::new(
-                        pat_type.span(),
-                        "`#[slot]` with address must be a tuple of arguments, each of which is \
-                        either a simple variable or a reference",
-                    ));
-                }
-            }
-            _ => {
-                // Ignore
-            }
-        }
-
-        Err(Error::new(
-            pat_type.span(),
-            "`#[slot]` must be a reference to a type implementing `IoTypeOptional` (can be \
-            shared or exclusive) like `&MaybeData<Slot>` or a tuple of references to address and \
-            to slot type like `(&Address, &mut VariableBytes<1024>)`",
-        ))
-    }
-
-    pub(super) fn process_input_arg(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-    ) -> Result<(), Error> {
-        if self
-            .io
-            .iter()
-            .any(|io_arg| !matches!(io_arg, IoArg::Input { .. }))
-        {
-            return Err(Error::new(
-                input_span,
-                "`#[input]` must appear before any outputs or result",
-            ));
-        }
-
-        // Ensure input looks like `&Type` or `&mut Type`, but not `Type`
-        if let Type::Reference(type_reference) = &*pat_type.ty {
-            let Some(arg_name) = extract_arg_name(&pat_type.pat) else {
-                return Err(Error::new(
-                    pat_type.span(),
-                    "`#[input]` argument name must be either a simple variable or a reference",
-                ));
-            };
-            if type_reference.mutability.is_some() {
-                return Err(Error::new(
-                    input_span,
-                    "`#[input]` must be a shared reference",
-                ));
-            }
-
-            self.io.push(IoArg::Input {
-                type_name: type_reference.elem.as_ref().clone(),
-                arg_name,
-            });
-
-            Ok(())
-        } else {
-            Err(Error::new(
-                pat_type.span(),
-                "`#[input]` must be a shared reference to a type",
-            ))
-        }
-    }
-
-    pub(super) fn process_output_arg(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-    ) -> Result<(), Error> {
-        if self
-            .io
-            .iter()
-            .any(|io_arg| matches!(io_arg, IoArg::Result { .. }))
-        {
-            return Err(Error::new(
-                input_span,
-                "`#[output]` must appear before result",
-            ));
-        }
-
-        // Ensure input looks like `&mut Type`
-        if let Type::Reference(type_reference) = &*pat_type.ty
-            && type_reference.mutability.is_some()
-        {
-            let Pat::Ident(pat_ident) = &*pat_type.pat else {
-                return Err(Error::new(
-                    pat_type.span(),
-                    "`#[output]` argument name must be an exclusive reference",
-                ));
-            };
-
-            self.io.push(IoArg::Output {
-                type_name: type_reference.elem.as_ref().clone(),
-                arg_name: pat_ident.ident.clone(),
-            });
-            Ok(())
-        } else {
-            Err(Error::new(
-                pat_type.span(),
-                "`#[output]` must be an exclusive reference to a type implementing \
-                `IoTypeOptional`, likely `MaybeData` container",
-            ))
-        }
-    }
-
-    pub(super) fn process_result_arg(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-    ) -> Result<(), Error> {
-        if !self.result_type.unit_result_type() {
-            return Err(Error::new(
-                input_span,
-                "`#[result]` must only be used with methods that either return `()` or \
-                `Result<(), ContractError>`",
-            ));
-        }
-
-        // Ensure input looks like `&mut Type`
-        if let Type::Reference(type_reference) = &*pat_type.ty
-            && type_reference.mutability.is_some()
-        {
-            let Pat::Ident(pat_ident) = &*pat_type.pat else {
-                return Err(Error::new(
-                    pat_type.span(),
-                    "`#[result]` argument name must be an exclusive reference",
-                ));
-            };
-
-            let mut type_name = type_reference.elem.as_ref().clone();
-
-            // Replace things like `MaybeData<Self>` with `MaybeData<#self_type>`
-            if let Type::Path(type_path) = &mut type_name
-                && let Some(path_segment) = type_path.path.segments.first_mut()
-                && let PathArguments::AngleBracketed(generic_arguments) =
-                    &mut path_segment.arguments
-                && let Some(GenericArgument::Type(first_generic_argument)) =
-                    generic_arguments.args.first_mut()
-                && let Type::Path(type_path) = &first_generic_argument
-                && type_path.path.is_ident("Self")
-            {
-                *first_generic_argument = self.self_type.clone();
-            }
-
-            self.io.push(IoArg::Result {
-                type_name,
-                arg_name: pat_ident.ident.clone(),
-            });
-            Ok(())
-        } else {
-            Err(Error::new(
-                pat_type.span(),
-                "`#[result]` must be an exclusive reference to a type implementing \
-                `IoTypeOptional`, likely `MaybeData` container",
-            ))
-        }
-    }
-
     pub(super) fn generate_guest_ffi(
         &self,
         fn_sig: &Signature,
@@ -657,25 +646,21 @@ impl MethodDetails {
         let self_type = &self.self_type;
         if matches!(self.method_type, MethodType::Init) {
             let self_return_type = self.result_type.result_type() == self_type;
-            let self_result_type = self
-                .io
-                .last()
-                .map(|io_arg| {
-                    // Match things like `MaybeData<#self_type>`
-                    if let IoArg::Result { type_name, .. } = io_arg
-                        && let Type::Path(type_path) = type_name
-                        && let Some(path_segment) = type_path.path.segments.last()
-                        && let PathArguments::AngleBracketed(generic_arguments) =
-                            &path_segment.arguments
-                        && let Some(GenericArgument::Type(first_generic_argument)) =
-                            generic_arguments.args.first()
-                    {
-                        first_generic_argument == self_type
-                    } else {
-                        false
-                    }
-                })
-                .unwrap_or_default();
+            let self_result_type = self.outputs.last().is_some_and(|output| {
+                // Match things like `MaybeData<#self_type>`
+                if output.is_result
+                    && let Type::Path(type_path) = &output.type_name
+                    && let Some(path_segment) = type_path.path.segments.last()
+                    && let PathArguments::AngleBracketed(generic_arguments) =
+                        &path_segment.arguments
+                    && let Some(GenericArgument::Type(first_generic_argument)) =
+                        generic_arguments.args.first()
+                {
+                    first_generic_argument == self_type
+                } else {
+                    false
+                }
+            });
 
             if !(self_return_type || self_result_type) || (self_return_type && self_result_type) {
                 return Err(Error::new(
@@ -992,76 +977,82 @@ impl MethodDetails {
             }
         }
 
-        // Inputs and outputs with pointer and size (+ capacity if mutable).
+        // Inputs with a pointer and size.
         // Also asserting that type is safe for memory copying.
-        for io_arg in &self.io {
-            let type_name = io_arg.type_name();
-            let ptr_field = format_ident!("{}_ptr", io_arg.arg_name());
-            let size_field = format_ident!("{}_size", io_arg.arg_name());
+        for input in &self.inputs {
+            let type_name = &input.type_name;
+            let arg_name = &input.arg_name;
+            let ptr_field = format_ident!("{arg_name}_ptr");
+            let size_field = format_ident!("{arg_name}_size");
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
-            let capacity_field = format_ident!("{}_capacity", io_arg.arg_name());
+
+            internal_args_pointers.push(quote! {
+                pub #ptr_field: ::core::ptr::NonNull<
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
+                >,
+                #[doc = #size_doc]
+                pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
+            });
+
+            original_fn_args.push(quote! {&*{
+                // Ensure input type implements `IoType`, which is required for crossing host/guest
+                // boundary
+                const _: () = {
+                    const fn assert_impl_io_type<T>()
+                    where
+                        T: ::ab_contracts_macros::__private::IoType,
+                    {}
+                    assert_impl_io_type::<#type_name>();
+                };
+
+                <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
+                    &args.#ptr_field,
+                    args.#size_field.as_ref(),
+                    // Size matches capacity for immutable inputs
+                    args.#size_field.read(),
+                )
+            }});
+        }
+
+        // Outputs with a pointer, size and capacity.
+        // Also asserting that type is safe for memory copying.
+        for output in &self.outputs {
+            let type_name = &output.type_name;
+            let arg_name = &output.arg_name;
+            let ptr_field = format_ident!("{arg_name}_ptr");
+            let size_field = format_ident!("{arg_name}_size");
+            let size_doc = format!("Size of the contents `{ptr_field}` points to");
+            let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
 
-            match io_arg {
-                IoArg::Input { .. } => {
-                    internal_args_pointers.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
-                        >,
-                        #[doc = #size_doc]
-                        pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
-                    });
+            internal_args_pointers.push(quote! {
+                pub #ptr_field: ::core::ptr::NonNull<
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
+                >,
+                #[doc = #size_doc]
+                pub #size_field: *mut ::core::primitive::u32,
+                #[doc = #capacity_doc]
+                pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
+            });
 
-                    original_fn_args.push(quote! {&*{
-                        // Ensure input type implements `IoType`, which is required for crossing
-                        // host/guest boundary
-                        const _: () = {
-                            const fn assert_impl_io_type<T>()
-                            where
-                                T: ::ab_contracts_macros::__private::IoType,
-                            {}
-                            assert_impl_io_type::<#type_name>();
-                        };
+            original_fn_args.push(quote! {&mut *{
+                // Ensure output type implements `IoTypeOptional`, which is required for handling of
+                // the initially uninitialized type and implies implementation of `IoType`, which is
+                // required for crossing host/guest boundary
+                const _: () = {
+                    const fn assert_impl_io_type_optional<T>()
+                    where
+                        T: ::ab_contracts_macros::__private::IoTypeOptional,
+                    {}
+                    assert_impl_io_type_optional::<#type_name>();
+                };
 
-                        <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
-                            &args.#ptr_field,
-                            args.#size_field.as_ref(),
-                            // Size matches capacity for immutable inputs
-                            args.#size_field.read(),
-                        )
-                    }});
-                }
-                IoArg::Output { .. } | IoArg::Result { .. } => {
-                    internal_args_pointers.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
-                        >,
-                        #[doc = #size_doc]
-                        pub #size_field: *mut ::core::primitive::u32,
-                        #[doc = #capacity_doc]
-                        pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
-                    });
-
-                    original_fn_args.push(quote! {&mut *{
-                        // Ensure output type implements `IoTypeOptional`, which is required for
-                        // handling of the initially uninitialized type and implies implementation
-                        // of `IoType`, which is required for crossing host/guest boundary
-                        const _: () = {
-                            const fn assert_impl_io_type_optional<T>()
-                            where
-                                T: ::ab_contracts_macros::__private::IoTypeOptional,
-                            {}
-                            assert_impl_io_type_optional::<#type_name>();
-                        };
-
-                        <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
-                            &mut args.#ptr_field,
-                            &mut args.#size_field,
-                            args.#capacity_field.read(),
-                        )
-                    }});
-                }
-            }
+                <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
+                    &mut args.#ptr_field,
+                    &mut args.#size_field,
+                    args.#capacity_field.read(),
+                )
+            }});
         }
 
         let original_method_name = &fn_sig.ident;
@@ -1071,7 +1062,7 @@ impl MethodDetails {
         let internal_args_struct = {
             // Result can be used through return type or argument, for argument no special handling
             // of the return type is needed. Similarly, it is skipped for a unit return type.
-            if !(matches!(self.io.last(), Some(IoArg::Result { .. }))
+            if !(self.outputs.last().is_some_and(|output| output.is_result)
                 || self.result_type.unit_result_type())
             {
                 internal_args_pointers.push(quote! {
@@ -1295,120 +1286,90 @@ impl MethodDetails {
             });
         }
 
-        // Inputs and outputs with pointer and size (+ capacity if mutable)
-        for io_arg in &self.io {
-            let type_name = io_arg.type_name();
-            let arg_name = io_arg.arg_name();
+        // Inputs with a pointer and size
+        for input in &self.inputs {
+            let type_name = &input.type_name;
+            let arg_name = &input.arg_name;
+            let ptr_field = format_ident!("{arg_name}_ptr");
+            let size_field = format_ident!("{arg_name}_size");
+            let size_doc = format!("Size of the contents `{ptr_field}` points to");
+
+            external_args_fields.push(quote! {
+                pub #ptr_field: ::core::ptr::NonNull<
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
+                >,
+                #[doc = #size_doc]
+                pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
+            });
+
+            method_args.push(quote! {
+                #arg_name: &#type_name,
+            });
+            method_args_fields.push(quote! {
+                // SAFETY: This pointer is used as input to FFI call, and underlying data
+                // will not be modified, also the pointer will not outlive the reference
+                // from which it was created despite copying
+                #ptr_field: unsafe {
+                    *::ab_contracts_macros::__private::IoType::as_ptr(#arg_name)
+                },
+                // SAFETY: This pointer is used as input to FFI call, and underlying data
+                // will not be modified, also the pointer will not outlive the reference
+                // from which it was created despite copying
+                #size_field: unsafe {
+                    *::ab_contracts_macros::__private::IoType::size_ptr(#arg_name)
+                },
+            });
+        }
+
+        // Outputs with a pointer, size and capacity
+        for output in &self.outputs {
+            let type_name = &output.type_name;
+            let arg_name = &output.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
             let size_field = format_ident!("{arg_name}_size");
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
 
-            match io_arg {
-                IoArg::Input { .. } => {
-                    external_args_fields.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
-                        >,
-                        #[doc = #size_doc]
-                        pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
-                    });
-
-                    method_args.push(quote! {
-                        #arg_name: &#type_name,
-                    });
-                    method_args_fields.push(quote! {
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will not be modified, also the pointer will not outlive the reference
-                        // from which it was created despite copying
-                        #ptr_field: unsafe {
-                            *::ab_contracts_macros::__private::IoType::as_ptr(#arg_name)
-                        },
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will not be modified, also the pointer will not outlive the reference
-                        // from which it was created despite copying
-                        #size_field: unsafe {
-                            *::ab_contracts_macros::__private::IoType::size_ptr(#arg_name)
-                        },
-                    });
-                }
-                IoArg::Output { .. } => {
-                    external_args_fields.push(quote! {
-                        pub #ptr_field: ::core::ptr::NonNull<
-                            <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
-                        >,
-                        #[doc = #size_doc]
-                        pub #size_field: *mut ::core::primitive::u32,
-                        #[doc = #capacity_doc]
-                        pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
-                    });
-
-                    method_args.push(quote! {
-                        #arg_name: &mut #type_name,
-                    });
-                    method_args_fields.push(quote! {
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will only be modified there, also the pointer will not outlive the
-                        // reference from which it was created despite copying
-                        #ptr_field: unsafe {
-                            *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name)
-                        },
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will only be modified there, also the pointer will not outlive the
-                        // reference from which it was created despite copying
-                        #size_field: unsafe {
-                            *::ab_contracts_macros::__private::IoType::size_mut_ptr(#arg_name)
-                        },
-                        // SAFETY: This pointer is used as input to FFI call, and underlying data
-                        // will not be modified, also the pointer will not outlive the reference
-                        // from which it was created despite copying
-                        #capacity_field: unsafe {
-                            *::ab_contracts_macros::__private::IoType::capacity_ptr(#arg_name)
-                        },
-                    });
-                }
-                IoArg::Result { .. } => {
-                    // Initializer's return type will be `()` for caller of `#[init]`, state is
-                    // stored by the host and not returned to the caller, hence no explicit argument
-                    // is needed
-                    if !matches!(self.method_type, MethodType::Init) {
-                        external_args_fields.push(quote! {
-                            pub #ptr_field: ::core::ptr::NonNull<
-                                <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
-                            >,
-                            #[doc = #size_doc]
-                            pub #size_field: *mut ::core::primitive::u32,
-                            #[doc = #capacity_doc]
-                            pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
-                        });
-
-                        method_args.push(quote! {
-                            #arg_name: &mut #type_name,
-                        });
-                        method_args_fields.push(quote! {
-                            // SAFETY: This pointer is used as input to FFI call, and underlying data
-                            // will only be modified there, also the pointer will not outlive the
-                            // reference from which it was created despite copying
-                            #ptr_field: unsafe {
-                                *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name)
-                            },
-                            // SAFETY: This pointer is used as input to FFI call, and underlying data
-                            // will only be modified there, also the pointer will not outlive the
-                            // reference from which it was created despite copying
-                            #size_field: unsafe {
-                                *::ab_contracts_macros::__private::IoType::size_mut_ptr(#arg_name)
-                            },
-                            // SAFETY: This pointer is used as input to FFI call, and underlying data
-                            // will not be modified, also the pointer will not outlive the reference
-                            // from which it was created despite copying
-                            #capacity_field: unsafe {
-                                *::ab_contracts_macros::__private::IoType::capacity_ptr(#arg_name)
-                            },
-                        });
-                    }
-                }
+            // Initializer's return type will be `()` for caller of `#[init]`, state is stored by
+            // the host and not returned to the caller, hence no explicit argument is needed
+            if output.is_result && matches!(self.method_type, MethodType::Init) {
+                continue;
             }
+
+            external_args_fields.push(quote! {
+                pub #ptr_field: ::core::ptr::NonNull<
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
+                >,
+                #[doc = #size_doc]
+                pub #size_field: *mut ::core::primitive::u32,
+                #[doc = #capacity_doc]
+                pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
+            });
+
+            method_args.push(quote! {
+                #arg_name: &mut #type_name,
+            });
+            method_args_fields.push(quote! {
+                // SAFETY: This pointer is used as input to FFI call, and underlying data will only
+                // be modified there, also the pointer will not outlive the reference from which it
+                // was created despite copying
+                #ptr_field: unsafe {
+                    *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name)
+                },
+                // SAFETY: This pointer is used as input to FFI call, and underlying data will only
+                // be modified there, also the pointer will not outlive the reference from which it
+                // was created despite copying
+                #size_field: unsafe {
+                    *::ab_contracts_macros::__private::IoType::size_mut_ptr(#arg_name)
+                },
+                // SAFETY: This pointer is used as input to FFI call, and underlying data will not
+                // be modified, also the pointer will not outlive the reference from which it was
+                // created despite copying
+                #capacity_field: unsafe {
+                    *::ab_contracts_macros::__private::IoType::capacity_ptr(#arg_name)
+                },
+            });
         }
 
         let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
@@ -1417,7 +1378,7 @@ impl MethodDetails {
         // host and not returned to the caller, also if explicit `#[result]` argument is used return
         // type is also `()`. In both cases, explicit arguments are not needed in `ExternalArgs`
         // struct. Similarly, it is skipped for a unit return type.
-        if !(matches!(self.io.last(), Some(IoArg::Result { .. }))
+        if !(self.outputs.last().is_some_and(|output| output.is_result)
             || matches!(self.method_type, MethodType::Init)
             || self.result_type.unit_result_type())
         {
@@ -1540,27 +1501,33 @@ impl MethodDetails {
             });
         }
 
-        for io_arg in &self.io {
-            let io_metadata_type = match io_arg {
-                IoArg::Input { .. } => "Input",
-                IoArg::Output { .. } => "Output",
-                IoArg::Result { .. } => "Result",
-            };
+        for input in &self.inputs {
+            let io_metadata_type = format_ident!("Input");
+            let arg_name_metadata = derive_ident_metadata(&input.arg_name)?;
+            let type_name = &input.type_name;
+
+            method_metadata.push(quote! {
+                &[::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as ::core::primitive::u8],
+                #arg_name_metadata,
+                <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
+            });
+        }
+
+        for output in &self.outputs {
+            let io_metadata_type = if output.is_result { "Result" } else { "Output" };
 
             let io_metadata_type = format_ident!("{io_metadata_type}");
-            let arg_name_metadata = derive_ident_metadata(io_arg.arg_name())?;
+            let arg_name_metadata = derive_ident_metadata(&output.arg_name)?;
             // Skip type metadata for `#[init]`'s result since it is known statically
-            let with_type_metadata = if matches!(
-                (self.method_type, io_arg),
-                (MethodType::Init, IoArg::Result { .. })
-            ) {
-                None
-            } else {
-                let type_name = io_arg.type_name();
-                Some(quote! {
-                    <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
-                })
-            };
+            let with_type_metadata =
+                if output.is_result && matches!(self.method_type, MethodType::Init) {
+                    None
+                } else {
+                    let type_name = &output.type_name;
+                    Some(quote! {
+                        <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
+                    })
+                };
             method_metadata.push(quote! {
                 &[::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as ::core::primitive::u8],
                 #arg_name_metadata,
@@ -1569,7 +1536,7 @@ impl MethodDetails {
         }
 
         // Skipped if return type is unit
-        if !(matches!(self.io.last(), Some(IoArg::Result { .. }))
+        if !(self.outputs.last().is_some_and(|output| output.is_result)
             || self.result_type.unit_result_type())
         {
             // There isn't an explicit name in case of the return type
@@ -1682,43 +1649,32 @@ impl MethodDetails {
             external_args_args.push(quote! { #arg_name });
         }
 
-        // For each I/O argument, generate corresponding read-only or write-only argument
-        for io_arg in &self.io {
-            match io_arg {
-                IoArg::Input {
-                    type_name,
-                    arg_name,
-                } => {
-                    method_args.push(quote! {
-                        #arg_name: &#type_name,
-                    });
-                    external_args_args.push(quote! { #arg_name });
-                }
-                IoArg::Output {
-                    type_name,
-                    arg_name,
-                } => {
-                    method_args.push(quote! {
-                        #arg_name: &mut #type_name,
-                    });
-                    external_args_args.push(quote! { #arg_name });
-                }
-                IoArg::Result {
-                    type_name,
-                    arg_name,
-                } => {
-                    // Initializer's return type will be `()` for caller of `#[init]`, state is
-                    // stored by the host and not returned to the caller
-                    if matches!(self.method_type, MethodType::Init) {
-                        continue;
-                    }
+        // For each input argument, generate a corresponding read-only argument
+        for input in &self.inputs {
+            let type_name = &input.type_name;
+            let arg_name = &input.arg_name;
 
-                    method_args.push(quote! {
-                        #arg_name: &mut #type_name,
-                    });
-                    external_args_args.push(quote! { #arg_name });
-                }
+            method_args.push(quote! {
+                #arg_name: &#type_name,
+            });
+            external_args_args.push(quote! { #arg_name });
+        }
+
+        // For each output argument, generate a corresponding write-only argument
+        for output in &self.outputs {
+            let type_name = &output.type_name;
+            let arg_name = &output.arg_name;
+
+            // Initializer's return type will be `()` for caller of `#[init]`, state is stored by
+            // the host and not returned to the caller
+            if output.is_result && matches!(self.method_type, MethodType::Init) {
+                continue;
             }
+
+            method_args.push(quote! {
+                #arg_name: &mut #type_name,
+            });
+            external_args_args.push(quote! { #arg_name });
         }
 
         let self_type = &self.self_type;
@@ -1754,7 +1710,7 @@ impl MethodDetails {
         // Initializer's return type will be `()` for caller, state is stored by the host and not
         // returned to the caller, also if explicit `#[result]` argument is used return type is
         // also `()`. Similarly, it is skipped for a unit return type.
-        let method_signature = if matches!(self.io.last(), Some(IoArg::Result { .. }))
+        let method_signature = if self.outputs.last().is_some_and(|output| output.is_result)
             || matches!(self.method_type, MethodType::Init)
             || self.result_type.unit_result_type()
         {
