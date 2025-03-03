@@ -4,6 +4,7 @@
 mod address;
 mod balance;
 pub mod env;
+mod error;
 pub mod metadata;
 pub mod method;
 
@@ -17,7 +18,8 @@ use core::ffi::c_void;
 use core::num::{NonZeroU32, NonZeroU128};
 use core::ops::Deref;
 use core::ptr::NonNull;
-use derive_more::{Display, From};
+use derive_more::Display;
+pub use error::{ContractError, CustomContractErrorCode, ExitCode};
 
 /// Max allowed size of the contract code
 pub const MAX_CODE_SIZE: u32 = 1024 * 1024;
@@ -122,83 +124,6 @@ pub trait ContractTraitDefinition {
     ///
     /// [`ContractMetadataKind`]: crate::metadata::ContractMetadataKind
     const METADATA: &[::core::primitive::u8];
-}
-
-#[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-#[repr(u8)]
-pub enum ContractError {
-    BadInput = 1,
-    BadOutput,
-    Forbidden,
-    NotFound,
-    Conflict,
-    InternalError,
-    NotImplemented,
-}
-
-impl ContractError {
-    /// Convert contact error into contract exit code.
-    ///
-    /// Mosty useful for low-level code.
-    #[inline]
-    pub const fn exit_code(self) -> ExitCode {
-        match self {
-            Self::BadInput => ExitCode::BadInput,
-            Self::BadOutput => ExitCode::BadOutput,
-            Self::Forbidden => ExitCode::Forbidden,
-            Self::NotFound => ExitCode::NotFound,
-            Self::Conflict => ExitCode::Conflict,
-            Self::InternalError => ExitCode::InternalError,
-            Self::NotImplemented => ExitCode::NotImplemented,
-        }
-    }
-}
-
-#[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-#[repr(u8)]
-#[must_use = "Code can be Ok or one of the errors, consider converting to Result<(), ContractCode>"]
-pub enum ExitCode {
-    Ok = 0,
-    BadInput = 1,
-    BadOutput,
-    Forbidden,
-    NotFound,
-    Conflict,
-    InternalError,
-    NotImplemented,
-}
-
-impl From<ContractError> for ExitCode {
-    #[inline]
-    fn from(error: ContractError) -> Self {
-        error.exit_code()
-    }
-}
-
-impl From<Result<(), ContractError>> for ExitCode {
-    #[inline]
-    fn from(error: Result<(), ContractError>) -> Self {
-        match error {
-            Ok(()) => Self::Ok,
-            Err(error) => error.exit_code(),
-        }
-    }
-}
-
-impl From<ExitCode> for Result<(), ContractError> {
-    #[inline]
-    fn from(value: ExitCode) -> Self {
-        match value {
-            ExitCode::Ok => Ok(()),
-            ExitCode::BadInput => Err(ContractError::BadInput),
-            ExitCode::BadOutput => Err(ContractError::BadOutput),
-            ExitCode::Forbidden => Err(ContractError::Forbidden),
-            ExitCode::NotFound => Err(ContractError::NotFound),
-            ExitCode::Conflict => Err(ContractError::Conflict),
-            ExitCode::InternalError => Err(ContractError::InternalError),
-            ExitCode::NotImplemented => Err(ContractError::NotImplemented),
-        }
-    }
 }
 
 /// Shard index
