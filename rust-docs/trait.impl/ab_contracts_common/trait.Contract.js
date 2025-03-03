@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["ab_contract_example_flipper",[["impl Contract for <a class=\"struct\" href=\"ab_contract_example_flipper/struct.Flipper.html\" title=\"struct ab_contract_example_flipper::Flipper\">Flipper</a>"]]],["ab_contract_example_ft",[["impl Contract for <a class=\"struct\" href=\"ab_contract_example_ft/struct.ExampleFt.html\" title=\"struct ab_contract_example_ft::ExampleFt\">ExampleFt</a>"]]],["ab_contract_example_wallet",[["impl Contract for <a class=\"struct\" href=\"ab_contract_example_wallet/struct.ExampleWallet.html\" title=\"struct ab_contract_example_wallet::ExampleWallet\">ExampleWallet</a>"]]],["ab_contract_playground",[["impl Contract for <a class=\"struct\" href=\"ab_contract_playground/struct.Playground.html\" title=\"struct ab_contract_playground::Playground\">Playground</a>"]]],["ab_system_contract_address_allocator",[["impl Contract for <a class=\"struct\" href=\"ab_system_contract_address_allocator/struct.AddressAllocator.html\" title=\"struct ab_system_contract_address_allocator::AddressAllocator\">AddressAllocator</a>"]]],["ab_system_contract_code",[["impl Contract for <a class=\"struct\" href=\"ab_system_contract_code/struct.Code.html\" title=\"struct ab_system_contract_code::Code\">Code</a>"]]],["ab_system_contract_simple_wallet_base",[["impl Contract for <a class=\"struct\" href=\"ab_system_contract_simple_wallet_base/struct.SimpleWalletBase.html\" title=\"struct ab_system_contract_simple_wallet_base::SimpleWalletBase\">SimpleWalletBase</a>"]]],["ab_system_contract_state",[["impl Contract for <a class=\"struct\" href=\"ab_system_contract_state/struct.State.html\" title=\"struct ab_system_contract_state::State\">State</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[198,190,214,193,253,178,256,184]}
