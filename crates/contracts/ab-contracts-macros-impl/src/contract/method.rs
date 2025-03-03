@@ -72,10 +72,6 @@ enum MethodResultType {
 }
 
 impl MethodResultType {
-    fn unit() -> Self {
-        Self::Unit(Self::unit_type())
-    }
-
     fn unit_type() -> Type {
         Type::Tuple(TypeTuple {
             paren_token: Default::default(),
@@ -558,55 +554,57 @@ impl MethodDetails {
         );
         match output {
             ReturnType::Default => {
-                self.set_result_type(MethodResultType::unit());
+                self.set_result_type(MethodResultType::Unit(MethodResultType::unit_type()));
             }
             ReturnType::Type(_r_arrow, return_type) => match return_type.as_ref() {
                 Type::Array(_type_array) => {
                     self.set_result_type(MethodResultType::Regular(return_type.as_ref().clone()));
                 }
                 Type::Path(type_path) => {
+                    // Check something with generic rather than a simple type
+                    let Some(last_path_segment) = type_path.path.segments.last() else {
+                        self.set_result_type(MethodResultType::Regular(
+                            return_type.as_ref().clone(),
+                        ));
+                        return Ok(());
+                    };
+
                     // Check for `-> Result<T, ContractError>`
-                    if let Some(last_path_segment) = type_path.path.segments.last() {
-                        if last_path_segment.ident == "Result" {
-                            if let PathArguments::AngleBracketed(result_arguments) =
-                                &last_path_segment.arguments
-                                && result_arguments.args.len() == 2
-                                && let GenericArgument::Type(ok_type) = &result_arguments.args[0]
-                                && let GenericArgument::Type(error_type) = &result_arguments.args[1]
-                                && let Type::Path(error_path) = error_type
-                                && error_path
+                    if last_path_segment.ident == "Result" {
+                        if let PathArguments::AngleBracketed(result_arguments) =
+                            &last_path_segment.arguments
+                            && result_arguments.args.len() == 2
+                            && let GenericArgument::Type(ok_type) = &result_arguments.args[0]
+                            && let GenericArgument::Type(error_type) = &result_arguments.args[1]
+                            && let Type::Path(error_path) = error_type
+                            && error_path
+                                .path
+                                .segments
+                                .last()
+                                .map(|s| s.ident == "ContractError")
+                                .unwrap_or_default()
+                        {
+                            if let Type::Path(ok_path) = ok_type
+                                && ok_path
                                     .path
                                     .segments
-                                    .last()
-                                    .map(|s| s.ident == "ContractError")
+                                    .first()
+                                    .map(|s| s.ident == "Self")
                                     .unwrap_or_default()
                             {
-                                if let Type::Path(ok_path) = ok_type
-                                    && ok_path
-                                        .path
-                                        .segments
-                                        .first()
-                                        .map(|s| s.ident == "Self")
-                                        .unwrap_or_default()
-                                {
-                                    // Swap `Self` for an actual struct name
-                                    self.set_result_type(MethodResultType::Result(
-                                        self.self_type.clone(),
-                                    ));
-                                } else {
-                                    self.set_result_type(MethodResultType::Result(ok_type.clone()));
-                                }
+                                // Swap `Self` for an actual struct name
+                                self.set_result_type(MethodResultType::Result(
+                                    self.self_type.clone(),
+                                ));
                             } else {
-                                return Err(Error::new(return_type.span(), error_message));
+                                self.set_result_type(MethodResultType::Result(ok_type.clone()));
                             }
-                        } else if last_path_segment.ident == "Self" {
-                            // Swap `Self` for an actual struct name
-                            self.set_result_type(MethodResultType::Regular(self.self_type.clone()));
                         } else {
-                            self.set_result_type(MethodResultType::Regular(
-                                return_type.as_ref().clone(),
-                            ));
+                            return Err(Error::new(return_type.span(), error_message));
                         }
+                    } else if last_path_segment.ident == "Self" {
+                        // Swap `Self` for an actual struct name
+                        self.set_result_type(MethodResultType::Regular(self.self_type.clone()));
                     } else {
                         self.set_result_type(MethodResultType::Regular(
                             return_type.as_ref().clone(),
