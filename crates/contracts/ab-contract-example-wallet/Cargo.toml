@@ -14,12 +14,12 @@ include = [
 all-features = true
 
 [dependencies]
-ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
-ab-contracts-io-type = { version = "0.0.1", path = "../ab-contracts-io-type" }
-ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
-ab-contracts-standards = { version = "0.0.1", path = "../ab-contracts-standards" }
-ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "../ab-system-contract-simple-wallet-base" }
-ab-system-contract-state = { version = "0.0.1", path = "../ab-system-contract-state" }
+ab-contracts-common = { workspace = true }
+ab-contracts-io-type = { workspace = true }
+ab-contracts-macros = { workspace = true }
+ab-contracts-standards = { workspace = true }
+ab-system-contract-simple-wallet-base = { workspace = true }
+ab-system-contract-state = { workspace = true }
 
 [features]
 guest = [

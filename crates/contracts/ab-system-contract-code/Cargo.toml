@@ -14,10 +14,10 @@ include = [
 all-features = true
 
 [dependencies]
-ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
-ab-contracts-io-type = { version = "0.0.1", path = "../ab-contracts-io-type" }
-ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
-ab-system-contract-address-allocator = { version = "0.0.1", path = "../ab-system-contract-address-allocator" }
+ab-contracts-common = { workspace = true }
+ab-contracts-io-type = { workspace = true }
+ab-contracts-macros = { workspace = true }
+ab-system-contract-address-allocator = { workspace = true }
 
 [features]
 guest = [

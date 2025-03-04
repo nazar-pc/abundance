@@ -14,13 +14,13 @@ include = [
 all-features = true
 
 [dependencies]
-ab-contracts-io-type = { version = "0.0.1", path = "../ab-contracts-io-type" }
-ab-contracts-macros = { version = "0.0.1", path = "../ab-contracts-macros" }
+ab-contracts-io-type = { workspace = true }
+ab-contracts-macros = { workspace = true }
 
 [dev-dependencies]
-ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common" }
-ab-contracts-executor = { version = "0.0.1", path = "../ab-contracts-executor" }
-ab-system-contract-code = { version = "0.0.1", path = "../ab-system-contract-code" }
+ab-contracts-common = { workspace = true }
+ab-contracts-executor = { workspace = true }
+ab-system-contract-code = { workspace = true }
 
 [features]
 guest = [
