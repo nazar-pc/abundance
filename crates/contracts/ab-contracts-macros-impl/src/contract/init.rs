@@ -33,10 +33,6 @@ pub(super) fn process_init_fn(
                 format_ident!("output"),
                 MethodDetails::process_output_arg as _,
             ),
-            (
-                format_ident!("result"),
-                MethodDetails::process_result_arg as _,
-            ),
         ]);
 
         match input {

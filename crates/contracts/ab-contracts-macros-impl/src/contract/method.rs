@@ -56,7 +56,6 @@ struct Input {
 struct Output {
     type_name: Type,
     arg_name: Ident,
-    is_result: bool,
     has_self: bool,
 }
 
@@ -416,7 +415,7 @@ impl MethodDetails {
         if !self.outputs.is_empty() {
             return Err(Error::new(
                 input_span,
-                "`#[input]` must appear before any `#[output]` or `#[result]`",
+                "`#[input]` must appear before any `#[output]`",
             ));
         }
 
@@ -451,16 +450,9 @@ impl MethodDetails {
 
     pub(super) fn process_output_arg(
         &mut self,
-        input_span: Span,
+        _input_span: Span,
         pat_type: &PatType,
     ) -> Result<(), Error> {
-        if self.outputs.iter().any(|output| output.is_result) {
-            return Err(Error::new(
-                input_span,
-                "`#[output]` must appear before `#[result]`",
-            ));
-        }
-
         // Ensure input looks like `&mut Type`
         if let Type::Reference(type_reference) = &*pat_type.ty
             && type_reference.mutability.is_some()
@@ -469,47 +461,6 @@ impl MethodDetails {
                 return Err(Error::new(
                     pat_type.span(),
                     "`#[output]` argument name must be an exclusive reference",
-                ));
-            };
-
-            self.outputs.push(Output {
-                type_name: type_reference.elem.as_ref().clone(),
-                arg_name: pat_ident.ident.clone(),
-                is_result: false,
-                // Might be `Self,` but doesn't matter here, hence not worth checking
-                has_self: false,
-            });
-            Ok(())
-        } else {
-            Err(Error::new(
-                pat_type.span(),
-                "`#[output]` must be an exclusive reference to a type implementing \
-                `IoTypeOptional`, likely `MaybeData` container",
-            ))
-        }
-    }
-
-    pub(super) fn process_result_arg(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-    ) -> Result<(), Error> {
-        if !self.result_type.unit_result_type() {
-            return Err(Error::new(
-                input_span,
-                "`#[result]` must only be used with methods that either return `()` or \
-                `Result<(), ContractError>`",
-            ));
-        }
-
-        // Ensure input looks like `&mut Type`
-        if let Type::Reference(type_reference) = &*pat_type.ty
-            && type_reference.mutability.is_some()
-        {
-            let Pat::Ident(pat_ident) = &*pat_type.pat else {
-                return Err(Error::new(
-                    pat_type.span(),
-                    "`#[result]` argument name must be an exclusive reference",
                 ));
             };
 
@@ -533,14 +484,13 @@ impl MethodDetails {
             self.outputs.push(Output {
                 type_name,
                 arg_name: pat_ident.ident.clone(),
-                is_result: true,
                 has_self,
             });
             Ok(())
         } else {
             Err(Error::new(
                 pat_type.span(),
-                "`#[result]` must be an exclusive reference to a type implementing \
+                "`#[output]` must be an exclusive reference to a type implementing \
                 `IoTypeOptional`, likely `MaybeData` container",
             ))
         }
@@ -650,16 +600,13 @@ impl MethodDetails {
         let self_type = &self.self_type;
         if matches!(self.method_type, MethodType::Init) {
             let self_return_type = self.result_type.result_type() == self_type;
-            let self_result_type = self
-                .outputs
-                .last()
-                .is_some_and(|output| output.is_result && output.has_self);
+            let self_last_output_type = self.outputs.last().is_some_and(|output| output.has_self);
 
-            if !(self_return_type || self_result_type) || (self_return_type && self_result_type) {
+            if !(self_return_type || self_last_output_type) {
                 return Err(Error::new(
                     fn_sig.span(),
-                    "`#[init]` must have result type of `Self` as either return type or explicit \
-                    `#[result]` argument, but not both",
+                    "`#[init]` must have `Self` as either return type or last `#[output]` \
+                    argument",
                 ));
             }
         }
@@ -1055,9 +1002,7 @@ impl MethodDetails {
         let internal_args_struct = {
             // Result can be used through return type or argument, for argument no special handling
             // of the return type is needed. Similarly, it is skipped for a unit return type.
-            if !(self.outputs.last().is_some_and(|output| output.is_result)
-                || self.result_type.unit_result_type())
-            {
+            if !self.result_type.unit_result_type() {
                 internal_args_pointers.push(quote! {
                     pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
                     /// The size of the contents `ok_result_ptr` points to
@@ -1068,7 +1013,7 @@ impl MethodDetails {
 
                 // Ensure return type implements not only `IoType`, which is required for crossing
                 // host/guest boundary, but also `TrivialType` and result handling is trivial.
-                // `#[result]` must be used for a variable size result.
+                // `#[output]` must be used for a variable size result.
                 preparation.push(quote! {
                     debug_assert!(
                         args.ok_result_ptr.is_aligned(),
@@ -1315,7 +1260,8 @@ impl MethodDetails {
         }
 
         // Outputs with a pointer, size and capacity
-        for output in &self.outputs {
+        let mut outputs_iter = self.outputs.iter().peekable();
+        while let Some(output) = outputs_iter.next() {
             let type_name = &output.type_name;
             let arg_name = &output.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
@@ -1326,7 +1272,10 @@ impl MethodDetails {
 
             // Initializer's return type will be `()` for caller of `#[init]`, state is stored by
             // the host and not returned to the caller, hence no explicit argument is needed
-            if output.is_result && matches!(self.method_type, MethodType::Init) {
+            if outputs_iter.is_empty()
+                && self.result_type.unit_result_type()
+                && matches!(self.method_type, MethodType::Init)
+            {
                 continue;
             }
 
@@ -1367,14 +1316,10 @@ impl MethodDetails {
 
         let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
 
-        // Initializer's return type will be `()` for caller of `#[init]`, state is stored by the
-        // host and not returned to the caller, also if explicit `#[result]` argument is used return
-        // type is also `()`. In both cases, explicit arguments are not needed in `ExternalArgs`
-        // struct. Similarly, it is skipped for a unit return type.
-        if !(self.outputs.last().is_some_and(|output| output.is_result)
-            || matches!(self.method_type, MethodType::Init)
-            || self.result_type.unit_result_type())
-        {
+        // Initializer's return type will be `()` for caller of `#[init]` since the state is stored
+        // by the host and not returned to the caller and explicit argument is not needed in
+        // `ExternalArgs` struct. Similarly, it is skipped for a unit return type.
+        if !(matches!(self.method_type, MethodType::Init) || self.result_type.unit_result_type()) {
             let result_type = &self.result_type.result_type();
 
             external_args_fields.push(quote! {
@@ -1506,21 +1451,24 @@ impl MethodDetails {
             });
         }
 
-        for output in &self.outputs {
-            let io_metadata_type = if output.is_result { "Result" } else { "Output" };
+        let mut outputs_iter = self.outputs.iter().peekable();
+        while let Some(output) = outputs_iter.next() {
+            let io_metadata_type = "Output";
 
             let io_metadata_type = format_ident!("{io_metadata_type}");
             let arg_name_metadata = derive_ident_metadata(&output.arg_name)?;
-            // Skip type metadata for `#[init]`'s result since it is known statically
-            let with_type_metadata =
-                if output.is_result && matches!(self.method_type, MethodType::Init) {
-                    None
-                } else {
-                    let type_name = &output.type_name;
-                    Some(quote! {
-                        <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
-                    })
-                };
+            // Skip type metadata for `#[init]`'s last output since it is known statically
+            let with_type_metadata = if outputs_iter.is_empty()
+                && self.result_type.unit_result_type()
+                && matches!(self.method_type, MethodType::Init)
+            {
+                None
+            } else {
+                let type_name = &output.type_name;
+                Some(quote! {
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
+                })
+            };
             method_metadata.push(quote! {
                 &[::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as ::core::primitive::u8],
                 #arg_name_metadata,
@@ -1529,9 +1477,7 @@ impl MethodDetails {
         }
 
         // Skipped if return type is unit
-        if !(self.outputs.last().is_some_and(|output| output.is_result)
-            || self.result_type.unit_result_type())
-        {
+        if !self.result_type.unit_result_type() {
             // There isn't an explicit name in case of the return type
             let arg_name_metadata = Literal::u8_unsuffixed(0);
             // Skip type metadata for `#[init]`'s result since it is known statically
@@ -1545,7 +1491,7 @@ impl MethodDetails {
             };
             method_metadata.push(quote! {
                 &[
-                    ::ab_contracts_macros::__private::ContractMetadataKind::Result as ::core::primitive::u8,
+                    ::ab_contracts_macros::__private::ContractMetadataKind::Output as ::core::primitive::u8,
                     #arg_name_metadata,
                 ],
                 #with_type_metadata
@@ -1654,13 +1600,17 @@ impl MethodDetails {
         }
 
         // For each output argument, generate a corresponding write-only argument
-        for output in &self.outputs {
+        let mut outputs_iter = self.outputs.iter().peekable();
+        while let Some(output) = outputs_iter.next() {
             let type_name = &output.type_name;
             let arg_name = &output.arg_name;
 
             // Initializer's return type will be `()` for caller of `#[init]`, state is stored by
             // the host and not returned to the caller
-            if output.is_result && matches!(self.method_type, MethodType::Init) {
+            if outputs_iter.is_empty()
+                && self.result_type.unit_result_type()
+                && matches!(self.method_type, MethodType::Init)
+            {
                 continue;
             }
 
@@ -1700,11 +1650,10 @@ impl MethodDetails {
                 method_context: ::ab_contracts_macros::__private::MethodContext,
             }
         });
-        // Initializer's return type will be `()` for caller, state is stored by the host and not
-        // returned to the caller, also if explicit `#[result]` argument is used return type is
-        // also `()`. Similarly, it is skipped for a unit return type.
-        let method_signature = if self.outputs.last().is_some_and(|output| output.is_result)
-            || matches!(self.method_type, MethodType::Init)
+        // Initializer's return type will be `()` for caller of `#[init]` since the state is stored
+        // by the host and not returned to the caller. Similarly, it is skipped for a unit return
+        // type.
+        let method_signature = if matches!(self.method_type, MethodType::Init)
             || self.result_type.unit_result_type()
         {
             quote! {

@@ -70,10 +70,17 @@ impl Playground {
     }
 
     #[init]
-    pub fn new_result(#[env] env: &mut Env, #[result] result: &mut MaybeData<Self>) {
+    pub fn new_result(
+        #[slot] (owner_addr, owner): (&Address, &mut MaybeData<Slot>),
+        #[input] total_supply: &Balance,
+        #[output] result: &mut MaybeData<Self>,
+    ) {
+        owner.replace(Slot {
+            balance: *total_supply,
+        });
         result.replace(Self {
-            total_supply: Balance::MIN,
-            owner: env.context(),
+            total_supply: *total_supply,
+            owner: *owner_addr,
         });
     }
 
@@ -126,7 +133,7 @@ impl Playground {
     }
 
     #[view]
-    pub fn balance3(#[slot] target: &MaybeData<Slot>, #[result] result: &mut MaybeData<Balance>) {
+    pub fn balance3(#[slot] target: &MaybeData<Slot>, #[output] result: &mut MaybeData<Balance>) {
         result.replace(
             target
                 .get()

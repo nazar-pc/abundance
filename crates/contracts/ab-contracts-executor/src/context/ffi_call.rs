@@ -395,8 +395,11 @@ impl<'a> FfiCall<'a> {
 
         let mut new_address_ptr = None;
 
+        let mut remaining_arguments = num_arguments;
         // Handle all other arguments one by one
         while let Some(result) = arguments_metadata_decoder.decode_next() {
+            remaining_arguments -= 1;
+
             let item = match result {
                 Ok(result) => result,
                 Err(error) => {
@@ -543,29 +546,10 @@ impl<'a> FfiCall<'a> {
                     }
                 }
                 ArgumentKind::Output => {
-                    // SAFETY: `external_args_cursor`'s must contain a pointers to input + size
-                    // + capacity.
-                    // `internal_args_cursor`'s memory is allocated with sufficient size above and
-                    // aligned correctly.
-                    unsafe {
-                        // Output
-                        copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
-                        // Size (might be a null pointer for trivial types)
-                        let size_ptr =
-                            copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
-                        if !size_ptr.is_null() {
-                            // Override output size to be zero even if caller guest tried to put
-                            // something there
-                            size_ptr.write(0);
-                        }
-                        // Capacity
-                        copy_ptr!(external_args_cursor => internal_args_cursor as *const u32);
-                    }
-                }
-                ArgumentKind::Result => {
+                    let last_argument = remaining_arguments == 0;
                     // `#[init]` method returns state of the contract and needs to be stored
                     // accordingly
-                    if matches!(method_kind, MethodKind::Init) {
+                    if matches!((method_kind, last_argument), (MethodKind::Init, true)) {
                         if view_only {
                             return Err(ContractError::Forbidden);
                         }
@@ -608,7 +592,7 @@ impl<'a> FfiCall<'a> {
                             // Output
                             let ptr =
                                 copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
-                            if is_allocate_new_address_method {
+                            if last_argument && is_allocate_new_address_method {
                                 new_address_ptr.replace(ptr.cast::<Address>());
                             }
                             // Size (might be a null pointer for trivial types)

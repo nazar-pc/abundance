@@ -19,7 +19,6 @@ fn check_repr() {
         (ContractMetadataKind::SlotRw, 13),
         (ContractMetadataKind::Input, 14),
         (ContractMetadataKind::Output, 15),
-        (ContractMetadataKind::Result, 16),
     ];
 
     for (kind, repr_byte) in known_variants {

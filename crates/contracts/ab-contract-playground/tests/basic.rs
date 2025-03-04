@@ -25,7 +25,7 @@ fn basic() {
                 &Playground::code(),
             )
             .unwrap();
-        env.playground_new(
+        env.playground_new_result(
             MethodContext::Keep,
             playground_address,
             &playground_address,

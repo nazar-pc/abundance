@@ -37,16 +37,16 @@ pub const SIGNING_CONTEXT: &[u8] = b"system-simple-wallet";
 /// This constant is helpful for transaction generation to check whether a created transaction
 /// doesn't exceed this limit.
 ///
-/// `#[slot]` argument using one pointer, `#[input]` two pointers and `#[output]`/`#[result]` three
-/// pointers each.
+/// `#[slot]` argument using one pointer, `#[input]` two pointers and `#[output]` three pointers
+/// each.
 pub const EXTERNAL_ARGS_BUFFER_SIZE: usize = 32 * 1024;
 /// Size of the buffer in bytes that is used as a stack for storing outputs.
 ///
 /// This constant is helpful for transaction generation to check whether a created transaction
 /// doesn't exceed this limit.
 ///
-/// This defines how big the total sum of `#[output]` and `#[result]` could be in all methods of the
-/// payload together.
+/// This defines how big the total size of `#[output]` arguments and return values could be in all
+/// methods of the payload together.
 ///
 /// Overflow will result in an error.
 pub const OUTPUT_BUFFER_SIZE: usize = 32 * 1024;
@@ -55,7 +55,7 @@ pub const OUTPUT_BUFFER_SIZE: usize = 32 * 1024;
 /// This constant is helpful for transaction generation to check whether a created transaction
 /// doesn't exceed this limit.
 ///
-/// This defines how many `#[output]` and `#[result]` arguments could exist in all methods of the
+/// This defines how many `#[output]` arguments and return values could exist in all methods of the
 /// payload together.
 ///
 /// Overflow will result in an error.
