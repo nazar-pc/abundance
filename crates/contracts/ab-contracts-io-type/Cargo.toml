@@ -11,4 +11,4 @@ include = [
 ]
 
 [dependencies]
-ab-contracts-trivial-type-derive = { version = "0.0.1", path = "../ab-contracts-trivial-type-derive" }
+ab-contracts-trivial-type-derive = { workspace = true }

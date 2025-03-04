@@ -14,14 +14,14 @@ include = [
 all-features = true
 
 [dependencies]
-ab-contracts-common = { version = "0.0.1", path = "../ab-contracts-common", features = ["executor"] }
-ab-system-contract-address-allocator = { version = "0.0.1", path = "../ab-system-contract-address-allocator" }
-ab-system-contract-code = { version = "0.0.1", path = "../ab-system-contract-code" }
-ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "../ab-system-contract-simple-wallet-base" }
-ab-system-contract-state = { version = "0.0.1", path = "../ab-system-contract-state" }
-aliasable = "0.1.3"
-halfbrown = { version = "0.3.0", features = ["arraybackend", "fxhash"] }
-parking_lot = { version = "0.12.3", features = ["arc_lock"] }
-smallvec = "1.14.0"
-thiserror = "2.0.11"
-tracing = "0.1.41"
+ab-contracts-common = { workspace = true, features = ["executor"] }
+ab-system-contract-address-allocator = { workspace = true }
+ab-system-contract-code = { workspace = true }
+ab-system-contract-simple-wallet-base = { workspace = true }
+ab-system-contract-state = { workspace = true }
+aliasable = { workspace = true }
+halfbrown = { workspace = true, features = ["arraybackend", "fxhash"] }
+parking_lot = { workspace = true, features = ["arc_lock"] }
+smallvec = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
