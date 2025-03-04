@@ -1,5 +1,4 @@
 use crate::metadata::IoTypeMetadataKind;
-use core::str;
 
 /// This macro is necessary to reduce boilerplate due to lack of `?` in const environment
 macro_rules! forward_option {

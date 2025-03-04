@@ -1,6 +1,5 @@
 use crate::metadata::ContractMetadataKind;
 use ab_contracts_io_type::metadata::{IoTypeDetails, IoTypeMetadataKind};
-use core::str;
 use core::str::Utf8Error;
 
 /// Metadata decoding error
