@@ -1,6 +1,17 @@
 use derive_more::Display;
 
 #[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+pub struct UnknownContractErrorCode(u8);
+
+impl UnknownContractErrorCode {
+    /// Get the inner error code
+    #[inline]
+    pub const fn code(self) -> u8 {
+        self.0
+    }
+}
+
+#[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct CustomContractErrorCode(u64);
 
 impl CustomContractErrorCode {
@@ -20,6 +31,7 @@ pub enum ContractError {
     Conflict,
     InternalError,
     NotImplemented,
+    Unknown(UnknownContractErrorCode),
     Custom(CustomContractErrorCode),
 }
 
@@ -56,6 +68,7 @@ impl ContractError {
             Self::Conflict => 5,
             Self::InternalError => 6,
             Self::NotImplemented => 7,
+            Self::Unknown(unknown) => unknown.code() as u64,
             Self::Custom(custom) => custom.code(),
         })
     }
@@ -97,7 +110,7 @@ impl From<ExitCode> for Result<(), ContractError> {
             5 => ContractError::Conflict,
             6 => ContractError::InternalError,
             7 => ContractError::NotImplemented,
-            8..=255 => unreachable!(),
+            8..=255 => ContractError::Unknown(UnknownContractErrorCode(value.0 as u8)),
             code => ContractError::Custom(CustomContractErrorCode(code)),
         })
     }
