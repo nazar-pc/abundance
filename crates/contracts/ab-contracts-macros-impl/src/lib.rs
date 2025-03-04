@@ -1,6 +1,6 @@
 //! See and use `ab-contracts-macros` crate instead, this is its implementation detail
 
-#![feature(extract_if, exact_size_is_empty, iter_map_windows, let_chains)]
+#![feature(exact_size_is_empty, iter_map_windows, let_chains)]
 
 mod contract;
 
