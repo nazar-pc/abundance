@@ -157,8 +157,7 @@ impl<'metadata> MetadataDecoder<'metadata> {
             | ContractMetadataKind::SlotRo
             | ContractMetadataKind::SlotRw
             | ContractMetadataKind::Input
-            | ContractMetadataKind::Output
-            | ContractMetadataKind::Result => {
+            | ContractMetadataKind::Output => {
                 Some(Err(MetadataDecodingError::ExpectedContractOrTrait {
                     metadata_kind,
                 }))
@@ -367,8 +366,7 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
             | ContractMetadataKind::SlotRo
             | ContractMetadataKind::SlotRw
             | ContractMetadataKind::Input
-            | ContractMetadataKind::Output
-            | ContractMetadataKind::Result => {
+            | ContractMetadataKind::Output => {
                 return Err(MetadataDecodingError::ExpectedMethodKind { metadata_kind });
             }
         };
@@ -453,8 +451,6 @@ pub enum ArgumentKind {
     Input,
     /// Corresponds to [`ContractMetadataKind::Output`]
     Output,
-    /// Corresponds to [`ContractMetadataKind::Result`]
-    Result,
 }
 
 #[derive(Debug)]
@@ -463,7 +459,8 @@ pub struct ArgumentMetadataItem<'metadata> {
     pub argument_kind: ArgumentKind,
     /// Exceptions:
     /// * `None` for `#[env]`
-    /// * `None` for `#[result]` in `#[init]`
+    /// * `None` for the last `#[output]` or return type otherwise in `#[init]` (see
+    ///   [`ContractMetadataKind::Init`] for details)
     pub type_details: Option<IoTypeDetails>,
 }
 
@@ -511,7 +508,6 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             ContractMetadataKind::SlotRw => ArgumentKind::SlotRw,
             ContractMetadataKind::Input => ArgumentKind::Input,
             ContractMetadataKind::Output => ArgumentKind::Output,
-            ContractMetadataKind::Result => ArgumentKind::Result,
             // The rest are not arguments and can't appear here
             ContractMetadataKind::Contract
             | ContractMetadataKind::Trait
@@ -538,15 +534,13 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                 | ArgumentKind::SlotRo
                 | ArgumentKind::SlotRw
                 | ArgumentKind::Input
-                | ArgumentKind::Output
-                | ArgumentKind::Result => true,
+                | ArgumentKind::Output => true,
             },
             MethodKind::ViewStateless | MethodKind::ViewStateful => match argument_kind {
                 ArgumentKind::EnvRo
                 | ArgumentKind::SlotRo
                 | ArgumentKind::Input
-                | ArgumentKind::Output
-                | ArgumentKind::Result => true,
+                | ArgumentKind::Output => true,
                 ArgumentKind::EnvRw
                 | ArgumentKind::TmpRo
                 | ArgumentKind::TmpRw
@@ -568,8 +562,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             | ArgumentKind::SlotRo
             | ArgumentKind::SlotRw
             | ArgumentKind::Input
-            | ArgumentKind::Output
-            | ArgumentKind::Result => {
+            | ArgumentKind::Output => {
                 if self.metadata.is_empty() {
                     return Err(MetadataDecodingError::NotEnoughMetadata);
                 }
@@ -599,7 +592,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                     | ArgumentKind::TmpRw
                     | ArgumentKind::SlotRo
                     | ArgumentKind::SlotRw => None,
-                    ArgumentKind::Input | ArgumentKind::Output => {
+                    ArgumentKind::Input => {
                         let recommended_capacity;
                         (recommended_capacity, *self.metadata) =
                             IoTypeMetadataKind::type_details(self.metadata).ok_or(
@@ -611,8 +604,10 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
 
                         Some(recommended_capacity)
                     }
-                    ArgumentKind::Result => {
-                        if matches!(self.method_kind, MethodKind::Init) {
+                    ArgumentKind::Output => {
+                        let last_argument = self.remaining == 0;
+                        // May be skipped for `#[init]`, see `ContractMetadataKind::Init` for details
+                        if matches!((self.method_kind, last_argument), (MethodKind::Init, true)) {
                             None
                         } else {
                             let recommended_capacity;

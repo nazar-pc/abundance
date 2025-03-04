@@ -5,7 +5,8 @@ extern crate alloc;
 use crate::payload::{TransactionInput, TransactionMethodContext};
 use ab_contracts_common::Address;
 use ab_contracts_common::metadata::decode::{
-    ArgumentKind, MetadataDecodingError, MethodMetadataDecoder, MethodsContainerKind,
+    ArgumentKind, MetadataDecodingError, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
+    MethodsContainerKind,
 };
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_contracts_io_type::MAX_ALIGNMENT;
@@ -191,21 +192,20 @@ impl TransactionPayloadBuilder {
                         );
                     }
                 }
-                ArgumentKind::Output | ArgumentKind::Result => {
+                ArgumentKind::Output => {
                     self.payload[num_outputs_index] += 1;
 
-                    let type_details = &item
-                        .type_details
-                        .expect("Always present for `#[output]`/`#[result]`; qed");
-
-                    self.extend_payload_with_alignment(
-                        &type_details.recommended_capacity.to_le_bytes(),
-                        align_of_val(&type_details.recommended_capacity),
-                    );
-                    self.extend_payload_with_alignment(
-                        &[type_details.alignment.ilog2() as u8],
-                        align_of::<u8>(),
-                    );
+                    // May be skipped for `#[init]`, see `ContractMetadataKind::Init` for details
+                    if let Some(type_details) = &item.type_details {
+                        self.extend_payload_with_alignment(
+                            &type_details.recommended_capacity.to_le_bytes(),
+                            align_of_val(&type_details.recommended_capacity),
+                        );
+                        self.extend_payload_with_alignment(
+                            &[type_details.alignment.ilog2() as u8],
+                            align_of::<u8>(),
+                        );
+                    }
                 }
             }
         }
@@ -225,7 +225,7 @@ impl TransactionPayloadBuilder {
     /// * Method context: [`TransactionMethodContext`]
     /// * Number of slot arguments: `u8`
     /// * Number of `#[input]` arguments: `u8`
-    /// * Number of `#[output]` or `#[result]` arguments: `u8`
+    /// * Number of `#[output]` arguments: `u8`
     /// * Concatenated sequence of arguments
     ///
     /// Each argument is serialized in the following way (others are skipped):
@@ -233,8 +233,8 @@ impl TransactionPayloadBuilder {
     /// * `#[input]`: [`TransactionInput`] as `u8`
     ///     * If [`TransactionInput::new_value()`] then input size as little-endian `u32`
     ///       followed by the input itself
-    /// * `#[output]` or `#[result]`: recommended capacity as little-endian `u32` followed by
-    ///   alignment power as `u8` (`NonZeroU8::ilog2(alignment)`)
+    /// * `#[output]`: recommended capacity as little-endian `u32` followed by alignment power as
+    ///   `u8` (`NonZeroU8::ilog2(alignment)`)
     pub fn into_aligned_bytes(mut self) -> Vec<u128> {
         // Fill bytes to make it multiple of `u128` before creating `u128`-based vector
         self.ensure_alignment(usize::from(MAX_ALIGNMENT));

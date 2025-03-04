@@ -56,10 +56,10 @@ struct Input {
 struct Output {
     type_name: Type,
     arg_name: Ident,
-    is_result: bool,
+    has_self: bool,
 }
 
-enum MethodResultType {
+enum MethodReturnType {
     /// The function doesn't have any return type defined
     Unit(Type),
     /// Returns a type without [`Result`]
@@ -70,11 +70,7 @@ enum MethodResultType {
     Result(Type),
 }
 
-impl MethodResultType {
-    fn unit() -> Self {
-        Self::Unit(Self::unit_type())
-    }
-
+impl MethodReturnType {
     fn unit_type() -> Type {
         Type::Tuple(TypeTuple {
             paren_token: Default::default(),
@@ -82,14 +78,14 @@ impl MethodResultType {
         })
     }
 
-    fn unit_result_type(&self) -> bool {
+    fn unit_return_type(&self) -> bool {
         match self {
             Self::Unit(_) | Self::ResultUnit(_) => true,
             Self::Regular(_) | Self::Result(_) => false,
         }
     }
 
-    fn result_type(&self) -> &Type {
+    fn return_type(&self) -> &Type {
         match self {
             Self::Unit(ty) | Self::Regular(ty) | Self::ResultUnit(ty) | Self::Result(ty) => ty,
         }
@@ -111,7 +107,7 @@ pub(super) struct MethodDetails {
     slots: Vec<Slot>,
     inputs: Vec<Input>,
     outputs: Vec<Output>,
-    result_type: MethodResultType,
+    return_type: MethodReturnType,
 }
 
 impl MethodDetails {
@@ -125,7 +121,7 @@ impl MethodDetails {
             slots: Vec::new(),
             inputs: Vec::new(),
             outputs: Vec::new(),
-            result_type: MethodResultType::Unit(MethodResultType::unit_type()),
+            return_type: MethodReturnType::Unit(MethodReturnType::unit_type()),
         }
     }
 
@@ -148,7 +144,7 @@ impl MethodDetails {
             }
         }
 
-        Some(tmp_type.unwrap_or_else(MethodResultType::unit_type))
+        Some(tmp_type.unwrap_or_else(MethodReturnType::unit_type))
     }
 
     /// Returns `#[slot]` type (or `()` if it is not used) if all methods have the same slots type
@@ -170,7 +166,7 @@ impl MethodDetails {
             }
         }
 
-        Some(slot_type.unwrap_or_else(MethodResultType::unit_type))
+        Some(slot_type.unwrap_or_else(MethodReturnType::unit_type))
     }
 
     pub(super) fn process_env_arg_ro(
@@ -419,7 +415,7 @@ impl MethodDetails {
         if !self.outputs.is_empty() {
             return Err(Error::new(
                 input_span,
-                "`#[input]` must appear before any `#[output]` or `#[result]`",
+                "`#[input]` must appear before any `#[output]`",
             ));
         }
 
@@ -454,16 +450,9 @@ impl MethodDetails {
 
     pub(super) fn process_output_arg(
         &mut self,
-        input_span: Span,
+        _input_span: Span,
         pat_type: &PatType,
     ) -> Result<(), Error> {
-        if self.outputs.iter().any(|output| output.is_result) {
-            return Err(Error::new(
-                input_span,
-                "`#[output]` must appear before `#[result]`",
-            ));
-        }
-
         // Ensure input looks like `&mut Type`
         if let Type::Reference(type_reference) = &*pat_type.ty
             && type_reference.mutability.is_some()
@@ -475,46 +464,8 @@ impl MethodDetails {
                 ));
             };
 
-            self.outputs.push(Output {
-                type_name: type_reference.elem.as_ref().clone(),
-                arg_name: pat_ident.ident.clone(),
-                is_result: false,
-            });
-            Ok(())
-        } else {
-            Err(Error::new(
-                pat_type.span(),
-                "`#[output]` must be an exclusive reference to a type implementing \
-                `IoTypeOptional`, likely `MaybeData` container",
-            ))
-        }
-    }
-
-    pub(super) fn process_result_arg(
-        &mut self,
-        input_span: Span,
-        pat_type: &PatType,
-    ) -> Result<(), Error> {
-        if !self.result_type.unit_result_type() {
-            return Err(Error::new(
-                input_span,
-                "`#[result]` must only be used with methods that either return `()` or \
-                `Result<(), ContractError>`",
-            ));
-        }
-
-        // Ensure input looks like `&mut Type`
-        if let Type::Reference(type_reference) = &*pat_type.ty
-            && type_reference.mutability.is_some()
-        {
-            let Pat::Ident(pat_ident) = &*pat_type.pat else {
-                return Err(Error::new(
-                    pat_type.span(),
-                    "`#[result]` argument name must be an exclusive reference",
-                ));
-            };
-
             let mut type_name = type_reference.elem.as_ref().clone();
+            let mut has_self = false;
 
             // Replace things like `MaybeData<Self>` with `MaybeData<#self_type>`
             if let Type::Path(type_path) = &mut type_name
@@ -527,18 +478,19 @@ impl MethodDetails {
                 && type_path.path.is_ident("Self")
             {
                 *first_generic_argument = self.self_type.clone();
+                has_self = true;
             }
 
             self.outputs.push(Output {
                 type_name,
                 arg_name: pat_ident.ident.clone(),
-                is_result: true,
+                has_self,
             });
             Ok(())
         } else {
             Err(Error::new(
                 pat_type.span(),
-                "`#[result]` must be an exclusive reference to a type implementing \
+                "`#[output]` must be an exclusive reference to a type implementing \
                 `IoTypeOptional`, likely `MaybeData` container",
             ))
         }
@@ -552,57 +504,59 @@ impl MethodDetails {
         );
         match output {
             ReturnType::Default => {
-                self.set_result_type(MethodResultType::unit());
+                self.set_return_type(MethodReturnType::Unit(MethodReturnType::unit_type()));
             }
             ReturnType::Type(_r_arrow, return_type) => match return_type.as_ref() {
                 Type::Array(_type_array) => {
-                    self.set_result_type(MethodResultType::Regular(return_type.as_ref().clone()));
+                    self.set_return_type(MethodReturnType::Regular(return_type.as_ref().clone()));
                 }
                 Type::Path(type_path) => {
+                    // Check something with generic rather than a simple type
+                    let Some(last_path_segment) = type_path.path.segments.last() else {
+                        self.set_return_type(MethodReturnType::Regular(
+                            return_type.as_ref().clone(),
+                        ));
+                        return Ok(());
+                    };
+
                     // Check for `-> Result<T, ContractError>`
-                    if let Some(last_path_segment) = type_path.path.segments.last() {
-                        if last_path_segment.ident == "Result" {
-                            if let PathArguments::AngleBracketed(result_arguments) =
-                                &last_path_segment.arguments
-                                && result_arguments.args.len() == 2
-                                && let GenericArgument::Type(ok_type) = &result_arguments.args[0]
-                                && let GenericArgument::Type(error_type) = &result_arguments.args[1]
-                                && let Type::Path(error_path) = error_type
-                                && error_path
+                    if last_path_segment.ident == "Result" {
+                        if let PathArguments::AngleBracketed(result_arguments) =
+                            &last_path_segment.arguments
+                            && result_arguments.args.len() == 2
+                            && let GenericArgument::Type(ok_type) = &result_arguments.args[0]
+                            && let GenericArgument::Type(error_type) = &result_arguments.args[1]
+                            && let Type::Path(error_path) = error_type
+                            && error_path
+                                .path
+                                .segments
+                                .last()
+                                .map(|s| s.ident == "ContractError")
+                                .unwrap_or_default()
+                        {
+                            if let Type::Path(ok_path) = ok_type
+                                && ok_path
                                     .path
                                     .segments
-                                    .last()
-                                    .map(|s| s.ident == "ContractError")
+                                    .first()
+                                    .map(|s| s.ident == "Self")
                                     .unwrap_or_default()
                             {
-                                if let Type::Path(ok_path) = ok_type
-                                    && ok_path
-                                        .path
-                                        .segments
-                                        .first()
-                                        .map(|s| s.ident == "Self")
-                                        .unwrap_or_default()
-                                {
-                                    // Swap `Self` for an actual struct name
-                                    self.set_result_type(MethodResultType::Result(
-                                        self.self_type.clone(),
-                                    ));
-                                } else {
-                                    self.set_result_type(MethodResultType::Result(ok_type.clone()));
-                                }
+                                // Swap `Self` for an actual struct name
+                                self.set_return_type(MethodReturnType::Result(
+                                    self.self_type.clone(),
+                                ));
                             } else {
-                                return Err(Error::new(return_type.span(), error_message));
+                                self.set_return_type(MethodReturnType::Result(ok_type.clone()));
                             }
-                        } else if last_path_segment.ident == "Self" {
-                            // Swap `Self` for an actual struct name
-                            self.set_result_type(MethodResultType::Regular(self.self_type.clone()));
                         } else {
-                            self.set_result_type(MethodResultType::Regular(
-                                return_type.as_ref().clone(),
-                            ));
+                            return Err(Error::new(return_type.span(), error_message));
                         }
+                    } else if last_path_segment.ident == "Self" {
+                        // Swap `Self` for an actual struct name
+                        self.set_return_type(MethodReturnType::Regular(self.self_type.clone()));
                     } else {
-                        self.set_result_type(MethodResultType::Regular(
+                        self.set_return_type(MethodReturnType::Regular(
                             return_type.as_ref().clone(),
                         ));
                     }
@@ -616,23 +570,23 @@ impl MethodDetails {
         Ok(())
     }
 
-    fn set_result_type(&mut self, result_type: MethodResultType) {
-        let unit_type = MethodResultType::unit_type();
-        self.result_type = match result_type {
-            MethodResultType::Unit(ty) => MethodResultType::Unit(ty),
-            MethodResultType::Regular(ty) => {
+    fn set_return_type(&mut self, return_type: MethodReturnType) {
+        let unit_type = MethodReturnType::unit_type();
+        self.return_type = match return_type {
+            MethodReturnType::Unit(ty) => MethodReturnType::Unit(ty),
+            MethodReturnType::Regular(ty) => {
                 if ty == unit_type {
-                    MethodResultType::Unit(ty)
+                    MethodReturnType::Unit(ty)
                 } else {
-                    MethodResultType::Regular(ty)
+                    MethodReturnType::Regular(ty)
                 }
             }
-            MethodResultType::ResultUnit(ty) => MethodResultType::ResultUnit(ty),
-            MethodResultType::Result(ty) => {
+            MethodReturnType::ResultUnit(ty) => MethodReturnType::ResultUnit(ty),
+            MethodReturnType::Result(ty) => {
                 if ty == unit_type {
-                    MethodResultType::ResultUnit(ty)
+                    MethodReturnType::ResultUnit(ty)
                 } else {
-                    MethodResultType::Result(ty)
+                    MethodReturnType::Result(ty)
                 }
             }
         };
@@ -645,28 +599,14 @@ impl MethodDetails {
     ) -> Result<TokenStream, Error> {
         let self_type = &self.self_type;
         if matches!(self.method_type, MethodType::Init) {
-            let self_return_type = self.result_type.result_type() == self_type;
-            let self_result_type = self.outputs.last().is_some_and(|output| {
-                // Match things like `MaybeData<#self_type>`
-                if output.is_result
-                    && let Type::Path(type_path) = &output.type_name
-                    && let Some(path_segment) = type_path.path.segments.last()
-                    && let PathArguments::AngleBracketed(generic_arguments) =
-                        &path_segment.arguments
-                    && let Some(GenericArgument::Type(first_generic_argument)) =
-                        generic_arguments.args.first()
-                {
-                    first_generic_argument == self_type
-                } else {
-                    false
-                }
-            });
+            let self_return_type = self.return_type.return_type() == self_type;
+            let self_last_output_type = self.outputs.last().is_some_and(|output| output.has_self);
 
-            if !(self_return_type || self_result_type) || (self_return_type && self_result_type) {
+            if !(self_return_type || self_last_output_type) {
                 return Err(Error::new(
                     fn_sig.span(),
-                    "`#[init]` must have result type of `Self` as either return type or explicit \
-                    `#[result]` argument, but not both",
+                    "`#[init]` must have `Self` as either return type or last `#[output]` \
+                    argument",
                 ));
             }
         }
@@ -1057,16 +997,14 @@ impl MethodDetails {
 
         let original_method_name = &fn_sig.ident;
         let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
-        let result_type = self.result_type.result_type();
+        let return_type = self.return_type.return_type();
 
         let internal_args_struct = {
             // Result can be used through return type or argument, for argument no special handling
             // of the return type is needed. Similarly, it is skipped for a unit return type.
-            if !(self.outputs.last().is_some_and(|output| output.is_result)
-                || self.result_type.unit_result_type())
-            {
+            if !self.return_type.unit_return_type() {
                 internal_args_pointers.push(quote! {
-                    pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
+                    pub ok_result_ptr: ::core::ptr::NonNull<#return_type>,
                     /// The size of the contents `ok_result_ptr` points to
                     pub ok_result_size: *mut ::core::primitive::u32,
                     /// Capacity of the allocated memory `ok_result_ptr` points to
@@ -1075,7 +1013,7 @@ impl MethodDetails {
 
                 // Ensure return type implements not only `IoType`, which is required for crossing
                 // host/guest boundary, but also `TrivialType` and result handling is trivial.
-                // `#[result]` must be used for a variable size result.
+                // `#[output]` must be used for a variable size result.
                 preparation.push(quote! {
                     debug_assert!(
                         args.ok_result_ptr.is_aligned(),
@@ -1090,7 +1028,7 @@ impl MethodDetails {
                     }
                     debug_assert!(
                         args.ok_result_capacity.read() >=
-                            <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
+                            <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                         "`ok_result_capacity` specified is invalid",
                     );
                 });
@@ -1115,19 +1053,19 @@ impl MethodDetails {
         let guest_fn = {
             // Depending on whether `T` or `Result<T, ContractError>` is used as return type,
             // generate different code for result handling
-            let result_handling = match &self.result_type {
-                MethodResultType::Unit(_) => {
+            let result_handling = match &self.return_type {
+                MethodReturnType::Unit(_) => {
                     quote! {
                         // Return exit code
                         ::ab_contracts_macros::__private::ExitCode::ok()
                     }
                 }
-                MethodResultType::Regular(_) => {
+                MethodReturnType::Regular(_) => {
                     quote! {
                         // Size ight be a null pointer for trivial types
                         if !args.ok_result_size.is_null() {
                             args.ok_result_size.write(
-                                <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
+                                <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                             );
                         }
                         args.ok_result_ptr.write(#result_var_name);
@@ -1135,7 +1073,7 @@ impl MethodDetails {
                         ::ab_contracts_macros::__private::ExitCode::ok()
                     }
                 }
-                MethodResultType::ResultUnit(_) => {
+                MethodReturnType::ResultUnit(_) => {
                     quote! {
                         // Return exit code
                         match #result_var_name {
@@ -1144,7 +1082,7 @@ impl MethodDetails {
                         }
                     }
                 }
-                MethodResultType::Result(_) => {
+                MethodReturnType::Result(_) => {
                     quote! {
                         // Write a result into `InternalArgs` if there is any, return exit code
                         match #result_var_name {
@@ -1152,7 +1090,7 @@ impl MethodDetails {
                                 // Size ight be a null pointer for trivial types
                                 if !args.ok_result_size.is_null() {
                                     args.ok_result_size.write(
-                                        <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
+                                        <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                                     );
                                 }
                                 args.ok_result_ptr.write(result);
@@ -1322,7 +1260,8 @@ impl MethodDetails {
         }
 
         // Outputs with a pointer, size and capacity
-        for output in &self.outputs {
+        let mut outputs_iter = self.outputs.iter().peekable();
+        while let Some(output) = outputs_iter.next() {
             let type_name = &output.type_name;
             let arg_name = &output.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
@@ -1333,7 +1272,10 @@ impl MethodDetails {
 
             // Initializer's return type will be `()` for caller of `#[init]`, state is stored by
             // the host and not returned to the caller, hence no explicit argument is needed
-            if output.is_result && matches!(self.method_type, MethodType::Init) {
+            if outputs_iter.is_empty()
+                && self.return_type.unit_return_type()
+                && matches!(self.method_type, MethodType::Init)
+            {
                 continue;
             }
 
@@ -1374,18 +1316,14 @@ impl MethodDetails {
 
         let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
 
-        // Initializer's return type will be `()` for caller of `#[init]`, state is stored by the
-        // host and not returned to the caller, also if explicit `#[result]` argument is used return
-        // type is also `()`. In both cases, explicit arguments are not needed in `ExternalArgs`
-        // struct. Similarly, it is skipped for a unit return type.
-        if !(self.outputs.last().is_some_and(|output| output.is_result)
-            || matches!(self.method_type, MethodType::Init)
-            || self.result_type.unit_result_type())
-        {
-            let result_type = &self.result_type.result_type();
+        // Initializer's return type will be `()` for caller of `#[init]` since the state is stored
+        // by the host and not returned to the caller and explicit argument is not needed in
+        // `ExternalArgs` struct. Similarly, it is skipped for a unit return type.
+        if !(matches!(self.method_type, MethodType::Init) || self.return_type.unit_return_type()) {
+            let return_type = &self.return_type.return_type();
 
             external_args_fields.push(quote! {
-                pub ok_result_ptr: ::core::ptr::NonNull<#result_type>,
+                pub ok_result_ptr: ::core::ptr::NonNull<#return_type>,
                 /// Size of the contents `ok_result_ptr` points to
                 pub ok_result_size: *mut ::core::primitive::u32,
                 /// Capacity of the allocated memory `ok_result_ptr` points to
@@ -1393,7 +1331,7 @@ impl MethodDetails {
             });
 
             method_args.push(quote! {
-                ok_result: &mut ::core::mem::MaybeUninit<#result_type>,
+                ok_result: &mut ::core::mem::MaybeUninit<#return_type>,
                 ok_result_size: &mut ::core::primitive::u32,
             });
             method_args_fields.push(quote! {
@@ -1405,7 +1343,7 @@ impl MethodDetails {
                 // This is for `TrivialType` and will never be modified
                 // TODO: Use `NonNull::from_ref()` once stable
                 ok_result_capacity: ::core::ptr::NonNull::from(
-                    &<#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
+                    &<#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                 ),
             });
         }
@@ -1513,21 +1451,24 @@ impl MethodDetails {
             });
         }
 
-        for output in &self.outputs {
-            let io_metadata_type = if output.is_result { "Result" } else { "Output" };
+        let mut outputs_iter = self.outputs.iter().peekable();
+        while let Some(output) = outputs_iter.next() {
+            let io_metadata_type = "Output";
 
             let io_metadata_type = format_ident!("{io_metadata_type}");
             let arg_name_metadata = derive_ident_metadata(&output.arg_name)?;
-            // Skip type metadata for `#[init]`'s result since it is known statically
-            let with_type_metadata =
-                if output.is_result && matches!(self.method_type, MethodType::Init) {
-                    None
-                } else {
-                    let type_name = &output.type_name;
-                    Some(quote! {
-                        <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
-                    })
-                };
+            // Skip type metadata for `#[init]`'s last output since it is known statically
+            let with_type_metadata = if outputs_iter.is_empty()
+                && self.return_type.unit_return_type()
+                && matches!(self.method_type, MethodType::Init)
+            {
+                None
+            } else {
+                let type_name = &output.type_name;
+                Some(quote! {
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
+                })
+            };
             method_metadata.push(quote! {
                 &[::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as ::core::primitive::u8],
                 #arg_name_metadata,
@@ -1536,23 +1477,21 @@ impl MethodDetails {
         }
 
         // Skipped if return type is unit
-        if !(self.outputs.last().is_some_and(|output| output.is_result)
-            || self.result_type.unit_result_type())
-        {
+        if !self.return_type.unit_return_type() {
             // There isn't an explicit name in case of the return type
             let arg_name_metadata = Literal::u8_unsuffixed(0);
             // Skip type metadata for `#[init]`'s result since it is known statically
             let with_type_metadata = if matches!(self.method_type, MethodType::Init) {
                 None
             } else {
-                let result_type = self.result_type.result_type();
+                let return_type = self.return_type.return_type();
                 Some(quote! {
-                    <#result_type as ::ab_contracts_macros::__private::IoType>::METADATA,
+                    <#return_type as ::ab_contracts_macros::__private::IoType>::METADATA,
                 })
             };
             method_metadata.push(quote! {
                 &[
-                    ::ab_contracts_macros::__private::ContractMetadataKind::Result as ::core::primitive::u8,
+                    ::ab_contracts_macros::__private::ContractMetadataKind::Output as ::core::primitive::u8,
                     #arg_name_metadata,
                 ],
                 #with_type_metadata
@@ -1661,13 +1600,17 @@ impl MethodDetails {
         }
 
         // For each output argument, generate a corresponding write-only argument
-        for output in &self.outputs {
+        let mut outputs_iter = self.outputs.iter().peekable();
+        while let Some(output) = outputs_iter.next() {
             let type_name = &output.type_name;
             let arg_name = &output.arg_name;
 
             // Initializer's return type will be `()` for caller of `#[init]`, state is stored by
             // the host and not returned to the caller
-            if output.is_result && matches!(self.method_type, MethodType::Init) {
+            if outputs_iter.is_empty()
+                && self.return_type.unit_return_type()
+                && matches!(self.method_type, MethodType::Init)
+            {
                 continue;
             }
 
@@ -1707,12 +1650,11 @@ impl MethodDetails {
                 method_context: ::ab_contracts_macros::__private::MethodContext,
             }
         });
-        // Initializer's return type will be `()` for caller, state is stored by the host and not
-        // returned to the caller, also if explicit `#[result]` argument is used return type is
-        // also `()`. Similarly, it is skipped for a unit return type.
-        let method_signature = if self.outputs.last().is_some_and(|output| output.is_result)
-            || matches!(self.method_type, MethodType::Init)
-            || self.result_type.unit_result_type()
+        // Initializer's return type will be `()` for caller of `#[init]` since the state is stored
+        // by the host and not returned to the caller. Similarly, it is skipped for a unit return
+        // type.
+        let method_signature = if matches!(self.method_type, MethodType::Init)
+            || self.return_type.unit_return_type()
         {
             quote! {
                 fn #ext_method_name(
@@ -1722,14 +1664,14 @@ impl MethodDetails {
                 ) -> ::core::result::Result<(), ::ab_contracts_macros::__private::ContractError>
             }
         } else {
-            let result_type = self.result_type.result_type();
+            let return_type = self.return_type.return_type();
 
             preparation.push(quote! {
                 let mut ok_result = ::core::mem::MaybeUninit::uninit();
                 // While this will not change for `TrivialType`, the pointer will be written to and
                 // as such, the value needs to be given
                 let mut ok_result_size =
-                    <#result_type as ::ab_contracts_macros::__private::TrivialType>::SIZE;
+                    <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE;
             });
             external_args_args.push(quote! {
                 &mut ok_result,
@@ -1746,7 +1688,7 @@ impl MethodDetails {
                     #method_context_arg
                     #( #method_args )*
                 ) -> ::core::result::Result<
-                    #result_type,
+                    #return_type,
                     ::ab_contracts_macros::__private::ContractError,
                 >
             }

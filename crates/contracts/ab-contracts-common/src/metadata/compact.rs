@@ -121,9 +121,14 @@ const fn compact_metadata_inner<'i, 'o>(
                     return None;
                 }
 
-                (input, output) = forward_option!(compact_method_argument(input, output, kind));
-
                 num_arguments -= 1;
+
+                (input, output) = forward_option!(compact_method_argument(
+                    input,
+                    output,
+                    kind,
+                    num_arguments == 0
+                ));
             }
         }
         ContractMetadataKind::EnvRo
@@ -133,8 +138,7 @@ const fn compact_metadata_inner<'i, 'o>(
         | ContractMetadataKind::SlotRo
         | ContractMetadataKind::SlotRw
         | ContractMetadataKind::Input
-        | ContractMetadataKind::Output
-        | ContractMetadataKind::Result => {
+        | ContractMetadataKind::Output => {
             // Can't start with argument
             return None;
         }
@@ -147,6 +151,7 @@ const fn compact_method_argument<'i, 'o>(
     mut input: &'i [u8],
     mut output: &'o mut [u8],
     method_kind: ContractMetadataKind,
+    last_argument: bool,
 ) -> Option<(&'i [u8], &'o mut [u8])> {
     if input.is_empty() || output.is_empty() {
         return None;
@@ -184,9 +189,7 @@ const fn compact_method_argument<'i, 'o>(
             (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
             input = forward_option!(skip_n_bytes(input, argument_name_length));
         }
-        ContractMetadataKind::Input
-        | ContractMetadataKind::Output
-        | ContractMetadataKind::Result => {
+        ContractMetadataKind::Input | ContractMetadataKind::Output => {
             if input.is_empty() || output.is_empty() {
                 return None;
             }
@@ -197,10 +200,16 @@ const fn compact_method_argument<'i, 'o>(
             (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
             input = forward_option!(skip_n_bytes(input, argument_name_length));
 
-            if !matches!(
-                (method_kind, kind),
-                (ContractMetadataKind::Init, ContractMetadataKind::Result)
-            ) {
+            // May be skipped for `#[init]`, see `ContractMetadataKind::Init` for details
+            let skip_argument_type = matches!(
+                (method_kind, kind, last_argument),
+                (
+                    ContractMetadataKind::Init,
+                    ContractMetadataKind::Output,
+                    true
+                )
+            );
+            if !skip_argument_type {
                 // Compact argument type
                 (input, output) = forward_option!(IoTypeMetadataKind::compact(input, output));
             }

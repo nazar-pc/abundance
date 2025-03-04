@@ -61,19 +61,19 @@ pub enum ContractMetadataKind {
     ///   * [`Self::SlotRw`]
     ///   * [`Self::Input`]
     ///   * [`Self::Output`]
-    ///   * [`Self::Result`]
     /// * Length of the argument name in bytes (u8, except for [`Self::EnvRo`] and [`Self::EnvRw`])
     /// * Argument name as UTF-8 bytes (except for [`Self::EnvRo`] and [`Self::EnvRw`])
-    /// * Only for [`Self::Input`], [`Self::Output`] and [`Self::Result`] recursive metadata of
-    ///   argument's type as described in [`IoTypeMetadataKind`] with following exceptions:
-    ///   * For [`Self::Result`] this is skipped if method is [`Self::Init`] and present otherwise
+    /// * Only for [`Self::Input`] and [`Self::Output`] recursive metadata of argument's type as
+    ///   described in [`IoTypeMetadataKind`] with following exception:
+    ///   * For last [`Self::Output`] this is skipped if method is [`Self::Init`] (since it is
+    ///     statically known to be `Self`) and present otherwise
     ///
     /// [`IoTypeMetadataKind`]: ab_contracts_io_type::metadata::IoTypeMetadataKind
     ///
-    /// NOTE: Result, regardless of whether it is a return type or explicit `#[result]` argument is
-    /// encoded as a separate argument and counts towards number of arguments. At the same time,
-    /// `self` doesn't count towards the number of arguments as it is implicitly defined by the
-    /// variant of this struct.
+    /// NOTE: [`Self::Output`], regardless of whether it is a return type or explicit `#[output]`
+    /// argument is encoded as a separate argument and counts towards number of arguments. At the
+    /// same time, `self` doesn't count towards the number of arguments as it is implicitly defined
+    /// by the variant of this struct.
     Init,
     /// Stateless `#[update]` method (doesn't have `self` in its arguments).
     ///
@@ -127,20 +127,13 @@ pub enum ContractMetadataKind {
     ///
     /// Example: `#[input] balance: &Balance,`
     Input,
-    /// `#[output]` argument.
-    ///
-    /// Example: `#[output] out: &mut VariableBytes<1024>,`
-    Output,
-    // TODO: Is explicit result needed? If not then `#[input]` and `#[output]` can be made implicit
-    /// Explicit `#[result`] argument or `T` of [`Result<T, ContractError>`] return type or simply
+    /// Explicit `#[output]` argument or `T` of [`Result<T, ContractError>`] return type or simply
     /// return type if it is not fallible.
     ///
     /// NOTE: Skipped if return type's `T` is `().
     ///
-    /// Example: `#[result] result: &mut MaybeData<Balance>,`
-    ///
-    /// NOTE: There is always exactly one result in a method.
-    Result,
+    /// Example: `#[output] out: &mut VariableBytes<1024>,`
+    Output,
 }
 
 impl ContractMetadataKind {
@@ -164,7 +157,6 @@ impl ContractMetadataKind {
             13 => Self::SlotRw,
             14 => Self::Input,
             15 => Self::Output,
-            16 => Self::Result,
             _ => {
                 return None;
             }

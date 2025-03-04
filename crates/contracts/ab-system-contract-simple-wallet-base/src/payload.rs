@@ -54,7 +54,7 @@ pub enum TransactionInputType {
 
 /// The type of transaction input could be either explicit value or output index.
 ///
-/// Specifically, if the previous method has `#[output]` or `#[result]`, those values are collected
+/// Specifically, if the previous method has `#[output]` or return value, those values are collected
 /// and pushed into a virtual "stack". Then, if [`Self::input_type()`] returns
 /// [`TransactionInputType::OutputIndex`]`, then the corresponding input will use the value at
 /// `output_index` of this stack instead of what was specified in `external_args`. This allows
@@ -150,12 +150,12 @@ impl<'a> TransactionPayloadDecoder<'a> {
     /// The size of `external_args_buffer` defines max number of bytes allocated for `ExternalArgs`,
     /// which impacts the number of arguments that can be represented by `ExternalArgs`. The size is
     /// specified in pointers with `#[slot]` argument using one pointer, `#[input]` two pointers and
-    /// `#[output]`/`#[result]` three pointers each.
+    /// `#[output]` three pointers each.
     ///
-    /// The size of `output_buffer` defines how big the total sum of `#[output]` and `#[result]`
+    /// The size of `output_buffer` defines how big the total size of `#[output]` and return values
     /// could be in all methods of the payload together.
     ///
-    /// The size of `output_buffer_offsets` defines how many `#[output]` and `#[result]` arguments
+    /// The size of `output_buffer_offsets` defines how many `#[output]` arguments and return values
     /// could exist in all methods of the payload together.
     #[inline]
     pub fn new(

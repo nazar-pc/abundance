@@ -25,9 +25,8 @@ pub mod __private;
 /// * `#[tmp]` - temporary ephemeral value to store auxiliary data while processing a transaction
 /// * `#[slot]` - slot corresponding to this contract
 /// * `#[input]` - method input coming from user transaction or invocation from another contract
-/// * `#[output]` - method output
-/// * `#[result]` - a single optional method result as an alternative to returning values from a
-///   function directly, useful to reduce stack usage
+/// * `#[output]` - method output, may serve as an alternative to returning values from a function
+///   directly, useful to reduce stack usage
 ///
 /// # For struct implementation
 ///
@@ -41,7 +40,6 @@ pub mod __private;
 /// * `#[slot]` read-only and read-write
 /// * `#[input]`
 /// * `#[output]`
-/// * `#[result]`
 ///
 /// `self` argument is not supported in any way in this context since the state of the contract is
 /// just being created.
@@ -57,7 +55,6 @@ pub mod __private;
 /// * `#[slot]` read-only and read-write
 /// * `#[input]`
 /// * `#[output]`
-/// * `#[result]`
 ///
 /// ## #\[view]
 ///
@@ -70,7 +67,6 @@ pub mod __private;
 /// * `#[slot]` read-only
 /// * `#[input]`
 /// * `#[output]`
-/// * `#[result]`
 ///
 /// # For trait definition and trait implementation
 ///
@@ -83,7 +79,6 @@ pub mod __private;
 /// * `#[env]` read-only and read-write
 /// * `#[input]`
 /// * `#[output]`
-/// * `#[result]`
 ///
 /// ## #\[view]
 ///
@@ -95,7 +90,6 @@ pub mod __private;
 /// * `#[env]` read-only
 /// * `#[input]`
 /// * `#[output]`
-/// * `#[result]`
 ///
 /// # Generated code
 ///
@@ -364,11 +358,11 @@ pub mod __private;
 /// }
 /// ```
 ///
-/// ### `#[output] output: &mut MaybeData<OutputValue>`
+/// ### `#[output] output: &mut MaybeData<OutputValue>` and `-> ReturnValue`/`-> Result<ReturnValue, ContractError>`
 ///
-/// `#[output] output: &mut MaybeData<OutputValue>` is a read-write output to the contract call and
-/// generates tree fields, `output_ptr` and `output_size` can be written to, while `output_capacity`
-/// is read-only:
+/// `#[output] output: &mut MaybeData<OutputValue>` and regular return value is a read-write output
+/// to the contract call and generates tree fields, `output_ptr` and `output_size` can be written
+/// to, while `output_capacity` is read-only:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs {
@@ -387,30 +381,17 @@ pub mod __private;
 ///
 /// NOTE: Even in case the method call fails, the host may modify the contents of the output.
 ///
-/// ### `#[result] result: &mut MaybeData<ResultValue>` and `-> Result<ResultValue, ContractError>`
+/// `#[output]` may be used as an alternative to `-> ReturnValue` and
+/// `-> Result<ReturnValue, ContractError>` in case the data structure is large and allocation on
+/// the stack is undesirable, which is especially helpful in case of a variable-sized contract
+/// state.
 ///
-/// `#[result] result: &mut MaybeData<ResultValue>` and regular return type (only one of those can
-/// be used at a time) is almost identical and has a very similar behavior to `#[output]`:
-/// ```ignore
-/// #[repr(C)]
-/// pub struct InternalArgs {
-///     // ...
-///     pub result_ptr: NonNull<<ResultValue as IoType>::PointerType>,
-///     pub result_size: *mut u32,
-///     pub result_capacity: NonNull<u32>,
-/// }
-/// ```
-///
-/// `#[result]` is an alternative to `-> ResultValue` and `-> Result<ResultValue, ContractError>`
-/// in case the data structure is large and allocation on the stack is undesirable, which is
-/// especially helpful in case of a variable-sized contract state.
-///
-/// NOTE: In case `ResultValue` in `-> ResultValue` or `-> Result<ResultValue, ContractError>` is
+/// NOTE: In case `ReturnValue` in `-> ReturnValue` or `-> Result<ReturnValue, ContractError>` is
 /// `()`, it will be skipped in `InternalArgs`.
 ///
-/// The only big difference from `#[output]` is that in case of `#[init]` method result will be
-/// returning contract's initial state, in which case its pointer can be changed to point to a
-/// different data structure and not being limited by `result_capacity` allocation from the host.
+/// In the case of `#[init]` method, the last `#[output]` (or `ReturnValue` if present) is
+/// contract's initial state. In this case, its pointer can be changed to point to a different data
+/// structure and not being limited by `result_capacity` allocation from the host.
 ///
 /// ## [`ExternalArgs`] implementation
 ///
@@ -483,7 +464,7 @@ pub mod __private;
 /// }
 /// ```
 ///
-/// ### `#[output]`
+/// ### `#[output]` and `-> ReturnValue`/`-> Result<ReturnValue, ContractError>`
 ///
 /// Each `#[output]` argument in `ExternalArgs` is represented by three fields, `output_ptr` and
 /// `output_size` can be written to, while `output_capacity` is read-only:
@@ -498,28 +479,10 @@ pub mod __private;
 /// }
 /// ```
 ///
-/// ### `#[result]` and `-> Result<T, E>`
-///
-/// The result is present in `ExternalArgs` except when method is `#[init]` or the type is `()`. For
-/// `#[init]` method's return value is contract's initial state and is processed by execution
-/// environment itself. When the value is `()` then there is no point in having a pointer for it.
-///
-/// `#[result]` argument and `-> Result<T, E>` in `ExternalArgs` is represented by three fields,
-/// `result_ptr` and `result_size` can be written to, while `result_capacity` is read-only:
-/// ```ignore
-/// #[repr(C)]
-/// pub struct ExternalArgs {
-///     // ...
-///     pub result_ptr: NonNull<<ResultValue as IoType>::PointerType>,
-///     pub result_size: *mut u32,
-///     pub result_capacity: NonNull<u32>,
-///     // ...
-/// }
-/// ```
-///
-/// NOTE: In case `ResultValue` in `-> ResultValue` or `-> Result<ResultValue, ContractError>` is
-/// `()`, it will be skipped in `ExternalArgs`.Also in the case of `#[init]` method, it is skipped
-/// in `ExternalArgs` since the result is handled by the host.
+/// The arguments are skipped in `ExternalArgs` for the last `#[output]` or `ReturnValue` when
+/// method is `#[init]` or when `ReturnValue` is `()` in other cases. For `#[init]` method's return
+/// value is contract's initial state and is processed by execution environment itself. When
+/// `ReturnValue` is `()` then there is no point in having a pointer for it.
 ///
 /// ## Extension trait
 ///
