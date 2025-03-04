@@ -25,11 +25,12 @@ impl fmt::Display for MethodFingerprint {
 impl MethodFingerprint {
     /// Create a new method fingerprint from its metadata.
     ///
-    /// `None` is returned for invalid metadata (see [`ContractMetadataKind::compact`] for details).
+    /// `None` is returned for invalid metadata (see
+    /// [`ContractMetadataKind::compact_external_args()`] for details).
     pub const fn new(method_metadata: &[u8]) -> Option<Self> {
         // `?` is not supported in `const` environment
         let Some((compact_metadata_scratch, compact_metadata_size)) =
-            ContractMetadataKind::compact(method_metadata)
+            ContractMetadataKind::compact_external_args(method_metadata)
         else {
             return None;
         };

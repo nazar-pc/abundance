@@ -181,6 +181,20 @@ impl ContractMetadataKind {
     ///
     /// Returns `None` if input is invalid or too long.
     pub const fn compact(metadata: &[u8]) -> Option<([u8; MAX_METADATA_CAPACITY], usize)> {
-        compact_metadata(metadata)
+        compact_metadata(metadata, false)
+    }
+
+    // TODO: Create wrapper type for metadata bytes and move this method there
+    /// Produce compact metadata for `ExternalArgs`.
+    ///
+    /// Similar to [`Self::compact()`] arguments that are not reflected in `ExternalArgs` will be
+    /// skipped since they don't impact `ExternalArgs` API. This is used for `MethodFingerprint`
+    /// derivation.
+    ///
+    /// Returns `None` if input is invalid or too long.
+    pub const fn compact_external_args(
+        metadata: &[u8],
+    ) -> Option<([u8; MAX_METADATA_CAPACITY], usize)> {
+        compact_metadata(metadata, true)
     }
 }
