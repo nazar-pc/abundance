@@ -161,10 +161,13 @@ impl SimpleWalletBase {
     #[update]
     pub fn execute(
         #[env] env: &mut Env,
-        #[input] _header: &TransactionHeader,
+        #[input] header: &TransactionHeader,
         #[input] payload: &TxHandlerPayload,
-        #[input] _seal: &TxHandlerSeal,
+        #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
+        let _ = header;
+        let _ = seal;
+
         // Only allow direct calls by context owner
         if env.caller() != env.context() {
             return Err(ContractError::Forbidden);
@@ -199,9 +202,11 @@ impl SimpleWalletBase {
     #[view]
     pub fn increase_nonce(
         #[input] state: &VariableBytes<0>,
-        #[input] _seal: &TxHandlerSeal,
+        #[input] seal: &TxHandlerSeal,
         #[output] new_state: &mut VariableBytes<0>,
     ) -> Result<(), ContractError> {
+        let _ = seal;
+
         let Some(mut state) = state.read_trivial_type::<WalletState>() else {
             return Err(ContractError::BadInput);
         };
