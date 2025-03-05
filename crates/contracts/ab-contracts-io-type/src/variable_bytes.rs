@@ -41,19 +41,19 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
                 return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableBytes32768 as u8]]);
             } else if recommended_allocation == 65536 {
                 return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableBytes65536 as u8]]);
-            } else if recommended_allocation == 131072 {
+            } else if recommended_allocation == 131_072 {
                 return concat_metadata_sources(&[
                     &[IoTypeMetadataKind::VariableBytes131072 as u8],
                 ]);
-            } else if recommended_allocation == 262144 {
+            } else if recommended_allocation == 262_144 {
                 return concat_metadata_sources(&[
                     &[IoTypeMetadataKind::VariableBytes262144 as u8],
                 ]);
-            } else if recommended_allocation == 524288 {
+            } else if recommended_allocation == 524_288 {
                 return concat_metadata_sources(&[
                     &[IoTypeMetadataKind::VariableBytes524288 as u8],
                 ]);
-            } else if recommended_allocation == 1048576 {
+            } else if recommended_allocation == 1_048_576 {
                 return concat_metadata_sources(&[&[
                     IoTypeMetadataKind::VariableBytes1048576 as u8
                 ]]);
@@ -293,7 +293,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     #[must_use = "Operation may fail"]
     pub fn append(&mut self, bytes: &[u8]) -> bool {
         let size = self.size();
-        if bytes.len() as u32 > size + self.capacity {
+        if bytes.len() + size as usize > self.capacity as usize {
             return false;
         }
 

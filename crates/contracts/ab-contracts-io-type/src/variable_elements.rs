@@ -318,7 +318,7 @@ where
     #[must_use = "Operation may fail"]
     pub fn append(&mut self, elements: &[Element]) -> bool {
         let size = self.size();
-        if elements.len() as u32 * Element::SIZE > size + self.capacity {
+        if elements.len() * Element::SIZE as usize + size as usize > self.capacity as usize {
             return false;
         }
 

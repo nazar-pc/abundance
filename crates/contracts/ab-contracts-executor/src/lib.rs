@@ -113,6 +113,7 @@ impl NativeExecutorBuilder {
     /// ```
     ///
     /// NOTE: System contracts are already included by default.
+    #[must_use]
     pub fn with_contract<C>(mut self) -> Self
     where
         C: Contract,
@@ -137,6 +138,7 @@ impl NativeExecutorBuilder {
     ///         .with_contract_trait::<Token, dyn Fungible>()
     /// # }
     /// ```
+    #[must_use]
     pub fn with_contract_trait<C, DynCT>(mut self) -> Self
     where
         C: Contract + ContractTrait<DynCT>,
@@ -280,6 +282,7 @@ impl NativeExecutor {
     }
 
     /// Builder of native executor for specified shard index
+    #[must_use]
     pub fn builder(shard_index: ShardIndex) -> NativeExecutorBuilder {
         NativeExecutorBuilder::new(shard_index)
     }
@@ -289,7 +292,7 @@ impl NativeExecutor {
     /// For transaction execution [`Self::transaction_verify()`] can be used.
     pub fn transaction_verify(
         &self,
-        transaction: TransactionRef<'_>,
+        transaction: &TransactionRef<'_>,
         storage: &Storage,
     ) -> Result<(), ContractError> {
         let env_state = EnvState {
@@ -300,9 +303,11 @@ impl NativeExecutor {
             caller: Address::NULL,
         };
 
-        let payload_size = size_of_val::<[u128]>(transaction.payload) as u32;
+        let payload_size = u32::try_from(size_of_val::<[u128]>(transaction.payload))
+            .map_err(|_error| ContractError::BadInput)?;
         let payload = VariableElements::from_buffer(transaction.payload, &payload_size);
-        let seal_size = size_of_val::<[u8]>(transaction.seal) as u32;
+        let seal_size = u32::try_from(size_of_val::<[u8]>(transaction.seal))
+            .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
 
         // TODO: Make it more efficient by not recreating NativeExecutorContext twice here
@@ -340,9 +345,11 @@ impl NativeExecutor {
             caller: Address::NULL,
         };
 
-        let payload_size = size_of_val::<[u128]>(transaction.payload) as u32;
+        let payload_size = u32::try_from(size_of_val::<[u128]>(transaction.payload))
+            .map_err(|_error| ContractError::BadInput)?;
         let payload = VariableElements::from_buffer(transaction.payload, &payload_size);
-        let seal_size = size_of_val::<[u8]>(transaction.seal) as u32;
+        let seal_size = u32::try_from(size_of_val::<[u8]>(transaction.seal))
+            .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
 
         // TODO: Make it more efficient by not recreating NativeExecutorContext twice here
@@ -408,6 +415,7 @@ impl NativeExecutor {
     ///
     /// For stateful methods, execute a transaction using [`Self::transaction_execute()`] or
     /// emulate one with [`Self::transaction_emulate()`].
+    #[must_use]
     pub fn env_ro(&self, storage: &Storage) -> Env<'_> {
         self.env_internal(Address::NULL, storage, false)
     }

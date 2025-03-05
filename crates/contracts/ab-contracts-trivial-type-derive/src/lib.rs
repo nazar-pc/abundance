@@ -278,8 +278,7 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
         .fields
         .iter()
         .next()
-        .map(|field| field.ident.is_some())
-        .unwrap_or_default();
+        .is_some_and(|field| field.ident.is_some());
     let (io_type_metadata, with_num_fields) = if struct_with_fields {
         match num_fields {
             0..=16 => (format_ident!("Struct{num_fields}"), false),
@@ -341,8 +340,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
         .variants
         .iter()
         .next()
-        .map(|variant| !variant.fields.is_empty())
-        .unwrap_or_default();
+        .is_some_and(|variant| !variant.fields.is_empty());
     let enum_type = if variant_has_fields {
         "Enum"
     } else {

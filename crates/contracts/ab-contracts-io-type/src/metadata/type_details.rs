@@ -209,10 +209,12 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
         IoTypeMetadataKind::VariableBytes16384 => Some((IoTypeDetails::bytes(16384), metadata)),
         IoTypeMetadataKind::VariableBytes32768 => Some((IoTypeDetails::bytes(32768), metadata)),
         IoTypeMetadataKind::VariableBytes65536 => Some((IoTypeDetails::bytes(65536), metadata)),
-        IoTypeMetadataKind::VariableBytes131072 => Some((IoTypeDetails::bytes(131072), metadata)),
-        IoTypeMetadataKind::VariableBytes262144 => Some((IoTypeDetails::bytes(262144), metadata)),
-        IoTypeMetadataKind::VariableBytes524288 => Some((IoTypeDetails::bytes(524288), metadata)),
-        IoTypeMetadataKind::VariableBytes1048576 => Some((IoTypeDetails::bytes(1048576), metadata)),
+        IoTypeMetadataKind::VariableBytes131072 => Some((IoTypeDetails::bytes(131_072), metadata)),
+        IoTypeMetadataKind::VariableBytes262144 => Some((IoTypeDetails::bytes(262_144), metadata)),
+        IoTypeMetadataKind::VariableBytes524288 => Some((IoTypeDetails::bytes(524_288), metadata)),
+        IoTypeMetadataKind::VariableBytes1048576 => {
+            Some((IoTypeDetails::bytes(1_048_576), metadata))
+        }
         IoTypeMetadataKind::VariableElements0 => {
             if metadata.is_empty() {
                 return None;
@@ -250,18 +252,17 @@ const fn struct_type_details(
     let struct_name_length = input[0] as usize;
     input = forward_option!(skip_n_bytes(input, 1 + struct_name_length));
 
-    let mut arguments_count = match arguments_count {
-        Some(arguments_count) => arguments_count,
-        None => {
-            if input.is_empty() {
-                return None;
-            }
-
-            let arguments_count = input[0];
-            input = forward_option!(skip_n_bytes(input, 1));
-
-            arguments_count
+    let mut arguments_count = if let Some(arguments_count) = arguments_count {
+        arguments_count
+    } else {
+        if input.is_empty() {
+            return None;
         }
+
+        let arguments_count = input[0];
+        input = forward_option!(skip_n_bytes(input, 1));
+
+        arguments_count
     };
 
     // Capacity of arguments
@@ -314,18 +315,17 @@ const fn enum_capacity(
     let enum_name_length = input[0] as usize;
     input = forward_option!(skip_n_bytes(input, 1 + enum_name_length));
 
-    let mut variant_count = match variant_count {
-        Some(variant_count) => variant_count,
-        None => {
-            if input.is_empty() {
-                return None;
-            }
-
-            let variant_count = input[0];
-            input = forward_option!(skip_n_bytes(input, 1));
-
-            variant_count
+    let mut variant_count = if let Some(variant_count) = variant_count {
+        variant_count
+    } else {
+        if input.is_empty() {
+            return None;
         }
+
+        let variant_count = input[0];
+        input = forward_option!(skip_n_bytes(input, 1));
+
+        variant_count
     };
 
     // Capacity of variants

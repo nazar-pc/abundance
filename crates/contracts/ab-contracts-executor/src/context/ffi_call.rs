@@ -320,10 +320,7 @@ impl<'a> FfiCall<'a> {
 
         // Handle `&self` and `&mut self`
         match method_kind {
-            MethodKind::Init => {
-                // No state handling is needed
-            }
-            MethodKind::UpdateStateless | MethodKind::ViewStateless => {
+            MethodKind::Init | MethodKind::UpdateStateless | MethodKind::ViewStateless => {
                 // No state handling is needed
             }
             MethodKind::UpdateStatefulRo | MethodKind::ViewStateful => {
@@ -590,10 +587,11 @@ impl<'a> FfiCall<'a> {
                         // and aligned correctly.
                         unsafe {
                             // Output
-                            let ptr =
-                                copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
                             if last_argument && is_allocate_new_address_method {
-                                new_address_ptr.replace(ptr.cast::<Address>());
+                                let ptr = copy_ptr!(external_args_cursor => internal_args_cursor as *mut Address);
+                                new_address_ptr.replace(ptr);
+                            } else {
+                                copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
                             }
                             // Size (might be a null pointer for trivial types)
                             let size_ptr =

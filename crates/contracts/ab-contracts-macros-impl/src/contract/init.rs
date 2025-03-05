@@ -14,7 +14,7 @@ pub(super) fn process_init_fn(
 ) -> Result<MethodOutput, Error> {
     let mut methods_details = MethodDetails::new(MethodType::Init, self_type);
 
-    for input in fn_sig.inputs.iter_mut() {
+    for input in &mut fn_sig.inputs {
         let input_span = input.span();
         // TODO: Moving this outside of the loop causes confusing lifetime issues
         // TODO: Simplify `-> Result<(), Error>` to `-> _` once https://github.com/rust-lang/rust/issues/135864 is resolved

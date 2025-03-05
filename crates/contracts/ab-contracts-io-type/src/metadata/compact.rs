@@ -297,18 +297,17 @@ const fn compact_struct<'i, 'o>(
     (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
     input = forward_option!(skip_n_bytes(input, struct_name_length));
 
-    let mut arguments_count = match arguments_count {
-        Some(arguments_count) => arguments_count,
-        None => {
-            if input.is_empty() || output.is_empty() {
-                return None;
-            }
-
-            let arguments_count = input[0];
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-
-            arguments_count
+    let mut arguments_count = if let Some(arguments_count) = arguments_count {
+        arguments_count
+    } else {
+        if input.is_empty() || output.is_empty() {
+            return None;
         }
+
+        let arguments_count = input[0];
+        (input, output) = forward_option!(copy_n_bytes(input, output, 1));
+
+        arguments_count
     };
 
     // Compact arguments
@@ -348,18 +347,17 @@ const fn compact_enum<'i, 'o>(
     (input, output) = forward_option!(skip_n_bytes_io(input, output, 1));
     input = forward_option!(skip_n_bytes(input, enum_name_length));
 
-    let mut variant_count = match variant_count {
-        Some(variant_count) => variant_count,
-        None => {
-            if input.is_empty() || output.is_empty() {
-                return None;
-            }
-
-            let variant_count = input[0];
-            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
-
-            variant_count
+    let mut variant_count = if let Some(variant_count) = variant_count {
+        variant_count
+    } else {
+        if input.is_empty() || output.is_empty() {
+            return None;
         }
+
+        let variant_count = input[0];
+        (input, output) = forward_option!(copy_n_bytes(input, output, 1));
+
+        variant_count
     };
 
     // Compact enum variants
