@@ -3,7 +3,7 @@
 
 use crate::ffi::flip::FlipperFlipArgs;
 use ab_contract_example_wallet::{ExampleWallet, ExampleWalletExt};
-use ab_contracts_common::env::{Blake3Hash, MethodContext, TransactionHeader, TransactionRef};
+use ab_contracts_common::env::{Blake3Hash, MethodContext, Transaction, TransactionHeader};
 use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
 use ab_contracts_io_type::trivial_type::TrivialType;
@@ -106,7 +106,7 @@ fn flip() {
         let seal = hash_and_sign(&keypair, &header, &payload, nonce);
         executor
             .transaction_verify(
-                TransactionRef {
+                Transaction {
                     header: &header,
                     payload: &payload,
                     seal: seal.as_bytes(),
@@ -121,7 +121,7 @@ fn flip() {
 
         executor
             .transaction_execute(
-                TransactionRef {
+                Transaction {
                     header: &header,
                     payload: &payload,
                     seal: seal.as_bytes(),

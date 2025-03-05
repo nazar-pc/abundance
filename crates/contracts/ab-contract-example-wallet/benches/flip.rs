@@ -1,6 +1,6 @@
 use crate::ffi::flip::FlipperFlipArgs;
 use ab_contract_example_wallet::{ExampleWallet, ExampleWalletExt};
-use ab_contracts_common::env::{Blake3Hash, MethodContext, TransactionHeader, TransactionRef};
+use ab_contracts_common::env::{Blake3Hash, MethodContext, Transaction, TransactionHeader};
 use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
 use ab_contracts_io_type::trivial_type::TrivialType;
@@ -105,7 +105,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             executor
                 .transaction_verify(
-                    black_box(TransactionRef {
+                    black_box(Transaction {
                         header: &header,
                         payload: &payload,
                         seal: seal.as_bytes(),
@@ -126,7 +126,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             |seal| {
                 executor
                     .transaction_execute(
-                        black_box(TransactionRef {
+                        black_box(Transaction {
                             header: &header,
                             payload: &payload,
                             seal: seal.as_bytes(),
