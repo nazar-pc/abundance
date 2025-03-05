@@ -996,7 +996,7 @@ impl MethodDetails {
         }
 
         let original_method_name = &fn_sig.ident;
-        let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
+        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
         let return_type = self.return_type.return_type();
 
         let internal_args_struct = {
@@ -1154,11 +1154,8 @@ impl MethodDetails {
 
         let fn_pointer_static = {
             let adapter_ffi_fn_name = format_ident!("{ffi_fn_name}_adapter");
-            let args_struct_name = derive_external_args_struct_name(
-                &self.self_type,
-                trait_name,
-                original_method_name,
-            )?;
+            let args_struct_name =
+                derive_external_args_struct_name(self_type, trait_name, original_method_name)?;
 
             quote! {
                 #[doc(hidden)]
@@ -1195,10 +1192,11 @@ impl MethodDetails {
         fn_sig: &Signature,
         trait_name: Option<&Ident>,
     ) -> Result<TokenStream, Error> {
+        let self_type = &self.self_type;
         let original_method_name = &fn_sig.ident;
 
         let args_struct_name =
-            derive_external_args_struct_name(&self.self_type, trait_name, original_method_name)?;
+            derive_external_args_struct_name(self_type, trait_name, original_method_name)?;
         // `external_args_pointers` will generate pointers in `ExternalArgs` fields
         let mut external_args_fields = Vec::new();
         // Arguments of `::new()` method
@@ -1314,7 +1312,7 @@ impl MethodDetails {
             });
         }
 
-        let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
+        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
 
         // Initializer's return type will be `()` for caller of `#[init]` since the state is stored
         // by the host and not returned to the caller and explicit argument is not needed in
@@ -1392,6 +1390,7 @@ impl MethodDetails {
         fn_sig: &Signature,
         trait_name: Option<&Ident>,
     ) -> Result<TokenStream, Error> {
+        let self_type = &self.self_type;
         // `method_metadata` will generate metadata about method arguments, each element in this
         // vector corresponds to one argument
         let mut method_metadata = Vec::new();
@@ -1537,7 +1536,7 @@ impl MethodDetails {
         let number_of_arguments = Literal::u8_unsuffixed(number_of_arguments);
 
         let original_method_name = &fn_sig.ident;
-        let ffi_fn_name = derive_ffi_fn_name(original_method_name, trait_name);
+        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
         let method_name_metadata = derive_ident_metadata(&ffi_fn_name)?;
         Ok(quote_spanned! {fn_sig.span() =>
             const fn metadata()
@@ -1568,6 +1567,8 @@ impl MethodDetails {
         fn_sig: &Signature,
         trait_name: Option<&Ident>,
     ) -> Result<ExtTraitComponents, Error> {
+        let self_type = &self.self_type;
+
         let mut preparation = Vec::new();
         let mut method_args = Vec::new();
         let mut external_args_args = Vec::new();
@@ -1620,24 +1621,8 @@ impl MethodDetails {
             external_args_args.push(quote! { #arg_name });
         }
 
-        let self_type = &self.self_type;
         let original_method_name = &fn_sig.ident;
-        let ext_method_prefix = if let Some(trait_name) = trait_name {
-            Some(trait_name)
-        } else if let Type::Path(type_path) = self_type
-            && let Some(path_segment) = type_path.path.segments.last()
-        {
-            Some(&path_segment.ident)
-        } else {
-            None
-        };
-        let ext_method_name = if let Some(ext_method_prefix) = ext_method_prefix {
-            let ext_method_prefix =
-                RenameRule::SnakeCase.apply_to_variant(ext_method_prefix.to_string());
-            format_ident!("{ext_method_prefix}_{original_method_name}")
-        } else {
-            original_method_name.clone()
-        };
+        let ext_method_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
         // Non-`#[view]` methods can only be called on `&mut Env`
         let env_self = if matches!(self.method_type, MethodType::View) {
             quote! { &self }
@@ -1699,7 +1684,7 @@ impl MethodDetails {
         };
 
         let args_struct_name =
-            derive_external_args_struct_name(&self.self_type, trait_name, original_method_name)?;
+            derive_external_args_struct_name(self_type, trait_name, original_method_name)?;
         // `#[view]` methods do not require explicit method context
         let method_context_value = if matches!(self.method_type, MethodType::View) {
             quote! { ::ab_contracts_macros::__private::MethodContext::Reset }
@@ -1754,13 +1739,21 @@ fn extract_arg_name(mut pat: &Pat) -> Option<Ident> {
     }
 }
 
-fn derive_ffi_fn_name(original_method_name: &Ident, trait_name: Option<&Ident>) -> Ident {
-    if let Some(trait_name) = trait_name {
-        let ffi_fn_prefix = RenameRule::SnakeCase.apply_to_variant(trait_name.to_string());
-        format_ident!("{ffi_fn_prefix}_{original_method_name}")
-    } else {
-        format_ident!("{original_method_name}")
-    }
+fn derive_ffi_fn_name(
+    type_name: &Type,
+    trait_name: Option<&Ident>,
+    method_name: &Ident,
+) -> Result<Ident, Error> {
+    let type_name = extract_ident_from_type(type_name).ok_or_else(|| {
+        Error::new(
+            type_name.span(),
+            "`#[contract]` must be applied to a simple struct without generics",
+        )
+    })?;
+    let ffi_fn_prefix =
+        RenameRule::SnakeCase.apply_to_variant(trait_name.unwrap_or(type_name).to_string());
+
+    Ok(format_ident!("{ffi_fn_prefix}_{method_name}"))
 }
 
 fn derive_external_args_struct_name(
