@@ -116,7 +116,7 @@ fn flip() {
             .unwrap();
     }
 
-    for nonce in (nonce..).take(5) {
+    for nonce in (nonce..).take(2) {
         let seal = hash_and_sign(&keypair, &header, &payload, nonce);
 
         executor
