@@ -9,6 +9,24 @@ use ab_system_contract_simple_wallet_base::payload::builder::{
 };
 use alloc::vec::Vec;
 
+#[derive(Debug, Clone)]
+pub struct OwnedTransaction {
+    pub header: TransactionHeader,
+    pub payload: Vec<u128>,
+    pub seal: Vec<u8>,
+}
+
+impl OwnedTransaction {
+    /// Get [`Transaction`] out of owned transaction
+    pub fn as_ref(&self) -> Transaction<'_> {
+        Transaction {
+            header: &self.header,
+            payload: &self.payload,
+            seal: &self.seal,
+        }
+    }
+}
+
 pub struct TransactionBuilder {
     contract: Address,
     transaction_payload_builder: TransactionPayloadBuilder,
@@ -44,8 +62,8 @@ impl TransactionBuilder {
         )
     }
 
-    pub fn build(self) -> Transaction {
-        Transaction {
+    pub fn build(self) -> OwnedTransaction {
+        OwnedTransaction {
             header: TransactionHeader {
                 genesis_hash: Blake3Hash::default(),
                 block_hash: Blake3Hash::default(),

@@ -6,8 +6,6 @@ use crate::{Address, ContractError, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
 #[cfg(feature = "executor")]
 use alloc::boxed::Box;
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
 use core::ffi::c_void;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
@@ -30,31 +28,11 @@ pub struct TransactionHeader {
     pub contract: Address,
 }
 
-#[derive(Debug)]
-#[cfg(feature = "alloc")]
-pub struct Transaction {
-    pub header: TransactionHeader,
-    pub payload: Vec<u128>,
-    pub seal: Vec<u8>,
-}
-
-#[cfg(feature = "alloc")]
-impl Transaction {
-    /// Get [`TransactionRef`] out of transaction
-    pub fn as_ref(&self) -> TransactionRef<'_> {
-        TransactionRef {
-            header: &self.header,
-            payload: &self.payload,
-            seal: &self.seal,
-        }
-    }
-}
-
 /// Similar to `Transaction`, but doesn't require `allow` or data ownership.
 ///
 /// Can be created with `Transaction::as_ref()` call.
-#[derive(Debug)]
-pub struct TransactionRef<'a> {
+#[derive(Debug, Copy, Clone)]
+pub struct Transaction<'a> {
     pub header: &'a TransactionHeader,
     pub payload: &'a [u128],
     pub seal: &'a [u8],
@@ -117,7 +95,7 @@ pub struct EnvState {
 
 /// Executor context that can be used to interact with executor
 #[cfg(feature = "executor")]
-pub trait ExecutorContext: alloc::fmt::Debug {
+pub trait ExecutorContext: core::fmt::Debug {
     /// Call multiple methods
     fn call_many(
         &self,

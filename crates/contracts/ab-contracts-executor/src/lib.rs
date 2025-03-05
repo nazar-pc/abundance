@@ -7,7 +7,7 @@ mod slots;
 use crate::aligned_buffer::SharedAlignedBuffer;
 use crate::context::{MethodDetails, NativeExecutorContext};
 use crate::slots::{SlotKey, Slots};
-use ab_contracts_common::env::{Env, EnvState, MethodContext, TransactionRef};
+use ab_contracts_common::env::{Env, EnvState, MethodContext, Transaction};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
 use ab_contracts_common::method::MethodFingerprint;
 use ab_contracts_common::{
@@ -297,7 +297,7 @@ impl NativeExecutor {
     /// For transaction execution [`Self::transaction_verify()`] can be used.
     pub fn transaction_verify(
         &self,
-        transaction: TransactionRef<'_>,
+        transaction: Transaction<'_>,
         storage: &Storage,
     ) -> Result<(), ContractError> {
         let env_state = EnvState {
@@ -338,7 +338,7 @@ impl NativeExecutor {
     /// If only verification is needed, [`Self::transaction_verify()`] can be used instead.
     pub fn transaction_execute(
         &self,
-        transaction: TransactionRef<'_>,
+        transaction: Transaction<'_>,
         storage: &mut Storage,
     ) -> Result<(), ContractError> {
         // TODO: This is a pretty large data structure to copy around, try to make it a reference
