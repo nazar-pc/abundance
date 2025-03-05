@@ -293,7 +293,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     #[must_use = "Operation may fail"]
     pub fn append(&mut self, bytes: &[u8]) -> bool {
         let size = self.size();
-        if bytes.len() as u32 > size + self.capacity {
+        if bytes.len() + size as usize > self.capacity as usize {
             return false;
         }
 
