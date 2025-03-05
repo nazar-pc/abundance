@@ -16,8 +16,10 @@
 #![no_std]
 
 pub mod payload;
+pub mod seal;
 
 use crate::payload::{TransactionMethodContext, TransactionPayloadDecoder};
+use crate::seal::hash_and_verify;
 use ab_contracts_common::ContractError;
 use ab_contracts_common::env::{Env, MethodContext, TransactionHeader};
 use ab_contracts_io_type::trivial_type::TrivialType;
@@ -25,10 +27,12 @@ use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::{TxHandlerPayload, TxHandlerSeal};
 use core::mem::MaybeUninit;
-use core::{ptr, slice};
-use schnorrkel::context::SigningContext;
+use core::ptr;
+use schnorrkel::PublicKey;
 
 /// Context for transaction signatures, see [`SigningContext`].
+///
+/// [`SigningContext`]: schnorrkel::context::SigningContext
 ///
 /// This constant is helpful for frontend/hardware wallet implementations.
 pub const SIGNING_CONTEXT: &[u8] = b"system-simple-wallet";
@@ -99,7 +103,7 @@ impl SimpleWalletBase {
         // TODO: Storing some lower-level representation of the public key might reduce the cost of
         //  verification in `Self::authorize()` method
         // Ensure public key is valid
-        schnorrkel::PublicKey::from_bytes(&public_key).map_err(|_error| ContractError::BadInput)?;
+        PublicKey::from_bytes(&public_key).map_err(|_error| ContractError::BadInput)?;
 
         if !state.copy_from(&WalletState {
             public_key,
@@ -126,31 +130,21 @@ impl SimpleWalletBase {
             return Err(ContractError::BadInput);
         };
 
-        let tx_hash = {
-            let mut hasher = blake3::Hasher::new();
-            hasher.update(header.as_bytes());
-            let payload = payload.get_initialized();
-            // SAFETY: Valid memory of correct size
-            let payload_bytes = unsafe {
-                slice::from_raw_parts(payload.as_ptr().cast::<u8>(), size_of_val(payload))
-            };
-            hasher.update(payload_bytes);
-            hasher.update(&seal.nonce.to_le_bytes());
-            hasher.finalize()
+        let expected_nonce = state.nonce;
+        // Check if max nonce value was already reached
+        if expected_nonce.checked_add(1).is_none() {
+            return Err(ContractError::Forbidden);
         };
 
-        if Some(seal.nonce) == state.nonce.checked_add(1) {
-            return Err(ContractError::BadInput);
-        }
-
-        let public_key = schnorrkel::PublicKey::from_bytes(state.public_key.as_ref())
+        let public_key = PublicKey::from_bytes(state.public_key.as_ref())
             .expect("Guaranteed by constructor; qed");
-        let signature = schnorrkel::Signature::from_bytes(&seal.signature)
-            .map_err(|_error| ContractError::BadInput)?;
-        let signing_context = SigningContext::new(SIGNING_CONTEXT);
-        public_key
-            .verify(signing_context.bytes(tx_hash.as_bytes()), &signature)
-            .map_err(|_error| ContractError::Forbidden)
+        hash_and_verify(
+            &public_key,
+            expected_nonce,
+            header,
+            payload.get_initialized(),
+            &seal,
+        )
     }
 
     /// Executes provided transactions in the payload, *remember to also [`Self::increase_nonce()`]
@@ -231,7 +225,7 @@ impl SimpleWalletBase {
             return Err(ContractError::BadInput);
         };
         // Ensure public key is valid
-        schnorrkel::PublicKey::from_bytes(&public_key).map_err(|_error| ContractError::BadInput)?;
+        PublicKey::from_bytes(&public_key).map_err(|_error| ContractError::BadInput)?;
 
         state.public_key = public_key;
 

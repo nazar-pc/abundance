@@ -99,6 +99,11 @@ impl NativeExecutorBuilder {
                     main_contract_metadata: State::MAIN_CONTRACT_METADATA,
                     native_executor_methods: State::NATIVE_EXECUTOR_METHODS,
                 },
+                MethodsEntry {
+                    contact_code: SimpleWalletBase::CODE,
+                    main_contract_metadata: SimpleWalletBase::MAIN_CONTRACT_METADATA,
+                    native_executor_methods: SimpleWalletBase::NATIVE_EXECUTOR_METHODS,
+                },
             ],
         }
     }
@@ -292,7 +297,7 @@ impl NativeExecutor {
     /// For transaction execution [`Self::transaction_verify()`] can be used.
     pub fn transaction_verify(
         &self,
-        transaction: &TransactionRef<'_>,
+        transaction: TransactionRef<'_>,
         storage: &Storage,
     ) -> Result<(), ContractError> {
         let env_state = EnvState {

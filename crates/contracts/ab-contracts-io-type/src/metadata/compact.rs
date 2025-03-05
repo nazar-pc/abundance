@@ -234,15 +234,15 @@ pub(super) const fn compact_metadata<'i, 'o>(
             (input, output) = forward_option!(copy_n_bytes(input, output, 1));
             compact_enum(input, output, Some(10), false)
         }
-        IoTypeMetadataKind::Array8b => {
+        IoTypeMetadataKind::Array8b | IoTypeMetadataKind::VariableElements8b => {
             (input, output) = forward_option!(copy_n_bytes(input, output, 1 + 1));
             compact_metadata(input, output)
         }
-        IoTypeMetadataKind::Array16b => {
+        IoTypeMetadataKind::Array16b | IoTypeMetadataKind::VariableElements16b => {
             (input, output) = forward_option!(copy_n_bytes(input, output, 1 + 2));
             compact_metadata(input, output)
         }
-        IoTypeMetadataKind::Array32b => {
+        IoTypeMetadataKind::Array32b | IoTypeMetadataKind::VariableElements32b => {
             (input, output) = forward_option!(copy_n_bytes(input, output, 1 + 4));
             compact_metadata(input, output)
         }
@@ -271,13 +271,12 @@ pub(super) const fn compact_metadata<'i, 'o>(
         | IoTypeMetadataKind::VariableBytes131072
         | IoTypeMetadataKind::VariableBytes262144
         | IoTypeMetadataKind::VariableBytes524288
-        | IoTypeMetadataKind::VariableBytes1048576
-        | IoTypeMetadataKind::VariableElements8b
-        | IoTypeMetadataKind::VariableElements16b
-        | IoTypeMetadataKind::VariableElements32b
-        | IoTypeMetadataKind::VariableElements0
-        | IoTypeMetadataKind::Address
-        | IoTypeMetadataKind::Balance => copy_n_bytes(input, output, 1),
+        | IoTypeMetadataKind::VariableBytes1048576 => copy_n_bytes(input, output, 1),
+        IoTypeMetadataKind::VariableElements0 => {
+            (input, output) = forward_option!(copy_n_bytes(input, output, 1));
+            compact_metadata(input, output)
+        }
+        IoTypeMetadataKind::Address | IoTypeMetadataKind::Balance => copy_n_bytes(input, output, 1),
     }
 }
 

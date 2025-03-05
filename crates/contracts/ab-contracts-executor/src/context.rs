@@ -84,8 +84,8 @@ impl NativeExecutorContext {
             // context
             self.slots.lock().new_nested()
         } else {
-            // If mutation wasn't allowed on higher level, then reuse existing slots instance
-            Arc::clone(&self.slots)
+            // TODO: For read-only nested slots do not track anything at all
+            self.slots.lock().new_nested()
         }
     }
 
