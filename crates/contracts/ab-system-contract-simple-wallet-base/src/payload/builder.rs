@@ -1,5 +1,8 @@
 //! Transaction payload creation utilities
 
+#[cfg(test)]
+mod tests;
+
 extern crate alloc;
 
 use crate::payload::{TransactionInput, TransactionMethodContext};
@@ -107,7 +110,7 @@ impl TransactionPayloadBuilder {
         self.extend_payload_with_alignment(contract.as_bytes(), align_of_val(contract));
         self.extend_payload_with_alignment(
             method_fingerprint.as_bytes(),
-            align_of_val(&method_fingerprint),
+            align_of_val(method_fingerprint),
         );
         self.payload.push(method_context as u8);
 

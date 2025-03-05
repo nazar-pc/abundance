@@ -188,7 +188,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
     pub fn decode_next_method(
         &mut self,
     ) -> Result<Option<PreparedMethod<'a>>, TransactionPayloadDecoderError> {
-        if self.payload.is_empty() {
+        if self.payload.len() <= usize::from(MAX_ALIGNMENT) {
             return Ok(None);
         }
 
@@ -323,7 +323,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
         let bytes;
         (bytes, self.payload) = self
             .payload
-            .split_at_checked(align_of::<T>())
+            .split_at_checked(size_of::<T>())
             .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
 
         // SAFETY: Correctly aligned bytes of correct size

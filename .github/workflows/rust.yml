@@ -80,8 +80,11 @@ jobs:
           cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-common --features ab-contracts-common/guest -- -D warnings
           cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-common --features ab-contracts-common/alloc -- -D warnings
           cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-common --features ab-contracts-common/executor -- -D warnings
+
           cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-macros --features ab-contracts-common/executor -- -D warnings
+
           cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-standards --features ab-contracts-standards/guest -- -D warnings
+
           cargo -Zgitoxide -Zgit clippy --all-targets -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/alloc -- -D warnings
           cargo -Zgitoxide -Zgit clippy --all-targets -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings
         if: runner.os == 'Linux'
@@ -119,12 +122,14 @@ jobs:
         run: |
           cargo -Zgitoxide -Zgit nextest run --locked
 
-      - name: cargo test (guest feature)
+      - name: cargo test (various features)
         working-directory: crates/contracts
         run: |
           for contract in {ab-contract-example-,ab-system-contract-}*; do  
             cargo -Zgitoxide -Zgit test -p $contract --features $contract/guest
           done
+
+          cargo -Zgitoxide -Zgit test -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
         if: runner.os == 'Linux'
 
       - name: cargo miri nextest run
