@@ -4,7 +4,7 @@ extern crate alloc;
 use crate::method::{ExternalArgs, MethodFingerprint};
 use crate::{Address, ContractError, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
-#[cfg(feature = "alloc")]
+#[cfg(feature = "executor")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
