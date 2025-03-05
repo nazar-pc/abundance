@@ -7,13 +7,16 @@ mod slots;
 use crate::aligned_buffer::SharedAlignedBuffer;
 use crate::context::{MethodDetails, NativeExecutorContext};
 use crate::slots::{SlotKey, Slots};
-use ab_contracts_common::env::{Env, EnvState, MethodContext};
+use ab_contracts_common::env::{Env, EnvState, MethodContext, TransactionRef};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
 use ab_contracts_common::method::MethodFingerprint;
 use ab_contracts_common::{
     Address, Contract, ContractError, ContractTrait, ContractTraitDefinition,
     NativeExecutorContactMethod, ShardIndex,
 };
+use ab_contracts_io_type::variable_bytes::VariableBytes;
+use ab_contracts_io_type::variable_elements::VariableElements;
+use ab_contracts_standards::tx_handler::TxHandlerExt;
 use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt};
 use ab_system_contract_code::{Code, CodeExt};
 use ab_system_contract_simple_wallet_base::SimpleWalletBase;
@@ -22,6 +25,20 @@ use halfbrown::HashMap;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use tracing::error;
+
+// TODO: API for serialization/deserialization or some kind of access to internal contents
+#[derive(Debug)]
+pub struct Storage {
+    slots: Arc<Mutex<Slots>>,
+}
+
+impl Storage {
+    // TODO: Remove this once there is a better way to do this
+    /// Mark slot as used, such that execution environment can read/write from/to it
+    pub fn use_slot(&mut self, owner: Address, contract: Address) {
+        self.slots.lock().use_slot(SlotKey { owner, contract });
+    }
+}
 
 /// Native executor errors
 #[derive(Debug, thiserror::Error)]
@@ -45,9 +62,6 @@ pub enum NativeExecutorError {
         /// Method fingerprint
         method_fingerprint: &'static MethodFingerprint,
     },
-    /// Failed to deploy system contracts
-    #[error("Failed to deploy system contracts: {error}")]
-    FailedToDeploySystemContracts { error: ContractError },
 }
 
 #[derive(Clone)]
@@ -198,6 +212,23 @@ impl NativeExecutorBuilder {
             }
         }
 
+        Ok(NativeExecutor {
+            shard_index: self.shard_index,
+            methods_by_code: Arc::new(methods_by_code),
+        })
+    }
+}
+
+// TODO: Some kind of transaction notion with `#[tmp]` wiped at the end of it
+pub struct NativeExecutor {
+    shard_index: ShardIndex,
+    /// Indexed by contract's code and method fingerprint
+    methods_by_code: Arc<HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>>,
+}
+
+impl NativeExecutor {
+    /// Create a new storage instance with system contracts already deployed
+    pub fn new_storage(&self) -> Result<Storage, ContractError> {
         // Manually deploy code of system code contract
         let slots = [(
             SlotKey {
@@ -208,9 +239,11 @@ impl NativeExecutorBuilder {
         )];
 
         let address_allocator_address = Address::system_address_allocator(self.shard_index);
-        let slots = Slots::new(slots);
+        let mut storage = Storage {
+            slots: Slots::new(slots),
+        };
         {
-            let nested_slots = slots.lock().new_nested();
+            let nested_slots = storage.slots.lock().new_nested();
             let nested_slots = &mut *nested_slots.lock();
             // Allow deployment of system contracts
             assert!(nested_slots.add_new_contract(address_allocator_address));
@@ -218,35 +251,22 @@ impl NativeExecutorBuilder {
             assert!(nested_slots.add_new_contract(Address::SYSTEM_SIMPLE_WALLET_BASE));
         }
 
-        let mut instance = NativeExecutor {
-            shard_index: self.shard_index,
-            methods_by_code: Arc::new(methods_by_code),
-            // TODO: Allow to specify initial slots as an argument and extract it from executor
-            //  for persistence
-            slots,
-        };
-
         // Deploy and initialize other system contacts
-        {
-            let mut env = instance.env(Address::SYSTEM_CODE, Address::SYSTEM_CODE);
-
+        self.transaction_emulate(Address::SYSTEM_CODE, &mut storage, |env| {
             env.code_store(
                 MethodContext::Keep,
                 Address::SYSTEM_CODE,
                 &Address::SYSTEM_STATE,
                 &State::code(),
-            )
-            .map_err(|error| NativeExecutorError::FailedToDeploySystemContracts { error })?;
+            )?;
 
             env.code_store(
                 MethodContext::Keep,
                 Address::SYSTEM_CODE,
                 &address_allocator_address,
                 &AddressAllocator::code(),
-            )
-            .map_err(|error| NativeExecutorError::FailedToDeploySystemContracts { error })?;
-            env.address_allocator_new(MethodContext::Keep, address_allocator_address)
-                .map_err(|error| NativeExecutorError::FailedToDeploySystemContracts { error })?;
+            )?;
+            env.address_allocator_new(MethodContext::Keep, address_allocator_address)?;
 
             env.code_store(
                 MethodContext::Keep,
@@ -254,43 +274,155 @@ impl NativeExecutorBuilder {
                 &Address::SYSTEM_SIMPLE_WALLET_BASE,
                 &SimpleWalletBase::code(),
             )
-            .map_err(|error| NativeExecutorError::FailedToDeploySystemContracts { error })?;
-        }
+        })?;
 
-        Ok(instance)
+        Ok(storage)
     }
-}
 
-// TODO: Some kind of transaction notion with `#[tmp]` wiped at the end of it
-pub struct NativeExecutor {
-    shard_index: ShardIndex,
-    /// Indexed by contract's code and method fingerprint
-    methods_by_code: Arc<HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>>,
-    slots: Arc<Mutex<Slots>>,
-}
-
-impl NativeExecutor {
-    /// Instantiate in-memory native executor with empty storage
-    pub fn in_memory_empty(shard_index: ShardIndex) -> NativeExecutorBuilder {
+    /// Builder of native executor for specified shard index
+    pub fn builder(shard_index: ShardIndex) -> NativeExecutorBuilder {
         NativeExecutorBuilder::new(shard_index)
     }
 
-    // TODO: Remove this once there is a better way to do this
-    /// Mark slot as used, such that execution environment can read/write from/to it
-    pub fn use_slot(&mut self, owner: Address, contract: Address) {
-        self.slots.lock().use_slot(SlotKey { owner, contract });
-    }
-
-    /// Run a function under fresh execution environment
-    pub fn env(&mut self, context: Address, caller: Address) -> Env<'_> {
+    /// Verify the provided transaction.
+    ///
+    /// For transaction execution [`Self::transaction_verify()`] can be used.
+    pub fn transaction_verify(
+        &self,
+        transaction: TransactionRef<'_>,
+        storage: &Storage,
+    ) -> Result<(), ContractError> {
         let env_state = EnvState {
             shard_index: self.shard_index,
             padding_0: Default::default(),
-            // `own_address` will be observed as a caller
-            own_address: caller,
-            context,
-            // There is no direct caller on the highest level, and it doesn't matter either since mo
-            // method call will be able to observe this
+            own_address: Address::NULL,
+            context: Address::NULL,
+            caller: Address::NULL,
+        };
+
+        let payload_size = size_of_val::<[u128]>(transaction.payload) as u32;
+        let payload = VariableElements::from_buffer(transaction.payload, &payload_size);
+        let seal_size = size_of_val::<[u8]>(transaction.seal) as u32;
+        let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
+
+        // TODO: Make it more efficient by not recreating NativeExecutorContext twice here
+        let env = Env::with_executor_context(
+            env_state,
+            Box::new(NativeExecutorContext::new(
+                self.shard_index,
+                Arc::clone(&self.methods_by_code),
+                Arc::clone(&storage.slots),
+                false,
+            )),
+        );
+        env.tx_handler_authorize(
+            transaction.header.contract,
+            transaction.header,
+            &payload,
+            &seal,
+        )
+    }
+
+    /// Execute the provided transaction.
+    ///
+    /// If only verification is needed, [`Self::transaction_verify()`] can be used instead.
+    pub fn transaction_execute(
+        &self,
+        transaction: TransactionRef<'_>,
+        storage: &mut Storage,
+    ) -> Result<(), ContractError> {
+        // TODO: This is a pretty large data structure to copy around, try to make it a reference
+        let env_state = EnvState {
+            shard_index: self.shard_index,
+            padding_0: Default::default(),
+            own_address: Address::NULL,
+            context: Address::NULL,
+            caller: Address::NULL,
+        };
+
+        let payload_size = size_of_val::<[u128]>(transaction.payload) as u32;
+        let payload = VariableElements::from_buffer(transaction.payload, &payload_size);
+        let seal_size = size_of_val::<[u8]>(transaction.seal) as u32;
+        let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
+
+        // TODO: Make it more efficient by not recreating NativeExecutorContext twice here
+        {
+            let env = Env::with_executor_context(
+                env_state,
+                Box::new(NativeExecutorContext::new(
+                    self.shard_index,
+                    Arc::clone(&self.methods_by_code),
+                    Arc::clone(&storage.slots),
+                    false,
+                )),
+            );
+            env.tx_handler_authorize(
+                transaction.header.contract,
+                transaction.header,
+                &payload,
+                &seal,
+            )?;
+        }
+
+        {
+            let mut env = Env::with_executor_context(
+                env_state,
+                Box::new(NativeExecutorContext::new(
+                    self.shard_index,
+                    Arc::clone(&self.methods_by_code),
+                    Arc::clone(&storage.slots),
+                    true,
+                )),
+            );
+            env.tx_handler_execute(
+                MethodContext::Reset,
+                transaction.header.contract,
+                transaction.header,
+                &payload,
+                &seal,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Emulate a transaction submitted by `contract` with method calls happening inside `calls`
+    /// without going through `TxHandler`.
+    ///
+    /// NOTE: This is primarily useful for testing environment, usually changes are done in the
+    /// transaction execution using [`Self::transaction_execute()`].
+    pub fn transaction_emulate<Calls, T>(
+        &self,
+        contract: Address,
+        storage: &mut Storage,
+        calls: Calls,
+    ) -> T
+    where
+        Calls: FnOnce(&mut Env) -> T,
+    {
+        let mut env = self.env_internal(contract, storage, true);
+        calls(&mut env)
+    }
+
+    /// Get a read-only `Env` instance for calling `#[view]` methods on it directly.
+    ///
+    /// For stateful methods, execute a transaction using [`Self::transaction_execute()`] or
+    /// emulate one with [`Self::transaction_emulate()`].
+    pub fn env_ro(&self, storage: &Storage) -> Env<'_> {
+        self.env_internal(Address::NULL, storage, false)
+    }
+
+    fn env_internal(
+        &self,
+        contract: Address,
+        storage: &Storage,
+        allow_env_mutation: bool,
+    ) -> Env<'_> {
+        let env_state = EnvState {
+            shard_index: self.shard_index,
+            padding_0: Default::default(),
+            own_address: contract,
+            context: contract,
             caller: Address::NULL,
         };
 
@@ -299,14 +431,9 @@ impl NativeExecutor {
             Box::new(NativeExecutorContext::new(
                 self.shard_index,
                 Arc::clone(&self.methods_by_code),
-                Arc::clone(&self.slots),
+                Arc::clone(&storage.slots),
+                allow_env_mutation,
             )),
         )
-    }
-
-    /// Shortcut for [`Self::env`] with context and caller set to [`Address::NULL`]
-    #[inline]
-    pub fn null_env(&mut self) -> Env<'_> {
-        self.env(Address::NULL, Address::NULL)
     }
 }

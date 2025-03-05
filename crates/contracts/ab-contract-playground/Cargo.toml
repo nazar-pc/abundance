@@ -21,6 +21,7 @@ ab-contracts-standards = { workspace = true }
 
 [dev-dependencies]
 ab-contracts-executor = { workspace = true }
+ab-contracts-test-utils = { workspace = true }
 ab-system-contract-code = { workspace = true }
 tracing-subscriber = { workspace = true }
 

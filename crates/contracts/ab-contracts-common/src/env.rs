@@ -16,7 +16,7 @@ use core::ptr::NonNull;
 pub type Blake3Hash = [u8; 32];
 
 /// A measure of compute resources, 1 Gas == 1 ns of compute on reference hardware
-#[derive(Debug, Copy, Clone, TrivialType)]
+#[derive(Debug, Default, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct Gas(u64);
 
@@ -26,6 +26,7 @@ pub struct TransactionHeader {
     pub genesis_hash: Blake3Hash,
     pub block_hash: Blake3Hash,
     pub gas_limit: Gas,
+    /// Contract implementing `TxHandler` trait to use for transaction verification and execution
     pub contract: Address,
 }
 
@@ -35,6 +36,28 @@ pub struct Transaction {
     pub header: TransactionHeader,
     pub payload: Vec<u128>,
     pub seal: Vec<u8>,
+}
+
+#[cfg(feature = "alloc")]
+impl Transaction {
+    /// Get [`TransactionRef`] out of transaction
+    pub fn as_ref(&self) -> TransactionRef<'_> {
+        TransactionRef {
+            header: &self.header,
+            payload: &self.payload,
+            seal: &self.seal,
+        }
+    }
+}
+
+/// Similar to `Transaction`, but doesn't require `allow` or data ownership.
+///
+/// Can be created with `Transaction::as_ref()` call.
+#[derive(Debug)]
+pub struct TransactionRef<'a> {
+    pub header: &'a TransactionHeader,
+    pub payload: &'a [u128],
+    pub seal: &'a [u8],
 }
 
 /// Context for method call.
@@ -94,7 +117,7 @@ pub struct EnvState {
 
 /// Executor context that can be used to interact with executor
 #[cfg(feature = "executor")]
-pub trait ExecutorContext: alloc::fmt::Debug + Send {
+pub trait ExecutorContext: alloc::fmt::Debug {
     /// Call multiple methods
     fn call_many(
         &self,
@@ -219,6 +242,9 @@ impl Env<'_> {
             todo!()
         }
         #[cfg(not(any(feature = "executor", feature = "guest")))]
-        Err(ContractError::InternalError)
+        {
+            let _ = methods;
+            Err(ContractError::InternalError)
+        }
     }
 }

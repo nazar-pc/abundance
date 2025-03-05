@@ -11,6 +11,7 @@ ab-contracts-io-type = { version = "0.0.1", path = "crates/contracts/ab-contract
 ab-contracts-macros = { version = "0.0.1", path = "crates/contracts/ab-contracts-macros" }
 ab-contracts-macros-impl = { version = "0.0.1", path = "crates/contracts/ab-contracts-macros-impl" }
 ab-contracts-standards = { version = "0.0.1", path = "crates/contracts/ab-contracts-standards" }
+ab-contracts-test-utils = { version = "0.0.1", path = "crates/contracts/ab-contracts-test-utils" }
 ab-contracts-trivial-type-derive = { version = "0.0.1", path = "crates/contracts/ab-contracts-trivial-type-derive" }
 ab-system-contract-address-allocator = { version = "0.0.1", path = "crates/contracts/ab-system-contract-address-allocator" }
 ab-system-contract-code = { version = "0.0.1", path = "crates/contracts/ab-system-contract-code" }

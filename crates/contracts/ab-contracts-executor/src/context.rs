@@ -57,13 +57,14 @@ impl NativeExecutorContext {
         shard_index: ShardIndex,
         methods_by_code: Arc<HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>>,
         slots: Arc<Mutex<Slots>>,
+        allow_env_mutation: bool,
     ) -> Self {
         Self {
             shard_index,
             system_allocator_address: Address::system_address_allocator(shard_index),
             methods_by_code,
             slots,
-            allow_env_mutation: true,
+            allow_env_mutation,
         }
     }
 
@@ -172,7 +173,7 @@ impl NativeExecutorContext {
             .persist()?
         };
 
-        if result.is_err() {
+        if result.is_err() && self.allow_env_mutation {
             Arc::into_inner(nested_slots)
                 .expect("All child references already dropped; qed")
                 .into_inner()
