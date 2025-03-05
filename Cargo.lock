@@ -22,6 +22,7 @@ dependencies = [
  "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
+ "ab-contracts-test-utils",
  "ab-system-contract-code",
 ]
 
@@ -46,6 +47,7 @@ dependencies = [
  "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
+ "ab-contracts-test-utils",
  "ab-system-contract-code",
  "tracing-subscriber",
 ]
@@ -65,6 +67,8 @@ name = "ab-contracts-executor"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
+ "ab-contracts-io-type",
+ "ab-contracts-standards",
  "ab-system-contract-address-allocator",
  "ab-system-contract-code",
  "ab-system-contract-simple-wallet-base",
@@ -111,6 +115,17 @@ dependencies = [
  "ab-contracts-common",
  "ab-contracts-io-type",
  "ab-contracts-macros",
+]
+
+[[package]]
+name = "ab-contracts-test-utils"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+ "ab-contracts-standards",
+ "ab-system-contract-simple-wallet-base",
 ]
 
 [[package]]

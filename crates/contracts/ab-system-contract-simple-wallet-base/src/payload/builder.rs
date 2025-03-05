@@ -5,8 +5,7 @@ extern crate alloc;
 use crate::payload::{TransactionInput, TransactionMethodContext};
 use ab_contracts_common::Address;
 use ab_contracts_common::metadata::decode::{
-    ArgumentKind, MetadataDecodingError, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
-    MethodsContainerKind,
+    ArgumentKind, MetadataDecodingError, MethodMetadataDecoder, MethodsContainerKind,
 };
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_contracts_io_type::MAX_ALIGNMENT;
@@ -59,12 +58,12 @@ impl TransactionPayloadBuilder {
     /// `input_output_index` is used for referencing earlier outputs as inputs of this method,
     /// its values are optional, see [`TransactionInput`] for more details.
     pub fn with_method_call<Args>(
-        self,
+        &mut self,
         contract: &Address,
         external_args: &Args,
         method_context: TransactionMethodContext,
         input_output_index: &[Option<u8>],
-    ) -> Result<Self, TransactionPayloadBuilderError<'static>>
+    ) -> Result<(), TransactionPayloadBuilderError<'static>>
     where
         Args: ExternalArgs,
     {
@@ -90,14 +89,14 @@ impl TransactionPayloadBuilder {
     /// never read from `external_args` and inputs that have corresponding `input_output_index`
     /// are not read either.
     pub unsafe fn with_method_call_untyped<'a>(
-        mut self,
+        &mut self,
         contract: &Address,
         external_args: &NonNull<*const c_void>,
         mut method_metadata: &'a [u8],
         method_fingerprint: &MethodFingerprint,
         method_context: TransactionMethodContext,
         input_output_index: &[Option<u8>],
-    ) -> Result<Self, TransactionPayloadBuilderError<'a>> {
+    ) -> Result<(), TransactionPayloadBuilderError<'a>> {
         let mut external_args = *external_args;
 
         let (mut metadata_decoder, _method_metadata_item) =
@@ -210,7 +209,7 @@ impl TransactionPayloadBuilder {
             }
         }
 
-        Ok(self)
+        Ok(())
     }
 
     /// Returns 16-byte aligned bytes.
