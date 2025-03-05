@@ -16,7 +16,7 @@ pub(super) enum MethodType {
 }
 
 impl MethodType {
-    fn attr_str(&self) -> &'static str {
+    fn attr_str(self) -> &'static str {
         match self {
             MethodType::Init => "init",
             MethodType::Update => "update",
@@ -386,13 +386,13 @@ impl MethodDetails {
                         mutability: outer_slot_type.mutability,
                     });
                     return Ok(());
-                } else {
-                    return Err(Error::new(
-                        pat_type.span(),
-                        "`#[slot]` with address must be a tuple of arguments, each of which is \
-                        either a simple variable or a reference",
-                    ));
                 }
+
+                return Err(Error::new(
+                    pat_type.span(),
+                    "`#[slot]` with address must be a tuple of arguments, each of which is \
+                        either a simple variable or a reference",
+                ));
             }
             _ => {
                 // Ignore
@@ -531,16 +531,14 @@ impl MethodDetails {
                                 .path
                                 .segments
                                 .last()
-                                .map(|s| s.ident == "ContractError")
-                                .unwrap_or_default()
+                                .is_some_and(|s| s.ident == "ContractError")
                         {
                             if let Type::Path(ok_path) = ok_type
                                 && ok_path
                                     .path
                                     .segments
                                     .first()
-                                    .map(|s| s.ident == "Self")
-                                    .unwrap_or_default()
+                                    .is_some_and(|s| s.ident == "Self")
                             {
                                 // Swap `Self` for an actual struct name
                                 self.set_return_type(MethodReturnType::Result(
@@ -1517,9 +1515,9 @@ impl MethodDetails {
                             fn_sig.span(),
                             "Stateful view methods are not supported",
                         ));
-                    } else {
-                        "ViewStateful"
                     }
+
+                    "ViewStateful"
                 } else {
                     "ViewStateless"
                 }

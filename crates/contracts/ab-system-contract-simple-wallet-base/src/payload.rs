@@ -56,7 +56,7 @@ pub enum TransactionInputType {
 ///
 /// Specifically, if the previous method has `#[output]` or return value, those values are collected
 /// and pushed into a virtual "stack". Then, if [`Self::input_type()`] returns
-/// [`TransactionInputType::OutputIndex`]`, then the corresponding input will use the value at
+/// [`TransactionInputType::OutputIndex`], then the corresponding input will use the value at
 /// `output_index` of this stack instead of what was specified in `external_args`. This allows
 /// composing calls to multiple methods into more sophisticated workflows without writing special
 /// contracts for this.
@@ -138,7 +138,7 @@ pub enum TransactionPayloadDecoderError {
 pub struct TransactionPayloadDecoder<'a> {
     payload: &'a [u8],
     external_args_buffer: &'a mut [*mut c_void],
-    output_buffer: &'a mut [MaybeUninit<u8>],
+    output_buffer: &'a mut [MaybeUninit<u128>],
     output_buffer_cursor: usize,
     output_buffer_offsets: SliceVec<'a, (u32, u32)>,
     map_context: fn(TransactionMethodContext) -> MethodContext,
@@ -171,14 +171,6 @@ impl<'a> TransactionPayloadDecoder<'a> {
         // SAFETY: Memory is valid and bound by argument's lifetime
         let payload =
             unsafe { slice::from_raw_parts(payload.as_ptr().cast::<u8>(), size_of_val(payload)) };
-
-        // SAFETY: Memory is valid and bound by argument's lifetime
-        let output_buffer = unsafe {
-            slice::from_raw_parts_mut(
-                output_buffer.as_mut_ptr().cast::<MaybeUninit<u8>>(),
-                size_of_val(output_buffer),
-            )
-        };
 
         let mut output_buffer_offsets = SliceVec::from(output_buffer_offsets);
         output_buffer_offsets.clear();
@@ -255,7 +247,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
                         let size = unsafe {
                             self.output_buffer
                                 .as_ptr()
-                                .add(size_offset as usize)
+                                .byte_add(size_offset as usize)
                                 .cast::<u32>()
                                 .as_ref()
                                 .expect("Pointer is not null; qed")
@@ -263,9 +255,13 @@ impl<'a> TransactionPayloadDecoder<'a> {
                         // SAFETY: Offset was created as the result of writing value at the correct
                         // offset
                         let bytes = unsafe {
-                            let bytes_ptr = self.output_buffer.as_ptr().add(output_offset as usize);
+                            let bytes_ptr = self
+                                .output_buffer
+                                .as_ptr()
+                                .cast::<u8>()
+                                .add(output_offset as usize);
 
-                            slice::from_raw_parts(bytes_ptr.cast::<u8>(), *size as usize)
+                            slice::from_raw_parts(bytes_ptr, *size as usize)
                         };
 
                         (bytes, size)
@@ -398,7 +394,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
         debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
 
         let unaligned_by = self.output_buffer_cursor % alignment;
-        if self.output_buffer_cursor + unaligned_by + size > self.output_buffer.len() {
+        if self.output_buffer_cursor + unaligned_by + size > size_of_val(self.output_buffer) {
             return None;
         }
 
@@ -407,7 +403,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
             NonNull::new_unchecked(
                 self.output_buffer
                     .as_mut_ptr()
-                    .add(self.output_buffer_cursor + unaligned_by)
+                    .byte_add(self.output_buffer_cursor + unaligned_by)
                     .cast::<T>(),
             )
         };

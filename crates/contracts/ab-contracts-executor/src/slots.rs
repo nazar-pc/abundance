@@ -274,7 +274,7 @@ impl Slots {
             .any(|slot_access| slot_access.slot_index == slot_index && slot_access.read_write)
         {
             return None;
-        };
+        }
 
         let buffer = match &slots
             .get(usize::from(slot_index))
@@ -323,75 +323,72 @@ impl Slots {
             .position(|(slot_key_candidate, _slot)| slot_key_candidate == &slot_key)
             .map(SlotIndex);
 
-        match maybe_slot_index {
-            Some(slot_index) => {
-                // Ensure that slot is not currently being written to
-                if let Some(read_write) = slot_access.iter().find_map(|slot_access| {
-                    (slot_access.slot_index == slot_index).then_some(slot_access.read_write)
-                }) {
-                    if read_write {
-                        return None;
-                    }
-                } else {
-                    slot_access.push(SlotAccess {
-                        slot_index,
-                        read_write: false,
-                    });
-                }
-
-                let slot = &mut slots
-                    .get_mut(usize::from(slot_index))
-                    .expect("Just found; qed")
-                    .1;
-
-                // The slot that is currently being written to is not allowed for read access
-                match slot {
-                    Slot::Original(buffer) => {
-                        let buffer = mem::take(buffer);
-                        *slot = Slot::OriginalAccessed(buffer);
-                        let Slot::OriginalAccessed(buffer) = slot else {
-                            unreachable!("Just inserted; qed");
-                        };
-                        Some(buffer)
-                    }
-                    Slot::OriginalAccessed(buffer) | Slot::ModifiedAccessed(buffer) => Some(buffer),
-                    Slot::Modified(buffer) => {
-                        let buffer = mem::take(buffer);
-                        *slot = Slot::ModifiedAccessed(buffer);
-                        let Slot::ModifiedAccessed(buffer) = slot else {
-                            unreachable!("Just inserted; qed");
-                        };
-                        Some(buffer)
-                    }
-                    Slot::ReadWriteOriginal { .. } | Slot::ReadWriteModified { .. } => None,
-                }
-            }
-            None => {
-                // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
-                // allowed for any owner, and they will all be thrown away after transaction
-                // processing if finished.
-                if !(slot_key.contract == Address::NULL
-                    || new_contracts.iter().any(|candidate| {
-                        candidate == slot_key.owner || candidate == slot_key.contract
-                    }))
-                {
+        if let Some(slot_index) = maybe_slot_index {
+            // Ensure that slot is not currently being written to
+            if let Some(read_write) = slot_access.iter().find_map(|slot_access| {
+                (slot_access.slot_index == slot_index).then_some(slot_access.read_write)
+            }) {
+                if read_write {
                     return None;
                 }
-
+            } else {
                 slot_access.push(SlotAccess {
-                    slot_index: SlotIndex(slots.len()),
+                    slot_index,
                     read_write: false,
                 });
-
-                let slot = Slot::OriginalAccessed(SharedAlignedBuffer::default());
-                slots.push((slot_key, slot));
-                let slot = &slots.last().expect("Just inserted; qed").1;
-                let Slot::OriginalAccessed(buffer) = slot else {
-                    unreachable!("Just inserted; qed");
-                };
-
-                Some(buffer)
             }
+
+            let slot = &mut slots
+                .get_mut(usize::from(slot_index))
+                .expect("Just found; qed")
+                .1;
+
+            // The slot that is currently being written to is not allowed for read access
+            match slot {
+                Slot::Original(buffer) => {
+                    let buffer = mem::take(buffer);
+                    *slot = Slot::OriginalAccessed(buffer);
+                    let Slot::OriginalAccessed(buffer) = slot else {
+                        unreachable!("Just inserted; qed");
+                    };
+                    Some(buffer)
+                }
+                Slot::OriginalAccessed(buffer) | Slot::ModifiedAccessed(buffer) => Some(buffer),
+                Slot::Modified(buffer) => {
+                    let buffer = mem::take(buffer);
+                    *slot = Slot::ModifiedAccessed(buffer);
+                    let Slot::ModifiedAccessed(buffer) = slot else {
+                        unreachable!("Just inserted; qed");
+                    };
+                    Some(buffer)
+                }
+                Slot::ReadWriteOriginal { .. } | Slot::ReadWriteModified { .. } => None,
+            }
+        } else {
+            // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
+            // allowed for any owner, and they will all be thrown away after transaction
+            // processing if finished.
+            if !(slot_key.contract == Address::NULL
+                || new_contracts
+                    .iter()
+                    .any(|candidate| candidate == slot_key.owner || candidate == slot_key.contract))
+            {
+                return None;
+            }
+
+            slot_access.push(SlotAccess {
+                slot_index: SlotIndex(slots.len()),
+                read_write: false,
+            });
+
+            let slot = Slot::OriginalAccessed(SharedAlignedBuffer::default());
+            slots.push((slot_key, slot));
+            let slot = &slots.last().expect("Just inserted; qed").1;
+            let Slot::OriginalAccessed(buffer) = slot else {
+                unreachable!("Just inserted; qed");
+            };
+
+            Some(buffer)
         }
     }
 
@@ -431,98 +428,94 @@ impl Slots {
             .position(|(slot_key_candidate, _slot)| slot_key_candidate == &slot_key)
             .map(SlotIndex);
 
-        match maybe_slot_index {
-            Some(slot_index) => {
-                // Ensure that slot is not accessed right now
-                if slot_access
+        if let Some(slot_index) = maybe_slot_index {
+            // Ensure that slot is not accessed right now
+            if slot_access
+                .iter()
+                .any(|slot_access| slot_access.slot_index == slot_index)
+            {
+                return None;
+            }
+
+            slot_access.push(SlotAccess {
+                slot_index,
+                read_write: true,
+            });
+
+            let slot = &mut slots
+                .get_mut(usize::from(slot_index))
+                .expect("Just found; qed")
+                .1;
+
+            // The slot that is currently being accessed to is not allowed for writing
+            let buffer = match slot {
+                Slot::OriginalAccessed(_buffer) | Slot::ModifiedAccessed(_buffer) => {
+                    return None;
+                }
+                Slot::Original(buffer) => {
+                    let mut new_buffer =
+                        OwnedAlignedBuffer::with_capacity(capacity.max(buffer.len()));
+                    new_buffer.copy_from_slice(buffer.as_slice());
+
+                    *slot = Slot::ReadWriteOriginal {
+                        buffer: new_buffer,
+                        previous: mem::take(buffer),
+                    };
+                    let Slot::ReadWriteOriginal { buffer, .. } = slot else {
+                        unreachable!("Just inserted; qed");
+                    };
+                    buffer
+                }
+                Slot::Modified(buffer) => {
+                    let mut new_buffer =
+                        OwnedAlignedBuffer::with_capacity(capacity.max(buffer.len()));
+                    new_buffer.copy_from_slice(buffer.as_slice());
+
+                    *slot = Slot::ReadWriteModified {
+                        buffer: new_buffer,
+                        previous: mem::take(buffer),
+                    };
+                    let Slot::ReadWriteModified { buffer, .. } = slot else {
+                        unreachable!("Just inserted; qed");
+                    };
+                    buffer
+                }
+                Slot::ReadWriteOriginal { buffer, .. } | Slot::ReadWriteModified { buffer, .. } => {
+                    buffer.ensure_capacity(capacity);
+                    buffer
+                }
+            };
+
+            Some((slot_index, buffer))
+        } else {
+            // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are allowed
+            // for any owner, and they will all be thrown away after transaction processing if
+            // finished.
+            if !(slot_key.contract == Address::NULL
+                || new_contracts
                     .iter()
-                    .any(|slot_access| slot_access.slot_index == slot_index)
-                {
-                    return None;
-                }
-
-                slot_access.push(SlotAccess {
-                    slot_index,
-                    read_write: true,
-                });
-
-                let slot = &mut slots
-                    .get_mut(usize::from(slot_index))
-                    .expect("Just found; qed")
-                    .1;
-
-                // The slot that is currently being accessed to is not allowed for writing
-                let buffer = match slot {
-                    Slot::OriginalAccessed(_buffer) | Slot::ModifiedAccessed(_buffer) => {
-                        return None;
-                    }
-                    Slot::Original(buffer) => {
-                        let mut new_buffer =
-                            OwnedAlignedBuffer::with_capacity(capacity.max(buffer.len()));
-                        new_buffer.copy_from_slice(buffer.as_slice());
-
-                        *slot = Slot::ReadWriteOriginal {
-                            buffer: new_buffer,
-                            previous: mem::take(buffer),
-                        };
-                        let Slot::ReadWriteOriginal { buffer, .. } = slot else {
-                            unreachable!("Just inserted; qed");
-                        };
-                        buffer
-                    }
-                    Slot::Modified(buffer) => {
-                        let mut new_buffer =
-                            OwnedAlignedBuffer::with_capacity(capacity.max(buffer.len()));
-                        new_buffer.copy_from_slice(buffer.as_slice());
-
-                        *slot = Slot::ReadWriteModified {
-                            buffer: new_buffer,
-                            previous: mem::take(buffer),
-                        };
-                        let Slot::ReadWriteModified { buffer, .. } = slot else {
-                            unreachable!("Just inserted; qed");
-                        };
-                        buffer
-                    }
-                    Slot::ReadWriteOriginal { buffer, .. }
-                    | Slot::ReadWriteModified { buffer, .. } => {
-                        buffer.ensure_capacity(capacity);
-                        buffer
-                    }
-                };
-
-                Some((slot_index, buffer))
+                    .any(|candidate| candidate == slot_key.owner || candidate == slot_key.contract))
+            {
+                return None;
             }
-            None => {
-                // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
-                // allowed for any owner, and they will all be thrown away after transaction
-                // processing if finished.
-                if !(slot_key.contract == Address::NULL
-                    || new_contracts.iter().any(|candidate| {
-                        candidate == slot_key.owner || candidate == slot_key.contract
-                    }))
-                {
-                    return None;
-                }
 
-                let slot_index = SlotIndex(slots.len());
-                slot_access.push(SlotAccess {
-                    slot_index,
-                    read_write: true,
-                });
+            let slot_index = SlotIndex(slots.len());
+            slot_access.push(SlotAccess {
+                slot_index,
+                read_write: true,
+            });
 
-                let slot = Slot::ReadWriteOriginal {
-                    buffer: OwnedAlignedBuffer::with_capacity(capacity),
-                    previous: SharedAlignedBuffer::default(),
-                };
-                slots.push((slot_key, slot));
-                let slot = &mut slots.last_mut().expect("Just inserted; qed").1;
-                let Slot::ReadWriteOriginal { buffer, .. } = slot else {
-                    unreachable!("Just inserted; qed");
-                };
+            let slot = Slot::ReadWriteOriginal {
+                buffer: OwnedAlignedBuffer::with_capacity(capacity),
+                previous: SharedAlignedBuffer::default(),
+            };
+            slots.push((slot_key, slot));
+            let slot = &mut slots.last_mut().expect("Just inserted; qed").1;
+            let Slot::ReadWriteOriginal { buffer, .. } = slot else {
+                unreachable!("Just inserted; qed");
+            };
 
-                Some((slot_index, buffer))
-            }
+            Some((slot_index, buffer))
         }
     }
 

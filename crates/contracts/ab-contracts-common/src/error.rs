@@ -110,7 +110,9 @@ impl From<ExitCode> for Result<(), ContractError> {
             5 => ContractError::Conflict,
             6 => ContractError::InternalError,
             7 => ContractError::NotImplemented,
-            8..=255 => ContractError::Unknown(UnknownContractErrorCode(value.0 as u8)),
+            8..=255 => ContractError::Unknown(UnknownContractErrorCode(
+                u8::try_from(value.0).expect("All matched values are within `u8` range; qed"),
+            )),
             code => ContractError::Custom(CustomContractErrorCode(code)),
         })
     }

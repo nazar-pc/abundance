@@ -130,7 +130,7 @@ pub enum ContractMetadataKind {
     /// Explicit `#[output]` argument or `T` of [`Result<T, ContractError>`] return type or simply
     /// return type if it is not fallible.
     ///
-    /// NOTE: Skipped if return type's `T` is `().
+    /// NOTE: Skipped if return type's `T` is `()`.
     ///
     /// Example: `#[output] out: &mut VariableBytes<1024>,`
     Output,

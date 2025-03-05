@@ -102,7 +102,7 @@ fn process_trait_definition(mut item_trait: ItemTrait) -> Result<TokenStream, Er
     }
 
     let metadata_const = generate_trait_metadata(&contract_details, trait_name, item_trait.span())?;
-    let ext_trait = generate_extension_trait(trait_name, &trait_ext_components)?;
+    let ext_trait = generate_extension_trait(trait_name, &trait_ext_components);
 
     Ok(quote! {
         #item_trait
@@ -441,7 +441,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         )
     })?;
 
-    let ext_trait = generate_extension_trait(struct_name_ident, &trait_ext_components)?;
+    let ext_trait = generate_extension_trait(struct_name_ident, &trait_ext_components);
 
     let struct_name_str = struct_name_ident.to_string();
     Ok(quote! {
@@ -655,7 +655,7 @@ fn process_fn(
 fn generate_extension_trait(
     ident: &Ident,
     trait_ext_components: &[ExtTraitComponents],
-) -> Result<TokenStream, Error> {
+) -> TokenStream {
     let trait_name = format_ident!("{ident}Ext");
     let trait_doc = format!(
         "Extension trait that provides helper methods for calling [`{ident}`]'s methods on \
@@ -668,7 +668,7 @@ fn generate_extension_trait(
         .iter()
         .map(|components| &components.impls);
 
-    Ok(quote! {
+    quote! {
         use ffi::*;
 
         #[doc = #trait_doc]
@@ -679,5 +679,5 @@ fn generate_extension_trait(
         impl #trait_name for ::ab_contracts_macros::__private::Env<'_> {
             #( #impls )*
         }
-    })
+    }
 }

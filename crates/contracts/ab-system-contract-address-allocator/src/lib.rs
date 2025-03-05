@@ -22,7 +22,7 @@ impl AddressAllocator {
         let shard_index = env.shard_index();
 
         let expected_self_address =
-            shard_index.to_u32() as u128 * ShardIndex::MAX_ADDRESSES_PER_SHARD.get();
+            u128::from(shard_index.to_u32()) * ShardIndex::MAX_ADDRESSES_PER_SHARD.get();
         debug_assert_eq!(
             env.own_address(),
             Address::from(expected_self_address),

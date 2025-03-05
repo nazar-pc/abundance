@@ -130,7 +130,8 @@ impl OwnedAlignedBuffer {
     }
 
     pub(super) fn capacity(&self) -> u32 {
-        (self.buffer.len() * AlignedBytes::SIZE) as u32
+        u32::try_from(self.buffer.len() * AlignedBytes::SIZE)
+            .expect("API constraints capacity to `u32`; qed")
     }
 
     /// Set the length of the useful data to specified value.
@@ -141,9 +142,12 @@ impl OwnedAlignedBuffer {
     /// # Panics
     /// If `bytes.len()` doesn't fit into `u32`
     pub(super) unsafe fn set_len(&mut self, new_len: u32) {
-        if new_len > self.capacity() {
-            panic!("Too many bytes");
-        }
+        assert!(
+            new_len <= self.capacity(),
+            "Too many bytes {} > {}",
+            new_len,
+            self.capacity()
+        );
         self.len = new_len;
     }
 }
@@ -208,6 +212,7 @@ impl SharedAlignedBuffer {
     }
 
     pub(super) fn capacity(&self) -> u32 {
-        (self.buffer.len() * AlignedBytes::SIZE) as u32
+        u32::try_from(self.buffer.len() * AlignedBytes::SIZE)
+            .expect("API constraints capacity to `u32`; qed")
     }
 }
