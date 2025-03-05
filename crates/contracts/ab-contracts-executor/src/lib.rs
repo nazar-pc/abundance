@@ -297,7 +297,7 @@ impl NativeExecutor {
     /// For transaction execution [`Self::transaction_verify()`] can be used.
     pub fn transaction_verify(
         &self,
-        transaction: &TransactionRef<'_>,
+        transaction: TransactionRef<'_>,
         storage: &Storage,
     ) -> Result<(), ContractError> {
         let env_state = EnvState {
