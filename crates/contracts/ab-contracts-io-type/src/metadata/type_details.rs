@@ -129,6 +129,10 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             ))
         }
         IoTypeMetadataKind::Array16b | IoTypeMetadataKind::VariableElements16b => {
+            if metadata.is_empty() {
+                return None;
+            }
+
             let mut num_elements = [0; size_of::<u16>()];
             (metadata, _) =
                 forward_option!(copy_n_bytes(metadata, &mut num_elements, size_of::<u16>()));
@@ -147,6 +151,10 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             ))
         }
         IoTypeMetadataKind::Array32b | IoTypeMetadataKind::VariableElements32b => {
+            if metadata.is_empty() {
+                return None;
+            }
+
             let mut num_elements = [0; size_of::<u32>()];
             (metadata, _) =
                 forward_option!(copy_n_bytes(metadata, &mut num_elements, size_of::<u32>()));
@@ -185,6 +193,10 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             Some((IoTypeDetails::bytes(num_bytes), metadata))
         }
         IoTypeMetadataKind::VariableBytes16b => {
+            if metadata.is_empty() {
+                return None;
+            }
+
             let mut num_bytes = [0; size_of::<u16>()];
             (metadata, _) =
                 forward_option!(copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>()));
@@ -193,6 +205,10 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             Some((IoTypeDetails::bytes(num_bytes), metadata))
         }
         IoTypeMetadataKind::VariableBytes32b => {
+            if metadata.is_empty() {
+                return None;
+            }
+
             let mut num_bytes = [0; size_of::<u32>()];
             (metadata, _) =
                 forward_option!(copy_n_bytes(metadata, &mut num_bytes, size_of::<u32>()));

@@ -29,9 +29,15 @@ where
     Element: TrivialType,
 {
     const METADATA: &[u8] = {
-        const fn metadata(recommended_allocation: u32) -> ([u8; MAX_METADATA_CAPACITY], usize) {
+        const fn metadata(
+            recommended_allocation: u32,
+            inner_metadata: &[u8],
+        ) -> ([u8; MAX_METADATA_CAPACITY], usize) {
             if recommended_allocation == 0 {
-                return concat_metadata_sources(&[&[IoTypeMetadataKind::VariableElements0 as u8]]);
+                return concat_metadata_sources(&[
+                    &[IoTypeMetadataKind::VariableElements0 as u8],
+                    inner_metadata,
+                ]);
             }
 
             let (io_type, size_bytes) = if recommended_allocation < 2u32.pow(8) {
@@ -45,13 +51,14 @@ where
             concat_metadata_sources(&[
                 &[io_type as u8],
                 recommended_allocation.to_le_bytes().split_at(size_bytes).0,
+                inner_metadata,
             ])
         }
 
         // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
-        metadata(RECOMMENDED_ALLOCATION)
+        metadata(RECOMMENDED_ALLOCATION, Element::METADATA)
             .0
-            .split_at(metadata(RECOMMENDED_ALLOCATION).1)
+            .split_at(metadata(RECOMMENDED_ALLOCATION, Element::METADATA).1)
             .0
     };
 
