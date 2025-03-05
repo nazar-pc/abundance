@@ -99,6 +99,11 @@ impl NativeExecutorBuilder {
                     main_contract_metadata: State::MAIN_CONTRACT_METADATA,
                     native_executor_methods: State::NATIVE_EXECUTOR_METHODS,
                 },
+                MethodsEntry {
+                    contact_code: SimpleWalletBase::CODE,
+                    main_contract_metadata: SimpleWalletBase::MAIN_CONTRACT_METADATA,
+                    native_executor_methods: SimpleWalletBase::NATIVE_EXECUTOR_METHODS,
+                },
             ],
         }
     }
