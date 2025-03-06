@@ -21,7 +21,6 @@ pub struct Gas(u64);
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct TransactionHeader {
-    pub genesis_hash: Blake3Hash,
     pub block_hash: Blake3Hash,
     pub gas_limit: Gas,
     /// Contract implementing `TxHandler` trait to use for transaction verification and execution

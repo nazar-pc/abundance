@@ -83,7 +83,6 @@ fn flip() {
     });
 
     let header = TransactionHeader {
-        genesis_hash: Blake3Hash::default(),
         block_hash: Blake3Hash::default(),
         gas_limit: Default::default(),
         contract: wallet_address,
