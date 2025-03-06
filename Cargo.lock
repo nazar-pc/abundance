@@ -3,46 +3,6 @@
 version = 4
 
 [[package]]
-name = "ab-contract-example-flipper"
-version = "0.0.1"
-dependencies = [
- "ab-contracts-common",
- "ab-contracts-executor",
- "ab-contracts-io-type",
- "ab-contracts-macros",
- "ab-system-contract-code",
-]
-
-[[package]]
-name = "ab-contract-example-ft"
-version = "0.0.1"
-dependencies = [
- "ab-contracts-common",
- "ab-contracts-executor",
- "ab-contracts-io-type",
- "ab-contracts-macros",
- "ab-contracts-standards",
- "ab-contracts-test-utils",
- "ab-system-contract-code",
-]
-
-[[package]]
-name = "ab-contract-example-wallet"
-version = "0.0.1"
-dependencies = [
- "ab-contracts-common",
- "ab-contracts-executor",
- "ab-contracts-io-type",
- "ab-contracts-macros",
- "ab-contracts-standards",
- "ab-system-contract-code",
- "ab-system-contract-simple-wallet-base",
- "ab-system-contract-state",
- "criterion",
- "schnorrkel",
-]
-
-[[package]]
 name = "ab-contract-playground"
 version = "0.0.1"
 dependencies = [
@@ -139,6 +99,46 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "ab-example-contract-flipper"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-executor",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+ "ab-system-contract-code",
+]
+
+[[package]]
+name = "ab-example-contract-ft"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-executor",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+ "ab-contracts-standards",
+ "ab-contracts-test-utils",
+ "ab-system-contract-code",
+]
+
+[[package]]
+name = "ab-example-contract-wallet"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-executor",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+ "ab-contracts-standards",
+ "ab-system-contract-code",
+ "ab-system-contract-simple-wallet-base",
+ "ab-system-contract-state",
+ "criterion",
+ "schnorrkel",
 ]
 
 [[package]]

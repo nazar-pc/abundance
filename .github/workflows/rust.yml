@@ -70,9 +70,9 @@ jobs:
           cargo -Zgitoxide -Zgit clippy --locked --all-targets -- -D warnings
 
       - name: cargo clippy (various features)
-        working-directory: crates/contracts
         run: |
-          for contract in {ab-contract-example-,ab-system-contract-}*; do  
+          for contract_path in crates/contracts/{example,system}/*; do
+            contract="$(basename -- $contract_path)"
             cargo -Zgitoxide -Zgit clippy --all-targets -p $contract --features $contract/guest -- -D warnings
           done
 
@@ -94,6 +94,7 @@ jobs:
       matrix:
         os:
           - ubuntu-24.04
+          - ubuntu-24.04-arm
           - macos-15
           - windows-2025
 
@@ -123,9 +124,9 @@ jobs:
           cargo -Zgitoxide -Zgit nextest run --locked
 
       - name: cargo test (various features)
-        working-directory: crates/contracts
         run: |
-          for contract in {ab-contract-example-,ab-system-contract-}*; do  
+          for contract_path in crates/contracts/{example,system}/*; do
+            contract="$(basename -- $contract_path)"
             cargo -Zgitoxide -Zgit test -p $contract --features $contract/guest
           done
 

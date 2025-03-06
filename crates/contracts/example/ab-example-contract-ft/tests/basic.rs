@@ -1,9 +1,9 @@
-use ab_contract_example_ft::{ExampleFt, ExampleFtExt};
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Balance, Contract, ContractError, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
 use ab_contracts_standards::fungible::{Fungible, FungibleExt};
 use ab_contracts_test_utils::dummy_wallet::DummyWallet;
+use ab_example_contract_ft::{ExampleFt, ExampleFtExt};
 use ab_system_contract_code::CodeExt;
 
 #[test]
