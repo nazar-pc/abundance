@@ -77,6 +77,7 @@ pub(super) struct Slots {
     /// allowed to create slots owned by these addresses.
     new_contracts: SmallVec<[Address; NEW_CONTRACTS_INLINE]>,
     access_violation: bool,
+    read_only: bool,
     weak: Weak<Mutex<Self>>,
     parent: Option<SlotsParent>,
 }
@@ -163,6 +164,7 @@ impl Slots {
                 slot_access: SmallVec::new(),
                 new_contracts: SmallVec::new(),
                 access_violation: false,
+                read_only: false,
                 weak: weak.clone(),
                 parent: None,
             })
@@ -177,7 +179,7 @@ impl Slots {
     /// cause slot contents corruption.
     ///
     /// *Make sure to release lock on parent instance before nested instance if dropped.*
-    pub(super) fn new_nested(&mut self) -> Arc<Mutex<Self>> {
+    pub(super) fn new_nested(&mut self, read_only: bool) -> Arc<Mutex<Self>> {
         Arc::new_cyclic(|weak| {
             let parent_slot_access_len = self.slot_access.len();
             Mutex::new(Self {
@@ -191,6 +193,7 @@ impl Slots {
                 // is dropped
                 new_contracts: mem::take(&mut self.new_contracts),
                 access_violation: self.access_violation,
+                read_only,
                 weak: weak.clone(),
                 parent: Some(SlotsParent {
                     parent_slot_access_len,
@@ -297,12 +300,22 @@ impl Slots {
     ///
     /// Returns `None` in case of access violation.
     pub(super) fn use_ro(&mut self, slot_key: SlotKey) -> Option<&SharedAlignedBuffer> {
-        let result = Self::use_ro_internal(
-            slot_key,
-            &mut self.slots,
-            &mut self.slot_access,
-            &self.new_contracts,
-        );
+        let result = if self.read_only {
+            // Simplified version that doesn't do access tracking
+            Self::use_ro_internal_read_only(
+                slot_key,
+                &mut self.slots,
+                &mut self.slot_access,
+                &self.new_contracts,
+            )
+        } else {
+            Self::use_ro_internal(
+                slot_key,
+                &mut self.slots,
+                &mut self.slot_access,
+                &self.new_contracts,
+            )
+        };
 
         if result.is_none() {
             debug!(?slot_key, "`use_ro` state access violation");
@@ -392,6 +405,63 @@ impl Slots {
         }
     }
 
+    fn use_ro_internal_read_only<'a>(
+        slot_key: SlotKey,
+        slots: &'a mut SmallVec<[(SlotKey, Slot); INLINE_SIZE]>,
+        slot_access: &mut SmallVec<[SlotAccess; INLINE_SIZE]>,
+        new_contracts: &[Address],
+    ) -> Option<&'a SharedAlignedBuffer> {
+        let maybe_slot_index = slots
+            .iter()
+            .position(|(slot_key_candidate, _slot)| slot_key_candidate == &slot_key)
+            .map(SlotIndex);
+
+        if let Some(slot_index) = maybe_slot_index {
+            // Ensure that slot is not currently being written to
+            if let Some(read_write) = slot_access.iter().find_map(|slot_access| {
+                (slot_access.slot_index == slot_index).then_some(slot_access.read_write)
+            }) {
+                if read_write {
+                    return None;
+                }
+            }
+
+            let slot = &mut slots
+                .get_mut(usize::from(slot_index))
+                .expect("Just found; qed")
+                .1;
+
+            // The slot that is currently being written to is not allowed for read access
+            match slot {
+                Slot::Original(buffer)
+                | Slot::OriginalAccessed(buffer)
+                | Slot::ModifiedAccessed(buffer)
+                | Slot::Modified(buffer) => Some(buffer),
+                Slot::ReadWriteOriginal { .. } | Slot::ReadWriteModified { .. } => None,
+            }
+        } else {
+            // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
+            // allowed for any owner, and they will all be thrown away after transaction
+            // processing if finished.
+            if !(slot_key.contract == Address::NULL
+                || new_contracts
+                    .iter()
+                    .any(|candidate| candidate == slot_key.owner || candidate == slot_key.contract))
+            {
+                return None;
+            }
+
+            let slot = Slot::OriginalAccessed(SharedAlignedBuffer::default());
+            slots.push((slot_key, slot));
+            let slot = &slots.last().expect("Just inserted; qed").1;
+            let Slot::OriginalAccessed(buffer) = slot else {
+                unreachable!("Just inserted; qed");
+            };
+
+            Some(buffer)
+        }
+    }
+
     /// Read-write access to a slot with specified owner and contract, marks it as used.
     ///
     /// Returns `None` in case of access violation.
@@ -408,7 +478,7 @@ impl Slots {
             &self.new_contracts,
         );
 
-        if result.is_none() {
+        if self.read_only || result.is_none() {
             debug!(?slot_key, "`use_rw` state access violation");
             self.access_violation = true;
         }

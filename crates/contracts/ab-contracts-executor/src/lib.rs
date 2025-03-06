@@ -250,7 +250,7 @@ impl NativeExecutor {
             slots: Slots::new(slots),
         };
         {
-            let nested_slots = storage.slots.lock().new_nested();
+            let nested_slots = storage.slots.lock().new_nested(false);
             let nested_slots = &mut *nested_slots.lock();
             // Allow deployment of system contracts
             assert!(nested_slots.add_new_contract(address_allocator_address));
