@@ -65,8 +65,6 @@ Visually, it looks something like this:
 vars: {
     d2-config: {
         pad: 0
-        theme-id: 1
-        dark-theme-id: 200
         theme-overrides: {
             N7: transparent
         }
@@ -164,8 +162,6 @@ Here is a visual example:
 vars: {
     d2-config: {
         pad: 0
-        theme-id: 1
-        dark-theme-id: 200
         theme-overrides: {
             N7: transparent
         }
@@ -203,8 +199,6 @@ Such a loop will be caught and the transaction will be aborted:
 vars: {
     d2-config: {
         pad: 0
-        theme-id: 1
-        dark-theme-id: 200
         theme-overrides: {
             N7: transparent
         }
