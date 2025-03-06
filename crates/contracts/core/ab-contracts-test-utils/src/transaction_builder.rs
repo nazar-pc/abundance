@@ -65,7 +65,6 @@ impl TransactionBuilder {
     pub fn build(self) -> OwnedTransaction {
         OwnedTransaction {
             header: TransactionHeader {
-                genesis_hash: Blake3Hash::default(),
                 block_hash: Blake3Hash::default(),
                 gas_limit: Gas::default(),
                 contract: self.contract,
