@@ -72,7 +72,7 @@ jobs:
       - name: cargo clippy (various features)
         working-directory: crates/contracts
         run: |
-          for contract in {ab-contract-example-,ab-system-contract-}*; do  
+          for contract in {ab-example-contract-,ab-system-contract-}*; do  
             cargo -Zgitoxide -Zgit clippy --all-targets -p $contract --features $contract/guest -- -D warnings
           done
 
@@ -125,7 +125,7 @@ jobs:
       - name: cargo test (various features)
         working-directory: crates/contracts
         run: |
-          for contract in {ab-contract-example-,ab-system-contract-}*; do  
+          for contract in {ab-example-contract-,ab-system-contract-}*; do  
             cargo -Zgitoxide -Zgit test -p $contract --features $contract/guest
           done
 

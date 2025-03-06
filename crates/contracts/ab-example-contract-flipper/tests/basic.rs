@@ -1,7 +1,7 @@
-use ab_contract_example_flipper::{Flipper, FlipperExt};
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
+use ab_example_contract_flipper::{Flipper, FlipperExt};
 use ab_system_contract_code::CodeExt;
 
 #[test]

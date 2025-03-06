@@ -1,5 +1,5 @@
 [package]
-name = "ab-contract-example-wallet"
+name = "ab-example-contract-wallet"
 description = ""
 license = "0BSD"
 version = "0.0.1"

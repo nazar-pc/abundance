@@ -1,16 +1,18 @@
+// Auto-generated constants will conflict with the main crate when `guest` feature is enabled
+#![cfg(not(feature = "guest"))]
+
 use crate::ffi::flip::FlipperFlipArgs;
-use ab_contract_example_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_contracts_common::env::{Blake3Hash, MethodContext, Transaction, TransactionHeader};
 use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::TxHandler;
+use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_system_contract_code::CodeExt;
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
 use ab_system_contract_simple_wallet_base::payload::builder::TransactionPayloadBuilder;
 use ab_system_contract_simple_wallet_base::seal::hash_and_sign;
-use criterion::{BatchSize, Criterion, black_box, criterion_group, criterion_main};
 use schnorrkel::Keypair;
 
 #[derive(Copy, Clone, TrivialType)]
@@ -32,7 +34,8 @@ impl Flipper {
     }
 }
 
-fn criterion_benchmark(c: &mut Criterion) {
+#[test]
+fn flip() {
     let shard_index = ShardIndex::from_u32(1).unwrap();
     let executor = NativeExecutor::builder(shard_index)
         .with_contract::<ExampleWallet>()
@@ -97,48 +100,34 @@ fn criterion_benchmark(c: &mut Criterion) {
             .unwrap();
         builder.into_aligned_bytes()
     };
-    let mut nonce = 0;
+    let nonce = 0;
 
-    c.bench_function("verify", |b| {
+    {
+        let seal = hash_and_sign(&keypair, &header, &payload, nonce);
+        executor
+            .transaction_verify(
+                Transaction {
+                    header: &header,
+                    payload: &payload,
+                    seal: seal.as_bytes(),
+                },
+                storage,
+            )
+            .unwrap();
+    }
+
+    for nonce in (nonce..).take(2) {
         let seal = hash_and_sign(&keypair, &header, &payload, nonce);
 
-        b.iter(|| {
-            executor
-                .transaction_verify(
-                    black_box(Transaction {
-                        header: &header,
-                        payload: &payload,
-                        seal: seal.as_bytes(),
-                    }),
-                    black_box(storage),
-                )
-                .unwrap();
-        })
-    });
-
-    c.bench_function("execute", |b| {
-        b.iter_batched(
-            || {
-                let seal = hash_and_sign(&keypair, &header, &payload, nonce);
-                nonce += 1;
-                seal
-            },
-            |seal| {
-                executor
-                    .transaction_execute(
-                        black_box(Transaction {
-                            header: &header,
-                            payload: &payload,
-                            seal: seal.as_bytes(),
-                        }),
-                        black_box(storage),
-                    )
-                    .unwrap();
-            },
-            BatchSize::SmallInput,
-        )
-    });
+        executor
+            .transaction_execute(
+                Transaction {
+                    header: &header,
+                    payload: &payload,
+                    seal: seal.as_bytes(),
+                },
+                storage,
+            )
+            .unwrap();
+    }
 }
-
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);
