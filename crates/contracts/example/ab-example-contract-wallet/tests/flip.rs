@@ -2,7 +2,9 @@
 #![cfg(not(feature = "guest"))]
 
 use crate::ffi::flip::FlipperFlipArgs;
-use ab_contracts_common::env::{Blake3Hash, MethodContext, Transaction, TransactionHeader};
+use ab_contracts_common::env::{
+    Blake3Hash, MethodContext, Transaction, TransactionHeader, TransactionSlot,
+};
 use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
 use ab_contracts_io_type::trivial_type::TrivialType;
@@ -99,15 +101,22 @@ fn flip() {
             .unwrap();
         builder.into_aligned_bytes()
     };
+    let read_slots = &[];
+    let write_slots = &[TransactionSlot {
+        owner: flipper_address,
+        contract: Address::SYSTEM_STATE,
+    }];
     let nonce = 0;
 
     {
-        let seal = hash_and_sign(&keypair, &header, &payload, nonce);
+        let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
         executor
             .transaction_verify(
                 Transaction {
                     header: &header,
                     payload: &payload,
+                    read_slots,
+                    write_slots,
                     seal: seal.as_bytes(),
                 },
                 storage,
@@ -116,13 +125,15 @@ fn flip() {
     }
 
     for nonce in (nonce..).take(2) {
-        let seal = hash_and_sign(&keypair, &header, &payload, nonce);
+        let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
 
         executor
             .transaction_execute(
                 Transaction {
                     header: &header,
                     payload: &payload,
+                    read_slots,
+                    write_slots,
                     seal: seal.as_bytes(),
                 },
                 storage,

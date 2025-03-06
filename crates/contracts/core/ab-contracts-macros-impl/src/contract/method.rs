@@ -1640,6 +1640,10 @@ impl MethodDetails {
             || self.return_type.unit_return_type()
         {
             quote! {
+                #[allow(
+                    clippy::too_many_arguments,
+                    reason = "Generated code may have more arguments that source code"
+                )]
                 fn #ext_method_name(
                     #env_self,
                     #method_context_arg
@@ -1666,6 +1670,10 @@ impl MethodDetails {
             });
 
             quote! {
+                #[allow(
+                    clippy::too_many_arguments,
+                    reason = "Generated code may have more arguments that source code"
+                )]
                 fn #ext_method_name(
                     #env_self,
                     #method_context_arg

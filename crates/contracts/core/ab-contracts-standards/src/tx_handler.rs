@@ -1,10 +1,11 @@
 use ab_contracts_common::ContractError;
-use ab_contracts_common::env::{Env, TransactionHeader};
+use ab_contracts_common::env::{Env, TransactionHeader, TransactionSlot};
 use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_io_type::variable_elements::VariableElements;
 use ab_contracts_macros::contract;
 
 pub type TxHandlerPayload = VariableElements<u128>;
+pub type TxHandlerSlots = VariableElements<TransactionSlot>;
 pub type TxHandlerSeal = VariableBytes;
 
 /// A transaction handler interface prototype
@@ -12,7 +13,7 @@ pub type TxHandlerSeal = VariableBytes;
 pub trait TxHandler {
     /// Verify a transaction.
     ///
-    /// Each transaction consists of a header, payload and a seal.
+    /// Each transaction consists of a header, payload, read/write slots and a seal.
     ///
     /// Payload contains 16-byte aligned bytes, which typically represent method calls to be
     /// executed, but the serialization format for it is contract-specific.
@@ -38,6 +39,8 @@ pub trait TxHandler {
     fn authorize(
         #[env] env: &Env,
         #[input] header: &TransactionHeader,
+        #[input] read_slots: &TxHandlerSlots,
+        #[input] write_slots: &TxHandlerSlots,
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError>;
@@ -57,6 +60,8 @@ pub trait TxHandler {
     fn execute(
         #[env] env: &mut Env,
         #[input] header: &TransactionHeader,
+        #[input] read_slots: &TxHandlerSlots,
+        #[input] write_slots: &TxHandlerSlots,
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError>;

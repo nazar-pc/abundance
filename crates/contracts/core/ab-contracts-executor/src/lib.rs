@@ -7,7 +7,7 @@ mod slots;
 use crate::aligned_buffer::SharedAlignedBuffer;
 use crate::context::{MethodDetails, NativeExecutorContext};
 use crate::slots::{SlotKey, Slots};
-use ab_contracts_common::env::{Env, EnvState, MethodContext, Transaction};
+use ab_contracts_common::env::{Env, EnvState, MethodContext, Transaction, TransactionSlot};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
 use ab_contracts_common::method::MethodFingerprint;
 use ab_contracts_common::{
@@ -308,9 +308,20 @@ impl NativeExecutor {
             caller: Address::NULL,
         };
 
+        let read_slots_size =
+            u32::try_from(size_of_val::<[TransactionSlot]>(transaction.read_slots))
+                .map_err(|_error| ContractError::BadInput)?;
+        let read_slots = VariableElements::from_buffer(transaction.read_slots, &read_slots_size);
+
+        let write_slots_size =
+            u32::try_from(size_of_val::<[TransactionSlot]>(transaction.write_slots))
+                .map_err(|_error| ContractError::BadInput)?;
+        let write_slots = VariableElements::from_buffer(transaction.write_slots, &write_slots_size);
+
         let payload_size = u32::try_from(size_of_val::<[u128]>(transaction.payload))
             .map_err(|_error| ContractError::BadInput)?;
         let payload = VariableElements::from_buffer(transaction.payload, &payload_size);
+
         let seal_size = u32::try_from(size_of_val::<[u8]>(transaction.seal))
             .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
@@ -328,6 +339,8 @@ impl NativeExecutor {
         env.tx_handler_authorize(
             transaction.header.contract,
             transaction.header,
+            &read_slots,
+            &write_slots,
             &payload,
             &seal,
         )
@@ -350,9 +363,20 @@ impl NativeExecutor {
             caller: Address::NULL,
         };
 
+        let read_slots_size =
+            u32::try_from(size_of_val::<[TransactionSlot]>(transaction.read_slots))
+                .map_err(|_error| ContractError::BadInput)?;
+        let read_slots = VariableElements::from_buffer(transaction.read_slots, &read_slots_size);
+
+        let write_slots_size =
+            u32::try_from(size_of_val::<[TransactionSlot]>(transaction.write_slots))
+                .map_err(|_error| ContractError::BadInput)?;
+        let write_slots = VariableElements::from_buffer(transaction.write_slots, &write_slots_size);
+
         let payload_size = u32::try_from(size_of_val::<[u128]>(transaction.payload))
             .map_err(|_error| ContractError::BadInput)?;
         let payload = VariableElements::from_buffer(transaction.payload, &payload_size);
+
         let seal_size = u32::try_from(size_of_val::<[u8]>(transaction.seal))
             .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
@@ -371,6 +395,8 @@ impl NativeExecutor {
             env.tx_handler_authorize(
                 transaction.header.contract,
                 transaction.header,
+                &read_slots,
+                &write_slots,
                 &payload,
                 &seal,
             )?;
@@ -390,6 +416,8 @@ impl NativeExecutor {
                 MethodContext::Reset,
                 transaction.header.contract,
                 transaction.header,
+                &read_slots,
+                &write_slots,
                 &payload,
                 &seal,
             )?;

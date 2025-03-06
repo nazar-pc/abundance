@@ -1,5 +1,7 @@
 use crate::ffi::flip::FlipperFlipArgs;
-use ab_contracts_common::env::{Blake3Hash, MethodContext, Transaction, TransactionHeader};
+use ab_contracts_common::env::{
+    Blake3Hash, MethodContext, Transaction, TransactionHeader, TransactionSlot,
+};
 use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
 use ab_contracts_io_type::trivial_type::TrivialType;
@@ -96,16 +98,23 @@ fn criterion_benchmark(c: &mut Criterion) {
             .unwrap();
         builder.into_aligned_bytes()
     };
+    let read_slots = &[];
+    let write_slots = &[TransactionSlot {
+        owner: flipper_address,
+        contract: Address::SYSTEM_STATE,
+    }];
     let mut nonce = 0;
 
     c.bench_function("verify", |b| {
-        let seal = hash_and_sign(&keypair, &header, &payload, nonce);
+        let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
 
         b.iter(|| {
             executor
                 .transaction_verify(
                     black_box(Transaction {
                         header: &header,
+                        read_slots,
+                        write_slots,
                         payload: &payload,
                         seal: seal.as_bytes(),
                     }),
@@ -118,7 +127,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("execute", |b| {
         b.iter_batched(
             || {
-                let seal = hash_and_sign(&keypair, &header, &payload, nonce);
+                let seal =
+                    hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
                 nonce += 1;
                 seal
             },
@@ -127,6 +137,8 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .transaction_execute(
                         black_box(Transaction {
                             header: &header,
+                            read_slots,
+                            write_slots,
                             payload: &payload,
                             seal: seal.as_bytes(),
                         }),
