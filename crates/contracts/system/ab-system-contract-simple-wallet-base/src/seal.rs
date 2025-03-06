@@ -2,7 +2,7 @@
 
 use crate::{SIGNING_CONTEXT, Seal};
 use ab_contracts_common::ContractError;
-use ab_contracts_common::env::{Blake3Hash, TransactionHeader};
+use ab_contracts_common::env::{Blake3Hash, TransactionHeader, TransactionSlot};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use core::slice;
 use schnorrkel::context::SigningContext;
@@ -11,9 +11,21 @@ use schnorrkel::{Keypair, PublicKey, Signature};
 /// Create transaction hash used for signing with [`sign()`].
 ///
 /// [`hash_and_sign()`] helper function exists that combines this method with [`sign()`].
-pub fn hash_transaction(header: &TransactionHeader, payload: &[u128], nonce: u64) -> Blake3Hash {
+pub fn hash_transaction(
+    header: &TransactionHeader,
+    read_slots: &[TransactionSlot],
+    write_slots: &[TransactionSlot],
+    payload: &[u128],
+    nonce: u64,
+) -> Blake3Hash {
     let mut hasher = blake3::Hasher::new();
     hasher.update(header.as_bytes());
+    for slot in read_slots {
+        hasher.update(slot.as_bytes());
+    }
+    for slot in write_slots {
+        hasher.update(slot.as_bytes());
+    }
     // SAFETY: Valid memory of correct size
     let payload_bytes =
         unsafe { slice::from_raw_parts(payload.as_ptr().cast::<u8>(), size_of_val(payload)) };
@@ -35,10 +47,12 @@ pub fn sign(keypair: &Keypair, tx_hash: &Blake3Hash) -> Signature {
 pub fn hash_and_sign(
     keypair: &Keypair,
     header: &TransactionHeader,
+    read_slots: &[TransactionSlot],
+    write_slots: &[TransactionSlot],
     payload: &[u128],
     nonce: u64,
 ) -> Seal {
-    let tx_hash = hash_transaction(header, payload, nonce);
+    let tx_hash = hash_transaction(header, read_slots, write_slots, payload, nonce);
     let signature = sign(keypair, &tx_hash).to_bytes();
 
     Seal { signature, nonce }
@@ -70,6 +84,8 @@ pub fn hash_and_verify(
     public_key: &PublicKey,
     expected_nonce: u64,
     header: &TransactionHeader,
+    read_slots: &[TransactionSlot],
+    write_slots: &[TransactionSlot],
     payload: &[u128],
     seal: &Seal,
 ) -> Result<(), ContractError> {
@@ -77,7 +93,7 @@ pub fn hash_and_verify(
         return Err(ContractError::BadInput);
     }
 
-    let tx_hash = hash_transaction(header, payload, seal.nonce);
+    let tx_hash = hash_transaction(header, read_slots, write_slots, payload, seal.nonce);
     let signature =
         Signature::from_bytes(&seal.signature).map_err(|_error| ContractError::BadInput)?;
     let signing_context = SigningContext::new(SIGNING_CONTEXT);

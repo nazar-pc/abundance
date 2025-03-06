@@ -4,7 +4,9 @@ use ab_contracts_common::env::{Env, MethodContext, TransactionHeader};
 use ab_contracts_common::{Address, ContractError};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
-use ab_contracts_standards::tx_handler::{TxHandler, TxHandlerPayload, TxHandlerSeal};
+use ab_contracts_standards::tx_handler::{
+    TxHandler, TxHandlerPayload, TxHandlerSeal, TxHandlerSlots,
+};
 use ab_system_contract_simple_wallet_base::SimpleWalletBaseExt;
 use ab_system_contract_state::{StateExt, with_state_buffer};
 
@@ -18,6 +20,8 @@ impl TxHandler for ExampleWallet {
     fn authorize(
         #[env] env: &Env,
         #[input] header: &TransactionHeader,
+        #[input] read_slots: &TxHandlerSlots,
+        #[input] write_slots: &TxHandlerSlots,
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
@@ -28,6 +32,8 @@ impl TxHandler for ExampleWallet {
                 Address::SYSTEM_SIMPLE_WALLET_BASE,
                 state.cast_ref(),
                 header,
+                read_slots,
+                write_slots,
                 payload,
                 seal,
             )
@@ -38,6 +44,8 @@ impl TxHandler for ExampleWallet {
     fn execute(
         #[env] env: &mut Env,
         #[input] header: &TransactionHeader,
+        #[input] read_slots: &TxHandlerSlots,
+        #[input] write_slots: &TxHandlerSlots,
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
@@ -50,6 +58,8 @@ impl TxHandler for ExampleWallet {
             MethodContext::Replace,
             Address::SYSTEM_SIMPLE_WALLET_BASE,
             header,
+            read_slots,
+            write_slots,
             payload,
             seal,
         )?;

@@ -25,7 +25,7 @@ use ab_contracts_common::env::{Env, MethodContext, TransactionHeader};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract;
-use ab_contracts_standards::tx_handler::{TxHandlerPayload, TxHandlerSeal};
+use ab_contracts_standards::tx_handler::{TxHandlerPayload, TxHandlerSeal, TxHandlerSlots};
 use core::mem::MaybeUninit;
 use core::ptr;
 use schnorrkel::PublicKey;
@@ -120,6 +120,8 @@ impl SimpleWalletBase {
     pub fn authorize(
         #[input] state: &VariableBytes,
         #[input] header: &TransactionHeader,
+        #[input] read_slots: &TxHandlerSlots,
+        #[input] write_slots: &TxHandlerSlots,
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
@@ -142,6 +144,8 @@ impl SimpleWalletBase {
             &public_key,
             expected_nonce,
             header,
+            read_slots.get_initialized(),
+            write_slots.get_initialized(),
             payload.get_initialized(),
             &seal,
         )
@@ -156,10 +160,14 @@ impl SimpleWalletBase {
     pub fn execute(
         #[env] env: &mut Env,
         #[input] header: &TransactionHeader,
+        #[input] read_slots: &TxHandlerSlots,
+        #[input] write_slots: &TxHandlerSlots,
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
         let _ = header;
+        let _ = read_slots;
+        let _ = write_slots;
         let _ = seal;
 
         // Only allow direct calls by context owner
