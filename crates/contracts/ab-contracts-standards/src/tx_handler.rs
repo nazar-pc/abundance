@@ -4,8 +4,8 @@ use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_io_type::variable_elements::VariableElements;
 use ab_contracts_macros::contract;
 
-pub type TxHandlerPayload = VariableElements<0, u128>;
-pub type TxHandlerSeal = VariableBytes<0>;
+pub type TxHandlerPayload = VariableElements<u128>;
+pub type TxHandlerSeal = VariableBytes;
 
 /// A transaction handler interface prototype
 #[contract]

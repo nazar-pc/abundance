@@ -14,7 +14,7 @@ use core::{ptr, slice};
 /// specified.
 #[derive(Debug)]
 #[repr(C)]
-pub struct VariableElements<const RECOMMENDED_ALLOCATION: u32, Element>
+pub struct VariableElements<Element, const RECOMMENDED_ALLOCATION: u32 = 0>
 where
     Element: TrivialType,
 {
@@ -23,8 +23,8 @@ where
     capacity: u32,
 }
 
-unsafe impl<const RECOMMENDED_ALLOCATION: u32, Element> IoType
-    for VariableElements<RECOMMENDED_ALLOCATION, Element>
+unsafe impl<Element, const RECOMMENDED_ALLOCATION: u32> IoType
+    for VariableElements<Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,
 {
@@ -181,14 +181,14 @@ where
     }
 }
 
-impl<const RECOMMENDED_ALLOCATION: u32, Element> IoTypeOptional
-    for VariableElements<RECOMMENDED_ALLOCATION, Element>
+impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
+    for VariableElements<Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,
 {
 }
 
-impl<const RECOMMENDED_ALLOCATION: u32, Element> VariableElements<RECOMMENDED_ALLOCATION, Element>
+impl<Element, const RECOMMENDED_ALLOCATION: u32> VariableElements<Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,
 {
@@ -401,12 +401,12 @@ where
     #[inline]
     pub fn cast_ref<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
         &self,
-    ) -> &VariableElements<DIFFERENT_RECOMMENDED_ALLOCATION, Element> {
+    ) -> &VariableElements<Element, DIFFERENT_RECOMMENDED_ALLOCATION> {
         // SAFETY: `VariableElements` has a fixed layout due to `#[repr(C)]`, which doesn't depend
         // on recommended allocation
         unsafe {
             NonNull::from_ref(self)
-                .cast::<VariableElements<DIFFERENT_RECOMMENDED_ALLOCATION, Element>>()
+                .cast::<VariableElements<Element, DIFFERENT_RECOMMENDED_ALLOCATION>>()
                 .as_ref()
         }
     }
@@ -416,12 +416,12 @@ where
     #[inline]
     pub fn cast_mut<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
         &mut self,
-    ) -> &mut VariableElements<DIFFERENT_RECOMMENDED_ALLOCATION, Element> {
+    ) -> &mut VariableElements<Element, DIFFERENT_RECOMMENDED_ALLOCATION> {
         // SAFETY: `VariableElements` has a fixed layout due to `#[repr(C)]`, which doesn't depend
         // on recommended allocation
         unsafe {
             NonNull::from_mut(self)
-                .cast::<VariableElements<DIFFERENT_RECOMMENDED_ALLOCATION, Element>>()
+                .cast::<VariableElements<Element, DIFFERENT_RECOMMENDED_ALLOCATION>>()
                 .as_mut()
         }
     }
