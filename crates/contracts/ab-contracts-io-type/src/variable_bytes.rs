@@ -14,7 +14,7 @@ use core::{ptr, slice};
 /// specified.
 #[derive(Debug)]
 #[repr(C)]
-pub struct VariableBytes<const RECOMMENDED_ALLOCATION: u32> {
+pub struct VariableBytes<const RECOMMENDED_ALLOCATION: u32 = 0> {
     bytes: NonNull<u8>,
     size: NonNull<u32>,
     capacity: u32,

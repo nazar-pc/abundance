@@ -98,7 +98,7 @@ impl SimpleWalletBase {
     #[view]
     pub fn initialize(
         #[input] &public_key: &[u8; 32],
-        #[output] state: &mut VariableBytes<0>,
+        #[output] state: &mut VariableBytes,
     ) -> Result<(), ContractError> {
         // TODO: Storing some lower-level representation of the public key might reduce the cost of
         //  verification in `Self::authorize()` method
@@ -118,7 +118,7 @@ impl SimpleWalletBase {
     /// Reads state of `owner` and returns `Ok(())` if authorization succeeds
     #[view]
     pub fn authorize(
-        #[input] state: &VariableBytes<0>,
+        #[input] state: &VariableBytes,
         #[input] header: &TransactionHeader,
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
@@ -195,9 +195,9 @@ impl SimpleWalletBase {
     /// Returns state with increased nonce
     #[view]
     pub fn increase_nonce(
-        #[input] state: &VariableBytes<0>,
+        #[input] state: &VariableBytes,
         #[input] seal: &TxHandlerSeal,
-        #[output] new_state: &mut VariableBytes<0>,
+        #[output] new_state: &mut VariableBytes,
     ) -> Result<(), ContractError> {
         let _ = seal;
 
@@ -217,9 +217,9 @@ impl SimpleWalletBase {
     /// Returns state with a changed public key
     #[view]
     pub fn change_public_key(
-        #[input] state: &VariableBytes<0>,
+        #[input] state: &VariableBytes,
         #[input] &public_key: &[u8; 32],
-        #[output] new_state: &mut VariableBytes<0>,
+        #[output] new_state: &mut VariableBytes,
     ) -> Result<(), ContractError> {
         let Some(mut state) = state.read_trivial_type::<WalletState>() else {
             return Err(ContractError::BadInput);
