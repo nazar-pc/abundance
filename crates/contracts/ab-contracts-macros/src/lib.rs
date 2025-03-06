@@ -2,8 +2,6 @@
 #[doc(hidden)]
 pub mod __private;
 
-// TODO: Should size + capacity be a single tuple struct that can be passed down as a single
-//  pointer?
 /// `#[contract]` macro to derive contract implementation.
 ///
 /// This macro is supposed to be applied to an implementation of the struct that in turn implements
@@ -311,8 +309,7 @@ pub mod __private;
 ///
 /// This allows a contract to read slot data.
 ///
-/// ### `#[slot] slot: &mut MaybeData<Slot>` and
-/// ### `#[slot] (address, slot): (&Address, &mut MaybeData<Slot>)`
+/// ### `#[slot] slot: &mut MaybeData<Slot>` and `#[slot] (address, slot): (&Address, &mut MaybeData<Slot>)`
 ///
 /// `#[slot] slot: &mut MaybeData<Slot>` and its variant with explicit address argument are for
 /// accessing slot data (that corresponds to optional `address` argument) and generates 4 fields,
@@ -375,9 +372,12 @@ pub mod __private;
 /// ```
 ///
 /// Initially output is empty, but contract can write something useful there and written value will
-/// be propagated back to the caller to observe. `output_ptr` pointer must not be changed as the
+/// be propagated back to the caller to observe. `output_ptr` pointer *must not be changed* as the
 /// host will not follow it to the new address, the output size is fully constrained by capacity
-/// specified in `output_capacity`.
+/// specified in `output_capacity`. The only exception is the last `#[output]` of `#[init]` method
+/// (or `ReturnValue` if present), which is the contract's initial state. In this case, its pointer
+/// can be changed to point to a different data structure and not being limited by `result_capacity`
+/// allocation from the host.
 ///
 /// NOTE: Even in case the method call fails, the host may modify the contents of the output.
 ///
@@ -389,9 +389,6 @@ pub mod __private;
 /// NOTE: In case `ReturnValue` in `-> ReturnValue` or `-> Result<ReturnValue, ContractError>` is
 /// `()`, it will be skipped in `InternalArgs`.
 ///
-/// In the case of `#[init]` method, the last `#[output]` (or `ReturnValue` if present) is
-/// contract's initial state. In this case, its pointer can be changed to point to a different data
-/// structure and not being limited by `result_capacity` allocation from the host.
 ///
 /// ## [`ExternalArgs`] implementation
 ///
