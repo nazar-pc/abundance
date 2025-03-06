@@ -78,17 +78,6 @@ impl NativeExecutorContext {
         }
     }
 
-    fn nested_slots(&self) -> Arc<Mutex<Slots>> {
-        if self.allow_env_mutation {
-            // Create nested slots instance to avoid persisting any access in slots owned by the
-            // context
-            self.slots.lock().new_nested()
-        } else {
-            // TODO: For read-only nested slots do not track anything at all
-            self.slots.lock().new_nested()
-        }
-    }
-
     fn prepare_ffi_call<'a>(
         &self,
         previous_env_state: &EnvState,
@@ -157,9 +146,7 @@ impl NativeExecutorContext {
         previous_env_state: &EnvState,
         prepared_method: &mut PreparedMethod<'_>,
     ) -> Result<(), ContractError> {
-        // TODO: Special read-only access that doesn't track any changes at all because there will
-        //  be none
-        let nested_slots = self.nested_slots();
+        let nested_slots = self.slots.lock().new_nested(!self.allow_env_mutation);
 
         let result: Result<(), ContractError> = try {
             self.prepare_ffi_call(
@@ -188,9 +175,7 @@ impl NativeExecutorContext {
         previous_env_state: &EnvState,
         prepared_methods: &mut [PreparedMethod<'_>],
     ) -> Result<(), ContractError> {
-        // TODO: Special read-only access that doesn't track any changes at all because there will
-        //  be none
-        let nested_slots = self.nested_slots();
+        let nested_slots = self.slots.lock().new_nested(true);
 
         let ffi_calls = prepared_methods
             .iter_mut()
