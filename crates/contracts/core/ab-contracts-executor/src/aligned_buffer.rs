@@ -2,7 +2,7 @@
 mod tests;
 
 use std::mem::MaybeUninit;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::{mem, slice};
 
 #[repr(C, align(16))]
@@ -165,6 +165,12 @@ pub(super) struct SharedAlignedBuffer {
 }
 
 impl SharedAlignedBuffer {
+    /// Static reference to an empty buffer
+    pub(super) fn empty_ref() -> &'static Self {
+        static EMPTY: LazyLock<SharedAlignedBuffer> = LazyLock::new(SharedAlignedBuffer::default);
+        &EMPTY
+    }
+
     /// Create a new instance from provided bytes.
     ///
     /// # Panics

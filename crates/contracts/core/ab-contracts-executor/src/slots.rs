@@ -295,8 +295,8 @@ impl Slots {
             // Simplified version that doesn't do access tracking
             Self::use_ro_internal_read_only(
                 slot_key,
-                &mut self.slots,
-                &mut self.slot_access,
+                &self.slots,
+                &self.slot_access,
                 &self.new_contracts,
             )
         } else {
@@ -398,8 +398,8 @@ impl Slots {
 
     fn use_ro_internal_read_only<'a>(
         slot_key: SlotKey,
-        slots: &'a mut SmallVec<[(SlotKey, Slot); INLINE_SIZE]>,
-        slot_access: &mut SmallVec<[SlotAccess; INLINE_SIZE]>,
+        slots: &'a SmallVec<[(SlotKey, Slot); INLINE_SIZE]>,
+        slot_access: &SmallVec<[SlotAccess; INLINE_SIZE]>,
         new_contracts: &[Address],
     ) -> Option<&'a SharedAlignedBuffer> {
         let maybe_slot_index = slots
@@ -417,8 +417,8 @@ impl Slots {
                 }
             }
 
-            let slot = &mut slots
-                .get_mut(usize::from(slot_index))
+            let slot = &slots
+                .get(usize::from(slot_index))
                 .expect("Just found; qed")
                 .1;
 
@@ -442,14 +442,7 @@ impl Slots {
                 return None;
             }
 
-            let slot = Slot::OriginalAccessed(SharedAlignedBuffer::default());
-            slots.push((slot_key, slot));
-            let slot = &slots.last().expect("Just inserted; qed").1;
-            let Slot::OriginalAccessed(buffer) = slot else {
-                unreachable!("Just inserted; qed");
-            };
-
-            Some(buffer)
+            Some(SharedAlignedBuffer::empty_ref())
         }
     }
 
