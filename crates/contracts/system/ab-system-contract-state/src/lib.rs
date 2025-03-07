@@ -30,7 +30,7 @@ pub struct State;
 impl State {
     /// Initialize state.
     ///
-    /// Similar to [`Self::write()`], but returns error if the state is not empty.
+    /// Similar to [`State::write()`], but returns error if the state is not empty.
     #[update]
     pub fn initialize(
         #[env] env: &mut Env,

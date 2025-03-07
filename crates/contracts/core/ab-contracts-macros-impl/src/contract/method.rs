@@ -4,8 +4,8 @@ use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{
-    Error, GenericArgument, Pat, PatType, PathArguments, ReturnType, Signature, Token, Type,
-    TypeTuple,
+    Attribute, Error, GenericArgument, Meta, Pat, PatType, PathArguments, ReturnType, Signature,
+    Token, Type, TypeTuple,
 };
 
 #[derive(Copy, Clone)]
@@ -1563,6 +1563,7 @@ impl MethodDetails {
     pub(super) fn generate_trait_ext_components(
         &self,
         fn_sig: &Signature,
+        fn_attrs: &[Attribute],
         trait_name: Option<&Ident>,
     ) -> Result<ExtTraitComponents, Error> {
         let self_type = &self.self_type;
@@ -1640,10 +1641,6 @@ impl MethodDetails {
             || self.return_type.unit_return_type()
         {
             quote! {
-                #[allow(
-                    clippy::too_many_arguments,
-                    reason = "Generated code may have more arguments that source code"
-                )]
                 fn #ext_method_name(
                     #env_self,
                     #method_context_arg
@@ -1670,10 +1667,6 @@ impl MethodDetails {
             });
 
             quote! {
-                #[allow(
-                    clippy::too_many_arguments,
-                    reason = "Generated code may have more arguments that source code"
-                )]
                 fn #ext_method_name(
                     #env_self,
                     #method_context_arg
@@ -1685,7 +1678,23 @@ impl MethodDetails {
             }
         };
 
+        let attrs = fn_attrs.iter().filter(|attr| match &attr.meta {
+            Meta::Path(_) => false,
+            Meta::List(_) => false,
+            Meta::NameValue(name_value) => {
+                if let Some(ident) = name_value.path.get_ident() {
+                    ident == "doc" || ident == "allow" || ident == "expect"
+                } else {
+                    false
+                }
+            }
+        });
         let definitions = quote! {
+            #[allow(
+                clippy::too_many_arguments,
+                reason = "Generated code may have more arguments that source code"
+            )]
+            #( #attrs )*
             #method_signature;
         };
 

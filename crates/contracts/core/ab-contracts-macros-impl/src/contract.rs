@@ -531,7 +531,7 @@ fn process_fn_definition(
     trait_item_fn: &mut TraitItemFn,
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
-    let supported_attrs = HashMap::<_, fn(_, _, _) -> _>::from_iter([
+    let supported_attrs = HashMap::<_, fn(_, _, _, _) -> _>::from_iter([
         (format_ident!("update"), process_update_fn_definition as _),
         (format_ident!("view"), process_view_fn_definition as _),
     ]);
@@ -581,7 +581,12 @@ fn process_fn_definition(
     let processor = supported_attrs
         .get(&attr.path().segments[0].ident)
         .expect("Matched above to be one of the supported attributes; qed");
-    processor(trait_name, &mut trait_item_fn.sig, contract_details)
+    processor(
+        trait_name,
+        &mut trait_item_fn.sig,
+        trait_item_fn.attrs.as_slice(),
+        contract_details,
+    )
 }
 
 fn process_fn(
@@ -590,7 +595,7 @@ fn process_fn(
     impl_item_fn: &mut ImplItemFn,
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
-    let supported_attrs = HashMap::<_, fn(_, _, _, _) -> _>::from_iter([
+    let supported_attrs = HashMap::<_, fn(_, _, _, _, _) -> _>::from_iter([
         (format_ident!("init"), process_init_fn as _),
         (format_ident!("update"), process_update_fn as _),
         (format_ident!("view"), process_view_fn as _),
@@ -648,6 +653,7 @@ fn process_fn(
         struct_name,
         trait_name,
         &mut impl_item_fn.sig,
+        impl_item_fn.attrs.as_slice(),
         contract_details,
     )
 }
