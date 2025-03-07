@@ -25,5 +25,6 @@ aliasable = { workspace = true }
 halfbrown = { workspace = true, features = ["arraybackend", "fxhash"] }
 parking_lot = { workspace = true, features = ["arc_lock"] }
 smallvec = { workspace = true }
+take_mut = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

@@ -109,26 +109,17 @@ impl Drop for Slots {
                 .get_mut(usize::from(slot_access.slot_index))
                 .expect("Accessed slot exists; qed")
                 .1;
-            match slot {
+            take_mut::take(slot, |slot| match slot {
                 Slot::Original(_buffer) => {
                     unreachable!("Slot can't be in Original state after being accessed")
                 }
-                Slot::OriginalAccessed(buffer) => {
-                    let buffer = mem::take(buffer);
-                    *slot = Slot::Original(buffer);
-                }
-                Slot::Modified(_buffer) => {
-                    // Remains modified
-                }
-                Slot::ModifiedAccessed(buffer) => {
-                    let buffer = mem::take(buffer);
-                    *slot = Slot::Modified(buffer);
-                }
+                Slot::OriginalAccessed(buffer) => Slot::Original(buffer),
+                Slot::Modified(buffer) => Slot::Modified(buffer),
+                Slot::ModifiedAccessed(buffer) => Slot::Modified(buffer),
                 Slot::ReadWriteOriginal { buffer, .. } | Slot::ReadWriteModified { buffer, .. } => {
-                    let buffer = mem::take(buffer);
-                    *slot = Slot::Modified(buffer.into_shared());
+                    Slot::Modified(buffer.into_shared())
                 }
-            }
+            })
         }
     }
 }
@@ -359,7 +350,7 @@ impl Slots {
             // The slot that is currently being written to is not allowed for read access
             match slot {
                 Slot::Original(buffer) => {
-                    let buffer = mem::take(buffer);
+                    let buffer = buffer.clone();
                     *slot = Slot::OriginalAccessed(buffer);
                     let Slot::OriginalAccessed(buffer) = slot else {
                         unreachable!("Just inserted; qed");
@@ -368,7 +359,7 @@ impl Slots {
                 }
                 Slot::OriginalAccessed(buffer) | Slot::ModifiedAccessed(buffer) => Some(buffer),
                 Slot::Modified(buffer) => {
-                    let buffer = mem::take(buffer);
+                    let buffer = buffer.clone();
                     *slot = Slot::ModifiedAccessed(buffer);
                     let Slot::ModifiedAccessed(buffer) = slot else {
                         unreachable!("Just inserted; qed");
@@ -529,7 +520,7 @@ impl Slots {
 
                     *slot = Slot::ReadWriteOriginal {
                         buffer: new_buffer,
-                        previous: mem::take(buffer),
+                        previous: buffer.clone(),
                     };
                     let Slot::ReadWriteOriginal { buffer, .. } = slot else {
                         unreachable!("Just inserted; qed");
@@ -543,7 +534,7 @@ impl Slots {
 
                     *slot = Slot::ReadWriteModified {
                         buffer: new_buffer,
-                        previous: mem::take(buffer),
+                        previous: buffer.clone(),
                     };
                     let Slot::ReadWriteModified { buffer, .. } = slot else {
                         unreachable!("Just inserted; qed");
@@ -657,28 +648,16 @@ impl Slots {
                 .get_mut(usize::from(slot_access.slot_index))
                 .expect("Accessed slot exists; qed")
                 .1;
-            match slot {
+            take_mut::take(slot, |slot| match slot {
                 Slot::Original(_buffer) => {
                     unreachable!("Slot can't be in Original state after being accessed")
                 }
-                Slot::OriginalAccessed(buffer) => {
-                    let buffer = mem::take(buffer);
-                    *slot = Slot::Original(buffer);
-                }
-                Slot::Modified(_buffer) => {
-                    // Remains modified
-                }
-                Slot::ModifiedAccessed(buffer) => {
-                    let buffer = mem::take(buffer);
-                    *slot = Slot::Modified(buffer);
-                }
-                Slot::ReadWriteOriginal { previous, .. } => {
-                    *slot = Slot::Original(mem::take(previous));
-                }
-                Slot::ReadWriteModified { previous, .. } => {
-                    *slot = Slot::Modified(mem::take(previous));
-                }
-            }
+                Slot::OriginalAccessed(buffer) => Slot::Original(buffer),
+                Slot::Modified(buffer) => Slot::Modified(buffer),
+                Slot::ModifiedAccessed(buffer) => Slot::Modified(buffer),
+                Slot::ReadWriteOriginal { previous, .. } => Slot::Original(previous),
+                Slot::ReadWriteModified { previous, .. } => Slot::Modified(previous),
+            });
         }
     }
 }
