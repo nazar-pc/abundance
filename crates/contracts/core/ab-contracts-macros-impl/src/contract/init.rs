@@ -4,12 +4,13 @@ use proc_macro2::Ident;
 use quote::format_ident;
 use std::collections::HashMap;
 use syn::spanned::Spanned;
-use syn::{Error, FnArg, Meta, Signature, Type};
+use syn::{Attribute, Error, FnArg, Meta, Signature, Type};
 
 pub(super) fn process_init_fn(
     self_type: Type,
     _trait_name: Option<&Ident>,
     fn_sig: &mut Signature,
+    fn_attrs: &[Attribute],
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
     let mut methods_details = MethodDetails::new(MethodType::Init, self_type);
@@ -81,7 +82,8 @@ pub(super) fn process_init_fn(
     methods_details.process_return(&fn_sig.output)?;
 
     let guest_ffi = methods_details.generate_guest_ffi(fn_sig, None)?;
-    let trait_ext_components = methods_details.generate_trait_ext_components(fn_sig, None)?;
+    let trait_ext_components =
+        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, None)?;
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),

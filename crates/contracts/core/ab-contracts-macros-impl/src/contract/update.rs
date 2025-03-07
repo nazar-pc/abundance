@@ -4,12 +4,13 @@ use proc_macro2::Ident;
 use quote::format_ident;
 use std::collections::HashMap;
 use syn::spanned::Spanned;
-use syn::{Error, FnArg, Meta, Signature, Type, parse_quote};
+use syn::{Attribute, Error, FnArg, Meta, Signature, Type, parse_quote};
 
 pub(super) fn process_update_fn(
     self_type: Type,
     trait_name: Option<&Ident>,
     fn_sig: &mut Signature,
+    fn_attrs: &[Attribute],
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
     let mut methods_details = MethodDetails::new(MethodType::Update, self_type);
@@ -87,7 +88,8 @@ pub(super) fn process_update_fn(
     methods_details.process_return(&fn_sig.output)?;
 
     let guest_ffi = methods_details.generate_guest_ffi(fn_sig, trait_name)?;
-    let trait_ext_components = methods_details.generate_trait_ext_components(fn_sig, trait_name)?;
+    let trait_ext_components =
+        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, trait_name)?;
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),
@@ -103,6 +105,7 @@ pub(super) fn process_update_fn(
 pub(super) fn process_update_fn_definition(
     trait_name: &Ident,
     fn_sig: &mut Signature,
+    fn_attrs: &[Attribute],
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
     let mut methods_details =
@@ -172,7 +175,7 @@ pub(super) fn process_update_fn_definition(
 
     let guest_ffi = methods_details.generate_guest_trait_ffi(fn_sig, Some(trait_name))?;
     let trait_ext_components =
-        methods_details.generate_trait_ext_components(fn_sig, Some(trait_name))?;
+        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, Some(trait_name))?;
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),

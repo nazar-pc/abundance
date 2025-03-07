@@ -151,9 +151,9 @@ impl SimpleWalletBase {
         )
     }
 
-    /// Executes provided transactions in the payload, *remember to also [`Self::increase_nonce()`]
-    /// afterward* unless there is a very good reason not to (like when wallet was replaced with
-    /// another implementation containing a different state).
+    /// Executes provided transactions in the payload, *remember to also
+    /// [`SimpleWalletBase::increase_nonce()`] afterward* unless there is a very good reason not to
+    /// (like when wallet was replaced with another implementation containing a different state).
     ///
     /// Caller must set themselves as a context or else error will be returned.
     #[update]
