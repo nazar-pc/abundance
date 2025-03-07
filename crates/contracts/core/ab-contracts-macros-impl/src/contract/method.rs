@@ -1678,15 +1678,17 @@ impl MethodDetails {
             }
         };
 
-        let attrs = fn_attrs.iter().filter(|attr| match &attr.meta {
-            Meta::Path(_) => false,
-            Meta::List(_) => false,
-            Meta::NameValue(name_value) => {
-                if let Some(ident) = name_value.path.get_ident() {
-                    ident == "doc" || ident == "allow" || ident == "expect"
-                } else {
-                    false
-                }
+        let attrs = fn_attrs.iter().filter(|attr| {
+            let path = match &attr.meta {
+                Meta::Path(path) => path,
+                Meta::List(list) => &list.path,
+                Meta::NameValue(name_value) => &name_value.path,
+            };
+
+            if let Some(ident) = path.get_ident() {
+                ident == "doc" || ident == "allow" || ident == "expect"
+            } else {
+                false
             }
         });
         let definitions = quote! {
