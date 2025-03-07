@@ -111,6 +111,7 @@ dependencies = [
  "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-system-contract-code",
+ "criterion",
 ]
 
 [[package]]
