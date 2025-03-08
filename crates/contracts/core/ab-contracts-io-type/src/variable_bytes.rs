@@ -346,7 +346,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
             return false;
         }
 
-        // Safety: `src` can't be the same as `&mut self` if invariants of constructor arguments
+        // SAFETY: `src` can't be the same as `&mut self` if invariants of constructor arguments
         // were upheld, size is checked to be within capacity above
         unsafe {
             self.bytes

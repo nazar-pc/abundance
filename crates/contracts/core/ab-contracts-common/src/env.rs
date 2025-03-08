@@ -110,11 +110,11 @@ pub struct EnvState {
 /// Executor context that can be used to interact with executor
 #[cfg(feature = "executor")]
 pub trait ExecutorContext: core::fmt::Debug {
-    /// Call multiple methods
-    fn call_many(
+    /// Call prepared method
+    fn call(
         &self,
         previous_env_state: &EnvState,
-        prepared_methods: &mut [PreparedMethod],
+        prepared_methods: &mut PreparedMethod,
     ) -> Result<(), ContractError>;
 }
 
@@ -127,26 +127,33 @@ pub trait ExecutorContext: core::fmt::Debug {
 pub struct Env<'a> {
     state: EnvState,
     #[cfg(feature = "executor")]
-    executor_context: Box<dyn ExecutorContext>,
+    executor_context: Box<dyn ExecutorContext + 'a>,
     phantom_data: PhantomData<&'a ()>,
 }
 
 // TODO: API to "attach" data structures to the environment to make sure pointers to it can be
 //  returned safely, will likely require `Pin` and return some reference from which pointer is to
 //  be created
-impl Env<'_> {
+impl<'a> Env<'a> {
     /// Instantiate environment with executor context
     #[cfg(feature = "executor")]
     #[inline]
     pub fn with_executor_context(
         state: EnvState,
-        executor_context: Box<dyn ExecutorContext>,
+        executor_context: Box<dyn ExecutorContext + 'a>,
     ) -> Self {
         Self {
             state,
             executor_context,
             phantom_data: PhantomData,
         }
+    }
+
+    /// Instantiate environment with executor context
+    #[cfg(feature = "executor")]
+    #[inline]
+    pub fn get_mut_executor_context(&mut self) -> &mut (dyn ExecutorContext + 'a) {
+        self.executor_context.as_mut()
     }
 
     /// Shard index where execution is happening
@@ -163,19 +170,19 @@ impl Env<'_> {
 
     /// Context of the execution
     #[inline]
-    pub fn context<'a>(self: &'a &'a mut Self) -> Address {
+    pub fn context<'b>(self: &'b &'b mut Self) -> Address {
         self.state.context
     }
 
     /// Caller of this contract
     #[inline]
-    pub fn caller<'a>(self: &'a &'a mut Self) -> Address {
+    pub fn caller<'b>(self: &'b &'b mut Self) -> Address {
         self.state.caller
     }
 
-    /// Call a single method at specified address and with specified arguments.
+    /// Call a method at specified address and with specified arguments.
     ///
-    /// This is a shortcut for [`Self::prepare_method_call()`] + [`Self::call_many()`].
+    /// This is a shortcut for [`Self::prepare_method_call()`] + [`Self::call_prepared()`].
     #[inline]
     pub fn call<Args>(
         &self,
@@ -187,12 +194,12 @@ impl Env<'_> {
         Args: ExternalArgs,
     {
         let prepared_method = Self::prepare_method_call(contract, args, method_context);
-        self.call_many([prepared_method])
+        self.call_prepared(prepared_method)
     }
 
     /// Prepare a single method for calling at specified address and with specified arguments.
     ///
-    /// The result is to be used with [`Self::call_many()`] afterward.
+    /// The result is to be used with [`Self::call_prepared()`] afterward.
     #[inline]
     pub fn prepare_method_call<Args>(
         contract: Address,
@@ -212,30 +219,25 @@ impl Env<'_> {
         }
     }
 
-    /// Invoke provided methods and wait for the results.
-    ///
-    /// Only `#[view]` methods may be called if more than one method is provided as an argument.
+    /// Call prepared method.
     ///
     /// In most cases, this doesn't need to be called directly. Extension traits provide a more
     /// convenient way to make method calls and are enough in most cases.
     #[inline]
-    pub fn call_many<const N: usize>(
-        &self,
-        methods: [PreparedMethod<'_>; N],
-    ) -> Result<(), ContractError> {
+    pub fn call_prepared(&self, method: PreparedMethod<'_>) -> Result<(), ContractError> {
         #[cfg(feature = "executor")]
         {
-            let mut methods = methods;
-            self.executor_context.call_many(&self.state, &mut methods)
+            let mut method = method;
+            self.executor_context.call(&self.state, &mut method)
         }
         #[cfg(all(feature = "guest", not(feature = "executor")))]
         {
-            let _ = methods;
+            let _ = method;
             todo!()
         }
         #[cfg(not(any(feature = "executor", feature = "guest")))]
         {
-            let _ = methods;
+            let _ = method;
             Err(ContractError::InternalError)
         }
     }

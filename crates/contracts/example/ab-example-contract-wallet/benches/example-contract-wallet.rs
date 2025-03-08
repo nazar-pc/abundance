@@ -108,7 +108,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("example-wallet");
     group.throughput(Throughput::Elements(1));
 
-    group.bench_function("verify", |b| {
+    group.bench_function("verify-only", |b| {
         let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
 
         b.iter(|| {
@@ -127,7 +127,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    group.bench_function("execute", |b| {
+    group.bench_function("execute-only", |b| {
         b.iter_batched(
             || {
                 let seal =
@@ -138,6 +138,32 @@ fn criterion_benchmark(c: &mut Criterion) {
             |seal| {
                 executor
                     .transaction_execute(
+                        black_box(Transaction {
+                            header: &header,
+                            read_slots,
+                            write_slots,
+                            payload: &payload,
+                            seal: seal.as_bytes(),
+                        }),
+                        black_box(storage),
+                    )
+                    .unwrap();
+            },
+            BatchSize::SmallInput,
+        )
+    });
+
+    group.bench_function("verify-and-execute", |b| {
+        b.iter_batched(
+            || {
+                let seal =
+                    hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
+                nonce += 1;
+                seal
+            },
+            |seal| {
+                executor
+                    .transaction_verify_execute(
                         black_box(Transaction {
                             header: &header,
                             read_slots,

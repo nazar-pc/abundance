@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+use ab_contracts_io_type::MAX_ALIGNMENT;
 use std::mem::MaybeUninit;
 use std::sync::{Arc, LazyLock};
 use std::{mem, slice};
@@ -9,7 +10,7 @@ use std::{mem, slice};
 struct AlignedBytes([u8; Self::SIZE]);
 
 impl AlignedBytes {
-    const SIZE: usize = 16;
+    const SIZE: usize = MAX_ALIGNMENT as usize;
 }
 
 const _: () = {
