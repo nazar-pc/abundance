@@ -66,32 +66,32 @@ where
     //  allows us to do so
     type PointerType = Element;
 
-    #[inline]
+    #[inline(always)]
     fn size(&self) -> u32 {
         self.size()
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn size_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
         DerefWrapper(self.size)
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = *mut u32> {
         DerefWrapper(self.size.as_ptr())
     }
 
-    #[inline]
+    #[inline(always)]
     fn capacity(&self) -> u32 {
         self.capacity
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn capacity_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
         DerefWrapper(NonNull::from_ref(&self.capacity))
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
@@ -112,7 +112,7 @@ where
         }
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
@@ -138,7 +138,7 @@ where
         })
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
@@ -170,12 +170,12 @@ where
         })
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
         &self.elements
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
         &mut self.elements
     }
@@ -281,27 +281,27 @@ where
     }
 
     // Size in bytes
-    #[inline]
+    #[inline(always)]
     pub const fn size(&self) -> u32 {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe { self.size.read() }
     }
 
     /// Capacity in bytes
-    #[inline]
+    #[inline(always)]
     pub fn capacity(&self) -> u32 {
         self.capacity
     }
 
     /// Number of elements
-    #[inline]
+    #[inline(always)]
     pub const fn count(&self) -> u32 {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe { self.size.read() }
     }
 
     /// Try to get access to initialized elements
-    #[inline]
+    #[inline(always)]
     pub const fn get_initialized(&self) -> &[Element] {
         let size = self.size();
         let ptr = self.elements.as_ptr();
@@ -310,7 +310,7 @@ where
     }
 
     /// Try to get exclusive access to initialized `Data`, returns `None` if not initialized
-    #[inline]
+    #[inline(always)]
     pub fn get_initialized_mut(&mut self) -> &mut [Element] {
         let size = self.size();
         let ptr = self.elements.as_ptr();
@@ -321,7 +321,7 @@ where
     /// Append some elements by using more of allocated, but currently unused elements.
     ///
     /// `true` is returned on success, but if there isn't enough unused elements left, `false` is.
-    #[inline]
+    #[inline(always)]
     #[must_use = "Operation may fail"]
     pub fn append(&mut self, elements: &[Element]) -> bool {
         let size = self.size();
@@ -350,7 +350,7 @@ where
     ///
     /// Returns `true` on success or `false` if `new_size` is larger than [`Self::size()`] or not a
     /// multiple of `Element::SIZE`.
-    #[inline]
+    #[inline(always)]
     #[must_use = "Operation may fail"]
     pub fn truncate(&mut self, new_size: u32) -> bool {
         if new_size > self.size() || new_size % Element::SIZE != 0 {
@@ -368,7 +368,7 @@ where
     /// Copy contents from another instance.
     ///
     /// Returns `false` if actual capacity of the instance is not enough to copy contents of `src`
-    #[inline]
+    #[inline(always)]
     #[must_use = "Operation may fail"]
     pub fn copy_from(&mut self, src: &Self) -> bool {
         let src_size = src.size();
@@ -391,14 +391,14 @@ where
     ///
     /// Can be used for initialization with [`Self::assume_init()`] called afterward to confirm how
     /// many bytes are in use right now.
-    #[inline]
+    #[inline(always)]
     pub fn as_mut_ptr(&mut self) -> &mut NonNull<Element> {
         &mut self.elements
     }
 
     /// Cast a shared reference to this instance into a reference to an instance of a different
     /// recommended allocation
-    #[inline]
+    #[inline(always)]
     pub fn cast_ref<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
         &self,
     ) -> &VariableElements<Element, DIFFERENT_RECOMMENDED_ALLOCATION> {
@@ -413,7 +413,7 @@ where
 
     /// Cast an exclusive reference to this instance into a reference to an instance of a different
     /// recommended allocation
-    #[inline]
+    #[inline(always)]
     pub fn cast_mut<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
         &mut self,
     ) -> &mut VariableElements<Element, DIFFERENT_RECOMMENDED_ALLOCATION> {
@@ -433,7 +433,7 @@ where
     ///
     /// # Safety
     /// Caller must ensure `size` is actually initialized
-    #[inline]
+    #[inline(always)]
     #[must_use = "Operation may fail"]
     pub unsafe fn assume_init(&mut self, size: u32) -> Option<&mut [Element]> {
         if size > self.capacity || size % Element::SIZE != 0 {

@@ -21,6 +21,7 @@ pub(super) struct SlotKey {
 pub(super) struct SlotIndex(usize);
 
 impl From<SlotIndex> for usize {
+    #[inline(always)]
     fn from(value: SlotIndex) -> Self {
         value.0
     }
@@ -91,6 +92,7 @@ enum SlotsInner<'a> {
 pub(super) struct Slots<'a>(SlotsInner<'a>);
 
 impl<'a> Drop for Slots<'a> {
+    #[inline(always)]
     fn drop(&mut self) {
         let (inner, parent_slot_access_len) = match &mut self.0 {
             SlotsInner::Original { .. } | SlotsInner::ReadOnly { .. } => {
@@ -136,6 +138,7 @@ impl<'a> Slots<'a> {
     /// owners created during runtime and initialized with [`Self::add_new_contract()`].
     ///
     /// "Empty" slots must still have a value in the form of an empty [`SharedAlignedBuffer`].
+    #[inline(always)]
     pub(super) fn new<I>(slots: I) -> Self
     where
         I: IntoIterator<Item = (SlotKey, SharedAlignedBuffer)>,
@@ -165,6 +168,7 @@ impl<'a> Slots<'a> {
         })
     }
 
+    #[inline(always)]
     fn inner_ro(&self) -> &Inner {
         match &self.0 {
             SlotsInner::Original { inner } => inner,
@@ -173,6 +177,7 @@ impl<'a> Slots<'a> {
         }
     }
 
+    #[inline(always)]
     fn inner_rw(&mut self) -> Option<&mut Inner> {
         match &mut self.0 {
             SlotsInner::Original { inner } => Some(inner),
@@ -187,6 +192,7 @@ impl<'a> Slots<'a> {
     /// be reset with [`Self::reset()`]).
     ///
     /// Returns `None` when attempted on read-only instance.
+    #[inline(always)]
     pub(super) fn new_nested_rw<'b>(&'b mut self) -> Option<Slots<'b>>
     where
         'a: 'b,
@@ -208,6 +214,7 @@ impl<'a> Slots<'a> {
     }
 
     /// Create a new nested read-only slots instance
+    #[inline(always)]
     pub(super) fn new_nested_ro<'b>(&'b self) -> Slots<'b>
     where
         'a: 'b,
@@ -229,6 +236,7 @@ impl<'a> Slots<'a> {
     /// Returns `false` if a contract already exits in a map, which is also considered as an access
     /// violation.
     #[must_use]
+    #[inline(always)]
     pub(super) fn add_new_contract(&mut self, owner: Address) -> bool {
         let Some(inner) = self.inner_rw() else {
             debug!(%owner, "`add_new_contract` access violation");
@@ -252,6 +260,7 @@ impl<'a> Slots<'a> {
     /// instead the current code is cloned and returned.
     ///
     /// Returns `None` in case of access violation or if code is missing.
+    #[inline(always)]
     pub(super) fn get_code(&self, owner: Address) -> Option<SharedAlignedBuffer> {
         let result = self.get_code_internal(owner);
 
@@ -262,6 +271,7 @@ impl<'a> Slots<'a> {
         result
     }
 
+    #[inline(always)]
     fn get_code_internal(&self, owner: Address) -> Option<SharedAlignedBuffer> {
         let inner = self.inner_ro();
         let slots = &inner.slots;
@@ -302,6 +312,7 @@ impl<'a> Slots<'a> {
     /// Read-only access to a slot with specified owner and contract, marks it as used.
     ///
     /// Returns `None` in case of access violation.
+    #[inline(always)]
     pub(super) fn use_ro(&mut self, slot_key: SlotKey) -> Option<&SharedAlignedBuffer> {
         let inner_rw = match &mut self.0 {
             SlotsInner::Original { inner, .. } => inner.as_mut(),
@@ -337,6 +348,7 @@ impl<'a> Slots<'a> {
         result
     }
 
+    #[inline(always)]
     fn use_ro_internal<'b>(
         slot_key: SlotKey,
         slots: &'b mut SmallVec<[(SlotKey, Slot); INLINE_SIZE]>,
@@ -418,6 +430,7 @@ impl<'a> Slots<'a> {
     }
 
     /// Similar to [`Self::use_ro_internal()`], but for read-only instance
+    #[inline(always)]
     fn use_ro_internal_read_only<'b>(
         slot_key: SlotKey,
         slots: &'b SmallVec<[(SlotKey, Slot); INLINE_SIZE]>,
@@ -475,6 +488,7 @@ impl<'a> Slots<'a> {
     /// only way to get another mutable reference is to call [`Self::access_used_rw()`].
     ///
     /// Returns `None` in case of access violation.
+    #[inline(always)]
     pub(super) fn use_rw(
         &mut self,
         slot_key: SlotKey,
@@ -494,6 +508,7 @@ impl<'a> Slots<'a> {
         result
     }
 
+    #[inline(always)]
     fn use_rw_internal<'b>(
         slot_key: SlotKey,
         capacity: u32,
@@ -635,6 +650,7 @@ impl<'a> Slots<'a> {
     }
 
     /// Reset any changes that might have been done on this level
+    #[cold]
     pub(super) fn reset(&mut self) {
         let (inner, parent_slot_access_len) = match &mut self.0 {
             SlotsInner::Original { .. } | SlotsInner::ReadOnly { .. } => {

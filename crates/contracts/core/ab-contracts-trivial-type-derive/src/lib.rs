@@ -298,6 +298,7 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
     // * Type: struct
     // * The rest as inner struct metadata
     Ok(quote! {{
+        #[inline(always)]
         const fn metadata() -> (
             [::core::primitive::u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY],
             usize,
@@ -402,6 +403,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
         .collect::<Result<Vec<TokenStream>, Error>>()?;
 
     Ok(quote! {{
+        #[inline(always)]
         const fn metadata() -> (
             [::core::primitive::u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY],
             usize,

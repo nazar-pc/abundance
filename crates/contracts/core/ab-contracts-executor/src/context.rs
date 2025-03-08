@@ -121,6 +121,7 @@ impl<'a> NativeExecutorContext<'a> {
         }
     }
 
+    #[inline(always)]
     fn new_nested(&self, slots: Slots<'a>, allow_env_mutation: bool) -> NativeExecutorContext<'a> {
         Self {
             shard_index: self.shard_index,

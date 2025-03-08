@@ -314,6 +314,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
         }))
     }
 
+    #[inline(always)]
     fn get_trivial_type<T>(&mut self) -> Result<&'a T, TransactionPayloadDecoderError>
     where
         T: TrivialType,
@@ -332,6 +333,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
         Ok(value_ref)
     }
 
+    #[inline(always)]
     fn get_bytes(
         &mut self,
         size: u32,
@@ -348,6 +350,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
         Ok(bytes)
     }
 
+    #[inline(always)]
     fn read_u8(&mut self) -> Result<u8, TransactionPayloadDecoderError> {
         let value;
         (value, self.payload) = self
@@ -358,11 +361,13 @@ impl<'a> TransactionPayloadDecoder<'a> {
         Ok(value[0])
     }
 
+    #[inline(always)]
     fn ensure_alignment(&mut self, alignment: usize) {
         let unaligned_by = self.payload.len() % alignment;
         self.payload = &self.payload[unaligned_by..];
     }
 
+    #[inline(always)]
     fn allocate_output_buffer(
         &mut self,
         capacity: u32,
@@ -386,6 +391,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
     }
 
     /// Returns `None` if output buffer is not large enough
+    #[inline(always)]
     fn allocate_output_buffer_ptr<T>(
         &mut self,
         alignment: usize,

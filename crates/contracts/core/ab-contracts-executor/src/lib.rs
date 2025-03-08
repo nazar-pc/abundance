@@ -513,6 +513,7 @@ impl NativeExecutor {
         self.env_internal(Address::NULL, storage.slots_ro(), false)
     }
 
+    #[inline(always)]
     fn env_internal<'a>(
         &'a self,
         contract: Address,

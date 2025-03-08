@@ -12,6 +12,7 @@ macro_rules! forward_option {
     }};
 }
 
+#[inline(always)]
 pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDetails, &[u8])> {
     if metadata.is_empty() {
         return None;
@@ -255,6 +256,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
     }
 }
 
+#[inline(always)]
 const fn struct_type_details(
     mut input: &[u8],
     arguments_count: Option<u8>,
@@ -318,6 +320,7 @@ const fn struct_type_details(
     ))
 }
 
+#[inline(always)]
 const fn enum_capacity(
     mut input: &[u8],
     variant_count: Option<u8>,
@@ -399,6 +402,7 @@ const fn enum_capacity(
 }
 
 /// Copies `n` bytes from input to output and returns both input and output after `n` bytes offset
+#[inline(always)]
 const fn copy_n_bytes<'i, 'o>(
     mut input: &'i [u8],
     mut output: &'o mut [u8],
@@ -426,6 +430,7 @@ const fn copy_n_bytes<'i, 'o>(
 }
 
 /// Skips `n` bytes and return remainder
+#[inline(always)]
 const fn skip_n_bytes(input: &[u8], n: usize) -> Option<&[u8]> {
     if n > input.len() {
         return None;

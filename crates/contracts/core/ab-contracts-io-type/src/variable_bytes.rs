@@ -84,32 +84,32 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
     //  allows us to do so
     type PointerType = u8;
 
-    #[inline]
+    #[inline(always)]
     fn size(&self) -> u32 {
         self.size()
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn size_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
         DerefWrapper(self.size)
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = *mut u32> {
         DerefWrapper(self.size.as_ptr())
     }
 
-    #[inline]
+    #[inline(always)]
     fn capacity(&self) -> u32 {
         self.capacity
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn capacity_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
         DerefWrapper(NonNull::from_ref(&self.capacity))
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
@@ -124,7 +124,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
         }
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
@@ -144,7 +144,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
         })
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
@@ -170,12 +170,12 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
         })
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
         &self.bytes
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
         &mut self.bytes
     }
@@ -256,20 +256,20 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     }
 
     // Size in bytes
-    #[inline]
+    #[inline(always)]
     pub const fn size(&self) -> u32 {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe { self.size.read() }
     }
 
     /// Capacity in bytes
-    #[inline]
+    #[inline(always)]
     pub fn capacity(&self) -> u32 {
         self.capacity
     }
 
     /// Try to get access to initialized bytes
-    #[inline]
+    #[inline(always)]
     pub const fn get_initialized(&self) -> &[u8] {
         let size = self.size();
         let ptr = self.bytes.as_ptr();
@@ -278,7 +278,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     }
 
     /// Try to get exclusive access to initialized `Data`, returns `None` if not initialized
-    #[inline]
+    #[inline(always)]
     pub fn get_initialized_mut(&mut self) -> &mut [u8] {
         let size = self.size();
         let ptr = self.bytes.as_ptr();
@@ -289,7 +289,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     /// Append some bytes by using more of allocated, but currently unused bytes.
     ///
     /// `true` is returned on success, but if there isn't enough unused bytes left, `false` is.
-    #[inline]
+    #[inline(always)]
     #[must_use = "Operation may fail"]
     pub fn append(&mut self, bytes: &[u8]) -> bool {
         let size = self.size();
@@ -317,7 +317,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     /// Truncate internal initialized bytes to this size.
     ///
     /// Returns `true` on success or `false` if `new_size` is larger than [`Self::size()`].
-    #[inline]
+    #[inline(always)]
     #[must_use = "Operation may fail"]
     pub fn truncate(&mut self, new_size: u32) -> bool {
         if new_size > self.size() {
@@ -335,7 +335,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     /// Copy contents from another `IoType`.
     ///
     /// Returns `false` if actual capacity of the instance is not enough to copy contents of `src`
-    #[inline]
+    #[inline(always)]
     #[must_use = "Operation may fail"]
     pub fn copy_from<T>(&mut self, src: &T) -> bool
     where
@@ -361,14 +361,14 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     ///
     /// Can be used for initialization with [`Self::assume_init()`] called afterward to confirm how
     /// many bytes are in use right now.
-    #[inline]
+    #[inline(always)]
     pub fn as_mut_ptr(&mut self) -> &mut NonNull<u8> {
         &mut self.bytes
     }
 
     /// Cast a shared reference to this instance into a reference to an instance of a different
     /// recommended allocation
-    #[inline]
+    #[inline(always)]
     pub fn cast_ref<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
         &self,
     ) -> &VariableBytes<DIFFERENT_RECOMMENDED_ALLOCATION> {
@@ -383,7 +383,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
 
     /// Cast an exclusive reference to this instance into a reference to an instance of a different
     /// recommended allocation
-    #[inline]
+    #[inline(always)]
     pub fn cast_mut<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
         &mut self,
     ) -> &mut VariableBytes<DIFFERENT_RECOMMENDED_ALLOCATION> {
@@ -399,7 +399,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     /// Reads and returns value of type `T` or `None` if there is not enough data.
     ///
     /// Checks alignment internally to support both aligned and unaligned reads.
-    #[inline]
+    #[inline(always)]
     pub fn read_trivial_type<T>(&self) -> Option<T>
     where
         T: TrivialType,
@@ -428,7 +428,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     ///
     /// # Safety
     /// Caller must ensure `size` is actually initialized
-    #[inline]
+    #[inline(always)]
     #[must_use = "Operation may fail"]
     pub unsafe fn assume_init(&mut self, size: u32) -> Option<&mut [u8]> {
         if size > self.capacity {

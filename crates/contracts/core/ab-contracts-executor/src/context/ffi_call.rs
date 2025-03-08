@@ -90,6 +90,7 @@ struct DelayedProcessingCollection {
 }
 
 impl DelayedProcessingCollection {
+    #[inline(always)]
     fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: Vec::with_capacity(capacity),
@@ -97,6 +98,7 @@ impl DelayedProcessingCollection {
     }
 
     /// Insert new entry and get mutable reference to it, which doesn't inherit stack borrows tag
+    #[inline(always)]
     fn insert_ro(
         &mut self,
         entry: DelayedProcessingSlotReadOnly,
@@ -114,6 +116,7 @@ impl DelayedProcessingCollection {
     }
 
     /// Insert new entry and get mutable reference to it, which doesn't inherit stack borrows tag
+    #[inline(always)]
     fn insert_rw(
         &mut self,
         entry: DelayedProcessingSlotReadWrite,
@@ -139,6 +142,7 @@ enum MaybeEnv<Env, Slots> {
 }
 
 impl<Env, Slots> Drop for MaybeEnv<Env, Slots> {
+    #[inline(always)]
     fn drop(&mut self) {
         match self {
             MaybeEnv::None(_) => {}
@@ -159,6 +163,7 @@ impl<Env, Slots> Drop for MaybeEnv<Env, Slots> {
 impl<'slots> MaybeEnv<MaybeUninit<Env<'slots>>, ()> {
     /// Insert a new value and get a pointer to it, value must be initialized later with
     /// [`Self::initialize()`]
+    #[inline(always)]
     fn insert_ro(&mut self) -> *const MaybeUninit<Env<'slots>> {
         let env = Box::into_raw(Box::new(UnsafeCell::new(MaybeUninit::uninit())));
         // SAFETY: Not null
@@ -174,6 +179,7 @@ impl<'slots> MaybeEnv<MaybeUninit<Env<'slots>>, ()> {
 
     /// Insert a new value and get a pointer to it, value must be initialized later with
     /// [`Self::initialize()`]
+    #[inline(always)]
     fn insert_rw(&mut self) -> *mut MaybeUninit<Env<'slots>> {
         let env = Box::into_raw(Box::new(UnsafeCell::new(MaybeUninit::uninit())));
         // SAFETY: Not null
@@ -189,6 +195,7 @@ impl<'slots> MaybeEnv<MaybeUninit<Env<'slots>>, ()> {
 
     /// # Safety
     /// Nothing must have a live reference to `self` or its internals
+    #[inline(always)]
     unsafe fn initialize<CreateNestedContext>(
         self,
         slots: Slots<'slots>,
@@ -247,6 +254,7 @@ impl<'slots> MaybeEnv<MaybeUninit<Env<'slots>>, ()> {
 impl<'slots> MaybeEnv<Env<'slots>, Slots<'slots>> {
     /// # Safety
     /// Nothing must have a live reference to `self` or its internals
+    #[inline(always)]
     unsafe fn get_slots_mut<'a>(&'a mut self) -> &'a mut Slots<'slots>
     where
         'slots: 'a,
@@ -283,6 +291,7 @@ pub(super) struct FfiCallResult<'slots> {
 
 impl FfiCallResult<'_> {
     /// Persist slot changes
+    #[inline(always)]
     pub(super) fn persist(mut self) -> Result<(), ContractError> {
         // SAFETY: No live references to `maybe_env`
         let slots = unsafe { self.maybe_env.get_slots_mut() };
@@ -362,6 +371,7 @@ pub(super) struct FfiCall<'slots, 'external_args> {
 }
 
 impl<'slots, 'external_args> FfiCall<'slots, 'external_args> {
+    #[inline(always)]
     #[allow(clippy::too_many_arguments, reason = "Internal API")]
     pub(super) fn new<CreateNestedContext>(
         allow_env_mutation: bool,
@@ -756,6 +766,7 @@ impl<'slots, 'external_args> FfiCall<'slots, 'external_args> {
         })
     }
 
+    #[inline(always)]
     pub(super) fn dispatch(mut self) -> Result<FfiCallResult<'slots>, ContractError> {
         // Will only read initialized number of pointers, hence `NonNull<c_void>` even though
         // there is likely slack capacity with uninitialized data
