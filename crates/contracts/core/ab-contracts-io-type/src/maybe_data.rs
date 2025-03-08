@@ -27,33 +27,33 @@ where
 
     type PointerType = Data;
 
-    #[inline]
+    #[inline(always)]
     fn size(&self) -> u32 {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe { self.size.read() }
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn size_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
         DerefWrapper(self.size)
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = *mut u32> {
         DerefWrapper(self.size.as_ptr())
     }
 
-    #[inline]
+    #[inline(always)]
     fn capacity(&self) -> u32 {
         self.size()
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn capacity_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
         DerefWrapper(NonNull::from_ref(&self.capacity))
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
@@ -68,7 +68,7 @@ where
         }
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn from_ptr<'a>(
         data: &'a NonNull<Self::PointerType>,
@@ -95,7 +95,7 @@ where
         })
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         data: &'a mut NonNull<Self::PointerType>,
@@ -127,12 +127,12 @@ where
         })
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
         &self.data
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
         &mut self.data
     }
@@ -216,7 +216,7 @@ where
     }
 
     /// Try to get access to initialized `Data`, returns `None` if not initialized
-    #[inline]
+    #[inline(always)]
     pub const fn get(&self) -> Option<&Data> {
         // SAFETY: guaranteed to be initialized by constructors
         if unsafe { self.size.read() } == self.capacity {
@@ -228,7 +228,7 @@ where
     }
 
     /// Try to get exclusive access to initialized `Data`, returns `None` if not initialized
-    #[inline]
+    #[inline(always)]
     pub fn get_mut(&mut self) -> Option<&mut Data> {
         // SAFETY: guaranteed to be initialized by constructors
         if unsafe { self.size.read() } == self.capacity {
@@ -240,7 +240,7 @@ where
     }
 
     /// Initialize by inserting `Data` by value or replace existing value and return reference to it
-    #[inline]
+    #[inline(always)]
     pub fn replace(&mut self, data: Data) -> &mut Data {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe {
@@ -254,7 +254,7 @@ where
     }
 
     /// Remove `Data` inside and turn instance back into uninitialized
-    #[inline]
+    #[inline(always)]
     pub fn remove(&mut self) {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe {
@@ -264,7 +264,7 @@ where
 
     /// Get exclusive access to initialized `Data`, running provided initialization function if
     /// necessary
-    #[inline]
+    #[inline(always)]
     pub fn get_mut_or_init_with<'a, Init>(&'a mut self, init: Init) -> &'a mut Data
     where
         Init: FnOnce(NonNull<Data>) -> &'a mut Data,
@@ -287,7 +287,7 @@ where
     ///
     /// # Safety
     /// Caller must ensure `Data` is actually properly initialized
-    #[inline]
+    #[inline(always)]
     pub unsafe fn assume_init(&mut self) -> &mut Data {
         // SAFETY: guaranteed to be initialized by constructors
         unsafe {

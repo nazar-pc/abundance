@@ -25,12 +25,12 @@ criterion = { version = "0.5.1", default-features = false }
 derive_more = { version = "2.0.1", default-features = false }
 halfbrown = "0.3.0"
 ident_case = "1.0.1"
-parking_lot = "0.12.3"
 proc-macro2 = "1.0.92"
 quote = "1.0.38"
 schnorrkel = { version = "0.11.4", default-features = false }
 smallvec = "1.14.0"
 syn = "2.0.93"
+take_mut = "0.2.2"
 thiserror = { version = "2.0.11", default-features = false }
 tinyvec = { version = "1.8.1", default-features = false }
 tracing = "0.1.41"

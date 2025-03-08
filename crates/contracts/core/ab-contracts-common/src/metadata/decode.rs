@@ -85,6 +85,7 @@ pub enum MetadataItem<'a, 'metadata> {
 }
 
 impl<'a, 'metadata> MetadataItem<'a, 'metadata> {
+    #[inline(always)]
     pub fn num_methods(&self) -> u8 {
         match self {
             MetadataItem::Contract { num_methods, .. }
@@ -92,6 +93,7 @@ impl<'a, 'metadata> MetadataItem<'a, 'metadata> {
         }
     }
 
+    #[inline(always)]
     pub fn into_decoder(self) -> MethodsMetadataDecoder<'a, 'metadata> {
         match self {
             MetadataItem::Contract { decoder, .. } | MetadataItem::Trait { decoder, .. } => decoder,
@@ -107,6 +109,7 @@ pub struct MetadataDecoder<'metadata> {
 }
 
 impl<'metadata> MetadataDecoder<'metadata> {
+    #[inline(always)]
     pub fn new(metadata: &'metadata [u8]) -> Self {
         Self {
             metadata,
@@ -115,6 +118,7 @@ impl<'metadata> MetadataDecoder<'metadata> {
         }
     }
 
+    #[inline(always)]
     pub fn decode_next<'a>(
         &'a mut self,
     ) -> Option<Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>>> {
@@ -164,6 +168,7 @@ impl<'metadata> MetadataDecoder<'metadata> {
         }
     }
 
+    #[inline(always)]
     fn decode_contract<'a>(
         &'a mut self,
     ) -> Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>> {
@@ -204,6 +209,7 @@ impl<'metadata> MetadataDecoder<'metadata> {
         })
     }
 
+    #[inline(always)]
     fn decode_trait<'a>(
         &'a mut self,
     ) -> Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>> {
@@ -252,6 +258,7 @@ pub struct MethodsMetadataDecoder<'a, 'metadata> {
 }
 
 impl<'a, 'metadata> MethodsMetadataDecoder<'a, 'metadata> {
+    #[inline(always)]
     fn new(
         metadata: &'a mut &'metadata [u8],
         container_kind: MethodsContainerKind,
@@ -264,6 +271,7 @@ impl<'a, 'metadata> MethodsMetadataDecoder<'a, 'metadata> {
         }
     }
 
+    #[inline(always)]
     pub fn decode_next<'b>(&'b mut self) -> Option<MethodMetadataDecoder<'b, 'metadata>> {
         if self.remaining == 0 {
             return None;
@@ -295,6 +303,7 @@ pub enum MethodKind {
 }
 
 impl MethodKind {
+    #[inline(always)]
     pub fn has_self(&self) -> bool {
         match self {
             MethodKind::Init | MethodKind::UpdateStateless | MethodKind::ViewStateless => false,
@@ -320,6 +329,7 @@ pub struct MethodMetadataDecoder<'a, 'metadata> {
 }
 
 impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
+    #[inline(always)]
     pub fn new(metadata: &'a mut &'metadata [u8], container_kind: MethodsContainerKind) -> Self {
         Self {
             metadata,
@@ -327,6 +337,7 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
         }
     }
 
+    #[inline(always)]
     pub fn decode_next(
         self,
     ) -> Result<
@@ -471,6 +482,7 @@ pub struct ArgumentsMetadataDecoder<'a, 'metadata> {
 }
 
 impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
+    #[inline(always)]
     pub fn decode_next<'a>(
         &'a mut self,
     ) -> Option<Result<ArgumentMetadataItem<'metadata>, MetadataDecodingError<'metadata>>> {
@@ -483,6 +495,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
         Some(self.decode_argument())
     }
 
+    #[inline(always)]
     fn decode_argument<'a>(
         &'a mut self,
     ) -> Result<ArgumentMetadataItem<'metadata>, MetadataDecodingError<'metadata>> {

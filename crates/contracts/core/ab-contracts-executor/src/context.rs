@@ -7,10 +7,9 @@ use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_contracts_common::{Address, ContractError, ExitCode, ShardIndex};
 use ab_system_contract_address_allocator::ffi::allocate_address::AddressAllocatorAllocateAddressArgs;
 use halfbrown::HashMap;
-use parking_lot::Mutex;
+use std::cell::UnsafeCell;
 use std::ffi::c_void;
 use std::ptr::NonNull;
-use std::sync::Arc;
 use tracing::{error, info_span};
 
 #[derive(Debug, Copy, Clone)]
@@ -23,188 +22,113 @@ pub(super) struct MethodDetails {
 }
 
 #[derive(Debug)]
-pub(super) struct NativeExecutorContext {
+pub(super) struct NativeExecutorContext<'a> {
     shard_index: ShardIndex,
     system_allocator_address: Address,
     /// Indexed by contract's code and method fingerprint
-    methods_by_code: Arc<HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>>,
-    slots: Arc<Mutex<Slots>>,
+    methods_by_code: &'a HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>,
+    slots: UnsafeCell<Slots<'a>>,
     allow_env_mutation: bool,
 }
 
-impl ExecutorContext for NativeExecutorContext {
-    fn call_many(
+impl<'a> ExecutorContext for NativeExecutorContext<'a> {
+    fn call(
         &self,
         previous_env_state: &EnvState,
-        prepared_methods: &mut [PreparedMethod<'_>],
+        prepared_method: &mut PreparedMethod<'_>,
     ) -> Result<(), ContractError> {
-        if prepared_methods.len() == 1 {
-            self.call_single_method(previous_env_state, &mut prepared_methods[0])?;
-        } else {
-            self.call_many_methods(previous_env_state, prepared_methods)?;
-        }
+        // SAFETY: `NativeExecutorContext` is not `Sync`, slots instance was provided as `&mut` in
+        // the constructor (meaning exclusive access) and this function is the only place where it
+        // is accessed without recursive calls to itself
+        let slots = unsafe { &mut *self.slots.get().cast::<Slots<'a>>() };
 
-        if self.slots.lock().access_violation() {
-            return Err(ContractError::Forbidden);
-        }
+        let result: Result<(), ContractError> = try {
+            let PreparedMethod {
+                contract,
+                fingerprint,
+                external_args,
+                method_context,
+                ..
+            } = prepared_method;
 
-        Ok(())
+            let env_state = EnvState {
+                shard_index: self.shard_index,
+                padding_0: Default::default(),
+                own_address: *contract,
+                context: match method_context {
+                    MethodContext::Keep => previous_env_state.context,
+                    MethodContext::Reset => Address::NULL,
+                    MethodContext::Replace => previous_env_state.own_address,
+                },
+                caller: previous_env_state.own_address,
+            };
+
+            let span = info_span!("NativeExecutorContext", %contract);
+            let _span_guard = span.enter();
+
+            let method_details = {
+                let code = slots.get_code(*contract).ok_or_else(|| {
+                    error!("Contract or its code not found");
+                    ContractError::NotFound
+                })?;
+                *self
+                    .methods_by_code
+                    .get(&(code.as_slice(), fingerprint))
+                    .ok_or_else(|| {
+                        let code = String::from_utf8_lossy(code.as_slice());
+                        error!(
+                            %code,
+                            %fingerprint,
+                            "Contract's code or fingerprint not found in methods map"
+                        );
+                        ContractError::NotImplemented
+                    })?
+            };
+            let is_allocate_new_address_method = contract == &self.system_allocator_address
+                && fingerprint == &AddressAllocatorAllocateAddressArgs::FINGERPRINT;
+
+            let ffi_call = FfiCall::new(
+                self.allow_env_mutation,
+                is_allocate_new_address_method,
+                slots,
+                *contract,
+                method_details,
+                external_args,
+                env_state,
+                |slots, allow_env_mutation| self.new_nested(slots, allow_env_mutation),
+            )?;
+
+            ffi_call.dispatch()?.persist()?
+        };
+
+        result
     }
 }
 
-impl NativeExecutorContext {
+impl<'a> NativeExecutorContext<'a> {
     pub(super) fn new(
         shard_index: ShardIndex,
-        methods_by_code: Arc<HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>>,
-        slots: Arc<Mutex<Slots>>,
+        methods_by_code: &'a HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>,
+        slots: Slots<'a>,
         allow_env_mutation: bool,
     ) -> Self {
         Self {
             shard_index,
             system_allocator_address: Address::system_address_allocator(shard_index),
             methods_by_code,
-            slots,
+            slots: UnsafeCell::new(slots),
             allow_env_mutation,
         }
     }
 
-    fn new_nested(&self, slots: Arc<Mutex<Slots>>, allow_env_mutation: bool) -> Self {
+    #[inline(always)]
+    fn new_nested(&self, slots: Slots<'a>, allow_env_mutation: bool) -> NativeExecutorContext<'a> {
         Self {
             shard_index: self.shard_index,
             system_allocator_address: self.system_allocator_address,
-            methods_by_code: Arc::clone(&self.methods_by_code),
-            slots,
+            methods_by_code: self.methods_by_code,
+            slots: UnsafeCell::new(slots),
             allow_env_mutation,
         }
-    }
-
-    fn prepare_ffi_call<'a>(
-        &self,
-        previous_env_state: &EnvState,
-        prepared_method: &'a mut PreparedMethod<'_>,
-        force_view_only: bool,
-        nested_slots: Arc<Mutex<Slots>>,
-    ) -> Result<FfiCall<'a>, ContractError> {
-        let PreparedMethod {
-            contract,
-            fingerprint,
-            external_args,
-            method_context,
-            ..
-        } = prepared_method;
-
-        let env_state = EnvState {
-            shard_index: self.shard_index,
-            padding_0: Default::default(),
-            own_address: *contract,
-            context: match method_context {
-                MethodContext::Keep => previous_env_state.context,
-                MethodContext::Reset => Address::NULL,
-                MethodContext::Replace => previous_env_state.own_address,
-            },
-            caller: previous_env_state.own_address,
-        };
-
-        let span = info_span!("NativeExecutorContext", %contract);
-        let _span_guard = span.enter();
-
-        let method_details = {
-            let code = nested_slots.lock().get_code(*contract).ok_or_else(|| {
-                error!("Contract or its code not found");
-                ContractError::NotFound
-            })?;
-            *self
-                .methods_by_code
-                .get(&(code.as_slice(), fingerprint))
-                .ok_or_else(|| {
-                    let code = String::from_utf8_lossy(code.as_slice());
-                    error!(
-                        %code,
-                        %fingerprint,
-                        "Contract's code or fingerprint not found in methods map"
-                    );
-                    ContractError::NotImplemented
-                })?
-        };
-        let is_allocate_new_address_method = contract == &self.system_allocator_address
-            && fingerprint == &AddressAllocatorAllocateAddressArgs::FINGERPRINT;
-
-        FfiCall::new(
-            self,
-            force_view_only,
-            is_allocate_new_address_method,
-            nested_slots,
-            *contract,
-            method_details,
-            external_args,
-            env_state,
-        )
-    }
-
-    fn call_single_method(
-        &self,
-        previous_env_state: &EnvState,
-        prepared_method: &mut PreparedMethod<'_>,
-    ) -> Result<(), ContractError> {
-        let nested_slots = self.slots.lock().new_nested(!self.allow_env_mutation);
-
-        let result: Result<(), ContractError> = try {
-            self.prepare_ffi_call(
-                previous_env_state,
-                prepared_method,
-                // For call to multiple methods only read-only `#[view]` is allowed
-                false,
-                Arc::clone(&nested_slots),
-            )?
-            .dispatch()?
-            .persist()?
-        };
-
-        if result.is_err() && self.allow_env_mutation {
-            Arc::into_inner(nested_slots)
-                .expect("All child references already dropped; qed")
-                .into_inner()
-                .reset();
-        }
-
-        result
-    }
-
-    fn call_many_methods(
-        &self,
-        previous_env_state: &EnvState,
-        prepared_methods: &mut [PreparedMethod<'_>],
-    ) -> Result<(), ContractError> {
-        let nested_slots = self.slots.lock().new_nested(true);
-
-        let ffi_calls = prepared_methods
-            .iter_mut()
-            .map(|prepared_method| {
-                self.prepare_ffi_call(
-                    previous_env_state,
-                    prepared_method,
-                    // For call to multiple methods only read-only `#[view]` is allowed
-                    true,
-                    Arc::clone(&nested_slots),
-                )
-            })
-            .collect::<Result<Vec<FfiCall>, _>>()?;
-
-        // TODO: Parallelism, but with panic unwinding it'll require to catch panics, which is
-        //  really annoying
-        // Collect all results regardless of success for deterministic behavior
-        let results = ffi_calls
-            .into_iter()
-            .map(|ffi_call| {
-                let result = ffi_call.dispatch()?;
-                result.persist()
-            })
-            .collect::<Vec<_>>();
-
-        for result in results {
-            let () = result?;
-        }
-
-        Ok(())
     }
 }

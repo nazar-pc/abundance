@@ -1,6 +1,6 @@
 use crate::context::{MethodDetails, NativeExecutorContext};
 use crate::slots::{SlotIndex, SlotKey, Slots};
-use ab_contracts_common::env::{Env, EnvState};
+use ab_contracts_common::env::{Env, EnvState, ExecutorContext};
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, ArgumentMetadataItem, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
     MethodsContainerKind,
@@ -8,13 +8,12 @@ use ab_contracts_common::metadata::decode::{
 use ab_contracts_common::{Address, ContractError, ExitCode};
 use ab_system_contract_address_allocator::AddressAllocator;
 use aliasable::boxed::AliasableBox;
-use parking_lot::Mutex;
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
-use std::slice;
-use std::sync::Arc;
+use std::{mem, ptr, slice};
 use tracing::{debug, error, warn};
 
 /// Read a pointer of type `$ty` from `$external` and advance `$external` past it
@@ -91,6 +90,7 @@ struct DelayedProcessingCollection {
 }
 
 impl DelayedProcessingCollection {
+    #[inline(always)]
     fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: Vec::with_capacity(capacity),
@@ -98,6 +98,7 @@ impl DelayedProcessingCollection {
     }
 
     /// Insert new entry and get mutable reference to it, which doesn't inherit stack borrows tag
+    #[inline(always)]
     fn insert_ro(
         &mut self,
         entry: DelayedProcessingSlotReadOnly,
@@ -115,6 +116,7 @@ impl DelayedProcessingCollection {
     }
 
     /// Insert new entry and get mutable reference to it, which doesn't inherit stack borrows tag
+    #[inline(always)]
     fn insert_rw(
         &mut self,
         entry: DelayedProcessingSlotReadWrite,
@@ -132,8 +134,151 @@ impl DelayedProcessingCollection {
     }
 }
 
+/// Special container that allows aliasing of `Env` stored inside it and holds onto slots
+enum MaybeEnv<Env, Slots> {
+    None(Slots),
+    ReadOnly(NonNull<UnsafeCell<Env>>),
+    ReadWrite(NonNull<UnsafeCell<Env>>),
+}
+
+impl<Env, Slots> Drop for MaybeEnv<Env, Slots> {
+    #[inline(always)]
+    fn drop(&mut self) {
+        match self {
+            MaybeEnv::None(_) => {}
+            MaybeEnv::ReadOnly(env) => {
+                // SAFETY: As `self` is being dropped, we can safely assume any aliasing has ended
+                // and drop the original `Box`
+                let _ = unsafe { Box::from_raw(env.as_ptr()) };
+            }
+            MaybeEnv::ReadWrite(env) => {
+                // SAFETY: As `self` is being dropped, we can safely assume any aliasing has ended
+                // and drop the original `Box`
+                let _ = unsafe { Box::from_raw(env.as_ptr()) };
+            }
+        }
+    }
+}
+
+impl<'slots> MaybeEnv<MaybeUninit<Env<'slots>>, ()> {
+    /// Insert a new value and get a pointer to it, value must be initialized later with
+    /// [`Self::initialize()`]
+    #[inline(always)]
+    fn insert_ro(&mut self) -> *const MaybeUninit<Env<'slots>> {
+        let env = Box::into_raw(Box::new(UnsafeCell::new(MaybeUninit::uninit())));
+        // SAFETY: Not null
+        let env = unsafe { NonNull::new_unchecked(env) };
+        let env_ptr = {
+            // SAFETY: Just initialized, no other references to the value
+            let env_ref = unsafe { env.as_ref() };
+            env_ref.get().cast_const()
+        };
+        *self = Self::ReadWrite(env);
+        env_ptr
+    }
+
+    /// Insert a new value and get a pointer to it, value must be initialized later with
+    /// [`Self::initialize()`]
+    #[inline(always)]
+    fn insert_rw(&mut self) -> *mut MaybeUninit<Env<'slots>> {
+        let env = Box::into_raw(Box::new(UnsafeCell::new(MaybeUninit::uninit())));
+        // SAFETY: Not null
+        let env = unsafe { NonNull::new_unchecked(env) };
+        let env_ptr = {
+            // SAFETY: Just initialized, no other references to the value
+            let env_ref = unsafe { env.as_ref() };
+            env_ref.get()
+        };
+        *self = Self::ReadWrite(env);
+        env_ptr
+    }
+
+    /// # Safety
+    /// Nothing must have a live reference to `self` or its internals
+    #[inline(always)]
+    unsafe fn initialize<CreateNestedContext>(
+        self,
+        slots: Slots<'slots>,
+        env_state: EnvState,
+        create_nested_context: CreateNestedContext,
+    ) -> MaybeEnv<Env<'slots>, Slots<'slots>>
+    where
+        CreateNestedContext: FnOnce(Slots<'slots>, bool) -> NativeExecutorContext<'slots>,
+    {
+        match &self {
+            Self::None(()) => MaybeEnv::None(slots),
+            &Self::ReadOnly(mut env_ro) => {
+                let env = Env::with_executor_context(
+                    env_state,
+                    Box::new(create_nested_context(slots, false)),
+                );
+                {
+                    // SAFETY: Nothing is accessing `env_ro` right now as per function signature
+                    let env_ro = unsafe { env_ro.as_mut() };
+                    env_ro.get_mut().write(env);
+                }
+                // Very explicit cast to the initialized value since it was just written to
+                let env_ro = NonNull::<UnsafeCell<MaybeUninit<Env<'slots>>>>::cast::<
+                    UnsafeCell<Env<'slots>>,
+                >(env_ro);
+
+                // Prevent destructor from running and de-allocating `Env`
+                mem::forget(self);
+
+                MaybeEnv::ReadOnly(env_ro)
+            }
+            &Self::ReadWrite(mut env_rw) => {
+                let env = Env::with_executor_context(
+                    env_state,
+                    Box::new(create_nested_context(slots, true)),
+                );
+                {
+                    // SAFETY: Nothing is accessing `env_rw` right now as per function signature
+                    let env_rw = unsafe { env_rw.as_mut() };
+                    env_rw.get_mut().write(env);
+                }
+                // Very explicit cast to the initialized value since it was just written to
+                let env_rw = NonNull::<UnsafeCell<MaybeUninit<Env<'slots>>>>::cast::<
+                    UnsafeCell<Env<'slots>>,
+                >(env_rw);
+
+                // Prevent destructor from running and de-allocating `Env`
+                mem::forget(self);
+
+                MaybeEnv::ReadWrite(env_rw)
+            }
+        }
+    }
+}
+
+impl<'slots> MaybeEnv<Env<'slots>, Slots<'slots>> {
+    /// # Safety
+    /// Nothing must have a live reference to `self` or its internals
+    #[inline(always)]
+    unsafe fn get_slots_mut<'a>(&'a mut self) -> &'a mut Slots<'slots>
+    where
+        'slots: 'a,
+    {
+        let env = match self {
+            MaybeEnv::None(slots) => {
+                return slots;
+            }
+            MaybeEnv::ReadOnly(env) | MaybeEnv::ReadWrite(env) => env,
+        };
+        // SAFETY: Nothing is accessing `env` right now as per function signature
+        let env = unsafe { env.as_mut() };
+        let env = env.get_mut();
+        // SAFETY: this is the correct original type and nothing else is referencing it right now
+        let context = unsafe {
+            &mut *ptr::from_mut::<dyn ExecutorContext + 'a>(env.get_mut_executor_context())
+                .cast::<NativeExecutorContext<'slots>>()
+        };
+        context.slots.get_mut()
+    }
+}
+
 #[must_use]
-pub(super) struct FfiCallResult<'a> {
+pub(super) struct FfiCallResult<'slots> {
     delayed_processing: DelayedProcessingCollection,
     // It is important to keep this allocation around or else `delayed_processing` that may contain
     // pointers to its memory could try to read deallocated memory
@@ -141,16 +286,15 @@ pub(super) struct FfiCallResult<'a> {
     // It is important to keep this allocation around or else `_internal_args` that may contain
     // pointers to its memory (indirectly by asking environment to keep allocation around) could try
     // to read deallocated memory
-    _maybe_env: Option<AliasableBox<UnsafeCell<Env<'a>>>>,
-    // Store slots instance, to make pointers to its contents remain valid for the duration of the
-    // call
-    slots: Arc<Mutex<Slots>>,
+    maybe_env: MaybeEnv<Env<'slots>, Slots<'slots>>,
 }
 
 impl FfiCallResult<'_> {
     /// Persist slot changes
-    pub(super) fn persist(self) -> Result<(), ContractError> {
-        let slots = &mut *self.slots.lock();
+    #[inline(always)]
+    pub(super) fn persist(mut self) -> Result<(), ContractError> {
+        // SAFETY: No live references to `maybe_env`
+        let slots = unsafe { self.maybe_env.get_slots_mut() };
 
         for entry in self.delayed_processing.inner {
             match entry.into_inner() {
@@ -217,27 +361,31 @@ impl FfiCallResult<'_> {
 }
 
 #[must_use]
-pub(super) struct FfiCall<'a> {
+pub(super) struct FfiCall<'slots, 'external_args> {
     delayed_processing: DelayedProcessingCollection,
     internal_args: AliasableBox<UnsafeCell<[MaybeUninit<*mut c_void>]>>,
-    maybe_env: Option<AliasableBox<UnsafeCell<Env<'a>>>>,
-    slots: Arc<Mutex<Slots>>,
+    maybe_env: MaybeEnv<Env<'slots>, Slots<'slots>>,
     new_address_ptr: Option<*mut Address>,
     ffi_fn: unsafe extern "C" fn(NonNull<NonNull<c_void>>) -> ExitCode,
+    phantom_data: PhantomData<&'external_args ()>,
 }
 
-impl<'a> FfiCall<'a> {
+impl<'slots, 'external_args> FfiCall<'slots, 'external_args> {
+    #[inline(always)]
     #[allow(clippy::too_many_arguments, reason = "Internal API")]
-    pub(super) fn new(
-        parent_context: &NativeExecutorContext,
-        force_view_only: bool,
+    pub(super) fn new<CreateNestedContext>(
+        allow_env_mutation: bool,
         is_allocate_new_address_method: bool,
-        slots: Arc<Mutex<Slots>>,
+        parent_slots: &'slots mut Slots<'slots>,
         contract: Address,
         method_details: MethodDetails,
-        external_args: &'a mut NonNull<NonNull<c_void>>,
+        external_args: &'external_args mut NonNull<NonNull<c_void>>,
         env_state: EnvState,
-    ) -> Result<Self, ContractError> {
+        create_nested_context: CreateNestedContext,
+    ) -> Result<Self, ContractError>
+    where
+        CreateNestedContext: FnOnce(Slots<'slots>, bool) -> NativeExecutorContext<'slots>,
+    {
         let MethodDetails {
             recommended_state_capacity,
             recommended_slot_capacity,
@@ -270,7 +418,7 @@ impl<'a> FfiCall<'a> {
         // just assumes the worst case), otherwise it would be 3 pointers: data + size + capacity.
         let internal_args = Box::<[*mut c_void]>::new_uninit_slice(total_arguments * 4);
         let internal_args = unsafe {
-            std::mem::transmute::<
+            mem::transmute::<
                 Box<[MaybeUninit<*mut c_void>]>,
                 Box<UnsafeCell<[MaybeUninit<*mut c_void>]>>,
             >(internal_args)
@@ -300,12 +448,8 @@ impl<'a> FfiCall<'a> {
             | MethodKind::UpdateStateless
             | MethodKind::UpdateStatefulRo
             | MethodKind::UpdateStatefulRw => {
-                if force_view_only || !parent_context.allow_env_mutation {
-                    warn!(
-                        force_view_only,
-                        allow_env_mutation = %parent_context.allow_env_mutation,
-                        "Only `#[view]` methods are allowed"
-                    );
+                if !allow_env_mutation {
+                    warn!(allow_env_mutation, "Only `#[view]` methods are allowed");
                     return Err(ContractError::Forbidden);
                 }
 
@@ -314,9 +458,17 @@ impl<'a> FfiCall<'a> {
             MethodKind::ViewStateless | MethodKind::ViewStateful => true,
         };
 
-        // Order is important here, `maybe_env` must be before `slots_guard` to avoid deadlock
-        let mut maybe_env = None::<AliasableBox<UnsafeCell<Env>>>;
-        let mut slots_guard = slots.lock();
+        let mut slots = if view_only {
+            parent_slots.new_nested_ro()
+        } else {
+            let Some(nested_slots) = parent_slots.new_nested_rw() else {
+                error!("Unexpected creation of non-read-only slots from read-only slots");
+                return Err(ContractError::InternalError);
+            };
+            nested_slots
+        };
+
+        let mut maybe_env = MaybeEnv::None(());
 
         // Handle `&self` and `&mut self`
         match method_kind {
@@ -324,7 +476,7 @@ impl<'a> FfiCall<'a> {
                 // No state handling is needed
             }
             MethodKind::UpdateStatefulRo | MethodKind::ViewStateful => {
-                let state_bytes = slots_guard
+                let state_bytes = slots
                     .use_ro(SlotKey {
                         owner: contract,
                         contract: Address::SYSTEM_STATE,
@@ -359,7 +511,7 @@ impl<'a> FfiCall<'a> {
                     owner: contract,
                     contract: Address::SYSTEM_STATE,
                 };
-                let (slot_index, state_bytes) = slots_guard
+                let (slot_index, state_bytes) = slots
                     .use_rw(slot_key, recommended_state_capacity)
                     .ok_or(ContractError::Forbidden)?;
 
@@ -409,12 +561,9 @@ impl<'a> FfiCall<'a> {
 
             match argument_kind {
                 ArgumentKind::EnvRo => {
-                    let env = Box::new(UnsafeCell::new(Env::with_executor_context(
-                        env_state,
-                        Box::new(parent_context.new_nested(Arc::clone(&slots), false)),
-                    )));
-                    let env = AliasableBox::from_unique(env);
-                    let env_ro = maybe_env.insert(env).get().cast_const();
+                    // Allocate and create a pointer now, the actual value will be inserted towards
+                    // the end of the function
+                    let env_ro = maybe_env.insert_ro().cast::<Env<'_>>();
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
                     unsafe {
@@ -428,12 +577,9 @@ impl<'a> FfiCall<'a> {
                         return Err(ContractError::Forbidden);
                     }
 
-                    let env = Box::new(UnsafeCell::new(Env::with_executor_context(
-                        env_state,
-                        Box::new(parent_context.new_nested(Arc::clone(&slots), true)),
-                    )));
-                    let env = AliasableBox::from_unique(env);
-                    let env_rw = maybe_env.insert(env).get();
+                    // Allocate and create a pointer now, the actual value will be inserted towards
+                    // the end of the function
+                    let env_rw = maybe_env.insert_rw().cast::<Env<'_>>();
 
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
@@ -464,9 +610,7 @@ impl<'a> FfiCall<'a> {
                         owner: *address,
                         contract,
                     };
-                    let slot_bytes = slots_guard
-                        .use_ro(slot_key)
-                        .ok_or(ContractError::Forbidden)?;
+                    let slot_bytes = slots.use_ro(slot_key).ok_or(ContractError::Forbidden)?;
 
                     let result = delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
                         size: slot_bytes.len(),
@@ -506,7 +650,7 @@ impl<'a> FfiCall<'a> {
                         owner: *address,
                         contract,
                     };
-                    let (slot_index, slot_bytes) = slots_guard
+                    let (slot_index, slot_bytes) = slots
                         .use_rw(slot_key, capacity)
                         .ok_or(ContractError::Forbidden)?;
 
@@ -555,7 +699,7 @@ impl<'a> FfiCall<'a> {
                             owner: contract,
                             contract: Address::SYSTEM_STATE,
                         };
-                        let (slot_index, state_bytes) = slots_guard
+                        let (slot_index, state_bytes) = slots
                             .use_rw(slot_key, recommended_state_capacity)
                             .ok_or(ContractError::Forbidden)?;
 
@@ -609,19 +753,21 @@ impl<'a> FfiCall<'a> {
             }
         }
 
-        drop(slots_guard);
+        // SAFETY: No live references to `maybe_env`
+        let maybe_env = unsafe { maybe_env.initialize(slots, env_state, create_nested_context) };
 
         Ok(Self {
             delayed_processing,
             internal_args,
             maybe_env,
-            slots,
             new_address_ptr,
             ffi_fn,
+            phantom_data: PhantomData,
         })
     }
 
-    pub(super) fn dispatch(mut self) -> Result<FfiCallResult<'a>, ContractError> {
+    #[inline(always)]
+    pub(super) fn dispatch(mut self) -> Result<FfiCallResult<'slots>, ContractError> {
         // Will only read initialized number of pointers, hence `NonNull<c_void>` even though
         // there is likely slack capacity with uninitialized data
         let internal_args =
@@ -631,7 +777,13 @@ impl<'a> FfiCall<'a> {
 
         // SAFETY: FFI function was generated at the same time as corresponding `Args` and must
         // match ABI of the fingerprint or else it wouldn't compile
-        Result::<(), ContractError>::from(unsafe { (self.ffi_fn)(internal_args) })?;
+        Result::<(), ContractError>::from(unsafe { (self.ffi_fn)(internal_args) }).inspect_err(
+            |_error| {
+                // SAFETY: No live references to `maybe_env`
+                let slots = unsafe { self.maybe_env.get_slots_mut() };
+                slots.reset();
+            },
+        )?;
 
         // Catch new address allocation and add it to new contracts in slots for code and other
         // things to become usable for it
@@ -642,7 +794,9 @@ impl<'a> FfiCall<'a> {
             // SAFETY: Method call to address allocator succeeded, so it must have returned an
             // address
             let new_address = unsafe { new_address_ptr.read() };
-            if !self.slots.lock().add_new_contract(new_address) {
+            // SAFETY: No live references to `maybe_env`
+            let slots = unsafe { self.maybe_env.get_slots_mut() };
+            if !slots.add_new_contract(new_address) {
                 warn!("Failed to add new contract returned by address allocator");
                 return Err(ContractError::InternalError);
             }
@@ -651,8 +805,7 @@ impl<'a> FfiCall<'a> {
         Ok(FfiCallResult {
             delayed_processing: self.delayed_processing,
             _internal_args: self.internal_args,
-            _maybe_env: self.maybe_env,
-            slots: self.slots,
+            maybe_env: self.maybe_env,
         })
     }
 }

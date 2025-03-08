@@ -12,7 +12,7 @@ use ab_system_contract_code::CodeExt;
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
 use ab_system_contract_simple_wallet_base::payload::builder::TransactionPayloadBuilder;
 use ab_system_contract_simple_wallet_base::seal::hash_and_sign;
-use criterion::{BatchSize, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BatchSize, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use schnorrkel::Keypair;
 
 #[derive(Copy, Clone, TrivialType)]
@@ -105,7 +105,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     }];
     let mut nonce = 0;
 
-    c.bench_function("verify", |b| {
+    let mut group = c.benchmark_group("example-wallet");
+    group.throughput(Throughput::Elements(1));
+
+    group.bench_function("verify-only", |b| {
         let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
 
         b.iter(|| {
@@ -124,7 +127,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("execute", |b| {
+    group.bench_function("execute-only", |b| {
         b.iter_batched(
             || {
                 let seal =
@@ -135,6 +138,32 @@ fn criterion_benchmark(c: &mut Criterion) {
             |seal| {
                 executor
                     .transaction_execute(
+                        black_box(Transaction {
+                            header: &header,
+                            read_slots,
+                            write_slots,
+                            payload: &payload,
+                            seal: seal.as_bytes(),
+                        }),
+                        black_box(storage),
+                    )
+                    .unwrap();
+            },
+            BatchSize::SmallInput,
+        )
+    });
+
+    group.bench_function("verify-and-execute", |b| {
+        b.iter_batched(
+            || {
+                let seal =
+                    hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
+                nonce += 1;
+                seal
+            },
+            |seal| {
+                executor
+                    .transaction_verify_execute(
                         black_box(Transaction {
                             header: &header,
                             read_slots,

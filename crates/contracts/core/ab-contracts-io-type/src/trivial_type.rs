@@ -38,7 +38,7 @@ where
     ///
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
-    #[inline]
+    #[inline(always)]
     unsafe fn from_bytes(bytes: &[u8]) -> Option<&Self> {
         let (before, slice, _) = unsafe { bytes.align_to::<Self>() };
 
@@ -52,7 +52,7 @@ where
     ///
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
-    #[inline]
+    #[inline(always)]
     unsafe fn from_bytes_mut(bytes: &mut [u8]) -> Option<&mut Self> {
         let (before, slice, _) = unsafe { bytes.align_to_mut::<Self>() };
 
@@ -60,7 +60,7 @@ where
     }
 
     /// Access the underlying byte representation of a data structure
-    #[inline]
+    #[inline(always)]
     fn as_bytes(&self) -> &[u8] {
         // SAFETY: All bits are valid for reading as bytes, see `TrivialType` description
         unsafe { slice::from_raw_parts(ptr::from_ref(self).cast::<u8>(), size_of::<Self>()) }
@@ -71,7 +71,7 @@ where
     /// # Safety
     /// While calling this function is technically safe, modifying returned memory buffer may result
     /// in broken invariants of underlying data structure and should be done with extra care.
-    #[inline]
+    #[inline(always)]
     unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
         // SAFETY: All bits are valid for reading as bytes, see `TrivialType` description
         unsafe { slice::from_raw_parts_mut(ptr::from_mut(self).cast::<u8>(), size_of::<Self>()) }
@@ -178,38 +178,38 @@ where
 
     type PointerType = T;
 
-    #[inline]
+    #[inline(always)]
     fn size(&self) -> u32 {
         size_of::<T>() as u32
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn size_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
         DerefWrapper(NonNull::from_ref(&T::SIZE))
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = *mut u32> {
         DerefWrapper(ptr::null_mut())
     }
 
-    #[inline]
+    #[inline(always)]
     fn capacity(&self) -> u32 {
         self.size()
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn capacity_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
         DerefWrapper(NonNull::from_ref(&Self::SIZE))
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert_eq!(size, T::SIZE, "`set_size` called with invalid input");
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
@@ -227,7 +227,7 @@ where
         unsafe { ptr.as_ref() }
     }
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
@@ -245,12 +245,12 @@ where
         unsafe { ptr.as_mut() }
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
         DerefWrapper(NonNull::from_ref(self))
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
         DerefWrapper(NonNull::from_mut(self))
     }

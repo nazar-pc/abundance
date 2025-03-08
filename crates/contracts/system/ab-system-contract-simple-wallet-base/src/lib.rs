@@ -194,7 +194,7 @@ impl SimpleWalletBase {
             .decode_next_method()
             .map_err(|_error| ContractError::BadInput)?
         {
-            env.call_many([prepared_method])?;
+            env.call_prepared(prepared_method)?;
         }
 
         Ok(())

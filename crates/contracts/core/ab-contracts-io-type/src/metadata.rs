@@ -57,6 +57,7 @@ pub struct IoTypeDetails {
 }
 
 impl IoTypeDetails {
+    #[inline(always)]
     const fn bytes(recommended_capacity: u32) -> Self {
         Self {
             recommended_capacity,
@@ -513,6 +514,7 @@ impl IoTypeMetadataKind {
     ///
     /// Returns type details and whatever slice of bytes from `input` that is left after
     /// type decoding.
+    #[inline(always)]
     pub const fn type_details(metadata: &[u8]) -> Option<(IoTypeDetails, &[u8])> {
         decode_type_details(metadata)
     }
