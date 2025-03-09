@@ -135,8 +135,8 @@ impl DelayedProcessingCollection {
 /// Special container that allows aliasing of `Env` stored inside it and holds onto slots
 enum MaybeEnv<Env, Slots> {
     None(Slots),
-    ReadOnly(NonNull<UnsafeCell<Env>>),
-    ReadWrite(NonNull<UnsafeCell<Env>>),
+    ReadOnly(*mut UnsafeCell<Env>),
+    ReadWrite(*mut UnsafeCell<Env>),
 }
 
 impl<Env, Slots> Drop for MaybeEnv<Env, Slots> {
@@ -144,15 +144,10 @@ impl<Env, Slots> Drop for MaybeEnv<Env, Slots> {
     fn drop(&mut self) {
         match self {
             MaybeEnv::None(_) => {}
-            MaybeEnv::ReadOnly(env) => {
+            &mut MaybeEnv::ReadOnly(env) | &mut MaybeEnv::ReadWrite(env) => {
                 // SAFETY: As `self` is being dropped, we can safely assume any aliasing has ended
                 // and drop the original `Box`
-                let _ = unsafe { Box::from_raw(env.as_ptr()) };
-            }
-            MaybeEnv::ReadWrite(env) => {
-                // SAFETY: As `self` is being dropped, we can safely assume any aliasing has ended
-                // and drop the original `Box`
-                let _ = unsafe { Box::from_raw(env.as_ptr()) };
+                let _ = unsafe { Box::from_raw(env) };
             }
         }
     }
@@ -164,11 +159,9 @@ impl<'slots> MaybeEnv<MaybeUninit<Env<'slots>>, ()> {
     #[inline(always)]
     fn insert_ro(&mut self) -> *const MaybeUninit<Env<'slots>> {
         let env = Box::into_raw(Box::new(UnsafeCell::new(MaybeUninit::uninit())));
-        // SAFETY: Not null
-        let env = unsafe { NonNull::new_unchecked(env) };
         let env_ptr = {
             // SAFETY: Just initialized, no other references to the value
-            let env_ref = unsafe { env.as_ref() };
+            let env_ref = unsafe { env.as_ref_unchecked() };
             env_ref.get().cast_const()
         };
         *self = Self::ReadOnly(env);
@@ -180,11 +173,9 @@ impl<'slots> MaybeEnv<MaybeUninit<Env<'slots>>, ()> {
     #[inline(always)]
     fn insert_rw(&mut self) -> *mut MaybeUninit<Env<'slots>> {
         let env = Box::into_raw(Box::new(UnsafeCell::new(MaybeUninit::uninit())));
-        // SAFETY: Not null
-        let env = unsafe { NonNull::new_unchecked(env) };
         let env_ptr = {
             // SAFETY: Just initialized, no other references to the value
-            let env_ref = unsafe { env.as_ref() };
+            let env_ref = unsafe { env.as_ref_unchecked() };
             env_ref.get()
         };
         *self = Self::ReadWrite(env);
@@ -203,42 +194,40 @@ impl<'slots> MaybeEnv<MaybeUninit<Env<'slots>>, ()> {
     where
         CreateNestedContext: FnOnce(Slots<'slots>, bool) -> NativeExecutorContext<'slots>,
     {
-        match &self {
+        match self {
             Self::None(()) => MaybeEnv::None(slots),
-            &Self::ReadOnly(mut env_ro) => {
+            Self::ReadOnly(env_ro) => {
                 let env = Env::with_executor_context(
                     env_state,
                     Box::new(create_nested_context(slots, false)),
                 );
                 {
-                    // SAFETY: Nothing is accessing `env_ro` right now as per function signature
-                    let env_ro = unsafe { env_ro.as_mut() };
+                    // SAFETY: Nothing is accessing `env_ro` right now as per function signature,
+                    // and it is guaranteed to be initialized with `Self::insert_ro()` above
+                    let env_ro = unsafe { env_ro.as_mut_unchecked() };
                     env_ro.get_mut().write(env);
                 }
                 // Very explicit cast to the initialized value since it was just written to
-                let env_ro = NonNull::<UnsafeCell<MaybeUninit<Env<'slots>>>>::cast::<
-                    UnsafeCell<Env<'slots>>,
-                >(env_ro);
+                let env_ro = env_ro.cast::<UnsafeCell<Env<'slots>>>();
 
                 // Prevent destructor from running and de-allocating `Env`
                 mem::forget(self);
 
                 MaybeEnv::ReadOnly(env_ro)
             }
-            &Self::ReadWrite(mut env_rw) => {
+            Self::ReadWrite(env_rw) => {
                 let env = Env::with_executor_context(
                     env_state,
                     Box::new(create_nested_context(slots, true)),
                 );
                 {
-                    // SAFETY: Nothing is accessing `env_rw` right now as per function signature
-                    let env_rw = unsafe { env_rw.as_mut() };
+                    // SAFETY: Nothing is accessing `env_rw` right now as per function signature,
+                    // and it is guaranteed to be initialized with `Self::insert_rw()` above
+                    let env_rw = unsafe { env_rw.as_mut_unchecked() };
                     env_rw.get_mut().write(env);
                 }
                 // Very explicit cast to the initialized value since it was just written to
-                let env_rw = NonNull::<UnsafeCell<MaybeUninit<Env<'slots>>>>::cast::<
-                    UnsafeCell<Env<'slots>>,
-                >(env_rw);
+                let env_rw = env_rw.cast::<UnsafeCell<Env<'slots>>>();
 
                 // Prevent destructor from running and de-allocating `Env`
                 mem::forget(self);
@@ -264,7 +253,7 @@ impl<'slots> MaybeEnv<Env<'slots>, Slots<'slots>> {
             MaybeEnv::ReadOnly(env) | MaybeEnv::ReadWrite(env) => env,
         };
         // SAFETY: Nothing is accessing `env` right now as per function signature
-        let env = unsafe { env.as_mut() };
+        let env = unsafe { env.as_mut_unchecked() };
         let env = env.get_mut();
         // SAFETY: this is the correct original type and nothing else is referencing it right now
         let context = unsafe {

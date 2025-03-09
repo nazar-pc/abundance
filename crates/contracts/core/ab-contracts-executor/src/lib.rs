@@ -1,4 +1,4 @@
-#![feature(pointer_is_aligned_to, try_blocks)]
+#![feature(pointer_is_aligned_to, ptr_as_ref_unchecked, try_blocks)]
 
 mod aligned_buffer;
 mod context;
