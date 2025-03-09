@@ -52,34 +52,71 @@ fn payload_encode_decode() {
     let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
     let mut output_buffer_offsets = [(0, 0); OUTPUT_BUFFER_OFFSETS_SIZE];
 
-    let mut decoder = TransactionPayloadDecoder::new(
-        &payload,
-        &mut external_args_buffer,
-        &mut output_buffer,
-        &mut output_buffer_offsets,
-        |method_context| match method_context {
-            TransactionMethodContext::Null => MethodContext::Reset,
-            TransactionMethodContext::Wallet => MethodContext::Keep,
-        },
-    );
+    // Untrusted
+    {
+        let mut decoder = TransactionPayloadDecoder::new(
+            &payload,
+            &mut external_args_buffer,
+            &mut output_buffer,
+            &mut output_buffer_offsets,
+            |method_context| match method_context {
+                TransactionMethodContext::Null => MethodContext::Reset,
+                TransactionMethodContext::Wallet => MethodContext::Keep,
+            },
+        );
 
-    let PreparedMethod {
-        contract,
-        fingerprint,
-        external_args,
-        method_context,
-        phantom: _,
-    } = decoder.decode_next_method().unwrap().unwrap();
+        let PreparedMethod {
+            contract,
+            fingerprint,
+            external_args,
+            method_context,
+            phantom: _,
+        } = decoder.decode_next_method().unwrap().unwrap();
 
-    assert_eq!(contract, expected_contract);
-    assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
-    assert_eq!(
-        unsafe { external_args.read().cast::<u8>().read() },
-        new_value
-    );
-    assert_eq!(method_context, MethodContext::Keep);
+        assert_eq!(contract, expected_contract);
+        assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
+        assert_eq!(
+            unsafe { external_args.read().cast::<u8>().read() },
+            new_value
+        );
+        assert_eq!(method_context, MethodContext::Keep);
 
-    // There is some padding, but it is correctly determined that there is no payload anymore
-    assert!(!decoder.payload.is_empty());
-    assert!(decoder.decode_next_method().unwrap().is_none());
+        // There is some padding, but it is correctly determined that there is no payload anymore
+        assert!(!decoder.payload.is_empty());
+        assert!(decoder.decode_next_method().unwrap().is_none());
+    }
+
+    // Trusted
+    {
+        let mut decoder = TransactionPayloadDecoder::new(
+            &payload,
+            &mut external_args_buffer,
+            &mut output_buffer,
+            &mut output_buffer_offsets,
+            |method_context| match method_context {
+                TransactionMethodContext::Null => MethodContext::Reset,
+                TransactionMethodContext::Wallet => MethodContext::Keep,
+            },
+        );
+
+        let PreparedMethod {
+            contract,
+            fingerprint,
+            external_args,
+            method_context,
+            phantom: _,
+        } = unsafe { decoder.decode_next_method_unchecked() }.unwrap();
+
+        assert_eq!(contract, expected_contract);
+        assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
+        assert_eq!(
+            unsafe { external_args.read().cast::<u8>().read() },
+            new_value
+        );
+        assert_eq!(method_context, MethodContext::Keep);
+
+        // There is some padding, but it is correctly determined that there is no payload anymore
+        assert!(!decoder.payload.is_empty());
+        assert!(unsafe { decoder.decode_next_method_unchecked() }.is_none());
+    }
 }

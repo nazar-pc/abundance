@@ -12,7 +12,7 @@
 //!   followed by [`SimpleWalletBase::increase_nonce`]
 //! * [`SimpleWalletBase::change_public_key`] is used for change public key to a different one
 
-#![feature(non_null_from_ref, try_blocks)]
+#![feature(non_null_from_ref, ptr_as_ref_unchecked, try_blocks)]
 #![no_std]
 
 pub mod payload;
@@ -151,11 +151,16 @@ impl SimpleWalletBase {
         )
     }
 
-    /// Executes provided transactions in the payload, *remember to also
-    /// [`SimpleWalletBase::increase_nonce()`] afterward* unless there is a very good reason not to
-    /// (like when wallet was replaced with another implementation containing a different state).
+    /// Executes provided transactions in the payload.
     ///
-    /// Caller must set themselves as a context or else error will be returned.
+    /// IMPORTANT:
+    /// * *must only be called with trusted input*, for example, successful signature verification
+    ///   in [`SimpleWalletBase::authorize()`] implies transaction was seen and verified by the user
+    /// * *remember to also [`SimpleWalletBase::increase_nonce()`] afterward* unless there is a very
+    ///   good reason not to (like when wallet was replaced with another implementation containing a
+    ///   different state)
+    ///
+    /// The caller must set themselves as a context or else error will be returned.
     #[update]
     pub fn execute(
         #[env] env: &mut Env,
@@ -190,9 +195,8 @@ impl SimpleWalletBase {
             },
         );
 
-        while let Some(prepared_method) = payload_decoder
-            .decode_next_method()
-            .map_err(|_error| ContractError::BadInput)?
+        // SAFETY: Verified in `Self::authorize()`
+        while let Some(prepared_method) = unsafe { payload_decoder.decode_next_method_unchecked() }
         {
             env.call_prepared(prepared_method)?;
         }

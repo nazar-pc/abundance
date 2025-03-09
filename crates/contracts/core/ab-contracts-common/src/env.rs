@@ -118,6 +118,11 @@ pub trait ExecutorContext: core::fmt::Debug {
     ) -> Result<(), ContractError>;
 }
 
+#[cfg(all(feature = "executor", feature = "guest", not(any(doc, unix, windows))))]
+compile_error!(
+    "`executor` and `guest` features are mutually exclusive due to it affecting `Env` layout"
+);
+
 /// Ephemeral execution environment.
 ///
 /// In guest environment equivalent to just [`EnvState`], while on Unix and Windows an executor

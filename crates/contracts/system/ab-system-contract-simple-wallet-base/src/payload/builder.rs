@@ -268,7 +268,9 @@ impl TransactionPayloadBuilder {
     fn ensure_alignment(&mut self, alignment: usize) {
         debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
 
-        let unaligned_by = self.payload.len() % alignment;
+        // Optimized version of the following that expects `alignment` to be a power of 2:
+        // let unaligned_by = self.payload.len() % alignment;
+        let unaligned_by = self.payload.len() & (alignment - 1);
         if unaligned_by > 0 {
             self.payload
                 .resize(self.payload.len() + (alignment - unaligned_by), 0);

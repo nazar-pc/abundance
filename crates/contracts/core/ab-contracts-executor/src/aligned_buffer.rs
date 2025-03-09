@@ -78,8 +78,10 @@ impl OwnedAlignedBuffer {
 
     #[inline(always)]
     pub(super) fn as_mut_ptr(&mut self) -> *mut u8 {
-        Arc::get_mut(&mut self.buffer)
-            .expect("Owned by this data structure; qed")
+        // SAFETY: `Arc` is owned by this data structure and neither exposed externally nor supports
+        // shared references in case of `OwnedAlignedBuffer`, hence `&mut self` implies exclusive
+        // access
+        unsafe { Arc::get_mut_unchecked(&mut self.buffer) }
             .as_mut_ptr()
             .cast::<u8>()
     }
@@ -143,8 +145,8 @@ impl OwnedAlignedBuffer {
 
     #[inline(always)]
     pub(super) fn capacity(&self) -> u32 {
-        u32::try_from(self.buffer.len() * AlignedBytes::SIZE)
-            .expect("API constraints capacity to `u32`; qed")
+        // API constraints capacity to `u32`, hence this never truncates
+        (self.buffer.len() * AlignedBytes::SIZE) as u32
     }
 
     /// Set the length of the useful data to specified value.
@@ -240,7 +242,7 @@ impl SharedAlignedBuffer {
 
     #[inline(always)]
     pub(super) fn capacity(&self) -> u32 {
-        u32::try_from(self.buffer.len() * AlignedBytes::SIZE)
-            .expect("API constraints capacity to `u32`; qed")
+        // API constraints capacity to `u32`, hence this never truncates
+        (self.buffer.len() * AlignedBytes::SIZE) as u32
     }
 }
