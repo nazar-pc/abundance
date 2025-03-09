@@ -7,7 +7,6 @@ use ab_contracts_common::metadata::decode::{
 };
 use ab_contracts_common::{Address, ContractError};
 use ab_system_contract_address_allocator::AddressAllocator;
-use aliasable::boxed::AliasableBox;
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
 use std::mem::MaybeUninit;
@@ -323,12 +322,11 @@ where
     // just assumes the worst case), otherwise it would be 3 pointers: data + size + capacity.
     let internal_args = Box::<[*mut c_void]>::new_uninit_slice(total_arguments * 4);
     // SAFETY: `UnsafeCell` has the same memory layout as its inner value
-    let internal_args = unsafe {
+    let mut internal_args = unsafe {
         mem::transmute::<Box<[MaybeUninit<*mut c_void>]>, Box<UnsafeCell<[MaybeUninit<*mut c_void>]>>>(
             internal_args,
         )
     };
-    let mut internal_args = AliasableBox::from_unique(internal_args);
 
     // This pointer will be moving as the data structure is being constructed, while `internal_args`
     // will keep pointing to the beginning
