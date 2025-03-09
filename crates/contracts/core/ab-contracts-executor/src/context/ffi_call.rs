@@ -5,12 +5,11 @@ use ab_contracts_common::metadata::decode::{
     ArgumentKind, ArgumentMetadataItem, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
     MethodsContainerKind,
 };
-use ab_contracts_common::{Address, ContractError, ExitCode};
+use ab_contracts_common::{Address, ContractError};
 use ab_system_contract_address_allocator::AddressAllocator;
 use aliasable::boxed::AliasableBox;
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
-use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 use std::{mem, ptr, slice};
@@ -277,256 +276,288 @@ impl<'slots> MaybeEnv<Env<'slots>, Slots<'slots>> {
     }
 }
 
-#[must_use]
-pub(super) struct FfiCallResult<'slots> {
-    delayed_processing: DelayedProcessingCollection,
-    // It is important to keep this allocation around or else `delayed_processing` that may contain
-    // pointers to its memory could try to read deallocated memory
-    _internal_args: AliasableBox<UnsafeCell<[MaybeUninit<*mut c_void>]>>,
-    // It is important to keep this allocation around or else `_internal_args` that may contain
-    // pointers to its memory (indirectly by asking environment to keep allocation around) could try
-    // to read deallocated memory
-    maybe_env: MaybeEnv<Env<'slots>, Slots<'slots>>,
-}
+#[inline(always)]
+#[allow(clippy::too_many_arguments, reason = "Internal API")]
+pub(super) fn make_ffi_call<'slots, 'external_args, CreateNestedContext>(
+    allow_env_mutation: bool,
+    is_allocate_new_address_method: bool,
+    parent_slots: &'slots mut Slots<'slots>,
+    contract: Address,
+    method_details: MethodDetails,
+    external_args: &'external_args mut NonNull<NonNull<c_void>>,
+    env_state: EnvState,
+    create_nested_context: CreateNestedContext,
+) -> Result<(), ContractError>
+where
+    CreateNestedContext: FnOnce(Slots<'slots>, bool) -> NativeExecutorContext<'slots>,
+{
+    let MethodDetails {
+        recommended_state_capacity,
+        recommended_slot_capacity,
+        recommended_tmp_capacity,
+        mut method_metadata,
+        ffi_fn,
+    } = method_details;
 
-impl FfiCallResult<'_> {
-    /// Persist slot changes
-    #[inline(always)]
-    pub(super) fn persist(mut self) -> Result<(), ContractError> {
-        // SAFETY: No live references to `maybe_env`
-        let slots = unsafe { self.maybe_env.get_slots_mut() };
+    let method_metadata_decoder =
+        MethodMetadataDecoder::new(&mut method_metadata, MethodsContainerKind::Unknown);
+    let (mut arguments_metadata_decoder, method_metadata_item) =
+        match method_metadata_decoder.decode_next() {
+            Ok(result) => result,
+            Err(error) => {
+                error!(%error, "Method metadata decoding error");
+                return Err(ContractError::InternalError);
+            }
+        };
+    let MethodMetadataItem {
+        method_kind,
+        num_arguments,
+        ..
+    } = method_metadata_item;
 
-        for entry in self.delayed_processing.inner {
-            match entry.into_inner() {
-                DelayedProcessing::SlotReadOnly { .. } => {
-                    // No processing is necessary
-                }
-                DelayedProcessing::SlotReadWrite(DelayedProcessingSlotReadWrite {
-                    data_ptr,
-                    size,
-                    slot_index,
-                    must_be_not_empty,
-                    ..
-                }) => {
-                    if must_be_not_empty && size == 0 {
-                        error!(
-                            %size,
-                            "Contract returned empty size where it is not allowed, likely state of \
-                            `#[init]` method"
-                        );
-                        return Err(ContractError::BadOutput);
-                    }
+    let total_arguments =
+        usize::from(num_arguments) + method_kind.has_self().then_some(1).unwrap_or_default();
+    // Allocate a buffer that will contain incrementally built `InternalArgs` that method expects,
+    // according to its metadata.
+    // `* 4` is due to slots having 2 pointers (detecting this accurately is more code, so this
+    // just assumes the worst case), otherwise it would be 3 pointers: data + size + capacity.
+    let internal_args = Box::<[*mut c_void]>::new_uninit_slice(total_arguments * 4);
+    let internal_args = unsafe {
+        mem::transmute::<Box<[MaybeUninit<*mut c_void>]>, Box<UnsafeCell<[MaybeUninit<*mut c_void>]>>>(
+            internal_args,
+        )
+    };
+    let mut internal_args = AliasableBox::from_unique(internal_args);
 
-                    // SAFETY: Correct pointer created earlier that is not used for anything
-                    // else at the moment
-                    let data_ptr = unsafe { data_ptr.as_ptr().read().cast_const() };
-                    let slot_bytes = slots
-                        .access_used_rw(slot_index)
-                        .expect("Was used in `FfiCall` and must `Slots` was not dropped yet; qed");
+    // This pointer will be moving as the data structure is being constructed, while `internal_args`
+    // will keep pointing to the beginning
+    let mut internal_args_cursor = NonNull::<MaybeUninit<*mut c_void>>::new(
+        internal_args.get().cast::<MaybeUninit<*mut c_void>>(),
+    )
+    .expect("Taken from non-null instance; qed")
+    .cast::<*mut c_void>();
+    // This pointer will be moving as the data structure is being read, while `external_args` will
+    // keep pointing to the beginning
+    let mut external_args_cursor = *external_args;
+    // Delayed processing of sizes as capacities since knowing them requires processing all
+    // arguments first.
+    //
+    // NOTE: It is important that this is never reallocated as it will invalidate all pointers to
+    // elements of this vector!
+    let mut delayed_processing = DelayedProcessingCollection::with_capacity(total_arguments);
 
-                    // Guest created a different allocation for slot, copy bytes
-                    if data_ptr != slot_bytes.as_mut_ptr() {
-                        if data_ptr.is_null() {
-                            error!("Contract returned `null` pointer for slot data");
-                            return Err(ContractError::BadOutput);
-                        }
-                        // SAFETY: For native execution guest behavior is assumed to be trusted
-                        // and provide a correct pointer and size
-                        let data = unsafe { slice::from_raw_parts(data_ptr, size as usize) };
-                        slot_bytes.copy_from_slice(data);
-                        continue;
-                    }
+    // `true` when only `#[view]` method is allowed
+    let view_only = match method_kind {
+        MethodKind::Init
+        | MethodKind::UpdateStateless
+        | MethodKind::UpdateStatefulRo
+        | MethodKind::UpdateStatefulRw => {
+            if !allow_env_mutation {
+                warn!(allow_env_mutation, "Only `#[view]` methods are allowed");
+                return Err(ContractError::Forbidden);
+            }
 
-                    if size > slot_bytes.capacity() {
-                        error!(
-                            %size,
-                            capacity = %slot_bytes.capacity(),
-                            "Contract returned invalid size for slot data in source allocation"
-                        );
-                        return Err(ContractError::BadOutput);
-                    }
-                    // Otherwise, set the size to what guest claims
-                    //
-                    // SAFETY: For native execution guest behavior is assumed to be trusted and
-                    // provide a correct size
-                    unsafe {
-                        slot_bytes.set_len(size);
-                    }
-                }
+            false
+        }
+        MethodKind::ViewStateless | MethodKind::ViewStateful => true,
+    };
+
+    let mut slots = if view_only {
+        parent_slots.new_nested_ro()
+    } else {
+        let Some(nested_slots) = parent_slots.new_nested_rw() else {
+            error!("Unexpected creation of non-read-only slots from read-only slots");
+            return Err(ContractError::InternalError);
+        };
+        nested_slots
+    };
+
+    let mut maybe_env = MaybeEnv::None(());
+
+    // Handle `&self` and `&mut self`
+    match method_kind {
+        MethodKind::Init | MethodKind::UpdateStateless | MethodKind::ViewStateless => {
+            // No state handling is needed
+        }
+        MethodKind::UpdateStatefulRo | MethodKind::ViewStateful => {
+            let state_bytes = slots
+                .use_ro(SlotKey {
+                    owner: contract,
+                    contract: Address::SYSTEM_STATE,
+                })
+                .ok_or(ContractError::Forbidden)?;
+
+            if state_bytes.is_empty() {
+                warn!("Contract does not have state yet, can't call stateful method before init");
+                return Err(ContractError::Forbidden);
+            }
+
+            let result = delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
+                size: state_bytes.len(),
+            });
+
+            // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above and
+            // aligned correctly
+            unsafe {
+                write_ptr!(state_bytes.as_ptr() => internal_args_cursor as *const u8);
+                write_ptr!(&result.size => internal_args_cursor as *const u32);
             }
         }
+        MethodKind::UpdateStatefulRw => {
+            if view_only {
+                warn!("Only `#[view]` methods are allowed");
+                return Err(ContractError::Forbidden);
+            }
 
-        Ok(())
+            let slot_key = SlotKey {
+                owner: contract,
+                contract: Address::SYSTEM_STATE,
+            };
+            let (slot_index, state_bytes) = slots
+                .use_rw(slot_key, recommended_state_capacity)
+                .ok_or(ContractError::Forbidden)?;
+
+            if state_bytes.is_empty() {
+                warn!("Contract does not have state yet, can't call stateful method before init");
+                return Err(ContractError::Forbidden);
+            }
+
+            let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
+                // Is updated below
+                data_ptr: NonNull::dangling(),
+                size: state_bytes.len(),
+                capacity: state_bytes.capacity(),
+                slot_index,
+                must_be_not_empty: false,
+            });
+
+            // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above and
+            // aligned correctly
+            unsafe {
+                result.data_ptr =
+                    write_ptr!(state_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
+                write_ptr!(&mut result.size => internal_args_cursor as *mut u32);
+                write_ptr!(&result.capacity => internal_args_cursor as *const u32);
+            }
+        }
     }
-}
 
-#[must_use]
-pub(super) struct FfiCall<'slots, 'external_args> {
-    delayed_processing: DelayedProcessingCollection,
-    internal_args: AliasableBox<UnsafeCell<[MaybeUninit<*mut c_void>]>>,
-    maybe_env: MaybeEnv<Env<'slots>, Slots<'slots>>,
-    new_address_ptr: Option<*mut Address>,
-    ffi_fn: unsafe extern "C" fn(NonNull<NonNull<c_void>>) -> ExitCode,
-    phantom_data: PhantomData<&'external_args ()>,
-}
+    let mut new_address_ptr = None;
 
-impl<'slots, 'external_args> FfiCall<'slots, 'external_args> {
-    #[inline(always)]
-    #[allow(clippy::too_many_arguments, reason = "Internal API")]
-    pub(super) fn new<CreateNestedContext>(
-        allow_env_mutation: bool,
-        is_allocate_new_address_method: bool,
-        parent_slots: &'slots mut Slots<'slots>,
-        contract: Address,
-        method_details: MethodDetails,
-        external_args: &'external_args mut NonNull<NonNull<c_void>>,
-        env_state: EnvState,
-        create_nested_context: CreateNestedContext,
-    ) -> Result<Self, ContractError>
-    where
-        CreateNestedContext: FnOnce(Slots<'slots>, bool) -> NativeExecutorContext<'slots>,
-    {
-        let MethodDetails {
-            recommended_state_capacity,
-            recommended_slot_capacity,
-            recommended_tmp_capacity,
-            mut method_metadata,
-            ffi_fn,
-        } = method_details;
+    let mut remaining_arguments = num_arguments;
+    // Handle all other arguments one by one
+    while let Some(result) = arguments_metadata_decoder.decode_next() {
+        remaining_arguments -= 1;
 
-        let method_metadata_decoder =
-            MethodMetadataDecoder::new(&mut method_metadata, MethodsContainerKind::Unknown);
-        let (mut arguments_metadata_decoder, method_metadata_item) =
-            match method_metadata_decoder.decode_next() {
-                Ok(result) => result,
-                Err(error) => {
-                    error!(%error, "Method metadata decoding error");
-                    return Err(ContractError::InternalError);
-                }
-            };
-        let MethodMetadataItem {
-            method_kind,
-            num_arguments,
-            ..
-        } = method_metadata_item;
-
-        let total_arguments =
-            usize::from(num_arguments) + method_kind.has_self().then_some(1).unwrap_or_default();
-        // Allocate a buffer that will contain incrementally built `InternalArgs` that method
-        // expects, according to its metadata.
-        // `* 4` is due to slots having 2 pointers (detecting this accurately is more code, so this
-        // just assumes the worst case), otherwise it would be 3 pointers: data + size + capacity.
-        let internal_args = Box::<[*mut c_void]>::new_uninit_slice(total_arguments * 4);
-        let internal_args = unsafe {
-            mem::transmute::<
-                Box<[MaybeUninit<*mut c_void>]>,
-                Box<UnsafeCell<[MaybeUninit<*mut c_void>]>>,
-            >(internal_args)
-        };
-        let internal_args = AliasableBox::from_unique(internal_args);
-
-        // This pointer will be moving as the data structure is being constructed, while
-        // `internal_args` will keep pointing to the beginning
-        let mut internal_args_cursor = NonNull::<MaybeUninit<*mut c_void>>::new(
-            internal_args.get().cast::<MaybeUninit<*mut c_void>>(),
-        )
-        .expect("Taken from non-null instance; qed")
-        .cast::<*mut c_void>();
-        // This pointer will be moving as the data structure is being read, while `external_args`
-        // will keep pointing to the beginning
-        let mut external_args_cursor = *external_args;
-        // Delayed processing of sizes as capacities since knowing them requires processing all
-        // arguments first.
-        //
-        // NOTE: It is important that this is never reallocated as it will invalidate all the
-        // pointers to elements of this vector!
-        let mut delayed_processing = DelayedProcessingCollection::with_capacity(total_arguments);
-
-        // `true` when only `#[view]` method is allowed
-        let view_only = match method_kind {
-            MethodKind::Init
-            | MethodKind::UpdateStateless
-            | MethodKind::UpdateStatefulRo
-            | MethodKind::UpdateStatefulRw => {
-                if !allow_env_mutation {
-                    warn!(allow_env_mutation, "Only `#[view]` methods are allowed");
-                    return Err(ContractError::Forbidden);
-                }
-
-                false
-            }
-            MethodKind::ViewStateless | MethodKind::ViewStateful => true,
-        };
-
-        let mut slots = if view_only {
-            parent_slots.new_nested_ro()
-        } else {
-            let Some(nested_slots) = parent_slots.new_nested_rw() else {
-                error!("Unexpected creation of non-read-only slots from read-only slots");
+        let item = match result {
+            Ok(result) => result,
+            Err(error) => {
+                error!(%error, "Argument metadata decoding error");
                 return Err(ContractError::InternalError);
-            };
-            nested_slots
+            }
         };
 
-        let mut maybe_env = MaybeEnv::None(());
+        let ArgumentMetadataItem { argument_kind, .. } = item;
 
-        // Handle `&self` and `&mut self`
-        match method_kind {
-            MethodKind::Init | MethodKind::UpdateStateless | MethodKind::ViewStateless => {
-                // No state handling is needed
+        match argument_kind {
+            ArgumentKind::EnvRo => {
+                // Allocate and create a pointer now, the actual value will be inserted towards the
+                // end of the function
+                let env_ro = maybe_env.insert_ro().cast::<Env<'_>>();
+                // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
+                // and aligned correctly
+                unsafe {
+                    write_ptr!(env_ro => internal_args_cursor as *const Env);
+                }
+
+                // Size for `#[env]` is implicit and doesn't need to be added to `InternalArgs`
             }
-            MethodKind::UpdateStatefulRo | MethodKind::ViewStateful => {
-                let state_bytes = slots
-                    .use_ro(SlotKey {
-                        owner: contract,
-                        contract: Address::SYSTEM_STATE,
-                    })
-                    .ok_or(ContractError::Forbidden)?;
-
-                if state_bytes.is_empty() {
-                    warn!(
-                        "Contract does not have state yet, can't call stateful method before init"
-                    );
+            ArgumentKind::EnvRw => {
+                if view_only {
                     return Err(ContractError::Forbidden);
                 }
+
+                // Allocate and create a pointer now, the actual value will be inserted towards the
+                // end of the function
+                let env_rw = maybe_env.insert_rw().cast::<Env<'_>>();
+
+                // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
+                // and aligned correctly
+                unsafe {
+                    write_ptr!(env_rw => internal_args_cursor as *mut Env);
+                }
+
+                // Size for `#[env]` is implicit and doesn't need to be added to `InternalArgs`
+            }
+            ArgumentKind::TmpRo | ArgumentKind::SlotRo => {
+                let tmp = matches!(argument_kind, ArgumentKind::TmpRo);
+
+                let address = if tmp {
+                    if view_only {
+                        return Err(ContractError::Forbidden);
+                    }
+
+                    // Null contact is used implicitly for `#[tmp]` since it is not possible for
+                    // this contract to write something there directly
+                    &Address::NULL
+                } else {
+                    // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
+                    // moving right past that is safe
+                    unsafe { &*read_ptr!(external_args_cursor as *const Address) }
+                };
+
+                let slot_key = SlotKey {
+                    owner: *address,
+                    contract,
+                };
+                let slot_bytes = slots.use_ro(slot_key).ok_or(ContractError::Forbidden)?;
 
                 let result = delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
-                    size: state_bytes.len(),
+                    size: slot_bytes.len(),
                 });
 
                 // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
                 // and aligned correctly
                 unsafe {
-                    write_ptr!(state_bytes.as_ptr() => internal_args_cursor as *const u8);
+                    if !tmp {
+                        write_ptr!(address => internal_args_cursor as *const Address);
+                    }
+                    write_ptr!(slot_bytes.as_ptr() => internal_args_cursor as *const u8);
                     write_ptr!(&result.size => internal_args_cursor as *const u32);
                 }
             }
-            MethodKind::UpdateStatefulRw => {
+            ArgumentKind::TmpRw | ArgumentKind::SlotRw => {
                 if view_only {
-                    warn!("Only `#[view]` methods are allowed");
                     return Err(ContractError::Forbidden);
                 }
+
+                let tmp = matches!(argument_kind, ArgumentKind::TmpRw);
+
+                let (address, capacity) = if tmp {
+                    // Null contact is used implicitly for `#[tmp]` since it is not possible for
+                    // this contract to write something there directly
+                    (&Address::NULL, recommended_tmp_capacity)
+                } else {
+                    // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
+                    // moving right past that is safe
+                    let address = unsafe { &*read_ptr!(external_args_cursor as *const Address) };
+
+                    (address, recommended_slot_capacity)
+                };
 
                 let slot_key = SlotKey {
-                    owner: contract,
-                    contract: Address::SYSTEM_STATE,
+                    owner: *address,
+                    contract,
                 };
-                let (slot_index, state_bytes) = slots
-                    .use_rw(slot_key, recommended_state_capacity)
+                let (slot_index, slot_bytes) = slots
+                    .use_rw(slot_key, capacity)
                     .ok_or(ContractError::Forbidden)?;
-
-                if state_bytes.is_empty() {
-                    warn!(
-                        "Contract does not have state yet, can't call stateful method before init"
-                    );
-                    return Err(ContractError::Forbidden);
-                }
 
                 let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
                     // Is updated below
                     data_ptr: NonNull::dangling(),
-                    size: state_bytes.len(),
-                    capacity: state_bytes.capacity(),
+                    size: slot_bytes.len(),
+                    capacity: slot_bytes.capacity(),
                     slot_index,
                     must_be_not_empty: false,
                 });
@@ -534,278 +565,193 @@ impl<'slots, 'external_args> FfiCall<'slots, 'external_args> {
                 // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
                 // and aligned correctly
                 unsafe {
+                    if !tmp {
+                        write_ptr!(address => internal_args_cursor as *const Address);
+                    }
                     result.data_ptr =
-                        write_ptr!(state_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
+                        write_ptr!(slot_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
                     write_ptr!(&mut result.size => internal_args_cursor as *mut u32);
                     write_ptr!(&result.capacity => internal_args_cursor as *const u32);
                 }
             }
-        }
-
-        let mut new_address_ptr = None;
-
-        let mut remaining_arguments = num_arguments;
-        // Handle all other arguments one by one
-        while let Some(result) = arguments_metadata_decoder.decode_next() {
-            remaining_arguments -= 1;
-
-            let item = match result {
-                Ok(result) => result,
-                Err(error) => {
-                    error!(%error, "Argument metadata decoding error");
-                    return Err(ContractError::InternalError);
+            ArgumentKind::Input => {
+                // SAFETY: `external_args_cursor`'s must contain a pointers to input + size.
+                // `internal_args_cursor`'s memory is allocated with sufficient size above and
+                // aligned correctly.
+                unsafe {
+                    // Input
+                    copy_ptr!(external_args_cursor => internal_args_cursor as *const u8);
+                    // Size
+                    copy_ptr!(external_args_cursor => internal_args_cursor as *const u32);
                 }
-            };
-
-            let ArgumentMetadataItem { argument_kind, .. } = item;
-
-            match argument_kind {
-                ArgumentKind::EnvRo => {
-                    // Allocate and create a pointer now, the actual value will be inserted towards
-                    // the end of the function
-                    let env_ro = maybe_env.insert_ro().cast::<Env<'_>>();
-                    // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
-                    // above and aligned correctly
-                    unsafe {
-                        write_ptr!(env_ro => internal_args_cursor as *const Env);
-                    }
-
-                    // Size for `#[env]` is implicit and doesn't need to be added to `InternalArgs`
-                }
-                ArgumentKind::EnvRw => {
+            }
+            ArgumentKind::Output => {
+                let last_argument = remaining_arguments == 0;
+                // `#[init]` method returns state of the contract and needs to be stored accordingly
+                if matches!((method_kind, last_argument), (MethodKind::Init, true)) {
                     if view_only {
                         return Err(ContractError::Forbidden);
                     }
 
-                    // Allocate and create a pointer now, the actual value will be inserted towards
-                    // the end of the function
-                    let env_rw = maybe_env.insert_rw().cast::<Env<'_>>();
-
-                    // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
-                    // above and aligned correctly
-                    unsafe {
-                        write_ptr!(env_rw => internal_args_cursor as *mut Env);
-                    }
-
-                    // Size for `#[env]` is implicit and doesn't need to be added to `InternalArgs`
-                }
-                ArgumentKind::TmpRo | ArgumentKind::SlotRo => {
-                    let tmp = matches!(argument_kind, ArgumentKind::TmpRo);
-
-                    let address = if tmp {
-                        if view_only {
-                            return Err(ContractError::Forbidden);
-                        }
-
-                        // Null contact is used implicitly for `#[tmp]` since it is not possible for
-                        // this contract to write something there directly
-                        &Address::NULL
-                    } else {
-                        // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
-                        // moving right past that is safe
-                        unsafe { &*read_ptr!(external_args_cursor as *const Address) }
-                    };
-
                     let slot_key = SlotKey {
-                        owner: *address,
-                        contract,
+                        owner: contract,
+                        contract: Address::SYSTEM_STATE,
                     };
-                    let slot_bytes = slots.use_ro(slot_key).ok_or(ContractError::Forbidden)?;
-
-                    let result = delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
-                        size: slot_bytes.len(),
-                    });
-
-                    // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
-                    // above and aligned correctly
-                    unsafe {
-                        if !tmp {
-                            write_ptr!(address => internal_args_cursor as *const Address);
-                        }
-                        write_ptr!(slot_bytes.as_ptr() => internal_args_cursor as *const u8);
-                        write_ptr!(&result.size => internal_args_cursor as *const u32);
-                    }
-                }
-                ArgumentKind::TmpRw | ArgumentKind::SlotRw => {
-                    if view_only {
-                        return Err(ContractError::Forbidden);
-                    }
-
-                    let tmp = matches!(argument_kind, ArgumentKind::TmpRw);
-
-                    let (address, capacity) = if tmp {
-                        // Null contact is used implicitly for `#[tmp]` since it is not possible for
-                        // this contract to write something there directly
-                        (&Address::NULL, recommended_tmp_capacity)
-                    } else {
-                        // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
-                        // moving right past that is safe
-                        let address =
-                            unsafe { &*read_ptr!(external_args_cursor as *const Address) };
-
-                        (address, recommended_slot_capacity)
-                    };
-
-                    let slot_key = SlotKey {
-                        owner: *address,
-                        contract,
-                    };
-                    let (slot_index, slot_bytes) = slots
-                        .use_rw(slot_key, capacity)
+                    let (slot_index, state_bytes) = slots
+                        .use_rw(slot_key, recommended_state_capacity)
                         .ok_or(ContractError::Forbidden)?;
+
+                    if !state_bytes.is_empty() {
+                        debug!("Can't initialize already initialized contract");
+                        return Err(ContractError::Forbidden);
+                    }
 
                     let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
                         // Is updated below
                         data_ptr: NonNull::dangling(),
-                        size: slot_bytes.len(),
-                        capacity: slot_bytes.capacity(),
+                        size: 0,
+                        capacity: state_bytes.capacity(),
                         slot_index,
-                        must_be_not_empty: false,
+                        must_be_not_empty: true,
                     });
 
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
                     unsafe {
-                        if !tmp {
-                            write_ptr!(address => internal_args_cursor as *const Address);
-                        }
                         result.data_ptr =
-                            write_ptr!(slot_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
+                            write_ptr!(state_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
                         write_ptr!(&mut result.size => internal_args_cursor as *mut u32);
                         write_ptr!(&result.capacity => internal_args_cursor as *const u32);
                     }
-                }
-                ArgumentKind::Input => {
-                    // SAFETY: `external_args_cursor`'s must contain a pointers to input + size.
+                } else {
+                    // SAFETY: `external_args_cursor`'s must contain a pointers to input + size
+                    // + capacity.
                     // `internal_args_cursor`'s memory is allocated with sufficient size above and
                     // aligned correctly.
                     unsafe {
-                        // Input
-                        copy_ptr!(external_args_cursor => internal_args_cursor as *const u8);
-                        // Size
+                        // Output
+                        if last_argument && is_allocate_new_address_method {
+                            let ptr = copy_ptr!(external_args_cursor => internal_args_cursor as *mut Address);
+                            new_address_ptr.replace(ptr);
+                        } else {
+                            copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
+                        }
+                        // Size (might be a null pointer for trivial types)
+                        let size_ptr =
+                            copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
+                        if !size_ptr.is_null() {
+                            // Override output size to be zero even if caller guest tried to put
+                            // something there
+                            size_ptr.write(0);
+                        }
+                        // Capacity
                         copy_ptr!(external_args_cursor => internal_args_cursor as *const u32);
-                    }
-                }
-                ArgumentKind::Output => {
-                    let last_argument = remaining_arguments == 0;
-                    // `#[init]` method returns state of the contract and needs to be stored
-                    // accordingly
-                    if matches!((method_kind, last_argument), (MethodKind::Init, true)) {
-                        if view_only {
-                            return Err(ContractError::Forbidden);
-                        }
-
-                        let slot_key = SlotKey {
-                            owner: contract,
-                            contract: Address::SYSTEM_STATE,
-                        };
-                        let (slot_index, state_bytes) = slots
-                            .use_rw(slot_key, recommended_state_capacity)
-                            .ok_or(ContractError::Forbidden)?;
-
-                        if !state_bytes.is_empty() {
-                            debug!("Can't initialize already initialized contract");
-                            return Err(ContractError::Forbidden);
-                        }
-
-                        let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
-                            // Is updated below
-                            data_ptr: NonNull::dangling(),
-                            size: 0,
-                            capacity: state_bytes.capacity(),
-                            slot_index,
-                            must_be_not_empty: true,
-                        });
-
-                        // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
-                        // above and aligned correctly
-                        unsafe {
-                            result.data_ptr = write_ptr!(state_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
-                            write_ptr!(&mut result.size => internal_args_cursor as *mut u32);
-                            write_ptr!(&result.capacity => internal_args_cursor as *const u32);
-                        }
-                    } else {
-                        // SAFETY: `external_args_cursor`'s must contain a pointers to input + size
-                        // + capacity.
-                        // `internal_args_cursor`'s memory is allocated with sufficient size above
-                        // and aligned correctly.
-                        unsafe {
-                            // Output
-                            if last_argument && is_allocate_new_address_method {
-                                let ptr = copy_ptr!(external_args_cursor => internal_args_cursor as *mut Address);
-                                new_address_ptr.replace(ptr);
-                            } else {
-                                copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
-                            }
-                            // Size (might be a null pointer for trivial types)
-                            let size_ptr =
-                                copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
-                            if !size_ptr.is_null() {
-                                // Override output size to be zero even if caller guest tried to put
-                                // something there
-                                size_ptr.write(0);
-                            }
-                            // Capacity
-                            copy_ptr!(external_args_cursor => internal_args_cursor as *const u32);
-                        }
                     }
                 }
             }
         }
-
-        // SAFETY: No live references to `maybe_env`
-        let maybe_env = unsafe { maybe_env.initialize(slots, env_state, create_nested_context) };
-
-        Ok(Self {
-            delayed_processing,
-            internal_args,
-            maybe_env,
-            new_address_ptr,
-            ffi_fn,
-            phantom_data: PhantomData,
-        })
     }
 
-    #[inline(always)]
-    pub(super) fn dispatch(mut self) -> Result<FfiCallResult<'slots>, ContractError> {
-        // Will only read initialized number of pointers, hence `NonNull<c_void>` even though
-        // there is likely slack capacity with uninitialized data
+    // SAFETY: No live references to `maybe_env`
+    let mut maybe_env = unsafe { maybe_env.initialize(slots, env_state, create_nested_context) };
+
+    {
+        // Will only read initialized number of pointers, hence `NonNull<c_void>` even though there
+        // is likely slack capacity with uninitialized data
         let internal_args =
-            NonNull::<MaybeUninit<*mut c_void>>::new(self.internal_args.get_mut().as_mut_ptr())
+            NonNull::<MaybeUninit<*mut c_void>>::new(internal_args.get_mut().as_mut_ptr())
                 .expect("Taken from non-null instance; qed")
                 .cast::<NonNull<c_void>>();
 
         // SAFETY: FFI function was generated at the same time as corresponding `Args` and must
         // match ABI of the fingerprint or else it wouldn't compile
-        Result::<(), ContractError>::from(unsafe { (self.ffi_fn)(internal_args) }).inspect_err(
+        Result::<(), ContractError>::from(unsafe { (ffi_fn)(internal_args) }).inspect_err(
             |_error| {
                 // SAFETY: No live references to `maybe_env`
-                let slots = unsafe { self.maybe_env.get_slots_mut() };
+                let slots = unsafe { maybe_env.get_slots_mut() };
                 slots.reset();
             },
         )?;
+    }
 
-        // Catch new address allocation and add it to new contracts in slots for code and other
-        // things to become usable for it
-        if let Some(new_address_ptr) = self.new_address_ptr {
-            // Assert that the API has expected shape
-            let _: fn(&mut AddressAllocator, &mut Env) -> Result<Address, ContractError> =
-                AddressAllocator::allocate_address;
-            // SAFETY: Method call to address allocator succeeded, so it must have returned an
-            // address
-            let new_address = unsafe { new_address_ptr.read() };
-            // SAFETY: No live references to `maybe_env`
-            let slots = unsafe { self.maybe_env.get_slots_mut() };
-            if !slots.add_new_contract(new_address) {
-                warn!("Failed to add new contract returned by address allocator");
-                return Err(ContractError::InternalError);
+    // Catch new address allocation and add it to new contracts in slots for code and other things
+    // to become usable for it
+    if let Some(new_address_ptr) = new_address_ptr {
+        // Assert that the API has expected shape
+        let _: fn(&mut AddressAllocator, &mut Env) -> Result<Address, ContractError> =
+            AddressAllocator::allocate_address;
+        // SAFETY: Method call to address allocator succeeded, so it must have returned an address
+        let new_address = unsafe { new_address_ptr.read() };
+        // SAFETY: No live references to `maybe_env`
+        let slots = unsafe { maybe_env.get_slots_mut() };
+        if !slots.add_new_contract(new_address) {
+            warn!("Failed to add new contract returned by address allocator");
+            return Err(ContractError::InternalError);
+        }
+    }
+
+    // SAFETY: No live references to `maybe_env`
+    let slots = unsafe { maybe_env.get_slots_mut() };
+
+    for entry in delayed_processing.inner {
+        match entry.into_inner() {
+            DelayedProcessing::SlotReadOnly { .. } => {
+                // No processing is necessary
+            }
+            DelayedProcessing::SlotReadWrite(DelayedProcessingSlotReadWrite {
+                data_ptr,
+                size,
+                slot_index,
+                must_be_not_empty,
+                ..
+            }) => {
+                if must_be_not_empty && size == 0 {
+                    error!(
+                        %size,
+                        "Contract returned empty size where it is not allowed, likely state of \
+                        `#[init]` method"
+                    );
+                    return Err(ContractError::BadOutput);
+                }
+
+                // SAFETY: Correct pointer created earlier that is not used for anything else at the
+                // moment
+                let data_ptr = unsafe { data_ptr.as_ptr().read().cast_const() };
+                let slot_bytes = slots
+                    .access_used_rw(slot_index)
+                    .expect("Was used in `FfiCall` and must `Slots` was not dropped yet; qed");
+
+                // Guest created a different allocation for slot, copy bytes
+                if data_ptr != slot_bytes.as_mut_ptr() {
+                    if data_ptr.is_null() {
+                        error!("Contract returned `null` pointer for slot data");
+                        return Err(ContractError::BadOutput);
+                    }
+                    // SAFETY: For native execution guest behavior is assumed to be trusted and
+                    // provide a correct pointer and size
+                    let data = unsafe { slice::from_raw_parts(data_ptr, size as usize) };
+                    slot_bytes.copy_from_slice(data);
+                    continue;
+                }
+
+                if size > slot_bytes.capacity() {
+                    error!(
+                        %size,
+                        capacity = %slot_bytes.capacity(),
+                        "Contract returned invalid size for slot data in source allocation"
+                    );
+                    return Err(ContractError::BadOutput);
+                }
+                // Otherwise, set the size to what guest claims
+                //
+                // SAFETY: For native execution guest behavior is assumed to be trusted and provide
+                // the correct size
+                unsafe {
+                    slot_bytes.set_len(size);
+                }
             }
         }
-
-        Ok(FfiCallResult {
-            delayed_processing: self.delayed_processing,
-            _internal_args: self.internal_args,
-            maybe_env: self.maybe_env,
-        })
     }
+
+    Ok(())
 }
