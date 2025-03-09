@@ -1,6 +1,6 @@
 mod ffi_call;
 
-use crate::context::ffi_call::FfiCall;
+use crate::context::ffi_call::make_ffi_call;
 use crate::slots::Slots;
 use ab_contracts_common::env::{EnvState, ExecutorContext, MethodContext, PreparedMethod};
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
@@ -42,66 +42,60 @@ impl<'a> ExecutorContext for NativeExecutorContext<'a> {
         // is accessed without recursive calls to itself
         let slots = unsafe { &mut *self.slots.get().cast::<Slots<'a>>() };
 
-        let result: Result<(), ContractError> = try {
-            let PreparedMethod {
-                contract,
-                fingerprint,
-                external_args,
-                method_context,
-                ..
-            } = prepared_method;
+        let PreparedMethod {
+            contract,
+            fingerprint,
+            external_args,
+            method_context,
+            ..
+        } = prepared_method;
 
-            let env_state = EnvState {
-                shard_index: self.shard_index,
-                padding_0: Default::default(),
-                own_address: *contract,
-                context: match method_context {
-                    MethodContext::Keep => previous_env_state.context,
-                    MethodContext::Reset => Address::NULL,
-                    MethodContext::Replace => previous_env_state.own_address,
-                },
-                caller: previous_env_state.own_address,
-            };
-
-            let span = info_span!("NativeExecutorContext", %contract);
-            let _span_guard = span.enter();
-
-            let method_details = {
-                let code = slots.get_code(*contract).ok_or_else(|| {
-                    error!("Contract or its code not found");
-                    ContractError::NotFound
-                })?;
-                *self
-                    .methods_by_code
-                    .get(&(code.as_slice(), fingerprint))
-                    .ok_or_else(|| {
-                        let code = String::from_utf8_lossy(code.as_slice());
-                        error!(
-                            %code,
-                            %fingerprint,
-                            "Contract's code or fingerprint not found in methods map"
-                        );
-                        ContractError::NotImplemented
-                    })?
-            };
-            let is_allocate_new_address_method = contract == &self.system_allocator_address
-                && fingerprint == &AddressAllocatorAllocateAddressArgs::FINGERPRINT;
-
-            let ffi_call = FfiCall::new(
-                self.allow_env_mutation,
-                is_allocate_new_address_method,
-                slots,
-                *contract,
-                method_details,
-                external_args,
-                env_state,
-                |slots, allow_env_mutation| self.new_nested(slots, allow_env_mutation),
-            )?;
-
-            ffi_call.dispatch()?.persist()?
+        let env_state = EnvState {
+            shard_index: self.shard_index,
+            padding_0: Default::default(),
+            own_address: *contract,
+            context: match method_context {
+                MethodContext::Keep => previous_env_state.context,
+                MethodContext::Reset => Address::NULL,
+                MethodContext::Replace => previous_env_state.own_address,
+            },
+            caller: previous_env_state.own_address,
         };
 
-        result
+        let span = info_span!("NativeExecutorContext", %contract);
+        let _span_guard = span.enter();
+
+        let method_details = {
+            let code = slots.get_code(*contract).ok_or_else(|| {
+                error!("Contract or its code not found");
+                ContractError::NotFound
+            })?;
+            *self
+                .methods_by_code
+                .get(&(code.as_slice(), fingerprint))
+                .ok_or_else(|| {
+                    let code = String::from_utf8_lossy(code.as_slice());
+                    error!(
+                        %code,
+                        %fingerprint,
+                        "Contract's code or fingerprint not found in methods map"
+                    );
+                    ContractError::NotImplemented
+                })?
+        };
+        let is_allocate_new_address_method = contract == &self.system_allocator_address
+            && fingerprint == &AddressAllocatorAllocateAddressArgs::FINGERPRINT;
+
+        make_ffi_call(
+            self.allow_env_mutation,
+            is_allocate_new_address_method,
+            slots,
+            *contract,
+            method_details,
+            external_args,
+            env_state,
+            |slots, allow_env_mutation| self.new_nested(slots, allow_env_mutation),
+        )
     }
 }
 
