@@ -243,17 +243,16 @@ impl<'a> TransactionPayloadDecoder<'a> {
                             ))?;
 
                         // SAFETY: Offset was created as the result of writing value at the correct
-                        // offset
+                        // offset into `output_buffer_offsets` earlier
                         let size = unsafe {
                             self.output_buffer
                                 .as_ptr()
                                 .byte_add(size_offset as usize)
                                 .cast::<u32>()
-                                .as_ref()
-                                .expect("Pointer is not null; qed")
+                                .as_ref_unchecked()
                         };
                         // SAFETY: Offset was created as the result of writing value at the correct
-                        // offset
+                        // offset into `output_buffer_offsets` earlier
                         let bytes = unsafe {
                             let bytes_ptr = self
                                 .output_buffer
