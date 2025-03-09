@@ -19,6 +19,7 @@ use core::ffi::c_void;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::num::NonZeroU8;
+use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
 use tinyvec::SliceVec;
@@ -184,10 +185,42 @@ impl<'a> TransactionPayloadDecoder<'a> {
             map_context,
         }
     }
+}
 
+impl<'a> TransactionPayloadDecoder<'a> {
+    /// Decode the next method (if any) in the payload
     pub fn decode_next_method(
         &mut self,
-    ) -> Result<Option<PreparedMethod<'a>>, TransactionPayloadDecoderError> {
+    ) -> Result<Option<PreparedMethod<'_>>, TransactionPayloadDecoderError> {
+        TransactionPayloadDecoderInternal(self).decode_next_method()
+    }
+}
+
+struct TransactionPayloadDecoderInternal<'tmp, 'decoder>(
+    &'tmp mut TransactionPayloadDecoder<'decoder>,
+);
+
+impl<'tmp, 'decoder> Deref for TransactionPayloadDecoderInternal<'tmp, 'decoder> {
+    type Target = TransactionPayloadDecoder<'decoder>;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+impl<'tmp, 'decoder> DerefMut for TransactionPayloadDecoderInternal<'tmp, 'decoder> {
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0
+    }
+}
+
+impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
+    #[inline(always)]
+    fn decode_next_method(
+        mut self,
+    ) -> Result<Option<PreparedMethod<'decoder>>, TransactionPayloadDecoderError> {
         if self.payload.len() <= usize::from(MAX_ALIGNMENT) {
             return Ok(None);
         }
@@ -314,7 +347,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
     }
 
     #[inline(always)]
-    fn get_trivial_type<T>(&mut self) -> Result<&'a T, TransactionPayloadDecoderError>
+    fn get_trivial_type<T>(&mut self) -> Result<&'decoder T, TransactionPayloadDecoderError>
     where
         T: TrivialType,
     {
@@ -337,7 +370,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
         &mut self,
         size: u32,
         alignment: usize,
-    ) -> Result<&'a [u8], TransactionPayloadDecoderError> {
+    ) -> Result<&'decoder [u8], TransactionPayloadDecoderError> {
         self.ensure_alignment(alignment);
 
         let bytes;
