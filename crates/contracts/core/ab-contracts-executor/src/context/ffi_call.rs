@@ -172,7 +172,7 @@ impl<'slots> MaybeEnv<MaybeUninit<Env<'slots>>, ()> {
             let env_ref = unsafe { env.as_ref() };
             env_ref.get().cast_const()
         };
-        *self = Self::ReadWrite(env);
+        *self = Self::ReadOnly(env);
         env_ptr
     }
 
@@ -322,6 +322,7 @@ where
     // `* 4` is due to slots having 2 pointers (detecting this accurately is more code, so this
     // just assumes the worst case), otherwise it would be 3 pointers: data + size + capacity.
     let internal_args = Box::<[*mut c_void]>::new_uninit_slice(total_arguments * 4);
+    // SAFETY: `UnsafeCell` has the same memory layout as its inner value
     let internal_args = unsafe {
         mem::transmute::<Box<[MaybeUninit<*mut c_void>]>, Box<UnsafeCell<[MaybeUninit<*mut c_void>]>>>(
             internal_args,
@@ -655,23 +656,24 @@ where
     // SAFETY: No live references to `maybe_env`
     let mut maybe_env = unsafe { maybe_env.initialize(slots, env_state, create_nested_context) };
 
-    {
-        // Will only read initialized number of pointers, hence `NonNull<c_void>` even though there
-        // is likely slack capacity with uninitialized data
-        let internal_args =
-            NonNull::<MaybeUninit<*mut c_void>>::new(internal_args.get_mut().as_mut_ptr())
-                .expect("Taken from non-null instance; qed")
-                .cast::<NonNull<c_void>>();
+    // Will only read initialized number of pointers, hence `NonNull<c_void>` even though there is
+    // likely slack capacity with uninitialized data
+    let internal_args =
+        NonNull::<MaybeUninit<*mut c_void>>::new(internal_args.get_mut().as_mut_ptr())
+            .expect("Taken from non-null instance; qed")
+            .cast::<NonNull<c_void>>();
 
-        // SAFETY: FFI function was generated at the same time as corresponding `Args` and must
-        // match ABI of the fingerprint or else it wouldn't compile
-        Result::<(), ContractError>::from(unsafe { (ffi_fn)(internal_args) }).inspect_err(
-            |_error| {
-                // SAFETY: No live references to `maybe_env`
-                let slots = unsafe { maybe_env.get_slots_mut() };
-                slots.reset();
-            },
-        )?;
+    // SAFETY: FFI function was generated at the same time as corresponding `Args` and must match
+    // ABI of the fingerprint or else it wouldn't compile
+    let result = Result::<(), ContractError>::from(unsafe { ffi_fn(internal_args) });
+
+    // SAFETY: No live references to `maybe_env`
+    let slots = unsafe { maybe_env.get_slots_mut() };
+
+    if let Err(error) = result {
+        slots.reset();
+
+        return Err(error);
     }
 
     // Catch new address allocation and add it to new contracts in slots for code and other things
@@ -682,16 +684,11 @@ where
             AddressAllocator::allocate_address;
         // SAFETY: Method call to address allocator succeeded, so it must have returned an address
         let new_address = unsafe { new_address_ptr.read() };
-        // SAFETY: No live references to `maybe_env`
-        let slots = unsafe { maybe_env.get_slots_mut() };
         if !slots.add_new_contract(new_address) {
             warn!("Failed to add new contract returned by address allocator");
             return Err(ContractError::InternalError);
         }
     }
-
-    // SAFETY: No live references to `maybe_env`
-    let slots = unsafe { maybe_env.get_slots_mut() };
 
     for entry in delayed_processing.inner {
         match entry.into_inner() {
@@ -717,9 +714,10 @@ where
                 // SAFETY: Correct pointer created earlier that is not used for anything else at the
                 // moment
                 let data_ptr = unsafe { data_ptr.as_ptr().read().cast_const() };
-                let slot_bytes = slots
-                    .access_used_rw(slot_index)
-                    .expect("Was used in `FfiCall` and must `Slots` was not dropped yet; qed");
+                let slot_bytes = slots.access_used_rw(slot_index).expect(
+                    "Was used in `make_ffi_call` and must exist if `Slots` was not dropped \
+                    yet; qed",
+                );
 
                 // Guest created a different allocation for slot, copy bytes
                 if data_ptr != slot_bytes.as_mut_ptr() {
