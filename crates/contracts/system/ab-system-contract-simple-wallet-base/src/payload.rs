@@ -436,7 +436,9 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
 
     #[inline(always)]
     fn ensure_alignment(&mut self, alignment: usize) {
-        let unaligned_by = self.payload.len() % alignment;
+        // Optimized version of the following that expects `alignment` to be a power of 2:
+        // let unaligned_by = self.payload.len() % alignment;
+        let unaligned_by = self.payload.len() & (alignment - 1);
         self.payload = &self.payload[unaligned_by..];
     }
 
@@ -472,7 +474,9 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     ) -> Option<(usize, NonNull<T>)> {
         debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
 
-        let unaligned_by = self.output_buffer_cursor % alignment;
+        // Optimized version of the following that expects `alignment` to be a power of 2:
+        // let unaligned_by = self.output_buffer_cursor % alignment;
+        let unaligned_by = self.output_buffer_cursor & (alignment - 1);
         if VERIFY
             && self.output_buffer_cursor + unaligned_by + size > size_of_val(self.output_buffer)
         {
