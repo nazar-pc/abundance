@@ -192,15 +192,31 @@ impl<'a> TransactionPayloadDecoder<'a> {
     pub fn decode_next_method(
         &mut self,
     ) -> Result<Option<PreparedMethod<'_>>, TransactionPayloadDecoderError> {
-        TransactionPayloadDecoderInternal(self).decode_next_method()
+        TransactionPayloadDecoderInternal::<true>(self).decode_next_method()
+    }
+
+    /// Decode the next method (if any) in the payload without checking size.
+    ///
+    /// # Safety
+    /// Must be used with trusted input created using `TransactionPayloadBuilder` or pre-verified
+    /// using [`Self::decode_next_method()`] earlier.
+    pub unsafe fn decode_next_method_unchecked(&mut self) -> Option<PreparedMethod<'_>> {
+        TransactionPayloadDecoderInternal::<false>(self)
+            .decode_next_method()
+            .expect("No decoding errors are possible with trusted input; qed")
     }
 }
 
-struct TransactionPayloadDecoderInternal<'tmp, 'decoder>(
+/// # Safety
+/// When `VERIFY == false` input must be trusted and created using `TransactionPayloadBuilder` or
+/// pre-verified using `VERIFY == true` earlier.
+struct TransactionPayloadDecoderInternal<'tmp, 'decoder, const VERIFY: bool>(
     &'tmp mut TransactionPayloadDecoder<'decoder>,
 );
 
-impl<'tmp, 'decoder> Deref for TransactionPayloadDecoderInternal<'tmp, 'decoder> {
+impl<'tmp, 'decoder, const VERIFY: bool> Deref
+    for TransactionPayloadDecoderInternal<'tmp, 'decoder, VERIFY>
+{
     type Target = TransactionPayloadDecoder<'decoder>;
 
     #[inline(always)]
@@ -209,14 +225,16 @@ impl<'tmp, 'decoder> Deref for TransactionPayloadDecoderInternal<'tmp, 'decoder>
     }
 }
 
-impl<'tmp, 'decoder> DerefMut for TransactionPayloadDecoderInternal<'tmp, 'decoder> {
+impl<'tmp, 'decoder, const VERIFY: bool> DerefMut
+    for TransactionPayloadDecoderInternal<'tmp, 'decoder, VERIFY>
+{
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
 }
 
-impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
+impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp, 'decoder, VERIFY> {
     #[inline(always)]
     fn decode_next_method(
         mut self,
@@ -268,12 +286,20 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
                         (bytes, size)
                     }
                     TransactionInputType::OutputIndex { output_index } => {
-                        let (size_offset, output_offset) = *self
-                            .output_buffer_offsets
-                            .get(usize::from(output_index))
-                            .ok_or(TransactionPayloadDecoderError::OutputIndexNotFound(
-                                output_index,
-                            ))?;
+                        let (size_offset, output_offset) = if VERIFY {
+                            *self
+                                .output_buffer_offsets
+                                .get(usize::from(output_index))
+                                .ok_or(TransactionPayloadDecoderError::OutputIndexNotFound(
+                                    output_index,
+                                ))?
+                        } else {
+                            // SAFETY: Unchecked version, see struct description
+                            *unsafe {
+                                self.output_buffer_offsets
+                                    .get_unchecked(usize::from(output_index))
+                            }
+                        };
 
                         // SAFETY: Offset was created as the result of writing value at the correct
                         // offset into `output_buffer_offsets` earlier
@@ -354,10 +380,15 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         self.ensure_alignment(align_of::<T>());
 
         let bytes;
-        (bytes, self.payload) = self
-            .payload
-            .split_at_checked(size_of::<T>())
-            .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
+        if VERIFY {
+            (bytes, self.payload) = self
+                .payload
+                .split_at_checked(size_of::<T>())
+                .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
+        } else {
+            // SAFETY: Unchecked version, see struct description
+            (bytes, self.payload) = unsafe { self.payload.split_at_unchecked(size_of::<T>()) };
+        }
 
         // SAFETY: Correctly aligned bytes of correct size
         let value_ref = unsafe { bytes.as_ptr().cast::<T>().as_ref().expect("Not null; qed") };
@@ -374,10 +405,15 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         self.ensure_alignment(alignment);
 
         let bytes;
-        (bytes, self.payload) = self
-            .payload
-            .split_at_checked(size as usize)
-            .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
+        if VERIFY {
+            (bytes, self.payload) = self
+                .payload
+                .split_at_checked(size as usize)
+                .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
+        } else {
+            // SAFETY: Unchecked version, see struct description
+            (bytes, self.payload) = unsafe { self.payload.split_at_unchecked(size as usize) };
+        }
 
         Ok(bytes)
     }
@@ -385,10 +421,15 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
     #[inline(always)]
     fn read_u8(&mut self) -> Result<u8, TransactionPayloadDecoderError> {
         let value;
-        (value, self.payload) = self
-            .payload
-            .split_at_checked(1)
-            .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
+        if VERIFY {
+            (value, self.payload) = self
+                .payload
+                .split_at_checked(1)
+                .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
+        } else {
+            // SAFETY: Unchecked version, see struct description
+            (value, self.payload) = unsafe { self.payload.split_at_unchecked(1) };
+        }
 
         Ok(value[0])
     }
@@ -405,7 +446,7 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         capacity: u32,
         output_alignment: usize,
     ) -> Result<(NonNull<u32>, NonNull<u8>), TransactionPayloadDecoderError> {
-        if self.output_buffer_offsets.len() == self.output_buffer_offsets.capacity() {
+        if VERIFY && self.output_buffer_offsets.len() == self.output_buffer_offsets.capacity() {
             return Err(TransactionPayloadDecoderError::OutputBufferOffsetsTooSmall);
         }
 
@@ -432,7 +473,9 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
 
         let unaligned_by = self.output_buffer_cursor % alignment;
-        if self.output_buffer_cursor + unaligned_by + size > size_of_val(self.output_buffer) {
+        if VERIFY
+            && self.output_buffer_cursor + unaligned_by + size > size_of_val(self.output_buffer)
+        {
             return None;
         }
 
