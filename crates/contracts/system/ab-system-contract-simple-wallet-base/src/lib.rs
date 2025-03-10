@@ -195,8 +195,9 @@ impl SimpleWalletBase {
             },
         );
 
-        // SAFETY: Verified in `Self::authorize()`
-        while let Some(prepared_method) = unsafe { payload_decoder.decode_next_method_unchecked() }
+        while let Some(prepared_method) = payload_decoder
+            .decode_next_method()
+            .map_err(|_error| ContractError::BadInput)?
         {
             env.call_prepared(prepared_method)?;
         }
