@@ -1,6 +1,5 @@
 use crate::metadata::{IoTypeDetails, IoTypeMetadataKind};
 use core::num::NonZeroU8;
-use core::ptr;
 
 /// This macro is necessary to reduce boilerplate due to lack of `?` in const environment
 macro_rules! forward_option {
@@ -416,15 +415,7 @@ const fn copy_n_bytes<'i, 'o>(
     let target;
     (source, input) = input.split_at(n);
     (target, output) = output.split_at_mut(n);
-    // TODO: Switch to `copy_from_slice` once stable:
-    //  https://github.com/rust-lang/rust/issues/131415
-    // The same as `target.copy_from_slice(&source);`, but it doesn't work in const environment
-    // yet
-    // SAFETY: Size is correct due to slicing above, pointers are created from valid independent
-    // slices of equal length
-    unsafe {
-        ptr::copy_nonoverlapping(source.as_ptr(), target.as_mut_ptr(), source.len());
-    }
+    target.copy_from_slice(source);
 
     Some((input, output))
 }

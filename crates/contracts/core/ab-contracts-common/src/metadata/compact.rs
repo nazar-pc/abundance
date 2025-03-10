@@ -1,6 +1,5 @@
 use crate::metadata::ContractMetadataKind;
 use ab_contracts_io_type::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY};
-use core::ptr;
 
 pub(super) const fn compact_metadata(
     metadata: &[u8],
@@ -310,15 +309,7 @@ const fn copy_n_bytes<'i, 'o>(
 
     let (source, input) = input.split_at(n);
     let (target, output) = output.split_at_mut(n);
-    // TODO: Switch to `copy_from_slice` once stable:
-    //  https://github.com/rust-lang/rust/issues/131415
-    // The same as `target.copy_from_slice(&source);`, but it doesn't work in const environment
-    // yet
-    // SAFETY: Size is correct due to slicing above, pointers are created from valid independent
-    // slices of equal length
-    unsafe {
-        ptr::copy_nonoverlapping(source.as_ptr(), target.as_mut_ptr(), source.len());
-    }
+    target.copy_from_slice(source);
 
     Some((input, output))
 }
