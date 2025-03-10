@@ -18,11 +18,10 @@ use ab_contracts_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
-use core::num::NonZeroU8;
+use core::num::{NonZeroU8, NonZeroUsize};
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
-use tinyvec::SliceVec;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
 #[repr(u8)]
@@ -127,6 +126,9 @@ pub enum TransactionPayloadDecoderError {
     /// Output index not found
     #[error("Output index not found: {0}")]
     OutputIndexNotFound(u8),
+    /// Alignment power is too large
+    #[error("Alignment power is too large: {0}")]
+    AlignmentPowerTooLarge(u8),
     /// Output buffer too small
     #[error("Output buffer too small")]
     OutputBufferTooSmall,
@@ -141,7 +143,8 @@ pub struct TransactionPayloadDecoder<'a> {
     external_args_buffer: &'a mut [*mut c_void],
     output_buffer: &'a mut [MaybeUninit<u128>],
     output_buffer_cursor: usize,
-    output_buffer_offsets: SliceVec<'a, (u32, u32)>,
+    output_buffer_offsets: &'a mut [MaybeUninit<(u32, u32)>],
+    output_buffer_offsets_cursor: usize,
     map_context: fn(TransactionMethodContext) -> MethodContext,
 }
 
@@ -159,11 +162,12 @@ impl<'a> TransactionPayloadDecoder<'a> {
     /// The size of `output_buffer_offsets` defines how many `#[output]` arguments and return values
     /// could exist in all methods of the payload together.
     #[inline]
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
     pub fn new(
         payload: &'a [u128],
         external_args_buffer: &'a mut [*mut c_void],
         output_buffer: &'a mut [MaybeUninit<u128>],
-        output_buffer_offsets: &'a mut [(u32, u32)],
+        output_buffer_offsets: &'a mut [MaybeUninit<(u32, u32)>],
         map_context: fn(TransactionMethodContext) -> MethodContext,
     ) -> Self {
         debug_assert_eq!(align_of_val(payload), usize::from(MAX_ALIGNMENT));
@@ -173,15 +177,13 @@ impl<'a> TransactionPayloadDecoder<'a> {
         let payload =
             unsafe { slice::from_raw_parts(payload.as_ptr().cast::<u8>(), size_of_val(payload)) };
 
-        let mut output_buffer_offsets = SliceVec::from(output_buffer_offsets);
-        output_buffer_offsets.clear();
-
         Self {
             payload,
             external_args_buffer,
             output_buffer,
             output_buffer_cursor: 0,
             output_buffer_offsets,
+            output_buffer_offsets_cursor: 0,
             map_context,
         }
     }
@@ -189,6 +191,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
 
 impl<'a> TransactionPayloadDecoder<'a> {
     /// Decode the next method (if any) in the payload
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
     pub fn decode_next_method(
         &mut self,
     ) -> Result<Option<PreparedMethod<'_>>, TransactionPayloadDecoderError> {
@@ -200,6 +203,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
     /// # Safety
     /// Must be used with trusted input created using `TransactionPayloadBuilder` or pre-verified
     /// using [`Self::decode_next_method()`] earlier.
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
     pub unsafe fn decode_next_method_unchecked(&mut self) -> Option<PreparedMethod<'_>> {
         TransactionPayloadDecoderInternal::<false>(self)
             .decode_next_method()
@@ -220,6 +224,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> Deref
     type Target = TransactionPayloadDecoder<'decoder>;
 
     #[inline(always)]
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
     fn deref(&self) -> &Self::Target {
         self.0
     }
@@ -229,6 +234,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> DerefMut
     for TransactionPayloadDecoderInternal<'tmp, 'decoder, VERIFY>
 {
     #[inline(always)]
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
@@ -236,6 +242,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> DerefMut
 
 impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp, 'decoder, VERIFY> {
     #[inline(always)]
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
     fn decode_next_method(
         mut self,
     ) -> Result<Option<PreparedMethod<'decoder>>, TransactionPayloadDecoderError> {
@@ -278,26 +285,47 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
             for _ in 0..num_input_arguments {
                 let (bytes, size) = match TransactionInput::from_u8(self.read_u8()?).input_type() {
                     TransactionInputType::Value { alignment_power } => {
-                        let alignment = 2usize.pow(u32::from(alignment_power));
+                        // Optimized version of the following:
+                        // let alignment = 2usize.pow(u32::from(alignment_power));
+                        let alignment = if VERIFY {
+                            1_usize.checked_shl(u32::from(alignment_power)).ok_or(
+                                TransactionPayloadDecoderError::AlignmentPowerTooLarge(
+                                    alignment_power,
+                                ),
+                            )?
+                        } else {
+                            // SAFETY: The unverified version, see struct description
+                            unsafe { 1_usize.unchecked_shl(u32::from(alignment_power)) }
+                        };
 
                         let size = self.get_trivial_type::<u32>()?;
-                        let bytes = self.get_bytes(*size, alignment)?;
+                        let bytes = self.get_bytes(
+                            *size,
+                            NonZeroUsize::new(alignment).expect("Not zero; qed"),
+                        )?;
 
                         (bytes, size)
                     }
                     TransactionInputType::OutputIndex { output_index } => {
                         let (size_offset, output_offset) = if VERIFY {
-                            *self
-                                .output_buffer_offsets
-                                .get(usize::from(output_index))
-                                .ok_or(TransactionPayloadDecoderError::OutputIndexNotFound(
+                            if usize::from(output_index) < self.output_buffer_offsets_cursor {
+                                // SAFETY: Checked that index is initialized
+                                unsafe {
+                                    self.output_buffer_offsets
+                                        .get_unchecked(usize::from(output_index))
+                                        .assume_init()
+                                }
+                            } else {
+                                return Err(TransactionPayloadDecoderError::OutputIndexNotFound(
                                     output_index,
-                                ))?
+                                ));
+                            }
                         } else {
-                            // SAFETY: Unchecked version, see struct description
-                            *unsafe {
+                            // SAFETY: The unverified version, see struct description
+                            unsafe {
                                 self.output_buffer_offsets
                                     .get_unchecked(usize::from(output_index))
+                                    .assume_init()
                             }
                         };
 
@@ -342,9 +370,21 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
             for _ in 0..num_output_arguments {
                 let recommended_capacity = self.get_trivial_type::<u32>()?;
                 let alignment_power = *self.get_trivial_type::<u8>()?;
-                let alignment = 2usize.pow(u32::from(alignment_power));
+                // Optimized version of the following:
+                // let alignment = 2usize.pow(u32::from(alignment_power));
+                let alignment = if VERIFY {
+                    1_usize.checked_shl(u32::from(alignment_power)).ok_or(
+                        TransactionPayloadDecoderError::AlignmentPowerTooLarge(alignment_power),
+                    )?
+                } else {
+                    // SAFETY: The unverified version, see struct description
+                    unsafe { 1_usize.unchecked_shl(u32::from(alignment_power)) }
+                };
 
-                let (size, data) = self.allocate_output_buffer(*recommended_capacity, alignment)?;
+                let (size, data) = self.allocate_output_buffer(
+                    *recommended_capacity,
+                    NonZeroUsize::new(alignment).expect("Not zero; qed"),
+                )?;
 
                 // SAFETY: Size of `self.external_args_buffer` checked above, buffer is correctly
                 // aligned
@@ -373,11 +413,12 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     }
 
     #[inline(always)]
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
     fn get_trivial_type<T>(&mut self) -> Result<&'decoder T, TransactionPayloadDecoderError>
     where
         T: TrivialType,
     {
-        self.ensure_alignment(align_of::<T>());
+        self.ensure_alignment(NonZeroUsize::new(align_of::<T>()).expect("Not zero; qed"));
 
         let bytes;
         if VERIFY {
@@ -386,7 +427,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
                 .split_at_checked(size_of::<T>())
                 .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
         } else {
-            // SAFETY: Unchecked version, see struct description
+            // SAFETY: The unverified version, see struct description
             (bytes, self.payload) = unsafe { self.payload.split_at_unchecked(size_of::<T>()) };
         }
 
@@ -397,10 +438,11 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     }
 
     #[inline(always)]
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
     fn get_bytes(
         &mut self,
         size: u32,
-        alignment: usize,
+        alignment: NonZeroUsize,
     ) -> Result<&'decoder [u8], TransactionPayloadDecoderError> {
         self.ensure_alignment(alignment);
 
@@ -411,7 +453,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
                 .split_at_checked(size as usize)
                 .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
         } else {
-            // SAFETY: Unchecked version, see struct description
+            // SAFETY: The unverified version, see struct description
             (bytes, self.payload) = unsafe { self.payload.split_at_unchecked(size as usize) };
         }
 
@@ -419,6 +461,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     }
 
     #[inline(always)]
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
     fn read_u8(&mut self) -> Result<u8, TransactionPayloadDecoderError> {
         let value;
         if VERIFY {
@@ -427,7 +470,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
                 .split_at_checked(1)
                 .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
         } else {
-            // SAFETY: Unchecked version, see struct description
+            // SAFETY: The unverified version, see struct description
             (value, self.payload) = unsafe { self.payload.split_at_unchecked(1) };
         }
 
@@ -435,65 +478,106 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     }
 
     #[inline(always)]
-    fn ensure_alignment(&mut self, alignment: usize) {
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    fn ensure_alignment(&mut self, alignment: NonZeroUsize) {
+        debug_assert!(alignment.get() <= usize::from(MAX_ALIGNMENT));
+
         // Optimized version of the following that expects `alignment` to be a power of 2:
         // let unaligned_by = self.payload.len() % alignment;
-        let unaligned_by = self.payload.len() & (alignment - 1);
+        let unaligned_by = {
+            let mask = alignment
+                .get()
+                .checked_sub(1)
+                .expect("Left side is not zero; qed");
+            self.payload.len() & mask
+        };
         self.payload = &self.payload[unaligned_by..];
     }
 
     #[inline(always)]
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
     fn allocate_output_buffer(
         &mut self,
         capacity: u32,
-        output_alignment: usize,
+        output_alignment: NonZeroUsize,
     ) -> Result<(NonNull<u32>, NonNull<u8>), TransactionPayloadDecoderError> {
-        if VERIFY && self.output_buffer_offsets.len() == self.output_buffer_offsets.capacity() {
+        if VERIFY && self.output_buffer_offsets.len() == self.output_buffer_offsets_cursor {
             return Err(TransactionPayloadDecoderError::OutputBufferOffsetsTooSmall);
         }
 
         let (size_offset, size_ptr) = self
-            .allocate_output_buffer_ptr::<u32>(align_of::<u32>(), size_of::<u32>())
+            .allocate_output_buffer_ptr(
+                NonZeroUsize::new(align_of::<u32>()).expect("Not zero; qed"),
+                size_of::<u32>(),
+            )
             .ok_or(TransactionPayloadDecoderError::OutputBufferTooSmall)?;
         let (output_offset, output_ptr) = self
             .allocate_output_buffer_ptr(output_alignment, capacity as usize)
             .ok_or(TransactionPayloadDecoderError::OutputBufferTooSmall)?;
 
-        self.output_buffer_offsets
-            .push((size_offset as u32, output_offset as u32));
+        // SAFETY: Checked above that output buffer offsets is not full
+        let output_buffer_offsets = unsafe {
+            // Borrow-checker doesn't understand that these variables are disjoint
+            let output_buffer_offsets_cursor = self.output_buffer_offsets_cursor;
+            self.output_buffer_offsets
+                .get_unchecked_mut(output_buffer_offsets_cursor)
+        };
+        output_buffer_offsets.write((size_offset as u32, output_offset as u32));
+        self.output_buffer_offsets_cursor += 1;
 
         Ok((size_ptr, output_ptr))
     }
 
     /// Returns `None` if output buffer is not large enough
     #[inline(always)]
+    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
     fn allocate_output_buffer_ptr<T>(
         &mut self,
-        alignment: usize,
+        alignment: NonZeroUsize,
         size: usize,
     ) -> Option<(usize, NonNull<T>)> {
-        debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
+        debug_assert!(alignment.get() <= usize::from(MAX_ALIGNMENT));
 
         // Optimized version of the following that expects `alignment` to be a power of 2:
         // let unaligned_by = self.output_buffer_cursor % alignment;
-        let unaligned_by = self.output_buffer_cursor & (alignment - 1);
-        if VERIFY
-            && self.output_buffer_cursor + unaligned_by + size > size_of_val(self.output_buffer)
-        {
-            return None;
-        }
+        let unaligned_by = {
+            let mask = alignment
+                .get()
+                .checked_sub(1)
+                .expect("Left side is not zero; qed");
+            self.output_buffer_cursor & mask
+        };
+
+        let new_output_buffer_cursor = if VERIFY {
+            let new_output_buffer_cursor = self
+                .output_buffer_cursor
+                .checked_add(unaligned_by)?
+                .checked_add(size)?;
+
+            if new_output_buffer_cursor > size_of_val(self.output_buffer) {
+                return None;
+            }
+
+            new_output_buffer_cursor
+        } else {
+            // SAFETY: The unverified version, see struct description
+            unsafe {
+                self.output_buffer_cursor
+                    .unchecked_add(unaligned_by)
+                    .unchecked_add(size)
+            }
+        };
 
         // SAFETY: Bounds and alignment checks are done above
-        let buffer_ptr = unsafe {
-            NonNull::new_unchecked(
-                self.output_buffer
-                    .as_mut_ptr()
-                    .byte_add(self.output_buffer_cursor + unaligned_by)
-                    .cast::<T>(),
-            )
+        let (offset, buffer_ptr) = unsafe {
+            let offset = self.output_buffer_cursor.unchecked_add(unaligned_by);
+            let buffer_ptr = NonNull::new_unchecked(
+                self.output_buffer.as_mut_ptr().byte_add(offset).cast::<T>(),
+            );
+
+            (offset, buffer_ptr)
         };
-        let offset = self.output_buffer_cursor + unaligned_by;
-        self.output_buffer_cursor += unaligned_by + size;
+        self.output_buffer_cursor = new_output_buffer_cursor;
 
         Some((offset, buffer_ptr))
     }

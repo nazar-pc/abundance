@@ -19,9 +19,9 @@ ab-contracts-io-type = { workspace = true }
 ab-contracts-macros = { workspace = true }
 ab-contracts-standards = { workspace = true }
 blake3 = { workspace = true }
+no-panic = { workspace = true, optional = true }
 schnorrkel = { workspace = true }
 thiserror = { workspace = true }
-tinyvec = { workspace = true }
 
 [features]
 guest = [
@@ -34,4 +34,8 @@ alloc = []
 # Enables payload builder API
 payload-builder = [
     "alloc",
+]
+# Check that code can't panic under any conditions
+no-panic = [
+    "dep:no-panic",
 ]
