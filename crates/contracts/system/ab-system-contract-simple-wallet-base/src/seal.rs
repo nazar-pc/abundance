@@ -62,6 +62,7 @@ pub fn hash_and_sign(
 ///
 /// [`hash_and_verify()`] helper function exists that combines this method with
 /// [`hash_transaction()`].
+#[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
 pub fn verify(
     public_key: &PublicKey,
     expected_nonce: u64,
@@ -79,6 +80,7 @@ pub fn verify(
         .map_err(|_error| ContractError::Forbidden)
 }
 
+// TODO: Add guarantees that this does not panic
 /// Combines [`hash_transaction()`] and [`verify()`]
 pub fn hash_and_verify(
     public_key: &PublicKey,

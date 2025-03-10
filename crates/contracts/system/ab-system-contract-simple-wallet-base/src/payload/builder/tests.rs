@@ -50,7 +50,7 @@ fn payload_encode_decode() {
 
     let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
     let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
-    let mut output_buffer_offsets = [(0, 0); OUTPUT_BUFFER_OFFSETS_SIZE];
+    let mut output_buffer_offsets = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
 
     // Untrusted
     {

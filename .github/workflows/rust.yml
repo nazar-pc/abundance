@@ -136,3 +136,64 @@ jobs:
       - name: cargo miri nextest run
         run: |
           cargo -Zgitoxide -Zgit miri nextest run
+
+  no-panic:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-15
+          # TODO: Windows is pain, add it at some point if possible, but generally other platforms should be sufficient
+          # - windows-2025
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configure cache
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Ensure no panics in annotated code
+        env:
+          # Increase inlining threshold to make sure the compiler can see that some functions do not panic
+          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=1000
+        run: |
+          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic
+
+      - name: Ensure no panics in annotated code (various features)
+        env:
+          # Increase inlining threshold to make sure the compiler can see that some functions do not panic
+          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=1000
+        run: |
+          for contract_path in crates/contracts/{example,system}/*; do
+            # Not all contracts have this feature yet
+            if ! grep -q '^no-panic =' "$contract_path/Cargo.toml"; then
+              continue
+            fi
+            contract="$(basename -- $contract_path)"
+            cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p $contract --features $contract/guest
+          done
+
+          # TODO: Would be nice to have these as job matrix later
+          # TODO: Unlock commented-out crates once they have the feature
+          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-common --features ab-contracts-common/guest
+          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-common --features ab-contracts-common/alloc
+          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-common --features ab-contracts-common/executor
+
+          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-macros --features ab-contracts-common/executor
+
+          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-standards --features ab-contracts-standards/guest
+
+          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/alloc
+          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+        if: runner.os == 'Linux'
