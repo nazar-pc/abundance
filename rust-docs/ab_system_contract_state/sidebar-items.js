@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["RECOMMENDED_STATE_CAPACITY"],"fn":["with_state_buffer"],"mod":["ffi"],"struct":["State"],"trait":["StateExt"]};
