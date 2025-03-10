@@ -145,6 +145,7 @@ impl ShardIndex {
     /// Convert shard index to `u32`.
     ///
     /// This is typically only necessary for low-level code.
+    #[inline(always)]
     pub const fn to_u32(self) -> u32 {
         self.0
     }
@@ -155,6 +156,7 @@ impl ShardIndex {
     /// Returns `None` if `shard_index > ShardIndex::MAX_SHARD_INDEX`
     ///
     /// This is typically only necessary for low-level code.
+    #[inline(always)]
     pub const fn from_u32(shard_index: u32) -> Option<Self> {
         if shard_index > Self::MAX_SHARD_INDEX {
             return None;

@@ -100,6 +100,7 @@ impl<'a> ExecutorContext for NativeExecutorContext<'a> {
 }
 
 impl<'a> NativeExecutorContext<'a> {
+    #[inline(always)]
     pub(super) fn new(
         shard_index: ShardIndex,
         methods_by_code: &'a HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>,

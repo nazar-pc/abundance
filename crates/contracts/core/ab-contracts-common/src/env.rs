@@ -1,11 +1,6 @@
-#[cfg(feature = "alloc")]
-extern crate alloc;
-
 use crate::method::{ExternalArgs, MethodFingerprint};
 use crate::{Address, ContractError, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
-#[cfg(feature = "executor")]
-use alloc::boxed::Box;
 use core::ffi::c_void;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
@@ -132,7 +127,7 @@ compile_error!(
 pub struct Env<'a> {
     state: EnvState,
     #[cfg(feature = "executor")]
-    executor_context: Box<dyn ExecutorContext + 'a>,
+    executor_context: &'a mut dyn ExecutorContext,
     phantom_data: PhantomData<&'a ()>,
 }
 
@@ -142,10 +137,10 @@ pub struct Env<'a> {
 impl<'a> Env<'a> {
     /// Instantiate environment with executor context
     #[cfg(feature = "executor")]
-    #[inline]
+    #[inline(always)]
     pub fn with_executor_context(
         state: EnvState,
-        executor_context: Box<dyn ExecutorContext + 'a>,
+        executor_context: &'a mut dyn ExecutorContext,
     ) -> Self {
         Self {
             state,
@@ -156,9 +151,9 @@ impl<'a> Env<'a> {
 
     /// Instantiate environment with executor context
     #[cfg(feature = "executor")]
-    #[inline]
-    pub fn get_mut_executor_context(&mut self) -> &mut (dyn ExecutorContext + 'a) {
-        self.executor_context.as_mut()
+    #[inline(always)]
+    pub fn get_mut_executor_context(&mut self) -> &mut dyn ExecutorContext {
+        self.executor_context
     }
 
     /// Shard index where execution is happening

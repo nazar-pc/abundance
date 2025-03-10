@@ -5,7 +5,7 @@ pub struct UnknownContractErrorCode(u8);
 
 impl UnknownContractErrorCode {
     /// Get the inner error code
-    #[inline]
+    #[inline(always)]
     pub const fn code(self) -> u8 {
         self.0
     }
@@ -16,7 +16,7 @@ pub struct CustomContractErrorCode(u64);
 
 impl CustomContractErrorCode {
     /// Get the inner error code
-    #[inline]
+    #[inline(always)]
     pub const fn code(self) -> u64 {
         self.0
     }
@@ -36,7 +36,7 @@ pub enum ContractError {
 }
 
 impl From<CustomContractErrorCode> for ContractError {
-    #[inline]
+    #[inline(always)]
     fn from(error: CustomContractErrorCode) -> Self {
         Self::Custom(error)
     }
@@ -46,7 +46,7 @@ impl ContractError {
     /// Create contract error with a custom error code.
     ///
     /// Code must be larger than `u8::MAX` or `None` will be returned.
-    #[inline]
+    #[inline(always)]
     pub const fn new_custom_code(code: u64) -> Option<Self> {
         if code > u8::MAX as u64 {
             Some(Self::Custom(CustomContractErrorCode(code)))
@@ -58,7 +58,7 @@ impl ContractError {
     /// Convert contact error into contract exit code.
     ///
     /// Mosty useful for low-level code.
-    #[inline]
+    #[inline(always)]
     pub const fn exit_code(self) -> ExitCode {
         ExitCode(match self {
             Self::BadInput => 1,
@@ -80,14 +80,14 @@ impl ContractError {
 pub struct ExitCode(u64);
 
 impl From<ContractError> for ExitCode {
-    #[inline]
+    #[inline(always)]
     fn from(error: ContractError) -> Self {
         error.exit_code()
     }
 }
 
 impl From<Result<(), ContractError>> for ExitCode {
-    #[inline]
+    #[inline(always)]
     fn from(error: Result<(), ContractError>) -> Self {
         match error {
             Ok(()) => Self(0),
@@ -97,7 +97,7 @@ impl From<Result<(), ContractError>> for ExitCode {
 }
 
 impl From<ExitCode> for Result<(), ContractError> {
-    #[inline]
+    #[inline(always)]
     fn from(value: ExitCode) -> Self {
         Err(match value.0 {
             0 => {
@@ -120,13 +120,13 @@ impl From<ExitCode> for Result<(), ContractError> {
 
 impl ExitCode {
     /// Exit code indicating success
-    #[inline]
+    #[inline(always)]
     pub fn ok() -> Self {
         Self(0)
     }
 
     /// Convert into `u64`
-    #[inline]
+    #[inline(always)]
     pub const fn into_u64(self) -> u64 {
         self.0
     }

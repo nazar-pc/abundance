@@ -23,7 +23,5 @@ thiserror = { workspace = true }
 
 [features]
 guest = []
-# APIs that require `alloc` crate
-alloc = []
 # APIs needed for native executor
-executor = ["alloc"]
+executor = []
