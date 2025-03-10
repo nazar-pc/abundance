@@ -8,7 +8,6 @@ use crate::metadata::compact::compact_metadata;
 use crate::metadata::type_details::decode_type_details;
 use crate::metadata::type_name::type_name;
 use core::num::NonZeroU8;
-use core::ptr;
 
 /// Max capacity for metadata bytes used in fixed size buffers
 pub const MAX_METADATA_CAPACITY: usize = 8192;
@@ -27,16 +26,7 @@ pub const fn concat_metadata_sources(sources: &[&[u8]]) -> ([u8; MAX_METADATA_CA
         let source = sources[i];
         let target;
         (target, remainder) = remainder.split_at_mut(source.len());
-
-        // TODO: Switch to `copy_from_slice` once stable:
-        //  https://github.com/rust-lang/rust/issues/131415
-        // The same as `target.copy_from_slice(&source);`, but it doesn't work in const environment
-        // yet
-        // SAFETY: Size is correct due to slicing above, pointers are created from valid independent
-        // slices of equal length
-        unsafe {
-            ptr::copy_nonoverlapping(source.as_ptr(), target.as_mut_ptr(), source.len());
-        }
+        target.copy_from_slice(source);
         i += 1;
     }
 
