@@ -335,15 +335,13 @@ impl NativeExecutor {
             .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
 
-        let env = Env::with_executor_context(
-            env_state,
-            Box::new(NativeExecutorContext::new(
-                self.shard_index,
-                &self.methods_by_code,
-                storage.slots.new_nested_ro(),
-                false,
-            )),
+        let mut executor_context = NativeExecutorContext::new(
+            self.shard_index,
+            &self.methods_by_code,
+            storage.slots.new_nested_ro(),
+            false,
         );
+        let env = Env::with_executor_context(env_state, &mut executor_context);
         env.tx_handler_authorize(
             transaction.header.contract,
             transaction.header,
@@ -391,15 +389,13 @@ impl NativeExecutor {
             .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
 
-        let mut env = Env::with_executor_context(
-            env_state,
-            Box::new(NativeExecutorContext::new(
-                self.shard_index,
-                &self.methods_by_code,
-                storage.slots_rw(),
-                true,
-            )),
+        let mut executor_context = NativeExecutorContext::new(
+            self.shard_index,
+            &self.methods_by_code,
+            storage.slots_rw(),
+            true,
         );
+        let mut env = Env::with_executor_context(env_state, &mut executor_context);
         env.tx_handler_execute(
             MethodContext::Reset,
             transaction.header.contract,
@@ -448,15 +444,13 @@ impl NativeExecutor {
 
         // TODO: Make it more efficient by not recreating NativeExecutorContext twice here
         {
-            let env = Env::with_executor_context(
-                env_state,
-                Box::new(NativeExecutorContext::new(
-                    self.shard_index,
-                    &self.methods_by_code,
-                    storage.slots.new_nested_ro(),
-                    false,
-                )),
+            let mut executor_context = NativeExecutorContext::new(
+                self.shard_index,
+                &self.methods_by_code,
+                storage.slots.new_nested_ro(),
+                false,
             );
+            let env = Env::with_executor_context(env_state, &mut executor_context);
             env.tx_handler_authorize(
                 transaction.header.contract,
                 transaction.header,
@@ -468,15 +462,13 @@ impl NativeExecutor {
         }
 
         {
-            let mut env = Env::with_executor_context(
-                env_state,
-                Box::new(NativeExecutorContext::new(
-                    self.shard_index,
-                    &self.methods_by_code,
-                    storage.slots_rw(),
-                    true,
-                )),
+            let mut executor_context = NativeExecutorContext::new(
+                self.shard_index,
+                &self.methods_by_code,
+                storage.slots_rw(),
+                true,
             );
+            let mut env = Env::with_executor_context(env_state, &mut executor_context);
             env.tx_handler_execute(
                 MethodContext::Reset,
                 transaction.header.contract,
@@ -505,26 +497,6 @@ impl NativeExecutor {
     where
         Calls: FnOnce(&mut Env) -> T,
     {
-        let mut env = self.env_internal(contract, storage.slots_rw(), true);
-        calls(&mut env)
-    }
-
-    /// Get a read-only `Env` instance for calling `#[view]` methods on it directly.
-    ///
-    /// For stateful methods, execute a transaction using [`Self::transaction_execute()`] or
-    /// emulate one with [`Self::transaction_emulate()`].
-    #[must_use]
-    pub fn env_ro<'a>(&'a self, storage: &'a Storage) -> Env<'a> {
-        self.env_internal(Address::NULL, storage.slots_ro(), false)
-    }
-
-    #[inline(always)]
-    fn env_internal<'a>(
-        &'a self,
-        contract: Address,
-        slots: Slots<'a>,
-        allow_env_mutation: bool,
-    ) -> Env<'a> {
         let env_state = EnvState {
             shard_index: self.shard_index,
             padding_0: Default::default(),
@@ -533,14 +505,40 @@ impl NativeExecutor {
             caller: Address::NULL,
         };
 
-        Env::with_executor_context(
-            env_state,
-            Box::new(NativeExecutorContext::new(
-                self.shard_index,
-                &self.methods_by_code,
-                slots,
-                allow_env_mutation,
-            )),
-        )
+        let mut executor_context = NativeExecutorContext::new(
+            self.shard_index,
+            &self.methods_by_code,
+            storage.slots_rw(),
+            true,
+        );
+        let mut env = Env::with_executor_context(env_state, &mut executor_context);
+        calls(&mut env)
+    }
+
+    /// Get a read-only `Env` instance for calling `#[view]` methods on it directly.
+    ///
+    /// For stateful methods, execute a transaction using [`Self::transaction_execute()`] or
+    /// emulate one with [`Self::transaction_emulate()`].
+    #[must_use]
+    pub fn with_env_ro<Callback, T>(&self, storage: &Storage, callback: Callback) -> T
+    where
+        Callback: FnOnce(&Env<'_>) -> T,
+    {
+        let env_state = EnvState {
+            shard_index: self.shard_index,
+            padding_0: Default::default(),
+            own_address: Address::NULL,
+            context: Address::NULL,
+            caller: Address::NULL,
+        };
+
+        let mut executor_context = NativeExecutorContext::new(
+            self.shard_index,
+            &self.methods_by_code,
+            storage.slots_ro(),
+            false,
+        );
+        let env = Env::with_executor_context(env_state, &mut executor_context);
+        callback(&env)
     }
 }

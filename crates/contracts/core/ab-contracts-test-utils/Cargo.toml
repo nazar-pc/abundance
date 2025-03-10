@@ -14,7 +14,7 @@ include = [
 all-features = true
 
 [dependencies]
-ab-contracts-common = { workspace = true, features = ["alloc"] }
+ab-contracts-common = { workspace = true }
 ab-contracts-io-type = { workspace = true }
 ab-contracts-macros = { workspace = true }
 ab-contracts-standards = { workspace = true }
