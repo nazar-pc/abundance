@@ -142,7 +142,7 @@ pub struct Env<'a> {
 impl<'a> Env<'a> {
     /// Instantiate environment with executor context
     #[cfg(feature = "executor")]
-    #[inline]
+    #[inline(always)]
     pub fn with_executor_context(
         state: EnvState,
         executor_context: Box<dyn ExecutorContext + 'a>,
@@ -156,7 +156,7 @@ impl<'a> Env<'a> {
 
     /// Instantiate environment with executor context
     #[cfg(feature = "executor")]
-    #[inline]
+    #[inline(always)]
     pub fn get_mut_executor_context(&mut self) -> &mut (dyn ExecutorContext + 'a) {
         self.executor_context.as_mut()
     }

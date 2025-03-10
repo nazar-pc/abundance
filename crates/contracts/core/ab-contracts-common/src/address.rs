@@ -25,14 +25,14 @@ const _: () = {
 };
 
 impl fmt::Debug for Address {
-    #[inline]
+    #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Address").field(&self.into_u128()).finish()
     }
 }
 
 impl fmt::Display for Address {
-    #[inline]
+    #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO: Human-readable formatting rather than a huge number
         self.into_u128().fmt(f)
@@ -40,42 +40,42 @@ impl fmt::Display for Address {
 }
 
 impl PartialEq<&Address> for Address {
-    #[inline]
+    #[inline(always)]
     fn eq(&self, other: &&Address) -> bool {
         self.0 == other.0
     }
 }
 
 impl PartialEq<Address> for &Address {
-    #[inline]
+    #[inline(always)]
     fn eq(&self, other: &Address) -> bool {
         self.0 == other.0
     }
 }
 
 impl Ord for Address {
-    #[inline]
+    #[inline(always)]
     fn cmp(&self, other: &Address) -> Ordering {
         self.into_u128().cmp(&other.into_u128())
     }
 }
 
 impl PartialOrd for Address {
-    #[inline]
+    #[inline(always)]
     fn partial_cmp(&self, other: &Address) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl From<u128> for Address {
-    #[inline]
+    #[inline(always)]
     fn from(value: u128) -> Self {
         Self::from_u128(value)
     }
 }
 
 impl From<Address> for u128 {
-    #[inline]
+    #[inline(always)]
     fn from(value: Address) -> Self {
         value.into_u128()
     }
@@ -95,14 +95,14 @@ impl Address {
     pub const SYSTEM_SIMPLE_WALLET_BASE: Self = Self::from_u128(3);
 
     /// Turn value into `u128`
-    #[inline]
+    #[inline(always)]
     const fn into_u128(self) -> u128 {
         // SAFETY: correct size, valid pointer, and all bits are valid
         unsafe { ptr::from_ref(&self).cast::<u128>().read_unaligned() }
     }
 
     /// Create a value from `u128`
-    #[inline]
+    #[inline(always)]
     const fn from_u128(n: u128) -> Self {
         let mut result = MaybeUninit::<Self>::uninit();
         // SAFETY: correct size, valid pointer, and all bits are valid
@@ -113,7 +113,7 @@ impl Address {
     }
 
     /// System contract for address allocation on a particular shard index
-    #[inline]
+    #[inline(always)]
     pub const fn system_address_allocator(shard_index: ShardIndex) -> Self {
         // Shard `0` doesn't have its own allocator because there are no user-deployable contracts
         // there, so address `0` is `NULL`, the rest up to `ShardIndex::MAX_SHARD_INDEX` correspond

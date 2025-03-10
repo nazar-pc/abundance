@@ -139,6 +139,7 @@ pub enum ContractMetadataKind {
 impl ContractMetadataKind {
     // TODO: Implement `TryFrom` once it is available in const environment
     /// Try to create an instance from its `u8` representation
+    #[inline(always)]
     pub const fn try_from_u8(byte: u8) -> Option<Self> {
         Some(match byte {
             0 => Self::Contract,

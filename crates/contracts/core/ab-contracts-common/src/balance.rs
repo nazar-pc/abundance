@@ -25,28 +25,28 @@ const _: () = {
 };
 
 impl fmt::Debug for Balance {
-    #[inline]
+    #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Balance").field(&self.into_u128()).finish()
     }
 }
 
 impl fmt::Display for Balance {
-    #[inline]
+    #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.into_u128().fmt(f)
     }
 }
 
 impl Ord for Balance {
-    #[inline]
+    #[inline(always)]
     fn cmp(&self, other: &Balance) -> Ordering {
         self.into_u128().cmp(&other.into_u128())
     }
 }
 
 impl PartialOrd for Balance {
-    #[inline]
+    #[inline(always)]
     fn partial_cmp(&self, other: &Balance) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -55,7 +55,7 @@ impl PartialOrd for Balance {
 impl Add for Balance {
     type Output = Balance;
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     fn add(self, rhs: Balance) -> Balance {
         Self::from_u128(self.into_u128().add(rhs.into_u128()))
@@ -63,7 +63,7 @@ impl Add for Balance {
 }
 
 impl AddAssign for Balance {
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     fn add_assign(&mut self, rhs: Balance) {
         *self = *self + rhs;
@@ -73,7 +73,7 @@ impl AddAssign for Balance {
 impl Sub for Balance {
     type Output = Balance;
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     fn sub(self, rhs: Balance) -> Balance {
         Self::from_u128(self.into_u128().sub(rhs.into_u128()))
@@ -81,7 +81,7 @@ impl Sub for Balance {
 }
 
 impl SubAssign for Balance {
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     fn sub_assign(&mut self, rhs: Balance) {
         *self = *self - rhs;
@@ -94,7 +94,7 @@ where
 {
     type Output = Balance;
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     fn mul(self, rhs: Rhs) -> Balance {
         Self::from_u128(<u128 as Mul<Rhs>>::mul(self.into_u128(), rhs))
@@ -105,7 +105,7 @@ impl<Rhs> MulAssign<Rhs> for Balance
 where
     u128: Mul<Rhs, Output = u128>,
 {
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     fn mul_assign(&mut self, rhs: Rhs) {
         *self = *self * rhs;
@@ -118,7 +118,7 @@ where
 {
     type Output = Balance;
 
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     fn div(self, rhs: Rhs) -> Balance {
         Self::from_u128(<u128 as Div<Rhs>>::div(self.into_u128(), rhs))
@@ -129,7 +129,7 @@ impl<Rhs> DivAssign<Rhs> for Balance
 where
     u128: Div<Rhs, Output = u128>,
 {
-    #[inline]
+    #[inline(always)]
     #[track_caller]
     fn div_assign(&mut self, rhs: Rhs) {
         *self = *self / rhs;
@@ -137,14 +137,14 @@ where
 }
 
 impl From<u128> for Balance {
-    #[inline]
+    #[inline(always)]
     fn from(value: u128) -> Self {
         Self::from_u128(value)
     }
 }
 
 impl From<Balance> for u128 {
-    #[inline]
+    #[inline(always)]
     fn from(value: Balance) -> Self {
         value.into_u128()
     }
@@ -155,14 +155,14 @@ impl Balance {
     pub const MAX: Self = Self::from_u128(u128::MAX);
 
     /// Turn value into `u128`
-    #[inline]
+    #[inline(always)]
     pub const fn into_u128(self) -> u128 {
         // SAFETY: correct size, valid pointer, and all bits are valid
         unsafe { ptr::from_ref(&self).cast::<u128>().read_unaligned() }
     }
 
     /// Create a value from `u128`
-    #[inline]
+    #[inline(always)]
     pub const fn from_u128(n: u128) -> Self {
         let mut result = MaybeUninit::<Self>::uninit();
         // SAFETY: correct size, valid pointer, and all bits are valid

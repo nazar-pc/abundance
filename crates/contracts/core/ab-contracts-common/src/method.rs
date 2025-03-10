@@ -47,7 +47,7 @@ impl MethodFingerprint {
         ]))
     }
 
-    #[inline]
+    #[inline(always)]
     pub const fn to_bytes(&self) -> &Blake3Hash {
         &self.0
     }
