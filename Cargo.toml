@@ -24,7 +24,7 @@ criterion = { version = "0.5.1", default-features = false }
 derive_more = { version = "2.0.1", default-features = false }
 halfbrown = "0.3.0"
 ident_case = "1.0.1"
-no-panic = "0.1.34"
+no-panic = "0.1.35"
 proc-macro2 = "1.0.92"
 quote = "1.0.38"
 schnorrkel = { version = "0.11.4", default-features = false }
