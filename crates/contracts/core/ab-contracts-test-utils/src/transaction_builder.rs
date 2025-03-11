@@ -1,5 +1,3 @@
-extern crate alloc;
-
 use ab_contracts_common::Address;
 use ab_contracts_common::env::{Blake3Hash, Gas, Transaction, TransactionHeader, TransactionSlot};
 use ab_contracts_common::method::ExternalArgs;

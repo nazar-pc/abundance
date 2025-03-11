@@ -1,10 +1,10 @@
 mod ffi_call;
 
 use crate::context::ffi_call::make_ffi_call;
-use crate::slots::Slots;
 use ab_contracts_common::env::{EnvState, ExecutorContext, MethodContext, PreparedMethod};
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_contracts_common::{Address, ContractError, ExitCode, ShardIndex};
+use ab_contracts_slots::slots::Slots;
 use ab_system_contract_address_allocator::ffi::allocate_address::AddressAllocatorAllocateAddressArgs;
 use halfbrown::HashMap;
 use std::cell::UnsafeCell;

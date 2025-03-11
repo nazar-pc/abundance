@@ -12,39 +12,45 @@ fn criterion_benchmark(c: &mut Criterion) {
         .build()
         .unwrap();
 
-    let storage = &mut executor.new_storage().unwrap();
+    let slots = &mut executor.new_storage_slots().unwrap();
 
-    let flipper_address = executor.transaction_emulate(Address::NULL, storage, |env| {
-        // Deploy
-        let flipper_address = env
-            .code_deploy(MethodContext::Keep, Address::SYSTEM_CODE, &Flipper::code())
-            .unwrap();
+    let flipper_address = executor
+        .transaction_emulate(Address::NULL, slots, |env| {
+            // Deploy
+            let flipper_address = env
+                .code_deploy(MethodContext::Keep, Address::SYSTEM_CODE, &Flipper::code())
+                .unwrap();
 
-        // Initialize state
-        env.flipper_new(MethodContext::Keep, flipper_address, &true)
-            .unwrap();
+            // Initialize state
+            env.flipper_new(MethodContext::Keep, flipper_address, &true)
+                .unwrap();
 
-        flipper_address
-    });
+            flipper_address
+        })
+        .unwrap();
 
     let mut group = c.benchmark_group("flipper");
     group.throughput(Throughput::Elements(1));
 
     group.bench_function("direct", |b| {
-        executor.transaction_emulate(Address::NULL, storage, |env| {
-            b.iter(|| {
-                env.flipper_flip(MethodContext::Keep, flipper_address)
-                    .unwrap();
-            });
-        });
+        executor
+            .transaction_emulate(Address::NULL, slots, |env| {
+                b.iter(|| {
+                    env.flipper_flip(MethodContext::Keep, flipper_address)
+                        .unwrap();
+                });
+            })
+            .unwrap();
     });
 
     group.bench_function("transaction", |b| {
         b.iter(|| {
-            executor.transaction_emulate(Address::NULL, storage, |env| {
-                env.flipper_flip(MethodContext::Keep, flipper_address)
-                    .unwrap();
-            });
+            executor
+                .transaction_emulate(Address::NULL, slots, |env| {
+                    env.flipper_flip(MethodContext::Keep, flipper_address)
+                        .unwrap();
+                })
+                .unwrap();
         })
     });
 }
