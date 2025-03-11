@@ -161,8 +161,6 @@ fn basic() {
 
         assert_eq!(shared.len(), shared2.len(), "Capacity {capacity}");
         assert_eq!(shared.len(), owned.len(), "Capacity {capacity}");
-        assert_eq!(shared.capacity(), shared2.capacity(), "Capacity {capacity}");
-        assert_eq!(shared.capacity(), owned.capacity(), "Capacity {capacity}");
         assert_eq!(shared.is_empty(), shared2.is_empty(), "Capacity {capacity}");
         assert_eq!(shared.is_empty(), owned.is_empty(), "Capacity {capacity}");
         assert_eq!(shared.as_ptr(), shared2.as_ptr(), "Capacity {capacity}");

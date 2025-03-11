@@ -2,16 +2,13 @@
 mod tests;
 
 use ab_contracts_io_type::MAX_ALIGNMENT;
-use std::mem::MaybeUninit;
-use std::sync::{Arc, LazyLock};
+use std::mem::{ManuallyDrop, MaybeUninit};
+use std::ptr::NonNull;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::{mem, slice};
 
 #[repr(C, align(16))]
-struct AlignedBytes([u8; Self::SIZE]);
-
-impl AlignedBytes {
-    const SIZE: usize = MAX_ALIGNMENT as usize;
-}
+struct AlignedBytes([u8; MAX_ALIGNMENT as usize]);
 
 const _: () = {
     assert!(
@@ -27,10 +24,33 @@ const _: () = {
 ///
 /// Data is aligned to 16 bytes (128 bits), which is the largest alignment required by primitive
 /// types and by extension any type that implements `TrivialType`/`IoType`.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug)]
 pub(super) struct OwnedAlignedBuffer {
-    buffer: Arc<[MaybeUninit<AlignedBytes>]>,
+    /// Last 4 bytes reserved for [`SharedAlignedBuffer::strong_count()`]
+    buffer: NonNull<[MaybeUninit<AlignedBytes>]>,
     len: u32,
+}
+
+// SAFETY: Heap-allocated memory buffer can be used from any thread
+unsafe impl Send for OwnedAlignedBuffer {}
+// SAFETY: Heap-allocated memory buffer can be used from any thread
+unsafe impl Sync for OwnedAlignedBuffer {}
+
+impl Clone for OwnedAlignedBuffer {
+    #[inline]
+    fn clone(&self) -> Self {
+        let mut buffer = Self::with_capacity(self.capacity());
+        buffer.copy_from_slice(self.as_slice());
+        buffer
+    }
+}
+
+impl Drop for OwnedAlignedBuffer {
+    #[inline]
+    fn drop(&mut self) {
+        // SAFETY: Created from `Box` in constructor
+        let _ = unsafe { Box::from_non_null(self.buffer) };
+    }
 }
 
 impl OwnedAlignedBuffer {
@@ -40,9 +60,18 @@ impl OwnedAlignedBuffer {
     #[inline(always)]
     pub(super) fn with_capacity(capacity: u32) -> Self {
         Self {
-            buffer: Arc::new_uninit_slice((capacity as usize).div_ceil(AlignedBytes::SIZE)),
+            buffer: Self::allocate_buffer(capacity),
             len: 0,
         }
+    }
+
+    /// Allocates a new buffer + one [`AlignedBytes`] worth of memory at the beginning for the
+    /// `strong_count` in case it is later converted to [`SharedAlignedBuffer`]
+    #[inline(always)]
+    fn allocate_buffer(capacity: u32) -> NonNull<[MaybeUninit<AlignedBytes>]> {
+        Box::into_non_null(Box::new_uninit_slice(
+            1 + (capacity as usize).div_ceil(size_of::<AlignedBytes>()),
+        ))
     }
 
     /// Create a new instance from provided bytes.
@@ -73,25 +102,22 @@ impl OwnedAlignedBuffer {
 
     #[inline(always)]
     pub(super) fn as_ptr(&self) -> *const u8 {
-        self.buffer.as_ptr().cast::<u8>()
+        let buffer_ptr = self.buffer.as_ptr().cast_const().cast::<u8>();
+        // SAFETY: Constructor allocates the first element for `strong_count`
+        unsafe { buffer_ptr.add(size_of::<AlignedBytes>()) }
     }
 
     #[inline(always)]
     pub(super) fn as_mut_ptr(&mut self) -> *mut u8 {
-        // SAFETY: `Arc` is owned by this data structure and neither exposed externally nor supports
-        // shared references in case of `OwnedAlignedBuffer`, hence `&mut self` implies exclusive
-        // access
-        unsafe { Arc::get_mut_unchecked(&mut self.buffer) }
-            .as_mut_ptr()
-            .cast::<u8>()
+        let buffer_ptr = self.buffer.as_ptr().cast::<u8>();
+        // SAFETY: Constructor allocates the first element for `strong_count`
+        unsafe { buffer_ptr.add(size_of::<AlignedBytes>()) }
     }
 
     #[inline(always)]
     pub(super) fn into_shared(self) -> SharedAlignedBuffer {
-        SharedAlignedBuffer {
-            buffer: self.buffer,
-            len: self.len,
-        }
+        let instance = ManuallyDrop::new(self);
+        SharedAlignedBuffer::new_from_buffer_with_len(instance.buffer, instance.len)
     }
 
     /// Ensure capacity of the buffer is at least `capacity`.
@@ -99,6 +125,7 @@ impl OwnedAlignedBuffer {
     /// Will re-allocate if necessary.
     #[inline(always)]
     pub(super) fn ensure_capacity(&mut self, capacity: u32) {
+        // `+ size_of::<AlignedBytes>()` for `strong_count`
         if capacity > self.capacity() {
             let mut new_buffer = Self::with_capacity(capacity);
             new_buffer.copy_from_slice(self.as_slice());
@@ -118,9 +145,10 @@ impl OwnedAlignedBuffer {
 
         if len > self.capacity() {
             // Drop old buffer
-            mem::take(&mut self.buffer);
+            // SAFETY: Created from `Box` in constructor
+            let _ = unsafe { Box::from_non_null(self.buffer) };
             // Allocate new buffer
-            self.buffer = Self::with_capacity(len).buffer;
+            self.buffer = Self::allocate_buffer(len);
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
@@ -143,10 +171,12 @@ impl OwnedAlignedBuffer {
         self.len
     }
 
+    // TODO: Store precomputed capacity and expose pointer to it
     #[inline(always)]
     pub(super) fn capacity(&self) -> u32 {
-        // API constraints capacity to `u32`, hence this never truncates
-        (self.buffer.len() * AlignedBytes::SIZE) as u32
+        // API constraints capacity to `u32`, hence this never truncates, `- 1` due to
+        // `strong_count` stored at the beginning of the buffer
+        ((self.buffer.len() - 1) * size_of::<AlignedBytes>()) as u32
     }
 
     /// Set the length of the useful data to specified value.
@@ -168,24 +198,92 @@ impl OwnedAlignedBuffer {
     }
 }
 
+/// Aligned atomic used in static below
+#[repr(C, align(16))]
+struct ConstStrongCount(AtomicU32);
+
+/// Wrapper to make pointer `Sync`
+#[repr(transparent)]
+struct SharableConstStrongCountPtr(NonNull<[MaybeUninit<AlignedBytes>]>);
+// SAFETY: Statically allocated memory buffer with atomic can be used from any thread
+unsafe impl Sync for SharableConstStrongCountPtr {}
+
+static mut CONST_STRONG_COUNT: &mut [ConstStrongCount] = &mut [ConstStrongCount(AtomicU32::new(1))];
+/// SAFETY: Size and layout of both `NonNull<[ConstStrongCount]>` and `SharableConstStrongCountPtr`
+/// is the same, `CONST_STRONG_COUNT` static is only mutated through atomic operations
+static EMPTY_SHARED_ALIGNED_BUFFER_BUFFER: SharableConstStrongCountPtr = unsafe {
+    mem::transmute::<NonNull<[ConstStrongCount]>, SharableConstStrongCountPtr>(NonNull::from_mut(
+        CONST_STRONG_COUNT,
+    ))
+};
+static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
+    buffer: EMPTY_SHARED_ALIGNED_BUFFER_BUFFER.0,
+    len: 0,
+};
+
 /// Shared aligned buffer for executor purposes.
 ///
 /// See [`OwnedAlignedBuffer`] for a version that can be mutated.
 ///
 /// Data is aligned to 16 bytes (128 bits), which is the largest alignment required by primitive
 /// types and by extension any type that implements `TrivialType`/`IoType`.
-#[derive(Debug, Default, Clone)]
+///
+/// NOTE: Counter for number of shared instances is `u32` and will wrap around if exceeded breaking
+/// internal invariants (which is extremely unlikely, but still).
+#[derive(Debug)]
 pub(super) struct SharedAlignedBuffer {
-    buffer: Arc<[MaybeUninit<AlignedBytes>]>,
+    buffer: NonNull<[MaybeUninit<AlignedBytes>]>,
     len: u32,
 }
 
+impl Default for SharedAlignedBuffer {
+    #[inline]
+    fn default() -> Self {
+        OwnedAlignedBuffer::with_capacity(0).into_shared()
+    }
+}
+
+impl Clone for SharedAlignedBuffer {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        self.strong_count().fetch_add(1, Ordering::AcqRel);
+
+        Self {
+            buffer: self.buffer,
+            len: self.len,
+        }
+    }
+}
+
+impl Drop for SharedAlignedBuffer {
+    #[inline]
+    fn drop(&mut self) {
+        if self.strong_count().fetch_sub(1, Ordering::AcqRel) == 1 {
+            // SAFETY: Created from `Box` in constructor
+            let _ = unsafe { Box::from_non_null(self.buffer) };
+        }
+    }
+}
+
+// SAFETY: Heap-allocated memory buffer and atomic can be used from any thread
+unsafe impl Send for SharedAlignedBuffer {}
+// SAFETY: Heap-allocated memory buffer and atomic can be used from any thread
+unsafe impl Sync for SharedAlignedBuffer {}
+
 impl SharedAlignedBuffer {
+    /// # Safety
+    /// Must only be called with First bytes are allocated to be `strong_count`
+    fn new_from_buffer_with_len(buffer: NonNull<[MaybeUninit<AlignedBytes>]>, len: u32) -> Self {
+        // SAFETY: The first bytes are allocated for strong count, which is a correctly aligned copy
+        // type
+        unsafe { buffer.as_ptr().cast::<AtomicU32>().write(AtomicU32::new(1)) };
+        Self { buffer, len }
+    }
+
     /// Static reference to an empty buffer
     #[inline(always)]
     pub(super) fn empty_ref() -> &'static Self {
-        static EMPTY: LazyLock<SharedAlignedBuffer> = LazyLock::new(SharedAlignedBuffer::default);
-        &EMPTY
+        &EMPTY_SHARED_ALIGNED_BUFFER
     }
 
     /// Create a new instance from provided bytes.
@@ -205,29 +303,31 @@ impl SharedAlignedBuffer {
     /// Returns `None` if there exit other shared instances.
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     #[inline(always)]
-    pub(super) fn into_owned(mut self) -> OwnedAlignedBuffer {
-        // Check if this is the last instance of the buffer
-        if Arc::get_mut(&mut self.buffer).is_some() {
+    pub(super) fn into_owned(self) -> OwnedAlignedBuffer {
+        let instance = ManuallyDrop::new(self);
+        if instance.strong_count().fetch_sub(1, Ordering::AcqRel) == 1 {
             OwnedAlignedBuffer {
-                buffer: self.buffer,
-                len: self.len,
+                buffer: instance.buffer,
+                len: instance.len,
             }
         } else {
-            let mut instance = OwnedAlignedBuffer::with_capacity(self.capacity());
-            instance.copy_from_slice(self.as_slice());
-            instance
+            let mut owned_instance = OwnedAlignedBuffer::with_capacity(0);
+            owned_instance.copy_from_slice(instance.as_slice());
+            owned_instance
         }
     }
 
     #[inline(always)]
     pub(super) fn as_slice(&self) -> &[u8] {
         // SAFETY: Not null and size is a protected invariant of the implementation
-        unsafe { slice::from_raw_parts(self.buffer.as_ptr().cast::<u8>(), self.len as usize) }
+        unsafe { slice::from_raw_parts(self.as_ptr(), self.len as usize) }
     }
 
     #[inline(always)]
     pub(super) fn as_ptr(&self) -> *const u8 {
-        self.buffer.as_ptr().cast::<u8>()
+        let buffer_ptr = self.buffer.as_ptr().cast_const().cast::<u8>();
+        // SAFETY: Constructor allocates the first element for `strong_count`
+        unsafe { buffer_ptr.add(size_of::<AlignedBytes>()) }
     }
 
     #[inline(always)]
@@ -241,8 +341,9 @@ impl SharedAlignedBuffer {
     }
 
     #[inline(always)]
-    pub(super) fn capacity(&self) -> u32 {
-        // API constraints capacity to `u32`, hence this never truncates
-        (self.buffer.len() * AlignedBytes::SIZE) as u32
+    fn strong_count(&self) -> &AtomicU32 {
+        // SAFETY: The first bytes are allocated for strong count, which is a correctly aligned copy
+        // type initialized in constructor if `true`
+        unsafe { self.buffer.as_ptr().cast::<AtomicU32>().as_ref_unchecked() }
     }
 }

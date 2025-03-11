@@ -1,5 +1,7 @@
 #![feature(
+    box_vec_non_null,
     get_mut_unchecked,
+    non_null_from_ref,
     pointer_is_aligned_to,
     ptr_as_ref_unchecked,
     try_blocks
