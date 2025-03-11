@@ -77,7 +77,9 @@ struct DelayedProcessingSlotReadWrite {
     must_be_not_empty: bool,
 }
 
-/// Stores details about arguments that need to be processed after FFI call
+/// Stores details about arguments that need to be processed after FFI call.
+///
+/// It is also more efficient to store length and capacities compactly next to each other in memory.
 enum DelayedProcessing {
     SlotReadOnly(DelayedProcessingSlotReadOnly),
     SlotReadWrite(DelayedProcessingSlotReadWrite),
