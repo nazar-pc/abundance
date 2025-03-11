@@ -1,19 +1,8 @@
-#![feature(
-    box_vec_non_null,
-    get_mut_unchecked,
-    non_null_from_ref,
-    pointer_is_aligned_to,
-    ptr_as_ref_unchecked,
-    try_blocks
-)]
+#![feature(ptr_as_ref_unchecked)]
 
-mod aligned_buffer;
 mod context;
-mod slots;
 
-use crate::aligned_buffer::SharedAlignedBuffer;
 use crate::context::{MethodDetails, NativeExecutorContext};
-use crate::slots::{SlotKey, Slots};
 use ab_contracts_common::env::{Env, EnvState, MethodContext, Transaction, TransactionSlot};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
 use ab_contracts_common::method::MethodFingerprint;
@@ -23,6 +12,8 @@ use ab_contracts_common::{
 };
 use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_io_type::variable_elements::VariableElements;
+use ab_contracts_slots::aligned_buffer::SharedAlignedBuffer;
+use ab_contracts_slots::slots::{SlotKey, Slots};
 use ab_contracts_standards::tx_handler::TxHandlerExt;
 use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt};
 use ab_system_contract_code::{Code, CodeExt};

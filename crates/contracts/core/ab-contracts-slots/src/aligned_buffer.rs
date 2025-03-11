@@ -190,7 +190,7 @@ impl InnerBuffer {
 /// Data is aligned to 16 bytes (128 bits), which is the largest alignment required by primitive
 /// types and by extension any type that implements `TrivialType`/`IoType`.
 #[derive(Debug)]
-pub(super) struct OwnedAlignedBuffer {
+pub struct OwnedAlignedBuffer {
     inner: InnerBuffer,
 }
 
@@ -208,7 +208,7 @@ impl OwnedAlignedBuffer {
     ///
     /// NOTE: Actual capacity might be larger due to alignment requirements.
     #[inline(always)]
-    pub(super) fn with_capacity(capacity: u32) -> Self {
+    pub fn with_capacity(capacity: u32) -> Self {
         Self {
             inner: InnerBuffer::allocate(capacity),
         }
@@ -219,36 +219,34 @@ impl OwnedAlignedBuffer {
     /// # Panics
     /// If `bytes.len()` doesn't fit into `u32`
     #[inline(always)]
-    pub(super) fn from_bytes(bytes: &[u8]) -> Self {
+    pub fn from_bytes(bytes: &[u8]) -> Self {
         let mut instance = Self::with_capacity(0);
         instance.copy_from_slice(bytes);
         instance
     }
 
     #[inline(always)]
-    pub(super) fn as_slice(&self) -> &[u8] {
+    pub fn as_slice(&self) -> &[u8] {
         self.inner.as_slice()
     }
 
-    #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     #[inline(always)]
-    pub(super) fn as_mut_slice(&mut self) -> &mut [u8] {
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
         self.inner.as_mut_slice()
     }
 
-    #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     #[inline(always)]
-    pub(super) fn as_ptr(&self) -> *const u8 {
+    pub fn as_ptr(&self) -> *const u8 {
         self.inner.as_ptr()
     }
 
     #[inline(always)]
-    pub(super) fn as_mut_ptr(&mut self) -> *mut u8 {
+    pub fn as_mut_ptr(&mut self) -> *mut u8 {
         self.inner.as_mut_ptr()
     }
 
     #[inline(always)]
-    pub(super) fn into_shared(self) -> SharedAlignedBuffer {
+    pub fn into_shared(self) -> SharedAlignedBuffer {
         SharedAlignedBuffer { inner: self.inner }
     }
 
@@ -256,7 +254,7 @@ impl OwnedAlignedBuffer {
     ///
     /// Will re-allocate if necessary.
     #[inline(always)]
-    pub(super) fn ensure_capacity(&mut self, capacity: u32) {
+    pub fn ensure_capacity(&mut self, capacity: u32) {
         // `+ size_of::<AlignedBytes>()` for `strong_count`
         if capacity > self.capacity() {
             let mut new_buffer = Self::with_capacity(capacity);
@@ -270,7 +268,7 @@ impl OwnedAlignedBuffer {
     /// # Panics
     /// If `bytes.len()` doesn't fit into `u32`
     #[inline(always)]
-    pub(super) fn copy_from_slice(&mut self, bytes: &[u8]) {
+    pub fn copy_from_slice(&mut self, bytes: &[u8]) {
         let Ok(len) = u32::try_from(bytes.len()) else {
             panic!("Too many bytes");
         };
@@ -291,18 +289,18 @@ impl OwnedAlignedBuffer {
     }
 
     #[inline(always)]
-    pub(super) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.inner.len_read() == 0
     }
 
     #[inline(always)]
-    pub(super) fn len(&self) -> u32 {
+    pub fn len(&self) -> u32 {
         self.inner.len_read()
     }
 
     // TODO: Store precomputed capacity and expose pointer to it
     #[inline(always)]
-    pub(super) fn capacity(&self) -> u32 {
+    pub fn capacity(&self) -> u32 {
         self.inner.capacity()
     }
 
@@ -314,7 +312,7 @@ impl OwnedAlignedBuffer {
     /// # Panics
     /// If `bytes.len()` doesn't fit into `u32`
     #[inline(always)]
-    pub(super) unsafe fn set_len(&mut self, new_len: u32) {
+    pub unsafe fn set_len(&mut self, new_len: u32) {
         assert!(
             new_len <= self.capacity(),
             "Too many bytes {} > {}",
@@ -338,7 +336,7 @@ impl OwnedAlignedBuffer {
 /// NOTE: Counter for number of shared instances is `u32` and will wrap around if exceeded breaking
 /// internal invariants (which is extremely unlikely, but still).
 #[derive(Debug, Default, Clone)]
-pub(super) struct SharedAlignedBuffer {
+pub struct SharedAlignedBuffer {
     inner: InnerBuffer,
 }
 
@@ -350,7 +348,7 @@ unsafe impl Sync for SharedAlignedBuffer {}
 impl SharedAlignedBuffer {
     /// Static reference to an empty buffer
     #[inline(always)]
-    pub(super) fn empty_ref() -> &'static Self {
+    pub fn empty_ref() -> &'static Self {
         &EMPTY_SHARED_ALIGNED_BUFFER
     }
 
@@ -359,7 +357,7 @@ impl SharedAlignedBuffer {
     /// # Panics
     /// If `bytes.len()` doesn't fit into `u32`
     #[inline(always)]
-    pub(super) fn from_bytes(bytes: &[u8]) -> Self {
+    pub fn from_bytes(bytes: &[u8]) -> Self {
         OwnedAlignedBuffer::from_bytes(bytes).into_shared()
     }
 
@@ -369,9 +367,8 @@ impl SharedAlignedBuffer {
     /// allocation will be created.
     ///
     /// Returns `None` if there exit other shared instances.
-    #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     #[inline(always)]
-    pub(super) fn into_owned(self) -> OwnedAlignedBuffer {
+    pub fn into_owned(self) -> OwnedAlignedBuffer {
         if self.inner.strong_count_ref().load(Ordering::Acquire) == 1 {
             OwnedAlignedBuffer { inner: self.inner }
         } else {
@@ -380,22 +377,22 @@ impl SharedAlignedBuffer {
     }
 
     #[inline(always)]
-    pub(super) fn as_slice(&self) -> &[u8] {
+    pub fn as_slice(&self) -> &[u8] {
         self.inner.as_slice()
     }
 
     #[inline(always)]
-    pub(super) fn as_ptr(&self) -> *const u8 {
+    pub fn as_ptr(&self) -> *const u8 {
         self.inner.as_ptr()
     }
 
     #[inline(always)]
-    pub(super) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.inner.len_read() == 0
     }
 
     #[inline(always)]
-    pub(super) fn len(&self) -> u32 {
+    pub fn len(&self) -> u32 {
         self.inner.len_read()
     }
 }

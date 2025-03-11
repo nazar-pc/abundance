@@ -32,14 +32,13 @@ version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
  "ab-contracts-io-type",
+ "ab-contracts-slots",
  "ab-contracts-standards",
  "ab-system-contract-address-allocator",
  "ab-system-contract-code",
  "ab-system-contract-simple-wallet-base",
  "ab-system-contract-state",
  "halfbrown",
- "smallvec",
- "take_mut",
  "thiserror",
  "tracing",
 ]
@@ -69,6 +68,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "ab-contracts-slots"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-io-type",
+ "smallvec",
+ "take_mut",
+ "tracing",
 ]
 
 [[package]]

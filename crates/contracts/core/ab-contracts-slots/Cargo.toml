@@ -1,0 +1,21 @@
+[package]
+name = "ab-contracts-slots"
+description = ""
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-contracts-common = { workspace = true, features = ["executor"] }
+ab-contracts-io-type = { workspace = true }
+smallvec = { workspace = true }
+take_mut = { workspace = true }
+tracing = { workspace = true }

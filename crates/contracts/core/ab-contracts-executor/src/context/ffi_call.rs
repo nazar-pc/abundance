@@ -1,11 +1,11 @@
 use crate::context::{MethodDetails, NativeExecutorContext};
-use crate::slots::{SlotIndex, SlotKey, Slots};
 use ab_contracts_common::env::{Env, EnvState, ExecutorContext};
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, ArgumentMetadataItem, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
     MethodsContainerKind,
 };
 use ab_contracts_common::{Address, ContractError};
+use ab_contracts_slots::slots::{SlotIndex, SlotKey, Slots};
 use ab_system_contract_address_allocator::AddressAllocator;
 use std::cell::UnsafeCell;
 use std::ffi::c_void;

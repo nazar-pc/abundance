@@ -12,13 +12,13 @@ const INLINE_SIZE: usize = 8;
 const NEW_CONTRACTS_INLINE: usize = 2;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub(super) struct SlotKey {
-    pub(super) owner: Address,
-    pub(super) contract: Address,
+pub struct SlotKey {
+    pub owner: Address,
+    pub contract: Address,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub(super) struct SlotIndex(usize);
+pub struct SlotIndex(usize);
 
 impl From<SlotIndex> for usize {
     #[inline(always)]
@@ -89,7 +89,7 @@ enum SlotsInner<'a> {
 }
 
 #[derive(Debug)]
-pub(super) struct Slots<'a>(SlotsInner<'a>);
+pub struct Slots<'a>(SlotsInner<'a>);
 
 impl<'a> Drop for Slots<'a> {
     #[inline(always)]
@@ -139,7 +139,7 @@ impl<'a> Slots<'a> {
     ///
     /// "Empty" slots must still have a value in the form of an empty [`SharedAlignedBuffer`].
     #[inline(always)]
-    pub(super) fn new<I>(slots: I) -> Self
+    pub fn new<I>(slots: I) -> Self
     where
         I: IntoIterator<Item = (SlotKey, SharedAlignedBuffer)>,
     {
@@ -193,7 +193,7 @@ impl<'a> Slots<'a> {
     ///
     /// Returns `None` when attempted on read-only instance.
     #[inline(always)]
-    pub(super) fn new_nested_rw<'b>(&'b mut self) -> Option<Slots<'b>>
+    pub fn new_nested_rw<'b>(&'b mut self) -> Option<Slots<'b>>
     where
         'a: 'b,
     {
@@ -215,7 +215,7 @@ impl<'a> Slots<'a> {
 
     /// Create a new nested read-only slots instance
     #[inline(always)]
-    pub(super) fn new_nested_ro<'b>(&'b self) -> Slots<'b>
+    pub fn new_nested_ro<'b>(&'b self) -> Slots<'b>
     where
         'a: 'b,
     {
@@ -237,7 +237,7 @@ impl<'a> Slots<'a> {
     /// violation.
     #[must_use]
     #[inline(always)]
-    pub(super) fn add_new_contract(&mut self, owner: Address) -> bool {
+    pub fn add_new_contract(&mut self, owner: Address) -> bool {
         let Some(inner) = self.inner_rw() else {
             debug!(%owner, "`add_new_contract` access violation");
             return false;
@@ -261,7 +261,7 @@ impl<'a> Slots<'a> {
     ///
     /// Returns `None` in case of access violation or if code is missing.
     #[inline(always)]
-    pub(super) fn get_code(&self, owner: Address) -> Option<SharedAlignedBuffer> {
+    pub fn get_code(&self, owner: Address) -> Option<SharedAlignedBuffer> {
         let result = self.get_code_internal(owner);
 
         if result.is_none() {
@@ -313,7 +313,7 @@ impl<'a> Slots<'a> {
     ///
     /// Returns `None` in case of access violation.
     #[inline(always)]
-    pub(super) fn use_ro(&mut self, slot_key: SlotKey) -> Option<&SharedAlignedBuffer> {
+    pub fn use_ro(&mut self, slot_key: SlotKey) -> Option<&SharedAlignedBuffer> {
         let inner_rw = match &mut self.0 {
             SlotsInner::Original { inner, .. } => inner.as_mut(),
             SlotsInner::ReadWrite { inner, .. } => inner,
@@ -489,7 +489,7 @@ impl<'a> Slots<'a> {
     ///
     /// Returns `None` in case of access violation.
     #[inline(always)]
-    pub(super) fn use_rw(
+    pub fn use_rw(
         &mut self,
         slot_key: SlotKey,
         capacity: u32,
@@ -619,10 +619,7 @@ impl<'a> Slots<'a> {
     /// of [`Self::use_rw()`] call are now invalid!
     ///
     /// Returns `None` in case of access violation.
-    pub(super) fn access_used_rw(
-        &mut self,
-        slot_index: SlotIndex,
-    ) -> Option<&mut OwnedAlignedBuffer> {
+    pub fn access_used_rw(&mut self, slot_index: SlotIndex) -> Option<&mut OwnedAlignedBuffer> {
         let maybe_slot = self
             .inner_rw()?
             .slots
@@ -651,7 +648,7 @@ impl<'a> Slots<'a> {
 
     /// Reset any changes that might have been done on this level
     #[cold]
-    pub(super) fn reset(&mut self) {
+    pub fn reset(&mut self) {
         let (inner, parent_slot_access_len) = match &mut self.0 {
             SlotsInner::Original { .. } | SlotsInner::ReadOnly { .. } => {
                 // No need to integrate changes into the parent

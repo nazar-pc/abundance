@@ -10,6 +10,7 @@ ab-contracts-executor = { version = "0.0.1", path = "crates/contracts/core/ab-co
 ab-contracts-io-type = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-io-type" }
 ab-contracts-macros = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros" }
 ab-contracts-macros-impl = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros-impl" }
+ab-contracts-slots = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-slots" }
 ab-contracts-standards = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-standards" }
 ab-contracts-test-utils = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-test-utils" }
 ab-contracts-trivial-type-derive = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-trivial-type-derive" }
