@@ -62,7 +62,7 @@ pub fn hash_and_sign(
 ///
 /// [`hash_and_verify()`] helper function exists that combines this method with
 /// [`hash_transaction()`].
-#[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn verify(
     public_key: &PublicKey,
     expected_nonce: u64,

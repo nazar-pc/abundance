@@ -162,7 +162,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
     /// The size of `output_buffer_offsets` defines how many `#[output]` arguments and return values
     /// could exist in all methods of the payload together.
     #[inline]
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn new(
         payload: &'a [u128],
         external_args_buffer: &'a mut [*mut c_void],
@@ -191,7 +191,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
 
 impl<'a> TransactionPayloadDecoder<'a> {
     /// Decode the next method (if any) in the payload
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn decode_next_method(
         &mut self,
     ) -> Result<Option<PreparedMethod<'_>>, TransactionPayloadDecoderError> {
@@ -203,7 +203,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
     /// # Safety
     /// Must be used with trusted input created using `TransactionPayloadBuilder` or pre-verified
     /// using [`Self::decode_next_method()`] earlier.
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub unsafe fn decode_next_method_unchecked(&mut self) -> Option<PreparedMethod<'_>> {
         TransactionPayloadDecoderInternal::<false>(self)
             .decode_next_method()
@@ -224,7 +224,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> Deref
     type Target = TransactionPayloadDecoder<'decoder>;
 
     #[inline(always)]
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn deref(&self) -> &Self::Target {
         self.0
     }
@@ -234,7 +234,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> DerefMut
     for TransactionPayloadDecoderInternal<'tmp, 'decoder, VERIFY>
 {
     #[inline(always)]
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
@@ -242,7 +242,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> DerefMut
 
 impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp, 'decoder, VERIFY> {
     #[inline(always)]
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn decode_next_method(
         mut self,
     ) -> Result<Option<PreparedMethod<'decoder>>, TransactionPayloadDecoderError> {
@@ -413,7 +413,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     }
 
     #[inline(always)]
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn get_trivial_type<T>(&mut self) -> Result<&'decoder T, TransactionPayloadDecoderError>
     where
         T: TrivialType,
@@ -438,7 +438,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     }
 
     #[inline(always)]
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn get_bytes(
         &mut self,
         size: u32,
@@ -461,7 +461,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     }
 
     #[inline(always)]
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn read_u8(&mut self) -> Result<u8, TransactionPayloadDecoderError> {
         let value;
         if VERIFY {
@@ -478,7 +478,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     }
 
     #[inline(always)]
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn ensure_alignment(&mut self, alignment: NonZeroUsize) {
         debug_assert!(alignment.get() <= usize::from(MAX_ALIGNMENT));
 
@@ -495,7 +495,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     }
 
     #[inline(always)]
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn allocate_output_buffer(
         &mut self,
         capacity: u32,
@@ -530,7 +530,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
 
     /// Returns `None` if output buffer is not large enough
     #[inline(always)]
-    #[cfg_attr(all(not(doc), feature = "no-panic"), no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn allocate_output_buffer_ptr<T>(
         &mut self,
         alignment: NonZeroUsize,
