@@ -36,6 +36,10 @@ thiserror = { version = "2.0.11", default-features = false }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 
+[workspace.lints.rust]
+rust_2018_idioms = "warn"
+missing_debug_implementations = "warn"
+
 [profile.production]
 inherits = "release"
 lto = "fat"

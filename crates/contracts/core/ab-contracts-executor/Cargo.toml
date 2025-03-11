@@ -25,3 +25,6 @@ ab-system-contract-state = { workspace = true }
 halfbrown = { workspace = true, features = ["arraybackend", "fxhash"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+
+[lints]
+workspace = true

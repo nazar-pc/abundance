@@ -46,7 +46,7 @@ pub enum NativeExecutorError {
     },
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct MethodsEntry {
     contact_code: &'static str,
     main_contract_metadata: &'static [u8],
@@ -54,7 +54,7 @@ struct MethodsEntry {
 }
 
 /// Builder for [`NativeExecutor`]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct NativeExecutorBuilder {
     shard_index: ShardIndex,
     methods: Vec<MethodsEntry>,
@@ -209,6 +209,7 @@ impl NativeExecutorBuilder {
 }
 
 // TODO: Some kind of transaction notion with `#[tmp]` wiped at the end of it
+#[derive(Debug)]
 pub struct NativeExecutor {
     shard_index: ShardIndex,
     /// Indexed by contract's code and method fingerprint
@@ -336,7 +337,7 @@ impl NativeExecutor {
     pub fn transaction_execute(
         &self,
         transaction: Transaction<'_>,
-        slots: &mut Slots,
+        slots: &mut Slots<'_>,
     ) -> Result<(), ContractError> {
         // TODO: This is a pretty large data structure to copy around, try to make it a reference
         let env_state = EnvState {
@@ -482,7 +483,7 @@ impl NativeExecutor {
         calls: Calls,
     ) -> Option<T>
     where
-        Calls: FnOnce(&mut Env) -> T,
+        Calls: FnOnce(&mut Env<'_>) -> T,
     {
         let env_state = EnvState {
             shard_index: self.shard_index,

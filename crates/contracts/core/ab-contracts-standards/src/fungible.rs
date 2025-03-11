@@ -8,7 +8,7 @@ pub trait Fungible {
     /// Transfer some `amount` of tokens `from` one contract `to` another
     #[update]
     fn transfer(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[input] from: &Address,
         #[input] to: &Address,
         #[input] amount: &Balance,
@@ -16,5 +16,5 @@ pub trait Fungible {
 
     /// Get balance of specified address
     #[view]
-    fn balance(#[env] env: &Env, #[input] address: &Address) -> Result<Balance, ContractError>;
+    fn balance(#[env] env: &Env<'_>, #[input] address: &Address) -> Result<Balance, ContractError>;
 }

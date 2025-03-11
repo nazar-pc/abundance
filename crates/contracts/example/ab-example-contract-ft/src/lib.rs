@@ -14,7 +14,7 @@ pub struct Slot {
     pub balance: Balance,
 }
 
-#[derive(Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct ExampleFt {
     pub total_supply: Balance,
@@ -25,7 +25,7 @@ pub struct ExampleFt {
 impl Fungible for ExampleFt {
     #[update]
     fn transfer(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[input] from: &Address,
         #[input] to: &Address,
         #[input] amount: &Balance,
@@ -38,7 +38,7 @@ impl Fungible for ExampleFt {
     }
 
     #[view]
-    fn balance(#[env] env: &Env, #[input] address: &Address) -> Result<Balance, ContractError> {
+    fn balance(#[env] env: &Env<'_>, #[input] address: &Address) -> Result<Balance, ContractError> {
         env.example_ft_balance(env.own_address(), address)
     }
 }
@@ -62,7 +62,7 @@ impl ExampleFt {
     #[update]
     pub fn mint(
         &mut self,
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[slot] to: &mut MaybeData<Slot>,
         #[input] &value: &Balance,
     ) -> Result<(), ContractError> {
@@ -97,7 +97,7 @@ impl ExampleFt {
 
     #[update]
     pub fn transfer(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),
         #[slot] to: &mut MaybeData<Slot>,
         #[input] &amount: &Balance,

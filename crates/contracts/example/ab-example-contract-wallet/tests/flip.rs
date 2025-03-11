@@ -17,7 +17,7 @@ use ab_system_contract_simple_wallet_base::payload::builder::TransactionPayloadB
 use ab_system_contract_simple_wallet_base::seal::hash_and_sign;
 use schnorrkel::Keypair;
 
-#[derive(Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct Flipper {
     pub value: bool,

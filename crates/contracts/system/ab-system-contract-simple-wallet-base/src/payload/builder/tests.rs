@@ -10,7 +10,7 @@ use ab_contracts_macros::contract;
 use core::mem::MaybeUninit;
 use core::ptr;
 
-#[derive(Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct DemoContract {
     pub value: u8,

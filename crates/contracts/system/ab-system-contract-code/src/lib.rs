@@ -7,7 +7,7 @@ use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract;
 use ab_system_contract_address_allocator::AddressAllocatorExt;
 
-#[derive(Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct Code;
 
@@ -16,7 +16,7 @@ impl Code {
     /// Deploy a new contract with specified code
     #[update]
     pub fn deploy(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[input] code: &VariableBytes<MAX_CODE_SIZE>,
     ) -> Result<Address, ContractError> {
         let new_contract_address = env.address_allocator_allocate_address(
@@ -40,7 +40,7 @@ impl Code {
     // TODO: Some code validation?
     #[update]
     pub fn store(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[slot] (address, contract_code): (&Address, &mut VariableBytes<MAX_CODE_SIZE>),
         #[input] new_code: &VariableBytes<MAX_CODE_SIZE>,
     ) -> Result<(), ContractError> {

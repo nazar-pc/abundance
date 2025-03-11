@@ -5,7 +5,7 @@ use ab_contracts_common::{Address, ContractError, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
 
-#[derive(Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct AddressAllocator {
     /// Next address to be allocated on this shard
@@ -18,7 +18,7 @@ pub struct AddressAllocator {
 impl AddressAllocator {
     /// Initialize address allocator for a shard
     #[init]
-    pub fn new(#[env] env: &Env) -> Self {
+    pub fn new(#[env] env: &Env<'_>) -> Self {
         let shard_index = env.shard_index();
 
         let expected_self_address =
@@ -39,7 +39,7 @@ impl AddressAllocator {
     ///
     /// This can only be called by [`Address::SYSTEM_CODE`] contract.
     #[update]
-    pub fn allocate_address(&mut self, #[env] env: &mut Env) -> Result<Address, ContractError> {
+    pub fn allocate_address(&mut self, #[env] env: &mut Env<'_>) -> Result<Address, ContractError> {
         if env.caller() != Address::SYSTEM_CODE {
             return Err(ContractError::Forbidden);
         }

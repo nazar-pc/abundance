@@ -25,3 +25,6 @@ thiserror = { workspace = true }
 guest = []
 # APIs needed for native executor
 executor = []
+
+[lints]
+workspace = true

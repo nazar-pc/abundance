@@ -241,7 +241,7 @@ Conceptually, all methods look something like this:
 impl MyContract {
     fn method(
         &self,
-        env: &mut Env,
+        env: &mut Env<'_>,
         slot: &MaybeData<u128>,
         input: &Balance,
         output: &mut MaybeData<u128>

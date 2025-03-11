@@ -103,7 +103,7 @@ pub enum ContractMetadataKind {
     EnvRo,
     /// Read-write `#[env]` argument.
     ///
-    /// Example: `#[env] env: &mut Env,`
+    /// Example: `#[env] env: &mut Env<'_>,`
     EnvRw,
     /// Read-only `#[tmp]` argument.
     ///

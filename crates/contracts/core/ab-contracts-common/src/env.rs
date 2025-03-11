@@ -109,7 +109,7 @@ pub trait ExecutorContext: core::fmt::Debug {
     fn call(
         &self,
         previous_env_state: &EnvState,
-        prepared_methods: &mut PreparedMethod,
+        prepared_methods: &mut PreparedMethod<'_>,
     ) -> Result<(), ContractError>;
 }
 

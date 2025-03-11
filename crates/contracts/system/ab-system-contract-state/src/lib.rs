@@ -22,7 +22,7 @@ where
     f(&mut new_state)
 }
 
-#[derive(Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct State;
 
@@ -33,7 +33,7 @@ impl State {
     /// Similar to [`State::write()`], but returns error if the state is not empty.
     #[update]
     pub fn initialize(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[slot] (address, contract_state): (
             &Address,
             &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
@@ -52,7 +52,7 @@ impl State {
     /// Only direct caller is allowed to write its own state for security reasons.
     #[update]
     pub fn write(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         // TODO: Allow to replace slot pointer with input pointer to make the input size zero and
         //  allow zero-copy
         #[slot] (address, contract_state): (
