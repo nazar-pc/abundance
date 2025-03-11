@@ -451,7 +451,7 @@ where
                 // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
                 // and aligned correctly
                 unsafe {
-                    write_ptr!(env_ro => internal_args_cursor as *const Env);
+                    write_ptr!(env_ro => internal_args_cursor as *const Env<'_>);
                 }
 
                 // Size for `#[env]` is implicit and doesn't need to be added to `InternalArgs`
@@ -468,7 +468,7 @@ where
                 // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
                 // and aligned correctly
                 unsafe {
-                    write_ptr!(env_rw => internal_args_cursor as *mut Env);
+                    write_ptr!(env_rw => internal_args_cursor as *mut Env<'_>);
                 }
 
                 // Size for `#[env]` is implicit and doesn't need to be added to `InternalArgs`
@@ -668,7 +668,7 @@ where
     // to become usable for it
     if let Some(new_address_ptr) = new_address_ptr {
         // Assert that the API has expected shape
-        let _: fn(&mut AddressAllocator, &mut Env) -> Result<Address, ContractError> =
+        let _: fn(&mut AddressAllocator, &mut Env<'_>) -> Result<Address, ContractError> =
             AddressAllocator::allocate_address;
         // SAFETY: Method call to address allocator succeeded, so it must have returned an address
         let new_address = unsafe { new_address_ptr.read() };

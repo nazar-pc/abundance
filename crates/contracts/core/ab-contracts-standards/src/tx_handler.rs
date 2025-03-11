@@ -37,7 +37,7 @@ pub trait TxHandler {
     /// are no limits to the amount of work here except the ability to pay for gas.
     #[view]
     fn authorize(
-        #[env] env: &Env,
+        #[env] env: &Env<'_>,
         #[input] header: &TransactionHeader,
         #[input] read_slots: &TxHandlerSlots,
         #[input] write_slots: &TxHandlerSlots,
@@ -58,7 +58,7 @@ pub trait TxHandler {
     /// protection mechanism such as nonce increase or similar.
     #[update]
     fn execute(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[input] header: &TransactionHeader,
         #[input] read_slots: &TxHandlerSlots,
         #[input] write_slots: &TxHandlerSlots,

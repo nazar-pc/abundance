@@ -503,7 +503,7 @@ pub mod __private;
 ///
 ///     #[update]
 ///     pub fn transfer(
-///         #[env] env: &mut Env,
+///         #[env] env: &mut Env<'_>,
 ///         #[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),
 ///         #[slot] to: &mut MaybeData<Slot>,
 ///         #[input] &amount: &Balance,

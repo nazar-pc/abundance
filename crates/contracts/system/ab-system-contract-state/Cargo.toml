@@ -23,3 +23,6 @@ guest = [
     "ab-contracts-common/guest",
     "ab-contracts-macros/guest",
 ]
+
+[lints]
+workspace = true

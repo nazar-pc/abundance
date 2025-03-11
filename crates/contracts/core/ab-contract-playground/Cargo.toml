@@ -31,3 +31,6 @@ guest = [
     "ab-contracts-macros/guest",
     "ab-contracts-standards/guest",
 ]
+
+[lints]
+workspace = true

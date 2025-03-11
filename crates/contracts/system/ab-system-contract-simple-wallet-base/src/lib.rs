@@ -68,7 +68,7 @@ pub const OUTPUT_BUFFER_OFFSETS_SIZE: usize = 16;
 /// Transaction seal.
 ///
 /// Contains signature and nonce, this is necessary to produce a correctly sealed transaction.
-#[derive(Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct Seal {
     pub signature: [u8; 64],
@@ -78,7 +78,7 @@ pub struct Seal {
 /// State of the wallet.
 ///
 /// Shouldn't be necessary to use directly.
-#[derive(Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct WalletState {
     pub public_key: [u8; 32],
@@ -88,7 +88,7 @@ pub struct WalletState {
 /// A simple wallet contract base contract to be used by other contracts.
 ///
 /// See the module description for details.
-#[derive(Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct SimpleWalletBase;
 
@@ -163,7 +163,7 @@ impl SimpleWalletBase {
     /// The caller must set themselves as a context or else error will be returned.
     #[update]
     pub fn execute(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[input] header: &TransactionHeader,
         #[input] read_slots: &TxHandlerSlots,
         #[input] write_slots: &TxHandlerSlots,

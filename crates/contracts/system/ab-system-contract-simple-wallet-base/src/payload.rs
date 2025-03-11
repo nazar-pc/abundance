@@ -138,6 +138,7 @@ pub enum TransactionPayloadDecoderError {
 }
 
 /// Decoder for transaction payload created using `TransactionPayloadBuilder`.
+#[derive(Debug)]
 pub struct TransactionPayloadDecoder<'a> {
     payload: &'a [u8],
     external_args_buffer: &'a mut [*mut c_void],

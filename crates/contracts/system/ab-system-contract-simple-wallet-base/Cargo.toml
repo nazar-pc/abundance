@@ -39,3 +39,6 @@ payload-builder = [
 no-panic = [
     "dep:no-panic",
 ]
+
+[lints]
+workspace = true

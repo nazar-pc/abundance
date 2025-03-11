@@ -29,6 +29,7 @@ impl OwnedTransaction {
     }
 }
 
+#[derive(Debug)]
 pub struct TransactionBuilder {
     contract: Address,
     transaction_payload_builder: TransactionPayloadBuilder,

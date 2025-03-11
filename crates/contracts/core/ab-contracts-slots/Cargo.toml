@@ -19,3 +19,6 @@ ab-contracts-io-type = { workspace = true }
 smallvec = { workspace = true }
 take_mut = { workspace = true }
 tracing = { workspace = true }
+
+[lints]
+workspace = true

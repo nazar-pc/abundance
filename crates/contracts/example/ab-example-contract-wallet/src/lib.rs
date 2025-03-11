@@ -10,7 +10,7 @@ use ab_contracts_standards::tx_handler::{
 use ab_system_contract_simple_wallet_base::SimpleWalletBaseExt;
 use ab_system_contract_state::{StateExt, with_state_buffer};
 
-#[derive(Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct ExampleWallet;
 
@@ -18,7 +18,7 @@ pub struct ExampleWallet;
 impl TxHandler for ExampleWallet {
     #[view]
     fn authorize(
-        #[env] env: &Env,
+        #[env] env: &Env<'_>,
         #[input] header: &TransactionHeader,
         #[input] read_slots: &TxHandlerSlots,
         #[input] write_slots: &TxHandlerSlots,
@@ -42,7 +42,7 @@ impl TxHandler for ExampleWallet {
 
     #[update]
     fn execute(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[input] header: &TransactionHeader,
         #[input] read_slots: &TxHandlerSlots,
         #[input] write_slots: &TxHandlerSlots,
@@ -95,7 +95,7 @@ impl ExampleWallet {
     /// Initialize a wallet with specified public key
     #[update]
     pub fn initialize(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[input] public_key: &[u8; 32],
     ) -> Result<(), ContractError> {
         with_state_buffer(|state| {
@@ -118,7 +118,7 @@ impl ExampleWallet {
     /// Change public key to a different one
     #[update]
     pub fn change_public_key(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[input] public_key: &[u8; 32],
     ) -> Result<(), ContractError> {
         // Only the system simple wallet base contract under the context of this contract is allowed

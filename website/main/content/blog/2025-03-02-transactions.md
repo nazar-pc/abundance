@@ -54,7 +54,7 @@ pub trait TxHandler {
     /// Execute previously verified transaction
     #[update]
     fn execute(
-        env: &mut Env,
+        env: &mut Env<'_>,
         header: &TransactionHeader,
         payload: &TxHandlerPayload,
         seal: &TxHandlerSeal,

@@ -12,7 +12,7 @@ use ab_contracts_standards::tx_handler::{
 };
 use ab_system_contract_simple_wallet_base::SimpleWalletBaseExt;
 
-#[derive(Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct DummyWallet;
 
@@ -20,7 +20,7 @@ pub struct DummyWallet;
 impl TxHandler for DummyWallet {
     #[view]
     fn authorize(
-        #[env] _env: &Env,
+        #[env] _env: &Env<'_>,
         #[input] _header: &TransactionHeader,
         #[input] _read_slots: &TxHandlerSlots,
         #[input] _write_slots: &TxHandlerSlots,
@@ -33,7 +33,7 @@ impl TxHandler for DummyWallet {
 
     #[update]
     fn execute(
-        #[env] env: &mut Env,
+        #[env] env: &mut Env<'_>,
         #[input] header: &TransactionHeader,
         #[input] read_slots: &TxHandlerSlots,
         #[input] write_slots: &TxHandlerSlots,

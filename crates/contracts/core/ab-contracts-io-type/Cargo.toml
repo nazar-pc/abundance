@@ -12,3 +12,6 @@ include = [
 
 [dependencies]
 ab-contracts-trivial-type-derive = { workspace = true }
+
+[lints]
+workspace = true

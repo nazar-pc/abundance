@@ -1038,6 +1038,7 @@ impl MethodDetails {
             );
             quote_spanned! {fn_sig.span() =>
                 #[doc = #args_struct_doc]
+                #[derive(::core::fmt::Debug)]
                 #[repr(C)]
                 pub struct InternalArgs<'internal_args>
                 {
@@ -1353,6 +1354,7 @@ impl MethodDetails {
 
         Ok(quote_spanned! {fn_sig.span() =>
             #[doc = #args_struct_doc]
+            #[derive(::core::fmt::Debug)]
             #[repr(C)]
             pub struct #args_struct_name {
                 #( #external_args_fields )*
