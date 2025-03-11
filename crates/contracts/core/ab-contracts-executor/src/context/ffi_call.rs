@@ -332,8 +332,8 @@ where
     // elements of this vector!
     let mut delayed_processing = DelayedProcessingCollection::with_capacity(total_arguments);
 
-    // `true` when only `#[view]` method is allowed
-    let view_only = match method_kind {
+    // `view_only == true` when only `#[view]` method is allowed
+    let (view_only, mut slots) = match method_kind {
         MethodKind::Init
         | MethodKind::UpdateStateless
         | MethodKind::UpdateStatefulRo
@@ -343,19 +343,17 @@ where
                 return Err(ContractError::Forbidden);
             }
 
-            false
-        }
-        MethodKind::ViewStateless | MethodKind::ViewStateful => true,
-    };
+            let Some(slots) = parent_slots.new_nested_rw() else {
+                error!("Unexpected creation of non-read-only slots from read-only slots");
+                return Err(ContractError::InternalError);
+            };
 
-    let mut slots = if view_only {
-        parent_slots.new_nested_ro()
-    } else {
-        let Some(nested_slots) = parent_slots.new_nested_rw() else {
-            error!("Unexpected creation of non-read-only slots from read-only slots");
-            return Err(ContractError::InternalError);
-        };
-        nested_slots
+            (false, slots)
+        }
+        MethodKind::ViewStateless | MethodKind::ViewStateful => {
+            let slots = parent_slots.new_nested_ro();
+            (true, slots)
+        }
     };
 
     let mut maybe_env = MaybeEnv::None(());
