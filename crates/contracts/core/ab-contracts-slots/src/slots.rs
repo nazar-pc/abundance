@@ -83,12 +83,10 @@ enum SlotsInner<'a> {
         parent_slot_access_len: usize,
     },
     /// Read-only instance, non-exclusive access to [`Inner`], but not allowed to modify anything
-    ReadOnly {
-        // TODO: Should be read-only?
-        inner: &'a Inner,
-    },
+    ReadOnly { inner: &'a Inner },
 }
 
+// TODO: API for serialization/deserialization or some kind of access to internal contents
 #[derive(Debug)]
 pub struct Slots<'a>(SlotsInner<'a>);
 

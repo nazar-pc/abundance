@@ -46,43 +46,47 @@ fn flip() {
         .build()
         .unwrap();
 
-    let storage = &mut executor.new_storage().unwrap();
+    let slots = &mut executor.new_storage_slots().unwrap();
 
     let keypair = Keypair::generate();
 
-    let wallet_address = executor.transaction_emulate(Address::NULL, storage, |env| {
-        // Deploy
-        let wallet_address = env
-            .code_deploy(
+    let wallet_address = executor
+        .transaction_emulate(Address::NULL, slots, |env| {
+            // Deploy
+            let wallet_address = env
+                .code_deploy(
+                    MethodContext::Keep,
+                    Address::SYSTEM_CODE,
+                    &ExampleWallet::code(),
+                )
+                .unwrap();
+
+            // Initialize state
+            env.example_wallet_initialize(
                 MethodContext::Keep,
-                Address::SYSTEM_CODE,
-                &ExampleWallet::code(),
+                wallet_address,
+                &keypair.public.to_bytes(),
             )
             .unwrap();
 
-        // Initialize state
-        env.example_wallet_initialize(
-            MethodContext::Keep,
-            wallet_address,
-            &keypair.public.to_bytes(),
-        )
+            wallet_address
+        })
         .unwrap();
 
-        wallet_address
-    });
+    let flipper_address = executor
+        .transaction_emulate(Address::NULL, slots, |env| {
+            // Deploy
+            let flipper_address = env
+                .code_deploy(MethodContext::Keep, Address::SYSTEM_CODE, &Flipper::code())
+                .unwrap();
 
-    let flipper_address = executor.transaction_emulate(Address::NULL, storage, |env| {
-        // Deploy
-        let flipper_address = env
-            .code_deploy(MethodContext::Keep, Address::SYSTEM_CODE, &Flipper::code())
-            .unwrap();
+            // Initialize state
+            env.flipper_new(MethodContext::Keep, flipper_address, &true)
+                .unwrap();
 
-        // Initialize state
-        env.flipper_new(MethodContext::Keep, flipper_address, &true)
-            .unwrap();
-
-        flipper_address
-    });
+            flipper_address
+        })
+        .unwrap();
 
     let header = TransactionHeader {
         block_hash: Blake3Hash::default(),
@@ -119,7 +123,7 @@ fn flip() {
                     write_slots,
                     seal: seal.as_bytes(),
                 },
-                storage,
+                slots,
             )
             .unwrap();
     }
@@ -136,7 +140,7 @@ fn flip() {
                     write_slots,
                     seal: seal.as_bytes(),
                 },
-                storage,
+                slots,
             )
             .unwrap();
     }

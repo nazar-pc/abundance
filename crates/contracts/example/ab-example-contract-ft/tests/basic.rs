@@ -16,108 +16,114 @@ fn basic() {
         .build()
         .unwrap();
 
-    let storage = &mut executor.new_storage().unwrap();
+    let slots = &mut executor.new_storage_slots().unwrap();
 
     // Create two wallets
-    let (alice, bob) = executor.transaction_emulate(Address::NULL, storage, |env| {
-        let alice = env
-            .code_deploy(
-                MethodContext::Reset,
-                Address::SYSTEM_CODE,
-                &DummyWallet::code(),
-            )
-            .unwrap();
-        let bob = env
-            .code_deploy(
-                MethodContext::Reset,
-                Address::SYSTEM_CODE,
-                &DummyWallet::code(),
-            )
-            .unwrap();
+    let (alice, bob) = executor
+        .transaction_emulate(Address::NULL, slots, |env| {
+            let alice = env
+                .code_deploy(
+                    MethodContext::Reset,
+                    Address::SYSTEM_CODE,
+                    &DummyWallet::code(),
+                )
+                .unwrap();
+            let bob = env
+                .code_deploy(
+                    MethodContext::Reset,
+                    Address::SYSTEM_CODE,
+                    &DummyWallet::code(),
+                )
+                .unwrap();
 
-        (alice, bob)
-    });
+            (alice, bob)
+        })
+        .unwrap();
 
     // Deploy and initialize
-    let token_address = executor.transaction_emulate(alice, storage, |env| {
-        let token_address = env
-            .code_deploy(
-                MethodContext::Keep,
-                Address::SYSTEM_CODE,
-                &ExampleFt::code(),
-            )
-            .unwrap();
-        env.example_ft_new(MethodContext::Keep, token_address, &alice, &Balance::MAX)
-            .unwrap();
+    let token_address = executor
+        .transaction_emulate(alice, slots, |env| {
+            let token_address = env
+                .code_deploy(
+                    MethodContext::Keep,
+                    Address::SYSTEM_CODE,
+                    &ExampleFt::code(),
+                )
+                .unwrap();
+            env.example_ft_new(MethodContext::Keep, token_address, &alice, &Balance::MAX)
+                .unwrap();
 
-        token_address
-    });
+            token_address
+        })
+        .unwrap();
 
-    executor.transaction_emulate(alice, storage, |env| {
-        let mut previous_alice_balance = Balance::MAX;
-        let mut previous_bob_balance = Balance::from(0);
-        let amount = Balance::from(10);
+    executor
+        .transaction_emulate(alice, slots, |env| {
+            let mut previous_alice_balance = Balance::MAX;
+            let mut previous_bob_balance = Balance::from(0);
+            let amount = Balance::from(10);
 
-        // Direct
-        assert_eq!(
-            env.example_ft_balance(token_address, &alice).unwrap(),
-            previous_alice_balance
-        );
-        // Through `Fungible` trait
-        assert_eq!(
-            env.fungible_balance(token_address, &alice).unwrap(),
-            previous_alice_balance
-        );
+            // Direct
+            assert_eq!(
+                env.example_ft_balance(token_address, &alice).unwrap(),
+                previous_alice_balance
+            );
+            // Through `Fungible` trait
+            assert_eq!(
+                env.fungible_balance(token_address, &alice).unwrap(),
+                previous_alice_balance
+            );
 
-        // Direct
-        env.example_ft_transfer(MethodContext::Keep, token_address, &alice, &bob, &amount)
-            .unwrap();
+            // Direct
+            env.example_ft_transfer(MethodContext::Keep, token_address, &alice, &bob, &amount)
+                .unwrap();
 
-        // Direct
-        {
-            let remaining_balance = env.example_ft_balance(token_address, &alice).unwrap();
-            let code_balance = env.example_ft_balance(token_address, &bob).unwrap();
+            // Direct
+            {
+                let remaining_balance = env.example_ft_balance(token_address, &alice).unwrap();
+                let code_balance = env.example_ft_balance(token_address, &bob).unwrap();
 
-            assert_eq!(remaining_balance, previous_alice_balance - amount);
-            assert_eq!(code_balance, previous_bob_balance + amount);
-        }
-        // Through `Fungible` trait
-        {
-            let remaining_balance = env.fungible_balance(token_address, &alice).unwrap();
-            let code_balance = env.fungible_balance(token_address, &bob).unwrap();
+                assert_eq!(remaining_balance, previous_alice_balance - amount);
+                assert_eq!(code_balance, previous_bob_balance + amount);
+            }
+            // Through `Fungible` trait
+            {
+                let remaining_balance = env.fungible_balance(token_address, &alice).unwrap();
+                let code_balance = env.fungible_balance(token_address, &bob).unwrap();
 
-            assert_eq!(remaining_balance, previous_alice_balance - amount);
-            assert_eq!(code_balance, previous_bob_balance + amount);
-        }
+                assert_eq!(remaining_balance, previous_alice_balance - amount);
+                assert_eq!(code_balance, previous_bob_balance + amount);
+            }
 
-        previous_alice_balance -= amount;
-        previous_bob_balance += amount;
+            previous_alice_balance -= amount;
+            previous_bob_balance += amount;
 
-        // Through `Fungible` trait
-        env.fungible_transfer(MethodContext::Keep, token_address, &alice, &bob, &amount)
-            .unwrap();
+            // Through `Fungible` trait
+            env.fungible_transfer(MethodContext::Keep, token_address, &alice, &bob, &amount)
+                .unwrap();
 
-        // Direct
-        {
-            let remaining_balance = env.example_ft_balance(token_address, &alice).unwrap();
-            let code_balance = env.example_ft_balance(token_address, &bob).unwrap();
+            // Direct
+            {
+                let remaining_balance = env.example_ft_balance(token_address, &alice).unwrap();
+                let code_balance = env.example_ft_balance(token_address, &bob).unwrap();
 
-            assert_eq!(remaining_balance, previous_alice_balance - amount);
-            assert_eq!(code_balance, previous_bob_balance + amount);
-        }
-        // Through `Fungible` trait
-        {
-            let remaining_balance = env.fungible_balance(token_address, &alice).unwrap();
-            let code_balance = env.fungible_balance(token_address, &bob).unwrap();
+                assert_eq!(remaining_balance, previous_alice_balance - amount);
+                assert_eq!(code_balance, previous_bob_balance + amount);
+            }
+            // Through `Fungible` trait
+            {
+                let remaining_balance = env.fungible_balance(token_address, &alice).unwrap();
+                let code_balance = env.fungible_balance(token_address, &bob).unwrap();
 
-            assert_eq!(remaining_balance, previous_alice_balance - amount);
-            assert_eq!(code_balance, previous_bob_balance + amount);
-        }
+                assert_eq!(remaining_balance, previous_alice_balance - amount);
+                assert_eq!(code_balance, previous_bob_balance + amount);
+            }
 
-        // Can't transfer from `bob` when transaction is authored by `alice`
-        assert!(matches!(
-            env.fungible_transfer(MethodContext::Keep, token_address, &bob, &alice, &amount),
-            Err(ContractError::Forbidden)
-        ));
-    });
+            // Can't transfer from `bob` when transaction is authored by `alice`
+            assert!(matches!(
+                env.fungible_transfer(MethodContext::Keep, token_address, &bob, &alice, &amount),
+                Err(ContractError::Forbidden)
+            ));
+        })
+        .unwrap();
 }
