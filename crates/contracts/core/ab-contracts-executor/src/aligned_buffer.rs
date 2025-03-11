@@ -4,9 +4,8 @@ mod tests;
 use ab_contracts_io_type::MAX_ALIGNMENT;
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::ptr::NonNull;
-use std::slice;
-use std::sync::LazyLock;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::{mem, slice};
 
 #[repr(C, align(16))]
 struct AlignedBytes([u8; MAX_ALIGNMENT as usize]);
@@ -199,6 +198,29 @@ impl OwnedAlignedBuffer {
     }
 }
 
+/// Aligned atomic used in static below
+#[repr(C, align(16))]
+struct ConstStrongCount(AtomicU32);
+
+/// Wrapper to make pointer `Sync`
+#[repr(transparent)]
+struct SharableConstStrongCountPtr(NonNull<[MaybeUninit<AlignedBytes>]>);
+// SAFETY: Statically allocated memory buffer with atomic can be used from any thread
+unsafe impl Sync for SharableConstStrongCountPtr {}
+
+static mut CONST_STRONG_COUNT: &mut [ConstStrongCount] = &mut [ConstStrongCount(AtomicU32::new(1))];
+/// SAFETY: Size and layout of both `NonNull<[ConstStrongCount]>` and `SharableConstStrongCountPtr`
+/// is the same, `CONST_STRONG_COUNT` static is only mutated through atomic operations
+static EMPTY_SHARED_ALIGNED_BUFFER_BUFFER: SharableConstStrongCountPtr = unsafe {
+    mem::transmute::<NonNull<[ConstStrongCount]>, SharableConstStrongCountPtr>(NonNull::from_mut(
+        CONST_STRONG_COUNT,
+    ))
+};
+static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
+    buffer: EMPTY_SHARED_ALIGNED_BUFFER_BUFFER.0,
+    len: 0,
+};
+
 /// Shared aligned buffer for executor purposes.
 ///
 /// See [`OwnedAlignedBuffer`] for a version that can be mutated.
@@ -261,8 +283,7 @@ impl SharedAlignedBuffer {
     /// Static reference to an empty buffer
     #[inline(always)]
     pub(super) fn empty_ref() -> &'static Self {
-        static EMPTY: LazyLock<SharedAlignedBuffer> = LazyLock::new(SharedAlignedBuffer::default);
-        &EMPTY
+        &EMPTY_SHARED_ALIGNED_BUFFER
     }
 
     /// Create a new instance from provided bytes.
