@@ -2,7 +2,7 @@
 mod tests;
 
 use ab_contracts_io_type::MAX_ALIGNMENT;
-use std::mem::{ManuallyDrop, MaybeUninit};
+use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::{mem, slice};
@@ -17,6 +17,171 @@ const _: () = {
     );
 };
 
+#[repr(C, align(16))]
+struct ConstInnerBuffer {
+    strong_count: AtomicU32,
+}
+
+const _: () = {
+    assert!(align_of::<ConstInnerBuffer>() == align_of::<AlignedBytes>());
+    assert!(size_of::<ConstInnerBuffer>() == size_of::<AlignedBytes>());
+};
+
+static mut CONST_INNER_BUFFER: &mut [ConstInnerBuffer] = &mut [ConstInnerBuffer {
+    strong_count: AtomicU32::new(1),
+}];
+
+struct ConstInnerBufferPtr(NonNull<[MaybeUninit<AlignedBytes>]>);
+// SAFETY: Statically allocated memory buffer can be used from any thread
+unsafe impl Sync for ConstInnerBufferPtr {}
+
+/// SAFETY: Size and layout of both `NonNull<[ConstInnerBuffer]>` and `ConstInnerBufferPtr`
+/// is the same, `CONST_STRONG_COUNT` static is only mutated through atomic operations
+static EMPTY_SHARED_ALIGNED_BUFFER_BUFFER: ConstInnerBufferPtr = unsafe {
+    mem::transmute::<NonNull<[ConstInnerBuffer]>, ConstInnerBufferPtr>(NonNull::from_mut(
+        CONST_INNER_BUFFER,
+    ))
+};
+static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
+    inner: InnerBuffer {
+        buffer: EMPTY_SHARED_ALIGNED_BUFFER_BUFFER.0,
+        len: 0,
+    },
+};
+
+#[derive(Debug)]
+#[repr(C)]
+struct InnerBuffer {
+    // The first bytes are allocated for `len` and `strong_count`
+    buffer: NonNull<[MaybeUninit<AlignedBytes>]>,
+    len: u32,
+}
+
+// SAFETY: Heap-allocated memory buffer can be used from any thread
+unsafe impl Send for InnerBuffer {}
+// SAFETY: Heap-allocated memory buffer can be used from any thread
+unsafe impl Sync for InnerBuffer {}
+
+impl Default for InnerBuffer {
+    #[inline(always)]
+    fn default() -> Self {
+        let buffer = InnerBuffer {
+            buffer: EMPTY_SHARED_ALIGNED_BUFFER.inner.buffer,
+            len: 0,
+        };
+        buffer.strong_count_ref().fetch_add(1, Ordering::AcqRel);
+        buffer
+    }
+}
+
+impl Clone for InnerBuffer {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        self.strong_count_ref().fetch_add(1, Ordering::AcqRel);
+
+        Self {
+            buffer: self.buffer,
+            len: self.len,
+        }
+    }
+}
+
+impl Drop for InnerBuffer {
+    #[inline(always)]
+    fn drop(&mut self) {
+        if self.strong_count_ref().fetch_sub(1, Ordering::AcqRel) == 1 {
+            // SAFETY: Created from `Box` in constructor
+            let _ = unsafe { Box::from_non_null(self.buffer) };
+        }
+    }
+}
+
+impl InnerBuffer {
+    /// Allocates a new buffer + one [`AlignedBytes`] worth of memory at the beginning for `len` and
+    /// `strong_count` in case it is later converted to [`SharedAlignedBuffer`].
+    ///
+    /// `len` and `strong_count` field are automatically initialized as `0` and `1`.
+    #[inline(always)]
+    fn allocate(capacity: u32) -> Self {
+        let buffer = Box::into_non_null(Box::new_uninit_slice(
+            1 + (capacity as usize).div_ceil(size_of::<AlignedBytes>()),
+        ));
+        let mut instance = Self { buffer, len: 0 };
+        // SAFETY: 0 bytes initialized
+        unsafe {
+            instance.len_write(0);
+            instance.strong_count_initialize();
+        }
+        instance
+    }
+
+    #[inline(always)]
+    fn len_read(&self) -> u32 {
+        self.len
+    }
+
+    /// `len` bytes must be initialized
+    #[inline(always)]
+    unsafe fn len_write(&mut self, len: u32) {
+        self.len = len;
+    }
+
+    // TODO: Store precomputed capacity and expose pointer to it
+    #[inline(always)]
+    fn capacity(&self) -> u32 {
+        // API constraints capacity to `u32`, hence this never truncates, `- 1` due to
+        // `strong_count` stored at the beginning of the buffer
+        ((self.buffer.len() - 1) * size_of::<AlignedBytes>()) as u32
+    }
+
+    #[inline(always)]
+    fn strong_count_ref(&self) -> &AtomicU32 {
+        // SAFETY: The first bytes are allocated for `len` and `strong_count`, which is are
+        // correctly aligned copy types initialized in the constructor
+        unsafe { self.buffer.as_ptr().cast::<AtomicU32>().as_ref_unchecked() }
+    }
+
+    #[inline(always)]
+    fn strong_count_initialize(&mut self) {
+        // SAFETY: The first bytes are allocated for `len` and `strong_count`, which is are
+        // correctly aligned copy types
+        unsafe {
+            self.buffer
+                .as_ptr()
+                .cast::<AtomicU32>()
+                .write(AtomicU32::new(1))
+        };
+    }
+
+    #[inline(always)]
+    fn as_slice(&self) -> &[u8] {
+        let len = self.len_read() as usize;
+        // SAFETY: Not null and length is a protected invariant of the implementation
+        unsafe { slice::from_raw_parts(self.as_ptr(), len) }
+    }
+
+    #[inline(always)]
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        let len = self.len_read() as usize;
+        // SAFETY: Not null and length is a protected invariant of the implementation
+        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), len) }
+    }
+
+    #[inline(always)]
+    fn as_ptr(&self) -> *const u8 {
+        let buffer_ptr = self.buffer.as_ptr().cast_const().cast::<u8>();
+        // SAFETY: Constructor allocates the first element for `strong_count`
+        unsafe { buffer_ptr.add(size_of::<AlignedBytes>()) }
+    }
+
+    #[inline(always)]
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        let buffer_ptr = self.buffer.as_ptr().cast::<u8>();
+        // SAFETY: Constructor allocates the first element for `strong_count`
+        unsafe { buffer_ptr.add(size_of::<AlignedBytes>()) }
+    }
+}
+
 /// Owned aligned buffer for executor purposes.
 ///
 /// See [`SharedAlignedBuffer`] for a version that can be cheaply cloned, while reusing the original
@@ -26,30 +191,15 @@ const _: () = {
 /// types and by extension any type that implements `TrivialType`/`IoType`.
 #[derive(Debug)]
 pub(super) struct OwnedAlignedBuffer {
-    /// Last 4 bytes reserved for [`SharedAlignedBuffer::strong_count()`]
-    buffer: NonNull<[MaybeUninit<AlignedBytes>]>,
-    len: u32,
+    inner: InnerBuffer,
 }
-
-// SAFETY: Heap-allocated memory buffer can be used from any thread
-unsafe impl Send for OwnedAlignedBuffer {}
-// SAFETY: Heap-allocated memory buffer can be used from any thread
-unsafe impl Sync for OwnedAlignedBuffer {}
 
 impl Clone for OwnedAlignedBuffer {
-    #[inline]
+    #[inline(always)]
     fn clone(&self) -> Self {
-        let mut buffer = Self::with_capacity(self.capacity());
-        buffer.copy_from_slice(self.as_slice());
-        buffer
-    }
-}
-
-impl Drop for OwnedAlignedBuffer {
-    #[inline]
-    fn drop(&mut self) {
-        // SAFETY: Created from `Box` in constructor
-        let _ = unsafe { Box::from_non_null(self.buffer) };
+        let mut new_instance = Self::with_capacity(self.capacity());
+        new_instance.copy_from_slice(self.as_slice());
+        new_instance
     }
 }
 
@@ -60,18 +210,8 @@ impl OwnedAlignedBuffer {
     #[inline(always)]
     pub(super) fn with_capacity(capacity: u32) -> Self {
         Self {
-            buffer: Self::allocate_buffer(capacity),
-            len: 0,
+            inner: InnerBuffer::allocate(capacity),
         }
-    }
-
-    /// Allocates a new buffer + one [`AlignedBytes`] worth of memory at the beginning for the
-    /// `strong_count` in case it is later converted to [`SharedAlignedBuffer`]
-    #[inline(always)]
-    fn allocate_buffer(capacity: u32) -> NonNull<[MaybeUninit<AlignedBytes>]> {
-        Box::into_non_null(Box::new_uninit_slice(
-            1 + (capacity as usize).div_ceil(size_of::<AlignedBytes>()),
-        ))
     }
 
     /// Create a new instance from provided bytes.
@@ -87,37 +227,29 @@ impl OwnedAlignedBuffer {
 
     #[inline(always)]
     pub(super) fn as_slice(&self) -> &[u8] {
-        let len = self.len as usize;
-        // SAFETY: Not null and length is a protected invariant of the implementation
-        unsafe { slice::from_raw_parts(self.as_ptr(), len) }
+        self.inner.as_slice()
     }
 
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     #[inline(always)]
     pub(super) fn as_mut_slice(&mut self) -> &mut [u8] {
-        let len = self.len as usize;
-        // SAFETY: Not null and length is a protected invariant of the implementation
-        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), len) }
+        self.inner.as_mut_slice()
     }
 
+    #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     #[inline(always)]
     pub(super) fn as_ptr(&self) -> *const u8 {
-        let buffer_ptr = self.buffer.as_ptr().cast_const().cast::<u8>();
-        // SAFETY: Constructor allocates the first element for `strong_count`
-        unsafe { buffer_ptr.add(size_of::<AlignedBytes>()) }
+        self.inner.as_ptr()
     }
 
     #[inline(always)]
     pub(super) fn as_mut_ptr(&mut self) -> *mut u8 {
-        let buffer_ptr = self.buffer.as_ptr().cast::<u8>();
-        // SAFETY: Constructor allocates the first element for `strong_count`
-        unsafe { buffer_ptr.add(size_of::<AlignedBytes>()) }
+        self.inner.as_mut_ptr()
     }
 
     #[inline(always)]
     pub(super) fn into_shared(self) -> SharedAlignedBuffer {
-        let instance = ManuallyDrop::new(self);
-        SharedAlignedBuffer::new_from_buffer_with_len(instance.buffer, instance.len)
+        SharedAlignedBuffer { inner: self.inner }
     }
 
     /// Ensure capacity of the buffer is at least `capacity`.
@@ -144,11 +276,8 @@ impl OwnedAlignedBuffer {
         };
 
         if len > self.capacity() {
-            // Drop old buffer
-            // SAFETY: Created from `Box` in constructor
-            let _ = unsafe { Box::from_non_null(self.buffer) };
             // Allocate new buffer
-            self.buffer = Self::allocate_buffer(len);
+            self.inner = InnerBuffer::allocate(len);
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
@@ -156,27 +285,25 @@ impl OwnedAlignedBuffer {
         unsafe {
             self.as_mut_ptr()
                 .copy_from_nonoverlapping(bytes.as_ptr(), bytes.len());
-        }
 
-        self.len = len;
+            self.inner.len_write(len);
+        }
     }
 
     #[inline(always)]
     pub(super) fn is_empty(&self) -> bool {
-        self.len == 0
+        self.inner.len_read() == 0
     }
 
     #[inline(always)]
     pub(super) fn len(&self) -> u32 {
-        self.len
+        self.inner.len_read()
     }
 
     // TODO: Store precomputed capacity and expose pointer to it
     #[inline(always)]
     pub(super) fn capacity(&self) -> u32 {
-        // API constraints capacity to `u32`, hence this never truncates, `- 1` due to
-        // `strong_count` stored at the beginning of the buffer
-        ((self.buffer.len() - 1) * size_of::<AlignedBytes>()) as u32
+        self.inner.capacity()
     }
 
     /// Set the length of the useful data to specified value.
@@ -194,32 +321,12 @@ impl OwnedAlignedBuffer {
             new_len,
             self.capacity()
         );
-        self.len = new_len;
+        // SAFETY: Guaranteed by method contract
+        unsafe {
+            self.inner.len_write(new_len);
+        }
     }
 }
-
-/// Aligned atomic used in static below
-#[repr(C, align(16))]
-struct ConstStrongCount(AtomicU32);
-
-/// Wrapper to make pointer `Sync`
-#[repr(transparent)]
-struct SharableConstStrongCountPtr(NonNull<[MaybeUninit<AlignedBytes>]>);
-// SAFETY: Statically allocated memory buffer with atomic can be used from any thread
-unsafe impl Sync for SharableConstStrongCountPtr {}
-
-static mut CONST_STRONG_COUNT: &mut [ConstStrongCount] = &mut [ConstStrongCount(AtomicU32::new(1))];
-/// SAFETY: Size and layout of both `NonNull<[ConstStrongCount]>` and `SharableConstStrongCountPtr`
-/// is the same, `CONST_STRONG_COUNT` static is only mutated through atomic operations
-static EMPTY_SHARED_ALIGNED_BUFFER_BUFFER: SharableConstStrongCountPtr = unsafe {
-    mem::transmute::<NonNull<[ConstStrongCount]>, SharableConstStrongCountPtr>(NonNull::from_mut(
-        CONST_STRONG_COUNT,
-    ))
-};
-static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
-    buffer: EMPTY_SHARED_ALIGNED_BUFFER_BUFFER.0,
-    len: 0,
-};
 
 /// Shared aligned buffer for executor purposes.
 ///
@@ -230,39 +337,9 @@ static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
 ///
 /// NOTE: Counter for number of shared instances is `u32` and will wrap around if exceeded breaking
 /// internal invariants (which is extremely unlikely, but still).
-#[derive(Debug)]
+#[derive(Debug, Default, Clone)]
 pub(super) struct SharedAlignedBuffer {
-    buffer: NonNull<[MaybeUninit<AlignedBytes>]>,
-    len: u32,
-}
-
-impl Default for SharedAlignedBuffer {
-    #[inline]
-    fn default() -> Self {
-        OwnedAlignedBuffer::with_capacity(0).into_shared()
-    }
-}
-
-impl Clone for SharedAlignedBuffer {
-    #[inline(always)]
-    fn clone(&self) -> Self {
-        self.strong_count().fetch_add(1, Ordering::AcqRel);
-
-        Self {
-            buffer: self.buffer,
-            len: self.len,
-        }
-    }
-}
-
-impl Drop for SharedAlignedBuffer {
-    #[inline]
-    fn drop(&mut self) {
-        if self.strong_count().fetch_sub(1, Ordering::AcqRel) == 1 {
-            // SAFETY: Created from `Box` in constructor
-            let _ = unsafe { Box::from_non_null(self.buffer) };
-        }
-    }
+    inner: InnerBuffer,
 }
 
 // SAFETY: Heap-allocated memory buffer and atomic can be used from any thread
@@ -271,15 +348,6 @@ unsafe impl Send for SharedAlignedBuffer {}
 unsafe impl Sync for SharedAlignedBuffer {}
 
 impl SharedAlignedBuffer {
-    /// # Safety
-    /// Must only be called with First bytes are allocated to be `strong_count`
-    fn new_from_buffer_with_len(buffer: NonNull<[MaybeUninit<AlignedBytes>]>, len: u32) -> Self {
-        // SAFETY: The first bytes are allocated for strong count, which is a correctly aligned copy
-        // type
-        unsafe { buffer.as_ptr().cast::<AtomicU32>().write(AtomicU32::new(1)) };
-        Self { buffer, len }
-    }
-
     /// Static reference to an empty buffer
     #[inline(always)]
     pub(super) fn empty_ref() -> &'static Self {
@@ -304,46 +372,30 @@ impl SharedAlignedBuffer {
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     #[inline(always)]
     pub(super) fn into_owned(self) -> OwnedAlignedBuffer {
-        let instance = ManuallyDrop::new(self);
-        if instance.strong_count().fetch_sub(1, Ordering::AcqRel) == 1 {
-            OwnedAlignedBuffer {
-                buffer: instance.buffer,
-                len: instance.len,
-            }
+        if self.inner.strong_count_ref().load(Ordering::Acquire) == 1 {
+            OwnedAlignedBuffer { inner: self.inner }
         } else {
-            let mut owned_instance = OwnedAlignedBuffer::with_capacity(0);
-            owned_instance.copy_from_slice(instance.as_slice());
-            owned_instance
+            OwnedAlignedBuffer::from_bytes(self.as_slice())
         }
     }
 
     #[inline(always)]
     pub(super) fn as_slice(&self) -> &[u8] {
-        // SAFETY: Not null and size is a protected invariant of the implementation
-        unsafe { slice::from_raw_parts(self.as_ptr(), self.len as usize) }
+        self.inner.as_slice()
     }
 
     #[inline(always)]
     pub(super) fn as_ptr(&self) -> *const u8 {
-        let buffer_ptr = self.buffer.as_ptr().cast_const().cast::<u8>();
-        // SAFETY: Constructor allocates the first element for `strong_count`
-        unsafe { buffer_ptr.add(size_of::<AlignedBytes>()) }
+        self.inner.as_ptr()
     }
 
     #[inline(always)]
     pub(super) fn is_empty(&self) -> bool {
-        self.len == 0
+        self.inner.len_read() == 0
     }
 
     #[inline(always)]
     pub(super) fn len(&self) -> u32 {
-        self.len
-    }
-
-    #[inline(always)]
-    fn strong_count(&self) -> &AtomicU32 {
-        // SAFETY: The first bytes are allocated for strong count, which is a correctly aligned copy
-        // type initialized in constructor if `true`
-        unsafe { self.buffer.as_ptr().cast::<AtomicU32>().as_ref_unchecked() }
+        self.inner.len_read()
     }
 }
