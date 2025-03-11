@@ -2,10 +2,11 @@
 mod tests;
 
 use ab_contracts_io_type::MAX_ALIGNMENT;
-use std::mem::MaybeUninit;
-use std::ptr::NonNull;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::{mem, slice};
+use alloc::boxed::Box;
+use core::mem::MaybeUninit;
+use core::ptr::NonNull;
+use core::sync::atomic::{AtomicU32, Ordering};
+use core::{mem, slice};
 
 #[repr(C, align(16))]
 struct AlignedBytes([u8; MAX_ALIGNMENT as usize]);

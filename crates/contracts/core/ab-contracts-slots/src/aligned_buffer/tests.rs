@@ -1,4 +1,5 @@
 use crate::aligned_buffer::{AlignedBytes, OwnedAlignedBuffer, SharedAlignedBuffer};
+use alloc::vec;
 
 const EXPECTED_ALIGNMENT: usize = size_of::<AlignedBytes>();
 
