@@ -1,4 +1,4 @@
-use ab_contract_playground::{Playground, PlaygroundExt};
+use ab_contract_playground::{LastAction, Playground, PlaygroundExt};
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Balance, Contract, ContractError, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
@@ -65,6 +65,17 @@ fn basic() {
         .unwrap();
 
     executor
+        .transaction_emulate(Address::NULL, slots, |env| {
+            // There must be no action initially
+            assert_eq!(
+                env.playground_last_action(MethodContext::Reset, playground_token)
+                    .unwrap(),
+                LastAction::None
+            );
+        })
+        .unwrap();
+
+    executor
         .transaction_emulate(alice, slots, |env| {
             let mut previous_alice_balance = Balance::MAX;
             let mut previous_bob_balance = Balance::from(0);
@@ -84,6 +95,11 @@ fn basic() {
             // Direct
             env.playground_transfer(MethodContext::Keep, playground_token, &alice, &bob, &amount)
                 .unwrap();
+            assert_eq!(
+                env.playground_last_action(MethodContext::Reset, playground_token)
+                    .unwrap(),
+                LastAction::Transfer
+            );
 
             // Direct
             {
@@ -131,6 +147,17 @@ fn basic() {
                 env.fungible_transfer(MethodContext::Keep, playground_token, &bob, &alice, &amount),
                 Err(ContractError::Forbidden)
             ));
+        })
+        .unwrap();
+
+    executor
+        .transaction_emulate(Address::NULL, slots, |env| {
+            // There must be no action after all transactions either
+            assert_eq!(
+                env.playground_last_action(MethodContext::Reset, playground_token)
+                    .unwrap(),
+                LastAction::None
+            );
         })
         .unwrap();
 }
