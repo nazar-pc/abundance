@@ -476,22 +476,25 @@ where
             ArgumentKind::TmpRo | ArgumentKind::SlotRo => {
                 let tmp = matches!(argument_kind, ArgumentKind::TmpRo);
 
-                let address = if tmp {
+                let (owner, contract) = if tmp {
                     if view_only {
                         return Err(ContractError::Forbidden);
                     }
 
                     // Null contact is used implicitly for `#[tmp]` since it is not possible for
                     // this contract to write something there directly
-                    &Address::NULL
+                    (&contract, Address::NULL)
                 } else {
                     // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
                     // moving right past that is safe
-                    unsafe { &*read_ptr!(external_args_cursor as *const Address) }
+                    (
+                        unsafe { &*read_ptr!(external_args_cursor as *const Address) },
+                        contract,
+                    )
                 };
 
                 let slot_key = SlotKey {
-                    owner: *address,
+                    owner: *owner,
                     contract,
                 };
                 let slot_bytes = slots.use_ro(slot_key).ok_or(ContractError::Forbidden)?;
@@ -504,7 +507,7 @@ where
                 // and aligned correctly
                 unsafe {
                     if !tmp {
-                        write_ptr!(address => internal_args_cursor as *const Address);
+                        write_ptr!(owner => internal_args_cursor as *const Address);
                     }
                     write_ptr!(slot_bytes.as_ptr() => internal_args_cursor as *const u8);
                     write_ptr!(&result.size => internal_args_cursor as *const u32);
@@ -517,20 +520,20 @@ where
 
                 let tmp = matches!(argument_kind, ArgumentKind::TmpRw);
 
-                let (address, capacity) = if tmp {
+                let (owner, contract, capacity) = if tmp {
                     // Null contact is used implicitly for `#[tmp]` since it is not possible for
                     // this contract to write something there directly
-                    (&Address::NULL, recommended_tmp_capacity)
+                    (&contract, Address::NULL, recommended_tmp_capacity)
                 } else {
                     // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
                     // moving right past that is safe
                     let address = unsafe { &*read_ptr!(external_args_cursor as *const Address) };
 
-                    (address, recommended_slot_capacity)
+                    (address, contract, recommended_slot_capacity)
                 };
 
                 let slot_key = SlotKey {
-                    owner: *address,
+                    owner: *owner,
                     contract,
                 };
                 let (slot_index, slot_bytes) = slots
@@ -550,7 +553,7 @@ where
                 // and aligned correctly
                 unsafe {
                     if !tmp {
-                        write_ptr!(address => internal_args_cursor as *const Address);
+                        write_ptr!(owner => internal_args_cursor as *const Address);
                     }
                     result.data_ptr =
                         write_ptr!(slot_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
