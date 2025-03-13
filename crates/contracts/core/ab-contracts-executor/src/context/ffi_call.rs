@@ -4,7 +4,7 @@ use ab_contracts_common::metadata::decode::{
     ArgumentKind, ArgumentMetadataItem, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
     MethodsContainerKind,
 };
-use ab_contracts_common::{Address, ContractError};
+use ab_contracts_common::{Address, ContractError, MAX_TOTAL_METHOD_ARGS};
 use ab_contracts_slots::slots::{SlotIndex, SlotKey, Slots};
 use ab_system_contract_address_allocator::AddressAllocator;
 use std::cell::UnsafeCell;
@@ -302,13 +302,19 @@ where
         ..
     } = method_metadata_item;
 
-    let total_arguments =
+    let number_of_arguments =
         usize::from(num_arguments) + method_kind.has_self().then_some(1).unwrap_or_default();
+
+    if number_of_arguments > usize::from(MAX_TOTAL_METHOD_ARGS) {
+        debug!(%number_of_arguments, "Too many arguments");
+        return Err(ContractError::BadInput);
+    }
+
     // Allocate a buffer that will contain incrementally built `InternalArgs` that method expects,
     // according to its metadata.
     // `* 4` is due to slots having 2 pointers (detecting this accurately is more code, so this
     // just assumes the worst case), otherwise it would be 3 pointers: data + size + capacity.
-    let internal_args = Box::<[*mut c_void]>::new_uninit_slice(total_arguments * 4);
+    let internal_args = Box::<[*mut c_void]>::new_uninit_slice(number_of_arguments * 4);
     // SAFETY: `UnsafeCell` has the same memory layout as its inner value
     let mut internal_args = unsafe {
         mem::transmute::<Box<[MaybeUninit<*mut c_void>]>, Box<UnsafeCell<[MaybeUninit<*mut c_void>]>>>(
@@ -331,7 +337,7 @@ where
     //
     // NOTE: It is important that this is never reallocated as it will invalidate all pointers to
     // elements of this vector!
-    let mut delayed_processing = DelayedProcessingCollection::with_capacity(total_arguments);
+    let mut delayed_processing = DelayedProcessingCollection::with_capacity(number_of_arguments);
 
     // `view_only == true` when only `#[view]` method is allowed
     let (view_only, mut slots) = match method_kind {

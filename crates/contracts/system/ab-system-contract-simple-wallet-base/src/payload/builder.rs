@@ -6,11 +6,12 @@ mod tests;
 extern crate alloc;
 
 use crate::payload::{TransactionInput, TransactionMethodContext};
-use ab_contracts_common::Address;
 use ab_contracts_common::metadata::decode::{
-    ArgumentKind, MetadataDecodingError, MethodMetadataDecoder, MethodsContainerKind,
+    ArgumentKind, MetadataDecodingError, MethodMetadataDecoder, MethodMetadataItem,
+    MethodsContainerKind,
 };
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
+use ab_contracts_common::{Address, MAX_TOTAL_METHOD_ARGS};
 use ab_contracts_io_type::MAX_ALIGNMENT;
 use ab_contracts_io_type::trivial_type::TrivialType;
 use alloc::vec::Vec;
@@ -25,6 +26,9 @@ pub enum TransactionPayloadBuilderError<'a> {
     /// Metadata decoding error
     #[error("Metadata decoding error: {0}")]
     MetadataDecodingError(MetadataDecodingError<'a>),
+    /// Too many arguments
+    #[error("Too many arguments")]
+    TooManyArguments(u8),
     /// Invalid alignment
     #[error("Invalid alignment: {0}")]
     InvalidAlignment(NonZeroU8),
@@ -102,10 +106,24 @@ impl TransactionPayloadBuilder {
     ) -> Result<(), TransactionPayloadBuilderError<'a>> {
         let mut external_args = *external_args;
 
-        let (mut metadata_decoder, _method_metadata_item) =
+        let (mut metadata_decoder, method_metadata_item) =
             MethodMetadataDecoder::new(&mut method_metadata, MethodsContainerKind::Unknown)
                 .decode_next()
                 .map_err(TransactionPayloadBuilderError::MetadataDecodingError)?;
+
+        let MethodMetadataItem {
+            method_kind,
+            num_arguments,
+            ..
+        } = method_metadata_item;
+        let number_of_arguments =
+            num_arguments.saturating_add(method_kind.has_self().then_some(1).unwrap_or_default());
+
+        if number_of_arguments > MAX_TOTAL_METHOD_ARGS {
+            return Err(TransactionPayloadBuilderError::TooManyArguments(
+                number_of_arguments,
+            ));
+        }
 
         self.extend_payload_with_alignment(contract.as_bytes(), align_of_val(contract));
         self.extend_payload_with_alignment(

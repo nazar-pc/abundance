@@ -10,9 +10,9 @@
 #[cfg(feature = "payload-builder")]
 pub mod builder;
 
-use ab_contracts_common::Address;
 use ab_contracts_common::env::{MethodContext, PreparedMethod};
 use ab_contracts_common::method::MethodFingerprint;
+use ab_contracts_common::{Address, MAX_TOTAL_METHOD_ARGS};
 use ab_contracts_io_type::MAX_ALIGNMENT;
 use ab_contracts_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
@@ -120,6 +120,9 @@ pub enum TransactionPayloadDecoderError {
     /// Payload too small
     #[error("Payload too small")]
     PayloadTooSmall,
+    /// Too many arguments
+    #[error("Too many arguments")]
+    TooManyArguments(u8),
     /// `ExternalArgs` buffer too small
     #[error("`ExternalArgs` buffer too small")]
     ExternalArgsBufferTooSmall,
@@ -259,12 +262,22 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
         let num_input_arguments = self.read_u8()?;
         let num_output_arguments = self.read_u8()?;
 
+        // This can be off by 1 due to `self` not included in `ExternalArgs`, but it is good enough
+        // for this context
+        let number_of_arguments = num_slot_arguments
+            .saturating_add(num_input_arguments)
+            .saturating_add(num_output_arguments);
+        if VERIFY && number_of_arguments > MAX_TOTAL_METHOD_ARGS {
+            return Err(TransactionPayloadDecoderError::TooManyArguments(
+                number_of_arguments,
+            ));
+        }
+
         // Slot needs one address pointer, input needs pointers to data and size, output needs
         // pointers to data, size and capacity
-        let expected_external_args_buffer_size = usize::from(num_slot_arguments)
-            + usize::from(num_input_arguments) * 2
-            + usize::from(num_output_arguments) * 3;
-        if expected_external_args_buffer_size > self.external_args_buffer.len() {
+        let expected_external_args_buffer_size =
+            usize::from(num_slot_arguments + num_input_arguments * 2 + num_output_arguments * 3);
+        if VERIFY && expected_external_args_buffer_size > self.external_args_buffer.len() {
             return Err(TransactionPayloadDecoderError::ExternalArgsBufferTooSmall);
         }
 
