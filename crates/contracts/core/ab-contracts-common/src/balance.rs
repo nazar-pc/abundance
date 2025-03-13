@@ -25,14 +25,12 @@ const _: () = {
 };
 
 impl fmt::Debug for Balance {
-    #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Balance").field(&self.into_u128()).finish()
     }
 }
 
 impl fmt::Display for Balance {
-    #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.into_u128().fmt(f)
     }

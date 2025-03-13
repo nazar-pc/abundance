@@ -1,6 +1,5 @@
 use crate::metadata::ContractMetadataKind;
 use ab_contracts_io_type::metadata::{IoTypeDetails, IoTypeMetadataKind};
-use core::str::Utf8Error;
 
 /// Metadata decoding error
 #[derive(Debug, thiserror::Error)]
@@ -23,12 +22,6 @@ pub enum MetadataDecodingError<'metadata> {
     /// Invalid state I/O type
     #[error("Invalid state I/O type")]
     InvalidStateIoType,
-    /// Invalid trait name
-    #[error("Invalid trait name {trait_name:?}: {error}")]
-    InvalidTraitName {
-        trait_name: &'metadata [u8],
-        error: Utf8Error,
-    },
     /// Unexpected method kind
     #[error("Unexpected method kind {method_kind:?} for container kind {container_kind:?}")]
     UnexpectedMethodKind {
@@ -38,12 +31,6 @@ pub enum MetadataDecodingError<'metadata> {
     /// Expected method kind, found something else
     #[error("Expected method kind, found something else: {metadata_kind:?}")]
     ExpectedMethodKind { metadata_kind: ContractMetadataKind },
-    /// Invalid method name
-    #[error("Invalid method name {method_name:?}: {error}")]
-    InvalidMethodName {
-        method_name: &'metadata [u8],
-        error: Utf8Error,
-    },
     /// Expected argument kind, found something else
     #[error("Expected argument kind, found something else: {metadata_kind:?}")]
     ExpectedArgumentKind { metadata_kind: ContractMetadataKind },
@@ -53,16 +40,10 @@ pub enum MetadataDecodingError<'metadata> {
         argument_kind: ArgumentKind,
         method_kind: MethodKind,
     },
-    /// Invalid argument name
-    #[error("Invalid argument name {argument_name:?}: {error}")]
-    InvalidArgumentName {
-        argument_name: &'metadata [u8],
-        error: Utf8Error,
-    },
     /// Invalid argument I/O type
-    #[error("Invalid argument I/O type of kind {argument_kind:?} for {argument_name}")]
+    #[error("Invalid argument I/O type of kind {argument_kind:?} for {argument_name:?}")]
     InvalidArgumentIoType {
-        argument_name: &'metadata str,
+        argument_name: &'metadata [u8],
         argument_kind: ArgumentKind,
     },
 }
@@ -70,7 +51,10 @@ pub enum MetadataDecodingError<'metadata> {
 #[derive(Debug)]
 pub enum MetadataItem<'a, 'metadata> {
     Contract {
-        state_type_name: &'metadata str,
+        /// State type name as bytes.
+        ///
+        /// Expected to be UTF-8, but must be parsed before printed as text, which is somewhat costly.
+        state_type_name: &'metadata [u8],
         state_type_details: IoTypeDetails,
         slot_type_details: IoTypeDetails,
         tmp_type_details: IoTypeDetails,
@@ -78,7 +62,10 @@ pub enum MetadataItem<'a, 'metadata> {
         decoder: MethodsMetadataDecoder<'a, 'metadata>,
     },
     Trait {
-        trait_name: &'metadata str,
+        /// Trait name as bytes.
+        ///
+        /// Expected to be UTF-8, but must be parsed before printed as text, which is somewhat costly.
+        trait_name: &'metadata [u8],
         num_methods: u8,
         decoder: MethodsMetadataDecoder<'a, 'metadata>,
     },
@@ -86,6 +73,7 @@ pub enum MetadataItem<'a, 'metadata> {
 
 impl<'a, 'metadata> MetadataItem<'a, 'metadata> {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn num_methods(&self) -> u8 {
         match self {
             MetadataItem::Contract { num_methods, .. }
@@ -94,6 +82,7 @@ impl<'a, 'metadata> MetadataItem<'a, 'metadata> {
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn into_decoder(self) -> MethodsMetadataDecoder<'a, 'metadata> {
         match self {
             MetadataItem::Contract { decoder, .. } | MetadataItem::Trait { decoder, .. } => decoder,
@@ -110,6 +99,7 @@ pub struct MetadataDecoder<'metadata> {
 
 impl<'metadata> MetadataDecoder<'metadata> {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn new(metadata: &'metadata [u8]) -> Self {
         Self {
             metadata,
@@ -118,7 +108,8 @@ impl<'metadata> MetadataDecoder<'metadata> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn decode_next<'a>(
         &'a mut self,
     ) -> Option<Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>>> {
@@ -169,6 +160,7 @@ impl<'metadata> MetadataDecoder<'metadata> {
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn decode_contract<'a>(
         &'a mut self,
     ) -> Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>> {
@@ -191,6 +183,10 @@ impl<'metadata> MetadataDecoder<'metadata> {
         (tmp_type_details, self.metadata) = IoTypeMetadataKind::type_details(self.metadata)
             .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
+        if self.metadata.is_empty() {
+            return Err(MetadataDecodingError::NotEnoughMetadata);
+        }
+
         // Decode the number of methods
         let num_methods = self.metadata[0];
         self.metadata = &self.metadata[1..];
@@ -210,9 +206,14 @@ impl<'metadata> MetadataDecoder<'metadata> {
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn decode_trait<'a>(
         &'a mut self,
     ) -> Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>> {
+        if self.metadata.is_empty() {
+            return Err(MetadataDecodingError::NotEnoughMetadata);
+        }
+
         // Decode trait name
         let trait_name_length = usize::from(self.metadata[0]);
         self.metadata = &self.metadata[1..];
@@ -224,8 +225,6 @@ impl<'metadata> MetadataDecoder<'metadata> {
 
         let trait_name = &self.metadata[..trait_name_length];
         self.metadata = &self.metadata[trait_name_length..];
-        let trait_name = str::from_utf8(trait_name)
-            .map_err(|error| MetadataDecodingError::InvalidTraitName { trait_name, error })?;
 
         // Decode the number of methods
         let num_methods = self.metadata[0];
@@ -259,6 +258,7 @@ pub struct MethodsMetadataDecoder<'a, 'metadata> {
 
 impl<'a, 'metadata> MethodsMetadataDecoder<'a, 'metadata> {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn new(
         metadata: &'a mut &'metadata [u8],
         container_kind: MethodsContainerKind,
@@ -272,6 +272,7 @@ impl<'a, 'metadata> MethodsMetadataDecoder<'a, 'metadata> {
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn decode_next<'b>(&'b mut self) -> Option<MethodMetadataDecoder<'b, 'metadata>> {
         if self.remaining == 0 {
             return None;
@@ -304,6 +305,7 @@ pub enum MethodKind {
 
 impl MethodKind {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn has_self(&self) -> bool {
         match self {
             MethodKind::Init | MethodKind::UpdateStateless | MethodKind::ViewStateless => false,
@@ -316,7 +318,10 @@ impl MethodKind {
 
 #[derive(Debug)]
 pub struct MethodMetadataItem<'metadata> {
-    pub method_name: &'metadata str,
+    /// Method name as bytes.
+    ///
+    /// Expected to be UTF-8, but must be parsed before printed as text, which is somewhat costly.
+    pub method_name: &'metadata [u8],
     pub method_kind: MethodKind,
     pub num_arguments: u8,
 }
@@ -330,6 +335,7 @@ pub struct MethodMetadataDecoder<'a, 'metadata> {
 
 impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn new(metadata: &'a mut &'metadata [u8], container_kind: MethodsContainerKind) -> Self {
         Self {
             metadata,
@@ -337,7 +343,8 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn decode_next(
         self,
     ) -> Result<
@@ -421,8 +428,6 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
 
         let method_name = &self.metadata[..method_name_length];
         *self.metadata = &self.metadata[method_name_length..];
-        let method_name = str::from_utf8(method_name)
-            .map_err(|error| MetadataDecodingError::InvalidMethodName { method_name, error })?;
 
         // Decode the number of arguments
         let num_arguments = self.metadata[0];
@@ -465,7 +470,10 @@ pub enum ArgumentKind {
 
 #[derive(Debug)]
 pub struct ArgumentMetadataItem<'metadata> {
-    pub argument_name: &'metadata str,
+    /// Argument name as bytes.
+    ///
+    /// Expected to be UTF-8, but must be parsed before printed as text, which is somewhat costly.
+    pub argument_name: &'metadata [u8],
     pub argument_kind: ArgumentKind,
     /// Exceptions:
     /// * `None` for `#[env]`
@@ -482,7 +490,8 @@ pub struct ArgumentsMetadataDecoder<'a, 'metadata> {
 }
 
 impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
-    #[inline(always)]
+    #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn decode_next<'a>(
         &'a mut self,
     ) -> Option<Result<ArgumentMetadataItem<'metadata>, MetadataDecodingError<'metadata>>> {
@@ -496,6 +505,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn decode_argument<'a>(
         &'a mut self,
     ) -> Result<ArgumentMetadataItem<'metadata>, MetadataDecodingError<'metadata>> {
@@ -568,7 +578,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
         }
 
         let (argument_name, type_details) = match argument_kind {
-            ArgumentKind::EnvRo | ArgumentKind::EnvRw => ("env", None),
+            ArgumentKind::EnvRo | ArgumentKind::EnvRw => ("env".as_bytes(), None),
             ArgumentKind::TmpRo
             | ArgumentKind::TmpRw
             | ArgumentKind::SlotRo
@@ -590,12 +600,6 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
 
                 let argument_name = &self.metadata[..argument_name_length];
                 *self.metadata = &self.metadata[argument_name_length..];
-                let argument_name = str::from_utf8(argument_name).map_err(|error| {
-                    MetadataDecodingError::InvalidArgumentName {
-                        argument_name,
-                        error,
-                    }
-                })?;
 
                 let recommended_capacity = match argument_kind {
                     ArgumentKind::EnvRo

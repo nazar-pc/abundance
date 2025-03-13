@@ -23,6 +23,7 @@ dependencies = [
  "ab-contracts-io-type",
  "const-sha1",
  "derive_more",
+ "no-panic",
  "thiserror",
 ]
 

@@ -138,6 +138,7 @@ impl<'a> Env<'a> {
     /// Instantiate environment with executor context
     #[cfg(feature = "executor")]
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn with_executor_context(
         state: EnvState,
         executor_context: &'a mut dyn ExecutorContext,
@@ -152,30 +153,35 @@ impl<'a> Env<'a> {
     /// Instantiate environment with executor context
     #[cfg(feature = "executor")]
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn get_mut_executor_context(&mut self) -> &mut dyn ExecutorContext {
         self.executor_context
     }
 
     /// Shard index where execution is happening
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn shard_index(&self) -> ShardIndex {
         self.state.shard_index
     }
 
     /// Own address of the contract
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn own_address(&self) -> Address {
         self.state.own_address
     }
 
     /// Context of the execution
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn context<'b>(self: &'b &'b mut Self) -> Address {
         self.state.context
     }
 
     /// Caller of this contract
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn caller<'b>(self: &'b &'b mut Self) -> Address {
         self.state.caller
     }
@@ -201,6 +207,7 @@ impl<'a> Env<'a> {
     ///
     /// The result is to be used with [`Self::call_prepared()`] afterward.
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn prepare_method_call<Args>(
         contract: Address,
         args: &mut Args,

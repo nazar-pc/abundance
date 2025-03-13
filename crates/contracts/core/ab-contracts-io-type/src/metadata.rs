@@ -366,6 +366,7 @@ pub enum IoTypeMetadataKind {
 impl IoTypeMetadataKind {
     // TODO: Implement `TryFrom` once it is available in const environment
     /// Try to create an instance from its `u8` representation
+    #[inline]
     pub const fn try_from_u8(byte: u8) -> Option<Self> {
         Some(match byte {
             0 => Self::Unit,
@@ -483,6 +484,7 @@ impl IoTypeMetadataKind {
     /// caller.
     ///
     /// Unexpected metadata kind results in `None` being returned.
+    #[inline]
     pub const fn compact<'i, 'o>(
         input: &'i [u8],
         output: &'o mut [u8],
@@ -491,8 +493,11 @@ impl IoTypeMetadataKind {
     }
 
     // TODO: Create wrapper type for metadata bytes and move this method there
-    /// Decode type name
-    pub const fn type_name(metadata: &[u8]) -> Option<&str> {
+    /// Decode type name.
+    ///
+    /// Expected to be UTF-8, but must be parsed before printed as text, which is somewhat costly.
+    #[inline]
+    pub const fn type_name(metadata: &[u8]) -> Option<&[u8]> {
         type_name(metadata)
     }
 
@@ -504,7 +509,7 @@ impl IoTypeMetadataKind {
     ///
     /// Returns type details and whatever slice of bytes from `input` that is left after
     /// type decoding.
-    #[inline(always)]
+    #[inline]
     pub const fn type_details(metadata: &[u8]) -> Option<(IoTypeDetails, &[u8])> {
         decode_type_details(metadata)
     }

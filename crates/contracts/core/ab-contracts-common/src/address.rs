@@ -25,14 +25,12 @@ const _: () = {
 };
 
 impl fmt::Debug for Address {
-    #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Address").field(&self.into_u128()).finish()
     }
 }
 
 impl fmt::Display for Address {
-    #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO: Human-readable formatting rather than a huge number
         self.into_u128().fmt(f)

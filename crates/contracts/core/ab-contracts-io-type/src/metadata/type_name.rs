@@ -10,7 +10,8 @@ macro_rules! forward_option {
     }};
 }
 
-pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&str> {
+#[inline(always)]
+pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
     if metadata.is_empty() {
         return None;
     }
@@ -19,18 +20,18 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&str> {
     metadata = forward_option!(skip_n_bytes(metadata, 1));
 
     Some(match kind {
-        IoTypeMetadataKind::Unit => "()",
-        IoTypeMetadataKind::Bool => "bool",
-        IoTypeMetadataKind::U8 => "u8",
-        IoTypeMetadataKind::U16 => "u16",
-        IoTypeMetadataKind::U32 => "u32",
-        IoTypeMetadataKind::U64 => "u64",
-        IoTypeMetadataKind::U128 => "u128",
-        IoTypeMetadataKind::I8 => "i8",
-        IoTypeMetadataKind::I16 => "i16",
-        IoTypeMetadataKind::I32 => "i32",
-        IoTypeMetadataKind::I64 => "i64",
-        IoTypeMetadataKind::I128 => "i128",
+        IoTypeMetadataKind::Unit => b"()",
+        IoTypeMetadataKind::Bool => b"bool",
+        IoTypeMetadataKind::U8 => b"u8",
+        IoTypeMetadataKind::U16 => b"u16",
+        IoTypeMetadataKind::U32 => b"u32",
+        IoTypeMetadataKind::U64 => b"u64",
+        IoTypeMetadataKind::U128 => b"u128",
+        IoTypeMetadataKind::I8 => b"i8",
+        IoTypeMetadataKind::I16 => b"i16",
+        IoTypeMetadataKind::I32 => b"i32",
+        IoTypeMetadataKind::I64 => b"i64",
+        IoTypeMetadataKind::I128 => b"i128",
         IoTypeMetadataKind::Struct
         | IoTypeMetadataKind::Struct0
         | IoTypeMetadataKind::Struct1
@@ -88,26 +89,21 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&str> {
             }
 
             let (type_name, _) = metadata.split_at(type_name_length);
-            match str::from_utf8(type_name) {
-                Ok(type_name) => type_name,
-                Err(_error) => {
-                    return None;
-                }
-            }
+            type_name
         }
         IoTypeMetadataKind::Array8b
         | IoTypeMetadataKind::Array16b
-        | IoTypeMetadataKind::Array32b => "[T; N]",
-        IoTypeMetadataKind::ArrayU8x8 => "[u8; 8]",
-        IoTypeMetadataKind::ArrayU8x16 => "[u8; 16]",
-        IoTypeMetadataKind::ArrayU8x32 => "[u8; 32]",
-        IoTypeMetadataKind::ArrayU8x64 => "[u8; 64]",
-        IoTypeMetadataKind::ArrayU8x128 => "[u8; 128]",
-        IoTypeMetadataKind::ArrayU8x256 => "[u8; 256]",
-        IoTypeMetadataKind::ArrayU8x512 => "[u8; 512]",
-        IoTypeMetadataKind::ArrayU8x1024 => "[u8; 1024]",
-        IoTypeMetadataKind::ArrayU8x2028 => "[u8; 2028]",
-        IoTypeMetadataKind::ArrayU8x4096 => "[u8; 4096]",
+        | IoTypeMetadataKind::Array32b => b"[T; N]",
+        IoTypeMetadataKind::ArrayU8x8 => b"[u8; 8]",
+        IoTypeMetadataKind::ArrayU8x16 => b"[u8; 16]",
+        IoTypeMetadataKind::ArrayU8x32 => b"[u8; 32]",
+        IoTypeMetadataKind::ArrayU8x64 => b"[u8; 64]",
+        IoTypeMetadataKind::ArrayU8x128 => b"[u8; 128]",
+        IoTypeMetadataKind::ArrayU8x256 => b"[u8; 256]",
+        IoTypeMetadataKind::ArrayU8x512 => b"[u8; 512]",
+        IoTypeMetadataKind::ArrayU8x1024 => b"[u8; 1024]",
+        IoTypeMetadataKind::ArrayU8x2028 => b"[u8; 2028]",
+        IoTypeMetadataKind::ArrayU8x4096 => b"[u8; 4096]",
         IoTypeMetadataKind::VariableBytes8b
         | IoTypeMetadataKind::VariableBytes16b
         | IoTypeMetadataKind::VariableBytes32b
@@ -123,22 +119,18 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&str> {
         | IoTypeMetadataKind::VariableBytes131072
         | IoTypeMetadataKind::VariableBytes262144
         | IoTypeMetadataKind::VariableBytes524288
-        | IoTypeMetadataKind::VariableBytes1048576 => "VariableBytes",
+        | IoTypeMetadataKind::VariableBytes1048576 => b"VariableBytes",
         IoTypeMetadataKind::VariableElements8b
         | IoTypeMetadataKind::VariableElements16b
         | IoTypeMetadataKind::VariableElements32b
-        | IoTypeMetadataKind::VariableElements0 => "VariableElements",
-        IoTypeMetadataKind::Address => "Address",
-        IoTypeMetadataKind::Balance => "Balance",
+        | IoTypeMetadataKind::VariableElements0 => b"VariableElements",
+        IoTypeMetadataKind::Address => b"Address",
+        IoTypeMetadataKind::Balance => b"Balance",
     })
 }
 
 /// Skips `n` bytes and return remainder
+#[inline(always)]
 const fn skip_n_bytes(input: &[u8], n: usize) -> Option<&[u8]> {
-    if n > input.len() {
-        return None;
-    }
-
-    // `&input[n..]` not supported in const yet
-    Some(input.split_at(n).1)
+    Some(forward_option!(input.split_at_checked(n)).1)
 }

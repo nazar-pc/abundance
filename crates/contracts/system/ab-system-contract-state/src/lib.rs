@@ -11,7 +11,7 @@ use core::mem::MaybeUninit;
 pub const RECOMMENDED_STATE_CAPACITY: u32 = 1024;
 
 /// Helper function that calls provided function with new empty state buffer
-#[inline(always)]
+#[inline]
 pub fn with_state_buffer<F, R>(f: F) -> R
 where
     F: FnOnce(&mut VariableBytes<RECOMMENDED_STATE_CAPACITY>) -> R,
