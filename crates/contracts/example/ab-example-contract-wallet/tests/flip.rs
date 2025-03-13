@@ -2,9 +2,8 @@
 #![cfg(not(feature = "guest"))]
 
 use crate::ffi::flip::FlipperFlipArgs;
-use ab_contracts_common::env::{
-    Blake3Hash, MethodContext, Transaction, TransactionHeader, TransactionSlot,
-};
+use ab_contracts_common::env::{Blake3Hash, MethodContext};
+use ab_contracts_common::transaction::{Transaction, TransactionHeader, TransactionSlot};
 use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_executor::NativeExecutor;
 use ab_contracts_io_type::trivial_type::TrivialType;

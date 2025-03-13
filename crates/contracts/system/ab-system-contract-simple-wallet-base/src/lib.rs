@@ -20,7 +20,8 @@ pub mod seal;
 
 use crate::payload::{TransactionMethodContext, TransactionPayloadDecoder};
 use crate::seal::hash_and_verify;
-use ab_contracts_common::env::{Env, MethodContext, TransactionHeader};
+use ab_contracts_common::env::{Env, MethodContext};
+use ab_contracts_common::transaction::TransactionHeader;
 use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_io_type::variable_bytes::VariableBytes;
