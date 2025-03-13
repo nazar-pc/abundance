@@ -81,11 +81,14 @@ enum SlotsInner<'a> {
     ReadWrite {
         inner: &'a mut Inner,
         parent_slot_access_len: usize,
+        original_parent: bool,
     },
     /// Read-only instance, non-exclusive access to [`Inner`], but not allowed to modify anything
     ReadOnly { inner: &'a Inner },
 }
 
+// TODO: Add marker of `original` instance that can be used to distinguish it from the rest and
+//  simplify error handling in executor.
 // TODO: API for serialization/deserialization or some kind of access to internal contents
 #[derive(Debug)]
 pub struct Slots<'a>(SlotsInner<'a>);
@@ -93,7 +96,7 @@ pub struct Slots<'a>(SlotsInner<'a>);
 impl<'a> Drop for Slots<'a> {
     #[inline(always)]
     fn drop(&mut self) {
-        let (inner, parent_slot_access_len) = match &mut self.0 {
+        let (inner, parent_slot_access_len, original_parent) = match &mut self.0 {
             SlotsInner::Original { .. } | SlotsInner::ReadOnly { .. } => {
                 // No need to integrate changes into the parent
                 return;
@@ -101,7 +104,8 @@ impl<'a> Drop for Slots<'a> {
             SlotsInner::ReadWrite {
                 inner,
                 parent_slot_access_len,
-            } => (&mut **inner, *parent_slot_access_len),
+                original_parent,
+            } => (&mut **inner, *parent_slot_access_len, *original_parent),
         };
 
         let slots = &mut inner.slots;
@@ -125,6 +129,15 @@ impl<'a> Drop for Slots<'a> {
                     Slot::Modified(buffer.into_shared())
                 }
             })
+        }
+
+        if original_parent {
+            // Remove temporary values for `Address::NULL` contract, these are used as `#[tmp]`
+            // "slots" by convention in the execution environment since there is no code behind
+            // `Address::NULL` to possibly use it for anything
+            inner
+                .slots
+                .retain(|(slot_key, _slot)| slot_key.contract != Address::NULL);
         }
     }
 }
@@ -196,9 +209,9 @@ impl<'a> Slots<'a> {
     where
         'a: 'b,
     {
-        let inner = match &mut self.0 {
-            SlotsInner::Original { inner } => inner.as_mut(),
-            SlotsInner::ReadWrite { inner, .. } => inner,
+        let (inner, original_parent) = match &mut self.0 {
+            SlotsInner::Original { inner } => (inner.as_mut(), true),
+            SlotsInner::ReadWrite { inner, .. } => (&mut **inner, false),
             SlotsInner::ReadOnly { .. } => {
                 return None;
             }
@@ -209,6 +222,7 @@ impl<'a> Slots<'a> {
         Some(Slots(SlotsInner::ReadWrite {
             inner,
             parent_slot_access_len,
+            original_parent,
         }))
     }
 
@@ -656,6 +670,7 @@ impl<'a> Slots<'a> {
             SlotsInner::ReadWrite {
                 inner,
                 parent_slot_access_len,
+                original_parent: _,
             } => (&mut **inner, parent_slot_access_len),
         };
 

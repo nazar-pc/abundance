@@ -9,7 +9,7 @@ use ab_contracts_macros::contract;
 use ab_contracts_standards::fungible::Fungible;
 use core::cmp::Ordering;
 
-#[derive(Debug, Default, Copy, Clone, TrivialType)]
+#[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq, TrivialType)]
 #[repr(u8)]
 pub enum LastAction {
     #[default]
