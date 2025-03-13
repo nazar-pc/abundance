@@ -263,7 +263,7 @@ impl<'env> MaybeEnv<Env<'env>, Slots<'env>> {
 }
 
 #[inline(always)]
-#[allow(clippy::too_many_arguments, reason = "Internal API")]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub(super) fn make_ffi_call<'slots, 'external_args, CreateNestedContext>(
     allow_env_mutation: bool,
     is_allocate_new_address_method: bool,
@@ -272,6 +272,7 @@ pub(super) fn make_ffi_call<'slots, 'external_args, CreateNestedContext>(
     method_details: MethodDetails,
     external_args: &'external_args mut NonNull<NonNull<c_void>>,
     env_state: EnvState,
+    tmp_owners: &UnsafeCell<Vec<Address>>,
     create_nested_context: CreateNestedContext,
 ) -> Result<(), ContractError>
 where
@@ -498,6 +499,9 @@ where
                     contract,
                 };
                 let slot_bytes = slots.use_ro(slot_key).ok_or(ContractError::Forbidden)?;
+                // SAFETY: This and a similar branch below are the only two places under execution
+                // context that access tmp contracts and do so strictly non-concurrently
+                unsafe { tmp_owners.as_mut_unchecked() }.push(*owner);
 
                 let result = delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
                     size: slot_bytes.len(),
@@ -539,6 +543,9 @@ where
                 let (slot_index, slot_bytes) = slots
                     .use_rw(slot_key, capacity)
                     .ok_or(ContractError::Forbidden)?;
+                // SAFETY: This and a similar branch below are the only two places under execution
+                // context that access tmp contracts and do so strictly non-concurrently
+                unsafe { tmp_owners.as_mut_unchecked() }.push(*owner);
 
                 let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
                     // Is updated below

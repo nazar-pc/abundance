@@ -195,7 +195,7 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     output.into()
 }
 
-#[allow(clippy::type_complexity, reason = "Private one-off function")]
+#[expect(clippy::type_complexity, reason = "Private one-off function")]
 fn parse_repr(
     repr_attr: &Attribute,
 ) -> Result<(bool, bool, Option<u8>, Option<usize>, Option<usize>), Error> {

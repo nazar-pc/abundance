@@ -1,4 +1,4 @@
-#![feature(ptr_as_ref_unchecked)]
+#![feature(non_null_from_ref, ptr_as_ref_unchecked, unsafe_cell_access)]
 
 mod context;
 
@@ -20,6 +20,7 @@ use ab_system_contract_code::{Code, CodeExt};
 use ab_system_contract_simple_wallet_base::SimpleWalletBase;
 use ab_system_contract_state::State;
 use halfbrown::HashMap;
+use std::cell::UnsafeCell;
 use tracing::error;
 
 /// Native executor errors
@@ -90,7 +91,7 @@ impl NativeExecutorBuilder {
         }
     }
 
-    /// Make the native execution environment aware of the contract specified in generic argument.'
+    /// Make the native execution environment aware of the contract specified in generic argument.
     ///
     /// Here `C` is the contract type:
     /// ```ignore
@@ -312,10 +313,12 @@ impl NativeExecutor {
             .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
 
+        let tmp_owners = UnsafeCell::new(Vec::new());
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
             slots.new_nested_ro(),
+            &tmp_owners,
             false,
         );
         let env = Env::with_executor_context(env_state, &mut executor_context);
@@ -366,6 +369,7 @@ impl NativeExecutor {
             .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
 
+        let tmp_owners = UnsafeCell::new(Vec::new());
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
@@ -374,8 +378,10 @@ impl NativeExecutor {
 
                 ContractError::Forbidden
             })?,
+            &tmp_owners,
             true,
         );
+
         let mut env = Env::with_executor_context(env_state, &mut executor_context);
         env.tx_handler_execute(
             MethodContext::Reset,
@@ -423,12 +429,14 @@ impl NativeExecutor {
             .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
 
+        let tmp_owners = UnsafeCell::new(Vec::new());
         // TODO: Make it more efficient by not recreating NativeExecutorContext twice here
         {
             let mut executor_context = NativeExecutorContext::new(
                 self.shard_index,
                 &self.methods_by_code,
                 slots.new_nested_ro(),
+                &tmp_owners,
                 false,
             );
             let env = Env::with_executor_context(env_state, &mut executor_context);
@@ -451,6 +459,7 @@ impl NativeExecutor {
 
                     ContractError::Forbidden
                 })?,
+                &tmp_owners,
                 true,
             );
             let mut env = Env::with_executor_context(env_state, &mut executor_context);
@@ -493,10 +502,12 @@ impl NativeExecutor {
             caller: Address::NULL,
         };
 
+        let tmp_owners = UnsafeCell::new(Vec::new());
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
             slots.new_nested_rw()?,
+            &tmp_owners,
             true,
         );
         let mut env = Env::with_executor_context(env_state, &mut executor_context);
@@ -520,10 +531,12 @@ impl NativeExecutor {
             caller: Address::NULL,
         };
 
+        let tmp_owners = UnsafeCell::new(Vec::new());
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
             slots.new_nested_ro(),
+            &tmp_owners,
             false,
         );
         let env = Env::with_executor_context(env_state, &mut executor_context);
