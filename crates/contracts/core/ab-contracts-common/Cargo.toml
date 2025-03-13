@@ -19,12 +19,17 @@ ab-contracts-io-type = { workspace = true }
 #  exposed
 const-sha1 = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
+no-panic = { workspace = true, optional = true }
 thiserror = { workspace = true }
 
 [features]
 guest = []
 # APIs needed for native executor
 executor = []
+# Check that code can't panic under any conditions
+no-panic = [
+    "dep:no-panic",
+]
 
 [lints]
 workspace = true

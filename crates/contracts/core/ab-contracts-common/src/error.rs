@@ -121,7 +121,7 @@ impl From<ExitCode> for Result<(), ContractError> {
 impl ExitCode {
     /// Exit code indicating success
     #[inline(always)]
-    pub fn ok() -> Self {
+    pub const fn ok() -> Self {
         Self(0)
     }
 

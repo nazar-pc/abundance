@@ -1,6 +1,7 @@
 use crate::metadata::ContractMetadataKind;
 use ab_contracts_io_type::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY};
 
+#[inline(always)]
 pub(super) const fn compact_metadata(
     metadata: &[u8],
     for_external_args: bool,
@@ -32,6 +33,7 @@ macro_rules! forward_option {
     }};
 }
 
+#[inline(always)]
 const fn compact_metadata_inner<'i, 'o>(
     mut input: &'i [u8],
     mut output: &'o mut [u8],
@@ -193,6 +195,7 @@ const fn compact_metadata_inner<'i, 'o>(
     Some((input, output))
 }
 
+#[inline(always)]
 const fn compact_method_argument<'i, 'o>(
     mut input: &'i [u8],
     mut output: &'o mut [u8],
@@ -298,6 +301,7 @@ const fn compact_method_argument<'i, 'o>(
 }
 
 /// Copies `n` bytes from input to output and returns both input and output after `n` bytes offset
+#[inline(always)]
 const fn copy_n_bytes<'i, 'o>(
     input: &'i [u8],
     output: &'o mut [u8],
@@ -315,6 +319,7 @@ const fn copy_n_bytes<'i, 'o>(
 }
 
 /// Skips `n` bytes and return remainder
+#[inline(always)]
 const fn skip_n_bytes(input: &[u8], n: usize) -> Option<&[u8]> {
     if n > input.len() {
         return None;
@@ -325,6 +330,7 @@ const fn skip_n_bytes(input: &[u8], n: usize) -> Option<&[u8]> {
 }
 
 /// Skips `n` bytes in input and output
+#[inline(always)]
 const fn skip_n_bytes_io<'i, 'o>(
     mut input: &'i [u8],
     mut output: &'o mut [u8],
