@@ -71,12 +71,68 @@ struct Inner {
     new_contracts: SmallVec<[Address; NEW_CONTRACTS_INLINE]>,
 }
 
+// TODO: API for serialization/deserialization or some kind of access to internal contents
+#[derive(Debug)]
+pub struct Slots(Box<Inner>);
+
+impl Slots {
+    /// Create a new instance from a hashmap containing existing slots.
+    ///
+    /// Only slots that are present in the input can be modified. The only exception is slots for
+    /// owners created during runtime and initialized with [`Self::add_new_contract()`].
+    ///
+    /// "Empty" slots must still have a value in the form of an empty [`SharedAlignedBuffer`].
+    #[inline(always)]
+    pub fn new<I>(slots: I) -> Self
+    where
+        I: IntoIterator<Item = (SlotKey, SharedAlignedBuffer)>,
+    {
+        let slots = slots
+            .into_iter()
+            .filter_map(|(slot_key, slot)| {
+                // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
+                // allowed for any owner, and they will all be thrown away after transaction
+                // processing if finished.
+                if slot_key.contract == Address::NULL {
+                    return None;
+                }
+
+                Some((slot_key, Slot::Original(slot)))
+            })
+            .collect();
+
+        let inner = Inner {
+            slots,
+            slot_access: SmallVec::new(),
+            new_contracts: SmallVec::new(),
+        };
+
+        Self(Box::new(inner))
+    }
+
+    /// Create a new nested read-write slots instance.
+    ///
+    /// Nested instance will integrate its changes into the parent slot when dropped (or changes can
+    /// be reset with [`Self::reset()`]).
+    #[inline(always)]
+    pub fn new_nested_rw(&mut self) -> NestedSlots<'_> {
+        NestedSlots(NestedSlotsInner::ReadWrite {
+            inner: &mut self.0,
+            parent_slot_access_len: 0,
+            original_parent: true,
+        })
+    }
+
+    /// Create a new nested read-only slots instance
+    #[inline(always)]
+    pub fn new_nested_ro(&self) -> NestedSlots<'_> {
+        NestedSlots(NestedSlotsInner::ReadOnly { inner: &self.0 })
+    }
+}
+
 /// Container for `Slots` just to not expose this enum to the outside
 #[derive(Debug)]
-enum SlotsInner<'a> {
-    /// Original means instance was just created, no other related [`Slots`] instances (sharing the
-    /// same [`Inner`]) are accessible right now
-    Original { inner: Box<Inner> },
+enum NestedSlotsInner<'a> {
     /// Similar to [`Self::Original`], but has a parent (another read-write instance or original)
     ReadWrite {
         inner: &'a mut Inner,
@@ -87,25 +143,22 @@ enum SlotsInner<'a> {
     ReadOnly { inner: &'a Inner },
 }
 
-// TODO: Add marker of `original` instance that can be used to distinguish it from the rest and
-//  simplify error handling in executor.
-// TODO: API for serialization/deserialization or some kind of access to internal contents
 #[derive(Debug)]
-pub struct Slots<'a>(SlotsInner<'a>);
+pub struct NestedSlots<'a>(NestedSlotsInner<'a>);
 
-impl<'a> Drop for Slots<'a> {
+impl<'a> Drop for NestedSlots<'a> {
     #[inline(always)]
     fn drop(&mut self) {
         let (inner, parent_slot_access_len, original_parent) = match &mut self.0 {
-            SlotsInner::Original { .. } | SlotsInner::ReadOnly { .. } => {
-                // No need to integrate changes into the parent
-                return;
-            }
-            SlotsInner::ReadWrite {
+            NestedSlotsInner::ReadWrite {
                 inner,
                 parent_slot_access_len,
                 original_parent,
             } => (&mut **inner, *parent_slot_access_len, *original_parent),
+            NestedSlotsInner::ReadOnly { .. } => {
+                // No need to integrate changes into the parent
+                return;
+            }
         };
 
         let slots = &mut inner.slots;
@@ -142,59 +195,20 @@ impl<'a> Drop for Slots<'a> {
     }
 }
 
-// TODO: Method for getting all slots and modified slots, take `#[tmp]` into consideration
-impl<'a> Slots<'a> {
-    /// Create a new instance from a hashmap containing existing slots.
-    ///
-    /// Only slots that are present in the input can be modified. The only exception is slots for
-    /// owners created during runtime and initialized with [`Self::add_new_contract()`].
-    ///
-    /// "Empty" slots must still have a value in the form of an empty [`SharedAlignedBuffer`].
-    #[inline(always)]
-    pub fn new<I>(slots: I) -> Self
-    where
-        I: IntoIterator<Item = (SlotKey, SharedAlignedBuffer)>,
-    {
-        let slots = slots
-            .into_iter()
-            .filter_map(|(slot_key, slot)| {
-                // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
-                // allowed for any owner, and they will all be thrown away after transaction
-                // processing if finished.
-                if slot_key.contract == Address::NULL {
-                    return None;
-                }
-
-                Some((slot_key, Slot::Original(slot)))
-            })
-            .collect();
-
-        let inner = Inner {
-            slots,
-            slot_access: SmallVec::new(),
-            new_contracts: SmallVec::new(),
-        };
-
-        Self(SlotsInner::Original {
-            inner: Box::new(inner),
-        })
-    }
-
+impl<'a> NestedSlots<'a> {
     #[inline(always)]
     fn inner_ro(&self) -> &Inner {
         match &self.0 {
-            SlotsInner::Original { inner } => inner,
-            SlotsInner::ReadWrite { inner, .. } => inner,
-            SlotsInner::ReadOnly { inner } => inner,
+            NestedSlotsInner::ReadWrite { inner, .. } => inner,
+            NestedSlotsInner::ReadOnly { inner } => inner,
         }
     }
 
     #[inline(always)]
     fn inner_rw(&mut self) -> Option<&mut Inner> {
         match &mut self.0 {
-            SlotsInner::Original { inner } => Some(inner),
-            SlotsInner::ReadWrite { inner, .. } => Some(inner),
-            SlotsInner::ReadOnly { .. } => None,
+            NestedSlotsInner::ReadWrite { inner, .. } => Some(inner),
+            NestedSlotsInner::ReadOnly { .. } => None,
         }
     }
 
@@ -205,40 +219,38 @@ impl<'a> Slots<'a> {
     ///
     /// Returns `None` when attempted on read-only instance.
     #[inline(always)]
-    pub fn new_nested_rw<'b>(&'b mut self) -> Option<Slots<'b>>
+    pub fn new_nested_rw<'b>(&'b mut self) -> Option<NestedSlots<'b>>
     where
         'a: 'b,
     {
-        let (inner, original_parent) = match &mut self.0 {
-            SlotsInner::Original { inner } => (inner.as_mut(), true),
-            SlotsInner::ReadWrite { inner, .. } => (&mut **inner, false),
-            SlotsInner::ReadOnly { .. } => {
+        let inner = match &mut self.0 {
+            NestedSlotsInner::ReadWrite { inner, .. } => &mut **inner,
+            NestedSlotsInner::ReadOnly { .. } => {
                 return None;
             }
         };
 
         let parent_slot_access_len = inner.slot_access.len();
 
-        Some(Slots(SlotsInner::ReadWrite {
+        Some(NestedSlots(NestedSlotsInner::ReadWrite {
             inner,
             parent_slot_access_len,
-            original_parent,
+            original_parent: false,
         }))
     }
 
     /// Create a new nested read-only slots instance
     #[inline(always)]
-    pub fn new_nested_ro<'b>(&'b self) -> Slots<'b>
+    pub fn new_nested_ro<'b>(&'b self) -> NestedSlots<'b>
     where
         'a: 'b,
     {
         let inner = match &self.0 {
-            SlotsInner::Original { inner } => inner.as_ref(),
-            SlotsInner::ReadWrite { inner, .. } => inner,
-            SlotsInner::ReadOnly { inner } => inner,
+            NestedSlotsInner::ReadWrite { inner, .. } => &**inner,
+            NestedSlotsInner::ReadOnly { inner } => &**inner,
         };
 
-        Slots(SlotsInner::ReadOnly { inner })
+        NestedSlots(NestedSlotsInner::ReadOnly { inner })
     }
 
     /// Add a new contract that didn't exist before.
@@ -328,9 +340,8 @@ impl<'a> Slots<'a> {
     #[inline(always)]
     pub fn use_ro(&mut self, slot_key: SlotKey) -> Option<&SharedAlignedBuffer> {
         let inner_rw = match &mut self.0 {
-            SlotsInner::Original { inner, .. } => inner.as_mut(),
-            SlotsInner::ReadWrite { inner, .. } => inner,
-            SlotsInner::ReadOnly { inner } => {
+            NestedSlotsInner::ReadWrite { inner, .. } => &mut **inner,
+            NestedSlotsInner::ReadOnly { inner } => {
                 // Simplified version that doesn't do access tracking
                 let result = Self::use_ro_internal_read_only(
                     slot_key,
@@ -663,15 +674,15 @@ impl<'a> Slots<'a> {
     #[cold]
     pub fn reset(&mut self) {
         let (inner, parent_slot_access_len) = match &mut self.0 {
-            SlotsInner::Original { .. } | SlotsInner::ReadOnly { .. } => {
-                // No need to integrate changes into the parent
-                return;
-            }
-            SlotsInner::ReadWrite {
+            NestedSlotsInner::ReadWrite {
                 inner,
                 parent_slot_access_len,
                 original_parent: _,
             } => (&mut **inner, parent_slot_access_len),
+            NestedSlotsInner::ReadOnly { .. } => {
+                // No need to integrate changes into the parent
+                return;
+            }
         };
 
         let slots = &mut inner.slots;

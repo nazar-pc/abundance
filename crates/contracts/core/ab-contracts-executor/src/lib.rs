@@ -220,7 +220,7 @@ pub struct NativeExecutor {
 
 impl NativeExecutor {
     /// Create a new [`Slots`] instance with system contracts already deployed
-    pub fn new_storage_slots(&self) -> Result<Slots<'static>, ContractError> {
+    pub fn new_storage_slots(&self) -> Result<Slots, ContractError> {
         // Manually deploy code of system code contract
         let slots = [(
             SlotKey {
@@ -234,9 +234,7 @@ impl NativeExecutor {
         let mut slots = Slots::new(slots);
 
         {
-            let mut nested_slots = slots
-                .new_nested_rw()
-                .expect("Just created, hence not read-only; qed");
+            let mut nested_slots = slots.new_nested_rw();
             // Allow deployment of system contracts
             assert!(nested_slots.add_new_contract(address_allocator_address));
             assert!(nested_slots.add_new_contract(Address::SYSTEM_STATE));
@@ -244,7 +242,7 @@ impl NativeExecutor {
         }
 
         // Deploy and initialize other system contacts
-        let maybe_result = self.transaction_emulate(Address::SYSTEM_CODE, &mut slots, |env| {
+        self.transaction_emulate(Address::SYSTEM_CODE, &mut slots, |env| {
             env.code_store(
                 MethodContext::Keep,
                 Address::SYSTEM_CODE,
@@ -266,8 +264,7 @@ impl NativeExecutor {
                 &Address::SYSTEM_SIMPLE_WALLET_BASE,
                 &SimpleWalletBase::code(),
             )
-        });
-        maybe_result.expect("Slots instance is not read-only; qed")?;
+        })?;
 
         Ok(slots)
     }
@@ -286,7 +283,7 @@ impl NativeExecutor {
     pub fn transaction_verify(
         &self,
         transaction: Transaction<'_>,
-        slots: &Slots<'_>,
+        slots: &Slots,
     ) -> Result<(), ContractError> {
         let env_state = EnvState {
             shard_index: self.shard_index,
@@ -341,7 +338,7 @@ impl NativeExecutor {
     pub fn transaction_execute(
         &self,
         transaction: Transaction<'_>,
-        slots: &mut Slots<'_>,
+        slots: &mut Slots,
     ) -> Result<(), ContractError> {
         // TODO: This is a pretty large data structure to copy around, try to make it a reference
         let env_state = EnvState {
@@ -374,11 +371,7 @@ impl NativeExecutor {
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
-            slots.new_nested_rw().ok_or_else(|| {
-                error!("Trying to execute a transaction with read-only `Slots` instance #1");
-
-                ContractError::Forbidden
-            })?,
+            slots.new_nested_rw(),
             &tmp_owners,
             true,
         );
@@ -401,7 +394,7 @@ impl NativeExecutor {
     pub fn transaction_verify_execute(
         &self,
         transaction: Transaction<'_>,
-        slots: &mut Slots<'_>,
+        slots: &mut Slots,
     ) -> Result<(), ContractError> {
         // TODO: This is a pretty large data structure to copy around, try to make it a reference
         let env_state = EnvState {
@@ -455,11 +448,7 @@ impl NativeExecutor {
             let mut executor_context = NativeExecutorContext::new(
                 self.shard_index,
                 &self.methods_by_code,
-                slots.new_nested_rw().ok_or_else(|| {
-                    error!("Trying to execute a transaction with read-only `Slots` instance #2");
-
-                    ContractError::Forbidden
-                })?,
+                slots.new_nested_rw(),
                 &tmp_owners,
                 true,
             );
@@ -485,13 +474,12 @@ impl NativeExecutor {
     /// transaction execution using [`Self::transaction_execute()`].
     ///
     /// Returns `None` if read-only [`Slots`] instance was given.
-    #[must_use]
     pub fn transaction_emulate<Calls, T>(
         &self,
         contract: Address,
-        slots: &mut Slots<'_>,
+        slots: &mut Slots,
         calls: Calls,
-    ) -> Option<T>
+    ) -> T
     where
         Calls: FnOnce(&mut Env<'_>) -> T,
     {
@@ -507,12 +495,12 @@ impl NativeExecutor {
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
-            slots.new_nested_rw()?,
+            slots.new_nested_rw(),
             &tmp_owners,
             true,
         );
         let mut env = Env::with_executor_context(env_state, &mut executor_context);
-        Some(calls(&mut env))
+        calls(&mut env)
     }
 
     /// Get a read-only `Env` instance for calling `#[view]` methods on it directly.
@@ -520,7 +508,7 @@ impl NativeExecutor {
     /// For stateful methods, execute a transaction using [`Self::transaction_execute()`] or
     /// emulate one with [`Self::transaction_emulate()`].
     #[must_use]
-    pub fn with_env_ro<Callback, T>(&self, slots: &Slots<'_>, callback: Callback) -> T
+    pub fn with_env_ro<Callback, T>(&self, slots: &Slots, callback: Callback) -> T
     where
         Callback: FnOnce(&Env<'_>) -> T,
     {

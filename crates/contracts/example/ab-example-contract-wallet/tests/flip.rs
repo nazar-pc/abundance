@@ -49,43 +49,39 @@ fn flip() {
 
     let keypair = Keypair::generate();
 
-    let wallet_address = executor
-        .transaction_emulate(Address::NULL, slots, |env| {
-            // Deploy
-            let wallet_address = env
-                .code_deploy(
-                    MethodContext::Keep,
-                    Address::SYSTEM_CODE,
-                    &ExampleWallet::code(),
-                )
-                .unwrap();
-
-            // Initialize state
-            env.example_wallet_initialize(
+    let wallet_address = executor.transaction_emulate(Address::NULL, slots, |env| {
+        // Deploy
+        let wallet_address = env
+            .code_deploy(
                 MethodContext::Keep,
-                wallet_address,
-                &keypair.public.to_bytes(),
+                Address::SYSTEM_CODE,
+                &ExampleWallet::code(),
             )
             .unwrap();
 
-            wallet_address
-        })
+        // Initialize state
+        env.example_wallet_initialize(
+            MethodContext::Keep,
+            wallet_address,
+            &keypair.public.to_bytes(),
+        )
         .unwrap();
 
-    let flipper_address = executor
-        .transaction_emulate(Address::NULL, slots, |env| {
-            // Deploy
-            let flipper_address = env
-                .code_deploy(MethodContext::Keep, Address::SYSTEM_CODE, &Flipper::code())
-                .unwrap();
+        wallet_address
+    });
 
-            // Initialize state
-            env.flipper_new(MethodContext::Keep, flipper_address, &true)
-                .unwrap();
+    let flipper_address = executor.transaction_emulate(Address::NULL, slots, |env| {
+        // Deploy
+        let flipper_address = env
+            .code_deploy(MethodContext::Keep, Address::SYSTEM_CODE, &Flipper::code())
+            .unwrap();
 
-            flipper_address
-        })
-        .unwrap();
+        // Initialize state
+        env.flipper_new(MethodContext::Keep, flipper_address, &true)
+            .unwrap();
+
+        flipper_address
+    });
 
     let header = TransactionHeader {
         block_hash: Blake3Hash::default(),
