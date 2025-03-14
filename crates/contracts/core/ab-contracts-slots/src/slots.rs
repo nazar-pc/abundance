@@ -12,9 +12,12 @@ const INLINE_SIZE: usize = 8;
 /// It should be rare that more than 2 contracts are created in the same transaction
 const NEW_CONTRACTS_INLINE: usize = 2;
 
+/// Key of the slot in [`Slots`]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct SlotKey {
+    /// Owner of the slot
     pub owner: Address,
+    /// Contract that manages the slot
     pub contract: Address,
 }
 
@@ -28,26 +31,27 @@ impl From<SlotIndex> for usize {
     }
 }
 
+/// Slot entry
 #[derive(Debug, Clone)]
-enum Slot {
+pub enum Slot {
     /// Original slot as given to the execution environment, not accessed yet
     Original(SharedAlignedBuffer),
     /// Original slot as given to the execution environment that is currently being accessed
-    OriginalAccessed(SharedAlignedBuffer),
+    OriginalReadOnly(SharedAlignedBuffer),
     /// Previously modified slot
     Modified(SharedAlignedBuffer),
     /// Previously modified slot that is currently being accessed for reads
-    ModifiedAccessed(SharedAlignedBuffer),
+    ModifiedReadOnly(SharedAlignedBuffer),
     /// Original slot as given to the execution environment that is currently being modified
-    ReadWriteOriginal {
+    OriginalReadWrite {
         buffer: OwnedAlignedBuffer,
-        /// What it was in [`Self::Original`] before becoming [`Self::ReadWriteOriginal`]
+        /// What it was in [`Self::Original`] before becoming [`Self::OriginalReadWrite`]
         previous: SharedAlignedBuffer,
     },
     /// Previously modified slot that is currently being modified
-    ReadWriteModified {
+    ModifiedReadWrite {
         buffer: OwnedAlignedBuffer,
-        /// What it was in [`Self::ReadOnlyModified`] before becoming [`Self::ReadWriteModified`]
+        /// What it was in [`Self::Modified`] before becoming [`Self::ModifiedReadWrite`]
         previous: SharedAlignedBuffer,
     },
 }
@@ -71,79 +75,11 @@ struct Inner {
     new_contracts: SmallVec<[Address; NEW_CONTRACTS_INLINE]>,
 }
 
-/// Container for `Slots` just to not expose this enum to the outside
+/// Collection of slots, primarily for execution environment
 #[derive(Debug)]
-enum SlotsInner<'a> {
-    /// Original means instance was just created, no other related [`Slots`] instances (sharing the
-    /// same [`Inner`]) are accessible right now
-    Original { inner: Box<Inner> },
-    /// Similar to [`Self::Original`], but has a parent (another read-write instance or original)
-    ReadWrite {
-        inner: &'a mut Inner,
-        parent_slot_access_len: usize,
-        original_parent: bool,
-    },
-    /// Read-only instance, non-exclusive access to [`Inner`], but not allowed to modify anything
-    ReadOnly { inner: &'a Inner },
-}
+pub struct Slots(Box<Inner>);
 
-// TODO: Add marker of `original` instance that can be used to distinguish it from the rest and
-//  simplify error handling in executor.
-// TODO: API for serialization/deserialization or some kind of access to internal contents
-#[derive(Debug)]
-pub struct Slots<'a>(SlotsInner<'a>);
-
-impl<'a> Drop for Slots<'a> {
-    #[inline(always)]
-    fn drop(&mut self) {
-        let (inner, parent_slot_access_len, original_parent) = match &mut self.0 {
-            SlotsInner::Original { .. } | SlotsInner::ReadOnly { .. } => {
-                // No need to integrate changes into the parent
-                return;
-            }
-            SlotsInner::ReadWrite {
-                inner,
-                parent_slot_access_len,
-                original_parent,
-            } => (&mut **inner, *parent_slot_access_len, *original_parent),
-        };
-
-        let slots = &mut inner.slots;
-        let slot_access = &mut inner.slot_access;
-
-        // Fix-up slots that were modified during access
-        for slot_access in slot_access.drain(parent_slot_access_len..) {
-            let slot = &mut slots
-                .get_mut(usize::from(slot_access.slot_index))
-                .expect("Accessed slot exists; qed")
-                .1;
-
-            take_mut::take(slot, |slot| match slot {
-                Slot::Original(_buffer) => {
-                    unreachable!("Slot can't be in Original state after being accessed")
-                }
-                Slot::OriginalAccessed(buffer) => Slot::Original(buffer),
-                Slot::Modified(buffer) => Slot::Modified(buffer),
-                Slot::ModifiedAccessed(buffer) => Slot::Modified(buffer),
-                Slot::ReadWriteOriginal { buffer, .. } | Slot::ReadWriteModified { buffer, .. } => {
-                    Slot::Modified(buffer.into_shared())
-                }
-            })
-        }
-
-        if original_parent {
-            // Remove temporary values for `Address::NULL` contract, these are used as `#[tmp]`
-            // "slots" by convention in the execution environment since there is no code behind
-            // `Address::NULL` to possibly use it for anything
-            inner
-                .slots
-                .retain(|(slot_key, _slot)| slot_key.contract != Address::NULL);
-        }
-    }
-}
-
-// TODO: Method for getting all slots and modified slots, take `#[tmp]` into consideration
-impl<'a> Slots<'a> {
+impl Slots {
     /// Create a new instance from a hashmap containing existing slots.
     ///
     /// Only slots that are present in the input can be modified. The only exception is slots for
@@ -175,26 +111,195 @@ impl<'a> Slots<'a> {
             new_contracts: SmallVec::new(),
         };
 
-        Self(SlotsInner::Original {
-            inner: Box::new(inner),
+        Self(Box::new(inner))
+    }
+
+    /// Create a new nested read-write slots instance.
+    ///
+    /// Nested instance will integrate its changes into the parent slot when dropped (or changes can
+    /// be reset with [`NestedSlots::reset()`]).
+    #[inline(always)]
+    pub fn new_nested_rw(&mut self) -> NestedSlots<'_> {
+        NestedSlots(NestedSlotsInner::ReadWrite {
+            inner: &mut self.0,
+            parent_slot_access_len: 0,
+            original_parent: true,
         })
     }
 
+    /// Create a new nested read-only slots instance
+    #[inline(always)]
+    pub fn new_nested_ro(&self) -> NestedSlots<'_> {
+        NestedSlots(NestedSlotsInner::ReadOnly { inner: &self.0 })
+    }
+
+    /// Add a new contract that didn't exist before.
+    ///
+    /// In contrast to contracts in [`Self::new()`], this contract will be allowed to have any slots
+    /// related to it being modified.
+    ///
+    /// Returns `false` if a contract already exits in a map, which is also considered as an access
+    /// violation.
+    #[must_use]
+    #[inline(always)]
+    pub fn add_new_contract(&mut self, owner: Address) -> bool {
+        let new_contracts = &mut self.0.new_contracts;
+
+        if new_contracts.contains(&owner) {
+            debug!(%owner, "Not adding new contract duplicate");
+            return false;
+        }
+
+        new_contracts.push(owner);
+        true
+    }
+
+    /// Iterate over all slots in the collection
+    #[inline]
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&SlotKey, &SharedAlignedBuffer)> + '_ {
+        self.0.slots.iter().map(|(slot_key, slot)| match slot {
+            Slot::Original(buffer) => (slot_key, buffer),
+            Slot::OriginalReadOnly(_) => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::Modified(buffer) => (slot_key, buffer),
+            Slot::ModifiedReadOnly(_) => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::OriginalReadWrite { .. } => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::ModifiedReadWrite { .. } => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+        })
+    }
+
+    /// Iterate over modified slots in the collection
+    #[inline]
+    pub fn iter_modified(&self) -> impl Iterator<Item = (&SlotKey, &SharedAlignedBuffer)> + '_ {
+        self.0
+            .slots
+            .iter()
+            .filter_map(|(slot_key, slot)| match slot {
+                Slot::Original(_) => None,
+                Slot::OriginalReadOnly(_) => unreachable!(
+                    "Only original and modified slots can exist at the `Slots` level; qed"
+                ),
+                Slot::Modified(buffer) => Some((slot_key, buffer)),
+                Slot::ModifiedReadOnly(_) => unreachable!(
+                    "Only original and modified slots can exist at the `Slots` level; qed"
+                ),
+                Slot::OriginalReadWrite { .. } => unreachable!(
+                    "Only original and modified slots can exist at the `Slots` level; qed"
+                ),
+                Slot::ModifiedReadWrite { .. } => unreachable!(
+                    "Only original and modified slots can exist at the `Slots` level; qed"
+                ),
+            })
+    }
+
+    /// Extract all slots in the collection
+    #[inline]
+    pub fn into_slots(self) -> impl ExactSizeIterator<Item = (SlotKey, SharedAlignedBuffer)> {
+        self.0.slots.into_iter().map(|(slot_key, slot)| match slot {
+            Slot::Original(buffer) => (slot_key, buffer),
+            Slot::OriginalReadOnly(_) => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::Modified(buffer) => (slot_key, buffer),
+            Slot::ModifiedReadOnly(_) => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::OriginalReadWrite { .. } => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::ModifiedReadWrite { .. } => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+        })
+    }
+}
+
+/// Container for `Slots` just to not expose this enum to the outside
+#[derive(Debug)]
+enum NestedSlotsInner<'a> {
+    /// Similar to [`Self::Original`], but has a parent (another read-write instance or original)
+    ReadWrite {
+        inner: &'a mut Inner,
+        parent_slot_access_len: usize,
+        original_parent: bool,
+    },
+    /// Read-only instance, non-exclusive access to [`Inner`], but not allowed to modify anything
+    ReadOnly { inner: &'a Inner },
+}
+
+#[derive(Debug)]
+pub struct NestedSlots<'a>(NestedSlotsInner<'a>);
+
+impl<'a> Drop for NestedSlots<'a> {
+    #[inline(always)]
+    fn drop(&mut self) {
+        let (inner, parent_slot_access_len, original_parent) = match &mut self.0 {
+            NestedSlotsInner::ReadWrite {
+                inner,
+                parent_slot_access_len,
+                original_parent,
+            } => (&mut **inner, *parent_slot_access_len, *original_parent),
+            NestedSlotsInner::ReadOnly { .. } => {
+                // No need to integrate changes into the parent
+                return;
+            }
+        };
+
+        let slots = &mut inner.slots;
+        let slot_access = &mut inner.slot_access;
+
+        // Fix-up slots that were modified during access
+        for slot_access in slot_access.drain(parent_slot_access_len..) {
+            let slot = &mut slots
+                .get_mut(usize::from(slot_access.slot_index))
+                .expect("Accessed slot exists; qed")
+                .1;
+
+            take_mut::take(slot, |slot| match slot {
+                Slot::Original(_buffer) => {
+                    unreachable!("Slot can't be in Original state after being accessed")
+                }
+                Slot::OriginalReadOnly(buffer) => Slot::Original(buffer),
+                Slot::Modified(buffer) => Slot::Modified(buffer),
+                Slot::ModifiedReadOnly(buffer) => Slot::Modified(buffer),
+                Slot::OriginalReadWrite { buffer, .. } | Slot::ModifiedReadWrite { buffer, .. } => {
+                    Slot::Modified(buffer.into_shared())
+                }
+            })
+        }
+
+        if original_parent {
+            // Remove temporary values for `Address::NULL` contract, these are used as `#[tmp]`
+            // "slots" by convention in the execution environment since there is no code behind
+            // `Address::NULL` to possibly use it for anything
+            inner
+                .slots
+                .retain(|(slot_key, _slot)| slot_key.contract != Address::NULL);
+        }
+    }
+}
+
+impl<'a> NestedSlots<'a> {
     #[inline(always)]
     fn inner_ro(&self) -> &Inner {
         match &self.0 {
-            SlotsInner::Original { inner } => inner,
-            SlotsInner::ReadWrite { inner, .. } => inner,
-            SlotsInner::ReadOnly { inner } => inner,
+            NestedSlotsInner::ReadWrite { inner, .. } => inner,
+            NestedSlotsInner::ReadOnly { inner } => inner,
         }
     }
 
     #[inline(always)]
     fn inner_rw(&mut self) -> Option<&mut Inner> {
         match &mut self.0 {
-            SlotsInner::Original { inner } => Some(inner),
-            SlotsInner::ReadWrite { inner, .. } => Some(inner),
-            SlotsInner::ReadOnly { .. } => None,
+            NestedSlotsInner::ReadWrite { inner, .. } => Some(inner),
+            NestedSlotsInner::ReadOnly { .. } => None,
         }
     }
 
@@ -205,46 +310,44 @@ impl<'a> Slots<'a> {
     ///
     /// Returns `None` when attempted on read-only instance.
     #[inline(always)]
-    pub fn new_nested_rw<'b>(&'b mut self) -> Option<Slots<'b>>
+    pub fn new_nested_rw<'b>(&'b mut self) -> Option<NestedSlots<'b>>
     where
         'a: 'b,
     {
-        let (inner, original_parent) = match &mut self.0 {
-            SlotsInner::Original { inner } => (inner.as_mut(), true),
-            SlotsInner::ReadWrite { inner, .. } => (&mut **inner, false),
-            SlotsInner::ReadOnly { .. } => {
+        let inner = match &mut self.0 {
+            NestedSlotsInner::ReadWrite { inner, .. } => &mut **inner,
+            NestedSlotsInner::ReadOnly { .. } => {
                 return None;
             }
         };
 
         let parent_slot_access_len = inner.slot_access.len();
 
-        Some(Slots(SlotsInner::ReadWrite {
+        Some(NestedSlots(NestedSlotsInner::ReadWrite {
             inner,
             parent_slot_access_len,
-            original_parent,
+            original_parent: false,
         }))
     }
 
     /// Create a new nested read-only slots instance
     #[inline(always)]
-    pub fn new_nested_ro<'b>(&'b self) -> Slots<'b>
+    pub fn new_nested_ro<'b>(&'b self) -> NestedSlots<'b>
     where
         'a: 'b,
     {
         let inner = match &self.0 {
-            SlotsInner::Original { inner } => inner.as_ref(),
-            SlotsInner::ReadWrite { inner, .. } => inner,
-            SlotsInner::ReadOnly { inner } => inner,
+            NestedSlotsInner::ReadWrite { inner, .. } => &**inner,
+            NestedSlotsInner::ReadOnly { inner } => &**inner,
         };
 
-        Slots(SlotsInner::ReadOnly { inner })
+        NestedSlots(NestedSlotsInner::ReadOnly { inner })
     }
 
     /// Add a new contract that didn't exist before.
     ///
-    /// In contrast to contracts in [`Self::new()`], this contract will be allowed to have any slots
-    /// related to it being modified.
+    /// In contrast to contracts in [`Slots::new()`], this contract will be allowed to have any
+    /// slots related to it being modified.
     ///
     /// Returns `false` if a contract already exits in a map, which is also considered as an access
     /// violation.
@@ -311,10 +414,10 @@ impl<'a> Slots<'a> {
             .1
         {
             Slot::Original(buffer)
-            | Slot::OriginalAccessed(buffer)
+            | Slot::OriginalReadOnly(buffer)
             | Slot::Modified(buffer)
-            | Slot::ModifiedAccessed(buffer) => buffer,
-            Slot::ReadWriteOriginal { .. } | Slot::ReadWriteModified { .. } => {
+            | Slot::ModifiedReadOnly(buffer) => buffer,
+            Slot::OriginalReadWrite { .. } | Slot::ModifiedReadWrite { .. } => {
                 return None;
             }
         };
@@ -328,9 +431,8 @@ impl<'a> Slots<'a> {
     #[inline(always)]
     pub fn use_ro(&mut self, slot_key: SlotKey) -> Option<&SharedAlignedBuffer> {
         let inner_rw = match &mut self.0 {
-            SlotsInner::Original { inner, .. } => inner.as_mut(),
-            SlotsInner::ReadWrite { inner, .. } => inner,
-            SlotsInner::ReadOnly { inner } => {
+            NestedSlotsInner::ReadWrite { inner, .. } => &mut **inner,
+            NestedSlotsInner::ReadOnly { inner } => {
                 // Simplified version that doesn't do access tracking
                 let result = Self::use_ro_internal_read_only(
                     slot_key,
@@ -397,22 +499,22 @@ impl<'a> Slots<'a> {
             match slot {
                 Slot::Original(buffer) => {
                     let buffer = buffer.clone();
-                    *slot = Slot::OriginalAccessed(buffer);
-                    let Slot::OriginalAccessed(buffer) = slot else {
+                    *slot = Slot::OriginalReadOnly(buffer);
+                    let Slot::OriginalReadOnly(buffer) = slot else {
                         unreachable!("Just inserted; qed");
                     };
                     Some(buffer)
                 }
-                Slot::OriginalAccessed(buffer) | Slot::ModifiedAccessed(buffer) => Some(buffer),
+                Slot::OriginalReadOnly(buffer) | Slot::ModifiedReadOnly(buffer) => Some(buffer),
                 Slot::Modified(buffer) => {
                     let buffer = buffer.clone();
-                    *slot = Slot::ModifiedAccessed(buffer);
-                    let Slot::ModifiedAccessed(buffer) = slot else {
+                    *slot = Slot::ModifiedReadOnly(buffer);
+                    let Slot::ModifiedReadOnly(buffer) = slot else {
                         unreachable!("Just inserted; qed");
                     };
                     Some(buffer)
                 }
-                Slot::ReadWriteOriginal { .. } | Slot::ReadWriteModified { .. } => None,
+                Slot::OriginalReadWrite { .. } | Slot::ModifiedReadWrite { .. } => None,
             }
         } else {
             // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are allowed
@@ -431,10 +533,10 @@ impl<'a> Slots<'a> {
                 read_write: false,
             });
 
-            let slot = Slot::OriginalAccessed(SharedAlignedBuffer::default());
+            let slot = Slot::OriginalReadOnly(SharedAlignedBuffer::default());
             slots.push((slot_key, slot));
             let slot = &slots.last().expect("Just inserted; qed").1;
-            let Slot::OriginalAccessed(buffer) = slot else {
+            let Slot::OriginalReadOnly(buffer) = slot else {
                 unreachable!("Just inserted; qed");
             };
 
@@ -473,10 +575,10 @@ impl<'a> Slots<'a> {
             // The slot that is currently being written to is not allowed for read access
             match slot {
                 Slot::Original(buffer)
-                | Slot::OriginalAccessed(buffer)
-                | Slot::ModifiedAccessed(buffer)
+                | Slot::OriginalReadOnly(buffer)
+                | Slot::ModifiedReadOnly(buffer)
                 | Slot::Modified(buffer) => Some(buffer),
-                Slot::ReadWriteOriginal { .. } | Slot::ReadWriteModified { .. } => None,
+                Slot::OriginalReadWrite { .. } | Slot::ModifiedReadWrite { .. } => None,
             }
         } else {
             // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are
@@ -555,7 +657,7 @@ impl<'a> Slots<'a> {
 
             // The slot that is currently being accessed to is not allowed for writing
             let buffer = match slot {
-                Slot::OriginalAccessed(_buffer) | Slot::ModifiedAccessed(_buffer) => {
+                Slot::OriginalReadOnly(_buffer) | Slot::ModifiedReadOnly(_buffer) => {
                     return None;
                 }
                 Slot::Original(buffer) => {
@@ -563,11 +665,11 @@ impl<'a> Slots<'a> {
                         OwnedAlignedBuffer::with_capacity(capacity.max(buffer.len()));
                     new_buffer.copy_from_slice(buffer.as_slice());
 
-                    *slot = Slot::ReadWriteOriginal {
+                    *slot = Slot::OriginalReadWrite {
                         buffer: new_buffer,
                         previous: buffer.clone(),
                     };
-                    let Slot::ReadWriteOriginal { buffer, .. } = slot else {
+                    let Slot::OriginalReadWrite { buffer, .. } = slot else {
                         unreachable!("Just inserted; qed");
                     };
                     buffer
@@ -577,16 +679,16 @@ impl<'a> Slots<'a> {
                         OwnedAlignedBuffer::with_capacity(capacity.max(buffer.len()));
                     new_buffer.copy_from_slice(buffer.as_slice());
 
-                    *slot = Slot::ReadWriteModified {
+                    *slot = Slot::ModifiedReadWrite {
                         buffer: new_buffer,
                         previous: buffer.clone(),
                     };
-                    let Slot::ReadWriteModified { buffer, .. } = slot else {
+                    let Slot::ModifiedReadWrite { buffer, .. } = slot else {
                         unreachable!("Just inserted; qed");
                     };
                     buffer
                 }
-                Slot::ReadWriteOriginal { buffer, .. } | Slot::ReadWriteModified { buffer, .. } => {
+                Slot::OriginalReadWrite { buffer, .. } | Slot::ModifiedReadWrite { buffer, .. } => {
                     buffer.ensure_capacity(capacity);
                     buffer
                 }
@@ -611,13 +713,13 @@ impl<'a> Slots<'a> {
                 read_write: true,
             });
 
-            let slot = Slot::ReadWriteOriginal {
+            let slot = Slot::OriginalReadWrite {
                 buffer: OwnedAlignedBuffer::with_capacity(capacity),
                 previous: SharedAlignedBuffer::default(),
             };
             slots.push((slot_key, slot));
             let slot = &mut slots.last_mut().expect("Just inserted; qed").1;
-            let Slot::ReadWriteOriginal { buffer, .. } = slot else {
+            let Slot::OriginalReadWrite { buffer, .. } = slot else {
                 unreachable!("Just inserted; qed");
             };
 
@@ -647,13 +749,13 @@ impl<'a> Slots<'a> {
         // Must be currently accessed for writing
         match slot {
             Slot::Original(_buffer)
-            | Slot::OriginalAccessed(_buffer)
+            | Slot::OriginalReadOnly(_buffer)
             | Slot::Modified(_buffer)
-            | Slot::ModifiedAccessed(_buffer) => {
+            | Slot::ModifiedReadOnly(_buffer) => {
                 debug!(?slot_index, "`access_used_rw` access violation (read only)");
                 None
             }
-            Slot::ReadWriteOriginal { buffer, .. } | Slot::ReadWriteModified { buffer, .. } => {
+            Slot::OriginalReadWrite { buffer, .. } | Slot::ModifiedReadWrite { buffer, .. } => {
                 Some(buffer)
             }
         }
@@ -663,15 +765,15 @@ impl<'a> Slots<'a> {
     #[cold]
     pub fn reset(&mut self) {
         let (inner, parent_slot_access_len) = match &mut self.0 {
-            SlotsInner::Original { .. } | SlotsInner::ReadOnly { .. } => {
-                // No need to integrate changes into the parent
-                return;
-            }
-            SlotsInner::ReadWrite {
+            NestedSlotsInner::ReadWrite {
                 inner,
                 parent_slot_access_len,
                 original_parent: _,
             } => (&mut **inner, parent_slot_access_len),
+            NestedSlotsInner::ReadOnly { .. } => {
+                // No need to integrate changes into the parent
+                return;
+            }
         };
 
         let slots = &mut inner.slots;
@@ -687,11 +789,11 @@ impl<'a> Slots<'a> {
                 Slot::Original(_buffer) => {
                     unreachable!("Slot can't be in Original state after being accessed")
                 }
-                Slot::OriginalAccessed(buffer) => Slot::Original(buffer),
+                Slot::OriginalReadOnly(buffer) => Slot::Original(buffer),
                 Slot::Modified(buffer) => Slot::Modified(buffer),
-                Slot::ModifiedAccessed(buffer) => Slot::Modified(buffer),
-                Slot::ReadWriteOriginal { previous, .. } => Slot::Original(previous),
-                Slot::ReadWriteModified { previous, .. } => Slot::Modified(previous),
+                Slot::ModifiedReadOnly(buffer) => Slot::Modified(buffer),
+                Slot::OriginalReadWrite { previous, .. } => Slot::Original(previous),
+                Slot::ModifiedReadWrite { previous, .. } => Slot::Modified(previous),
             });
         }
 

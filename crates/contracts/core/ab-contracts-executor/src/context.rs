@@ -4,7 +4,7 @@ use crate::context::ffi_call::make_ffi_call;
 use ab_contracts_common::env::{EnvState, ExecutorContext, MethodContext, PreparedMethod};
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_contracts_common::{Address, ContractError, ExitCode, ShardIndex};
-use ab_contracts_slots::slots::Slots;
+use ab_contracts_slots::slots::NestedSlots;
 use ab_system_contract_address_allocator::ffi::allocate_address::AddressAllocatorAllocateAddressArgs;
 use halfbrown::HashMap;
 use std::cell::UnsafeCell;
@@ -27,7 +27,7 @@ pub(super) struct NativeExecutorContext<'a> {
     system_allocator_address: Address,
     /// Indexed by contract's code and method fingerprint
     methods_by_code: &'a HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>,
-    slots: UnsafeCell<Slots<'a>>,
+    slots: UnsafeCell<NestedSlots<'a>>,
     tmp_owners: &'a UnsafeCell<Vec<Address>>,
     allow_env_mutation: bool,
 }
@@ -41,7 +41,7 @@ impl<'a> ExecutorContext for NativeExecutorContext<'a> {
         // SAFETY: `NativeExecutorContext` is not `Sync`, slots instance was provided as `&mut` in
         // the constructor (meaning exclusive access) and this function is the only place where it
         // is accessed without recursive calls to itself
-        let slots = unsafe { &mut *self.slots.get().cast::<Slots<'a>>() };
+        let slots = unsafe { &mut *self.slots.get().cast::<NestedSlots<'a>>() };
 
         let PreparedMethod {
             contract,
@@ -106,7 +106,7 @@ impl<'a> NativeExecutorContext<'a> {
     pub(super) fn new(
         shard_index: ShardIndex,
         methods_by_code: &'a HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>,
-        slots: Slots<'a>,
+        slots: NestedSlots<'a>,
         tmp_owners: &'a UnsafeCell<Vec<Address>>,
         allow_env_mutation: bool,
     ) -> Self {
@@ -121,7 +121,11 @@ impl<'a> NativeExecutorContext<'a> {
     }
 
     #[inline(always)]
-    fn new_nested(&self, slots: Slots<'a>, allow_env_mutation: bool) -> NativeExecutorContext<'a> {
+    fn new_nested(
+        &self,
+        slots: NestedSlots<'a>,
+        allow_env_mutation: bool,
+    ) -> NativeExecutorContext<'a> {
         Self {
             shard_index: self.shard_index,
             system_allocator_address: self.system_allocator_address,

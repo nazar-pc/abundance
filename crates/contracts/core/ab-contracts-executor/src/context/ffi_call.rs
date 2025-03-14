@@ -5,7 +5,7 @@ use ab_contracts_common::metadata::decode::{
     MethodsContainerKind,
 };
 use ab_contracts_common::{Address, ContractError, MAX_TOTAL_METHOD_ARGS};
-use ab_contracts_slots::slots::{SlotIndex, SlotKey, Slots};
+use ab_contracts_slots::slots::{NestedSlots, SlotIndex, SlotKey};
 use ab_system_contract_address_allocator::AddressAllocator;
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
@@ -189,12 +189,13 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
     #[inline(always)]
     unsafe fn initialize<'slots, CreateNestedContext>(
         self,
-        slots: Slots<'slots>,
+        slots: NestedSlots<'slots>,
         env_state: EnvState,
         create_nested_context: CreateNestedContext,
-    ) -> MaybeEnv<Env<'env>, Slots<'env>>
+    ) -> MaybeEnv<Env<'env>, NestedSlots<'env>>
     where
-        CreateNestedContext: FnOnce(Slots<'slots>, bool) -> &'env mut NativeExecutorContext<'slots>,
+        CreateNestedContext:
+            FnOnce(NestedSlots<'slots>, bool) -> &'env mut NativeExecutorContext<'slots>,
         'slots: 'env,
     {
         match self {
@@ -236,11 +237,11 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
     }
 }
 
-impl<'env> MaybeEnv<Env<'env>, Slots<'env>> {
+impl<'env> MaybeEnv<Env<'env>, NestedSlots<'env>> {
     /// # Safety
     /// Nothing must have a live reference to `self` or its internals
     #[inline(always)]
-    unsafe fn get_slots_mut<'tmp>(&'tmp mut self) -> &'tmp mut Slots<'env>
+    unsafe fn get_slots_mut<'tmp>(&'tmp mut self) -> &'tmp mut NestedSlots<'env>
     where
         'env: 'tmp,
     {
@@ -267,7 +268,7 @@ impl<'env> MaybeEnv<Env<'env>, Slots<'env>> {
 pub(super) fn make_ffi_call<'slots, 'external_args, CreateNestedContext>(
     allow_env_mutation: bool,
     is_allocate_new_address_method: bool,
-    parent_slots: &'slots mut Slots<'slots>,
+    parent_slots: &'slots mut NestedSlots<'slots>,
     contract: Address,
     method_details: MethodDetails,
     external_args: &'external_args mut NonNull<NonNull<c_void>>,
@@ -276,7 +277,7 @@ pub(super) fn make_ffi_call<'slots, 'external_args, CreateNestedContext>(
     create_nested_context: CreateNestedContext,
 ) -> Result<(), ContractError>
 where
-    CreateNestedContext: FnOnce(Slots<'slots>, bool) -> NativeExecutorContext<'slots>,
+    CreateNestedContext: FnOnce(NestedSlots<'slots>, bool) -> NativeExecutorContext<'slots>,
 {
     let MethodDetails {
         recommended_state_capacity,
