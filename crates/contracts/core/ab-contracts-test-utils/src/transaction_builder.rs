@@ -1,6 +1,7 @@
 use ab_contracts_common::Address;
-use ab_contracts_common::env::{Blake3Hash, Gas, Transaction, TransactionHeader, TransactionSlot};
+use ab_contracts_common::env::Blake3Hash;
 use ab_contracts_common::method::ExternalArgs;
+use ab_contracts_common::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
 use ab_system_contract_simple_wallet_base::payload::builder::{
     TransactionPayloadBuilder, TransactionPayloadBuilderError,
@@ -52,6 +53,7 @@ impl TransactionBuilder {
         contract: &Address,
         external_args: &Args,
         method_context: TransactionMethodContext,
+        slot_output_index: &[Option<u8>],
         input_output_index: &[Option<u8>],
     ) -> Result<(), TransactionPayloadBuilderError<'static>>
     where
@@ -61,6 +63,7 @@ impl TransactionBuilder {
             contract,
             external_args,
             method_context,
+            slot_output_index,
             input_output_index,
         )
     }

@@ -1,5 +1,6 @@
 use ab_contracts_common::ContractError;
-use ab_contracts_common::env::{Env, TransactionHeader, TransactionSlot};
+use ab_contracts_common::env::Env;
+use ab_contracts_common::transaction::{TransactionHeader, TransactionSlot};
 use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_io_type::variable_elements::VariableElements;
 use ab_contracts_macros::contract;

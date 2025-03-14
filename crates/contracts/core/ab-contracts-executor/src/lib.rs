@@ -3,9 +3,10 @@
 mod context;
 
 use crate::context::{MethodDetails, NativeExecutorContext};
-use ab_contracts_common::env::{Env, EnvState, MethodContext, Transaction, TransactionSlot};
+use ab_contracts_common::env::{Env, EnvState, MethodContext};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
 use ab_contracts_common::method::MethodFingerprint;
+use ab_contracts_common::transaction::{Transaction, TransactionSlot};
 use ab_contracts_common::{
     Address, Contract, ContractError, ContractTrait, ContractTraitDefinition,
     NativeExecutorContactMethod, ShardIndex,

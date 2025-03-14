@@ -3,7 +3,8 @@
     reason = "Intentionally not adding `guest` feature, this is a test utility not to be deployed"
 )]
 
-use ab_contracts_common::env::{Env, MethodContext, TransactionHeader};
+use ab_contracts_common::env::{Env, MethodContext};
+use ab_contracts_common::transaction::TransactionHeader;
 use ab_contracts_common::{Address, ContractError};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;

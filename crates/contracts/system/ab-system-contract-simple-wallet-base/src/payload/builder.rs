@@ -5,7 +5,7 @@ mod tests;
 
 extern crate alloc;
 
-use crate::payload::{TransactionInput, TransactionMethodContext};
+use crate::payload::{TransactionInput, TransactionMethodContext, TransactionSlot};
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, MetadataDecodingError, MethodMetadataDecoder, MethodMetadataItem,
     MethodsContainerKind,
@@ -13,12 +13,19 @@ use ab_contracts_common::metadata::decode::{
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_contracts_common::{Address, MAX_TOTAL_METHOD_ARGS};
 use ab_contracts_io_type::MAX_ALIGNMENT;
+use ab_contracts_io_type::metadata::IoTypeDetails;
 use ab_contracts_io_type::trivial_type::TrivialType;
 use alloc::vec::Vec;
 use core::ffi::c_void;
+use core::mem::MaybeUninit;
 use core::num::NonZeroU8;
 use core::ptr::NonNull;
 use core::{ptr, slice};
+
+const _: () = {
+    // Make sure bit flags for all arguments will fit into a single u8 below
+    assert!(MAX_TOTAL_METHOD_ARGS as u32 == u8::BITS);
+};
 
 /// Errors for [`TransactionPayloadBuilder`]
 #[derive(Debug, thiserror::Error)]
@@ -62,13 +69,15 @@ impl TransactionPayloadBuilder {
     ///
     /// The wallet will call this method in addition order.
     ///
-    /// `input_output_index` is used for referencing earlier outputs as inputs of this method,
-    /// its values are optional, see [`TransactionInput`] for more details.
+    /// `slot_output_index` and `input_output_index` are used for referencing earlier outputs as
+    /// slots or inputs of this method, its values are optional, see [`TransactionInput`] for more
+    /// details.
     pub fn with_method_call<Args>(
         &mut self,
         contract: &Address,
         external_args: &Args,
         method_context: TransactionMethodContext,
+        slot_output_index: &[Option<u8>],
         input_output_index: &[Option<u8>],
     ) -> Result<(), TransactionPayloadBuilderError<'static>>
     where
@@ -84,6 +93,7 @@ impl TransactionPayloadBuilder {
                 Args::METADATA,
                 &Args::FINGERPRINT,
                 method_context,
+                slot_output_index,
                 input_output_index,
             )
         }
@@ -95,6 +105,10 @@ impl TransactionPayloadBuilder {
     /// `external_args` must correspond to `method_metadata` and `method_fingerprint`. Outputs are
     /// never read from `external_args` and inputs that have corresponding `input_output_index`
     /// are not read either.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Only exceeds the limit due to being untyped, while above typed version is not"
+    )]
     pub unsafe fn with_method_call_untyped<'a>(
         &mut self,
         contract: &Address,
@@ -102,6 +116,7 @@ impl TransactionPayloadBuilder {
         mut method_metadata: &'a [u8],
         method_fingerprint: &MethodFingerprint,
         method_context: TransactionMethodContext,
+        slot_output_index: &[Option<u8>],
         input_output_index: &[Option<u8>],
     ) -> Result<(), TransactionPayloadBuilderError<'a>> {
         let mut external_args = *external_args;
@@ -130,18 +145,15 @@ impl TransactionPayloadBuilder {
             method_fingerprint.as_bytes(),
             align_of_val(method_fingerprint),
         );
-        self.payload.push(method_context as u8);
+        self.push_payload_byte(method_context as u8);
 
-        // Remember the position to update later
-        let num_slots_index = self.payload.len();
-        self.payload.push(0);
-        // Remember the position to update later
-        let num_inputs_index = self.payload.len();
-        self.payload.push(0);
-        // Remember the position to update later
-        let num_outputs_index = self.payload.len();
-        self.payload.push(0);
+        let mut num_slot_arguments = 0u8;
+        let mut num_input_arguments = 0u8;
+        let mut num_output_arguments = 0u8;
 
+        let mut input_output_type_details =
+            [MaybeUninit::<IoTypeDetails>::uninit(); MAX_TOTAL_METHOD_ARGS as usize];
+        // Collect information about all arguments so everything below is able to be purely additive
         while let Some(item) = metadata_decoder
             .decode_next()
             .transpose()
@@ -155,79 +167,117 @@ impl TransactionPayloadBuilder {
                     // Not represented in external args
                 }
                 ArgumentKind::SlotRo | ArgumentKind::SlotRw => {
-                    self.payload[num_slots_index] += 1;
-
-                    // SAFETY: Method description requires the layout to correspond to metadata
-                    let address = unsafe {
-                        let address = external_args.cast::<NonNull<Address>>().read().as_ref();
-                        external_args = external_args.offset(1);
-                        address
-                    };
-                    self.extend_payload_with_alignment(address.as_bytes(), align_of_val(address));
+                    num_slot_arguments += 1;
                 }
                 ArgumentKind::Input => {
-                    let input_offset = usize::from(self.payload[num_inputs_index]);
-                    self.payload[num_inputs_index] += 1;
-
-                    let type_details = &item
-                        .type_details
-                        .expect("Always present for `#[input]`; qed");
-
-                    let maybe_output_index =
-                        input_output_index.get(input_offset).copied().flatten();
-                    let input_type = match maybe_output_index {
-                        Some(output_index) => TransactionInput::new_output_index(output_index)
-                            .ok_or(TransactionPayloadBuilderError::InvalidOutputIndex(
-                                output_index,
-                            ))?,
-                        None => TransactionInput::new_value(type_details.alignment).ok_or(
-                            TransactionPayloadBuilderError::InvalidAlignment(
-                                type_details.alignment,
-                            ),
-                        )?,
-                    };
-                    self.payload.push(input_type.into_u8());
-
-                    if maybe_output_index.is_none() {
-                        // SAFETY: Method description requires the layout to correspond to metadata
-                        let (size, data) = unsafe {
-                            let data = external_args.cast::<NonNull<u8>>().read();
-                            external_args = external_args.offset(1);
-                            let size = external_args.cast::<NonNull<u32>>().read().read();
-                            external_args = external_args.offset(1);
-
-                            let data =
-                                slice::from_raw_parts(data.as_ptr().cast_const(), size as usize);
-
-                            (size, data)
-                        };
-
-                        self.extend_payload_with_alignment(
-                            &size.to_le_bytes(),
-                            align_of_val(&size),
-                        );
-                        self.extend_payload_with_alignment(
-                            data,
-                            type_details.alignment.get() as usize,
-                        );
-                    }
+                    input_output_type_details[usize::from(num_input_arguments)]
+                        .write(item.type_details.unwrap_or(IoTypeDetails::bytes(0)));
+                    num_input_arguments += 1;
                 }
                 ArgumentKind::Output => {
-                    self.payload[num_outputs_index] += 1;
-
-                    // May be skipped for `#[init]`, see `ContractMetadataKind::Init` for details
-                    if let Some(type_details) = &item.type_details {
-                        self.extend_payload_with_alignment(
-                            &type_details.recommended_capacity.to_le_bytes(),
-                            align_of_val(&type_details.recommended_capacity),
-                        );
-                        self.extend_payload_with_alignment(
-                            &[type_details.alignment.ilog2() as u8],
-                            align_of::<u8>(),
-                        );
-                    }
+                    input_output_type_details
+                        [usize::from(num_input_arguments + num_output_arguments)]
+                    .write(item.type_details.unwrap_or(IoTypeDetails::bytes(0)));
+                    num_output_arguments += 1;
                 }
             }
+        }
+        // SAFETY: Just initialized elements above
+        let (input_type_details, output_type_details) = unsafe {
+            let (input_type_details, output_type_details) =
+                input_output_type_details.split_at_unchecked(usize::from(num_input_arguments));
+            let (output_type_details, _) =
+                output_type_details.split_at_unchecked(usize::from(num_output_arguments));
+
+            (
+                input_type_details.assume_init_ref(),
+                output_type_details.assume_init_ref(),
+            )
+        };
+
+        // Store number of slots and `TransactionSlot` for each slot
+        self.push_payload_byte(num_slot_arguments);
+        for slot_offset in 0..usize::from(num_slot_arguments) {
+            let slot_type = if let Some(&Some(output_index)) = slot_output_index.get(slot_offset) {
+                TransactionSlot::new_output_index(output_index).ok_or(
+                    TransactionPayloadBuilderError::InvalidOutputIndex(output_index),
+                )?
+            } else {
+                TransactionSlot::new_address()
+            };
+            self.push_payload_byte(slot_type.into_u8());
+        }
+
+        // Store number of inputs and `TransactionInput` for each input
+        self.push_payload_byte(num_input_arguments);
+        for (input_offset, type_details) in input_type_details.iter().enumerate() {
+            let input_type = if let Some(&Some(output_index)) = input_output_index.get(input_offset)
+            {
+                TransactionInput::new_output_index(output_index).ok_or(
+                    TransactionPayloadBuilderError::InvalidOutputIndex(output_index),
+                )?
+            } else {
+                TransactionInput::new_value(type_details.alignment).ok_or(
+                    TransactionPayloadBuilderError::InvalidAlignment(type_details.alignment),
+                )?
+            };
+            self.push_payload_byte(input_type.into_u8());
+        }
+
+        // Store number of outputs
+        self.push_payload_byte(num_output_arguments);
+
+        for slot_offset in 0..usize::from(num_slot_arguments) {
+            // SAFETY: Method description requires the layout to correspond to metadata
+            let address = unsafe {
+                let address = external_args.cast::<NonNull<Address>>().read().as_ref();
+                external_args = external_args.offset(1);
+                address
+            };
+
+            if slot_output_index
+                .get(slot_offset)
+                .copied()
+                .flatten()
+                .is_none()
+            {
+                self.extend_payload_with_alignment(address.as_bytes(), align_of_val(address));
+            }
+        }
+
+        for (input_offset, type_details) in input_type_details.iter().enumerate() {
+            // SAFETY: Method description requires the layout to correspond to metadata
+            let (size, data) = unsafe {
+                let data = external_args.cast::<NonNull<u8>>().read();
+                external_args = external_args.offset(1);
+                let size = external_args.cast::<NonNull<u32>>().read().read();
+                external_args = external_args.offset(1);
+
+                let data = slice::from_raw_parts(data.as_ptr().cast_const(), size as usize);
+
+                (size, data)
+            };
+
+            if input_output_index
+                .get(input_offset)
+                .copied()
+                .flatten()
+                .is_none()
+            {
+                self.extend_payload_with_alignment(&size.to_le_bytes(), align_of_val(&size));
+                self.extend_payload_with_alignment(data, type_details.alignment.get() as usize);
+            }
+        }
+
+        for type_details in output_type_details {
+            self.extend_payload_with_alignment(
+                &type_details.recommended_capacity.to_le_bytes(),
+                align_of_val(&type_details.recommended_capacity),
+            );
+            self.extend_payload_with_alignment(
+                &[type_details.alignment.ilog2() as u8],
+                align_of::<u8>(),
+            );
         }
 
         Ok(())
@@ -243,18 +293,23 @@ impl TransactionPayloadBuilder {
     /// * Contract to call: [`Address`]
     /// * Fingerprint of the method to call: [`MethodFingerprint`]
     /// * Method context: [`TransactionMethodContext`]
-    /// * Number of slot arguments: `u8`
+    /// * Number of `#[slot]` arguments: `u8`
+    /// * For each `#[slot]` argument:
+    ///     * [`TransactionSlot`]  as `u8`
     /// * Number of `#[input]` arguments: `u8`
+    /// * For each `#[input]` argument:
+    ///     * [`TransactionInput`] for each `#[input]` argument as `u8`
     /// * Number of `#[output]` arguments: `u8`
-    /// * Concatenated sequence of arguments
+    /// * For each [`TransactionSlot`], whose type is [`TransactionSlotType::Address`]:
+    ///     * [`Address`]
+    /// * For each [`TransactionInput`], whose type is [`TransactionInputType::Value`]:
+    ///     * Input size as little-endian `u32` followed by the input itself
+    /// * For each `#[output]`:
+    ///     * recommended capacity as little-endian `u32` followed by alignment power as `u8`
+    ///       (`NonZeroU8::ilog2(alignment)`)
     ///
-    /// Each argument is serialized in the following way (others are skipped):
-    /// * `#[slot]`: [`Address`]
-    /// * `#[input]`: [`TransactionInput`] as `u8`
-    ///     * If [`TransactionInput::new_value()`] then input size as little-endian `u32`
-    ///       followed by the input itself
-    /// * `#[output]`: recommended capacity as little-endian `u32` followed by alignment power as
-    ///   `u8` (`NonZeroU8::ilog2(alignment)`)
+    /// [`TransactionSlotType::Address`]: crate::payload::TransactionSlotType::Address
+    /// [`TransactionInputType::Value`]: crate::payload::TransactionInputType::Value
     pub fn into_aligned_bytes(mut self) -> Vec<u128> {
         // Fill bytes to make it multiple of `u128` before creating `u128`-based vector
         self.ensure_alignment(usize::from(MAX_ALIGNMENT));
@@ -293,5 +348,9 @@ impl TransactionPayloadBuilder {
             self.payload
                 .resize(self.payload.len() + (alignment - unaligned_by), 0);
         }
+    }
+
+    fn push_payload_byte(&mut self, byte: u8) {
+        self.payload.push(byte);
     }
 }

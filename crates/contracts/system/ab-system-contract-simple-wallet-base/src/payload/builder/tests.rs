@@ -43,6 +43,7 @@ fn payload_encode_decode() {
                 &DemoContractSetArgs::new(&new_value),
                 TransactionMethodContext::Wallet,
                 &[],
+                &[],
             )
             .unwrap();
         builder.into_aligned_bytes()

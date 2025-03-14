@@ -12,7 +12,13 @@
 //!   followed by [`SimpleWalletBase::increase_nonce`]
 //! * [`SimpleWalletBase::change_public_key`] is used for change public key to a different one
 
-#![feature(non_null_from_ref, ptr_as_ref_unchecked, try_blocks, unchecked_shifts)]
+#![feature(
+    maybe_uninit_slice,
+    non_null_from_ref,
+    ptr_as_ref_unchecked,
+    try_blocks,
+    unchecked_shifts
+)]
 #![no_std]
 
 pub mod payload;
@@ -20,7 +26,8 @@ pub mod seal;
 
 use crate::payload::{TransactionMethodContext, TransactionPayloadDecoder};
 use crate::seal::hash_and_verify;
-use ab_contracts_common::env::{Env, MethodContext, TransactionHeader};
+use ab_contracts_common::env::{Env, MethodContext};
+use ab_contracts_common::transaction::TransactionHeader;
 use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_io_type::variable_bytes::VariableBytes;
