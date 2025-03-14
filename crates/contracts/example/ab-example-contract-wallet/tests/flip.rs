@@ -100,6 +100,7 @@ fn flip() {
                 &FlipperFlipArgs::new(),
                 TransactionMethodContext::Null,
                 &[],
+                &[],
             )
             .unwrap();
         builder.into_aligned_bytes()

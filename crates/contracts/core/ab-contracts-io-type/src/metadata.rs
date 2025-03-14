@@ -47,8 +47,9 @@ pub struct IoTypeDetails {
 }
 
 impl IoTypeDetails {
+    /// Create an instance for regular bytes (alignment 1)
     #[inline(always)]
-    const fn bytes(recommended_capacity: u32) -> Self {
+    pub const fn bytes(recommended_capacity: u32) -> Self {
         Self {
             recommended_capacity,
             alignment: NonZeroU8::new(1).expect("Not zero; qed"),

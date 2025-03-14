@@ -97,6 +97,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 &FlipperFlipArgs::new(),
                 TransactionMethodContext::Null,
                 &[],
+                &[],
             )
             .unwrap();
         builder.into_aligned_bytes()

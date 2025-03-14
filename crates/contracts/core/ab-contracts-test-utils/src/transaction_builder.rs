@@ -53,6 +53,7 @@ impl TransactionBuilder {
         contract: &Address,
         external_args: &Args,
         method_context: TransactionMethodContext,
+        slot_output_index: &[Option<u8>],
         input_output_index: &[Option<u8>],
     ) -> Result<(), TransactionPayloadBuilderError<'static>>
     where
@@ -62,6 +63,7 @@ impl TransactionBuilder {
             contract,
             external_args,
             method_context,
+            slot_output_index,
             input_output_index,
         )
     }
