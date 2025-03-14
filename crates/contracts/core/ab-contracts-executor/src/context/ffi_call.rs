@@ -57,10 +57,12 @@ macro_rules! copy_ptr {
     }};
 }
 
+#[derive(Copy, Clone)]
 struct DelayedProcessingSlotReadOnly {
     size: u32,
 }
 
+#[derive(Copy, Clone)]
 struct DelayedProcessingSlotReadWrite {
     /// Pointer to `InternalArgs` where guest will store a pointer to potentially updated slot
     /// contents
@@ -80,57 +82,80 @@ struct DelayedProcessingSlotReadWrite {
 /// Stores details about arguments that need to be processed after FFI call.
 ///
 /// It is also more efficient to store length and capacities compactly next to each other in memory.
+#[derive(Copy, Clone)]
 enum DelayedProcessing {
     SlotReadOnly(DelayedProcessingSlotReadOnly),
     SlotReadWrite(DelayedProcessingSlotReadWrite),
 }
 
-struct DelayedProcessingCollection {
-    inner: Vec<UnsafeCell<DelayedProcessing>>,
+struct DelayedProcessingCollection<'a> {
+    buffer: &'a [UnsafeCell<MaybeUninit<DelayedProcessing>>; MAX_TOTAL_METHOD_ARGS as usize],
+    cursor: usize,
 }
 
-impl DelayedProcessingCollection {
+impl<'a> DelayedProcessingCollection<'a> {
     #[inline(always)]
-    fn with_capacity(capacity: usize) -> Self {
-        Self {
-            inner: Vec::with_capacity(capacity),
-        }
+    fn from_buffer(
+        buffer: &'a [UnsafeCell<MaybeUninit<DelayedProcessing>>; MAX_TOTAL_METHOD_ARGS as usize],
+    ) -> Self {
+        Self { buffer, cursor: 0 }
     }
 
-    /// Insert new entry and get mutable reference to it, which doesn't inherit stack borrows tag
+    /// Insert new entry and get a shared reference to it, which doesn't inherit stack borrows tag.
+    ///
+    /// # Safety
+    /// Must not insert more entries than [`MAX_TOTAL_METHODS_ARGS`].
     #[inline(always)]
-    fn insert_ro(
+    unsafe fn insert_ro(
         &mut self,
         entry: DelayedProcessingSlotReadOnly,
     ) -> &DelayedProcessingSlotReadOnly {
-        self.inner
-            .push(UnsafeCell::new(DelayedProcessing::SlotReadOnly(entry)));
-        // SAFETY: Created from a live value, which was just inserted
-        let Some(DelayedProcessing::SlotReadOnly(entry)) =
-            self.inner.last().map(|value| unsafe { &mut *value.get() })
-        else {
+        // SAFETY: Method contract is that the entry must exist, cursor is always moving forward and
+        // doesn't reference the same entry more than once here
+        let inserted = unsafe {
+            self.buffer
+                .get_unchecked(self.cursor)
+                .get()
+                .as_mut_unchecked()
+                .write(DelayedProcessing::SlotReadOnly(entry))
+        };
+        self.cursor += 1;
+        let DelayedProcessing::SlotReadOnly(entry) = inserted else {
             unreachable!("Just inserted `DelayedProcessing::SlotReadOnly` entry; qed");
         };
-
         entry
     }
 
-    /// Insert new entry and get mutable reference to it, which doesn't inherit stack borrows tag
+    /// Insert new entry and get a mutable reference to it, which doesn't inherit stack borrows tag.
+    ///
+    /// # Safety
+    /// Must not insert more entries than [`MAX_TOTAL_METHODS_ARGS`].
     #[inline(always)]
-    fn insert_rw(
+    unsafe fn insert_rw(
         &mut self,
         entry: DelayedProcessingSlotReadWrite,
     ) -> &mut DelayedProcessingSlotReadWrite {
-        self.inner
-            .push(UnsafeCell::new(DelayedProcessing::SlotReadWrite(entry)));
-        // SAFETY: Created from a live value, which was just inserted
-        let Some(DelayedProcessing::SlotReadWrite(entry)) =
-            self.inner.last().map(|value| unsafe { &mut *value.get() })
-        else {
+        // SAFETY: Method contract is that the entry must exist, cursor is always moving forward and
+        // doesn't reference the same entry more than once here
+        let inserted = unsafe {
+            self.buffer
+                .get_unchecked(self.cursor)
+                .get()
+                .as_mut_unchecked()
+                .write(DelayedProcessing::SlotReadWrite(entry))
+        };
+        self.cursor += 1;
+        let DelayedProcessing::SlotReadWrite(entry) = inserted else {
             unreachable!("Just inserted `DelayedProcessing::SlotReadWrite` entry; qed");
         };
-
         entry
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &DelayedProcessing> {
+        self.buffer.iter().take(self.cursor).map(|entry| {
+            // SAFETY: All values were initialized
+            unsafe { entry.as_ref_unchecked().assume_init_ref() }
+        })
     }
 }
 
@@ -337,8 +362,19 @@ where
     // arguments first.
     //
     // NOTE: It is important that this is never reallocated as it will invalidate all pointers to
-    // elements of this vector!
-    let mut delayed_processing = DelayedProcessingCollection::with_capacity(number_of_arguments);
+    // elements of this array!
+    let delayed_processing_buffer = [
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+    ];
+    let mut delayed_processing =
+        DelayedProcessingCollection::from_buffer(&delayed_processing_buffer);
 
     // `view_only == true` when only `#[view]` method is allowed
     let (view_only, mut slots) = match method_kind {
@@ -384,9 +420,12 @@ where
                 return Err(ContractError::Forbidden);
             }
 
-            let result = delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
-                size: state_bytes.len(),
-            });
+            // SAFETY: Number of arguments checked above
+            let result = unsafe {
+                delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
+                    size: state_bytes.len(),
+                })
+            };
 
             // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above and
             // aligned correctly
@@ -414,14 +453,16 @@ where
                 return Err(ContractError::Forbidden);
             }
 
-            let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
+            let entry = DelayedProcessingSlotReadWrite {
                 // Is updated below
                 data_ptr: NonNull::dangling(),
                 size: state_bytes.len(),
                 capacity: state_bytes.capacity(),
                 slot_index,
                 must_be_not_empty: false,
-            });
+            };
+            // SAFETY: Number of arguments checked above
+            let result = unsafe { delayed_processing.insert_rw(entry) };
 
             // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above and
             // aligned correctly
@@ -510,9 +551,12 @@ where
                 // context that access tmp contracts and do so strictly non-concurrently
                 unsafe { tmp_owners.as_mut_unchecked() }.push(*owner);
 
-                let result = delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
-                    size: slot_bytes.len(),
-                });
+                // SAFETY: Number of arguments checked above
+                let result = unsafe {
+                    delayed_processing.insert_ro(DelayedProcessingSlotReadOnly {
+                        size: slot_bytes.len(),
+                    })
+                };
 
                 // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
                 // and aligned correctly
@@ -554,14 +598,16 @@ where
                 // context that access tmp contracts and do so strictly non-concurrently
                 unsafe { tmp_owners.as_mut_unchecked() }.push(*owner);
 
-                let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
+                let entry = DelayedProcessingSlotReadWrite {
                     // Is updated below
                     data_ptr: NonNull::dangling(),
                     size: slot_bytes.len(),
                     capacity: slot_bytes.capacity(),
                     slot_index,
                     must_be_not_empty: false,
-                });
+                };
+                // SAFETY: Number of arguments checked above
+                let result = unsafe { delayed_processing.insert_rw(entry) };
 
                 // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
                 // and aligned correctly
@@ -607,14 +653,16 @@ where
                         return Err(ContractError::Forbidden);
                     }
 
-                    let result = delayed_processing.insert_rw(DelayedProcessingSlotReadWrite {
+                    let entry = DelayedProcessingSlotReadWrite {
                         // Is updated below
                         data_ptr: NonNull::dangling(),
                         size: 0,
                         capacity: state_bytes.capacity(),
                         slot_index,
                         must_be_not_empty: true,
-                    });
+                    };
+                    // SAFETY: Number of arguments checked above
+                    let result = unsafe { delayed_processing.insert_rw(entry) };
 
                     // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
                     // above and aligned correctly
@@ -695,8 +743,8 @@ where
         }
     }
 
-    for entry in delayed_processing.inner {
-        match entry.into_inner() {
+    for &entry in delayed_processing.iter() {
+        match entry {
             DelayedProcessing::SlotReadOnly { .. } => {
                 // No processing is necessary
             }
