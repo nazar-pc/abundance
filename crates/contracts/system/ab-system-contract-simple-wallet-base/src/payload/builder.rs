@@ -145,7 +145,7 @@ impl TransactionPayloadBuilder {
             method_fingerprint.as_bytes(),
             align_of_val(method_fingerprint),
         );
-        self.payload.push(method_context as u8);
+        self.push_payload_byte(method_context as u8);
 
         let mut num_slot_arguments = 0u8;
         let mut num_input_arguments = 0u8;
@@ -196,7 +196,7 @@ impl TransactionPayloadBuilder {
         };
 
         // Store number of slots and `TransactionSlot` for each slot
-        self.payload.push(num_slot_arguments);
+        self.push_payload_byte(num_slot_arguments);
         for slot_offset in 0..usize::from(num_slot_arguments) {
             let slot_type = if let Some(&Some(output_index)) = slot_output_index.get(slot_offset) {
                 TransactionSlot::new_output_index(output_index).ok_or(
@@ -205,11 +205,11 @@ impl TransactionPayloadBuilder {
             } else {
                 TransactionSlot::new_address()
             };
-            self.payload.push(slot_type.into_u8());
+            self.push_payload_byte(slot_type.into_u8());
         }
 
         // Store number of inputs and `TransactionInput` for each input
-        self.payload.push(num_input_arguments);
+        self.push_payload_byte(num_input_arguments);
         for (input_offset, type_details) in input_type_details.iter().enumerate() {
             let input_type = if let Some(&Some(output_index)) = input_output_index.get(input_offset)
             {
@@ -221,11 +221,11 @@ impl TransactionPayloadBuilder {
                     TransactionPayloadBuilderError::InvalidAlignment(type_details.alignment),
                 )?
             };
-            self.payload.push(input_type.into_u8());
+            self.push_payload_byte(input_type.into_u8());
         }
 
         // Store number of outputs
-        self.payload.push(num_output_arguments);
+        self.push_payload_byte(num_output_arguments);
 
         for slot_offset in 0..usize::from(num_slot_arguments) {
             // SAFETY: Method description requires the layout to correspond to metadata
@@ -348,5 +348,9 @@ impl TransactionPayloadBuilder {
             self.payload
                 .resize(self.payload.len() + (alignment - unaligned_by), 0);
         }
+    }
+
+    fn push_payload_byte(&mut self, byte: u8) {
+        self.payload.push(byte);
     }
 }
