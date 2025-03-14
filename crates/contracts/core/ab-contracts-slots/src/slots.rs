@@ -12,9 +12,12 @@ const INLINE_SIZE: usize = 8;
 /// It should be rare that more than 2 contracts are created in the same transaction
 const NEW_CONTRACTS_INLINE: usize = 2;
 
+/// Key of the slot in [`Slots`]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct SlotKey {
+    /// Owner of the slot
     pub owner: Address,
+    /// Contract that manages the slot
     pub contract: Address,
 }
 
@@ -28,8 +31,9 @@ impl From<SlotIndex> for usize {
     }
 }
 
+/// Slot entry
 #[derive(Debug, Clone)]
-enum Slot {
+pub enum Slot {
     /// Original slot as given to the execution environment, not accessed yet
     Original(SharedAlignedBuffer),
     /// Original slot as given to the execution environment that is currently being accessed
@@ -71,7 +75,7 @@ struct Inner {
     new_contracts: SmallVec<[Address; NEW_CONTRACTS_INLINE]>,
 }
 
-// TODO: API for serialization/deserialization or some kind of access to internal contents
+/// Collection of slots, primarily for execution environment
 #[derive(Debug)]
 pub struct Slots(Box<Inner>);
 
@@ -127,6 +131,72 @@ impl Slots {
     #[inline(always)]
     pub fn new_nested_ro(&self) -> NestedSlots<'_> {
         NestedSlots(NestedSlotsInner::ReadOnly { inner: &self.0 })
+    }
+
+    /// Iterate over all slots in the collection
+    #[inline]
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&SlotKey, &SharedAlignedBuffer)> + '_ {
+        self.0.slots.iter().map(|(slot_key, slot)| match slot {
+            Slot::Original(buffer) => (slot_key, buffer),
+            Slot::OriginalAccessed(_) => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::Modified(buffer) => (slot_key, buffer),
+            Slot::ModifiedAccessed(_) => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::ReadWriteOriginal { .. } => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::ReadWriteModified { .. } => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+        })
+    }
+
+    /// Iterate over modified slots in the collection
+    #[inline]
+    pub fn iter_modified(&self) -> impl Iterator<Item = (&SlotKey, &SharedAlignedBuffer)> + '_ {
+        self.0
+            .slots
+            .iter()
+            .filter_map(|(slot_key, slot)| match slot {
+                Slot::Original(_) => None,
+                Slot::OriginalAccessed(_) => unreachable!(
+                    "Only original and modified slots can exist at the `Slots` level; qed"
+                ),
+                Slot::Modified(buffer) => Some((slot_key, buffer)),
+                Slot::ModifiedAccessed(_) => unreachable!(
+                    "Only original and modified slots can exist at the `Slots` level; qed"
+                ),
+                Slot::ReadWriteOriginal { .. } => unreachable!(
+                    "Only original and modified slots can exist at the `Slots` level; qed"
+                ),
+                Slot::ReadWriteModified { .. } => unreachable!(
+                    "Only original and modified slots can exist at the `Slots` level; qed"
+                ),
+            })
+    }
+
+    /// Extract all slots in the collection
+    #[inline]
+    pub fn into_slots(self) -> impl ExactSizeIterator<Item = (SlotKey, SharedAlignedBuffer)> {
+        self.0.slots.into_iter().map(|(slot_key, slot)| match slot {
+            Slot::Original(buffer) => (slot_key, buffer),
+            Slot::OriginalAccessed(_) => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::Modified(buffer) => (slot_key, buffer),
+            Slot::ModifiedAccessed(_) => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::ReadWriteOriginal { .. } => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+            Slot::ReadWriteModified { .. } => {
+                unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
+            }
+        })
     }
 }
 
