@@ -49,7 +49,8 @@ pub enum ContractMetadataKind {
     /// Initializers are encoded af follows:
     /// * Length of method name in bytes (u8)
     /// * Method name as UTF-8 bytes
-    /// * Number of named arguments (u8, excluding state argument `&self` or `&mut self`)
+    /// * Number of named arguments (u8, excluding state argument `&self` or `&mut self`, but
+    ///   including return type that is not `()` or `Result<(), ContactError>`)
     ///
     /// Each argument is encoded as follows:
     /// * Argument type as u8, one of:

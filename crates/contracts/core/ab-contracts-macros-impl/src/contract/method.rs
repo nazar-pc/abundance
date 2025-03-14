@@ -1533,15 +1533,25 @@ impl MethodDetails {
                 format!("Number of arguments must not be more than {}", u8::MAX),
             )
         })?;
+        let total_number_of_arguments =
+            Literal::u8_unsuffixed(number_of_arguments.saturating_add(1));
         let number_of_arguments = Literal::u8_unsuffixed(number_of_arguments);
 
         let original_method_name = &fn_sig.ident;
         let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
         let method_name_metadata = derive_ident_metadata(&ffi_fn_name)?;
         Ok(quote_spanned! {fn_sig.span() =>
+            #[expect(
+                clippy::assertions_on_constants,
+                reason = "Auto-generated compile-time check"
+            )]
             const fn metadata()
                 -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
             {
+                assert!(
+                    #total_number_of_arguments <= ::ab_contracts_macros::__private::MAX_TOTAL_METHOD_ARGS,
+                    "Too many arguments"
+                );
                 ::ab_contracts_macros::__private::concat_metadata_sources(&[
                     &[::ab_contracts_macros::__private::ContractMetadataKind::#method_type as ::core::primitive::u8],
                     #method_name_metadata,

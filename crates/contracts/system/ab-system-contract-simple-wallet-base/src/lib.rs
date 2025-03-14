@@ -20,8 +20,8 @@ pub mod seal;
 
 use crate::payload::{TransactionMethodContext, TransactionPayloadDecoder};
 use crate::seal::hash_and_verify;
-use ab_contracts_common::ContractError;
 use ab_contracts_common::env::{Env, MethodContext, TransactionHeader};
+use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract;
@@ -43,8 +43,8 @@ pub const SIGNING_CONTEXT: &[u8] = b"system-simple-wallet";
 ///
 /// `#[slot]` argument using one pointer, `#[input]` two pointers and `#[output]` three pointers
 /// each.
-pub const EXTERNAL_ARGS_BUFFER_SIZE: usize = 32 * 1024;
-/// Size of the buffer in bytes that is used as a stack for storing outputs.
+pub const EXTERNAL_ARGS_BUFFER_SIZE: usize = 3 * MAX_TOTAL_METHOD_ARGS as usize;
+/// Size of the buffer in `u128` elements that is used as a stack for storing outputs.
 ///
 /// This constant is helpful for transaction generation to check whether a created transaction
 /// doesn't exceed this limit.
@@ -53,7 +53,7 @@ pub const EXTERNAL_ARGS_BUFFER_SIZE: usize = 32 * 1024;
 /// methods of the payload together.
 ///
 /// Overflow will result in an error.
-pub const OUTPUT_BUFFER_SIZE: usize = 32 * 1024;
+pub const OUTPUT_BUFFER_SIZE: usize = 32 * 1024 / size_of::<u128>();
 /// Size of the buffer in entries that is used to store buffer offsets.
 ///
 /// This constant is helpful for transaction generation to check whether a created transaction

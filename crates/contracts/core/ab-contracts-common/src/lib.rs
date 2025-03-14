@@ -23,6 +23,11 @@ pub use error::{ContractError, CustomContractErrorCode, ExitCode};
 
 /// Max allowed size of the contract code
 pub const MAX_CODE_SIZE: u32 = 1024 * 1024;
+/// Max number of arguments in a method.
+///
+/// NOTE: Both `self` and return type that is not `()` or `Result<(), ContractError>` count towards
+/// the total number of method arguments.
+pub const MAX_TOTAL_METHOD_ARGS: u8 = 8;
 
 /// Method details used by native execution environment.
 ///
