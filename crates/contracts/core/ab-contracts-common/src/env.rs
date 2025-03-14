@@ -159,28 +159,28 @@ impl<'a> Env<'a> {
     }
 
     /// Shard index where execution is happening
-    #[inline]
+    #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn shard_index(&self) -> ShardIndex {
         self.state.shard_index
     }
 
     /// Own address of the contract
-    #[inline]
+    #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn own_address(&self) -> Address {
         self.state.own_address
     }
 
     /// Context of the execution
-    #[inline]
+    #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn context<'b>(self: &'b &'b mut Self) -> Address {
         self.state.context
     }
 
     /// Caller of this contract
-    #[inline]
+    #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn caller<'b>(self: &'b &'b mut Self) -> Address {
         self.state.caller
@@ -189,7 +189,7 @@ impl<'a> Env<'a> {
     /// Call a method at specified address and with specified arguments.
     ///
     /// This is a shortcut for [`Self::prepare_method_call()`] + [`Self::call_prepared()`].
-    #[inline]
+    #[inline(always)]
     pub fn call<Args>(
         &self,
         contract: Address,
@@ -206,7 +206,7 @@ impl<'a> Env<'a> {
     /// Prepare a single method for calling at specified address and with specified arguments.
     ///
     /// The result is to be used with [`Self::call_prepared()`] afterward.
-    #[inline]
+    #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn prepare_method_call<Args>(
         contract: Address,
