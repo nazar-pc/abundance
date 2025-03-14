@@ -80,7 +80,7 @@ jobs:
           cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-common --features ab-contracts-common/guest -- -D warnings
           cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-common --features ab-contracts-common/executor -- -D warnings
 
-          cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-macros --features ab-contracts-common/executor -- -D warnings
+          cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-macros --features ab-contracts-macros/guest -- -D warnings
 
           cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-standards --features ab-contracts-standards/guest -- -D warnings
 
@@ -185,10 +185,10 @@ jobs:
 
           # TODO: Would be nice to have these as job matrix later
           # TODO: Unlock commented-out crates once they have the feature
-          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-common --features ab-contracts-common/guest
+          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-common --features ab-contracts-common/guest
           cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-common --features ab-contracts-common/executor
 
-          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-macros --features ab-contracts-common/executor
+          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-macros --features ab-contracts-macros/guest
 
           # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-standards --features ab-contracts-standards/guest
 
