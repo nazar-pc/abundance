@@ -28,7 +28,6 @@ pub(super) struct NativeExecutorContext<'a> {
     /// Indexed by contract's code and method fingerprint
     methods_by_code: &'a HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>,
     slots: UnsafeCell<NestedSlots<'a>>,
-    tmp_owners: &'a UnsafeCell<Vec<Address>>,
     allow_env_mutation: bool,
 }
 
@@ -41,7 +40,9 @@ impl<'a> ExecutorContext for NativeExecutorContext<'a> {
         // SAFETY: `NativeExecutorContext` is not `Sync`, slots instance was provided as `&mut` in
         // the constructor (meaning exclusive access) and this function is the only place where it
         // is accessed without recursive calls to itself
-        let slots = unsafe { &mut *self.slots.get().cast::<NestedSlots<'a>>() };
+        // TODO: This ignores the lifetime by going through the pointer, find a way to make it work
+        //  with the inherited lifetime
+        let slots = unsafe { self.slots.get().as_mut_unchecked() };
 
         let PreparedMethod {
             contract,
@@ -95,7 +96,6 @@ impl<'a> ExecutorContext for NativeExecutorContext<'a> {
             method_details,
             external_args,
             env_state,
-            self.tmp_owners,
             |slots, allow_env_mutation| self.new_nested(slots, allow_env_mutation),
         )
     }
@@ -107,7 +107,6 @@ impl<'a> NativeExecutorContext<'a> {
         shard_index: ShardIndex,
         methods_by_code: &'a HashMap<(&'static [u8], &'static MethodFingerprint), MethodDetails>,
         slots: NestedSlots<'a>,
-        tmp_owners: &'a UnsafeCell<Vec<Address>>,
         allow_env_mutation: bool,
     ) -> Self {
         Self {
@@ -115,7 +114,6 @@ impl<'a> NativeExecutorContext<'a> {
             system_allocator_address: Address::system_address_allocator(shard_index),
             methods_by_code,
             slots: UnsafeCell::new(slots),
-            tmp_owners,
             allow_env_mutation,
         }
     }
@@ -131,7 +129,6 @@ impl<'a> NativeExecutorContext<'a> {
             system_allocator_address: self.system_allocator_address,
             methods_by_code: self.methods_by_code,
             slots: UnsafeCell::new(slots),
-            tmp_owners: self.tmp_owners,
             allow_env_mutation,
         }
     }
