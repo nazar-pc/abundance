@@ -338,15 +338,10 @@ where
 
     // Allocate a buffer that will contain incrementally built `InternalArgs` that method expects,
     // according to its metadata.
-    // `* 4` is due to slots having 2 pointers (detecting this accurately is more code, so this
-    // just assumes the worst case), otherwise it would be 3 pointers: data + size + capacity.
-    let internal_args = Box::<[*mut c_void]>::new_uninit_slice(number_of_arguments * 4);
-    // SAFETY: `UnsafeCell` has the same memory layout as its inner value
-    let mut internal_args = unsafe {
-        mem::transmute::<Box<[MaybeUninit<*mut c_void>]>, Box<UnsafeCell<[MaybeUninit<*mut c_void>]>>>(
-            internal_args,
-        )
-    };
+    // `* 4` is due the worst case being to have a slot with 4 pointers: address + data + size +
+    // capacity.
+    let mut internal_args =
+        UnsafeCell::new([MaybeUninit::<*mut c_void>::uninit(); MAX_TOTAL_METHOD_ARGS as usize * 4]);
 
     // This pointer will be moving as the data structure is being constructed, while `internal_args`
     // will keep pointing to the beginning
