@@ -13,9 +13,11 @@
 //! * [`SimpleWalletBase::change_public_key`] is used for change public key to a different one
 
 #![feature(
+    maybe_uninit_as_bytes,
     maybe_uninit_slice,
     non_null_from_ref,
     ptr_as_ref_unchecked,
+    slice_as_array,
     try_blocks,
     unchecked_shifts
 )]
@@ -23,6 +25,7 @@
 
 pub mod payload;
 pub mod seal;
+pub mod utils;
 
 use crate::payload::{TransactionMethodContext, TransactionPayloadDecoder};
 use crate::seal::hash_and_verify;
@@ -30,7 +33,6 @@ use ab_contracts_common::env::{Env, MethodContext};
 use ab_contracts_common::transaction::TransactionHeader;
 use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
 use ab_contracts_io_type::trivial_type::TrivialType;
-use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::{TxHandlerPayload, TxHandlerSeal, TxHandlerSlots};
 use core::mem::MaybeUninit;
@@ -85,7 +87,7 @@ pub struct Seal {
 /// State of the wallet.
 ///
 /// Shouldn't be necessary to use directly.
-#[derive(Debug, Copy, Clone, TrivialType)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
 #[repr(C)]
 pub struct WalletState {
     pub public_key: [u8; 32],
@@ -103,38 +105,28 @@ pub struct SimpleWalletBase;
 impl SimpleWalletBase {
     /// Returns initial state with a provided public key
     #[view]
-    pub fn initialize(
-        #[input] &public_key: &[u8; 32],
-        #[output] state: &mut VariableBytes,
-    ) -> Result<(), ContractError> {
+    pub fn initialize(#[input] &public_key: &[u8; 32]) -> Result<WalletState, ContractError> {
         // TODO: Storing some lower-level representation of the public key might reduce the cost of
         //  verification in `Self::authorize()` method
         // Ensure public key is valid
         PublicKey::from_bytes(&public_key).map_err(|_error| ContractError::BadInput)?;
 
-        if !state.copy_from(&WalletState {
+        Ok(WalletState {
             public_key,
             nonce: 0,
-        }) {
-            return Err(ContractError::BadInput);
-        }
-
-        Ok(())
+        })
     }
 
     /// Reads state of `owner` and returns `Ok(())` if authorization succeeds
     #[view]
     pub fn authorize(
-        #[input] state: &VariableBytes,
+        #[input] state: &WalletState,
         #[input] header: &TransactionHeader,
         #[input] read_slots: &TxHandlerSlots,
         #[input] write_slots: &TxHandlerSlots,
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
-        let Some(state) = state.read_trivial_type::<WalletState>() else {
-            return Err(ContractError::BadInput);
-        };
         let Some(seal) = seal.read_trivial_type::<Seal>() else {
             return Err(ContractError::BadInput);
         };
@@ -214,45 +206,27 @@ impl SimpleWalletBase {
 
     /// Returns state with increased nonce
     #[view]
-    pub fn increase_nonce(
-        #[input] state: &VariableBytes,
-        #[input] seal: &TxHandlerSeal,
-        #[output] new_state: &mut VariableBytes,
-    ) -> Result<(), ContractError> {
-        let _ = seal;
+    pub fn increase_nonce(#[input] state: &WalletState) -> Result<WalletState, ContractError> {
+        let nonce = state.nonce.checked_add(1).ok_or(ContractError::Forbidden)?;
 
-        let Some(mut state) = state.read_trivial_type::<WalletState>() else {
-            return Err(ContractError::BadInput);
-        };
-
-        state.nonce = state.nonce.checked_add(1).ok_or(ContractError::Forbidden)?;
-
-        if !new_state.copy_from(&state) {
-            return Err(ContractError::BadInput);
-        }
-
-        Ok(())
+        Ok(WalletState {
+            public_key: state.public_key,
+            nonce,
+        })
     }
 
-    /// Returns state with a changed public key
+    /// Returns a new state with a changed public key
     #[view]
     pub fn change_public_key(
-        #[input] state: &VariableBytes,
+        #[input] state: &WalletState,
         #[input] &public_key: &[u8; 32],
-        #[output] new_state: &mut VariableBytes,
-    ) -> Result<(), ContractError> {
-        let Some(mut state) = state.read_trivial_type::<WalletState>() else {
-            return Err(ContractError::BadInput);
-        };
+    ) -> Result<WalletState, ContractError> {
         // Ensure public key is valid
         PublicKey::from_bytes(&public_key).map_err(|_error| ContractError::BadInput)?;
 
-        state.public_key = public_key;
-
-        if !new_state.copy_from(&state) {
-            return Err(ContractError::BadInput);
-        }
-
-        Ok(())
+        Ok(WalletState {
+            public_key,
+            nonce: state.nonce,
+        })
     }
 }

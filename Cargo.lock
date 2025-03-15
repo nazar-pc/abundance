@@ -147,7 +147,6 @@ dependencies = [
  "ab-contracts-standards",
  "ab-system-contract-code",
  "ab-system-contract-simple-wallet-base",
- "ab-system-contract-state",
  "criterion",
  "schnorrkel",
 ]
@@ -179,6 +178,7 @@ dependencies = [
  "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
+ "ab-system-contract-state",
  "blake3",
  "no-panic",
  "schnorrkel",

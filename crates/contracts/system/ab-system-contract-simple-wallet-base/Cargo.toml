@@ -18,6 +18,7 @@ ab-contracts-common = { workspace = true }
 ab-contracts-io-type = { workspace = true }
 ab-contracts-macros = { workspace = true }
 ab-contracts-standards = { workspace = true }
+ab-system-contract-state = { workspace = true }
 blake3 = { workspace = true }
 no-panic = { workspace = true, optional = true }
 schnorrkel = { workspace = true }

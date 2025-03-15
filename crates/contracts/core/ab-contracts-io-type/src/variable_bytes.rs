@@ -191,6 +191,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
+    #[inline(always)]
     #[track_caller]
     pub const fn from_buffer<'a>(
         buffer: &'a [<Self as IoType>::PointerType],
@@ -214,6 +215,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     //
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
+    #[inline(always)]
     #[track_caller]
     pub fn from_buffer_mut<'a>(
         buffer: &'a mut [<Self as IoType>::PointerType],
@@ -235,18 +237,18 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
     //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
-    // TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
-    //  `CAPACITY as usize`
+    #[inline(always)]
     #[track_caller]
-    pub fn from_uninit<'a, const CAPACITY: usize>(
-        uninit: &'a mut [MaybeUninit<<Self as IoType>::PointerType>; CAPACITY],
+    pub fn from_uninit<'a>(
+        uninit: &'a mut [MaybeUninit<<Self as IoType>::PointerType>],
         size: &'a mut u32,
     ) -> impl DerefMut<Target = Self> + 'a {
+        let capacity = uninit.len();
         debug_assert!(
-            *size as usize <= CAPACITY,
-            "Size {size} must not exceed capacity {CAPACITY}"
+            *size as usize <= capacity,
+            "Size {size} must not exceed capacity {capacity}"
         );
-        let capacity = CAPACITY as u32;
+        let capacity = capacity as u32;
 
         DerefWrapper(Self {
             bytes: NonNull::new(MaybeUninit::slice_as_mut_ptr(uninit)).expect("Not null; qed"),

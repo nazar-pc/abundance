@@ -22,6 +22,26 @@ where
     f(&mut new_state)
 }
 
+/// Helper function that calls provided function with new empty state buffer pair
+#[inline]
+pub fn with_state_buffer_pair<F, R>(f: F) -> R
+where
+    F: FnOnce(
+        &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+    ) -> R,
+{
+    let mut state_bytes_a = [MaybeUninit::uninit(); RECOMMENDED_STATE_CAPACITY as usize];
+    let mut state_size_a = 0;
+    let mut new_state_a = VariableBytes::from_uninit(&mut state_bytes_a, &mut state_size_a);
+
+    let mut state_bytes_b = [MaybeUninit::uninit(); RECOMMENDED_STATE_CAPACITY as usize];
+    let mut state_size_b = 0;
+    let mut new_state_b = VariableBytes::from_uninit(&mut state_bytes_b, &mut state_size_b);
+
+    f(&mut new_state_a, &mut new_state_b)
+}
+
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct State;
@@ -53,12 +73,7 @@ impl State {
     #[update]
     pub fn write(
         #[env] env: &mut Env<'_>,
-        // TODO: Allow to replace slot pointer with input pointer to make the input size zero and
-        //  allow zero-copy
-        #[slot] (address, contract_state): (
-            &Address,
-            &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
-        ),
+        #[slot] (address, state): (&Address, &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>),
         #[input] new_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
     ) -> Result<(), ContractError> {
         // TODO: Check shard?
@@ -66,11 +81,39 @@ impl State {
             return Err(ContractError::Forbidden);
         }
 
-        if !contract_state.copy_from(new_state) {
+        if !state.copy_from(new_state) {
             return Err(ContractError::BadInput);
         }
 
         Ok(())
+    }
+
+    /// Compare state with a given old state and write new state if old state matches.
+    ///
+    /// Only direct caller is allowed to write its own state for security reasons.
+    ///
+    /// Returns boolean indicating whether write happened or not.
+    #[update]
+    pub fn compare_and_write(
+        #[env] env: &mut Env<'_>,
+        #[slot] (address, state): (&Address, &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>),
+        #[input] old_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        #[input] new_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+    ) -> Result<bool, ContractError> {
+        // TODO: Check shard?
+        if env.caller() != address {
+            return Err(ContractError::Forbidden);
+        }
+
+        if state.get_initialized() != old_state.get_initialized() {
+            return Ok(false);
+        }
+
+        if !state.copy_from(new_state) {
+            return Err(ContractError::BadInput);
+        }
+
+        Ok(true)
     }
 
     /// Read state
