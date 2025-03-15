@@ -1,8 +1,7 @@
 use crate::context::{MethodDetails, NativeExecutorContext};
 use ab_contracts_common::env::{Env, EnvState, ExecutorContext};
 use ab_contracts_common::metadata::decode::{
-    ArgumentKind, ArgumentMetadataItem, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
-    MethodsContainerKind,
+    ArgumentKind, MethodKind, MethodMetadataDecoder, MethodMetadataItem, MethodsContainerKind,
 };
 use ab_contracts_common::{Address, ContractError, MAX_TOTAL_METHOD_ARGS};
 use ab_contracts_slots::slots::{NestedSlots, SlotIndex, SlotKey};
@@ -506,20 +505,19 @@ where
 
     let mut new_address_ptr = None;
 
-    let mut remaining_arguments = num_arguments;
     // Handle all other arguments one by one
-    while let Some(result) = arguments_metadata_decoder.decode_next() {
-        remaining_arguments -= 1;
-
-        let item = match result {
-            Ok(result) => result,
-            Err(error) => {
+    for argument_index in 0..num_arguments {
+        let argument_kind = match arguments_metadata_decoder.decode_next() {
+            Some(Ok(item)) => item.argument_kind,
+            Some(Err(error)) => {
                 error!(%error, "Argument metadata decoding error");
                 return Err(ContractError::InternalError);
             }
+            None => {
+                error!("Argument not found, invalid metadata");
+                return Err(ContractError::InternalError);
+            }
         };
-
-        let ArgumentMetadataItem { argument_kind, .. } = item;
 
         match argument_kind {
             ArgumentKind::EnvRo => {
@@ -662,7 +660,7 @@ where
                 }
             }
             ArgumentKind::Output => {
-                let last_argument = remaining_arguments == 0;
+                let last_argument = argument_index == num_arguments - 1;
                 // `#[init]` method returns state of the contract and needs to be stored accordingly
                 if matches!((method_kind, last_argument), (MethodKind::Init, true)) {
                     if view_only {
