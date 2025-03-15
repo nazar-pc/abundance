@@ -297,7 +297,6 @@ pub(super) fn make_ffi_call<'slots, 'external_args, CreateNestedContext>(
     method_details: MethodDetails,
     external_args: &'external_args mut NonNull<NonNull<c_void>>,
     env_state: EnvState,
-    tmp_owners: &UnsafeCell<Vec<Address>>,
     create_nested_context: CreateNestedContext,
 ) -> Result<(), ContractError>
 where
@@ -335,7 +334,6 @@ where
         method_details,
         external_args,
         env_state,
-        tmp_owners,
         create_nested_context,
         &delayed_processing_buffer,
         &mut internal_args,
@@ -352,7 +350,6 @@ fn make_ffi_call_internal<'slots, 'external_args, CreateNestedContext>(
     method_details: MethodDetails,
     external_args: &'external_args mut NonNull<NonNull<c_void>>,
     env_state: EnvState,
-    tmp_owners: &UnsafeCell<Vec<Address>>,
     create_nested_context: CreateNestedContext,
     delayed_processing_buffer: &[UnsafeCell<MaybeUninit<DelayedProcessing>>;
          MAX_TOTAL_METHOD_ARGS as usize],
@@ -574,9 +571,6 @@ where
                     contract,
                 };
                 let slot_bytes = slots.use_ro(slot_key).ok_or(ContractError::Forbidden)?;
-                // SAFETY: This and a similar branch below are the only two places under execution
-                // context that access tmp contracts and do so strictly non-concurrently
-                unsafe { tmp_owners.as_mut_unchecked() }.push(*owner);
 
                 // SAFETY: Number of arguments checked above
                 let result = unsafe {
@@ -621,9 +615,6 @@ where
                 let (slot_index, slot_bytes) = slots
                     .use_rw(slot_key, capacity)
                     .ok_or(ContractError::Forbidden)?;
-                // SAFETY: This and a similar branch below are the only two places under execution
-                // context that access tmp contracts and do so strictly non-concurrently
-                unsafe { tmp_owners.as_mut_unchecked() }.push(*owner);
 
                 let entry = DelayedProcessingSlotReadWrite {
                     // Is updated below

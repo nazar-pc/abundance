@@ -21,7 +21,6 @@ use ab_system_contract_code::{Code, CodeExt};
 use ab_system_contract_simple_wallet_base::SimpleWalletBase;
 use ab_system_contract_state::State;
 use halfbrown::HashMap;
-use std::cell::UnsafeCell;
 use tracing::error;
 
 /// Native executor errors
@@ -311,12 +310,10 @@ impl NativeExecutor {
             .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
 
-        let tmp_owners = UnsafeCell::new(Vec::new());
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
             slots.new_nested_ro(),
-            &tmp_owners,
             false,
         );
         let env = Env::with_executor_context(env_state, &mut executor_context);
@@ -367,12 +364,10 @@ impl NativeExecutor {
             .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
 
-        let tmp_owners = UnsafeCell::new(Vec::new());
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
             slots.new_nested_rw(),
-            &tmp_owners,
             true,
         );
 
@@ -423,14 +418,12 @@ impl NativeExecutor {
             .map_err(|_error| ContractError::BadInput)?;
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
 
-        let tmp_owners = UnsafeCell::new(Vec::new());
         // TODO: Make it more efficient by not recreating NativeExecutorContext twice here
         {
             let mut executor_context = NativeExecutorContext::new(
                 self.shard_index,
                 &self.methods_by_code,
                 slots.new_nested_ro(),
-                &tmp_owners,
                 false,
             );
             let env = Env::with_executor_context(env_state, &mut executor_context);
@@ -449,7 +442,6 @@ impl NativeExecutor {
                 self.shard_index,
                 &self.methods_by_code,
                 slots.new_nested_rw(),
-                &tmp_owners,
                 true,
             );
             let mut env = Env::with_executor_context(env_state, &mut executor_context);
@@ -491,12 +483,10 @@ impl NativeExecutor {
             caller: Address::NULL,
         };
 
-        let tmp_owners = UnsafeCell::new(Vec::new());
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
             slots.new_nested_rw(),
-            &tmp_owners,
             true,
         );
         let mut env = Env::with_executor_context(env_state, &mut executor_context);
@@ -520,12 +510,10 @@ impl NativeExecutor {
             caller: Address::NULL,
         };
 
-        let tmp_owners = UnsafeCell::new(Vec::new());
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
             slots.new_nested_ro(),
-            &tmp_owners,
             false,
         );
         let env = Env::with_executor_context(env_state, &mut executor_context);
