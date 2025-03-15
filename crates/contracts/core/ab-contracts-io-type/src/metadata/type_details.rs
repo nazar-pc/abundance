@@ -258,7 +258,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
 #[inline(always)]
 const fn struct_type_details(
     mut input: &[u8],
-    arguments_count: Option<u8>,
+    field_count: Option<u8>,
     tuple: bool,
 ) -> Option<(IoTypeDetails, &[u8])> {
     if input.is_empty() {
@@ -269,23 +269,23 @@ const fn struct_type_details(
     let struct_name_length = input[0] as usize;
     input = forward_option!(skip_n_bytes(input, 1 + struct_name_length));
 
-    let mut arguments_count = if let Some(arguments_count) = arguments_count {
-        arguments_count
+    let mut field_count = if let Some(field_count) = field_count {
+        field_count
     } else {
         if input.is_empty() {
             return None;
         }
 
-        let arguments_count = input[0];
+        let field_count = input[0];
         input = forward_option!(skip_n_bytes(input, 1));
 
-        arguments_count
+        field_count
     };
 
     // Capacity of arguments
     let mut capacity = 0u32;
     let mut alignment = 1u8;
-    while arguments_count > 0 {
+    while field_count > 0 {
         if input.is_empty() {
             return None;
         }
@@ -307,7 +307,7 @@ const fn struct_type_details(
             alignment
         };
 
-        arguments_count -= 1;
+        field_count -= 1;
     }
 
     Some((

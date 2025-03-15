@@ -63,7 +63,7 @@ struct SlotAccess {
     read_write: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Inner {
     slots: SmallVec<[(SlotKey, Slot); INLINE_SIZE]>,
     slot_access: SmallVec<[SlotAccess; INLINE_SIZE]>,
@@ -76,7 +76,7 @@ struct Inner {
 }
 
 /// Collection of slots, primarily for execution environment
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Slots(Box<Inner>);
 
 impl Slots {
