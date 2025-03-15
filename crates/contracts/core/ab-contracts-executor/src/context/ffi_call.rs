@@ -394,13 +394,11 @@ where
         return Err(ContractError::BadInput);
     }
 
+    let internal_args = NonNull::new(internal_args.get().cast::<MaybeUninit<*mut c_void>>())
+        .expect("Taken from non-null instance; qed");
     // This pointer will be moving as the data structure is being constructed, while `internal_args`
     // will keep pointing to the beginning
-    let mut internal_args_cursor = NonNull::<MaybeUninit<*mut c_void>>::new(
-        internal_args.get().cast::<MaybeUninit<*mut c_void>>(),
-    )
-    .expect("Taken from non-null instance; qed")
-    .cast::<*mut c_void>();
+    let mut internal_args_cursor = internal_args.cast::<*mut c_void>();
     // This pointer will be moving as the data structure is being read, while `external_args` will
     // keep pointing to the beginning
     let mut external_args_cursor = *external_args;
@@ -742,10 +740,7 @@ where
 
     // Will only read initialized number of pointers, hence `NonNull<c_void>` even though there is
     // likely slack capacity with uninitialized data
-    let internal_args =
-        NonNull::<MaybeUninit<*mut c_void>>::new(internal_args.get_mut().as_mut_ptr())
-            .expect("Taken from non-null instance; qed")
-            .cast::<NonNull<c_void>>();
+    let internal_args = internal_args.cast::<NonNull<c_void>>();
 
     // SAFETY: FFI function was generated at the same time as corresponding `Args` and must match
     // ABI of the fingerprint or else it wouldn't compile
