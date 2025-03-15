@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Gas","Transaction","TransactionHeader","TransactionSlot"]};
