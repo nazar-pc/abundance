@@ -5,8 +5,8 @@ use ab_contracts_io_type::MAX_ALIGNMENT;
 use alloc::boxed::Box;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
+use core::slice;
 use core::sync::atomic::{AtomicU32, Ordering};
-use core::{mem, slice};
 
 #[repr(C, align(16))]
 struct AlignedBytes([u8; MAX_ALIGNMENT as usize]);
@@ -28,24 +28,16 @@ const _: () = {
     assert!(size_of::<ConstInnerBuffer>() == size_of::<AlignedBytes>());
 };
 
-static CONST_INNER_BUFFER: ConstInnerBuffer = ConstInnerBuffer {
-    strong_count: AtomicU32::new(1),
-};
-
-struct ConstInnerBufferPtr(NonNull<MaybeUninit<AlignedBytes>>);
-// SAFETY: Statically allocated memory buffer can be used from any thread
-unsafe impl Sync for ConstInnerBufferPtr {}
-
-/// SAFETY: Size and layout of both `NonNull<[ConstInnerBuffer]>` and `ConstInnerBufferPtr`
-/// is the same, `CONST_STRONG_COUNT` static is only mutated through atomic operations
-static EMPTY_SHARED_ALIGNED_BUFFER_BUFFER: ConstInnerBufferPtr = unsafe {
-    mem::transmute::<NonNull<ConstInnerBuffer>, ConstInnerBufferPtr>(NonNull::from_ref(
-        &CONST_INNER_BUFFER,
-    ))
-};
 static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
     inner: InnerBuffer {
-        buffer: EMPTY_SHARED_ALIGNED_BUFFER_BUFFER.0,
+        buffer: NonNull::from_ref({
+            static BUFFER: MaybeUninit<ConstInnerBuffer> = MaybeUninit::new(ConstInnerBuffer {
+                strong_count: AtomicU32::new(1),
+            });
+
+            &BUFFER
+        })
+        .cast::<MaybeUninit<AlignedBytes>>(),
         capacity: 0,
         len: 0,
     },
@@ -67,13 +59,7 @@ unsafe impl Sync for InnerBuffer {}
 impl Default for InnerBuffer {
     #[inline(always)]
     fn default() -> Self {
-        let buffer = InnerBuffer {
-            buffer: EMPTY_SHARED_ALIGNED_BUFFER.inner.buffer,
-            capacity: 0,
-            len: 0,
-        };
-        buffer.strong_count_ref().fetch_add(1, Ordering::AcqRel);
-        buffer
+        EMPTY_SHARED_ALIGNED_BUFFER.inner.clone()
     }
 }
 
