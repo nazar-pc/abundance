@@ -304,6 +304,64 @@ pub(super) fn make_ffi_call<'slots, 'external_args, CreateNestedContext>(
 where
     CreateNestedContext: FnOnce(NestedSlots<'slots>, bool) -> NativeExecutorContext<'slots>,
 {
+    // Allocate a buffer that will contain incrementally built `InternalArgs` that method expects,
+    // according to its metadata.
+    // `* 4` is due the worst case being to have a slot with 4 pointers: address + data + size +
+    // capacity.
+    let mut internal_args =
+        UnsafeCell::new([MaybeUninit::<*mut c_void>::uninit(); MAX_TOTAL_METHOD_ARGS as usize * 4]);
+    // Delayed processing of sizes as capacities since knowing them requires processing all
+    // arguments first.
+    //
+    // NOTE: It is important that this is never reallocated as it will invalidate all pointers to
+    // elements of this array!
+    let delayed_processing_buffer = [
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+    ];
+
+    // Having large-ish `internal_args` and delayed_processing_buffer` in a separate stack frame
+    // results in a better data layout for performance
+    make_ffi_call_internal(
+        allow_env_mutation,
+        is_allocate_new_address_method,
+        parent_slots,
+        contract,
+        method_details,
+        external_args,
+        env_state,
+        tmp_owners,
+        create_nested_context,
+        &delayed_processing_buffer,
+        &mut internal_args,
+    )
+}
+
+#[inline(always)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
+fn make_ffi_call_internal<'slots, 'external_args, CreateNestedContext>(
+    allow_env_mutation: bool,
+    is_allocate_new_address_method: bool,
+    parent_slots: &'slots mut NestedSlots<'slots>,
+    contract: Address,
+    method_details: MethodDetails,
+    external_args: &'external_args mut NonNull<NonNull<c_void>>,
+    env_state: EnvState,
+    tmp_owners: &UnsafeCell<Vec<Address>>,
+    create_nested_context: CreateNestedContext,
+    delayed_processing_buffer: &[UnsafeCell<MaybeUninit<DelayedProcessing>>;
+         MAX_TOTAL_METHOD_ARGS as usize],
+    internal_args: &mut UnsafeCell<[MaybeUninit<*mut c_void>; MAX_TOTAL_METHOD_ARGS as usize * 4]>,
+) -> Result<(), ContractError>
+where
+    CreateNestedContext: FnOnce(NestedSlots<'slots>, bool) -> NativeExecutorContext<'slots>,
+{
     let MethodDetails {
         recommended_state_capacity,
         recommended_slot_capacity,
@@ -336,13 +394,6 @@ where
         return Err(ContractError::BadInput);
     }
 
-    // Allocate a buffer that will contain incrementally built `InternalArgs` that method expects,
-    // according to its metadata.
-    // `* 4` is due the worst case being to have a slot with 4 pointers: address + data + size +
-    // capacity.
-    let mut internal_args =
-        UnsafeCell::new([MaybeUninit::<*mut c_void>::uninit(); MAX_TOTAL_METHOD_ARGS as usize * 4]);
-
     // This pointer will be moving as the data structure is being constructed, while `internal_args`
     // will keep pointing to the beginning
     let mut internal_args_cursor = NonNull::<MaybeUninit<*mut c_void>>::new(
@@ -353,23 +404,8 @@ where
     // This pointer will be moving as the data structure is being read, while `external_args` will
     // keep pointing to the beginning
     let mut external_args_cursor = *external_args;
-    // Delayed processing of sizes as capacities since knowing them requires processing all
-    // arguments first.
-    //
-    // NOTE: It is important that this is never reallocated as it will invalidate all pointers to
-    // elements of this array!
-    let delayed_processing_buffer = [
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-    ];
     let mut delayed_processing =
-        DelayedProcessingCollection::from_buffer(&delayed_processing_buffer);
+        DelayedProcessingCollection::from_buffer(delayed_processing_buffer);
 
     // `view_only == true` when only `#[view]` method is allowed
     let (view_only, mut slots) = match method_kind {
