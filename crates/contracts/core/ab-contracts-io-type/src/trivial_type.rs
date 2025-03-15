@@ -37,7 +37,9 @@ where
     /// size of the type is allowed.
     ///
     /// # Safety
-    /// Input bytes must be previously produced by taking underlying bytes of the same type.
+    /// Input bytes must be previously produced by taking underlying bytes of the same type. For
+    /// example, only `0b0000_0000` and `0b0000_0001` are valid bit patterns for `bool` and using
+    /// anything else will result in UB.
     #[inline(always)]
     unsafe fn from_bytes(bytes: &[u8]) -> Option<&Self> {
         let (before, slice, _) = unsafe { bytes.align_to::<Self>() };
@@ -51,7 +53,9 @@ where
     /// size of the type is allowed.
     ///
     /// # Safety
-    /// Input bytes must be previously produced by taking underlying bytes of the same type.
+    /// Input bytes must be previously produced by taking underlying bytes of the same type. For
+    /// example, only `0b0000_0000` and `0b0000_0001` are valid bit patterns for `bool` and using
+    /// anything else will result in UB.
     #[inline(always)]
     unsafe fn from_bytes_mut(bytes: &mut [u8]) -> Option<&mut Self> {
         let (before, slice, _) = unsafe { bytes.align_to_mut::<Self>() };
