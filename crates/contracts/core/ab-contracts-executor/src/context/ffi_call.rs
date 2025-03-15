@@ -304,6 +304,64 @@ pub(super) fn make_ffi_call<'slots, 'external_args, CreateNestedContext>(
 where
     CreateNestedContext: FnOnce(NestedSlots<'slots>, bool) -> NativeExecutorContext<'slots>,
 {
+    // Allocate a buffer that will contain incrementally built `InternalArgs` that method expects,
+    // according to its metadata.
+    // `* 4` is due the worst case being to have a slot with 4 pointers: address + data + size +
+    // capacity.
+    let mut internal_args =
+        UnsafeCell::new([MaybeUninit::<*mut c_void>::uninit(); MAX_TOTAL_METHOD_ARGS as usize * 4]);
+    // Delayed processing of sizes as capacities since knowing them requires processing all
+    // arguments first.
+    //
+    // NOTE: It is important that this is never reallocated as it will invalidate all pointers to
+    // elements of this array!
+    let delayed_processing_buffer = [
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+        UnsafeCell::new(MaybeUninit::uninit()),
+    ];
+
+    // Having large-ish `internal_args` and delayed_processing_buffer` in a separate stack frame
+    // results in a better data layout for performance
+    make_ffi_call_internal(
+        allow_env_mutation,
+        is_allocate_new_address_method,
+        parent_slots,
+        contract,
+        method_details,
+        external_args,
+        env_state,
+        tmp_owners,
+        create_nested_context,
+        &delayed_processing_buffer,
+        &mut internal_args,
+    )
+}
+
+#[inline(always)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
+fn make_ffi_call_internal<'slots, 'external_args, CreateNestedContext>(
+    allow_env_mutation: bool,
+    is_allocate_new_address_method: bool,
+    parent_slots: &'slots mut NestedSlots<'slots>,
+    contract: Address,
+    method_details: MethodDetails,
+    external_args: &'external_args mut NonNull<NonNull<c_void>>,
+    env_state: EnvState,
+    tmp_owners: &UnsafeCell<Vec<Address>>,
+    create_nested_context: CreateNestedContext,
+    delayed_processing_buffer: &[UnsafeCell<MaybeUninit<DelayedProcessing>>;
+         MAX_TOTAL_METHOD_ARGS as usize],
+    internal_args: &mut UnsafeCell<[MaybeUninit<*mut c_void>; MAX_TOTAL_METHOD_ARGS as usize * 4]>,
+) -> Result<(), ContractError>
+where
+    CreateNestedContext: FnOnce(NestedSlots<'slots>, bool) -> NativeExecutorContext<'slots>,
+{
     let MethodDetails {
         recommended_state_capacity,
         recommended_slot_capacity,
@@ -336,45 +394,16 @@ where
         return Err(ContractError::BadInput);
     }
 
-    // Allocate a buffer that will contain incrementally built `InternalArgs` that method expects,
-    // according to its metadata.
-    // `* 4` is due to slots having 2 pointers (detecting this accurately is more code, so this
-    // just assumes the worst case), otherwise it would be 3 pointers: data + size + capacity.
-    let internal_args = Box::<[*mut c_void]>::new_uninit_slice(number_of_arguments * 4);
-    // SAFETY: `UnsafeCell` has the same memory layout as its inner value
-    let mut internal_args = unsafe {
-        mem::transmute::<Box<[MaybeUninit<*mut c_void>]>, Box<UnsafeCell<[MaybeUninit<*mut c_void>]>>>(
-            internal_args,
-        )
-    };
-
+    let internal_args = NonNull::new(internal_args.get().cast::<MaybeUninit<*mut c_void>>())
+        .expect("Taken from non-null instance; qed");
     // This pointer will be moving as the data structure is being constructed, while `internal_args`
     // will keep pointing to the beginning
-    let mut internal_args_cursor = NonNull::<MaybeUninit<*mut c_void>>::new(
-        internal_args.get().cast::<MaybeUninit<*mut c_void>>(),
-    )
-    .expect("Taken from non-null instance; qed")
-    .cast::<*mut c_void>();
+    let mut internal_args_cursor = internal_args.cast::<*mut c_void>();
     // This pointer will be moving as the data structure is being read, while `external_args` will
     // keep pointing to the beginning
     let mut external_args_cursor = *external_args;
-    // Delayed processing of sizes as capacities since knowing them requires processing all
-    // arguments first.
-    //
-    // NOTE: It is important that this is never reallocated as it will invalidate all pointers to
-    // elements of this array!
-    let delayed_processing_buffer = [
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-        UnsafeCell::new(MaybeUninit::uninit()),
-    ];
     let mut delayed_processing =
-        DelayedProcessingCollection::from_buffer(&delayed_processing_buffer);
+        DelayedProcessingCollection::from_buffer(delayed_processing_buffer);
 
     // `view_only == true` when only `#[view]` method is allowed
     let (view_only, mut slots) = match method_kind {
@@ -711,10 +740,7 @@ where
 
     // Will only read initialized number of pointers, hence `NonNull<c_void>` even though there is
     // likely slack capacity with uninitialized data
-    let internal_args =
-        NonNull::<MaybeUninit<*mut c_void>>::new(internal_args.get_mut().as_mut_ptr())
-            .expect("Taken from non-null instance; qed")
-            .cast::<NonNull<c_void>>();
+    let internal_args = internal_args.cast::<NonNull<c_void>>();
 
     // SAFETY: FFI function was generated at the same time as corresponding `Args` and must match
     // ABI of the fingerprint or else it wouldn't compile
