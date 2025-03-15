@@ -40,6 +40,8 @@ impl<'a> ExecutorContext for NativeExecutorContext<'a> {
         // SAFETY: `NativeExecutorContext` is not `Sync`, slots instance was provided as `&mut` in
         // the constructor (meaning exclusive access) and this function is the only place where it
         // is accessed without recursive calls to itself
+        // TODO: This ignores the lifetime by going through the pointer, find a way to make it work
+        //  with the inherited lifetime
         let slots = unsafe { self.slots.get().as_mut_unchecked() };
 
         let PreparedMethod {
