@@ -209,7 +209,6 @@ impl NativeExecutorBuilder {
     }
 }
 
-// TODO: Some kind of transaction notion with `#[tmp]` wiped at the end of it
 #[derive(Debug)]
 pub struct NativeExecutor {
     shard_index: ShardIndex,
