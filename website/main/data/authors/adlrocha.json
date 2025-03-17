@@ -6,7 +6,7 @@
       "linkedin": "https://linkedin.com/in/adlrocha"
     },
     {
-      "twitter": "https://twitter.com/adlrocha"
+      "x-twitter": "https://x.com/adlrocha"
     },
     {
       "github": "https://github.com/adlrocha"
@@ -16,4 +16,3 @@
     }
   ]
 }
-
