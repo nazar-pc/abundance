@@ -12,10 +12,10 @@ I want to kick-off my first weekly update in the project thanking Nazar for the 
 > If you are curious about my previous work on the matter before joining Nazar, feel free to skim through [this paper](https://ieeexplore.ieee.org/abstract/document/9951359) to get the gist of it. 
 
 ## Background
-First things first, what exactly is this problem that I am referring to? At least the description of the problem is simple, _"we want to design blockchain infrastructure that can scale to the size of the Internet"_. The system should be able to host applications ranging from high-throughput media-intensive social networks and virtual worlds; to those that require more strict trust requirements and security guarantees, likeweb3-native and financial applications, 
+First things first, what exactly is this problem that I am referring to? At least the description of the problem is simple, _"we want to design blockchain infrastructure that can scale to the size of the Internet"_. The system should be able to host applications ranging from high-throughput media-intensive social networks and virtual worlds; to those that require more strict trust requirements and security guarantees, likeweb3-native and financial applications.
 Unfortunately, the implementation of a system like this is very challenging. Current blockchain designs are still extremely monolithic and require the execution of transactions to be performed by (almost) every node in the system, and for the state to also be replicated in each (or a great number) of them. All the innovations around L2s, rollups, and some next-gen blockchains are improving this, but no one is close to achieving a system that is able to operate at the scale of the Internet in a seamless (and if I may add, UX-friendly) way.
 
-## The architecture of the Internet.
+## The architecture of the Internet
 The best way to design a distributed system that is Internet-scale and that supports the workloads currently being executed in it is to build it from first principles, go to the source, and derive the architecture of our candidate system directly from the Internet.
 
 If we look at how the Internet is structured today, we see the following layered architecture:
