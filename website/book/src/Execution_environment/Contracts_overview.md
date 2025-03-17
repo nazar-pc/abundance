@@ -163,6 +163,28 @@ additional helper data structures, functions and metadata about the contract. Th
 invariants about the contract with helpful compile-time error messages if something goes wrong. For example, when
 different methods use different types for `#[slot]` argument or when type not allowed for FFI is used in an argument.
 
+# Method call context
+
+When calling into another contract, a method context needs to be specified. The correct mental model for context is
+"user of the child process," where "process" is a method call. Essentially, something executed with a context of a
+contract can be thought as done "on behalf" of that contract, which depending on circumstances may or may not be
+desired.
+
+Initially, context is "Null." For each call into another contract, the context of the current method can be either
+preserved, reset to "Null" or replaced with the current contract's address. Those are the only options. Contracts do not
+have privileges to change context to the address of an arbitrary contract.
+
+The safest option is to reset context to "Null," which means called contract will be able to "know" who called it, but
+unable to convince any further calls in it. Preservation of the context allows to "delegate" certain operations to
+another contract, which while is potentially dangerous, allows for more advanced use cases.
+
+In addition to argument attributes mentioned before, there is also `#[tmp]`, which is essentially an ephemeral storage
+that only lives for the duration of a single [transaction]. It can be used for temporary approvals, allowing to use
+"Null" context for most operations, while also allowing for contracts to do certain operations effectively on behalf of
+the caller. For example, in a transaction, the first call might approve a defi contract to spend some tokens and then
+call defi contract to actually do the operation. Both calls are done with "Null" method context, but still achieve the
+desired impact with the least permission possible.
+
 # Metadata
 
 Metadata about contract is a crucial piece used in many places of the system. Metadata essentially describes in a

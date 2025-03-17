@@ -10,7 +10,7 @@ pub type Blake3Hash = [u8; 32];
 
 /// Context for method call.
 ///
-/// The correct mental model for context is "user of the child process", where "process" is a method
+/// The correct mental model for context is "user of the child process," where "process" is a method
 /// call. Essentially, something executed with a context of a contract can be thought as done
 /// "on behalf" of that contract, which depending on circumstances may or may not be desired.
 ///
