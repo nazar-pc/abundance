@@ -9,7 +9,7 @@ authors: [ adlrocha ]
 
 I want to kick-off my first weekly update in the project thanking Nazar for the warm welcome and the opportunity to work with him on this exciting project. I was really pumped to see other teams actively working on a similar problem to the one I started researching more than three years ago. For several reasons, I wasn't actively contributing to this problem any more, but this opportunity was the perfect excuse to get back to the game.
 
-> If you are curious about my previous work on the matter before joining Nazar, feel free to skim through [this paper](https://ieeexplore.ieee.org/abstract/document/9951359) to get the gist of it. 
+> If you are curious about my previous work on the matter before joining Nazar, feel free to skim through [this paper](https://research.protocol.ai/publications/hierarchical-consensus-a-horizontal-scaling-framework-for-blockchains/delarocha2022.pdf) to get the gist of it. 
 
 ## Background
 First things first, what exactly is this problem that I am referring to? At least the description of the problem is simple, _"we want to design blockchain infrastructure that can scale to the size of the Internet"_. The system should be able to host applications ranging from high-throughput media-intensive social networks and virtual worlds; to those that require more strict trust requirements and security guarantees, likeweb3-native and financial applications.
