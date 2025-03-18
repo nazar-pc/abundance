@@ -1,4 +1,6 @@
 //! Macros for contracts
+#![no_std]
+
 #[doc(hidden)]
 pub mod __private;
 
