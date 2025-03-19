@@ -132,6 +132,36 @@ jobs:
           cargo -Zgitoxide -Zgit test -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
         if: runner.os == 'Linux'
 
+  cargo-miri-test:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-15
+          - windows-2025
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configure cache
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@acd25891978b4cdaebd139d3efef606d26513b14 # 2.47.0
+        with:
+          tool: cargo-nextest
+
       - name: cargo miri nextest run
         run: |
           cargo -Zgitoxide -Zgit miri nextest run
@@ -194,4 +224,30 @@ jobs:
 
           cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/alloc
           cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+        if: runner.os == 'Linux'
+
+  contracts:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configure cache
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Ensure contracts compile for a custom target
+        run: |
+          for contract_path in crates/contracts/{example,system}/*; do
+            contract="$(basename -- $contract_path)"
+            # TODO: This uses x86-64-based target, but will have to change to riscv64e-based target eventually
+            cargo -Zgitoxide -Zgit rustc -Z build-std=core --crate-type cdylib --profile production --target crates/contracts/x86_64-unknown-none-abundance.json -p $contract --features $contract/guest
+          done
         if: runner.os == 'Linux'
