@@ -1,7 +1,8 @@
 # Everything is a contract
 
-In contrast to many blockchains, the address is just a monotonically increasing number, decoupled from a public key (in
-case of end user wallet) or code (in case of what is typically understood as "smart contract" in other blockchains).
+Every contract has an address, which is just a monotonically increasing number. This is in contract to many blockchains
+where address might be derived from a public key (in case of end user wallet) or code (of "smart contracts"). There is
+no separate notion of Externally Owned Account (EOA) like in Ethereum, end user wallets are also just contracts.
 
 The address is allocated on contract creation and doesn't change regardless of how the contract evolves in the future.
 This means that externally, all contracts essentially look the same regardless of what they represent. This enables a
