@@ -125,27 +125,42 @@ Conceptually, all methods look something like this:
 ```rust,ignore
 #[contract]
 impl MyContract {
-    fn method(
-        &self,
-        #[env] env: &mut Env,
-        #[slot] slot: &MaybeData<u128>,
-        #[input] input: &Balance,
-        #[output] output: &mut MaybeData<u128>
-    ) -> Result<(), ContractError> {
-        if env.context() != &self.owner {
-            return Err(ContractError::Forbidden);
-        }
+    /// Stateless compute
+    #[view]
+    pub fn add(
+        #[input] &a: &u32,
+        #[input] &b: &u32,
+    ) -> u32 {
+        a + b
+    }
+
+    /// Calling another contract (in this case into itself)
+    #[view]
+    pub fn add_through_contract_call(
+        #[env] env: &Env,
+        #[input] &a: &u32,
+        #[input] &b: &u32,
+    ) -> Result<u32, ContractError> {
+        env.my_contract_add(env.own_address(), a, b)
+    }
+
+    /// Modifying its own state using the contents of the slot
+    #[update]
+    pub fn self_increment_by_slot(
+        &mut self,
+        #[slot] slot: &MaybeData<u32>,
+    ) -> Result<u32, ContractError> {
+        let old_value = self.value;
+
+        // The slot may or may not exist yet
         let Some(slot_value) = slot.get().copied() else {
-            return Err(ContractError::BadInput);
+            return Err(ContractError::Forbidden);
         };
-        if input > slot_value {
-            return Err(ContractError::BadInput);
-        }
 
-        let num = env.call_other_contract(slot_value)?;
-        output.replace(num);
-
-        Ok(())
+        self.value = old_value
+            .checked_add(slot_value)
+            .ok_or(ContractError::BadInput)?;
+        Ok(old_value)
     }
 }
 ```
