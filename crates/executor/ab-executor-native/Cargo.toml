@@ -14,6 +14,7 @@ include = [
 all-features = true
 
 [dependencies]
+ab-aligned-buffer = { workspace = true }
 ab-contracts-common = { workspace = true, features = ["executor"] }
 ab-contracts-io-type = { workspace = true }
 ab-executor-slots = { workspace = true }

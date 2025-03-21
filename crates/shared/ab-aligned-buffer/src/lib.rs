@@ -1,5 +1,15 @@
+#![feature(
+    box_vec_non_null,
+    non_null_from_ref,
+    pointer_is_aligned_to,
+    ptr_as_ref_unchecked
+)]
+#![no_std]
+
 #[cfg(test)]
 mod tests;
+
+extern crate alloc;
 
 use ab_contracts_io_type::MAX_ALIGNMENT;
 use alloc::boxed::Box;

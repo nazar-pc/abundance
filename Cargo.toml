@@ -3,9 +3,11 @@ resolver = "3"
 members = [
     "crates/contracts/*/*",
     "crates/executor/*",
+    "crates/shared/*",
 ]
 
 [workspace.dependencies]
+ab-aligned-buffer = { version = "0.0.1", path = "crates/shared/ab-aligned-buffer" }
 ab-contracts-common = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-common" }
 ab-contracts-io-type = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-io-type" }
 ab-contracts-macros = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros" }

@@ -3,6 +3,13 @@
 version = 4
 
 [[package]]
+name = "ab-aligned-buffer"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-io-type",
+]
+
+[[package]]
 name = "ab-contract-playground"
 version = "0.0.1"
 dependencies = [
@@ -127,6 +134,7 @@ dependencies = [
 name = "ab-executor-native"
 version = "0.0.1"
 dependencies = [
+ "ab-aligned-buffer",
  "ab-contracts-common",
  "ab-contracts-io-type",
  "ab-contracts-standards",
@@ -144,8 +152,8 @@ dependencies = [
 name = "ab-executor-slots"
 version = "0.0.1"
 dependencies = [
+ "ab-aligned-buffer",
  "ab-contracts-common",
- "ab-contracts-io-type",
  "smallvec",
  "take_mut",
  "tracing",
