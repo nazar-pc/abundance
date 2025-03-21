@@ -248,6 +248,6 @@ jobs:
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
             # TODO: This uses x86-64-based target, but will have to change to riscv64e-based target eventually
-            cargo -Zgitoxide -Zgit rustc -Z build-std=core --crate-type cdylib --profile production --target crates/contracts/x86_64-unknown-none-abundance.json -p $contract --features $contract/guest
+            cargo -Zgitoxide -Zgit rustc -Z build-std=core --crate-type cdylib --profile contract --target crates/contracts/x86_64-unknown-none-abundance.json -p $contract --features $contract/guest
           done
         if: runner.os == 'Linux'
