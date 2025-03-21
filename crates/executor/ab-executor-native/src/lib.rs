@@ -13,9 +13,9 @@ use ab_contracts_common::{
 };
 use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_io_type::variable_elements::VariableElements;
-use ab_contracts_slots::aligned_buffer::SharedAlignedBuffer;
-use ab_contracts_slots::slots::{SlotKey, Slots};
 use ab_contracts_standards::tx_handler::TxHandlerExt;
+use ab_executor_slots::aligned_buffer::SharedAlignedBuffer;
+use ab_executor_slots::slots::{SlotKey, Slots};
 use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt};
 use ab_system_contract_code::{Code, CodeExt};
 use ab_system_contract_simple_wallet_base::SimpleWalletBase;

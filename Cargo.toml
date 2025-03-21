@@ -1,19 +1,20 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/*/*/*",
+    "crates/contracts/*/*",
+    "crates/executor/*",
 ]
 
 [workspace.dependencies]
 ab-contracts-common = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-common" }
-ab-contracts-executor = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-executor" }
 ab-contracts-io-type = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-io-type" }
 ab-contracts-macros = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros" }
 ab-contracts-macros-impl = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros-impl" }
-ab-contracts-slots = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-slots" }
 ab-contracts-standards = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-standards" }
 ab-contracts-test-utils = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-test-utils" }
 ab-contracts-trivial-type-derive = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-trivial-type-derive" }
+ab-executor-native = { version = "0.0.1", path = "crates/executor/ab-executor-native" }
+ab-executor-slots = { version = "0.0.1", path = "crates/executor/ab-executor-slots" }
 ab-system-contract-address-allocator = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-address-allocator" }
 ab-system-contract-code = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-code" }
 ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-simple-wallet-base" }

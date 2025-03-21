@@ -1,5 +1,5 @@
 [package]
-name = "ab-contracts-slots"
+name = "ab-executor-slots"
 description = ""
 license = "0BSD"
 version = "0.0.1"

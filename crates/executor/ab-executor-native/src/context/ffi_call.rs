@@ -4,7 +4,7 @@ use ab_contracts_common::metadata::decode::{
     ArgumentKind, MethodKind, MethodMetadataDecoder, MethodMetadataItem, MethodsContainerKind,
 };
 use ab_contracts_common::{Address, ContractError, MAX_TOTAL_METHOD_ARGS};
-use ab_contracts_slots::slots::{NestedSlots, SlotIndex, SlotKey};
+use ab_executor_slots::slots::{NestedSlots, SlotIndex, SlotKey};
 use ab_system_contract_address_allocator::AddressAllocator;
 use std::cell::UnsafeCell;
 use std::ffi::c_void;

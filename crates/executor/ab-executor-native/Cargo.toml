@@ -1,5 +1,5 @@
 [package]
-name = "ab-contracts-executor"
+name = "ab-executor-native"
 description = ""
 license = "0BSD"
 version = "0.0.1"
@@ -16,7 +16,7 @@ all-features = true
 [dependencies]
 ab-contracts-common = { workspace = true, features = ["executor"] }
 ab-contracts-io-type = { workspace = true }
-ab-contracts-slots = { workspace = true }
+ab-executor-slots = { workspace = true }
 ab-contracts-standards = { workspace = true }
 ab-system-contract-address-allocator = { workspace = true }
 ab-system-contract-code = { workspace = true }
