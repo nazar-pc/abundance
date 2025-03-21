@@ -216,7 +216,7 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
         #[cfg(feature = "guest")]
         #[used]
         #[unsafe(no_mangle)]
-        #[unsafe(link_section = "CONTRACT_METADATA")]
+        #[unsafe(link_section = "ab-contract-metadata")]
         static #static_name: [::core::primitive::u8; <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA.len()] = unsafe {
             *<dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA.as_ptr().cast()
         };
@@ -444,6 +444,10 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
     let ext_trait = generate_extension_trait(struct_name_ident, &trait_ext_components);
 
     let struct_name_str = struct_name_ident.to_string();
+    let static_name = format_ident!(
+        "{}_METADATA",
+        RenameRule::ScreamingSnakeCase.apply_to_variant(&struct_name_str)
+    );
     Ok(quote! {
         #[cfg(all(feature = "guest", not(any(unix, windows))))]
         #[panic_handler]
@@ -464,8 +468,8 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         #[cfg(feature = "guest")]
         #[used]
         #[unsafe(no_mangle)]
-        #[unsafe(link_section = "CONTRACT_METADATA")]
-        static MAIN_CONTRACT_METADATA: [
+        #[unsafe(link_section = "ab-contract-metadata")]
+        static #static_name: [
             ::core::primitive::u8;
             <#struct_name as ::ab_contracts_macros::__private::Contract>::MAIN_CONTRACT_METADATA
                 .len()

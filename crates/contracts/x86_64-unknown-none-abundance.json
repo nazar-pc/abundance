@@ -21,7 +21,13 @@
   "singlethread": true,
   "pre-link-args": {
     "ld": [
-      "--hash-style=gnu"
+      "--hash-style=gnu",
+      "--no-rosegment"
+    ]
+  },
+  "post-link-args": {
+    "ld": [
+      ""
     ]
   },
   "dll-prefix": "",

@@ -43,3 +43,7 @@ missing_debug_implementations = "warn"
 [profile.production]
 inherits = "release"
 lto = "fat"
+
+[profile.contract]
+inherits = "production"
+strip = "symbols"
