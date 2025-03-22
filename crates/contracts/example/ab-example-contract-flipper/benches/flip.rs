@@ -1,7 +1,7 @@
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Contract, ShardIndex};
-use ab_contracts_executor::NativeExecutor;
 use ab_example_contract_flipper::{Flipper, FlipperExt};
+use ab_executor_native::NativeExecutor;
 use ab_system_contract_code::CodeExt;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 

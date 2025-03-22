@@ -25,11 +25,6 @@
       "--no-rosegment"
     ]
   },
-  "post-link-args": {
-    "ld": [
-      ""
-    ]
-  },
   "dll-prefix": "",
   "dll-suffix": ".contract",
   "env": "abundance"

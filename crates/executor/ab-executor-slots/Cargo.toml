@@ -1,0 +1,24 @@
+[package]
+name = "ab-executor-slots"
+description = ""
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-aligned-buffer = { workspace = true }
+ab-contracts-common = { workspace = true, features = ["executor"] }
+smallvec = { workspace = true }
+take_mut = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

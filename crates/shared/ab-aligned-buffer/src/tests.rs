@@ -1,7 +1,8 @@
-use crate::aligned_buffer::{AlignedBytes, OwnedAlignedBuffer, SharedAlignedBuffer};
+use crate::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use ab_contracts_io_type::MAX_ALIGNMENT;
 use alloc::vec;
 
-const EXPECTED_ALIGNMENT: usize = size_of::<AlignedBytes>();
+const EXPECTED_ALIGNMENT: usize = MAX_ALIGNMENT as usize;
 
 #[test]
 fn basic() {

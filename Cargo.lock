@@ -3,15 +3,22 @@
 version = 4
 
 [[package]]
+name = "ab-aligned-buffer"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-io-type",
+]
+
+[[package]]
 name = "ab-contract-playground"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-executor",
  "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
  "ab-contracts-test-utils",
+ "ab-executor-native",
  "ab-system-contract-code",
  "tracing-subscriber",
 ]
@@ -25,23 +32,6 @@ dependencies = [
  "derive_more",
  "no-panic",
  "thiserror",
-]
-
-[[package]]
-name = "ab-contracts-executor"
-version = "0.0.1"
-dependencies = [
- "ab-contracts-common",
- "ab-contracts-io-type",
- "ab-contracts-slots",
- "ab-contracts-standards",
- "ab-system-contract-address-allocator",
- "ab-system-contract-code",
- "ab-system-contract-simple-wallet-base",
- "ab-system-contract-state",
- "halfbrown",
- "thiserror",
- "tracing",
 ]
 
 [[package]]
@@ -69,17 +59,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "ab-contracts-slots"
-version = "0.0.1"
-dependencies = [
- "ab-contracts-common",
- "ab-contracts-io-type",
- "smallvec",
- "take_mut",
- "tracing",
 ]
 
 [[package]]
@@ -116,9 +95,9 @@ name = "ab-example-contract-flipper"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-executor",
  "ab-contracts-io-type",
  "ab-contracts-macros",
+ "ab-executor-native",
  "ab-system-contract-code",
  "criterion",
 ]
@@ -128,11 +107,11 @@ name = "ab-example-contract-ft"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-executor",
  "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
  "ab-contracts-test-utils",
+ "ab-executor-native",
  "ab-system-contract-code",
 ]
 
@@ -141,14 +120,43 @@ name = "ab-example-contract-wallet"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-executor",
  "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
+ "ab-executor-native",
  "ab-system-contract-code",
  "ab-system-contract-simple-wallet-base",
  "criterion",
  "schnorrkel",
+]
+
+[[package]]
+name = "ab-executor-native"
+version = "0.0.1"
+dependencies = [
+ "ab-aligned-buffer",
+ "ab-contracts-common",
+ "ab-contracts-io-type",
+ "ab-contracts-standards",
+ "ab-executor-slots",
+ "ab-system-contract-address-allocator",
+ "ab-system-contract-code",
+ "ab-system-contract-simple-wallet-base",
+ "ab-system-contract-state",
+ "halfbrown",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "ab-executor-slots"
+version = "0.0.1"
+dependencies = [
+ "ab-aligned-buffer",
+ "ab-contracts-common",
+ "smallvec",
+ "take_mut",
+ "tracing",
 ]
 
 [[package]]
