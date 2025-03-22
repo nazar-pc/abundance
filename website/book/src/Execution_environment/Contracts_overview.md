@@ -47,6 +47,10 @@ Contract's code and state are also slots managed by contracts (system contracts)
 abstract it in a more friendly way. It is possible for a contract to manage one of its slots too, like when a token
 contract owns some number of its own tokens.
 
+A bit wrong, but hopefully useful analogy is cloud server. A server is owned by a provider, but managed by a customer.
+Provider typically doesn't have remote access to the server customer orders, all changes to the software that server
+runs are done by the customer. Similarly, slots owned by a contract are managed by other contracts.
+
 In contrast to most other blockchains by "state" we refer to the inherent state of the contract itself, rather than
 things that might belong to end-users. The right mental model is to think of it as a global state of a contract.
 
