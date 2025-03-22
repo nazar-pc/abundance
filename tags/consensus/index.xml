@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>consensus on Project Abundance</title>
+    <link>https://abundance.build/tags/consensus/</link>
+    <description>Recent content in consensus on Project Abundance</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <copyright>&lt;a href=&#34;https://creativecommons.org/publicdomain/zero/1.0/&#34; target=&#34;_blank&#34; rel=&#34;license noopener noreferrer&#34;&gt;CC0 1.0 Universal&lt;/a&gt;</copyright>
+    <lastBuildDate>Sun, 16 Mar 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://abundance.build/tags/consensus/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Drawing inspiration from the Internet&#39;s architecture to scale consensus</title>
+      <link>https://abundance.build/blog/2025-03-16-drawing-inspiration-from-the-internets-architecture-to-scale-consensus/</link>
+      <pubDate>Sun, 16 Mar 2025 00:00:00 +0000</pubDate>
+      
+      <guid>https://abundance.build/blog/2025-03-16-drawing-inspiration-from-the-internets-architecture-to-scale-consensus/</guid>
+      <description>I want to kick-off my first weekly update in the project thanking Nazar for the warm welcome and the opportunity to work with him on this exciting project.</description>
+      
+    </item>
+    
+  </channel>
+</rss>
