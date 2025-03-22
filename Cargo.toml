@@ -18,6 +18,7 @@ ab-contracts-trivial-type-derive = { version = "0.0.1", path = "crates/contracts
 ab-executor-native = { version = "0.0.1", path = "crates/execution/ab-executor-native" }
 ab-executor-slots = { version = "0.0.1", path = "crates/execution/ab-executor-slots" }
 ab-system-contract-address-allocator = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-address-allocator" }
+ab-system-contract-block = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-block" }
 ab-system-contract-code = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-code" }
 ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-simple-wallet-base" }
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }

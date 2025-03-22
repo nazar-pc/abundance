@@ -16,6 +16,7 @@ use ab_contracts_io_type::variable_elements::VariableElements;
 use ab_contracts_standards::tx_handler::TxHandlerExt;
 use ab_executor_slots::{Slot, SlotKey, Slots};
 use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt};
+use ab_system_contract_block::{Block, BlockExt};
 use ab_system_contract_code::{Code, CodeExt};
 use ab_system_contract_simple_wallet_base::SimpleWalletBase;
 use ab_system_contract_state::State;
@@ -71,6 +72,11 @@ impl NativeExecutorBuilder {
                     contact_code: AddressAllocator::CODE,
                     main_contract_metadata: AddressAllocator::MAIN_CONTRACT_METADATA,
                     native_executor_methods: AddressAllocator::NATIVE_EXECUTOR_METHODS,
+                },
+                MethodsEntry {
+                    contact_code: Block::CODE,
+                    main_contract_metadata: Block::MAIN_CONTRACT_METADATA,
+                    native_executor_methods: Block::NATIVE_EXECUTOR_METHODS,
                 },
                 MethodsEntry {
                     contact_code: Code::CODE,
@@ -235,6 +241,7 @@ impl NativeExecutor {
             let mut nested_slots = slots.new_nested_rw();
             // Allow deployment of system contracts
             assert!(nested_slots.add_new_contract(address_allocator_address));
+            assert!(nested_slots.add_new_contract(Address::SYSTEM_BLOCK));
             assert!(nested_slots.add_new_contract(Address::SYSTEM_STATE));
             assert!(nested_slots.add_new_contract(Address::SYSTEM_SIMPLE_WALLET_BASE));
         }
@@ -255,6 +262,14 @@ impl NativeExecutor {
                 &AddressAllocator::code(),
             )?;
             env.address_allocator_new(MethodContext::Keep, address_allocator_address)?;
+
+            env.code_store(
+                MethodContext::Keep,
+                Address::SYSTEM_CODE,
+                &Address::SYSTEM_BLOCK,
+                &Block::code(),
+            )?;
+            env.block_genesis(MethodContext::Keep, Address::SYSTEM_BLOCK)?;
 
             env.code_store(
                 MethodContext::Keep,
