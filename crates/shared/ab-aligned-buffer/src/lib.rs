@@ -18,14 +18,17 @@ use core::ptr::NonNull;
 use core::slice;
 use core::sync::atomic::{AtomicU32, Ordering};
 
-#[repr(C, align(16))]
-struct AlignedBytes([u8; MAX_ALIGNMENT as usize]);
-
 const _: () = {
     assert!(
-        align_of::<AlignedBytes>() == size_of::<AlignedBytes>(),
+        align_of::<u128>() == size_of::<u128>(),
         "Size and alignment are both 16 bytes"
     );
+    assert!(
+        align_of::<u128>() == MAX_ALIGNMENT as usize,
+        "Alignment of u128 is max alignment"
+    );
+    assert!(size_of::<u128>() >= size_of::<AtomicU32>());
+    assert!(align_of::<u128>() >= align_of::<AtomicU32>());
 };
 
 #[repr(C, align(16))]
@@ -34,8 +37,8 @@ struct ConstInnerBuffer {
 }
 
 const _: () = {
-    assert!(align_of::<ConstInnerBuffer>() == align_of::<AlignedBytes>());
-    assert!(size_of::<ConstInnerBuffer>() == size_of::<AlignedBytes>());
+    assert!(align_of::<ConstInnerBuffer>() == align_of::<u128>());
+    assert!(size_of::<ConstInnerBuffer>() == size_of::<u128>());
 };
 
 static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
@@ -47,7 +50,7 @@ static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
 
             &BUFFER
         })
-        .cast::<MaybeUninit<AlignedBytes>>(),
+        .cast::<MaybeUninit<u128>>(),
         capacity: 0,
         len: 0,
     },
@@ -56,7 +59,7 @@ static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
 #[derive(Debug)]
 struct InnerBuffer {
     // The first bytes are allocated for `strong_count`
-    buffer: NonNull<MaybeUninit<AlignedBytes>>,
+    buffer: NonNull<MaybeUninit<u128>>,
     capacity: u32,
     len: u32,
 }
@@ -94,7 +97,7 @@ impl Drop for InnerBuffer {
             let _ = unsafe {
                 Box::from_non_null(NonNull::slice_from_raw_parts(
                     self.buffer,
-                    1 + (self.capacity as usize).div_ceil(size_of::<AlignedBytes>()),
+                    1 + (self.capacity as usize).div_ceil(size_of::<u128>()),
                 ))
             };
         }
@@ -102,20 +105,20 @@ impl Drop for InnerBuffer {
 }
 
 impl InnerBuffer {
-    /// Allocates a new buffer + one [`AlignedBytes`] worth of memory at the beginning for
+    /// Allocates a new buffer + one `u128` worth of memory at the beginning for
     /// `strong_count` in case it is later converted to [`SharedAlignedBuffer`].
     ///
     /// `strong_count` field is automatically initialized as `1`.
     #[inline(always)]
     fn allocate(capacity: u32) -> Self {
-        let buffer = Box::into_non_null(Box::<[AlignedBytes]>::new_uninit_slice(
-            1 + (capacity as usize).div_ceil(size_of::<AlignedBytes>()),
+        let buffer = Box::into_non_null(Box::<[u128]>::new_uninit_slice(
+            1 + (capacity as usize).div_ceil(size_of::<u128>()),
         ));
         // SAFETY: The first bytes are allocated for `strong_count`, which is a correctly aligned
         // copy type
         unsafe { buffer.cast::<AtomicU32>().write(AtomicU32::new(1)) };
         Self {
-            buffer: buffer.cast::<MaybeUninit<AlignedBytes>>(),
+            buffer: buffer.cast::<MaybeUninit<u128>>(),
             capacity,
             len: 0,
         }
