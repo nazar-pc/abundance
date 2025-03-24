@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["ab_contracts_common",[["impl&lt;'metadata&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"enum\" href=\"ab_contracts_common/metadata/decode/enum.MetadataDecodingError.html\" title=\"enum ab_contracts_common::metadata::decode::MetadataDecodingError\">MetadataDecodingError</a>&lt;'metadata&gt;"]]],["ab_executor_native",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"enum\" href=\"ab_executor_native/enum.NativeExecutorError.html\" title=\"enum ab_executor_native::NativeExecutorError\">NativeExecutorError</a>"]]],["ab_system_contract_simple_wallet_base",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"enum\" href=\"ab_system_contract_simple_wallet_base/payload/enum.TransactionPayloadDecoderError.html\" title=\"enum ab_system_contract_simple_wallet_base::payload::TransactionPayloadDecoderError\">TransactionPayloadDecoderError</a>"],["impl&lt;'a&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"enum\" href=\"ab_system_contract_simple_wallet_base/payload/builder/enum.TransactionPayloadBuilderError.html\" title=\"enum ab_system_contract_simple_wallet_base::payload::builder::TransactionPayloadBuilderError\">TransactionPayloadBuilderError</a>&lt;'a&gt;"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[404,328,863]}
