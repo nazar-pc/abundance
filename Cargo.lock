@@ -68,6 +68,7 @@ dependencies = [
  "ab-contracts-common",
  "ab-contracts-io-type",
  "ab-contracts-macros",
+ "ab-transaction",
 ]
 
 [[package]]
@@ -79,6 +80,7 @@ dependencies = [
  "ab-contracts-macros",
  "ab-contracts-standards",
  "ab-system-contract-simple-wallet-base",
+ "ab-transaction",
 ]
 
 [[package]]
@@ -126,6 +128,7 @@ dependencies = [
  "ab-executor-native",
  "ab-system-contract-code",
  "ab-system-contract-simple-wallet-base",
+ "ab-transaction",
  "criterion",
  "schnorrkel",
 ]
@@ -143,6 +146,7 @@ dependencies = [
  "ab-system-contract-code",
  "ab-system-contract-simple-wallet-base",
  "ab-system-contract-state",
+ "ab-transaction",
  "halfbrown",
  "thiserror",
  "tracing",
@@ -187,6 +191,7 @@ dependencies = [
  "ab-contracts-macros",
  "ab-contracts-standards",
  "ab-system-contract-state",
+ "ab-transaction",
  "blake3",
  "no-panic",
  "schnorrkel",
@@ -200,6 +205,16 @@ dependencies = [
  "ab-contracts-common",
  "ab-contracts-io-type",
  "ab-contracts-macros",
+]
+
+[[package]]
+name = "ab-transaction"
+version = "0.0.1"
+dependencies = [
+ "ab-aligned-buffer",
+ "ab-contracts-common",
+ "ab-contracts-io-type",
+ "thiserror",
 ]
 
 [[package]]

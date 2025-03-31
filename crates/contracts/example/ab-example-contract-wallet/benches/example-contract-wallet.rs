@@ -1,6 +1,5 @@
 use crate::ffi::flip::FlipperFlipArgs;
 use ab_contracts_common::env::{Blake3Hash, MethodContext};
-use ab_contracts_common::transaction::{Transaction, TransactionHeader, TransactionSlot};
 use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
@@ -11,6 +10,7 @@ use ab_system_contract_code::CodeExt;
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
 use ab_system_contract_simple_wallet_base::payload::builder::TransactionPayloadBuilder;
 use ab_system_contract_simple_wallet_base::seal::hash_and_sign;
+use ab_transaction::{Transaction, TransactionHeader, TransactionSlot};
 use criterion::{BatchSize, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use schnorrkel::Keypair;
 

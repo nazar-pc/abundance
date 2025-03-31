@@ -4,7 +4,6 @@
 )]
 
 use ab_contracts_common::env::{Env, MethodContext};
-use ab_contracts_common::transaction::TransactionHeader;
 use ab_contracts_common::{Address, ContractError};
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
@@ -12,6 +11,7 @@ use ab_contracts_standards::tx_handler::{
     TxHandler, TxHandlerPayload, TxHandlerSeal, TxHandlerSlots,
 };
 use ab_system_contract_simple_wallet_base::SimpleWalletBaseExt;
+use ab_transaction::TransactionHeader;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]

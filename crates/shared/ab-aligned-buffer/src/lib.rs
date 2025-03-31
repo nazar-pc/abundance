@@ -247,6 +247,7 @@ impl OwnedAlignedBuffer {
     /// Will re-allocate if necessary.
     #[inline(always)]
     pub fn ensure_capacity(&mut self, capacity: u32) {
+        // TODO: Try to `realloc()` if possible
         if capacity > self.capacity() {
             let mut new_buffer = Self::with_capacity(capacity);
             new_buffer.copy_from_slice(self.as_slice());
@@ -261,9 +262,10 @@ impl OwnedAlignedBuffer {
     #[inline(always)]
     pub fn copy_from_slice(&mut self, bytes: &[u8]) {
         let Ok(len) = u32::try_from(bytes.len()) else {
-            panic!("Too many bytes");
+            panic!("Too many bytes {}", bytes.len());
         };
 
+        // TODO: Try to `realloc()` if possible
         if len > self.capacity() {
             // Allocate new buffer
             self.inner = InnerBuffer::allocate(len);
@@ -277,6 +279,39 @@ impl OwnedAlignedBuffer {
 
             self.inner.set_len(len);
         }
+    }
+
+    /// Will re-allocate if capacity is not enough to store provided bytes.
+    ///
+    /// Returns `false` if `self.len() + bytes.len()` doesn't fit into `u32`.
+    #[inline(always)]
+    #[must_use]
+    pub fn append(&mut self, bytes: &[u8]) -> bool {
+        let Ok(len) = u32::try_from(bytes.len()) else {
+            return false;
+        };
+
+        let Some(new_len) = self.len().checked_add(len) else {
+            return false;
+        };
+
+        // TODO: Try to `realloc()` if possible
+        if new_len > self.capacity() {
+            // Allocate new buffer
+            self.inner = InnerBuffer::allocate(new_len.max(self.capacity() * 2));
+        }
+
+        // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
+        // and output, non-overlapping allocations guaranteed by type system
+        unsafe {
+            self.as_mut_ptr()
+                .add(self.len() as usize)
+                .copy_from_nonoverlapping(bytes.as_ptr(), bytes.len());
+
+            self.inner.set_len(new_len);
+        }
+
+        true
     }
 
     #[inline(always)]

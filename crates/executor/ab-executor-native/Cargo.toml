@@ -23,6 +23,7 @@ ab-system-contract-address-allocator = { workspace = true }
 ab-system-contract-code = { workspace = true }
 ab-system-contract-simple-wallet-base = { workspace = true }
 ab-system-contract-state = { workspace = true }
+ab-transaction = { workspace = true }
 halfbrown = { workspace = true, features = ["arraybackend", "fxhash"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }

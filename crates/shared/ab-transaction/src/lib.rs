@@ -1,5 +1,11 @@
-use crate::Address;
-use crate::env::Blake3Hash;
+#![feature(ptr_as_ref_unchecked)]
+#![no_std]
+
+#[cfg(feature = "alloc")]
+pub mod owned;
+
+use ab_contracts_common::Address;
+use ab_contracts_common::env::Blake3Hash;
 use ab_contracts_io_type::trivial_type::TrivialType;
 
 /// A measure of compute resources, 1 Gas == 1 ns of compute on reference hardware
