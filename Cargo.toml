@@ -21,6 +21,7 @@ ab-system-contract-address-allocator = { version = "0.0.1", path = "crates/contr
 ab-system-contract-code = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-code" }
 ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-simple-wallet-base" }
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
+ab-transaction = { version = "0.0.1", path = "crates/shared/ab-transaction" }
 blake3 = { version = "1.7.0", default-features = false }
 const-sha1 = { version = "0.3.0", default-features = false }
 const_format = "0.2.34"

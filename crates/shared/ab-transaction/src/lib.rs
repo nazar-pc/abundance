@@ -1,5 +1,7 @@
-use crate::Address;
-use crate::env::Blake3Hash;
+#![no_std]
+
+use ab_contracts_common::Address;
+use ab_contracts_common::env::Blake3Hash;
 use ab_contracts_io_type::trivial_type::TrivialType;
 
 /// A measure of compute resources, 1 Gas == 1 ns of compute on reference hardware

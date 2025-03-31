@@ -7,7 +7,6 @@ pub mod env;
 mod error;
 pub mod metadata;
 pub mod method;
-pub mod transaction;
 
 use crate::method::MethodFingerprint;
 use ab_contracts_io_type::IoType;

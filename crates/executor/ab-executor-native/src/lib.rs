@@ -7,7 +7,6 @@ use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_contracts_common::env::{Env, EnvState, MethodContext};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
 use ab_contracts_common::method::MethodFingerprint;
-use ab_contracts_common::transaction::{Transaction, TransactionSlot};
 use ab_contracts_common::{
     Address, Contract, ContractError, ContractTrait, ContractTraitDefinition,
     NativeExecutorContactMethod, ShardIndex,
@@ -20,6 +19,7 @@ use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt
 use ab_system_contract_code::{Code, CodeExt};
 use ab_system_contract_simple_wallet_base::SimpleWalletBase;
 use ab_system_contract_state::State;
+use ab_transaction::{Transaction, TransactionSlot};
 use halfbrown::HashMap;
 use tracing::error;
 
