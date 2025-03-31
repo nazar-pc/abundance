@@ -23,7 +23,7 @@ At this point you may be wondering already how does a multi-shard Subspace proto
 - The beacon chain (or main chain as referred to in some of the literature), is the main chain responsible for orchestrating the lifecycle and securing all the shards of the system. As such, all the population of farmers in the system participate from the system (see image below).
 - By being part of the beacon chain, farmers are also implicitly proposing blocks from the underlying shards. High-level, the idea for the design is that the history buffer is populated with records belonging to the history of all shards in the system, and each of proof-of-time slot a new winning ticket will be drawn for each shard. The farmer encountering this winning ticket is responsible for sealing and broadcasting the newly proposed block for the shard they have the winning ticket for.
 
-![image](https://hackmd.io/_uploads/ryt5vBbTyg.png)
+![Distribution of farmers for multi-shard Subspace protocol](./images/2025-03-31-farmer-distribution.png)
 
 - Shards can be created in the beacon chain's genesis, or later in the history of the chain (we will leave the specifics about this process to the future. New shards will be spin off through a [network velvet forks](https://www.nmkr.io/glossary/velvet-fork-in-blockchain) [[1]]())
 - The core idea for the system's consensus algorithm is that consensus participants will be contributing to a global history buffer, that will be consequently archived and used for the block winner election in each shard.
@@ -34,9 +34,7 @@ At this point you may be wondering already how does a multi-shard Subspace proto
 - The archiving is done over this global history, and when a new shard block is encountered in a genesis block, its content needs to be pulled to included in the archived history. 
 - Not all farmers need to keep the state of all shards (as it would deem the use of a sharded architecture useless). As such, every epoch (determined by a window of `N` slots) there is a random assignments for farmers to shards as "executors". This assignment prevents potential collusion among farmers by keeping shard membership static. This epochs should be large enough to compensate for the "warm up" period between epoch changes where farmers may need to pull the latest state for their new shard if they don't have it.
 
-![image](https://hackmd.io/_uploads/rJ3iDSb61l.png)
-
-
+![High-level diagram of merged farming idea](./images/2025-03-31-merged-farming-idea.png)
 
 ## From high-level ideas to low-level design
 The high-level description shared above is great to gain an intuition of how a sharded version of the Subspace protocol could look like. Unfortunately, after a few brainstorm sessions with Nazar, we started to find holes and added complexity in how I imagined the protocol to work.
@@ -58,13 +56,12 @@ So you see that there are a lot of unanswered questions. With all of this in min
 - We should introduce mechanisms, like a power threshold, used to identify when a shard is in a weak state to rebalance the population of farmers among shards. We can probably get some inspiration for this from [Eigenlayer](https://eigenlayer.xyz/), where farmers can use their power to intervene in a shard and propose blocks to fix it. This same process should also be used to identify and recover from an attack in a shard.
 - Finally, on top of all these mechanisms we can come up with a reward system that forces rational balancing of the farming population among shards. This will help us avoid collusion and a big farmer trying to attack a shard.
 
-![image](https://hackmd.io/_uploads/BJ6-xzV6kl.png)
-
+![Nazar's high-level diagram of refined merged farming](./images/2025-03-31-nazar-diagram.png)
 
 ## Core subprotocols for the design
 And I couldn't close this weekly update without sharing a really interesting paper that Nazar brought to my attention throughout the week, and that ended up being extremely relevant to what we are doing: [Scalable Multi-Chain Coordination via the Hierarchical Longest Chain Rule](https://ieeexplore.ieee.org/document/9881846). This paper introduces BlockReduce, a PoW-based blockchain that achieves high-throughput by operating a hierarchy of merged mined parallel chains.
 
-![image](https://hackmd.io/_uploads/rkdrDTD6Jg.png)
+![Blockreduce hierarchical architecture](./images/2025-03-31-blockreduce-image.png)
 
 The paper presents a hierarchy of Nakamoto-based consensus chains like we have, and it introduces a lot of interesting concepts that reinforces or adds up to all of the ideas that we've been having in the past few weeks.
 - They introduce the concept of merge mining, where miners simultaneously mine multiple chains. This is similar to what we are trying to achieve with the Subspace protocol, where farmers will be able to farm multiple shards at the same time by choosing a branch of shards in the hierarchy.
