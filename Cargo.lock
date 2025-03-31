@@ -211,8 +211,10 @@ dependencies = [
 name = "ab-transaction"
 version = "0.0.1"
 dependencies = [
+ "ab-aligned-buffer",
  "ab-contracts-common",
  "ab-contracts-io-type",
+ "thiserror",
 ]
 
 [[package]]

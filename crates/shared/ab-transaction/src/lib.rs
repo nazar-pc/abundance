@@ -1,4 +1,8 @@
+#![feature(ptr_as_ref_unchecked)]
 #![no_std]
+
+#[cfg(feature = "alloc")]
+pub mod owned;
 
 use ab_contracts_common::Address;
 use ab_contracts_common::env::Blake3Hash;

@@ -14,8 +14,17 @@ include = [
 all-features = true
 
 [dependencies]
+ab-aligned-buffer = { workspace = true, optional = true }
 ab-contracts-common = { workspace = true }
 ab-contracts-io-type = { workspace = true }
+thiserror = { workspace = true, optional = true }
+
+[features]
+# APIs that require `alloc` crate
+alloc = [
+    "dep:ab-aligned-buffer",
+    "dep:thiserror",
+]
 
 [lints]
 workspace = true
