@@ -1,0 +1,6 @@
+*
+!/crates
+!/shared
+!/Cargo.lock
+!/Cargo.toml
+!/rust-toolchain.toml

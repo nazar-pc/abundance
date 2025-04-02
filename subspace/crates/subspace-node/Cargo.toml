@@ -1,0 +1,82 @@
+[package]
+name = "subspace-node"
+version = "0.1.0"
+authors = ["Subspace Labs <https://subspace.network>"]
+description = "A Subspace Network Blockchain node."
+edition = "2021"
+license = "0BSD"
+build = "build.rs"
+homepage = "https://subspace.network"
+repository = "https://github.com/autonomys/subspace"
+include = [
+    "/src",
+    "/build.rs",
+    "/Cargo.toml",
+    "/README.md"
+]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+bip39 = { workspace = true, features = ["rand"] }
+clap = { workspace = true, features = ["derive"] }
+fdlimit.workspace = true
+frame-benchmarking = { workspace = true, optional = true }
+frame-benchmarking-cli = { workspace = true, optional = true }
+frame-support.workspace = true
+futures.workspace = true
+hex.workspace = true
+hex-literal.workspace = true
+mimalloc.workspace = true
+parity-scale-codec.workspace = true
+prometheus-client.workspace = true
+sc-chain-spec.workspace = true
+sc-cli.workspace = true
+sc-client-api.workspace = true
+sc-consensus-slots.workspace = true
+sc-consensus-subspace.workspace = true
+sc-keystore.workspace = true
+sc-network.workspace = true
+sc-proof-of-time.workspace = true
+sc-service.workspace = true
+sc-state-db.workspace = true
+sc-storage-monitor.workspace = true
+sc-telemetry.workspace = true
+sc-transaction-pool-api.workspace = true
+sc-network-sync.workspace = true
+sc-utils.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+sp-api.workspace = true
+sp-blockchain.workspace = true
+sp-consensus-subspace.workspace = true
+sp-core.workspace = true
+sp-keystore.workspace = true
+sp-runtime.workspace = true
+subspace-core-primitives.workspace = true
+subspace-metrics.workspace = true
+subspace-networking.workspace = true
+subspace-proof-of-space.workspace = true
+subspace-runtime.workspace = true
+subspace-runtime-primitives.workspace = true
+subspace-service.workspace = true
+substrate-prometheus-endpoint.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros"] }
+tokio-stream.workspace = true
+tracing.workspace = true
+subspace-logging.workspace = true
+
+[build-dependencies]
+substrate-build-script-utils.workspace = true
+
+[features]
+default = []
+runtime-benchmarks = [
+    "frame-benchmarking-cli/runtime-benchmarks",
+    "frame-benchmarking/runtime-benchmarks",
+    "subspace-runtime/runtime-benchmarks",
+    "subspace-service/runtime-benchmarks",
+]

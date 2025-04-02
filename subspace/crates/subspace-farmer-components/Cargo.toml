@@ -1,0 +1,68 @@
+[package]
+name = "subspace-farmer-components"
+description = "Farmer for the Subspace Network Blockchain"
+license = "0BSD"
+version = "0.1.0"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2021"
+include = [
+    "/src",
+    "/Cargo.toml",
+    "/README.md",
+]
+
+[lib]
+# Necessary for CLI options to work on benches
+bench = false
+
+[dependencies]
+anyhow.workspace = true
+async-lock.workspace = true
+backoff = { workspace = true, features = ["futures", "tokio"] }
+bitvec.workspace = true
+fs2.workspace = true
+futures.workspace = true
+hex.workspace = true
+libc.workspace = true
+parity-scale-codec.workspace = true
+parking_lot.workspace = true
+rand.workspace = true
+rayon.workspace = true
+schnorrkel.workspace = true
+serde = { workspace = true, features = ["derive"] }
+static_assertions.workspace = true
+subspace-archiving.workspace = true
+subspace-core-primitives.workspace = true
+subspace-data-retrieval.workspace = true
+subspace-erasure-coding.workspace = true
+subspace-kzg.workspace = true
+subspace-proof-of-space = { workspace = true, features = ["parallel"] }
+subspace-verification.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "signal", "sync"] }
+tracing.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+winapi = "0.3.9"
+
+[dev-dependencies]
+criterion.workspace = true
+futures.workspace = true
+subspace-archiving.workspace = true
+subspace-proof-of-space.workspace = true
+
+[[bench]]
+name = "plotting"
+harness = false
+
+[[bench]]
+name = "reading"
+harness = false
+
+[[bench]]
+name = "auditing"
+harness = false
+
+[[bench]]
+name = "proving"
+harness = false

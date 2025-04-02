@@ -1,0 +1,61 @@
+[package]
+name = "subspace-archiving"
+description = "Collection of modules used for dealing with archived state of Subspace Network"
+license = "0BSD"
+version = "0.1.0"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2021"
+include = [
+    "/benches",
+    "/src",
+    "/Cargo.toml",
+    "/README.md",
+]
+
+[lib]
+# Necessary for CLI options to work on benches
+bench = false
+
+[dependencies]
+parity-scale-codec = { workspace = true, features = ["derive"] }
+rayon = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+subspace-core-primitives.workspace = true
+subspace-erasure-coding.workspace = true
+subspace-kzg.workspace = true
+thiserror.workspace = true
+
+# This is required to for benchmark dependency features to work correctly
+rand = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion.workspace = true
+rand = { workspace = true, features = ["min_const_gen"] }
+subspace-core-primitives.workspace = true
+subspace-verification = { workspace = true, features = ["kzg"] }
+
+[features]
+default = ["std"]
+parallel = [
+    "dep:rayon",
+    "subspace-core-primitives/parallel",
+]
+serde = [
+    "dep:serde",
+    "subspace-core-primitives/serde",
+]
+std = [
+    "parity-scale-codec/std",
+    "parallel",
+    "rand?/std",
+    "rand?/std_rng",
+    "serde",
+    "subspace-core-primitives/std",
+    "subspace-erasure-coding/std",
+    "subspace-kzg/std",
+    "thiserror/std",
+]
+
+[[bench]]
+name = "archiving"
+harness = false

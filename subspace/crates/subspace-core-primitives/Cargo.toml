@@ -1,0 +1,56 @@
+[package]
+name = "subspace-core-primitives"
+description = "Core primitives for Subspace Network"
+license = "0BSD"
+version = "0.1.0"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2021"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[dependencies]
+blake3.workspace = true
+bytes.workspace = true
+derive_more = { workspace = true, features = ["full"] }
+hex = { workspace = true, features = ["alloc"] }
+num-traits.workspace = true
+parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"] }
+rayon = { workspace = true, optional = true }
+scale-info = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["alloc", "derive"], optional = true }
+serde-big-array.workspace = true
+static_assertions.workspace = true
+uint.workspace = true
+
+[dev-dependencies]
+rand = { workspace = true, features = ["min_const_gen", "std", "std_rng"] }
+
+[features]
+default = [
+    "serde",
+    "std",
+    "parallel",
+]
+# Enables some APIs
+parallel = [
+    "blake3/rayon",
+    "dep:rayon",
+]
+serde = [
+    "dep:serde",
+    "bytes/serde",
+    "hex/serde",
+]
+std = [
+    "blake3/std",
+    "bytes/std",
+    "derive_more/std",
+    "hex/std",
+    "num-traits/std",
+    "parity-scale-codec/std",
+    "scale-info/std",
+    "serde?/std",
+    "uint/std",
+]
