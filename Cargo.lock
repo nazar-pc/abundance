@@ -143,6 +143,7 @@ dependencies = [
  "ab-contracts-standards",
  "ab-executor-slots",
  "ab-system-contract-address-allocator",
+ "ab-system-contract-block",
  "ab-system-contract-code",
  "ab-system-contract-simple-wallet-base",
  "ab-system-contract-state",
@@ -165,6 +166,15 @@ dependencies = [
 
 [[package]]
 name = "ab-system-contract-address-allocator"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+]
+
+[[package]]
+name = "ab-system-contract-block"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
@@ -214,6 +224,16 @@ dependencies = [
  "ab-aligned-buffer",
  "ab-contracts-common",
  "ab-contracts-io-type",
+ "blake3",
+ "thiserror",
+]
+
+[[package]]
+name = "ab-transaction-pool"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-transaction",
  "thiserror",
 ]
 

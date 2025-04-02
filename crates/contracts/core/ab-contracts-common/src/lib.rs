@@ -3,6 +3,7 @@
 
 mod address;
 mod balance;
+pub mod block;
 pub mod env;
 mod error;
 pub mod metadata;
