@@ -19,12 +19,8 @@ use subspace_runtime_primitives::utility::nested_call_iter;
 pub struct DisablePallets;
 
 impl DisablePallets {
-    fn do_validate_unsigned(call: &RuntimeCall) -> TransactionValidity {
-        if matches!(call, RuntimeCall::Domains(_)) && !RuntimeConfigs::enable_domains() {
-            InvalidTransaction::Call.into()
-        } else {
-            Ok(ValidTransaction::default())
-        }
+    fn do_validate_unsigned(_call: &RuntimeCall) -> TransactionValidity {
+        Ok(ValidTransaction::default())
     }
 
     fn do_validate_signed(call: &RuntimeCall) -> TransactionValidity {

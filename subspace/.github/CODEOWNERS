@@ -20,7 +20,6 @@
 /crates/subspace-node             @NingLin-P @vedhavyas @nazar-pc
 /crates/subspace-verification     @nazar-pc
 /docker                           @nazar-pc
-/domains                          @NingLin-P @vedhavyas
 /shared/subspace-kzg              @nazar-pc
 /shared/subspace-proof-*          @nazar-pc
 /shared/subspace-data-retrieval   @nazar-pc @teor2345

@@ -500,7 +500,6 @@ pub(super) struct PrometheusConfiguration {
 pub(super) struct ConsensusChainConfiguration {
     pub(super) maybe_tmp_dir: Option<TempDir>,
     pub(super) subspace_configuration: SubspaceConfiguration,
-    pub(super) dev: bool,
     /// External entropy, used initially when PoT chain starts to derive the first seed
     pub(super) pot_external_entropy: Vec<u8>,
     pub(super) storage_monitor: StorageMonitorParams,
@@ -509,7 +508,6 @@ pub(super) struct ConsensusChainConfiguration {
 
 pub(super) fn create_consensus_chain_configuration(
     consensus_node_options: ConsensusChainOptions,
-    domains_enabled: bool,
 ) -> Result<ConsensusChainConfiguration, Error> {
     let ConsensusChainOptions {
         base_path,
@@ -768,15 +766,13 @@ pub(super) fn create_consensus_chain_configuration(
         maybe_tmp_dir,
         subspace_configuration: SubspaceConfiguration {
             base: consensus_chain_config,
-            // Domain node needs slots notifications for bundle production.
-            force_new_slot_notifications: domains_enabled,
+            force_new_slot_notifications: false,
             create_object_mappings: create_object_mappings.unwrap_or_default().into(),
             subspace_networking: SubspaceNetworking::Create { config: dsn_config },
             sync,
             is_timekeeper: timekeeper_options.timekeeper,
             timekeeper_cpu_cores: timekeeper_options.timekeeper_cpu_cores,
         },
-        dev,
         pot_external_entropy,
         storage_monitor,
         prometheus_configuration: prometheus_listen_on.zip(substrate_registry).map(

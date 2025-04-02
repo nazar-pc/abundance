@@ -28,8 +28,6 @@ use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::sync_from_dsn::DsnPieceGetter;
 use async_lock::Semaphore;
 use core::sync::atomic::{AtomicU32, Ordering};
-use cross_domain_message_gossip::xdm_gossip_peers_set_config;
-use domain_runtime_primitives::opaque::{Block as DomainBlock, Header as DomainHeader};
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::channel::oneshot;
 use futures::FutureExt;
@@ -60,9 +58,8 @@ use sc_consensus_subspace::slot_worker::{
 };
 use sc_consensus_subspace::verifier::{SubspaceVerifier, SubspaceVerifierOptions};
 use sc_consensus_subspace::SubspaceLink;
-use sc_domains::ExtensionsFactory as DomainsExtensionFactory;
 use sc_network::service::traits::NetworkService;
-use sc_network::{NetworkWorker, NotificationMetrics, NotificationService, Roles};
+use sc_network::{NetworkWorker, NotificationMetrics, Roles};
 use sc_network_sync::block_relay_protocol::BlockRelayParams;
 use sc_network_sync::engine::SyncingEngine;
 use sc_network_sync::service::network::NetworkServiceProvider;
@@ -93,11 +90,7 @@ use sp_core::offchain::storage::OffchainDb;
 use sp_core::offchain::OffchainDbExt;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_core::H256;
-use sp_domains::{BundleProducerElectionApi, DomainsApi};
-use sp_domains_fraud_proof::{FraudProofApi, FraudProofExtension, FraudProofHostFunctionsImpl};
 use sp_externalities::Extensions;
-use sp_messenger::MessengerApi;
-use sp_messenger_host_functions::{MessengerExtension, MessengerHostFunctionsImpl};
 use sp_mmr_primitives::MmrApi;
 use sp_objects::ObjectsApi;
 use sp_offchain::OffchainWorkerApi;
@@ -211,9 +204,7 @@ where
 pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     sp_consensus_subspace::consensus::HostFunctions,
-    sp_domains_fraud_proof::HostFunctions,
     sp_subspace_mmr::HostFunctions,
-    sp_messenger_host_functions::HostFunctions,
 );
 
 /// Host functions required for Subspace
@@ -222,9 +213,7 @@ pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     frame_benchmarking::benchmarking::HostFunctions,
     sp_consensus_subspace::consensus::HostFunctions,
-    sp_domains_fraud_proof::HostFunctions,
     sp_subspace_mmr::HostFunctions,
-    sp_messenger_host_functions::HostFunctions,
 );
 
 /// Runtime executor for Subspace
@@ -236,35 +225,28 @@ pub type FullClient<RuntimeApi> = sc_service::TFullClient<Block, RuntimeApi, Run
 pub type FullBackend = sc_service::TFullBackend<Block>;
 pub type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
-struct SubspaceExtensionsFactory<PosTable, Client, DomainBlock> {
+struct SubspaceExtensionsFactory<PosTable, Client> {
     kzg: Kzg,
     client: Arc<Client>,
     backend: Arc<FullBackend>,
     pot_verifier: PotVerifier,
-    domains_executor: Arc<sc_domains::RuntimeExecutor>,
     confirmation_depth_k: BlockNumber,
-    _pos_table: PhantomData<(PosTable, DomainBlock)>,
+    _pos_table: PhantomData<PosTable>,
 }
 
-impl<PosTable, Block, Client, DomainBlock> ExtensionsFactory<Block>
-    for SubspaceExtensionsFactory<PosTable, Client, DomainBlock>
+impl<PosTable, Block, Client> ExtensionsFactory<Block>
+    for SubspaceExtensionsFactory<PosTable, Client>
 where
     PosTable: Table,
     Block: BlockT,
     Block::Hash: From<H256> + Into<H256>,
-    DomainBlock: BlockT,
-    DomainBlock::Hash: Into<H256> + From<H256>,
     Client: BlockBackend<Block>
         + HeaderBackend<Block>
         + ProvideRuntimeApi<Block>
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block, PublicKey>
-        + DomainsApi<Block, DomainBlock::Header>
-        + BundleProducerElectionApi<Block, Balance>
-        + MmrApi<Block, H256, NumberFor<Block>>
-        + MessengerApi<Block, NumberFor<Block>, Block::Hash>,
+    Client::Api: SubspaceApi<Block, PublicKey> + MmrApi<Block, H256, NumberFor<Block>>,
 {
     fn extensions_for(
         &self,
@@ -393,33 +375,10 @@ where
             )
         }));
 
-        exts.register(FraudProofExtension::new(Arc::new(
-            FraudProofHostFunctionsImpl::<_, _, DomainBlock, _, _>::new(
-                self.client.clone(),
-                self.domains_executor.clone(),
-                move |client, executor| {
-                    let extension_factory =
-                        DomainsExtensionFactory::<_, Block, DomainBlock, _>::new(
-                            client,
-                            executor,
-                            confirmation_depth_k,
-                        );
-                    Box::new(extension_factory) as Box<dyn ExtensionsFactory<DomainBlock>>
-                },
-            ),
-        )));
-
         exts.register(SubspaceMmrExtension::new(Arc::new(
             SubspaceMmrHostFunctionsImpl::<Block, _>::new(
                 self.client.clone(),
                 confirmation_depth_k,
-            ),
-        )));
-
-        exts.register(MessengerExtension::new(Arc::new(
-            MessengerHostFunctionsImpl::<Block, _, DomainBlock, _>::new(
-                self.client.clone(),
-                self.domains_executor.clone(),
             ),
         )));
 
@@ -481,12 +440,8 @@ where
         + SessionKeys<Block>
         + TaggedTransactionQueue<Block>
         + SubspaceApi<Block, PublicKey>
-        + DomainsApi<Block, DomainHeader>
-        + FraudProofApi<Block, DomainHeader>
-        + BundleProducerElectionApi<Block, Balance>
         + ObjectsApi<Block>
-        + MmrApi<Block, H256, NumberFor<Block>>
-        + MessengerApi<Block, NumberFor<Block>, <Block as BlockT>::Hash>,
+        + MmrApi<Block, H256, NumberFor<Block>>,
 {
     let telemetry = config
         .telemetry_endpoints
@@ -500,7 +455,6 @@ where
         .transpose()?;
 
     let executor = sc_service::new_wasm_executor(&config.executor);
-    let domains_executor = sc_service::new_wasm_executor(&config.executor);
 
     let backend = sc_service::new_db_backend(config.db_config())?;
 
@@ -545,17 +499,16 @@ where
         POT_VERIFIER_CACHE_SIZE,
     );
 
-    client
-        .execution_extensions()
-        .set_extensions_factory(SubspaceExtensionsFactory::<PosTable, _, DomainBlock> {
+    client.execution_extensions().set_extensions_factory(
+        SubspaceExtensionsFactory::<PosTable, _> {
             kzg: kzg.clone(),
             client: Arc::clone(&client),
             pot_verifier: pot_verifier.clone(),
-            domains_executor: Arc::new(domains_executor),
             backend: backend.clone(),
             confirmation_depth_k: chain_constants.confirmation_depth_k(),
             _pos_table: PhantomData,
-        });
+        },
+    );
 
     let telemetry = telemetry.map(|(worker, telemetry)| {
         task_manager
@@ -672,11 +625,8 @@ where
         + HeaderMetadata<Block, Error = sp_blockchain::Error>
         + 'static,
     Client::Api: TaggedTransactionQueue<Block>
-        + DomainsApi<Block, DomainHeader>
-        + FraudProofApi<Block, DomainHeader>
         + SubspaceApi<Block, PublicKey>
-        + MmrApi<Block, H256, NumberFor<Block>>
-        + MessengerApi<Block, NumberFor<Block>, <Block as BlockT>::Hash>,
+        + MmrApi<Block, H256, NumberFor<Block>>,
 {
     /// Task manager.
     pub task_manager: TaskManager,
@@ -686,8 +636,6 @@ where
     pub select_chain: FullSelectChain,
     /// Network service.
     pub network_service: Arc<dyn NetworkService + Send + Sync>,
-    /// Cross-domain gossip notification service.
-    pub xdm_gossip_notification_service: Box<dyn NotificationService>,
     /// Sync service.
     pub sync_service: Arc<sc_network_sync::SyncingService<Block>>,
     /// RPC handlers.
@@ -724,7 +672,6 @@ pub async fn new_full<PosTable, RuntimeApi>(
     prometheus_registry: Option<&mut Registry>,
     enable_rpc_extensions: bool,
     block_proposal_slot_portion: SlotProportion,
-    consensus_snap_sync_target_block_receiver: Option<broadcast::Receiver<BlockNumber>>,
 ) -> Result<FullNode<RuntimeApi>, Error>
 where
     PosTable: Table,
@@ -738,11 +685,8 @@ where
         + TaggedTransactionQueue<Block>
         + TransactionPaymentApi<Block, Balance>
         + SubspaceApi<Block, PublicKey>
-        + DomainsApi<Block, DomainHeader>
-        + FraudProofApi<Block, DomainHeader>
         + ObjectsApi<Block>
-        + MmrApi<Block, Hash, BlockNumber>
-        + MessengerApi<Block, NumberFor<Block>, <Block as BlockT>::Hash>,
+        + MmrApi<Block, Hash, BlockNumber>,
 {
     let PartialComponents {
         client,
@@ -895,9 +839,6 @@ where
         &config.base.network,
         substrate_prometheus_registry.clone(),
     );
-    let (xdm_gossip_notification_config, xdm_gossip_notification_service) =
-        xdm_gossip_peers_set_config();
-    net_config.add_notification_protocol(xdm_gossip_notification_config);
     let (pot_gossip_notification_config, pot_gossip_notification_service) =
         pot_gossip_peers_set_config();
     net_config.add_notification_protocol(pot_gossip_notification_config);
@@ -1072,7 +1013,6 @@ where
         sync_service.clone(),
         network_service_handle,
         subspace_link.erasure_coding().clone(),
-        consensus_snap_sync_target_block_receiver,
         backend.offchain_storage(),
         network_service.clone(),
     );
@@ -1327,7 +1267,6 @@ where
         client,
         select_chain,
         network_service,
-        xdm_gossip_notification_service,
         sync_service,
         rpc_handlers,
         backend,

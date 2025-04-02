@@ -37,10 +37,6 @@ pub enum Cli {
     /// Db meta columns information.
     ChainInfo(sc_cli::ChainInfoCmd),
 
-    /// Run domain sub-commands.
-    #[clap(subcommand)]
-    Domain(crate::domain::cli::Subcommand),
-
     /// Sub-commands concerned with benchmarking.
     #[cfg(feature = "runtime-benchmarks")]
     #[clap(subcommand)]

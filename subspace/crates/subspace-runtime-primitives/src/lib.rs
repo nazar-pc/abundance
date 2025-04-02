@@ -10,17 +10,13 @@ extern crate alloc;
 use crate::time::{BLOCKS_IN_AN_MINUTE, BLOCKS_IN_A_DAY};
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use core::marker::PhantomData;
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::tokens;
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
-use frame_support::weights::WeightToFee;
 use frame_support::{Deserialize, Serialize};
 use frame_system::limits::BlockLength;
 use frame_system::offchain::CreateTransactionBase;
-use pallet_transaction_payment::{
-    Multiplier, NextFeeMultiplier, OnChargeTransaction, TargetedFeeAdjustment,
-};
+use pallet_transaction_payment::{Multiplier, OnChargeTransaction, TargetedFeeAdjustment};
 use parity_scale_codec::{Codec, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::parameter_types;
@@ -49,12 +45,6 @@ pub const BLOCK_WEIGHT_FOR_2_SEC: Weight =
 
 /// Maximum block length for non-`Normal` extrinsic is 5 MiB.
 pub const MAX_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
-
-/// Pruning depth multiplier for state and blocks pruning.
-pub const DOMAINS_PRUNING_DEPTH_MULTIPLIER: u32 = 2;
-
-/// Domains Block pruning depth.
-pub const DOMAINS_BLOCK_PRUNING_DEPTH: u32 = 14_400;
 
 /// We allow for 3.75 MiB for `Normal` extrinsic with 5 MiB maximum block length.
 pub fn maximum_normal_block_length() -> BlockLength {
@@ -93,8 +83,6 @@ pub type Moment = u64;
 parameter_types! {
     /// Event segments are disabled on the consensus chain.
     pub const ConsensusEventSegmentSize: u32 = 0;
-    /// Event segments are enabled on domain chains, this value was derived from benchmarking.
-    pub const DomainEventSegmentSize: u32 = 100;
 }
 
 /// Opaque types.
@@ -261,37 +249,15 @@ impl<Balance: Codec + tokens::Balance> Default for BlockTransactionByteFee<Balan
     }
 }
 
-parameter_types! {
-    pub const XdmFeeMultipler: u32 = 5;
-}
-
 /// Balance type pointing to the OnChargeTransaction trait.
 pub type OnChargeTransactionBalance<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<
     T,
 >>::Balance;
 
-/// Adjusted XDM Weight to fee Conversion.
-pub struct XdmAdjustedWeightToFee<T>(PhantomData<T>);
-impl<T: pallet_transaction_payment::Config> WeightToFee for XdmAdjustedWeightToFee<T> {
-    type Balance = OnChargeTransactionBalance<T>;
-
-    fn weight_to_fee(weight: &Weight) -> Self::Balance {
-        // the adjustable part of the fee.
-        let unadjusted_weight_fee = pallet_transaction_payment::Pallet::<T>::weight_to_fee(*weight);
-        let multiplier = NextFeeMultiplier::<T>::get();
-        // final adjusted weight fee.
-        multiplier.saturating_mul_int(unadjusted_weight_fee)
-    }
-}
-
 #[derive(
     PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Ord, PartialOrd, Copy, Debug,
 )]
 pub enum HoldIdentifier {
-    DomainStaking,
-    DomainInstantiation,
-    DomainStorageFund,
-    MessengerChannel,
     Preimage,
 }
 

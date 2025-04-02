@@ -7,19 +7,14 @@ mod commands;
 mod chain_spec;
 mod chain_spec_utils;
 mod cli;
-mod domain;
 
 use crate::cli::{Cli, SubspaceCliPlaceholder};
 use crate::commands::set_exit_on_panic;
-use crate::domain::cli::DomainKey;
-use crate::domain::{DomainCli, DomainSubcommand};
 use clap::Parser;
-use domain_runtime_primitives::opaque::Block as DomainBlock;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking_cli::BenchmarkCmd;
 use futures::future::TryFutureExt;
 use sc_cli::{ChainSpec, SubstrateCli};
-use sc_domains::HostFunctions as DomainsHostFunctions;
 use sc_service::{Configuration, PartialComponents};
 use serde_json::Value;
 use sp_core::crypto::Ss58AddressFormat;
@@ -302,74 +297,6 @@ fn main() -> Result<(), Error> {
                 }
             })?;
         }
-        Cli::Domain(domain_cmd) => match domain_cmd {
-            DomainSubcommand::Key(DomainKey::Create(create_domain_key_options)) => {
-                commands::create_domain_key(create_domain_key_options)?;
-            }
-            DomainSubcommand::Key(DomainKey::Insert(insert_domain_key_options)) => {
-                commands::insert_domain_key(insert_domain_key_options)?;
-            }
-            #[cfg(feature = "runtime-benchmarks")]
-            DomainSubcommand::Benchmark(cmd) => {
-                let runner = SubspaceCliPlaceholder.create_runner(&cmd)?;
-                runner.sync_run(|consensus_chain_config| {
-                    let domain_cli = DomainCli::new(
-                        // pass the domain-id manually for benchmark since this is
-                        // not possible through cli commands at this moment.
-                        vec!["--domain-id".to_owned(), "0".to_owned()].into_iter(),
-                    );
-                    let domain_config = domain_cli
-                        .create_domain_configuration(
-                            &cmd,
-                            consensus_chain_config.base_path.path(),
-                            consensus_chain_config.tokio_handle,
-                        )
-                        .map_err(|error| {
-                            sc_service::Error::Other(format!(
-                                "Failed to create domain configuration: {error:?}"
-                            ))
-                        })?;
-                    match cmd {
-                        BenchmarkCmd::Pallet(cmd) => cmd
-                            .run_with_spec::<HashingFor<DomainBlock>, DomainsHostFunctions>(Some(
-                                domain_config.chain_spec,
-                            )),
-                        _ => todo!("Not implemented"),
-                    }
-                })?;
-            }
-            DomainSubcommand::BuildGenesisStorage(cmd) => cmd.run()?,
-            DomainSubcommand::ExportExecutionReceipt(cmd) => {
-                let runner = SubspaceCliPlaceholder.create_runner(&cmd)?;
-                runner.sync_run(|consensus_chain_config| {
-                    let domain_cli = DomainCli::new(cmd.domain_args.clone().into_iter());
-                    let domain_config = domain_cli
-                        .create_domain_configuration(
-                            &cmd,
-                            consensus_chain_config.base_path.path(),
-                            consensus_chain_config.tokio_handle,
-                        )
-                        .map_err(|error| {
-                            sc_service::Error::Other(format!(
-                                "Failed to create domain configuration: {error:?}"
-                            ))
-                        })?;
-
-                    let executor = sc_service::new_wasm_executor::<DomainsHostFunctions>(
-                        &domain_config.executor,
-                    );
-
-                    let (client, _, _, _) = sc_service::new_full_parts::<
-                        DomainBlock,
-                        evm_domain_runtime::RuntimeApi,
-                        _,
-                    >(&domain_config, None, executor)?;
-
-                    cmd.run(&client, &client)
-                })?;
-            }
-            _ => unimplemented!("Domain subcommand"),
-        },
     }
 
     Ok(())

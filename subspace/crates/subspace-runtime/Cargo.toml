@@ -17,7 +17,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 parity-scale-codec = { workspace = true, features = ["derive"] }
-domain-runtime-primitives.workspace = true
 frame-benchmarking = { workspace = true, optional = true }
 frame-executive.workspace = true
 frame-support.workspace = true
@@ -27,8 +26,6 @@ frame-system-rpc-runtime-api.workspace = true
 pallet-balances.workspace = true
 pallet-collective.workspace = true
 pallet-democracy.workspace = true
-pallet-domains.workspace = true
-pallet-messenger.workspace = true
 pallet-mmr.workspace = true
 pallet-multisig.workspace = true
 pallet-preimage.workspace = true
@@ -42,7 +39,6 @@ pallet-timestamp.workspace = true
 pallet-transaction-fees.workspace = true
 pallet-transaction-payment.workspace = true
 pallet-transaction-payment-rpc-runtime-api.workspace = true
-pallet-transporter.workspace = true
 pallet-utility.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 sp-api.workspace = true
@@ -50,12 +46,8 @@ sp-block-builder.workspace = true
 sp-consensus-subspace.workspace = true
 sp-consensus-slots.workspace = true
 sp-core.workspace = true
-sp-domains.workspace = true
-sp-domains-fraud-proof.workspace = true
 sp-genesis-builder.workspace = true
 sp-inherents.workspace = true
-sp-messenger.workspace = true
-sp-messenger-host-functions.workspace = true
 sp-mmr-primitives.workspace = true
 sp-objects.workspace = true
 sp-offchain.workspace = true
@@ -81,7 +73,6 @@ subspace-runtime-primitives = { workspace = true, features = ["testing"] }
 default = ["std"]
 std = [
     "parity-scale-codec/std",
-    "domain-runtime-primitives/std",
     "frame-benchmarking?/std",
     "frame-executive/std",
     "frame-support/std",
@@ -91,8 +82,6 @@ std = [
     "pallet-balances/std",
     "pallet-collective/std",
     "pallet-democracy/std",
-    "pallet-domains/std",
-    "pallet-messenger/std",
     "pallet-mmr/std",
     "pallet-multisig/std",
     "pallet-preimage/std",
@@ -106,7 +95,6 @@ std = [
     "pallet-transaction-fees/std",
     "pallet-transaction-payment/std",
     "pallet-transaction-payment-rpc-runtime-api/std",
-    "pallet-transporter/std",
     "pallet-utility/std",
     "scale-info/std",
     "sp-api/std",
@@ -114,13 +102,9 @@ std = [
     "sp-consensus-subspace/std",
     "sp-consensus-slots/std",
     "sp-core/std",
-    "sp-domains/std",
-    "sp-domains-fraud-proof/std",
     "sp-genesis-builder/std",
     "sp-inherents/std",
     "sp-io/std",
-    "sp-messenger/std",
-    "sp-messenger-host-functions/std",
     "sp-mmr-primitives/std",
     "sp-objects/std",
     "sp-offchain/std",
@@ -144,15 +128,12 @@ runtime-benchmarks = [
     "frame-system-benchmarking/runtime-benchmarks",
     "pallet-balances/runtime-benchmarks",
     "pallet-collective/runtime-benchmarks",
-    "pallet-domains/runtime-benchmarks",
     "pallet-mmr/runtime-benchmarks",
     "pallet-multisig/runtime-benchmarks",
-    "pallet-messenger/runtime-benchmarks",
     "pallet-rewards/runtime-benchmarks",
     "pallet-runtime-configs/runtime-benchmarks",
     "pallet-subspace/runtime-benchmarks",
     "pallet-timestamp/runtime-benchmarks",
-    "pallet-transporter/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",
     "sp-consensus-subspace/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",

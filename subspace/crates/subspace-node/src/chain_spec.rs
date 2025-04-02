@@ -1,23 +1,19 @@
 //! Subspace chain configurations.
 
 use crate::chain_spec_utils::{chain_spec_properties, get_account_id_from_seed};
-use crate::domain::auto_id_chain_spec;
-use crate::domain::cli::{GenesisDomain, SpecId};
-use crate::domain::evm_chain_spec::{self};
 use sc_chain_spec::GenericChainSpec;
 use sc_service::ChainType;
 use sc_telemetry::TelemetryEndpoints;
 use sp_core::crypto::Ss58Codec;
-use sp_domains::{EvmType, PermissionedActionAllowedBy};
-use sp_runtime::{BoundedVec, Percent};
+use sp_runtime::BoundedVec;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use subspace_core_primitives::pot::PotKey;
 use subspace_core_primitives::PublicKey;
 use subspace_runtime::{
-    AllowAuthoringBy, BalancesConfig, CouncilConfig, DemocracyConfig, DomainsConfig,
-    EnableRewardsAt, RewardPoint, RewardsConfig, RuntimeConfigsConfig, RuntimeGenesisConfig,
-    SubspaceConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    AllowAuthoringBy, BalancesConfig, CouncilConfig, DemocracyConfig, EnableRewardsAt, RewardPoint,
+    RewardsConfig, RuntimeConfigsConfig, RuntimeGenesisConfig, SubspaceConfig, SudoConfig,
+    SystemConfig, WASM_BINARY,
 };
 use subspace_runtime_primitives::{
     AccountId, Balance, BlockNumber, CouncilDemocracyConfigParams, SSC,
@@ -30,16 +26,10 @@ struct GenesisParams {
     enable_rewards_at: EnableRewardsAt<BlockNumber>,
     allow_authoring_by: AllowAuthoringBy,
     pot_slot_iterations: NonZeroU32,
-    enable_domains: bool,
     enable_dynamic_cost_of_storage: bool,
     enable_balance_transfers: bool,
     confirmation_depth_k: u32,
     rewards_config: RewardsConfig,
-}
-
-struct GenesisDomainParams {
-    permissioned_action_allowed_by: PermissionedActionAllowedBy<AccountId>,
-    genesis_domains: Vec<GenesisDomain>,
 }
 
 pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
@@ -101,7 +91,6 @@ pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
                 // TODO: Adjust once we bench PoT on faster hardware
                 // About 1s on 6.2 GHz Raptor Lake CPU (14900KS)
                 pot_slot_iterations: NonZeroU32::new(206_557_520).expect("Not zero; qed"),
-                enable_domains: false,
                 enable_dynamic_cost_of_storage: false,
                 enable_balance_transfers: false,
                 // TODO: Proper value here
@@ -204,12 +193,6 @@ pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
                     .expect("Number of elements is below configured MaxRewardPoints; qed"),
                 },
             },
-            GenesisDomainParams {
-                permissioned_action_allowed_by: PermissionedActionAllowedBy::Accounts(vec![
-                    sudo_account.clone(),
-                ]),
-                genesis_domains: vec![],
-            },
             CouncilDemocracyConfigParams::<BlockNumber>::production_params(),
             council_config,
         )?)
@@ -252,7 +235,6 @@ pub fn devnet_config_compiled() -> Result<GenericChainSpec, String> {
                 enable_rewards_at: EnableRewardsAt::Manually,
                 allow_authoring_by: AllowAuthoringBy::FirstFarmer,
                 pot_slot_iterations: NonZeroU32::new(150_000_000).expect("Not zero; qed"),
-                enable_domains: true,
                 enable_dynamic_cost_of_storage: false,
                 enable_balance_transfers: true,
                 // TODO: Proper value here
@@ -263,15 +245,6 @@ pub fn devnet_config_compiled() -> Result<GenericChainSpec, String> {
                     proposer_subsidy_points: Default::default(),
                     voter_subsidy_points: Default::default(),
                 },
-            },
-            GenesisDomainParams {
-                permissioned_action_allowed_by: PermissionedActionAllowedBy::Accounts(vec![
-                    sudo_account.clone(),
-                ]),
-                genesis_domains: vec![auto_id_chain_spec::get_genesis_domain(
-                    SpecId::DevNet,
-                    sudo_account.clone(),
-                )?],
             },
             CouncilDemocracyConfigParams::<BlockNumber>::fast_params(),
             CouncilConfig::default(),
@@ -312,7 +285,6 @@ pub fn dev_config() -> Result<GenericChainSpec, String> {
                     enable_rewards_at: EnableRewardsAt::Manually,
                     allow_authoring_by: AllowAuthoringBy::Anyone,
                     pot_slot_iterations: NonZeroU32::new(100_000_000).expect("Not zero; qed"),
-                    enable_domains: true,
                     enable_dynamic_cost_of_storage: false,
                     enable_balance_transfers: true,
                     confirmation_depth_k: 5,
@@ -321,20 +293,6 @@ pub fn dev_config() -> Result<GenericChainSpec, String> {
                         proposer_subsidy_points: Default::default(),
                         voter_subsidy_points: Default::default(),
                     },
-                },
-                GenesisDomainParams {
-                    permissioned_action_allowed_by: PermissionedActionAllowedBy::Accounts(vec![
-                        sudo_account.clone(),
-                    ]),
-                    genesis_domains: vec![evm_chain_spec::get_genesis_domain(
-                        SpecId::Dev,
-                        sudo_account,
-                        // TODO: in production configs, set this to Public, unless we specifically want a private EVM
-                        EvmType::Private {
-                            initial_contract_creation_allow_list:
-                                PermissionedActionAllowedBy::Anyone,
-                        },
-                    )?],
                 },
                 CouncilDemocracyConfigParams::<BlockNumber>::fast_params(),
                 CouncilConfig::default(),
@@ -349,7 +307,6 @@ fn subspace_genesis_config(
     sudo_account: AccountId,
     balances: Vec<(AccountId, Balance)>,
     genesis_params: GenesisParams,
-    genesis_domain_params: GenesisDomainParams,
     council_democracy_config_params: CouncilDemocracyConfigParams<BlockNumber>,
     council_config: CouncilConfig,
 ) -> Result<RuntimeGenesisConfig, String> {
@@ -357,40 +314,11 @@ fn subspace_genesis_config(
         enable_rewards_at,
         allow_authoring_by,
         pot_slot_iterations,
-        enable_domains,
         enable_dynamic_cost_of_storage,
         enable_balance_transfers,
         confirmation_depth_k,
         rewards_config,
     } = genesis_params;
-
-    let genesis_domains = if enable_domains {
-        genesis_domain_params
-            .genesis_domains
-            .into_iter()
-            .map(|genesis_domain| {
-                sp_domains::GenesisDomain {
-                    runtime_name: genesis_domain.runtime_name,
-                    runtime_type: genesis_domain.runtime_type,
-                    runtime_version: genesis_domain.runtime_version,
-                    raw_genesis_storage: genesis_domain.raw_genesis,
-
-                    // Domain config, mainly for placeholder the concrete value TBD
-                    owner_account_id: sudo_account.clone(),
-                    domain_name: genesis_domain.domain_name,
-                    bundle_slot_probability: (1, 1),
-                    operator_allow_list: genesis_domain.operator_allow_list.clone(),
-                    signing_key: genesis_domain.operator_signing_key.clone(),
-                    nomination_tax: Percent::from_percent(5),
-                    minimum_nominator_stake: 100 * SSC,
-                    initial_balances: genesis_domain.initial_balances,
-                    domain_runtime_config: genesis_domain.domain_runtime_config,
-                }
-            })
-            .collect()
-    } else {
-        vec![]
-    };
 
     Ok(RuntimeGenesisConfig {
         system: SystemConfig::default(),
@@ -410,16 +338,10 @@ fn subspace_genesis_config(
         council: council_config,
         democracy: DemocracyConfig::default(),
         runtime_configs: RuntimeConfigsConfig {
-            enable_domains,
             enable_dynamic_cost_of_storage,
             enable_balance_transfers,
             confirmation_depth_k,
             council_democracy_config_params,
-        },
-        domains: DomainsConfig {
-            permissioned_action_allowed_by: enable_domains
-                .then_some(genesis_domain_params.permissioned_action_allowed_by),
-            genesis_domains,
         },
     })
 }

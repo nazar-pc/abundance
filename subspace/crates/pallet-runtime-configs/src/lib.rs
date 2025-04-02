@@ -19,11 +19,6 @@ mod pallet {
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    /// Whether to enable calls in pallet-domains.
-    #[pallet::storage]
-    #[pallet::getter(fn enable_domains)]
-    pub type EnableDomains<T> = StorageValue<_, bool, ValueQuery>;
-
     /// Whether to enable dynamic cost of storage.
     #[pallet::storage]
     #[pallet::getter(fn enable_dynamic_cost_of_storage)]
@@ -49,8 +44,6 @@ mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        /// Whether to enable domains
-        pub enable_domains: bool,
         /// Whether to enable dynamic cost of storage (if `false` cost per byte is equal to 1)
         pub enable_dynamic_cost_of_storage: bool,
         /// Whether to enable balance transfers
@@ -65,7 +58,6 @@ mod pallet {
         #[inline]
         fn default() -> Self {
             Self {
-                enable_domains: false,
                 enable_dynamic_cost_of_storage: false,
                 enable_balance_transfers: false,
                 confirmation_depth_k: BlockNumberFor::<T>::from(100u32),
@@ -79,7 +71,6 @@ mod pallet {
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             let Self {
-                enable_domains,
                 enable_dynamic_cost_of_storage,
                 enable_balance_transfers,
                 confirmation_depth_k,
@@ -91,7 +82,6 @@ mod pallet {
                 "ConfirmationDepthK can not be zero"
             );
 
-            <EnableDomains<T>>::put(enable_domains);
             <EnableDynamicCostOfStorage<T>>::put(enable_dynamic_cost_of_storage);
             <EnableBalanceTransfers<T>>::put(enable_balance_transfers);
             <ConfirmationDepthK<T>>::put(confirmation_depth_k);
@@ -101,17 +91,6 @@ mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Change enable domains state.
-        #[pallet::call_index(0)]
-        #[pallet::weight(< T as Config >::WeightInfo::set_enable_domains())]
-        pub fn set_enable_domains(origin: OriginFor<T>, enable_domains: bool) -> DispatchResult {
-            ensure_root(origin)?;
-
-            EnableDomains::<T>::put(enable_domains);
-
-            Ok(())
-        }
-
         /// Enable or disable dynamic cost of storage.
         #[pallet::call_index(1)]
         #[pallet::weight(< T as Config >::WeightInfo::set_enable_dynamic_cost_of_storage())]

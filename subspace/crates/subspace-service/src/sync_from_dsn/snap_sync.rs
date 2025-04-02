@@ -33,10 +33,9 @@ use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_data_retrieval::segment_downloading::download_segment_pieces;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_networking::Node;
-use tokio::sync::broadcast::Receiver;
 use tokio::task;
 use tokio::time::sleep;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, trace};
 
 /// Error type for snap sync.
 #[derive(thiserror::Error, Debug)]
@@ -79,7 +78,6 @@ pub(crate) async fn snap_sync<Block, AS, Client, PG, OS>(
     sync_service: Arc<SyncingService<Block>>,
     network_service_handle: NetworkServiceHandle,
     erasure_coding: ErasureCoding,
-    target_block_receiver: Option<Receiver<BlockNumber>>,
     offchain_storage: Option<OS>,
     network_service: Arc<dyn NetworkService>,
 ) -> Result<(), Error>
@@ -106,22 +104,6 @@ where
     if info.best_hash == info.genesis_hash {
         pause_sync.store(true, Ordering::Release);
 
-        let target_block = if let Some(mut target_block_receiver) = target_block_receiver {
-            match target_block_receiver.recv().await {
-                Ok(target_block) => Some(target_block),
-                Err(err) => {
-                    error!(?err, "Snap sync failed: can't obtain target block.");
-                    return Err(Error::Other(
-                        "Snap sync failed: can't obtain target block.".into(),
-                    ));
-                }
-            }
-        } else {
-            None
-        };
-
-        debug!("Snap sync target block: {:?}", target_block);
-
         sync(
             &segment_headers_store,
             &node,
@@ -131,7 +113,6 @@ where
             import_queue_service.as_mut(),
             sync_service.clone(),
             &network_service_handle,
-            target_block,
             &erasure_coding,
             offchain_storage,
             network_service,
@@ -158,7 +139,6 @@ pub(crate) async fn get_blocks_from_target_segment<AS, PG>(
     segment_headers_store: &SegmentHeadersStore<AS>,
     node: &Node,
     piece_getter: &PG,
-    target_block: Option<BlockNumber>,
     erasure_coding: &ErasureCoding,
 ) -> Result<Option<(SegmentIndex, VecDeque<(BlockNumber, Vec<u8>)>)>, Error>
 where
@@ -169,62 +149,9 @@ where
         .await
         .map_err(|error| format!("Failed to sync segment headers: {}", error))?;
 
-    let target_segment_index = {
-        let last_segment_index = segment_headers_store
-            .max_segment_index()
-            .expect("Successfully synced above; qed");
-
-        if let Some(target_block) = target_block {
-            let mut segment_header = segment_headers_store
-                .get_segment_header(last_segment_index)
-                .ok_or(format!(
-                    "Can't get segment header from the store: {last_segment_index}"
-                ))?;
-
-            let mut target_block_exceeded_last_archived_block = false;
-            if target_block > segment_header.last_archived_block().number {
-                warn!(
-                   %last_segment_index,
-                   %target_block,
-
-                    "Specified target block is greater than the last archived block. \
-                     Choosing the last archived block (#{}) as target block...
-                    ",
-                    segment_header.last_archived_block().number
-                );
-                target_block_exceeded_last_archived_block = true;
-            }
-
-            if !target_block_exceeded_last_archived_block {
-                let mut current_segment_index = last_segment_index;
-
-                loop {
-                    if current_segment_index <= SegmentIndex::ONE {
-                        break;
-                    }
-
-                    if target_block > segment_header.last_archived_block().number {
-                        current_segment_index += SegmentIndex::ONE;
-                        break;
-                    }
-
-                    current_segment_index -= SegmentIndex::ONE;
-
-                    segment_header = segment_headers_store
-                        .get_segment_header(current_segment_index)
-                        .ok_or(format!(
-                            "Can't get segment header from the store: {last_segment_index}"
-                        ))?;
-                }
-
-                current_segment_index
-            } else {
-                last_segment_index
-            }
-        } else {
-            last_segment_index
-        }
-    };
+    let target_segment_index = segment_headers_store
+        .max_segment_index()
+        .expect("Successfully synced above; qed");
 
     // We don't have the genesis state when we choose to snap sync.
     if target_segment_index <= SegmentIndex::ONE {
@@ -322,8 +249,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-/// Synchronize the blockchain to the target_block (approximate value based on the containing
-/// segment) or to the last archived block. Returns false when sync is skipped.
+/// Synchronize the blockchain to the last archived block. Returns false when sync is skipped.
 async fn sync<PG, AS, Block, Client, IQS, OS, NR>(
     segment_headers_store: &SegmentHeadersStore<AS>,
     node: &Node,
@@ -333,7 +259,6 @@ async fn sync<PG, AS, Block, Client, IQS, OS, NR>(
     import_queue_service: &mut IQS,
     sync_service: Arc<SyncingService<Block>>,
     network_service_handle: &NetworkServiceHandle,
-    target_block: Option<BlockNumber>,
     erasure_coding: &ErasureCoding,
     offchain_storage: Option<OS>,
     network_request: NR,
@@ -358,14 +283,9 @@ where
 {
     debug!("Starting snap sync...");
 
-    let Some((target_segment_index, mut blocks)) = get_blocks_from_target_segment(
-        segment_headers_store,
-        node,
-        piece_getter,
-        target_block,
-        erasure_coding,
-    )
-    .await?
+    let Some((target_segment_index, mut blocks)) =
+        get_blocks_from_target_segment(segment_headers_store, node, piece_getter, erasure_coding)
+            .await?
     else {
         // Snap-sync skipped
         return Ok(());

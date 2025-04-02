@@ -12,15 +12,16 @@ Subspace node/client using Substrate framework and farmer app implementations.
 
 The structure of this repository is the following:
 
-- `crates` contains Subspace-specific Rust crates used to build node and farmer, most are following Substrate naming conventions
-  - `subspace-node` is an implementation of the node for Subspace protocol
-  - `subspace-farmer` is a CLI farmer app
-  - `subspace-gateway` is a Subspace Distributed Storage Network gateway
-- `domains` contains client and runtime code for decoupled execution and domains
+- `crates` contains Subspace-specific Rust crates used to build node and farmer, most are following Substrate naming
+  conventions
+    - `subspace-node` is an implementation of the node for Subspace protocol
+    - `subspace-farmer` is a CLI farmer app
+    - `subspace-gateway` is a Subspace Distributed Storage Network gateway
 - `shared` contains low-level primitives used by the node, farmer, and other applications
 
 ## How to run
 
 Please refer to [farming.md](/docs/farming.md) for how to run the farmer.
 
-If you are looking to farm offline, or build from source for development purposes please refer to [development.md](/docs/development.md).
+If you are looking to farm offline, or build from source for development purposes please refer
+to [development.md](/docs/development.md).

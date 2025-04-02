@@ -19,16 +19,8 @@ include = [
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-auto-id-domain-runtime.workspace = true
 bip39 = { workspace = true, features = ["rand"] }
 clap = { workspace = true, features = ["derive"] }
-cross-domain-message-gossip.workspace = true
-domain-client-message-relayer.workspace = true
-domain-client-operator.workspace = true
-domain-eth-service.workspace = true
-domain-service.workspace = true
-domain-runtime-primitives.workspace = true
-evm-domain-runtime.workspace = true
 fdlimit.workspace = true
 fp-evm.workspace = true
 frame-benchmarking = { workspace = true, optional = true }
@@ -45,7 +37,6 @@ sc-cli.workspace = true
 sc-client-api.workspace = true
 sc-consensus-slots.workspace = true
 sc-consensus-subspace.workspace = true
-sc-domains.workspace = true
 sc-keystore.workspace = true
 sc-network.workspace = true
 sc-proof-of-time.workspace = true
@@ -62,10 +53,7 @@ sp-api.workspace = true
 sp-blockchain.workspace = true
 sp-consensus-subspace.workspace = true
 sp-core.workspace = true
-sp-domains.workspace = true
-sp-domain-digests.workspace = true
 sp-keystore.workspace = true
-sp-messenger.workspace = true
 sp-runtime.workspace = true
 subspace-core-primitives.workspace = true
 subspace-metrics.workspace = true
@@ -88,9 +76,6 @@ substrate-build-script-utils.workspace = true
 [features]
 default = []
 runtime-benchmarks = [
-    "auto-id-domain-runtime/runtime-benchmarks",
-    "domain-service/runtime-benchmarks",
-    "evm-domain-runtime/runtime-benchmarks",
     "frame-benchmarking-cli/runtime-benchmarks",
     "frame-benchmarking/runtime-benchmarks",
     "subspace-runtime/runtime-benchmarks",

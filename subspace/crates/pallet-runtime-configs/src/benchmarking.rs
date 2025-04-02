@@ -8,14 +8,6 @@ mod benchmarks {
     use frame_system::RawOrigin;
 
     #[benchmark]
-    fn set_enable_domains() {
-        #[extrinsic_call]
-        _(RawOrigin::Root, true);
-
-        assert!(Pallet::<T>::enable_domains());
-    }
-
-    #[benchmark]
     fn set_enable_dynamic_cost_of_storage() {
         #[extrinsic_call]
         _(RawOrigin::Root, true);

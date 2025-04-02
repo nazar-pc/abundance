@@ -13,7 +13,6 @@
     reason = "https://github.com/rust-lang/rust-analyzer/issues/16514"
 )]
 
-mod domains;
 mod fees;
 mod object_mapping;
 mod signed_extensions;
@@ -30,17 +29,12 @@ pub use crate::signed_extensions::DisablePallets;
 use alloc::borrow::Cow;
 use core::mem;
 use core::num::NonZeroU64;
-use domain_runtime_primitives::opaque::Header as DomainHeader;
-use domain_runtime_primitives::{
-    maximum_domain_block_weight, AccountIdConverter, BlockNumber as DomainNumber,
-    EthereumAccountId, Hash as DomainHash, MAX_OUTGOING_MESSAGES,
-};
 use frame_support::genesis_builder_helper::{build_state, get_preset};
 use frame_support::inherent::ProvideInherent;
 use frame_support::traits::fungible::HoldConsideration;
 use frame_support::traits::{
     ConstU16, ConstU32, ConstU64, ConstU8, Currency, EitherOfDiverse, EqualPrivilegeOnly,
-    Everything, Get, LinearStoragePrice, OnUnbalanced, Time, VariantCount,
+    Everything, Get, LinearStoragePrice, OnUnbalanced, VariantCount,
 };
 use frame_support::weights::constants::ParityDbWeight;
 use frame_support::weights::{ConstantMultiplier, Weight};
@@ -51,30 +45,13 @@ use frame_system::EnsureRoot;
 use pallet_collective::{EnsureMember, EnsureProportionAtLeast};
 pub use pallet_rewards::RewardPoint;
 pub use pallet_subspace::{AllowAuthoringBy, EnableRewardsAt};
-use pallet_transporter::EndpointHandler;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_api::impl_runtime_apis;
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_consensus_subspace::{ChainConstants, PotParameters, SignedVote, SolutionRanges, Vote};
 use sp_core::crypto::KeyTypeId;
-use sp_core::{ConstBool, OpaqueMetadata, H256};
-use sp_domains::bundle_producer_election::BundleProducerElectionParams;
-use sp_domains::{
-    ChannelId, DomainAllowlistUpdates, DomainId, DomainInstanceData, ExecutionReceiptFor,
-    OperatorId, OperatorPublicKey, OperatorRewardSource, PermissionedActionAllowedBy,
-    DOMAIN_STORAGE_FEE_MULTIPLIER, INITIAL_DOMAIN_TX_RANGE,
-};
-use sp_domains_fraud_proof::fraud_proof::FraudProof;
-use sp_domains_fraud_proof::storage_proof::{
-    FraudProofStorageKeyProvider, FraudProofStorageKeyRequest,
-};
-use sp_messenger::endpoint::{Endpoint, EndpointHandler as EndpointHandlerT, EndpointId};
-use sp_messenger::messages::{
-    BlockMessagesWithStorageKey, ChainId, CrossDomainMessage, FeeModel, MessageId, MessageKey,
-};
-use sp_messenger::{ChannelNonce, XdmId};
-use sp_messenger_host_functions::{get_storage_key, StorageKeyRequest};
+use sp_core::{ConstBool, OpaqueMetadata};
 use sp_mmr_primitives::EncodableOpaqueLeaf;
 use sp_runtime::traits::{
     AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, ConstU128, Keccak256,
@@ -83,9 +60,6 @@ use sp_runtime::traits::{
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::type_with_default::TypeWithDefault;
 use sp_runtime::{generic, AccountId32, ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill};
-use sp_std::collections::btree_map::BTreeMap;
-use sp_std::collections::btree_set::BTreeSet;
-use sp_std::marker::PhantomData;
 use sp_std::prelude::*;
 use sp_subspace_mmr::subspace_mmr_runtime_interface::consensus_block_hash;
 use sp_subspace_mmr::ConsensusChainMmrLeafProof;
@@ -99,16 +73,15 @@ use subspace_core_primitives::segments::{
 use subspace_core_primitives::solutions::{
     pieces_to_solution_range, solution_range_to_pieces, SolutionRange,
 };
-use subspace_core_primitives::{PublicKey, Randomness, SlotNumber, U256};
+use subspace_core_primitives::{PublicKey, SlotNumber};
 use subspace_runtime_primitives::utility::{
     DefaultNonceProvider, MaybeMultisigCall, MaybeNestedCall, MaybeUtilityCall,
 };
 use subspace_runtime_primitives::{
-    maximum_normal_block_length, AccountId, Balance, BlockNumber, ConsensusEventSegmentSize,
-    FindBlockRewardAddress, Hash, HoldIdentifier, Moment, Nonce, Signature, SlowAdjustingFeeUpdate,
-    TargetBlockFullness, XdmAdjustedWeightToFee, XdmFeeMultipler, BLOCK_WEIGHT_FOR_2_SEC,
-    DOMAINS_BLOCK_PRUNING_DEPTH, MAX_BLOCK_LENGTH, MIN_REPLICATION_FACTOR, NORMAL_DISPATCH_RATIO,
-    SHANNON, SLOT_PROBABILITY, SSC,
+    maximum_normal_block_length, AccountId, Balance, BlockNumber, ConsensusEventSegmentSize, Hash,
+    HoldIdentifier, Moment, Nonce, Signature, SlowAdjustingFeeUpdate, TargetBlockFullness,
+    BLOCK_WEIGHT_FOR_2_SEC, MIN_REPLICATION_FACTOR, NORMAL_DISPATCH_RATIO, SHANNON,
+    SLOT_PROBABILITY, SSC,
 };
 
 sp_runtime::impl_opaque_keys! {
@@ -162,9 +135,6 @@ const_assert!(POT_ENTROPY_INJECTION_DELAY > BLOCK_AUTHORING_DELAY + 1);
 
 /// Era duration in blocks.
 const ERA_DURATION_IN_BLOCKS: BlockNumber = 2016;
-
-/// Tx range is adjusted every DOMAIN_TX_RANGE_ADJUSTMENT_INTERVAL blocks.
-const TX_RANGE_ADJUSTMENT_INTERVAL_BLOCKS: u64 = 100;
 
 // We assume initial plot size starts with a single sector.
 const INITIAL_SOLUTION_RANGE: SolutionRange =
@@ -331,26 +301,6 @@ parameter_types! {
     PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Ord, PartialOrd, Copy, Debug,
 )]
 pub struct HoldIdentifierWrapper(HoldIdentifier);
-
-impl pallet_domains::HoldIdentifier<Runtime> for HoldIdentifierWrapper {
-    fn staking_staked() -> Self {
-        Self(HoldIdentifier::DomainStaking)
-    }
-
-    fn domain_instantiation_id() -> Self {
-        Self(HoldIdentifier::DomainInstantiation)
-    }
-
-    fn storage_fund_withdrawal() -> Self {
-        Self(HoldIdentifier::DomainStorageFund)
-    }
-}
-
-impl pallet_messenger::HoldIdentifier<Runtime> for HoldIdentifierWrapper {
-    fn messenger_channel() -> Self {
-        Self(HoldIdentifier::MessengerChannel)
-    }
-}
 
 impl VariantCount for HoldIdentifierWrapper {
     const VARIANT_COUNT: u32 = mem::variant_count::<HoldIdentifier>() as u32;
@@ -565,6 +515,10 @@ impl pallet_scheduler::Config for Runtime {
 
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
+parameter_types! {
+    pub TreasuryAccount: AccountId = PalletId(*b"treasury").into_account_truncating();
+}
+
 pub struct DemocracySlash;
 impl OnUnbalanced<NegativeImbalance> for DemocracySlash {
     fn on_nonzero_unbalanced(slashed: NegativeImbalance) {
@@ -638,28 +592,6 @@ impl pallet_democracy::Config for Runtime {
     type WeightInfo = pallet_democracy::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-    pub const SelfChainId: ChainId = ChainId::Consensus;
-}
-
-pub struct OnXDMRewards;
-
-impl sp_messenger::OnXDMRewards<Balance> for OnXDMRewards {
-    fn on_xdm_rewards(reward: Balance) {
-        if let Some(block_author) = Subspace::find_block_reward_address() {
-            let _ = Balances::deposit_creating(&block_author, reward);
-        }
-    }
-
-    fn on_chain_protocol_fees(chain_id: ChainId, fees: Balance) {
-        // on consensus chain, reward the domain operators
-        // balance is already on this consensus runtime
-        if let ChainId::Domain(domain_id) = chain_id {
-            Domains::reward_domain_operators(domain_id, OperatorRewardSource::XDMProtocolFees, fees)
-        }
-    }
-}
-
 pub struct MmrProofVerifier;
 
 impl sp_subspace_mmr::MmrProofVerifier<mmr::Hash, NumberFor<Block>, Hash> for MmrProofVerifier {
@@ -695,80 +627,6 @@ impl sp_subspace_mmr::MmrProofVerifier<mmr::Hash, NumberFor<Block>, Hash> for Mm
     }
 }
 
-pub struct StorageKeys;
-
-impl sp_messenger::StorageKeys for StorageKeys {
-    fn confirmed_domain_block_storage_key(domain_id: DomainId) -> Option<Vec<u8>> {
-        Some(Domains::confirmed_domain_block_storage_key(domain_id))
-    }
-
-    fn outbox_storage_key(chain_id: ChainId, message_key: MessageKey) -> Option<Vec<u8>> {
-        get_storage_key(StorageKeyRequest::OutboxStorageKey {
-            chain_id,
-            message_key,
-        })
-    }
-
-    fn inbox_responses_storage_key(chain_id: ChainId, message_key: MessageKey) -> Option<Vec<u8>> {
-        get_storage_key(StorageKeyRequest::InboxResponseStorageKey {
-            chain_id,
-            message_key,
-        })
-    }
-}
-
-parameter_types! {
-    // TODO: update value
-    pub const ChannelReserveFee: Balance = 100 * SSC;
-    pub const ChannelInitReservePortion: Perbill = Perbill::from_percent(20);
-    // TODO update the fee model
-    pub const ChannelFeeModel: FeeModel<Balance> = FeeModel{relay_fee: SSC};
-    pub const MaxOutgoingMessages: u32 = MAX_OUTGOING_MESSAGES;
-    pub const MessageVersion: pallet_messenger::MessageVersion = pallet_messenger::MessageVersion::V0;
-}
-
-// ensure the max outgoing messages is not 0.
-const_assert!(MaxOutgoingMessages::get() >= 1);
-
-pub struct DomainRegistration;
-impl sp_messenger::DomainRegistration for DomainRegistration {
-    fn is_domain_registered(domain_id: DomainId) -> bool {
-        Domains::is_domain_registered(domain_id)
-    }
-}
-
-impl pallet_messenger::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type SelfChainId = SelfChainId;
-
-    fn get_endpoint_handler(endpoint: &Endpoint) -> Option<Box<dyn EndpointHandlerT<MessageId>>> {
-        if endpoint == &Endpoint::Id(TransporterEndpointId::get()) {
-            Some(Box::new(EndpointHandler(PhantomData::<Runtime>)))
-        } else {
-            None
-        }
-    }
-
-    type Currency = Balances;
-    type WeightInfo = pallet_messenger::weights::SubstrateWeight<Runtime>;
-    type WeightToFee = ConstantMultiplier<Balance, TransactionWeightFee>;
-    type AdjustedWeightToFee = XdmAdjustedWeightToFee<Runtime>;
-    type FeeMultiplier = XdmFeeMultipler;
-    type OnXDMRewards = OnXDMRewards;
-    type MmrHash = mmr::Hash;
-    type MmrProofVerifier = MmrProofVerifier;
-    type StorageKeys = StorageKeys;
-    type DomainOwner = Domains;
-    type HoldIdentifier = HoldIdentifierWrapper;
-    type ChannelReserveFee = ChannelReserveFee;
-    type ChannelInitReservePortion = ChannelInitReservePortion;
-    type DomainRegistration = DomainRegistration;
-    type ChannelFeeModel = ChannelFeeModel;
-    type MaxOutgoingMessages = MaxOutgoingMessages;
-    type MessengerOrigin = pallet_messenger::EnsureMessengerOrigin;
-    type MessageVersion = MessageVersion;
-}
-
 impl<C> frame_system::offchain::CreateTransactionBase<C> for Runtime
 where
     RuntimeCall: From<C>,
@@ -793,147 +651,6 @@ where
     fn create_unsigned(call: Self::RuntimeCall) -> Self::Extrinsic {
         create_unsigned_general_extrinsic(call)
     }
-}
-
-parameter_types! {
-    pub const TransporterEndpointId: EndpointId = 1;
-}
-
-impl pallet_transporter::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type SelfChainId = SelfChainId;
-    type SelfEndpointId = TransporterEndpointId;
-    type Currency = Balances;
-    type Sender = Messenger;
-    type AccountIdConverter = AccountIdConverter;
-    type WeightInfo = pallet_transporter::weights::SubstrateWeight<Runtime>;
-}
-
-parameter_types! {
-    pub const MaximumReceiptDrift: BlockNumber = 128;
-    pub const InitialDomainTxRange: u64 = INITIAL_DOMAIN_TX_RANGE;
-    pub const DomainTxRangeAdjustmentInterval: u64 = TX_RANGE_ADJUSTMENT_INTERVAL_BLOCKS;
-    /// Minimum operator stake to become an operator.
-    // TODO: this value should be properly updated before mainnet
-    pub const MinOperatorStake: Balance = 100 * SSC;
-    /// Minimum nominator stake to nominate and operator.
-    // TODO: this value should be properly updated before mainnet
-    pub const MinNominatorStake: Balance = SSC;
-    /// Use the consensus chain's `Normal` extrinsics block size limit as the domain block size limit
-    pub MaxDomainBlockSize: u32 = NORMAL_DISPATCH_RATIO * MAX_BLOCK_LENGTH;
-    /// Use the consensus chain's `Normal` extrinsics block weight limit as the domain block weight limit
-    pub MaxDomainBlockWeight: Weight = maximum_domain_block_weight();
-    pub const DomainInstantiationDeposit: Balance = 100 * SSC;
-    pub const MaxDomainNameLength: u32 = 32;
-    pub const BlockTreePruningDepth: u32 = DOMAINS_BLOCK_PRUNING_DEPTH;
-    pub const StakeWithdrawalLockingPeriod: DomainNumber = 14_400;
-    // TODO: revisit these. For now epoch every 10 mins for a 6 second block and only 100 number of staking
-    // operations allowed within each epoch.
-    pub const StakeEpochDuration: DomainNumber = 100;
-    pub TreasuryAccount: AccountId = PalletId(*b"treasury").into_account_truncating();
-    pub const MaxPendingStakingOperation: u32 = 512;
-    pub const DomainsPalletId: PalletId = PalletId(*b"domains_");
-    pub const MaxInitialDomainAccounts: u32 = 10;
-    pub const MinInitialDomainAccountBalance: Balance = SSC;
-    pub const BundleLongevity: u32 = 5;
-    pub const WithdrawalLimit: u32 = 32;
-}
-
-// `BlockSlotCount` must at least keep the slot for the current and the parent block, it also need to
-// keep enough block slot for bundle validation
-const_assert!(BlockSlotCount::get() >= 2 && BlockSlotCount::get() > BundleLongevity::get());
-
-// `BlockHashCount` must greater than `BlockSlotCount` because we need to use the block number found
-// with `BlockSlotCount` to get the block hash.
-const_assert!(BlockHashCount::get() > BlockSlotCount::get());
-
-// Minimum operator stake must be >= minimum nominator stake since operator is also a nominator.
-const_assert!(MinOperatorStake::get() >= MinNominatorStake::get());
-
-// Stake Withdrawal locking period must be >= Block tree pruning depth
-const_assert!(StakeWithdrawalLockingPeriod::get() >= BlockTreePruningDepth::get());
-
-pub struct BlockSlot;
-
-impl pallet_domains::BlockSlot<Runtime> for BlockSlot {
-    fn future_slot(block_number: BlockNumber) -> Option<sp_consensus_slots::Slot> {
-        let block_slots = Subspace::block_slots();
-        block_slots
-            .get(&block_number)
-            .map(|slot| *slot + Slot::from(BlockAuthoringDelay::get()))
-    }
-
-    fn slot_produced_after(to_check: sp_consensus_slots::Slot) -> Option<BlockNumber> {
-        let block_slots = Subspace::block_slots();
-        for (block_number, slot) in block_slots.into_iter().rev() {
-            if to_check > slot {
-                return Some(block_number);
-            }
-        }
-        None
-    }
-}
-
-pub struct OnChainRewards;
-
-impl sp_domains::OnChainRewards<Balance> for OnChainRewards {
-    fn on_chain_rewards(chain_id: ChainId, reward: Balance) {
-        match chain_id {
-            ChainId::Consensus => {
-                if let Some(block_author) = Subspace::find_block_reward_address() {
-                    let _ = Balances::deposit_creating(&block_author, reward);
-                }
-            }
-            ChainId::Domain(domain_id) => Domains::reward_domain_operators(
-                domain_id,
-                OperatorRewardSource::XDMProtocolFees,
-                reward,
-            ),
-        }
-    }
-}
-
-impl pallet_domains::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type DomainOrigin = pallet_domains::EnsureDomainOrigin;
-    type DomainHash = DomainHash;
-    type Balance = Balance;
-    type DomainHeader = sp_runtime::generic::Header<DomainNumber, BlakeTwo256>;
-    type ConfirmationDepthK = ConfirmationDepthK;
-    type Currency = Balances;
-    type Share = Balance;
-    type HoldIdentifier = HoldIdentifierWrapper;
-    type BlockTreePruningDepth = BlockTreePruningDepth;
-    type ConsensusSlotProbability = SlotProbability;
-    type MaxDomainBlockSize = MaxDomainBlockSize;
-    type MaxDomainBlockWeight = MaxDomainBlockWeight;
-    type MaxDomainNameLength = MaxDomainNameLength;
-    type DomainInstantiationDeposit = DomainInstantiationDeposit;
-    type WeightInfo = pallet_domains::weights::SubstrateWeight<Runtime>;
-    type InitialDomainTxRange = InitialDomainTxRange;
-    type DomainTxRangeAdjustmentInterval = DomainTxRangeAdjustmentInterval;
-    type MinOperatorStake = MinOperatorStake;
-    type MinNominatorStake = MinNominatorStake;
-    type StakeWithdrawalLockingPeriod = StakeWithdrawalLockingPeriod;
-    type StakeEpochDuration = StakeEpochDuration;
-    type TreasuryAccount = TreasuryAccount;
-    type MaxPendingStakingOperation = MaxPendingStakingOperation;
-    type Randomness = Subspace;
-    type PalletId = DomainsPalletId;
-    type StorageFee = TransactionFees;
-    type BlockTimestamp = pallet_timestamp::Pallet<Runtime>;
-    type BlockSlot = BlockSlot;
-    type DomainsTransfersTracker = Transporter;
-    type MaxInitialDomainAccounts = MaxInitialDomainAccounts;
-    type MinInitialDomainAccountBalance = MinInitialDomainAccountBalance;
-    type BundleLongevity = BundleLongevity;
-    type DomainBundleSubmitted = Messenger;
-    type OnDomainInstantiated = Messenger;
-    type MmrHash = mmr::Hash;
-    type MmrProofVerifier = MmrProofVerifier;
-    type FraudProofStorageKeyProvider = StorageKeyProvider;
-    type OnChainRewards = OnChainRewards;
-    type WithdrawalLimit = WithdrawalLimit;
 }
 
 parameter_types! {
@@ -1044,16 +761,10 @@ construct_runtime!(
         TransactionPayment: pallet_transaction_payment = 7,
         Utility: pallet_utility = 8,
 
-        Domains: pallet_domains = 12,
         RuntimeConfigs: pallet_runtime_configs = 14,
 
         Mmr: pallet_mmr = 30,
         SubspaceMmr: pallet_subspace_mmr = 31,
-
-        // messenger stuff
-        // Note: Indexes should match with indexes on other chains and domains
-        Messenger: pallet_messenger exclude_parts { Inherent } = 60,
-        Transporter: pallet_transporter = 61,
 
         // council and democracy
         Scheduler: pallet_scheduler = 81,
@@ -1088,8 +799,6 @@ pub type SignedExtra = (
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     DisablePallets,
     pallet_subspace::extensions::SubspaceExtension<Runtime>,
-    pallet_domains::extensions::DomainsExtension<Runtime>,
-    pallet_messenger::extensions::MessengerExtension<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -1102,12 +811,6 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        // TODO: remove once migration has been deployed to Taurus and Mainnet
-        pallet_messenger::migrations::VersionCheckedMigrateDomainsV0ToV1<Runtime>,
-        // TODO: remove once migration has been deployed to Taurus
-        pallet_domains::migration_v2_to_v3::VersionCheckedMigrateDomainsV2ToV3<Runtime>,
-    ),
 >;
 
 impl pallet_subspace::extensions::MaybeSubspaceCall<Runtime> for RuntimeCall {
@@ -1119,56 +822,10 @@ impl pallet_subspace::extensions::MaybeSubspaceCall<Runtime> for RuntimeCall {
     }
 }
 
-impl pallet_domains::extensions::MaybeDomainsCall<Runtime> for RuntimeCall {
-    fn maybe_domains_call(&self) -> Option<&pallet_domains::Call<Runtime>> {
-        match self {
-            RuntimeCall::Domains(call) => Some(call),
-            _ => None,
-        }
-    }
-}
-
-impl pallet_messenger::extensions::MaybeMessengerCall<Runtime> for RuntimeCall {
-    fn maybe_messenger_call(&self) -> Option<&pallet_messenger::Call<Runtime>> {
-        match self {
-            RuntimeCall::Messenger(call) => Some(call),
-            _ => None,
-        }
-    }
-}
-
 fn extract_segment_headers(ext: &UncheckedExtrinsic) -> Option<Vec<SegmentHeader>> {
     match &ext.function {
         RuntimeCall::Subspace(pallet_subspace::Call::store_segment_headers { segment_headers }) => {
             Some(segment_headers.clone())
-        }
-        _ => None,
-    }
-}
-
-fn is_xdm_mmr_proof_valid(ext: &<Block as BlockT>::Extrinsic) -> Option<bool> {
-    match &ext.function {
-        RuntimeCall::Messenger(pallet_messenger::Call::relay_message { msg })
-        | RuntimeCall::Messenger(pallet_messenger::Call::relay_message_response { msg }) => {
-            let ConsensusChainMmrLeafProof {
-                consensus_block_number,
-                opaque_mmr_leaf,
-                proof,
-                ..
-            } = msg.proof.consensus_mmr_proof();
-
-            let mmr_root = SubspaceMmr::mmr_root_hash(consensus_block_number)?;
-
-            Some(
-                pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(
-                    mmr_root,
-                    vec![mmr::DataOrHash::Data(
-                        EncodableOpaqueLeaf(opaque_mmr_leaf.0.clone()).into_opaque_leaf(),
-                    )],
-                    proof,
-                )
-                .is_ok(),
-            )
         }
         _ => None,
     }
@@ -1190,8 +847,6 @@ fn create_unsigned_general_extrinsic(call: RuntimeCall) -> UncheckedExtrinsic {
         pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0u128),
         DisablePallets,
         pallet_subspace::extensions::SubspaceExtension::<Runtime>::new(),
-        pallet_domains::extensions::DomainsExtension::<Runtime>::new(),
-        pallet_messenger::extensions::MessengerExtension::<Runtime>::new(),
     );
 
     UncheckedExtrinsic::new_transaction(call, extra)
@@ -1213,54 +868,17 @@ impl From<RewardAddress> for AccountId32 {
     }
 }
 
-pub struct StorageKeyProvider;
-impl FraudProofStorageKeyProvider<NumberFor<Block>> for StorageKeyProvider {
-    fn storage_key(req: FraudProofStorageKeyRequest<NumberFor<Block>>) -> Vec<u8> {
-        match req {
-            FraudProofStorageKeyRequest::InvalidInherentExtrinsicData => {
-                pallet_domains::BlockInherentExtrinsicData::<Runtime>::hashed_key().to_vec()
-            }
-            FraudProofStorageKeyRequest::SuccessfulBundles(domain_id) => {
-                pallet_domains::SuccessfulBundles::<Runtime>::hashed_key_for(domain_id)
-            }
-            FraudProofStorageKeyRequest::DomainAllowlistUpdates(domain_id) => {
-                Messenger::domain_allow_list_update_storage_key(domain_id)
-            }
-            FraudProofStorageKeyRequest::DomainRuntimeUpgrades => {
-                pallet_domains::DomainRuntimeUpgrades::<Runtime>::hashed_key().to_vec()
-            }
-            FraudProofStorageKeyRequest::RuntimeRegistry(runtime_id) => {
-                pallet_domains::RuntimeRegistry::<Runtime>::hashed_key_for(runtime_id)
-            }
-            FraudProofStorageKeyRequest::DomainSudoCall(domain_id) => {
-                pallet_domains::DomainSudoCalls::<Runtime>::hashed_key_for(domain_id)
-            }
-            FraudProofStorageKeyRequest::EvmDomainContractCreationAllowedByCall(domain_id) => {
-                pallet_domains::EvmDomainContractCreationAllowedByCalls::<Runtime>::hashed_key_for(
-                    domain_id,
-                )
-            }
-            FraudProofStorageKeyRequest::MmrRoot(block_number) => {
-                pallet_subspace_mmr::MmrRootHashes::<Runtime>::hashed_key_for(block_number)
-            }
-        }
-    }
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
     frame_benchmarking::define_benchmarks!(
         [frame_benchmarking, BaselineBench::<Runtime>]
         [frame_system, SystemBench::<Runtime>]
         [pallet_balances, Balances]
-        [pallet_domains, Domains]
         [pallet_mmr, Mmr]
         [pallet_rewards, Rewards]
         [pallet_runtime_configs, RuntimeConfigs]
         [pallet_subspace, Subspace]
         [pallet_timestamp, Timestamp]
-        [pallet_messenger, Messenger]
-        [pallet_transporter, Transporter]
         [pallet_subspace_extension, SubspaceExtensionBench::<Runtime>]
     );
 }
@@ -1424,148 +1042,6 @@ impl_runtime_apis! {
         }
     }
 
-    impl sp_domains::DomainsApi<Block, DomainHeader> for Runtime {
-        fn submit_bundle_unsigned(
-            opaque_bundle: sp_domains::OpaqueBundle<NumberFor<Block>, <Block as BlockT>::Hash, DomainHeader, Balance>,
-        ) {
-            Domains::submit_bundle_unsigned(opaque_bundle)
-        }
-
-        fn submit_receipt_unsigned(
-            singleton_receipt: sp_domains::SealedSingletonReceipt<NumberFor<Block>, <Block as BlockT>::Hash, DomainHeader, Balance>,
-        ) {
-            Domains::submit_receipt_unsigned(singleton_receipt)
-        }
-
-        fn extract_successful_bundles(
-            domain_id: DomainId,
-            extrinsics: Vec<<Block as BlockT>::Extrinsic>,
-        ) -> sp_domains::OpaqueBundles<Block, DomainHeader, Balance> {
-            crate::domains::extract_successful_bundles(domain_id, extrinsics)
-        }
-
-        fn extrinsics_shuffling_seed() -> Randomness {
-            Randomness::from(Domains::extrinsics_shuffling_seed().to_fixed_bytes())
-        }
-
-        fn domain_runtime_code(domain_id: DomainId) -> Option<Vec<u8>> {
-            Domains::domain_runtime_code(domain_id)
-        }
-
-        fn runtime_id(domain_id: DomainId) -> Option<sp_domains::RuntimeId> {
-            Domains::runtime_id(domain_id)
-        }
-
-        fn runtime_upgrades() -> Vec<sp_domains::RuntimeId> {
-            Domains::runtime_upgrades()
-        }
-
-        fn domain_instance_data(domain_id: DomainId) -> Option<(DomainInstanceData, NumberFor<Block>)> {
-            Domains::domain_instance_data(domain_id)
-        }
-
-        fn domain_timestamp() -> Moment {
-            Domains::timestamp()
-        }
-
-        fn timestamp() -> Moment {
-            Timestamp::now()
-        }
-
-        fn consensus_transaction_byte_fee() -> Balance {
-            Domains::consensus_transaction_byte_fee()
-        }
-
-        fn consensus_chain_byte_fee() -> Balance {
-            DOMAIN_STORAGE_FEE_MULTIPLIER * TransactionFees::transaction_byte_fee()
-        }
-
-        fn domain_tx_range(domain_id: DomainId) -> U256 {
-            Domains::domain_tx_range(domain_id)
-        }
-
-        fn genesis_state_root(domain_id: DomainId) -> Option<H256> {
-            Domains::genesis_state_root(domain_id)
-        }
-
-        fn head_receipt_number(domain_id: DomainId) -> DomainNumber {
-            Domains::head_receipt_number(domain_id)
-        }
-
-        fn oldest_unconfirmed_receipt_number(domain_id: DomainId) -> Option<DomainNumber> {
-            Domains::oldest_unconfirmed_receipt_number(domain_id)
-        }
-
-        fn domain_bundle_limit(domain_id: DomainId) -> Option<sp_domains::DomainBundleLimit> {
-            Domains::domain_bundle_limit(domain_id).ok().flatten()
-        }
-
-        fn non_empty_er_exists(domain_id: DomainId) -> bool {
-            Domains::non_empty_er_exists(domain_id)
-        }
-
-        fn domain_best_number(domain_id: DomainId) -> Option<DomainNumber> {
-            Domains::domain_best_number(domain_id).ok()
-        }
-
-        fn execution_receipt(receipt_hash: DomainHash) -> Option<ExecutionReceiptFor<DomainHeader, Block, Balance>> {
-            Domains::execution_receipt(receipt_hash)
-        }
-
-        fn domain_operators(domain_id: DomainId) -> Option<(BTreeMap<OperatorId, Balance>, Vec<OperatorId>)> {
-            Domains::domain_staking_summary(domain_id).map(|summary| {
-                let next_operators = summary.next_operators.into_iter().collect();
-                (summary.current_operators, next_operators)
-            })
-        }
-
-        fn receipt_hash(domain_id: DomainId, domain_number: DomainNumber) -> Option<DomainHash> {
-            Domains::receipt_hash(domain_id, domain_number)
-        }
-
-        fn latest_confirmed_domain_block(domain_id: DomainId) -> Option<(DomainNumber, DomainHash)>{
-            Domains::latest_confirmed_domain_block(domain_id)
-        }
-
-        fn is_bad_er_pending_to_prune(domain_id: DomainId, receipt_hash: DomainHash) -> bool {
-            Domains::execution_receipt(receipt_hash).map(
-                |er| Domains::is_bad_er_pending_to_prune(domain_id, er.domain_block_number)
-            )
-            .unwrap_or(false)
-        }
-
-        fn storage_fund_account_balance(operator_id: OperatorId) -> Balance {
-            Domains::storage_fund_account_balance(operator_id)
-        }
-
-        fn is_domain_runtime_upgraded_since(domain_id: DomainId, at: NumberFor<Block>) -> Option<bool> {
-            Domains::is_domain_runtime_upgraded_since(domain_id, at)
-        }
-
-        fn domain_sudo_call(domain_id: DomainId) -> Option<Vec<u8>> {
-            Domains::domain_sudo_call(domain_id)
-        }
-
-        fn evm_domain_contract_creation_allowed_by_call(domain_id: DomainId) -> Option<PermissionedActionAllowedBy<EthereumAccountId>> {
-            Domains::evm_domain_contract_creation_allowed_by_call(domain_id)
-        }
-
-
-        fn last_confirmed_domain_block_receipt(domain_id: DomainId) -> Option<ExecutionReceiptFor<DomainHeader, Block, Balance>>{
-            Domains::latest_confirmed_domain_execution_receipt(domain_id)
-        }
-    }
-
-    impl sp_domains::BundleProducerElectionApi<Block, Balance> for Runtime {
-        fn bundle_producer_election_params(domain_id: DomainId) -> Option<BundleProducerElectionParams<Balance>> {
-            Domains::bundle_producer_election_params(domain_id)
-        }
-
-        fn operator(operator_id: OperatorId) -> Option<(OperatorPublicKey, Balance)> {
-            Domains::operator(operator_id)
-        }
-    }
-
     impl sp_session::SessionKeys<Block> for Runtime {
         fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
             SessionKeys::generate(seed)
@@ -1602,100 +1078,6 @@ impl_runtime_apis! {
         }
         fn query_length_to_fee(length: u32) -> Balance {
             TransactionPayment::length_to_fee(length)
-        }
-    }
-
-    impl sp_messenger::MessengerApi<Block, BlockNumber, <Block as BlockT>::Hash> for Runtime {
-        fn is_xdm_mmr_proof_valid(
-            ext: &<Block as BlockT>::Extrinsic
-        ) -> Option<bool> {
-            is_xdm_mmr_proof_valid(ext)
-        }
-
-        fn extract_xdm_mmr_proof(ext: &<Block as BlockT>::Extrinsic) -> Option<ConsensusChainMmrLeafProof<BlockNumber, <Block as BlockT>::Hash, sp_core::H256>> {
-            match &ext.function {
-                RuntimeCall::Messenger(pallet_messenger::Call::relay_message { msg })
-                | RuntimeCall::Messenger(pallet_messenger::Call::relay_message_response { msg }) => {
-                    Some(msg.proof.consensus_mmr_proof())
-                }
-                _ => None,
-            }
-        }
-
-        fn confirmed_domain_block_storage_key(domain_id: DomainId) -> Vec<u8> {
-            Domains::confirmed_domain_block_storage_key(domain_id)
-        }
-
-        fn outbox_storage_key(message_key: MessageKey) -> Vec<u8> {
-            Messenger::outbox_storage_key(message_key)
-        }
-
-        fn inbox_response_storage_key(message_key: MessageKey) -> Vec<u8> {
-            Messenger::inbox_response_storage_key(message_key)
-        }
-
-        fn domain_chains_allowlist_update(domain_id: DomainId) -> Option<DomainAllowlistUpdates>{
-            Messenger::domain_chains_allowlist_update(domain_id)
-        }
-
-        fn xdm_id(ext: &<Block as BlockT>::Extrinsic) -> Option<XdmId> {
-            match &ext.function {
-                RuntimeCall::Messenger(pallet_messenger::Call::relay_message { msg })=> {
-                    Some(XdmId::RelayMessage((msg.src_chain_id, msg.channel_id, msg.nonce)))
-                }
-                RuntimeCall::Messenger(pallet_messenger::Call::relay_message_response { msg }) => {
-                    Some(XdmId::RelayResponseMessage((msg.src_chain_id, msg.channel_id, msg.nonce)))
-                }
-                _ => None,
-            }
-        }
-
-        fn channel_nonce(chain_id: ChainId, channel_id: ChannelId) -> Option<ChannelNonce> {
-            Messenger::channel_nonce(chain_id, channel_id)
-        }
-    }
-
-    impl sp_messenger::RelayerApi<Block, BlockNumber, BlockNumber, <Block as BlockT>::Hash> for Runtime {
-        fn block_messages() -> BlockMessagesWithStorageKey {
-            Messenger::get_block_messages()
-        }
-
-        fn outbox_message_unsigned(msg: CrossDomainMessage<NumberFor<Block>, <Block as BlockT>::Hash, <Block as BlockT>::Hash>) -> Option<<Block as BlockT>::Extrinsic> {
-            Messenger::outbox_message_unsigned(msg)
-        }
-
-        fn inbox_response_message_unsigned(msg: CrossDomainMessage<NumberFor<Block>, <Block as BlockT>::Hash, <Block as BlockT>::Hash>) -> Option<<Block as BlockT>::Extrinsic> {
-            Messenger::inbox_response_message_unsigned(msg)
-        }
-
-        fn should_relay_outbox_message(dst_chain_id: ChainId, msg_id: MessageId) -> bool {
-            Messenger::should_relay_outbox_message(dst_chain_id, msg_id)
-        }
-
-        fn should_relay_inbox_message_response(dst_chain_id: ChainId, msg_id: MessageId) -> bool {
-            Messenger::should_relay_inbox_message_response(dst_chain_id, msg_id)
-        }
-
-        fn updated_channels() -> BTreeSet<(ChainId, ChannelId)> {
-            Messenger::updated_channels()
-        }
-
-        fn channel_storage_key(chain_id: ChainId, channel_id: ChannelId) -> Vec<u8> {
-            Messenger::channel_storage_key(chain_id, channel_id)
-        }
-
-        fn open_channels() -> BTreeSet<(ChainId, ChannelId)> {
-            Messenger::open_channels()
-        }
-    }
-
-    impl sp_domains_fraud_proof::FraudProofApi<Block, DomainHeader> for Runtime {
-        fn submit_fraud_proof_unsigned(fraud_proof: FraudProof<NumberFor<Block>, <Block as BlockT>::Hash, DomainHeader, H256>) {
-            Domains::submit_fraud_proof_unsigned(fraud_proof)
-        }
-
-        fn fraud_proof_storage_key(req: FraudProofStorageKeyRequest<NumberFor<Block>>) -> Vec<u8> {
-            <StorageKeyProvider as FraudProofStorageKeyProvider<NumberFor<Block>>>::storage_key(req)
         }
     }
 

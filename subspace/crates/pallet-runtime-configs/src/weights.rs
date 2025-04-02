@@ -31,7 +31,6 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_runtime_configs.
 pub trait WeightInfo {
-	fn set_enable_domains() -> Weight;
 	fn set_enable_dynamic_cost_of_storage() -> Weight;
 	fn set_enable_balance_transfers() -> Weight;
 }
@@ -39,16 +38,6 @@ pub trait WeightInfo {
 /// Weights for pallet_runtime_configs using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `RuntimeConfigs::EnableDomains` (r:0 w:1)
-	/// Proof: `RuntimeConfigs::EnableDomains` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	fn set_enable_domains() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 3_227_000 picoseconds.
-		Weight::from_parts(3_380_000, 0)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
 	/// Storage: `RuntimeConfigs::EnableDynamicCostOfStorage` (r:0 w:1)
 	/// Proof: `RuntimeConfigs::EnableDynamicCostOfStorage` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn set_enable_dynamic_cost_of_storage() -> Weight {
@@ -73,16 +62,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	/// Storage: `RuntimeConfigs::EnableDomains` (r:0 w:1)
-	/// Proof: `RuntimeConfigs::EnableDomains` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	fn set_enable_domains() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 3_227_000 picoseconds.
-		Weight::from_parts(3_380_000, 0)
-			.saturating_add(ParityDbWeight::get().writes(1_u64))
-	}
 	/// Storage: `RuntimeConfigs::EnableDynamicCostOfStorage` (r:0 w:1)
 	/// Proof: `RuntimeConfigs::EnableDynamicCostOfStorage` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn set_enable_dynamic_cost_of_storage() -> Weight {

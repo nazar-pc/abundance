@@ -13,11 +13,7 @@ pub struct WipeOptions {
 
 pub fn wipe(WipeOptions { base_path }: WipeOptions) -> Result<(), io::Error> {
     init_logger();
-    let paths = [
-        base_path.join("db"),
-        base_path.join("domains"),
-        base_path.join("network"),
-    ];
+    let paths = [base_path.join("db"), base_path.join("network")];
 
     for path in paths {
         if path.exists() {
