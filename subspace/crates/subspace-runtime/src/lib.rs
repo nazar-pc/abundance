@@ -31,18 +31,12 @@ use core::mem;
 use core::num::NonZeroU64;
 use frame_support::genesis_builder_helper::{build_state, get_preset};
 use frame_support::inherent::ProvideInherent;
-use frame_support::traits::fungible::HoldConsideration;
-use frame_support::traits::{
-    ConstU16, ConstU32, ConstU64, ConstU8, Currency, EitherOfDiverse, EqualPrivilegeOnly,
-    Everything, Get, LinearStoragePrice, OnUnbalanced, VariantCount,
-};
+use frame_support::traits::{ConstU16, ConstU32, ConstU64, ConstU8, Everything, Get, VariantCount};
 use frame_support::weights::constants::ParityDbWeight;
 use frame_support::weights::{ConstantMultiplier, Weight};
-use frame_support::{construct_runtime, parameter_types, PalletId};
+use frame_support::{construct_runtime, parameter_types};
 use frame_system::limits::{BlockLength, BlockWeights};
 use frame_system::pallet_prelude::RuntimeCallFor;
-use frame_system::EnsureRoot;
-use pallet_collective::{EnsureMember, EnsureProportionAtLeast};
 pub use pallet_rewards::RewardPoint;
 pub use pallet_subspace::{AllowAuthoringBy, EnableRewardsAt};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -51,15 +45,12 @@ use sp_api::impl_runtime_apis;
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_consensus_subspace::{ChainConstants, PotParameters, SignedVote, SolutionRanges, Vote};
 use sp_core::crypto::KeyTypeId;
-use sp_core::{ConstBool, OpaqueMetadata};
+use sp_core::OpaqueMetadata;
 use sp_mmr_primitives::EncodableOpaqueLeaf;
-use sp_runtime::traits::{
-    AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, ConstU128, Keccak256,
-    NumberFor,
-};
+use sp_runtime::traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Keccak256, NumberFor};
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::type_with_default::TypeWithDefault;
-use sp_runtime::{generic, AccountId32, ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill};
+use sp_runtime::{generic, AccountId32, ApplyExtrinsicResult, ExtrinsicInclusionMode};
 use sp_std::prelude::*;
 use sp_subspace_mmr::subspace_mmr_runtime_interface::consensus_block_hash;
 use sp_subspace_mmr::ConsensusChainMmrLeafProof;
@@ -75,13 +66,13 @@ use subspace_core_primitives::solutions::{
 };
 use subspace_core_primitives::{PublicKey, SlotNumber};
 use subspace_runtime_primitives::utility::{
-    DefaultNonceProvider, MaybeMultisigCall, MaybeNestedCall, MaybeUtilityCall,
+    DefaultNonceProvider, MaybeNestedCall, MaybeUtilityCall,
 };
 use subspace_runtime_primitives::{
     maximum_normal_block_length, AccountId, Balance, BlockNumber, ConsensusEventSegmentSize, Hash,
     HoldIdentifier, Moment, Nonce, Signature, SlowAdjustingFeeUpdate, TargetBlockFullness,
     BLOCK_WEIGHT_FOR_2_SEC, MIN_REPLICATION_FACTOR, NORMAL_DISPATCH_RATIO, SHANNON,
-    SLOT_PROBABILITY, SSC,
+    SLOT_PROBABILITY,
 };
 
 sp_runtime::impl_opaque_keys! {
@@ -365,16 +356,6 @@ impl pallet_utility::Config for Runtime {
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
-impl MaybeMultisigCall<Runtime> for RuntimeCall {
-    /// If this call is a `pallet_multisig::Call<Runtime>` call, returns the inner call.
-    fn maybe_multisig_call(&self) -> Option<&pallet_multisig::Call<Runtime>> {
-        match self {
-            RuntimeCall::Multisig(call) => Some(call),
-            _ => None,
-        }
-    }
-}
-
 impl MaybeUtilityCall<Runtime> for RuntimeCall {
     /// If this call is a `pallet_utility::Call<Runtime>` call, returns the inner call.
     fn maybe_utility_call(&self) -> Option<&pallet_utility::Call<Runtime>> {
@@ -401,11 +382,6 @@ impl MaybeNestedCall<Runtime> for RuntimeCall {
             return calls;
         }
 
-        let calls = self.maybe_nested_multisig_calls();
-        if calls.is_some() {
-            return calls;
-        }
-
         None
     }
 }
@@ -414,182 +390,6 @@ impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
-}
-
-pub type CouncilCollective = pallet_collective::Instance1;
-
-// Macro to implement 'Get' trait for each field of 'CouncilDemocracyConfigParams'
-macro_rules! impl_get_council_democracy_field_block_number {
-    ($field_type_name:ident, $field:ident) => {
-        pub struct $field_type_name;
-
-        impl Get<BlockNumber> for $field_type_name {
-            fn get() -> BlockNumber {
-                pallet_runtime_configs::CouncilDemocracyConfig::<Runtime>::get().$field
-            }
-        }
-    };
-}
-
-impl_get_council_democracy_field_block_number! {CouncilMotionDuration, council_motion_duration}
-
-parameter_types! {
-    // maximum dispatch weight of a given council motion
-    // currently set to 50% of maximum block weight
-    pub MaxProposalWeight: Weight = Perbill::from_percent(50) * SubspaceBlockWeights::get().max_block;
-}
-
-pub type EnsureRootOr<O> = EitherOfDiverse<EnsureRoot<AccountId>, O>;
-pub type AllCouncil = EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 1>;
-pub type TwoThirdsCouncil = EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 3>;
-pub type HalfCouncil = EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>;
-
-// TODO: update params for mainnnet
-impl pallet_collective::Config<CouncilCollective> for Runtime {
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type MaxMembers = ConstU32<100>;
-    type MaxProposalWeight = MaxProposalWeight;
-    type MaxProposals = ConstU32<100>;
-    /// Duration of voting for a given council motion.
-    type MotionDuration = CouncilMotionDuration;
-    type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeOrigin = RuntimeOrigin;
-    type SetMembersOrigin = EnsureRootOr<AllCouncil>;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-    type DisapproveOrigin = TwoThirdsCouncil;
-    type KillOrigin = TwoThirdsCouncil;
-    /// Kind of consideration(amount to hold/freeze) on Collective account who initiated the proposal.
-    /// Currently set to zero.
-    type Consideration = ();
-}
-
-// TODO: update params for mainnnet
-parameter_types! {
-    pub PreimageBaseDeposit: Balance = 100 * SSC;
-    pub PreimageByteDeposit: Balance = SSC;
-    pub const PreImageHoldReason: HoldIdentifierWrapper = HoldIdentifierWrapper(HoldIdentifier::Preimage);
-}
-
-impl pallet_preimage::Config for Runtime {
-    type Consideration = HoldConsideration<
-        AccountId,
-        Balances,
-        PreImageHoldReason,
-        LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
-    >;
-    type Currency = Balances;
-    type ManagerOrigin = EnsureRoot<AccountId>;
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
-}
-
-parameter_types! {
-    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * SubspaceBlockWeights::get().max_block;
-    // Retry a scheduled item every 10 blocks (2 minutes) until the preimage exists.
-    pub const NoPreimagePostponement: Option<u32> = Some(10);
-}
-
-// Call preimages for the democracy and scheduler pallets can be stored as a binary blob. These
-// blobs are only fetched and decoded in the future block when the call is actually run. This
-// means any member of the council (or sudo) can schedule an invalid subspace runtime call. These
-// calls can cause a stack limit exceeded error in a future block. (Or other kinds of errors.)
-//
-// This risk is acceptable because those accounts are privileged, and those pallets already have
-// to deal with invalid stored calls (for example, stored before an upgrade, but run after).
-//
-// Invalid domain runtime calls will be rejected by the domain runtime extrinsic format checks,
-// even if they are scheduled/democratized in the subspace runtime.
-impl pallet_scheduler::Config for Runtime {
-    type MaxScheduledPerBlock = ConstU32<50>;
-    type MaximumWeight = MaximumSchedulerWeight;
-    type OriginPrivilegeCmp = EqualPrivilegeOnly;
-    type PalletsOrigin = OriginCaller;
-    type Preimages = Preimage;
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeOrigin = RuntimeOrigin;
-    type ScheduleOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
-}
-
-type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
-
-parameter_types! {
-    pub TreasuryAccount: AccountId = PalletId(*b"treasury").into_account_truncating();
-}
-
-pub struct DemocracySlash;
-impl OnUnbalanced<NegativeImbalance> for DemocracySlash {
-    fn on_nonzero_unbalanced(slashed: NegativeImbalance) {
-        Balances::resolve_creating(&TreasuryAccount::get(), slashed);
-    }
-}
-
-impl_get_council_democracy_field_block_number! {CooloffPeriod, democracy_cooloff_period}
-impl_get_council_democracy_field_block_number! {EnactmentPeriod, democracy_enactment_period}
-impl_get_council_democracy_field_block_number! {FastTrackVotingPeriod, democracy_fast_track_voting_period}
-impl_get_council_democracy_field_block_number! {LaunchPeriod, democracy_launch_period}
-impl_get_council_democracy_field_block_number! {VoteLockingPeriod, democracy_vote_locking_period}
-impl_get_council_democracy_field_block_number! {VotingPeriod, democracy_voting_period}
-
-// TODO: update params for mainnnet
-impl pallet_democracy::Config for Runtime {
-    type BlacklistOrigin = EnsureRoot<AccountId>;
-    /// To cancel a proposal before it has been passed and slash its backers, must be root.
-    type CancelProposalOrigin = EnsureRoot<AccountId>;
-    /// Origin to cancel a proposal.
-    type CancellationOrigin = EnsureRootOr<TwoThirdsCouncil>;
-    /// Period in blocks where an external proposal may not be re-submitted
-    /// after being vetoed.
-    type CooloffPeriod = CooloffPeriod;
-    type Currency = Balances;
-    /// The minimum period of locking and the period between a proposal being
-    /// approved and enacted.
-    type EnactmentPeriod = EnactmentPeriod;
-    /// A unanimous council can have the next scheduled referendum be a straight
-    /// default-carries (negative turnout biased) vote.
-    /// 100% council vote.
-    type ExternalDefaultOrigin = AllCouncil;
-    /// A simple majority can have the next scheduled referendum be a straight
-    /// majority-carries vote.
-    /// 50% of council votes.
-    type ExternalMajorityOrigin = HalfCouncil;
-    /// A simple majority of the council can decide what their next motion is.
-    /// 50% council votes.
-    type ExternalOrigin = HalfCouncil;
-    /// Half of the council can have an ExternalMajority/ExternalDefault vote
-    /// be tabled immediately and with a shorter voting/enactment period.
-    type FastTrackOrigin = EnsureRootOr<HalfCouncil>;
-    /// Voting period for Fast track voting.
-    type FastTrackVotingPeriod = FastTrackVotingPeriod;
-    type InstantAllowed = ConstBool<true>;
-    type InstantOrigin = EnsureRootOr<AllCouncil>;
-    /// How often (in blocks) new public referenda are launched.
-    type LaunchPeriod = LaunchPeriod;
-    type MaxBlacklisted = ConstU32<100>;
-    type MaxDeposits = ConstU32<100>;
-    type MaxProposals = ConstU32<100>;
-    type MaxVotes = ConstU32<100>;
-    /// The minimum amount to be used as a deposit for a public referendum
-    /// proposal.
-    type MinimumDeposit = ConstU128<{ 1000 * SSC }>;
-    type PalletsOrigin = OriginCaller;
-    type Preimages = Preimage;
-    type RuntimeEvent = RuntimeEvent;
-    type Scheduler = Scheduler;
-    /// Handler for the unbalanced reduction when slashing a preimage deposit.
-    type Slash = DemocracySlash;
-    /// Origin used to submit proposals.
-    /// Currently set to Council member so that no one can submit new proposals except council through democracy
-    type SubmitOrigin = EnsureMember<AccountId, CouncilCollective>;
-    /// Any single council member may veto a coming council proposal, however they
-    /// can only do it once and it lasts only for the cooloff period.
-    type VetoOrigin = EnsureMember<AccountId, CouncilCollective>;
-    type VoteLockingPeriod = VoteLockingPeriod;
-    /// How often (in blocks) to check for new votes.
-    type VotingPeriod = VotingPeriod;
-    type WeightInfo = pallet_democracy::weights::SubstrateWeight<Runtime>;
 }
 
 pub struct MmrProofVerifier;
@@ -713,47 +513,12 @@ impl pallet_subspace_mmr::Config for Runtime {
     type MmrRootHashCount = MmrRootHashCount;
 }
 
-parameter_types! {
-    pub const MaxSignatories: u32 = 100;
-}
-
-macro_rules! deposit {
-    ($name:ident, $item_fee:expr, $items:expr, $bytes:expr) => {
-        pub struct $name;
-
-        impl Get<Balance> for $name {
-            fn get() -> Balance {
-                $item_fee.saturating_mul($items.into()).saturating_add(
-                    TransactionFees::transaction_byte_fee().saturating_mul($bytes.into()),
-                )
-            }
-        }
-    };
-}
-
-// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
-// Each multisig costs 20 SSC + bytes_of_storge * TransactionByteFee
-deposit!(DepositBaseFee, 20 * SSC, 1u32, 88u32);
-
-// Additional storage item size of 32 bytes.
-deposit!(DepositFactor, 0u128, 0u32, 32u32);
-
-impl pallet_multisig::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeCall = RuntimeCall;
-    type Currency = Balances;
-    type DepositBase = DepositBaseFee;
-    type DepositFactor = DepositFactor;
-    type MaxSignatories = MaxSignatories;
-    type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
-}
-
 construct_runtime!(
     pub struct Runtime {
         System: frame_system = 0,
         Timestamp: pallet_timestamp = 1,
 
-        Subspace: pallet_subspace = 2,
+        Subspace: pallet_subspace = 3,
         Rewards: pallet_rewards = 4,
 
         Balances: pallet_balances = 5,
@@ -765,15 +530,6 @@ construct_runtime!(
 
         Mmr: pallet_mmr = 30,
         SubspaceMmr: pallet_subspace_mmr = 31,
-
-        // council and democracy
-        Scheduler: pallet_scheduler = 81,
-        Council: pallet_collective::<Instance1> = 82,
-        Democracy: pallet_democracy = 83,
-        Preimage: pallet_preimage = 84,
-
-        // Multisig
-        Multisig: pallet_multisig = 90,
 
         // Reserve some room for other pallets as we'll remove sudo pallet eventually.
         Sudo: pallet_sudo = 100,

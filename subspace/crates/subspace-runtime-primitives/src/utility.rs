@@ -43,37 +43,6 @@ where
     }
 }
 
-/// Trait used to convert from a generated `RuntimeCall` type to `pallet_multisig::Call<Runtime>`.
-pub trait MaybeMultisigCall<Runtime>
-where
-    Runtime: pallet_multisig::Config,
-    for<'call> &'call RuntimeCallFor<Runtime>:
-        From<&'call <Runtime as pallet_multisig::Config>::RuntimeCall>,
-{
-    /// If this call is a `pallet_multisig::Call<Runtime>` call, returns the inner `pallet_multisig::Call`.
-    fn maybe_multisig_call(&self) -> Option<&pallet_multisig::Call<Runtime>>;
-
-    /// If this call is a `pallet_multisig::Call<Runtime>` call, returns the inner `RuntimeCall`.
-    ///
-    /// Runtimes can override this default implementation if they want to ignore (or not ignore)
-    /// certain multisig calls.
-    fn maybe_nested_multisig_calls(&self) -> Option<Vec<&RuntimeCallFor<Runtime>>> {
-        if let Some(call) = self.maybe_multisig_call() {
-            match call {
-                pallet_multisig::Call::as_multi { call, .. }
-                | pallet_multisig::Call::as_multi_threshold_1 { call, .. } => Some(vec![call.as_ref().into()]),
-                // Doesn't contain any actual calls
-                pallet_multisig::Call::approve_as_multi {  .. }
-                | pallet_multisig::Call::cancel_as_multi { .. }
-                // Ignored calls
-                | pallet_multisig::Call::__Ignore(..) => None,
-            }
-        } else {
-            None
-        }
-    }
-}
-
 /// Trait used to extract nested `RuntimeCall`s from a `RuntimeCall` type.
 /// Each runtime has a different set of pallets which can nest calls.
 pub trait MaybeNestedCall<Runtime: frame_system::Config> {

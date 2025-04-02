@@ -11,13 +11,11 @@ use std::num::NonZeroU32;
 use subspace_core_primitives::pot::PotKey;
 use subspace_core_primitives::PublicKey;
 use subspace_runtime::{
-    AllowAuthoringBy, BalancesConfig, CouncilConfig, DemocracyConfig, EnableRewardsAt, RewardPoint,
-    RewardsConfig, RuntimeConfigsConfig, RuntimeGenesisConfig, SubspaceConfig, SudoConfig,
-    SystemConfig, WASM_BINARY,
+    AllowAuthoringBy, BalancesConfig, EnableRewardsAt, RewardPoint, RewardsConfig,
+    RuntimeConfigsConfig, RuntimeGenesisConfig, SubspaceConfig, SudoConfig, SystemConfig,
+    WASM_BINARY,
 };
-use subspace_runtime_primitives::{
-    AccountId, Balance, BlockNumber, CouncilDemocracyConfigParams, SSC,
-};
+use subspace_runtime_primitives::{AccountId, Balance, BlockNumber, SSC};
 
 const SUBSPACE_TELEMETRY_URL: &str = "wss://telemetry.subspace.foundation/submit/";
 
@@ -58,24 +56,7 @@ pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
         let sudo_account =
             AccountId::from_ss58check("5EHHtxGtDEPFX2x2PCVg8uhhg6kDdt9znQLr2oqUA9sYL5n6")
                 .expect("Wrong root account address");
-        let council_members = [
-            "5EhEcKAfGXzEkEqYdN9Ntc4f2KJrVvabWTUceCVtDPTYxVit",
-            "5G9GUNK2Vp1jgpENPmcy9TLoprkmHBTSg9bgvMa8er5ZLYjb",
-            "5CAtkaN1tDiaiuaYbxeDNNnix2WhAQxu5RobMFaiaStiCcTx",
-            "5CJ8ezmRwcNJmutA92ZmRpaL8e6BCPSdfnt3e6kZZWLAVUZK",
-            "5CiFrTxvxmehJ7okLdEc8z3cxvWfrMpShPJy9GKymRqEgF7T",
-        ]
-        .iter()
-        .map(|address| {
-            AccountId::from_ss58check(address)
-                .map_err(|_| format!("Invalid council SS58 address: {}", address))
-        })
-        .collect::<Result<Vec<AccountId>, String>>()?;
 
-        let council_config = CouncilConfig {
-            phantom: PhantomData,
-            members: council_members,
-        };
         let balances = Vec::new();
 
         serde_json::to_value(subspace_genesis_config(
@@ -193,8 +174,6 @@ pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
                     .expect("Number of elements is below configured MaxRewardPoints; qed"),
                 },
             },
-            CouncilDemocracyConfigParams::<BlockNumber>::production_params(),
-            council_config,
         )?)
         .map_err(|error| format!("Failed to serialize genesis config: {error}"))?
     })
@@ -246,8 +225,6 @@ pub fn devnet_config_compiled() -> Result<GenericChainSpec, String> {
                     voter_subsidy_points: Default::default(),
                 },
             },
-            CouncilDemocracyConfigParams::<BlockNumber>::fast_params(),
-            CouncilConfig::default(),
         )?)
         .map_err(|error| format!("Failed to serialize genesis config: {error}"))?
     })
@@ -294,8 +271,6 @@ pub fn dev_config() -> Result<GenericChainSpec, String> {
                         voter_subsidy_points: Default::default(),
                     },
                 },
-                CouncilDemocracyConfigParams::<BlockNumber>::fast_params(),
-                CouncilConfig::default(),
             )?)
             .map_err(|error| format!("Failed to serialize genesis config: {error}"))?,
         )
@@ -307,8 +282,6 @@ fn subspace_genesis_config(
     sudo_account: AccountId,
     balances: Vec<(AccountId, Balance)>,
     genesis_params: GenesisParams,
-    council_democracy_config_params: CouncilDemocracyConfigParams<BlockNumber>,
-    council_config: CouncilConfig,
 ) -> Result<RuntimeGenesisConfig, String> {
     let GenesisParams {
         enable_rewards_at,
@@ -335,13 +308,10 @@ fn subspace_genesis_config(
             phantom: PhantomData,
         },
         rewards: rewards_config,
-        council: council_config,
-        democracy: DemocracyConfig::default(),
         runtime_configs: RuntimeConfigsConfig {
             enable_dynamic_cost_of_storage,
             enable_balance_transfers,
             confirmation_depth_k,
-            council_democracy_config_params,
         },
     })
 }

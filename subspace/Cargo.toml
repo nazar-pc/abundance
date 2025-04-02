@@ -79,8 +79,6 @@ num-traits = { version = "0.2.18", default-features = false }
 num_cpus = "1.16.0"
 ouroboros = "0.18.4"
 pallet-balances = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
-pallet-collective = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
-pallet-democracy = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
 pallet-ethereum = { git = "https://github.com/autonomys/frontier", rev = "986eb1ad6ec69c16d05d142b7e731b4b69e3b409", default-features = false }
 pallet-evm = { version = "6.0.0-dev", git = "https://github.com/autonomys/frontier", rev = "986eb1ad6ec69c16d05d142b7e731b4b69e3b409", default-features = false }
 pallet-evm-chain-id = { version = "1.0.0-dev", git = "https://github.com/autonomys/frontier", rev = "986eb1ad6ec69c16d05d142b7e731b4b69e3b409", default-features = false }
@@ -88,11 +86,8 @@ pallet-evm-precompile-modexp = { version = "2.0.0-dev", git = "https://github.co
 pallet-evm-precompile-sha3fips = { version = "2.0.0-dev", git = "https://github.com/autonomys/frontier", rev = "986eb1ad6ec69c16d05d142b7e731b4b69e3b409", default-features = false }
 pallet-evm-precompile-simple = { version = "2.0.0-dev", git = "https://github.com/autonomys/frontier", rev = "986eb1ad6ec69c16d05d142b7e731b4b69e3b409", default-features = false }
 pallet-mmr = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
-pallet-multisig = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
-pallet-preimage = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
 pallet-rewards = { version = "0.1.0", path = "crates/pallet-rewards", default-features = false }
 pallet-runtime-configs = { version = "0.1.0", path = "crates/pallet-runtime-configs", default-features = false }
-pallet-scheduler = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
 pallet-subspace = { version = "0.1.0", path = "crates/pallet-subspace", default-features = false }
 pallet-subspace-mmr = { version = "0.1.0", path = "crates/pallet-subspace-mmr", default-features = false }
 pallet-sudo = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }

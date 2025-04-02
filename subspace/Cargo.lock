@@ -6983,40 +6983,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-collective"
-version = "39.0.0"
-source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
-dependencies = [
- "docify",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
-]
-
-[[package]]
-name = "pallet-democracy"
-version = "39.0.0"
-source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
-]
-
-[[package]]
 name = "pallet-mmr"
 version = "39.0.0"
 source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
@@ -7030,33 +6996,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-mmr-primitives",
- "sp-runtime",
-]
-
-[[package]]
-name = "pallet-multisig"
-version = "39.0.0"
-source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
-dependencies = [
- "log",
- "parity-scale-codec",
- "polkadot-sdk-frame",
- "scale-info",
-]
-
-[[package]]
-name = "pallet-preimage"
-version = "39.0.0"
-source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
  "sp-runtime",
 ]
 
@@ -7091,23 +7030,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "subspace-runtime-primitives",
-]
-
-[[package]]
-name = "pallet-scheduler"
-version = "40.0.0"
-source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
-dependencies = [
- "docify",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-io",
- "sp-runtime",
- "sp-weights",
 ]
 
 [[package]]
@@ -7746,40 +7668,6 @@ dependencies = [
  "sp-staking",
  "sp-std",
  "thiserror 1.0.64",
-]
-
-[[package]]
-name = "polkadot-sdk-frame"
-version = "0.8.0"
-source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
-dependencies = [
- "docify",
- "frame-benchmarking",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
- "frame-system-rpc-runtime-api",
- "frame-try-runtime",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-api",
- "sp-arithmetic",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-consensus-grandpa",
- "sp-core",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-io",
- "sp-keyring",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-storage",
- "sp-transaction-pool",
- "sp-version",
 ]
 
 [[package]]
@@ -11106,22 +10994,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-consensus-aura"
-version = "0.41.0"
-source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
-dependencies = [
- "async-trait",
- "parity-scale-codec",
- "scale-info",
- "sp-api",
- "sp-application-crypto",
- "sp-consensus-slots",
- "sp-inherents",
- "sp-runtime",
- "sp-timestamp",
-]
-
-[[package]]
 name = "sp-consensus-babe"
 version = "0.41.0"
 source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
@@ -12346,14 +12218,9 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "hex-literal",
  "pallet-balances",
- "pallet-collective",
- "pallet-democracy",
  "pallet-mmr",
- "pallet-multisig",
- "pallet-preimage",
  "pallet-rewards",
  "pallet-runtime-configs",
- "pallet-scheduler",
  "pallet-subspace",
  "pallet-subspace-mmr",
  "pallet-sudo",
@@ -12393,7 +12260,6 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "pallet-multisig",
  "pallet-transaction-payment",
  "pallet-utility",
  "parity-scale-codec",
