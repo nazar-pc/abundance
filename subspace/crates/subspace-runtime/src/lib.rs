@@ -15,7 +15,6 @@
 
 mod fees;
 mod object_mapping;
-mod signed_extensions;
 
 extern crate alloc;
 
@@ -25,7 +24,6 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use crate::fees::{OnChargeTransaction, TransactionByteFee};
 use crate::object_mapping::extract_block_object_mapping;
-pub use crate::signed_extensions::DisablePallets;
 use alloc::borrow::Cow;
 use core::mem;
 use core::num::NonZeroU64;
@@ -157,9 +155,6 @@ pub type SS58Prefix = ConstU16<6094>;
 
 impl frame_system::Config for Runtime {
     /// The basic call filter to use in dispatchable.
-    ///
-    /// `Everything` is used here as we use the signed extension
-    /// `DisablePallets` as the actual call filter.
     type BaseCallFilter = Everything;
     /// Block & extrinsics weights: base values and limits.
     type BlockWeights = SubspaceBlockWeights;
@@ -543,7 +538,6 @@ pub type SignedExtra = (
     frame_system::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-    DisablePallets,
     pallet_subspace::extensions::SubspaceExtension<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
@@ -591,7 +585,6 @@ fn create_unsigned_general_extrinsic(call: RuntimeCall) -> UncheckedExtrinsic {
         // for unsigned extrinsic, transaction fee check will be skipped
         // so set a default value
         pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0u128),
-        DisablePallets,
         pallet_subspace::extensions::SubspaceExtension::<Runtime>::new(),
     );
 
