@@ -156,7 +156,7 @@ where
         let audit_results = audit_plot_sync(
             public_key,
             &slot_info.global_challenge,
-            slot_info.voting_solution_range,
+            slot_info.solution_range,
             &self.0,
             sectors_metadata,
             sectors_being_modified,

@@ -25,10 +25,9 @@ fn avg_blockspace_updated_correctly() {
 }
 
 #[test]
-fn correct_block_vote_reward() {
+fn correct_block_reward() {
     // No reward unless parameters are set
     assert_eq!(Pallet::block_reward(&[], 0, 0), 0);
-    assert_eq!(Pallet::vote_reward(&[], 0), 0);
 
     let reward_start_block = 10;
     let mut points = vec![
@@ -59,10 +58,8 @@ fn correct_block_vote_reward() {
 
     // No reward before initial subsidy start block
     assert_eq!(Pallet::block_reward(&points, reward_start_block - 1, 0), 0);
-    assert_eq!(Pallet::vote_reward(&points, reward_start_block - 1), 0);
     // Rewards starts at initial subsidy start block
     assert_ne!(Pallet::block_reward(&points, reward_start_block, 0), 0);
-    assert_ne!(Pallet::vote_reward(&points, reward_start_block), 0);
     // Blockspace usage (and storage fees as the result) mean lower block reward
     assert!(
         Pallet::block_reward(&points, reward_start_block, 1000)
@@ -77,20 +74,9 @@ fn correct_block_vote_reward() {
             "Block {}",
             point.block
         );
-        assert_eq!(
-            Pallet::vote_reward(&points, point.block),
-            point.subsidy,
-            "Block {}",
-            point.block
-        );
         // Should decrease for subsequent blocks
         assert!(
             Pallet::block_reward(&points, point.block + 1, 0) <= point.subsidy,
-            "Block {}",
-            point.block
-        );
-        assert!(
-            Pallet::vote_reward(&points, point.block + 1) <= point.subsidy,
             "Block {}",
             point.block
         );
@@ -101,17 +87,9 @@ fn correct_block_vote_reward() {
         Pallet::block_reward(&points, last_point.block, 0),
         last_point.subsidy
     );
-    assert_eq!(
-        Pallet::vote_reward(&points, last_point.block),
-        last_point.subsidy
-    );
 
     assert_eq!(
         Pallet::block_reward(&points, last_point.block + 1, 0),
-        last_point.subsidy
-    );
-    assert_eq!(
-        Pallet::vote_reward(&points, last_point.block + 1),
         last_point.subsidy
     );
 }

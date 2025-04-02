@@ -360,7 +360,7 @@ where
         };
 
         let correct_solution_range = if block_number.is_one() {
-            slot_worker::extract_solution_ranges_for_block(self.client.as_ref(), parent_hash)?.0
+            slot_worker::extract_solution_range_for_block(self.client.as_ref(), parent_hash)?
         } else {
             let parent_subspace_digest_items = parent_subspace_digest_items
                 .as_ref()

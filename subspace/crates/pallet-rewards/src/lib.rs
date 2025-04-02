@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use sp_core::U256;
 use sp_runtime::traits::{CheckedSub, Zero};
 use sp_runtime::Saturating;
-use subspace_runtime_primitives::{BlockNumber, FindBlockRewardAddress, FindVotingRewardAddresses};
+use subspace_runtime_primitives::{BlockNumber, FindBlockRewardAddress};
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -62,7 +62,7 @@ mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_support::traits::Currency;
     use frame_system::pallet_prelude::*;
-    use subspace_runtime_primitives::{FindBlockRewardAddress, FindVotingRewardAddresses};
+    use subspace_runtime_primitives::FindBlockRewardAddress;
 
     /// Pallet rewards for issuing rewards to block producers.
     #[pallet::pallet]
@@ -87,18 +87,11 @@ mod pallet {
         #[pallet::constant]
         type MaxRewardPoints: Get<u32>;
 
-        /// Tax of the proposer on vote rewards
-        #[pallet::constant]
-        type ProposerTaxOnVotes: Get<(u32, u32)>;
-
         /// Determine whether rewards are enabled or not
         type RewardsEnabled: subspace_runtime_primitives::RewardsEnabled;
 
         /// Reward address of block producer
         type FindBlockRewardAddress: FindBlockRewardAddress<Self::AccountId>;
-
-        /// Reward addresses of all receivers of voting rewards
-        type FindVotingRewardAddresses: FindVotingRewardAddresses<Self::AccountId>;
 
         type WeightInfo: WeightInfo;
 
@@ -116,9 +109,6 @@ mod pallet {
         /// Block proposer subsidy parameters
         pub proposer_subsidy_points:
             BoundedVec<RewardPoint<BlockNumberFor<T>, BalanceOf<T>>, T::MaxRewardPoints>,
-        /// Voter subsidy parameters
-        pub voter_subsidy_points:
-            BoundedVec<RewardPoint<BlockNumberFor<T>, BalanceOf<T>>, T::MaxRewardPoints>,
     }
 
     impl<T> Default for GenesisConfig<T>
@@ -130,7 +120,6 @@ mod pallet {
             Self {
                 remaining_issuance: Default::default(),
                 proposer_subsidy_points: Default::default(),
-                voter_subsidy_points: Default::default(),
             }
         }
     }
@@ -144,9 +133,6 @@ mod pallet {
             RemainingIssuance::<T>::put(self.remaining_issuance);
             if !self.proposer_subsidy_points.is_empty() {
                 ProposerSubsidyPoints::<T>::put(self.proposer_subsidy_points.clone());
-            }
-            if !self.voter_subsidy_points.is_empty() {
-                VoterSubsidyPoints::<T>::put(self.voter_subsidy_points.clone());
             }
         }
     }
@@ -171,14 +157,6 @@ mod pallet {
         ValueQuery,
     >;
 
-    /// Voter subsidy parameters
-    #[pallet::storage]
-    pub type VoterSubsidyPoints<T: Config> = StorageValue<
-        _,
-        BoundedVec<RewardPoint<BlockNumberFor<T>, BalanceOf<T>>, T::MaxRewardPoints>,
-        ValueQuery,
-    >;
-
     /// `pallet-rewards` events
     #[pallet::event]
     #[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -186,11 +164,6 @@ mod pallet {
         /// Issued reward for the block author
         BlockReward {
             block_author: T::AccountId,
-            reward: BalanceOf<T>,
-        },
-        /// Issued reward for the voter
-        VoteReward {
-            voter: T::AccountId,
             reward: BalanceOf<T>,
         },
     }
@@ -206,14 +179,10 @@ mod pallet {
     impl<T: Config> Pallet<T> {
         /// Update dynamic issuance parameters
         #[pallet::call_index(0)]
-        #[pallet::weight(T::WeightInfo::update_issuance_params(proposer_subsidy_points.len() as u32, voter_subsidy_points.len() as u32))]
+        #[pallet::weight(T::WeightInfo::update_issuance_params(proposer_subsidy_points.len() as u32))]
         pub fn update_issuance_params(
             origin: OriginFor<T>,
             proposer_subsidy_points: BoundedVec<
-                RewardPoint<BlockNumberFor<T>, BalanceOf<T>>,
-                T::MaxRewardPoints,
-            >,
-            voter_subsidy_points: BoundedVec<
                 RewardPoint<BlockNumberFor<T>, BalanceOf<T>>,
                 T::MaxRewardPoints,
             >,
@@ -221,7 +190,6 @@ mod pallet {
             ensure_root(origin)?;
 
             ProposerSubsidyPoints::<T>::put(proposer_subsidy_points);
-            VoterSubsidyPoints::<T>::put(voter_subsidy_points);
 
             Ok(())
         }
@@ -244,11 +212,6 @@ impl<T: Config> Pallet<T> {
                     point.block += block_number;
                 });
             });
-            VoterSubsidyPoints::<T>::mutate(|reward_points| {
-                reward_points.iter_mut().for_each(|point| {
-                    point.block += block_number;
-                });
-            });
         }
 
         let avg_blockspace_usage = Self::update_avg_blockspace_usage(
@@ -261,13 +224,12 @@ impl<T: Config> Pallet<T> {
 
         let old_remaining_issuance = RemainingIssuance::<T>::get();
         let mut new_remaining_issuance = old_remaining_issuance;
-        let mut block_reward = Zero::zero();
 
         // Block author may equivocate, in which case they'll not be present here
         let maybe_block_author = T::FindBlockRewardAddress::find_block_reward_address();
-        if maybe_block_author.is_some() {
+        if let Some(block_author) = maybe_block_author {
             // Can't exceed remaining issuance
-            block_reward = Self::block_reward(
+            let block_reward = Self::block_reward(
                 &ProposerSubsidyPoints::<T>::get(),
                 block_number,
                 avg_blockspace_usage,
@@ -275,42 +237,6 @@ impl<T: Config> Pallet<T> {
             .min(new_remaining_issuance);
             new_remaining_issuance -= block_reward;
 
-            // Issue reward later once all voters were taxed
-        }
-
-        let voters = T::FindVotingRewardAddresses::find_voting_reward_addresses();
-        if !voters.is_empty() {
-            let vote_reward = Self::vote_reward(&VoterSubsidyPoints::<T>::get(), block_number);
-            // Tax voter
-            let proposer_tax = vote_reward / T::ProposerTaxOnVotes::get().1.into()
-                * T::ProposerTaxOnVotes::get().0.into();
-            // Subtract tax from vote reward
-            let vote_reward = vote_reward - proposer_tax;
-
-            for voter in voters {
-                // Can't exceed remaining issuance
-                let mut reward = vote_reward.min(new_remaining_issuance);
-                new_remaining_issuance -= reward;
-                // Can't exceed remaining issuance
-                let proposer_reward = proposer_tax.min(new_remaining_issuance);
-                new_remaining_issuance -= proposer_reward;
-                // In case block author equivocated, give full reward to voter
-                if maybe_block_author.is_some() {
-                    block_reward += proposer_reward;
-                } else {
-                    reward += proposer_reward;
-                }
-
-                if !reward.is_zero() {
-                    let _imbalance = T::Currency::deposit_creating(&voter, reward);
-                    T::OnReward::on_reward(voter.clone(), reward);
-
-                    Self::deposit_event(Event::VoteReward { voter, reward });
-                }
-            }
-        }
-
-        if let Some(block_author) = maybe_block_author {
             if !block_reward.is_zero() {
                 let _imbalance = T::Currency::deposit_creating(&block_author, block_reward);
                 T::OnReward::on_reward(block_author.clone(), block_reward);
@@ -369,13 +295,6 @@ impl<T: Config> Pallet<T> {
             * reference_subsidy.min(max_block_fee)
             / Self::block_number_to_balance(max_normal_block_length);
         reference_subsidy.saturating_sub(reward_decrease)
-    }
-
-    fn vote_reward(
-        voter_subsidy_points: &[RewardPoint<BlockNumberFor<T>, BalanceOf<T>>],
-        block_height: BlockNumberFor<T>,
-    ) -> BalanceOf<T> {
-        Self::reference_subsidy_for_block(voter_subsidy_points, block_height)
     }
 
     fn reference_subsidy_for_block(

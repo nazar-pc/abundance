@@ -3,43 +3,27 @@
 use crate::{self as pallet_subspace, AllowAuthoringBy, Config, EnableRewardsAt, NormalEraChange};
 use frame_support::traits::{ConstU128, ConstU16, OnInitialize};
 use frame_support::{derive_impl, parameter_types};
-use futures::executor::block_on;
-use rand::Rng;
 use schnorrkel::Keypair;
 use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::{CompatibleDigestItem, PreDigest, PreDigestPotInfo};
-use sp_consensus_subspace::{KzgExtension, PosExtension, PotExtension, SignedVote, Vote};
+use sp_consensus_subspace::{KzgExtension, PosExtension, PotExtension};
 use sp_io::TestExternalities;
 use sp_runtime::testing::{Digest, DigestItem, TestXt};
-use sp_runtime::traits::Block as BlockT;
 use sp_runtime::BuildStorage;
 use std::marker::PhantomData;
-use std::num::{NonZeroU32, NonZeroU64, NonZeroUsize};
-use std::simd::Simd;
+use std::num::{NonZeroU32, NonZeroU64};
 use std::sync::{Once, OnceLock};
-use std::{iter, slice};
-use subspace_archiving::archiver::{Archiver, NewArchivedSegment};
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pieces::{Piece, PieceOffset, Record};
-use subspace_core_primitives::pos::PosSeed;
-use subspace_core_primitives::pot::PotOutput;
-use subspace_core_primitives::sectors::SectorId;
+use subspace_core_primitives::pieces::{Piece, PieceOffset};
 use subspace_core_primitives::segments::{
-    ArchivedBlockProgress, HistorySize, LastArchivedBlock, RecordedHistorySegment,
-    SegmentCommitment, SegmentHeader, SegmentIndex,
+    ArchivedBlockProgress, HistorySize, LastArchivedBlock, SegmentCommitment, SegmentHeader,
+    SegmentIndex,
 };
-use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
-use subspace_core_primitives::{BlockNumber, PublicKey, SlotNumber, REWARD_SIGNING_CONTEXT};
-use subspace_erasure_coding::ErasureCoding;
-use subspace_farmer_components::auditing::audit_sector_sync;
-use subspace_farmer_components::plotting::{plot_sector, CpuRecordsEncoder, PlotSectorOptions};
-use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
-use subspace_farmer_components::FarmerProtocolInfo;
+use subspace_core_primitives::solutions::{Solution, SolutionRange};
+use subspace_core_primitives::{BlockNumber, PublicKey, SlotNumber};
 use subspace_kzg::Kzg;
 use subspace_proof_of_space::shim::ShimTable;
-use subspace_proof_of_space::{Table, TableGenerator};
 use subspace_runtime_primitives::ConsensusEventSegmentSize;
-use subspace_verification::is_within_solution_range;
 
 type PosTable = ShimTable;
 
@@ -52,18 +36,6 @@ fn kzg_instance() -> &'static Kzg {
     static KZG: OnceLock<Kzg> = OnceLock::new();
 
     KZG.get_or_init(Kzg::new)
-}
-
-fn erasure_coding_instance() -> &'static ErasureCoding {
-    static ERASURE_CODING: OnceLock<ErasureCoding> = OnceLock::new();
-
-    ERASURE_CODING.get_or_init(|| {
-        ErasureCoding::new(
-            NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-                .expect("Not zero; qed"),
-        )
-        .unwrap()
-    })
 }
 
 frame_support::construct_runtime!(
@@ -121,7 +93,6 @@ parameter_types! {
     );
     pub const MinSectorLifetime: HistorySize = HistorySize::new(NonZeroU64::new(4).unwrap());
     pub const RecordSize: u32 = 3840;
-    pub const ExpectedVotesPerBlock: u32 = 9;
     pub const ReplicationFactor: u16 = 1;
     pub const ReportLongevity: u64 = 34;
     pub const ShouldAdjustSolutionRange: bool = false;
@@ -142,7 +113,6 @@ impl Config for Test {
     type RecentSegments = RecentSegments;
     type RecentHistoryFraction = RecentHistoryFraction;
     type MinSectorLifetime = MinSectorLifetime;
-    type ExpectedVotesPerBlock = ExpectedVotesPerBlock;
     type MaxPiecesInSector = ConstU16<{ MAX_PIECES_IN_SECTOR }>;
     type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
     type EraChangeTrigger = NormalEraChange;
@@ -264,161 +234,4 @@ pub fn create_segment_header(segment_index: SegmentIndex) -> SegmentHeader {
             archived_progress: ArchivedBlockProgress::Complete,
         },
     }
-}
-
-pub fn create_archived_segment() -> &'static NewArchivedSegment {
-    static ARCHIVED_SEGMENT: OnceLock<NewArchivedSegment> = OnceLock::new();
-
-    ARCHIVED_SEGMENT.get_or_init(|| {
-        let mut archiver = Archiver::new(kzg_instance().clone(), erasure_coding_instance().clone());
-
-        let mut block = vec![0u8; RecordedHistorySegment::SIZE];
-        rand::thread_rng().fill(block.as_mut_slice());
-        archiver
-            .add_block(block, Default::default(), true)
-            .archived_segments
-            .into_iter()
-            .next()
-            .unwrap()
-    })
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn create_signed_vote(
-    keypair: &Keypair,
-    height: u64,
-    parent_hash: <Block as BlockT>::Hash,
-    slot: Slot,
-    proof_of_time: PotOutput,
-    future_proof_of_time: PotOutput,
-    archived_history_segment: &NewArchivedSegment,
-    reward_address: <Test as frame_system::Config>::AccountId,
-    solution_range: SolutionRange,
-    vote_solution_range: SolutionRange,
-) -> SignedVote<u64, <Block as BlockT>::Hash, <Test as frame_system::Config>::AccountId> {
-    let kzg = kzg_instance();
-    let erasure_coding = erasure_coding_instance();
-    let reward_signing_context = schnorrkel::signing_context(REWARD_SIGNING_CONTEXT);
-    let public_key = PublicKey::from(keypair.public.to_bytes());
-
-    let farmer_protocol_info = FarmerProtocolInfo {
-        history_size: HistorySize::from(SegmentIndex::ZERO),
-        max_pieces_in_sector: MAX_PIECES_IN_SECTOR,
-        recent_segments: HistorySize::from(NonZeroU64::new(5).unwrap()),
-        recent_history_fraction: (
-            HistorySize::from(NonZeroU64::new(1).unwrap()),
-            HistorySize::from(NonZeroU64::new(10).unwrap()),
-        ),
-        min_sector_lifetime: HistorySize::from(NonZeroU64::new(4).unwrap()),
-    };
-    let pieces_in_sector = farmer_protocol_info.max_pieces_in_sector;
-
-    let mut table_generator = PosTable::generator();
-
-    for sector_index in iter::from_fn(|| Some(rand::random())) {
-        let mut plotted_sector_bytes = Vec::new();
-
-        let plotted_sector = block_on(plot_sector(PlotSectorOptions {
-            public_key: &public_key,
-            sector_index,
-            piece_getter: archived_history_segment,
-            farmer_protocol_info,
-            kzg,
-            erasure_coding,
-            pieces_in_sector,
-            sector_output: &mut plotted_sector_bytes,
-            downloading_semaphore: None,
-            encoding_semaphore: None,
-            records_encoder: &mut CpuRecordsEncoder::<PosTable>::new(
-                slice::from_mut(&mut table_generator),
-                erasure_coding,
-                &Default::default(),
-            ),
-            abort_early: &Default::default(),
-        }))
-        .unwrap();
-
-        let global_challenge = proof_of_time
-            .derive_global_randomness()
-            .derive_global_challenge(slot.into());
-
-        let maybe_audit_result = audit_sector_sync(
-            &public_key,
-            &global_challenge,
-            vote_solution_range,
-            &plotted_sector_bytes,
-            &plotted_sector.sector_metadata,
-        )
-        .unwrap();
-
-        let Some(audit_result) = maybe_audit_result else {
-            // Sector didn't have any solutions
-            continue;
-        };
-
-        let solution = audit_result
-            .solution_candidates
-            .into_solutions(
-                &reward_address,
-                kzg,
-                erasure_coding,
-                ReadSectorRecordChunksMode::ConcurrentChunks,
-                |seed: &PosSeed| table_generator.generate_parallel(seed),
-            )
-            .unwrap()
-            .next()
-            .unwrap()
-            .unwrap();
-
-        let sector_id = SectorId::new(
-            PublicKey::from(keypair.public.to_bytes()).hash(),
-            solution.sector_index,
-            solution.history_size,
-        );
-        let sector_slot_challenge = sector_id.derive_sector_slot_challenge(&global_challenge);
-        let masked_chunk =
-            (Simd::from(*solution.chunk) ^ Simd::from(*solution.proof_of_space.hash())).to_array();
-
-        // Check that solution quality is not too high
-        if is_within_solution_range(
-            &global_challenge,
-            &masked_chunk,
-            &sector_slot_challenge,
-            solution_range,
-        )
-        .is_some()
-        {
-            continue;
-        }
-
-        let vote = Vote::<u64, <Block as BlockT>::Hash, _>::V0 {
-            height,
-            parent_hash,
-            slot,
-            solution: Solution {
-                public_key: PublicKey::from(keypair.public.to_bytes()),
-                reward_address: solution.reward_address,
-                sector_index: solution.sector_index,
-                history_size: solution.history_size,
-                piece_offset: solution.piece_offset,
-                record_commitment: solution.record_commitment,
-                record_witness: solution.record_witness,
-                chunk: solution.chunk,
-                chunk_witness: solution.chunk_witness,
-                proof_of_space: solution.proof_of_space,
-            },
-            proof_of_time,
-            future_proof_of_time,
-        };
-
-        let signature = RewardSignature::from(
-            keypair
-                .sign(reward_signing_context.bytes(vote.hash().as_ref()))
-                .to_bytes(),
-        );
-
-        return SignedVote { vote, signature };
-    }
-
-    unreachable!("Will find solution before exhausting u64")
 }

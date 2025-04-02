@@ -43,7 +43,7 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_api::impl_runtime_apis;
 use sp_consensus_slots::{Slot, SlotDuration};
-use sp_consensus_subspace::{ChainConstants, PotParameters, SignedVote, SolutionRanges, Vote};
+use sp_consensus_subspace::{ChainConstants, PotParameters, SolutionRanges};
 use sp_core::crypto::KeyTypeId;
 use sp_core::OpaqueMetadata;
 use sp_mmr_primitives::EncodableOpaqueLeaf;
@@ -130,11 +130,6 @@ const ERA_DURATION_IN_BLOCKS: BlockNumber = 2016;
 // We assume initial plot size starts with a single sector.
 const INITIAL_SOLUTION_RANGE: SolutionRange =
     pieces_to_solution_range(MAX_PIECES_IN_SECTOR as u64, SLOT_PROBABILITY);
-
-/// Number of votes expected per block.
-///
-/// This impacts solution range for votes in consensus.
-const EXPECTED_VOTES_PER_BLOCK: u32 = 9;
 
 /// Number of latest archived segments that are considered "recent history".
 const RECENT_SEGMENTS: HistorySize = HistorySize::new(NonZeroU64::new(5).expect("Not zero; qed"));
@@ -229,7 +224,6 @@ parameter_types! {
     pub const PotEntropyInjectionDelay: SlotNumber = POT_ENTROPY_INJECTION_DELAY;
     pub const EraDuration: u32 = ERA_DURATION_IN_BLOCKS;
     pub const SlotProbability: (u64, u64) = SLOT_PROBABILITY;
-    pub const ExpectedVotesPerBlock: u32 = EXPECTED_VOTES_PER_BLOCK;
     pub const RecentSegments: HistorySize = RECENT_SEGMENTS;
     pub const RecentHistoryFraction: (HistorySize, HistorySize) = RECENT_HISTORY_FRACTION;
     pub const MinSectorLifetime: HistorySize = MIN_SECTOR_LIFETIME;
@@ -261,7 +255,6 @@ impl pallet_subspace::Config for Runtime {
     type RecentSegments = RecentSegments;
     type RecentHistoryFraction = RecentHistoryFraction;
     type MinSectorLifetime = MinSectorLifetime;
-    type ExpectedVotesPerBlock = ExpectedVotesPerBlock;
     type MaxPiecesInSector = ConstU16<{ MAX_PIECES_IN_SECTOR }>;
     type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
     type EraChangeTrigger = pallet_subspace::NormalEraChange;
@@ -455,7 +448,6 @@ where
 
 parameter_types! {
     pub const AvgBlockspaceUsageNumBlocks: BlockNumber = 100;
-    pub const ProposerTaxOnVotes: (u32, u32) = (1, 10);
 }
 
 impl pallet_rewards::Config for Runtime {
@@ -464,10 +456,8 @@ impl pallet_rewards::Config for Runtime {
     type AvgBlockspaceUsageNumBlocks = AvgBlockspaceUsageNumBlocks;
     type TransactionByteFee = TransactionByteFee;
     type MaxRewardPoints = ConstU32<20>;
-    type ProposerTaxOnVotes = ProposerTaxOnVotes;
     type RewardsEnabled = Subspace;
     type FindBlockRewardAddress = Subspace;
-    type FindVotingRewardAddresses = Subspace;
     type WeightInfo = pallet_rewards::weights::SubstrateWeight<Runtime>;
     type OnReward = ();
 }
@@ -724,32 +714,6 @@ impl_runtime_apis! {
 
         fn solution_ranges() -> SolutionRanges {
             Subspace::solution_ranges()
-        }
-
-        fn submit_vote_extrinsic(
-            signed_vote: SignedVote<NumberFor<Block>, <Block as BlockT>::Hash, PublicKey>,
-        ) {
-            let SignedVote { vote, signature } = signed_vote;
-            let Vote::V0 {
-                height,
-                parent_hash,
-                slot,
-                solution,
-                proof_of_time,
-                future_proof_of_time,
-            } = vote;
-
-            Subspace::submit_vote(SignedVote {
-                vote: Vote::V0 {
-                    height,
-                    parent_hash,
-                    slot,
-                    solution: solution.into_reward_address_format::<RewardAddress, AccountId32>(),
-                    proof_of_time,
-                    future_proof_of_time,
-                },
-                signature,
-            })
         }
 
         fn history_size() -> HistorySize {

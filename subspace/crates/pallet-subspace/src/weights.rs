@@ -33,7 +33,6 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn store_segment_headers(x: u32, ) -> Weight;
 	fn enable_solution_range_adjustment() -> Weight;
-	fn vote() -> Weight;
 	fn enable_rewards_at() -> Weight;
 	fn enable_authoring_by_anyone() -> Weight;
 	fn set_pot_slot_iterations() -> Weight;
@@ -81,16 +80,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(8_696_000, 1485)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
-	}
-	/// Storage: `Subspace::BlockList` (r:1 w:0)
-	/// Proof: `Subspace::BlockList` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn vote() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `3465`
-		// Minimum execution time: 10_116_000 picoseconds.
-		Weight::from_parts(10_442_000, 3465)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Subspace::EnableRewards` (r:1 w:1)
 	/// Proof: `Subspace::EnableRewards` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -174,16 +163,6 @@ impl WeightInfo for () {
 		Weight::from_parts(8_696_000, 1485)
 			.saturating_add(ParityDbWeight::get().reads(3_u64))
 			.saturating_add(ParityDbWeight::get().writes(4_u64))
-	}
-	/// Storage: `Subspace::BlockList` (r:1 w:0)
-	/// Proof: `Subspace::BlockList` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn vote() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `3465`
-		// Minimum execution time: 10_116_000 picoseconds.
-		Weight::from_parts(10_442_000, 3465)
-			.saturating_add(ParityDbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Subspace::EnableRewards` (r:1 w:1)
 	/// Proof: `Subspace::EnableRewards` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)

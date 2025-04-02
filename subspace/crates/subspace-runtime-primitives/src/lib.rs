@@ -113,12 +113,6 @@ pub trait FindBlockRewardAddress<RewardAddress> {
     fn find_block_reward_address() -> Option<RewardAddress>;
 }
 
-/// A trait for finding the addresses for voting reward based on transactions found in the block.
-pub trait FindVotingRewardAddresses<RewardAddress> {
-    /// Find the addresses for voting rewards based on transactions found in the block.
-    fn find_voting_reward_addresses() -> Vec<RewardAddress>;
-}
-
 pub trait StorageFee<Balance> {
     /// Return the consensus transaction byte fee.
     fn transaction_byte_fee() -> Balance;

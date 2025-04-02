@@ -1,8 +1,7 @@
 use frame_support::derive_impl;
 use frame_support::traits::{ConstU128, ConstU32};
-use sp_runtime::traits::parameter_types;
 use subspace_runtime_primitives::{
-    ConsensusEventSegmentSize, FindBlockRewardAddress, FindVotingRewardAddresses, RewardsEnabled,
+    ConsensusEventSegmentSize, FindBlockRewardAddress, RewardsEnabled,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -32,10 +31,6 @@ impl pallet_balances::Config for Test {
     type DustRemoval = ();
 }
 
-parameter_types! {
-    pub const ProposerTaxOnVotes: (u32, u32) = (1, 10);
-}
-
 pub struct MockRewardsEnabled;
 
 impl RewardsEnabled for MockRewardsEnabled {
@@ -52,24 +47,14 @@ impl<RewardAddress> FindBlockRewardAddress<RewardAddress> for MockFindBlockRewar
     }
 }
 
-pub struct MockFindVotingRewardAddresses;
-
-impl<RewardAddress> FindVotingRewardAddresses<RewardAddress> for MockFindVotingRewardAddresses {
-    fn find_voting_reward_addresses() -> Vec<RewardAddress> {
-        Vec::new()
-    }
-}
-
 impl crate::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type AvgBlockspaceUsageNumBlocks = ConstU32<10>;
     type TransactionByteFee = ConstU128<1>;
     type MaxRewardPoints = ConstU32<20>;
-    type ProposerTaxOnVotes = ProposerTaxOnVotes;
     type RewardsEnabled = MockRewardsEnabled;
     type FindBlockRewardAddress = MockFindBlockRewardAddress;
-    type FindVotingRewardAddresses = MockFindVotingRewardAddresses;
     type WeightInfo = ();
     type OnReward = ();
 }

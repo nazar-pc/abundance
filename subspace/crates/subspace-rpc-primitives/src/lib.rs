@@ -102,8 +102,6 @@ pub struct SlotInfo {
     pub global_challenge: Blake3Hash,
     /// Acceptable solution range for block authoring
     pub solution_range: SolutionRange,
-    /// Acceptable solution range for voting
-    pub voting_solution_range: SolutionRange,
 }
 
 /// Response of a slot challenge consisting of an optional solution and

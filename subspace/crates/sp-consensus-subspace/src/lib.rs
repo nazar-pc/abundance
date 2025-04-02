@@ -17,9 +17,6 @@ use alloc::vec::Vec;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_consensus_slots::{Slot, SlotDuration};
-use sp_core::H256;
-use sp_io::hashing;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use sp_runtime::{ConsensusEngineId, Justification};
 use sp_runtime_interface::pass_by::PassBy;
 use sp_runtime_interface::{pass_by, runtime_interface};
@@ -29,7 +26,7 @@ use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed};
 use subspace_core_primitives::segments::{
     HistorySize, SegmentCommitment, SegmentHeader, SegmentIndex,
 };
-use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
+use subspace_core_primitives::solutions::{Solution, SolutionRange};
 use subspace_core_primitives::{BlockHash, BlockNumber, PublicKey, SlotNumber};
 #[cfg(feature = "std")]
 use subspace_kzg::Kzg;
@@ -173,61 +170,6 @@ enum ConsensusLog {
     RootPlotPublicKeyUpdate(Option<PublicKey>),
 }
 
-/// Farmer vote.
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-pub enum Vote<Number, Hash, RewardAddress> {
-    /// V0 of the farmer vote.
-    V0 {
-        /// Height at which vote was created.
-        ///
-        /// Equivalent to block number, but this is not a block.
-        height: Number,
-        /// Hash of the block on top of which vote was created.
-        parent_hash: Hash,
-        /// Slot at which vote was created.
-        slot: Slot,
-        /// Solution (includes PoR).
-        solution: Solution<RewardAddress>,
-        /// Proof of time for this slot
-        proof_of_time: PotOutput,
-        /// Future proof of time
-        future_proof_of_time: PotOutput,
-    },
-}
-
-impl<Number, Hash, RewardAddress> Vote<Number, Hash, RewardAddress>
-where
-    Number: Encode,
-    Hash: Encode,
-    RewardAddress: Encode,
-{
-    /// Solution contained within.
-    pub fn solution(&self) -> &Solution<RewardAddress> {
-        let Self::V0 { solution, .. } = self;
-        solution
-    }
-
-    /// Slot at which vote was created.
-    pub fn slot(&self) -> &Slot {
-        let Self::V0 { slot, .. } = self;
-        slot
-    }
-
-    /// Hash of the vote, used for signing and verifying signature.
-    pub fn hash(&self) -> H256 {
-        hashing::blake2_256(&self.encode()).into()
-    }
-}
-
-/// Signed farmer vote.
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-pub struct SignedVote<Number, Hash, RewardAddress> {
-    /// Farmer vote.
-    pub vote: Vote<Number, Hash, RewardAddress>,
-    /// Signature.
-    pub signature: RewardSignature,
-}
-
 /// Subspace solution ranges used for challenges.
 #[derive(Decode, Encode, MaxEncodedLen, PartialEq, Eq, Clone, Copy, Debug, TypeInfo)]
 pub struct SolutionRanges {
@@ -235,10 +177,6 @@ pub struct SolutionRanges {
     pub current: u64,
     /// Solution range that will be used in the next block/era.
     pub next: Option<u64>,
-    /// Voting solution range in current block/era.
-    pub voting_current: u64,
-    /// Voting solution range that will be used in the next block/era.
-    pub voting_next: Option<u64>,
 }
 
 impl Default for SolutionRanges {
@@ -247,8 +185,6 @@ impl Default for SolutionRanges {
         Self {
             current: u64::MAX,
             next: None,
-            voting_current: u64::MAX,
-            voting_next: None,
         }
     }
 }
@@ -507,37 +443,6 @@ pub trait Consensus {
             }
         }
     }
-
-    /// Verify whether `proof_of_time` is valid at specified `slot` if built on top of `parent_hash`
-    /// fork of the chain.
-    fn is_proof_of_time_valid(
-        &mut self,
-        parent_hash: BlockHash,
-        slot: SlotNumber,
-        proof_of_time: WrappedPotOutput,
-        quick_verification: bool,
-    ) -> bool {
-        // TODO: we need to conditional compile for benchmarks here since
-        //  benchmark externalities does not provide custom extensions.
-        //  Remove this once the issue is resolved: https://github.com/paritytech/polkadot-sdk/issues/137
-        #[cfg(feature = "runtime-benchmarks")]
-        {
-            let _ = (slot, parent_hash, proof_of_time, quick_verification);
-            true
-        }
-
-        #[cfg(not(feature = "runtime-benchmarks"))]
-        {
-            use sp_externalities::ExternalitiesExt;
-
-            let verifier = &self
-                .extension::<PotExtension>()
-                .expect("No `PotExtension` associated for the current context!")
-                .0;
-
-            verifier(parent_hash, slot, proof_of_time.0, quick_verification)
-        }
-    }
 }
 
 /// Proof of time parameters
@@ -580,16 +485,6 @@ sp_api::decl_runtime_apis! {
 
         /// Solution ranges.
         fn solution_ranges() -> SolutionRanges;
-
-        /// Submit farmer vote that is essentially a header with bigger solution range than
-        /// acceptable for block authoring. Only useful in an offchain context.
-        fn submit_vote_extrinsic(
-            signed_vote: SignedVote<
-                <<Block as BlockT>::Header as HeaderT>::Number,
-                Block::Hash,
-                RewardAddress,
-            >,
-        );
 
         /// Size of the blockchain history
         fn history_size() -> HistorySize;

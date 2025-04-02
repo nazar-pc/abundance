@@ -28,21 +28,18 @@ use sc_consensus_slots::{
 use sc_proof_of_time::verifier::PotVerifier;
 use sc_proof_of_time::PotSlotWorker;
 use sc_telemetry::TelemetryHandle;
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use schnorrkel::context::SigningContext;
-use sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
+use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SyncOracle};
 use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::{
     extract_pre_digest, CompatibleDigestItem, PreDigest, PreDigestPotInfo,
 };
-use sp_consensus_subspace::{
-    PotNextSlotInput, SignedVote, SubspaceApi, SubspaceJustification, Vote,
-};
+use sp_consensus_subspace::{PotNextSlotInput, SubspaceApi, SubspaceJustification};
 use sp_core::H256;
-use sp_runtime::traits::{Block as BlockT, Header, NumberFor, One, Saturating, Zero};
+use sp_runtime::traits::{Block as BlockT, Header, NumberFor, Zero};
 use sp_runtime::{DigestItem, Justification, Justifications};
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -124,8 +121,6 @@ pub struct NewSlotInfo {
     pub proof_of_time: PotOutput,
     /// Acceptable solution range for block authoring
     pub solution_range: SolutionRange,
-    /// Acceptable solution range for voting
-    pub voting_solution_range: SolutionRange,
 }
 
 /// New slot notification with slot information and sender for solution for the slot.
@@ -184,10 +179,6 @@ where
     pub max_block_proposal_slot_portion: Option<SlotProportion>,
     /// Handle use to report telemetries.
     pub telemetry: Option<TelemetryHandle>,
-    /// The offchain transaction pool factory.
-    ///
-    /// Will be used when sending equivocation reports and votes.
-    pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
     /// Proof of time verifier
     pub pot_verifier: PotVerifier,
 }
@@ -210,7 +201,6 @@ where
     block_proposal_slot_portion: SlotProportion,
     max_block_proposal_slot_portion: Option<SlotProportion>,
     telemetry: Option<TelemetryHandle>,
-    offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
     segment_headers_store: SegmentHeadersStore<AS>,
     /// Solution receivers for challenges that were sent to farmers and expected to be received
     /// eventually
@@ -260,25 +250,24 @@ where
         // NOTE: Best hash is not necessarily going to be the parent of corresponding block, but
         // solution range shouldn't be too far off
         let best_hash = self.client.info().best_hash;
-        let (solution_range, voting_solution_range) =
-            match extract_solution_ranges_for_block(self.client.as_ref(), best_hash) {
-                Ok(solution_ranges) => solution_ranges,
-                Err(error) => {
-                    warn!(
-                        %slot,
-                        %best_hash,
-                        %error,
-                        "Failed to extract solution ranges for block"
-                    );
-                    return;
-                }
-            };
+        let solution_range = match extract_solution_range_for_block(self.client.as_ref(), best_hash)
+        {
+            Ok(solution_range) => solution_range,
+            Err(error) => {
+                warn!(
+                    %slot,
+                    %best_hash,
+                    %error,
+                    "Failed to extract solution ranges for block"
+                );
+                return;
+            }
+        };
 
         let new_slot_info = NewSlotInfo {
             slot,
             proof_of_time,
             solution_range,
-            voting_solution_range,
         };
         let (solution_sender, solution_receiver) =
             mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);
@@ -381,8 +370,8 @@ where
         let parent_hash = parent_header.hash();
         let runtime_api = self.client.runtime_api();
 
-        let (solution_range, voting_solution_range) =
-            extract_solution_ranges_for_block(self.client.as_ref(), parent_hash).ok()?;
+        let solution_range =
+            extract_solution_range_for_block(self.client.as_ref(), parent_hash).ok()?;
 
         let maybe_root_plot_public_key = runtime_api.root_plot_public_key(parent_hash).ok()?;
 
@@ -559,7 +548,7 @@ where
                 slot.into(),
                 &VerifySolutionParams {
                     proof_of_time,
-                    solution_range: voting_solution_range,
+                    solution_range,
                     piece_check_params: Some(PieceCheckParams {
                         max_pieces_in_sector,
                         segment_commitment,
@@ -598,16 +587,9 @@ where
                     } else if !parent_header.number().is_zero() {
                         // Not sending vote on top of genesis block since segment headers since piece
                         // verification wouldn't be possible due to missing (for now) segment commitment
-                        info!(%slot, "🗳️ Claimed vote at slot");
+                        // info!(%slot, "🗳️ Claimed vote at slot");
 
-                        self.create_vote(
-                            parent_header,
-                            slot,
-                            solution,
-                            proof_of_time,
-                            future_proof_of_time,
-                        )
-                        .await;
+                        // Votes were removed
                     }
                 }
                 Err(error @ subspace_verification::Error::OutsideSolutionRange { .. }) => {
@@ -774,7 +756,6 @@ where
             block_proposal_slot_portion,
             max_block_proposal_slot_portion,
             telemetry,
-            offchain_tx_pool_factory,
             pot_verifier,
         }: SubspaceSlotWorkerOptions<Block, Client, E, SO, L, BS, AS>,
     ) -> Self {
@@ -791,65 +772,11 @@ where
             block_proposal_slot_portion,
             max_block_proposal_slot_portion,
             telemetry,
-            offchain_tx_pool_factory,
             segment_headers_store,
             pending_solutions: Default::default(),
             pot_checkpoints: Default::default(),
             pot_verifier,
             _pos_table: PhantomData::<PosTable>,
-        }
-    }
-
-    async fn create_vote(
-        &self,
-        parent_header: &Block::Header,
-        slot: Slot,
-        solution: Solution<PublicKey>,
-        proof_of_time: PotOutput,
-        future_proof_of_time: PotOutput,
-    ) {
-        let parent_hash = parent_header.hash();
-        let mut runtime_api = self.client.runtime_api();
-        // Register the offchain tx pool to be able to use it from the runtime.
-        runtime_api.register_extension(
-            self.offchain_tx_pool_factory
-                .offchain_transaction_pool(parent_hash),
-        );
-
-        if self.should_backoff(slot, parent_header) {
-            return;
-        }
-
-        // Vote doesn't have extrinsics or state, hence dummy values
-        let vote = Vote::V0 {
-            height: parent_header.number().saturating_add(One::one()),
-            parent_hash: parent_header.hash(),
-            slot,
-            solution: solution.clone(),
-            proof_of_time,
-            future_proof_of_time,
-        };
-
-        let signature = match self.sign_reward(vote.hash(), solution.public_key).await {
-            Ok(signature) => signature,
-            Err(error) => {
-                error!(
-                    %slot,
-                    %error,
-                    "Failed to submit vote",
-                );
-                return;
-            }
-        };
-
-        let signed_vote = SignedVote { vote, signature };
-
-        if let Err(error) = runtime_api.submit_vote_extrinsic(parent_hash, signed_vote) {
-            error!(
-                %slot,
-                %error,
-                "Failed to submit vote",
-            );
         }
     }
 
@@ -895,11 +822,11 @@ where
     }
 }
 
-/// Extract solution ranges for block and votes, given ID of the parent block.
-pub(crate) fn extract_solution_ranges_for_block<Block, Client>(
+/// Extract solution range for block, given ID of the parent block.
+pub(crate) fn extract_solution_range_for_block<Block, Client>(
     client: &Client,
     parent_hash: Block::Hash,
-) -> Result<(u64, u64), ApiError>
+) -> Result<u64, ApiError>
 where
     Block: BlockT,
     Client: ProvideRuntimeApi<Block>,
@@ -908,12 +835,5 @@ where
     client
         .runtime_api()
         .solution_ranges(parent_hash)
-        .map(|solution_ranges| {
-            (
-                solution_ranges.next.unwrap_or(solution_ranges.current),
-                solution_ranges
-                    .voting_next
-                    .unwrap_or(solution_ranges.voting_current),
-            )
-        })
+        .map(|solution_ranges| solution_ranges.next.unwrap_or(solution_ranges.current))
 }

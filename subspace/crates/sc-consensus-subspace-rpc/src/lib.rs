@@ -475,7 +475,6 @@ where
                 slot_number,
                 global_challenge,
                 solution_range: new_slot_info.solution_range,
-                voting_solution_range: new_slot_info.voting_solution_range,
             }
         };
         let stream = self

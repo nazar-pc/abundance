@@ -193,8 +193,6 @@ where
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
-                                // No solution will be found, pure audit
-                                voting_solution_range: SolutionRange::MIN,
                             },
                             sectors_metadata: &sectors_metadata,
                             kzg: &kzg,
@@ -230,8 +228,6 @@ where
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
-                                // No solution will be found, pure audit
-                                voting_solution_range: SolutionRange::MIN,
                             },
                             sectors_metadata: &sectors_metadata,
                             kzg: &kzg,
@@ -265,8 +261,6 @@ where
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
-                                // No solution will be found, pure audit
-                                voting_solution_range: SolutionRange::MIN,
                             },
                             sectors_metadata: &sectors_metadata,
                             kzg: &kzg,
@@ -367,8 +361,6 @@ where
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
-                    // Solution is guaranteed to be found
-                    voting_solution_range: SolutionRange::MAX,
                 },
                 sectors_metadata: &sectors_metadata,
                 kzg: &kzg,
@@ -441,8 +433,6 @@ where
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
-                    // Solution is guaranteed to be found
-                    voting_solution_range: SolutionRange::MAX,
                 },
                 sectors_metadata: &sectors_metadata,
                 kzg: &kzg,
@@ -513,8 +503,6 @@ where
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
-                    // Solution is guaranteed to be found
-                    voting_solution_range: SolutionRange::MAX,
                 },
                 sectors_metadata: &sectors_metadata,
                 kzg: &kzg,

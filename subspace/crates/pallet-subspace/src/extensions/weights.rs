@@ -31,69 +31,9 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for pallet subspace extension.
 pub trait WeightInfo {
-	fn vote() -> Weight;
-	fn vote_with_equivocation() -> Weight;
 }
 
 /// Weight functions for `pallet_subspace_extension`.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `System::BlockHash` (r:1 w:0)
-	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
-	/// Storage: `Subspace::SolutionRanges` (r:1 w:0)
-	/// Proof: `Subspace::SolutionRanges` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::BlockSlots` (r:1 w:0)
-	/// Proof: `Subspace::BlockSlots` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::ParentVoteVerificationData` (r:1 w:0)
-	/// Proof: `Subspace::ParentVoteVerificationData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::SegmentCommitment` (r:2 w:0)
-	/// Proof: `Subspace::SegmentCommitment` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::CounterForSegmentCommitment` (r:1 w:0)
-	/// Proof: `Subspace::CounterForSegmentCommitment` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `Subspace::ParentBlockAuthorInfo` (r:1 w:0)
-	/// Proof: `Subspace::ParentBlockAuthorInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::CurrentBlockAuthorInfo` (r:1 w:0)
-	/// Proof: `Subspace::CurrentBlockAuthorInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::ParentBlockVoters` (r:1 w:0)
-	/// Proof: `Subspace::ParentBlockVoters` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::CurrentBlockVoters` (r:1 w:1)
-	/// Proof: `Subspace::CurrentBlockVoters` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	fn vote() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `397`
-		//  Estimated: `6337`
-		// Minimum execution time: 1_921_000_000 picoseconds.
-		Weight::from_parts(1_926_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 6337))
-			.saturating_add(T::DbWeight::get().reads(11))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	/// Storage: `System::BlockHash` (r:1 w:0)
-	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
-	/// Storage: `Subspace::SolutionRanges` (r:1 w:0)
-	/// Proof: `Subspace::SolutionRanges` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::BlockSlots` (r:1 w:0)
-	/// Proof: `Subspace::BlockSlots` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::ParentVoteVerificationData` (r:1 w:0)
-	/// Proof: `Subspace::ParentVoteVerificationData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::SegmentCommitment` (r:2 w:0)
-	/// Proof: `Subspace::SegmentCommitment` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::CounterForSegmentCommitment` (r:1 w:0)
-	/// Proof: `Subspace::CounterForSegmentCommitment` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `Subspace::ParentBlockAuthorInfo` (r:1 w:0)
-	/// Proof: `Subspace::ParentBlockAuthorInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::CurrentBlockAuthorInfo` (r:1 w:1)
-	/// Proof: `Subspace::CurrentBlockAuthorInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::CurrentBlockVoters` (r:1 w:1)
-	/// Proof: `Subspace::CurrentBlockVoters` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	fn vote_with_equivocation() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `532`
-		//  Estimated: `6472`
-		// Minimum execution time: 1_927_000_000 picoseconds.
-		Weight::from_parts(1_935_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 6472))
-			.saturating_add(T::DbWeight::get().reads(10))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
 }

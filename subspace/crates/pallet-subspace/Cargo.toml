@@ -35,9 +35,7 @@ futures.workspace = true
 pallet-balances = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["min_const_gen"] }
 sp-io.workspace = true
-subspace-archiving.workspace = true
 subspace-core-primitives.workspace = true
-subspace-erasure-coding.workspace = true
 subspace-farmer-components.workspace = true
 subspace-kzg.workspace = true
 subspace-proof-of-space.workspace = true

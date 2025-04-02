@@ -1082,7 +1082,7 @@ where
                 is_validator: config.base.role.is_authority(),
                 keystore: Some(keystore_container.keystore()),
                 offchain_db: backend.offchain_storage(),
-                transaction_pool: Some(offchain_tx_pool_factory.clone()),
+                transaction_pool: Some(offchain_tx_pool_factory),
                 network_provider: Arc::new(network_service.clone()),
                 enable_http_requests: true,
                 custom_extensions: |_| vec![],
@@ -1161,7 +1161,6 @@ where
                 block_proposal_slot_portion,
                 max_block_proposal_slot_portion: None,
                 telemetry: telemetry.as_ref().map(|x| x.handle()),
-                offchain_tx_pool_factory,
                 pot_verifier,
             });
 

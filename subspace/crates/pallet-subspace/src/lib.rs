@@ -24,42 +24,25 @@ use core::num::NonZeroU64;
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::{EnsureOrigin, RuntimeDebug};
 use frame_support::traits::Get;
-use frame_system::offchain::SubmitTransaction;
 use frame_system::pallet_prelude::*;
-use log::{debug, error, warn};
+use log::{debug, warn};
 pub use pallet::*;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use schnorrkel::SignatureError;
 use sp_consensus_slots::Slot;
-use sp_consensus_subspace::consensus::{is_proof_of_time_valid, verify_solution};
 use sp_consensus_subspace::digests::CompatibleDigestItem;
-use sp_consensus_subspace::{
-    PotParameters, PotParametersChange, SignedVote, Vote, WrappedPotOutput,
-};
+use sp_consensus_subspace::{PotParameters, PotParametersChange};
 use sp_runtime::generic::DigestItem;
 use sp_runtime::traits::{BlockNumberProvider, CheckedSub, Hash, One, Zero};
 use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
     TransactionValidityError, ValidTransaction,
 };
-use sp_runtime::Weight;
-use sp_std::collections::btree_map::BTreeMap;
 use sp_std::prelude::*;
-use subspace_core_primitives::pieces::PieceOffset;
-use subspace_core_primitives::sectors::{SectorId, SectorIndex};
 use subspace_core_primitives::segments::{
     ArchivedHistorySegment, HistorySize, SegmentHeader, SegmentIndex,
 };
-use subspace_core_primitives::solutions::{RewardSignature, SolutionRange};
-use subspace_core_primitives::{
-    BlockHash, PublicKey, ScalarBytes, SlotNumber, REWARD_SIGNING_CONTEXT,
-};
-use subspace_runtime_primitives::CreateUnsigned;
-use subspace_verification::{
-    check_reward_signature, derive_next_solution_range, derive_pot_entropy, PieceCheckParams,
-    VerifySolutionParams,
-};
+use subspace_verification::{derive_next_solution_range, derive_pot_entropy};
 
 /// Trigger an era change, if any should take place.
 pub trait EraChangeTrigger {
@@ -102,18 +85,9 @@ impl<O: Into<Result<RawOrigin, O>> + From<RawOrigin>> EnsureOrigin<O> for Ensure
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo)]
-struct VoteVerificationData {
-    /// Block solution range, vote must not reach it
-    solution_range: SolutionRange,
-    vote_solution_range: SolutionRange,
-    current_slot: Slot,
-    parent_slot: Slot,
-}
-
 #[frame_support::pallet]
 pub mod pallet {
-    use super::{EraChangeTrigger, ExtensionWeightInfo, VoteVerificationData};
+    use super::{EraChangeTrigger, ExtensionWeightInfo};
     use crate::weights::WeightInfo;
     use crate::RawOrigin;
     use frame_support::pallet_prelude::*;
@@ -121,7 +95,6 @@ pub mod pallet {
     use sp_consensus_slots::Slot;
     use sp_consensus_subspace::digests::CompatibleDigestItem;
     use sp_consensus_subspace::inherents::{InherentError, InherentType, INHERENT_IDENTIFIER};
-    use sp_consensus_subspace::SignedVote;
     use sp_runtime::traits::One;
     use sp_runtime::DigestItem;
     use sp_std::collections::btree_map::BTreeMap;
@@ -132,7 +105,7 @@ pub mod pallet {
     use subspace_core_primitives::pot::PotCheckpoints;
     use subspace_core_primitives::sectors::SectorIndex;
     use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
-    use subspace_core_primitives::solutions::{RewardSignature, SolutionRange};
+    use subspace_core_primitives::solutions::SolutionRange;
     use subspace_core_primitives::{PublicKey, Randomness, ScalarBytes};
 
     pub(super) struct InitialSolutionRanges<T: Config> {
@@ -144,13 +117,6 @@ pub mod pallet {
             sp_consensus_subspace::SolutionRanges {
                 current: T::InitialSolutionRange::get(),
                 next: None,
-                voting_current: if T::ShouldAdjustSolutionRange::get() {
-                    T::InitialSolutionRange::get()
-                        .saturating_mul(u64::from(T::ExpectedVotesPerBlock::get()) + 1)
-                } else {
-                    T::InitialSolutionRange::get()
-                },
-                voting_next: None,
             }
         }
     }
@@ -160,8 +126,6 @@ pub mod pallet {
     pub(super) struct SolutionRangeOverride {
         /// Value that should be set as solution range
         pub(super) solution_range: SolutionRange,
-        /// Value that should be set as voting solution range
-        pub(super) voting_solution_range: SolutionRange,
     }
 
     /// The Subspace Pallet
@@ -232,12 +196,6 @@ pub mod pallet {
         #[pallet::constant]
         type MinSectorLifetime: Get<HistorySize>;
 
-        /// Number of votes expected per block.
-        ///
-        /// This impacts solution range for votes in consensus.
-        #[pallet::constant]
-        type ExpectedVotesPerBlock: Get<u32>;
-
         /// How many pieces one sector is supposed to contain (max)
         #[pallet::constant]
         type MaxPiecesInSector: Get<u16>;
@@ -294,7 +252,7 @@ pub mod pallet {
         pub(super) slot_iterations: NonZeroU32,
     }
 
-    /// When to enable block/vote rewards
+    /// When to enable block rewards
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     pub enum EnableRewardsAt<BlockNumber> {
@@ -378,13 +336,6 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// Segment header was stored in blockchain history.
         SegmentHeaderStored { segment_header: SegmentHeader },
-        /// Farmer vote.
-        FarmerVote {
-            public_key: PublicKey,
-            reward_address: T::AccountId,
-            height: BlockNumberFor<T>,
-            parent_hash: T::Hash,
-        },
     }
 
     #[pallet::origin]
@@ -449,10 +400,6 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type DidProcessSegmentHeaders<T: Config> = StorageValue<_, bool, ValueQuery>;
 
-    /// Storage of previous vote verification data, updated on each block during finalization.
-    #[pallet::storage]
-    pub(super) type ParentVoteVerificationData<T> = StorageValue<_, VoteVerificationData>;
-
     /// Parent block author information.
     #[pallet::storage]
     pub(super) type ParentBlockAuthorInfo<T> =
@@ -478,27 +425,6 @@ pub mod pallet {
             Slot,
             Option<T::AccountId>,
         ),
-    >;
-
-    /// Voters in the parent block (set at the end of the block with current values).
-    #[pallet::storage]
-    pub(super) type ParentBlockVoters<T: Config> = StorageValue<
-        _,
-        BTreeMap<
-            (PublicKey, SectorIndex, PieceOffset, ScalarBytes, Slot),
-            (Option<T::AccountId>, RewardSignature),
-        >,
-        ValueQuery,
-    >;
-
-    /// Voters in the current block thus far
-    #[pallet::storage]
-    pub(super) type CurrentBlockVoters<T: Config> = StorageValue<
-        _,
-        BTreeMap<
-            (PublicKey, SectorIndex, PieceOffset, ScalarBytes, Slot),
-            (Option<T::AccountId>, RewardSignature),
-        >,
     >;
 
     /// Number of iterations for proof of time per slot with optional scheduled update
@@ -560,14 +486,10 @@ pub mod pallet {
         pub fn enable_solution_range_adjustment(
             origin: OriginFor<T>,
             solution_range_override: Option<u64>,
-            voting_solution_range_override: Option<u64>,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
-            Self::do_enable_solution_range_adjustment(
-                solution_range_override,
-                voting_solution_range_override,
-            )?;
+            Self::do_enable_solution_range_adjustment(solution_range_override)?;
 
             frame_system::Pallet::<T>::deposit_log(
                 DigestItem::enable_solution_range_adjustment_and_override(solution_range_override),
@@ -576,22 +498,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Farmer vote, currently only used for extra rewards to farmers.
-        #[pallet::call_index(2)]
-        #[pallet::weight((< T as Config >::WeightInfo::vote(), DispatchClass::Operational))]
-        // Suppression because the custom syntax will also generate an enum and we need enum to have
-        // boxed value.
-        #[allow(clippy::boxed_local)]
-        pub fn vote(
-            origin: OriginFor<T>,
-            signed_vote: Box<SignedVote<BlockNumberFor<T>, T::Hash, T::AccountId>>,
-        ) -> DispatchResult {
-            T::SubspaceOrigin::ensure_origin(origin)?;
-
-            Self::do_vote(*signed_vote)
-        }
-
-        /// Enable rewards for blocks and votes at specified block height.
+        /// Enable rewards for blocks at specified block height.
         #[pallet::call_index(3)]
         #[pallet::weight(< T as Config >::WeightInfo::enable_rewards_at())]
         pub fn enable_rewards_at(
@@ -760,14 +667,11 @@ impl<T: Config> Pallet<T> {
 
         SolutionRanges::<T>::mutate(|solution_ranges| {
             let next_solution_range;
-            let next_voting_solution_range;
             // Check if the solution range should be adjusted for next era.
             if !ShouldAdjustSolutionRange::<T>::get() {
                 next_solution_range = solution_ranges.current;
-                next_voting_solution_range = solution_ranges.current;
             } else if let Some(solution_range_override) = NextSolutionRangeOverride::<T>::take() {
                 next_solution_range = solution_range_override.solution_range;
-                next_voting_solution_range = solution_range_override.voting_solution_range;
             } else {
                 next_solution_range = derive_next_solution_range(
                     // If Era start slot is not found it means we have just finished the first era
@@ -779,14 +683,8 @@ impl<T: Config> Pallet<T> {
                         .try_into()
                         .unwrap_or_else(|_| panic!("Era duration is always within u64; qed")),
                 );
-
-                next_voting_solution_range = next_solution_range
-                    .saturating_mul(u64::from(T::ExpectedVotesPerBlock::get()) + 1);
             };
             solution_ranges.next.replace(next_solution_range);
-            solution_ranges
-                .voting_next
-                .replace(next_voting_solution_range);
 
             if let Some(solution_range_for_rewards) = EnableRewardsBelowSolutionRange::<T>::get() {
                 if next_solution_range <= solution_range_for_rewards {
@@ -849,36 +747,26 @@ impl<T: Config> Pallet<T> {
                 pre_digest.solution().chunk,
                 current_slot,
             );
-            if !ParentBlockVoters::<T>::get().contains_key(&key) {
-                let (public_key, sector_index, piece_offset, chunk, slot) = key;
+            let (public_key, sector_index, piece_offset, chunk, slot) = key;
 
-                CurrentBlockAuthorInfo::<T>::put((
-                    public_key,
-                    sector_index,
-                    piece_offset,
-                    chunk,
-                    slot,
-                    Some(pre_digest.solution().reward_address.clone()),
-                ));
-            }
+            CurrentBlockAuthorInfo::<T>::put((
+                public_key,
+                sector_index,
+                piece_offset,
+                chunk,
+                slot,
+                Some(pre_digest.solution().reward_address.clone()),
+            ));
         }
-        CurrentBlockVoters::<T>::put(BTreeMap::<
-            (PublicKey, SectorIndex, PieceOffset, ScalarBytes, Slot),
-            (Option<T::AccountId>, RewardSignature),
-        >::default());
 
         // If solution range was updated in previous block, set it as current.
         if let sp_consensus_subspace::SolutionRanges {
-            next: Some(next),
-            voting_next: Some(voting_next),
-            ..
+            next: Some(next), ..
         } = SolutionRanges::<T>::get()
         {
             SolutionRanges::<T>::put(sp_consensus_subspace::SolutionRanges {
                 current: next,
                 next: None,
-                voting_current: voting_next,
-                voting_next: None,
             });
         }
 
@@ -1043,10 +931,6 @@ impl<T: Config> Pallet<T> {
             ParentBlockAuthorInfo::<T>::take();
         }
 
-        ParentVoteVerificationData::<T>::put(current_vote_verification_data::<T>(true));
-
-        ParentBlockVoters::<T>::put(CurrentBlockVoters::<T>::get().unwrap_or_default());
-
         DidProcessSegmentHeaders::<T>::take();
     }
 
@@ -1073,10 +957,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn do_enable_solution_range_adjustment(
-        solution_range_override: Option<u64>,
-        voting_solution_range_override: Option<u64>,
-    ) -> DispatchResult {
+    fn do_enable_solution_range_adjustment(solution_range_override: Option<u64>) -> DispatchResult {
         if ShouldAdjustSolutionRange::<T>::get() {
             return Err(Error::<T>::SolutionRangeAdjustmentAlreadyEnabled.into());
         }
@@ -1084,50 +965,22 @@ impl<T: Config> Pallet<T> {
         ShouldAdjustSolutionRange::<T>::put(true);
 
         if let Some(solution_range) = solution_range_override {
-            let voting_solution_range = voting_solution_range_override.unwrap_or_else(|| {
-                solution_range.saturating_mul(u64::from(T::ExpectedVotesPerBlock::get()) + 1)
-            });
             SolutionRanges::<T>::mutate(|solution_ranges| {
                 // If solution range update is already scheduled, just update values
                 if solution_ranges.next.is_some() {
                     solution_ranges.next.replace(solution_range);
-                    solution_ranges.voting_next.replace(voting_solution_range);
                 } else {
                     solution_ranges.current = solution_range;
-                    solution_ranges.voting_current = voting_solution_range;
 
                     // Solution range can re-adjust very soon, make sure next re-adjustment is
                     // also overridden
-                    NextSolutionRangeOverride::<T>::put(SolutionRangeOverride {
-                        solution_range,
-                        voting_solution_range,
-                    });
+                    NextSolutionRangeOverride::<T>::put(SolutionRangeOverride { solution_range });
                     frame_system::Pallet::<T>::deposit_log(DigestItem::next_solution_range(
                         solution_range,
                     ));
                 }
             });
         }
-
-        Ok(())
-    }
-
-    fn do_vote(
-        signed_vote: SignedVote<BlockNumberFor<T>, T::Hash, T::AccountId>,
-    ) -> DispatchResult {
-        let Vote::V0 {
-            height,
-            parent_hash,
-            solution,
-            ..
-        } = signed_vote.vote;
-
-        Self::deposit_event(Event::FarmerVote {
-            public_key: solution.public_key,
-            reward_address: solution.reward_address,
-            height,
-            parent_hash,
-        });
 
         Ok(())
     }
@@ -1221,29 +1074,6 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T> Pallet<T>
-where
-    T: Config + CreateUnsigned<Call<T>>,
-{
-    /// Submit farmer vote that is essentially a header with bigger solution range than
-    /// acceptable for block authoring.
-    pub fn submit_vote(signed_vote: SignedVote<BlockNumberFor<T>, T::Hash, T::AccountId>) {
-        let call = Call::vote {
-            signed_vote: Box::new(signed_vote),
-        };
-
-        let ext = T::create_unsigned(call.into());
-        match SubmitTransaction::<T, Call<T>>::submit_transaction(ext) {
-            Ok(()) => {
-                debug!(target: "runtime::subspace", "Submitted Subspace vote");
-            }
-            Err(()) => {
-                error!(target: "runtime::subspace", "Error submitting Subspace vote");
-            }
-        }
-    }
-}
-
 /// Methods for the `ValidateUnsigned` implementation:
 /// It restricts calls to `store_segment_header` to local calls (i.e. extrinsics generated on this
 /// node) or that already in a block. This guarantees that only block authors can include root
@@ -1284,435 +1114,6 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), TransactionValidityError> {
         check_segment_headers::<T>(segment_headers)
     }
-
-    fn validate_vote(
-        signed_vote: &SignedVote<BlockNumberFor<T>, T::Hash, T::AccountId>,
-    ) -> Result<(ValidTransaction, Weight), TransactionValidityError> {
-        check_vote::<T>(signed_vote, false)?;
-
-        ValidTransaction::with_tag_prefix("SubspaceVote")
-            // We assign the maximum priority for any vote.
-            .priority(TransactionPriority::MAX)
-            // Should be included in the next block or block after that, but not later
-            .longevity(2)
-            .and_provides(signed_vote.signature)
-            .build()
-            .map(|validity| (validity, T::ExtensionWeightInfo::vote()))
-    }
-
-    fn pre_dispatch_vote(
-        signed_vote: &SignedVote<BlockNumberFor<T>, T::Hash, T::AccountId>,
-    ) -> Result<Weight, TransactionValidityError> {
-        match check_vote::<T>(signed_vote, true) {
-            Ok(()) => Ok(T::ExtensionWeightInfo::vote()),
-            Err(CheckVoteError::Equivocated { .. }) => {
-                // Return Ok such that changes from this pre-dispatch are persisted
-                Ok(T::ExtensionWeightInfo::vote_with_equivocation())
-            }
-            Err(error) => Err(error.into()),
-        }
-    }
-}
-
-/// Verification data retrieval depends on whether it is called from pre_dispatch (meaning block
-/// initialization has already happened) or from `validate_unsigned` by transaction pool (meaning
-/// block initialization didn't happen yet).
-fn current_vote_verification_data<T: Config>(is_block_initialized: bool) -> VoteVerificationData {
-    let solution_ranges = SolutionRanges::<T>::get();
-
-    VoteVerificationData {
-        solution_range: if is_block_initialized {
-            solution_ranges.current
-        } else {
-            solution_ranges.next.unwrap_or(solution_ranges.current)
-        },
-        vote_solution_range: if is_block_initialized {
-            solution_ranges.voting_current
-        } else {
-            solution_ranges
-                .voting_next
-                .unwrap_or(solution_ranges.voting_current)
-        },
-        current_slot: Pallet::<T>::current_slot(),
-        parent_slot: ParentVoteVerificationData::<T>::get()
-            .map(|parent_vote_verification_data| {
-                if is_block_initialized {
-                    parent_vote_verification_data.current_slot
-                } else {
-                    parent_vote_verification_data.parent_slot
-                }
-            })
-            .unwrap_or_else(Pallet::<T>::current_slot),
-    }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-enum CheckVoteError {
-    UnexpectedBeforeHeightTwo,
-    HeightInTheFuture,
-    HeightInThePast,
-    IncorrectParentHash,
-    SlotInTheFuture,
-    SlotInThePast,
-    BadRewardSignature(SignatureError),
-    UnknownSegmentCommitment,
-    InvalidHistorySize,
-    InvalidSolution(String),
-    QualityTooHigh,
-    InvalidProofOfTime,
-    InvalidFutureProofOfTime,
-    DuplicateVote,
-    Equivocated { slot: Slot, offender: PublicKey },
-}
-
-impl From<CheckVoteError> for TransactionValidityError {
-    #[inline]
-    fn from(error: CheckVoteError) -> Self {
-        TransactionValidityError::Invalid(match error {
-            CheckVoteError::UnexpectedBeforeHeightTwo => InvalidTransaction::Call,
-            CheckVoteError::HeightInTheFuture => InvalidTransaction::Future,
-            CheckVoteError::HeightInThePast => InvalidTransaction::Stale,
-            CheckVoteError::IncorrectParentHash => InvalidTransaction::Call,
-            CheckVoteError::SlotInTheFuture => InvalidTransaction::Future,
-            CheckVoteError::SlotInThePast => InvalidTransaction::Stale,
-            CheckVoteError::BadRewardSignature(_) => InvalidTransaction::BadProof,
-            CheckVoteError::UnknownSegmentCommitment => InvalidTransaction::Call,
-            CheckVoteError::InvalidHistorySize => InvalidTransaction::Call,
-            CheckVoteError::InvalidSolution(_) => InvalidTransaction::Call,
-            CheckVoteError::QualityTooHigh => InvalidTransaction::Call,
-            CheckVoteError::InvalidProofOfTime => InvalidTransaction::Future,
-            CheckVoteError::InvalidFutureProofOfTime => InvalidTransaction::Call,
-            CheckVoteError::DuplicateVote => InvalidTransaction::Call,
-            CheckVoteError::Equivocated { .. } => InvalidTransaction::BadSigner,
-        })
-    }
-}
-
-fn check_vote<T: Config>(
-    signed_vote: &SignedVote<BlockNumberFor<T>, T::Hash, T::AccountId>,
-    pre_dispatch: bool,
-) -> Result<(), CheckVoteError> {
-    let Vote::V0 {
-        height,
-        parent_hash,
-        slot,
-        solution,
-        proof_of_time,
-        future_proof_of_time,
-    } = &signed_vote.vote;
-    let height = *height;
-    let slot = *slot;
-
-    let current_block_number = frame_system::Pallet::<T>::current_block_number();
-
-    if current_block_number <= One::one() || height <= One::one() {
-        debug!(
-            target: "runtime::subspace",
-            "Votes are not expected at height below 2"
-        );
-
-        return Err(CheckVoteError::UnexpectedBeforeHeightTwo);
-    }
-
-    // Height must be either the same as in current block or smaller by one.
-    //
-    // Subtraction will not panic due to check above.
-    if !(height == current_block_number || height == current_block_number - One::one()) {
-        debug!(
-            target: "runtime::subspace",
-            "Vote verification error: bad height {height:?}, current block number is \
-            {current_block_number:?}"
-        );
-        return Err(if height > current_block_number {
-            CheckVoteError::HeightInTheFuture
-        } else {
-            CheckVoteError::HeightInThePast
-        });
-    }
-
-    // Should have parent hash from -1 (parent hash of current block) or -2 (block before that)
-    //
-    // Subtraction will not panic due to check above.
-    if *parent_hash != frame_system::Pallet::<T>::block_hash(height - One::one()) {
-        debug!(
-            target: "runtime::subspace",
-            "Vote verification error: parent hash {parent_hash:?}",
-        );
-        return Err(CheckVoteError::IncorrectParentHash);
-    }
-
-    let current_vote_verification_data = current_vote_verification_data::<T>(pre_dispatch);
-    let parent_vote_verification_data = ParentVoteVerificationData::<T>::get()
-        .expect("Above check for block number ensures that this value is always present; qed");
-
-    if pre_dispatch {
-        // New time slot is already set, whatever time slot is in the vote it must be smaller or the
-        // same (for votes produced locally)
-        let current_slot = current_vote_verification_data.current_slot;
-        if slot > current_slot || (slot == current_slot && height != current_block_number) {
-            debug!(
-                target: "runtime::subspace",
-                "Vote slot {slot:?} must be before current slot {current_slot:?}",
-            );
-            return Err(CheckVoteError::SlotInTheFuture);
-        }
-    }
-
-    let parent_slot = if pre_dispatch {
-        // For pre-dispatch parent slot is `current_slot` in the parent vote verification data (it
-        // was updated in current block because initialization hook was already called) if vote is
-        // at the same height as the current block, otherwise it is one level older and
-        // `parent_slot` from parent vote verification data needs to be taken instead
-        if height == current_block_number {
-            parent_vote_verification_data.current_slot
-        } else {
-            parent_vote_verification_data.parent_slot
-        }
-    } else {
-        // Otherwise parent slot is `current_slot` in the current vote verification data (that
-        // wasn't updated from parent block because initialization hook wasn't called yet) if vote
-        // is at the same height as the current block, otherwise it is one level older and
-        // `parent_slot` from current vote verification data needs to be taken instead
-        if height == current_block_number {
-            current_vote_verification_data.current_slot
-        } else {
-            current_vote_verification_data.parent_slot
-        }
-    };
-
-    if slot <= parent_slot {
-        debug!(
-            target: "runtime::subspace",
-            "Vote slot {slot:?} must be after parent slot {parent_slot:?}",
-        );
-        return Err(CheckVoteError::SlotInThePast);
-    }
-
-    if let Err(error) = check_reward_signature(
-        signed_vote.vote.hash().as_bytes(),
-        &signed_vote.signature,
-        &solution.public_key,
-        &schnorrkel::signing_context(REWARD_SIGNING_CONTEXT),
-    ) {
-        debug!(
-            target: "runtime::subspace",
-            "Vote verification error: {error:?}"
-        );
-        return Err(CheckVoteError::BadRewardSignature(error));
-    }
-
-    let vote_verification_data = if height == current_block_number {
-        current_vote_verification_data
-    } else {
-        parent_vote_verification_data
-    };
-
-    let sector_id = SectorId::new(
-        solution.public_key.hash(),
-        solution.sector_index,
-        solution.history_size,
-    );
-
-    let recent_segments = T::RecentSegments::get();
-    let recent_history_fraction = (
-        T::RecentHistoryFraction::get().0,
-        T::RecentHistoryFraction::get().1,
-    );
-    let segment_index = sector_id
-        .derive_piece_index(
-            solution.piece_offset,
-            solution.history_size,
-            T::MaxPiecesInSector::get(),
-            recent_segments,
-            recent_history_fraction,
-        )
-        .segment_index();
-
-    let segment_commitment =
-        if let Some(segment_commitment) = Pallet::<T>::segment_commitment(segment_index) {
-            segment_commitment
-        } else {
-            debug!(
-                target: "runtime::subspace",
-                "Vote verification error: no segment commitment for segment index {segment_index}"
-            );
-            return Err(CheckVoteError::UnknownSegmentCommitment);
-        };
-
-    let sector_expiration_check_segment_commitment = Pallet::<T>::segment_commitment(
-        solution
-            .history_size
-            .sector_expiration_check(T::MinSectorLifetime::get())
-            .ok_or(CheckVoteError::InvalidHistorySize)?
-            .segment_index(),
-    );
-
-    match verify_solution(
-        solution.into(),
-        slot.into(),
-        (&VerifySolutionParams {
-            proof_of_time: *proof_of_time,
-            solution_range: vote_verification_data.vote_solution_range,
-            piece_check_params: Some(PieceCheckParams {
-                max_pieces_in_sector: T::MaxPiecesInSector::get(),
-                segment_commitment,
-                recent_segments,
-                recent_history_fraction,
-                min_sector_lifetime: T::MinSectorLifetime::get(),
-                current_history_size: Pallet::<T>::history_size(),
-                sector_expiration_check_segment_commitment,
-            }),
-        })
-            .into(),
-    ) {
-        Ok(solution_distance) => {
-            if solution_distance <= vote_verification_data.solution_range / 2 {
-                debug!(
-                    target: "runtime::subspace",
-                    "Vote quality is too high"
-                );
-                return Err(CheckVoteError::QualityTooHigh);
-            }
-        }
-        Err(error) => {
-            debug!(
-                target: "runtime::subspace",
-                "Vote verification error: {error:?}"
-            );
-            return Err(CheckVoteError::InvalidSolution(error));
-        }
-    }
-
-    // Cheap proof of time verification is possible here because proof of time must have already
-    // been seen by this node due to votes requiring the same authoring delay as blocks
-    if !is_proof_of_time_valid(
-        BlockHash::try_from(parent_hash.as_ref())
-            .expect("Must be able to convert to block hash type"),
-        SlotNumber::from(slot),
-        WrappedPotOutput::from(*proof_of_time),
-        // Quick verification when entering transaction pool, but not when constructing the block
-        !pre_dispatch,
-    ) {
-        debug!(target: "runtime::subspace", "Invalid proof of time");
-
-        return Err(CheckVoteError::InvalidProofOfTime);
-    }
-
-    // During pre-dispatch we have already verified proofs of time up to future proof of time of
-    // current block, which vote can't exceed, this must be possible to verify cheaply
-    if pre_dispatch
-        && !is_proof_of_time_valid(
-            BlockHash::try_from(parent_hash.as_ref())
-                .expect("Must be able to convert to block hash type"),
-            SlotNumber::from(slot + T::BlockAuthoringDelay::get()),
-            WrappedPotOutput::from(*future_proof_of_time),
-            false,
-        )
-    {
-        debug!(target: "runtime::subspace", "Invalid future proof of time");
-
-        return Err(CheckVoteError::InvalidFutureProofOfTime);
-    }
-
-    let key = (
-        solution.public_key,
-        solution.sector_index,
-        solution.piece_offset,
-        solution.chunk,
-        slot,
-    );
-    // Check that farmer didn't use solution from this vote yet in:
-    // * parent block
-    // * current block
-    // * parent block vote
-    // * current block vote
-    let mut is_equivocating = ParentBlockAuthorInfo::<T>::get().as_ref() == Some(&key)
-        || CurrentBlockAuthorInfo::<T>::get()
-            .map(
-                |(public_key, sector_index, piece_offset, chunk, slot, _reward_address)| {
-                    (public_key, sector_index, piece_offset, chunk, slot)
-                },
-            )
-            .as_ref()
-            == Some(&key);
-
-    if !is_equivocating {
-        if let Some((_reward_address, signature)) = ParentBlockVoters::<T>::get().get(&key) {
-            if signature != &signed_vote.signature {
-                is_equivocating = true;
-            } else {
-                // The same vote should never be included more than once
-                return Err(CheckVoteError::DuplicateVote);
-            }
-        }
-    }
-
-    if !is_equivocating {
-        if let Some((_reward_address, signature)) =
-            CurrentBlockVoters::<T>::get().unwrap_or_default().get(&key)
-        {
-            if signature != &signed_vote.signature {
-                is_equivocating = true;
-            } else {
-                // The same vote should never be included more than once
-                return Err(CheckVoteError::DuplicateVote);
-            }
-        }
-    }
-
-    if pre_dispatch {
-        // During `pre_dispatch` call put farmer into the list of reward receivers.
-        CurrentBlockVoters::<T>::mutate(|current_reward_receivers| {
-            current_reward_receivers
-                .as_mut()
-                .expect("Always set during block initialization")
-                .insert(
-                    key,
-                    (
-                        if is_equivocating {
-                            None
-                        } else {
-                            Some(solution.reward_address.clone())
-                        },
-                        signed_vote.signature,
-                    ),
-                );
-        });
-    }
-
-    if is_equivocating {
-        let offender = solution.public_key;
-
-        CurrentBlockAuthorInfo::<T>::mutate(|maybe_info| {
-            if let Some((public_key, _sector_index, _piece_offset, _chunk, _slot, reward_address)) =
-                maybe_info
-            {
-                if public_key == &offender {
-                    // Revoke reward for block author
-                    reward_address.take();
-                }
-            }
-        });
-
-        CurrentBlockVoters::<T>::mutate(|current_reward_receivers| {
-            if let Some(current_reward_receivers) = current_reward_receivers {
-                for (
-                    (public_key, _sector_index, _piece_offset, _chunk, _slot),
-                    (reward_address, _signature),
-                ) in current_reward_receivers.iter_mut()
-                {
-                    if public_key == &offender {
-                        // Revoke reward if assigned in current block.
-                        reward_address.take();
-                    }
-                }
-            }
-        });
-
-        return Err(CheckVoteError::Equivocated { slot, offender });
-    }
-
-    Ok(())
 }
 
 fn check_segment_headers<T: Config>(
@@ -1787,25 +1188,6 @@ impl<T: Config> subspace_runtime_primitives::FindBlockRewardAddress<T::AccountId
                 None
             },
         )
-    }
-}
-
-impl<T: Config> subspace_runtime_primitives::FindVotingRewardAddresses<T::AccountId> for Pallet<T> {
-    fn find_voting_reward_addresses() -> Vec<T::AccountId> {
-        // Rewards might be disabled, in which case no voting reward
-        if let Some(height) = EnableRewards::<T>::get() {
-            if frame_system::Pallet::<T>::current_block_number() >= height {
-                // It is possible that this is called during initialization when current block
-                // voters are already moved into parent block voters, handle it accordingly
-                return CurrentBlockVoters::<T>::get()
-                    .unwrap_or_else(ParentBlockVoters::<T>::get)
-                    .into_values()
-                    .filter_map(|(reward_address, _signature)| reward_address)
-                    .collect();
-            }
-        }
-
-        Vec::new()
     }
 }
 

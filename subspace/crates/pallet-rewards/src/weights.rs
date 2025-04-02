@@ -31,7 +31,7 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_rewards.
 pub trait WeightInfo {
-	fn update_issuance_params(p: u32, v: u32, ) -> Weight;
+	fn update_issuance_params(p: u32) -> Weight;
 }
 
 /// Weights for pallet_rewards using the Substrate node and recommended hardware.
@@ -39,11 +39,9 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Rewards::ProposerSubsidyPoints` (r:0 w:1)
 	/// Proof: `Rewards::ProposerSubsidyPoints` (`max_values`: Some(1), `max_size`: Some(401), added: 896, mode: `MaxEncodedLen`)
-	/// Storage: `Rewards::VoterSubsidyPoints` (r:0 w:1)
-	/// Proof: `Rewards::VoterSubsidyPoints` (`max_values`: Some(1), `max_size`: Some(401), added: 896, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[0, 20]`.
 	/// The range of component `v` is `[0, 20]`.
-	fn update_issuance_params(p: u32, v: u32, ) -> Weight {
+	fn update_issuance_params(p: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -51,8 +49,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(4_871_200, 0)
 			// Standard Error: 581
 			.saturating_add(Weight::from_parts(6_370, 0).saturating_mul(p.into()))
-			// Standard Error: 581
-			.saturating_add(Weight::from_parts(9_390, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 }
@@ -61,11 +57,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	/// Storage: `Rewards::ProposerSubsidyPoints` (r:0 w:1)
 	/// Proof: `Rewards::ProposerSubsidyPoints` (`max_values`: Some(1), `max_size`: Some(401), added: 896, mode: `MaxEncodedLen`)
-	/// Storage: `Rewards::VoterSubsidyPoints` (r:0 w:1)
-	/// Proof: `Rewards::VoterSubsidyPoints` (`max_values`: Some(1), `max_size`: Some(401), added: 896, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[0, 20]`.
 	/// The range of component `v` is `[0, 20]`.
-	fn update_issuance_params(p: u32, v: u32, ) -> Weight {
+	fn update_issuance_params(p: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -73,8 +67,6 @@ impl WeightInfo for () {
 		Weight::from_parts(4_871_200, 0)
 			// Standard Error: 581
 			.saturating_add(Weight::from_parts(6_370, 0).saturating_mul(p.into()))
-			// Standard Error: 581
-			.saturating_add(Weight::from_parts(9_390, 0).saturating_mul(v.into()))
 			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 }

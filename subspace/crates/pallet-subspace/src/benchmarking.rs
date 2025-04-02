@@ -19,7 +19,6 @@ mod benchmarks {
     use frame_support::traits::Get;
     use frame_system::pallet_prelude::*;
     use frame_system::{Pallet as System, RawOrigin};
-    use sp_consensus_subspace::{SignedVote, Vote};
     use sp_std::boxed::Box;
     use sp_std::num::NonZeroU32;
     use subspace_core_primitives::hashes::Blake3Hash;
@@ -49,11 +48,7 @@ mod benchmarks {
     #[benchmark]
     fn enable_solution_range_adjustment() {
         let solution_range_override: SolutionRange = 10;
-        let voting_solution_range_override =
-            solution_range_override.saturating_mul(u64::from(T::ExpectedVotesPerBlock::get()) + 1);
 
-        // Set `voting_solution_range_override` parameter to None to compute the `voting_solution_range`
-        // in the call
         #[extrinsic_call]
         _(RawOrigin::Root, Some(solution_range_override), None);
 
@@ -61,10 +56,6 @@ mod benchmarks {
 
         let solution_range = SolutionRanges::<T>::get();
         assert_eq!(solution_range.current, solution_range_override);
-        assert_eq!(
-            solution_range.voting_current,
-            voting_solution_range_override
-        );
 
         let next_solution_range_override = NextSolutionRangeOverride::<T>::get()
             .expect("NextSolutionRangeOverride should be filled");
@@ -72,35 +63,6 @@ mod benchmarks {
             next_solution_range_override.solution_range,
             solution_range_override
         );
-        assert_eq!(
-            next_solution_range_override.voting_solution_range,
-            voting_solution_range_override
-        );
-    }
-
-    #[benchmark]
-    fn vote() {
-        // Construct a dummy vote which is invalid but it is okay because the vote is not validated
-        // during the call
-        let unsigned_vote: Vote<BlockNumberFor<T>, T::Hash, T::AccountId> = Vote::V0 {
-            height: System::<T>::block_number(),
-            parent_hash: System::<T>::parent_hash(),
-            slot: Pallet::<T>::current_slot(),
-            solution: Solution::genesis_solution(
-                PublicKey::from([1u8; 32]),
-                account("user1", 1, SEED),
-            ),
-            proof_of_time: PotOutput::default(),
-            future_proof_of_time: PotOutput::default(),
-        };
-        let signature = RewardSignature::from([2u8; 64]);
-        let signed_vote = SignedVote {
-            vote: unsigned_vote,
-            signature,
-        };
-
-        #[extrinsic_call]
-        _(SubspaceOrigin::ValidatedUnsigned, Box::new(signed_vote));
     }
 
     #[benchmark]
