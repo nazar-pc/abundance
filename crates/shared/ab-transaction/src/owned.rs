@@ -101,6 +101,11 @@ impl OwnedTransaction {
         Ok(Self { buffer })
     }
 
+    // TODO: Implement
+    // pub fn from_transaction(transaction: Transaction<'_>) -> Result<Self, OwnedTransactionError> {
+    //     todo!()
+    // }
+
     /// Inner buffer with owned transaction contents
     pub fn buffer(&self) -> &SharedAlignedBuffer {
         &self.buffer

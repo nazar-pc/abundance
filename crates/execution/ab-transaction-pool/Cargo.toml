@@ -1,5 +1,5 @@
 [package]
-name = "ab-executor-slots"
+name = "ab-transaction-pool"
 description = ""
 license = "0BSD"
 version = "0.0.1"
@@ -14,11 +14,9 @@ include = [
 all-features = true
 
 [dependencies]
-ab-aligned-buffer = { workspace = true }
 ab-contracts-common = { workspace = true }
-smallvec = { workspace = true }
-take_mut = { workspace = true }
-tracing = { workspace = true }
+ab-transaction = { workspace = true, features = ["alloc"] }
+thiserror = { workspace = true }
 
 [lints]
 workspace = true

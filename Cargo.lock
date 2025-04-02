@@ -224,6 +224,16 @@ dependencies = [
  "ab-aligned-buffer",
  "ab-contracts-common",
  "ab-contracts-io-type",
+ "blake3",
+ "thiserror",
+]
+
+[[package]]
+name = "ab-transaction-pool"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-transaction",
  "thiserror",
 ]
 
