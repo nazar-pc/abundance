@@ -60,7 +60,6 @@ sp-api.workspace = true
 sp-blockchain.workspace = true
 sp-block-builder.workspace = true
 sp-consensus.workspace = true
-sp-consensus-slots.workspace = true
 sp-consensus-subspace.workspace = true
 sp-core.workspace = true
 sp-externalities.workspace = true
