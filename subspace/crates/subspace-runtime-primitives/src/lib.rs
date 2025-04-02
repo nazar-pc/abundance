@@ -15,7 +15,7 @@ use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
 use frame_system::limits::BlockLength;
 use frame_system::offchain::CreateTransactionBase;
 use pallet_transaction_payment::{Multiplier, OnChargeTransaction, TargetedFeeAdjustment};
-use parity_scale_codec::{Codec, Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{Codec, Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::parameter_types;
 use sp_runtime::traits::{Bounded, IdentifyAccount, Verify};
@@ -167,13 +167,6 @@ impl<Balance: Codec + tokens::Balance> Default for BlockTransactionByteFee<Balan
 pub type OnChargeTransactionBalance<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<
     T,
 >>::Balance;
-
-#[derive(
-    PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Ord, PartialOrd, Copy, Debug,
-)]
-pub enum HoldIdentifier {
-    Preimage,
-}
 
 /// Interface for creating an unsigned general extrinsic
 pub trait CreateUnsigned<LocalCall>: CreateTransactionBase<LocalCall> {

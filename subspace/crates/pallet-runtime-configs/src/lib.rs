@@ -23,11 +23,6 @@ mod pallet {
     #[pallet::getter(fn enable_dynamic_cost_of_storage)]
     pub type EnableDynamicCostOfStorage<T> = StorageValue<_, bool, ValueQuery>;
 
-    /// Whether to enable balances transfers.
-    #[pallet::storage]
-    #[pallet::getter(fn enable_balance_transfers)]
-    pub type EnableBalanceTransfers<T> = StorageValue<_, bool, ValueQuery>;
-
     #[pallet::storage]
     pub type ConfirmationDepthK<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
@@ -41,8 +36,6 @@ mod pallet {
     pub struct GenesisConfig<T: Config> {
         /// Whether to enable dynamic cost of storage (if `false` cost per byte is equal to 1)
         pub enable_dynamic_cost_of_storage: bool,
-        /// Whether to enable balance transfers
-        pub enable_balance_transfers: bool,
         /// Confirmation depth k to use in the archiving process
         pub confirmation_depth_k: BlockNumberFor<T>,
     }
@@ -52,7 +45,6 @@ mod pallet {
         fn default() -> Self {
             Self {
                 enable_dynamic_cost_of_storage: false,
-                enable_balance_transfers: false,
                 confirmation_depth_k: BlockNumberFor::<T>::from(100u32),
             }
         }
@@ -63,7 +55,6 @@ mod pallet {
         fn build(&self) {
             let Self {
                 enable_dynamic_cost_of_storage,
-                enable_balance_transfers,
                 confirmation_depth_k,
             } = self;
 
@@ -73,7 +64,6 @@ mod pallet {
             );
 
             <EnableDynamicCostOfStorage<T>>::put(enable_dynamic_cost_of_storage);
-            <EnableBalanceTransfers<T>>::put(enable_balance_transfers);
             <ConfirmationDepthK<T>>::put(confirmation_depth_k);
         }
     }
@@ -90,20 +80,6 @@ mod pallet {
             ensure_root(origin)?;
 
             EnableDynamicCostOfStorage::<T>::put(enable_dynamic_cost_of_storage);
-
-            Ok(())
-        }
-
-        /// Enable or disable balance transfers for all users.
-        #[pallet::call_index(2)]
-        #[pallet::weight(< T as Config >::WeightInfo::set_enable_balance_transfers())]
-        pub fn set_enable_balance_transfers(
-            origin: OriginFor<T>,
-            enable_balance_transfers: bool,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-
-            EnableBalanceTransfers::<T>::put(enable_balance_transfers);
 
             Ok(())
         }
