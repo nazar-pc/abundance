@@ -25,11 +25,10 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use crate::fees::{OnChargeTransaction, TransactionByteFee};
 use crate::object_mapping::extract_block_object_mapping;
 use alloc::borrow::Cow;
-use core::mem;
 use core::num::NonZeroU64;
 use frame_support::genesis_builder_helper::{build_state, get_preset};
 use frame_support::inherent::ProvideInherent;
-use frame_support::traits::{ConstU16, ConstU32, ConstU64, ConstU8, Everything, Get, VariantCount};
+use frame_support::traits::{ConstU16, ConstU32, ConstU64, ConstU8, Everything, Get};
 use frame_support::weights::constants::ParityDbWeight;
 use frame_support::weights::{ConstantMultiplier, Weight};
 use frame_support::{construct_runtime, parameter_types};
@@ -37,8 +36,6 @@ use frame_system::limits::{BlockLength, BlockWeights};
 use frame_system::pallet_prelude::RuntimeCallFor;
 pub use pallet_rewards::RewardPoint;
 pub use pallet_subspace::{AllowAuthoringBy, EnableRewardsAt};
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
 use sp_api::impl_runtime_apis;
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_consensus_subspace::{ChainConstants, PotParameters, SolutionRanges};
@@ -65,9 +62,8 @@ use subspace_runtime_primitives::utility::{
 };
 use subspace_runtime_primitives::{
     maximum_normal_block_length, AccountId, Balance, BlockNumber, ConsensusEventSegmentSize, Hash,
-    HoldIdentifier, Moment, Nonce, Signature, SlowAdjustingFeeUpdate, TargetBlockFullness,
-    BLOCK_WEIGHT_FOR_2_SEC, MIN_REPLICATION_FACTOR, NORMAL_DISPATCH_RATIO, SHANNON,
-    SLOT_PROBABILITY,
+    Moment, Nonce, Signature, SlowAdjustingFeeUpdate, TargetBlockFullness, BLOCK_WEIGHT_FOR_2_SEC,
+    MIN_REPLICATION_FACTOR, NORMAL_DISPATCH_RATIO, SHANNON, SLOT_PROBABILITY,
 };
 
 sp_runtime::impl_opaque_keys! {
@@ -273,15 +269,6 @@ parameter_types! {
     pub const ExistentialDeposit: Balance = 10_000_000_000_000 * SHANNON;
 }
 
-#[derive(
-    PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Ord, PartialOrd, Copy, Debug,
-)]
-pub struct HoldIdentifierWrapper(HoldIdentifier);
-
-impl VariantCount for HoldIdentifierWrapper {
-    const VARIANT_COUNT: u32 = mem::variant_count::<HoldIdentifier>() as u32;
-}
-
 impl pallet_balances::Config for Runtime {
     type RuntimeFreezeReason = RuntimeFreezeReason;
     type MaxLocks = ConstU32<50>;
@@ -297,7 +284,7 @@ impl pallet_balances::Config for Runtime {
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
     type FreezeIdentifier = ();
     type MaxFreezes = ();
-    type RuntimeHoldReason = HoldIdentifierWrapper;
+    type RuntimeHoldReason = ();
     type DoneSlashHandler = ();
 }
 
