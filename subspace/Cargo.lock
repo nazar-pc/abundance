@@ -11209,10 +11209,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sc-subspace-chain-specs"
-version = "0.1.0"
-
-[[package]]
 name = "sc-subspace-sync-common"
 version = "0.1.0"
 dependencies = [
@@ -13605,7 +13601,6 @@ dependencies = [
  "sc-network-sync",
  "sc-service",
  "sc-storage-monitor",
- "sc-subspace-chain-specs",
  "sc-tracing",
  "sc-transaction-pool-api",
  "sc-utils",
@@ -13723,7 +13718,6 @@ dependencies = [
  "sc-service",
  "sc-state-db",
  "sc-storage-monitor",
- "sc-subspace-chain-specs",
  "sc-telemetry",
  "sc-transaction-pool-api",
  "sc-utils",

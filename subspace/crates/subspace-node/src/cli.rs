@@ -84,9 +84,6 @@ impl SubstrateCli for SubspaceCliPlaceholder {
     fn load_spec(&self, id: &str) -> Result<Box<dyn ChainSpec>, String> {
         let chain_spec = match id {
             "mainnet-compiled" => chain_spec::mainnet_compiled()?,
-            "mainnet" => chain_spec::mainnet_config()?,
-            "taurus" => chain_spec::taurus_config()?,
-            "devnet" => chain_spec::devnet_config()?,
             "devnet-compiled" => chain_spec::devnet_config_compiled()?,
             "dev" => chain_spec::dev_config()?,
             path => GenericChainSpec::from_json_file(std::path::PathBuf::from(path))?,

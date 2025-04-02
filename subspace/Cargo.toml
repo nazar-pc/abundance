@@ -182,7 +182,6 @@ sc-service = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed
 sc-state-db = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
 sc-storage-monitor = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
 sc-subspace-block-relay = { version = "0.1.0", path = "crates/sc-subspace-block-relay" }
-sc-subspace-chain-specs = { version = "0.1.0", path = "crates/sc-subspace-chain-specs" }
 sc-subspace-sync-common = { version = "0.1.0", path = "shared/sc-subspace-sync-common", default-features = false }
 sc-sysinfo = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
 sc-telemetry = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
