@@ -61,7 +61,7 @@ So you see that there are a lot of unanswered questions. With all of this in min
 - Finally, on top of all these mechanisms we can come up with a reward system that forces rational balancing of the farming population among shards. This will help us avoid collusion and a big farmer trying to attack a shard.
 
 <p align="center">
-<img alt="Nazar's high-level diagram of refined merged farming" src="./images/2025-03-31-nazar-diagram.png"></img>
+<img alt="Nazar's high-level diagram of refined merged farming" src="./2025-03-31-nazar-diagram.png"></img>
 </p>
 
 ## Core subprotocols for the design
