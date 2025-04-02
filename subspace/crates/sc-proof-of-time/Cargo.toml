@@ -1,0 +1,36 @@
+[package]
+name = "sc-proof-of-time"
+description = "Subspace proof of time implementation"
+license = "0BSD"
+version = "0.1.0"
+authors = ["Rahul Subramaniyam <rahulksnv@gmail.com>"]
+edition = "2021"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[dependencies]
+core_affinity.workspace = true
+derive_more = { workspace = true, features = ["full"] }
+futures.workspace = true
+parity-scale-codec = { workspace = true, features = ["derive"] }
+parking_lot.workspace = true
+rayon.workspace = true
+schnellru.workspace = true
+sc-client-api.workspace = true
+sc-consensus-slots.workspace = true
+sc-network.workspace = true
+sc-network-gossip.workspace = true
+sp-api = { workspace = true, features = ["std"] }
+sp-blockchain.workspace = true
+sp-consensus.workspace = true
+sp-consensus-slots = { workspace = true, features = ["std"] }
+sp-consensus-subspace = { workspace = true, features = ["std"] }
+sp-inherents = { workspace = true, features = ["std"] }
+sp-runtime = { workspace = true, features = ["std"] }
+subspace-core-primitives = { workspace = true, features = ["std"] }
+subspace-proof-of-time.workspace = true
+thread-priority.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true, features = ["std"] }

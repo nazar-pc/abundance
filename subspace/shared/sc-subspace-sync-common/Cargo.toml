@@ -1,0 +1,25 @@
+[package]
+name = "sc-subspace-sync-common"
+version = "0.1.0"
+edition = "2021"
+authors = [
+    "Shamil Gadelshin <shamilgadelshin@gmail.com>"
+]
+description = "Synchronization algorithms for Autonomys Network"
+license = "0BSD"
+repository = "https://github.com/autonomys/subspace"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[dependencies]
+array-bytes.workspace = true
+futures.workspace = true
+sc-client-api.workspace = true
+sc-consensus.workspace = true
+sc-network.workspace = true
+sc-network-sync.workspace = true
+sp-blockchain.workspace = true
+sp-runtime.workspace = true
+tracing.workspace = true

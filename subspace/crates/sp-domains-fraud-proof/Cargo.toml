@@ -1,0 +1,100 @@
+[package]
+name = "sp-domains-fraud-proof"
+description = "Domains fraud proof primitves for Consensus chain"
+license = "0BSD"
+version = "0.1.0"
+authors = ["Subspace Labs <https://subspace.network>"]
+edition = "2021"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[dependencies]
+parity-scale-codec = { workspace = true, features = ["derive"] }
+domain-block-builder = { workspace = true, optional = true }
+domain-block-preprocessor = { workspace = true, optional = true }
+domain-runtime-primitives.workspace = true
+frame-support.workspace = true
+hash-db.workspace = true
+log.workspace = true
+scale-info = { workspace = true, features = ["derive"] }
+sc-client-api = { workspace = true, optional = true }
+sc-executor = { workspace = true, optional = true }
+sp-api.workspace = true
+sp-blockchain = { workspace = true, optional = true }
+sp-consensus-slots.workspace = true
+sp-core.workspace = true
+sp-domain-digests.workspace = true
+sp-domains.workspace = true
+sp-externalities.workspace = true
+sp-messenger.workspace = true
+sp-runtime.workspace = true
+sp-runtime-interface.workspace = true
+sp-state-machine = { workspace = true, optional = true }
+sp-subspace-mmr.workspace = true
+sp-std.workspace = true
+sp-trie.workspace = true
+sp-weights.workspace = true
+subspace-core-primitives.workspace = true
+subspace-runtime-primitives.workspace = true
+trie-db.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+domain-block-preprocessor.workspace = true
+domain-test-service.workspace = true
+ethereum.workspace = true
+evm-domain-test-runtime.workspace = true
+fp-rpc.workspace = true
+fp-self-contained.workspace = true
+frame-system.workspace = true
+futures.workspace = true
+libsecp256k1 = { workspace = true, features = ["static-context", "hmac"] }
+pallet-balances.workspace = true
+pallet-ethereum.workspace = true
+rand = { workspace = true, features = ["min_const_gen"] }
+rlp.workspace = true
+sp-core.workspace = true
+sc-cli.workspace = true
+sp-domains = { workspace = true, features = ["test-ethereum"] }
+sc-service.workspace = true
+subspace-test-service.workspace = true
+subspace-runtime-primitives.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "parity-scale-codec/std",
+    "domain-block-builder",
+    "domain-block-preprocessor",
+    "domain-runtime-primitives/std",
+    "frame-support/std",
+    "hash-db/std",
+    "log/std",
+    "scale-info/std",
+    "sc-client-api",
+    "sc-executor/std",
+    "sp-api/std",
+    "sp-blockchain",
+    "sp-consensus-slots/std",
+    "sp-core/std",
+    "sp-domain-digests/std",
+    "sp-domains/std",
+    "sp-externalities/std",
+    "sp-messenger/std",
+    "sp-runtime/std",
+    "sp-runtime-interface/std",
+    "sp-std/std",
+    "sp-state-machine/std",
+    "sp-subspace-mmr/std",
+    "sp-trie/std",
+    "sp-weights/std",
+    "subspace-core-primitives/std",
+    "subspace-runtime-primitives/std",
+    "trie-db/std",
+    "thiserror/std",
+]
+runtime-benchmarks = []

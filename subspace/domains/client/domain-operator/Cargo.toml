@@ -1,0 +1,84 @@
+[package]
+name = "domain-client-operator"
+version = "0.1.0"
+authors = ["Subspace Labs <https://subspace.network>"]
+edition = "2021"
+
+[dependencies]
+async-trait.workspace = true
+parity-scale-codec = { workspace = true, features = ["derive"] }
+domain-block-builder.workspace = true
+domain-block-preprocessor.workspace = true
+domain-runtime-primitives.workspace = true
+futures.workspace = true
+futures-timer.workspace = true
+parking_lot.workspace = true
+sc-client-api.workspace = true
+sc-consensus.workspace = true
+sc-domains.workspace = true
+sc-network.workspace = true
+sc-network-common.workspace = true
+sc-network-sync.workspace = true
+sc-service.workspace = true
+sc-transaction-pool.workspace = true
+sc-transaction-pool-api.workspace = true
+sc-utils.workspace = true
+sp-api.workspace = true
+sp-blockchain.workspace = true
+sp-block-builder.workspace = true
+sp-consensus.workspace = true
+sp-consensus-slots.workspace = true
+sp-core.workspace = true
+sp-domains.workspace = true
+sp-domains-fraud-proof.workspace = true
+sp-domain-digests.workspace = true
+sp-inherents.workspace = true
+sp-keystore.workspace = true
+sp-messenger.workspace = true
+sp-mmr-primitives.workspace = true
+sp-runtime.workspace = true
+sp-state-machine.workspace = true
+sp-subspace-mmr.workspace = true
+sp-transaction-pool.workspace = true
+sp-trie.workspace = true
+sp-weights.workspace = true
+subspace-core-primitives.workspace = true
+subspace-runtime-primitives.workspace = true
+sc-subspace-sync-common.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros"] }
+
+[dev-dependencies]
+auto-id-domain-test-runtime.workspace = true
+cross-domain-message-gossip.workspace = true
+domain-test-service.workspace = true
+domain-test-primitives.workspace = true
+ethereum.workspace = true
+evm-domain-test-runtime.workspace = true
+fp-rpc.workspace = true
+fp-self-contained.workspace = true
+frame-system.workspace = true
+hex-literal.workspace = true
+pallet-balances.workspace = true
+pallet-domains.workspace = true
+pallet-domain-sudo.workspace = true
+pallet-ethereum.workspace = true
+pallet-evm.workspace = true
+pallet-evm-tracker.workspace = true
+pallet-messenger.workspace = true
+pallet-sudo.workspace = true
+pallet-timestamp.workspace = true
+pallet-transporter.workspace = true
+pallet-utility.workspace = true
+rand.workspace = true
+sc-cli.workspace = true
+sc-service.workspace = true
+sc-transaction-pool.workspace = true
+sp-domains = { workspace = true, features = ["test-ethereum"] }
+sp-state-machine.workspace = true
+subspace-core-primitives.workspace = true
+subspace-test-runtime.workspace = true
+subspace-test-service.workspace = true
+subspace-test-primitives = { workspace = true, features = ["std"] }
+tempfile.workspace = true

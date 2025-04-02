@@ -1,0 +1,66 @@
+[package]
+name = "subspace-fake-runtime-api"
+version = "0.1.0"
+authors = ["Subspace Labs <https://subspace.network>"]
+description = "Fake subspace runtime API."
+edition = "2021"
+license = "0BSD"
+homepage = "https://subspace.network"
+repository = "https://github.com/autonomys/subspace"
+include = ["/src", "/Cargo.toml"]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+domain-runtime-primitives.workspace = true
+frame-support.workspace = true
+frame-system-rpc-runtime-api.workspace = true
+pallet-mmr.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
+sp-api.workspace = true
+sp-block-builder.workspace = true
+sp-blockchain.workspace = true
+sp-consensus-subspace.workspace = true
+sp-core.workspace = true
+sp-domains.workspace = true
+sp-domains-fraud-proof.workspace = true
+sp-genesis-builder.workspace = true
+sp-inherents.workspace = true
+sp-messenger.workspace = true
+sp-objects.workspace = true
+sp-offchain.workspace = true
+sp-runtime.workspace = true
+sp-session.workspace = true
+sp-subspace-mmr.workspace = true
+sp-transaction-pool.workspace = true
+sp-version.workspace = true
+subspace-core-primitives.workspace = true
+subspace-runtime-primitives.workspace = true
+
+[features]
+default = ["std"]
+
+std = [
+    "domain-runtime-primitives/std",
+    "frame-support/std",
+    "frame-system-rpc-runtime-api/std",
+    "pallet-mmr/std",
+    "pallet-transaction-payment-rpc-runtime-api/std",
+    "pallet-transaction-payment/std",
+    "sp-consensus-subspace/std",
+    "sp-core/std",
+    "sp-domains-fraud-proof/std",
+    "sp-domains/std",
+    "sp-genesis-builder/std",
+    "sp-inherents/std",
+    "sp-messenger/std",
+    "sp-objects/std",
+    "sp-offchain/std",
+    "sp-runtime/std",
+    "sp-session/std",
+    "sp-transaction-pool/std",
+    "sp-version/std",
+    "subspace-core-primitives/std",
+]

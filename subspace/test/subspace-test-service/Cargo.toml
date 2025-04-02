@@ -1,0 +1,74 @@
+[package]
+name = "subspace-test-service"
+version = "0.1.0"
+authors = ["Subspace Labs <https://subspace.network>"]
+edition = "2021"
+license = "GPL-3.0-or-later"
+homepage = "https://subspace.network"
+repository = "https://github.com/autonomys/subspace"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+async-trait.workspace = true
+cross-domain-message-gossip.workspace = true
+parity-scale-codec = { workspace = true, features = ["derive"] }
+domain-client-message-relayer.workspace = true
+domain-runtime-primitives.workspace = true
+frame-system.workspace = true
+futures.workspace = true
+jsonrpsee = { workspace = true, features = ["server-core"] }
+pallet-transaction-payment.workspace = true
+mmr-gadget.workspace = true
+rand.workspace = true
+pallet-domains.workspace = true
+pallet-messenger.workspace = true
+pallet-subspace.workspace = true
+parking_lot.workspace = true
+sc-block-builder.workspace = true
+sc-client-api.workspace = true
+sc-consensus.workspace = true
+sc-domains.workspace = true
+sc-executor.workspace = true
+sc-network.workspace = true
+sc-network-sync.workspace = true
+sc-service.workspace = true
+sc-tracing.workspace = true
+sc-transaction-pool.workspace = true
+sc-transaction-pool-api.workspace = true
+sc-utils.workspace = true
+sp-api.workspace = true
+sp-blockchain.workspace = true
+sp-core.workspace = true
+sp-consensus.workspace = true
+sp-consensus-subspace.workspace = true
+sp-consensus-slots.workspace = true
+sp-domains.workspace = true
+sp-domains-fraud-proof.workspace = true
+sp-externalities.workspace = true
+sp-keyring.workspace = true
+sp-messenger.workspace = true
+sp-messenger-host-functions.workspace = true
+sp-mmr-primitives.workspace = true
+sp-subspace-mmr.workspace = true
+sp-timestamp.workspace = true
+sp-inherents.workspace = true
+sp-runtime.workspace = true
+subspace-core-primitives.workspace = true
+subspace-runtime-primitives.workspace = true
+subspace-service.workspace = true
+subspace-test-client.workspace = true
+subspace-test-primitives.workspace = true
+subspace-test-runtime.workspace = true
+substrate-frame-rpc-system.workspace = true
+substrate-test-client.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+sp-keyring.workspace = true

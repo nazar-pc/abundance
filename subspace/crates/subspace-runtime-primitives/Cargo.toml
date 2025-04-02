@@ -1,0 +1,49 @@
+[package]
+name = "subspace-runtime-primitives"
+description = "Runtime primitives for Subspace Network"
+license = "0BSD"
+version = "0.1.0"
+authors = ["Subspace Labs <https://subspace.network>"]
+edition = "2021"
+homepage = "https://subspace.network"
+repository = "https://github.com/autonomys/subspace"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+parity-scale-codec = { workspace = true, features = ["derive"] }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-multisig.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-utility.workspace = true
+scale-info = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["alloc", "derive"] }
+sp-core.workspace = true
+sp-io = { workspace = true, optional = true }
+sp-runtime.workspace = true
+subspace-core-primitives.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "parity-scale-codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "pallet-multisig/std",
+    "pallet-transaction-payment/std",
+    "pallet-utility/std",
+    "scale-info/std",
+    "serde/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    "subspace-core-primitives/std",
+]
+testing = [
+    "sp-io"
+]

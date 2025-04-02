@@ -1,0 +1,45 @@
+[package]
+name = "subspace-gateway"
+version = "0.1.0"
+authors = [
+    "Teor <teor@riseup.net>",
+    "Shamil Gadelshin <shamilgadelshin@gmail.com>"
+]
+description = "A Subspace Network data gateway."
+edition = "2021"
+license = "0BSD"
+homepage = "https://subspace.network"
+repository = "https://github.com/autonomys/subspace"
+include = [
+    "/src",
+    "/Cargo.toml",
+    "/README.md"
+]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+actix-web = { workspace = true, features = ["rustls"] }
+async-lock.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+clap = { workspace = true, features = ["derive"] }
+fdlimit.workspace = true
+futures.workspace = true
+hex.workspace = true
+jsonrpsee = { workspace = true, features = ["server", "ws-client"] }
+mimalloc.workspace = true
+reqwest = { workspace = true, features = ["json", "rustls-tls"] }
+serde = { workspace = true, features = ["derive"] }
+subspace-core-primitives.workspace = true
+subspace-data-retrieval.workspace = true
+subspace-gateway-rpc.workspace = true
+subspace-kzg.workspace = true
+subspace-logging.workspace = true
+subspace-networking.workspace = true
+subspace-rpc-primitives.workspace = true
+subspace-verification = { workspace = true, features = ["kzg"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "signal", "macros"] }
+tracing.workspace = true
+

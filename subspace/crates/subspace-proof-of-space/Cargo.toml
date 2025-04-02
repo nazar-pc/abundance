@@ -1,0 +1,50 @@
+[package]
+name = "subspace-proof-of-space"
+description = "Subspace proof of space implementation based on Chia"
+license = "0BSD"
+version = "0.1.0"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2021"
+include = [
+    "/benches",
+    "/src",
+    "/Cargo.toml",
+]
+
+[lib]
+# Necessary for CLI options to work on benches
+bench = false
+
+[dependencies]
+chacha20.workspace = true
+derive_more = { workspace = true, features = ["full"] }
+parking_lot = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
+seq-macro.workspace = true
+sha2.workspace = true
+spin.workspace = true
+static_assertions.workspace = true
+subspace-core-primitives.workspace = true
+
+[dev-dependencies]
+bitvec.workspace = true
+criterion.workspace = true
+rayon.workspace = true
+
+[[bench]]
+name = "pos"
+harness = false
+
+[features]
+default = ["std"]
+std = [
+    "chacha20/std",
+    "derive_more/std",
+    # In no-std environment we use `spin`
+    "parking_lot",
+    "sha2/std",
+    "subspace-core-primitives/std",
+]
+parallel = [
+    "dep:rayon",
+]

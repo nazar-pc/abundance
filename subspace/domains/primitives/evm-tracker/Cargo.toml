@@ -1,0 +1,36 @@
+[package]
+name = "sp-evm-tracker"
+version = "0.1.0"
+authors = ["Teor <teor@riseup.net>"]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://subspace.network"
+repository = "https://github.com/autonomys/subspace"
+description = "Primitives of pallet evm tracker"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[dependencies]
+async-trait = { workspace = true, optional = true }
+domain-runtime-primitives.workspace = true
+frame-support.workspace = true
+parity-scale-codec = { workspace = true, features = ["derive"] }
+sp-api.workspace = true
+sp-domains.workspace = true
+sp-inherents.workspace = true
+sp-weights.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "async-trait",
+    "domain-runtime-primitives/std",
+    "frame-support/std",
+    "parity-scale-codec/std",
+    "sp-api/std",
+    "sp-domains/std",
+    "sp-inherents/std",
+    "sp-weights/std"
+]

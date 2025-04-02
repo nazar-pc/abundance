@@ -1,0 +1,45 @@
+[package]
+name = "domain-block-preprocessor"
+version = "0.1.0"
+authors = ["Vedhavyas Singareddi <ved@subspace.network>"]
+edition = "2021"
+homepage = "https://subspace.network"
+repository = "https://github.com/autonomys/subspace"
+description = "Domain block preprocessor"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[dependencies]
+async-trait.workspace = true
+parity-scale-codec = { workspace = true, features = ["derive"] }
+domain-runtime-primitives.workspace = true
+sc-client-api.workspace = true
+sc-executor.workspace = true
+sc-executor-common.workspace = true
+sp-api.workspace = true
+sp-blockchain.workspace = true
+sp-block-fees = { workspace = true, features = ["std"] }
+sp-core.workspace = true
+sp-domains.workspace = true
+sp-domain-sudo = { workspace = true, features = ["std"] }
+sp-evm-tracker = { workspace = true, features = ["std"] }
+sp-executive = { workspace = true, features = ["std"] }
+sp-externalities.workspace = true
+sp-inherents.workspace = true
+sp-messenger = { workspace = true, features = ["std"] }
+sp-mmr-primitives.workspace = true
+sp-runtime.workspace = true
+sp-state-machine.workspace = true
+sp-subspace-mmr = { workspace = true, features = ["std"] }
+sp-timestamp = { workspace = true, features = ["std"] }
+sp-weights.workspace = true
+sp-version.workspace = true
+subspace-core-primitives.workspace = true
+subspace-runtime-primitives.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+sp-keyring.workspace = true
+sp-state-machine.workspace = true

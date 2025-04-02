@@ -1,0 +1,132 @@
+[package]
+name = "auto-id-domain-test-runtime"
+version = "0.1.0"
+authors = ["Subspace Labs <https://subspace.network>"]
+license = "Apache-2.0"
+homepage = "https://subspace.network"
+repository = "https://github.com/autonomys/subspace/"
+edition = "2021"
+description = "Subspace AutoId domain test runtime"
+include = [
+    "/src",
+    "/build.rs",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+parity-scale-codec = { workspace = true, features = ["derive"] }
+domain-check-weight.workspace = true
+domain-pallet-executive.workspace = true
+domain-runtime-primitives.workspace = true
+domain-test-primitives.workspace = true
+frame-benchmarking = { workspace = true, optional = true }
+frame-support.workspace = true
+frame-system.workspace = true
+frame-system-benchmarking = { workspace = true, optional = true }
+frame-system-rpc-runtime-api.workspace = true
+pallet-auto-id.workspace = true
+pallet-balances.workspace = true
+pallet-block-fees.workspace = true
+pallet-domain-id.workspace = true
+pallet-domain-sudo.workspace = true
+pallet-messenger.workspace = true
+pallet-storage-overlay-checks.workspace = true
+pallet-timestamp.workspace = true
+pallet-transaction-payment.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-transporter.workspace = true
+scale-info = { workspace = true, features = ["derive"] }
+sp-api.workspace = true
+sp-block-builder.workspace = true
+sp-core.workspace = true
+sp-domains.workspace = true
+sp-domain-sudo.workspace = true
+sp-genesis-builder.workspace = true
+sp-inherents.workspace = true
+sp-messenger.workspace = true
+sp-messenger-host-functions.workspace = true
+sp-mmr-primitives.workspace = true
+sp-offchain.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-session.workspace = true
+sp-std.workspace = true
+sp-storage = { workspace = true, optional = true }
+sp-subspace-mmr.workspace = true
+sp-transaction-pool.workspace = true
+sp-version.workspace = true
+static_assertions.workspace = true
+subspace-core-primitives.workspace = true
+subspace-runtime-primitives.workspace = true
+
+[dev-dependencies]
+subspace-runtime-primitives = { workspace = true, features = ["testing"] }
+
+[build-dependencies]
+substrate-wasm-builder = { workspace = true, optional = true }
+
+[features]
+default = [
+    "std",
+]
+std = [
+    "parity-scale-codec/std",
+    "domain-check-weight/std",
+    "domain-pallet-executive/std",
+    "domain-runtime-primitives/std",
+    "domain-test-primitives/std",
+    "frame-benchmarking?/std",
+    "frame-support/std",
+    "frame-system/std",
+    "frame-system-rpc-runtime-api/std",
+    "pallet-auto-id/std",
+    "pallet-balances/std",
+    "pallet-block-fees/std",
+    "pallet-domain-id/std",
+    "pallet-domain-sudo/std",
+    "pallet-messenger/std",
+    "pallet-storage-overlay-checks/std",
+    "pallet-timestamp/std",
+    "pallet-transaction-payment/std",
+    "pallet-transaction-payment-rpc-runtime-api/std",
+    "pallet-transporter/std",
+    "scale-info/std",
+    "sp-api/std",
+    "sp-block-builder/std",
+    "sp-core/std",
+    "sp-domains/std",
+    "sp-domain-sudo/std",
+    "sp-genesis-builder/std",
+    "sp-inherents/std",
+    "sp-messenger/std",
+    "sp-messenger-host-functions/std",
+    "sp-mmr-primitives/std",
+    "sp-offchain/std",
+    "sp-runtime/std",
+    "sp-session/std",
+    "sp-std/std",
+    "sp-storage?/std",
+    "sp-subspace-mmr/std",
+    "sp-transaction-pool/std",
+    "sp-version/std",
+    "subspace-core-primitives/std",
+    "subspace-runtime-primitives/std",
+    "substrate-wasm-builder",
+]
+runtime-benchmarks = [
+    "domain-pallet-executive/runtime-benchmarks",
+    "sp-runtime/runtime-benchmarks",
+    "sp-storage",
+    "frame-benchmarking",
+    "frame-system-benchmarking",
+    "frame-system-benchmarking/runtime-benchmarks",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "pallet-auto-id/runtime-benchmarks",
+    "pallet-balances/runtime-benchmarks",
+    "pallet-messenger/runtime-benchmarks",
+    "pallet-domain-id/runtime-benchmarks"
+]

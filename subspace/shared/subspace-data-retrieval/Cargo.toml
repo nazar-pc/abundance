@@ -1,0 +1,36 @@
+[package]
+name = "subspace-data-retrieval"
+description = "Fetching data from the archived history of the Subspace Distributed Storage Network."
+license = "0BSD"
+version = "0.1.0"
+authors = ["Teor <teor@riseup.net>"]
+edition = "2021"
+include = [
+    "/src",
+    "/Cargo.toml",
+    "/README.md",
+]
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+hex = { workspace = true, features = ["std"] }
+parity-scale-codec = { workspace = true, features = ["derive"] }
+subspace-archiving.workspace = true
+subspace-core-primitives = { workspace = true, features = ["std"] }
+subspace-erasure-coding.workspace = true
+subspace-runtime-primitives = { workspace = true, features = ["std"] }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "rt"] }
+tracing = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+rand.workspace = true
+subspace-logging.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[features]
+parallel = [
+    "subspace-archiving/parallel",
+]

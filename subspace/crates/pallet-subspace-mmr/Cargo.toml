@@ -1,0 +1,41 @@
+[package]
+name = "pallet-subspace-mmr"
+homepage = "https://subspace.network"
+repository = "https://github.com/autonomys/subspace"
+description = "Primitives for Subspace MMR"
+license = "0BSD"
+version = "0.1.0"
+authors = ["Subspace Labs <https://subspace.network>"]
+edition = "2021"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+parity-scale-codec = { workspace = true, features = ["derive"] }
+frame-support.workspace = true
+frame-system.workspace = true
+scale-info = { workspace = true, features = ["derive"] }
+sp-core.workspace = true
+sp-mmr-primitives.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+sp-subspace-mmr.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "parity-scale-codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "scale-info/std",
+    "sp-core/std",
+    "sp-mmr-primitives/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "sp-subspace-mmr/std"
+]

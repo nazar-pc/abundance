@@ -1,0 +1,46 @@
+[package]
+name = "sp-messenger-host-functions"
+version = "0.1.0"
+authors = ["Vedhavyas Singareddi <ved@subspace.network>"]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://subspace.network"
+repository = "https://github.com/autonomys/subspace"
+description = "Host functions for Messenger"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[dependencies]
+parity-scale-codec = { workspace = true, features = ["derive"] }
+domain-block-preprocessor = { workspace = true, optional = true }
+scale-info = { workspace = true, features = ["derive"] }
+sc-executor = { workspace = true, optional = true }
+sp-api.workspace = true
+sp-blockchain = { workspace = true, optional = true }
+sp-core.workspace = true
+sp-domains.workspace = true
+sp-externalities.workspace = true
+sp-messenger.workspace = true
+sp-runtime.workspace = true
+sp-runtime-interface.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "parity-scale-codec/std",
+    "domain-block-preprocessor",
+    "scale-info/std",
+    "sc-executor",
+    "sp-api/std",
+    "sp-blockchain",
+    "sp-core/std",
+    "sp-domains/std",
+    "sp-externalities/std",
+    "sp-messenger/std",
+    "sp-runtime/std",
+    "sp-runtime-interface/std",
+]
+
+runtime-benchmarks = []

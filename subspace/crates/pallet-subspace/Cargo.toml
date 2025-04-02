@@ -1,0 +1,73 @@
+[package]
+name = "pallet-subspace"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>", "Subspace Labs <admin@subspace.network>"]
+edition = "2021"
+license = "0BSD"
+homepage = "https://subspace.network"
+repository = "https://github.com/autonomys/subspace"
+description = "Subspace consensus pallet"
+readme = "README.md"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+parity-scale-codec = { workspace = true, features = ["derive"] }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support.workspace = true
+frame-system.workspace = true
+log.workspace = true
+scale-info = { workspace = true, features = ["derive"] }
+schnorrkel.workspace = true
+serde = { workspace = true, features = ["alloc", "derive"], optional = true }
+sp-consensus-subspace.workspace = true
+sp-consensus-slots.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+subspace-core-primitives.workspace = true
+subspace-runtime-primitives.workspace = true
+subspace-verification.workspace = true
+
+[dev-dependencies]
+env_logger.workspace = true
+futures.workspace = true
+pallet-balances = { workspace = true, features = ["std"] }
+rand = { workspace = true, features = ["min_const_gen"] }
+sp-io.workspace = true
+subspace-archiving.workspace = true
+subspace-core-primitives.workspace = true
+subspace-erasure-coding.workspace = true
+subspace-farmer-components.workspace = true
+subspace-kzg.workspace = true
+subspace-proof-of-space.workspace = true
+
+[features]
+default = ["std"]
+serde = [
+    "dep:serde",
+    "subspace-core-primitives/serde",
+]
+std = [
+    "parity-scale-codec/std",
+    "frame-benchmarking?/std",
+    "frame-support/std",
+    "frame-system/std",
+    "log/std",
+    "scale-info/std",
+    "schnorrkel/std",
+    "serde",
+    "serde/std",
+    "sp-consensus-subspace/std",
+    "sp-consensus-slots/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "subspace-core-primitives/std",
+    "subspace-runtime-primitives/std",
+    "subspace-verification/std"
+]
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "frame-benchmarking/runtime-benchmarks",
+]
