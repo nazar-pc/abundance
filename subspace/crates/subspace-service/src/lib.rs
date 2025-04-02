@@ -11,7 +11,6 @@
 pub mod config;
 pub mod dsn;
 mod metrics;
-pub(crate) mod mmr;
 pub mod rpc;
 pub mod sync_from_dsn;
 mod task_spawner;
@@ -20,8 +19,6 @@ mod utils;
 use crate::config::{ChainSyncMode, SubspaceConfiguration, SubspaceNetworking};
 use crate::dsn::{create_dsn_instance, DsnConfigurationError};
 use crate::metrics::NodeMetrics;
-use crate::mmr::request_handler::MmrRequestHandler;
-pub use crate::mmr::sync::mmr_sync;
 use crate::sync_from_dsn::piece_validator::SegmentCommitmentPieceValidator;
 use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::sync_from_dsn::DsnPieceGetter;
@@ -36,10 +33,7 @@ use parking_lot::Mutex;
 use prometheus_client::registry::Registry;
 use sc_basic_authorship::ProposerFactory;
 use sc_chain_spec::GenesisBlockBuilder;
-use sc_client_api::execution_extensions::ExtensionsFactory;
-use sc_client_api::{
-    AuxStore, Backend, BlockBackend, BlockchainEvents, ExecutorProvider, HeaderBackend,
-};
+use sc_client_api::{AuxStore, Backend, BlockBackend, BlockchainEvents, HeaderBackend};
 use sc_consensus::{
     BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport,
     DefaultImportQueue, ImportQueue, ImportResult,
@@ -81,33 +75,26 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::block_validation::DefaultBlockAnnounceValidator;
 use sp_consensus_subspace::SubspaceApi;
-use sp_core::offchain::storage::OffchainDb;
-use sp_core::offchain::OffchainDbExt;
 use sp_core::traits::SpawnEssentialNamed;
-use sp_core::H256;
-use sp_externalities::Extensions;
-use sp_mmr_primitives::MmrApi;
 use sp_objects::ObjectsApi;
 use sp_offchain::OffchainWorkerApi;
-use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor};
+use sp_runtime::traits::{Block as BlockT, BlockIdTo};
 use sp_session::SessionKeys;
-use sp_subspace_mmr::host_functions::{SubspaceMmrExtension, SubspaceMmrHostFunctionsImpl};
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use static_assertions::const_assert;
-use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::pot::PotSeed;
-use subspace_core_primitives::{BlockNumber, PublicKey, REWARD_SIGNING_CONTEXT};
+use subspace_core_primitives::{PublicKey, REWARD_SIGNING_CONTEXT};
 use subspace_erasure_coding::ErasureCoding;
 use subspace_kzg::Kzg;
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_proof_of_space::Table;
 use subspace_runtime_primitives::opaque::Block;
-use subspace_runtime_primitives::{AccountId, Balance, Hash, Nonce};
+use subspace_runtime_primitives::{AccountId, Balance, Nonce};
 use tokio::sync::broadcast;
 use tracing::{debug, error, info, Instrument};
 pub use utils::wait_for_block_import;
@@ -196,17 +183,13 @@ where
 
 /// Host functions required for Subspace
 #[cfg(not(feature = "runtime-benchmarks"))]
-pub type HostFunctions = (
-    sp_io::SubstrateHostFunctions,
-    sp_subspace_mmr::HostFunctions,
-);
+pub type HostFunctions = (sp_io::SubstrateHostFunctions,);
 
 /// Host functions required for Subspace
 #[cfg(feature = "runtime-benchmarks")]
 pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     frame_benchmarking::benchmarking::HostFunctions,
-    sp_subspace_mmr::HostFunctions,
 );
 
 /// Runtime executor for Subspace
@@ -217,53 +200,6 @@ pub type FullClient<RuntimeApi> = sc_service::TFullClient<Block, RuntimeApi, Run
 
 pub type FullBackend = sc_service::TFullBackend<Block>;
 pub type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
-
-struct SubspaceExtensionsFactory<PosTable, Client> {
-    client: Arc<Client>,
-    backend: Arc<FullBackend>,
-    confirmation_depth_k: BlockNumber,
-    _pos_table: PhantomData<PosTable>,
-}
-
-impl<PosTable, Block, Client> ExtensionsFactory<Block>
-    for SubspaceExtensionsFactory<PosTable, Client>
-where
-    PosTable: Table,
-    Block: BlockT,
-    Block::Hash: From<H256> + Into<H256>,
-    Client: BlockBackend<Block>
-        + HeaderBackend<Block>
-        + ProvideRuntimeApi<Block>
-        + Send
-        + Sync
-        + 'static,
-    Client::Api: SubspaceApi<Block, PublicKey> + MmrApi<Block, H256, NumberFor<Block>>,
-{
-    fn extensions_for(
-        &self,
-        _block_hash: Block::Hash,
-        _block_number: NumberFor<Block>,
-    ) -> Extensions {
-        let confirmation_depth_k = self.confirmation_depth_k;
-        let mut exts = Extensions::new();
-
-        exts.register(SubspaceMmrExtension::new(Arc::new(
-            SubspaceMmrHostFunctionsImpl::<Block, _>::new(
-                self.client.clone(),
-                confirmation_depth_k,
-            ),
-        )));
-
-        // if the offchain storage is available, then add offchain extension
-        // to generate and verify MMR proofs
-        if let Some(offchain_storage) = self.backend.offchain_storage() {
-            let offchain_db = OffchainDb::new(offchain_storage);
-            exts.register(OffchainDbExt::new(offchain_db));
-        }
-
-        exts
-    }
-}
 
 /// Other partial components returned by [`new_partial()`]
 pub struct OtherPartialComponents<RuntimeApi>
@@ -313,8 +249,7 @@ where
         + SessionKeys<Block>
         + TaggedTransactionQueue<Block>
         + SubspaceApi<Block, PublicKey>
-        + ObjectsApi<Block>
-        + MmrApi<Block, H256, NumberFor<Block>>,
+        + ObjectsApi<Block>,
 {
     let telemetry = config
         .telemetry_endpoints
@@ -370,15 +305,6 @@ where
     let pot_verifier = PotVerifier::new(
         PotSeed::from_genesis(client_info.genesis_hash.as_ref(), pot_external_entropy),
         POT_VERIFIER_CACHE_SIZE,
-    );
-
-    client.execution_extensions().set_extensions_factory(
-        SubspaceExtensionsFactory::<PosTable, _> {
-            client: Arc::clone(&client),
-            backend: backend.clone(),
-            confirmation_depth_k: chain_constants.confirmation_depth_k(),
-            _pos_table: PhantomData,
-        },
     );
 
     let telemetry = telemetry.map(|(worker, telemetry)| {
@@ -495,9 +421,7 @@ where
         + HeaderBackend<Block>
         + HeaderMetadata<Block, Error = sp_blockchain::Error>
         + 'static,
-    Client::Api: TaggedTransactionQueue<Block>
-        + SubspaceApi<Block, PublicKey>
-        + MmrApi<Block, H256, NumberFor<Block>>,
+    Client::Api: TaggedTransactionQueue<Block> + SubspaceApi<Block, PublicKey>,
 {
     /// Task manager.
     pub task_manager: TaskManager,
@@ -556,8 +480,7 @@ where
         + TaggedTransactionQueue<Block>
         + TransactionPaymentApi<Block, Balance>
         + SubspaceApi<Block, PublicKey>
-        + ObjectsApi<Block>
-        + MmrApi<Block, Hash, BlockNumber>,
+        + ObjectsApi<Block>,
 {
     let PartialComponents {
         client,
@@ -578,7 +501,6 @@ where
         mut telemetry,
     } = other;
 
-    let offchain_indexing_enabled = config.base.offchain_worker.indexing_enabled;
     let (node, bootstrap_nodes, piece_getter) = match config.subspace_networking {
         SubspaceNetworking::Reuse {
             node,
@@ -715,32 +637,8 @@ where
     net_config.add_notification_protocol(pot_gossip_notification_config);
     let pause_sync = Arc::clone(&net_config.network_config.pause_sync);
 
-    let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize
-        + net_config
-            .network_config
-            .default_peers_set
-            .reserved_nodes
-            .len();
-
     let protocol_id = config.base.protocol_id();
     let fork_id = config.base.chain_spec.fork_id();
-
-    if let Some(offchain_storage) = backend.offchain_storage() {
-        // Allow both outgoing and incoming requests.
-        let (handler, protocol_config) =
-            MmrRequestHandler::new::<NetworkWorker<Block, <Block as BlockT>::Hash>>(
-                &config.base.protocol_id(),
-                fork_id,
-                client.clone(),
-                num_peer_hint,
-                offchain_storage,
-            );
-        task_manager
-            .spawn_handle()
-            .spawn("mmr-request-handler", Some("networking"), handler.run());
-
-        net_config.add_request_response_protocol(protocol_config);
-    }
 
     let network_service_provider = NetworkServiceProvider::new();
     let network_service_handle = network_service_provider.handle();
@@ -884,8 +782,6 @@ where
         sync_service.clone(),
         network_service_handle,
         subspace_link.erasure_coding().clone(),
-        backend.offchain_storage(),
-        network_service.clone(),
     );
 
     let (observer, worker) = sync_from_dsn::create_observer_and_worker(
@@ -964,19 +860,6 @@ where
             offchain_workers
                 .run(client.clone(), task_manager.spawn_handle())
                 .boxed(),
-        );
-    }
-
-    // mmr offchain indexer
-    if offchain_indexing_enabled {
-        task_manager.spawn_essential_handle().spawn_blocking(
-            "mmr-gadget",
-            None,
-            mmr_gadget::MmrGadget::start(
-                client.clone(),
-                backend.clone(),
-                sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
-            ),
         );
     }
 
@@ -1099,7 +982,6 @@ where
             let object_mapping_notification_stream = object_mapping_notification_stream.clone();
             let archived_segment_notification_stream = archived_segment_notification_stream.clone();
             let transaction_pool = transaction_pool.clone();
-            let backend = backend.clone();
 
             Box::new(move |subscription_executor| {
                 let deps = rpc::FullDeps {
@@ -1116,7 +998,6 @@ where
                     sync_oracle: sync_oracle.clone(),
                     kzg: subspace_link.kzg().clone(),
                     erasure_coding: subspace_link.erasure_coding().clone(),
-                    backend: backend.clone(),
                 };
 
                 rpc::create_full(deps).map_err(Into::into)

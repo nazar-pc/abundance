@@ -44,14 +44,11 @@ use sp_consensus_slots::{Slot, SlotDuration};
 use sp_consensus_subspace::{ChainConstants, PotParameters, SolutionRanges};
 use sp_core::crypto::KeyTypeId;
 use sp_core::OpaqueMetadata;
-use sp_mmr_primitives::EncodableOpaqueLeaf;
-use sp_runtime::traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Keccak256, NumberFor};
+use sp_runtime::traits::{AccountIdLookup, BlakeTwo256, Block as BlockT};
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::type_with_default::TypeWithDefault;
 use sp_runtime::{generic, AccountId32, ApplyExtrinsicResult, ExtrinsicInclusionMode};
 use sp_std::prelude::*;
-use sp_subspace_mmr::subspace_mmr_runtime_interface::consensus_block_hash;
-use sp_subspace_mmr::ConsensusChainMmrLeafProof;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 use subspace_core_primitives::objects::BlockObjectMapping;
@@ -380,41 +377,6 @@ impl pallet_sudo::Config for Runtime {
     type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-pub struct MmrProofVerifier;
-
-impl sp_subspace_mmr::MmrProofVerifier<mmr::Hash, NumberFor<Block>, Hash> for MmrProofVerifier {
-    fn verify_proof_and_extract_leaf(
-        mmr_leaf_proof: ConsensusChainMmrLeafProof<NumberFor<Block>, Hash, mmr::Hash>,
-    ) -> Option<mmr::Leaf> {
-        let mmr_root = SubspaceMmr::mmr_root_hash(mmr_leaf_proof.consensus_block_number)?;
-        Self::verify_proof_stateless(mmr_root, mmr_leaf_proof)
-    }
-
-    fn verify_proof_stateless(
-        mmr_root: mmr::Hash,
-        mmr_leaf_proof: ConsensusChainMmrLeafProof<NumberFor<Block>, Hash, mmr::Hash>,
-    ) -> Option<mmr::Leaf> {
-        let ConsensusChainMmrLeafProof {
-            opaque_mmr_leaf,
-            proof,
-            ..
-        } = mmr_leaf_proof;
-
-        pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(
-            mmr_root,
-            vec![mmr::DataOrHash::Data(
-                EncodableOpaqueLeaf(opaque_mmr_leaf.0.clone()).into_opaque_leaf(),
-            )],
-            proof,
-        )
-        .ok()?;
-
-        let leaf: mmr::Leaf = opaque_mmr_leaf.into_opaque_leaf().try_decode()?;
-
-        Some(leaf)
-    }
-}
-
 impl<C> frame_system::offchain::CreateTransactionBase<C> for Runtime
 where
     RuntimeCall: From<C>,
@@ -461,43 +423,6 @@ impl pallet_runtime_configs::Config for Runtime {
     type WeightInfo = pallet_runtime_configs::weights::SubstrateWeight<Runtime>;
 }
 
-mod mmr {
-    use super::Runtime;
-    pub use pallet_mmr::primitives::*;
-
-    pub type Leaf = <<Runtime as pallet_mmr::Config>::LeafData as LeafDataProvider>::LeafData;
-    pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
-    pub type Hash = <Hashing as sp_runtime::traits::Hash>::Output;
-}
-
-pub struct BlockHashProvider;
-
-impl pallet_mmr::BlockHashProvider<BlockNumber, Hash> for BlockHashProvider {
-    fn block_hash(block_number: BlockNumber) -> Hash {
-        consensus_block_hash(block_number).expect("Hash must exist for a given block number.")
-    }
-}
-
-impl pallet_mmr::Config for Runtime {
-    const INDEXING_PREFIX: &'static [u8] = mmr::INDEXING_PREFIX;
-    type Hashing = Keccak256;
-    type LeafData = SubspaceMmr;
-    type OnNewRoot = SubspaceMmr;
-    type BlockHashProvider = BlockHashProvider;
-    type WeightInfo = ();
-    #[cfg(feature = "runtime-benchmarks")]
-    type BenchmarkHelper = ();
-}
-
-parameter_types! {
-    pub const MmrRootHashCount: u32 = 1024;
-}
-
-impl pallet_subspace_mmr::Config for Runtime {
-    type MmrRootHash = mmr::Hash;
-    type MmrRootHashCount = MmrRootHashCount;
-}
-
 construct_runtime!(
     pub struct Runtime {
         System: frame_system = 0,
@@ -512,9 +437,6 @@ construct_runtime!(
         Utility: pallet_utility = 8,
 
         RuntimeConfigs: pallet_runtime_configs = 14,
-
-        Mmr: pallet_mmr = 30,
-        SubspaceMmr: pallet_subspace_mmr = 31,
 
         // Reserve some room for other pallets as we'll remove sudo pallet eventually.
         Sudo: pallet_sudo = 100,
@@ -613,12 +535,10 @@ mod benches {
         [frame_benchmarking, BaselineBench::<Runtime>]
         [frame_system, SystemBench::<Runtime>]
         [pallet_balances, Balances]
-        [pallet_mmr, Mmr]
         [pallet_rewards, Rewards]
         [pallet_runtime_configs, RuntimeConfigs]
         [pallet_subspace, Subspace]
         [pallet_timestamp, Timestamp]
-        [pallet_subspace_extension, SubspaceExtensionBench::<Runtime>]
     );
 }
 
@@ -791,52 +711,6 @@ impl_runtime_apis! {
         }
         fn query_length_to_fee(length: u32) -> Balance {
             TransactionPayment::length_to_fee(length)
-        }
-    }
-
-    impl mmr::MmrApi<Block, mmr::Hash, BlockNumber> for Runtime {
-        fn mmr_root() -> Result<mmr::Hash, mmr::Error> {
-            Ok(Mmr::mmr_root())
-        }
-
-        fn mmr_leaf_count() -> Result<mmr::LeafIndex, mmr::Error> {
-            Ok(Mmr::mmr_leaves())
-        }
-
-        fn generate_proof(
-            block_numbers: Vec<BlockNumber>,
-            best_known_block_number: Option<BlockNumber>,
-        ) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<mmr::Hash>), mmr::Error> {
-            Mmr::generate_proof(block_numbers, best_known_block_number).map(
-                |(leaves, proof)| {
-                    (
-                        leaves
-                            .into_iter()
-                            .map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(&leaf))
-                            .collect(),
-                        proof,
-                    )
-                },
-            )
-        }
-
-        fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::LeafProof<mmr::Hash>)
-            -> Result<(), mmr::Error>
-        {
-            let leaves = leaves.into_iter().map(|leaf|
-                leaf.into_opaque_leaf()
-                .try_decode()
-                .ok_or(mmr::Error::Verify)).collect::<Result<Vec<mmr::Leaf>, mmr::Error>>()?;
-            Mmr::verify_leaves(leaves, proof)
-        }
-
-        fn verify_proof_stateless(
-            root: mmr::Hash,
-            leaves: Vec<mmr::EncodableOpaqueLeaf>,
-            proof: mmr::LeafProof<mmr::Hash>
-        ) -> Result<(), mmr::Error> {
-            let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
-            pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
         }
     }
 

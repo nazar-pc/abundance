@@ -250,10 +250,9 @@ impl From<SubstrateConfiguration> for Configuration {
                 }),
             telemetry_endpoints: configuration.telemetry_endpoints,
             // Offchain worker is not used
-            // indexing is used to store the mmr leaves from Runtime
             offchain_worker: OffchainWorkerConfig {
                 enabled: false,
-                indexing_enabled: true,
+                indexing_enabled: false,
             },
             force_authoring: configuration.force_authoring,
             disable_grandpa: true,
