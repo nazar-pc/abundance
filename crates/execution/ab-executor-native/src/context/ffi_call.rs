@@ -788,7 +788,7 @@ where
                 );
 
                 // Guest created a different allocation for slot, copy bytes
-                if data_ptr != slot_bytes.as_mut_ptr() {
+                if !ptr::eq(data_ptr, slot_bytes.as_ptr()) {
                     if data_ptr.is_null() {
                         error!("Contract returned `null` pointer for slot data");
                         return Err(ContractError::BadOutput);
