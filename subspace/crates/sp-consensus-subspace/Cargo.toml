@@ -31,7 +31,6 @@ sp-std.workspace = true
 sp-timestamp.workspace = true
 subspace-core-primitives.workspace = true
 subspace-kzg = { workspace = true, optional = true }
-subspace-proof-of-space.workspace = true
 subspace-verification.workspace = true
 thiserror.workspace = true
 
@@ -56,7 +55,6 @@ std = [
     "sp-timestamp/std",
     "subspace-core-primitives/std",
     "subspace-kzg/std",
-    "subspace-proof-of-space/std",
     "subspace-verification/kzg",
     "subspace-verification/std",
     "thiserror/std",

@@ -18,8 +18,8 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_runtime::{ConsensusEngineId, Justification};
+use sp_runtime_interface::pass_by;
 use sp_runtime_interface::pass_by::PassBy;
-use sp_runtime_interface::{pass_by, runtime_interface};
 use sp_std::num::NonZeroU32;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed};
@@ -27,15 +27,9 @@ use subspace_core_primitives::segments::{
     HistorySize, SegmentCommitment, SegmentHeader, SegmentIndex,
 };
 use subspace_core_primitives::solutions::{Solution, SolutionRange};
-use subspace_core_primitives::{BlockHash, BlockNumber, PublicKey, SlotNumber};
-#[cfg(feature = "std")]
+use subspace_core_primitives::{BlockNumber, PublicKey};
+#[cfg(all(feature = "std", feature = "runtime-benchmarks"))]
 use subspace_kzg::Kzg;
-#[cfg(feature = "std")]
-use subspace_proof_of_space::shim::ShimTable;
-#[cfg(feature = "std")]
-use subspace_proof_of_space::PosTableType;
-#[cfg(feature = "std")]
-use subspace_proof_of_space::Table;
 use subspace_verification::VerifySolutionParams;
 
 /// The `ConsensusEngineId` of Subspace.
@@ -334,115 +328,6 @@ impl From<PotOutput> for WrappedPotOutput {
 
 impl PassBy for WrappedPotOutput {
     type PassBy = pass_by::Codec<Self>;
-}
-
-#[cfg(feature = "std")]
-sp_externalities::decl_extension! {
-    /// A KZG extension.
-    pub struct KzgExtension(Kzg);
-}
-
-#[cfg(feature = "std")]
-impl KzgExtension {
-    /// Create new instance.
-    pub fn new(kzg: Kzg) -> Self {
-        Self(kzg)
-    }
-}
-
-#[cfg(feature = "std")]
-sp_externalities::decl_extension! {
-    /// A Poof of space extension.
-    pub struct PosExtension(PosTableType);
-}
-
-#[cfg(feature = "std")]
-impl PosExtension {
-    /// Create new instance.
-    pub fn new<PosTable>() -> Self
-    where
-        PosTable: Table,
-    {
-        Self(PosTable::TABLE_TYPE)
-    }
-}
-
-#[cfg(feature = "std")]
-sp_externalities::decl_extension! {
-    /// A Poof of time extension.
-    pub struct PotExtension(Box<dyn (Fn(BlockHash, SlotNumber, PotOutput, bool) -> bool) + Send + Sync>);
-}
-
-#[cfg(feature = "std")]
-impl PotExtension {
-    /// Create new instance.
-    pub fn new(
-        verifier: Box<dyn (Fn(BlockHash, SlotNumber, PotOutput, bool) -> bool) + Send + Sync>,
-    ) -> Self {
-        Self(verifier)
-    }
-}
-
-/// Consensus-related runtime interface
-#[runtime_interface]
-pub trait Consensus {
-    /// Verify whether solution is valid, returns solution distance that is `<= solution_range/2` on
-    /// success.
-    fn verify_solution(
-        &mut self,
-        solution: WrappedSolution,
-        slot: SlotNumber,
-        params: WrappedVerifySolutionParams<'_>,
-    ) -> Result<SolutionRange, String> {
-        // TODO: we need to conditional compile for benchmarks here since
-        //  benchmark externalities does not provide custom extensions.
-        //  Remove this once the issue is resolved: https://github.com/paritytech/polkadot-sdk/issues/137
-        #[cfg(feature = "runtime-benchmarks")]
-        {
-            subspace_verification::verify_solution::<ShimTable, _>(
-                &solution.0,
-                slot,
-                &params.0,
-                kzg_instance(),
-            )
-            .map_err(|error| error.to_string())
-        }
-
-        #[cfg(not(feature = "runtime-benchmarks"))]
-        {
-            use sp_externalities::ExternalitiesExt;
-            #[cfg(feature = "std")]
-            use subspace_proof_of_space::chia::ChiaTable;
-            use subspace_proof_of_space::PosTableType;
-
-            let pos_table_type = self
-                .extension::<PosExtension>()
-                .expect("No `PosExtension` associated for the current context!")
-                .0;
-
-            let kzg = &self
-                .extension::<KzgExtension>()
-                .expect("No `KzgExtension` associated for the current context!")
-                .0;
-
-            match pos_table_type {
-                PosTableType::Chia => subspace_verification::verify_solution::<ChiaTable, _>(
-                    &solution.0,
-                    slot,
-                    &params.0,
-                    kzg,
-                )
-                .map_err(|error| error.to_string()),
-                PosTableType::Shim => subspace_verification::verify_solution::<ShimTable, _>(
-                    &solution.0,
-                    slot,
-                    &params.0,
-                    kzg,
-                )
-                .map_err(|error| error.to_string()),
-            }
-        }
-    }
 }
 
 /// Proof of time parameters

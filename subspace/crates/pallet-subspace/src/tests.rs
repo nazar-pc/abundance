@@ -1,8 +1,8 @@
 //! Consensus extension module tests for Subspace consensus.
 
 use crate::mock::{
-    allow_all_pot_extension, create_segment_header, go_to_block, new_test_ext, progress_to_block,
-    RuntimeEvent, RuntimeOrigin, Subspace, System, Test, INITIAL_SOLUTION_RANGE, SLOT_PROBABILITY,
+    create_segment_header, go_to_block, new_test_ext, progress_to_block, RuntimeEvent,
+    RuntimeOrigin, Subspace, System, Test, INITIAL_SOLUTION_RANGE, SLOT_PROBABILITY,
 };
 use crate::{
     pallet, AllowAuthoringByAnyone, Call, Config, CurrentBlockAuthorInfo, EnableRewardsAt,
@@ -27,7 +27,7 @@ use subspace_runtime_primitives::FindBlockRewardAddress;
 
 #[test]
 fn can_update_solution_range_on_era_change() {
-    new_test_ext(allow_all_pot_extension()).execute_with(|| {
+    new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
         assert_eq!(<Test as Config>::EraDuration::get(), 4);
@@ -91,7 +91,7 @@ fn can_update_solution_range_on_era_change() {
 
 #[test]
 fn can_override_solution_range_update() {
-    new_test_ext(allow_all_pot_extension()).execute_with(|| {
+    new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
         assert_eq!(
@@ -125,7 +125,7 @@ fn can_override_solution_range_update() {
 
 #[test]
 fn solution_range_should_not_update_when_disabled() {
-    new_test_ext(allow_all_pot_extension()).execute_with(|| {
+    new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
         assert_eq!(<Test as Config>::EraDuration::get(), 4);
@@ -187,7 +187,7 @@ fn solution_range_should_not_update_when_disabled() {
 
 #[test]
 fn store_segment_header_works() {
-    new_test_ext(allow_all_pot_extension()).execute_with(|| {
+    new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
         progress_to_block(&keypair, 1, 1);
@@ -208,7 +208,7 @@ fn store_segment_header_works() {
 
 #[test]
 fn store_segment_header_validate_unsigned_prevents_duplicates() {
-    new_test_ext(allow_all_pot_extension()).execute_with(|| {
+    new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
         progress_to_block(&keypair, 1, 1);
@@ -297,7 +297,7 @@ fn enabling_block_rewards_works() {
             Some(1),
         ));
     }
-    new_test_ext(allow_all_pot_extension()).execute_with(|| {
+    new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
         progress_to_block(&keypair, 1, 1);
@@ -334,7 +334,7 @@ fn enabling_block_rewards_works() {
 
 #[test]
 fn enabling_block_rewards_at_solution_range_works() {
-    new_test_ext(allow_all_pot_extension()).execute_with(|| {
+    new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
         assert_eq!(<Test as Config>::EraDuration::get(), 4);
@@ -386,7 +386,7 @@ fn enabling_block_rewards_at_solution_range_works() {
 
 #[test]
 fn allow_authoring_by_anyone_works() {
-    new_test_ext(allow_all_pot_extension()).execute_with(|| {
+    new_test_ext().execute_with(|| {
         let keypair1 = Keypair::generate();
         let keypair2 = Keypair::generate();
 
@@ -447,7 +447,7 @@ fn allow_authoring_by_anyone_works() {
 
 #[test]
 fn set_pot_slot_iterations_works() {
-    new_test_ext(allow_all_pot_extension()).execute_with(|| {
+    new_test_ext().execute_with(|| {
         PotSlotIterations::<Test>::put(PotSlotIterationsValue {
             slot_iterations: NonZeroU32::new(100_000_000).unwrap(),
             update: None,

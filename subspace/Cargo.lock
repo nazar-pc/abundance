@@ -6915,9 +6915,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "subspace-core-primitives",
- "subspace-farmer-components",
- "subspace-kzg",
- "subspace-proof-of-space",
  "subspace-runtime-primitives",
  "subspace-verification",
 ]
@@ -10916,7 +10913,6 @@ dependencies = [
  "sp-timestamp",
  "subspace-core-primitives",
  "subspace-kzg",
- "subspace-proof-of-space",
  "subspace-verification",
  "thiserror 2.0.12",
 ]

@@ -81,11 +81,7 @@ use sp_api::{ApiExt, ConstructRuntimeApi, Metadata, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::block_validation::DefaultBlockAnnounceValidator;
-use sp_consensus_slots::Slot;
-use sp_consensus_subspace::digests::extract_pre_digest;
-use sp_consensus_subspace::{
-    KzgExtension, PosExtension, PotExtension, PotNextSlotInput, SubspaceApi,
-};
+use sp_consensus_subspace::SubspaceApi;
 use sp_core::offchain::storage::OffchainDb;
 use sp_core::offchain::OffchainDbExt;
 use sp_core::traits::SpawnEssentialNamed;
@@ -94,7 +90,7 @@ use sp_externalities::Extensions;
 use sp_mmr_primitives::MmrApi;
 use sp_objects::ObjectsApi;
 use sp_offchain::OffchainWorkerApi;
-use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header, NumberFor, Zero};
+use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor};
 use sp_session::SessionKeys;
 use sp_subspace_mmr::host_functions::{SubspaceMmrExtension, SubspaceMmrHostFunctionsImpl};
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
@@ -203,7 +199,6 @@ where
 #[cfg(not(feature = "runtime-benchmarks"))]
 pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
-    sp_consensus_subspace::consensus::HostFunctions,
     sp_subspace_mmr::HostFunctions,
 );
 
@@ -212,7 +207,6 @@ pub type HostFunctions = (
 pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     frame_benchmarking::benchmarking::HostFunctions,
-    sp_consensus_subspace::consensus::HostFunctions,
     sp_subspace_mmr::HostFunctions,
 );
 
@@ -226,10 +220,8 @@ pub type FullBackend = sc_service::TFullBackend<Block>;
 pub type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
 struct SubspaceExtensionsFactory<PosTable, Client> {
-    kzg: Kzg,
     client: Arc<Client>,
     backend: Arc<FullBackend>,
-    pot_verifier: PotVerifier,
     confirmation_depth_k: BlockNumber,
     _pos_table: PhantomData<PosTable>,
 }
@@ -255,125 +247,6 @@ where
     ) -> Extensions {
         let confirmation_depth_k = self.confirmation_depth_k;
         let mut exts = Extensions::new();
-        exts.register(KzgExtension::new(self.kzg.clone()));
-        exts.register(PosExtension::new::<PosTable>());
-        exts.register(PotExtension::new({
-            let client = Arc::clone(&self.client);
-            let pot_verifier = self.pot_verifier.clone();
-
-            Box::new(
-                move |parent_hash, slot, proof_of_time, quick_verification| {
-                    let parent_hash = {
-                        let mut converted_parent_hash = Block::Hash::default();
-                        converted_parent_hash.as_mut().copy_from_slice(&parent_hash);
-                        converted_parent_hash
-                    };
-
-                    let parent_header = match client.header(parent_hash) {
-                        Ok(Some(parent_header)) => parent_header,
-                        Ok(None) => {
-                            if quick_verification {
-                                error!(
-                                    %parent_hash,
-                                    "Header not found during proof of time verification"
-                                );
-
-                                return false;
-                            } else {
-                                debug!(
-                                    %parent_hash,
-                                    "Header not found during proof of time verification"
-                                );
-
-                                // This can only happen during special sync modes there are no other
-                                // cases where parent header may not be available, hence allow it
-                                return true;
-                            }
-                        }
-                        Err(error) => {
-                            error!(
-                                %error,
-                                %parent_hash,
-                                "Failed to retrieve header during proof of time verification"
-                            );
-
-                            return false;
-                        }
-                    };
-
-                    let parent_pre_digest = match extract_pre_digest(&parent_header) {
-                        Ok(parent_pre_digest) => parent_pre_digest,
-                        Err(error) => {
-                            error!(
-                                %error,
-                                %parent_hash,
-                                parent_number = %parent_header.number(),
-                                "Failed to extract pre-digest from parent header during proof of \
-                                time verification, this must never happen"
-                            );
-
-                            return false;
-                        }
-                    };
-
-                    let parent_slot = parent_pre_digest.slot();
-                    if slot <= *parent_slot {
-                        return false;
-                    }
-
-                    let pot_parameters = match client.runtime_api().pot_parameters(parent_hash) {
-                        Ok(pot_parameters) => pot_parameters,
-                        Err(error) => {
-                            debug!(
-                                %error,
-                                %parent_hash,
-                                parent_number = %parent_header.number(),
-                                "Failed to retrieve proof of time parameters during proof of time \
-                                verification"
-                            );
-
-                            return false;
-                        }
-                    };
-
-                    let pot_input = if parent_header.number().is_zero() {
-                        PotNextSlotInput {
-                            slot: parent_slot + Slot::from(1),
-                            slot_iterations: pot_parameters.slot_iterations(),
-                            seed: pot_verifier.genesis_seed(),
-                        }
-                    } else {
-                        let pot_info = parent_pre_digest.pot_info();
-
-                        PotNextSlotInput::derive(
-                            pot_parameters.slot_iterations(),
-                            parent_slot,
-                            pot_info.proof_of_time(),
-                            &pot_parameters.next_parameters_change(),
-                        )
-                    };
-
-                    // Ensure proof of time and future proof of time included in upcoming block are
-                    // valid
-
-                    if quick_verification {
-                        pot_verifier.try_is_output_valid(
-                            pot_input,
-                            Slot::from(slot) - parent_slot,
-                            proof_of_time,
-                            pot_parameters.next_parameters_change(),
-                        )
-                    } else {
-                        pot_verifier.is_output_valid(
-                            pot_input,
-                            Slot::from(slot) - parent_slot,
-                            proof_of_time,
-                            pot_parameters.next_parameters_change(),
-                        )
-                    }
-                },
-            )
-        }));
 
         exts.register(SubspaceMmrExtension::new(Arc::new(
             SubspaceMmrHostFunctionsImpl::<Block, _>::new(
@@ -501,9 +374,7 @@ where
 
     client.execution_extensions().set_extensions_factory(
         SubspaceExtensionsFactory::<PosTable, _> {
-            kzg: kzg.clone(),
             client: Arc::clone(&client),
-            pot_verifier: pot_verifier.clone(),
             backend: backend.clone(),
             confirmation_depth_k: chain_constants.confirmation_depth_k(),
             _pos_table: PhantomData,

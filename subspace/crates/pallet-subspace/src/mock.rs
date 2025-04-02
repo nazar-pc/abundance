@@ -6,13 +6,12 @@ use frame_support::{derive_impl, parameter_types};
 use schnorrkel::Keypair;
 use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::{CompatibleDigestItem, PreDigest, PreDigestPotInfo};
-use sp_consensus_subspace::{KzgExtension, PosExtension, PotExtension};
 use sp_io::TestExternalities;
 use sp_runtime::testing::{Digest, DigestItem, TestXt};
 use sp_runtime::BuildStorage;
 use std::marker::PhantomData;
 use std::num::{NonZeroU32, NonZeroU64};
-use std::sync::{Once, OnceLock};
+use std::sync::Once;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::{Piece, PieceOffset};
 use subspace_core_primitives::segments::{
@@ -21,22 +20,12 @@ use subspace_core_primitives::segments::{
 };
 use subspace_core_primitives::solutions::{Solution, SolutionRange};
 use subspace_core_primitives::{BlockNumber, PublicKey, SlotNumber};
-use subspace_kzg::Kzg;
-use subspace_proof_of_space::shim::ShimTable;
 use subspace_runtime_primitives::ConsensusEventSegmentSize;
-
-type PosTable = ShimTable;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type Balance = u128;
 
 const MAX_PIECES_IN_SECTOR: u16 = 1;
-
-fn kzg_instance() -> &'static Kzg {
-    static KZG: OnceLock<Kzg> = OnceLock::new();
-
-    KZG.get_or_init(Kzg::new)
-}
 
 frame_support::construct_runtime!(
     pub struct Test {
@@ -190,13 +179,7 @@ pub fn make_pre_digest(
     Digest { logs: vec![log] }
 }
 
-pub fn allow_all_pot_extension() -> PotExtension {
-    PotExtension::new(Box::new(
-        |_parent_hash, _slot, _proof_of_time, _quick_verification| true,
-    ))
-}
-
-pub fn new_test_ext(pot_extension: PotExtension) -> TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
     static INITIALIZE_LOGGER: Once = Once::new();
     INITIALIZE_LOGGER.call_once(|| {
         let _ = env_logger::try_init_from_env(env_logger::Env::new().default_filter_or("error"));
@@ -215,13 +198,7 @@ pub fn new_test_ext(pot_extension: PotExtension) -> TestExternalities {
     .assimilate_storage(&mut storage)
     .unwrap();
 
-    let mut ext = TestExternalities::from(storage);
-
-    ext.register_extension(KzgExtension::new(kzg_instance().clone()));
-    ext.register_extension(PosExtension::new::<PosTable>());
-    ext.register_extension(pot_extension);
-
-    ext
+    TestExternalities::from(storage)
 }
 
 pub fn create_segment_header(segment_index: SegmentIndex) -> SegmentHeader {

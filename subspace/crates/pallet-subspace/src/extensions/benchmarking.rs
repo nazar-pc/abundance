@@ -32,9 +32,5 @@ pub struct Pallet<T: Config>(Subspace<T>);
 mod benchmarks {
     use super::*;
 
-    impl_benchmark_test_suite!(
-        Pallet,
-        crate::mock::new_test_ext(crate::mock::allow_all_pot_extension()),
-        crate::mock::Test
-    );
+    impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
