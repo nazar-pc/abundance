@@ -147,8 +147,6 @@ pub mod pallet {
         #[pallet::constant]
         type ConsensusConstants: Get<ConsensusConstants<BlockNumberFor<Self>>>;
 
-        type ShouldAdjustSolutionRange: Get<bool>;
-
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
 
@@ -283,8 +281,7 @@ pub mod pallet {
     /// Storage to check if the solution range is to be adjusted for next era
     #[pallet::storage]
     #[pallet::getter(fn should_adjust_solution_range)]
-    pub(super) type ShouldAdjustSolutionRange<T: Config> =
-        StorageValue<_, bool, ValueQuery, T::ShouldAdjustSolutionRange>;
+    pub(super) type ShouldAdjustSolutionRange<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     /// Override solution range during next update
     #[pallet::storage]

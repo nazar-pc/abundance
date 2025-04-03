@@ -215,16 +215,12 @@ parameter_types! {
         initial_solution_range: INITIAL_SOLUTION_RANGE,
         slot_probability: SLOT_PROBABILITY,
     };
-    // Disable solution range adjustment at the start of chain.
-    // Root origin must enable later
-    pub const ShouldAdjustSolutionRange: bool = false;
 }
 
 impl pallet_subspace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SubspaceOrigin = pallet_subspace::EnsureSubspaceOrigin;
     type ConsensusConstants = RuntimeConsensusConstants;
-    type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
     type WeightInfo = pallet_subspace::weights::SubstrateWeight<Runtime>;
     type ExtensionWeightInfo = pallet_subspace::extensions::weights::SubstrateWeight<Runtime>;
 }

@@ -73,17 +73,12 @@ parameter_types! {
         initial_solution_range: INITIAL_SOLUTION_RANGE,
         slot_probability: SLOT_PROBABILITY,
     };
-    pub const RecordSize: u32 = 3840;
-    pub const ReplicationFactor: u16 = 1;
-    pub const ReportLongevity: u64 = 34;
-    pub const ShouldAdjustSolutionRange: bool = false;
 }
 
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type SubspaceOrigin = pallet_subspace::EnsureSubspaceOrigin;
     type ConsensusConstants = MockConsensusConstants;
-    type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
     type WeightInfo = ();
     type ExtensionWeightInfo = crate::extensions::weights::SubstrateWeight<Test>;
 }
