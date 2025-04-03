@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["owned"],"struct":["Gas","Transaction","TransactionHash","TransactionHeader","TransactionSlot"]};

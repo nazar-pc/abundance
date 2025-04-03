@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_CODE_SIZE","MAX_TOTAL_METHOD_ARGS"],"enum":["ContractError"],"mod":["block","env","metadata","method"],"struct":["Address","Balance","CustomContractErrorCode","ExitCode","ShardIndex"],"trait":["Contract","ContractTrait","ContractTraitDefinition"]};

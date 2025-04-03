@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>tags on Project Abundance</title>
+    <link>https://abundance.build/tags/</link>
+    <description>Recent content in tags on Project Abundance</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <copyright>&lt;a href=&#34;https://creativecommons.org/publicdomain/zero/1.0/&#34; target=&#34;_blank&#34; rel=&#34;license noopener noreferrer&#34;&gt;CC0 1.0 Universal&lt;/a&gt;</copyright>
+    <lastBuildDate>Mon, 31 Mar 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://abundance.build/tags/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>consensus</title>
+      <link>https://abundance.build/tags/consensus/</link>
+      <pubDate>Mon, 31 Mar 2025 00:00:00 +0000</pubDate>
+      
+      <guid>https://abundance.build/tags/consensus/</guid>
+      <description></description>
+      
+    </item>
+    
+    <item>
+      <title>status-update</title>
+      <link>https://abundance.build/tags/status-update/</link>
+      <pubDate>Mon, 31 Mar 2025 00:00:00 +0000</pubDate>
+      
+      <guid>https://abundance.build/tags/status-update/</guid>
+      <description></description>
+      
+    </item>
+    
+    <item>
+      <title>announcement</title>
+      <link>https://abundance.build/tags/announcement/</link>
+      <pubDate>Sun, 09 Mar 2025 00:00:00 +0000</pubDate>
+      
+      <guid>https://abundance.build/tags/announcement/</guid>
+      <description></description>
+      
+    </item>
+    
+  </channel>
+</rss>
