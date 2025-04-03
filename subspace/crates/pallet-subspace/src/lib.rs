@@ -83,7 +83,7 @@ pub mod pallet {
     use subspace_core_primitives::pieces::PieceOffset;
     use subspace_core_primitives::pot::PotCheckpoints;
     use subspace_core_primitives::sectors::SectorIndex;
-    use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
+    use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
     use subspace_core_primitives::solutions::SolutionRange;
     use subspace_core_primitives::{PublicKey, Randomness, ScalarBytes};
 
@@ -121,13 +121,6 @@ pub mod pallet {
         /// Origin for subspace call.
         type SubspaceOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ()>;
 
-        /// Number of slots between slot arrival and when corresponding block can be produced.
-        ///
-        /// Practically this means future proof of time proof needs to be revealed this many slots
-        /// ahead before block can be authored even though solution is available before that.
-        #[pallet::constant]
-        type BlockAuthoringDelay: Get<Slot>;
-
         /// Interval, in blocks, between blockchain entropy injection into proof of time chain.
         #[pallet::constant]
         type PotEntropyInjectionInterval: Get<BlockNumberFor<Self>>;
@@ -157,22 +150,6 @@ pub mod pallet {
         /// represent a value between 0 and 1.
         #[pallet::constant]
         type SlotProbability: Get<(u64, u64)>;
-
-        /// Number of latest archived segments that are considered "recent history".
-        #[pallet::constant]
-        type RecentSegments: Get<HistorySize>;
-
-        /// Fraction of pieces from the "recent history" (`recent_segments`) in each sector.
-        #[pallet::constant]
-        type RecentHistoryFraction: Get<(HistorySize, HistorySize)>;
-
-        /// Minimum lifetime of a plotted sector, measured in archived segment.
-        #[pallet::constant]
-        type MinSectorLifetime: Get<HistorySize>;
-
-        /// How many pieces one sector is supposed to contain (max)
-        #[pallet::constant]
-        type MaxPiecesInSector: Get<u16>;
 
         type ShouldAdjustSolutionRange: Get<bool>;
 

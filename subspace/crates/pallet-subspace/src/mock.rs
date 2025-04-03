@@ -1,7 +1,7 @@
 //! Test utilities
 
 use crate::{self as pallet_subspace, AllowAuthoringBy, Config};
-use frame_support::traits::{ConstU128, ConstU16, OnInitialize};
+use frame_support::traits::{ConstU128, OnInitialize};
 use frame_support::{derive_impl, parameter_types};
 use schnorrkel::Keypair;
 use sp_consensus_slots::Slot;
@@ -10,7 +10,7 @@ use sp_io::TestExternalities;
 use sp_runtime::testing::{Digest, DigestItem, TestXt};
 use sp_runtime::BuildStorage;
 use std::marker::PhantomData;
-use std::num::{NonZeroU32, NonZeroU64};
+use std::num::NonZeroU32;
 use std::sync::Once;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::{Piece, PieceOffset};
@@ -24,8 +24,6 @@ use subspace_runtime_primitives::ConsensusEventSegmentSize;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type Balance = u128;
-
-const MAX_PIECES_IN_SECTOR: u16 = 1;
 
 frame_support::construct_runtime!(
     pub struct Test {
@@ -66,7 +64,6 @@ pub const INITIAL_SOLUTION_RANGE: SolutionRange =
     u64::MAX / (1024 * 1024 * 1024 / Piece::SIZE as u64) * SLOT_PROBABILITY.0 / SLOT_PROBABILITY.1;
 
 parameter_types! {
-    pub const BlockAuthoringDelay: SlotNumber = 2;
     pub const PotEntropyInjectionInterval: BlockNumber = 5;
     pub const PotEntropyInjectionLookbackDepth: u8 = 2;
     pub const PotEntropyInjectionDelay: SlotNumber = 4;
@@ -74,12 +71,6 @@ parameter_types! {
     // 1GB
     pub const InitialSolutionRange: SolutionRange = INITIAL_SOLUTION_RANGE;
     pub const SlotProbability: (u64, u64) = SLOT_PROBABILITY;
-    pub const RecentSegments: HistorySize = HistorySize::new(NonZeroU64::new(5).unwrap());
-    pub const RecentHistoryFraction: (HistorySize, HistorySize) = (
-        HistorySize::new(NonZeroU64::new(1).unwrap()),
-        HistorySize::new(NonZeroU64::new(10).unwrap()),
-    );
-    pub const MinSectorLifetime: HistorySize = HistorySize::new(NonZeroU64::new(4).unwrap());
     pub const RecordSize: u32 = 3840;
     pub const ReplicationFactor: u16 = 1;
     pub const ReportLongevity: u64 = 34;
@@ -89,17 +80,12 @@ parameter_types! {
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type SubspaceOrigin = pallet_subspace::EnsureSubspaceOrigin;
-    type BlockAuthoringDelay = BlockAuthoringDelay;
     type PotEntropyInjectionInterval = PotEntropyInjectionInterval;
     type PotEntropyInjectionLookbackDepth = PotEntropyInjectionLookbackDepth;
     type PotEntropyInjectionDelay = PotEntropyInjectionDelay;
     type EraDuration = EraDuration;
     type InitialSolutionRange = InitialSolutionRange;
     type SlotProbability = SlotProbability;
-    type RecentSegments = RecentSegments;
-    type RecentHistoryFraction = RecentHistoryFraction;
-    type MinSectorLifetime = MinSectorLifetime;
-    type MaxPiecesInSector = ConstU16<{ MAX_PIECES_IN_SECTOR }>;
     type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
     type WeightInfo = ();
     type ExtensionWeightInfo = crate::extensions::weights::SubstrateWeight<Test>;

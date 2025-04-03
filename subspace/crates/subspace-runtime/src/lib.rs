@@ -206,15 +206,11 @@ impl frame_system::Config for Runtime {
 }
 
 parameter_types! {
-    pub const BlockAuthoringDelay: SlotNumber = BLOCK_AUTHORING_DELAY;
     pub const PotEntropyInjectionInterval: BlockNumber = POT_ENTROPY_INJECTION_INTERVAL;
     pub const PotEntropyInjectionLookbackDepth: u8 = POT_ENTROPY_INJECTION_LOOKBACK_DEPTH;
     pub const PotEntropyInjectionDelay: SlotNumber = POT_ENTROPY_INJECTION_DELAY;
     pub const EraDuration: u32 = ERA_DURATION_IN_BLOCKS;
     pub const SlotProbability: (u64, u64) = SLOT_PROBABILITY;
-    pub const RecentSegments: HistorySize = RECENT_SEGMENTS;
-    pub const RecentHistoryFraction: (HistorySize, HistorySize) = RECENT_HISTORY_FRACTION;
-    pub const MinSectorLifetime: HistorySize = MIN_SECTOR_LIFETIME;
     // Disable solution range adjustment at the start of chain.
     // Root origin must enable later
     pub const ShouldAdjustSolutionRange: bool = false;
@@ -223,17 +219,12 @@ parameter_types! {
 impl pallet_subspace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SubspaceOrigin = pallet_subspace::EnsureSubspaceOrigin;
-    type BlockAuthoringDelay = BlockAuthoringDelay;
     type PotEntropyInjectionInterval = PotEntropyInjectionInterval;
     type PotEntropyInjectionLookbackDepth = PotEntropyInjectionLookbackDepth;
     type PotEntropyInjectionDelay = PotEntropyInjectionDelay;
     type EraDuration = EraDuration;
     type InitialSolutionRange = ConstU64<INITIAL_SOLUTION_RANGE>;
     type SlotProbability = SlotProbability;
-    type RecentSegments = RecentSegments;
-    type RecentHistoryFraction = RecentHistoryFraction;
-    type MinSectorLifetime = MinSectorLifetime;
-    type MaxPiecesInSector = ConstU16<{ MAX_PIECES_IN_SECTOR }>;
     type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
     type WeightInfo = pallet_subspace::weights::SubstrateWeight<Runtime>;
     type ExtensionWeightInfo = pallet_subspace::extensions::weights::SubstrateWeight<Runtime>;
@@ -638,13 +629,13 @@ impl_runtime_apis! {
         fn chain_constants() -> ChainConstants {
             ChainConstants::V0 {
                 confirmation_depth_k: pallet_runtime_configs::ConfirmationDepthK::<Runtime>::get(),
-                block_authoring_delay: Slot::from(BlockAuthoringDelay::get()),
+                block_authoring_delay: Slot::from(BLOCK_AUTHORING_DELAY),
                 era_duration: EraDuration::get(),
                 slot_probability: SlotProbability::get(),
                 slot_duration: SlotDuration::from_millis(SLOT_DURATION),
-                recent_segments: RecentSegments::get(),
-                recent_history_fraction: RecentHistoryFraction::get(),
-                min_sector_lifetime: MinSectorLifetime::get(),
+                recent_segments: RECENT_SEGMENTS,
+                recent_history_fraction: RECENT_HISTORY_FRACTION,
+                min_sector_lifetime: MIN_SECTOR_LIFETIME,
             }
         }
     }
