@@ -1166,7 +1166,7 @@ impl MethodDetails {
                     ) -> ::ab_contracts_macros::__private::ExitCode {
                         // SAFETY: Caller must ensure correct ABI of the void pointer, little can be
                         // done here
-                        unsafe { #ffi_fn_name(ptr.cast::<InternalArgs>()) }
+                        unsafe { #ffi_fn_name(ptr.cast::<InternalArgs<'_>>()) }
                     }
 
                     pub const METHOD_FN_POINTER: ::ab_contracts_macros::__private::NativeExecutorContactMethod =

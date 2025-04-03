@@ -145,6 +145,7 @@ dependencies = [
  "ab-system-contract-address-allocator",
  "ab-system-contract-block",
  "ab-system-contract-code",
+ "ab-system-contract-native-token",
  "ab-system-contract-simple-wallet-base",
  "ab-system-contract-state",
  "ab-transaction",

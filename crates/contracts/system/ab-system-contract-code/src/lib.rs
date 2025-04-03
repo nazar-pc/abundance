@@ -47,7 +47,10 @@ impl Code {
         // TODO: Would it be helpful to allow indirect updates?
         // Allow updates to system deploy contract (for initial deployment) and to contract itself
         // for upgrades, but only direct calls
-        if !(env.caller() == env.own_address() || env.caller() == address) {
+        if !(env.caller() == Address::NULL
+            || env.caller() == env.own_address()
+            || env.caller() == address)
+        {
             return Err(ContractError::Forbidden);
         }
 

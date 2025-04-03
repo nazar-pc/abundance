@@ -8,16 +8,18 @@ use ab_contracts_common::env::{Env, EnvState, MethodContext};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
 use ab_contracts_common::method::MethodFingerprint;
 use ab_contracts_common::{
-    Address, Contract, ContractError, ContractTrait, ContractTraitDefinition,
+    Address, Balance, Contract, ContractError, ContractTrait, ContractTraitDefinition,
     NativeExecutorContactMethod, ShardIndex,
 };
 use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_io_type::variable_elements::VariableElements;
+use ab_contracts_standards::fungible::Fungible;
 use ab_contracts_standards::tx_handler::TxHandlerExt;
 use ab_executor_slots::{Slot, SlotKey, Slots};
 use ab_system_contract_address_allocator::{AddressAllocator, AddressAllocatorExt};
 use ab_system_contract_block::{Block, BlockExt};
 use ab_system_contract_code::{Code, CodeExt};
+use ab_system_contract_native_token::{NativeToken, NativeTokenExt};
 use ab_system_contract_simple_wallet_base::SimpleWalletBase;
 use ab_system_contract_state::State;
 use ab_transaction::{Transaction, TransactionSlot};
@@ -84,14 +86,25 @@ impl NativeExecutorBuilder {
                     native_executor_methods: Code::NATIVE_EXECUTOR_METHODS,
                 },
                 MethodsEntry {
-                    contact_code: State::CODE,
-                    main_contract_metadata: State::MAIN_CONTRACT_METADATA,
-                    native_executor_methods: State::NATIVE_EXECUTOR_METHODS,
+                    contact_code: NativeToken::CODE,
+                    main_contract_metadata: NativeToken::MAIN_CONTRACT_METADATA,
+                    native_executor_methods: <NativeToken as Contract>::NATIVE_EXECUTOR_METHODS,
+                },
+                MethodsEntry {
+                    contact_code: NativeToken::CODE,
+                    main_contract_metadata: NativeToken::MAIN_CONTRACT_METADATA,
+                    native_executor_methods:
+                        <NativeToken as ContractTrait<dyn Fungible>>::NATIVE_EXECUTOR_METHODS,
                 },
                 MethodsEntry {
                     contact_code: SimpleWalletBase::CODE,
                     main_contract_metadata: SimpleWalletBase::MAIN_CONTRACT_METADATA,
                     native_executor_methods: SimpleWalletBase::NATIVE_EXECUTOR_METHODS,
+                },
+                MethodsEntry {
+                    contact_code: State::CODE,
+                    main_contract_metadata: State::MAIN_CONTRACT_METADATA,
+                    native_executor_methods: State::NATIVE_EXECUTOR_METHODS,
                 },
             ],
         }
@@ -243,36 +256,51 @@ impl NativeExecutor {
             assert!(nested_slots.add_new_contract(address_allocator_address));
             assert!(nested_slots.add_new_contract(Address::SYSTEM_BLOCK));
             assert!(nested_slots.add_new_contract(Address::SYSTEM_STATE));
+            assert!(nested_slots.add_new_contract(Address::SYSTEM_NATIVE_TOKEN));
             assert!(nested_slots.add_new_contract(Address::SYSTEM_SIMPLE_WALLET_BASE));
         }
 
         // Deploy and initialize other system contacts
-        self.transaction_emulate(Address::SYSTEM_CODE, &mut slots, |env| {
+        self.transaction_emulate(Address::NULL, &mut slots, |env| {
             env.code_store(
-                MethodContext::Keep,
+                MethodContext::Reset,
                 Address::SYSTEM_CODE,
                 &Address::SYSTEM_STATE,
                 &State::code(),
             )?;
 
             env.code_store(
-                MethodContext::Keep,
+                MethodContext::Reset,
                 Address::SYSTEM_CODE,
                 &address_allocator_address,
                 &AddressAllocator::code(),
             )?;
-            env.address_allocator_new(MethodContext::Keep, address_allocator_address)?;
+            env.address_allocator_new(MethodContext::Reset, address_allocator_address)?;
 
             env.code_store(
-                MethodContext::Keep,
+                MethodContext::Reset,
                 Address::SYSTEM_CODE,
                 &Address::SYSTEM_BLOCK,
                 &Block::code(),
             )?;
-            env.block_genesis(MethodContext::Keep, Address::SYSTEM_BLOCK)?;
+            env.block_genesis(MethodContext::Reset, Address::SYSTEM_BLOCK)?;
 
             env.code_store(
-                MethodContext::Keep,
+                MethodContext::Reset,
+                Address::SYSTEM_CODE,
+                &Address::SYSTEM_NATIVE_TOKEN,
+                &NativeToken::code(),
+            )?;
+            env.native_token_initialize(
+                MethodContext::Reset,
+                Address::SYSTEM_NATIVE_TOKEN,
+                &Address::SYSTEM_NATIVE_TOKEN,
+                // TODO: The balance should not be `max` by default, define rules and use them
+                &Balance::MAX,
+            )?;
+
+            env.code_store(
+                MethodContext::Reset,
                 Address::SYSTEM_CODE,
                 &Address::SYSTEM_SIMPLE_WALLET_BASE,
                 &SimpleWalletBase::code(),

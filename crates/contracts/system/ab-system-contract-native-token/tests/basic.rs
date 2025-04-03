@@ -1,6 +1,6 @@
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Balance, Contract, ContractError, ShardIndex};
-use ab_contracts_standards::fungible::{Fungible, FungibleExt};
+use ab_contracts_standards::fungible::FungibleExt;
 use ab_contracts_test_utils::dummy_wallet::DummyWallet;
 use ab_executor_native::NativeExecutor;
 use ab_system_contract_code::CodeExt;
@@ -11,8 +11,6 @@ fn basic() {
     let shard_index = ShardIndex::from_u32(1).unwrap();
     let executor = NativeExecutor::builder(shard_index)
         .with_contract::<DummyWallet>()
-        .with_contract::<NativeToken>()
-        .with_contract_trait::<NativeToken, dyn Fungible>()
         .build()
         .unwrap();
 
@@ -39,16 +37,29 @@ fn basic() {
     });
 
     // Deploy and initialize
-    let token_address = executor.transaction_emulate(alice, slots, |env| {
+    let token_address = executor.transaction_emulate(Address::NULL, slots, |env| {
         let token_address = env
             .code_deploy(
-                MethodContext::Keep,
+                MethodContext::Reset,
                 Address::SYSTEM_CODE,
                 &NativeToken::code(),
             )
             .unwrap();
-        env.native_token_new(MethodContext::Keep, token_address, &alice, &Balance::MAX)
-            .unwrap();
+        env.native_token_initialize(
+            MethodContext::Reset,
+            token_address,
+            &token_address,
+            &Balance::MAX,
+        )
+        .unwrap();
+        env.native_token_transfer(
+            MethodContext::Reset,
+            token_address,
+            &token_address,
+            &alice,
+            &Balance::MAX,
+        )
+        .unwrap();
 
         token_address
     });

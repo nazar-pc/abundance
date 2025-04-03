@@ -16,10 +16,7 @@ pub struct Slot {
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
-pub struct NativeToken {
-    pub total_supply: Balance,
-    pub owner: Address,
-}
+pub struct NativeToken {}
 
 #[contract]
 impl Fungible for NativeToken {
@@ -30,7 +27,11 @@ impl Fungible for NativeToken {
         #[input] to: &Address,
         #[input] amount: &Balance,
     ) -> Result<(), ContractError> {
-        if !(env.context() == from || env.caller() == from || env.caller() == env.own_address()) {
+        if !(env.context() == from
+            || env.caller() == from
+            || env.caller() == env.own_address()
+            || env.caller() == Address::NULL)
+        {
             return Err(ContractError::Forbidden);
         }
 
@@ -45,47 +46,33 @@ impl Fungible for NativeToken {
 
 #[contract]
 impl NativeToken {
-    #[init]
-    pub fn new(
-        #[slot] (owner_addr, owner): (&Address, &mut MaybeData<Slot>),
-        #[input] total_supply: &Balance,
-    ) -> Self {
-        owner.replace(Slot {
-            balance: *total_supply,
-        });
-        Self {
-            total_supply: *total_supply,
-            owner: *owner_addr,
-        }
-    }
-
+    /// Initialize native token on a shard with max issuance allowed by this shard.
+    ///
+    /// Block rewards will be implemented using transfers from native token's balance.
     #[update]
-    pub fn mint(
-        &mut self,
+    pub fn initialize(
         #[env] env: &mut Env<'_>,
-        #[slot] to: &mut MaybeData<Slot>,
-        #[input] &value: &Balance,
-    ) -> Result<(), ContractError> {
-        if env.context() != self.owner && env.caller() != self.owner {
+        #[slot] (own_address, own_balance): (&Address, &mut MaybeData<Slot>),
+        #[input] &max_issuance: &Balance,
+    ) -> Result<Self, ContractError> {
+        // Only execution environment can make a direct call here
+        if env.caller() != Address::NULL {
             return Err(ContractError::Forbidden);
         }
 
-        if Balance::MAX - value > self.total_supply {
+        if own_address != env.own_address() {
             return Err(ContractError::BadInput);
         }
 
-        self.total_supply += value;
-
-        match to.get_mut() {
-            Some(contents) => {
-                contents.balance += value;
-            }
-            None => {
-                to.replace(Slot { balance: value });
-            }
+        if own_balance.get().is_some() {
+            return Err(ContractError::Conflict);
         }
 
-        Ok(())
+        own_balance.replace(Slot {
+            balance: max_issuance,
+        });
+
+        Ok(Self {})
     }
 
     #[view]
@@ -104,7 +91,8 @@ impl NativeToken {
     ) -> Result<(), ContractError> {
         if !(env.context() == from_address
             || env.caller() == from_address
-            || env.caller() == env.own_address())
+            || env.caller() == env.own_address()
+            || env.caller() == Address::NULL)
         {
             return Err(ContractError::Forbidden);
         }
