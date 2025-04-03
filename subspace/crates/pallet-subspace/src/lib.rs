@@ -42,24 +42,6 @@ use subspace_core_primitives::segments::{
 };
 use subspace_verification::{derive_next_solution_range, derive_pot_entropy};
 
-/// Trigger an era change, if any should take place.
-pub trait EraChangeTrigger {
-    /// Trigger an era change, if any should take place. This should be called
-    /// during every block, after initialization is done.
-    fn trigger<T: Config>(block_number: BlockNumberFor<T>, current_slot: Slot);
-}
-
-/// A type signifying to Subspace that it should perform era changes with an internal trigger.
-pub struct NormalEraChange;
-
-impl EraChangeTrigger for NormalEraChange {
-    fn trigger<T: Config>(block_number: BlockNumberFor<T>, current_slot: Slot) {
-        if <Pallet<T>>::should_era_change(block_number) {
-            <Pallet<T>>::enact_era_change(current_slot);
-        }
-    }
-}
-
 /// Custom origin for validated unsigned extrinsics.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum RawOrigin {
@@ -85,7 +67,7 @@ impl<O: Into<Result<RawOrigin, O>> + From<RawOrigin>> EnsureOrigin<O> for Ensure
 
 #[frame_support::pallet]
 pub mod pallet {
-    use super::{EraChangeTrigger, ExtensionWeightInfo};
+    use super::ExtensionWeightInfo;
     use crate::weights::WeightInfo;
     use crate::RawOrigin;
     use frame_support::pallet_prelude::*;
@@ -193,11 +175,6 @@ pub mod pallet {
         type MaxPiecesInSector: Get<u16>;
 
         type ShouldAdjustSolutionRange: Get<bool>;
-        /// Subspace requires some logic to be triggered on every block to query for whether an era
-        /// has ended and to perform the transition to the next era.
-        ///
-        /// Era is normally used to update solution range used for challenges.
-        type EraChangeTrigger: EraChangeTrigger;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
@@ -707,7 +684,9 @@ impl<T: Config> Pallet<T> {
         ));
 
         // Enact era change, if necessary.
-        T::EraChangeTrigger::trigger::<T>(block_number, current_slot);
+        if <Pallet<T>>::should_era_change(block_number) {
+            <Pallet<T>>::enact_era_change(current_slot);
+        }
 
         {
             let mut pot_slot_iterations =

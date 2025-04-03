@@ -1,6 +1,6 @@
 //! Test utilities
 
-use crate::{self as pallet_subspace, AllowAuthoringBy, Config, NormalEraChange};
+use crate::{self as pallet_subspace, AllowAuthoringBy, Config};
 use frame_support::traits::{ConstU128, ConstU16, OnInitialize};
 use frame_support::{derive_impl, parameter_types};
 use schnorrkel::Keypair;
@@ -101,7 +101,6 @@ impl Config for Test {
     type MinSectorLifetime = MinSectorLifetime;
     type MaxPiecesInSector = ConstU16<{ MAX_PIECES_IN_SECTOR }>;
     type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
-    type EraChangeTrigger = NormalEraChange;
     type WeightInfo = ();
     type ExtensionWeightInfo = crate::extensions::weights::SubstrateWeight<Test>;
 }

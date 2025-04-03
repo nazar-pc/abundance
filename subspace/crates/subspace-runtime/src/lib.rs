@@ -235,7 +235,6 @@ impl pallet_subspace::Config for Runtime {
     type MinSectorLifetime = MinSectorLifetime;
     type MaxPiecesInSector = ConstU16<{ MAX_PIECES_IN_SECTOR }>;
     type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
-    type EraChangeTrigger = pallet_subspace::NormalEraChange;
     type WeightInfo = pallet_subspace::weights::SubstrateWeight<Runtime>;
     type ExtensionWeightInfo = pallet_subspace::extensions::weights::SubstrateWeight<Runtime>;
 }
