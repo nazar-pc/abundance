@@ -84,7 +84,6 @@ parameter_types! {
     pub const ReplicationFactor: u16 = 1;
     pub const ReportLongevity: u64 = 34;
     pub const ShouldAdjustSolutionRange: bool = false;
-    pub const BlockSlotCount: u32 = 6;
 }
 
 impl Config for Test {
@@ -104,7 +103,6 @@ impl Config for Test {
     type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
     type EraChangeTrigger = NormalEraChange;
     type WeightInfo = ();
-    type BlockSlotCount = BlockSlotCount;
     type ExtensionWeightInfo = crate::extensions::weights::SubstrateWeight<Test>;
 }
 

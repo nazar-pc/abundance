@@ -28,7 +28,7 @@ use alloc::borrow::Cow;
 use core::num::NonZeroU64;
 use frame_support::genesis_builder_helper::{build_state, get_preset};
 use frame_support::inherent::ProvideInherent;
-use frame_support::traits::{ConstU16, ConstU32, ConstU64, ConstU8, Everything, Get};
+use frame_support::traits::{ConstU16, ConstU32, ConstU64, ConstU8, Everything};
 use frame_support::weights::constants::ParityDbWeight;
 use frame_support::weights::{ConstantMultiplier, Weight};
 use frame_support::{construct_runtime, parameter_types};
@@ -218,7 +218,6 @@ parameter_types! {
     // Disable solution range adjustment at the start of chain.
     // Root origin must enable later
     pub const ShouldAdjustSolutionRange: bool = false;
-    pub const BlockSlotCount: u32 = 6;
 }
 
 impl pallet_subspace::Config for Runtime {
@@ -238,7 +237,6 @@ impl pallet_subspace::Config for Runtime {
     type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
     type EraChangeTrigger = pallet_subspace::NormalEraChange;
     type WeightInfo = pallet_subspace::weights::SubstrateWeight<Runtime>;
-    type BlockSlotCount = BlockSlotCount;
     type ExtensionWeightInfo = pallet_subspace::extensions::weights::SubstrateWeight<Runtime>;
 }
 

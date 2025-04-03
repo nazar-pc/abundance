@@ -46,16 +46,16 @@ use subspace_verification::{derive_next_solution_range, derive_pot_entropy};
 pub trait EraChangeTrigger {
     /// Trigger an era change, if any should take place. This should be called
     /// during every block, after initialization is done.
-    fn trigger<T: Config>(block_number: BlockNumberFor<T>);
+    fn trigger<T: Config>(block_number: BlockNumberFor<T>, current_slot: Slot);
 }
 
 /// A type signifying to Subspace that it should perform era changes with an internal trigger.
 pub struct NormalEraChange;
 
 impl EraChangeTrigger for NormalEraChange {
-    fn trigger<T: Config>(block_number: BlockNumberFor<T>) {
+    fn trigger<T: Config>(block_number: BlockNumberFor<T>, current_slot: Slot) {
         if <Pallet<T>>::should_era_change(block_number) {
-            <Pallet<T>>::enact_era_change();
+            <Pallet<T>>::enact_era_change(current_slot);
         }
     }
 }
@@ -202,10 +202,6 @@ pub mod pallet {
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
 
-        /// Maximum number of block number to block slot mappings to keep (oldest pruned first).
-        #[pallet::constant]
-        type BlockSlotCount: Get<u32>;
-
         /// Extension weight information for the pallet's extensions.
         type ExtensionWeightInfo: ExtensionWeightInfo;
     }
@@ -319,11 +315,10 @@ pub mod pallet {
         PotSlotIterationsUpdateAlreadyScheduled,
     }
 
-    /// Bounded mapping from block number to slot
+    /// Current slot number.
     #[pallet::storage]
-    #[pallet::getter(fn block_slots)]
-    pub(super) type BlockSlots<T: Config> =
-        StorageValue<_, BoundedBTreeMap<BlockNumberFor<T>, Slot, T::BlockSlotCount>, ValueQuery>;
+    #[pallet::getter(fn current_slot)]
+    pub type CurrentSlot<T> = StorageValue<_, Slot, ValueQuery>;
 
     /// Solution ranges used for challenges.
     #[pallet::storage]
@@ -606,10 +601,8 @@ impl<T: Config> Pallet<T> {
     /// returned `true`, and the caller is the only caller of this function.
     ///
     /// This will update solution range used in consensus.
-    fn enact_era_change() {
+    fn enact_era_change(current_slot: Slot) {
         let slot_probability = T::SlotProbability::get();
-
-        let current_slot = Self::current_slot();
 
         SolutionRanges::<T>::mutate(|solution_ranges| {
             let next_solution_range;
@@ -644,14 +637,8 @@ impl<T: Config> Pallet<T> {
             .expect("Block must always have pre-digest");
         let current_slot = pre_digest.slot();
 
-        BlockSlots::<T>::mutate(|block_slots| {
-            if let Some(to_remove) = block_number.checked_sub(&T::BlockSlotCount::get().into()) {
-                block_slots.remove(&to_remove);
-            }
-            block_slots
-                .try_insert(block_number, current_slot)
-                .expect("one entry just removed before inserting; qed");
-        });
+        // The slot number of the current block being initialized.
+        CurrentSlot::<T>::put(pre_digest.slot());
 
         {
             // Remove old value
@@ -720,7 +707,7 @@ impl<T: Config> Pallet<T> {
         ));
 
         // Enact era change, if necessary.
-        T::EraChangeTrigger::trigger::<T>(block_number);
+        T::EraChangeTrigger::trigger::<T>(block_number, current_slot);
 
         {
             let mut pot_slot_iterations =
@@ -970,14 +957,6 @@ impl<T: Config> Pallet<T> {
             slot_iterations: pot_slot_iterations.slot_iterations,
             next_change,
         }
-    }
-
-    /// Current slot number
-    pub fn current_slot() -> Slot {
-        BlockSlots::<T>::get()
-            .last_key_value()
-            .map(|(_block, slot)| *slot)
-            .unwrap_or_default()
     }
 
     /// Size of the archived history of the blockchain in bytes
