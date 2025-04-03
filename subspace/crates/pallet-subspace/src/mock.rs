@@ -1,6 +1,6 @@
 //! Test utilities
 
-use crate::{self as pallet_subspace, AllowAuthoringBy, Config};
+use crate::{self as pallet_subspace, AllowAuthoringBy, Config, ConsensusConstants};
 use frame_support::traits::{ConstU128, OnInitialize};
 use frame_support::{derive_impl, parameter_types};
 use schnorrkel::Keypair;
@@ -19,7 +19,7 @@ use subspace_core_primitives::segments::{
     SegmentIndex,
 };
 use subspace_core_primitives::solutions::{Solution, SolutionRange};
-use subspace_core_primitives::{BlockNumber, PublicKey, SlotNumber};
+use subspace_core_primitives::PublicKey;
 use subspace_runtime_primitives::ConsensusEventSegmentSize;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -60,17 +60,19 @@ impl pallet_balances::Config for Test {
 /// 1 in 6 slots (on average, not counting collisions) will have a block.
 pub const SLOT_PROBABILITY: (u64, u64) = (3, 10);
 
+// 1GB
 pub const INITIAL_SOLUTION_RANGE: SolutionRange =
     u64::MAX / (1024 * 1024 * 1024 / Piece::SIZE as u64) * SLOT_PROBABILITY.0 / SLOT_PROBABILITY.1;
 
 parameter_types! {
-    pub const PotEntropyInjectionInterval: BlockNumber = 5;
-    pub const PotEntropyInjectionLookbackDepth: u8 = 2;
-    pub const PotEntropyInjectionDelay: SlotNumber = 4;
-    pub const EraDuration: u32 = 4;
-    // 1GB
-    pub const InitialSolutionRange: SolutionRange = INITIAL_SOLUTION_RANGE;
-    pub const SlotProbability: (u64, u64) = SLOT_PROBABILITY;
+    pub const MockConsensusConstants: ConsensusConstants<u64> = ConsensusConstants {
+        pot_entropy_injection_interval: 5,
+        pot_entropy_injection_lookback_depth: 2,
+        pot_entropy_injection_delay: 4,
+        era_duration: 4,
+        initial_solution_range: INITIAL_SOLUTION_RANGE,
+        slot_probability: SLOT_PROBABILITY,
+    };
     pub const RecordSize: u32 = 3840;
     pub const ReplicationFactor: u16 = 1;
     pub const ReportLongevity: u64 = 34;
@@ -80,12 +82,7 @@ parameter_types! {
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type SubspaceOrigin = pallet_subspace::EnsureSubspaceOrigin;
-    type PotEntropyInjectionInterval = PotEntropyInjectionInterval;
-    type PotEntropyInjectionLookbackDepth = PotEntropyInjectionLookbackDepth;
-    type PotEntropyInjectionDelay = PotEntropyInjectionDelay;
-    type EraDuration = EraDuration;
-    type InitialSolutionRange = InitialSolutionRange;
-    type SlotProbability = SlotProbability;
+    type ConsensusConstants = MockConsensusConstants;
     type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
     type WeightInfo = ();
     type ExtensionWeightInfo = crate::extensions::weights::SubstrateWeight<Test>;

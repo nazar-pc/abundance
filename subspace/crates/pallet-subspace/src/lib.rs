@@ -40,6 +40,8 @@ use sp_std::prelude::*;
 use subspace_core_primitives::segments::{
     ArchivedHistorySegment, HistorySize, SegmentHeader, SegmentIndex,
 };
+use subspace_core_primitives::solutions::SolutionRange;
+use subspace_core_primitives::SlotNumber;
 use subspace_verification::{derive_next_solution_range, derive_pot_entropy};
 
 /// Custom origin for validated unsigned extrinsics.
@@ -65,11 +67,32 @@ impl<O: Into<Result<RawOrigin, O>> + From<RawOrigin>> EnsureOrigin<O> for Ensure
     }
 }
 
+#[derive(Debug, Encode, Decode, TypeInfo)]
+pub struct ConsensusConstants<BlockNumber> {
+    /// Interval, in blocks, between blockchain entropy injection into proof of time chain.
+    pub pot_entropy_injection_interval: BlockNumber,
+    /// Interval, in entropy injection intervals, where to take entropy for injection from.
+    pub pot_entropy_injection_lookback_depth: u8,
+    /// Delay after block, in slots, when entropy injection takes effect.
+    pub pot_entropy_injection_delay: SlotNumber,
+    /// The amount of time, in blocks, that each era should last.
+    /// NOTE: Currently it is not possible to change the era duration after
+    /// the chain has started. Attempting to do so will brick block production.
+    pub era_duration: BlockNumber,
+    /// Initial solution range used for challenges during the very first era.
+    pub initial_solution_range: SolutionRange,
+    /// How often in slots (on average, not counting collisions) will have a block.
+    ///
+    /// Expressed as a rational where the first member of the tuple is the
+    /// numerator and the second is the denominator. The rational should
+    /// represent a value between 0 and 1.
+    pub slot_probability: (u64, u64),
+}
+
 #[frame_support::pallet]
 pub mod pallet {
-    use super::ExtensionWeightInfo;
     use crate::weights::WeightInfo;
-    use crate::RawOrigin;
+    use crate::{ConsensusConstants, ExtensionWeightInfo, RawOrigin};
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use sp_consensus_slots::Slot;
@@ -94,7 +117,7 @@ pub mod pallet {
     impl<T: Config> Get<sp_consensus_subspace::SolutionRanges> for InitialSolutionRanges<T> {
         fn get() -> sp_consensus_subspace::SolutionRanges {
             sp_consensus_subspace::SolutionRanges {
-                current: T::InitialSolutionRange::get(),
+                current: T::ConsensusConstants::get().initial_solution_range,
                 next: None,
             }
         }
@@ -121,35 +144,8 @@ pub mod pallet {
         /// Origin for subspace call.
         type SubspaceOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ()>;
 
-        /// Interval, in blocks, between blockchain entropy injection into proof of time chain.
         #[pallet::constant]
-        type PotEntropyInjectionInterval: Get<BlockNumberFor<Self>>;
-
-        /// Interval, in entropy injection intervals, where to take entropy for injection from.
-        #[pallet::constant]
-        type PotEntropyInjectionLookbackDepth: Get<u8>;
-
-        /// Delay after block, in slots, when entropy injection takes effect.
-        #[pallet::constant]
-        type PotEntropyInjectionDelay: Get<Slot>;
-
-        /// The amount of time, in blocks, that each era should last.
-        /// NOTE: Currently it is not possible to change the era duration after
-        /// the chain has started. Attempting to do so will brick block production.
-        #[pallet::constant]
-        type EraDuration: Get<BlockNumberFor<Self>>;
-
-        /// Initial solution range used for challenges during the very first era.
-        #[pallet::constant]
-        type InitialSolutionRange: Get<SolutionRange>;
-
-        /// How often in slots slots (on average, not counting collisions) will have a block.
-        ///
-        /// Expressed as a rational where the first member of the tuple is the
-        /// numerator and the second is the denominator. The rational should
-        /// represent a value between 0 and 1.
-        #[pallet::constant]
-        type SlotProbability: Get<(u64, u64)>;
+        type ConsensusConstants: Get<ConsensusConstants<BlockNumberFor<Self>>>;
 
         type ShouldAdjustSolutionRange: Get<bool>;
 
@@ -547,17 +543,19 @@ impl<T: Config> Pallet<T> {
 
     /// Determine whether an era change should take place at this block.
     /// Assumes that initialization has already taken place.
-    fn should_era_change(block_number: BlockNumberFor<T>) -> bool {
-        block_number % T::EraDuration::get() == Zero::zero()
+    fn should_era_change(block_number: BlockNumberFor<T>, era_duration: BlockNumberFor<T>) -> bool {
+        block_number % era_duration == Zero::zero()
     }
 
     /// DANGEROUS: Enact era change. Should be done on every block where `should_era_change` has
     /// returned `true`, and the caller is the only caller of this function.
     ///
     /// This will update solution range used in consensus.
-    fn enact_era_change(current_slot: Slot) {
-        let slot_probability = T::SlotProbability::get();
-
+    fn enact_era_change(
+        current_slot: Slot,
+        era_duration: BlockNumberFor<T>,
+        slot_probability: (u64, u64),
+    ) {
         SolutionRanges::<T>::mutate(|solution_ranges| {
             let next_solution_range;
             // Check if the solution range should be adjusted for next era.
@@ -572,7 +570,7 @@ impl<T: Config> Pallet<T> {
                     u64::from(current_slot),
                     slot_probability,
                     solution_ranges.current,
-                    T::EraDuration::get()
+                    era_duration
                         .try_into()
                         .unwrap_or_else(|_| panic!("Era duration is always within u64; qed")),
                 );
@@ -584,6 +582,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn do_initialize(block_number: BlockNumberFor<T>) {
+        let consensus_constants = T::ConsensusConstants::get();
         let pre_digest = frame_system::Pallet::<T>::digest()
             .logs
             .iter()
@@ -661,8 +660,12 @@ impl<T: Config> Pallet<T> {
         ));
 
         // Enact era change, if necessary.
-        if <Pallet<T>>::should_era_change(block_number) {
-            <Pallet<T>>::enact_era_change(current_slot);
+        if <Pallet<T>>::should_era_change(block_number, consensus_constants.era_duration) {
+            <Pallet<T>>::enact_era_change(
+                current_slot,
+                consensus_constants.era_duration,
+                consensus_constants.slot_probability,
+            );
         }
 
         {
@@ -691,12 +694,14 @@ impl<T: Config> Pallet<T> {
                 };
                 PotSlotIterations::<T>::put(pot_slot_iterations);
             }
-            let pot_entropy_injection_interval = T::PotEntropyInjectionInterval::get();
-            let pot_entropy_injection_delay = T::PotEntropyInjectionDelay::get();
+            let pot_entropy_injection_interval = consensus_constants.pot_entropy_injection_interval;
+            let pot_entropy_injection_delay = consensus_constants.pot_entropy_injection_delay;
 
             let mut entropy = PotEntropy::<T>::get();
             let lookback_in_blocks = pot_entropy_injection_interval
-                * BlockNumberFor::<T>::from(T::PotEntropyInjectionLookbackDepth::get());
+                * BlockNumberFor::<T>::from(
+                    consensus_constants.pot_entropy_injection_lookback_depth,
+                );
             let last_entropy_injection_block =
                 block_number / pot_entropy_injection_interval * pot_entropy_injection_interval;
             let maybe_entropy_source_block_number =
@@ -707,7 +712,7 @@ impl<T: Config> Pallet<T> {
                     &pre_digest.solution().chunk,
                     pre_digest.pot_info().proof_of_time(),
                 );
-                // Collect entropy every `T::PotEntropyInjectionInterval` blocks
+                // Collect entropy every `pot_entropy_injection_interval` blocks
                 entropy.insert(
                     block_number,
                     PotEntropyValue {
@@ -866,14 +871,15 @@ impl<T: Config> Pallet<T> {
 
     /// Proof of time parameters
     pub fn pot_parameters() -> PotParameters {
+        let consensus_constants = T::ConsensusConstants::get();
         let block_number = frame_system::Pallet::<T>::block_number();
         let pot_slot_iterations =
             PotSlotIterations::<T>::get().expect("Always initialized during genesis; qed");
-        let pot_entropy_injection_interval = T::PotEntropyInjectionInterval::get();
+        let pot_entropy_injection_interval = consensus_constants.pot_entropy_injection_interval;
 
         let entropy = PotEntropy::<T>::get();
         let lookback_in_blocks = pot_entropy_injection_interval
-            * BlockNumberFor::<T>::from(T::PotEntropyInjectionLookbackDepth::get());
+            * BlockNumberFor::<T>::from(consensus_constants.pot_entropy_injection_lookback_depth);
         let last_entropy_injection_block =
             block_number / pot_entropy_injection_interval * pot_entropy_injection_interval;
         let maybe_entropy_source_block_number =

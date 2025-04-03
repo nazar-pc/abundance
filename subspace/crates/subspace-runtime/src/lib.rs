@@ -36,6 +36,7 @@ use frame_system::limits::{BlockLength, BlockWeights};
 use frame_system::pallet_prelude::RuntimeCallFor;
 pub use pallet_rewards::RewardPoint;
 pub use pallet_subspace::AllowAuthoringBy;
+use pallet_subspace::ConsensusConstants;
 use sp_api::impl_runtime_apis;
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_consensus_subspace::{ChainConstants, PotParameters, SolutionRanges};
@@ -206,11 +207,14 @@ impl frame_system::Config for Runtime {
 }
 
 parameter_types! {
-    pub const PotEntropyInjectionInterval: BlockNumber = POT_ENTROPY_INJECTION_INTERVAL;
-    pub const PotEntropyInjectionLookbackDepth: u8 = POT_ENTROPY_INJECTION_LOOKBACK_DEPTH;
-    pub const PotEntropyInjectionDelay: SlotNumber = POT_ENTROPY_INJECTION_DELAY;
-    pub const EraDuration: u32 = ERA_DURATION_IN_BLOCKS;
-    pub const SlotProbability: (u64, u64) = SLOT_PROBABILITY;
+    pub const RuntimeConsensusConstants: ConsensusConstants<BlockNumber> = ConsensusConstants {
+        pot_entropy_injection_interval: POT_ENTROPY_INJECTION_INTERVAL,
+        pot_entropy_injection_lookback_depth: POT_ENTROPY_INJECTION_LOOKBACK_DEPTH,
+        pot_entropy_injection_delay: POT_ENTROPY_INJECTION_DELAY,
+        era_duration: ERA_DURATION_IN_BLOCKS,
+        initial_solution_range: INITIAL_SOLUTION_RANGE,
+        slot_probability: SLOT_PROBABILITY,
+    };
     // Disable solution range adjustment at the start of chain.
     // Root origin must enable later
     pub const ShouldAdjustSolutionRange: bool = false;
@@ -219,12 +223,7 @@ parameter_types! {
 impl pallet_subspace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SubspaceOrigin = pallet_subspace::EnsureSubspaceOrigin;
-    type PotEntropyInjectionInterval = PotEntropyInjectionInterval;
-    type PotEntropyInjectionLookbackDepth = PotEntropyInjectionLookbackDepth;
-    type PotEntropyInjectionDelay = PotEntropyInjectionDelay;
-    type EraDuration = EraDuration;
-    type InitialSolutionRange = ConstU64<INITIAL_SOLUTION_RANGE>;
-    type SlotProbability = SlotProbability;
+    type ConsensusConstants = RuntimeConsensusConstants;
     type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
     type WeightInfo = pallet_subspace::weights::SubstrateWeight<Runtime>;
     type ExtensionWeightInfo = pallet_subspace::extensions::weights::SubstrateWeight<Runtime>;
@@ -630,8 +629,8 @@ impl_runtime_apis! {
             ChainConstants::V0 {
                 confirmation_depth_k: pallet_runtime_configs::ConfirmationDepthK::<Runtime>::get(),
                 block_authoring_delay: Slot::from(BLOCK_AUTHORING_DELAY),
-                era_duration: EraDuration::get(),
-                slot_probability: SlotProbability::get(),
+                era_duration: ERA_DURATION_IN_BLOCKS,
+                slot_probability: SLOT_PROBABILITY,
                 slot_duration: SlotDuration::from_millis(SLOT_DURATION),
                 recent_segments: RECENT_SEGMENTS,
                 recent_history_fraction: RECENT_HISTORY_FRACTION,
