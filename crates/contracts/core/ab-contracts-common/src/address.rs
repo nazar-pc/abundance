@@ -91,8 +91,10 @@ impl Address {
     pub const SYSTEM_BLOCK: Self = Self::from_u128(2);
     /// System contract for managing state of other contracts
     pub const SYSTEM_STATE: Self = Self::from_u128(3);
+    /// System contract for native token
+    pub const SYSTEM_NATIVE_TOKEN: Self = Self::from_u128(4);
     /// System simple wallet base contract that can be used by end user wallets
-    pub const SYSTEM_SIMPLE_WALLET_BASE: Self = Self::from_u128(4);
+    pub const SYSTEM_SIMPLE_WALLET_BASE: Self = Self::from_u128(10);
 
     /// Turn value into `u128`
     #[inline(always)]

@@ -57,7 +57,7 @@ pub fn execute(
     payload: &TxHandlerPayload,
     seal: &TxHandlerSeal,
 ) -> Result<(), ContractError> {
-    // Only execution environment is allowed to make this call
+    // Only execution environment can make a direct call here
     if env.caller() != Address::NULL {
         return Err(ContractError::Forbidden);
     }

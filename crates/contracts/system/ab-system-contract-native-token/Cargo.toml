@@ -1,0 +1,35 @@
+[package]
+name = "ab-system-contract-native-token"
+description = ""
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-contracts-common = { workspace = true }
+ab-contracts-io-type = { workspace = true }
+ab-contracts-macros = { workspace = true }
+ab-contracts-standards = { workspace = true }
+
+[dev-dependencies]
+ab-contracts-test-utils = { workspace = true }
+ab-executor-native = { workspace = true }
+ab-system-contract-code = { workspace = true }
+
+[features]
+guest = [
+    "ab-contracts-common/guest",
+    "ab-contracts-macros/guest",
+    "ab-contracts-standards/guest",
+]
+
+[lints]
+workspace = true

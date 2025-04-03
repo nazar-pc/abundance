@@ -20,6 +20,7 @@ ab-executor-slots = { version = "0.0.1", path = "crates/execution/ab-executor-sl
 ab-system-contract-address-allocator = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-address-allocator" }
 ab-system-contract-block = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-block" }
 ab-system-contract-code = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-code" }
+ab-system-contract-native-token = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-native-token" }
 ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-simple-wallet-base" }
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
 ab-transaction = { version = "0.0.1", path = "crates/shared/ab-transaction" }

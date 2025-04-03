@@ -145,6 +145,7 @@ dependencies = [
  "ab-system-contract-address-allocator",
  "ab-system-contract-block",
  "ab-system-contract-code",
+ "ab-system-contract-native-token",
  "ab-system-contract-simple-wallet-base",
  "ab-system-contract-state",
  "ab-transaction",
@@ -190,6 +191,19 @@ dependencies = [
  "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-system-contract-address-allocator",
+]
+
+[[package]]
+name = "ab-system-contract-native-token"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+ "ab-contracts-standards",
+ "ab-contracts-test-utils",
+ "ab-executor-native",
+ "ab-system-contract-code",
 ]
 
 [[package]]
