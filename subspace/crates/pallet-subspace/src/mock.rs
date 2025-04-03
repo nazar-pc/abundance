@@ -70,7 +70,6 @@ parameter_types! {
         pot_entropy_injection_lookback_depth: 2,
         pot_entropy_injection_delay: 4,
         era_duration: 4,
-        initial_solution_range: INITIAL_SOLUTION_RANGE,
         slot_probability: SLOT_PROBABILITY,
     };
 }
@@ -165,6 +164,7 @@ pub fn new_test_ext() -> TestExternalities {
     pallet_subspace::GenesisConfig::<Test> {
         allow_authoring_by: AllowAuthoringBy::Anyone,
         pot_slot_iterations: NonZeroU32::new(100_000).unwrap(),
+        initial_solution_range: INITIAL_SOLUTION_RANGE,
         phantom: PhantomData,
     }
     .assimilate_storage(&mut storage)

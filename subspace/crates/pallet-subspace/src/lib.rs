@@ -40,7 +40,6 @@ use sp_std::prelude::*;
 use subspace_core_primitives::segments::{
     ArchivedHistorySegment, HistorySize, SegmentHeader, SegmentIndex,
 };
-use subspace_core_primitives::solutions::SolutionRange;
 use subspace_core_primitives::SlotNumber;
 use subspace_verification::{derive_next_solution_range, derive_pot_entropy};
 
@@ -79,8 +78,6 @@ pub struct ConsensusConstants<BlockNumber> {
     /// NOTE: Currently it is not possible to change the era duration after
     /// the chain has started. Attempting to do so will brick block production.
     pub era_duration: BlockNumber,
-    /// Initial solution range used for challenges during the very first era.
-    pub initial_solution_range: SolutionRange,
     /// How often in slots (on average, not counting collisions) will have a block.
     ///
     /// Expressed as a rational where the first member of the tuple is the
@@ -109,19 +106,6 @@ pub mod pallet {
     use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
     use subspace_core_primitives::solutions::SolutionRange;
     use subspace_core_primitives::{PublicKey, Randomness, ScalarBytes};
-
-    pub(super) struct InitialSolutionRanges<T: Config> {
-        _config: T,
-    }
-
-    impl<T: Config> Get<sp_consensus_subspace::SolutionRanges> for InitialSolutionRanges<T> {
-        fn get() -> sp_consensus_subspace::SolutionRanges {
-            sp_consensus_subspace::SolutionRanges {
-                current: T::ConsensusConstants::get().initial_solution_range,
-                next: None,
-            }
-        }
-    }
 
     /// Override for next solution range adjustment
     #[derive(Debug, Encode, Decode, TypeInfo)]
@@ -197,6 +181,8 @@ pub mod pallet {
         pub allow_authoring_by: AllowAuthoringBy,
         /// Number of iterations for proof of time per slot
         pub pot_slot_iterations: NonZeroU32,
+        /// Initial solution range used for challenges during the very first era.
+        pub initial_solution_range: SolutionRange,
         #[serde(skip)]
         pub phantom: PhantomData<T>,
     }
@@ -210,6 +196,7 @@ pub mod pallet {
             Self {
                 allow_authoring_by: AllowAuthoringBy::Anyone,
                 pot_slot_iterations: NonZeroU32::MIN,
+                initial_solution_range: SolutionRange::MAX,
                 phantom: PhantomData,
             }
         }
@@ -236,6 +223,10 @@ pub mod pallet {
             PotSlotIterations::<T>::put(PotSlotIterationsValue {
                 slot_iterations: self.pot_slot_iterations,
                 update: None,
+            });
+            SolutionRanges::<T>::put(sp_consensus_subspace::SolutionRanges {
+                current: self.initial_solution_range,
+                next: None,
             });
         }
     }
@@ -271,12 +262,8 @@ pub mod pallet {
     /// Solution ranges used for challenges.
     #[pallet::storage]
     #[pallet::getter(fn solution_ranges)]
-    pub(super) type SolutionRanges<T: Config> = StorageValue<
-        _,
-        sp_consensus_subspace::SolutionRanges,
-        ValueQuery,
-        InitialSolutionRanges<T>,
-    >;
+    pub(super) type SolutionRanges<T: Config> =
+        StorageValue<_, sp_consensus_subspace::SolutionRanges, ValueQuery>;
 
     /// Storage to check if the solution range is to be adjusted for next era
     #[pallet::storage]

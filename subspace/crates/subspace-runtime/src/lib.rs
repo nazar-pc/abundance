@@ -54,9 +54,7 @@ use subspace_core_primitives::pieces::Piece;
 use subspace_core_primitives::segments::{
     HistorySize, SegmentCommitment, SegmentHeader, SegmentIndex,
 };
-use subspace_core_primitives::solutions::{
-    pieces_to_solution_range, solution_range_to_pieces, SolutionRange,
-};
+use subspace_core_primitives::solutions::solution_range_to_pieces;
 use subspace_core_primitives::{PublicKey, SlotNumber};
 use subspace_runtime_primitives::utility::{
     DefaultNonceProvider, MaybeNestedCall, MaybeUtilityCall,
@@ -118,10 +116,6 @@ const_assert!(POT_ENTROPY_INJECTION_DELAY > BLOCK_AUTHORING_DELAY + 1);
 
 /// Era duration in blocks.
 const ERA_DURATION_IN_BLOCKS: BlockNumber = 2016;
-
-// We assume initial plot size starts with a single sector.
-const INITIAL_SOLUTION_RANGE: SolutionRange =
-    pieces_to_solution_range(MAX_PIECES_IN_SECTOR as u64, SLOT_PROBABILITY);
 
 /// Number of latest archived segments that are considered "recent history".
 const RECENT_SEGMENTS: HistorySize = HistorySize::new(NonZeroU64::new(5).expect("Not zero; qed"));
@@ -212,7 +206,6 @@ parameter_types! {
         pot_entropy_injection_lookback_depth: POT_ENTROPY_INJECTION_LOOKBACK_DEPTH,
         pot_entropy_injection_delay: POT_ENTROPY_INJECTION_DELAY,
         era_duration: ERA_DURATION_IN_BLOCKS,
-        initial_solution_range: INITIAL_SOLUTION_RANGE,
         slot_probability: SLOT_PROBABILITY,
     };
 }

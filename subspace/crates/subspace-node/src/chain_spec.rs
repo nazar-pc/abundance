@@ -9,14 +9,17 @@ use sp_runtime::BoundedVec;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use subspace_core_primitives::pot::PotKey;
+use subspace_core_primitives::solutions::{pieces_to_solution_range, SolutionRange};
 use subspace_core_primitives::PublicKey;
 use subspace_runtime::{
     AllowAuthoringBy, BalancesConfig, RewardPoint, RewardsConfig, RuntimeConfigsConfig,
     RuntimeGenesisConfig, SubspaceConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
-use subspace_runtime_primitives::{AccountId, Balance, SSC};
+use subspace_runtime_primitives::{AccountId, Balance, SLOT_PROBABILITY, SSC};
 
 const SUBSPACE_TELEMETRY_URL: &str = "wss://telemetry.subspace.foundation/submit/";
+// We assume initial plot size starts with a single sector.
+const INITIAL_SOLUTION_RANGE: SolutionRange = pieces_to_solution_range(1000, SLOT_PROBABILITY);
 
 /// Additional subspace specific genesis parameters.
 struct GenesisParams {
@@ -244,6 +247,7 @@ fn subspace_genesis_config(
         subspace: SubspaceConfig {
             allow_authoring_by,
             pot_slot_iterations,
+            initial_solution_range: INITIAL_SOLUTION_RANGE,
             phantom: PhantomData,
         },
         rewards: rewards_config,
