@@ -193,6 +193,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-system-contract-native-token"
+version = "0.0.1"
+dependencies = [
+ "ab-contracts-common",
+ "ab-contracts-io-type",
+ "ab-contracts-macros",
+ "ab-contracts-standards",
+ "ab-contracts-test-utils",
+ "ab-executor-native",
+ "ab-system-contract-code",
+]
+
+[[package]]
 name = "ab-system-contract-simple-wallet-base"
 version = "0.0.1"
 dependencies = [
