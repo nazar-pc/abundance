@@ -7,8 +7,6 @@ pub mod utility;
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::tokens;
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
@@ -99,12 +97,6 @@ pub mod opaque {
     pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
     /// Opaque block type.
     pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-}
-
-/// A trait for determining whether rewards are enabled or not
-pub trait RewardsEnabled {
-    /// Determine whether rewards are enabled or not
-    fn rewards_enabled() -> bool;
 }
 
 /// A trait for finding the address for a block reward based on the `PreRuntime` digests contained within it.

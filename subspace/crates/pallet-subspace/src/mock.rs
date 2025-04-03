@@ -1,6 +1,6 @@
 //! Test utilities
 
-use crate::{self as pallet_subspace, AllowAuthoringBy, Config, EnableRewardsAt, NormalEraChange};
+use crate::{self as pallet_subspace, AllowAuthoringBy, Config, NormalEraChange};
 use frame_support::traits::{ConstU128, ConstU16, OnInitialize};
 use frame_support::{derive_impl, parameter_types};
 use schnorrkel::Keypair;
@@ -190,7 +190,6 @@ pub fn new_test_ext() -> TestExternalities {
         .unwrap();
 
     pallet_subspace::GenesisConfig::<Test> {
-        enable_rewards_at: EnableRewardsAt::Height(1),
         allow_authoring_by: AllowAuthoringBy::Anyone,
         pot_slot_iterations: NonZeroU32::new(100_000).unwrap(),
         phantom: PhantomData,

@@ -87,9 +87,6 @@ mod pallet {
         #[pallet::constant]
         type MaxRewardPoints: Get<u32>;
 
-        /// Determine whether rewards are enabled or not
-        type RewardsEnabled: subspace_runtime_primitives::RewardsEnabled;
-
         /// Reward address of block producer
         type FindBlockRewardAddress: FindBlockRewardAddress<Self::AccountId>;
 
@@ -198,10 +195,6 @@ mod pallet {
 
 impl<T: Config> Pallet<T> {
     fn do_finalize(block_number: BlockNumberFor<T>) {
-        if !<T::RewardsEnabled as subspace_runtime_primitives::RewardsEnabled>::rewards_enabled() {
-            return;
-        }
-
         if !RewardsEnabled::<T>::get() {
             RewardsEnabled::<T>::put(true);
 

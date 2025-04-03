@@ -1,8 +1,6 @@
 use frame_support::derive_impl;
 use frame_support::traits::{ConstU128, ConstU32};
-use subspace_runtime_primitives::{
-    ConsensusEventSegmentSize, FindBlockRewardAddress, RewardsEnabled,
-};
+use subspace_runtime_primitives::{ConsensusEventSegmentSize, FindBlockRewardAddress};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type Balance = u128;
@@ -31,14 +29,6 @@ impl pallet_balances::Config for Test {
     type DustRemoval = ();
 }
 
-pub struct MockRewardsEnabled;
-
-impl RewardsEnabled for MockRewardsEnabled {
-    fn rewards_enabled() -> bool {
-        true
-    }
-}
-
 pub struct MockFindBlockRewardAddress;
 
 impl<RewardAddress> FindBlockRewardAddress<RewardAddress> for MockFindBlockRewardAddress {
@@ -53,7 +43,6 @@ impl crate::Config for Test {
     type AvgBlockspaceUsageNumBlocks = ConstU32<10>;
     type TransactionByteFee = ConstU128<1>;
     type MaxRewardPoints = ConstU32<20>;
-    type RewardsEnabled = MockRewardsEnabled;
     type FindBlockRewardAddress = MockFindBlockRewardAddress;
     type WeightInfo = ();
     type OnReward = ();

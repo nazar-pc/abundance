@@ -66,16 +66,6 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn enable_rewards_at() {
-        EnableRewards::<T>::take();
-
-        #[extrinsic_call]
-        _(RawOrigin::Root, EnableRewardsAt::Height(100u32.into()));
-
-        assert_eq!(EnableRewards::<T>::get(), Some(100u32.into()));
-    }
-
-    #[benchmark]
     fn enable_authoring_by_anyone() {
         #[extrinsic_call]
         _(RawOrigin::Root);
