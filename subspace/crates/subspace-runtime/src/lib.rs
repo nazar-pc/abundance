@@ -35,7 +35,7 @@ use frame_support::{construct_runtime, parameter_types};
 use frame_system::limits::{BlockLength, BlockWeights};
 use frame_system::pallet_prelude::RuntimeCallFor;
 pub use pallet_rewards::RewardPoint;
-pub use pallet_subspace::{AllowAuthoringBy, EnableRewardsAt};
+pub use pallet_subspace::AllowAuthoringBy;
 use sp_api::impl_runtime_apis;
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_consensus_subspace::{ChainConstants, PotParameters, SolutionRanges};
@@ -400,7 +400,6 @@ impl pallet_rewards::Config for Runtime {
     type AvgBlockspaceUsageNumBlocks = AvgBlockspaceUsageNumBlocks;
     type TransactionByteFee = TransactionByteFee;
     type MaxRewardPoints = ConstU32<20>;
-    type RewardsEnabled = Subspace;
     type FindBlockRewardAddress = Subspace;
     type WeightInfo = pallet_rewards::weights::SubstrateWeight<Runtime>;
     type OnReward = ();

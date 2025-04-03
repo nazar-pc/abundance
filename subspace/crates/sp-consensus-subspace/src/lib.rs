@@ -11,8 +11,6 @@ pub mod inherents;
 
 use alloc::borrow::Cow;
 #[cfg(not(feature = "std"))]
-use alloc::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;

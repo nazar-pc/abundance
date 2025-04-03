@@ -11,17 +11,15 @@ use std::num::NonZeroU32;
 use subspace_core_primitives::pot::PotKey;
 use subspace_core_primitives::PublicKey;
 use subspace_runtime::{
-    AllowAuthoringBy, BalancesConfig, EnableRewardsAt, RewardPoint, RewardsConfig,
-    RuntimeConfigsConfig, RuntimeGenesisConfig, SubspaceConfig, SudoConfig, SystemConfig,
-    WASM_BINARY,
+    AllowAuthoringBy, BalancesConfig, RewardPoint, RewardsConfig, RuntimeConfigsConfig,
+    RuntimeGenesisConfig, SubspaceConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
-use subspace_runtime_primitives::{AccountId, Balance, BlockNumber, SSC};
+use subspace_runtime_primitives::{AccountId, Balance, SSC};
 
 const SUBSPACE_TELEMETRY_URL: &str = "wss://telemetry.subspace.foundation/submit/";
 
 /// Additional subspace specific genesis parameters.
 struct GenesisParams {
-    enable_rewards_at: EnableRewardsAt<BlockNumber>,
     allow_authoring_by: AllowAuthoringBy,
     pot_slot_iterations: NonZeroU32,
     enable_dynamic_cost_of_storage: bool,
@@ -62,7 +60,6 @@ pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
             sudo_account.clone(),
             balances,
             GenesisParams {
-                enable_rewards_at: EnableRewardsAt::Manually,
                 allow_authoring_by: AllowAuthoringBy::RootFarmer(PublicKey::from(
                     hex_literal::hex!(
                         "e6a489dab63b650cf475431fc46649f4256167443fea241fca0bb3f86b29837a"
@@ -162,7 +159,6 @@ pub fn devnet_config_compiled() -> Result<GenericChainSpec, String> {
             sudo_account.clone(),
             balances,
             GenesisParams {
-                enable_rewards_at: EnableRewardsAt::Manually,
                 allow_authoring_by: AllowAuthoringBy::FirstFarmer,
                 pot_slot_iterations: NonZeroU32::new(150_000_000).expect("Not zero; qed"),
                 enable_dynamic_cost_of_storage: false,
@@ -208,7 +204,6 @@ pub fn dev_config() -> Result<GenericChainSpec, String> {
                     (get_account_id_from_seed("Bob//stash"), 1_000 * SSC),
                 ],
                 GenesisParams {
-                    enable_rewards_at: EnableRewardsAt::Manually,
                     allow_authoring_by: AllowAuthoringBy::Anyone,
                     pot_slot_iterations: NonZeroU32::new(100_000_000).expect("Not zero; qed"),
                     enable_dynamic_cost_of_storage: false,
@@ -231,7 +226,6 @@ fn subspace_genesis_config(
     genesis_params: GenesisParams,
 ) -> Result<RuntimeGenesisConfig, String> {
     let GenesisParams {
-        enable_rewards_at,
         allow_authoring_by,
         pot_slot_iterations,
         enable_dynamic_cost_of_storage,
@@ -248,7 +242,6 @@ fn subspace_genesis_config(
             key: Some(sudo_account.clone()),
         },
         subspace: SubspaceConfig {
-            enable_rewards_at,
             allow_authoring_by,
             pot_slot_iterations,
             phantom: PhantomData,

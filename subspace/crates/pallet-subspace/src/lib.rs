@@ -18,8 +18,6 @@ pub mod extensions;
 pub mod weights;
 
 use crate::extensions::weights::WeightInfo as ExtensionWeightInfo;
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
 use core::num::NonZeroU64;
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::{EnsureOrigin, RuntimeDebug};
@@ -33,7 +31,7 @@ use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::CompatibleDigestItem;
 use sp_consensus_subspace::{PotParameters, PotParametersChange};
 use sp_runtime::generic::DigestItem;
-use sp_runtime::traits::{BlockNumberProvider, CheckedSub, Hash, One, Zero};
+use sp_runtime::traits::{BlockNumberProvider, CheckedSub, Hash, Zero};
 use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
     TransactionValidityError, ValidTransaction,
@@ -95,7 +93,6 @@ pub mod pallet {
     use sp_consensus_slots::Slot;
     use sp_consensus_subspace::digests::CompatibleDigestItem;
     use sp_consensus_subspace::inherents::{InherentError, InherentType, INHERENT_IDENTIFIER};
-    use sp_runtime::traits::One;
     use sp_runtime::DigestItem;
     use sp_std::collections::btree_map::BTreeMap;
     use sp_std::num::NonZeroU32;
@@ -252,25 +249,11 @@ pub mod pallet {
         pub(super) slot_iterations: NonZeroU32,
     }
 
-    /// When to enable block rewards
-    #[derive(Debug, Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    pub enum EnableRewardsAt<BlockNumber> {
-        /// At specified height or next block if `None`
-        Height(BlockNumber),
-        /// When solution range is below specified threshold
-        SolutionRange(u64),
-        /// Manually with an explicit extrinsic
-        Manually,
-    }
-
     #[pallet::genesis_config]
     pub struct GenesisConfig<T>
     where
         T: Config,
     {
-        /// When rewards should be enabled.
-        pub enable_rewards_at: EnableRewardsAt<BlockNumberFor<T>>,
         /// Who can author blocks at genesis.
         pub allow_authoring_by: AllowAuthoringBy,
         /// Number of iterations for proof of time per slot
@@ -286,7 +269,6 @@ pub mod pallet {
         #[inline]
         fn default() -> Self {
             Self {
-                enable_rewards_at: EnableRewardsAt::Height(BlockNumberFor::<T>::one()),
                 allow_authoring_by: AllowAuthoringBy::Anyone,
                 pot_slot_iterations: NonZeroU32::MIN,
                 phantom: PhantomData,
@@ -300,17 +282,6 @@ pub mod pallet {
         T: Config,
     {
         fn build(&self) {
-            match self.enable_rewards_at {
-                EnableRewardsAt::Height(block_number) => {
-                    EnableRewards::<T>::put(block_number);
-                }
-                EnableRewardsAt::SolutionRange(solution_range) => {
-                    EnableRewardsBelowSolutionRange::<T>::put(solution_range);
-                }
-                EnableRewardsAt::Manually => {
-                    // Nothing to do in this case
-                }
-            }
             match &self.allow_authoring_by {
                 AllowAuthoringBy::Anyone => {
                     AllowAuthoringByAnyone::<T>::put(true);
@@ -405,14 +376,6 @@ pub mod pallet {
     pub(super) type ParentBlockAuthorInfo<T> =
         StorageValue<_, (PublicKey, SectorIndex, PieceOffset, ScalarBytes, Slot)>;
 
-    /// Enable rewards since specified block number.
-    #[pallet::storage]
-    pub(super) type EnableRewards<T: Config> = StorageValue<_, BlockNumberFor<T>>;
-
-    /// Enable rewards when solution range is below this threshold.
-    #[pallet::storage]
-    pub(super) type EnableRewardsBelowSolutionRange<T: Config> = StorageValue<_, u64>;
-
     /// Block author information
     #[pallet::storage]
     pub(super) type CurrentBlockAuthorInfo<T: Config> = StorageValue<
@@ -496,18 +459,6 @@ pub mod pallet {
             );
 
             Ok(())
-        }
-
-        /// Enable rewards for blocks at specified block height.
-        #[pallet::call_index(3)]
-        #[pallet::weight(< T as Config >::WeightInfo::enable_rewards_at())]
-        pub fn enable_rewards_at(
-            origin: OriginFor<T>,
-            enable_rewards_at: EnableRewardsAt<BlockNumberFor<T>>,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-
-            Self::do_enable_rewards_at(enable_rewards_at)
         }
 
         /// Enable storage access for all users.
@@ -685,16 +636,6 @@ impl<T: Config> Pallet<T> {
                 );
             };
             solution_ranges.next.replace(next_solution_range);
-
-            if let Some(solution_range_for_rewards) = EnableRewardsBelowSolutionRange::<T>::get() {
-                if next_solution_range <= solution_range_for_rewards {
-                    EnableRewardsBelowSolutionRange::<T>::take();
-
-                    let next_block_number =
-                        frame_system::Pallet::<T>::current_block_number() + One::one();
-                    EnableRewards::<T>::put(next_block_number);
-                }
-            }
         });
 
         EraStartSlot::<T>::put(current_slot);
@@ -985,28 +926,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn do_enable_rewards_at(
-        enable_rewards_at: EnableRewardsAt<BlockNumberFor<T>>,
-    ) -> DispatchResult {
-        match enable_rewards_at {
-            EnableRewardsAt::Height(block_number) => {
-                // Enable rewards at a particular block height (default to the next block after
-                // this)
-                let next_block_number =
-                    frame_system::Pallet::<T>::current_block_number() + One::one();
-                EnableRewards::<T>::put(block_number.max(next_block_number));
-            }
-            EnableRewardsAt::SolutionRange(solution_range) => {
-                EnableRewardsBelowSolutionRange::<T>::put(solution_range);
-            }
-            EnableRewardsAt::Manually => {
-                // Nothing to do in this case
-            }
-        }
-
-        Ok(())
-    }
-
     /// Proof of time parameters
     pub fn pot_parameters() -> PotParameters {
         let block_number = frame_system::Pallet::<T>::block_number();
@@ -1164,28 +1083,11 @@ fn check_segment_headers<T: Config>(
     Ok(())
 }
 
-impl<T: Config> subspace_runtime_primitives::RewardsEnabled for Pallet<T> {
-    fn rewards_enabled() -> bool {
-        if let Some(height) = EnableRewards::<T>::get() {
-            frame_system::Pallet::<T>::current_block_number() >= height
-        } else {
-            false
-        }
-    }
-}
-
 impl<T: Config> subspace_runtime_primitives::FindBlockRewardAddress<T::AccountId> for Pallet<T> {
     fn find_block_reward_address() -> Option<T::AccountId> {
         CurrentBlockAuthorInfo::<T>::get().and_then(
             |(_public_key, _sector_index, _piece_offset, _chunk, _slot, reward_address)| {
-                // Rewards might be disabled, in which case no block reward
-                if let Some(height) = EnableRewards::<T>::get() {
-                    if frame_system::Pallet::<T>::current_block_number() >= height {
-                        return reward_address;
-                    }
-                }
-
-                None
+                reward_address
             },
         )
     }
