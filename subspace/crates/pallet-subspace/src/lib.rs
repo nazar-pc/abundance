@@ -176,11 +176,6 @@ pub mod pallet {
         #[pallet::constant]
         type SlotProbability: Get<(u64, u64)>;
 
-        /// Depth `K` after which a block enters the recorded history (a global constant, as opposed
-        /// to the client-dependent transaction confirmation depth `k`).
-        #[pallet::constant]
-        type ConfirmationDepthK: Get<BlockNumberFor<Self>>;
-
         /// Number of latest archived segments that are considered "recent history".
         #[pallet::constant]
         type RecentSegments: Get<HistorySize>;

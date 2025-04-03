@@ -221,14 +221,6 @@ parameter_types! {
     pub const BlockSlotCount: u32 = 6;
 }
 
-pub struct ConfirmationDepthK;
-
-impl Get<BlockNumber> for ConfirmationDepthK {
-    fn get() -> BlockNumber {
-        pallet_runtime_configs::ConfirmationDepthK::<Runtime>::get()
-    }
-}
-
 impl pallet_subspace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SubspaceOrigin = pallet_subspace::EnsureSubspaceOrigin;
@@ -239,7 +231,6 @@ impl pallet_subspace::Config for Runtime {
     type EraDuration = EraDuration;
     type InitialSolutionRange = ConstU64<INITIAL_SOLUTION_RANGE>;
     type SlotProbability = SlotProbability;
-    type ConfirmationDepthK = ConfirmationDepthK;
     type RecentSegments = RecentSegments;
     type RecentHistoryFraction = RecentHistoryFraction;
     type MinSectorLifetime = MinSectorLifetime;
@@ -649,7 +640,7 @@ impl_runtime_apis! {
 
         fn chain_constants() -> ChainConstants {
             ChainConstants::V0 {
-                confirmation_depth_k: ConfirmationDepthK::get(),
+                confirmation_depth_k: pallet_runtime_configs::ConfirmationDepthK::<Runtime>::get(),
                 block_authoring_delay: Slot::from(BlockAuthoringDelay::get()),
                 era_duration: EraDuration::get(),
                 slot_probability: SlotProbability::get(),

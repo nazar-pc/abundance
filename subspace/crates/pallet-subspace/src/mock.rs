@@ -74,7 +74,6 @@ parameter_types! {
     // 1GB
     pub const InitialSolutionRange: SolutionRange = INITIAL_SOLUTION_RANGE;
     pub const SlotProbability: (u64, u64) = SLOT_PROBABILITY;
-    pub const ConfirmationDepthK: u32 = 10;
     pub const RecentSegments: HistorySize = HistorySize::new(NonZeroU64::new(5).unwrap());
     pub const RecentHistoryFraction: (HistorySize, HistorySize) = (
         HistorySize::new(NonZeroU64::new(1).unwrap()),
@@ -98,7 +97,6 @@ impl Config for Test {
     type EraDuration = EraDuration;
     type InitialSolutionRange = InitialSolutionRange;
     type SlotProbability = SlotProbability;
-    type ConfirmationDepthK = ConfirmationDepthK;
     type RecentSegments = RecentSegments;
     type RecentHistoryFraction = RecentHistoryFraction;
     type MinSectorLifetime = MinSectorLifetime;
