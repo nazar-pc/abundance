@@ -34,8 +34,6 @@ jobs:
           - image: node
             base-artifact: subspace-node
             upload-executables: true
-          - image: gateway
-            base-artifact: subspace-gateway
             upload-executables: false
           - image: bootstrap-node
             base-artifact: subspace-bootstrap-node

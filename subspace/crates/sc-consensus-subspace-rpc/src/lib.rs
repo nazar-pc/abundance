@@ -3,7 +3,7 @@
 #![feature(try_blocks)]
 
 use futures::channel::mpsc;
-use futures::{future, stream, FutureExt, StreamExt};
+use futures::{future, FutureExt, StreamExt};
 use jsonrpsee::core::async_trait;
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
@@ -11,8 +11,7 @@ use jsonrpsee::{Extensions, PendingSubscriptionSink};
 use parking_lot::Mutex;
 use sc_client_api::{AuxStore, BlockBackend};
 use sc_consensus_subspace::archiver::{
-    recreate_genesis_segment, ArchivedSegmentNotification, ObjectMappingNotification,
-    SegmentHeadersStore,
+    recreate_genesis_segment, ArchivedSegmentNotification, SegmentHeadersStore,
 };
 use sc_consensus_subspace::notification::SubspaceNotificationStream;
 use sc_consensus_subspace::slot_worker::{
@@ -31,14 +30,12 @@ use sp_core::H256;
 use sp_objects::ObjectsApi;
 use sp_runtime::traits::Block as BlockT;
 use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use subspace_archiving::archiver::NewArchivedSegment;
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::objects::GlobalObjectMapping;
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
 use subspace_core_primitives::solutions::Solution;
@@ -48,8 +45,8 @@ use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_kzg::Kzg;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_rpc_primitives::{
-    FarmerAppInfo, ObjectMappingResponse, RewardSignatureResponse, RewardSigningInfo, SlotInfo,
-    SolutionResponse, MAX_SEGMENT_HEADERS_PER_REQUEST,
+    FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
+    MAX_SEGMENT_HEADERS_PER_REQUEST,
 };
 use tracing::{debug, error, warn};
 
@@ -58,20 +55,6 @@ const SUBSPACE_ERROR: i32 = 9000;
 /// the fact that channel sender exists
 const SOLUTION_SENDER_CHANNEL_CAPACITY: usize = 9;
 const REWARD_SIGNING_TIMEOUT: Duration = Duration::from_millis(500);
-
-/// The number of object mappings to include in each subscription response message.
-///
-/// This is a tradeoff between `RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN` and
-/// `RPC_DEFAULT_MAX_RESPONSE_SIZE_MB`. We estimate 500K mappings per segment,
-///  and the minimum hex-encoded mapping size is 88 bytes.
-// TODO: make this into a CLI option, or calculate this from other CLI options
-const OBJECT_MAPPING_BATCH_SIZE: usize = 1000;
-
-/// The maximum number of object hashes allowed in a subscription filter.
-///
-/// Each hash takes up 64 bytes in JSON, and 32 bytes in memory.
-// TODO: make this into a CLI option, or calculate this from other CLI options
-const MAX_OBJECT_HASHES_PER_SUBSCRIPTION: usize = 1000;
 
 // TODO: More specific errors instead of `StringError`
 /// Top-level error type for the RPC handler.
@@ -154,24 +137,6 @@ pub trait SubspaceRpcApi {
 
     #[method(name = "lastSegmentHeaders")]
     async fn last_segment_headers(&self, limit: u32) -> Result<Vec<Option<SegmentHeader>>, Error>;
-
-    /// DSN object mappings subscription
-    #[subscription(
-        name = "subscribeObjectMappings" => "object_mappings",
-        unsubscribe = "unsubscribeObjectMappings",
-        item = ObjectMappingResponse,
-        with_extensions,
-    )]
-    fn subscribe_object_mappings(&self);
-
-    /// Filtered DSN object mappings subscription
-    #[subscription(
-        name = "subscribeFilteredObjectMappings" => "filtered_object_mappings",
-        unsubscribe = "unsubscribeFilteredObjectMappings",
-        item = ObjectMappingResponse,
-        with_extensions,
-    )]
-    fn subscribe_filtered_object_mappings(&self, hashes: Vec<Blake3Hash>);
 }
 
 #[derive(Default)]
@@ -220,8 +185,6 @@ where
     pub new_slot_notification_stream: SubspaceNotificationStream<NewSlotNotification>,
     /// Reward signing notification stream
     pub reward_signing_notification_stream: SubspaceNotificationStream<RewardSigningNotification>,
-    /// Archived mapping notification stream
-    pub object_mapping_notification_stream: SubspaceNotificationStream<ObjectMappingNotification>,
     /// Archived segment notification stream
     pub archived_segment_notification_stream:
         SubspaceNotificationStream<ArchivedSegmentNotification>,
@@ -247,7 +210,6 @@ where
     subscription_executor: SubscriptionTaskExecutor,
     new_slot_notification_stream: SubspaceNotificationStream<NewSlotNotification>,
     reward_signing_notification_stream: SubspaceNotificationStream<RewardSigningNotification>,
-    object_mapping_notification_stream: SubspaceNotificationStream<ObjectMappingNotification>,
     archived_segment_notification_stream: SubspaceNotificationStream<ArchivedSegmentNotification>,
     #[allow(clippy::type_complexity)]
     solution_response_senders: Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution<PublicKey>>>>>,
@@ -305,7 +267,6 @@ where
             subscription_executor: config.subscription_executor,
             new_slot_notification_stream: config.new_slot_notification_stream,
             reward_signing_notification_stream: config.reward_signing_notification_stream,
-            object_mapping_notification_stream: config.object_mapping_notification_stream,
             archived_segment_notification_stream: config.archived_segment_notification_stream,
             solution_response_senders: Arc::new(Mutex::new(LruMap::new(ByLength::new(
                 solution_response_senders_capacity,
@@ -824,109 +785,5 @@ where
         last_segment_headers.reverse();
 
         Ok(last_segment_headers)
-    }
-
-    fn subscribe_object_mappings(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
-        if check_if_safe(ext).is_err() {
-            debug!("Unsafe subscribe_object_mappings ignored");
-            return;
-        }
-
-        let mapping_stream = self
-            .object_mapping_notification_stream
-            .subscribe()
-            .flat_map(|object_mapping_notification| {
-                let objects = object_mapping_notification.object_mapping;
-                let block_number = object_mapping_notification.block_number;
-
-                stream::iter(objects)
-                    .ready_chunks(OBJECT_MAPPING_BATCH_SIZE)
-                    .map(move |chunk| ObjectMappingResponse {
-                        block_number,
-                        objects: GlobalObjectMapping::from_objects(chunk.iter().cloned()),
-                    })
-            });
-
-        self.subscription_executor.spawn(
-            "subspace-archived-object-mappings-subscription",
-            Some("rpc"),
-            PendingSubscription::from(pending)
-                .pipe_from_stream(mapping_stream, BoundedVecDeque::default())
-                .boxed(),
-        );
-    }
-
-    fn subscribe_filtered_object_mappings(
-        &self,
-        pending: PendingSubscriptionSink,
-        ext: &Extensions,
-        hashes: Vec<Blake3Hash>,
-    ) {
-        if check_if_safe(ext).is_err() {
-            debug!("Unsafe subscribe_filtered_object_mappings ignored");
-            return;
-        }
-
-        if hashes.len() > MAX_OBJECT_HASHES_PER_SUBSCRIPTION {
-            error!(
-                "Request hash count ({}) exceed the server limit: {} ",
-                hashes.len(),
-                MAX_OBJECT_HASHES_PER_SUBSCRIPTION
-            );
-
-            let err_fut = pending.reject(Error::StringError(format!(
-                "Request hash count ({}) exceed the server limit: {} ",
-                hashes.len(),
-                MAX_OBJECT_HASHES_PER_SUBSCRIPTION
-            )));
-
-            self.subscription_executor.spawn(
-                "subspace-filtered-object-mappings-subscription",
-                Some("rpc"),
-                err_fut.boxed(),
-            );
-
-            return;
-        };
-
-        let mut hashes = HashSet::<Blake3Hash>::from_iter(hashes);
-        let hash_count = hashes.len();
-        let mut object_count = 0;
-
-        let mapping_stream = self
-            .object_mapping_notification_stream
-            .subscribe()
-            .flat_map(move |object_mapping_notification| {
-                let objects = object_mapping_notification.object_mapping;
-                let block_number = object_mapping_notification.block_number;
-
-                let filtered_objects = objects
-                    .into_iter()
-                    .filter(|object| hashes.remove(&object.hash))
-                    .collect::<Vec<_>>();
-
-                stream::iter(filtered_objects)
-                    // Typically batches will be larger than the hash limit, but we want to allow
-                    // CLI options to change that in future.
-                    .ready_chunks(OBJECT_MAPPING_BATCH_SIZE)
-                    .map(move |chunk| ObjectMappingResponse {
-                        block_number,
-                        objects: GlobalObjectMapping::from_objects(chunk.iter().cloned()),
-                    })
-            })
-            // Stop when we've returned mappings for all the hashes. Since we only yield each hash
-            // once, we don't need to check if hashes is empty here.
-            .take_while(move |mappings| {
-                object_count += mappings.objects.objects().len();
-                future::ready(object_count <= hash_count)
-            });
-
-        self.subscription_executor.spawn(
-            "subspace-filtered-object-mappings-subscription",
-            Some("rpc"),
-            PendingSubscription::from(pending)
-                .pipe_from_stream(mapping_stream, BoundedVecDeque::default())
-                .boxed(),
-        );
     }
 }

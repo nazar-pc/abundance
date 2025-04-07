@@ -40,8 +40,7 @@ use sc_consensus::{
 };
 use sc_consensus_slots::SlotProportion;
 use sc_consensus_subspace::archiver::{
-    create_subspace_archiver, ArchivedSegmentNotification, ObjectMappingNotification,
-    SegmentHeadersStore,
+    create_subspace_archiver, ArchivedSegmentNotification, SegmentHeadersStore,
 };
 use sc_consensus_subspace::block_import::{BlockImportingNotification, SubspaceBlockImport};
 use sc_consensus_subspace::notification::SubspaceNotificationStream;
@@ -417,8 +416,6 @@ where
     /// Stream of notifications about blocks about to be imported.
     pub block_importing_notification_stream:
         SubspaceNotificationStream<BlockImportingNotification<Block>>,
-    /// Archived object mapping stream.
-    pub object_mapping_notification_stream: SubspaceNotificationStream<ObjectMappingNotification>,
     /// Archived segment stream.
     pub archived_segment_notification_stream:
         SubspaceNotificationStream<ArchivedSegmentNotification>,
@@ -813,7 +810,6 @@ where
     let new_slot_notification_stream = subspace_link.new_slot_notification_stream();
     let reward_signing_notification_stream = subspace_link.reward_signing_notification_stream();
     let block_importing_notification_stream = subspace_link.block_importing_notification_stream();
-    let object_mapping_notification_stream = subspace_link.object_mapping_notification_stream();
     let archived_segment_notification_stream = subspace_link.archived_segment_notification_stream();
 
     let (pot_source_worker, pot_gossip_worker, pot_slot_info_stream) = PotSourceWorker::new(
@@ -922,7 +918,6 @@ where
             let client = client.clone();
             let new_slot_notification_stream = new_slot_notification_stream.clone();
             let reward_signing_notification_stream = reward_signing_notification_stream.clone();
-            let object_mapping_notification_stream = object_mapping_notification_stream.clone();
             let archived_segment_notification_stream = archived_segment_notification_stream.clone();
 
             Box::new(move |subscription_executor| {
@@ -931,7 +926,6 @@ where
                     subscription_executor,
                     new_slot_notification_stream: new_slot_notification_stream.clone(),
                     reward_signing_notification_stream: reward_signing_notification_stream.clone(),
-                    object_mapping_notification_stream: object_mapping_notification_stream.clone(),
                     archived_segment_notification_stream: archived_segment_notification_stream
                         .clone(),
                     dsn_bootstrap_nodes: dsn_bootstrap_nodes.clone(),
@@ -962,7 +956,6 @@ where
         new_slot_notification_stream,
         reward_signing_notification_stream,
         block_importing_notification_stream,
-        object_mapping_notification_stream,
         archived_segment_notification_stream,
         network_starter,
         transaction_pool,
