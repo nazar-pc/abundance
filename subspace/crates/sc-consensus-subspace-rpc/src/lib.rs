@@ -95,7 +95,7 @@ impl From<Error> for ErrorObjectOwned {
 }
 
 /// Provides rpc methods for interacting with Subspace.
-#[rpc(client, server)]
+#[rpc(server)]
 pub trait SubspaceRpcApi {
     /// Get metadata necessary for farmer operation
     #[method(name = "subspace_getFarmerAppInfo")]
