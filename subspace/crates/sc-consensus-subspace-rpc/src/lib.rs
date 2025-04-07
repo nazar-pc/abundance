@@ -95,19 +95,19 @@ impl From<Error> for ErrorObjectOwned {
 }
 
 /// Provides rpc methods for interacting with Subspace.
-#[rpc(server)]
+#[rpc(server, namespace = "subspace")]
 pub trait SubspaceRpcApi {
     /// Get metadata necessary for farmer operation
-    #[method(name = "subspace_getFarmerAppInfo")]
+    #[method(name = "getFarmerAppInfo")]
     fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error>;
 
-    #[method(name = "subspace_submitSolutionResponse", with_extensions)]
+    #[method(name = "submitSolutionResponse", with_extensions)]
     fn submit_solution_response(&self, solution_response: SolutionResponse) -> Result<(), Error>;
 
     /// Slot info subscription
     #[subscription(
-        name = "subspace_subscribeSlotInfo" => "subspace_slot_info",
-        unsubscribe = "subspace_unsubscribeSlotInfo",
+        name = "subscribeSlotInfo" => "slot_info",
+        unsubscribe = "unsubscribeSlotInfo",
         item = SlotInfo,
         with_extensions,
     )]
@@ -115,14 +115,14 @@ pub trait SubspaceRpcApi {
 
     /// Sign block subscription
     #[subscription(
-        name = "subspace_subscribeRewardSigning" => "subspace_reward_signing",
-        unsubscribe = "subspace_unsubscribeRewardSigning",
+        name = "subscribeRewardSigning" => "reward_signing",
+        unsubscribe = "unsubscribeRewardSigning",
         item = RewardSigningInfo,
         with_extensions,
     )]
     fn subscribe_reward_signing(&self);
 
-    #[method(name = "subspace_submitRewardSignature", with_extensions)]
+    #[method(name = "submitRewardSignature", with_extensions)]
     fn submit_reward_signature(
         &self,
         reward_signature: RewardSignatureResponse,
@@ -130,35 +130,35 @@ pub trait SubspaceRpcApi {
 
     /// Archived segment header subscription
     #[subscription(
-        name = "subspace_subscribeArchivedSegmentHeader" => "subspace_archived_segment_header",
-        unsubscribe = "subspace_unsubscribeArchivedSegmentHeader",
+        name = "subscribeArchivedSegmentHeader" => "archived_segment_header",
+        unsubscribe = "unsubscribeArchivedSegmentHeader",
         item = SegmentHeader,
         with_extensions,
     )]
     fn subscribe_archived_segment_header(&self);
 
-    #[method(name = "subspace_segmentHeaders")]
+    #[method(name = "segmentHeaders")]
     async fn segment_headers(
         &self,
         segment_indexes: Vec<SegmentIndex>,
     ) -> Result<Vec<Option<SegmentHeader>>, Error>;
 
-    #[method(name = "subspace_piece", blocking, with_extensions)]
+    #[method(name = "piece", blocking, with_extensions)]
     fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, Error>;
 
-    #[method(name = "subspace_acknowledgeArchivedSegmentHeader", with_extensions)]
+    #[method(name = "acknowledgeArchivedSegmentHeader", with_extensions)]
     async fn acknowledge_archived_segment_header(
         &self,
         segment_index: SegmentIndex,
     ) -> Result<(), Error>;
 
-    #[method(name = "subspace_lastSegmentHeaders")]
+    #[method(name = "lastSegmentHeaders")]
     async fn last_segment_headers(&self, limit: u32) -> Result<Vec<Option<SegmentHeader>>, Error>;
 
     /// DSN object mappings subscription
     #[subscription(
-        name = "subspace_subscribeObjectMappings" => "subspace_object_mappings",
-        unsubscribe = "subspace_unsubscribeObjectMappings",
+        name = "subscribeObjectMappings" => "object_mappings",
+        unsubscribe = "unsubscribeObjectMappings",
         item = ObjectMappingResponse,
         with_extensions,
     )]
@@ -166,8 +166,8 @@ pub trait SubspaceRpcApi {
 
     /// Filtered DSN object mappings subscription
     #[subscription(
-        name = "subspace_subscribeFilteredObjectMappings" => "subspace_filtered_object_mappings",
-        unsubscribe = "subspace_unsubscribeFilteredObjectMappings",
+        name = "subscribeFilteredObjectMappings" => "filtered_object_mappings",
+        unsubscribe = "unsubscribeFilteredObjectMappings",
         item = ObjectMappingResponse,
         with_extensions,
     )]
