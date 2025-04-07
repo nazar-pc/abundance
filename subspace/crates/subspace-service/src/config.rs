@@ -13,7 +13,6 @@ use sc_service::{
     BasePath, BlocksPruning, Configuration, DatabaseSource, PruningMode, RpcMethods,
     TransactionPoolOptions,
 };
-use sc_telemetry::TelemetryEndpoints;
 use std::collections::HashSet;
 use std::fmt;
 use std::net::SocketAddr;
@@ -112,8 +111,6 @@ pub struct SubstrateConfiguration {
     pub rpc_options: SubstrateRpcConfiguration,
     /// IP and port (TCP) to start Prometheus exporter on
     pub prometheus_listen_on: Option<SocketAddr>,
-    /// Telemetry service URL. `None` if disabled.
-    pub telemetry_endpoints: Option<TelemetryEndpoints>,
     /// Enable authoring even when offline
     pub force_authoring: bool,
     /// Chain specification
@@ -248,7 +245,7 @@ impl From<SubstrateConfiguration> for Configuration {
                         configuration.chain_spec.id().to_string(),
                     )
                 }),
-            telemetry_endpoints: configuration.telemetry_endpoints,
+            telemetry_endpoints: None,
             // Offchain worker is not used
             offchain_worker: OffchainWorkerConfig {
                 enabled: false,

@@ -44,7 +44,6 @@ sc-proof-of-time.workspace = true
 sc-rpc.workspace = true
 sc-service.workspace = true
 sc-subspace-block-relay.workspace = true
-sc-telemetry.workspace = true
 sc-tracing.workspace = true
 sc-transaction-pool.workspace = true
 sc-transaction-pool-api.workspace = true

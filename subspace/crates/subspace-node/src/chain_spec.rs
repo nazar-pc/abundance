@@ -3,7 +3,6 @@
 use crate::chain_spec_utils::{chain_spec_properties, get_account_id_from_seed};
 use sc_chain_spec::GenericChainSpec;
 use sc_service::ChainType;
-use sc_telemetry::TelemetryEndpoints;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::BoundedVec;
 use std::marker::PhantomData;
@@ -17,7 +16,6 @@ use subspace_runtime::{
 };
 use subspace_runtime_primitives::{AccountId, Balance, SLOT_PROBABILITY, SSC};
 
-const SUBSPACE_TELEMETRY_URL: &str = "wss://telemetry.subspace.foundation/submit/";
 // We assume initial plot size starts with a single sector.
 const INITIAL_SOLUTION_RANGE: SolutionRange = pieces_to_solution_range(1000, SLOT_PROBABILITY);
 
@@ -39,10 +37,6 @@ pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
     // ID
     .with_id("autonomys_mainnet")
     .with_chain_type(ChainType::Custom("Autonomys Mainnet".to_string()))
-    .with_telemetry_endpoints(
-        TelemetryEndpoints::new(vec![(SUBSPACE_TELEMETRY_URL.into(), 1)])
-            .map_err(|error| error.to_string())?,
-    )
     .with_protocol_id("autonomys-mainnet")
     .with_properties({
         let mut properties = chain_spec_properties();
@@ -139,10 +133,6 @@ pub fn devnet_config_compiled() -> Result<GenericChainSpec, String> {
     .with_name("Subspace Dev network")
     .with_id("subspace_devnet")
     .with_chain_type(ChainType::Custom("Testnet".to_string()))
-    .with_telemetry_endpoints(
-        TelemetryEndpoints::new(vec![(SUBSPACE_TELEMETRY_URL.into(), 1)])
-            .map_err(|error| error.to_string())?,
-    )
     .with_protocol_id("subspace-devnet")
     .with_properties({
         let mut properties = chain_spec_properties();

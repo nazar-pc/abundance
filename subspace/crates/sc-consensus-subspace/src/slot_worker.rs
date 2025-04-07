@@ -177,8 +177,6 @@ where
     /// The maximum proportion of the slot dedicated to proposing with any lenience factor applied
     /// due to no blocks being produced.
     pub max_block_proposal_slot_portion: Option<SlotProportion>,
-    /// Handle use to report telemetries.
-    pub telemetry: Option<TelemetryHandle>,
     /// Proof of time verifier
     pub pot_verifier: PotVerifier,
 }
@@ -200,7 +198,6 @@ where
     reward_signing_context: SigningContext,
     block_proposal_slot_portion: SlotProportion,
     max_block_proposal_slot_portion: Option<SlotProportion>,
-    telemetry: Option<TelemetryHandle>,
     segment_headers_store: SegmentHeadersStore<AS>,
     /// Solution receivers for challenges that were sent to farmers and expected to be received
     /// eventually
@@ -702,7 +699,7 @@ where
     }
 
     fn telemetry(&self) -> Option<TelemetryHandle> {
-        self.telemetry.clone()
+        None
     }
 
     fn proposing_remaining_duration(&self, slot_info: &SlotInfo<Block>) -> std::time::Duration {
@@ -755,7 +752,6 @@ where
             segment_headers_store,
             block_proposal_slot_portion,
             max_block_proposal_slot_portion,
-            telemetry,
             pot_verifier,
         }: SubspaceSlotWorkerOptions<Block, Client, E, SO, L, BS, AS>,
     ) -> Self {
@@ -771,7 +767,6 @@ where
             reward_signing_context: schnorrkel::context::signing_context(REWARD_SIGNING_CONTEXT),
             block_proposal_slot_portion,
             max_block_proposal_slot_portion,
-            telemetry,
             segment_headers_store,
             pending_solutions: Default::default(),
             pot_checkpoints: Default::default(),

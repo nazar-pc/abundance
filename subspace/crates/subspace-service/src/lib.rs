@@ -68,7 +68,6 @@ use sc_service::{
 use sc_subspace_block_relay::{
     build_consensus_relay, BlockRelayConfigurationError, NetworkWrapper,
 };
-use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ConstructRuntimeApi, Metadata, ProvideRuntimeApi};
@@ -129,10 +128,6 @@ pub enum Error {
     /// Substrate consensus error.
     #[error(transparent)]
     Consensus(#[from] sp_consensus::Error),
-
-    /// Telemetry error.
-    #[error(transparent)]
-    Telemetry(#[from] sc_telemetry::Error),
 
     /// Subspace networking (DSN) error.
     #[error(transparent)]
@@ -217,8 +212,6 @@ where
     pub pot_verifier: PotVerifier,
     /// Approximate target block number for syncing purposes
     pub sync_target_block_number: Arc<AtomicU32>,
-    /// Telemetry
-    pub telemetry: Option<Telemetry>,
 }
 
 type PartialComponents<RuntimeApi> = sc_service::PartialComponents<
@@ -252,17 +245,6 @@ where
         + SubspaceApi<Block, PublicKey>
         + ObjectsApi<Block>,
 {
-    let telemetry = config
-        .telemetry_endpoints
-        .clone()
-        .filter(|x| !x.is_empty())
-        .map(|endpoints| -> Result<_, sc_telemetry::Error> {
-            let worker = TelemetryWorker::new(16)?;
-            let telemetry = worker.handle().new_telemetry(endpoints);
-            Ok((worker, telemetry))
-        })
-        .transpose()?;
-
     let executor = sc_service::new_wasm_executor(&config.executor);
 
     let backend = sc_service::new_db_backend(config.db_config())?;
@@ -277,7 +259,7 @@ where
     let (client, backend, keystore_container, task_manager) =
         sc_service::new_full_parts_with_genesis_builder::<Block, RuntimeApi, _, _>(
             config,
-            telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+            None,
             executor.clone(),
             backend,
             genesis_block_builder,
@@ -307,13 +289,6 @@ where
         PotSeed::from_genesis(client_info.genesis_hash.as_ref(), pot_external_entropy),
         POT_VERIFIER_CACHE_SIZE,
     );
-
-    let telemetry = telemetry.map(|(worker, telemetry)| {
-        task_manager
-            .spawn_handle()
-            .spawn("telemetry", None, worker.run());
-        telemetry
-    });
 
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
@@ -376,7 +351,6 @@ where
         client: client.clone(),
         chain_constants,
         kzg,
-        telemetry: telemetry.as_ref().map(|x| x.handle()),
         reward_signing_context: schnorrkel::context::signing_context(REWARD_SIGNING_CONTEXT),
         sync_target_block_number: Arc::clone(&sync_target_block_number),
         is_authoring_blocks: config.role.is_authority(),
@@ -397,7 +371,6 @@ where
         segment_headers_store,
         pot_verifier,
         sync_target_block_number,
-        telemetry,
     };
 
     Ok(PartialComponents {
@@ -497,7 +470,6 @@ where
         segment_headers_store,
         pot_verifier,
         sync_target_block_number,
-        telemetry,
     } = other;
 
     let (node, bootstrap_nodes, piece_getter) = match config.subspace_networking {
@@ -745,7 +717,6 @@ where
             subspace_link.clone(),
             client.clone(),
             sync_oracle.clone(),
-            telemetry.as_ref().map(|telemetry| telemetry.handle()),
             config.create_object_mappings,
         )
     })
@@ -897,7 +868,7 @@ where
             client.clone(),
             transaction_pool.clone(),
             substrate_prometheus_registry.as_ref(),
-            telemetry.as_ref().map(|x| x.handle()),
+            None,
         );
 
         let subspace_slot_worker =
@@ -913,7 +884,6 @@ where
                 segment_headers_store: segment_headers_store.clone(),
                 block_proposal_slot_portion,
                 max_block_proposal_slot_portion: None,
-                telemetry: telemetry.as_ref().map(|x| x.handle()),
                 pot_verifier,
             });
 

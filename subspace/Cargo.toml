@@ -105,7 +105,6 @@ sc-service = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed
 sc-storage-monitor = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
 sc-subspace-block-relay = { version = "0.1.0", path = "crates/sc-subspace-block-relay" }
 sc-subspace-sync-common = { version = "0.1.0", path = "shared/sc-subspace-sync-common", default-features = false }
-sc-sysinfo = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
 sc-telemetry = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
 sc-tracing = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
 sc-transaction-pool = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
@@ -165,7 +164,6 @@ subspace-service = { version = "0.1.0", path = "crates/subspace-service" }
 subspace-verification = { version = "0.1.0", path = "crates/subspace-verification", default-features = false }
 substrate-bip39 = "0.6.0"
 substrate-build-script-utils = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
-substrate-frame-rpc-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
 substrate-prometheus-endpoint = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
 substrate-wasm-builder = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
 supports-color = "3.0.1"
