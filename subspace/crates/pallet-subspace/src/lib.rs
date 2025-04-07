@@ -28,7 +28,7 @@ pub use pallet::*;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_consensus_slots::Slot;
-use sp_consensus_subspace::digests::CompatibleDigestItem;
+use sp_consensus_subspace::digests::{CompatibleDigestItem, PreDigest};
 use sp_consensus_subspace::{PotParameters, PotParametersChange};
 use sp_runtime::generic::DigestItem;
 use sp_runtime::traits::{CheckedSub, Zero};
@@ -499,48 +499,7 @@ impl<T: Config> Pallet<T> {
         HistorySize::from(NonZeroU64::new(number_of_segments).expect("Not zero; qed"))
     }
 
-    /// Determine whether an era change should take place at this block.
-    /// Assumes that initialization has already taken place.
-    fn should_era_change(block_number: BlockNumberFor<T>, era_duration: BlockNumberFor<T>) -> bool {
-        block_number % era_duration == Zero::zero()
-    }
-
-    /// DANGEROUS: Enact era change. Should be done on every block where `should_era_change` has
-    /// returned `true`, and the caller is the only caller of this function.
-    ///
-    /// This will update solution range used in consensus.
-    fn enact_era_change(
-        current_slot: Slot,
-        era_duration: BlockNumberFor<T>,
-        slot_probability: (u64, u64),
-    ) {
-        SolutionRanges::<T>::mutate(|solution_ranges| {
-            let next_solution_range;
-            // Check if the solution range should be adjusted for next era.
-            if !ShouldAdjustSolutionRange::<T>::get() {
-                next_solution_range = solution_ranges.current;
-            } else if let Some(solution_range_override) = NextSolutionRangeOverride::<T>::take() {
-                next_solution_range = solution_range_override.solution_range;
-            } else {
-                next_solution_range = derive_next_solution_range(
-                    // If Era start slot is not found it means we have just finished the first era
-                    u64::from(EraStartSlot::<T>::get().unwrap_or_default()),
-                    u64::from(current_slot),
-                    slot_probability,
-                    solution_ranges.current,
-                    era_duration
-                        .try_into()
-                        .unwrap_or_else(|_| panic!("Era duration is always within u64; qed")),
-                );
-            };
-            solution_ranges.next.replace(next_solution_range);
-        });
-
-        EraStartSlot::<T>::put(current_slot);
-    }
-
     fn do_initialize(block_number: BlockNumberFor<T>) {
-        let consensus_constants = T::ConsensusConstants::get();
         let pre_digest = frame_system::Pallet::<T>::digest()
             .logs
             .iter()
@@ -573,6 +532,31 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        let consensus_constants = T::ConsensusConstants::get();
+
+        Self::initialize_solution_range(
+            current_slot,
+            block_number,
+            consensus_constants.era_duration,
+            consensus_constants.slot_probability,
+        );
+
+        Self::initialize_pot(
+            current_slot,
+            block_number,
+            consensus_constants.pot_entropy_injection_interval,
+            consensus_constants.pot_entropy_injection_lookback_depth,
+            consensus_constants.pot_entropy_injection_delay,
+            &pre_digest,
+        );
+    }
+
+    fn initialize_solution_range(
+        current_slot: Slot,
+        block_number: BlockNumberFor<T>,
+        era_duration: BlockNumberFor<T>,
+        slot_probability: (u64, u64),
+    ) {
         // If solution range was updated in previous block, set it as current.
         if let sp_consensus_subspace::SolutionRanges {
             next: Some(next), ..
@@ -590,139 +574,161 @@ impl<T: Config> Pallet<T> {
         ));
 
         // Enact era change, if necessary.
-        if <Pallet<T>>::should_era_change(block_number, consensus_constants.era_duration) {
-            <Pallet<T>>::enact_era_change(
-                current_slot,
-                consensus_constants.era_duration,
-                consensus_constants.slot_probability,
+        if block_number % era_duration == Zero::zero() {
+            SolutionRanges::<T>::mutate(|solution_ranges| {
+                let next_solution_range;
+                // Check if the solution range should be adjusted for next era.
+                if !ShouldAdjustSolutionRange::<T>::get() {
+                    next_solution_range = solution_ranges.current;
+                } else if let Some(solution_range_override) = NextSolutionRangeOverride::<T>::take()
+                {
+                    next_solution_range = solution_range_override.solution_range;
+                } else {
+                    next_solution_range = derive_next_solution_range(
+                        // If Era start slot is not found it means we have just finished the first era
+                        u64::from(EraStartSlot::<T>::get().unwrap_or_default()),
+                        u64::from(current_slot),
+                        slot_probability,
+                        solution_ranges.current,
+                        era_duration
+                            .try_into()
+                            .unwrap_or_else(|_| panic!("Era duration is always within u64; qed")),
+                    );
+                };
+                solution_ranges.next.replace(next_solution_range);
+            });
+
+            EraStartSlot::<T>::put(current_slot);
+        }
+    }
+
+    fn initialize_pot(
+        current_slot: Slot,
+        block_number: BlockNumberFor<T>,
+        pot_entropy_injection_interval: BlockNumberFor<T>,
+        pot_entropy_injection_lookback_depth: u8,
+        pot_entropy_injection_delay: SlotNumber,
+        pre_digest: &PreDigest<T::AccountId>,
+    ) {
+        let mut pot_slot_iterations =
+            PotSlotIterations::<T>::get().expect("Always initialized during genesis; qed");
+        // This is what we had after previous block
+        frame_system::Pallet::<T>::deposit_log(DigestItem::pot_slot_iterations(
+            pot_slot_iterations.slot_iterations,
+        ));
+
+        // Check PoT slot iterations update and apply it if it is time to do so, while also
+        // removing corresponding storage item
+        if let Some(update) = pot_slot_iterations.update
+            && let Some(target_slot) = update.target_slot
+            && target_slot <= current_slot
+        {
+            debug!(
+                target: "runtime::subspace",
+                "Applying PoT slots update, changing to {} at block #{:?}",
+                update.slot_iterations,
+                block_number
             );
+            pot_slot_iterations = PotSlotIterationsValue {
+                slot_iterations: update.slot_iterations,
+                update: None,
+            };
+            PotSlotIterations::<T>::put(pot_slot_iterations);
         }
 
-        {
-            let mut pot_slot_iterations =
-                PotSlotIterations::<T>::get().expect("Always initialized during genesis; qed");
-            // This is what we had after previous block
-            frame_system::Pallet::<T>::deposit_log(DigestItem::pot_slot_iterations(
-                pot_slot_iterations.slot_iterations,
-            ));
+        let mut entropy = PotEntropy::<T>::get();
+        let lookback_in_blocks = pot_entropy_injection_interval
+            * BlockNumberFor::<T>::from(pot_entropy_injection_lookback_depth);
+        let last_entropy_injection_block =
+            block_number / pot_entropy_injection_interval * pot_entropy_injection_interval;
+        let maybe_entropy_source_block_number =
+            last_entropy_injection_block.checked_sub(&lookback_in_blocks);
 
-            // Check PoT slot iterations update and apply it if it is time to do so, while also
-            // removing corresponding storage item
-            if let Some(update) = pot_slot_iterations.update
-                && let Some(target_slot) = update.target_slot
-                && target_slot <= current_slot
-            {
-                debug!(
-                    target: "runtime::subspace",
-                    "Applying PoT slots update, changing to {} at block #{:?}",
-                    update.slot_iterations,
-                    block_number
-                );
-                pot_slot_iterations = PotSlotIterationsValue {
-                    slot_iterations: update.slot_iterations,
-                    update: None,
-                };
-                PotSlotIterations::<T>::put(pot_slot_iterations);
-            }
-            let pot_entropy_injection_interval = consensus_constants.pot_entropy_injection_interval;
-            let pot_entropy_injection_delay = consensus_constants.pot_entropy_injection_delay;
+        if (block_number % pot_entropy_injection_interval).is_zero() {
+            let current_block_entropy = derive_pot_entropy(
+                &pre_digest.solution().chunk,
+                pre_digest.pot_info().proof_of_time(),
+            );
+            // Collect entropy every `pot_entropy_injection_interval` blocks
+            entropy.insert(
+                block_number,
+                PotEntropyValue {
+                    target_slot: None,
+                    entropy: current_block_entropy,
+                },
+            );
 
-            let mut entropy = PotEntropy::<T>::get();
-            let lookback_in_blocks = pot_entropy_injection_interval
-                * BlockNumberFor::<T>::from(
-                    consensus_constants.pot_entropy_injection_lookback_depth,
-                );
-            let last_entropy_injection_block =
-                block_number / pot_entropy_injection_interval * pot_entropy_injection_interval;
-            let maybe_entropy_source_block_number =
-                last_entropy_injection_block.checked_sub(&lookback_in_blocks);
-
-            if (block_number % pot_entropy_injection_interval).is_zero() {
-                let current_block_entropy = derive_pot_entropy(
-                    &pre_digest.solution().chunk,
-                    pre_digest.pot_info().proof_of_time(),
-                );
-                // Collect entropy every `pot_entropy_injection_interval` blocks
-                entropy.insert(
-                    block_number,
-                    PotEntropyValue {
-                        target_slot: None,
-                        entropy: current_block_entropy,
-                    },
-                );
-
-                // Update target slot for entropy injection once we know it
-                if let Some(entropy_source_block_number) = maybe_entropy_source_block_number {
-                    if let Some(entropy_value) = entropy.get_mut(&entropy_source_block_number) {
-                        let target_slot = pre_digest
-                            .slot()
-                            .saturating_add(pot_entropy_injection_delay);
-                        debug!(
-                            target: "runtime::subspace",
-                            "Pot entropy injection will happen at slot {target_slot:?}",
-                        );
-                        entropy_value.target_slot.replace(target_slot);
-
-                        // Schedule PoT slot iterations update at the same slot as entropy
-                        if let Some(update) = &mut pot_slot_iterations.update
-                            && update.target_slot.is_none()
-                        {
-                            debug!(
-                                target: "runtime::subspace",
-                                "Scheduling PoT slots update to happen at slot {target_slot:?}"
-                            );
-                            update.target_slot.replace(target_slot);
-                            PotSlotIterations::<T>::put(pot_slot_iterations);
-                        }
-                    }
-                }
-
-                PotEntropy::<T>::put(entropy.clone());
-            }
-
-            // Deposit consensus log item with parameters change in case corresponding entropy is
-            // available
+            // Update target slot for entropy injection once we know it
             if let Some(entropy_source_block_number) = maybe_entropy_source_block_number {
-                let maybe_entropy_value = entropy.get(&entropy_source_block_number).copied();
-                if let Some(PotEntropyValue {
-                    target_slot,
-                    entropy,
-                }) = maybe_entropy_value
-                {
-                    let target_slot = target_slot
-                        .expect("Target slot is guaranteed to be present due to logic above; qed");
-                    // Check if there was a PoT slot iterations update at the same exact slot
-                    let slot_iterations = if let Some(update) = pot_slot_iterations.update
-                        && let Some(update_target_slot) = update.target_slot
-                        && update_target_slot == target_slot
+                if let Some(entropy_value) = entropy.get_mut(&entropy_source_block_number) {
+                    let target_slot = pre_digest
+                        .slot()
+                        .saturating_add(pot_entropy_injection_delay);
+                    debug!(
+                        target: "runtime::subspace",
+                        "Pot entropy injection will happen at slot {target_slot:?}",
+                    );
+                    entropy_value.target_slot.replace(target_slot);
+
+                    // Schedule PoT slot iterations update at the same slot as entropy
+                    if let Some(update) = &mut pot_slot_iterations.update
+                        && update.target_slot.is_none()
                     {
                         debug!(
                             target: "runtime::subspace",
-                            "Applying PoT slots update to the next PoT parameters change"
+                            "Scheduling PoT slots update to happen at slot {target_slot:?}"
                         );
-                        update.slot_iterations
-                    } else {
-                        pot_slot_iterations.slot_iterations
-                    };
-
-                    frame_system::Pallet::<T>::deposit_log(DigestItem::pot_parameters_change(
-                        PotParametersChange {
-                            slot: target_slot,
-                            slot_iterations,
-                            entropy,
-                        },
-                    ));
+                        update.target_slot.replace(target_slot);
+                        PotSlotIterations::<T>::put(pot_slot_iterations);
+                    }
                 }
             }
 
-            // Clean up old values we'll no longer need
-            if let Some(entry) = entropy.first_entry() {
-                if let Some(target_slot) = entry.get().target_slot
-                    && target_slot < current_slot
+            PotEntropy::<T>::put(entropy.clone());
+        }
+
+        // Deposit consensus log item with parameters change in case corresponding entropy is
+        // available
+        if let Some(entropy_source_block_number) = maybe_entropy_source_block_number {
+            let maybe_entropy_value = entropy.get(&entropy_source_block_number).copied();
+            if let Some(PotEntropyValue {
+                target_slot,
+                entropy,
+            }) = maybe_entropy_value
+            {
+                let target_slot = target_slot
+                    .expect("Target slot is guaranteed to be present due to logic above; qed");
+                // Check if there was a PoT slot iterations update at the same exact slot
+                let slot_iterations = if let Some(update) = pot_slot_iterations.update
+                    && let Some(update_target_slot) = update.target_slot
+                    && update_target_slot == target_slot
                 {
-                    entry.remove();
-                    PotEntropy::<T>::put(entropy);
-                }
+                    debug!(
+                        target: "runtime::subspace",
+                        "Applying PoT slots update to the next PoT parameters change"
+                    );
+                    update.slot_iterations
+                } else {
+                    pot_slot_iterations.slot_iterations
+                };
+
+                frame_system::Pallet::<T>::deposit_log(DigestItem::pot_parameters_change(
+                    PotParametersChange {
+                        slot: target_slot,
+                        slot_iterations,
+                        entropy,
+                    },
+                ));
+            }
+        }
+
+        // Clean up old values we'll no longer need
+        if let Some(entry) = entropy.first_entry() {
+            if let Some(target_slot) = entry.get().target_slot
+                && target_slot < current_slot
+            {
+                entry.remove();
+                PotEntropy::<T>::put(entropy);
             }
         }
     }
