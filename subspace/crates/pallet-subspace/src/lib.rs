@@ -31,7 +31,7 @@ use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::CompatibleDigestItem;
 use sp_consensus_subspace::{PotParameters, PotParametersChange};
 use sp_runtime::generic::DigestItem;
-use sp_runtime::traits::{BlockNumberProvider, CheckedSub, Hash, Zero};
+use sp_runtime::traits::{CheckedSub, Zero};
 use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
     TransactionValidityError, ValidTransaction,
@@ -103,7 +103,7 @@ pub mod pallet {
     use subspace_core_primitives::pot::PotCheckpoints;
     use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
     use subspace_core_primitives::solutions::SolutionRange;
-    use subspace_core_primitives::{PublicKey, Randomness};
+    use subspace_core_primitives::PublicKey;
 
     /// Override for next solution range adjustment
     #[derive(Debug, Encode, Decode, TypeInfo)]
@@ -302,11 +302,6 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type PotEntropy<T: Config> =
         StorageValue<_, BTreeMap<BlockNumberFor<T>, PotEntropyValue>, ValueQuery>;
-
-    /// The current block randomness, updated at block initialization. When the proof of time feature
-    /// is enabled it derived from PoT otherwise PoR.
-    #[pallet::storage]
-    pub type BlockRandomness<T> = StorageValue<_, Randomness>;
 
     /// Allow block authoring by anyone or just root.
     #[pallet::storage]
@@ -588,14 +583,6 @@ impl<T: Config> Pallet<T> {
                 next: None,
             });
         }
-
-        let block_randomness = pre_digest
-            .pot_info()
-            .proof_of_time()
-            .derive_global_randomness();
-
-        // Update the block randomness.
-        BlockRandomness::<T>::put(block_randomness);
 
         // Deposit solution range data such that light client can validate blocks later.
         frame_system::Pallet::<T>::deposit_log(DigestItem::solution_range(
@@ -962,32 +949,5 @@ impl<T: Config> subspace_runtime_primitives::FindBlockRewardAddress<T::AccountId
             .find_map(|s| s.as_subspace_pre_digest::<T::AccountId>())
             .expect("Block must always have pre-digest");
         Some(pre_digest.solution().reward_address.clone())
-    }
-}
-
-impl<T: Config> frame_support::traits::Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
-    fn random(subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {
-        let mut subject = subject.to_vec();
-        subject.extend_from_slice(
-            BlockRandomness::<T>::get()
-                .expect("Block randomness is always set in block initialization; qed")
-                .as_ref(),
-        );
-
-        (
-            T::Hashing::hash(&subject),
-            frame_system::Pallet::<T>::current_block_number(),
-        )
-    }
-
-    fn random_seed() -> (T::Hash, BlockNumberFor<T>) {
-        (
-            T::Hashing::hash(
-                BlockRandomness::<T>::get()
-                    .expect("Block randomness is always set in block initialization; qed")
-                    .as_ref(),
-            ),
-            frame_system::Pallet::<T>::current_block_number(),
-        )
     }
 }

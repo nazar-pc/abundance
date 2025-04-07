@@ -271,6 +271,7 @@ impl PotOutput {
     /// Size of proof of time proof in bytes
     pub const SIZE: usize = 16;
 
+    // TODO: The seed is only 128-bits, should it be made larger somehow?
     /// Derives the global randomness from the output
     #[inline]
     pub fn derive_global_randomness(&self) -> Randomness {
