@@ -295,11 +295,6 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type DidProcessSegmentHeaders<T: Config> = StorageValue<_, bool, ValueQuery>;
 
-    /// Parent block author information.
-    #[pallet::storage]
-    pub(super) type ParentBlockAuthorInfo<T> =
-        StorageValue<_, (PublicKey, SectorIndex, PieceOffset, ScalarBytes, Slot)>;
-
     /// Block author information
     #[pallet::storage]
     pub(super) type CurrentBlockAuthorInfo<T: Config> = StorageValue<
@@ -789,14 +784,6 @@ impl<T: Config> Pallet<T> {
             frame_system::Pallet::<T>::deposit_log(DigestItem::next_solution_range(
                 next_solution_range,
             ));
-        }
-
-        if let Some((public_key, sector_index, piece_offset, scalar, slot, _reward_address)) =
-            CurrentBlockAuthorInfo::<T>::get()
-        {
-            ParentBlockAuthorInfo::<T>::put((public_key, sector_index, piece_offset, scalar, slot));
-        } else {
-            ParentBlockAuthorInfo::<T>::take();
         }
 
         DidProcessSegmentHeaders::<T>::take();
