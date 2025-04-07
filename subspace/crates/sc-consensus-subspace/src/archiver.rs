@@ -45,7 +45,6 @@ use rayon::ThreadPoolBuilder;
 use sc_client_api::{
     AuxStore, Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, LockImportRun,
 };
-use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -821,7 +820,6 @@ where
 
 fn finalize_block<Block, Backend, Client>(
     client: &Client,
-    telemetry: Option<&TelemetryHandle>,
     hash: Block::Hash,
     number: NumberFor<Block>,
 ) where
@@ -850,13 +848,6 @@ fn finalize_block<Block, Backend, Client>(
             })?;
 
         debug!("Finalizing blocks up to ({:?}, {})", number, hash);
-
-        telemetry!(
-            telemetry;
-            CONSENSUS_INFO;
-            "subspace.finalized_blocks_up_to";
-            "number" => ?number, "hash" => ?hash,
-        );
 
         Ok(())
     });
@@ -896,7 +887,6 @@ pub fn create_subspace_archiver<Block, Backend, Client, AS, SO>(
     subspace_link: SubspaceLink<Block>,
     client: Arc<Client>,
     sync_oracle: SubspaceSyncOracle<SO>,
-    telemetry: Option<TelemetryHandle>,
     create_object_mappings: CreateObjectMappings,
 ) -> sp_blockchain::Result<impl Future<Output = sp_blockchain::Result<()>> + Send + 'static>
 where
@@ -1099,12 +1089,7 @@ where
                     if let Some(block_hash_to_finalize) =
                         client.block_hash(block_number_to_finalize)?
                     {
-                        finalize_block(
-                            &*client,
-                            telemetry.as_ref(),
-                            block_hash_to_finalize,
-                            block_number_to_finalize,
-                        );
+                        finalize_block(&*client, block_hash_to_finalize, block_number_to_finalize);
                     }
                 }
             }

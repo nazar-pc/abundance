@@ -15,8 +15,6 @@ pub mod aux_schema;
 pub mod block_import;
 pub mod notification;
 pub mod slot_worker;
-#[cfg(test)]
-mod tests;
 pub mod verifier;
 
 use crate::archiver::{ArchivedSegmentNotification, ObjectMappingNotification};

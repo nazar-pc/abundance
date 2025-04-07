@@ -22,26 +22,25 @@ use crate::metrics::NodeMetrics;
 use crate::sync_from_dsn::piece_validator::SegmentCommitmentPieceValidator;
 use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::sync_from_dsn::DsnPieceGetter;
+use crate::task_spawner::SpawnTasksParams;
 use async_lock::Semaphore;
 use core::sync::atomic::{AtomicU32, Ordering};
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::channel::oneshot;
-use futures::FutureExt;
 use jsonrpsee::RpcModule;
 use pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi;
 use parking_lot::Mutex;
 use prometheus_client::registry::Registry;
 use sc_basic_authorship::ProposerFactory;
 use sc_chain_spec::GenesisBlockBuilder;
-use sc_client_api::{AuxStore, Backend, BlockBackend, BlockchainEvents, HeaderBackend};
+use sc_client_api::{AuxStore, BlockBackend, BlockchainEvents, HeaderBackend};
 use sc_consensus::{
     BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport,
     DefaultImportQueue, ImportQueue, ImportResult,
 };
 use sc_consensus_slots::SlotProportion;
 use sc_consensus_subspace::archiver::{
-    create_subspace_archiver, ArchivedSegmentNotification, ObjectMappingNotification,
-    SegmentHeadersStore,
+    create_subspace_archiver, ArchivedSegmentNotification, SegmentHeadersStore,
 };
 use sc_consensus_subspace::block_import::{BlockImportingNotification, SubspaceBlockImport};
 use sc_consensus_subspace::notification::SubspaceNotificationStream;
@@ -53,7 +52,6 @@ use sc_consensus_subspace::verifier::{SubspaceVerifier, SubspaceVerifierOptions}
 use sc_consensus_subspace::SubspaceLink;
 use sc_network::service::traits::NetworkService;
 use sc_network::{NetworkWorker, NotificationMetrics, Roles};
-use sc_network_sync::block_relay_protocol::BlockRelayParams;
 use sc_network_sync::engine::SyncingEngine;
 use sc_network_sync::service::network::NetworkServiceProvider;
 use sc_proof_of_time::source::gossip::pot_gossip_peers_set_config;
@@ -61,15 +59,10 @@ use sc_proof_of_time::source::{PotSlotInfo, PotSourceWorker};
 use sc_proof_of_time::verifier::PotVerifier;
 use sc_service::error::Error as ServiceError;
 use sc_service::{
-    build_network_advanced, build_polkadot_syncing_strategy, BuildNetworkAdvancedParams,
-    Configuration, NetworkStarter, SpawnTasksParams, TaskManager,
+    build_default_block_downloader, build_network_advanced, build_polkadot_syncing_strategy,
+    BuildNetworkAdvancedParams, Configuration, NetworkStarter, TaskManager,
 };
-use sc_subspace_block_relay::{
-    build_consensus_relay, BlockRelayConfigurationError, NetworkWrapper,
-};
-use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool::TransactionPoolHandle;
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ConstructRuntimeApi, Metadata, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderMetadata;
@@ -129,17 +122,9 @@ pub enum Error {
     #[error(transparent)]
     Consensus(#[from] sp_consensus::Error),
 
-    /// Telemetry error.
-    #[error(transparent)]
-    Telemetry(#[from] sc_telemetry::Error),
-
     /// Subspace networking (DSN) error.
     #[error(transparent)]
     SubspaceDsn(#[from] DsnConfigurationError),
-
-    /// Failed to set up block relay.
-    #[error(transparent)]
-    BlockRelay(#[from] BlockRelayConfigurationError),
 
     /// Other.
     #[error(transparent)]
@@ -216,8 +201,6 @@ where
     pub pot_verifier: PotVerifier,
     /// Approximate target block number for syncing purposes
     pub sync_target_block_number: Arc<AtomicU32>,
-    /// Telemetry
-    pub telemetry: Option<Telemetry>,
 }
 
 type PartialComponents<RuntimeApi> = sc_service::PartialComponents<
@@ -251,17 +234,6 @@ where
         + SubspaceApi<Block, PublicKey>
         + ObjectsApi<Block>,
 {
-    let telemetry = config
-        .telemetry_endpoints
-        .clone()
-        .filter(|x| !x.is_empty())
-        .map(|endpoints| -> Result<_, sc_telemetry::Error> {
-            let worker = TelemetryWorker::new(16)?;
-            let telemetry = worker.handle().new_telemetry(endpoints);
-            Ok((worker, telemetry))
-        })
-        .transpose()?;
-
     let executor = sc_service::new_wasm_executor(&config.executor);
 
     let backend = sc_service::new_db_backend(config.db_config())?;
@@ -276,7 +248,7 @@ where
     let (client, backend, keystore_container, task_manager) =
         sc_service::new_full_parts_with_genesis_builder::<Block, RuntimeApi, _, _>(
             config,
-            telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+            None,
             executor.clone(),
             backend,
             genesis_block_builder,
@@ -306,13 +278,6 @@ where
         PotSeed::from_genesis(client_info.genesis_hash.as_ref(), pot_external_entropy),
         POT_VERIFIER_CACHE_SIZE,
     );
-
-    let telemetry = telemetry.map(|(worker, telemetry)| {
-        task_manager
-            .spawn_handle()
-            .spawn("telemetry", None, worker.run());
-        telemetry
-    });
 
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
@@ -375,7 +340,6 @@ where
         client: client.clone(),
         chain_constants,
         kzg,
-        telemetry: telemetry.as_ref().map(|x| x.handle()),
         reward_signing_context: schnorrkel::context::signing_context(REWARD_SIGNING_CONTEXT),
         sync_target_block_number: Arc::clone(&sync_target_block_number),
         is_authoring_blocks: config.role.is_authority(),
@@ -396,7 +360,6 @@ where
         segment_headers_store,
         pot_verifier,
         sync_target_block_number,
-        telemetry,
     };
 
     Ok(PartialComponents {
@@ -433,8 +396,6 @@ where
     pub network_service: Arc<dyn NetworkService + Send + Sync>,
     /// Sync service.
     pub sync_service: Arc<sc_network_sync::SyncingService<Block>>,
-    /// RPC handlers.
-    pub rpc_handlers: sc_service::RpcHandlers,
     /// Full client backend.
     pub backend: Arc<FullBackend>,
     /// Pot slot info stream.
@@ -447,8 +408,6 @@ where
     /// Stream of notifications about blocks about to be imported.
     pub block_importing_notification_stream:
         SubspaceNotificationStream<BlockImportingNotification<Block>>,
-    /// Archived object mapping stream.
-    pub object_mapping_notification_stream: SubspaceNotificationStream<ObjectMappingNotification>,
     /// Archived segment stream.
     pub archived_segment_notification_stream:
         SubspaceNotificationStream<ArchivedSegmentNotification>,
@@ -487,7 +446,7 @@ where
         backend,
         mut task_manager,
         import_queue,
-        keystore_container,
+        keystore_container: _,
         select_chain,
         transaction_pool,
         other,
@@ -498,7 +457,6 @@ where
         segment_headers_store,
         pot_verifier,
         sync_target_block_number,
-        mut telemetry,
     } = other;
 
     let (node, bootstrap_nodes, piece_getter) = match config.subspace_networking {
@@ -620,14 +578,6 @@ where
         .map(|prometheus_config| prometheus_config.registry.clone());
     let import_queue_service1 = import_queue.service();
     let import_queue_service2 = import_queue.service();
-    let network_wrapper = Arc::new(NetworkWrapper::default());
-    let block_relay = build_consensus_relay(
-        network_wrapper.clone(),
-        client.clone(),
-        transaction_pool.clone(),
-        substrate_prometheus_registry.as_ref(),
-    )
-    .map_err(Error::BlockRelay)?;
     let mut net_config = sc_network::config::FullNetworkConfiguration::new(
         &config.base.network,
         substrate_prometheus_registry.clone(),
@@ -642,25 +592,21 @@ where
 
     let network_service_provider = NetworkServiceProvider::new();
     let network_service_handle = network_service_provider.handle();
-    let (network_service, system_rpc_tx, tx_handler_controller, network_starter, sync_service) = {
+    let (network_service, _system_rpc_tx, tx_handler_controller, network_starter, sync_service) = {
         let spawn_handle = task_manager.spawn_handle();
         let metrics = NotificationMetrics::new(substrate_prometheus_registry.as_ref());
 
-        // TODO: Remove BlockRelayParams here and simplify relay initialization
-        let block_downloader = {
-            let BlockRelayParams {
-                mut server,
-                downloader,
-                request_response_config,
-            } = block_relay;
-            net_config.add_request_response_protocol(request_response_config);
-
-            spawn_handle.spawn("block-request-handler", Some("networking"), async move {
-                server.run().await;
-            });
-
-            downloader
-        };
+        let num_peers_hint = net_config.network_config.default_peers_set.in_peers as usize
+            + net_config.network_config.default_peers_set.out_peers as usize;
+        let block_downloader = build_default_block_downloader(
+            &protocol_id,
+            fork_id,
+            &mut net_config,
+            network_service_provider.handle(),
+            client.clone(),
+            num_peers_hint,
+            &spawn_handle,
+        );
 
         let syncing_strategy = build_polkadot_syncing_strategy(
             protocol_id.clone(),
@@ -746,7 +692,6 @@ where
             subspace_link.clone(),
             client.clone(),
             sync_oracle.clone(),
-            telemetry.as_ref().map(|telemetry| telemetry.handle()),
             config.create_object_mappings,
         )
     })
@@ -763,8 +708,6 @@ where
                 }
             }),
         );
-
-    network_wrapper.set(network_service.clone());
 
     if !config.base.network.force_synced {
         // Start with DSN sync in this case
@@ -840,35 +783,11 @@ where
         }
     }
 
-    let offchain_tx_pool_factory = OffchainTransactionPoolFactory::new(transaction_pool.clone());
-
-    if config.base.offchain_worker.enabled {
-        let offchain_workers =
-            sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
-                runtime_api_provider: client.clone(),
-                is_validator: config.base.role.is_authority(),
-                keystore: Some(keystore_container.keystore()),
-                offchain_db: backend.offchain_storage(),
-                transaction_pool: Some(offchain_tx_pool_factory),
-                network_provider: Arc::new(network_service.clone()),
-                enable_http_requests: true,
-                custom_extensions: |_| vec![],
-            })?;
-        task_manager.spawn_handle().spawn(
-            "offchain-workers-runner",
-            "offchain-worker",
-            offchain_workers
-                .run(client.clone(), task_manager.spawn_handle())
-                .boxed(),
-        );
-    }
-
     let backoff_authoring_blocks: Option<()> = None;
 
     let new_slot_notification_stream = subspace_link.new_slot_notification_stream();
     let reward_signing_notification_stream = subspace_link.reward_signing_notification_stream();
     let block_importing_notification_stream = subspace_link.block_importing_notification_stream();
-    let object_mapping_notification_stream = subspace_link.object_mapping_notification_stream();
     let archived_segment_notification_stream = subspace_link.archived_segment_notification_stream();
 
     let (pot_source_worker, pot_gossip_worker, pot_slot_info_stream) = PotSourceWorker::new(
@@ -898,7 +817,7 @@ where
             client.clone(),
             transaction_pool.clone(),
             substrate_prometheus_registry.as_ref(),
-            telemetry.as_ref().map(|x| x.handle()),
+            None,
         );
 
         let subspace_slot_worker =
@@ -914,7 +833,6 @@ where
                 segment_headers_store: segment_headers_store.clone(),
                 block_proposal_slot_portion,
                 max_block_proposal_slot_portion: None,
-                telemetry: telemetry.as_ref().map(|x| x.handle()),
                 pot_verifier,
             });
 
@@ -969,28 +887,23 @@ where
     // We replace the Substrate implementation of metrics server with our own.
     config.base.prometheus_config.take();
 
-    let rpc_handlers = task_spawner::spawn_tasks(SpawnTasksParams {
+    task_spawner::spawn_tasks(SpawnTasksParams {
         network: network_service.clone(),
         client: client.clone(),
-        keystore: keystore_container.keystore(),
         task_manager: &mut task_manager,
         transaction_pool: transaction_pool.clone(),
         rpc_builder: if enable_rpc_extensions {
             let client = client.clone();
             let new_slot_notification_stream = new_slot_notification_stream.clone();
             let reward_signing_notification_stream = reward_signing_notification_stream.clone();
-            let object_mapping_notification_stream = object_mapping_notification_stream.clone();
             let archived_segment_notification_stream = archived_segment_notification_stream.clone();
-            let transaction_pool = transaction_pool.clone();
 
             Box::new(move |subscription_executor| {
                 let deps = rpc::FullDeps {
                     client: client.clone(),
-                    pool: transaction_pool.clone(),
                     subscription_executor,
                     new_slot_notification_stream: new_slot_notification_stream.clone(),
                     reward_signing_notification_stream: reward_signing_notification_stream.clone(),
-                    object_mapping_notification_stream: object_mapping_notification_stream.clone(),
                     archived_segment_notification_stream: archived_segment_notification_stream
                         .clone(),
                     dsn_bootstrap_nodes: dsn_bootstrap_nodes.clone(),
@@ -1005,10 +918,7 @@ where
         } else {
             Box::new(|_| Ok(RpcModule::new(())))
         },
-        backend: backend.clone(),
-        system_rpc_tx,
         config: config.base,
-        telemetry: telemetry.as_mut(),
         tx_handler_controller,
         sync_service: sync_service.clone(),
     })?;
@@ -1019,13 +929,11 @@ where
         select_chain,
         network_service,
         sync_service,
-        rpc_handlers,
         backend,
         pot_slot_info_stream: additional_pot_slot_info_stream,
         new_slot_notification_stream,
         reward_signing_notification_stream,
         block_importing_notification_stream,
-        object_mapping_notification_stream,
         archived_segment_notification_stream,
         network_starter,
         transaction_pool,

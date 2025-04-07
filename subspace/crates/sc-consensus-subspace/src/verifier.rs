@@ -21,7 +21,6 @@ use sc_consensus::block_import::BlockImportParams;
 use sc_consensus::import_queue::Verifier;
 use sc_consensus_slots::check_equivocation;
 use sc_proof_of_time::verifier::PotVerifier;
-use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_TRACE};
 use schnorrkel::context::SigningContext;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
@@ -108,8 +107,6 @@ pub struct SubspaceVerifierOptions<Client> {
     pub chain_constants: ChainConstants,
     /// Kzg instance
     pub kzg: Kzg,
-    /// Telemetry
-    pub telemetry: Option<TelemetryHandle>,
     /// Context for reward signing
     pub reward_signing_context: SigningContext,
     /// Approximate target block number for syncing purposes
@@ -127,7 +124,6 @@ where
 {
     client: Arc<Client>,
     kzg: Kzg,
-    telemetry: Option<TelemetryHandle>,
     chain_constants: ChainConstants,
     reward_signing_context: SigningContext,
     sync_target_block_number: Arc<AtomicU32>,
@@ -152,7 +148,6 @@ where
             client,
             chain_constants,
             kzg,
-            telemetry,
             reward_signing_context,
             sync_target_block_number,
             is_authoring_blocks,
@@ -162,7 +157,6 @@ where
         Self {
             client,
             kzg,
-            telemetry,
             chain_constants,
             reward_signing_context,
             sync_target_block_number,
@@ -513,12 +507,6 @@ where
         }
 
         trace!(?pre_header, "Checked header; importing");
-        telemetry!(
-            self.telemetry;
-            CONSENSUS_TRACE;
-            "subspace.checked_and_importing";
-            "pre_header" => ?pre_header,
-        );
 
         block.header = pre_header;
         block.post_digests.push(seal);

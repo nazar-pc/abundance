@@ -5,14 +5,13 @@ use prometheus_client::registry::Registry;
 use sc_chain_spec::GenericChainSpec;
 use sc_cli::{
     generate_node_name, Cors, NodeKeyParams, NodeKeyType, RpcMethods, RuntimeParams,
-    TelemetryParams, TransactionPoolParams, RPC_DEFAULT_PORT,
+    TransactionPoolParams, RPC_DEFAULT_PORT,
 };
 use sc_consensus_subspace::archiver::CreateObjectMappings;
 use sc_network::config::{MultiaddrWithPeerId, NonReservedPeerMode, Role, SetConfig};
 use sc_service::config::ExecutorConfiguration;
 use sc_service::{BlocksPruning, Configuration, PruningMode};
 use sc_storage_monitor::StorageMonitorParams;
-use sc_telemetry::TelemetryEndpoints;
 use std::collections::HashSet;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -415,13 +414,9 @@ pub(super) struct ConsensusChainOptions {
 
     /// The human-readable name for this node.
     ///
-    /// It's used as network node name and in telemetry. Auto-generated if not specified explicitly.
+    /// It's used as network node name. Auto-generated if not specified explicitly.
     #[arg(long)]
     name: Option<String>,
-
-    /// Options for telemetry
-    #[clap(flatten)]
-    telemetry_params: TelemetryParams,
 
     /// IP and port (TCP) to start Prometheus exporter on
     #[clap(long)]
@@ -518,7 +513,6 @@ pub(super) fn create_consensus_chain_configuration(
         mut tmp,
         rpc_options,
         name,
-        telemetry_params,
         prometheus_listen_on,
         pruning_params,
         mut network_options,
@@ -689,16 +683,6 @@ pub(super) fn create_consensus_chain_configuration(
             max_batch_request_len: rpc_options.rpc_max_batch_request_len,
         },
         prometheus_listen_on,
-        telemetry_endpoints: if telemetry_params.no_telemetry {
-            None
-        } else if !telemetry_params.telemetry_endpoints.is_empty() {
-            Some(
-                TelemetryEndpoints::new(telemetry_params.telemetry_endpoints)
-                    .map_err(|error| Error::Other(error.to_string()))?,
-            )
-        } else {
-            chain_spec.telemetry_endpoints().clone()
-        },
         force_authoring,
         chain_spec: Box::new(chain_spec),
         executor: ExecutorConfiguration {

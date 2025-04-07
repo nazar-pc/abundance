@@ -1,5 +1,6 @@
 [toolchain]
-channel = "nightly-2025-04-02"
+# TODO: Can't upgrade for now, see https://github.com/autonomys/subspace/pull/3444
+channel = "nightly-2025-03-10"
 components = ["rust-src"]
 targets = ["wasm32-unknown-unknown"]
 profile = "default"
