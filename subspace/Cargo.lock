@@ -9520,31 +9520,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sc-subspace-block-relay"
-version = "0.1.0"
-dependencies = [
- "async-channel 1.9.0",
- "async-trait",
- "derive_more 1.0.0",
- "futures",
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "sc-client-api",
- "sc-network",
- "sc-network-common",
- "sc-network-sync",
- "sc-transaction-pool-api",
- "sp-api",
- "sp-consensus-subspace",
- "sp-runtime",
- "strum_macros 0.26.4",
- "subspace-core-primitives",
- "substrate-prometheus-endpoint",
- "thiserror 2.0.12",
- "tracing",
-]
-
-[[package]]
 name = "sc-subspace-sync-common"
 version = "0.1.0"
 dependencies = [
@@ -11800,7 +11775,6 @@ dependencies = [
  "sc-proof-of-time",
  "sc-rpc",
  "sc-service",
- "sc-subspace-block-relay",
  "sc-subspace-sync-common",
  "sc-tracing",
  "sc-transaction-pool",

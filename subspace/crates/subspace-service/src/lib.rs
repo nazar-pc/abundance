@@ -52,7 +52,6 @@ use sc_consensus_subspace::verifier::{SubspaceVerifier, SubspaceVerifierOptions}
 use sc_consensus_subspace::SubspaceLink;
 use sc_network::service::traits::NetworkService;
 use sc_network::{NetworkWorker, NotificationMetrics, Roles};
-use sc_network_sync::block_relay_protocol::BlockRelayParams;
 use sc_network_sync::engine::SyncingEngine;
 use sc_network_sync::service::network::NetworkServiceProvider;
 use sc_proof_of_time::source::gossip::pot_gossip_peers_set_config;
@@ -60,11 +59,8 @@ use sc_proof_of_time::source::{PotSlotInfo, PotSourceWorker};
 use sc_proof_of_time::verifier::PotVerifier;
 use sc_service::error::Error as ServiceError;
 use sc_service::{
-    build_network_advanced, build_polkadot_syncing_strategy, BuildNetworkAdvancedParams,
-    Configuration, NetworkStarter, TaskManager,
-};
-use sc_subspace_block_relay::{
-    build_consensus_relay, BlockRelayConfigurationError, NetworkWrapper,
+    build_default_block_downloader, build_network_advanced, build_polkadot_syncing_strategy,
+    BuildNetworkAdvancedParams, Configuration, NetworkStarter, TaskManager,
 };
 use sc_transaction_pool::TransactionPoolHandle;
 use sp_api::{ApiExt, ConstructRuntimeApi, Metadata, ProvideRuntimeApi};
@@ -129,10 +125,6 @@ pub enum Error {
     /// Subspace networking (DSN) error.
     #[error(transparent)]
     SubspaceDsn(#[from] DsnConfigurationError),
-
-    /// Failed to set up block relay.
-    #[error(transparent)]
-    BlockRelay(#[from] BlockRelayConfigurationError),
 
     /// Other.
     #[error(transparent)]
@@ -586,14 +578,6 @@ where
         .map(|prometheus_config| prometheus_config.registry.clone());
     let import_queue_service1 = import_queue.service();
     let import_queue_service2 = import_queue.service();
-    let network_wrapper = Arc::new(NetworkWrapper::default());
-    let block_relay = build_consensus_relay(
-        network_wrapper.clone(),
-        client.clone(),
-        transaction_pool.clone(),
-        substrate_prometheus_registry.as_ref(),
-    )
-    .map_err(Error::BlockRelay)?;
     let mut net_config = sc_network::config::FullNetworkConfiguration::new(
         &config.base.network,
         substrate_prometheus_registry.clone(),
@@ -612,21 +596,17 @@ where
         let spawn_handle = task_manager.spawn_handle();
         let metrics = NotificationMetrics::new(substrate_prometheus_registry.as_ref());
 
-        // TODO: Remove BlockRelayParams here and simplify relay initialization
-        let block_downloader = {
-            let BlockRelayParams {
-                mut server,
-                downloader,
-                request_response_config,
-            } = block_relay;
-            net_config.add_request_response_protocol(request_response_config);
-
-            spawn_handle.spawn("block-request-handler", Some("networking"), async move {
-                server.run().await;
-            });
-
-            downloader
-        };
+        let num_peers_hint = net_config.network_config.default_peers_set.in_peers as usize
+            + net_config.network_config.default_peers_set.out_peers as usize;
+        let block_downloader = build_default_block_downloader(
+            &protocol_id,
+            fork_id,
+            &mut net_config,
+            network_service_provider.handle(),
+            client.clone(),
+            num_peers_hint,
+            &spawn_handle,
+        );
 
         let syncing_strategy = build_polkadot_syncing_strategy(
             protocol_id.clone(),
@@ -728,8 +708,6 @@ where
                 }
             }),
         );
-
-    network_wrapper.set(network_service.clone());
 
     if !config.base.network.force_synced {
         // Start with DSN sync in this case
