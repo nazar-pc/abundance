@@ -28,7 +28,7 @@ use alloc::borrow::Cow;
 use core::num::NonZeroU64;
 use frame_support::genesis_builder_helper::{build_state, get_preset};
 use frame_support::inherent::ProvideInherent;
-use frame_support::traits::{ConstU16, ConstU32, ConstU64, ConstU8, Everything, Get};
+use frame_support::traits::{ConstU16, ConstU32, ConstU64, ConstU8, Everything};
 use frame_support::weights::constants::ParityDbWeight;
 use frame_support::weights::{ConstantMultiplier, Weight};
 use frame_support::{construct_runtime, parameter_types};
@@ -36,6 +36,7 @@ use frame_system::limits::{BlockLength, BlockWeights};
 use frame_system::pallet_prelude::RuntimeCallFor;
 pub use pallet_rewards::RewardPoint;
 pub use pallet_subspace::AllowAuthoringBy;
+use pallet_subspace::ConsensusConstants;
 use sp_api::impl_runtime_apis;
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_consensus_subspace::{ChainConstants, PotParameters, SolutionRanges};
@@ -53,9 +54,7 @@ use subspace_core_primitives::pieces::Piece;
 use subspace_core_primitives::segments::{
     HistorySize, SegmentCommitment, SegmentHeader, SegmentIndex,
 };
-use subspace_core_primitives::solutions::{
-    pieces_to_solution_range, solution_range_to_pieces, SolutionRange,
-};
+use subspace_core_primitives::solutions::solution_range_to_pieces;
 use subspace_core_primitives::{PublicKey, SlotNumber};
 use subspace_runtime_primitives::utility::{
     DefaultNonceProvider, MaybeNestedCall, MaybeUtilityCall,
@@ -117,10 +116,6 @@ const_assert!(POT_ENTROPY_INJECTION_DELAY > BLOCK_AUTHORING_DELAY + 1);
 
 /// Era duration in blocks.
 const ERA_DURATION_IN_BLOCKS: BlockNumber = 2016;
-
-// We assume initial plot size starts with a single sector.
-const INITIAL_SOLUTION_RANGE: SolutionRange =
-    pieces_to_solution_range(MAX_PIECES_IN_SECTOR as u64, SLOT_PROBABILITY);
 
 /// Number of latest archived segments that are considered "recent history".
 const RECENT_SEGMENTS: HistorySize = HistorySize::new(NonZeroU64::new(5).expect("Not zero; qed"));
@@ -206,48 +201,20 @@ impl frame_system::Config for Runtime {
 }
 
 parameter_types! {
-    pub const BlockAuthoringDelay: SlotNumber = BLOCK_AUTHORING_DELAY;
-    pub const PotEntropyInjectionInterval: BlockNumber = POT_ENTROPY_INJECTION_INTERVAL;
-    pub const PotEntropyInjectionLookbackDepth: u8 = POT_ENTROPY_INJECTION_LOOKBACK_DEPTH;
-    pub const PotEntropyInjectionDelay: SlotNumber = POT_ENTROPY_INJECTION_DELAY;
-    pub const EraDuration: u32 = ERA_DURATION_IN_BLOCKS;
-    pub const SlotProbability: (u64, u64) = SLOT_PROBABILITY;
-    pub const RecentSegments: HistorySize = RECENT_SEGMENTS;
-    pub const RecentHistoryFraction: (HistorySize, HistorySize) = RECENT_HISTORY_FRACTION;
-    pub const MinSectorLifetime: HistorySize = MIN_SECTOR_LIFETIME;
-    // Disable solution range adjustment at the start of chain.
-    // Root origin must enable later
-    pub const ShouldAdjustSolutionRange: bool = false;
-    pub const BlockSlotCount: u32 = 6;
-}
-
-pub struct ConfirmationDepthK;
-
-impl Get<BlockNumber> for ConfirmationDepthK {
-    fn get() -> BlockNumber {
-        pallet_runtime_configs::ConfirmationDepthK::<Runtime>::get()
-    }
+    pub const RuntimeConsensusConstants: ConsensusConstants<BlockNumber> = ConsensusConstants {
+        pot_entropy_injection_interval: POT_ENTROPY_INJECTION_INTERVAL,
+        pot_entropy_injection_lookback_depth: POT_ENTROPY_INJECTION_LOOKBACK_DEPTH,
+        pot_entropy_injection_delay: POT_ENTROPY_INJECTION_DELAY,
+        era_duration: ERA_DURATION_IN_BLOCKS,
+        slot_probability: SLOT_PROBABILITY,
+    };
 }
 
 impl pallet_subspace::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SubspaceOrigin = pallet_subspace::EnsureSubspaceOrigin;
-    type BlockAuthoringDelay = BlockAuthoringDelay;
-    type PotEntropyInjectionInterval = PotEntropyInjectionInterval;
-    type PotEntropyInjectionLookbackDepth = PotEntropyInjectionLookbackDepth;
-    type PotEntropyInjectionDelay = PotEntropyInjectionDelay;
-    type EraDuration = EraDuration;
-    type InitialSolutionRange = ConstU64<INITIAL_SOLUTION_RANGE>;
-    type SlotProbability = SlotProbability;
-    type ConfirmationDepthK = ConfirmationDepthK;
-    type RecentSegments = RecentSegments;
-    type RecentHistoryFraction = RecentHistoryFraction;
-    type MinSectorLifetime = MinSectorLifetime;
-    type MaxPiecesInSector = ConstU16<{ MAX_PIECES_IN_SECTOR }>;
-    type ShouldAdjustSolutionRange = ShouldAdjustSolutionRange;
-    type EraChangeTrigger = pallet_subspace::NormalEraChange;
+    type ConsensusConstants = RuntimeConsensusConstants;
     type WeightInfo = pallet_subspace::weights::SubstrateWeight<Runtime>;
-    type BlockSlotCount = BlockSlotCount;
     type ExtensionWeightInfo = pallet_subspace::extensions::weights::SubstrateWeight<Runtime>;
 }
 
@@ -649,14 +616,14 @@ impl_runtime_apis! {
 
         fn chain_constants() -> ChainConstants {
             ChainConstants::V0 {
-                confirmation_depth_k: ConfirmationDepthK::get(),
-                block_authoring_delay: Slot::from(BlockAuthoringDelay::get()),
-                era_duration: EraDuration::get(),
-                slot_probability: SlotProbability::get(),
+                confirmation_depth_k: pallet_runtime_configs::ConfirmationDepthK::<Runtime>::get(),
+                block_authoring_delay: Slot::from(BLOCK_AUTHORING_DELAY),
+                era_duration: ERA_DURATION_IN_BLOCKS,
+                slot_probability: SLOT_PROBABILITY,
                 slot_duration: SlotDuration::from_millis(SLOT_DURATION),
-                recent_segments: RecentSegments::get(),
-                recent_history_fraction: RecentHistoryFraction::get(),
-                min_sector_lifetime: MinSectorLifetime::get(),
+                recent_segments: RECENT_SEGMENTS,
+                recent_history_fraction: RECENT_HISTORY_FRACTION,
+                min_sector_lifetime: MIN_SECTOR_LIFETIME,
             }
         }
     }

@@ -31,7 +31,7 @@ use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::CompatibleDigestItem;
 use sp_consensus_subspace::{PotParameters, PotParametersChange};
 use sp_runtime::generic::DigestItem;
-use sp_runtime::traits::{BlockNumberProvider, CheckedSub, Hash, Zero};
+use sp_runtime::traits::{CheckedSub, Zero};
 use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
     TransactionValidityError, ValidTransaction,
@@ -40,25 +40,8 @@ use sp_std::prelude::*;
 use subspace_core_primitives::segments::{
     ArchivedHistorySegment, HistorySize, SegmentHeader, SegmentIndex,
 };
+use subspace_core_primitives::SlotNumber;
 use subspace_verification::{derive_next_solution_range, derive_pot_entropy};
-
-/// Trigger an era change, if any should take place.
-pub trait EraChangeTrigger {
-    /// Trigger an era change, if any should take place. This should be called
-    /// during every block, after initialization is done.
-    fn trigger<T: Config>(block_number: BlockNumberFor<T>);
-}
-
-/// A type signifying to Subspace that it should perform era changes with an internal trigger.
-pub struct NormalEraChange;
-
-impl EraChangeTrigger for NormalEraChange {
-    fn trigger<T: Config>(block_number: BlockNumberFor<T>) {
-        if <Pallet<T>>::should_era_change(block_number) {
-            <Pallet<T>>::enact_era_change();
-        }
-    }
-}
 
 /// Custom origin for validated unsigned extrinsics.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -83,11 +66,30 @@ impl<O: Into<Result<RawOrigin, O>> + From<RawOrigin>> EnsureOrigin<O> for Ensure
     }
 }
 
+#[derive(Debug, Encode, Decode, TypeInfo)]
+pub struct ConsensusConstants<BlockNumber> {
+    /// Interval, in blocks, between blockchain entropy injection into proof of time chain.
+    pub pot_entropy_injection_interval: BlockNumber,
+    /// Interval, in entropy injection intervals, where to take entropy for injection from.
+    pub pot_entropy_injection_lookback_depth: u8,
+    /// Delay after block, in slots, when entropy injection takes effect.
+    pub pot_entropy_injection_delay: SlotNumber,
+    /// The amount of time, in blocks, that each era should last.
+    /// NOTE: Currently it is not possible to change the era duration after
+    /// the chain has started. Attempting to do so will brick block production.
+    pub era_duration: BlockNumber,
+    /// How often in slots (on average, not counting collisions) will have a block.
+    ///
+    /// Expressed as a rational where the first member of the tuple is the
+    /// numerator and the second is the denominator. The rational should
+    /// represent a value between 0 and 1.
+    pub slot_probability: (u64, u64),
+}
+
 #[frame_support::pallet]
 pub mod pallet {
-    use super::{EraChangeTrigger, ExtensionWeightInfo};
     use crate::weights::WeightInfo;
-    use crate::RawOrigin;
+    use crate::{ConsensusConstants, ExtensionWeightInfo, RawOrigin};
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use sp_consensus_slots::Slot;
@@ -98,25 +100,10 @@ pub mod pallet {
     use sp_std::num::NonZeroU32;
     use sp_std::prelude::*;
     use subspace_core_primitives::hashes::Blake3Hash;
-    use subspace_core_primitives::pieces::PieceOffset;
     use subspace_core_primitives::pot::PotCheckpoints;
-    use subspace_core_primitives::sectors::SectorIndex;
-    use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
+    use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
     use subspace_core_primitives::solutions::SolutionRange;
-    use subspace_core_primitives::{PublicKey, Randomness, ScalarBytes};
-
-    pub(super) struct InitialSolutionRanges<T: Config> {
-        _config: T,
-    }
-
-    impl<T: Config> Get<sp_consensus_subspace::SolutionRanges> for InitialSolutionRanges<T> {
-        fn get() -> sp_consensus_subspace::SolutionRanges {
-            sp_consensus_subspace::SolutionRanges {
-                current: T::InitialSolutionRange::get(),
-                next: None,
-            }
-        }
-    }
+    use subspace_core_primitives::PublicKey;
 
     /// Override for next solution range adjustment
     #[derive(Debug, Encode, Decode, TypeInfo)]
@@ -139,77 +126,11 @@ pub mod pallet {
         /// Origin for subspace call.
         type SubspaceOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ()>;
 
-        /// Number of slots between slot arrival and when corresponding block can be produced.
-        ///
-        /// Practically this means future proof of time proof needs to be revealed this many slots
-        /// ahead before block can be authored even though solution is available before that.
         #[pallet::constant]
-        type BlockAuthoringDelay: Get<Slot>;
-
-        /// Interval, in blocks, between blockchain entropy injection into proof of time chain.
-        #[pallet::constant]
-        type PotEntropyInjectionInterval: Get<BlockNumberFor<Self>>;
-
-        /// Interval, in entropy injection intervals, where to take entropy for injection from.
-        #[pallet::constant]
-        type PotEntropyInjectionLookbackDepth: Get<u8>;
-
-        /// Delay after block, in slots, when entropy injection takes effect.
-        #[pallet::constant]
-        type PotEntropyInjectionDelay: Get<Slot>;
-
-        /// The amount of time, in blocks, that each era should last.
-        /// NOTE: Currently it is not possible to change the era duration after
-        /// the chain has started. Attempting to do so will brick block production.
-        #[pallet::constant]
-        type EraDuration: Get<BlockNumberFor<Self>>;
-
-        /// Initial solution range used for challenges during the very first era.
-        #[pallet::constant]
-        type InitialSolutionRange: Get<SolutionRange>;
-
-        /// How often in slots slots (on average, not counting collisions) will have a block.
-        ///
-        /// Expressed as a rational where the first member of the tuple is the
-        /// numerator and the second is the denominator. The rational should
-        /// represent a value between 0 and 1.
-        #[pallet::constant]
-        type SlotProbability: Get<(u64, u64)>;
-
-        /// Depth `K` after which a block enters the recorded history (a global constant, as opposed
-        /// to the client-dependent transaction confirmation depth `k`).
-        #[pallet::constant]
-        type ConfirmationDepthK: Get<BlockNumberFor<Self>>;
-
-        /// Number of latest archived segments that are considered "recent history".
-        #[pallet::constant]
-        type RecentSegments: Get<HistorySize>;
-
-        /// Fraction of pieces from the "recent history" (`recent_segments`) in each sector.
-        #[pallet::constant]
-        type RecentHistoryFraction: Get<(HistorySize, HistorySize)>;
-
-        /// Minimum lifetime of a plotted sector, measured in archived segment.
-        #[pallet::constant]
-        type MinSectorLifetime: Get<HistorySize>;
-
-        /// How many pieces one sector is supposed to contain (max)
-        #[pallet::constant]
-        type MaxPiecesInSector: Get<u16>;
-
-        type ShouldAdjustSolutionRange: Get<bool>;
-        /// Subspace requires some logic to be triggered on every block to query for whether an era
-        /// has ended and to perform the transition to the next era.
-        ///
-        /// Era is normally used to update solution range used for challenges.
-        type EraChangeTrigger: EraChangeTrigger;
+        type ConsensusConstants: Get<ConsensusConstants<BlockNumberFor<Self>>>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
-
-        /// Maximum number of block number to block slot mappings to keep (oldest pruned first).
-        #[pallet::constant]
-        type BlockSlotCount: Get<u32>;
 
         /// Extension weight information for the pallet's extensions.
         type ExtensionWeightInfo: ExtensionWeightInfo;
@@ -258,6 +179,8 @@ pub mod pallet {
         pub allow_authoring_by: AllowAuthoringBy,
         /// Number of iterations for proof of time per slot
         pub pot_slot_iterations: NonZeroU32,
+        /// Initial solution range used for challenges during the very first era.
+        pub initial_solution_range: SolutionRange,
         #[serde(skip)]
         pub phantom: PhantomData<T>,
     }
@@ -271,6 +194,7 @@ pub mod pallet {
             Self {
                 allow_authoring_by: AllowAuthoringBy::Anyone,
                 pot_slot_iterations: NonZeroU32::MIN,
+                initial_solution_range: SolutionRange::MAX,
                 phantom: PhantomData,
             }
         }
@@ -298,6 +222,10 @@ pub mod pallet {
                 slot_iterations: self.pot_slot_iterations,
                 update: None,
             });
+            SolutionRanges::<T>::put(sp_consensus_subspace::SolutionRanges {
+                current: self.initial_solution_range,
+                next: None,
+            });
         }
     }
 
@@ -324,27 +252,21 @@ pub mod pallet {
         PotSlotIterationsUpdateAlreadyScheduled,
     }
 
-    /// Bounded mapping from block number to slot
+    /// Current slot number.
     #[pallet::storage]
-    #[pallet::getter(fn block_slots)]
-    pub(super) type BlockSlots<T: Config> =
-        StorageValue<_, BoundedBTreeMap<BlockNumberFor<T>, Slot, T::BlockSlotCount>, ValueQuery>;
+    #[pallet::getter(fn current_slot)]
+    pub type CurrentSlot<T> = StorageValue<_, Slot, ValueQuery>;
 
     /// Solution ranges used for challenges.
     #[pallet::storage]
     #[pallet::getter(fn solution_ranges)]
-    pub(super) type SolutionRanges<T: Config> = StorageValue<
-        _,
-        sp_consensus_subspace::SolutionRanges,
-        ValueQuery,
-        InitialSolutionRanges<T>,
-    >;
+    pub(super) type SolutionRanges<T: Config> =
+        StorageValue<_, sp_consensus_subspace::SolutionRanges, ValueQuery>;
 
     /// Storage to check if the solution range is to be adjusted for next era
     #[pallet::storage]
     #[pallet::getter(fn should_adjust_solution_range)]
-    pub(super) type ShouldAdjustSolutionRange<T: Config> =
-        StorageValue<_, bool, ValueQuery, T::ShouldAdjustSolutionRange>;
+    pub(super) type ShouldAdjustSolutionRange<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     /// Override solution range during next update
     #[pallet::storage]
@@ -371,25 +293,6 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type DidProcessSegmentHeaders<T: Config> = StorageValue<_, bool, ValueQuery>;
 
-    /// Parent block author information.
-    #[pallet::storage]
-    pub(super) type ParentBlockAuthorInfo<T> =
-        StorageValue<_, (PublicKey, SectorIndex, PieceOffset, ScalarBytes, Slot)>;
-
-    /// Block author information
-    #[pallet::storage]
-    pub(super) type CurrentBlockAuthorInfo<T: Config> = StorageValue<
-        _,
-        (
-            PublicKey,
-            SectorIndex,
-            PieceOffset,
-            ScalarBytes,
-            Slot,
-            Option<T::AccountId>,
-        ),
-    >;
-
     /// Number of iterations for proof of time per slot with optional scheduled update
     #[pallet::storage]
     pub(super) type PotSlotIterations<T> = StorageValue<_, PotSlotIterationsValue>;
@@ -399,11 +302,6 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type PotEntropy<T: Config> =
         StorageValue<_, BTreeMap<BlockNumberFor<T>, PotEntropyValue>, ValueQuery>;
-
-    /// The current block randomness, updated at block initialization. When the proof of time feature
-    /// is enabled it derived from PoT otherwise PoR.
-    #[pallet::storage]
-    pub type BlockRandomness<T> = StorageValue<_, Randomness>;
 
     /// Allow block authoring by anyone or just root.
     #[pallet::storage]
@@ -603,19 +501,19 @@ impl<T: Config> Pallet<T> {
 
     /// Determine whether an era change should take place at this block.
     /// Assumes that initialization has already taken place.
-    fn should_era_change(block_number: BlockNumberFor<T>) -> bool {
-        block_number % T::EraDuration::get() == Zero::zero()
+    fn should_era_change(block_number: BlockNumberFor<T>, era_duration: BlockNumberFor<T>) -> bool {
+        block_number % era_duration == Zero::zero()
     }
 
     /// DANGEROUS: Enact era change. Should be done on every block where `should_era_change` has
     /// returned `true`, and the caller is the only caller of this function.
     ///
     /// This will update solution range used in consensus.
-    fn enact_era_change() {
-        let slot_probability = T::SlotProbability::get();
-
-        let current_slot = Self::current_slot();
-
+    fn enact_era_change(
+        current_slot: Slot,
+        era_duration: BlockNumberFor<T>,
+        slot_probability: (u64, u64),
+    ) {
         SolutionRanges::<T>::mutate(|solution_ranges| {
             let next_solution_range;
             // Check if the solution range should be adjusted for next era.
@@ -630,7 +528,7 @@ impl<T: Config> Pallet<T> {
                     u64::from(current_slot),
                     slot_probability,
                     solution_ranges.current,
-                    T::EraDuration::get()
+                    era_duration
                         .try_into()
                         .unwrap_or_else(|_| panic!("Era duration is always within u64; qed")),
                 );
@@ -642,6 +540,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn do_initialize(block_number: BlockNumberFor<T>) {
+        let consensus_constants = T::ConsensusConstants::get();
         let pre_digest = frame_system::Pallet::<T>::digest()
             .logs
             .iter()
@@ -649,18 +548,10 @@ impl<T: Config> Pallet<T> {
             .expect("Block must always have pre-digest");
         let current_slot = pre_digest.slot();
 
-        BlockSlots::<T>::mutate(|block_slots| {
-            if let Some(to_remove) = block_number.checked_sub(&T::BlockSlotCount::get().into()) {
-                block_slots.remove(&to_remove);
-            }
-            block_slots
-                .try_insert(block_number, current_slot)
-                .expect("one entry just removed before inserting; qed");
-        });
+        // The slot number of the current block being initialized.
+        CurrentSlot::<T>::put(pre_digest.slot());
 
         {
-            // Remove old value
-            CurrentBlockAuthorInfo::<T>::take();
             let farmer_public_key = pre_digest.solution().public_key;
 
             // Optional restriction for block authoring to the root user
@@ -680,24 +571,6 @@ impl<T: Config> Pallet<T> {
                     }
                 });
             }
-
-            let key = (
-                farmer_public_key,
-                pre_digest.solution().sector_index,
-                pre_digest.solution().piece_offset,
-                pre_digest.solution().chunk,
-                current_slot,
-            );
-            let (public_key, sector_index, piece_offset, chunk, slot) = key;
-
-            CurrentBlockAuthorInfo::<T>::put((
-                public_key,
-                sector_index,
-                piece_offset,
-                chunk,
-                slot,
-                Some(pre_digest.solution().reward_address.clone()),
-            ));
         }
 
         // If solution range was updated in previous block, set it as current.
@@ -711,21 +584,19 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        let block_randomness = pre_digest
-            .pot_info()
-            .proof_of_time()
-            .derive_global_randomness();
-
-        // Update the block randomness.
-        BlockRandomness::<T>::put(block_randomness);
-
         // Deposit solution range data such that light client can validate blocks later.
         frame_system::Pallet::<T>::deposit_log(DigestItem::solution_range(
             SolutionRanges::<T>::get().current,
         ));
 
         // Enact era change, if necessary.
-        T::EraChangeTrigger::trigger::<T>(block_number);
+        if <Pallet<T>>::should_era_change(block_number, consensus_constants.era_duration) {
+            <Pallet<T>>::enact_era_change(
+                current_slot,
+                consensus_constants.era_duration,
+                consensus_constants.slot_probability,
+            );
+        }
 
         {
             let mut pot_slot_iterations =
@@ -753,12 +624,14 @@ impl<T: Config> Pallet<T> {
                 };
                 PotSlotIterations::<T>::put(pot_slot_iterations);
             }
-            let pot_entropy_injection_interval = T::PotEntropyInjectionInterval::get();
-            let pot_entropy_injection_delay = T::PotEntropyInjectionDelay::get();
+            let pot_entropy_injection_interval = consensus_constants.pot_entropy_injection_interval;
+            let pot_entropy_injection_delay = consensus_constants.pot_entropy_injection_delay;
 
             let mut entropy = PotEntropy::<T>::get();
             let lookback_in_blocks = pot_entropy_injection_interval
-                * BlockNumberFor::<T>::from(T::PotEntropyInjectionLookbackDepth::get());
+                * BlockNumberFor::<T>::from(
+                    consensus_constants.pot_entropy_injection_lookback_depth,
+                );
             let last_entropy_injection_block =
                 block_number / pot_entropy_injection_interval * pot_entropy_injection_interval;
             let maybe_entropy_source_block_number =
@@ -769,7 +642,7 @@ impl<T: Config> Pallet<T> {
                     &pre_digest.solution().chunk,
                     pre_digest.pot_info().proof_of_time(),
                 );
-                // Collect entropy every `T::PotEntropyInjectionInterval` blocks
+                // Collect entropy every `pot_entropy_injection_interval` blocks
                 entropy.insert(
                     block_number,
                     PotEntropyValue {
@@ -864,14 +737,6 @@ impl<T: Config> Pallet<T> {
             ));
         }
 
-        if let Some((public_key, sector_index, piece_offset, scalar, slot, _reward_address)) =
-            CurrentBlockAuthorInfo::<T>::get()
-        {
-            ParentBlockAuthorInfo::<T>::put((public_key, sector_index, piece_offset, scalar, slot));
-        } else {
-            ParentBlockAuthorInfo::<T>::take();
-        }
-
         DidProcessSegmentHeaders::<T>::take();
     }
 
@@ -928,14 +793,15 @@ impl<T: Config> Pallet<T> {
 
     /// Proof of time parameters
     pub fn pot_parameters() -> PotParameters {
+        let consensus_constants = T::ConsensusConstants::get();
         let block_number = frame_system::Pallet::<T>::block_number();
         let pot_slot_iterations =
             PotSlotIterations::<T>::get().expect("Always initialized during genesis; qed");
-        let pot_entropy_injection_interval = T::PotEntropyInjectionInterval::get();
+        let pot_entropy_injection_interval = consensus_constants.pot_entropy_injection_interval;
 
         let entropy = PotEntropy::<T>::get();
         let lookback_in_blocks = pot_entropy_injection_interval
-            * BlockNumberFor::<T>::from(T::PotEntropyInjectionLookbackDepth::get());
+            * BlockNumberFor::<T>::from(consensus_constants.pot_entropy_injection_lookback_depth);
         let last_entropy_injection_block =
             block_number / pot_entropy_injection_interval * pot_entropy_injection_interval;
         let maybe_entropy_source_block_number =
@@ -975,14 +841,6 @@ impl<T: Config> Pallet<T> {
             slot_iterations: pot_slot_iterations.slot_iterations,
             next_change,
         }
-    }
-
-    /// Current slot number
-    pub fn current_slot() -> Slot {
-        BlockSlots::<T>::get()
-            .last_key_value()
-            .map(|(_block, slot)| *slot)
-            .unwrap_or_default()
     }
 
     /// Size of the archived history of the blockchain in bytes
@@ -1085,37 +943,11 @@ fn check_segment_headers<T: Config>(
 
 impl<T: Config> subspace_runtime_primitives::FindBlockRewardAddress<T::AccountId> for Pallet<T> {
     fn find_block_reward_address() -> Option<T::AccountId> {
-        CurrentBlockAuthorInfo::<T>::get().and_then(
-            |(_public_key, _sector_index, _piece_offset, _chunk, _slot, reward_address)| {
-                reward_address
-            },
-        )
-    }
-}
-
-impl<T: Config> frame_support::traits::Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
-    fn random(subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {
-        let mut subject = subject.to_vec();
-        subject.extend_from_slice(
-            BlockRandomness::<T>::get()
-                .expect("Block randomness is always set in block initialization; qed")
-                .as_ref(),
-        );
-
-        (
-            T::Hashing::hash(&subject),
-            frame_system::Pallet::<T>::current_block_number(),
-        )
-    }
-
-    fn random_seed() -> (T::Hash, BlockNumberFor<T>) {
-        (
-            T::Hashing::hash(
-                BlockRandomness::<T>::get()
-                    .expect("Block randomness is always set in block initialization; qed")
-                    .as_ref(),
-            ),
-            frame_system::Pallet::<T>::current_block_number(),
-        )
+        let pre_digest = frame_system::Pallet::<T>::digest()
+            .logs
+            .iter()
+            .find_map(|s| s.as_subspace_pre_digest::<T::AccountId>())
+            .expect("Block must always have pre-digest");
+        Some(pre_digest.solution().reward_address.clone())
     }
 }

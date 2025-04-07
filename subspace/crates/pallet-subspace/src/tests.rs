@@ -26,11 +26,7 @@ fn can_update_solution_range_on_era_change() {
     new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
-        assert_eq!(<Test as Config>::EraDuration::get(), 4);
-        assert_eq!(
-            <Test as Config>::InitialSolutionRange::get(),
-            INITIAL_SOLUTION_RANGE
-        );
+        assert_eq!(<Test as Config>::ConsensusConstants::get().era_duration, 4);
         let initial_solution_ranges = SolutionRanges {
             current: INITIAL_SOLUTION_RANGE,
             next: None,
@@ -90,10 +86,6 @@ fn can_override_solution_range_update() {
     new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
-        assert_eq!(
-            <Test as Config>::InitialSolutionRange::get(),
-            INITIAL_SOLUTION_RANGE
-        );
         let initial_solution_ranges = SolutionRanges {
             current: INITIAL_SOLUTION_RANGE,
             next: None,
@@ -111,7 +103,11 @@ fn can_override_solution_range_update() {
         assert_eq!(updated_solution_ranges.current, random_solution_range);
 
         // Era edge
-        progress_to_block(&keypair, <Test as Config>::EraDuration::get().into(), 1);
+        progress_to_block(
+            &keypair,
+            <Test as Config>::ConsensusConstants::get().era_duration,
+            1,
+        );
         // Next solution range should be updated to the same value as current due to override
         let updated_solution_ranges = Subspace::solution_ranges();
         assert_eq!(updated_solution_ranges.current, random_solution_range);
@@ -124,11 +120,7 @@ fn solution_range_should_not_update_when_disabled() {
     new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
-        assert_eq!(<Test as Config>::EraDuration::get(), 4);
-        assert_eq!(
-            <Test as Config>::InitialSolutionRange::get(),
-            INITIAL_SOLUTION_RANGE
-        );
+        assert_eq!(<Test as Config>::ConsensusConstants::get().era_duration, 4);
         let initial_solution_ranges = SolutionRanges {
             current: INITIAL_SOLUTION_RANGE,
             next: None,
