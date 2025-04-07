@@ -22,6 +22,7 @@ use crate::metrics::NodeMetrics;
 use crate::sync_from_dsn::piece_validator::SegmentCommitmentPieceValidator;
 use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::sync_from_dsn::DsnPieceGetter;
+use crate::task_spawner::SpawnTasksParams;
 use async_lock::Semaphore;
 use core::sync::atomic::{AtomicU32, Ordering};
 use frame_system_rpc_runtime_api::AccountNonceApi;
@@ -62,7 +63,7 @@ use sc_proof_of_time::verifier::PotVerifier;
 use sc_service::error::Error as ServiceError;
 use sc_service::{
     build_network_advanced, build_polkadot_syncing_strategy, BuildNetworkAdvancedParams,
-    Configuration, NetworkStarter, SpawnTasksParams, TaskManager,
+    Configuration, NetworkStarter, TaskManager,
 };
 use sc_subspace_block_relay::{
     build_consensus_relay, BlockRelayConfigurationError, NetworkWrapper,
@@ -433,8 +434,6 @@ where
     pub network_service: Arc<dyn NetworkService + Send + Sync>,
     /// Sync service.
     pub sync_service: Arc<sc_network_sync::SyncingService<Block>>,
-    /// RPC handlers.
-    pub rpc_handlers: sc_service::RpcHandlers,
     /// Full client backend.
     pub backend: Arc<FullBackend>,
     /// Pot slot info stream.
@@ -498,7 +497,7 @@ where
         segment_headers_store,
         pot_verifier,
         sync_target_block_number,
-        mut telemetry,
+        telemetry,
     } = other;
 
     let (node, bootstrap_nodes, piece_getter) = match config.subspace_networking {
@@ -642,7 +641,7 @@ where
 
     let network_service_provider = NetworkServiceProvider::new();
     let network_service_handle = network_service_provider.handle();
-    let (network_service, system_rpc_tx, tx_handler_controller, network_starter, sync_service) = {
+    let (network_service, _system_rpc_tx, tx_handler_controller, network_starter, sync_service) = {
         let spawn_handle = task_manager.spawn_handle();
         let metrics = NotificationMetrics::new(substrate_prometheus_registry.as_ref());
 
@@ -969,10 +968,9 @@ where
     // We replace the Substrate implementation of metrics server with our own.
     config.base.prometheus_config.take();
 
-    let rpc_handlers = task_spawner::spawn_tasks(SpawnTasksParams {
+    task_spawner::spawn_tasks(SpawnTasksParams {
         network: network_service.clone(),
         client: client.clone(),
-        keystore: keystore_container.keystore(),
         task_manager: &mut task_manager,
         transaction_pool: transaction_pool.clone(),
         rpc_builder: if enable_rpc_extensions {
@@ -981,12 +979,10 @@ where
             let reward_signing_notification_stream = reward_signing_notification_stream.clone();
             let object_mapping_notification_stream = object_mapping_notification_stream.clone();
             let archived_segment_notification_stream = archived_segment_notification_stream.clone();
-            let transaction_pool = transaction_pool.clone();
 
             Box::new(move |subscription_executor| {
                 let deps = rpc::FullDeps {
                     client: client.clone(),
-                    pool: transaction_pool.clone(),
                     subscription_executor,
                     new_slot_notification_stream: new_slot_notification_stream.clone(),
                     reward_signing_notification_stream: reward_signing_notification_stream.clone(),
@@ -1005,10 +1001,7 @@ where
         } else {
             Box::new(|_| Ok(RpcModule::new(())))
         },
-        backend: backend.clone(),
-        system_rpc_tx,
         config: config.base,
-        telemetry: telemetry.as_mut(),
         tx_handler_controller,
         sync_service: sync_service.clone(),
     })?;
@@ -1019,7 +1012,6 @@ where
         select_chain,
         network_service,
         sync_service,
-        rpc_handlers,
         backend,
         pot_slot_info_stream: additional_pot_slot_info_stream,
         new_slot_notification_stream,

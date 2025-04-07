@@ -96,6 +96,7 @@ sc-network = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed
 sc-network-common = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
 sc-network-gossip = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
 sc-network-sync = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
+sc-network-transactions = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
 sc-offchain = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }
 sc-proof-of-time = { version = "0.1.0", path = "crates/sc-proof-of-time" }
 sc-rpc = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa" }

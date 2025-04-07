@@ -6927,22 +6927,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-transaction-payment-rpc"
-version = "42.0.0"
-source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
-dependencies = [
- "jsonrpsee 0.24.8",
- "pallet-transaction-payment-rpc-runtime-api",
- "parity-scale-codec",
- "sp-api",
- "sp-blockchain",
- "sp-core",
- "sp-rpc",
- "sp-runtime",
- "sp-weights",
-]
-
-[[package]]
 name = "pallet-transaction-payment-rpc-runtime-api"
 version = "39.0.0"
 source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
@@ -11960,7 +11944,6 @@ dependencies = [
  "futures",
  "hex",
  "jsonrpsee 0.24.8",
- "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -11977,14 +11960,13 @@ dependencies = [
  "sc-informant",
  "sc-network",
  "sc-network-sync",
+ "sc-network-transactions",
  "sc-offchain",
  "sc-proof-of-time",
  "sc-rpc",
- "sc-rpc-api",
  "sc-service",
  "sc-subspace-block-relay",
  "sc-subspace-sync-common",
- "sc-sysinfo",
  "sc-telemetry",
  "sc-tracing",
  "sc-transaction-pool",
@@ -12013,7 +11995,6 @@ dependencies = [
  "subspace-proof-of-space",
  "subspace-runtime-primitives",
  "subspace-verification",
- "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
  "thiserror 2.0.12",
  "tokio",
@@ -12049,26 +12030,6 @@ dependencies = [
 name = "substrate-build-script-utils"
 version = "11.0.0"
 source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
-
-[[package]]
-name = "substrate-frame-rpc-system"
-version = "42.0.0"
-source = "git+https://github.com/subspace/polkadot-sdk?rev=7c38b7ed5742bb3b53fc97f61da46033c48f9eaa#7c38b7ed5742bb3b53fc97f61da46033c48f9eaa"
-dependencies = [
- "docify",
- "frame-system-rpc-runtime-api",
- "futures",
- "jsonrpsee 0.24.8",
- "log",
- "parity-scale-codec",
- "sc-rpc-api",
- "sc-transaction-pool-api",
- "sp-api",
- "sp-block-builder",
- "sp-blockchain",
- "sp-core",
- "sp-runtime",
-]
 
 [[package]]
 name = "substrate-prometheus-endpoint"

@@ -23,7 +23,6 @@ frame-benchmarking = { workspace = true, optional = true }
 futures.workspace = true
 hex.workspace = true
 jsonrpsee = { workspace = true, features = ["server-core"] }
-pallet-transaction-payment-rpc.workspace = true
 parity-scale-codec.workspace = true
 parking_lot.workspace = true
 prometheus-client.workspace = true
@@ -39,12 +38,11 @@ sc-executor.workspace = true
 sc-informant.workspace = true
 sc-network.workspace = true
 sc-network-sync.workspace = true
+sc-network-transactions.workspace = true
 sc-offchain.workspace = true
 sc-proof-of-time.workspace = true
 sc-rpc.workspace = true
-sc-rpc-api.workspace = true
 sc-service.workspace = true
-sc-sysinfo.workspace = true
 sc-subspace-block-relay.workspace = true
 sc-telemetry.workspace = true
 sc-tracing.workspace = true
@@ -74,7 +72,6 @@ subspace-proof-of-space.workspace = true
 subspace-runtime-primitives.workspace = true
 sc-subspace-sync-common.workspace = true
 subspace-verification.workspace = true
-substrate-frame-rpc-system.workspace = true
 substrate-prometheus-endpoint.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
