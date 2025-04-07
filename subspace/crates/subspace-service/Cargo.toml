@@ -39,7 +39,6 @@ sc-informant.workspace = true
 sc-network.workspace = true
 sc-network-sync.workspace = true
 sc-network-transactions.workspace = true
-sc-offchain.workspace = true
 sc-proof-of-time.workspace = true
 sc-rpc.workspace = true
 sc-service.workspace = true

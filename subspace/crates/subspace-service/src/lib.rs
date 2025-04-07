@@ -27,14 +27,13 @@ use async_lock::Semaphore;
 use core::sync::atomic::{AtomicU32, Ordering};
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::channel::oneshot;
-use futures::FutureExt;
 use jsonrpsee::RpcModule;
 use pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi;
 use parking_lot::Mutex;
 use prometheus_client::registry::Registry;
 use sc_basic_authorship::ProposerFactory;
 use sc_chain_spec::GenesisBlockBuilder;
-use sc_client_api::{AuxStore, Backend, BlockBackend, BlockchainEvents, HeaderBackend};
+use sc_client_api::{AuxStore, BlockBackend, BlockchainEvents, HeaderBackend};
 use sc_consensus::{
     BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport,
     DefaultImportQueue, ImportQueue, ImportResult,
@@ -69,7 +68,6 @@ use sc_subspace_block_relay::{
     build_consensus_relay, BlockRelayConfigurationError, NetworkWrapper,
 };
 use sc_transaction_pool::TransactionPoolHandle;
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ConstructRuntimeApi, Metadata, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderMetadata;
@@ -459,7 +457,7 @@ where
         backend,
         mut task_manager,
         import_queue,
-        keystore_container,
+        keystore_container: _,
         select_chain,
         transaction_pool,
         other,
@@ -808,29 +806,6 @@ where
                 error!("Failed to initialize node metrics: {err:?}");
             }
         }
-    }
-
-    let offchain_tx_pool_factory = OffchainTransactionPoolFactory::new(transaction_pool.clone());
-
-    if config.base.offchain_worker.enabled {
-        let offchain_workers =
-            sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
-                runtime_api_provider: client.clone(),
-                is_validator: config.base.role.is_authority(),
-                keystore: Some(keystore_container.keystore()),
-                offchain_db: backend.offchain_storage(),
-                transaction_pool: Some(offchain_tx_pool_factory),
-                network_provider: Arc::new(network_service.clone()),
-                enable_http_requests: true,
-                custom_extensions: |_| vec![],
-            })?;
-        task_manager.spawn_handle().spawn(
-            "offchain-workers-runner",
-            "offchain-worker",
-            offchain_workers
-                .run(client.clone(), task_manager.spawn_handle())
-                .boxed(),
-        );
     }
 
     let backoff_authoring_blocks: Option<()> = None;
