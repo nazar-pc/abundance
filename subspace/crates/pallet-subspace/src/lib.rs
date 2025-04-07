@@ -100,12 +100,10 @@ pub mod pallet {
     use sp_std::num::NonZeroU32;
     use sp_std::prelude::*;
     use subspace_core_primitives::hashes::Blake3Hash;
-    use subspace_core_primitives::pieces::PieceOffset;
     use subspace_core_primitives::pot::PotCheckpoints;
-    use subspace_core_primitives::sectors::SectorIndex;
     use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
     use subspace_core_primitives::solutions::SolutionRange;
-    use subspace_core_primitives::{PublicKey, Randomness, ScalarBytes};
+    use subspace_core_primitives::{PublicKey, Randomness};
 
     /// Override for next solution range adjustment
     #[derive(Debug, Encode, Decode, TypeInfo)]
@@ -294,20 +292,6 @@ pub mod pallet {
     /// It is then cleared at the end of each block execution in the `on_finalize` hook.
     #[pallet::storage]
     pub(super) type DidProcessSegmentHeaders<T: Config> = StorageValue<_, bool, ValueQuery>;
-
-    /// Block author information
-    #[pallet::storage]
-    pub(super) type CurrentBlockAuthorInfo<T: Config> = StorageValue<
-        _,
-        (
-            PublicKey,
-            SectorIndex,
-            PieceOffset,
-            ScalarBytes,
-            Slot,
-            Option<T::AccountId>,
-        ),
-    >;
 
     /// Number of iterations for proof of time per slot with optional scheduled update
     #[pallet::storage]
@@ -573,8 +557,6 @@ impl<T: Config> Pallet<T> {
         CurrentSlot::<T>::put(pre_digest.slot());
 
         {
-            // Remove old value
-            CurrentBlockAuthorInfo::<T>::take();
             let farmer_public_key = pre_digest.solution().public_key;
 
             // Optional restriction for block authoring to the root user
@@ -594,24 +576,6 @@ impl<T: Config> Pallet<T> {
                     }
                 });
             }
-
-            let key = (
-                farmer_public_key,
-                pre_digest.solution().sector_index,
-                pre_digest.solution().piece_offset,
-                pre_digest.solution().chunk,
-                current_slot,
-            );
-            let (public_key, sector_index, piece_offset, chunk, slot) = key;
-
-            CurrentBlockAuthorInfo::<T>::put((
-                public_key,
-                sector_index,
-                piece_offset,
-                chunk,
-                slot,
-                Some(pre_digest.solution().reward_address.clone()),
-            ));
         }
 
         // If solution range was updated in previous block, set it as current.
@@ -992,11 +956,12 @@ fn check_segment_headers<T: Config>(
 
 impl<T: Config> subspace_runtime_primitives::FindBlockRewardAddress<T::AccountId> for Pallet<T> {
     fn find_block_reward_address() -> Option<T::AccountId> {
-        CurrentBlockAuthorInfo::<T>::get().and_then(
-            |(_public_key, _sector_index, _piece_offset, _chunk, _slot, reward_address)| {
-                reward_address
-            },
-        )
+        let pre_digest = frame_system::Pallet::<T>::digest()
+            .logs
+            .iter()
+            .find_map(|s| s.as_subspace_pre_digest::<T::AccountId>())
+            .expect("Block must always have pre-digest");
+        Some(pre_digest.solution().reward_address.clone())
     }
 }
 
