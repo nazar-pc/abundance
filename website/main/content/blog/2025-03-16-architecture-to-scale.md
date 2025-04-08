@@ -9,7 +9,9 @@ authors: [ adlrocha ]
 
 I want to kick-off my first weekly update in the project thanking Nazar for the warm welcome and the opportunity to work with him on this exciting project. I was really pumped to see other teams actively working on a similar problem to the one I started researching more than three years ago. For several reasons, I wasn't actively contributing to this problem any more, but this opportunity was the perfect excuse to get back to the game.
 
-> If you are curious about my previous work on the matter before joining Nazar, feel free to skim through [this paper](https://research.protocol.ai/publications/hierarchical-consensus-a-horizontal-scaling-framework-for-blockchains/delarocha2022.pdf) to get the gist of it. 
+<!--more-->
+
+> If you are curious about my previous work on the matter before joining Nazar, feel free to skim through [this paper](https://research.protocol.ai/publications/hierarchical-consensus-a-horizontal-scaling-framework-for-blockchains/delarocha2022.pdf) to get the gist of it.
 
 ## Background
 First things first, what exactly is this problem that I am referring to? At least the description of the problem is simple, _"we want to design blockchain infrastructure that can scale to the size of the Internet"_. The system should be able to host applications ranging from high-throughput media-intensive social networks and virtual worlds; to those that require more strict trust requirements and security guarantees, likeweb3-native and financial applications.
@@ -47,7 +49,7 @@ With this in mind, this is the high-level architecture that I've been tinkering 
 - Aggregate microblocks from underlying LANs and checkpoint their state through macroblocks (combining microblocks and WAN transactions).
 - Handles cross-cluster transactions within a region
 - Runs a Nakamoto-based consensus based on Subspace's consensus basic primitives (i.e. employs erasure coding for data availability and Proof-of-Archival).
-- All WANs are equal in terms of capabilities, and farmers are randomly assigned to more than one WAN (depending on the farmer population). 
+- All WANs are equal in terms of capabilities, and farmers are randomly assigned to more than one WAN (depending on the farmer population).
 - The target block times of WANs should be similar (or better) to the ones that Autonomys currently have.
 - WAN (as is the case for LANs) have full blockchain functionalities (transactions, smart contract executions, etc.).
 
@@ -60,7 +62,7 @@ With this in mind, this is the high-level architecture that I've been tinkering 
 ## What's next?
 Obviously, many projects, from Polkadot to Optimism or Cosmos, have already realised that the best wayy to scale blockchains to support different kinds of applications is to deploy a set of subnetworks that are able to operate as a whole. So the architecture I described above doesn't add much innovation in itself. However, I think that the key to achieve global scale is on the underlying mechanics. Using the system should be as seamless as using the Internet today.
 
-For the first few strokes I will focus on designing Layers 1 and 2. This next week I want to focus on coming up with the membership protocol responsible for assigning, and the lifecycle of a transaction in the hierarchy i.e. how blocks are created, validated, and executed in the different layers, and the mechanism used to store and interleave the history of all the networks in the system. 
+For the first few strokes I will focus on designing Layers 1 and 2. This next week I want to focus on coming up with the membership protocol responsible for assigning, and the lifecycle of a transaction in the hierarchy i.e. how blocks are created, validated, and executed in the different layers, and the mechanism used to store and interleave the history of all the networks in the system.
 
 To help me with this I am going to review again these papers for inspiration:
 - [Bicomp: A Bilayer Scalable Nakamoto Consensus Protocol](https://arxiv.org/abs/1809.01593)
