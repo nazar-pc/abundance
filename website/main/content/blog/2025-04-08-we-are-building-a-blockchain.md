@@ -1,6 +1,6 @@
 ---
 title: We are building a blockchain
-date: 2025-04-07
+date: 2025-04-08
 draft: false
 description: About what are we doing and why
 tags: [ announcement ]
