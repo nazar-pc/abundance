@@ -18,7 +18,7 @@ Using Subspace as the core protocol for our design has several advantages:
 
 
 ## High-level intuition for a multi-shard Subspace protocol
-At this point you may be wondering already how does a multi-shard Subspace protocol would look like. I still don't have the low-level details for the design, but at least I already have the really high-level intuition of how this could work. 
+At this point you may be wondering already how does a multi-shard Subspace protocol would look like. I still don't have the low-level details for the design, but at least I already have the really high-level intuition of how this could work.
 - As discussed in previous documents, ideally the protocol should be recursive and allow for infinite horizontal scaling by including deeper layers of shards
 - The beacon chain (or main chain as referred to in some of the literature), is the main chain responsible for orchestrating the lifecycle and securing all the shards of the system. As such, all the population of farmers in the system participate from the system (see image below).
 - By being part of the beacon chain, farmers are also implicitly proposing blocks from the underlying shards. High-level, the idea for the design is that the history buffer is populated with records belonging to the history of all shards in the system, and each of proof-of-time slot a new winning ticket will be drawn for each shard. The farmer encountering this winning ticket is responsible for sealing and broadcasting the newly proposed block for the shard they have the winning ticket for.
@@ -33,7 +33,7 @@ At this point you may be wondering already how does a multi-shard Subspace proto
 - Each shard has its own independent transaction pool with transactions initiated in that chain.
 - Each Proof-of-Time (PoT) chain slot, the randomness beacon triggers a global farming process, where each farmer runs a protocol to extract a winning chunk. Ideally, there should be at least a winner for each shard. The way in which we determine if the winning ticket belongs to a specific shard is by checking to which shard the winning chunk belongs.
 - When a farmer creates a block for a shard it broadcast the block to the corresponding shard and the header to the beacon chain. In this way, blocks in the beacon chain aggregate all the lower layer blocks that have been proposed so far. Blocks in the beacon chain are included in the history buffer, and as this blocks include the headers for the underlying shard blocks, the history buffer implicitly includes all shards blocks.
-- The archiving is done over this global history, and when a new shard block is encountered in a genesis block, its content needs to be pulled to included in the archived history. 
+- The archiving is done over this global history, and when a new shard block is encountered in a genesis block, its content needs to be pulled to included in the archived history.
 - Not all farmers need to keep the state of all shards (as it would deem the use of a sharded architecture useless). As such, every epoch (determined by a window of `N` slots) there is a random assignments for farmers to shards as "executors". This assignment prevents potential collusion among farmers by keeping shard membership static. This epochs should be large enough to compensate for the "warm up" period between epoch changes where farmers may need to pull the latest state for their new shard if they don't have it.
 
 <p align="center">
@@ -51,7 +51,7 @@ The high-level description shared above is great to gain an intuition of how a s
 - How should we recover from an attack in a shard?
 
 So you see that there are a lot of unanswered questions. With all of this in mind, we narrowed a bit more the design space coming up with the following ideas --exploring these will be my focus on the coming week--:
-- Instead of having a global archiving protocol that requires every farmer to have knowledge about the state in every shard, there will be independent archiving in each shard. 
+- Instead of having a global archiving protocol that requires every farmer to have knowledge about the state in every shard, there will be independent archiving in each shard.
 - Shards will notify new segments to their parent chains and the beacon chain by submitting segment headers. New segments in shards are created with a local sequence ID. When the segments are committed to the beacon chain, they are assigned a global ID that sequences shard segments into a global history buffer (see figure below with a rough illustration of how this could work).
 - Farmers are notified about new segments. If there are new pieces within their cache limit they try to go to the DHT and fetch a piece to include in their sector.
 - Plots are tight to a specific shard. Farmers commit to farm in full branches of the hierarchical tree where they will be entitled to farm new blocks. In order to be able to do so, they'll need to dedicate their storage to plotting on those shards (as it happens in single-chain Subspace). Along with keeping shard plots for all the shards in that branch of the tree, they will obviously also need to track the transaction pool for unverified transactions, and keep at least the most recent state for the shard.
