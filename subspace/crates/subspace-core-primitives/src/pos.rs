@@ -3,7 +3,9 @@
 use crate::hashes::{blake3_hash, Blake3Hash};
 use core::fmt;
 use derive_more::{Deref, DerefMut, From, Into};
+#[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -18,7 +20,10 @@ pub struct PosSeed([u8; PosSeed::SIZE]);
 
 impl fmt::Debug for PosSeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -28,14 +33,19 @@ impl PosSeed {
 }
 
 /// Proof of space proof bytes.
-#[derive(
-    Copy, Clone, Eq, PartialEq, Deref, DerefMut, From, Into, Encode, Decode, TypeInfo, MaxEncodedLen,
+#[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut, From, Into)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 pub struct PosProof([u8; PosProof::SIZE]);
 
 impl fmt::Debug for PosProof {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 

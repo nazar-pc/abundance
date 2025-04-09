@@ -9,7 +9,9 @@ use core::array::TryFromSliceError;
 use core::fmt;
 use derive_more::{AsMut, AsRef, Deref, DerefMut, From, Into};
 use num_traits::WrappingSub;
+#[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -64,14 +66,16 @@ const_assert!(solution_range_to_pieces(pieces_to_solution_range(3, (1, 6)), (1, 
 const_assert!(solution_range_to_pieces(pieces_to_solution_range(5, (1, 6)), (1, 6)) == 5);
 
 /// A Ristretto Schnorr signature as bytes produced by `schnorrkel` crate.
-#[derive(
-    Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, TypeInfo, Deref, From, Into,
-)]
+#[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Deref, From, Into)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 pub struct RewardSignature([u8; RewardSignature::SIZE]);
 
 impl fmt::Debug for RewardSignature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -128,27 +132,20 @@ impl RewardSignature {
 }
 
 /// Witness for chunk contained within a record.
-#[derive(
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Hash,
-    Deref,
-    DerefMut,
-    From,
-    Into,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[repr(transparent)]
 pub struct ChunkWitness([u8; ChunkWitness::SIZE]);
 
 impl fmt::Debug for ChunkWitness {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -228,7 +225,8 @@ impl ChunkWitness {
 }
 
 /// Farmer solution for slot challenge.
-#[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Solution<RewardAddress> {

@@ -18,7 +18,7 @@ futures.workspace = true
 hex = { workspace = true, features = ["std"] }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 subspace-archiving.workspace = true
-subspace-core-primitives = { workspace = true, features = ["std"] }
+subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 subspace-erasure-coding.workspace = true
 subspace-runtime-primitives = { workspace = true, features = ["std"] }
 thiserror.workspace = true

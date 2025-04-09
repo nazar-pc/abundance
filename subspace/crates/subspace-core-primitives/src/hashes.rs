@@ -4,7 +4,9 @@ use crate::ScalarBytes;
 use core::array::TryFromSliceError;
 use core::fmt;
 use derive_more::{AsMut, AsRef, Deref, DerefMut, From, Into};
+#[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -27,10 +29,10 @@ use serde::{Deserializer, Serializer};
     AsMut,
     Deref,
     DerefMut,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
+)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 pub struct Blake3Hash([u8; Blake3Hash::SIZE]);
 
@@ -76,7 +78,10 @@ impl<'de> Deserialize<'de> for Blake3Hash {
 
 impl fmt::Debug for Blake3Hash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
