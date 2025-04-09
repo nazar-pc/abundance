@@ -101,15 +101,7 @@ impl Playground {
         }
 
         self.total_supply += value;
-
-        match to.get_mut() {
-            Some(contents) => {
-                contents.balance += value;
-            }
-            None => {
-                to.replace(Slot { balance: value });
-            }
-        }
+        to.get_mut_or_default().balance += value;
 
         last_action.replace(LastAction::Mint);
 
@@ -180,14 +172,7 @@ impl Playground {
             }
         }
 
-        match to.get_mut() {
-            Some(contents) => {
-                contents.balance += amount;
-            }
-            None => {
-                to.replace(Slot { balance: amount });
-            }
-        }
+        to.get_mut_or_default().balance += amount;
 
         last_action.replace(LastAction::Transfer);
 
