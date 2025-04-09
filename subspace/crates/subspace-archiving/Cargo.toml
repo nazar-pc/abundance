@@ -50,7 +50,6 @@ std = [
     "rand?/std",
     "rand?/std_rng",
     "serde",
-    "subspace-core-primitives/std",
     "subspace-erasure-coding/std",
     "subspace-kzg/std",
     "thiserror/std",

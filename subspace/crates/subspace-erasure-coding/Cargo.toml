@@ -30,7 +30,6 @@ default = ["std", "parallel"]
 std = [
     "kzg/std",
     "rust-kzg-blst/std",
-    "subspace-core-primitives/std",
     "subspace-kzg/std",
 ]
 parallel = ["rust-kzg-blst/parallel"]

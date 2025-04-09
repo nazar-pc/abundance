@@ -49,15 +49,3 @@ serde = [
     "bytes/serde",
     "hex/serde",
 ]
-std = [
-    "alloc",
-    "blake3/std",
-    "bytes?/std",
-    "derive_more/std",
-    "hex/std",
-    "num-traits/std",
-    "parity-scale-codec?/std",
-    "scale-info?/std",
-    "serde?/std",
-    "uint/std",
-]

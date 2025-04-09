@@ -39,7 +39,6 @@ kzg = [
 std = [
     "parity-scale-codec?/std",
     "schnorrkel/std",
-    "subspace-core-primitives/std",
     "subspace-kzg?/std",
     "thiserror/std"
 ]
