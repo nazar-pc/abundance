@@ -95,7 +95,6 @@ std = [
     "sp-std/std",
     "sp-transaction-pool/std",
     "sp-version/std",
-    "subspace-core-primitives/std",
     "subspace-runtime-primitives/std",
     "substrate-wasm-builder",
 ]

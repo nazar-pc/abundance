@@ -38,7 +38,6 @@ harness = false
 [features]
 default = ["std"]
 std = [
-    "subspace-core-primitives/std",
     "thiserror/std",
     "rand?/std",
     "rand?/std_rng",

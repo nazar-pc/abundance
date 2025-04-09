@@ -21,6 +21,5 @@ subspace-runtime-primitives.workspace = true
 default = ["std"]
 std = [
     "sp-api/std",
-    "subspace-core-primitives/std",
     "subspace-runtime-primitives/std",
 ]

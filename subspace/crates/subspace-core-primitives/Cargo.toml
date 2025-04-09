@@ -12,14 +12,14 @@ include = [
 
 [dependencies]
 blake3.workspace = true
-bytes.workspace = true
+bytes = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["full"] }
-hex = { workspace = true, features = ["alloc"] }
+hex = { workspace = true }
 num-traits.workspace = true
-parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"] }
+parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
 rayon = { workspace = true, optional = true }
-scale-info = { workspace = true, features = ["derive"] }
-serde = { workspace = true, features = ["alloc", "derive"], optional = true }
+scale-info = { workspace = true, features = ["derive"], optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
 serde-big-array.workspace = true
 static_assertions.workspace = true
 uint.workspace = true
@@ -28,10 +28,15 @@ uint.workspace = true
 rand = { workspace = true, features = ["min_const_gen", "std", "std_rng"] }
 
 [features]
-default = [
-    "serde",
-    "std",
-    "parallel",
+alloc = [
+    "dep:bytes",
+    "hex/alloc",
+    "serde/alloc",
+]
+scale-codec = [
+    "dep:parity-scale-codec",
+    "dep:scale-info",
+    "alloc",
 ]
 # Enables some APIs
 parallel = [
@@ -39,18 +44,8 @@ parallel = [
     "dep:rayon",
 ]
 serde = [
+    "alloc",
     "dep:serde",
     "bytes/serde",
     "hex/serde",
-]
-std = [
-    "blake3/std",
-    "bytes/std",
-    "derive_more/std",
-    "hex/std",
-    "num-traits/std",
-    "parity-scale-codec/std",
-    "scale-info/std",
-    "serde?/std",
-    "uint/std",
 ]

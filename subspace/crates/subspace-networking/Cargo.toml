@@ -38,7 +38,7 @@ rand.workspace = true
 schnellru.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-subspace-core-primitives.workspace = true
+subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 subspace-logging.workspace = true
 subspace-metrics.workspace = true
 thiserror.workspace = true

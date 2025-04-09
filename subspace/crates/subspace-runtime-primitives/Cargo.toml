@@ -40,7 +40,6 @@ std = [
     "serde/std",
     "sp-core/std",
     "sp-runtime/std",
-    "subspace-core-primitives/std",
 ]
 testing = [
     "sp-io"

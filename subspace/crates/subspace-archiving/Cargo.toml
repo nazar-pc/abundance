@@ -20,7 +20,7 @@ bench = false
 parity-scale-codec = { workspace = true, features = ["derive"] }
 rayon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
-subspace-core-primitives.workspace = true
+subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 subspace-erasure-coding.workspace = true
 subspace-kzg.workspace = true
 thiserror.workspace = true
@@ -50,7 +50,6 @@ std = [
     "rand?/std",
     "rand?/std_rng",
     "serde",
-    "subspace-core-primitives/std",
     "subspace-erasure-coding/std",
     "subspace-kzg/std",
     "thiserror/std",

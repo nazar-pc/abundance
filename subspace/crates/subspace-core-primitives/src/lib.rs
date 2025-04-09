@@ -1,17 +1,11 @@
 //! Core primitives for Subspace Network.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-#![warn(rust_2018_idioms, missing_docs)]
-#![cfg_attr(feature = "std", warn(missing_debug_implementations))]
-#![feature(
-    array_chunks,
-    const_trait_impl,
-    const_try,
-    new_zeroed_alloc,
-    portable_simd,
-    step_trait
-)]
+#![no_std]
+#![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
+#![feature(array_chunks, const_trait_impl, const_try, portable_simd, step_trait)]
+#![cfg_attr(feature = "alloc", feature(new_zeroed_alloc))]
 
+#[cfg(feature = "scale-codec")]
 pub mod checksum;
 pub mod hashes;
 pub mod objects;
@@ -24,11 +18,16 @@ pub mod solutions;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 use crate::hashes::{blake3_hash, blake3_hash_list, Blake3Hash};
 use core::fmt;
 use derive_more::{Add, AsMut, AsRef, Deref, DerefMut, Display, Div, From, Into, Mul, Rem, Sub};
 use num_traits::{WrappingAdd, WrappingSub};
+#[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -43,14 +42,19 @@ const_assert!(core::mem::size_of::<usize>() >= core::mem::size_of::<u32>());
 pub const REWARD_SIGNING_CONTEXT: &[u8] = b"subspace_reward";
 
 /// Type of randomness.
-#[derive(
-    Default, Copy, Clone, Eq, PartialEq, From, Into, Deref, Encode, Decode, TypeInfo, MaxEncodedLen,
+#[derive(Default, Copy, Clone, Eq, PartialEq, From, Into, Deref)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 pub struct Randomness([u8; Randomness::SIZE]);
 
 impl fmt::Debug for Randomness {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -134,27 +138,16 @@ pub type SlotNumber = u64;
 pub type BlockWeight = u128;
 
 /// A Ristretto Schnorr public key as bytes produced by `schnorrkel` crate.
-#[derive(
-    Default,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Encode,
-    Decode,
-    TypeInfo,
-    Deref,
-    From,
-    Into,
-)]
+#[derive(Default, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Deref, From, Into)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 pub struct PublicKey([u8; PublicKey::SIZE]);
 
 impl fmt::Debug for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -200,7 +193,10 @@ impl<'de> Deserialize<'de> for PublicKey {
 
 impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -237,17 +233,18 @@ impl PublicKey {
     AsMut,
     Deref,
     DerefMut,
-    Encode,
-    Decode,
-    TypeInfo,
 )]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 pub struct ScalarBytes([u8; ScalarBytes::FULL_BYTES]);
 
 impl fmt::Debug for ScalarBytes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -266,35 +263,25 @@ impl ScalarBytes {
 #[expect(clippy::manual_div_ceil)]
 mod private_u256 {
     //! This module is needed to scope clippy allows
+    #[cfg(feature = "scale-codec")]
     use parity_scale_codec::{Decode, Encode};
+    #[cfg(feature = "scale-codec")]
     use scale_info::TypeInfo;
 
     uint::construct_uint! {
-        #[derive(Encode, Decode, TypeInfo)]
+        #[cfg_attr(
+            feature = "scale-codec",
+            derive(Encode, Decode, TypeInfo)
+        )]
         pub struct U256(4);
     }
 }
 
 /// 256-bit unsigned integer
 #[derive(
-    Debug,
-    Display,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Rem,
-    Copy,
-    Clone,
-    Ord,
-    PartialOrd,
-    Eq,
-    PartialEq,
-    Hash,
-    Encode,
-    Decode,
-    TypeInfo,
+    Debug, Display, Add, Sub, Mul, Div, Rem, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash,
 )]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 pub struct U256(private_u256::U256);
 
 impl U256 {
