@@ -1,6 +1,6 @@
 # Everything is a contract
 
-Every contract has an address, which is just a monotonically increasing number. This is in contract to many blockchains
+Every contract has an address, which is just a monotonically increasing number. This is in contrast to many blockchains
 where address might be derived from a public key (in case of end user wallet) or code (of "smart contracts"). There is
 no separate notion of Externally Owned Account (EOA) like in Ethereum, end user wallets are also just contracts.
 
@@ -10,11 +10,12 @@ wallet contract to change its logic from verifying a single signature to multisi
 cryptography in the future, all while retaining its address/identity.
 
 This not only includes contracts created/deployed by users/developers, but also some fundamental blockchain features.
-For example, in most blockchains code of the contract is stored in a special location by the node and retrieved before
-processing a [transaction]. Here code is managed by a system `code` contract instead of the node as such, and deployment
-of a new contract is a call to system `code` contract instead of special host function provided by the node and `code`
-contract will store the code in the corresponding slot of the newly created contract (see [Storage model] below for more
-details).
+For example, there are system contracts like `code` and `state`. In most blockchains code of the contract is stored in a
+special location by the node and retrieved before processing a [transaction]. Here, `code` contract manages code of all
+contracts instead and deployment of a new contract is a call to system `code` contract. There is no special host
+function provided by the node. `code` contract will store the code in the corresponding slot of the newly created
+contract (see [Storage model] below for more details), which can be read by execution environment (which knows about
+system contracts).
 
 [transaction]: Transactions_overview#transactions-abstraction
 
@@ -48,7 +49,7 @@ abstract it in a more friendly way. It is possible for a contract to manage one 
 contract owns some number of its own tokens.
 
 A bit wrong, but hopefully useful analogy is cloud server. A server is owned by a provider, but managed by a customer.
-Provider typically doesn't have remote access to the server customer orders, all changes to the software that server
+A provider typically doesn't have remote access to the server customer orders, all changes to the software that server
 runs are done by the customer. Similarly, slots owned by a contract are managed by other contracts.
 
 In contrast to most other blockchains by "state" we refer to the inherent state of the contract itself, rather than
@@ -57,6 +58,51 @@ things that might belong to end-users. The right mental model is to think of it 
 Let's take a generic fungible token as an example. System `state` contract will manage its state, stored in
 corresponding slot owned by the token contract. State will contain things like total supply and potentially useful
 metadata like number of decimal places and ticker, but not balances of individual users.
+
+In pseudocode, more traditional blockchains:
+
+```
+fancy_token = {
+    // Global state
+    totalSupply: 50_000,
+    ticker: "FANCY",
+
+    // Individual balances of accoutns in a global hashmap
+    balances: {
+        alice_wallet: 10,
+        bob_wallet: 15,
+    },
+}
+```
+
+Described storage model with slots:
+
+```
+fancy_token = {
+    // Global state owned by `fancy_token` in a slot managed by `state` contract
+    state: {
+      totalSupply: 50_000,
+      ticker: "FANCY",
+    },
+    code: "...",
+}
+
+alice_wallet = {
+    // Balance owned by `alice_wallet` in a slot managed by `fancy_token` contract
+    fancy_token: {
+        balance: 10,
+    },
+    code: "...",
+}
+
+bob_wallet = {
+    // Balance owned by `bob_wallet` in a slot managed by `fancy_token` contract
+    fancy_token: {
+        balance: 15,
+    },
+    code: "...",
+}
+```
 
 The state of the contract (and any other slot) is typically bounded in size and defined by contract developer upfront.
 Bounded size allows execution environment to allocate the necessary amount of memory and to limit the amount of data
@@ -117,9 +163,9 @@ slots as the only way of persisting data between transactions.
 # Contract I/O
 
 Not only contract methods do not have access to general purpose key-value store (even if private to the contract), they
-don't have access to any other data except such that was explicitly provided as method input. They also can't return
-data in any other way except through return arguments. Execution environment will pre-allocate memory for all
-slots/outputs and provide it to the method to work with, removing a need for heap allocation in many cases.
+don't have access to any other data except what was explicitly provided as method input. They also can't return data in
+any other way except through return arguments. Execution environment will pre-allocate memory for all slots/outputs and
+provide it to the method to work with, removing a need for heap allocation in many cases.
 
 One can think about contract logic as a pure function: it takes inputs and slots, potentially modifies slots and returns
 outputs.
@@ -169,10 +215,10 @@ impl MyContract {
 }
 ```
 
-Environment handle allows calling other contracts and request ephemeral state, contract slots can be read and written
-to, inputs are read-only and outputs are write-only. `&` or `&mut` in Rust limits what can be done with these types,
-there is no other implicit "global" way to read or update ephemeral or permanent state of the blockchain except through
-these explicit arguments.
+Environment handle (`&Env` or `&mut Env`) allows calling other contracts and request ephemeral state, contract slots can
+be read and written to, inputs are read-only and outputs are write-only. `&` or `&mut` in Rust limits what can be done
+with these types, there is no other implicit "global" way to read or update ephemeral or permanent state of the
+blockchain except through these explicit arguments.
 
 Handling everything through explicit inputs and outputs results in straightforward implementation, analysis and testing
 approach without side effects. In many cases, even heap allocations can be avoided completely, leading to fast and

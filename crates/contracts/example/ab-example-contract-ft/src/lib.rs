@@ -75,15 +75,7 @@ impl ExampleFt {
         }
 
         self.total_supply += value;
-
-        match to.get_mut() {
-            Some(contents) => {
-                contents.balance += value;
-            }
-            None => {
-                to.replace(Slot { balance: value });
-            }
-        }
+        to.get_mut_or_default().balance += value;
 
         Ok(())
     }
@@ -128,14 +120,7 @@ impl ExampleFt {
             }
         }
 
-        match to.get_mut() {
-            Some(contents) => {
-                contents.balance += amount;
-            }
-            None => {
-                to.replace(Slot { balance: amount });
-            }
-        }
+        to.get_mut_or_default().balance += amount;
 
         Ok(())
     }

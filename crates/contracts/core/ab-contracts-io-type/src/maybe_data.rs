@@ -254,16 +254,17 @@ where
     /// Get exclusive access to initialized `Data`, running provided initialization function if
     /// necessary
     #[inline(always)]
-    pub fn get_mut_or_init_with<'a, Init>(&'a mut self, init: Init) -> &'a mut Data
+    pub fn get_mut_or_init_with<Init>(&mut self, init: Init) -> &mut Data
     where
-        Init: FnOnce(NonNull<Data>) -> &'a mut Data,
+        Init: FnOnce(&mut MaybeUninit<Data>) -> &mut Data,
     {
         // SAFETY: guaranteed to be initialized by constructors
         if unsafe { self.size.read() } == Data::SIZE {
             // SAFETY: initialized
             unsafe { self.data.as_mut() }
         } else {
-            let data = init(self.data);
+            // SAFETY: constructor guarantees that memory is aligned
+            let data = init(unsafe { self.data.as_uninit_mut() });
             // SAFETY: guaranteed to be initialized by constructors
             unsafe {
                 self.size.write(Data::SIZE);
@@ -285,5 +286,16 @@ where
         // SAFETY: guaranteed to be initialized by caller, the rest of guarantees are provided by
         // constructors
         unsafe { self.data.as_mut() }
+    }
+}
+
+impl<Data> MaybeData<Data>
+where
+    Data: TrivialType + Default,
+{
+    /// Get exclusive access to initialized `Data`, initializing with default value if necessary
+    #[inline(always)]
+    pub fn get_mut_or_default(&mut self) -> &mut Data {
+        self.get_mut_or_init_with(|data| data.write(Data::default()))
     }
 }
