@@ -1,0 +1,643 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Contracts overview - Project Abundance</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Project Abundance</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/nazar-pc/abundance/tree/main/book" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <style>
+.mdbook-alerts {
+  padding: 8px 16px;
+  margin-bottom: 16px;
+  border-left: 0.25em solid var(--mdbook-alerts-color);
+}
+
+.mdbook-alerts > *:first-child {
+  margin-top: 0;
+}
+
+.mdbook-alerts > *:last-child {
+  margin-bottom: 0;
+}
+
+.mdbook-alerts-title {
+  display: flex;
+  font-weight: 600;
+  align-items: center;
+  line-height: 1;
+  color: var(--mdbook-alerts-color);
+  text-transform: capitalize;
+}
+
+.mdbook-alerts-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.2em;
+  background-color: currentColor;
+  -webkit-mask: no-repeat center / 100%;
+  mask: no-repeat center / 100%;
+  -webkit-mask-image: var(--mdbook-alerts-icon);
+  mask-image: var(--mdbook-alerts-icon);
+}
+
+.mdbook-alerts-note {
+  --mdbook-alerts-color: rgb(9, 105, 218);
+  /* https://icon-sets.iconify.design/material-symbols/info-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 17q.425 0 .713-.288T13 16v-4q0-.425-.288-.712T12 11q-.425 0-.712.288T11 12v4q0 .425.288.713T12 17m0-8q.425 0 .713-.288T13 8q0-.425-.288-.712T12 7q-.425 0-.712.288T11 8q0 .425.288.713T12 9m0 13q-2.075 0-3.9-.788t-3.175-2.137q-1.35-1.35-2.137-3.175T2 12q0-2.075.788-3.9t2.137-3.175q1.35-1.35 3.175-2.137T12 2q2.075 0 3.9.788t3.175 2.137q1.35 1.35 2.138 3.175T22 12q0 2.075-.788 3.9t-2.137 3.175q-1.35 1.35-3.175 2.138T12 22m0-2q3.35 0 5.675-2.325T20 12q0-3.35-2.325-5.675T12 4Q8.65 4 6.325 6.325T4 12q0 3.35 2.325 5.675T12 20m0-8"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-tip {
+  --mdbook-alerts-color: rgb(26, 127, 55);
+  /* https://icon-sets.iconify.design/material-symbols/lightbulb-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 22q-.825 0-1.412-.587T10 20h4q0 .825-.587 1.413T12 22m-3-3q-.425 0-.712-.288T8 18q0-.425.288-.712T9 17h6q.425 0 .713.288T16 18q0 .425-.288.713T15 19zm-.75-3q-1.725-1.025-2.738-2.75T4.5 9.5q0-3.125 2.188-5.312T12 2q3.125 0 5.313 2.188T19.5 9.5q0 2.025-1.012 3.75T15.75 16zm.6-2h6.3q1.125-.8 1.738-1.975T17.5 9.5q0-2.3-1.6-3.9T12 4Q9.7 4 8.1 5.6T6.5 9.5q0 1.35.613 2.525T8.85 14M12 14"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-important {
+  --mdbook-alerts-color: rgb(130, 80, 223);
+  /* https://icon-sets.iconify.design/material-symbols/chat-info-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 7q.425 0 .713-.288T13 6q0-.425-.288-.712T12 5q-.425 0-.712.288T11 6q0 .425.288.713T12 7m0 8q.425 0 .713-.288T13 14v-4q0-.425-.288-.712T12 9q-.425 0-.712.288T11 10v4q0 .425.288.713T12 15m-6 3l-2.3 2.3q-.475.475-1.088.213T2 19.575V4q0-.825.588-1.412T4 2h16q.825 0 1.413.588T22 4v12q0 .825-.587 1.413T20 18zm-.85-2H20V4H4v13.125zM4 16V4z"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-warning {
+  --mdbook-alerts-color: rgb(154, 103, 0);
+  /* https://icon-sets.iconify.design/material-symbols/warning-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M2.725 21q-.275 0-.5-.137t-.35-.363q-.125-.225-.137-.488t.137-.512l9.25-16q.15-.25.388-.375T12 3q.25 0 .488.125t.387.375l9.25 16q.15.25.138.513t-.138.487q-.125.225-.35.363t-.5.137zm1.725-2h15.1L12 6zM12 18q.425 0 .713-.288T13 17q0-.425-.288-.712T12 16q-.425 0-.712.288T11 17q0 .425.288.713T12 18m0-3q.425 0 .713-.288T13 14v-3q0-.425-.288-.712T12 10q-.425 0-.712.288T11 11v3q0 .425.288.713T12 15m0-2.5"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-caution {
+  --mdbook-alerts-color: rgb(207, 34, 46);
+  /* https://icon-sets.iconify.design/material-symbols/brightness-alert-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 17q.425 0 .713-.288T13 16q0-.425-.288-.712T12 15q-.425 0-.712.288T11 16q0 .425.288.713T12 17m0-4q.425 0 .713-.288T13 12V8q0-.425-.288-.712T12 7q-.425 0-.712.288T11 8v4q0 .425.288.713T12 13m-3.35 7H6q-.825 0-1.412-.587T4 18v-2.65L2.075 13.4q-.275-.3-.425-.662T1.5 12q0-.375.15-.737t.425-.663L4 8.65V6q0-.825.588-1.412T6 4h2.65l1.95-1.925q.3-.275.663-.425T12 1.5q.375 0 .738.15t.662.425L15.35 4H18q.825 0 1.413.588T20 6v2.65l1.925 1.95q.275.3.425.663t.15.737q0 .375-.15.738t-.425.662L20 15.35V18q0 .825-.587 1.413T18 20h-2.65l-1.95 1.925q-.3.275-.662.425T12 22.5q-.375 0-.737-.15t-.663-.425zm.85-2l2.5 2.5l2.5-2.5H18v-3.5l2.5-2.5L18 9.5V6h-3.5L12 3.5L9.5 6H6v3.5L3.5 12L6 14.5V18zm2.5-6"%2F%3E%3C%2Fsvg%3E');
+}
+
+</style>
+<h1 id="everything-is-a-contract"><a class="header" href="#everything-is-a-contract">Everything is a contract</a></h1>
+<p>Every contract has an address, which is just a monotonically increasing number. This is in contrast to many blockchains
+where address might be derived from a public key (in case of end user wallet) or code (of “smart contracts”). There is
+no separate notion of Externally Owned Account (EOA) like in Ethereum, end user wallets are also just contracts.</p>
+<p>The address is allocated on contract creation and doesn’t change regardless of how the contract evolves in the future.
+This means that externally, all contracts essentially look the same regardless of what they represent. This enables a
+wallet contract to change its logic from verifying a single signature to multisig to 2FA to use a completely different
+cryptography in the future, all while retaining its address/identity.</p>
+<p>This not only includes contracts created/deployed by users/developers, but also some fundamental blockchain features.
+For example, there are system contracts like <code>code</code> and <code>state</code>. In most blockchains code of the contract is stored in a
+special location by the node and retrieved before processing a <a href="Transactions_overview#transactions-abstraction">transaction</a>. Here, <code>code</code> contract manages code of all
+contracts instead and deployment of a new contract is a call to system <code>code</code> contract. There is no special host
+function provided by the node. <code>code</code> contract will store the code in the corresponding slot of the newly created
+contract (see <a href="#storage-model">Storage model</a> below for more details), which can be read by execution environment (which knows about
+system contracts).</p>
+<p>A few examples of contracts:</p>
+<ul>
+<li>a wallet (can be something simple that only checks signature or a complex smart wallet with multisig/2FA)</li>
+<li>utility functions that offer some shared logic like exotic signature verification</li>
+<li>various kinds of tokens, including native token of the blockchain itself</li>
+<li>even fundamental pieces of logic that allocate addresses and deploy other contracts are contracts themselves</li>
+</ul>
+<p>It’ll be clear later how far this concept can be stretched, but so far the potential is quite high to make as many
+things as possible “just a contract.”</p>
+<p>This helps to reduce the number of special cases for built-in functions vs. something that blockchain user can deploy.</p>
+<h1 id="storage-model"><a class="header" href="#storage-model">Storage model</a></h1>
+<p>All storage owned by a contract is organized into a container that has slots inside. It forms a tree with the root
+being the root of contract’s storage, which can be used to generation inclusion/exclusion proofs when processing
+transactions (see <a href="Transactions_overview#transaction-processing">Transaction processing</a>). Having a per-contract tree with storage proofs allows consensus nodes to
+not be required to store the state of all contracts, just their storage roots. This is unlike many other blockchains
+where contract may have access to a form of key-value database.</p>
+<p>Each slot is managed by exactly one of the existing contracts and can only be read or modified by that contract.
+Contract’s code and state are also slots managed by contracts (system contracts), even though developer-facing API might
+abstract it in a more friendly way. It is possible for a contract to manage one of its slots too, like when a token
+contract owns some number of its own tokens.</p>
+<p>A bit wrong, but hopefully useful analogy is cloud server. A server is owned by a provider, but managed by a customer.
+A provider typically doesn’t have remote access to the server customer orders, all changes to the software that server
+runs are done by the customer. Similarly, slots owned by a contract are managed by other contracts.</p>
+<p>In contrast to most other blockchains by “state” we refer to the inherent state of the contract itself, rather than
+things that might belong to end-users. The right mental model is to think of it as a global state of a contract.</p>
+<p>Let’s take a generic fungible token as an example. System <code>state</code> contract will manage its state, stored in
+corresponding slot owned by the token contract. State will contain things like total supply and potentially useful
+metadata like number of decimal places and ticker, but not balances of individual users.</p>
+<p>In pseudocode, more traditional blockchains:</p>
+<pre><code>fancy_token = {
+    // Global state
+    totalSupply: 50_000,
+    ticker: "FANCY",
+
+    // Individual balances of accoutns in a global hashmap
+    balances: {
+        alice_wallet: 10,
+        bob_wallet: 15,
+    },
+}
+</code></pre>
+<p>Described storage model with slots:</p>
+<pre><code>fancy_token = {
+    // Global state owned by `fancy_token` in a slot managed by `state` contract
+    state: {
+      totalSupply: 50_000,
+      ticker: "FANCY",
+    },
+    code: "...",
+}
+
+alice_wallet = {
+    // Balance owned by `alice_wallet` in a slot managed by `fancy_token` contract
+    fancy_token: {
+        balance: 10,
+    },
+    code: "...",
+}
+
+bob_wallet = {
+    // Balance owned by `bob_wallet` in a slot managed by `fancy_token` contract
+    fancy_token: {
+        balance: 15,
+    },
+    code: "...",
+}
+</code></pre>
+<p>The state of the contract (and any other slot) is typically bounded in size and defined by contract developer upfront.
+Bounded size allows execution environment to allocate the necessary amount of memory and to limit the amount of data
+that potentially needs to be sent with the transaction over the network (see <a href="Transactions_overview#transaction-processing">Transaction processing</a>).</p>
+<p>This implies there can’t be more traditional unbounded hashmap there. Instead, balances are stored in slots of contracts
+that own the balance (like smart wallet owned by end user), but managed by the token contract. This is similar to how
+contract’s state and code are managed by corresponding system contracts.</p>
+<p>Visually, it looks something like this:</p>
+<pre><?xml version="1.0" encoding="utf-8"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" data-d2-version="v0.6.9" preserveAspectRatio="xMinYMin meet" viewBox="0 0 1153 388"><svg class="d2-2022777730 d2-svg" width="1153" height="388" viewBox="10 11 1153 388"><rect x="10.000000" y="11.000000" width="1153.000000" height="388.000000" rx="0.000000" class=" fill-N7" stroke-width="0" /><style type="text/css"><![CDATA[
+.d2-2022777730 .text {
+	font-family: "d2-2022777730-font-regular";
+}
+@font-face {
+	font-family: d2-2022777730-font-regular;
+	src: url("data:application/font-woff;base64,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");
+}
+.d2-2022777730 .text-bold {
+	font-family: "d2-2022777730-font-bold";
+}
+@font-face {
+	font-family: d2-2022777730-font-bold;
+	src: url("data:application/font-woff;base64,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");
+}]]></style><style type="text/css"><![CDATA[.shape {
+  shape-rendering: geometricPrecision;
+  stroke-linejoin: round;
+}
+.connection {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.blend {
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+		.d2-2022777730 .fill-N1{fill:#0A0F25;}
+		.d2-2022777730 .fill-N2{fill:#676C7E;}
+		.d2-2022777730 .fill-N3{fill:#9499AB;}
+		.d2-2022777730 .fill-N4{fill:#CFD2DD;}
+		.d2-2022777730 .fill-N5{fill:#DEE1EB;}
+		.d2-2022777730 .fill-N6{fill:#EEF1F8;}
+		.d2-2022777730 .fill-N7{fill:transparent;}
+		.d2-2022777730 .fill-B1{fill:#0A0F25;}
+		.d2-2022777730 .fill-B2{fill:#676C7E;}
+		.d2-2022777730 .fill-B3{fill:#9499AB;}
+		.d2-2022777730 .fill-B4{fill:#CFD2DD;}
+		.d2-2022777730 .fill-B5{fill:#DEE1EB;}
+		.d2-2022777730 .fill-B6{fill:#EEF1F8;}
+		.d2-2022777730 .fill-AA2{fill:#676C7E;}
+		.d2-2022777730 .fill-AA4{fill:#CFD2DD;}
+		.d2-2022777730 .fill-AA5{fill:#DEE1EB;}
+		.d2-2022777730 .fill-AB4{fill:#CFD2DD;}
+		.d2-2022777730 .fill-AB5{fill:#DEE1EB;}
+		.d2-2022777730 .stroke-N1{stroke:#0A0F25;}
+		.d2-2022777730 .stroke-N2{stroke:#676C7E;}
+		.d2-2022777730 .stroke-N3{stroke:#9499AB;}
+		.d2-2022777730 .stroke-N4{stroke:#CFD2DD;}
+		.d2-2022777730 .stroke-N5{stroke:#DEE1EB;}
+		.d2-2022777730 .stroke-N6{stroke:#EEF1F8;}
+		.d2-2022777730 .stroke-N7{stroke:transparent;}
+		.d2-2022777730 .stroke-B1{stroke:#0A0F25;}
+		.d2-2022777730 .stroke-B2{stroke:#676C7E;}
+		.d2-2022777730 .stroke-B3{stroke:#9499AB;}
+		.d2-2022777730 .stroke-B4{stroke:#CFD2DD;}
+		.d2-2022777730 .stroke-B5{stroke:#DEE1EB;}
+		.d2-2022777730 .stroke-B6{stroke:#EEF1F8;}
+		.d2-2022777730 .stroke-AA2{stroke:#676C7E;}
+		.d2-2022777730 .stroke-AA4{stroke:#CFD2DD;}
+		.d2-2022777730 .stroke-AA5{stroke:#DEE1EB;}
+		.d2-2022777730 .stroke-AB4{stroke:#CFD2DD;}
+		.d2-2022777730 .stroke-AB5{stroke:#DEE1EB;}
+		.d2-2022777730 .background-color-N1{background-color:#0A0F25;}
+		.d2-2022777730 .background-color-N2{background-color:#676C7E;}
+		.d2-2022777730 .background-color-N3{background-color:#9499AB;}
+		.d2-2022777730 .background-color-N4{background-color:#CFD2DD;}
+		.d2-2022777730 .background-color-N5{background-color:#DEE1EB;}
+		.d2-2022777730 .background-color-N6{background-color:#EEF1F8;}
+		.d2-2022777730 .background-color-N7{background-color:transparent;}
+		.d2-2022777730 .background-color-B1{background-color:#0A0F25;}
+		.d2-2022777730 .background-color-B2{background-color:#676C7E;}
+		.d2-2022777730 .background-color-B3{background-color:#9499AB;}
+		.d2-2022777730 .background-color-B4{background-color:#CFD2DD;}
+		.d2-2022777730 .background-color-B5{background-color:#DEE1EB;}
+		.d2-2022777730 .background-color-B6{background-color:#EEF1F8;}
+		.d2-2022777730 .background-color-AA2{background-color:#676C7E;}
+		.d2-2022777730 .background-color-AA4{background-color:#CFD2DD;}
+		.d2-2022777730 .background-color-AA5{background-color:#DEE1EB;}
+		.d2-2022777730 .background-color-AB4{background-color:#CFD2DD;}
+		.d2-2022777730 .background-color-AB5{background-color:#DEE1EB;}
+		.d2-2022777730 .color-N1{color:#0A0F25;}
+		.d2-2022777730 .color-N2{color:#676C7E;}
+		.d2-2022777730 .color-N3{color:#9499AB;}
+		.d2-2022777730 .color-N4{color:#CFD2DD;}
+		.d2-2022777730 .color-N5{color:#DEE1EB;}
+		.d2-2022777730 .color-N6{color:#EEF1F8;}
+		.d2-2022777730 .color-N7{color:transparent;}
+		.d2-2022777730 .color-B1{color:#0A0F25;}
+		.d2-2022777730 .color-B2{color:#676C7E;}
+		.d2-2022777730 .color-B3{color:#9499AB;}
+		.d2-2022777730 .color-B4{color:#CFD2DD;}
+		.d2-2022777730 .color-B5{color:#DEE1EB;}
+		.d2-2022777730 .color-B6{color:#EEF1F8;}
+		.d2-2022777730 .color-AA2{color:#676C7E;}
+		.d2-2022777730 .color-AA4{color:#CFD2DD;}
+		.d2-2022777730 .color-AA5{color:#DEE1EB;}
+		.d2-2022777730 .color-AB4{color:#CFD2DD;}
+		.d2-2022777730 .color-AB5{color:#DEE1EB;}.appendix text.text{fill:#0A0F25}.md{--color-fg-default:#0A0F25;--color-fg-muted:#676C7E;--color-fg-subtle:#9499AB;--color-canvas-default:transparent;--color-canvas-subtle:#EEF1F8;--color-border-default:#0A0F25;--color-border-muted:#676C7E;--color-neutral-muted:#EEF1F8;--color-accent-fg:#676C7E;--color-accent-emphasis:#676C7E;--color-attention-subtle:#676C7E;--color-danger-fg:red;}.sketch-overlay-B1{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.sketch-overlay-B2{fill:url(#streaks-dark-d2-2022777730);mix-blend-mode:overlay}.sketch-overlay-B3{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-B4{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-B5{fill:url(#streaks-bright-d2-2022777730);mix-blend-mode:darken}.sketch-overlay-B6{fill:url(#streaks-bright-d2-2022777730);mix-blend-mode:darken}.sketch-overlay-AA2{fill:url(#streaks-dark-d2-2022777730);mix-blend-mode:overlay}.sketch-overlay-AA4{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-AA5{fill:url(#streaks-bright-d2-2022777730);mix-blend-mode:darken}.sketch-overlay-AB4{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-AB5{fill:url(#streaks-bright-d2-2022777730);mix-blend-mode:darken}.sketch-overlay-N1{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.sketch-overlay-N2{fill:url(#streaks-dark-d2-2022777730);mix-blend-mode:overlay}.sketch-overlay-N3{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-N4{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-N5{fill:url(#streaks-bright-d2-2022777730);mix-blend-mode:darken}.sketch-overlay-N6{fill:url(#streaks-bright-d2-2022777730);mix-blend-mode:darken}.sketch-overlay-N7{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.light-code{display: block}.dark-code{display: none}@media screen and (prefers-color-scheme:dark){
+		.d2-2022777730 .fill-N1{fill:#CDD6F4;}
+		.d2-2022777730 .fill-N2{fill:#BAC2DE;}
+		.d2-2022777730 .fill-N3{fill:#A6ADC8;}
+		.d2-2022777730 .fill-N4{fill:#585B70;}
+		.d2-2022777730 .fill-N5{fill:#45475A;}
+		.d2-2022777730 .fill-N6{fill:#313244;}
+		.d2-2022777730 .fill-N7{fill:transparent;}
+		.d2-2022777730 .fill-B1{fill:#CBA6f7;}
+		.d2-2022777730 .fill-B2{fill:#CBA6f7;}
+		.d2-2022777730 .fill-B3{fill:#6C7086;}
+		.d2-2022777730 .fill-B4{fill:#585B70;}
+		.d2-2022777730 .fill-B5{fill:#45475A;}
+		.d2-2022777730 .fill-B6{fill:#313244;}
+		.d2-2022777730 .fill-AA2{fill:#f38BA8;}
+		.d2-2022777730 .fill-AA4{fill:#45475A;}
+		.d2-2022777730 .fill-AA5{fill:#313244;}
+		.d2-2022777730 .fill-AB4{fill:#45475A;}
+		.d2-2022777730 .fill-AB5{fill:#313244;}
+		.d2-2022777730 .stroke-N1{stroke:#CDD6F4;}
+		.d2-2022777730 .stroke-N2{stroke:#BAC2DE;}
+		.d2-2022777730 .stroke-N3{stroke:#A6ADC8;}
+		.d2-2022777730 .stroke-N4{stroke:#585B70;}
+		.d2-2022777730 .stroke-N5{stroke:#45475A;}
+		.d2-2022777730 .stroke-N6{stroke:#313244;}
+		.d2-2022777730 .stroke-N7{stroke:transparent;}
+		.d2-2022777730 .stroke-B1{stroke:#CBA6f7;}
+		.d2-2022777730 .stroke-B2{stroke:#CBA6f7;}
+		.d2-2022777730 .stroke-B3{stroke:#6C7086;}
+		.d2-2022777730 .stroke-B4{stroke:#585B70;}
+		.d2-2022777730 .stroke-B5{stroke:#45475A;}
+		.d2-2022777730 .stroke-B6{stroke:#313244;}
+		.d2-2022777730 .stroke-AA2{stroke:#f38BA8;}
+		.d2-2022777730 .stroke-AA4{stroke:#45475A;}
+		.d2-2022777730 .stroke-AA5{stroke:#313244;}
+		.d2-2022777730 .stroke-AB4{stroke:#45475A;}
+		.d2-2022777730 .stroke-AB5{stroke:#313244;}
+		.d2-2022777730 .background-color-N1{background-color:#CDD6F4;}
+		.d2-2022777730 .background-color-N2{background-color:#BAC2DE;}
+		.d2-2022777730 .background-color-N3{background-color:#A6ADC8;}
+		.d2-2022777730 .background-color-N4{background-color:#585B70;}
+		.d2-2022777730 .background-color-N5{background-color:#45475A;}
+		.d2-2022777730 .background-color-N6{background-color:#313244;}
+		.d2-2022777730 .background-color-N7{background-color:transparent;}
+		.d2-2022777730 .background-color-B1{background-color:#CBA6f7;}
+		.d2-2022777730 .background-color-B2{background-color:#CBA6f7;}
+		.d2-2022777730 .background-color-B3{background-color:#6C7086;}
+		.d2-2022777730 .background-color-B4{background-color:#585B70;}
+		.d2-2022777730 .background-color-B5{background-color:#45475A;}
+		.d2-2022777730 .background-color-B6{background-color:#313244;}
+		.d2-2022777730 .background-color-AA2{background-color:#f38BA8;}
+		.d2-2022777730 .background-color-AA4{background-color:#45475A;}
+		.d2-2022777730 .background-color-AA5{background-color:#313244;}
+		.d2-2022777730 .background-color-AB4{background-color:#45475A;}
+		.d2-2022777730 .background-color-AB5{background-color:#313244;}
+		.d2-2022777730 .color-N1{color:#CDD6F4;}
+		.d2-2022777730 .color-N2{color:#BAC2DE;}
+		.d2-2022777730 .color-N3{color:#A6ADC8;}
+		.d2-2022777730 .color-N4{color:#585B70;}
+		.d2-2022777730 .color-N5{color:#45475A;}
+		.d2-2022777730 .color-N6{color:#313244;}
+		.d2-2022777730 .color-N7{color:transparent;}
+		.d2-2022777730 .color-B1{color:#CBA6f7;}
+		.d2-2022777730 .color-B2{color:#CBA6f7;}
+		.d2-2022777730 .color-B3{color:#6C7086;}
+		.d2-2022777730 .color-B4{color:#585B70;}
+		.d2-2022777730 .color-B5{color:#45475A;}
+		.d2-2022777730 .color-B6{color:#313244;}
+		.d2-2022777730 .color-AA2{color:#f38BA8;}
+		.d2-2022777730 .color-AA4{color:#45475A;}
+		.d2-2022777730 .color-AA5{color:#313244;}
+		.d2-2022777730 .color-AB4{color:#45475A;}
+		.d2-2022777730 .color-AB5{color:#313244;}.appendix text.text{fill:#CDD6F4}.md{--color-fg-default:#CDD6F4;--color-fg-muted:#BAC2DE;--color-fg-subtle:#A6ADC8;--color-canvas-default:transparent;--color-canvas-subtle:#313244;--color-border-default:#CBA6f7;--color-border-muted:#CBA6f7;--color-neutral-muted:#313244;--color-accent-fg:#CBA6f7;--color-accent-emphasis:#CBA6f7;--color-attention-subtle:#BAC2DE;--color-danger-fg:red;}.sketch-overlay-B1{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-B2{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-B3{fill:url(#streaks-dark-d2-2022777730);mix-blend-mode:overlay}.sketch-overlay-B4{fill:url(#streaks-dark-d2-2022777730);mix-blend-mode:overlay}.sketch-overlay-B5{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.sketch-overlay-B6{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.sketch-overlay-AA2{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-AA4{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.sketch-overlay-AA5{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.sketch-overlay-AB4{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.sketch-overlay-AB5{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.sketch-overlay-N1{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-N2{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-N3{fill:url(#streaks-normal-d2-2022777730);mix-blend-mode:color-burn}.sketch-overlay-N4{fill:url(#streaks-dark-d2-2022777730);mix-blend-mode:overlay}.sketch-overlay-N5{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.sketch-overlay-N6{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.sketch-overlay-N7{fill:url(#streaks-darker-d2-2022777730);mix-blend-mode:lighten}.light-code{display: none}.dark-code{display: block}}]]></style><g class="V2FsbGV0"><g class="shape" ><rect x="962.000000" y="60.000000" width="200.000000" height="338.000000" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="1062.000000" y="93.000000" class="text fill-N1" style="text-anchor:middle;font-size:28px">Wallet</text></g><g class="Q29kZUNvbnRyYWN0"><g class="shape" ><rect x="12.000000" y="216.000000" width="210.000000" height="176.000000" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="117.000000" y="249.000000" class="text fill-N1" style="text-anchor:middle;font-size:28px">Code contract</text></g><g class="U3RhdGVDb250cmFjdA=="><g class="shape" ><rect x="357.000000" y="12.000000" width="211.000000" height="171.000000" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="462.500000" y="45.000000" class="text fill-N1" style="text-anchor:middle;font-size:28px">State contract</text></g><g class="VG9rZW4="><g class="shape" ><rect x="653.000000" y="103.000000" width="224.000000" height="252.000000" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="765.000000" y="136.000000" class="text fill-N1" style="text-anchor:middle;font-size:28px">Token contract</text></g><g class="V2FsbGV0LlN0YXRl"><g class="shape" ><rect x="1012.000000" y="110.000000" width="83.000000" height="66.000000" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="1053.500000" y="148.500000" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">State</text></g><g class="V2FsbGV0LkJhbGFuY2U="><g class="shape" ><rect x="1012.000000" y="196.000000" width="100.000000" height="66.000000" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="1062.000000" y="234.500000" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Balance</text></g><g class="V2FsbGV0LkNvZGU="><g class="shape" ><rect x="1012.000000" y="282.000000" width="81.000000" height="66.000000" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="1052.500000" y="320.500000" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="Q29kZUNvbnRyYWN0LkNvZGU="><g class="shape" ><rect x="76.000000" y="276.000000" width="81.000000" height="66.000000" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="116.500000" y="314.500000" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="U3RhdGVDb250cmFjdC5Db2Rl"><g class="shape" ><rect x="422.000000" y="67.000000" width="81.000000" height="66.000000" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="462.500000" y="105.500000" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="VG9rZW4uU3RhdGU="><g class="shape" ><rect x="723.000000" y="153.000000" width="83.000000" height="66.000000" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="764.500000" y="191.500000" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">State</text></g><g class="VG9rZW4uQ29kZQ=="><g class="shape" ><rect x="723.000000" y="239.000000" width="81.000000" height="66.000000" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="763.500000" y="277.500000" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBXYWxsZXQuQ29kZSlbMF0="><marker id="mk-d2-2022777730-3488378134" markerWidth="10.000000" markerHeight="12.000000" refX="7.000000" refY="6.000000" viewBox="0.000000 0.000000 10.000000 12.000000" orient="auto" markerUnits="userSpaceOnUse"> <polygon points="0.000000,0.000000 10.000000,6.000000 0.000000,12.000000" class="connection fill-B1" stroke-width="2" /> </marker><path d="M 224.000000 286.000000 L 252.000000 286.000000 S 262.000000 286.000000 262.000000 296.000000 L 262.000000 385.000000 S 262.000000 395.000000 272.000000 395.000000 L 907.000000 395.000000 S 917.000000 395.000000 917.000000 385.000000 L 917.000000 325.500000 S 917.000000 315.500000 927.000000 315.500000 L 1008.000000 315.500000" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2022777730-3488378134)" mask="url(#d2-2022777730)" /></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBDb2RlQ29udHJhY3QuQ29kZSlbMF0="><path d="M 13.500000 309.000000 L 72.500000 309.000000" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2022777730-3488378134)" mask="url(#d2-2022777730)" /></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBTdGF0ZUNvbnRyYWN0LkNvZGUpWzBd"><path d="M 224.000000 266.000000 L 252.000000 266.000000 S 262.000000 266.000000 262.000000 256.000000 L 262.000000 110.000000 S 262.000000 100.000000 272.000000 100.000000 L 418.000000 100.000000" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2022777730-3488378134)" mask="url(#d2-2022777730)" /></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBUb2tlbi5Db2RlKVswXQ=="><path d="M 224.000000 276.000000 L 720.000000 276.000000" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2022777730-3488378134)" mask="url(#d2-2022777730)" /></g><g class="KFN0YXRlQ29udHJhY3QgLSZndDsgV2FsbGV0LlN0YXRlKVswXQ=="><path d="M 570.000000 62.000000 L 907.000000 62.000000 S 917.000000 62.000000 917.000000 72.000000 L 917.000000 133.500000 S 917.000000 143.500000 927.000000 143.500000 L 1008.000000 143.500000" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2022777730-3488378134)" mask="url(#d2-2022777730)" /></g><g class="KFN0YXRlQ29udHJhY3QgLSZndDsgVG9rZW4uU3RhdGUpWzBd"><path d="M 570.000000 72.000000 L 598.000000 72.000000 S 608.000000 72.000000 608.000000 82.000000 L 608.000000 176.000000 S 608.000000 186.000000 618.000000 186.000000 L 720.000000 186.000000" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2022777730-3488378134)" mask="url(#d2-2022777730)" /></g><g class="KFRva2VuIC0mZ3Q7IFdhbGxldC5CYWxhbmNlKVswXQ=="><path d="M 879.000000 229.500000 L 1008.000000 229.500000" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2022777730-3488378134)" mask="url(#d2-2022777730)" /></g><mask id="d2-2022777730" maskUnits="userSpaceOnUse" x="10" y="11" width="1153" height="388">
+<rect x="10" y="11" width="1153" height="388" fill="white"></rect>
+<rect x="1024.500000" y="65.000000" width="75" height="36" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="34.500000" y="221.000000" width="165" height="36" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="379.500000" y="17.000000" width="166" height="36" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="675.500000" y="108.000000" width="179" height="36" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="1034.500000" y="132.500000" width="38" height="21" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="1034.500000" y="218.500000" width="55" height="21" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="1034.500000" y="304.500000" width="36" height="21" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="98.500000" y="298.500000" width="36" height="21" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="444.500000" y="89.500000" width="36" height="21" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="745.500000" y="175.500000" width="38" height="21" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="745.500000" y="261.500000" width="36" height="21" fill="rgba(0,0,0,0.75)"></rect>
+</mask></svg></svg>
+</pre>
+<p>Contracts do not have access to underlying storage implementation in the form of key-value database, instead they modify
+slots as the only way of persisting data between transactions.</p>
+<h1 id="contract-io"><a class="header" href="#contract-io">Contract I/O</a></h1>
+<p>Not only contract methods do not have access to general purpose key-value store (even if private to the contract), they
+don’t have access to any other data except what was explicitly provided as method input. They also can’t return data in
+any other way except through return arguments. Execution environment will pre-allocate memory for all slots/outputs and
+provide it to the method to work with, removing a need for heap allocation in many cases.</p>
+<p>One can think about contract logic as a pure function: it takes inputs and slots, potentially modifies slots and returns
+outputs.</p>
+<p>Conceptually, all methods look something like this:</p>
+<pre><code class="language-rust ignore">#[contract]
+impl MyContract {
+    /// Stateless compute
+    #[view]
+    pub fn add(
+        #[input] &amp;a: &amp;u32,
+        #[input] &amp;b: &amp;u32,
+    ) -&gt; u32 {
+        a + b
+    }
+
+    /// Calling another contract (in this case into itself)
+    #[view]
+    pub fn add_through_contract_call(
+        #[env] env: &amp;Env,
+        #[input] &amp;a: &amp;u32,
+        #[input] &amp;b: &amp;u32,
+    ) -&gt; Result&lt;u32, ContractError&gt; {
+        env.my_contract_add(env.own_address(), a, b)
+    }
+
+    /// Modifying its own state using the contents of the slot
+    #[update]
+    pub fn self_increment_by_slot(
+        &amp;mut self,
+        #[slot] slot: &amp;MaybeData&lt;u32&gt;,
+    ) -&gt; Result&lt;u32, ContractError&gt; {
+        let old_value = self.value;
+
+        // The slot may or may not exist yet
+        let Some(slot_value) = slot.get().copied() else {
+            return Err(ContractError::Forbidden);
+        };
+
+        self.value = old_value
+            .checked_add(slot_value)
+            .ok_or(ContractError::BadInput)?;
+        Ok(old_value)
+    }
+}</code></pre>
+<p>Environment handle (<code>&amp;Env</code> or <code>&amp;mut Env</code>) allows calling other contracts and request ephemeral state, contract slots can
+be read and written to, inputs are read-only and outputs are write-only. <code>&amp;</code> or <code>&amp;mut</code> in Rust limits what can be done
+with these types, there is no other implicit “global” way to read or update ephemeral or permanent state of the
+blockchain except through these explicit arguments.</p>
+<p>Handling everything through explicit inputs and outputs results in straightforward implementation, analysis and testing
+approach without side effects. In many cases, even heap allocations can be avoided completely, leading to fast and
+compact smart contract implementation.</p>
+<p><code>#[contract]</code> macro and attributes like <code>#[env]</code> do not impact the code in a method in any way, but help to generate
+additional helper data structures, functions and metadata about the contract. The macro also verifies a lot of different
+invariants about the contract with helpful compile-time error messages if something goes wrong. For example, when
+different methods use different types for <code>#[slot]</code> argument or when type not allowed for FFI is used in an argument.</p>
+<h1 id="method-call-context"><a class="header" href="#method-call-context">Method call context</a></h1>
+<p>When calling into another contract, a method context needs to be specified. The correct mental model for context is
+“user of the child process,” where “process” is a method call. Essentially, something executed with a context of a
+contract can be thought as done “on behalf” of that contract, which depending on circumstances may or may not be
+desired.</p>
+<p>Initially, context is “Null.” For each call into another contract, the context of the current method can be either
+preserved, reset to “Null” or replaced with the current contract’s address. Those are the only options. Contracts do not
+have privileges to change context to the address of an arbitrary contract.</p>
+<p>The safest option is to reset context to “Null,” which means called contract will be able to “know” who called it, but
+unable to convince any further calls in it. Preservation of the context allows to “delegate” certain operations to
+another contract, which while is potentially dangerous, allows for more advanced use cases.</p>
+<p>In addition to argument attributes mentioned before, there is also <code>#[tmp]</code>, which is essentially an ephemeral storage
+that only lives for the duration of a single <a href="Transactions_overview#transactions-abstraction">transaction</a>. It can be used for temporary approvals, allowing to use
+“Null” context for most operations, while also allowing for contracts to do certain operations effectively on behalf of
+the caller. For example, in a transaction, the first call might approve a defi contract to spend some tokens and then
+call defi contract to actually do the operation. Both calls are done with “Null” method context, but still achieve the
+desired impact with the least permission possible.</p>
+<h1 id="metadata"><a class="header" href="#metadata">Metadata</a></h1>
+<p>Metadata about contract is a crucial piece used in many places of the system. Metadata essentially describes in a
+compact binary format all traits and methods that the contract implements alongside recursive metadata of all types in
+those methods.</p>
+<p>Metadata contains exhaustive details about the method, allowing execution environment to encode and decode arguments
+from/to method calls from metadata alone.</p>
+<p>Metadata can also be used to auto-generate user-facing interfaces and FFI bindings to other languages since it contains
+relatively basic types.</p>
+<p>The same metadata can also be used by a transaction handler contract to encode/decode method calls in a <a href="Transactions_overview#transactions-abstraction">transaction</a>.
+This is huge because with metadata being an inherent part of the contract itself, enables hardware wallets to accurately
+and verifiably render transaction contents in a relatively user-friendly way, especially on those with larger screens.
+This means no blind signing anymore and no need to trust the computer wallet is connected to either, the wallet can
+verify and render everything on its own.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../How/Consensus.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../Execution_environment/Transactions_overview.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../How/Consensus.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../Execution_environment/Transactions_overview.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

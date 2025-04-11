@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>authors on Project Abundance</title>
+    <link>https://abundance.build/authors/</link>
+    <description>Recent content in authors on Project Abundance</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <copyright>&lt;a href=&#34;https://creativecommons.org/publicdomain/zero/1.0/&#34; target=&#34;_blank&#34; rel=&#34;license noopener noreferrer&#34;&gt;CC0 1.0 Universal&lt;/a&gt;</copyright>
+    <lastBuildDate>Tue, 08 Apr 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://abundance.build/authors/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>nazar-pc</title>
+      <link>https://abundance.build/authors/nazar-pc/</link>
+      <pubDate>Tue, 08 Apr 2025 00:00:00 +0000</pubDate>
+      
+      <guid>https://abundance.build/authors/nazar-pc/</guid>
+      <description></description>
+      
+    </item>
+    
+    <item>
+      <title>adlrocha</title>
+      <link>https://abundance.build/authors/adlrocha/</link>
+      <pubDate>Mon, 07 Apr 2025 00:00:00 +0000</pubDate>
+      
+      <guid>https://abundance.build/authors/adlrocha/</guid>
+      <description></description>
+      
+    </item>
+    
+  </channel>
+</rss>
