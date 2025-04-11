@@ -1,10 +1,5 @@
-mod incremental_record_commitments;
-
 extern crate alloc;
 
-use crate::archiver::incremental_record_commitments::{
-    update_record_commitments, IncrementalRecordCommitmentsState,
-};
 use alloc::collections::VecDeque;
 #[cfg(not(feature = "std"))]
 use alloc::vec;
@@ -234,8 +229,6 @@ pub struct Archiver {
     /// Buffer containing blocks and other buffered items that are pending to be included into the
     /// next segment
     buffer: VecDeque<SegmentItem>,
-    /// Intermediate record commitments that are built incrementally as above buffer fills up.
-    incremental_record_commitments: IncrementalRecordCommitmentsState,
     /// Erasure coding data structure
     erasure_coding: ErasureCoding,
     /// KZG instance
@@ -253,9 +246,6 @@ impl Archiver {
     pub fn new(kzg: Kzg, erasure_coding: ErasureCoding) -> Self {
         Self {
             buffer: VecDeque::default(),
-            incremental_record_commitments: IncrementalRecordCommitmentsState::with_capacity(
-                RecordedHistorySegment::NUM_RAW_RECORDS,
-            ),
             erasure_coding,
             kzg,
             segment_index: SegmentIndex::ZERO,
@@ -335,15 +325,11 @@ impl Archiver {
     }
 
     /// Adds new block to internal buffer, potentially producing pieces, segment headers, and
-    /// object mappings.
-    ///
-    /// Incremental archiving can be enabled if amortized block addition cost is preferred over
-    /// throughput.
+    /// object mappings
     pub fn add_block(
         &mut self,
         bytes: Vec<u8>,
         object_mapping: BlockObjectMapping,
-        incremental: bool,
     ) -> ArchiveBlockOutcome {
         // Append new block to the buffer
         self.buffer.push_back(SegmentItem::Block {
@@ -355,7 +341,7 @@ impl Archiver {
         let mut object_mapping = Vec::new();
 
         // Add completed segments and their mappings for this block.
-        while let Some(mut segment) = self.produce_segment(incremental) {
+        while let Some(mut segment) = self.produce_segment() {
             // Produce any segment mappings that haven't already been produced.
             object_mapping.extend(Self::produce_object_mappings(
                 self.segment_index,
@@ -375,7 +361,7 @@ impl Archiver {
 
     /// Try to slice buffer contents into segments if there is enough data, producing one segment at
     /// a time
-    fn produce_segment(&mut self, incremental: bool) -> Option<Segment> {
+    fn produce_segment(&mut self) -> Option<Segment> {
         let mut segment = Segment::V0 {
             items: Vec::with_capacity(self.buffer.len()),
         };
@@ -390,18 +376,6 @@ impl Archiver {
             let segment_item = match self.buffer.pop_front() {
                 Some(segment_item) => segment_item,
                 None => {
-                    let existing_commitments = self.incremental_record_commitments.len();
-                    let bytes_committed_to = existing_commitments * RawRecord::SIZE;
-                    // Run incremental archiver only when there is at least two records to archive,
-                    // otherwise we're wasting CPU cycles encoding segment over and over again
-                    if incremental && segment_size - bytes_committed_to >= RawRecord::SIZE * 2 {
-                        update_record_commitments(
-                            &mut self.incremental_record_commitments,
-                            &segment,
-                            &self.kzg,
-                        );
-                    }
-
                     // Push all of the items back into the buffer, we don't have enough data yet
                     for segment_item in segment.into_items().into_iter().rev() {
                         self.buffer.push_front(segment_item);
@@ -738,15 +712,13 @@ impl Archiver {
             pieces
         };
 
-        let existing_commitments = self.incremental_record_commitments.len();
-        // Add commitments for pieces that were not created incrementally
-        {
+        let source_record_commitments = {
             #[cfg(not(feature = "parallel"))]
             let source_pieces = pieces.source();
             #[cfg(feature = "parallel")]
             let source_pieces = pieces.par_source();
 
-            let iter = source_pieces.skip(existing_commitments).map(|piece| {
+            let iter = source_pieces.map(|piece| {
                 let record_chunks = piece.record().iter().map(|scalar_bytes| {
                     Scalar::try_from(scalar_bytes).expect(
                         "Source pieces were just created and are guaranteed to contain \
@@ -771,21 +743,16 @@ impl Archiver {
                     .expect("KZG instance must be configured to support this many scalars; qed")
             });
 
-            #[cfg(not(feature = "parallel"))]
-            iter.collect_into(&mut *self.incremental_record_commitments);
-            // TODO: `collect_into_vec()`, unfortunately, truncates input, which is not what we want
-            //  can be unified when https://github.com/rayon-rs/rayon/issues/1039 is resolved
-            #[cfg(feature = "parallel")]
-            self.incremental_record_commitments.par_extend(iter);
-        }
+            iter.collect::<Vec<_>>()
+        };
+
         // Collect hashes to commitments from all records
         let record_commitments = self
             .erasure_coding
-            .extend_commitments(&self.incremental_record_commitments)
+            .extend_commitments(&source_record_commitments)
             .expect(
                 "Erasure coding instance is deliberately configured to support this input; qed",
             );
-        self.incremental_record_commitments.clear();
 
         let polynomial = self
             .kzg

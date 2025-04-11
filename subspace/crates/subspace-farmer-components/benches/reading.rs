@@ -61,7 +61,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         .add_block(
             AsRef::<[u8]>::as_ref(input.as_ref()).to_vec(),
             Default::default(),
-            true,
         )
         .archived_segments
         .into_iter()

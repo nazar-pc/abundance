@@ -33,7 +33,6 @@
 #[cfg(test)]
 mod tests;
 
-use crate::slot_worker::SubspaceSyncOracle;
 use crate::{SubspaceLink, SubspaceNotificationSender};
 use futures::StreamExt;
 use parity_scale_codec::{Decode, Encode};
@@ -48,7 +47,6 @@ use sc_client_api::{
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::SyncOracle;
 use sp_consensus_subspace::{SubspaceApi, SubspaceJustification};
 use sp_objects::ObjectsApi;
 use sp_runtime::generic::SignedBlock;
@@ -484,11 +482,8 @@ where
     let encoded_block = encode_block(signed_block);
 
     // There are no mappings in the genesis block, so they can be ignored
-    let block_outcome = Archiver::new(kzg, erasure_coding).add_block(
-        encoded_block,
-        BlockObjectMapping::default(),
-        false,
-    );
+    let block_outcome =
+        Archiver::new(kzg, erasure_coding).add_block(encoded_block, BlockObjectMapping::default());
     let new_archived_segment = block_outcome
         .archived_segments
         .into_iter()
@@ -792,7 +787,7 @@ where
                     encoded_block.len() as f32 / 1024.0
                 );
 
-                let block_outcome = archiver.add_block(encoded_block, block_object_mappings, false);
+                let block_outcome = archiver.add_block(encoded_block, block_object_mappings);
                 send_object_mapping_notification(
                     &subspace_link.object_mapping_notification_sender,
                     block_outcome.object_mapping,
@@ -882,11 +877,10 @@ fn finalize_block<Block, Backend, Client>(
 /// Archiving will be incremental during normal operation to decrease impact on block import and
 /// non-incremental heavily parallel during sync process since parallel implementation is more
 /// efficient overall and during sync only total sync time matters.
-pub fn create_subspace_archiver<Block, Backend, Client, AS, SO>(
+pub fn create_subspace_archiver<Block, Backend, Client, AS>(
     segment_headers_store: SegmentHeadersStore<AS>,
     subspace_link: SubspaceLink<Block>,
     client: Arc<Client>,
-    sync_oracle: SubspaceSyncOracle<SO>,
     create_object_mappings: CreateObjectMappings,
 ) -> sp_blockchain::Result<impl Future<Output = sp_blockchain::Result<()>> + Send + 'static>
 where
@@ -904,7 +898,6 @@ where
         + 'static,
     Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block>,
     AS: AuxStore + Send + Sync + 'static,
-    SO: SyncOracle + Send + Sync + 'static,
 {
     if create_object_mappings.is_enabled() {
         info!(
@@ -1042,7 +1035,6 @@ where
                 &mut archiver,
                 segment_headers_store.clone(),
                 &*client,
-                &sync_oracle,
                 subspace_link.object_mapping_notification_sender.clone(),
                 subspace_link.archived_segment_notification_sender.clone(),
                 best_archived_block_hash,
@@ -1101,11 +1093,10 @@ where
 
 /// Tries to archive `block_number` and returns new (or old if not changed) best archived block
 #[allow(clippy::too_many_arguments)]
-async fn archive_block<Block, Backend, Client, AS, SO>(
+async fn archive_block<Block, Backend, Client, AS>(
     archiver: &mut Archiver,
     segment_headers_store: SegmentHeadersStore<AS>,
     client: &Client,
-    sync_oracle: &SubspaceSyncOracle<SO>,
     object_mapping_notification_sender: SubspaceNotificationSender<ObjectMappingNotification>,
     archived_segment_notification_sender: SubspaceNotificationSender<ArchivedSegmentNotification>,
     best_archived_block_hash: Block::Hash,
@@ -1126,7 +1117,6 @@ where
         + 'static,
     Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block>,
     AS: AuxStore + Send + Sync + 'static,
-    SO: SyncOracle + Send + Sync + 'static,
 {
     let block = client
         .block(
@@ -1181,11 +1171,7 @@ where
         encoded_block.len() as f32 / 1024.0
     );
 
-    let block_outcome = archiver.add_block(
-        encoded_block,
-        block_object_mappings,
-        !sync_oracle.is_major_syncing(),
-    );
+    let block_outcome = archiver.add_block(encoded_block, block_object_mappings);
     send_object_mapping_notification(
         &object_mapping_notification_sender,
         block_outcome.object_mapping,
