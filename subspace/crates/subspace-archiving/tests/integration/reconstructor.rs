@@ -57,27 +57,27 @@ fn basic() {
         block
     };
     let archived_segments = archiver
-        .add_block(block_0.clone(), BlockObjectMapping::default(), true)
+        .add_block(block_0.clone(), BlockObjectMapping::default())
         .archived_segments
         .into_iter()
         .chain(
             archiver
-                .add_block(block_1.clone(), BlockObjectMapping::default(), true)
+                .add_block(block_1.clone(), BlockObjectMapping::default())
                 .archived_segments,
         )
         .chain(
             archiver
-                .add_block(block_2.clone(), BlockObjectMapping::default(), true)
+                .add_block(block_2.clone(), BlockObjectMapping::default())
                 .archived_segments,
         )
         .chain(
             archiver
-                .add_block(block_3.clone(), BlockObjectMapping::default(), true)
+                .add_block(block_3.clone(), BlockObjectMapping::default())
                 .archived_segments,
         )
         .chain(
             archiver
-                .add_block(block_4, BlockObjectMapping::default(), true)
+                .add_block(block_4, BlockObjectMapping::default())
                 .archived_segments,
         )
         .collect::<Vec<_>>();
@@ -287,12 +287,12 @@ fn partial_data() {
         block
     };
     let archived_segments = archiver
-        .add_block(block_0.clone(), BlockObjectMapping::default(), true)
+        .add_block(block_0.clone(), BlockObjectMapping::default())
         .archived_segments
         .into_iter()
         .chain(
             archiver
-                .add_block(block_1, BlockObjectMapping::default(), true)
+                .add_block(block_1, BlockObjectMapping::default())
                 .archived_segments,
         )
         .collect::<Vec<_>>();
@@ -372,7 +372,7 @@ fn invalid_usage() {
     };
 
     let archived_segments = archiver
-        .add_block(block_0, BlockObjectMapping::default(), true)
+        .add_block(block_0, BlockObjectMapping::default())
         .archived_segments;
 
     assert_eq!(archived_segments.len(), 4);
