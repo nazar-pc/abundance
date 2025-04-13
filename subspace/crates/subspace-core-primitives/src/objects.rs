@@ -4,21 +4,22 @@
 //! * for objects within a block
 //! * for global objects in the global history of the blockchain (inside a piece)
 
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-
 use crate::hashes::Blake3Hash;
 use crate::pieces::PieceIndex;
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+#[cfg(feature = "alloc")]
 use core::default::Default;
+#[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode};
+#[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Object stored inside of the block
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, TypeInfo)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct BlockObject {
@@ -29,19 +30,22 @@ pub struct BlockObject {
 }
 
 /// Mapping of objects stored inside of the block
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", serde(rename_all_fields = "camelCase"))]
+#[cfg(feature = "alloc")]
 pub enum BlockObjectMapping {
     /// V0 of object mapping data structure
-    #[codec(index = 0)]
+    #[cfg_attr(feature = "scale-codec", codec(index = 0))]
     V0 {
         /// Objects stored inside of the block
         objects: Vec<BlockObject>,
     },
 }
 
+#[cfg(feature = "alloc")]
 impl Default for BlockObjectMapping {
     fn default() -> Self {
         Self::V0 {
@@ -50,6 +54,7 @@ impl Default for BlockObjectMapping {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl BlockObjectMapping {
     /// Returns a newly created BlockObjectMapping from a list of object mappings
     #[inline]
@@ -75,7 +80,8 @@ impl BlockObjectMapping {
 }
 
 /// Object stored in the history of the blockchain
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, TypeInfo)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(
     feature = "serde",
@@ -108,24 +114,28 @@ impl From<GlobalObject> for CompactGlobalObject {
 }
 
 /// Space-saving serialization of an object stored in the history of the blockchain
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, TypeInfo)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CompactGlobalObject(Blake3Hash, PieceIndex, u32);
 
 /// Mapping of objects stored in the history of the blockchain
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "serde", serde(rename_all_fields = "camelCase"))]
+#[cfg(feature = "alloc")]
 pub enum GlobalObjectMapping {
     /// V0 of object mapping data structure.
-    #[codec(index = 0)]
+    #[cfg_attr(feature = "scale-codec", codec(index = 0))]
     V0 {
         /// Objects stored in the history of the blockchain.
         objects: Vec<GlobalObject>,
     },
 }
 
+#[cfg(feature = "alloc")]
 impl Default for GlobalObjectMapping {
     fn default() -> Self {
         Self::V0 {
@@ -134,6 +144,7 @@ impl Default for GlobalObjectMapping {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl GlobalObjectMapping {
     /// Returns a newly created GlobalObjectMapping from a list of object mappings
     #[inline]

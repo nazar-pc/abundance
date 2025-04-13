@@ -48,6 +48,5 @@ std = [
     # In no-std environment we use `spin`
     "parking_lot",
     "rust-kzg-blst/std",
-    "subspace-core-primitives/std",
     "tracing/std",
 ]

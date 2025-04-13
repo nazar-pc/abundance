@@ -17,7 +17,7 @@ bench = false
 [dependencies]
 kzg.workspace = true
 rust-kzg-blst.workspace = true
-subspace-core-primitives.workspace = true
+subspace-core-primitives = { workspace = true, features = ["alloc"] }
 subspace-kzg.workspace = true
 
 [dev-dependencies]
@@ -30,7 +30,6 @@ default = ["std", "parallel"]
 std = [
     "kzg/std",
     "rust-kzg-blst/std",
-    "subspace-core-primitives/std",
     "subspace-kzg/std",
 ]
 parallel = ["rust-kzg-blst/parallel"]

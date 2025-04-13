@@ -43,7 +43,6 @@ std = [
     # In no-std environment we use `spin`
     "parking_lot",
     "sha2/std",
-    "subspace-core-primitives/std",
 ]
 parallel = [
     "dep:rayon",

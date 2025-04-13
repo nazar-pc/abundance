@@ -22,36 +22,17 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("segment-archiving-large-block", |b| {
         b.iter(|| {
-            archiver.clone().add_block(
-                black_box(input.clone()),
-                black_box(Default::default()),
-                black_box(true),
-            );
+            archiver
+                .clone()
+                .add_block(black_box(input.clone()), black_box(Default::default()));
         })
     });
 
-    c.bench_function("segment-archiving-small-blocks/incremental", |b| {
+    c.bench_function("segment-archiving-small-blocks", |b| {
         b.iter(|| {
             let mut archiver = archiver.clone();
             for chunk in input.chunks(SMALL_BLOCK_SIZE) {
-                archiver.add_block(
-                    black_box(chunk.to_vec()),
-                    black_box(Default::default()),
-                    black_box(true),
-                );
-            }
-        })
-    });
-
-    c.bench_function("segment-archiving-small-blocks/non-incremental", |b| {
-        b.iter(|| {
-            let mut archiver = archiver.clone();
-            for chunk in input.chunks(SMALL_BLOCK_SIZE) {
-                archiver.add_block(
-                    black_box(chunk.to_vec()),
-                    black_box(Default::default()),
-                    black_box(false),
-                );
+                archiver.add_block(black_box(chunk.to_vec()), black_box(Default::default()));
             }
         })
     });

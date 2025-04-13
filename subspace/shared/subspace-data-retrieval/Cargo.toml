@@ -18,8 +18,9 @@ futures.workspace = true
 hex = { workspace = true, features = ["std"] }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 subspace-archiving.workspace = true
-subspace-core-primitives = { workspace = true, features = ["std"] }
+subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 subspace-erasure-coding.workspace = true
+# TODO: Get rid of this dependency, this is not the right place for it
 subspace-runtime-primitives = { workspace = true, features = ["std"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt"] }

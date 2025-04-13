@@ -3,6 +3,7 @@
 [![🚧 Website](https://img.shields.io/badge/🚧_Website-grey)](https://abundance.build/)
 [![Rust Docs](https://img.shields.io/badge/Rust_docs-grey?logo=rust)](https://abundance.build/rust-docs)
 [![📖 Book](https://img.shields.io/badge/📖_Book-grey)](https://abundance.build/book)
+[![💬 Zulip chat](https://img.shields.io/badge/📖_Zulip_chat-grey)](https://abundance.zulipchat.com/)
 
 Researching next-gen blockchain architecture (as of 2025) to achieve ultimate scalability in permissionless setting and
 fully resolve Blockchain Trilemma. May or may not succeed but must be fun.

@@ -18,5 +18,9 @@
 
 ---
 
+* [Contribute](Contribute.md)
+
+---
+
 Don't know about a better hack than this: https://github.com/rust-lang/mdBook/issues/1013
 [CC0 1.0 Universal]()

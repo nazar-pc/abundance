@@ -691,7 +691,6 @@ where
             segment_headers_store.clone(),
             subspace_link.clone(),
             client.clone(),
-            sync_oracle.clone(),
             config.create_object_mappings,
         )
     })

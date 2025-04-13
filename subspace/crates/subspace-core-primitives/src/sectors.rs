@@ -18,7 +18,9 @@ use derive_more::{
     Add, AddAssign, AsRef, Deref, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub,
     SubAssign,
 };
+#[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -43,7 +45,8 @@ impl SectorSlotChallenge {
 }
 
 /// Data structure representing sector ID in farmer's plot
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode, TypeInfo)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SectorId(Blake3Hash);
 
@@ -179,8 +182,6 @@ impl SectorId {
     Eq,
     PartialEq,
     Hash,
-    Encode,
-    Decode,
     Add,
     AddAssign,
     Sub,
@@ -189,8 +190,10 @@ impl SectorId {
     MulAssign,
     Div,
     DivAssign,
-    TypeInfo,
-    MaxEncodedLen,
+)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]

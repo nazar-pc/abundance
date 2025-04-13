@@ -6,7 +6,9 @@ use core::fmt;
 use core::num::NonZeroU8;
 use core::str::FromStr;
 use derive_more::{AsMut, AsRef, Deref, DerefMut, From};
+#[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -14,27 +16,19 @@ use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
 
 /// Proof of time key(input to the encryption).
-#[derive(
-    Default,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    From,
-    AsRef,
-    AsMut,
-    Deref,
-    DerefMut,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
+#[derive(Default, Copy, Clone, Eq, PartialEq, From, AsRef, AsMut, Deref, DerefMut)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 pub struct PotKey([u8; Self::SIZE]);
 
 impl fmt::Debug for PotKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -80,7 +74,10 @@ impl<'de> Deserialize<'de> for PotKey {
 
 impl fmt::Display for PotKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -102,28 +99,19 @@ impl PotKey {
 }
 
 /// Proof of time seed
-#[derive(
-    Default,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Hash,
-    From,
-    AsRef,
-    AsMut,
-    Deref,
-    DerefMut,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, From, AsRef, AsMut, Deref, DerefMut)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 pub struct PotSeed([u8; Self::SIZE]);
 
 impl fmt::Debug for PotSeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -169,7 +157,10 @@ impl<'de> Deserialize<'de> for PotSeed {
 
 impl fmt::Display for PotSeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -196,28 +187,19 @@ impl PotSeed {
 }
 
 /// Proof of time output, can be intermediate checkpoint or final slot output
-#[derive(
-    Default,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Hash,
-    From,
-    AsRef,
-    AsMut,
-    Deref,
-    DerefMut,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, From, AsRef, AsMut, Deref, DerefMut)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 pub struct PotOutput([u8; Self::SIZE]);
 
 impl fmt::Debug for PotOutput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -263,7 +245,10 @@ impl<'de> Deserialize<'de> for PotOutput {
 
 impl fmt::Display for PotOutput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -295,20 +280,10 @@ impl PotOutput {
 }
 
 /// Proof of time checkpoints, result of proving
-#[derive(
-    Debug,
-    Default,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Hash,
-    Deref,
-    DerefMut,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 pub struct PotCheckpoints([PotOutput; Self::NUM_CHECKPOINTS.get() as usize]);
 

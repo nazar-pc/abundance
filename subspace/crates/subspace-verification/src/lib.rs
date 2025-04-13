@@ -7,18 +7,19 @@
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
 //  https://github.com/rust-lang/rust/issues/133199
 #![feature(generic_const_exprs)]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(feature = "kzg", feature = "alloc"))]
 extern crate alloc;
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(feature = "kzg", feature = "alloc"))]
 use alloc::string::String;
-#[cfg(all(feature = "kzg", not(feature = "std")))]
+#[cfg(all(feature = "kzg", feature = "alloc"))]
 use alloc::vec::Vec;
 use core::mem;
 #[cfg(feature = "kzg")]
 use core::simd::Simd;
+#[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
@@ -45,6 +46,7 @@ use subspace_proof_of_space::Table;
 
 /// Errors encountered by the Subspace consensus primitives.
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
+#[cfg(feature = "kzg")]
 pub enum Error {
     /// Invalid piece offset
     #[error("Piece verification failed")]
@@ -145,7 +147,8 @@ pub fn is_within_solution_range(
 }
 
 /// Parameters for checking piece validity
-#[derive(Debug, Clone, Encode, Decode, MaxEncodedLen)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 pub struct PieceCheckParams {
     /// How many pieces one sector is supposed to contain (max)
     pub max_pieces_in_sector: u16,
@@ -164,7 +167,8 @@ pub struct PieceCheckParams {
 }
 
 /// Parameters for solution verification
-#[derive(Debug, Clone, Encode, Decode, MaxEncodedLen)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 pub struct VerifySolutionParams {
     /// Proof of time for which solution is built
     pub proof_of_time: PotOutput,

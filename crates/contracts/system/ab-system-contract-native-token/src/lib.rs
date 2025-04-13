@@ -116,14 +116,7 @@ impl NativeToken {
             }
         }
 
-        match to.get_mut() {
-            Some(contents) => {
-                contents.balance += amount;
-            }
-            None => {
-                to.replace(Slot { balance: amount });
-            }
-        }
+        to.get_mut_or_default().balance += amount;
 
         Ok(())
     }

@@ -1,12 +1,16 @@
 //! Segments-related data structures.
 
-#[cfg(not(feature = "std"))]
-extern crate alloc;
+#[cfg(feature = "alloc")]
+mod archival_history_segment;
 
-use crate::hashes::{blake3_hash, Blake3Hash};
-use crate::pieces::{FlatPieces, Piece, PieceIndex, RawRecord};
+#[cfg(feature = "scale-codec")]
+use crate::hashes::blake3_hash;
+use crate::hashes::Blake3Hash;
+use crate::pieces::{PieceIndex, RawRecord};
+#[cfg(feature = "alloc")]
+pub use crate::segments::archival_history_segment::ArchivedHistorySegment;
 use crate::BlockNumber;
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::array::TryFromSliceError;
 use core::fmt;
@@ -16,7 +20,9 @@ use derive_more::{
     Add, AddAssign, Deref, DerefMut, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub,
     SubAssign,
 };
+#[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -39,8 +45,6 @@ use serde_big_array::BigArray;
     Hash,
     From,
     Into,
-    Encode,
-    Decode,
     Add,
     AddAssign,
     Sub,
@@ -49,8 +53,10 @@ use serde_big_array::BigArray;
     MulAssign,
     Div,
     DivAssign,
-    TypeInfo,
-    MaxEncodedLen,
+)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
@@ -88,18 +94,18 @@ impl SegmentIndex {
     /// Get the first piece index in this segment.
     #[inline]
     pub const fn first_piece_index(&self) -> PieceIndex {
-        PieceIndex::new(self.0 * ArchivedHistorySegment::NUM_PIECES as u64)
+        PieceIndex::new(self.0 * RecordedHistorySegment::NUM_PIECES as u64)
     }
 
     /// Get the last piece index in this segment.
     #[inline]
     pub const fn last_piece_index(&self) -> PieceIndex {
-        PieceIndex::new((self.0 + 1) * ArchivedHistorySegment::NUM_PIECES as u64 - 1)
+        PieceIndex::new((self.0 + 1) * RecordedHistorySegment::NUM_PIECES as u64 - 1)
     }
 
     /// List of piece indexes that belong to this segment.
-    pub fn segment_piece_indexes(&self) -> [PieceIndex; ArchivedHistorySegment::NUM_PIECES] {
-        let mut piece_indices = [PieceIndex::ZERO; ArchivedHistorySegment::NUM_PIECES];
+    pub fn segment_piece_indexes(&self) -> [PieceIndex; RecordedHistorySegment::NUM_PIECES] {
+        let mut piece_indices = [PieceIndex::ZERO; RecordedHistorySegment::NUM_PIECES];
         (self.first_piece_index()..=self.last_piece_index())
             .zip(&mut piece_indices)
             .for_each(|(input, output)| {
@@ -112,8 +118,8 @@ impl SegmentIndex {
     /// List of piece indexes that belong to this segment with source pieces first.
     pub fn segment_piece_indexes_source_first(
         &self,
-    ) -> [PieceIndex; ArchivedHistorySegment::NUM_PIECES] {
-        let mut source_first_piece_indices = [PieceIndex::ZERO; ArchivedHistorySegment::NUM_PIECES];
+    ) -> [PieceIndex; RecordedHistorySegment::NUM_PIECES] {
+        let mut source_first_piece_indices = [PieceIndex::ZERO; RecordedHistorySegment::NUM_PIECES];
 
         let piece_indices = self.segment_piece_indexes();
         piece_indices
@@ -136,27 +142,20 @@ impl SegmentIndex {
 }
 
 /// Segment commitment contained within segment header.
-#[derive(
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Hash,
-    Deref,
-    DerefMut,
-    From,
-    Into,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[repr(transparent)]
 pub struct SegmentCommitment([u8; SegmentCommitment::SIZE]);
 
 impl fmt::Debug for SegmentCommitment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.0))
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -237,23 +236,11 @@ impl SegmentCommitment {
 
 /// Size of blockchain history in segments.
 #[derive(
-    Debug,
-    Display,
-    Copy,
-    Clone,
-    Ord,
-    PartialOrd,
-    Eq,
-    PartialEq,
-    Hash,
-    From,
-    Into,
-    Deref,
-    DerefMut,
-    Encode,
-    Decode,
-    TypeInfo,
-    MaxEncodedLen,
+    Debug, Display, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, From, Into, Deref, DerefMut,
+)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
@@ -278,7 +265,7 @@ impl HistorySize {
     /// Size of blockchain history in pieces.
     pub const fn in_pieces(&self) -> NonZeroU64 {
         self.0.saturating_mul(
-            NonZeroU64::new(ArchivedHistorySegment::NUM_PIECES as u64).expect("Not zero; qed"),
+            NonZeroU64::new(RecordedHistorySegment::NUM_PIECES as u64).expect("Not zero; qed"),
         )
     }
 
@@ -296,7 +283,8 @@ impl HistorySize {
 }
 
 /// Progress of an archived block.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, TypeInfo)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub enum ArchivedBlockProgress {
@@ -332,7 +320,8 @@ impl ArchivedBlockProgress {
 }
 
 /// Last archived block
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode, TypeInfo)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct LastArchivedBlock {
@@ -365,12 +354,13 @@ impl LastArchivedBlock {
 /// segment. Each `SegmentHeader` includes hash of the previous one and all together form a chain of
 /// segment headers that is used for quick and efficient verification that some [`Piece`]
 /// corresponds to the actual archival history of the blockchain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub enum SegmentHeader {
     /// V0 of the segment header data structure
-    #[codec(index = 0)]
+    #[cfg_attr(feature = "scale-codec", codec(index = 0))]
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     V0 {
         /// Segment index
@@ -386,6 +376,8 @@ pub enum SegmentHeader {
 
 impl SegmentHeader {
     /// Hash of the whole segment header
+    // TODO: This should not depend on scale codec eventually (ideally)
+    #[cfg(feature = "scale-codec")]
     pub fn hash(&self) -> Blake3Hash {
         blake3_hash(&self.encode())
     }
@@ -471,52 +463,23 @@ impl RecordedHistorySegment {
     pub const NUM_RAW_RECORDS: usize = 128;
     /// Erasure coding rate for records during archiving process.
     pub const ERASURE_CODING_RATE: (usize, usize) = (1, 2);
+    /// Number of pieces in one segment of archived history (taking erasure coding rate into
+    /// account)
+    pub const NUM_PIECES: usize =
+        Self::NUM_RAW_RECORDS * Self::ERASURE_CODING_RATE.1 / Self::ERASURE_CODING_RATE.0;
     /// Size of recorded history segment in bytes.
     ///
     /// It includes half of the records (just source records) that will later be erasure coded and
     /// together with corresponding commitments and witnesses will result in
-    /// [`ArchivedHistorySegment::NUM_PIECES`] [`Piece`]s of archival history.
+    /// [`Self::NUM_PIECES`] [`Piece`]s of archival history.
     pub const SIZE: usize = RawRecord::SIZE * Self::NUM_RAW_RECORDS;
 
     /// Create boxed value without hitting stack overflow
     #[inline]
+    #[cfg(feature = "alloc")]
     pub fn new_boxed() -> Box<Self> {
         // TODO: Should have been just `::new()`, but https://github.com/rust-lang/rust/issues/53827
         // SAFETY: Data structure filled with zeroes is a valid invariant
         unsafe { Box::<Self>::new_zeroed().assume_init() }
-    }
-}
-
-/// Archived history segment after archiving is applied.
-#[derive(Debug, Clone, Eq, PartialEq, Deref, DerefMut)]
-#[repr(transparent)]
-pub struct ArchivedHistorySegment(FlatPieces);
-
-impl Default for ArchivedHistorySegment {
-    #[inline]
-    fn default() -> Self {
-        Self(FlatPieces::new(Self::NUM_PIECES))
-    }
-}
-
-impl ArchivedHistorySegment {
-    /// Number of pieces in one segment of archived history.
-    pub const NUM_PIECES: usize = RecordedHistorySegment::NUM_RAW_RECORDS
-        * RecordedHistorySegment::ERASURE_CODING_RATE.1
-        / RecordedHistorySegment::ERASURE_CODING_RATE.0;
-    /// Size of archived history segment in bytes.
-    ///
-    /// It includes erasure coded [`crate::pieces::PieceArray`]s (both source and parity) that are
-    /// composed of [`crate::pieces::Record`]s together with corresponding commitments and
-    /// witnesses.
-    pub const SIZE: usize = Piece::SIZE * Self::NUM_PIECES;
-
-    /// Ensure archived history segment contains cheaply cloneable shared data.
-    ///
-    /// Internally archived history segment uses CoW mechanism and can store either mutable owned
-    /// data or data that is cheap to clone, calling this method will ensure further clones and
-    /// returned pieces will not result in additional memory allocations.
-    pub fn to_shared(self) -> Self {
-        Self(self.0.to_shared())
     }
 }
