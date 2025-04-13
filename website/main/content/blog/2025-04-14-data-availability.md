@@ -1,6 +1,6 @@
 ---
 title: The data availability problem
-date: 2025-04-10
+date: 2025-04-14
 draft: false
 description: How to ensure that blocks and segments are available in a shard when you need them.
 tags: [status-update, consensus]
