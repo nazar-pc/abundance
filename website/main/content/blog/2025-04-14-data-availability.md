@@ -38,9 +38,9 @@ High-level, this is how the end-to-end of sharded archiving currently looks like
   been created, triggering the clearing of the block buffer for child shards. Once a segment is
   committed in the parent, there is no need to keep raw blocks in the buffer anymore as they are
   explicitly available in the committed segments.
-- _Beacon Chain Integration (L1 Child):_ The beacon chain receives the parent shard's blocks and
-  segments, committing them to its chain (as it would happen with any regular parent shard in the
-  system).
+- _Beacon Chain Integration (L1 Child):_ The beacon chain receives the blocks and segments from the
+  immediate shards below (L1 shards), committing them to its chain (as any other regular parent
+  shard in the system that has immediate child shards below).
 - _Super-Segment Commitment (L1 Child):_ When a super-segment from a child (`super_segment_L1_1`) is
   committed, it's added to the shard's history buffer, triggering the clearing of the block buffer.
 - _Segment History (L1 Child):_ Segments in a child shard are created as super-segments, committed
@@ -80,22 +80,26 @@ type BlockHeader (260B) {
 ```
 
 And that every 6 seconds all the shards in the lower level submit a block at the same time (this is
-the worst case scenario), we can support the following number of shards in the lower level:
+the average case scenario), we can support the following number of shards in the lower level:
 
 ```
 NUM_SHARDS = (0.10 * BLOCK_SIZE) / BLOCK_HEADER =~ 153 SHARDS
 ```
 
-This assumes that the block time of shards is also 6 seconds and that the worst case scenario
+This assumes that the block time of shards is also 6 seconds and that the average case scenario
 happens where all shards submit their blocks at the same time on a block.
 
 But maybe committing full block headers is just too much, what happens if we just commit the block
 (32B) hash and the shard id (4B)? Then things look a bit better, as we can get to the order of the
-thousand shards:
+thousand shards under each parent:
 
 ```
 NUM_SHARDS ~= 1111 SHARDS
 ```
+
+If we come back to our target of around 1M shards discussed last week, these numbers mean that with
+just two layers of shards (and the beacon chain in the root), we would be able to achieve the
+desired scale for the system.
 
 ## Enter the data availability problem
 
