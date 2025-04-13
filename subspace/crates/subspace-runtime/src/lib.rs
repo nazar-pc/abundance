@@ -34,7 +34,6 @@ use frame_support::weights::{ConstantMultiplier, Weight};
 use frame_support::{construct_runtime, parameter_types};
 use frame_system::limits::{BlockLength, BlockWeights};
 use frame_system::pallet_prelude::RuntimeCallFor;
-pub use pallet_rewards::RewardPoint;
 pub use pallet_subspace::AllowAuthoringBy;
 use pallet_subspace::ConsensusConstants;
 use sp_api::impl_runtime_apis;
@@ -45,7 +44,7 @@ use sp_core::OpaqueMetadata;
 use sp_runtime::traits::{AccountIdLookup, BlakeTwo256, Block as BlockT};
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::type_with_default::TypeWithDefault;
-use sp_runtime::{generic, AccountId32, ApplyExtrinsicResult, ExtrinsicInclusionMode};
+use sp_runtime::{generic, ApplyExtrinsicResult, ExtrinsicInclusionMode};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
@@ -273,7 +272,6 @@ impl pallet_transaction_fees::Config for Runtime {
     type TotalSpacePledged = TotalSpacePledged;
     type BlockchainHistorySize = BlockchainHistorySize;
     type Currency = Balances;
-    type FindBlockRewardAddress = Subspace;
     type DynamicCostOfStorage = DynamicCostOfStorage;
     type WeightInfo = pallet_transaction_fees::weights::SubstrateWeight<Runtime>;
 }
@@ -357,21 +355,6 @@ where
     }
 }
 
-parameter_types! {
-    pub const AvgBlockspaceUsageNumBlocks: BlockNumber = 100;
-}
-
-impl pallet_rewards::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type AvgBlockspaceUsageNumBlocks = AvgBlockspaceUsageNumBlocks;
-    type TransactionByteFee = TransactionByteFee;
-    type MaxRewardPoints = ConstU32<20>;
-    type FindBlockRewardAddress = Subspace;
-    type WeightInfo = pallet_rewards::weights::SubstrateWeight<Runtime>;
-    type OnReward = ();
-}
-
 impl pallet_runtime_configs::Config for Runtime {
     type WeightInfo = pallet_runtime_configs::weights::SubstrateWeight<Runtime>;
 }
@@ -382,7 +365,6 @@ construct_runtime!(
         Timestamp: pallet_timestamp = 1,
 
         Subspace: pallet_subspace = 3,
-        Rewards: pallet_rewards = 4,
 
         Balances: pallet_balances = 5,
         TransactionFees: pallet_transaction_fees = 6,
@@ -466,29 +448,12 @@ fn create_unsigned_general_extrinsic(call: RuntimeCall) -> UncheckedExtrinsic {
     UncheckedExtrinsic::new_transaction(call, extra)
 }
 
-struct RewardAddress([u8; 32]);
-
-impl From<PublicKey> for RewardAddress {
-    #[inline]
-    fn from(public_key: PublicKey) -> Self {
-        Self(*public_key)
-    }
-}
-
-impl From<RewardAddress> for AccountId32 {
-    #[inline]
-    fn from(reward_address: RewardAddress) -> Self {
-        reward_address.0.into()
-    }
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
     frame_benchmarking::define_benchmarks!(
         [frame_benchmarking, BaselineBench::<Runtime>]
         [frame_system, SystemBench::<Runtime>]
         [pallet_balances, Balances]
-        [pallet_rewards, Rewards]
         [pallet_runtime_configs, RuntimeConfigs]
         [pallet_subspace, Subspace]
         [pallet_timestamp, Timestamp]
@@ -573,7 +538,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl sp_consensus_subspace::SubspaceApi<Block, PublicKey> for Runtime {
+    impl sp_consensus_subspace::SubspaceApi<Block> for Runtime {
         fn pot_parameters() -> PotParameters {
             Subspace::pot_parameters()
         }

@@ -229,11 +229,9 @@ impl ChunkWitness {
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub struct Solution<RewardAddress> {
+pub struct Solution {
     /// Public key of the farmer that created the solution
     pub public_key: PublicKey,
-    /// Address for receiving block reward
-    pub reward_address: RewardAddress,
     /// Index of the sector where solution was found
     pub sector_index: SectorIndex,
     /// Size of the blockchain history at time of sector creation
@@ -252,47 +250,11 @@ pub struct Solution<RewardAddress> {
     pub proof_of_space: PosProof,
 }
 
-impl<RewardAddressA> Solution<RewardAddressA> {
-    /// Transform solution with one reward address type into solution with another compatible
-    /// reward address type.
-    pub fn into_reward_address_format<T, RewardAddressB>(self) -> Solution<RewardAddressB>
-    where
-        RewardAddressA: Into<T>,
-        T: Into<RewardAddressB>,
-    {
-        let Solution {
-            public_key,
-            reward_address,
-            sector_index,
-            history_size,
-            piece_offset,
-            record_commitment,
-            record_witness,
-            chunk,
-            chunk_witness,
-            proof_of_space,
-        } = self;
-        Solution {
-            public_key,
-            reward_address: Into::<T>::into(reward_address).into(),
-            sector_index,
-            history_size,
-            piece_offset,
-            record_commitment,
-            record_witness,
-            chunk,
-            chunk_witness,
-            proof_of_space,
-        }
-    }
-}
-
-impl<RewardAddress> Solution<RewardAddress> {
+impl Solution {
     /// Dummy solution for the genesis block
-    pub fn genesis_solution(public_key: PublicKey, reward_address: RewardAddress) -> Self {
+    pub fn genesis_solution(public_key: PublicKey) -> Self {
         Self {
             public_key,
-            reward_address,
             sector_index: 0,
             history_size: HistorySize::from(SegmentIndex::ZERO),
             piece_offset: PieceOffset::default(),

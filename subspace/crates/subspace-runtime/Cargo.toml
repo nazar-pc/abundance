@@ -24,7 +24,6 @@ frame-system.workspace = true
 frame-system-benchmarking = { workspace = true, optional = true }
 frame-system-rpc-runtime-api.workspace = true
 pallet-balances.workspace = true
-pallet-rewards.workspace = true
 pallet-runtime-configs.workspace = true
 pallet-subspace = { workspace = true, features = ["serde"] }
 pallet-sudo.workspace = true
@@ -70,7 +69,6 @@ std = [
     "frame-system-benchmarking?/std",
     "frame-system-rpc-runtime-api/std",
     "pallet-balances/std",
-    "pallet-rewards/std",
     "pallet-runtime-configs/std",
     "pallet-subspace/std",
     "pallet-sudo/std",
@@ -106,7 +104,6 @@ runtime-benchmarks = [
     "frame-system-benchmarking",
     "frame-system-benchmarking/runtime-benchmarks",
     "pallet-balances/runtime-benchmarks",
-    "pallet-rewards/runtime-benchmarks",
     "pallet-runtime-configs/runtime-benchmarks",
     "pallet-subspace/runtime-benchmarks",
     "pallet-timestamp/runtime-benchmarks",

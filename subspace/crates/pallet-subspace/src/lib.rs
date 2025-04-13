@@ -503,7 +503,7 @@ impl<T: Config> Pallet<T> {
         let pre_digest = frame_system::Pallet::<T>::digest()
             .logs
             .iter()
-            .find_map(|s| s.as_subspace_pre_digest::<T::AccountId>())
+            .find_map(|s| s.as_subspace_pre_digest())
             .expect("Block must always have pre-digest");
         let current_slot = pre_digest.slot();
 
@@ -608,7 +608,7 @@ impl<T: Config> Pallet<T> {
         pot_entropy_injection_interval: BlockNumberFor<T>,
         pot_entropy_injection_lookback_depth: u8,
         pot_entropy_injection_delay: SlotNumber,
-        pre_digest: &PreDigest<T::AccountId>,
+        pre_digest: &PreDigest,
     ) {
         let mut pot_slot_iterations =
             PotSlotIterations::<T>::get().expect("Always initialized during genesis; qed");
@@ -945,15 +945,4 @@ fn check_segment_headers<T: Config>(
     }
 
     Ok(())
-}
-
-impl<T: Config> subspace_runtime_primitives::FindBlockRewardAddress<T::AccountId> for Pallet<T> {
-    fn find_block_reward_address() -> Option<T::AccountId> {
-        let pre_digest = frame_system::Pallet::<T>::digest()
-            .logs
-            .iter()
-            .find_map(|s| s.as_subspace_pre_digest::<T::AccountId>())
-            .expect("Block must always have pre-digest");
-        Some(pre_digest.solution().reward_address.clone())
-    }
 }

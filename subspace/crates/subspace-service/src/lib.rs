@@ -80,7 +80,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::pot::PotSeed;
-use subspace_core_primitives::{PublicKey, REWARD_SIGNING_CONTEXT};
+use subspace_core_primitives::REWARD_SIGNING_CONTEXT;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_kzg::Kzg;
 use subspace_networking::libp2p::multiaddr::Protocol;
@@ -231,7 +231,7 @@ where
         + OffchainWorkerApi<Block>
         + SessionKeys<Block>
         + TaggedTransactionQueue<Block>
-        + SubspaceApi<Block, PublicKey>
+        + SubspaceApi<Block>
         + ObjectsApi<Block>,
 {
     let executor = sc_service::new_wasm_executor(&config.executor);
@@ -384,7 +384,7 @@ where
         + HeaderBackend<Block>
         + HeaderMetadata<Block, Error = sp_blockchain::Error>
         + 'static,
-    Client::Api: TaggedTransactionQueue<Block> + SubspaceApi<Block, PublicKey>,
+    Client::Api: TaggedTransactionQueue<Block> + SubspaceApi<Block>,
 {
     /// Task manager.
     pub task_manager: TaskManager,
@@ -438,7 +438,7 @@ where
         + SessionKeys<Block>
         + TaggedTransactionQueue<Block>
         + TransactionPaymentApi<Block, Balance>
-        + SubspaceApi<Block, PublicKey>
+        + SubspaceApi<Block>
         + ObjectsApi<Block>,
 {
     let PartialComponents {

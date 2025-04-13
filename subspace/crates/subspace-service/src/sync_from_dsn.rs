@@ -24,7 +24,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::segments::SegmentIndex;
-use subspace_core_primitives::PublicKey;
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_networking::utils::piece_provider::{PieceProvider, PieceValidator};
@@ -128,7 +127,7 @@ where
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block, PublicKey>,
+    Client::Api: SubspaceApi<Block>,
     PG: PieceGetter + Send + Sync + 'static,
 {
     let (tx, rx) = mpsc::channel(0);
@@ -292,7 +291,7 @@ where
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block, PublicKey>,
+    Client::Api: SubspaceApi<Block>,
     PG: PieceGetter,
 {
     let info = client.info();

@@ -113,7 +113,7 @@ pub struct SolutionResponse {
     /// Solution farmer has for the challenge.
     ///
     /// Corresponds to `slot_number` above.
-    pub solution: Solution<PublicKey>,
+    pub solution: Solution,
 }
 
 /// Reward info that needs to be signed.

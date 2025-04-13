@@ -64,7 +64,7 @@ use std::time::Duration;
 use subspace_archiving::archiver::{Archiver, NewArchivedSegment};
 use subspace_core_primitives::objects::{BlockObjectMapping, GlobalObject};
 use subspace_core_primitives::segments::{RecordedHistorySegment, SegmentHeader, SegmentIndex};
-use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_core_primitives::BlockNumber;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_kzg::Kzg;
 use tracing::{debug, info, trace, warn};
@@ -405,7 +405,7 @@ fn find_last_archived_block<Block, Client, AS>(
 where
     Block: BlockT,
     Client: ProvideRuntimeApi<Block> + BlockBackend<Block> + HeaderBackend<Block>,
-    Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block>,
+    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
     AS: AuxStore,
 {
     let Some(max_segment_index) = segment_headers_store.max_segment_index() else {
@@ -582,7 +582,7 @@ fn initialize_archiver<Block, Client, AS>(
 where
     Block: BlockT,
     Client: ProvideRuntimeApi<Block> + BlockBackend<Block> + HeaderBackend<Block> + AuxStore,
-    Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block>,
+    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
     AS: AuxStore,
 {
     let client_info = client.info();
@@ -896,7 +896,7 @@ where
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block>,
+    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
     AS: AuxStore + Send + Sync + 'static,
 {
     if create_object_mappings.is_enabled() {
@@ -1115,7 +1115,7 @@ where
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block>,
+    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
     AS: AuxStore + Send + Sync + 'static,
 {
     let block = client

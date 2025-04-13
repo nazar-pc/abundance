@@ -129,7 +129,7 @@ pub struct NewSlotNotification {
     /// New slot information.
     pub new_slot_info: NewSlotInfo,
     /// Sender that can be used to send solutions for the slot.
-    pub solution_sender: mpsc::Sender<Solution<PublicKey>>,
+    pub solution_sender: mpsc::Sender<Solution>,
 }
 /// Notification with a hash that needs to be signed to receive reward and sender for signature.
 #[derive(Debug, Clone)]
@@ -201,7 +201,7 @@ where
     segment_headers_store: SegmentHeadersStore<AS>,
     /// Solution receivers for challenges that were sent to farmers and expected to be received
     /// eventually
-    pending_solutions: BTreeMap<Slot, mpsc::Receiver<Solution<PublicKey>>>,
+    pending_solutions: BTreeMap<Slot, mpsc::Receiver<Solution>>,
     /// Collection of PoT slots that can be retrieved later if needed by block production
     pot_checkpoints: BTreeMap<Slot, PotCheckpoints>,
     pot_verifier: PotVerifier,
@@ -213,7 +213,7 @@ impl<PosTable, Block, Client, E, SO, L, BS, AS> PotSlotWorker<Block>
 where
     Block: BlockT,
     Client: HeaderBackend<Block> + ProvideRuntimeApi<Block>,
-    Client::Api: SubspaceApi<Block, PublicKey>,
+    Client::Api: SubspaceApi<Block>,
     SO: SyncOracle + Send + Sync,
 {
     fn on_proof(&mut self, slot: Slot, checkpoints: PotCheckpoints) {
@@ -291,7 +291,7 @@ where
         + HeaderMetadata<Block, Error = ClientError>
         + AuxStore
         + 'static,
-    Client::Api: SubspaceApi<Block, PublicKey>,
+    Client::Api: SubspaceApi<Block>,
     E: Environment<Block, Error = Error> + Send + Sync,
     E::Proposer: Proposer<Block, Error = Error>,
     SO: SyncOracle + Send + Sync,
@@ -307,7 +307,7 @@ where
     type CreateProposer =
         Pin<Box<dyn Future<Output = Result<E::Proposer, ConsensusError>> + Send + 'static>>;
     type Proposer = E::Proposer;
-    type Claim = (PreDigest<PublicKey>, SubspaceJustification);
+    type Claim = (PreDigest, SubspaceJustification);
     type AuxData = ();
 
     fn logging_target(&self) -> &'static str {
@@ -540,7 +540,7 @@ where
                 .segment_commitment(parent_hash, sector_expiration_check_segment_index)
                 .ok()?;
 
-            let solution_verification_result = verify_solution::<PosTable, _>(
+            let solution_verification_result = verify_solution::<PosTable>(
                 &solution,
                 slot.into(),
                 &VerifySolutionParams {
@@ -728,7 +728,7 @@ where
         + HeaderMetadata<Block, Error = ClientError>
         + AuxStore
         + 'static,
-    Client::Api: SubspaceApi<Block, PublicKey>,
+    Client::Api: SubspaceApi<Block>,
     E: Environment<Block, Error = Error> + Send + Sync,
     E::Proposer: Proposer<Block, Error = Error>,
     SO: SyncOracle + Send + Sync,
@@ -825,7 +825,7 @@ pub(crate) fn extract_solution_range_for_block<Block, Client>(
 where
     Block: BlockT,
     Client: ProvideRuntimeApi<Block>,
-    Client::Api: SubspaceApi<Block, PublicKey>,
+    Client::Api: SubspaceApi<Block>,
 {
     client
         .runtime_api()

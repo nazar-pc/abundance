@@ -21,7 +21,6 @@ use sp_consensus::SyncOracle;
 use sp_consensus_subspace::SubspaceApi;
 use sp_objects::ObjectsApi;
 use std::sync::Arc;
-use subspace_core_primitives::PublicKey;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_kzg::Kzg;
 use subspace_networking::libp2p::Multiaddr;
@@ -67,7 +66,7 @@ where
         + Send
         + Sync
         + 'static,
-    C::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block>,
+    C::Api: SubspaceApi<Block> + ObjectsApi<Block>,
     SO: SyncOracle + Send + Sync + Clone + 'static,
     AS: AuxStore + Send + Sync + 'static,
 {

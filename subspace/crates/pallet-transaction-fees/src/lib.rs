@@ -14,7 +14,6 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use parity_scale_codec::{Codec, Decode, Encode};
 use scale_info::TypeInfo;
-use subspace_runtime_primitives::FindBlockRewardAddress;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -36,7 +35,7 @@ mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_support::traits::Currency;
     use frame_system::pallet_prelude::*;
-    use subspace_runtime_primitives::{BlockTransactionByteFee, FindBlockRewardAddress};
+    use subspace_runtime_primitives::BlockTransactionByteFee;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -62,8 +61,6 @@ mod pallet {
         type BlockchainHistorySize: Get<u128>;
 
         type Currency: Currency<Self::AccountId>;
-
-        type FindBlockRewardAddress: FindBlockRewardAddress<Self::AccountId>;
 
         /// Whether dynamic cost of storage should be used
         type DynamicCostOfStorage: Get<bool>;
@@ -153,11 +150,6 @@ where
     BalanceOf<T>: From<u64>,
 {
     fn do_initialize(_n: BlockNumberFor<T>) {
-        // Block author may equivocate, in which case they'll not be present here
-        if let Some(block_author) = T::FindBlockRewardAddress::find_block_reward_address() {
-            BlockAuthor::<T>::put(block_author);
-        }
-
         CollectedBlockFees::<T>::put(CollectedFees {
             storage: BalanceOf::<T>::zero(),
             compute: BalanceOf::<T>::zero(),

@@ -4,15 +4,14 @@ use crate::chain_spec_utils::{chain_spec_properties, get_account_id_from_seed};
 use sc_chain_spec::GenericChainSpec;
 use sc_service::ChainType;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::BoundedVec;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use subspace_core_primitives::pot::PotKey;
 use subspace_core_primitives::solutions::{pieces_to_solution_range, SolutionRange};
 use subspace_core_primitives::PublicKey;
 use subspace_runtime::{
-    AllowAuthoringBy, BalancesConfig, RewardPoint, RewardsConfig, RuntimeConfigsConfig,
-    RuntimeGenesisConfig, SubspaceConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    AllowAuthoringBy, BalancesConfig, RuntimeConfigsConfig, RuntimeGenesisConfig, SubspaceConfig,
+    SudoConfig, SystemConfig, WASM_BINARY,
 };
 use subspace_runtime_primitives::{AccountId, Balance, SLOT_PROBABILITY, SSC};
 
@@ -25,7 +24,6 @@ struct GenesisParams {
     pot_slot_iterations: NonZeroU32,
     enable_dynamic_cost_of_storage: bool,
     confirmation_depth_k: u32,
-    rewards_config: RewardsConfig,
 }
 
 pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
@@ -68,56 +66,6 @@ pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
                 enable_dynamic_cost_of_storage: false,
                 // TODO: Proper value here
                 confirmation_depth_k: 100,
-                rewards_config: RewardsConfig {
-                    remaining_issuance: 350_000_000 * SSC,
-                    proposer_subsidy_points: BoundedVec::try_from(vec![
-                        RewardPoint {
-                            block: 0,
-                            subsidy: 454545454545455000,
-                        },
-                        RewardPoint {
-                            block: 10512000,
-                            subsidy: 423672207997007000,
-                        },
-                        RewardPoint {
-                            block: 26280000,
-                            subsidy: 333635878252228000,
-                        },
-                        RewardPoint {
-                            block: 42048000,
-                            subsidy: 262825353875519000,
-                        },
-                        RewardPoint {
-                            block: 57816000,
-                            subsidy: 207116053874914000,
-                        },
-                        RewardPoint {
-                            block: 73584000,
-                            subsidy: 163272262877830000,
-                        },
-                        RewardPoint {
-                            block: 94608000,
-                            subsidy: 118963574070561000,
-                        },
-                        RewardPoint {
-                            block: 120888000,
-                            subsidy: 80153245846642200,
-                        },
-                        RewardPoint {
-                            block: 149796000,
-                            subsidy: 51971522998131200,
-                        },
-                        RewardPoint {
-                            block: 183960000,
-                            subsidy: 31192714495359900,
-                        },
-                        RewardPoint {
-                            block: 220752000,
-                            subsidy: 18033114698427300,
-                        },
-                    ])
-                    .expect("Number of elements is below configured MaxRewardPoints; qed"),
-                },
             },
         )?)
         .map_err(|error| format!("Failed to serialize genesis config: {error}"))?
@@ -157,11 +105,6 @@ pub fn devnet_config_compiled() -> Result<GenericChainSpec, String> {
                 enable_dynamic_cost_of_storage: false,
                 // TODO: Proper value here
                 confirmation_depth_k: 100,
-                // TODO: Proper value here
-                rewards_config: RewardsConfig {
-                    remaining_issuance: 1_000_000_000 * SSC,
-                    proposer_subsidy_points: Default::default(),
-                },
             },
         )?)
         .map_err(|error| format!("Failed to serialize genesis config: {error}"))?
@@ -201,10 +144,6 @@ pub fn dev_config() -> Result<GenericChainSpec, String> {
                     pot_slot_iterations: NonZeroU32::new(100_000_000).expect("Not zero; qed"),
                     enable_dynamic_cost_of_storage: false,
                     confirmation_depth_k: 5,
-                    rewards_config: RewardsConfig {
-                        remaining_issuance: 1_000_000 * SSC,
-                        proposer_subsidy_points: Default::default(),
-                    },
                 },
             )?)
             .map_err(|error| format!("Failed to serialize genesis config: {error}"))?,
@@ -223,7 +162,6 @@ fn subspace_genesis_config(
         pot_slot_iterations,
         enable_dynamic_cost_of_storage,
         confirmation_depth_k,
-        rewards_config,
     } = genesis_params;
 
     Ok(RuntimeGenesisConfig {
@@ -240,7 +178,6 @@ fn subspace_genesis_config(
             initial_solution_range: INITIAL_SOLUTION_RANGE,
             phantom: PhantomData,
         },
-        rewards: rewards_config,
         runtime_configs: RuntimeConfigsConfig {
             enable_dynamic_cost_of_storage,
             confirmation_depth_k,

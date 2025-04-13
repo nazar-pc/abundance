@@ -160,22 +160,19 @@ where
     }
 
     /// Turn solution candidates into actual solutions
-    pub fn into_solutions<RewardAddress, PosTable, TableGenerator>(
+    pub fn into_solutions<PosTable, TableGenerator>(
         self,
-        reward_address: &'a RewardAddress,
         kzg: &'a Kzg,
         erasure_coding: &'a ErasureCoding,
         mode: ReadSectorRecordChunksMode,
         table_generator: TableGenerator,
-    ) -> Result<impl ProvableSolutions<Item = MaybeSolution<RewardAddress>> + 'a, ProvingError>
+    ) -> Result<impl ProvableSolutions<Item = MaybeSolution> + 'a, ProvingError>
     where
-        RewardAddress: Copy,
         PosTable: Table,
         TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
     {
-        SolutionsIterator::<'a, _, PosTable, _, _>::new(
+        SolutionsIterator::<'a, PosTable, _, _>::new(
             self.public_key,
-            reward_address,
             self.sector_id,
             self.s_bucket,
             self.sector,
@@ -189,16 +186,15 @@ where
     }
 }
 
-type MaybeSolution<RewardAddress> = Result<Solution<RewardAddress>, ProvingError>;
+type MaybeSolution = Result<Solution, ProvingError>;
 
-struct SolutionsIterator<'a, RewardAddress, PosTable, TableGenerator, Sector>
+struct SolutionsIterator<'a, PosTable, TableGenerator, Sector>
 where
     Sector: ReadAtSync + 'a,
     PosTable: Table,
     TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
 {
     public_key: &'a PublicKey,
-    reward_address: &'a RewardAddress,
     sector_id: SectorId,
     s_bucket: SBucket,
     sector_metadata: &'a SectorMetadataChecksummed,
@@ -214,25 +210,23 @@ where
     table_generator: TableGenerator,
 }
 
-impl<'a, RewardAddress, PosTable, TableGenerator, Sector> ExactSizeIterator
-    for SolutionsIterator<'a, RewardAddress, PosTable, TableGenerator, Sector>
+impl<'a, PosTable, TableGenerator, Sector> ExactSizeIterator
+    for SolutionsIterator<'a, PosTable, TableGenerator, Sector>
 where
-    RewardAddress: Copy,
     Sector: ReadAtSync + 'a,
     PosTable: Table,
     TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
 {
 }
 
-impl<'a, RewardAddress, PosTable, TableGenerator, Sector> Iterator
-    for SolutionsIterator<'a, RewardAddress, PosTable, TableGenerator, Sector>
+impl<'a, PosTable, TableGenerator, Sector> Iterator
+    for SolutionsIterator<'a, PosTable, TableGenerator, Sector>
 where
-    RewardAddress: Copy,
     Sector: ReadAtSync + 'a,
     PosTable: Table,
     TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
 {
-    type Item = MaybeSolution<RewardAddress>;
+    type Item = MaybeSolution;
 
     fn next(&mut self) -> Option<Self::Item> {
         let WinningChunk {
@@ -307,7 +301,6 @@ where
 
             Solution {
                 public_key: *self.public_key,
-                reward_address: *self.reward_address,
                 sector_index: self.sector_metadata.sector_index,
                 history_size: self.sector_metadata.history_size,
                 piece_offset,
@@ -330,10 +323,9 @@ where
     }
 }
 
-impl<'a, RewardAddress, PosTable, TableGenerator, Sector> ProvableSolutions
-    for SolutionsIterator<'a, RewardAddress, PosTable, TableGenerator, Sector>
+impl<'a, PosTable, TableGenerator, Sector> ProvableSolutions
+    for SolutionsIterator<'a, PosTable, TableGenerator, Sector>
 where
-    RewardAddress: Copy,
     Sector: ReadAtSync + 'a,
     PosTable: Table,
     TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
@@ -343,10 +335,8 @@ where
     }
 }
 
-impl<'a, RewardAddress, PosTable, TableGenerator, Sector>
-    SolutionsIterator<'a, RewardAddress, PosTable, TableGenerator, Sector>
+impl<'a, PosTable, TableGenerator, Sector> SolutionsIterator<'a, PosTable, TableGenerator, Sector>
 where
-    RewardAddress: Copy,
     Sector: ReadAtSync + 'a,
     PosTable: Table,
     TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
@@ -354,7 +344,6 @@ where
     #[allow(clippy::too_many_arguments)]
     fn new(
         public_key: &'a PublicKey,
-        reward_address: &'a RewardAddress,
         sector_id: SectorId,
         s_bucket: SBucket,
         sector: Sector,
@@ -410,7 +399,6 @@ where
 
         Ok(Self {
             public_key,
-            reward_address,
             sector_id,
             s_bucket,
             sector_metadata,

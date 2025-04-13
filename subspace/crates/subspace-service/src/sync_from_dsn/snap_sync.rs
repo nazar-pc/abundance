@@ -24,7 +24,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use subspace_archiving::reconstructor::Reconstructor;
 use subspace_core_primitives::segments::SegmentIndex;
-use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_core_primitives::BlockNumber;
 use subspace_data_retrieval::segment_downloading::download_segment_pieces;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_networking::Node;
@@ -85,7 +85,7 @@ where
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block>,
+    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
     PG: PieceGetter,
 {
     let info = client.info();
@@ -262,7 +262,7 @@ where
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block, PublicKey> + ObjectsApi<Block>,
+    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
     IQS: ImportQueueService<Block> + ?Sized,
 {
     debug!("Starting snap sync...");
