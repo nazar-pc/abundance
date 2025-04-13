@@ -60,7 +60,6 @@ num-traits = { version = "0.2.18", default-features = false }
 num_cpus = "1.16.0"
 ouroboros = "0.18.4"
 pallet-balances = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }
-pallet-rewards = { version = "0.1.0", path = "crates/pallet-rewards", default-features = false }
 pallet-runtime-configs = { version = "0.1.0", path = "crates/pallet-runtime-configs", default-features = false }
 pallet-subspace = { version = "0.1.0", path = "crates/pallet-subspace", default-features = false }
 pallet-sudo = { git = "https://github.com/subspace/polkadot-sdk", rev = "7c38b7ed5742bb3b53fc97f61da46033c48f9eaa", default-features = false }

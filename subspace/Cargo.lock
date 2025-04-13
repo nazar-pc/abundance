@@ -6766,24 +6766,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-rewards"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "subspace-runtime-primitives",
-]
-
-[[package]]
 name = "pallet-runtime-configs"
 version = "0.1.0"
 dependencies = [
@@ -11694,7 +11676,6 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "pallet-balances",
- "pallet-rewards",
  "pallet-runtime-configs",
  "pallet-subspace",
  "pallet-sudo",

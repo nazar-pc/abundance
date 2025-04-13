@@ -946,14 +946,3 @@ fn check_segment_headers<T: Config>(
 
     Ok(())
 }
-
-impl<T: Config> subspace_runtime_primitives::FindBlockRewardAddress<T::AccountId> for Pallet<T> {
-    fn find_block_reward_address() -> Option<T::AccountId> {
-        let pre_digest = frame_system::Pallet::<T>::digest()
-            .logs
-            .iter()
-            .find_map(|s| s.as_subspace_pre_digest::<T::AccountId>())
-            .expect("Block must always have pre-digest");
-        Some(pre_digest.solution().reward_address.clone())
-    }
-}

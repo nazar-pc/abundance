@@ -34,7 +34,6 @@ use frame_support::weights::{ConstantMultiplier, Weight};
 use frame_support::{construct_runtime, parameter_types};
 use frame_system::limits::{BlockLength, BlockWeights};
 use frame_system::pallet_prelude::RuntimeCallFor;
-pub use pallet_rewards::RewardPoint;
 pub use pallet_subspace::AllowAuthoringBy;
 use pallet_subspace::ConsensusConstants;
 use sp_api::impl_runtime_apis;
@@ -273,7 +272,6 @@ impl pallet_transaction_fees::Config for Runtime {
     type TotalSpacePledged = TotalSpacePledged;
     type BlockchainHistorySize = BlockchainHistorySize;
     type Currency = Balances;
-    type FindBlockRewardAddress = Subspace;
     type DynamicCostOfStorage = DynamicCostOfStorage;
     type WeightInfo = pallet_transaction_fees::weights::SubstrateWeight<Runtime>;
 }
@@ -357,21 +355,6 @@ where
     }
 }
 
-parameter_types! {
-    pub const AvgBlockspaceUsageNumBlocks: BlockNumber = 100;
-}
-
-impl pallet_rewards::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type AvgBlockspaceUsageNumBlocks = AvgBlockspaceUsageNumBlocks;
-    type TransactionByteFee = TransactionByteFee;
-    type MaxRewardPoints = ConstU32<20>;
-    type FindBlockRewardAddress = Subspace;
-    type WeightInfo = pallet_rewards::weights::SubstrateWeight<Runtime>;
-    type OnReward = ();
-}
-
 impl pallet_runtime_configs::Config for Runtime {
     type WeightInfo = pallet_runtime_configs::weights::SubstrateWeight<Runtime>;
 }
@@ -382,7 +365,6 @@ construct_runtime!(
         Timestamp: pallet_timestamp = 1,
 
         Subspace: pallet_subspace = 3,
-        Rewards: pallet_rewards = 4,
 
         Balances: pallet_balances = 5,
         TransactionFees: pallet_transaction_fees = 6,
@@ -488,7 +470,6 @@ mod benches {
         [frame_benchmarking, BaselineBench::<Runtime>]
         [frame_system, SystemBench::<Runtime>]
         [pallet_balances, Balances]
-        [pallet_rewards, Rewards]
         [pallet_runtime_configs, RuntimeConfigs]
         [pallet_subspace, Subspace]
         [pallet_timestamp, Timestamp]
