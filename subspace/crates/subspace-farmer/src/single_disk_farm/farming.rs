@@ -80,8 +80,6 @@ where
 {
     /// Public key of the farm
     pub public_key: &'a PublicKey,
-    /// Reward address to use for solutions
-    pub reward_address: &'a PublicKey,
     /// Slot info for the audit
     pub slot_info: SlotInfo,
     /// Metadata of all sectors plotted so far
@@ -134,7 +132,7 @@ where
     ) -> Result<
         Vec<(
             SectorIndex,
-            impl ProvableSolutions<Item = Result<Solution<PublicKey>, ProvingError>> + 'a,
+            impl ProvableSolutions<Item = Result<Solution, ProvingError>> + 'a,
         )>,
         AuditingError,
     >
@@ -143,7 +141,6 @@ where
     {
         let PlotAuditOptions {
             public_key,
-            reward_address,
             slot_info,
             sectors_metadata,
             kzg,
@@ -168,7 +165,6 @@ where
                 let sector_index = audit_results.sector_index;
 
                 let sector_solutions = audit_results.solution_candidates.into_solutions(
-                    reward_address,
                     kzg,
                     erasure_coding,
                     mode,
@@ -200,6 +196,11 @@ where
 
 pub(super) struct FarmingOptions<NC, PlotAudit> {
     pub(super) public_key: PublicKey,
+    // TODO: Use `reward_address` in the future
+    #[expect(
+        dead_code,
+        reason = "Reward address was removed from `Solution` and will need to be re-introduced later"
+    )]
     pub(super) reward_address: PublicKey,
     pub(super) node_client: NC,
     pub(super) plot_audit: PlotAudit,
@@ -229,7 +230,8 @@ where
 {
     let FarmingOptions {
         public_key,
-        reward_address,
+        // TODO: Use `reward_address` in the future
+        reward_address: _,
         node_client,
         plot_audit,
         sectors_metadata,
@@ -278,7 +280,6 @@ where
 
                     plot_audit.audit(PlotAuditOptions::<PosTable> {
                         public_key: &public_key,
-                        reward_address: &reward_address,
                         slot_info,
                         sectors_metadata: &sectors_metadata,
                         kzg: &kzg,

@@ -188,8 +188,8 @@ pub fn calculate_block_weight(solution_range: SolutionRange) -> BlockWeight {
 /// Verify whether solution is valid, returns solution distance that is `<= solution_range/2` on
 /// success.
 #[cfg(feature = "kzg")]
-pub fn verify_solution<'a, PosTable, RewardAddress>(
-    solution: &'a Solution<RewardAddress>,
+pub fn verify_solution<'a, PosTable>(
+    solution: &'a Solution,
     slot: SlotNumber,
     params: &'a VerifySolutionParams,
     kzg: &'a Kzg,

@@ -83,7 +83,7 @@ struct CheckedHeader<H> {
     /// Includes the digest item that encoded the seal.
     pre_header: H,
     /// Pre-digest
-    pre_digest: PreDigest<PublicKey>,
+    pre_digest: PreDigest,
     /// Seal (signature)
     seal: DigestItem,
 }
@@ -140,7 +140,7 @@ where
     Block: BlockT,
     BlockNumber: From<NumberFor<Block>>,
     Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + AuxStore + 'static,
-    Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block, PublicKey>,
+    Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block>,
 {
     /// Create new instance
     fn new(options: SubspaceVerifierOptions<Client>) -> Self {
@@ -206,7 +206,7 @@ where
     fn check_header(
         &self,
         params: VerificationParams<'_, Block::Header>,
-        subspace_digest_items: SubspaceDigestItems<PublicKey>,
+        subspace_digest_items: SubspaceDigestItems,
         full_pot_verification: bool,
         justifications: &Option<Justifications>,
     ) -> Result<CheckedHeader<Block::Header>, VerificationError<Block::Header>> {
@@ -342,7 +342,7 @@ where
         }
 
         // Verify that solution is valid
-        verify_solution::<PosTable, _>(
+        verify_solution::<PosTable>(
             pre_digest.solution(),
             slot.into(),
             verify_solution_params,
@@ -437,8 +437,7 @@ where
             block.header.digest().logs().len()
         );
 
-        let subspace_digest_items =
-            extract_subspace_digest_items::<Block::Header, PublicKey>(&block.header)?;
+        let subspace_digest_items = extract_subspace_digest_items::<Block::Header>(&block.header)?;
 
         let full_pot_verification = self.full_pot_verification(*block.header.number());
 
@@ -530,7 +529,7 @@ where
     Block: BlockT,
     BlockNumber: From<NumberFor<Block>>,
     Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + AuxStore + 'static,
-    Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block, PublicKey>,
+    Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block>,
 {
     /// Create new instance
     pub fn new(options: SubspaceVerifierOptions<Client>) -> Self {
@@ -547,7 +546,7 @@ where
     Block: BlockT,
     BlockNumber: From<NumberFor<Block>>,
     Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + AuxStore + 'static,
-    Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block, PublicKey>,
+    Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block>,
 {
     fn verification_concurrency(&self) -> NonZeroUsize {
         available_parallelism().unwrap_or(NonZeroUsize::new(1).expect("Not zero; qed"))

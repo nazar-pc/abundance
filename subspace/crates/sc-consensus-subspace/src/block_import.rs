@@ -294,7 +294,7 @@ where
     PosTable: Table,
     Block: BlockT,
     Client: ProvideRuntimeApi<Block> + BlockBackend<Block> + HeaderBackend<Block> + AuxStore,
-    Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block, PublicKey> + ApiExt<Block>,
+    Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block> + ApiExt<Block>,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync + 'static,
     AS: AuxStore + Send + Sync + 'static,
     BlockNumber: From<<Block::Header as HeaderT>::Number>,
@@ -325,7 +325,7 @@ where
         header: Block::Header,
         extrinsics: Option<Vec<Block::Extrinsic>>,
         root_plot_public_key: &Option<PublicKey>,
-        subspace_digest_items: &SubspaceDigestItems<PublicKey>,
+        subspace_digest_items: &SubspaceDigestItems,
         justifications: &Option<Justifications>,
     ) -> Result<(), Error<Block::Header>> {
         let block_number = *header.number();
@@ -354,9 +354,7 @@ where
         let parent_subspace_digest_items = if block_number.is_one() {
             None
         } else {
-            Some(extract_subspace_digest_items::<_, PublicKey>(
-                &parent_header,
-            )?)
+            Some(extract_subspace_digest_items(&parent_header)?)
         };
 
         let correct_solution_range = if block_number.is_one() {
@@ -477,7 +475,7 @@ where
 
         // Piece is not checked during initial block verification because it requires access to
         // segment header and runtime, check it now.
-        subspace_verification::verify_solution::<PosTable, _>(
+        subspace_verification::verify_solution::<PosTable>(
             pre_digest.solution(),
             // Slot was already checked during initial block verification
             pre_digest.slot().into(),
@@ -549,7 +547,7 @@ where
         + AuxStore
         + Send
         + Sync,
-    Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block, PublicKey> + ApiExt<Block>,
+    Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block> + ApiExt<Block>,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync + 'static,
     AS: AuxStore + Send + Sync + 'static,
     BlockNumber: From<<Block::Header as HeaderT>::Number>,

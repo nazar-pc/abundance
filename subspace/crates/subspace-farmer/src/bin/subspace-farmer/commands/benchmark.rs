@@ -187,7 +187,6 @@ where
                     |global_challenge| {
                         let options = PlotAuditOptions::<PosTable> {
                             public_key: single_disk_farm_info.public_key(),
-                            reward_address: single_disk_farm_info.public_key(),
                             slot_info: SlotInfo {
                                 slot_number: 0,
                                 global_challenge: Blake3Hash::from(global_challenge),
@@ -222,7 +221,6 @@ where
                     |global_challenge| {
                         let options = PlotAuditOptions::<PosTable> {
                             public_key: single_disk_farm_info.public_key(),
-                            reward_address: single_disk_farm_info.public_key(),
                             slot_info: SlotInfo {
                                 slot_number: 0,
                                 global_challenge: Blake3Hash::from(global_challenge),
@@ -255,7 +253,6 @@ where
                     |global_challenge| {
                         let options = PlotAuditOptions::<PosTable> {
                             public_key: single_disk_farm_info.public_key(),
-                            reward_address: single_disk_farm_info.public_key(),
                             slot_info: SlotInfo {
                                 slot_number: 0,
                                 global_challenge: Blake3Hash::from(global_challenge),
@@ -355,7 +352,6 @@ where
             let plot_audit = PlotAudit::new(&plot);
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key: single_disk_farm_info.public_key(),
-                reward_address: single_disk_farm_info.public_key(),
                 slot_info: SlotInfo {
                     slot_number: 0,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
@@ -427,7 +423,6 @@ where
             let plot_audit = PlotAudit::new(&plot);
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key: single_disk_farm_info.public_key(),
-                reward_address: single_disk_farm_info.public_key(),
                 slot_info: SlotInfo {
                     slot_number: 0,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
@@ -497,7 +492,6 @@ where
             let plot_audit = PlotAudit::new(&plot);
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key: single_disk_farm_info.public_key(),
-                reward_address: single_disk_farm_info.public_key(),
                 slot_info: SlotInfo {
                     slot_number: 0,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),

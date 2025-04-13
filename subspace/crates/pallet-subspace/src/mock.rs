@@ -82,12 +82,7 @@ impl Config for Test {
     type ExtensionWeightInfo = crate::extensions::weights::SubstrateWeight<Test>;
 }
 
-pub fn go_to_block(
-    keypair: &Keypair,
-    block: u64,
-    slot: u64,
-    reward_address: <Test as frame_system::Config>::AccountId,
-) {
+pub fn go_to_block(keypair: &Keypair, block: u64, slot: u64) {
     use frame_support::traits::OnFinalize;
 
     Subspace::on_finalize(System::block_number());
@@ -105,7 +100,6 @@ pub fn go_to_block(
         slot.into(),
         Solution {
             public_key: PublicKey::from(keypair.public.to_bytes()),
-            reward_address,
             sector_index: 0,
             history_size: HistorySize::from(SegmentIndex::ZERO),
             piece_offset: PieceOffset::default(),
@@ -124,22 +118,15 @@ pub fn go_to_block(
 }
 
 /// Slots will grow accordingly to blocks
-pub fn progress_to_block(
-    keypair: &Keypair,
-    n: u64,
-    reward_address: <Test as frame_system::Config>::AccountId,
-) {
+pub fn progress_to_block(keypair: &Keypair, n: u64) {
     let mut slot = u64::from(Subspace::current_slot()) + 1;
     for i in System::block_number() + 1..=n {
-        go_to_block(keypair, i, slot, reward_address);
+        go_to_block(keypair, i, slot);
         slot += 1;
     }
 }
 
-pub fn make_pre_digest(
-    slot: Slot,
-    solution: Solution<<Test as frame_system::Config>::AccountId>,
-) -> Digest {
+pub fn make_pre_digest(slot: Slot, solution: Solution) -> Digest {
     let log = DigestItem::subspace_pre_digest(&PreDigest::V0 {
         slot,
         solution,

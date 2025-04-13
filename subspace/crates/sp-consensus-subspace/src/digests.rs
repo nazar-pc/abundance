@@ -17,20 +17,20 @@ use subspace_core_primitives::PublicKey;
 /// A Subspace pre-runtime digest. This contains all data required to validate a block and for the
 /// Subspace runtime module.
 #[derive(Debug, Clone, Encode, Decode)]
-pub enum PreDigest<RewardAddress> {
+pub enum PreDigest {
     /// Initial version of the pre-digest
     #[codec(index = 0)]
     V0 {
         /// Slot
         slot: Slot,
         /// Solution (includes PoR)
-        solution: Solution<RewardAddress>,
+        solution: Solution,
         /// Proof of time information
         pot_info: PreDigestPotInfo,
     },
 }
 
-impl<RewardAddress> PreDigest<RewardAddress> {
+impl PreDigest {
     /// Slot
     #[inline]
     pub fn slot(&self) -> Slot {
@@ -40,7 +40,7 @@ impl<RewardAddress> PreDigest<RewardAddress> {
 
     /// Solution (includes PoR)
     #[inline]
-    pub fn solution(&self) -> &Solution<RewardAddress> {
+    pub fn solution(&self) -> &Solution {
         let Self::V0 { solution, .. } = self;
         solution
     }
@@ -88,10 +88,10 @@ impl PreDigestPotInfo {
 /// A digest item which is usable with Subspace consensus.
 pub trait CompatibleDigestItem: Sized {
     /// Construct a digest item which contains a Subspace pre-digest.
-    fn subspace_pre_digest<AccountId: Encode>(pre_digest: &PreDigest<AccountId>) -> Self;
+    fn subspace_pre_digest(pre_digest: &PreDigest) -> Self;
 
     /// If this item is an Subspace pre-digest, return it.
-    fn as_subspace_pre_digest<AccountId: Decode>(&self) -> Option<PreDigest<AccountId>>;
+    fn as_subspace_pre_digest(&self) -> Option<PreDigest>;
 
     /// Construct a digest item which contains a Subspace seal.
     fn subspace_seal(signature: RewardSignature) -> Self;
@@ -151,11 +151,11 @@ pub trait CompatibleDigestItem: Sized {
 }
 
 impl CompatibleDigestItem for DigestItem {
-    fn subspace_pre_digest<RewardAddress: Encode>(pre_digest: &PreDigest<RewardAddress>) -> Self {
+    fn subspace_pre_digest(pre_digest: &PreDigest) -> Self {
         Self::PreRuntime(SUBSPACE_ENGINE_ID, pre_digest.encode())
     }
 
-    fn as_subspace_pre_digest<RewardAddress: Decode>(&self) -> Option<PreDigest<RewardAddress>> {
+    fn as_subspace_pre_digest(&self) -> Option<PreDigest> {
         self.pre_runtime_try_to(&SUBSPACE_ENGINE_ID)
     }
 
@@ -390,9 +390,9 @@ impl From<Error> for String {
 
 /// Digest items extracted from a header into convenient form
 #[derive(Debug)]
-pub struct SubspaceDigestItems<RewardAddress> {
+pub struct SubspaceDigestItems {
     /// Pre-runtime digest
-    pub pre_digest: PreDigest<RewardAddress>,
+    pub pre_digest: PreDigest,
     /// Signature (seal) if present
     pub signature: Option<RewardSignature>,
     /// Number of iterations for proof of time per slot, corresponds to slot that directly follows
@@ -413,12 +413,9 @@ pub struct SubspaceDigestItems<RewardAddress> {
 }
 
 /// Extract the Subspace global randomness from the given header.
-pub fn extract_subspace_digest_items<Header, RewardAddress>(
-    header: &Header,
-) -> Result<SubspaceDigestItems<RewardAddress>, Error>
+pub fn extract_subspace_digest_items<Header>(header: &Header) -> Result<SubspaceDigestItems, Error>
 where
     Header: HeaderT,
-    RewardAddress: Decode,
 {
     let mut maybe_pre_digest = None;
     let mut maybe_seal = None;
@@ -437,7 +434,7 @@ where
                     continue;
                 }
 
-                let pre_digest = PreDigest::<RewardAddress>::decode(&mut data.as_slice())
+                let pre_digest = PreDigest::decode(&mut data.as_slice())
                     .map_err(|error| Error::FailedToDecode(ErrorDigestType::PreDigest, error))?;
 
                 match maybe_pre_digest {
@@ -574,7 +571,7 @@ where
 
 /// Extract the Subspace pre digest from the given header. Pre-runtime digests are mandatory, the
 /// function will return `Err` if none is found.
-pub fn extract_pre_digest<Header>(header: &Header) -> Result<PreDigest<PublicKey>, Error>
+pub fn extract_pre_digest<Header>(header: &Header) -> Result<PreDigest, Error>
 where
     Header: HeaderT,
 {
@@ -583,10 +580,7 @@ where
     if header.number().is_zero() {
         return Ok(PreDigest::V0 {
             slot: Slot::from(0),
-            solution: Solution::genesis_solution(
-                PublicKey::from([0u8; 32]),
-                PublicKey::from([0u8; 32]),
-            ),
+            solution: Solution::genesis_solution(PublicKey::from([0u8; 32])),
             pot_info: PreDigestPotInfo::V0 {
                 proof_of_time: Default::default(),
                 future_proof_of_time: Default::default(),
@@ -673,7 +667,7 @@ pub struct NextDigestsVerificationParams<'a, Header: HeaderT> {
     /// Header number for which we are verifying the digests.
     pub number: NumberOf<Header>,
     /// Digests present in the header that corresponds to number above.
-    pub header_digests: &'a SubspaceDigestItems<PublicKey>,
+    pub header_digests: &'a SubspaceDigestItems,
     /// Era duration at which solution range is updated.
     pub era_duration: NumberOf<Header>,
     /// Slot probability.

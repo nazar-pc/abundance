@@ -274,14 +274,13 @@ impl ChainConstants {
 
 /// Wrapped solution for the purposes of runtime interface.
 #[derive(Debug, Encode, Decode)]
-pub struct WrappedSolution(Solution<()>);
+pub struct WrappedSolution(Solution);
 
-impl<RewardAddress> From<&Solution<RewardAddress>> for WrappedSolution {
+impl From<&Solution> for WrappedSolution {
     #[inline]
-    fn from(solution: &Solution<RewardAddress>) -> Self {
+    fn from(solution: &Solution) -> Self {
         Self(Solution {
             public_key: solution.public_key,
-            reward_address: (),
             sector_index: solution.sector_index,
             history_size: solution.history_size,
             piece_offset: solution.piece_offset,
@@ -362,7 +361,7 @@ impl PotParameters {
 
 sp_api::decl_runtime_apis! {
     /// API necessary for block authorship with Subspace.
-    pub trait SubspaceApi<RewardAddress: Encode + Decode> {
+    pub trait SubspaceApi {
         /// Proof of time parameters
         fn pot_parameters() -> PotParameters;
 

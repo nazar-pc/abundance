@@ -39,12 +39,12 @@ fn can_update_solution_range_on_era_change() {
         ));
 
         // Progress to almost era edge
-        progress_to_block(&keypair, 3, 1);
+        progress_to_block(&keypair, 3);
         // No solution range update
         assert_eq!(Subspace::solution_ranges(), initial_solution_ranges);
 
         // Era edge
-        progress_to_block(&keypair, 4, 1);
+        progress_to_block(&keypair, 4);
         // Next solution range should be updated, but current is still unchanged
         let updated_solution_ranges = Subspace::solution_ranges();
         assert_eq!(
@@ -53,7 +53,7 @@ fn can_update_solution_range_on_era_change() {
         );
         assert!(updated_solution_ranges.next.is_some());
 
-        progress_to_block(&keypair, 5, 1);
+        progress_to_block(&keypair, 5);
         // Next solution range should become current
         assert_eq!(
             Subspace::solution_ranges(),
@@ -74,7 +74,6 @@ fn can_update_solution_range_on_era_change() {
             8,
             u64::from(Subspace::current_slot())
                 + (4 * SLOT_PROBABILITY.1 / SLOT_PROBABILITY.0 + 10),
-            1,
         );
         // This should cause solution range to increase as apparent pledged space decreased
         assert!(Subspace::solution_ranges().next.unwrap() > last_solution_range);
@@ -106,7 +105,6 @@ fn can_override_solution_range_update() {
         progress_to_block(
             &keypair,
             <Test as Config>::ConsensusConstants::get().era_duration,
-            1,
         );
         // Next solution range should be updated to the same value as current due to override
         let updated_solution_ranges = Subspace::solution_ranges();
@@ -128,12 +126,12 @@ fn solution_range_should_not_update_when_disabled() {
         assert_eq!(Subspace::solution_ranges(), initial_solution_ranges);
 
         // Progress to almost era edge
-        progress_to_block(&keypair, 3, 1);
+        progress_to_block(&keypair, 3);
         // No solution range update
         assert_eq!(Subspace::solution_ranges(), initial_solution_ranges);
 
         // Era edge
-        progress_to_block(&keypair, 4, 1);
+        progress_to_block(&keypair, 4);
         // Next solution range should be updated, but current is still unchanged
         let updated_solution_ranges = Subspace::solution_ranges();
         assert_eq!(
@@ -142,7 +140,7 @@ fn solution_range_should_not_update_when_disabled() {
         );
         assert!(updated_solution_ranges.next.is_some());
 
-        progress_to_block(&keypair, 5, 1);
+        progress_to_block(&keypair, 5);
         // Next solution range should become current
         assert_eq!(
             Subspace::solution_ranges(),
@@ -162,7 +160,6 @@ fn solution_range_should_not_update_when_disabled() {
             8,
             u64::from(Subspace::current_slot())
                 + (4 * SLOT_PROBABILITY.1 / SLOT_PROBABILITY.0 + 10),
-            1,
         );
         // Solution rage will still be the same even after the apparent pledged space has decreased
         // since adjustment is disabled
@@ -178,7 +175,7 @@ fn store_segment_header_works() {
     new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
-        progress_to_block(&keypair, 1, 1);
+        progress_to_block(&keypair, 1);
 
         let segment_header = create_segment_header(SegmentIndex::ZERO);
 
@@ -199,7 +196,7 @@ fn store_segment_header_validate_unsigned_prevents_duplicates() {
     new_test_ext().execute_with(|| {
         let keypair = Keypair::generate();
 
-        progress_to_block(&keypair, 1, 1);
+        progress_to_block(&keypair, 1);
 
         let segment_header = create_segment_header(SegmentIndex::ZERO);
 
@@ -283,12 +280,10 @@ fn allow_authoring_by_anyone_works() {
         progress_to_block(
             &keypair1,
             frame_system::Pallet::<Test>::current_block_number() + 1,
-            1,
         );
         progress_to_block(
             &keypair2,
             frame_system::Pallet::<Test>::current_block_number() + 1,
-            1,
         );
 
         // Disable default behavior
@@ -297,19 +292,16 @@ fn allow_authoring_by_anyone_works() {
         progress_to_block(
             &keypair1,
             frame_system::Pallet::<Test>::current_block_number() + 1,
-            1,
         );
         progress_to_block(
             &keypair1,
             frame_system::Pallet::<Test>::current_block_number() + 1,
-            1,
         );
         // However authoring with a different public key panics (client error)
         assert!(std::panic::catch_unwind(|| {
             progress_to_block(
                 &keypair2,
                 frame_system::Pallet::<Test>::current_block_number() + 1,
-                1,
             );
         })
         .is_err());
@@ -324,12 +316,10 @@ fn allow_authoring_by_anyone_works() {
         progress_to_block(
             &keypair1,
             frame_system::Pallet::<Test>::current_block_number() + 1,
-            1,
         );
         progress_to_block(
             &keypair2,
             frame_system::Pallet::<Test>::current_block_number() + 1,
-            1,
         );
     });
 }

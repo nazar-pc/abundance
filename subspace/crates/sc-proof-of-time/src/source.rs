@@ -25,7 +25,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::thread;
 use subspace_core_primitives::pot::PotCheckpoints;
-use subspace_core_primitives::PublicKey;
 use thread_priority::{set_current_thread_priority, ThreadPriority};
 use tokio::sync::broadcast;
 use tracing::{debug, error, trace, warn, Span};
@@ -71,7 +70,7 @@ impl<Block, Client, SO> PotSourceWorker<Block, Client, SO>
 where
     Block: BlockT,
     Client: BlockchainEvents<Block> + HeaderBackend<Block> + ProvideRuntimeApi<Block>,
-    Client::Api: SubspaceApi<Block, PublicKey>,
+    Client::Api: SubspaceApi<Block>,
     SO: SyncOracle + Clone + Send + Sync + 'static,
 {
     // TODO: Struct for arguments
@@ -340,19 +339,18 @@ where
         block_hash: Block::Hash,
         header: &Block::Header,
     ) {
-        let subspace_digest_items =
-            match extract_subspace_digest_items::<Block::Header, PublicKey>(header) {
-                Ok(pre_digest) => pre_digest,
-                Err(error) => {
-                    error!(
-                        %error,
-                        block_number = %header.number(),
-                        %block_hash,
-                        "Failed to extract Subspace digest items from header"
-                    );
-                    return;
-                }
-            };
+        let subspace_digest_items = match extract_subspace_digest_items::<Block::Header>(header) {
+            Ok(pre_digest) => pre_digest,
+            Err(error) => {
+                error!(
+                    %error,
+                    block_number = %header.number(),
+                    %block_hash,
+                    "Failed to extract Subspace digest items from header"
+                );
+                return;
+            }
+        };
 
         let best_slot =
             subspace_digest_items.pre_digest.slot() + self.chain_constants.block_authoring_delay();

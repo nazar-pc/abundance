@@ -87,7 +87,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         min_sector_lifetime: HistorySize::from(NonZeroU64::new(4).unwrap()),
     };
     let solution_range = SolutionRange::MAX;
-    let reward_address = &PublicKey::default();
 
     let sector_size = sector_size(pieces_in_sector);
 
@@ -188,7 +187,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         if !solution_candidates
             .clone()
             .into_solutions(
-                reward_address,
                 kzg,
                 erasure_coding,
                 ReadSectorRecordChunksMode::ConcurrentChunks,
@@ -211,7 +209,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 solution_candidates
                     .clone()
                     .into_solutions(
-                        black_box(reward_address),
                         black_box(kzg),
                         black_box(erasure_coding),
                         black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
@@ -279,7 +276,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                         for solution_candidates in solution_candidates {
                             solution_candidates
                                 .into_solutions(
-                                    black_box(reward_address),
                                     black_box(kzg),
                                     black_box(erasure_coding),
                                     black_box(ReadSectorRecordChunksMode::ConcurrentChunks),

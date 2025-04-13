@@ -18,7 +18,6 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 use subspace_core_primitives::pot::PotCheckpoints;
-use subspace_core_primitives::PublicKey;
 use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, error, info, trace};
 
@@ -47,7 +46,7 @@ pub async fn start_slot_worker<Block, Client, SC, Worker, SO, CIDP>(
 ) where
     Block: BlockT,
     Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    Client::Api: SubspaceApi<Block, PublicKey>,
+    Client::Api: SubspaceApi<Block>,
     SC: SelectChain<Block>,
     Worker: PotSlotWorker<Block> + SimpleSlotWorker<Block> + Send + Sync,
     SO: SyncOracle + Send,

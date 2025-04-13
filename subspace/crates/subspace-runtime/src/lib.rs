@@ -44,7 +44,7 @@ use sp_core::OpaqueMetadata;
 use sp_runtime::traits::{AccountIdLookup, BlakeTwo256, Block as BlockT};
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::type_with_default::TypeWithDefault;
-use sp_runtime::{generic, AccountId32, ApplyExtrinsicResult, ExtrinsicInclusionMode};
+use sp_runtime::{generic, ApplyExtrinsicResult, ExtrinsicInclusionMode};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
@@ -448,22 +448,6 @@ fn create_unsigned_general_extrinsic(call: RuntimeCall) -> UncheckedExtrinsic {
     UncheckedExtrinsic::new_transaction(call, extra)
 }
 
-struct RewardAddress([u8; 32]);
-
-impl From<PublicKey> for RewardAddress {
-    #[inline]
-    fn from(public_key: PublicKey) -> Self {
-        Self(*public_key)
-    }
-}
-
-impl From<RewardAddress> for AccountId32 {
-    #[inline]
-    fn from(reward_address: RewardAddress) -> Self {
-        reward_address.0.into()
-    }
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
     frame_benchmarking::define_benchmarks!(
@@ -554,7 +538,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl sp_consensus_subspace::SubspaceApi<Block, PublicKey> for Runtime {
+    impl sp_consensus_subspace::SubspaceApi<Block> for Runtime {
         fn pot_parameters() -> PotParameters {
             Subspace::pot_parameters()
         }

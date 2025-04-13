@@ -39,7 +39,7 @@ use subspace_archiving::archiver::NewArchivedSegment;
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
 use subspace_core_primitives::solutions::Solution;
-use subspace_core_primitives::{BlockHash, PublicKey, SlotNumber};
+use subspace_core_primitives::{BlockHash, SlotNumber};
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_kzg::Kzg;
@@ -212,7 +212,7 @@ where
     reward_signing_notification_stream: SubspaceNotificationStream<RewardSigningNotification>,
     archived_segment_notification_stream: SubspaceNotificationStream<ArchivedSegmentNotification>,
     #[allow(clippy::type_complexity)]
-    solution_response_senders: Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution<PublicKey>>>>>,
+    solution_response_senders: Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution>>>>,
     reward_signature_senders: Arc<Mutex<BlockSignatureSenders>>,
     dsn_bootstrap_nodes: Vec<Multiaddr>,
     segment_headers_store: SegmentHeadersStore<AS>,
@@ -240,7 +240,7 @@ impl<Block, Client, SO, AS> SubspaceRpc<Block, Client, SO, AS>
 where
     Block: BlockT,
     Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    Client::Api: SubspaceApi<Block, PublicKey>,
+    Client::Api: SubspaceApi<Block>,
     SO: SyncOracle + Send + Sync + Clone + 'static,
     AS: AuxStore + Send + Sync + 'static,
 {
@@ -396,7 +396,6 @@ where
 
                             let solution = Solution {
                                 public_key,
-                                reward_address: solution.reward_address,
                                 sector_index,
                                 history_size: solution.history_size,
                                 piece_offset: solution.piece_offset,
