@@ -73,19 +73,18 @@ jobs:
         run: |
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
-            cargo -Zgitoxide -Zgit clippy --all-targets -p $contract --features $contract/guest -- -D warnings
+            cargo -Zgitoxide -Zgit clippy --all-targets --package $contract --features $contract/guest -- -D warnings
           done
 
           # TODO: Would be nice to have these as job matrix later
-          cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-common --features ab-contracts-common/guest -- -D warnings
-          cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-common --features ab-contracts-common/executor -- -D warnings
+          cargo -Zgitoxide -Zgit clippy --all-targets --package ab-contracts-common --features ab-contracts-common/guest -- -D warnings
+          cargo -Zgitoxide -Zgit clippy --all-targets --package ab-contracts-common --features ab-contracts-common/executor -- -D warnings
 
-          cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-macros --features ab-contracts-macros/guest -- -D warnings
+          cargo -Zgitoxide -Zgit clippy --all-targets --package ab-contracts-macros --features ab-contracts-macros/guest -- -D warnings
 
-          cargo -Zgitoxide -Zgit clippy --all-targets -p ab-contracts-standards --features ab-contracts-standards/guest -- -D warnings
+          cargo -Zgitoxide -Zgit clippy --all-targets --package ab-contracts-standards --features ab-contracts-standards/guest -- -D warnings
 
-          cargo -Zgitoxide -Zgit clippy --all-targets -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/alloc -- -D warnings
-          cargo -Zgitoxide -Zgit clippy --all-targets -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings
+          cargo -Zgitoxide -Zgit clippy --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings
         if: runner.os == 'Linux'
 
   cargo-test:
@@ -114,7 +113,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@acd25891978b4cdaebd139d3efef606d26513b14 # 2.47.0
+        uses: taiki-e/install-action@be7c31b6745feec79dec5eb79178466c0670bb2d # 2.47.0
         with:
           tool: cargo-nextest
 
@@ -124,12 +123,21 @@ jobs:
 
       - name: cargo test (various features)
         run: |
-          for contract_path in crates/contracts/{example,system}/*; do
-            contract="$(basename -- $contract_path)"
-            cargo -Zgitoxide -Zgit test -p $contract --features $contract/guest
+          for crate_path in crates/{execution,shared}/*; do
+            # Not all crates have this feature
+            if ! grep --no-messages --quiet '^alloc =' "$crate_path/Cargo.toml"; then
+              continue
+            fi
+            crate="$(basename -- $crate_path)"
+            cargo -Zgitoxide -Zgit nextest run --no-tests pass --package $crate --features alloc
           done
 
-          cargo -Zgitoxide -Zgit test -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+          for contract_path in crates/contracts/{example,system}/*; do
+            contract="$(basename -- $contract_path)"
+            cargo -Zgitoxide -Zgit nextest run --no-tests pass --package $contract --features $contract/guest
+          done
+
+          cargo -Zgitoxide -Zgit nextest run --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
         if: runner.os == 'Linux'
 
   cargo-miri-test:
@@ -158,13 +166,27 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@acd25891978b4cdaebd139d3efef606d26513b14 # 2.47.0
+        uses: taiki-e/install-action@be7c31b6745feec79dec5eb79178466c0670bb2d # 2.47.0
         with:
           tool: cargo-nextest
 
       - name: cargo miri nextest run
         run: |
           cargo -Zgitoxide -Zgit miri nextest run
+
+      - name: cargo miri nextest run (various features)
+        run: |
+          for crate_path in crates/{execution,shared}/*; do
+            # Not all crates have this feature
+            if ! grep --no-messages --quiet '^alloc =' "$crate_path/Cargo.toml"; then
+              continue
+            fi
+            crate="$(basename -- $crate_path)"
+            cargo -Zgitoxide -Zgit miri nextest run --no-tests pass --package $crate --features alloc
+          done
+
+          cargo -Zgitoxide -Zgit miri nextest run --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+        if: runner.os == 'Linux'
 
   no-panic:
     strategy:
@@ -206,24 +228,23 @@ jobs:
         run: |
           for contract_path in crates/contracts/{example,system}/*; do
             # Not all contracts have this feature yet
-            if ! grep -q '^no-panic =' "$contract_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet '^no-panic =' "$contract_path/Cargo.toml"; then
               continue
             fi
             contract="$(basename -- $contract_path)"
-            cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p $contract --features $contract/guest
+            cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $contract --features $contract/guest
           done
 
           # TODO: Would be nice to have these as job matrix later
           # TODO: Unlock commented-out crates once they have the feature
-          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-common --features ab-contracts-common/guest
-          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-common --features ab-contracts-common/executor
+          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-contracts-common --features ab-contracts-common/guest
+          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-contracts-common --features ab-contracts-common/executor
 
-          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-macros --features ab-contracts-macros/guest
+          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-contracts-macros --features ab-contracts-macros/guest
 
-          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-contracts-standards --features ab-contracts-standards/guest
+          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-contracts-standards --features ab-contracts-standards/guest
 
-          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/alloc
-          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic -p ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
         if: runner.os == 'Linux'
 
   contracts:
@@ -248,6 +269,6 @@ jobs:
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
             # TODO: This uses x86-64-based target, but will have to change to riscv64e-based target eventually
-            cargo -Zgitoxide -Zgit rustc -Z build-std=core --crate-type cdylib --profile contract --target crates/contracts/x86_64-unknown-none-abundance.json -p $contract --features $contract/guest
+            cargo -Zgitoxide -Zgit rustc -Z build-std=core --crate-type cdylib --profile contract --target crates/contracts/x86_64-unknown-none-abundance.json --package $contract --features $contract/guest
           done
         if: runner.os == 'Linux'

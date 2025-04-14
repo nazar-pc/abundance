@@ -31,12 +31,8 @@ guest = [
     "ab-contracts-macros/guest",
     "ab-contracts-standards/guest",
 ]
-# APIs that require `alloc` crate
-alloc = []
 # Enables payload builder API
-payload-builder = [
-    "alloc",
-]
+payload-builder = []
 # Check that code can't panic under any conditions
 no-panic = [
     "dep:no-panic",
