@@ -65,11 +65,11 @@ where
         }
     }
 
-    /// Like [`Self::new()`], but creates heap-allocated instance, avoiding excessive stack usage
-    /// for large trees
-    #[cfg(feature = "alloc")]
-    pub fn new_boxed(leaf_hashes: &'a [[u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)]) -> Box<Self> {
-        let mut instance = Box::<Self>::new_uninit();
+    /// Like [`Self::new()`], but used pre-allocated memory for instantiation
+    pub fn new_in<'b>(
+        instance: &'b mut MaybeUninit<Self>,
+        leaf_hashes: &'a [[u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)],
+    ) -> &'b mut Self {
         let instance_ptr = instance.as_mut_ptr();
         // SAFETY: Valid and correctly aligned non-null pointer
         unsafe {
@@ -89,6 +89,18 @@ where
         Self::init_internal(leaf_hashes, tree);
 
         // SAFETY: Initialized field by field above
+        unsafe { instance.assume_init_mut() }
+    }
+
+    /// Like [`Self::new()`], but creates heap-allocated instance, avoiding excessive stack usage
+    /// for large trees
+    #[cfg(feature = "alloc")]
+    pub fn new_boxed(leaf_hashes: &'a [[u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)]) -> Box<Self> {
+        let mut instance = Box::<Self>::new_uninit();
+
+        Self::new_in(&mut instance, leaf_hashes);
+
+        // SAFETY: Initialized by constructor above
         unsafe { instance.assume_init() }
     }
 
