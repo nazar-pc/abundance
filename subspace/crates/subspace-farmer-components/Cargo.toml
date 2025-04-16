@@ -16,6 +16,7 @@ include = [
 bench = false
 
 [dependencies]
+ab-merkle-tree = { workspace = true, features = ["alloc"] }
 anyhow.workspace = true
 async-lock.workspace = true
 backoff = { workspace = true, features = ["futures", "tokio"] }

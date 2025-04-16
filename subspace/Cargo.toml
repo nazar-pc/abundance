@@ -6,6 +6,7 @@ members = [
 ]
 
 [workspace.dependencies]
+ab-merkle-tree = { path = "../crates/shared/ab-merkle-tree", default-features = false }
 actix-web = { version = "4.9.0", default-features = false }
 aes = "0.9.0-pre.2"
 anyhow = "1.0.89"
@@ -180,6 +181,7 @@ zeroize = "1.8.1"
 #
 # This list is ordered alphabetically.
 [profile.dev.package]
+ab-merkle-tree = { opt-level = 3 }
 bitvec = { opt-level = 3 }
 blake2 = { opt-level = 3 }
 blake3 = { opt-level = 3 }
@@ -246,6 +248,8 @@ lto = "fat"
 substrate-bip39 = "0.6.0"
 
 [patch.crates-io]
+# TODO: Remove once https://github.com/KokaKiwi/rust-hex/pull/58 is released (0.4.4+)
+hex = { git = "https://github.com/KokaKiwi/rust-hex", rev = "98b1ee36cac1533ae71662a2a7c54d68768ac1e8" }
 # Patch away `libp2p-identity` in our dependency tree with the git version.
 # For details see: https://github.com/autonomys/rust-libp2p/blob/04c2e649b1f5482b8c3466b0fdbd1815b3126a48/Cargo.toml#L140-L145
 libp2p-identity = { git = "https://github.com/autonomys/rust-libp2p", rev = "04c2e649b1f5482b8c3466b0fdbd1815b3126a48" }

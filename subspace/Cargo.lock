@@ -13,6 +13,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-merkle-tree"
+version = "0.0.1"
+dependencies = [
+ "blake3",
+]
+
+[[package]]
 name = "actix-codec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1216,9 +1223,9 @@ dependencies = [
 
 [[package]]
 name = "blake3"
-version = "1.5.4"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d82033247fd8e890df8f740e407ad4d038debb9eb1f40533fffb32e7d17dc6f7"
+checksum = "389a099b34312839e16420d499a9cad9650541715937ffbdd40d36f49e77eeb3"
 dependencies = [
  "arrayref",
  "arrayvec 0.7.6",
@@ -3911,8 +3918,7 @@ checksum = "fbf6a919d6cf397374f7dfeeea91d974c7c0a7221d0d0f4f20d859d329e53fcc"
 [[package]]
 name = "hex"
 version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+source = "git+https://github.com/KokaKiwi/rust-hex?rev=98b1ee36cac1533ae71662a2a7c54d68768ac1e8#98b1ee36cac1533ae71662a2a7c54d68768ac1e8"
 dependencies = [
  "serde",
 ]
@@ -4176,7 +4182,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.8",
  "tokio",
  "tower-service",
  "tracing",
@@ -8919,7 +8925,6 @@ dependencies = [
  "subspace-archiving",
  "subspace-core-primitives",
  "subspace-erasure-coding",
- "subspace-kzg",
  "subspace-proof-of-space",
  "subspace-verification",
  "thiserror 2.0.12",
@@ -8954,7 +8959,6 @@ dependencies = [
  "subspace-core-primitives",
  "subspace-erasure-coding",
  "subspace-farmer-components",
- "subspace-kzg",
  "subspace-networking",
  "subspace-rpc-primitives",
  "thiserror 2.0.12",
@@ -10632,7 +10636,6 @@ dependencies = [
  "sp-std",
  "sp-timestamp",
  "subspace-core-primitives",
- "subspace-kzg",
  "subspace-verification",
  "thiserror 2.0.12",
 ]
@@ -11337,6 +11340,7 @@ dependencies = [
 name = "subspace-archiving"
 version = "0.1.0"
 dependencies = [
+ "ab-merkle-tree",
  "criterion",
  "parity-scale-codec",
  "rand 0.8.5",
@@ -11443,7 +11447,6 @@ dependencies = [
  "subspace-data-retrieval",
  "subspace-erasure-coding",
  "subspace-farmer-components",
- "subspace-kzg",
  "subspace-logging",
  "subspace-metrics",
  "subspace-networking",
@@ -11466,6 +11469,7 @@ dependencies = [
 name = "subspace-farmer-components"
 version = "0.1.0"
 dependencies = [
+ "ab-merkle-tree",
  "anyhow",
  "async-lock 3.4.0",
  "backoff",
@@ -11779,7 +11783,6 @@ dependencies = [
  "subspace-core-primitives",
  "subspace-data-retrieval",
  "subspace-erasure-coding",
- "subspace-kzg",
  "subspace-networking",
  "subspace-proof-of-space",
  "subspace-runtime-primitives",
@@ -11794,9 +11797,11 @@ dependencies = [
 name = "subspace-verification"
 version = "0.1.0"
 dependencies = [
+ "ab-merkle-tree",
  "parity-scale-codec",
  "schnorrkel",
  "subspace-core-primitives",
+ "subspace-erasure-coding",
  "subspace-kzg",
  "subspace-proof-of-space",
  "thiserror 2.0.12",

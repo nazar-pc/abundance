@@ -13,6 +13,10 @@
     portable_simd,
     try_blocks
 )]
+#![expect(incomplete_features, reason = "generic_const_exprs")]
+// TODO: This feature is not actually used in this crate, but is added as a workaround for
+//  https://github.com/rust-lang/rust/issues/133199
+#![feature(generic_const_exprs)]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 
 pub mod auditing;

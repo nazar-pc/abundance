@@ -63,7 +63,6 @@ subspace-archiving.workspace = true
 subspace-core-primitives.workspace = true
 subspace-data-retrieval.workspace = true
 subspace-erasure-coding.workspace = true
-subspace-kzg.workspace = true
 subspace-networking.workspace = true
 subspace-proof-of-space.workspace = true
 subspace-runtime-primitives.workspace = true

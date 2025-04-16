@@ -5,7 +5,6 @@ use subspace_data_retrieval::segment_downloading::{
     download_segment_pieces, SegmentDownloadingError,
 };
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Kzg;
 use thiserror::Error;
 use tokio::task::JoinError;
 use tracing::{error, info};
@@ -27,7 +26,6 @@ pub(crate) enum SegmentReconstructionError {
 
 pub(crate) async fn recover_missing_piece<PG>(
     piece_getter: &PG,
-    kzg: Kzg,
     erasure_coding: ErasureCoding,
     missing_piece_index: PieceIndex,
 ) -> Result<Piece, SegmentReconstructionError>
@@ -41,7 +39,7 @@ where
     let segment_pieces = download_segment_pieces(segment_index, piece_getter).await?;
 
     let result = tokio::task::spawn_blocking(move || {
-        let reconstructor = PiecesReconstructor::new(kzg, erasure_coding);
+        let reconstructor = PiecesReconstructor::new(erasure_coding);
 
         reconstructor.reconstruct_piece(&segment_pieces, position as usize)
     })

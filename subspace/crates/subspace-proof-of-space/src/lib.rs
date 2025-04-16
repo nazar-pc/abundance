@@ -1,7 +1,6 @@
 //! Subspace proof of space implementation based on Chia
 #![cfg_attr(not(feature = "std"), no_std)]
-// `generic_const_exprs` is an incomplete feature
-#![allow(incomplete_features)]
+#![expect(incomplete_features, reason = "generic_const_exprs")]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![feature(
     array_chunks,

@@ -17,6 +17,10 @@ Execution is no longer decoupled.
 
 Votes are removed, increasing reward frequency can instead be achieved with increased number of shards.
 
+## KZG
+
+KZG is no longer used and was replaced with Merkle Tree.
+
 # Features changed
 
 ## Solution
@@ -27,3 +31,9 @@ implemented right now, details will be added later).
 ## Dynamic issuance
 
 Dynamic issuance is different (not implemented right now, details will be added later).
+
+## Archiving
+
+Since KZG is no longer used and a farmer still does erasure coding during plotting, archiver was modified to also do
+erasure coding of records, so it can commit to erasure coded chunks too. This allows a farmer to generate proofs like
+before even though technically record doesn't contain parity chunks.

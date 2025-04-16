@@ -2,51 +2,51 @@
 #![forbid(unsafe_code)]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![feature(array_chunks, portable_simd)]
-// `generic_const_exprs` is an incomplete feature
-#![allow(incomplete_features)]
+#![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
 //  https://github.com/rust-lang/rust/issues/133199
 #![feature(generic_const_exprs)]
 #![no_std]
 
-#[cfg(all(feature = "kzg", feature = "alloc"))]
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
-#[cfg(all(feature = "kzg", feature = "alloc"))]
-use alloc::string::String;
-#[cfg(all(feature = "kzg", feature = "alloc"))]
+#[cfg(feature = "alloc")]
+use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::mem;
-#[cfg(feature = "kzg")]
+#[cfg(feature = "alloc")]
 use core::simd::Simd;
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
-#[cfg(feature = "kzg")]
-use subspace_core_primitives::hashes::blake3_254_hash_to_scalar;
 use subspace_core_primitives::hashes::{blake3_hash_list, blake3_hash_with_key, Blake3Hash};
-#[cfg(feature = "kzg")]
+use subspace_core_primitives::pieces::RecordCommitment;
+#[cfg(feature = "alloc")]
 use subspace_core_primitives::pieces::{PieceArray, Record, RecordWitness};
 use subspace_core_primitives::pot::PotOutput;
-#[cfg(feature = "kzg")]
+#[cfg(feature = "alloc")]
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::sectors::SectorSlotChallenge;
-#[cfg(feature = "kzg")]
+#[cfg(feature = "alloc")]
 use subspace_core_primitives::segments::ArchivedHistorySegment;
 use subspace_core_primitives::segments::{HistorySize, SegmentCommitment};
-#[cfg(feature = "kzg")]
+#[cfg(feature = "alloc")]
 use subspace_core_primitives::solutions::Solution;
 use subspace_core_primitives::solutions::{RewardSignature, SolutionRange};
 use subspace_core_primitives::{BlockNumber, BlockWeight, PublicKey, ScalarBytes, SlotNumber};
-#[cfg(feature = "kzg")]
-use subspace_kzg::{Commitment, Kzg, Scalar, Witness};
-#[cfg(feature = "kzg")]
+#[cfg(feature = "alloc")]
+use subspace_erasure_coding::ErasureCoding;
+#[cfg(feature = "alloc")]
+use subspace_kzg::Scalar;
+#[cfg(feature = "alloc")]
 use subspace_proof_of_space::Table;
 
 /// Errors encountered by the Subspace consensus primitives.
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
-#[cfg(feature = "kzg")]
+#[cfg(feature = "alloc")]
 pub enum Error {
     /// Invalid piece offset
     #[error("Piece verification failed")]
@@ -84,9 +84,6 @@ pub enum Error {
     /// Invalid audit chunk offset
     #[error("Invalid audit chunk offset")]
     InvalidAuditChunkOffset,
-    /// Invalid chunk
-    #[error("Invalid chunk: {0}")]
-    InvalidChunk(String),
     /// Invalid chunk witness
     #[error("Invalid chunk witness")]
     InvalidChunkWitness,
@@ -187,12 +184,11 @@ pub fn calculate_block_weight(solution_range: SolutionRange) -> BlockWeight {
 
 /// Verify whether solution is valid, returns solution distance that is `<= solution_range/2` on
 /// success.
-#[cfg(feature = "kzg")]
+#[cfg(feature = "alloc")]
 pub fn verify_solution<'a, PosTable>(
     solution: &'a Solution,
     slot: SlotNumber,
     params: &'a VerifySolutionParams,
-    kzg: &'a Kzg,
 ) -> Result<SolutionRange, Error>
 where
     PosTable: Table,
@@ -237,14 +233,18 @@ where
         });
     }
 
+    // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows
+    //  the code to compile. Constant 16 is hardcoded here and in `if` branch below for compilation
+    //  to succeed
+    const _: () = {
+        assert!(Record::NUM_S_BUCKETS.ilog2() == 16);
+    };
     // Check that chunk belongs to the record
-    if !kzg.verify(
-        &Commitment::try_from(solution.record_commitment)
-            .map_err(|_error| Error::InvalidChunkWitness)?,
-        Record::NUM_S_BUCKETS,
-        s_bucket_audit_index.into(),
-        &Scalar::try_from(solution.chunk).map_err(Error::InvalidChunk)?,
-        &Witness::try_from(solution.chunk_witness).map_err(|_error| Error::InvalidChunkWitness)?,
+    if !BalancedHashedMerkleTree::<16>::verify(
+        &solution.record_commitment,
+        &solution.chunk_witness,
+        usize::from(s_bucket_audit_index),
+        *solution.chunk,
     ) {
         return Err(Error::InvalidChunkWitness);
     }
@@ -298,12 +298,8 @@ where
             .position();
 
         // Check that piece is part of the blockchain history
-        if !is_record_commitment_hash_valid(
-            kzg,
-            &Scalar::try_from(blake3_254_hash_to_scalar(
-                solution.record_commitment.as_ref(),
-            ))
-            .expect("Create correctly by dedicated hash function; qed"),
+        if !is_record_commitment_valid(
+            &solution.record_commitment,
             segment_commitment,
             &solution.record_witness,
             position,
@@ -316,20 +312,16 @@ where
 }
 
 /// Validate witness embedded within a piece produced by archiver
-#[cfg(feature = "kzg")]
+#[cfg(feature = "alloc")]
 pub fn is_piece_valid(
-    kzg: &Kzg,
+    // TODO: Get rid of erasure coding once record commitment creation is fixed, see note in
+    //  `subspace-archiving`
+    erasure_coding: &ErasureCoding,
     piece: &PieceArray,
     segment_commitment: &SegmentCommitment,
     position: u32,
 ) -> bool {
-    let (record, commitment, witness) = piece.split();
-    let witness = match Witness::try_from_bytes(witness) {
-        Ok(witness) => witness,
-        _ => {
-            return false;
-        }
-    };
+    let (record, &record_commitment, record_witness) = piece.split();
 
     let mut scalars = Vec::with_capacity(record.len().next_power_of_two());
 
@@ -344,63 +336,59 @@ pub fn is_piece_valid(
         }
     }
 
-    // Number of scalars for KZG must be a power of two elements
+    // TODO: Make it power of two statically so this is no longer necessary (likely
+    //  depends on chunks being 32 bytes)
+    // Number of elements in a tree must be a power of two elements
     scalars.resize(scalars.capacity(), Scalar::default());
 
-    let polynomial = match kzg.poly(&scalars) {
-        Ok(polynomial) => polynomial,
-        _ => {
-            return false;
-        }
-    };
+    // TODO: Think about committing to source and parity chunks separately, then
+    //  creating a separate commitment for both and retaining a proof. This way it would
+    //  be possible to verify pieces without re-doing erasure coding. Same note exists
+    //  in other files.
+    let parity_scalars = erasure_coding
+        .extend(&scalars)
+        .expect("Erasure coding instance is deliberately configured to support this input; qed");
 
-    if kzg
-        .commit(&polynomial)
-        .map(|commitment| commitment.to_bytes())
-        .as_ref()
-        != Ok(commitment)
-    {
+    let chunks = scalars
+        .into_iter()
+        .zip(parity_scalars)
+        .flat_map(|(a, b)| [a, b])
+        .map(|chunk| chunk.to_bytes())
+        .collect::<Vec<_>>();
+
+    let record_merkle_tree =
+        BalancedHashedMerkleTree::<{ Record::NUM_S_BUCKETS.ilog2() }>::new_boxed(
+            chunks
+                .as_slice()
+                .try_into()
+                .expect("Statically guaranteed to have correct length; qed"),
+        );
+
+    if record_merkle_tree.root() != *record_commitment {
         return false;
     }
 
-    let Ok(segment_commitment) = Commitment::try_from(segment_commitment) else {
-        return false;
-    };
-
-    let commitment_hash = Scalar::try_from(blake3_254_hash_to_scalar(commitment.as_ref()))
-        .expect("Create correctly by dedicated hash function; qed");
-
-    kzg.verify(
-        &segment_commitment,
-        ArchivedHistorySegment::NUM_PIECES,
-        position,
-        &commitment_hash,
-        &witness,
+    BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES.ilog2() }>::verify(
+        segment_commitment,
+        record_witness,
+        position as usize,
+        *record_commitment,
     )
 }
 
 /// Validate witness for record commitment hash produced by archiver
-#[cfg(feature = "kzg")]
-pub fn is_record_commitment_hash_valid(
-    kzg: &Kzg,
-    record_commitment_hash: &Scalar,
-    commitment: &SegmentCommitment,
-    witness: &RecordWitness,
+#[cfg(feature = "alloc")]
+pub fn is_record_commitment_valid(
+    record_commitment: &RecordCommitment,
+    segment_commitment: &SegmentCommitment,
+    record_witness: &RecordWitness,
     position: u32,
 ) -> bool {
-    let Ok(commitment) = Commitment::try_from(commitment) else {
-        return false;
-    };
-    let Ok(witness) = Witness::try_from(witness) else {
-        return false;
-    };
-
-    kzg.verify(
-        &commitment,
-        ArchivedHistorySegment::NUM_PIECES,
-        position,
-        record_commitment_hash,
-        &witness,
+    BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES.ilog2() }>::verify(
+        segment_commitment,
+        record_witness,
+        position as usize,
+        **record_commitment,
     )
 }
 

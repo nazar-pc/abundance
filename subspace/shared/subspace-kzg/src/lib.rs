@@ -1,4 +1,5 @@
 //! KZG primitives for Subspace Network
+#![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
 mod tests;
@@ -27,9 +28,6 @@ use rust_kzg_blst::types::poly::FsPoly;
 #[cfg(not(feature = "std"))]
 use spin::Mutex;
 use static_assertions::const_assert_eq;
-use subspace_core_primitives::pieces::{RecordCommitment, RecordWitness};
-use subspace_core_primitives::segments::SegmentCommitment;
-use subspace_core_primitives::solutions::ChunkWitness;
 use subspace_core_primitives::ScalarBytes;
 use tracing::debug;
 
@@ -529,56 +527,6 @@ impl Commitment {
     }
 }
 
-impl From<Commitment> for RecordCommitment {
-    #[inline]
-    fn from(commitment: Commitment) -> Self {
-        RecordCommitment::from(commitment.to_bytes())
-    }
-}
-
-impl TryFrom<&RecordCommitment> for Commitment {
-    type Error = String;
-
-    #[inline]
-    fn try_from(commitment: &RecordCommitment) -> Result<Self, Self::Error> {
-        Commitment::try_from(**commitment)
-    }
-}
-
-impl TryFrom<RecordCommitment> for Commitment {
-    type Error = String;
-
-    #[inline]
-    fn try_from(commitment: RecordCommitment) -> Result<Self, Self::Error> {
-        Commitment::try_from(&commitment)
-    }
-}
-
-impl From<Commitment> for SegmentCommitment {
-    #[inline]
-    fn from(commitment: Commitment) -> Self {
-        SegmentCommitment::from(commitment.to_bytes())
-    }
-}
-
-impl TryFrom<&SegmentCommitment> for Commitment {
-    type Error = String;
-
-    #[inline]
-    fn try_from(commitment: &SegmentCommitment) -> Result<Self, Self::Error> {
-        Commitment::try_from(**commitment)
-    }
-}
-
-impl TryFrom<SegmentCommitment> for Commitment {
-    type Error = String;
-
-    #[inline]
-    fn try_from(commitment: SegmentCommitment) -> Result<Self, Self::Error> {
-        Commitment::try_from(&commitment)
-    }
-}
-
 impl From<Commitment> for [u8; Commitment::SIZE] {
     #[inline]
     fn from(commitment: Commitment) -> Self {
@@ -628,56 +576,6 @@ impl Witness {
     /// Try to deserialize witness from raw bytes
     pub fn try_from_bytes(bytes: &[u8; Self::SIZE]) -> Result<Self, String> {
         Ok(Witness(FsG1::from_bytes(bytes)?))
-    }
-}
-
-impl From<Witness> for RecordWitness {
-    #[inline]
-    fn from(witness: Witness) -> Self {
-        RecordWitness::from(witness.to_bytes())
-    }
-}
-
-impl TryFrom<&RecordWitness> for Witness {
-    type Error = String;
-
-    #[inline]
-    fn try_from(witness: &RecordWitness) -> Result<Self, Self::Error> {
-        Witness::try_from(**witness)
-    }
-}
-
-impl TryFrom<RecordWitness> for Witness {
-    type Error = String;
-
-    #[inline]
-    fn try_from(witness: RecordWitness) -> Result<Self, Self::Error> {
-        Witness::try_from(&witness)
-    }
-}
-
-impl From<Witness> for ChunkWitness {
-    #[inline]
-    fn from(witness: Witness) -> Self {
-        ChunkWitness::from(witness.to_bytes())
-    }
-}
-
-impl TryFrom<&ChunkWitness> for Witness {
-    type Error = String;
-
-    #[inline]
-    fn try_from(witness: &ChunkWitness) -> Result<Self, Self::Error> {
-        Witness::try_from(**witness)
-    }
-}
-
-impl TryFrom<ChunkWitness> for Witness {
-    type Error = String;
-
-    #[inline]
-    fn try_from(witness: ChunkWitness) -> Result<Self, Self::Error> {
-        Witness::try_from(&witness)
     }
 }
 

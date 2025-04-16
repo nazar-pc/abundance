@@ -1,17 +1,17 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
+use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
-use subspace_core_primitives::hashes::blake3_254_hash_to_scalar;
-use subspace_core_primitives::pieces::{Piece, RawRecord};
+use subspace_core_primitives::pieces::{Piece, RawRecord, Record};
 use subspace_core_primitives::segments::ArchivedHistorySegment;
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::{Commitment, Kzg, Polynomial, Scalar};
+use subspace_kzg::Scalar;
 
 /// Reconstructor-related instantiation error
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -19,11 +19,6 @@ pub enum ReconstructorError {
     /// Segment size is not bigger than record size
     #[error("Error during data shards reconstruction: {0}")]
     DataShardsReconstruction(String),
-
-    /// Commitment of input piece is invalid.
-    #[error("Commitment of input piece is invalid.")]
-    InvalidInputPieceCommitment,
-
     /// Incorrect piece position provided.
     #[error("Incorrect piece position provided.")]
     IncorrectPiecePosition,
@@ -34,25 +29,18 @@ pub enum ReconstructorError {
 pub struct PiecesReconstructor {
     /// Erasure coding data structure
     erasure_coding: ErasureCoding,
-    /// KZG instance
-    kzg: Kzg,
 }
 
 impl PiecesReconstructor {
     /// Create a new instance
-    pub fn new(kzg: Kzg, erasure_coding: ErasureCoding) -> Self {
-        Self {
-            erasure_coding,
-            kzg,
-        }
+    pub fn new(erasure_coding: ErasureCoding) -> Self {
+        Self { erasure_coding }
     }
 
-    /// Returns incomplete pieces (witness missing) and polynomial that can be used to generate
-    /// necessary witnesses later.
     fn reconstruct_shards(
         &self,
         input_pieces: &[Option<Piece>],
-    ) -> Result<(ArchivedHistorySegment, Polynomial), ReconstructorError> {
+    ) -> Result<ArchivedHistorySegment, ReconstructorError> {
         let mut reconstructed_pieces = ArchivedHistorySegment::default();
 
         // Scratch buffer to avoid re-allocation
@@ -94,19 +82,15 @@ impl PiecesReconstructor {
             tmp_shards_scalars.clear();
         }
 
-        let source_record_commitments = {
+        let record_commitments = {
             #[cfg(not(feature = "parallel"))]
-            let iter = reconstructed_pieces.iter_mut().zip(input_pieces).step_by(2);
+            let iter = reconstructed_pieces.iter_mut().zip(input_pieces);
             #[cfg(feature = "parallel")]
-            let iter = reconstructed_pieces
-                .par_iter_mut()
-                .zip_eq(input_pieces)
-                .step_by(2);
+            let iter = reconstructed_pieces.par_iter_mut().zip_eq(input_pieces);
 
             iter.map(|(piece, maybe_input_piece)| {
-                if let Some(input_piece) = maybe_input_piece {
-                    Commitment::try_from_bytes(input_piece.commitment())
-                        .map_err(|_error| ReconstructorError::InvalidInputPieceCommitment)
+                let record_commitment = if let Some(input_piece) = maybe_input_piece {
+                    **input_piece.commitment()
                 } else {
                     let scalars = {
                         let mut scalars =
@@ -119,51 +103,64 @@ impl PiecesReconstructor {
                             );
                         }
 
-                        // Number of scalars for KZG must be a power of two elements
+                        // TODO: Make it power of two statically so this is no longer necessary (likely
+                        //  depends on chunks being 32 bytes)
+                        // Number of elements in a tree must be a power of two elements
                         scalars.resize(scalars.capacity(), Scalar::default());
 
                         scalars
                     };
 
-                    let polynomial = self.kzg.poly(&scalars).expect(
-                        "KZG instance must be configured to support this many scalars; qed",
-                    );
-                    let commitment = self.kzg.commit(&polynomial).expect(
-                        "KZG instance must be configured to support this many scalars; qed",
+                    // TODO: Think about committing to source and parity chunks separately, then
+                    //  creating a separate commitment for both and retaining a proof. This way it would
+                    //  be possible to verify pieces without re-doing erasure coding. Same note exists
+                    //  in other files.
+                    let parity_scalars = self.erasure_coding.extend(&scalars).expect(
+                        "Erasure coding instance is deliberately configured to support this input; qed",
                     );
 
-                    Ok(commitment)
-                }
+                    let chunks = scalars
+                        .into_iter()
+                        .zip(parity_scalars)
+                        .flat_map(|(a, b)| [a, b])
+                        .map(|chunk| chunk.to_bytes())
+                        .collect::<Vec<_>>();
+
+                    // TODO: Reuse allocation or remove parallel processing if it is fast enough as is
+                    let record_merkle_tree =
+                        BalancedHashedMerkleTree::<{ Record::NUM_S_BUCKETS.ilog2() }>::new_boxed(
+                            chunks
+                                .as_slice()
+                                .try_into()
+                                .expect("Statically guaranteed to have correct length; qed"),
+                        );
+
+                    record_merkle_tree.root()
+                };
+
+                piece.commitment_mut().copy_from_slice(&record_commitment);
+
+                Ok(record_commitment)
             })
-            .collect::<Result<Vec<_>, _>>()?
+                .collect::<Result<Vec<_>, _>>()?
         };
-        let record_commitments = self
-            .erasure_coding
-            .extend_commitments(&source_record_commitments)
-            .expect(
-                "Erasure coding instance is deliberately configured to support this input; qed",
+
+        let segment_merkle_tree =
+            BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES.ilog2() }>::new_boxed(
+                record_commitments
+                    .as_slice()
+                    .try_into()
+                    .expect("Statically guaranteed to have correct length; qed"),
             );
-        drop(source_record_commitments);
 
-        let record_commitment_hashes = reconstructed_pieces
+        reconstructed_pieces
             .iter_mut()
-            .zip(record_commitments)
-            .map(|(reconstructed_piece, commitment)| {
-                let commitment_bytes = commitment.to_bytes();
-                reconstructed_piece
-                    .commitment_mut()
-                    .copy_from_slice(&commitment_bytes);
-                Scalar::try_from(blake3_254_hash_to_scalar(&commitment_bytes))
-                    .expect("Create correctly by dedicated hash function; qed")
-            })
-            .collect::<Vec<_>>();
+            .zip(segment_merkle_tree.all_proofs())
+            .for_each(|(piece, record_witness)| {
+                piece.witness_mut().copy_from_slice(&record_witness);
+            });
 
-        let polynomial = self
-            .kzg
-            .poly(&record_commitment_hashes)
-            .expect("Internally produced values must never fail; qed");
-
-        Ok((reconstructed_pieces, polynomial))
+        Ok(reconstructed_pieces)
     }
 
     /// Returns all the pieces for a segment using given set of pieces of a segment of the archived
@@ -173,26 +170,7 @@ impl PiecesReconstructor {
         &self,
         segment_pieces: &[Option<Piece>],
     ) -> Result<ArchivedHistorySegment, ReconstructorError> {
-        let (mut pieces, polynomial) = self.reconstruct_shards(segment_pieces)?;
-
-        #[cfg(not(feature = "parallel"))]
-        let iter = pieces.iter_mut().enumerate();
-        #[cfg(feature = "parallel")]
-        let iter = pieces.par_iter_mut().enumerate();
-
-        iter.for_each(|(position, piece)| {
-            piece.witness_mut().copy_from_slice(
-                &self
-                    .kzg
-                    .create_witness(
-                        &polynomial,
-                        ArchivedHistorySegment::NUM_PIECES,
-                        position as u32,
-                    )
-                    .expect("Position is statically known to be valid; qed")
-                    .to_bytes(),
-            );
-        });
+        let pieces = self.reconstruct_shards(segment_pieces)?;
 
         Ok(pieces.to_shared())
     }
@@ -209,21 +187,9 @@ impl PiecesReconstructor {
         }
 
         // TODO: Early exit if position already exists and doesn't need reconstruction
-        let (reconstructed_records, polynomial) = self.reconstruct_shards(segment_pieces)?;
+        let pieces = self.reconstruct_shards(segment_pieces)?;
 
-        let mut piece = Piece::from(&reconstructed_records[piece_position]);
-
-        piece.witness_mut().copy_from_slice(
-            &self
-                .kzg
-                .create_witness(
-                    &polynomial,
-                    ArchivedHistorySegment::NUM_PIECES,
-                    piece_position as u32,
-                )
-                .expect("Position is verified to be valid above; qed")
-                .to_bytes(),
-        );
+        let piece = Piece::from(&pieces[piece_position]);
 
         Ok(piece.to_shared())
     }

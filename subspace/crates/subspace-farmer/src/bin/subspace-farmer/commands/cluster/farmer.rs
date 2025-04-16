@@ -34,7 +34,6 @@ use subspace_farmer::utils::{
     recommended_number_of_farming_threads, run_future_in_dedicated_thread, AsyncJoinOnDrop,
 };
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
-use subspace_kzg::Kzg;
 use subspace_proof_of_space::Table;
 use tracing::{error, info, info_span, warn, Instrument};
 
@@ -212,7 +211,6 @@ where
         .await
         .map_err(|error| anyhow!("Failed to get farmer app info: {error}"))?;
 
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -263,7 +261,6 @@ where
             .map(|(farm_index, disk_farm)| {
                 let farmer_app_info = farmer_app_info.clone();
                 let node_client = node_client.clone();
-                let kzg = kzg.clone();
                 let erasure_coding = erasure_coding.clone();
                 let plotter = Arc::clone(&plotter);
                 let global_mutex = Arc::clone(&global_mutex);
@@ -278,7 +275,6 @@ where
                             node_client,
                             reward_address,
                             plotter,
-                            kzg,
                             erasure_coding,
                             // Cache is provided by dedicated caches in farming cluster
                             cache_percentage: 0,

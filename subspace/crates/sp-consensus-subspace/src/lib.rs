@@ -26,8 +26,6 @@ use subspace_core_primitives::segments::{
 };
 use subspace_core_primitives::solutions::{Solution, SolutionRange};
 use subspace_core_primitives::{BlockNumber, PublicKey};
-#[cfg(all(feature = "std", feature = "runtime-benchmarks"))]
-use subspace_kzg::Kzg;
 use subspace_verification::VerifySolutionParams;
 
 /// The `ConsensusEngineId` of Subspace.

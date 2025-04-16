@@ -11,6 +11,7 @@ use crate::sector::{
     SectorContentsMap, SectorContentsMapFromBytesError, SectorMetadataChecksummed,
 };
 use crate::{ReadAt, ReadAtSync};
+use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use futures::FutureExt;
 use std::collections::VecDeque;
 use std::io;
@@ -20,7 +21,6 @@ use subspace_core_primitives::sectors::{SBucket, SectorId};
 use subspace_core_primitives::solutions::{ChunkWitness, Solution, SolutionRange};
 use subspace_core_primitives::{PublicKey, ScalarBytes};
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Kzg;
 use subspace_proof_of_space::Table;
 use thiserror::Error;
 
@@ -46,19 +46,6 @@ pub enum ProvingError {
         /// Lower-level error
         error: String,
     },
-    /// Failed to create chunk witness
-    #[error(
-        "Failed to create chunk witness for record at offset {piece_offset} chunk {chunk_offset}: \
-        {error}"
-    )]
-    FailedToCreateChunkWitness {
-        /// Piece offset
-        piece_offset: PieceOffset,
-        /// Chunk index
-        chunk_offset: u32,
-        /// Lower-level error
-        error: String,
-    },
     /// Failed to decode sector contents map
     #[error("Failed to decode sector contents map: {0}")]
     FailedToDecodeSectorContentsMap(#[from] SectorContentsMapFromBytesError),
@@ -76,7 +63,6 @@ impl ProvingError {
         match self {
             ProvingError::InvalidErasureCodingInstance => true,
             ProvingError::FailedToCreatePolynomialForRecord { .. } => false,
-            ProvingError::FailedToCreateChunkWitness { .. } => false,
             ProvingError::FailedToDecodeSectorContentsMap(_) => false,
             ProvingError::Io(_) => true,
             ProvingError::RecordReadingError(error) => error.is_fatal(),
@@ -86,8 +72,6 @@ impl ProvingError {
 
 #[derive(Debug, Clone)]
 struct WinningChunk {
-    /// Chunk offset within s-bucket
-    chunk_offset: u32,
     /// Piece offset in a sector
     piece_offset: PieceOffset,
     /// Solution distance of this chunk
@@ -162,7 +146,6 @@ where
     /// Turn solution candidates into actual solutions
     pub fn into_solutions<PosTable, TableGenerator>(
         self,
-        kzg: &'a Kzg,
         erasure_coding: &'a ErasureCoding,
         mode: ReadSectorRecordChunksMode,
         table_generator: TableGenerator,
@@ -177,7 +160,6 @@ where
             self.s_bucket,
             self.sector,
             self.sector_metadata,
-            kzg,
             erasure_coding,
             self.chunk_candidates,
             mode,
@@ -199,7 +181,6 @@ where
     s_bucket: SBucket,
     sector_metadata: &'a SectorMetadataChecksummed,
     s_bucket_offsets: Box<[u32; Record::NUM_S_BUCKETS]>,
-    kzg: &'a Kzg,
     erasure_coding: &'a ErasureCoding,
     sector_contents_map: SectorContentsMap,
     sector: ReadAt<Sector, !>,
@@ -230,7 +211,6 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         let WinningChunk {
-            chunk_offset,
             piece_offset,
             solution_distance: _,
         } = self.winning_chunks.pop_front()?;
@@ -262,14 +242,32 @@ where
                     .expect("Winning chunk was plotted; qed"),
             );
 
-            let source_chunks_polynomial = self
+            let scalars = self
                 .erasure_coding
-                .recover_poly(sector_record_chunks.as_slice())
+                .recover(sector_record_chunks.as_slice())
                 .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
                     piece_offset,
                     error,
                 })?;
             drop(sector_record_chunks);
+
+            let chunks = scalars
+                .into_iter()
+                .map(|chunk| chunk.to_bytes())
+                .collect::<Vec<_>>();
+
+            // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
+            //  allows the code to compile. Constant 16 is hardcoded here and in `if` branch below
+            //  for compilation to succeed
+            const _: () = {
+                assert!(Record::NUM_S_BUCKETS.ilog2() == 16);
+            };
+            let record_merkle_tree = BalancedHashedMerkleTree::<16>::new_boxed(
+                chunks
+                    .as_slice()
+                    .try_into()
+                    .expect("Statically guaranteed to have correct length; qed"),
+            );
 
             // NOTE: We do not check plot consistency using checksum because it is more
             // expensive and consensus will verify validity of the proof anyway
@@ -286,18 +284,10 @@ where
                 "Quality exists for this s-bucket, otherwise it wouldn't be a winning chunk; qed",
             );
 
-            let chunk_witness = self
-                .kzg
-                .create_witness(
-                    &source_chunks_polynomial,
-                    Record::NUM_S_BUCKETS,
-                    self.s_bucket.into(),
-                )
-                .map_err(|error| ProvingError::FailedToCreateChunkWitness {
-                    piece_offset,
-                    chunk_offset,
-                    error,
-                })?;
+            let chunk_witness = record_merkle_tree
+                .all_proofs()
+                .nth(usize::from(self.s_bucket))
+                .expect("Chunk offset is valid, hence corresponding proof exists; qed");
 
             Solution {
                 public_key: *self.public_key,
@@ -348,7 +338,6 @@ where
         s_bucket: SBucket,
         sector: Sector,
         sector_metadata: &'a SectorMetadataChecksummed,
-        kzg: &'a Kzg,
         erasure_coding: &'a ErasureCoding,
         chunk_candidates: VecDeque<ChunkCandidate>,
         mode: ReadSectorRecordChunksMode,
@@ -382,7 +371,6 @@ where
                     .expect("Wouldn't be a candidate if wasn't within s-bucket; qed");
 
                 encoded_chunk_used.then_some(WinningChunk {
-                    chunk_offset: chunk_candidate.chunk_offset,
                     piece_offset: *piece_offset,
                     solution_distance: chunk_candidate.solution_distance,
                 })
@@ -403,7 +391,6 @@ where
             s_bucket,
             sector_metadata,
             s_bucket_offsets,
-            kzg,
             erasure_coding,
             sector_contents_map,
             sector: ReadAt::from_sync(sector),

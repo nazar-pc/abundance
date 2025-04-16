@@ -37,7 +37,6 @@ use subspace_farmer_components::plotting::{
     PlottingError, RecordsEncoder,
 };
 use subspace_farmer_components::FarmerProtocolInfo;
-use subspace_kzg::Kzg;
 use tokio::task::yield_now;
 use tracing::{warn, Instrument};
 
@@ -62,7 +61,6 @@ pub struct GpuPlotter<PG, GRE> {
     downloading_semaphore: Arc<Semaphore>,
     gpu_records_encoders_manager: GpuRecordsEncoderManager<GRE>,
     global_mutex: Arc<AsyncMutex<()>>,
-    kzg: Kzg,
     erasure_coding: ErasureCoding,
     handlers: Arc<Handlers>,
     tasks_sender: mpsc::Sender<AsyncJoinOnDrop<()>>,
@@ -170,7 +168,6 @@ where
         downloading_semaphore: Arc<Semaphore>,
         gpu_records_encoders: Vec<GRE>,
         global_mutex: Arc<AsyncMutex<()>>,
-        kzg: Kzg,
         erasure_coding: ErasureCoding,
         registry: Option<&mut Registry>,
     ) -> Result<Self, TryFromIntError> {
@@ -217,7 +214,6 @@ where
             downloading_semaphore,
             gpu_records_encoders_manager,
             global_mutex,
-            kzg,
             erasure_coding,
             handlers: Arc::default(),
             tasks_sender,
@@ -264,7 +260,6 @@ where
             let piece_getter = self.piece_getter.clone();
             let gpu_records_encoders_manager = self.gpu_records_encoders_manager.clone();
             let global_mutex = Arc::clone(&self.global_mutex);
-            let kzg = self.kzg.clone();
             let erasure_coding = self.erasure_coding.clone();
             let abort_early = Arc::clone(&self.abort_early);
             let metrics = self.metrics.clone();
@@ -292,7 +287,6 @@ where
                         sector_index,
                         piece_getter: &piece_getter,
                         farmer_protocol_info,
-                        kzg: &kzg,
                         erasure_coding: &erasure_coding,
                         pieces_in_sector,
                     });

@@ -23,7 +23,6 @@ use subspace_farmer_components::sector::{
     sector_size, SectorContentsMap, SectorMetadata, SectorMetadataChecksummed,
 };
 use subspace_farmer_components::FarmerProtocolInfo;
-use subspace_kzg::Kzg;
 use subspace_proof_of_space::chia::ChiaTable;
 use subspace_proof_of_space::Table;
 
@@ -50,13 +49,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let sector_index = 0;
     let mut input = RecordedHistorySegment::new_boxed();
     StdRng::seed_from_u64(42).fill(AsMut::<[u8]>::as_mut(input.as_mut()));
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let mut archiver = Archiver::new(kzg.clone(), erasure_coding.clone());
+    let mut archiver = Archiver::new(erasure_coding.clone());
     let mut table_generator = PosTable::generator();
     let archived_history_segment = archiver
         .add_block(
@@ -127,7 +125,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             sector_index,
             piece_getter: &archived_history_segment,
             farmer_protocol_info,
-            kzg: &kzg,
             erasure_coding: &erasure_coding,
             pieces_in_sector,
             sector_output: &mut plotted_sector_bytes,

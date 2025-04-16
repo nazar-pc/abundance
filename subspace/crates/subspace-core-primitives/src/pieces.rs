@@ -23,6 +23,7 @@ use ::serde::{Deserializer, Serializer};
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::hash::Hash;
 use core::iter::Step;
@@ -783,9 +784,10 @@ impl From<&mut [u8; RecordCommitment::SIZE]> for &mut RecordCommitment {
 
 impl RecordCommitment {
     /// Size of record commitment in bytes.
-    pub const SIZE: usize = 48;
+    pub const SIZE: usize = 32;
 }
 
+// TODO: Change commitment/witness terminology to root/proof
 /// Record witness contained within a piece.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
 #[cfg_attr(
@@ -911,7 +913,8 @@ impl From<&mut [u8; RecordWitness::SIZE]> for &mut RecordWitness {
 
 impl RecordWitness {
     /// Size of record witness in bytes.
-    pub const SIZE: usize = 48;
+    pub const SIZE: usize = OUT_LEN * Self::NUM_HASHES;
+    const NUM_HASHES: usize = RecordedHistorySegment::NUM_PIECES.ilog2() as usize;
 }
 
 /// A piece of archival history in Subspace Network.
