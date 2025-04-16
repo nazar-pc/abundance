@@ -1,5 +1,6 @@
 use parity_scale_codec::{Compact, CompactLen, Decode, Encode};
-use rand::{thread_rng, Rng};
+use rand_chacha::ChaCha8Rng;
+use rand_core::{RngCore, SeedableRng};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use std::assert_matches::assert_matches;
@@ -62,6 +63,7 @@ fn compare_block_objects_to_global_objects<'a>(
 
 #[test]
 fn archiver() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -71,7 +73,7 @@ fn archiver() {
 
     let (block_0, block_0_object_mapping) = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 2];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
 
         block[0..]
             .as_mut()
@@ -106,7 +108,7 @@ fn archiver() {
 
     let (block_1, block_1_object_mapping) = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 3 * 2];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
 
         block[RecordedHistorySegment::SIZE / 6..]
             .as_mut()
@@ -214,7 +216,7 @@ fn archiver() {
 
     let block_2 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE * 2];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
         block
     };
     // This should be big enough to produce two archived segments in one go
@@ -337,7 +339,7 @@ fn archiver() {
     // Add a block such that it fits in the next segment exactly
     let block_3 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE - 21670860];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
         block
     };
     let block_3_outcome = archiver.add_block(block_3.clone(), BlockObjectMapping::default());
@@ -565,6 +567,7 @@ fn spill_over_edge_case() {
 
 #[test]
 fn object_on_the_edge_of_segment() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -621,7 +624,9 @@ fn object_on_the_edge_of_segment() {
             // close enough and practically will always result in the same compact length.
             - Compact::compact_len(&(RecordedHistorySegment::SIZE as u32)) as u32,
     };
-    let mapped_bytes = rand::random::<[u8; 32]>().to_vec().encode();
+    let mut mapped_bytes = [0u8; 32];
+    rng.fill_bytes(&mut mapped_bytes);
+    let mapped_bytes = mapped_bytes.to_vec().encode();
     // Write mapped bytes at expected offset in source data
     second_block[object_mapping.offset as usize..][..mapped_bytes.len()]
         .copy_from_slice(&mapped_bytes);

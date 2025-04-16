@@ -664,6 +664,8 @@ impl Archiver {
 
             let mut pieces = ArchivedHistorySegment::default();
 
+            // TODO: This needs to be parallelized heavily, parallelism through
+            //  `subspace-erasure-coding` is not working well due to large number of small data sets
             // Scratch buffer to avoid re-allocation
             let mut tmp_source_shards_scalars =
                 Vec::<Scalar>::with_capacity(RecordedHistorySegment::NUM_RAW_RECORDS);

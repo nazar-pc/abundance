@@ -26,12 +26,10 @@ subspace-erasure-coding.workspace = true
 subspace-kzg.workspace = true
 thiserror.workspace = true
 
-# This is required to for benchmark dependency features to work correctly
-rand = { workspace = true, optional = true }
-
 [dev-dependencies]
 criterion.workspace = true
-rand = { workspace = true, features = ["min_const_gen"] }
+rand_core = { workspace = true }
+rand_chacha = { workspace = true }
 subspace-core-primitives.workspace = true
 subspace-verification = { workspace = true, features = ["alloc"] }
 
@@ -45,11 +43,9 @@ serde = [
     "dep:serde",
     "subspace-core-primitives/serde",
 ]
+# TODO: Remove `std` feature
 std = [
     "parity-scale-codec/std",
-    "parallel",
-    "rand?/std",
-    "rand?/std_rng",
     "serde",
     "subspace-erasure-coding/std",
     "subspace-kzg/std",

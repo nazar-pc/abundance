@@ -26,7 +26,6 @@ jsonrpsee = { workspace = true, features = ["server-core"] }
 parity-scale-codec.workspace = true
 parking_lot.workspace = true
 prometheus-client.workspace = true
-rayon.workspace = true
 sc-basic-authorship.workspace = true
 sc-chain-spec.workspace = true
 sc-client-api.workspace = true
@@ -59,7 +58,7 @@ sp-runtime.workspace = true
 sp-timestamp.workspace = true
 sp-transaction-pool.workspace = true
 static_assertions.workspace = true
-subspace-archiving.workspace = true
+subspace-archiving = { workspace = true, features = ["std", "parallel"] }
 subspace-core-primitives.workspace = true
 subspace-data-retrieval.workspace = true
 subspace-erasure-coding.workspace = true
