@@ -12,6 +12,9 @@ use crate::chiapos::utils::EvaluatableUsize;
 
 type Seed = [u8; 32];
 type Challenge = [u8; 32];
+#[cfg(not(any(feature = "full-chiapos", test)))]
+type Quality = ();
+#[cfg(any(feature = "full-chiapos", test))]
 type Quality = [u8; 32];
 
 /// Collection of Chia tables
@@ -58,6 +61,7 @@ impl Tables<$k> {
     }
 
     /// Find proof of space quality for given challenge.
+    #[cfg(any(feature = "full-chiapos", test))]
     pub fn find_quality<'a>(
         &'a self,
         challenge: &'a Challenge,
@@ -87,4 +91,8 @@ impl Tables<$k> {
 }
 
 // Only these k values are supported by current implementation
-impl_any!(15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25);
+#[cfg(feature = "full-chiapos")]
+impl_any!(15, 16, 18, 19, 21, 22, 23, 24, 25);
+#[cfg(any(feature = "full-chiapos", test))]
+impl_any!(17);
+impl_any!(20);

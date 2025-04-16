@@ -15,9 +15,11 @@ use crate::chiapos::{Challenge, Quality, Seed};
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::mem;
+#[cfg(any(feature = "full-chiapos", test))]
 use sha2::{Digest, Sha256};
 
 /// Pick position in `table_number` based on challenge bits
+#[cfg(any(feature = "full-chiapos", test))]
 const fn pick_position(
     [left_position, right_position]: [Position; 2],
     last_5_challenge_bits: u8,
@@ -110,6 +112,7 @@ where
     }
 
     /// Find proof of space quality for given challenge.
+    #[cfg(any(feature = "full-chiapos", test))]
     pub(super) fn find_quality<'a>(
         &'a self,
         challenge: &'a Challenge,
@@ -306,7 +309,6 @@ where
     where
         EvaluatableUsize<{ (K as usize * 2).div_ceil(u8::BITS as usize) }>: Sized,
     {
-        let last_5_challenge_bits = challenge[challenge.len() - 1] & 0b00011111;
         let first_k_challenge_bits = u32::from_be_bytes(
             challenge[..mem::size_of::<u32>()]
                 .try_into()
@@ -351,37 +353,44 @@ where
                 y.first_k_bits::<K>() == first_k_challenge_bits
             })
             .map(|_| {
-                let mut quality_index = 0_usize.to_be_bytes();
-                quality_index[0] = last_5_challenge_bits;
-                let quality_index = usize::from_be_bytes(quality_index);
+                // Quality is not used anywhere, so only enable it for tests
+                #[cfg(not(any(feature = "full-chiapos", test)))]
+                {}
+                #[cfg(any(feature = "full-chiapos", test))]
+                {
+                    let last_5_challenge_bits = challenge[challenge.len() - 1] & 0b00011111;
 
-                let mut hasher = Sha256::new();
-                hasher.update(challenge);
+                    let mut quality_index = 0_usize.to_be_bytes();
+                    quality_index[0] = last_5_challenge_bits;
+                    let quality_index = usize::from_be_bytes(quality_index);
 
-                // NOTE: this works correctly, but may overflow if `quality_index` is changed to
-                // not be zero-initialized anymore
-                let left_right_xs_bit_offset = quality_index * usize::from(K * 2);
-                // Collect `left_x` and `right_x` bits, potentially with extra bits at the beginning
-                // and the end
-                let left_right_xs_bytes =
-                    &proof_of_space[left_right_xs_bit_offset / u8::BITS as usize..]
+                    // NOTE: this works correctly, but may overflow if `quality_index` is changed to
+                    // not be zero-initialized anymore
+                    let left_right_xs_bit_offset = quality_index * usize::from(K * 2);
+                    // Collect `left_x` and `right_x` bits, potentially with extra bits at the beginning
+                    // and the end
+                    let left_right_xs_bytes = &proof_of_space
+                        [left_right_xs_bit_offset / u8::BITS as usize..]
                         [..(left_right_xs_bit_offset % u8::BITS as usize + usize::from(K * 2))
                             .div_ceil(u8::BITS as usize)];
 
-                let mut left_right_xs = 0u64.to_be_bytes();
-                left_right_xs[..left_right_xs_bytes.len()].copy_from_slice(left_right_xs_bytes);
-                // Move `left_x` and `right_x` bits to most significant bits
-                let left_right_xs = u64::from_be_bytes(left_right_xs)
-                    << (left_right_xs_bit_offset % u8::BITS as usize);
-                // Clear extra bits
-                let left_right_xs_mask = u64::MAX << (u64::BITS as usize - usize::from(K * 2));
-                let left_right_xs = left_right_xs & left_right_xs_mask;
+                    let mut left_right_xs = 0u64.to_be_bytes();
+                    left_right_xs[..left_right_xs_bytes.len()].copy_from_slice(left_right_xs_bytes);
+                    // Move `left_x` and `right_x` bits to most significant bits
+                    let left_right_xs = u64::from_be_bytes(left_right_xs)
+                        << (left_right_xs_bit_offset % u8::BITS as usize);
+                    // Clear extra bits
+                    let left_right_xs_mask = u64::MAX << (u64::BITS as usize - usize::from(K * 2));
+                    let left_right_xs = left_right_xs & left_right_xs_mask;
 
-                hasher.update(
-                    &left_right_xs.to_be_bytes()[..usize::from(K * 2).div_ceil(u8::BITS as usize)],
-                );
-
-                hasher.finalize().into()
+                    let mut hasher = Sha256::new();
+                    hasher.update(challenge);
+                    hasher.update(
+                        &left_right_xs.to_be_bytes()
+                            [..usize::from(K * 2).div_ceil(u8::BITS as usize)],
+                    );
+                    hasher.finalize().into()
+                }
             })
     }
 
