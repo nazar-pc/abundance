@@ -1,31 +1,7 @@
-use crate::{Kzg, Scalar};
+use crate::Scalar;
 use rand::thread_rng;
 use rand_core::RngCore;
 use subspace_core_primitives::ScalarBytes;
-
-#[test]
-fn basic() {
-    let values = (0..8)
-        .map(|_| Scalar::from(rand::random::<[u8; ScalarBytes::SAFE_BYTES]>()))
-        .collect::<Vec<_>>();
-
-    let kzg = Kzg::new();
-    let polynomial = kzg.poly(&values).unwrap();
-    let commitment = kzg.commit(&polynomial).unwrap();
-
-    let num_values = values.len();
-
-    for (index, value) in values.iter().enumerate() {
-        let index = index.try_into().unwrap();
-
-        let witness = kzg.create_witness(&polynomial, num_values, index).unwrap();
-
-        assert!(
-            kzg.verify(&commitment, num_values, index, value, &witness),
-            "failed on index {index}"
-        );
-    }
-}
 
 #[test]
 fn bytes_scalars_conversion() {

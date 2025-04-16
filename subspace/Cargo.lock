@@ -11396,7 +11396,6 @@ dependencies = [
 name = "subspace-erasure-coding"
 version = "0.1.0"
 dependencies = [
- "criterion",
  "kzg",
  "rand 0.8.5",
  "rust-kzg-blst",
@@ -11503,17 +11502,13 @@ dependencies = [
 name = "subspace-kzg"
 version = "0.1.0"
 dependencies = [
- "criterion",
  "derive_more 1.0.0",
  "kzg",
- "parking_lot 0.12.3",
  "rand 0.8.5",
  "rand_core 0.6.4",
  "rust-kzg-blst",
- "spin 0.9.8",
  "static_assertions",
  "subspace-core-primitives",
- "tracing",
 ]
 
 [[package]]

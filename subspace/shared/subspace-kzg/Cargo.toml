@@ -10,43 +10,23 @@ include = [
     "/Cargo.toml",
 ]
 
-[lib]
-# Necessary for CLI options to work on benches
-bench = false
-
-[[bench]]
-name = "kzg"
-harness = false
-
 [dependencies]
 derive_more = { workspace = true, features = ["full"] }
 kzg.workspace = true
-parking_lot = { workspace = true, optional = true }
 rust-kzg-blst.workspace = true
-spin.workspace = true
 static_assertions.workspace = true
 subspace-core-primitives.workspace = true
-tracing.workspace = true
 
 [dev-dependencies]
-criterion.workspace = true
 rand = { workspace = true, features = ["min_const_gen", "std", "std_rng"] }
 rand_core.workspace = true
 
 [features]
 default = [
     "std",
-    "parallel",
-]
-# Enables internal parallelism for KZG
-parallel = [
-    "rust-kzg-blst/parallel",
 ]
 std = [
     "derive_more/std",
     "kzg/std",
-    # In no-std environment we use `spin`
-    "parking_lot",
     "rust-kzg-blst/std",
-    "tracing/std",
 ]
