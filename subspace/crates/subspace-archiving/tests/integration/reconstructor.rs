@@ -1,4 +1,5 @@
-use rand::{thread_rng, Rng};
+use rand_chacha::ChaCha8Rng;
+use rand_core::{RngCore, SeedableRng};
 use std::assert_matches::assert_matches;
 use std::iter;
 use std::num::NonZeroUsize;
@@ -18,6 +19,7 @@ fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
 
 #[test]
 fn basic() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -27,31 +29,31 @@ fn basic() {
     // Block that fits into the segment fully
     let block_0 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 2];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
         block
     };
     // Block that overflows into the next segment
     let block_1 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
         block
     };
     // Block that also fits into the segment fully
     let block_2 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 4];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
         block
     };
     // Block that occupies multiple segments
     let block_3 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE * 3];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
         block
     };
     // Extra block
     let block_4 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
         block
     };
     let archived_segments = archiver
@@ -265,6 +267,7 @@ fn basic() {
 
 #[test]
 fn partial_data() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -274,13 +277,13 @@ fn partial_data() {
     // Block that fits into the segment fully
     let block_0 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 2];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
         block
     };
     // Block that overflows into the next segment
     let block_1 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
         block
     };
     let archived_segments = archiver
@@ -354,6 +357,7 @@ fn partial_data() {
 
 #[test]
 fn invalid_usage() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -363,7 +367,7 @@ fn invalid_usage() {
     // Block that overflows into the next segments
     let block_0 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE * 4];
-        thread_rng().fill(block.as_mut_slice());
+        rng.fill_bytes(block.as_mut_slice());
         block
     };
 
@@ -394,7 +398,7 @@ fn invalid_usage() {
         let result = Reconstructor::new(erasure_coding.clone()).add_segment(
             &iter::repeat_with(|| {
                 let mut piece = Piece::default();
-                thread_rng().fill(piece.as_mut());
+                rng.fill_bytes(piece.as_mut());
                 Some(piece)
             })
             .take(ArchivedHistorySegment::NUM_PIECES)

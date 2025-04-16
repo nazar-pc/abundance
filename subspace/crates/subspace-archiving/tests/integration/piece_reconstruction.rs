@@ -1,4 +1,5 @@
-use rand::Rng;
+use rand_chacha::ChaCha8Rng;
+use rand_core::{RngCore, SeedableRng};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use std::num::NonZeroUsize;
@@ -14,14 +15,15 @@ fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
 }
 
 // Block that fits into the segment fully
-fn get_random_block() -> Vec<u8> {
+fn get_random_block(rng: &mut ChaCha8Rng) -> Vec<u8> {
     let mut block = vec![0u8; RecordedHistorySegment::SIZE];
-    rand::thread_rng().fill(block.as_mut_slice());
+    rng.fill_bytes(block.as_mut_slice());
     block
 }
 
 #[test]
 fn segment_reconstruction_works() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -29,7 +31,7 @@ fn segment_reconstruction_works() {
     .unwrap();
     let mut archiver = Archiver::new(erasure_coding.clone());
     // Block that fits into the segment fully
-    let block = get_random_block();
+    let block = get_random_block(&mut rng);
 
     let archived_segments = archiver
         .add_block(block, BlockObjectMapping::default())
@@ -73,6 +75,7 @@ fn segment_reconstruction_works() {
 
 #[test]
 fn piece_reconstruction_works() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -80,7 +83,7 @@ fn piece_reconstruction_works() {
     .unwrap();
     let mut archiver = Archiver::new(erasure_coding.clone());
     // Block that fits into the segment fully
-    let block = get_random_block();
+    let block = get_random_block(&mut rng);
 
     let archived_segments = archiver
         .add_block(block, BlockObjectMapping::default())
@@ -124,6 +127,7 @@ fn piece_reconstruction_works() {
 
 #[test]
 fn segment_reconstruction_fails() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -145,7 +149,7 @@ fn segment_reconstruction_fails() {
 
     let mut archiver = Archiver::new(erasure_coding);
     // Block that fits into the segment fully
-    let block = get_random_block();
+    let block = get_random_block(&mut rng);
 
     let archived_segments = archiver
         .add_block(block, BlockObjectMapping::default())
@@ -166,6 +170,7 @@ fn segment_reconstruction_fails() {
 
 #[test]
 fn piece_reconstruction_fails() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -187,7 +192,7 @@ fn piece_reconstruction_fails() {
 
     let mut archiver = Archiver::new(erasure_coding);
     // Block that fits into the segment fully
-    let block = get_random_block();
+    let block = get_random_block(&mut rng);
 
     let archived_segments = archiver
         .add_block(block, BlockObjectMapping::default())
