@@ -4,9 +4,10 @@ use rand_core::{RngCore, SeedableRng};
 use std::num::NonZeroUsize;
 use subspace_archiving::archiver::Archiver;
 use subspace_core_primitives::pieces::Record;
+use subspace_core_primitives::segments::RecordedHistorySegment;
 use subspace_erasure_coding::ErasureCoding;
 
-const AMOUNT_OF_DATA: usize = 5 * 1024 * 1024;
+const AMOUNT_OF_DATA: usize = RecordedHistorySegment::SIZE;
 const SMALL_BLOCK_SIZE: usize = 500;
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -20,7 +21,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     .unwrap();
     let archiver = Archiver::new(erasure_coding);
 
-    c.bench_function("segment-archiving-large-block", |b| {
+    c.bench_function("segment-archiving-whole-segment", |b| {
         b.iter(|| {
             archiver
                 .clone()
