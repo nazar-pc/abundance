@@ -556,7 +556,6 @@ where
                         sector_expiration_check_segment_commitment,
                     }),
                 },
-                &self.subspace_link.kzg,
             );
 
             match solution_verification_result {

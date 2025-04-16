@@ -11,7 +11,6 @@ use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::plotting::{plot_sector, CpuRecordsEncoder, PlotSectorOptions};
 use subspace_farmer_components::sector::sector_size;
 use subspace_farmer_components::FarmerProtocolInfo;
-use subspace_kzg::Kzg;
 use subspace_proof_of_space::chia::ChiaTable;
 use subspace_proof_of_space::Table;
 
@@ -29,13 +28,12 @@ fn criterion_benchmark(c: &mut Criterion) {
     let sector_index = 0;
     let mut input = RecordedHistorySegment::new_boxed();
     StdRng::seed_from_u64(42).fill(AsMut::<[u8]>::as_mut(input.as_mut()));
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let mut archiver = Archiver::new(kzg.clone(), erasure_coding.clone());
+    let mut archiver = Archiver::new(erasure_coding.clone());
     let mut table_generators = [
         PosTable::generator(),
         PosTable::generator(),
@@ -79,7 +77,6 @@ fn criterion_benchmark(c: &mut Criterion) {
                 sector_index: black_box(sector_index),
                 piece_getter: black_box(&archived_history_segment),
                 farmer_protocol_info: black_box(farmer_protocol_info),
-                kzg: black_box(&kzg),
                 erasure_coding: black_box(&erasure_coding),
                 pieces_in_sector: black_box(pieces_in_sector),
                 sector_output: black_box(&mut sector_bytes),

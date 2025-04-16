@@ -8,7 +8,6 @@ use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::{FlatPieces, Piece, Record};
 use subspace_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Kzg;
 
 fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
     pieces.pieces().map(Some).collect()
@@ -23,14 +22,13 @@ fn get_random_block() -> Vec<u8> {
 
 #[test]
 fn segment_reconstruction_works() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let mut archiver = Archiver::new(kzg.clone(), erasure_coding.clone());
-
+    let mut archiver = Archiver::new(erasure_coding.clone());
+    // Block that fits into the segment fully
     let block = get_random_block();
 
     let archived_segments = archiver
@@ -52,7 +50,7 @@ fn segment_reconstruction_works() {
             piece.take();
         });
 
-    let reconstructor = PiecesReconstructor::new(kzg, erasure_coding);
+    let reconstructor = PiecesReconstructor::new(erasure_coding);
 
     let flat_pieces = reconstructor.reconstruct_segment(&maybe_pieces).unwrap();
 
@@ -64,20 +62,23 @@ fn segment_reconstruction_works() {
         .pieces
         .iter()
         .zip(flat_pieces.iter())
-        .for_each(|(original_piece, reconstructed_piece)| {
-            assert_eq!(original_piece, reconstructed_piece);
+        .enumerate()
+        .for_each(|(position, (original_piece, reconstructed_piece))| {
+            assert!(
+                original_piece == reconstructed_piece,
+                "Piece position {position}"
+            );
         });
 }
 
 #[test]
 fn piece_reconstruction_works() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let mut archiver = Archiver::new(kzg.clone(), erasure_coding.clone());
+    let mut archiver = Archiver::new(erasure_coding.clone());
     // Block that fits into the segment fully
     let block = get_random_block();
 
@@ -100,7 +101,7 @@ fn piece_reconstruction_works() {
         .map(|(piece_position, piece)| (piece_position, piece.take().unwrap()))
         .collect::<Vec<_>>();
 
-    let reconstructor = PiecesReconstructor::new(kzg, erasure_coding);
+    let reconstructor = PiecesReconstructor::new(erasure_coding);
 
     #[cfg(not(feature = "parallel"))]
     let iter = missing_pieces.iter();
@@ -123,13 +124,12 @@ fn piece_reconstruction_works() {
 
 #[test]
 fn segment_reconstruction_fails() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let reconstructor = PiecesReconstructor::new(kzg.clone(), erasure_coding.clone());
+    let reconstructor = PiecesReconstructor::new(erasure_coding.clone());
 
     let pieces = vec![None];
     let result = reconstructor.reconstruct_segment(&pieces);
@@ -143,7 +143,7 @@ fn segment_reconstruction_fails() {
         ));
     }
 
-    let mut archiver = Archiver::new(kzg, erasure_coding);
+    let mut archiver = Archiver::new(erasure_coding);
     // Block that fits into the segment fully
     let block = get_random_block();
 
@@ -166,13 +166,12 @@ fn segment_reconstruction_fails() {
 
 #[test]
 fn piece_reconstruction_fails() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let reconstructor = PiecesReconstructor::new(kzg.clone(), erasure_coding.clone());
+    let reconstructor = PiecesReconstructor::new(erasure_coding.clone());
 
     let pieces = vec![None];
     let result = reconstructor.reconstruct_piece(&pieces, 0);
@@ -186,7 +185,7 @@ fn piece_reconstruction_fails() {
         ));
     }
 
-    let mut archiver = Archiver::new(kzg, erasure_coding);
+    let mut archiver = Archiver::new(erasure_coding);
     // Block that fits into the segment fully
     let block = get_random_block();
 

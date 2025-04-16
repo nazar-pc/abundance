@@ -1,7 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(const_trait_impl, variant_count)]
-// `generic_const_exprs` is an incomplete feature
-#![allow(incomplete_features)]
+#![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
 //  https://github.com/rust-lang/rust/issues/133199
 #![feature(generic_const_exprs)]

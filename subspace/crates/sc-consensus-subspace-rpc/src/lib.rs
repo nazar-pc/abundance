@@ -42,7 +42,6 @@ use subspace_core_primitives::solutions::Solution;
 use subspace_core_primitives::{BlockHash, SlotNumber};
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::FarmerProtocolInfo;
-use subspace_kzg::Kzg;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_rpc_primitives::{
     FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
@@ -194,8 +193,6 @@ where
     pub segment_headers_store: SegmentHeadersStore<AS>,
     /// Subspace sync oracle
     pub sync_oracle: SubspaceSyncOracle<SO>,
-    /// Kzg instance
-    pub kzg: Kzg,
     /// Erasure coding instance
     pub erasure_coding: ErasureCoding,
 }
@@ -224,7 +221,6 @@ where
     genesis_hash: BlockHash,
     chain_constants: ChainConstants,
     max_pieces_in_sector: u16,
-    kzg: Kzg,
     erasure_coding: ErasureCoding,
     _block: PhantomData<Block>,
 }
@@ -281,7 +277,6 @@ where
             genesis_hash,
             chain_constants,
             max_pieces_in_sector,
-            kzg: config.kzg,
             erasure_coding: config.erasure_coding,
             _block: PhantomData,
         })
@@ -698,11 +693,7 @@ where
                     debug!(%requested_piece_index, "Re-creating genesis segment on demand");
 
                     // Try to re-create genesis segment on demand
-                    match recreate_genesis_segment(
-                        &*self.client,
-                        self.kzg.clone(),
-                        self.erasure_coding.clone(),
-                    ) {
+                    match recreate_genesis_segment(&*self.client, self.erasure_coding.clone()) {
                         Ok(Some(archived_segment)) => {
                             let archived_segment = Arc::new(archived_segment);
                             cached_archived_segment.replace(CachedArchivedSegment::Genesis(

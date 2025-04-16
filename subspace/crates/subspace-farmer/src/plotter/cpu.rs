@@ -34,7 +34,6 @@ use subspace_farmer_components::plotting::{
     EncodeSectorOptions, PlottingError,
 };
 use subspace_farmer_components::FarmerProtocolInfo;
-use subspace_kzg::Kzg;
 use subspace_proof_of_space::Table;
 use tokio::task::yield_now;
 use tracing::{warn, Instrument};
@@ -55,7 +54,6 @@ pub struct CpuPlotter<PG, PosTable> {
     plotting_thread_pool_manager: PlottingThreadPoolManager,
     record_encoding_concurrency: NonZeroUsize,
     global_mutex: Arc<AsyncMutex<()>>,
-    kzg: Kzg,
     erasure_coding: ErasureCoding,
     handlers: Arc<Handlers>,
     tasks_sender: mpsc::Sender<AsyncJoinOnDrop<()>>,
@@ -162,7 +160,6 @@ where
         plotting_thread_pool_manager: PlottingThreadPoolManager,
         record_encoding_concurrency: NonZeroUsize,
         global_mutex: Arc<AsyncMutex<()>>,
-        kzg: Kzg,
         erasure_coding: ErasureCoding,
         registry: Option<&mut Registry>,
     ) -> Self {
@@ -209,7 +206,6 @@ where
             plotting_thread_pool_manager,
             record_encoding_concurrency,
             global_mutex,
-            kzg,
             erasure_coding,
             handlers: Arc::default(),
             tasks_sender,
@@ -259,7 +255,6 @@ where
             let plotting_thread_pool_manager = self.plotting_thread_pool_manager.clone();
             let record_encoding_concurrency = self.record_encoding_concurrency;
             let global_mutex = Arc::clone(&self.global_mutex);
-            let kzg = self.kzg.clone();
             let erasure_coding = self.erasure_coding.clone();
             let abort_early = Arc::clone(&self.abort_early);
             let metrics = self.metrics.clone();
@@ -287,7 +282,6 @@ where
                         sector_index,
                         piece_getter: &piece_getter,
                         farmer_protocol_info,
-                        kzg: &kzg,
                         erasure_coding: &erasure_coding,
                         pieces_in_sector,
                     });

@@ -10,10 +10,6 @@ include = [
     "/Cargo.toml",
 ]
 
-[lib]
-# Necessary for CLI options to work on benches
-bench = false
-
 [dependencies]
 kzg.workspace = true
 rust-kzg-blst.workspace = true
@@ -22,7 +18,6 @@ subspace-kzg.workspace = true
 
 [dev-dependencies]
 rust-kzg-blst = { workspace = true, features = ["rand"] }
-criterion.workspace = true
 rand.workspace = true
 
 [features]
@@ -33,7 +28,3 @@ std = [
     "subspace-kzg/std",
 ]
 parallel = ["rust-kzg-blst/parallel"]
-
-[[bench]]
-name = "commitments"
-harness = false

@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use alloc::collections::VecDeque;
 #[cfg(not(feature = "std"))]
 use alloc::vec;
@@ -9,16 +10,16 @@ use core::cmp::Ordering;
 use parity_scale_codec::{Compact, CompactLen, Decode, Encode, Input, Output};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
-use subspace_core_primitives::hashes::{blake3_254_hash_to_scalar, Blake3Hash};
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::{BlockObject, BlockObjectMapping, GlobalObject};
-use subspace_core_primitives::pieces::RawRecord;
+use subspace_core_primitives::pieces::{RawRecord, Record};
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
     SegmentCommitment, SegmentHeader, SegmentIndex,
 };
 use subspace_core_primitives::{BlockNumber, ScalarBytes};
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::{Kzg, Scalar};
+use subspace_kzg::Scalar;
 
 const INITIAL_LAST_ARCHIVED_BLOCK: LastArchivedBlock = LastArchivedBlock {
     number: 0,
@@ -217,9 +218,9 @@ pub enum ArchiverInstantiationError {
 ///
 /// It takes new confirmed (at `K` depth) blocks and concatenates them into a buffer, buffer is
 /// sliced into segments of [`RecordedHistorySegment::SIZE`] size, segments are sliced into source
-/// records of [`RawRecord::SIZE`], records are erasure coded, committed to with [`Kzg`], then
-/// commitments with witnesses are appended and records become pieces that are returned alongside
-/// corresponding segment header header.
+/// records of [`RawRecord::SIZE`], records are erasure coded, committed to, then commitments with
+/// witnesses are appended and records become pieces that are returned alongside the corresponding
+/// segment header.
 ///
 /// ## Panics
 /// Panics when operating on blocks, whose length doesn't fit into u32 (should never be the case in
@@ -231,8 +232,6 @@ pub struct Archiver {
     buffer: VecDeque<SegmentItem>,
     /// Erasure coding data structure
     erasure_coding: ErasureCoding,
-    /// KZG instance
-    kzg: Kzg,
     /// An index of the current segment
     segment_index: SegmentIndex,
     /// Hash of the segment header of the previous segment
@@ -243,11 +242,10 @@ pub struct Archiver {
 
 impl Archiver {
     /// Create a new instance
-    pub fn new(kzg: Kzg, erasure_coding: ErasureCoding) -> Self {
+    pub fn new(erasure_coding: ErasureCoding) -> Self {
         Self {
             buffer: VecDeque::default(),
             erasure_coding,
-            kzg,
             segment_index: SegmentIndex::ZERO,
             prev_segment_header_hash: Blake3Hash::default(),
             last_archived_block: INITIAL_LAST_ARCHIVED_BLOCK,
@@ -258,13 +256,12 @@ impl Archiver {
     ///
     /// `block` corresponds to `last_archived_block` and will be processed according to its state.
     pub fn with_initial_state(
-        kzg: Kzg,
         erasure_coding: ErasureCoding,
         segment_header: SegmentHeader,
         encoded_block: &[u8],
         mut object_mapping: BlockObjectMapping,
     ) -> Result<Self, ArchiverInstantiationError> {
-        let mut archiver = Self::new(kzg, erasure_coding);
+        let mut archiver = Self::new(erasure_coding);
 
         archiver.segment_index = segment_header.segment_index() + SegmentIndex::ONE;
         archiver.prev_segment_header_hash = segment_header.hash();
@@ -712,17 +709,17 @@ impl Archiver {
             pieces
         };
 
-        let source_record_commitments = {
+        // Collect hashes to commitments from all records
+        let record_commitments = {
             #[cfg(not(feature = "parallel"))]
-            let source_pieces = pieces.source();
+            let source_pieces = pieces.iter();
             #[cfg(feature = "parallel")]
-            let source_pieces = pieces.par_source();
+            let source_pieces = pieces.par_iter();
 
             let iter = source_pieces.map(|piece| {
                 let record_chunks = piece.record().iter().map(|scalar_bytes| {
                     Scalar::try_from(scalar_bytes).expect(
-                        "Source pieces were just created and are guaranteed to contain \
-                            valid scalars; qed",
+                        "Pieces were just created and are guaranteed to contain valid scalars; qed",
                     )
                 });
 
@@ -731,69 +728,59 @@ impl Archiver {
 
                 record_chunks.collect_into(&mut scalars);
 
-                // Number of scalars for KZG must be a power of two elements
+                // TODO: Make it power of two statically so this is no longer necessary (likely
+                //  depends on chunks being 32 bytes)
+                // Number of elements in a tree must be a power of two elements
                 scalars.resize(scalars.capacity(), Scalar::default());
 
-                let polynomial = self
-                    .kzg
-                    .poly(&scalars)
-                    .expect("KZG instance must be configured to support this many scalars; qed");
-                self.kzg
-                    .commit(&polynomial)
-                    .expect("KZG instance must be configured to support this many scalars; qed")
+                // TODO: Think about committing to source and parity chunks separately, then
+                //  creating a separate commitment for both and retaining a proof. This way it would
+                //  be possible to verify pieces without re-doing erasure coding. Same note exists
+                //  in other files.
+                let parity_scalars = self.erasure_coding.extend(&scalars).expect(
+                    "Erasure coding instance is deliberately configured to support this input; qed",
+                );
+
+                let chunks = scalars
+                    .into_iter()
+                    .zip(parity_scalars)
+                    .flat_map(|(a, b)| [a, b])
+                    .map(|chunk| chunk.to_bytes())
+                    .collect::<Vec<_>>();
+
+                // TODO: Reuse allocation or remove parallel processing if it is fast enough as is
+                let record_merkle_tree =
+                    BalancedHashedMerkleTree::<{ Record::NUM_S_BUCKETS.ilog2() }>::new_boxed(
+                        chunks
+                            .as_slice()
+                            .try_into()
+                            .expect("Statically guaranteed to have correct length; qed"),
+                    );
+
+                record_merkle_tree.root()
             });
 
             iter.collect::<Vec<_>>()
         };
 
-        // Collect hashes to commitments from all records
-        let record_commitments = self
-            .erasure_coding
-            .extend_commitments(&source_record_commitments)
-            .expect(
-                "Erasure coding instance is deliberately configured to support this input; qed",
+        let segment_merkle_tree =
+            BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES.ilog2() }>::new_boxed(
+                record_commitments
+                    .as_slice()
+                    .try_into()
+                    .expect("Statically guaranteed to have correct length; qed"),
             );
 
-        let polynomial = self
-            .kzg
-            .poly(
-                &record_commitments
-                    .iter()
-                    .map(|commitment| {
-                        Scalar::try_from(blake3_254_hash_to_scalar(&commitment.to_bytes()))
-                            .expect("Create correctly by dedicated hash function; qed")
-                    })
-                    .collect::<Vec<_>>(),
-            )
-            .expect("Internally produced values must never fail; qed");
-
-        let segment_commitment = SegmentCommitment::from(
-            self.kzg
-                .commit(&polynomial)
-                .expect("Internally produced values must never fail; qed"),
-        );
+        let segment_commitment = SegmentCommitment::from(segment_merkle_tree.root());
 
         // Create witness for every record and write it to corresponding piece.
         pieces
             .iter_mut()
-            .zip(record_commitments)
-            .enumerate()
-            .for_each(|(position, (piece, commitment))| {
-                let commitment_bytes = commitment.to_bytes();
-                let (_record, commitment, witness) = piece.split_mut();
-                commitment.copy_from_slice(&commitment_bytes);
-                // TODO: Consider batch witness creation for improved performance
-                witness.copy_from_slice(
-                    &self
-                        .kzg
-                        .create_witness(
-                            &polynomial,
-                            ArchivedHistorySegment::NUM_PIECES,
-                            position as u32,
-                        )
-                        .expect("Position is statically known to be valid; qed")
-                        .to_bytes(),
-                );
+            .zip(&record_commitments)
+            .zip(segment_merkle_tree.all_proofs())
+            .for_each(|((piece, record_commitment), record_witness)| {
+                piece.commitment_mut().copy_from_slice(record_commitment);
+                piece.witness_mut().copy_from_slice(&record_witness);
             });
 
         // Now produce segment header

@@ -11,7 +11,6 @@ use subspace_core_primitives::segments::{
     SegmentIndex,
 };
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Kzg;
 
 fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
     pieces.pieces().map(Some).collect()
@@ -19,13 +18,12 @@ fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
 
 #[test]
 fn basic() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let mut archiver = Archiver::new(kzg, erasure_coding.clone());
+    let mut archiver = Archiver::new(erasure_coding.clone());
     // Block that fits into the segment fully
     let block_0 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 2];
@@ -153,7 +151,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(32505730)
+                archived_progress: ArchivedBlockProgress::Partial(32505746)
             }
         );
 
@@ -173,7 +171,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(32505730)
+                archived_progress: ArchivedBlockProgress::Partial(32505746)
             }
         );
     }
@@ -194,7 +192,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(162529049)
+                archived_progress: ArchivedBlockProgress::Partial(162529081)
             }
         );
     }
@@ -216,7 +214,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(162529049)
+                archived_progress: ArchivedBlockProgress::Partial(162529081)
             }
         );
     }
@@ -237,7 +235,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(292552368)
+                archived_progress: ArchivedBlockProgress::Partial(292552416)
             }
         );
     }
@@ -259,7 +257,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(292552368)
+                archived_progress: ArchivedBlockProgress::Partial(292552416)
             }
         );
     }
@@ -267,13 +265,12 @@ fn basic() {
 
 #[test]
 fn partial_data() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let mut archiver = Archiver::new(kzg, erasure_coding.clone());
+    let mut archiver = Archiver::new(erasure_coding.clone());
     // Block that fits into the segment fully
     let block_0 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 2];
@@ -357,13 +354,12 @@ fn partial_data() {
 
 #[test]
 fn invalid_usage() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let mut archiver = Archiver::new(kzg, erasure_coding.clone());
+    let mut archiver = Archiver::new(erasure_coding.clone());
     // Block that overflows into the next segments
     let block_0 = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE * 4];

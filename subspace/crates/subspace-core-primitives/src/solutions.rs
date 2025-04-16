@@ -5,6 +5,7 @@ use crate::pos::PosProof;
 use crate::sectors::SectorIndex;
 use crate::segments::{HistorySize, SegmentIndex};
 use crate::{PublicKey, ScalarBytes};
+use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::fmt;
 use derive_more::{AsMut, AsRef, Deref, DerefMut, From, Into};
@@ -221,7 +222,8 @@ impl AsMut<[u8]> for ChunkWitness {
 
 impl ChunkWitness {
     /// Size of chunk witness in bytes.
-    pub const SIZE: usize = 48;
+    pub const SIZE: usize = OUT_LEN * Self::NUM_HASHES;
+    const NUM_HASHES: usize = Record::NUM_S_BUCKETS.ilog2() as usize;
 }
 
 /// Farmer solution for slot challenge.

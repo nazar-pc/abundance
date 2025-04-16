@@ -17,6 +17,7 @@ include = [
 bench = false
 
 [dependencies]
+ab-merkle-tree = { workspace = true, features = ["alloc"] }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 rayon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
@@ -32,7 +33,7 @@ rand = { workspace = true, optional = true }
 criterion.workspace = true
 rand = { workspace = true, features = ["min_const_gen"] }
 subspace-core-primitives.workspace = true
-subspace-verification = { workspace = true, features = ["kzg"] }
+subspace-verification = { workspace = true, features = ["alloc"] }
 
 [features]
 default = ["std"]

@@ -21,7 +21,6 @@ use subspace_farmer::single_disk_farm::{
 use subspace_farmer::utils::{recommended_number_of_farming_threads, tokio_rayon_spawn_handler};
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::sector_size;
-use subspace_kzg::Kzg;
 use subspace_proof_of_space::Table;
 use subspace_rpc_primitives::SlotInfo;
 
@@ -154,7 +153,6 @@ where
     } = audit_options;
 
     let sector_size = sector_size(single_disk_farm_info.pieces_in_sector());
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -194,7 +192,6 @@ where
                                 solution_range: SolutionRange::MIN,
                             },
                             sectors_metadata: &sectors_metadata,
-                            kzg: &kzg,
                             erasure_coding: &erasure_coding,
                             sectors_being_modified: &HashSet::default(),
                             read_sector_record_chunks_mode:
@@ -228,7 +225,6 @@ where
                                 solution_range: SolutionRange::MIN,
                             },
                             sectors_metadata: &sectors_metadata,
-                            kzg: &kzg,
                             erasure_coding: &erasure_coding,
                             sectors_being_modified: &HashSet::default(),
                             read_sector_record_chunks_mode:
@@ -260,7 +256,6 @@ where
                                 solution_range: SolutionRange::MIN,
                             },
                             sectors_metadata: &sectors_metadata,
-                            kzg: &kzg,
                             erasure_coding: &erasure_coding,
                             sectors_being_modified: &HashSet::default(),
                             read_sector_record_chunks_mode:
@@ -324,7 +319,6 @@ where
         limit_sector_count,
     } = prove_options;
 
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -359,7 +353,6 @@ where
                     solution_range: SolutionRange::MAX,
                 },
                 sectors_metadata: &sectors_metadata,
-                kzg: &kzg,
                 erasure_coding: &erasure_coding,
                 sectors_being_modified: &HashSet::default(),
                 read_sector_record_chunks_mode: ReadSectorRecordChunksMode::ConcurrentChunks,
@@ -430,7 +423,6 @@ where
                     solution_range: SolutionRange::MAX,
                 },
                 sectors_metadata: &sectors_metadata,
-                kzg: &kzg,
                 erasure_coding: &erasure_coding,
                 sectors_being_modified: &HashSet::default(),
                 read_sector_record_chunks_mode: ReadSectorRecordChunksMode::ConcurrentChunks,
@@ -499,7 +491,6 @@ where
                     solution_range: SolutionRange::MAX,
                 },
                 sectors_metadata: &sectors_metadata,
-                kzg: &kzg,
                 erasure_coding: &erasure_coding,
                 sectors_being_modified: &HashSet::default(),
                 read_sector_record_chunks_mode: ReadSectorRecordChunksMode::ConcurrentChunks,

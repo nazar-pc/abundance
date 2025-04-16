@@ -117,9 +117,6 @@ pub enum Error<Header: HeaderT> {
     /// Invalid audit chunk offset
     #[error("Invalid audit chunk offset")]
     InvalidAuditChunkOffset,
-    /// Invalid chunk
-    #[error("Invalid chunk: {0}")]
-    InvalidChunk(String),
     /// Invalid chunk witness
     #[error("Invalid chunk witness")]
     InvalidChunkWitness,
@@ -230,7 +227,6 @@ where
                 VerificationPrimitiveError::InvalidAuditChunkOffset => {
                     Error::InvalidAuditChunkOffset
                 }
-                VerificationPrimitiveError::InvalidChunk(error) => Error::InvalidChunk(error),
                 VerificationPrimitiveError::InvalidChunkWitness => Error::InvalidChunkWitness,
                 VerificationPrimitiveError::SectorExpired {
                     expiration_history_size,
@@ -492,7 +488,6 @@ where
                     sector_expiration_check_segment_commitment,
                 }),
             },
-            &self.subspace_link.kzg,
         )
         .map_err(|error| VerificationError::VerificationError(pre_digest.slot(), error))?;
 

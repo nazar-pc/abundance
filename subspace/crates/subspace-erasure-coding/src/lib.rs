@@ -11,11 +11,10 @@ use alloc::sync::Arc;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::num::NonZeroUsize;
-use kzg::{FFTSettings, PolyRecover, DAS, FFTG1, G1};
+use kzg::{FFTSettings, PolyRecover, DAS};
 use rust_kzg_blst::types::fft_settings::FsFFTSettings;
-use rust_kzg_blst::types::g1::FsG1;
 use rust_kzg_blst::types::poly::FsPoly;
-use subspace_kzg::{Commitment, Polynomial, Scalar};
+use subspace_kzg::Scalar;
 
 /// Erasure coding abstraction.
 ///
@@ -65,22 +64,6 @@ impl ErasureCoding {
         Ok(Scalar::vec_from_repr(poly.coeffs))
     }
 
-    /// Recovery of missing shards from given shards (at least 1/2 should be `Some`) in form of
-    /// normalized polynomial (allows to not do inverse FFT afterwards if polynomial is desired).
-    ///
-    /// Both in input and output source shards are interleaved with parity shards:
-    /// source, parity, source, parity, ...
-    pub fn recover_poly(&self, shards: &[Option<Scalar>]) -> Result<Polynomial, String> {
-        let mut poly = Polynomial::from(FsPoly::recover_poly_coeffs_from_samples(
-            Scalar::slice_option_to_repr(shards),
-            &self.fft_settings,
-        )?);
-
-        poly.normalize();
-
-        Ok(poly)
-    }
-
     /// Recovery of source shards from given shards (at least 1/2 should be `Some`).
     ///
     /// The same as [`ErasureCoding::recover()`], but returns only source shards in form of an
@@ -90,26 +73,5 @@ impl ErasureCoding {
         shards: &[Option<Scalar>],
     ) -> Result<impl ExactSizeIterator<Item = Scalar>, String> {
         Ok(self.recover(shards)?.into_iter().step_by(2))
-    }
-
-    /// Extend commitments using erasure coding.
-    ///
-    /// Returns both source and parity commitments interleaved.
-    pub fn extend_commitments(
-        &self,
-        commitments: &[Commitment],
-    ) -> Result<Vec<Commitment>, String> {
-        // Inverse FFT to interpolate polynomial over source commitments
-        let mut coeffs = self
-            .fft_settings
-            .fft_g1(Commitment::slice_to_repr(commitments), true)?;
-
-        // Double the size
-        coeffs.resize(coeffs.len() * 2, FsG1::identity());
-
-        // FFT to get extended commitments
-        self.fft_settings
-            .fft_g1(&coeffs, false)
-            .map(Commitment::vec_from_repr)
     }
 }

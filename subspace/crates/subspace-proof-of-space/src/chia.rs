@@ -1,6 +1,10 @@
 //! Chia proof of space implementation
-use crate::chiapos::{Tables, TablesCache};
-use crate::{PosTableType, Table, TableGenerator};
+use crate::chiapos::Tables;
+#[cfg(feature = "alloc")]
+use crate::chiapos::TablesCache;
+#[cfg(feature = "alloc")]
+use crate::TableGenerator;
+use crate::{PosTableType, Table};
 use core::mem;
 use subspace_core_primitives::pos::{PosProof, PosSeed};
 
@@ -10,10 +14,12 @@ const K: u8 = PosProof::K;
 ///
 /// Chia implementation.
 #[derive(Debug, Default, Clone)]
+#[cfg(feature = "alloc")]
 pub struct ChiaTableGenerator {
     tables_cache: TablesCache<K>,
 }
 
+#[cfg(feature = "alloc")]
 impl TableGenerator<ChiaTable> for ChiaTableGenerator {
     fn generate(&mut self, seed: &PosSeed) -> ChiaTable {
         ChiaTable {
@@ -34,26 +40,30 @@ impl TableGenerator<ChiaTable> for ChiaTableGenerator {
 /// Chia implementation.
 #[derive(Debug)]
 pub struct ChiaTable {
+    #[cfg(feature = "alloc")]
     tables: Tables<K>,
 }
 
 impl Table for ChiaTable {
     const TABLE_TYPE: PosTableType = PosTableType::Chia;
+    #[cfg(feature = "alloc")]
     type Generator = ChiaTableGenerator;
 
+    #[cfg(feature = "alloc")]
     fn generate(seed: &PosSeed) -> ChiaTable {
         Self {
             tables: Tables::<K>::create_simple((*seed).into()),
         }
     }
 
-    #[cfg(any(feature = "parallel", test))]
+    #[cfg(all(feature = "alloc", any(feature = "parallel", test)))]
     fn generate_parallel(seed: &PosSeed) -> ChiaTable {
         Self {
             tables: Tables::<K>::create_parallel((*seed).into(), &mut TablesCache::default()),
         }
     }
 
+    #[cfg(feature = "alloc")]
     fn find_proof(&self, challenge_index: u32) -> Option<PosProof> {
         let mut challenge = [0; 32];
         challenge[..mem::size_of::<u32>()].copy_from_slice(&challenge_index.to_le_bytes());
@@ -73,7 +83,7 @@ impl Table for ChiaTable {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(feature = "alloc", test))]
 mod tests {
     use super::*;
 

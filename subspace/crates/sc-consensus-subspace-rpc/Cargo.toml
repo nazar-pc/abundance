@@ -36,7 +36,6 @@ subspace-archiving.workspace = true
 subspace-core-primitives.workspace = true
 subspace-erasure-coding.workspace = true
 subspace-farmer-components.workspace = true
-subspace-kzg.workspace = true
 subspace-networking.workspace = true
 subspace-rpc-primitives.workspace = true
 thiserror.workspace = true

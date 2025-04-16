@@ -82,7 +82,6 @@ use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::pot::PotSeed;
 use subspace_core_primitives::REWARD_SIGNING_CONTEXT;
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Kzg;
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_proof_of_space::Table;
@@ -256,16 +255,13 @@ where
         )?;
 
     // TODO: Make these explicit arguments we no longer use Substate's `Configuration`
-    let (kzg, maybe_erasure_coding) = tokio::task::block_in_place(|| {
-        rayon::join(Kzg::new, || {
-            ErasureCoding::new(
-                NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-                    .expect("Not zero; qed"),
-            )
-            .map_err(|error| format!("Failed to instantiate erasure coding: {error}"))
-        })
-    });
-    let erasure_coding = maybe_erasure_coding?;
+    let erasure_coding = tokio::task::block_in_place(|| {
+        ErasureCoding::new(
+            NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
+                .expect("Not zero; qed"),
+        )
+        .map_err(|error| format!("Failed to instantiate erasure coding: {error}"))
+    })?;
 
     let client = Arc::new(client);
     let client_info = client.info();
@@ -286,7 +282,7 @@ where
     })
     .map_err(|error| ServiceError::Application(error.into()))?;
 
-    let subspace_link = SubspaceLink::new(chain_constants, kzg.clone(), erasure_coding);
+    let subspace_link = SubspaceLink::new(chain_constants, erasure_coding);
     let segment_headers_store = segment_headers_store.clone();
 
     let block_import = SubspaceBlockImport::<PosTable, _, _, _, _, _>::new(
@@ -339,7 +335,6 @@ where
     let verifier = SubspaceVerifier::<PosTable, _, _>::new(SubspaceVerifierOptions {
         client: client.clone(),
         chain_constants,
-        kzg,
         reward_signing_context: schnorrkel::context::signing_context(REWARD_SIGNING_CONTEXT),
         sync_target_block_number: Arc::clone(&sync_target_block_number),
         is_authoring_blocks: config.role.is_authority(),
@@ -512,7 +507,7 @@ where
                 node.clone(),
                 SegmentCommitmentPieceValidator::new(
                     node.clone(),
-                    subspace_link.kzg().clone(),
+                    subspace_link.erasure_coding().clone(),
                     segment_headers_store.clone(),
                 ),
                 Arc::new(Semaphore::new(
@@ -908,7 +903,6 @@ where
                     dsn_bootstrap_nodes: dsn_bootstrap_nodes.clone(),
                     segment_headers_store: segment_headers_store.clone(),
                     sync_oracle: sync_oracle.clone(),
-                    kzg: subspace_link.kzg().clone(),
                     erasure_coding: subspace_link.erasure_coding().clone(),
                 };
 

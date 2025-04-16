@@ -31,7 +31,6 @@ use subspace_farmer_components::proving::{ProvableSolutions, ProvingError};
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed};
 use subspace_farmer_components::ReadAtSync;
-use subspace_kzg::Kzg;
 use subspace_proof_of_space::{Table, TableGenerator};
 use subspace_rpc_primitives::{SlotInfo, SolutionResponse};
 use tracing::{debug, error, info, trace, warn, Span};
@@ -84,8 +83,6 @@ where
     pub slot_info: SlotInfo,
     /// Metadata of all sectors plotted so far
     pub sectors_metadata: &'a [SectorMetadataChecksummed],
-    /// Kzg instance
-    pub kzg: &'a Kzg,
     /// Erasure coding instance
     pub erasure_coding: &'a ErasureCoding,
     /// Optional sector that is currently being modified (for example replotted) and should not be
@@ -143,7 +140,6 @@ where
             public_key,
             slot_info,
             sectors_metadata,
-            kzg,
             erasure_coding,
             sectors_being_modified,
             read_sector_record_chunks_mode: mode,
@@ -165,7 +161,6 @@ where
                 let sector_index = audit_results.sector_index;
 
                 let sector_solutions = audit_results.solution_candidates.into_solutions(
-                    kzg,
                     erasure_coding,
                     mode,
                     |seed: &PosSeed| table_generator.lock().generate_parallel(seed),
@@ -205,7 +200,6 @@ pub(super) struct FarmingOptions<NC, PlotAudit> {
     pub(super) node_client: NC,
     pub(super) plot_audit: PlotAudit,
     pub(super) sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
-    pub(super) kzg: Kzg,
     pub(super) erasure_coding: ErasureCoding,
     pub(super) handlers: Arc<Handlers>,
     pub(super) sectors_being_modified: Arc<AsyncRwLock<HashSet<SectorIndex>>>,
@@ -235,7 +229,6 @@ where
         node_client,
         plot_audit,
         sectors_metadata,
-        kzg,
         erasure_coding,
         handlers,
         sectors_being_modified,
@@ -282,7 +275,6 @@ where
                         public_key: &public_key,
                         slot_info,
                         sectors_metadata: &sectors_metadata,
-                        kzg: &kzg,
                         erasure_coding: &erasure_coding,
                         sectors_being_modified,
                         read_sector_record_chunks_mode,

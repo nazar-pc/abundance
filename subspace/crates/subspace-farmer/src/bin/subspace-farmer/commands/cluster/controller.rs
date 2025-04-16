@@ -15,6 +15,8 @@ use std::path::PathBuf;
 use std::pin::{pin, Pin};
 use std::sync::Arc;
 use std::time::Duration;
+use subspace_core_primitives::pieces::Record;
+use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::cluster::controller::caches::maintain_caches;
 use subspace_farmer::cluster::controller::controller_service;
 use subspace_farmer::cluster::controller::farms::{maintain_farms, FarmIndex};
@@ -28,7 +30,6 @@ use subspace_farmer::node_client::rpc_node_client::RpcNodeClient;
 use subspace_farmer::node_client::NodeClient;
 use subspace_farmer::single_disk_farm::identity::Identity;
 use subspace_farmer::utils::{run_future_in_dedicated_thread, AsyncJoinOnDrop};
-use subspace_kzg::Kzg;
 use subspace_networking::utils::piece_provider::PieceProvider;
 use tracing::{info, info_span, Instrument};
 
@@ -163,10 +164,18 @@ pub(super) async fn controller(
         .map_err(|error| anyhow!("Failed to configure networking: {error}"))?
     };
 
-    let kzg = Kzg::new();
+    let erasure_coding = ErasureCoding::new(
+        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
+            .expect("Not zero; qed"),
+    )
+    .map_err(|error| anyhow!("Failed to instantiate erasure coding: {error}"))?;
     let piece_provider = PieceProvider::new(
         node.clone(),
-        SegmentCommitmentPieceValidator::new(node.clone(), node_client.clone(), kzg.clone()),
+        SegmentCommitmentPieceValidator::new(
+            node.clone(),
+            node_client.clone(),
+            erasure_coding.clone(),
+        ),
         Arc::new(Semaphore::new(
             out_connections as usize * PIECE_PROVIDER_MULTIPLIER,
         )),

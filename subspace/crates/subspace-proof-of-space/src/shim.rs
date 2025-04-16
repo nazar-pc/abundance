@@ -1,7 +1,9 @@
 //! Shim proof of space implementation that works much faster than Chia and can be used for testing
 //! purposes to reduce memory and CPU usage
 
-use crate::{PosTableType, Table, TableGenerator};
+#[cfg(feature = "alloc")]
+use crate::TableGenerator;
+use crate::{PosTableType, Table};
 use core::iter;
 use subspace_core_primitives::hashes::blake3_hash;
 use subspace_core_primitives::pos::{PosProof, PosSeed};
@@ -11,8 +13,10 @@ use subspace_core_primitives::U256;
 ///
 /// Shim implementation.
 #[derive(Debug, Default, Clone)]
+#[cfg(feature = "alloc")]
 pub struct ShimTableGenerator;
 
+#[cfg(feature = "alloc")]
 impl TableGenerator<ShimTable> for ShimTableGenerator {
     fn generate(&mut self, seed: &PosSeed) -> ShimTable {
         ShimTable::generate(seed)
@@ -24,16 +28,21 @@ impl TableGenerator<ShimTable> for ShimTableGenerator {
 /// Shim implementation.
 #[derive(Debug)]
 pub struct ShimTable {
+    #[cfg(feature = "alloc")]
     seed: PosSeed,
 }
 
 impl Table for ShimTable {
     const TABLE_TYPE: PosTableType = PosTableType::Shim;
+    #[cfg(feature = "alloc")]
     type Generator = ShimTableGenerator;
+
+    #[cfg(feature = "alloc")]
     fn generate(seed: &PosSeed) -> ShimTable {
         Self { seed: *seed }
     }
 
+    #[cfg(feature = "alloc")]
     fn find_proof(&self, challenge_index: u32) -> Option<PosProof> {
         find_proof(&self.seed, challenge_index)
     }
@@ -64,7 +73,7 @@ fn find_proof(seed: &PosSeed, challenge_index: u32) -> Option<PosProof> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(feature = "alloc", test))]
 mod tests {
     use super::*;
 

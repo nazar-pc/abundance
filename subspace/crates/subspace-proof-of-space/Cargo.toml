@@ -37,7 +37,11 @@ harness = false
 
 [features]
 default = ["std"]
+# TODO: `alloc` feature is not fully implemented, it will fail to compile without global allocator, but it should be
+#  relatively easy to make it work for verification purposes
+alloc = []
 std = [
+    "alloc",
     "chacha20/std",
     "derive_more/std",
     # In no-std environment we use `spin`

@@ -50,7 +50,6 @@ use subspace_farmer::utils::{
     thread_pool_core_indices, AsyncJoinOnDrop,
 };
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
-use subspace_kzg::Kzg;
 use subspace_metrics::{start_prometheus_metrics_server, RegistryAdapter};
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_proof_of_space::Table;
@@ -453,7 +452,6 @@ where
         .map_err(|error| anyhow!("Failed to configure networking: {error}"))?
     };
 
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -461,7 +459,11 @@ where
     .map_err(|error| anyhow!("Failed to instantiate erasure coding: {error}"))?;
     let piece_provider = PieceProvider::new(
         node.clone(),
-        SegmentCommitmentPieceValidator::new(node.clone(), node_client.clone(), kzg.clone()),
+        SegmentCommitmentPieceValidator::new(
+            node.clone(),
+            node_client.clone(),
+            erasure_coding.clone(),
+        ),
         Arc::new(Semaphore::new(
             out_connections as usize * PIECE_PROVIDER_MULTIPLIER,
         )),
@@ -528,7 +530,6 @@ where
             cuda_plotting_options,
             piece_getter.clone(),
             Arc::clone(&global_mutex),
-            kzg.clone(),
             erasure_coding.clone(),
             &mut registry,
         )?;
@@ -543,7 +544,6 @@ where
             rocm_plotting_options,
             piece_getter.clone(),
             Arc::clone(&global_mutex),
-            kzg.clone(),
             erasure_coding.clone(),
             &mut registry,
         )?;
@@ -558,7 +558,6 @@ where
             cpu_plotting_options,
             piece_getter.clone(),
             Arc::clone(&global_mutex),
-            kzg.clone(),
             erasure_coding.clone(),
             &mut registry,
         )?;
@@ -588,7 +587,6 @@ where
             .map(|(farm_index, (disk_farm, plotting_delay_receiver))| {
                 let node_client = node_client.clone();
                 let farmer_app_info = farmer_app_info.clone();
-                let kzg = kzg.clone();
                 let erasure_coding = erasure_coding.clone();
                 let plotter = Arc::clone(&plotter);
                 let global_mutex = Arc::clone(&global_mutex);
@@ -603,7 +601,6 @@ where
                             node_client,
                             reward_address,
                             plotter,
-                            kzg,
                             erasure_coding,
                             cache_percentage: cache_percentage.get(),
                             farming_thread_pool_size,
@@ -885,7 +882,6 @@ fn init_cpu_plotter<PG, PosTable>(
     cpu_plotting_options: CpuPlottingOptions,
     piece_getter: PG,
     global_mutex: Arc<AsyncMutex<()>>,
-    kzg: Kzg,
     erasure_coding: ErasureCoding,
     registry: &mut Registry,
 ) -> anyhow::Result<Option<CpuPlotter<PG, PosTable>>>
@@ -995,7 +991,6 @@ where
         plotting_thread_pool_manager,
         cpu_record_encoding_concurrency,
         global_mutex,
-        kzg,
         erasure_coding,
         Some(registry),
     );
@@ -1008,7 +1003,6 @@ fn init_cuda_plotter<PG>(
     cuda_plotting_options: CudaPlottingOptions,
     piece_getter: PG,
     global_mutex: Arc<AsyncMutex<()>>,
-    kzg: Kzg,
     erasure_coding: ErasureCoding,
     registry: &mut Registry,
 ) -> anyhow::Result<Option<GpuPlotter<PG, CudaRecordsEncoder>>>
@@ -1077,7 +1071,6 @@ where
                     anyhow::anyhow!("Failed to create CUDA records encoder: {error}")
                 })?,
             global_mutex,
-            kzg,
             erasure_coding,
             Some(registry),
         )
@@ -1090,7 +1083,6 @@ fn init_rocm_plotter<PG>(
     rocm_plotting_options: RocmPlottingOptions,
     piece_getter: PG,
     global_mutex: Arc<AsyncMutex<()>>,
-    kzg: Kzg,
     erasure_coding: ErasureCoding,
     registry: &mut Registry,
 ) -> anyhow::Result<Option<GpuPlotter<PG, RocmRecordsEncoder>>>
@@ -1159,7 +1151,6 @@ where
                     anyhow::anyhow!("Failed to create ROCm records encoder: {error}")
                 })?,
             global_mutex,
-            kzg,
             erasure_coding,
             Some(registry),
         )

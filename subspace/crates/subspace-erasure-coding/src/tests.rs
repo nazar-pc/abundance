@@ -1,10 +1,8 @@
 use crate::ErasureCoding;
-use kzg::G1;
-use rust_kzg_blst::types::g1::FsG1;
 use std::iter;
 use std::num::NonZeroUsize;
 use subspace_core_primitives::ScalarBytes;
-use subspace_kzg::{Commitment, Scalar};
+use subspace_kzg::Scalar;
 
 // TODO: This could have been done in-place, once implemented can be exposed as a utility
 fn concatenated_to_interleaved<T>(input: Vec<T>) -> Vec<T>
@@ -66,31 +64,6 @@ fn basic_data() {
         source_shards
             .iter()
             .chain(&parity_shards)
-            .copied()
-            .collect::<Vec<_>>()
-    );
-}
-
-#[test]
-fn basic_commitments() {
-    let scale = NonZeroUsize::new(7).unwrap();
-    let num_shards = 2usize.pow(scale.get() as u32);
-    let ec = ErasureCoding::new(scale).unwrap();
-
-    let source_commitments = (0..num_shards / 2)
-        .map(|_| Commitment::from(FsG1::rand()))
-        .collect::<Vec<_>>();
-
-    let parity_commitments = ec.extend_commitments(&source_commitments).unwrap();
-
-    assert_eq!(source_commitments.len() * 2, parity_commitments.len());
-
-    // Even indices must be source
-    assert_eq!(
-        source_commitments,
-        parity_commitments
-            .iter()
-            .step_by(2)
             .copied()
             .collect::<Vec<_>>()
     );

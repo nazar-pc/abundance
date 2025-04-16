@@ -22,7 +22,6 @@ use sp_consensus_subspace::SubspaceApi;
 use sp_objects::ObjectsApi;
 use std::sync::Arc;
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Kzg;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_runtime_primitives::opaque::Block;
 
@@ -49,8 +48,6 @@ where
     pub segment_headers_store: SegmentHeadersStore<AS>,
     /// Subspace sync oracle.
     pub sync_oracle: SubspaceSyncOracle<SO>,
-    /// Kzg instance.
-    pub kzg: Kzg,
     /// Erasure coding instance.
     pub erasure_coding: ErasureCoding,
 }
@@ -79,7 +76,6 @@ where
         dsn_bootstrap_nodes,
         segment_headers_store,
         sync_oracle,
-        kzg,
         erasure_coding,
     } = deps;
 
@@ -94,7 +90,6 @@ where
             dsn_bootstrap_nodes,
             segment_headers_store,
             sync_oracle,
-            kzg,
             erasure_coding,
         })?
         .into_rpc(),

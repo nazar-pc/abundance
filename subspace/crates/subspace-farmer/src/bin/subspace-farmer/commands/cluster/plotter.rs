@@ -26,7 +26,6 @@ use subspace_farmer::plotter::Plotter;
 use subspace_farmer::utils::{
     create_plotting_thread_pool_manager, parse_cpu_cores_sets, thread_pool_core_indices,
 };
-use subspace_kzg::Kzg;
 use subspace_proof_of_space::Table;
 use tracing::info;
 
@@ -159,7 +158,6 @@ where
         additional_components: _,
     } = plotter_args;
 
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -177,7 +175,6 @@ where
             cuda_plotting_options,
             piece_getter.clone(),
             Arc::clone(&global_mutex),
-            kzg.clone(),
             erasure_coding.clone(),
             registry,
         )?;
@@ -192,7 +189,6 @@ where
             rocm_plotting_options,
             piece_getter.clone(),
             Arc::clone(&global_mutex),
-            kzg.clone(),
             erasure_coding.clone(),
             registry,
         )?;
@@ -207,7 +203,6 @@ where
             cpu_plotting_options,
             piece_getter,
             global_mutex,
-            kzg,
             erasure_coding,
             registry,
         )?;
@@ -234,7 +229,6 @@ fn init_cpu_plotter<PG, PosTable>(
     cpu_plotting_options: CpuPlottingOptions,
     piece_getter: PG,
     global_mutex: Arc<AsyncMutex<()>>,
-    kzg: Kzg,
     erasure_coding: ErasureCoding,
     registry: &mut Registry,
 ) -> anyhow::Result<Option<CpuPlotter<PG, PosTable>>>
@@ -324,7 +318,6 @@ where
         plotting_thread_pool_manager,
         cpu_record_encoding_concurrency,
         global_mutex,
-        kzg,
         erasure_coding,
         Some(registry),
     );
@@ -337,7 +330,6 @@ fn init_cuda_plotter<PG>(
     cuda_plotting_options: CudaPlottingOptions,
     piece_getter: PG,
     global_mutex: Arc<AsyncMutex<()>>,
-    kzg: Kzg,
     erasure_coding: ErasureCoding,
     registry: &mut Registry,
 ) -> anyhow::Result<Option<GpuPlotter<PG, CudaRecordsEncoder>>>
@@ -406,7 +398,6 @@ where
                     anyhow::anyhow!("Failed to create CUDA records encoder: {error}")
                 })?,
             global_mutex,
-            kzg,
             erasure_coding,
             Some(registry),
         )
@@ -419,7 +410,6 @@ fn init_rocm_plotter<PG>(
     rocm_plotting_options: RocmPlottingOptions,
     piece_getter: PG,
     global_mutex: Arc<AsyncMutex<()>>,
-    kzg: Kzg,
     erasure_coding: ErasureCoding,
     registry: &mut Registry,
 ) -> anyhow::Result<Option<GpuPlotter<PG, RocmRecordsEncoder>>>
@@ -488,7 +478,6 @@ where
                     anyhow::anyhow!("Failed to create ROCm records encoder: {error}")
                 })?,
             global_mutex,
-            kzg,
             erasure_coding,
             Some(registry),
         )

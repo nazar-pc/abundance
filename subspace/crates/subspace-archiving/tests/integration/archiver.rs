@@ -15,7 +15,6 @@ use subspace_core_primitives::segments::{
     SegmentCommitment, SegmentHeader, SegmentIndex,
 };
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Kzg;
 use subspace_verification::is_piece_valid;
 
 fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
@@ -63,13 +62,12 @@ fn compare_block_objects_to_global_objects<'a>(
 
 #[test]
 fn archiver() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let mut archiver = Archiver::new(kzg.clone(), erasure_coding.clone());
+    let mut archiver = Archiver::new(erasure_coding.clone());
 
     let (block_0, block_0_object_mapping) = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 2];
@@ -202,7 +200,7 @@ fn archiver() {
             (
                 position,
                 is_piece_valid(
-                    &kzg,
+                    &erasure_coding,
                     piece,
                     &first_archived_segment.segment_header.segment_commitment(),
                     position as u32,
@@ -229,7 +227,6 @@ fn archiver() {
     // archived segments once last block is added.
     {
         let mut archiver_with_initial_state = Archiver::with_initial_state(
-            kzg.clone(),
             erasure_coding.clone(),
             first_archived_segment.segment_header,
             &block_1,
@@ -285,13 +282,13 @@ fn archiver() {
         let archived_segment = archived_segments.first().unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block();
         assert_eq!(last_archived_block.number, 2);
-        assert_eq!(last_archived_block.partial_archived(), Some(108352733));
+        assert_eq!(last_archived_block.partial_archived(), Some(108352749));
     }
     {
         let archived_segment = archived_segments.get(1).unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block();
         assert_eq!(last_archived_block.number, 2);
-        assert_eq!(last_archived_block.partial_archived(), Some(238376052));
+        assert_eq!(last_archived_block.partial_archived(), Some(238376084));
     }
 
     // Check that both archived segments have expected content and valid pieces in them
@@ -321,7 +318,7 @@ fn archiver() {
                 (
                     position,
                     is_piece_valid(
-                        &kzg,
+                        &erasure_coding,
                         piece,
                         &archived_segment.segment_header.segment_commitment(),
                         position as u32,
@@ -339,7 +336,7 @@ fn archiver() {
 
     // Add a block such that it fits in the next segment exactly
     let block_3 = {
-        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 21670908];
+        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 21670860];
         thread_rng().fill(block.as_mut_slice());
         block
     };
@@ -355,7 +352,6 @@ fn archiver() {
     // archived segments and mappings once last block is added
     {
         let mut archiver_with_initial_state = Archiver::with_initial_state(
-            kzg.clone(),
             erasure_coding.clone(),
             last_segment_header,
             &block_2,
@@ -395,7 +391,7 @@ fn archiver() {
                 (
                     position,
                     is_piece_valid(
-                        &kzg,
+                        &erasure_coding,
                         piece,
                         &archived_segment.segment_header.segment_commitment(),
                         position as u32,
@@ -411,7 +407,6 @@ fn archiver() {
 
 #[test]
 fn invalid_usage() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -419,7 +414,6 @@ fn invalid_usage() {
     .unwrap();
     {
         let result = Archiver::with_initial_state(
-            kzg.clone(),
             erasure_coding.clone(),
             SegmentHeader::V0 {
                 segment_index: SegmentIndex::ZERO,
@@ -446,7 +440,6 @@ fn invalid_usage() {
 
     {
         let result = Archiver::with_initial_state(
-            kzg,
             erasure_coding.clone(),
             SegmentHeader::V0 {
                 segment_index: SegmentIndex::ZERO,
@@ -483,7 +476,6 @@ fn invalid_usage() {
 
 #[test]
 fn one_byte_smaller_segment() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
@@ -504,7 +496,7 @@ fn one_byte_smaller_segment() {
         // We leave two bytes at the end intentionally
         - 2;
     assert_eq!(
-        Archiver::new(kzg.clone(), erasure_coding.clone())
+        Archiver::new(erasure_coding.clone())
             .add_block(vec![0u8; block_size], BlockObjectMapping::default())
             .archived_segments
             .len(),
@@ -512,7 +504,7 @@ fn one_byte_smaller_segment() {
     );
     // Cutting just one byte more is not sufficient to produce a segment, this is a protection
     // against code regressions
-    assert!(Archiver::new(kzg, erasure_coding)
+    assert!(Archiver::new(erasure_coding)
         .add_block(vec![0u8; block_size - 1], BlockObjectMapping::default())
         .archived_segments
         .is_empty());
@@ -520,13 +512,12 @@ fn one_byte_smaller_segment() {
 
 #[test]
 fn spill_over_edge_case() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let mut archiver = Archiver::new(kzg, erasure_coding);
+    let mut archiver = Archiver::new(erasure_coding);
 
     // Carefully compute the block size such that there is just 2 bytes left to fill the segment,
     // but this should already produce archived segment since just enum variant and smallest compact
@@ -574,13 +565,12 @@ fn spill_over_edge_case() {
 
 #[test]
 fn object_on_the_edge_of_segment() {
-    let kzg = Kzg::new();
     let erasure_coding = ErasureCoding::new(
         NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
             .expect("Not zero; qed"),
     )
     .unwrap();
-    let mut archiver = Archiver::new(kzg, erasure_coding);
+    let mut archiver = Archiver::new(erasure_coding);
     let first_block = vec![0u8; RecordedHistorySegment::SIZE];
     let block_1_outcome = archiver.add_block(first_block.clone(), BlockObjectMapping::default());
     let archived_segments = block_1_outcome.archived_segments;

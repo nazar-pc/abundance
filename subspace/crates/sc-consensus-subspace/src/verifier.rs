@@ -40,7 +40,6 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::thread::available_parallelism;
 use subspace_core_primitives::{BlockNumber, PublicKey};
-use subspace_kzg::Kzg;
 use subspace_proof_of_space::Table;
 use subspace_verification::{check_reward_signature, verify_solution, VerifySolutionParams};
 use tokio::runtime::Handle;
@@ -105,8 +104,6 @@ pub struct SubspaceVerifierOptions<Client> {
     pub client: Arc<Client>,
     /// Subspace chain constants
     pub chain_constants: ChainConstants,
-    /// Kzg instance
-    pub kzg: Kzg,
     /// Context for reward signing
     pub reward_signing_context: SigningContext,
     /// Approximate target block number for syncing purposes
@@ -123,7 +120,6 @@ where
     Block: BlockT,
 {
     client: Arc<Client>,
-    kzg: Kzg,
     chain_constants: ChainConstants,
     reward_signing_context: SigningContext,
     sync_target_block_number: Arc<AtomicU32>,
@@ -147,7 +143,6 @@ where
         let SubspaceVerifierOptions {
             client,
             chain_constants,
-            kzg,
             reward_signing_context,
             sync_target_block_number,
             is_authoring_blocks,
@@ -156,7 +151,6 @@ where
 
         Self {
             client,
-            kzg,
             chain_constants,
             reward_signing_context,
             sync_target_block_number,
@@ -342,13 +336,8 @@ where
         }
 
         // Verify that solution is valid
-        verify_solution::<PosTable>(
-            pre_digest.solution(),
-            slot.into(),
-            verify_solution_params,
-            &self.kzg,
-        )
-        .map_err(|error| VerificationError::VerificationError(slot, error))?;
+        verify_solution::<PosTable>(pre_digest.solution(), slot.into(), verify_solution_params)
+            .map_err(|error| VerificationError::VerificationError(slot, error))?;
 
         Ok(CheckedHeader {
             pre_header: header,

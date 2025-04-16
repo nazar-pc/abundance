@@ -75,7 +75,6 @@ use subspace_farmer_components::file_ext::FileExt;
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{sector_size, SectorMetadata, SectorMetadataChecksummed};
 use subspace_farmer_components::FarmerProtocolInfo;
-use subspace_kzg::Kzg;
 use subspace_networking::KnownPeersManager;
 use subspace_proof_of_space::Table;
 use subspace_rpc_primitives::{FarmerAppInfo, SolutionResponse};
@@ -292,8 +291,6 @@ where
     pub reward_address: PublicKey,
     /// Plotter
     pub plotter: Arc<dyn Plotter + Send + Sync>,
-    /// Kzg instance to use.
-    pub kzg: Kzg,
     /// Erasure coding instance to use.
     pub erasure_coding: ErasureCoding,
     /// Percentage of allocated space dedicated for caching purposes
@@ -843,7 +840,6 @@ impl SingleDiskFarm {
             node_client,
             reward_address,
             plotter,
-            kzg,
             erasure_coding,
             cache_percentage,
             farming_thread_pool_size,
@@ -1108,7 +1104,6 @@ impl SingleDiskFarm {
                         node_client,
                         plot_audit,
                         sectors_metadata,
-                        kzg,
                         erasure_coding,
                         handlers,
                         sectors_being_modified,

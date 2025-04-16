@@ -231,7 +231,7 @@ impl AsMut<[u8]> for SegmentCommitment {
 
 impl SegmentCommitment {
     /// Size of segment commitment in bytes.
-    pub const SIZE: usize = 48;
+    pub const SIZE: usize = 32;
 }
 
 /// Size of blockchain history in segments.

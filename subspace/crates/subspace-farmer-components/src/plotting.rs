@@ -33,7 +33,7 @@ use subspace_core_primitives::segments::HistorySize;
 use subspace_core_primitives::{PublicKey, ScalarBytes};
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::{Kzg, Scalar};
+use subspace_kzg::Scalar;
 use subspace_proof_of_space::{Table, TableGenerator};
 use thiserror::Error;
 use tracing::{debug, trace, warn};
@@ -114,8 +114,6 @@ pub struct PlotSectorOptions<'a, RE, PG> {
     pub piece_getter: &'a PG,
     /// Farmer protocol info
     pub farmer_protocol_info: FarmerProtocolInfo,
-    /// KZG instance
-    pub kzg: &'a Kzg,
     /// Erasure coding instance
     pub erasure_coding: &'a ErasureCoding,
     /// How many pieces should sector contain
@@ -153,7 +151,6 @@ where
         sector_index,
         piece_getter,
         farmer_protocol_info,
-        kzg,
         erasure_coding,
         pieces_in_sector,
         sector_output,
@@ -173,7 +170,6 @@ where
         sector_index,
         piece_getter,
         farmer_protocol_info,
-        kzg,
         erasure_coding,
         pieces_in_sector,
     });
@@ -221,8 +217,6 @@ pub struct DownloadSectorOptions<'a, PG> {
     pub piece_getter: &'a PG,
     /// Farmer protocol info
     pub farmer_protocol_info: FarmerProtocolInfo,
-    /// KZG instance
-    pub kzg: &'a Kzg,
     /// Erasure coding instance
     pub erasure_coding: &'a ErasureCoding,
     /// How many pieces should sector contain
@@ -244,7 +238,6 @@ where
         sector_index,
         piece_getter,
         farmer_protocol_info,
-        kzg,
         erasure_coding,
         pieces_in_sector,
     } = options;
@@ -289,7 +282,7 @@ where
             let mut pieces_to_download = pieces_to_download.lock().await;
 
             if let Err(error) =
-                download_sector_internal(&mut pieces_to_download, piece_getter, kzg, erasure_coding)
+                download_sector_internal(&mut pieces_to_download, piece_getter, erasure_coding)
                     .await
             {
                 warn!(
@@ -711,7 +704,6 @@ fn record_encoding<PosTable>(
 async fn download_sector_internal<PG>(
     pieces_to_download: &mut HashMap<PieceIndex, Vec<(&mut Record, &mut RecordMetadata)>>,
     piece_getter: &PG,
-    kzg: &Kzg,
     erasure_coding: &ErasureCoding,
 ) -> Result<(), PlottingError>
 where
@@ -744,7 +736,6 @@ where
                             piece_index,
                             recovery_semaphore,
                             piece_getter,
-                            kzg,
                             erasure_coding,
                         ));
                         continue;
@@ -760,7 +751,6 @@ where
                             piece_index,
                             recovery_semaphore,
                             piece_getter,
-                            kzg,
                             erasure_coding,
                         ));
                         continue;
@@ -805,19 +795,14 @@ async fn reconstruct_piece<PG>(
     piece_index: PieceIndex,
     recovery_semaphore: &Semaphore,
     piece_getter: &PG,
-    kzg: &Kzg,
     erasure_coding: &ErasureCoding,
 ) -> (PieceIndex, Result<Piece, PlottingError>)
 where
     PG: PieceGetter + Send + Sync,
 {
     let _permit = recovery_semaphore.acquire().await;
-    let recovered_piece_fut = recover_missing_piece(
-        piece_getter,
-        kzg.clone(),
-        erasure_coding.clone(),
-        piece_index,
-    );
+    let recovered_piece_fut =
+        recover_missing_piece(piece_getter, erasure_coding.clone(), piece_index);
 
     (
         piece_index,

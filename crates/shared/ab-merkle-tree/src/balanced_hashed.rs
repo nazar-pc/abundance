@@ -5,6 +5,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use blake3::OUT_LEN;
 use core::iter::TrustedLen;
+use core::mem;
 use core::mem::MaybeUninit;
 
 /// Number of hashes, including root and excluding already provided leaf hashes
@@ -65,11 +66,11 @@ where
         }
     }
 
-    /// Like [`Self::new()`], but creates heap-allocated instance, avoiding excessive stack usage
-    /// for large trees
-    #[cfg(feature = "alloc")]
-    pub fn new_boxed(leaf_hashes: &'a [[u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)]) -> Box<Self> {
-        let mut instance = Box::<Self>::new_uninit();
+    /// Like [`Self::new()`], but used pre-allocated memory for instantiation
+    pub fn new_in<'b>(
+        instance: &'b mut MaybeUninit<Self>,
+        leaf_hashes: &'a [[u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)],
+    ) -> &'b mut Self {
         let instance_ptr = instance.as_mut_ptr();
         // SAFETY: Valid and correctly aligned non-null pointer
         unsafe {
@@ -89,6 +90,18 @@ where
         Self::init_internal(leaf_hashes, tree);
 
         // SAFETY: Initialized field by field above
+        unsafe { instance.assume_init_mut() }
+    }
+
+    /// Like [`Self::new()`], but creates heap-allocated instance, avoiding excessive stack usage
+    /// for large trees
+    #[cfg(feature = "alloc")]
+    pub fn new_boxed(leaf_hashes: &'a [[u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)]) -> Box<Self> {
+        let mut instance = Box::<Self>::new_uninit();
+
+        Self::new_in(&mut instance, leaf_hashes);
+
+        // SAFETY: Initialized by constructor above
         unsafe { instance.assume_init() }
     }
 
@@ -129,6 +142,7 @@ where
     /// Get the root of Merkle Tree.
     ///
     /// In case a tree contains a single leaf hash, that leaf hash is returned.
+    #[inline]
     pub fn root(&self) -> [u8; OUT_LEN] {
         *self
             .tree
@@ -140,9 +154,9 @@ where
     /// Iterator over proofs in the same order as provided leaf hashes
     pub fn all_proofs(
         &self,
-    ) -> impl ExactSizeIterator<Item = [[u8; OUT_LEN]; NUM_LEAVES_LOG_2 as usize]> + TrustedLen
+    ) -> impl ExactSizeIterator<Item = [u8; OUT_LEN * NUM_LEAVES_LOG_2 as usize]> + TrustedLen
     where
-        [(); NUM_LEAVES_LOG_2 as usize]:,
+        [(); OUT_LEN * NUM_LEAVES_LOG_2 as usize]:,
     {
         let iter = self.leaf_hashes.array_chunks().enumerate().flat_map(
             |(pair_index, &[left_hash, right_hash])| {
@@ -180,6 +194,21 @@ where
                 let mut right_proof = left_proof;
                 right_proof[0] = left_hash;
 
+                // TODO: Should have been just `transmute`, but compiler has a bug:
+                //  https://github.com/rust-lang/rust/issues/61956
+                // SAFETY: From and to have the same size and alignment
+                let left_proof = unsafe {
+                    mem::transmute_copy::<
+                        [[u8; OUT_LEN]; NUM_LEAVES_LOG_2 as usize],
+                        [u8; OUT_LEN * NUM_LEAVES_LOG_2 as usize],
+                    >(&left_proof)
+                };
+                let right_proof = unsafe {
+                    mem::transmute_copy::<
+                        [[u8; OUT_LEN]; NUM_LEAVES_LOG_2 as usize],
+                        [u8; OUT_LEN * NUM_LEAVES_LOG_2 as usize],
+                    >(&right_proof)
+                };
                 [left_proof, right_proof]
             },
         );
@@ -191,14 +220,15 @@ where
     }
 
     /// Verify previously generated proof
+    #[inline]
     pub fn verify(
         root: &[u8; OUT_LEN],
-        proof: &[[u8; OUT_LEN]; NUM_LEAVES_LOG_2 as usize],
+        proof: &[u8; OUT_LEN * NUM_LEAVES_LOG_2 as usize],
         leaf_index: usize,
         leaf_hash: [u8; OUT_LEN],
     ) -> bool
     where
-        [(); NUM_LEAVES_LOG_2 as usize]:,
+        [(); OUT_LEN * NUM_LEAVES_LOG_2 as usize]:,
     {
         if leaf_index >= num_leaves(NUM_LEAVES_LOG_2) {
             return false;
@@ -208,7 +238,7 @@ where
 
         let mut position = leaf_index;
         let mut pair = [0u8; OUT_LEN * 2];
-        for hash in proof {
+        for hash in proof.array_chunks::<OUT_LEN>() {
             if position % 2 == 0 {
                 pair[..OUT_LEN].copy_from_slice(&computed_root);
                 pair[OUT_LEN..].copy_from_slice(hash);

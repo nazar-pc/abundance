@@ -38,7 +38,7 @@ fn basic_5() {
 
 fn test_basic<const NUM_LEAVES_LOG_2: u32>()
 where
-    [(); NUM_LEAVES_LOG_2 as usize]:,
+    [(); OUT_LEN * NUM_LEAVES_LOG_2 as usize]:,
     [(); num_leaves(NUM_LEAVES_LOG_2)]:,
     [(); num_hashes(NUM_LEAVES_LOG_2)]:,
 {
@@ -66,10 +66,8 @@ where
         hash
     };
     let random_proof = {
-        let mut proof = [[0u8; OUT_LEN]; NUM_LEAVES_LOG_2 as usize];
-        for hash in &mut proof {
-            rng.fill_bytes(hash);
-        }
+        let mut proof = [0u8; OUT_LEN * NUM_LEAVES_LOG_2 as usize];
+        rng.fill_bytes(&mut proof);
         proof
     };
     for (leaf_index, (proof, leaf_hash)) in tree.all_proofs().zip(leaf_hashes).enumerate().skip(2) {
@@ -78,11 +76,15 @@ where
             "num_leaves_log_2 {NUM_LEAVES_LOG_2} leaf_index {leaf_index}"
         );
         assert!(
-            !BalancedHashedMerkleTree::verify(&root, &proof, leaf_index, random_hash),
+            !BalancedHashedMerkleTree::verify(&root, &random_proof, leaf_index, leaf_hash),
             "num_leaves_log_2 {NUM_LEAVES_LOG_2} leaf_index {leaf_index}"
         );
         assert!(
-            !BalancedHashedMerkleTree::verify(&root, &random_proof, leaf_index, leaf_hash),
+            !BalancedHashedMerkleTree::verify(&root, &proof, leaf_index + 1, leaf_hash),
+            "num_leaves_log_2 {NUM_LEAVES_LOG_2} leaf_index {leaf_index}"
+        );
+        assert!(
+            !BalancedHashedMerkleTree::verify(&root, &proof, leaf_index, random_hash),
             "num_leaves_log_2 {NUM_LEAVES_LOG_2} leaf_index {leaf_index}"
         );
     }

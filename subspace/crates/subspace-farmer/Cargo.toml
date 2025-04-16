@@ -55,14 +55,13 @@ subspace-core-primitives.workspace = true
 subspace-data-retrieval.workspace = true
 subspace-erasure-coding.workspace = true
 subspace-farmer-components.workspace = true
-subspace-kzg.workspace = true
 subspace-logging = { workspace = true, optional = true }
 subspace-metrics = { workspace = true, optional = true }
 subspace-networking.workspace = true
 subspace-proof-of-space.workspace = true
 subspace-proof-of-space-gpu = { workspace = true, optional = true }
 subspace-rpc-primitives.workspace = true
-subspace-verification = { workspace = true, features = ["kzg"] }
+subspace-verification = { workspace = true, features = ["alloc"] }
 substrate-bip39.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
