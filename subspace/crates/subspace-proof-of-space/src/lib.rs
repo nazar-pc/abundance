@@ -72,7 +72,7 @@ pub trait Table: Sized + Send + Sync + 'static {
     #[cfg(feature = "alloc")]
     fn find_proof(&self, challenge_index: u32) -> Option<PosProof>;
 
-    /// Check whether proof created earlier is valid and return quality bytes if yes
+    /// Check whether proof created earlier is valid
     fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool;
 
     /// Returns a stateful table generator with better performance
