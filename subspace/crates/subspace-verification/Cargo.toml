@@ -16,7 +16,7 @@ include = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ab-merkle-tree = { workspace = true, optional = true }
+ab-merkle-tree = { workspace = true }
 parity-scale-codec = { workspace = true, optional = true }
 schnorrkel.workspace = true
 subspace-core-primitives.workspace = true

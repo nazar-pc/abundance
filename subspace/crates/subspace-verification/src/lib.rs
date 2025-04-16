@@ -11,42 +11,32 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-#[cfg(feature = "alloc")]
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::mem;
-#[cfg(feature = "alloc")]
 use core::simd::Simd;
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
 use subspace_core_primitives::hashes::{blake3_hash_list, blake3_hash_with_key, Blake3Hash};
-use subspace_core_primitives::pieces::RecordCommitment;
 #[cfg(feature = "alloc")]
-use subspace_core_primitives::pieces::{PieceArray, Record, RecordWitness};
+use subspace_core_primitives::pieces::PieceArray;
+use subspace_core_primitives::pieces::{Record, RecordCommitment, RecordWitness};
 use subspace_core_primitives::pot::PotOutput;
-#[cfg(feature = "alloc")]
-use subspace_core_primitives::sectors::SectorId;
-use subspace_core_primitives::sectors::SectorSlotChallenge;
-#[cfg(feature = "alloc")]
-use subspace_core_primitives::segments::ArchivedHistorySegment;
-use subspace_core_primitives::segments::{HistorySize, SegmentCommitment};
-#[cfg(feature = "alloc")]
-use subspace_core_primitives::solutions::Solution;
-use subspace_core_primitives::solutions::{RewardSignature, SolutionRange};
+use subspace_core_primitives::sectors::{SectorId, SectorSlotChallenge};
+use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment, SegmentCommitment};
+use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
 use subspace_core_primitives::{BlockNumber, BlockWeight, PublicKey, ScalarBytes, SlotNumber};
 #[cfg(feature = "alloc")]
 use subspace_erasure_coding::ErasureCoding;
 #[cfg(feature = "alloc")]
 use subspace_kzg::Scalar;
-#[cfg(feature = "alloc")]
 use subspace_proof_of_space::Table;
 
 /// Errors encountered by the Subspace consensus primitives.
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
-#[cfg(feature = "alloc")]
 pub enum Error {
     /// Invalid piece offset
     #[error("Piece verification failed")]
@@ -184,7 +174,6 @@ pub fn calculate_block_weight(solution_range: SolutionRange) -> BlockWeight {
 
 /// Verify whether solution is valid, returns solution distance that is `<= solution_range/2` on
 /// success.
-#[cfg(feature = "alloc")]
 pub fn verify_solution<'a, PosTable>(
     solution: &'a Solution,
     slot: SlotNumber,
@@ -368,7 +357,7 @@ pub fn is_piece_valid(
         return false;
     }
 
-    BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES.ilog2() }>::verify(
+    BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES.ilog2() }>::verify(
         segment_commitment,
         record_witness,
         position as usize,
@@ -377,14 +366,13 @@ pub fn is_piece_valid(
 }
 
 /// Validate witness for record commitment hash produced by archiver
-#[cfg(feature = "alloc")]
 pub fn is_record_commitment_valid(
     record_commitment: &RecordCommitment,
     segment_commitment: &SegmentCommitment,
     record_witness: &RecordWitness,
     position: u32,
 ) -> bool {
-    BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES.ilog2() }>::verify(
+    BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES.ilog2() }>::verify(
         segment_commitment,
         record_witness,
         position as usize,
