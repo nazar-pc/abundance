@@ -45,9 +45,9 @@ serde = [
     "dep:serde",
     "subspace-core-primitives/serde",
 ]
+# TODO: Remove `std` feature
 std = [
     "parity-scale-codec/std",
-    "parallel",
     "rand?/std",
     "rand?/std_rng",
     "serde",
