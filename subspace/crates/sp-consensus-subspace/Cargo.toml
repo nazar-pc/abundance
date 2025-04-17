@@ -30,7 +30,7 @@ sp-runtime-interface.workspace = true
 sp-std.workspace = true
 sp-timestamp.workspace = true
 subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
-subspace-verification = { workspace = true, features = ["alloc", "scale-codec"] }
+subspace-verification = { workspace = true, features = ["scale-codec"] }
 thiserror.workspace = true
 
 [features]
