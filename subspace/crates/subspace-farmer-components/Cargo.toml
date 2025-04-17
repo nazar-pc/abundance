@@ -33,7 +33,7 @@ schnorrkel.workspace = true
 serde = { workspace = true, features = ["derive"] }
 static_assertions.workspace = true
 subspace-archiving = { workspace = true, features = ["std", "parallel"] }
-subspace-core-primitives.workspace = true
+subspace-core-primitives = { workspace = true, features = ["parallel"] }
 subspace-data-retrieval.workspace = true
 subspace-erasure-coding.workspace = true
 subspace-kzg.workspace = true
