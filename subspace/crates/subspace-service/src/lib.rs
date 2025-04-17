@@ -505,11 +505,7 @@ where
 
             let piece_provider = PieceProvider::new(
                 node.clone(),
-                SegmentCommitmentPieceValidator::new(
-                    node.clone(),
-                    subspace_link.erasure_coding().clone(),
-                    segment_headers_store.clone(),
-                ),
+                SegmentCommitmentPieceValidator::new(node.clone(), segment_headers_store.clone()),
                 Arc::new(Semaphore::new(
                     out_connections as usize * PIECE_PROVIDER_MULTIPLIER,
                 )),

@@ -14,7 +14,9 @@ use std::ops::{Deref, DerefMut};
 use std::{mem, slice};
 use subspace_core_primitives::checksum::Blake3Checksummed;
 use subspace_core_primitives::hashes::{blake3_hash, Blake3Hash};
-use subspace_core_primitives::pieces::{PieceOffset, Record, RecordCommitment, RecordWitness};
+use subspace_core_primitives::pieces::{
+    PieceOffset, Record, RecordChunksRoot, RecordCommitment, RecordWitness,
+};
 use subspace_core_primitives::sectors::{SBucket, SectorIndex};
 use subspace_core_primitives::segments::{HistorySize, SegmentIndex};
 use thiserror::Error;
@@ -139,6 +141,8 @@ impl SectorMetadataChecksummed {
 pub(crate) struct RecordMetadata {
     /// Record commitment
     pub(crate) commitment: RecordCommitment,
+    /// Parity chunks root
+    pub(crate) parity_chunks_root: RecordChunksRoot,
     /// Record witness
     pub(crate) witness: RecordWitness,
     /// Checksum (hash) of the whole piece
@@ -147,7 +151,7 @@ pub(crate) struct RecordMetadata {
 
 impl RecordMetadata {
     pub(crate) const fn encoded_size() -> usize {
-        RecordWitness::SIZE + RecordCommitment::SIZE + Blake3Hash::SIZE
+        RecordWitness::SIZE + RecordCommitment::SIZE + RecordChunksRoot::SIZE + Blake3Hash::SIZE
     }
 }
 

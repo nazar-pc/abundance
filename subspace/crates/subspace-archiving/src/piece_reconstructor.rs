@@ -24,7 +24,7 @@ pub enum ReconstructorError {
     IncorrectPiecePosition,
 }
 
-/// Reconstructor helps to retrieve blocks from archived pieces.
+/// Piece reconstructor helps to reconstruct missing pieces.
 #[derive(Debug, Clone)]
 pub struct PiecesReconstructor {
     /// Erasure coding data structure
@@ -89,55 +89,82 @@ impl PiecesReconstructor {
             let iter = reconstructed_pieces.par_iter_mut().zip_eq(input_pieces);
 
             iter.map(|(piece, maybe_input_piece)| {
-                let record_commitment = if let Some(input_piece) = maybe_input_piece {
-                    **input_piece.commitment()
+                let (record_commitment, parity_chunks_root) = if let Some(input_piece) =
+                    maybe_input_piece
+                {
+                    (
+                        **input_piece.commitment(),
+                        **input_piece.parity_chunks_root(),
+                    )
                 } else {
-                    let scalars = {
-                        let mut scalars =
-                            Vec::with_capacity(piece.record().len().next_power_of_two());
+                    // TODO: Reuse allocation between iterations
+                    let [source_chunks_root, parity_chunks_root] = {
+                        let mut record_merkle_tree = Box::<
+                            BalancedHashedMerkleTree<{ Record::NUM_CHUNKS.ilog2() }>,
+                        >::new_uninit();
 
-                        for record_chunk in piece.record().iter() {
-                            scalars.push(
-                                Scalar::try_from(record_chunk)
-                                    .map_err(ReconstructorError::DataShardsReconstruction)?,
-                            );
-                        }
+                        let source_chunks_root = BalancedHashedMerkleTree::new_in(
+                            &mut record_merkle_tree,
+                            piece.record(),
+                        )
+                        .root();
 
-                        scalars
+                        let scalars = {
+                            let mut scalars =
+                                Vec::with_capacity(piece.record().len().next_power_of_two());
+
+                            for record_chunk in piece.record().iter() {
+                                scalars.push(
+                                    Scalar::try_from(record_chunk)
+                                        .map_err(ReconstructorError::DataShardsReconstruction)?,
+                                );
+                            }
+
+                            scalars
+                        };
+
+                        let parity_scalars = self.erasure_coding.extend(&scalars).expect(
+                            "Erasure coding instance is deliberately configured to support this \
+                        input; qed",
+                        );
+                        // Free unnecessary allocation
+                        drop(scalars);
+
+                        let parity_chunks = parity_scalars
+                            .into_iter()
+                            .map(|chunk| chunk.to_bytes())
+                            .collect::<Vec<_>>();
+                        let parity_chunks = parity_chunks
+                            .as_slice()
+                            .try_into()
+                            .expect("Statically guaranteed to have correct length; qed");
+
+                        let parity_chunks_root = BalancedHashedMerkleTree::new_in(
+                            &mut record_merkle_tree,
+                            parity_chunks,
+                        )
+                        .root();
+
+                        [source_chunks_root, parity_chunks_root]
                     };
 
-                    // TODO: Think about committing to source and parity chunks separately, then
-                    //  creating a separate commitment for both and retaining a proof. This way it would
-                    //  be possible to verify pieces without re-doing erasure coding. Same note exists
-                    //  in other files.
-                    let parity_scalars = self.erasure_coding.extend(&scalars).expect(
-                        "Erasure coding instance is deliberately configured to support this input; qed",
-                    );
+                    let record_commitment = BalancedHashedMerkleTree::<1>::new(&[
+                        source_chunks_root,
+                        parity_chunks_root,
+                    ])
+                    .root();
 
-                    let chunks = scalars
-                        .into_iter()
-                        .zip(parity_scalars)
-                        .flat_map(|(a, b)| [a, b])
-                        .map(|chunk| chunk.to_bytes())
-                        .collect::<Vec<_>>();
-
-                    // TODO: Reuse allocation or remove parallel processing if it is fast enough as is
-                    let record_merkle_tree =
-                        BalancedHashedMerkleTree::<{ Record::NUM_S_BUCKETS.ilog2() }>::new_boxed(
-                            chunks
-                                .as_slice()
-                                .try_into()
-                                .expect("Statically guaranteed to have correct length; qed"),
-                        );
-
-                    record_merkle_tree.root()
+                    (record_commitment, parity_chunks_root)
                 };
 
                 piece.commitment_mut().copy_from_slice(&record_commitment);
+                piece
+                    .parity_chunks_root_mut()
+                    .copy_from_slice(&parity_chunks_root);
 
                 Ok(record_commitment)
             })
-                .collect::<Result<Vec<_>, _>>()?
+            .collect::<Result<Vec<_>, _>>()?
         };
 
         let segment_merkle_tree =

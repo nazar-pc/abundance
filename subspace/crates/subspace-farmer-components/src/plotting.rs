@@ -829,6 +829,7 @@ fn process_piece(
             .copy_from_slice(piece.record().as_flattened());
         *metadata = RecordMetadata {
             commitment: *piece.commitment(),
+            parity_chunks_root: *piece.parity_chunks_root(),
             witness: *piece.witness(),
             piece_checksum: blake3_hash(piece.as_ref()),
         };

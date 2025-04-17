@@ -202,7 +202,6 @@ fn archiver() {
             (
                 position,
                 is_piece_valid(
-                    &erasure_coding,
                     piece,
                     &first_archived_segment.segment_header.segment_commitment(),
                     position as u32,
@@ -320,7 +319,6 @@ fn archiver() {
                 (
                     position,
                     is_piece_valid(
-                        &erasure_coding,
                         piece,
                         &archived_segment.segment_header.segment_commitment(),
                         position as u32,
@@ -354,7 +352,7 @@ fn archiver() {
     // archived segments and mappings once last block is added
     {
         let mut archiver_with_initial_state = Archiver::with_initial_state(
-            erasure_coding.clone(),
+            erasure_coding,
             last_segment_header,
             &block_2,
             BlockObjectMapping::default(),
@@ -393,7 +391,6 @@ fn archiver() {
                 (
                     position,
                     is_piece_valid(
-                        &erasure_coding,
                         piece,
                         &archived_segment.segment_header.segment_commitment(),
                         position as u32,

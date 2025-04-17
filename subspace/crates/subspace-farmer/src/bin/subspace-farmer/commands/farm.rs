@@ -459,11 +459,7 @@ where
     .map_err(|error| anyhow!("Failed to instantiate erasure coding: {error}"))?;
     let piece_provider = PieceProvider::new(
         node.clone(),
-        SegmentCommitmentPieceValidator::new(
-            node.clone(),
-            node_client.clone(),
-            erasure_coding.clone(),
-        ),
+        SegmentCommitmentPieceValidator::new(node.clone(), node_client.clone()),
         Arc::new(Semaphore::new(
             out_connections as usize * PIECE_PROVIDER_MULTIPLIER,
         )),
