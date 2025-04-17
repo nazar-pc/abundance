@@ -103,11 +103,6 @@ impl PiecesReconstructor {
                             );
                         }
 
-                        // TODO: Make it power of two statically so this is no longer necessary (likely
-                        //  depends on chunks being 32 bytes)
-                        // Number of elements in a tree must be a power of two elements
-                        scalars.resize(scalars.capacity(), Scalar::default());
-
                         scalars
                     };
 

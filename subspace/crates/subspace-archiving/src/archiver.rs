@@ -730,11 +730,6 @@ impl Archiver {
 
                 record_chunks.collect_into(&mut scalars);
 
-                // TODO: Make it power of two statically so this is no longer necessary (likely
-                //  depends on chunks being 32 bytes)
-                // Number of elements in a tree must be a power of two elements
-                scalars.resize(scalars.capacity(), Scalar::default());
-
                 // TODO: Think about committing to source and parity chunks separately, then
                 //  creating a separate commitment for both and retaining a proof. This way it would
                 //  be possible to verify pieces without re-doing erasure coding. Same note exists

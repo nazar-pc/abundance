@@ -66,8 +66,8 @@ fn segment_reconstruction_works() {
         .zip(flat_pieces.iter())
         .enumerate()
         .for_each(|(position, (original_piece, reconstructed_piece))| {
-            assert!(
-                original_piece == reconstructed_piece,
+            assert_eq!(
+                original_piece, reconstructed_piece,
                 "Piece position {position}"
             );
         });
