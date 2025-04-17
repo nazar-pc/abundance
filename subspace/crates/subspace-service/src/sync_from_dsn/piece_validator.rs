@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use sc_client_api::AuxStore;
 use sc_consensus_subspace::archiver::SegmentHeadersStore;
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
-use subspace_erasure_coding::ErasureCoding;
 use subspace_networking::libp2p::PeerId;
 use subspace_networking::utils::piece_provider::PieceValidator;
 use subspace_networking::Node;
@@ -11,7 +10,6 @@ use tracing::{error, warn};
 
 pub(crate) struct SegmentCommitmentPieceValidator<AS> {
     dsn_node: Node,
-    erasure_coding: ErasureCoding,
     segment_headers_store: SegmentHeadersStore<AS>,
 }
 
@@ -20,14 +18,9 @@ where
     AS: AuxStore + Send + Sync + 'static,
 {
     /// Segment headers must be in order from 0 to the last one that exists
-    pub(crate) fn new(
-        dsn_node: Node,
-        erasure_coding: ErasureCoding,
-        segment_headers_store: SegmentHeadersStore<AS>,
-    ) -> Self {
+    pub(crate) fn new(dsn_node: Node, segment_headers_store: SegmentHeadersStore<AS>) -> Self {
         Self {
             dsn_node,
-            erasure_coding,
             segment_headers_store,
         }
     }
@@ -60,18 +53,8 @@ where
             }
         };
 
-        let is_valid_fut = tokio::task::spawn_blocking({
-            let erasure_coding = self.erasure_coding.clone();
-
-            move || {
-                is_piece_valid(
-                    &erasure_coding,
-                    &piece,
-                    &segment_commitment,
-                    piece_index.position(),
-                )
-                .then_some(piece)
-            }
+        let is_valid_fut = tokio::task::spawn_blocking(move || {
+            is_piece_valid(&piece, &segment_commitment, piece_index.position()).then_some(piece)
         });
 
         match is_valid_fut.await.unwrap_or_default() {

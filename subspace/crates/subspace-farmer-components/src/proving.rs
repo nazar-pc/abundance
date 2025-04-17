@@ -250,9 +250,12 @@ where
                     error,
                 })?;
             drop(sector_record_chunks);
-
+            // TODO: This un-interleaves chunks since that is how record commitment is done. This
+            //  should be re-considered once erasure coding no longer interleaves chunks.
             let chunks = scalars
-                .into_iter()
+                .iter()
+                .step_by(2)
+                .chain(scalars.iter().skip(1).step_by(2))
                 .map(|chunk| chunk.to_bytes())
                 .collect::<Vec<_>>();
 
@@ -286,7 +289,20 @@ where
 
             let chunk_witness = record_merkle_tree
                 .all_proofs()
-                .nth(usize::from(self.s_bucket))
+                .nth(
+                    // TODO: This is a translation from erasure coder's interleaved chunks that farmer uses for
+                    //  proofs to the way segment commitment is done where all source chunks are followed by
+                    //  parity chunks. This should be re-considered once erasure coding no longer interleaves
+                    //  chunks.
+                    {
+                        let original_index = usize::from(self.s_bucket);
+                        if original_index % 2 == 0 {
+                            original_index / 2
+                        } else {
+                            Record::NUM_CHUNKS + original_index / 2
+                        }
+                    },
+                )
                 .expect("Chunk offset is valid, hence corresponding proof exists; qed");
 
             Solution {

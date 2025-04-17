@@ -712,52 +712,69 @@ impl Archiver {
         };
 
         // Collect hashes to commitments from all records
-        let record_commitments = {
+        let (record_commitments, parity_chunks_roots) = {
             #[cfg(not(feature = "parallel"))]
             let source_pieces = pieces.iter();
             #[cfg(feature = "parallel")]
             let source_pieces = pieces.par_iter();
 
+            // Here we build a tree of record chunks, with the first half being source chunks as
+            // they are originally and the second half being parity chunks. While we build tree
+            // threes here (for source chunks, parity chunks and combined for the whole record), it
+            // could have been a single tree, and it would end up with the same root. Building them
+            // separately requires less RAM and allows to capture parity chunks root more easily.
             let iter = source_pieces.map(|piece| {
-                let record_chunks = piece.record().iter().map(|scalar_bytes| {
-                    Scalar::try_from(scalar_bytes).expect(
-                        "Pieces were just created and are guaranteed to contain valid scalars; qed",
-                    )
-                });
+                // TODO: Reuse allocation between iterations
+                let [source_chunks_root, parity_chunks_root] = {
+                    let mut record_merkle_tree = Box::<
+                        BalancedHashedMerkleTree<{ Record::NUM_CHUNKS.ilog2() }>,
+                    >::new_uninit();
 
-                let number_of_chunks = record_chunks.len();
-                let mut scalars = Vec::with_capacity(number_of_chunks.next_power_of_two());
+                    let source_chunks_root =
+                        BalancedHashedMerkleTree::new_in(&mut record_merkle_tree, piece.record())
+                            .root();
 
-                record_chunks.collect_into(&mut scalars);
+                    let record_chunks = piece.record().iter().map(|scalar_bytes| {
+                        Scalar::try_from(scalar_bytes).expect(
+                            "Pieces were just created and are guaranteed to contain valid \
+                            scalars; qed",
+                        )
+                    });
 
-                // TODO: Think about committing to source and parity chunks separately, then
-                //  creating a separate commitment for both and retaining a proof. This way it would
-                //  be possible to verify pieces without re-doing erasure coding. Same note exists
-                //  in other files.
-                let parity_scalars = self.erasure_coding.extend(&scalars).expect(
-                    "Erasure coding instance is deliberately configured to support this input; qed",
-                );
+                    let mut scalars = Vec::with_capacity(Record::NUM_CHUNKS);
 
-                let chunks = scalars
-                    .into_iter()
-                    .zip(parity_scalars)
-                    .flat_map(|(a, b)| [a, b])
-                    .map(|chunk| chunk.to_bytes())
-                    .collect::<Vec<_>>();
+                    record_chunks.collect_into(&mut scalars);
 
-                // TODO: Reuse allocation or remove parallel processing if it is fast enough as is
-                let record_merkle_tree =
-                    BalancedHashedMerkleTree::<{ Record::NUM_S_BUCKETS.ilog2() }>::new_boxed(
-                        chunks
-                            .as_slice()
-                            .try_into()
-                            .expect("Statically guaranteed to have correct length; qed"),
+                    let parity_scalars = self.erasure_coding.extend(&scalars).expect(
+                        "Erasure coding instance is deliberately configured to support this \
+                        input; qed",
                     );
+                    // Free unnecessary allocation
+                    drop(scalars);
 
-                record_merkle_tree.root()
+                    let parity_chunks = parity_scalars
+                        .into_iter()
+                        .map(|chunk| chunk.to_bytes())
+                        .collect::<Vec<_>>();
+                    let parity_chunks = parity_chunks
+                        .as_slice()
+                        .try_into()
+                        .expect("Statically guaranteed to have correct length; qed");
+
+                    let parity_chunks_root =
+                        BalancedHashedMerkleTree::new_in(&mut record_merkle_tree, parity_chunks)
+                            .root();
+
+                    [source_chunks_root, parity_chunks_root]
+                };
+
+                let record_commitment =
+                    BalancedHashedMerkleTree::<1>::new(&[source_chunks_root, parity_chunks_root])
+                        .root();
+                (record_commitment, parity_chunks_root)
             });
 
-            iter.collect::<Vec<_>>()
+            iter.unzip::<_, _, Vec<_>, Vec<_>>()
         };
 
         let segment_merkle_tree =
@@ -774,11 +791,17 @@ impl Archiver {
         pieces
             .iter_mut()
             .zip(&record_commitments)
+            .zip(&parity_chunks_roots)
             .zip(segment_merkle_tree.all_proofs())
-            .for_each(|((piece, record_commitment), record_witness)| {
-                piece.commitment_mut().copy_from_slice(record_commitment);
-                piece.witness_mut().copy_from_slice(&record_witness);
-            });
+            .for_each(
+                |(((piece, record_commitment), parity_chunks_root), record_witness)| {
+                    piece.commitment_mut().copy_from_slice(record_commitment);
+                    piece
+                        .parity_chunks_root_mut()
+                        .copy_from_slice(parity_chunks_root);
+                    piece.witness_mut().copy_from_slice(&record_witness);
+                },
+            );
 
         // Now produce segment header
         let segment_header = SegmentHeader::V0 {

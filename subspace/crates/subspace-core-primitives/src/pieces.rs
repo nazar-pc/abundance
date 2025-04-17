@@ -787,6 +787,134 @@ impl RecordCommitment {
     pub const SIZE: usize = 32;
 }
 
+/// Record chunks root (source or parity) contained within a piece.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+pub struct RecordChunksRoot([u8; RecordChunksRoot::SIZE]);
+
+impl fmt::Debug for RecordChunksRoot {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct RecordChunksRootBinary(#[serde(with = "BigArray")] [u8; RecordChunksRoot::SIZE]);
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct RecordChunksRootHex(#[serde(with = "hex")] [u8; RecordChunksRoot::SIZE]);
+
+#[cfg(feature = "serde")]
+impl Serialize for RecordChunksRoot {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if serializer.is_human_readable() {
+            RecordChunksRootHex(self.0).serialize(serializer)
+        } else {
+            RecordChunksRootBinary(self.0).serialize(serializer)
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for RecordChunksRoot {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self(if deserializer.is_human_readable() {
+            RecordChunksRootHex::deserialize(deserializer)?.0
+        } else {
+            RecordChunksRootBinary::deserialize(deserializer)?.0
+        }))
+    }
+}
+
+impl Default for RecordChunksRoot {
+    #[inline]
+    fn default() -> Self {
+        Self([0; Self::SIZE])
+    }
+}
+
+impl TryFrom<&[u8]> for RecordChunksRoot {
+    type Error = TryFromSliceError;
+
+    #[inline]
+    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
+        <[u8; Self::SIZE]>::try_from(slice).map(Self)
+    }
+}
+
+impl AsRef<[u8]> for RecordChunksRoot {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl AsMut<[u8]> for RecordChunksRoot {
+    #[inline]
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+impl From<&RecordChunksRoot> for &[u8; RecordChunksRoot::SIZE] {
+    #[inline]
+    fn from(value: &RecordChunksRoot) -> Self {
+        // SAFETY: `RecordChunksRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // memory layout
+        unsafe { mem::transmute(value) }
+    }
+}
+
+impl From<&[u8; RecordChunksRoot::SIZE]> for &RecordChunksRoot {
+    #[inline]
+    fn from(value: &[u8; RecordChunksRoot::SIZE]) -> Self {
+        // SAFETY: `RecordChunksRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // memory layout
+        unsafe { mem::transmute(value) }
+    }
+}
+
+impl From<&mut RecordChunksRoot> for &mut [u8; RecordChunksRoot::SIZE] {
+    #[inline]
+    fn from(value: &mut RecordChunksRoot) -> Self {
+        // SAFETY: `RecordChunksRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // memory layout
+        unsafe { mem::transmute(value) }
+    }
+}
+
+impl From<&mut [u8; RecordChunksRoot::SIZE]> for &mut RecordChunksRoot {
+    #[inline]
+    fn from(value: &mut [u8; RecordChunksRoot::SIZE]) -> Self {
+        // SAFETY: `RecordChunksRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // memory layout
+        unsafe { mem::transmute(value) }
+    }
+}
+
+impl RecordChunksRoot {
+    /// Size of record chunks root in bytes.
+    pub const SIZE: usize = 32;
+}
+
 // TODO: Change commitment/witness terminology to root/proof
 /// Record witness contained within a piece.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
@@ -921,12 +1049,12 @@ impl RecordWitness {
 ///
 /// This version is allocated on the stack, for heap-allocated piece see [`Piece`].
 ///
-/// Internally piece contains a record and corresponding witness that together with segment
-/// commitment of the segment this piece belongs to can be used to verify that a piece belongs to
+/// Internally a piece contains a record, followed by record commitment, supplementary record chunk
+/// root and a witness proving this piece belongs to can be used to verify that a piece belongs to
 /// the actual archival history of the blockchain.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deref, DerefMut, AsRef, AsMut)]
 #[repr(transparent)]
-pub struct PieceArray([u8; Self::SIZE]);
+pub struct PieceArray([u8; PieceArray::SIZE]);
 
 impl fmt::Debug for PieceArray {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -996,7 +1124,8 @@ impl From<&mut [u8; PieceArray::SIZE]> for &mut PieceArray {
 
 impl PieceArray {
     /// Size of a piece (in bytes).
-    pub const SIZE: usize = Record::SIZE + RecordCommitment::SIZE + RecordWitness::SIZE;
+    pub const SIZE: usize =
+        Record::SIZE + RecordCommitment::SIZE + RecordChunksRoot::SIZE + RecordWitness::SIZE;
 
     /// Create boxed value without hitting stack overflow
     #[inline]
@@ -1009,34 +1138,64 @@ impl PieceArray {
 
     /// Split piece into underlying components.
     #[inline]
-    pub fn split(&self) -> (&Record, &RecordCommitment, &RecordWitness) {
+    pub fn split(
+        &self,
+    ) -> (
+        &Record,
+        &RecordCommitment,
+        &RecordChunksRoot,
+        &RecordWitness,
+    ) {
         let (record, extra) = self.0.split_at(Record::SIZE);
-        let (commitment, witness) = extra.split_at(RecordCommitment::SIZE);
+        let (commitment, extra) = extra.split_at(RecordCommitment::SIZE);
+        let (parity_chunks_root, witness) = extra.split_at(RecordChunksRoot::SIZE);
 
         let record = <&[u8; Record::SIZE]>::try_from(record)
             .expect("Slice of memory has correct length; qed");
         let commitment = <&[u8; RecordCommitment::SIZE]>::try_from(commitment)
             .expect("Slice of memory has correct length; qed");
+        let parity_chunks_root = <&[u8; RecordChunksRoot::SIZE]>::try_from(parity_chunks_root)
+            .expect("Slice of memory has correct length; qed");
         let witness = <&[u8; RecordWitness::SIZE]>::try_from(witness)
             .expect("Slice of memory has correct length; qed");
 
-        (record.into(), commitment.into(), witness.into())
+        (
+            record.into(),
+            commitment.into(),
+            parity_chunks_root.into(),
+            witness.into(),
+        )
     }
 
     /// Split piece into underlying mutable components.
     #[inline]
-    pub fn split_mut(&mut self) -> (&mut Record, &mut RecordCommitment, &mut RecordWitness) {
+    pub fn split_mut(
+        &mut self,
+    ) -> (
+        &mut Record,
+        &mut RecordCommitment,
+        &mut RecordChunksRoot,
+        &mut RecordWitness,
+    ) {
         let (record, extra) = self.0.split_at_mut(Record::SIZE);
-        let (commitment, witness) = extra.split_at_mut(RecordCommitment::SIZE);
+        let (commitment, extra) = extra.split_at_mut(RecordCommitment::SIZE);
+        let (parity_chunks_root, witness) = extra.split_at_mut(RecordChunksRoot::SIZE);
 
         let record = <&mut [u8; Record::SIZE]>::try_from(record)
             .expect("Slice of memory has correct length; qed");
         let commitment = <&mut [u8; RecordCommitment::SIZE]>::try_from(commitment)
             .expect("Slice of memory has correct length; qed");
+        let parity_chunks_root = <&mut [u8; RecordChunksRoot::SIZE]>::try_from(parity_chunks_root)
+            .expect("Slice of memory has correct length; qed");
         let witness = <&mut [u8; RecordWitness::SIZE]>::try_from(witness)
             .expect("Slice of memory has correct length; qed");
 
-        (record.into(), commitment.into(), witness.into())
+        (
+            record.into(),
+            commitment.into(),
+            parity_chunks_root.into(),
+            witness.into(),
+        )
     }
 
     /// Record contained within a piece.
@@ -1063,16 +1222,28 @@ impl PieceArray {
         self.split_mut().1
     }
 
+    /// Parity chunks root contained within a piece.
+    #[inline]
+    pub fn parity_chunks_root(&self) -> &RecordChunksRoot {
+        self.split().2
+    }
+
+    /// Mutable parity chunks root contained within a piece.
+    #[inline]
+    pub fn parity_chunks_root_mut(&mut self) -> &mut RecordChunksRoot {
+        self.split_mut().2
+    }
+
     /// Witness contained within a piece.
     #[inline]
     pub fn witness(&self) -> &RecordWitness {
-        self.split().2
+        self.split().3
     }
 
     /// Mutable witness contained within a piece.
     #[inline]
     pub fn witness_mut(&mut self) -> &mut RecordWitness {
-        self.split_mut().2
+        self.split_mut().3
     }
 
     /// Convenient conversion from slice of piece array to underlying representation for efficiency

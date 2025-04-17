@@ -30,8 +30,6 @@ use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment, Se
 use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
 use subspace_core_primitives::{BlockNumber, BlockWeight, PublicKey, ScalarBytes, SlotNumber};
 #[cfg(feature = "alloc")]
-use subspace_erasure_coding::ErasureCoding;
-#[cfg(feature = "alloc")]
 use subspace_kzg::Scalar;
 use subspace_proof_of_space::Table;
 
@@ -232,7 +230,18 @@ where
     if !BalancedHashedMerkleTree::<16>::verify(
         &solution.record_commitment,
         &solution.chunk_witness,
-        usize::from(s_bucket_audit_index),
+        // TODO: This is a translation from erasure coder's interleaved chunks that farmer uses for
+        //  proofs to the way segment commitment is done where all source chunks are followed by
+        //  parity chunks. This should be re-considered once erasure coding no longer interleaves
+        //  chunks.
+        {
+            let original_index = usize::from(s_bucket_audit_index);
+            if original_index % 2 == 0 {
+                original_index / 2
+            } else {
+                Record::NUM_CHUNKS + original_index / 2
+            }
+        },
         *solution.chunk,
     ) {
         return Err(Error::InvalidChunkWitness);
@@ -303,14 +312,11 @@ where
 /// Validate witness embedded within a piece produced by archiver
 #[cfg(feature = "alloc")]
 pub fn is_piece_valid(
-    // TODO: Get rid of erasure coding once record commitment creation is fixed, see note in
-    //  `subspace-archiving`
-    erasure_coding: &ErasureCoding,
     piece: &PieceArray,
     segment_commitment: &SegmentCommitment,
     position: u32,
 ) -> bool {
-    let (record, &record_commitment, record_witness) = piece.split();
+    let (record, &record_commitment, parity_chunks_root, record_witness) = piece.split();
 
     let mut scalars = Vec::with_capacity(record.len().next_power_of_two());
 
@@ -325,30 +331,13 @@ pub fn is_piece_valid(
         }
     }
 
-    // TODO: Think about committing to source and parity chunks separately, then
-    //  creating a separate commitment for both and retaining a proof. This way it would
-    //  be possible to verify pieces without re-doing erasure coding. Same note exists
-    //  in other files.
-    let parity_scalars = erasure_coding
-        .extend(&scalars)
-        .expect("Erasure coding instance is deliberately configured to support this input; qed");
+    let source_record_merkle_tree_root =
+        BalancedHashedMerkleTree::<{ Record::NUM_CHUNKS.ilog2() }>::new_boxed(record).root();
+    let record_merkle_tree_root =
+        BalancedHashedMerkleTree::<1>::new(&[source_record_merkle_tree_root, **parity_chunks_root])
+            .root();
 
-    let chunks = scalars
-        .into_iter()
-        .zip(parity_scalars)
-        .flat_map(|(a, b)| [a, b])
-        .map(|chunk| chunk.to_bytes())
-        .collect::<Vec<_>>();
-
-    let record_merkle_tree =
-        BalancedHashedMerkleTree::<{ Record::NUM_S_BUCKETS.ilog2() }>::new_boxed(
-            chunks
-                .as_slice()
-                .try_into()
-                .expect("Statically guaranteed to have correct length; qed"),
-        );
-
-    if record_merkle_tree.root() != *record_commitment {
+    if record_merkle_tree_root != *record_commitment {
         return false;
     }
 

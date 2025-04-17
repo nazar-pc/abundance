@@ -483,6 +483,7 @@ where
         });
 
     *piece.commitment_mut() = record_metadata.commitment;
+    *piece.parity_chunks_root_mut() = record_metadata.parity_chunks_root;
     *piece.witness_mut() = record_metadata.witness;
 
     // Verify checksum

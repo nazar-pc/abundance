@@ -3,7 +3,6 @@
 use crate::node_client::NodeClient;
 use async_trait::async_trait;
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
-use subspace_erasure_coding::ErasureCoding;
 use subspace_networking::libp2p::PeerId;
 use subspace_networking::utils::piece_provider::PieceValidator;
 use subspace_networking::Node;
@@ -17,16 +16,14 @@ use tracing::{error, warn};
 pub struct SegmentCommitmentPieceValidator<NC> {
     dsn_node: Node,
     node_client: NC,
-    erasure_coding: ErasureCoding,
 }
 
 impl<NC> SegmentCommitmentPieceValidator<NC> {
     /// Create new instance
-    pub fn new(dsn_node: Node, node_client: NC, erasure_coding: ErasureCoding) -> Self {
+    pub fn new(dsn_node: Node, node_client: NC) -> Self {
         Self {
             dsn_node,
             node_client,
-            erasure_coding,
         }
     }
 }
@@ -72,18 +69,8 @@ where
             }
         };
 
-        let is_valid_fut = tokio::task::spawn_blocking({
-            let erasure_coding = self.erasure_coding.clone();
-
-            move || {
-                is_piece_valid(
-                    &erasure_coding,
-                    &piece,
-                    &segment_commitment,
-                    piece_index.position(),
-                )
-                .then_some(piece)
-            }
+        let is_valid_fut = tokio::task::spawn_blocking(move || {
+            is_piece_valid(&piece, &segment_commitment, piece_index.position()).then_some(piece)
         });
 
         match is_valid_fut.await.unwrap_or_default() {
