@@ -8,14 +8,13 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::mem;
 use parity_scale_codec::Decode;
-use subspace_core_primitives::pieces::{Piece, RawRecord};
+use subspace_core_primitives::pieces::Piece;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
     SegmentHeader, SegmentIndex,
 };
-use subspace_core_primitives::BlockNumber;
-use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Scalar;
+use subspace_core_primitives::{BlockNumber, ScalarBytes};
+use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
 
 /// Reconstructor-related instantiation error
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -102,48 +101,48 @@ impl Reconstructor {
             // If not all data pieces are available, need to reconstruct data shards using erasure
             // coding.
 
-            // Scratch buffer to avoid re-allocation
-            let mut tmp_shards_scalars =
-                Vec::<Option<Scalar>>::with_capacity(ArchivedHistorySegment::NUM_PIECES);
-            // Iterate over the chunks of `ScalarBytes::SAFE_BYTES` bytes of all records
-            for record_offset in 0..RawRecord::NUM_CHUNKS {
-                // Collect chunks of each record at the same offset
-                for maybe_piece in segment_pieces.iter() {
-                    let maybe_scalar = maybe_piece
-                        .as_ref()
-                        .map(|piece| {
-                            piece
-                                .record()
-                                .get(record_offset)
-                                .expect("Statically guaranteed to exist in a piece; qed")
-                        })
-                        .map(Scalar::try_from)
-                        .transpose()
-                        .map_err(ReconstructorError::DataShardsReconstruction)?;
+            // TODO: This will need to be simplified once pieces are no longer interleaved
+            // TODO: This will need to be simplified once chunks are always 32 bytes
+            {
+                let mut reconstructed_pieces = ArchivedHistorySegment::default();
 
-                    tmp_shards_scalars.push(maybe_scalar);
+                // TODO: This will need to be simplified once pieces are no longer interleaved
+                {
+                    let (source, parity) = segment_pieces
+                        .iter()
+                        .zip(reconstructed_pieces.iter_mut())
+                        .map(
+                            |(maybe_input_piece, output_piece)| match maybe_input_piece {
+                                Some(input_piece) => {
+                                    output_piece
+                                        .record_mut()
+                                        .copy_from_slice(input_piece.record().as_slice());
+                                    RecoveryShardState::Present(input_piece.record().as_flattened())
+                                }
+                                None => RecoveryShardState::MissingRecover(
+                                    output_piece.record_mut().as_flattened_mut(),
+                                ),
+                            },
+                        )
+                        .array_chunks::<2>()
+                        .map(|[a, b]| (a, b))
+                        .unzip::<_, _, Vec<_>, Vec<_>>();
+                    self.erasure_coding
+                        .recover(source.into_iter(), parity.into_iter())
+                        .map_err(ReconstructorError::DataShardsReconstruction)?;
                 }
 
-                self.erasure_coding
-                    .recover(&tmp_shards_scalars)
-                    .map_err(ReconstructorError::DataShardsReconstruction)?
-                    .into_iter()
-                    // Take each source shards here
+                for (input_piece, output_record) in reconstructed_pieces
+                    .iter()
                     .step_by(2)
-                    .zip(segment_data.iter_mut().map(|raw_record| {
-                        raw_record
-                            .get_mut(record_offset)
-                            .expect("Statically guaranteed to exist in a piece; qed")
-                    }))
-                    .for_each(|(source_scalar, segment_data)| {
-                        segment_data.copy_from_slice(
-                            &source_scalar
-                                .try_to_safe_bytes()
-                                .expect("Source scalar has only safe bytes; qed"),
-                        );
-                    });
-
-                tmp_shards_scalars.clear();
+                    .zip(segment_data.iter_mut())
+                {
+                    for (input_chunk, output_chunk) in
+                        input_piece.record().iter().zip(output_record.iter_mut())
+                    {
+                        output_chunk.copy_from_slice(&input_chunk[1..][..ScalarBytes::SAFE_BYTES]);
+                    }
+                }
             }
         }
 

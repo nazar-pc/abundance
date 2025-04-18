@@ -20,7 +20,7 @@ use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::{SBucket, SectorId};
 use subspace_core_primitives::solutions::{ChunkWitness, Solution, SolutionRange};
 use subspace_core_primitives::{PublicKey, ScalarBytes};
-use subspace_erasure_coding::ErasureCoding;
+use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
 use subspace_proof_of_space::Table;
 use thiserror::Error;
 
@@ -235,28 +235,47 @@ where
                 .now_or_never()
                 .expect("Sync reader; qed")?;
 
-            let chunk = ScalarBytes::from(
-                sector_record_chunks
-                    .get(usize::from(self.s_bucket))
-                    .expect("Within s-bucket range; qed")
-                    .expect("Winning chunk was plotted; qed"),
-            );
+            let chunk = sector_record_chunks
+                .get(usize::from(self.s_bucket))
+                .expect("Within s-bucket range; qed")
+                .expect("Winning chunk was plotted; qed");
 
-            let scalars = self
-                .erasure_coding
-                .recover(sector_record_chunks.as_slice())
-                .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
-                    piece_offset,
-                    error,
-                })?;
+            // TODO: Use `recover_extended_record_chunks`?
+            let mut recovered_sector_record_chunks =
+                vec![[0u8; ScalarBytes::FULL_BYTES]; Record::NUM_S_BUCKETS];
+            {
+                // TODO: This will need to be simplified once chunks are no longer interleaved
+                let (source, parity) = sector_record_chunks
+                    .iter()
+                    .zip(recovered_sector_record_chunks.iter_mut())
+                    .map(
+                        |(maybe_input_chunk, output_chunk)| match maybe_input_chunk {
+                            Some(input_chunk) => {
+                                output_chunk.copy_from_slice(input_chunk.as_slice());
+                                RecoveryShardState::Present(output_chunk.as_slice())
+                            }
+                            None => RecoveryShardState::MissingRecover(output_chunk.as_mut_slice()),
+                        },
+                    )
+                    .array_chunks::<2>()
+                    .map(|[a, b]| (a, b))
+                    .unzip::<_, _, Vec<_>, Vec<_>>();
+                self.erasure_coding
+                    .recover(source.into_iter(), parity.into_iter())
+                    .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
+                        piece_offset,
+                        error,
+                    })?;
+            }
             drop(sector_record_chunks);
+
             // TODO: This un-interleaves chunks since that is how record commitment is done. This
             //  should be re-considered once erasure coding no longer interleaves chunks.
-            let chunks = scalars
+            let chunks = recovered_sector_record_chunks
                 .iter()
                 .step_by(2)
-                .chain(scalars.iter().skip(1).step_by(2))
-                .map(|chunk| chunk.to_bytes())
+                .chain(recovered_sector_record_chunks.iter().skip(1).step_by(2))
+                .copied()
                 .collect::<Vec<_>>();
 
             // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that

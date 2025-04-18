@@ -33,7 +33,6 @@ use subspace_core_primitives::segments::HistorySize;
 use subspace_core_primitives::{PublicKey, ScalarBytes};
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Scalar;
 use subspace_proof_of_space::{Table, TableGenerator};
 use thiserror::Error;
 use tracing::{debug, trace, warn};
@@ -614,23 +613,16 @@ fn record_encoding<PosTable>(
     // Derive PoSpace table
     let pos_table = table_generator.generate_parallel(pos_seed);
 
+    // TODO: Should have been just `::new()`, but https://github.com/rust-lang/rust/issues/53827
+    let parity_record_chunks =
+        Box::<[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]>::new_zeroed();
+    // SAFETY: Zero-initialized is a valid invariant
+    let mut parity_record_chunks = unsafe { parity_record_chunks.assume_init() };
+
     // Erasure code source record chunks
-    let parity_record_chunks = erasure_coding
-        .extend(
-            &record
-                .iter()
-                .map(|scalar_bytes| {
-                    Scalar::try_from(scalar_bytes).expect(
-                        "Piece getter must returns valid pieces of history that contain \
-                        proper scalar bytes; qed",
-                    )
-                })
-                .collect::<Vec<_>>(),
-        )
-        .expect("Instance was verified to be able to work with this many values earlier; qed")
-        .into_iter()
-        .map(<[u8; ScalarBytes::FULL_BYTES]>::from)
-        .collect::<Vec<_>>();
+    erasure_coding
+        .extend(record.iter(), parity_record_chunks.iter_mut())
+        .expect("Instance was verified to be able to work with this many values earlier; qed");
     let source_record_chunks = record.to_vec();
 
     chunks_scratch.clear();
@@ -642,7 +634,7 @@ fn record_encoding<PosTable>(
         .zip(
             source_record_chunks
                 .par_iter()
-                .interleave(&parity_record_chunks),
+                .interleave(parity_record_chunks.par_iter()),
         )
         .map(|(s_bucket, record_chunk)| {
             if let Some(proof) = pos_table.find_proof(s_bucket.into()) {
@@ -682,7 +674,7 @@ fn record_encoding<PosTable>(
     // remaining number of unencoded erasure coded record chunks to the end
     source_record_chunks
         .iter()
-        .zip(&parity_record_chunks)
+        .zip(parity_record_chunks.iter())
         .flat_map(|(a, b)| [a, b])
         .zip(encoded_chunks_used.iter())
         // Skip chunks that were used previously

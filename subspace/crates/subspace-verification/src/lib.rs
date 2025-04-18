@@ -8,12 +8,7 @@
 #![feature(generic_const_exprs)]
 #![no_std]
 
-#[cfg(feature = "alloc")]
-extern crate alloc;
-
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
 use core::mem;
 use core::simd::Simd;
 #[cfg(feature = "scale-codec")]
@@ -29,8 +24,6 @@ use subspace_core_primitives::sectors::{SectorId, SectorSlotChallenge};
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment, SegmentCommitment};
 use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
 use subspace_core_primitives::{BlockNumber, BlockWeight, PublicKey, ScalarBytes, SlotNumber};
-#[cfg(feature = "alloc")]
-use subspace_kzg::Scalar;
 use subspace_proof_of_space::Table;
 
 /// Errors encountered by the Subspace consensus primitives.
@@ -317,19 +310,6 @@ pub fn is_piece_valid(
     position: u32,
 ) -> bool {
     let (record, &record_commitment, parity_chunks_root, record_witness) = piece.split();
-
-    let mut scalars = Vec::with_capacity(record.len().next_power_of_two());
-
-    for record_chunk in record.iter() {
-        match Scalar::try_from(record_chunk) {
-            Ok(scalar) => {
-                scalars.push(scalar);
-            }
-            _ => {
-                return false;
-            }
-        }
-    }
 
     let source_record_merkle_tree_root =
         BalancedHashedMerkleTree::<{ Record::NUM_CHUNKS.ilog2() }>::new_boxed(record).root();

@@ -36,7 +36,6 @@ subspace-archiving = { workspace = true, features = ["std", "parallel"] }
 subspace-core-primitives = { workspace = true, features = ["parallel"] }
 subspace-data-retrieval.workspace = true
 subspace-erasure-coding.workspace = true
-subspace-kzg.workspace = true
 subspace-proof-of-space = { workspace = true, features = ["parallel"] }
 subspace-verification.workspace = true
 thiserror.workspace = true

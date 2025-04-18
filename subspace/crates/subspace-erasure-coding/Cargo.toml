@@ -12,6 +12,8 @@ include = [
 
 [dependencies]
 kzg.workspace = true
+# TODO: This is not actually `no_std` compatible yet, see https://github.com/AndersTrier/reed-solomon-simd/pull/63
+reed-solomon-simd = { workspace = true }
 rust-kzg-blst.workspace = true
 subspace-core-primitives = { workspace = true, features = ["alloc"] }
 subspace-kzg.workspace = true

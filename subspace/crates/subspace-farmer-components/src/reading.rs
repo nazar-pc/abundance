@@ -21,8 +21,7 @@ use subspace_core_primitives::hashes::blake3_hash;
 use subspace_core_primitives::pieces::{Piece, PieceOffset, Record};
 use subspace_core_primitives::sectors::{SBucket, SectorId};
 use subspace_core_primitives::ScalarBytes;
-use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Scalar;
+use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
 use subspace_proof_of_space::{Table, TableGenerator};
 use thiserror::Error;
 use tracing::debug;
@@ -49,21 +48,6 @@ pub enum ReadingError {
     MissingPosProof {
         /// S-bucket
         s_bucket: SBucket,
-    },
-    /// Invalid chunk, possible disk corruption
-    #[error(
-        "Invalid chunk at location {chunk_location} s-bucket {s_bucket} encoded \
-        {encoded_chunk_used}, possible disk corruption: {error}"
-    )]
-    InvalidChunk {
-        /// S-bucket
-        s_bucket: SBucket,
-        /// Indicates whether chunk was encoded
-        encoded_chunk_used: bool,
-        /// Chunk location
-        chunk_location: u64,
-        /// Lower-level error
-        error: String,
     },
     /// Failed to erasure-decode record
     #[error("Failed to erasure-decode record at offset {piece_offset}: {error}")]
@@ -98,7 +82,6 @@ impl ReadingError {
         match self {
             ReadingError::FailedToReadChunk { .. } => false,
             ReadingError::MissingPosProof { .. } => false,
-            ReadingError::InvalidChunk { .. } => false,
             ReadingError::FailedToErasureDecodeRecord { .. } => false,
             ReadingError::WrongRecordSizeAfterDecoding { .. } => false,
             ReadingError::FailedToDecodeSectorContentsMap(_) => false,
@@ -159,14 +142,14 @@ pub async fn read_sector_record_chunks<PosTable, S, A>(
     pos_table: &PosTable,
     sector: &ReadAt<S, A>,
     mode: ReadSectorRecordChunksMode,
-) -> Result<Box<[Option<Scalar>; Record::NUM_S_BUCKETS]>, ReadingError>
+) -> Result<Box<[Option<ScalarBytes>; Record::NUM_S_BUCKETS]>, ReadingError>
 where
     PosTable: Table,
     S: ReadAtSync,
     A: ReadAtAsync,
 {
-    let mut record_chunks = Box::<[Option<Scalar>; Record::NUM_S_BUCKETS]>::try_from(
-        vec![None::<Scalar>; Record::NUM_S_BUCKETS].into_boxed_slice(),
+    let mut record_chunks = Box::<[Option<ScalarBytes>; Record::NUM_S_BUCKETS]>::try_from(
+        vec![None::<ScalarBytes>; Record::NUM_S_BUCKETS].into_boxed_slice(),
     )
     .expect("Correct size; qed");
 
@@ -244,14 +227,7 @@ where
                             Simd::to_array(Simd::from(record_chunk) ^ Simd::from(*proof.hash()));
                     }
 
-                    maybe_record_chunk.replace(Scalar::try_from(record_chunk).map_err(
-                        |error| ReadingError::InvalidChunk {
-                            s_bucket,
-                            encoded_chunk_used,
-                            chunk_location,
-                            error,
-                        },
-                    )?);
+                    maybe_record_chunk.replace(ScalarBytes::from(record_chunk));
 
                     Ok::<_, ReadingError>(())
                 },
@@ -303,14 +279,7 @@ where
                             );
                         }
 
-                        maybe_record_chunk.replace(Scalar::try_from(record_chunk).map_err(
-                            |error| ReadingError::InvalidChunk {
-                                s_bucket,
-                                encoded_chunk_used,
-                                chunk_location,
-                                error,
-                            },
-                        )?);
+                        maybe_record_chunk.replace(ScalarBytes::from(record_chunk));
 
                         Ok::<_, ReadingError>(())
                     },
@@ -332,30 +301,45 @@ where
 
 /// Given sector record chunks recover extended record chunks (both source and parity)
 pub fn recover_extended_record_chunks(
-    sector_record_chunks: &[Option<Scalar>; Record::NUM_S_BUCKETS],
+    sector_record_chunks: &[Option<ScalarBytes>; Record::NUM_S_BUCKETS],
     piece_offset: PieceOffset,
     erasure_coding: &ErasureCoding,
-) -> Result<Box<[Scalar; Record::NUM_S_BUCKETS]>, ReadingError> {
+) -> Result<Box<[ScalarBytes; Record::NUM_S_BUCKETS]>, ReadingError> {
     // Restore source record scalars
-    // TODO: Would be nice to recover directly into `Box<[Scalar; Record::NUM_S_BUCKETS]>`
-    let record_chunks = erasure_coding
-        .recover(sector_record_chunks)
-        .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
-            piece_offset,
-            error,
-        })?;
-
-    // Required for safety invariant below
-    if record_chunks.len() != Record::NUM_S_BUCKETS {
-        return Err(ReadingError::WrongRecordSizeAfterDecoding {
-            expected: Record::NUM_S_BUCKETS,
-            actual: record_chunks.len(),
-        });
+    // TODO: Would be nice to recover directly into `Box<[ScalarBytes; Record::NUM_S_BUCKETS]>`
+    let mut recovered_sector_record_chunks =
+        vec![[0u8; ScalarBytes::FULL_BYTES]; Record::NUM_S_BUCKETS];
+    {
+        // TODO: This will need to be simplified once chunks are no longer interleaved
+        let (source, parity) = sector_record_chunks
+            .iter()
+            .zip(recovered_sector_record_chunks.iter_mut())
+            .map(
+                |(maybe_input_chunk, output_chunk)| match maybe_input_chunk {
+                    Some(input_chunk) => {
+                        output_chunk.copy_from_slice(input_chunk.as_slice());
+                        RecoveryShardState::Present(output_chunk.as_slice())
+                    }
+                    None => RecoveryShardState::MissingRecover(output_chunk.as_mut_slice()),
+                },
+            )
+            .array_chunks::<2>()
+            .map(|[a, b]| (a, b))
+            .unzip::<_, _, Vec<_>, Vec<_>>();
+        erasure_coding
+            .recover(source.into_iter(), parity.into_iter())
+            .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
+                piece_offset,
+                error,
+            })?;
     }
 
     // Allocation in vector can be larger than contents, we need to make sure allocation is the same
     // as the contents, this should also contain fast path if allocation matches contents
-    let record_chunks = record_chunks.into_iter().collect::<Box<_>>();
+    let record_chunks = recovered_sector_record_chunks
+        .into_iter()
+        .map(ScalarBytes::from)
+        .collect::<Box<_>>();
     let mut record_chunks = ManuallyDrop::new(record_chunks);
     // SAFETY: Original memory is not dropped, size of the data checked above
     let record_chunks = unsafe { Box::from_raw(record_chunks.as_mut_ptr() as *mut _) };
@@ -364,28 +348,37 @@ pub fn recover_extended_record_chunks(
 }
 
 /// Given sector record chunks recover source record chunks in form of an iterator.
-pub fn recover_source_record_chunks(
-    sector_record_chunks: &[Option<Scalar>; Record::NUM_S_BUCKETS],
+pub fn recover_source_record(
+    sector_record_chunks: &[Option<ScalarBytes>; Record::NUM_S_BUCKETS],
     piece_offset: PieceOffset,
     erasure_coding: &ErasureCoding,
-) -> Result<impl ExactSizeIterator<Item = Scalar>, ReadingError> {
+) -> Result<Box<Record>, ReadingError> {
     // Restore source record scalars
-    let record_chunks = erasure_coding
-        .recover_source(sector_record_chunks)
+    let mut recovered_record = Record::new_boxed();
+    // TODO: This will need to be simplified once chunks are no longer interleaved
+    let (source, parity) = sector_record_chunks
+        .iter()
+        .zip(recovered_record.iter_mut())
+        .map(
+            |(maybe_input_chunk, output_chunk)| match maybe_input_chunk {
+                Some(input_chunk) => {
+                    output_chunk.copy_from_slice(input_chunk.as_slice());
+                    RecoveryShardState::Present(output_chunk.as_slice())
+                }
+                None => RecoveryShardState::MissingRecover(output_chunk.as_mut_slice()),
+            },
+        )
+        .array_chunks::<2>()
+        .map(|[a, b]| (a, b))
+        .unzip::<_, _, Vec<_>, Vec<_>>();
+    erasure_coding
+        .recover(source.into_iter(), parity.into_iter())
         .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
             piece_offset,
             error,
         })?;
 
-    // Required for safety invariant below
-    if record_chunks.len() != Record::NUM_CHUNKS {
-        return Err(ReadingError::WrongRecordSizeAfterDecoding {
-            expected: Record::NUM_CHUNKS,
-            actual: record_chunks.len(),
-        });
-    }
-
-    Ok(record_chunks)
+    Ok(recovered_record)
 }
 
 /// Read metadata (commitment and witness) for record
@@ -467,20 +460,13 @@ where
     )
     .await?;
     // Restore source record scalars
-    let record_chunks =
-        recover_source_record_chunks(&sector_record_chunks, piece_offset, erasure_coding)?;
+    let record = recover_source_record(&sector_record_chunks, piece_offset, erasure_coding)?;
 
     let record_metadata = read_record_metadata(piece_offset, pieces_in_sector, sector).await?;
 
     let mut piece = Piece::default();
 
-    piece
-        .record_mut()
-        .iter_mut()
-        .zip(record_chunks)
-        .for_each(|(output, input)| {
-            *output = input.to_bytes();
-        });
+    piece.record_mut().copy_from_slice(record.as_slice());
 
     *piece.commitment_mut() = record_metadata.commitment;
     *piece.parity_chunks_root_mut() = record_metadata.parity_chunks_root;

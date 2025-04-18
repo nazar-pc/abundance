@@ -7,6 +7,7 @@
     const_trait_impl,
     exact_size_is_empty,
     int_roundings,
+    iter_array_chunks,
     iter_collect_into,
     never_type,
     new_zeroed_alloc,

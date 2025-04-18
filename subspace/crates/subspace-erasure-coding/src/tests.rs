@@ -45,7 +45,7 @@ fn basic_data() {
         .map(Scalar::from)
         .collect::<Vec<_>>();
 
-    let parity_shards = ec.extend(&source_shards).unwrap();
+    let parity_shards = ec.extend_legacy(&source_shards).unwrap();
 
     assert_ne!(source_shards, parity_shards);
 
@@ -57,7 +57,7 @@ fn basic_data() {
             .collect::<Vec<_>>(),
     );
 
-    let recovered = interleaved_to_concatenated(ec.recover(&partial_shards).unwrap());
+    let recovered = interleaved_to_concatenated(ec.recover_legacy(&partial_shards).unwrap());
 
     assert_eq!(
         recovered,
@@ -77,10 +77,10 @@ fn bad_shards_number() {
 
     let source_shards = vec![Default::default(); num_shards - 1];
 
-    assert!(ec.extend(&source_shards).is_err());
+    assert!(ec.extend_legacy(&source_shards).is_err());
 
     let partial_shards = vec![Default::default(); num_shards - 1];
-    assert!(ec.recover(&partial_shards).is_err());
+    assert!(ec.recover_legacy(&partial_shards).is_err());
 }
 
 #[test]
@@ -98,12 +98,12 @@ fn not_enough_partial() {
         .for_each(|maybe_scalar| {
             maybe_scalar.replace(Scalar::default());
         });
-    assert!(ec.recover(&partial_shards).is_err());
+    assert!(ec.recover_legacy(&partial_shards).is_err());
 
     // Any half is sufficient
     partial_shards
         .last_mut()
         .unwrap()
         .replace(Scalar::default());
-    assert!(ec.recover(&partial_shards).is_ok());
+    assert!(ec.recover_legacy(&partial_shards).is_ok());
 }

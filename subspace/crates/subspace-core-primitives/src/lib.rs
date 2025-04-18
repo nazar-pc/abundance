@@ -22,7 +22,7 @@ mod tests;
 extern crate alloc;
 
 use crate::hashes::{blake3_hash, blake3_hash_list, Blake3Hash};
-use core::fmt;
+use core::{fmt, mem};
 use derive_more::{Add, AsMut, AsRef, Deref, DerefMut, Display, Div, From, Into, Mul, Rem, Sub};
 use num_traits::{WrappingAdd, WrappingSub};
 #[cfg(feature = "scale-codec")]
@@ -217,6 +217,7 @@ impl PublicKey {
     }
 }
 
+// TODO: This has nothing to do with BLS12-381 anymore
 /// Single BLS12-381 scalar with big-endian representation, not guaranteed to be valid
 #[derive(
     Default,
@@ -237,6 +238,7 @@ impl PublicKey {
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
+#[repr(C)]
 pub struct ScalarBytes([u8; ScalarBytes::FULL_BYTES]);
 
 impl fmt::Debug for ScalarBytes {
@@ -258,6 +260,36 @@ impl ScalarBytes {
     /// How many bytes Scalar contains physically, use [`Self::SAFE_BYTES`] for the amount of data
     /// that you can put into it safely (for instance before encoding).
     pub const FULL_BYTES: usize = 32;
+
+    /// Convenient conversion from slice to underlying representation for efficiency purposes
+    #[inline]
+    pub fn slice_to_repr(value: &[Self]) -> &[[u8; ScalarBytes::FULL_BYTES]] {
+        // SAFETY: `ScalarBytes` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from slice of underlying representation for efficiency purposes
+    #[inline]
+    pub fn slice_from_repr(value: &[[u8; ScalarBytes::FULL_BYTES]]) -> &[Self] {
+        // SAFETY: `ScalarBytes` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from mutable slice to underlying representation for efficiency
+    /// purposes
+    #[inline]
+    pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; ScalarBytes::FULL_BYTES]] {
+        // SAFETY: `ScalarBytes` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from mutable slice of underlying representation for efficiency
+    /// purposes
+    #[inline]
+    pub fn slice_mut_from_repr(value: &mut [[u8; ScalarBytes::FULL_BYTES]]) -> &mut [Self] {
+        // SAFETY: `ScalarBytes` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
 }
 
 #[expect(clippy::manual_div_ceil)]
