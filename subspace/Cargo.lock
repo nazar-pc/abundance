@@ -11796,7 +11796,6 @@ dependencies = [
  "parity-scale-codec",
  "schnorrkel",
  "subspace-core-primitives",
- "subspace-kzg",
  "subspace-proof-of-space",
  "thiserror 2.0.12",
 ]
