@@ -8,14 +8,15 @@ use alloc::string::String;
 use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
-use subspace_core_primitives::pieces::{Piece, RawRecord, Record};
+use subspace_core_primitives::pieces::{Piece, Record};
 use subspace_core_primitives::segments::ArchivedHistorySegment;
-use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Scalar;
+use subspace_core_primitives::ScalarBytes;
+use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
 
 /// Reconstructor-related instantiation error
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ReconstructorError {
+    // TODO: Should be a better type than a string
     /// Segment size is not bigger than record size
     #[error("Error during data shards reconstruction: {0}")]
     DataShardsReconstruction(String),
@@ -43,43 +44,30 @@ impl PiecesReconstructor {
     ) -> Result<ArchivedHistorySegment, ReconstructorError> {
         let mut reconstructed_pieces = ArchivedHistorySegment::default();
 
-        // Scratch buffer to avoid re-allocation
-        let mut tmp_shards_scalars =
-            Vec::<Option<Scalar>>::with_capacity(ArchivedHistorySegment::NUM_PIECES);
-        // Iterate over the chunks of `ScalarBytes::SAFE_BYTES` bytes of all records
-        for record_offset in 0..RawRecord::NUM_CHUNKS {
-            // Collect chunks of each record at the same offset
-            for maybe_piece in input_pieces.iter() {
-                let maybe_scalar = maybe_piece
-                    .as_ref()
-                    .map(|piece| {
-                        piece
-                            .record()
-                            .get(record_offset)
-                            .expect("Statically guaranteed to exist in a piece; qed")
-                    })
-                    .map(Scalar::try_from)
-                    .transpose()
-                    .map_err(ReconstructorError::DataShardsReconstruction)?;
-
-                tmp_shards_scalars.push(maybe_scalar);
-            }
-
+        // TODO: This will need to be simplified once pieces are no longer interleaved
+        {
+            let (source, parity) = input_pieces
+                .iter()
+                .zip(reconstructed_pieces.iter_mut())
+                .map(
+                    |(maybe_input_piece, output_piece)| match maybe_input_piece {
+                        Some(input_piece) => {
+                            output_piece
+                                .record_mut()
+                                .copy_from_slice(input_piece.record().as_slice());
+                            RecoveryShardState::Present(input_piece.record().as_flattened())
+                        }
+                        None => RecoveryShardState::MissingRecover(
+                            output_piece.record_mut().as_flattened_mut(),
+                        ),
+                    },
+                )
+                .array_chunks::<2>()
+                .map(|[a, b]| (a, b))
+                .unzip::<_, _, Vec<_>, Vec<_>>();
             self.erasure_coding
-                .recover(&tmp_shards_scalars)
-                .map_err(ReconstructorError::DataShardsReconstruction)?
-                .into_iter()
-                .zip(reconstructed_pieces.iter_mut().map(|piece| {
-                    piece
-                        .record_mut()
-                        .get_mut(record_offset)
-                        .expect("Statically guaranteed to exist in a piece; qed")
-                }))
-                .for_each(|(source_scalar, segment_data)| {
-                    segment_data.copy_from_slice(&source_scalar.to_bytes());
-                });
-
-            tmp_shards_scalars.clear();
+                .recover(source.into_iter(), parity.into_iter())
+                .map_err(ReconstructorError::DataShardsReconstruction)?;
         }
 
         let record_commitments = {
@@ -97,7 +85,7 @@ impl PiecesReconstructor {
                         **input_piece.parity_chunks_root(),
                     )
                 } else {
-                    // TODO: Reuse allocation between iterations
+                    // TODO: Reuse allocations between iterations
                     let [source_chunks_root, parity_chunks_root] = {
                         let mut record_merkle_tree = Box::<
                             BalancedHashedMerkleTree<{ Record::NUM_CHUNKS.ilog2() }>,
@@ -109,39 +97,24 @@ impl PiecesReconstructor {
                         )
                         .root();
 
-                        let scalars = {
-                            let mut scalars =
-                                Vec::with_capacity(piece.record().len().next_power_of_two());
+                        // TODO: Should have been just `::new()`, but
+                        //  https://github.com/rust-lang/rust/issues/53827
+                        let parity_chunks = Box::<
+                            [[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS],
+                        >::new_zeroed();
+                        // SAFETY: Zero-initialized is a valid invariant
+                        let mut parity_chunks = unsafe { parity_chunks.assume_init() };
 
-                            for record_chunk in piece.record().iter() {
-                                scalars.push(
-                                    Scalar::try_from(record_chunk)
-                                        .map_err(ReconstructorError::DataShardsReconstruction)?,
-                                );
-                            }
-
-                            scalars
-                        };
-
-                        let parity_scalars = self.erasure_coding.extend(&scalars).expect(
-                            "Erasure coding instance is deliberately configured to support this \
-                        input; qed",
-                        );
-                        // Free unnecessary allocation
-                        drop(scalars);
-
-                        let parity_chunks = parity_scalars
-                            .into_iter()
-                            .map(|chunk| chunk.to_bytes())
-                            .collect::<Vec<_>>();
-                        let parity_chunks = parity_chunks
-                            .as_slice()
-                            .try_into()
-                            .expect("Statically guaranteed to have correct length; qed");
+                        self.erasure_coding
+                            .extend(piece.record().iter(), parity_chunks.iter_mut())
+                            .expect(
+                                "Erasure coding instance is deliberately configured to \
+                                support this input; qed",
+                            );
 
                         let parity_chunks_root = BalancedHashedMerkleTree::new_in(
                             &mut record_merkle_tree,
-                            parity_chunks,
+                            &parity_chunks,
                         )
                         .root();
 
@@ -209,6 +182,8 @@ impl PiecesReconstructor {
         }
 
         // TODO: Early exit if position already exists and doesn't need reconstruction
+        // TODO: It is now inefficient to recover all shards if only one piece is needed, especially
+        //  source piece
         let pieces = self.reconstruct_shards(segment_pieces)?;
 
         let piece = Piece::from(&pieces[piece_position]);

@@ -19,7 +19,6 @@ use subspace_core_primitives::segments::{
 };
 use subspace_core_primitives::{BlockNumber, ScalarBytes};
 use subspace_erasure_coding::ErasureCoding;
-use subspace_kzg::Scalar;
 
 const INITIAL_LAST_ARCHIVED_BLOCK: LastArchivedBlock = LastArchivedBlock {
     number: 0,
@@ -664,11 +663,12 @@ impl Archiver {
 
             let mut pieces = ArchivedHistorySegment::default();
 
-            // TODO: This needs to be parallelized heavily, parallelism through
-            //  `subspace-erasure-coding` is not working well due to large number of small data sets
             // Scratch buffer to avoid re-allocation
             let mut tmp_source_shards_scalars =
-                Vec::<Scalar>::with_capacity(RecordedHistorySegment::NUM_RAW_RECORDS);
+                Vec::with_capacity(RecordedHistorySegment::NUM_RAW_RECORDS);
+            // TODO: This loop is only needed to expand `ScalarBytes::SAFE_BYTES` to
+            //  `ScalarBytes::FULL_BYTES` and should be removed once `ScalarBytes::SAFE_BYTES` is no
+            //  longer a constraint for erasure coding
             // Iterate over the chunks of `ScalarBytes::SAFE_BYTES` bytes of all records
             for record_offset in 0..RawRecord::NUM_CHUNKS {
                 // Collect chunks of each record at the same offset
@@ -680,33 +680,36 @@ impl Archiver {
                             .nth(record_offset)
                             .expect("Statically known to exist in a record; qed")
                     })
-                    .map(Scalar::from)
+                    .map(|bytes| {
+                        let mut result = [0u8; ScalarBytes::FULL_BYTES];
+                        result[1..][..ScalarBytes::SAFE_BYTES].copy_from_slice(bytes);
+                        result
+                    })
                     .collect_into(&mut tmp_source_shards_scalars);
 
-                // Extend to obtain corresponding parity shards
-                let parity_shards = self
-                    .erasure_coding
-                    .extend(&tmp_source_shards_scalars)
-                    .expect(
-                        "Erasure coding instance is deliberately configured to support this \
-                        input; qed",
-                    );
-
-                let interleaved_input_chunks = tmp_source_shards_scalars
-                    .drain(..)
-                    .zip(parity_shards)
-                    .flat_map(|(a, b)| [a, b]);
-                let output_chunks = pieces.iter_mut().map(|piece| {
-                    piece
-                        .record_mut()
-                        .get_mut(record_offset)
-                        .expect("Statically known to exist in a record; qed")
-                });
-
-                interleaved_input_chunks
-                    .zip(output_chunks)
-                    .for_each(|(input, output)| output.copy_from_slice(&input.to_bytes()));
+                pieces
+                    .source_mut()
+                    .map(|piece| {
+                        piece
+                            .record_mut()
+                            .get_mut(record_offset)
+                            .expect("Statically known to exist in a record; qed")
+                    })
+                    .zip(tmp_source_shards_scalars.drain(..))
+                    .for_each(|(output, input)| output.copy_from_slice(&input));
             }
+
+            // TODO: This will be simplified once source and parity are not interleaved
+            let mut source_shards = Vec::with_capacity(RecordedHistorySegment::NUM_RAW_RECORDS);
+            let mut parity_shards = Vec::with_capacity(RecordedHistorySegment::NUM_RAW_RECORDS);
+            for [source, parity] in pieces.array_chunks_mut::<2>() {
+                source_shards.push(source.record());
+                parity_shards.push(parity.record_mut());
+            }
+
+            self.erasure_coding
+                .extend(source_shards.into_iter(), parity_shards.into_iter())
+                .expect("Statically correct parameters; qed");
 
             pieces
         };
@@ -724,7 +727,7 @@ impl Archiver {
             // could have been a single tree, and it would end up with the same root. Building them
             // separately requires less RAM and allows to capture parity chunks root more easily.
             let iter = source_pieces.map(|piece| {
-                // TODO: Reuse allocation between iterations
+                // TODO: Reuse allocations between iterations
                 let [source_chunks_root, parity_chunks_root] = {
                     let mut record_merkle_tree = Box::<
                         BalancedHashedMerkleTree<{ Record::NUM_CHUNKS.ilog2() }>,
@@ -734,35 +737,22 @@ impl Archiver {
                         BalancedHashedMerkleTree::new_in(&mut record_merkle_tree, piece.record())
                             .root();
 
-                    let record_chunks = piece.record().iter().map(|scalar_bytes| {
-                        Scalar::try_from(scalar_bytes).expect(
-                            "Pieces were just created and are guaranteed to contain valid \
-                            scalars; qed",
-                        )
-                    });
+                    // TODO: Should have been just `::new()`, but
+                    //  https://github.com/rust-lang/rust/issues/53827
+                    let parity_chunks =
+                        Box::<[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]>::new_zeroed();
+                    // SAFETY: Zero-initialized is a valid invariant
+                    let mut parity_chunks = unsafe { parity_chunks.assume_init() };
 
-                    let mut scalars = Vec::with_capacity(Record::NUM_CHUNKS);
-
-                    record_chunks.collect_into(&mut scalars);
-
-                    let parity_scalars = self.erasure_coding.extend(&scalars).expect(
-                        "Erasure coding instance is deliberately configured to support this \
-                        input; qed",
-                    );
-                    // Free unnecessary allocation
-                    drop(scalars);
-
-                    let parity_chunks = parity_scalars
-                        .into_iter()
-                        .map(|chunk| chunk.to_bytes())
-                        .collect::<Vec<_>>();
-                    let parity_chunks = parity_chunks
-                        .as_slice()
-                        .try_into()
-                        .expect("Statically guaranteed to have correct length; qed");
+                    self.erasure_coding
+                        .extend(piece.record().iter(), parity_chunks.iter_mut())
+                        .expect(
+                            "Erasure coding instance is deliberately configured to support this \
+                            input; qed",
+                        );
 
                     let parity_chunks_root =
-                        BalancedHashedMerkleTree::new_in(&mut record_merkle_tree, parity_chunks)
+                        BalancedHashedMerkleTree::new_in(&mut record_merkle_tree, &parity_chunks)
                             .root();
 
                     [source_chunks_root, parity_chunks_root]

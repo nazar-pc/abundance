@@ -23,7 +23,6 @@ rayon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 subspace-erasure-coding.workspace = true
-subspace-kzg.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
@@ -48,7 +47,6 @@ std = [
     "parity-scale-codec/std",
     "serde",
     "subspace-erasure-coding/std",
-    "subspace-kzg/std",
     "thiserror/std",
 ]
 

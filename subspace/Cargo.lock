@@ -8087,6 +8087,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "readme-rustdocifier"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08ad765b21a08b1a8e5cdce052719188a23772bcbefb3c439f0baaf62c56ceac"
+
+[[package]]
 name = "reconnecting-jsonrpsee-ws-client"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8129,6 +8135,16 @@ dependencies = [
  "getrandom 0.2.15",
  "libredox",
  "thiserror 1.0.64",
+]
+
+[[package]]
+name = "reed-solomon-simd"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab6badd4f4b9c93832eb3707431e8e7bea282fae96801312f0990d48b030f8c5"
+dependencies = [
+ "fixedbitset",
+ "readme-rustdocifier",
 ]
 
 [[package]]
@@ -11349,7 +11365,6 @@ dependencies = [
  "serde",
  "subspace-core-primitives",
  "subspace-erasure-coding",
- "subspace-kzg",
  "subspace-verification",
  "thiserror 2.0.12",
 ]
@@ -11399,6 +11414,7 @@ version = "0.1.0"
 dependencies = [
  "kzg",
  "rand 0.8.5",
+ "reed-solomon-simd",
  "rust-kzg-blst",
  "subspace-core-primitives",
  "subspace-kzg",
@@ -11490,7 +11506,6 @@ dependencies = [
  "subspace-core-primitives",
  "subspace-data-retrieval",
  "subspace-erasure-coding",
- "subspace-kzg",
  "subspace-proof-of-space",
  "subspace-verification",
  "thiserror 2.0.12",
