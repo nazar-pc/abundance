@@ -58,7 +58,7 @@ sp-runtime.workspace = true
 sp-timestamp.workspace = true
 sp-transaction-pool.workspace = true
 static_assertions.workspace = true
-subspace-archiving = { workspace = true, features = ["std", "parallel"] }
+subspace-archiving = { workspace = true, features = ["parallel"] }
 subspace-core-primitives.workspace = true
 subspace-data-retrieval.workspace = true
 subspace-erasure-coding.workspace = true

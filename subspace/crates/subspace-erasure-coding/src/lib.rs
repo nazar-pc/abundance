@@ -11,12 +11,27 @@ mod tests;
 
 extern crate alloc;
 
-use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;
-use reed_solomon_simd::{ReedSolomonDecoder, ReedSolomonEncoder};
+use reed_solomon_simd::engine::DefaultEngine;
+use reed_solomon_simd::rate::{HighRateDecoder, HighRateEncoder, RateDecoder, RateEncoder};
+use reed_solomon_simd::Error;
+
+/// Error that occurs when calling [`ErasureCoding::recover()`]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+pub enum ErasureCodingError {
+    /// Decoder error
+    #[error("Decoder error: {0}")]
+    DecoderError(#[from] Error),
+    /// Wrong source shard byte length
+    #[error("Wrong source shard byte length: expected {expected}, actual {actual}")]
+    WrongSourceShardByteLength { expected: usize, actual: usize },
+    /// Wrong parity shard byte length
+    #[error("Wrong parity shard byte length: expected {expected}, actual {actual}")]
+    WrongParityShardByteLength { expected: usize, actual: usize },
+}
 
 /// State of the shard for recovery
 pub enum RecoveryShardState<PresentShard, MissingShard> {
@@ -51,7 +66,7 @@ impl ErasureCoding {
         &self,
         source: SourceIter,
         parity: ParityIter,
-    ) -> Result<(), String>
+    ) -> Result<(), ErasureCodingError>
     where
         SourceIter: TrustedLen<Item = SourceBytes>,
         ParityIter: TrustedLen<Item = ParityBytes>,
@@ -63,23 +78,28 @@ impl ErasureCoding {
             .peek()
             .map(|shard| shard.as_ref().len())
             .unwrap_or_default();
-        // TODO: Fix error type
-        let mut encoder =
-            ReedSolomonEncoder::new(source.size_hint().0, parity.size_hint().0, shard_byte_len)
-                .map_err(|error| error.to_string())?;
+
+        let mut encoder = HighRateEncoder::new(
+            source.size_hint().0,
+            parity.size_hint().0,
+            shard_byte_len,
+            DefaultEngine::new(),
+            None,
+        )?;
 
         for shard in source {
-            encoder
-                .add_original_shard(shard)
-                .map_err(|error| error.to_string())?;
+            encoder.add_original_shard(shard)?;
         }
 
-        let result = encoder.encode().map_err(|error| error.to_string())?;
+        let result = encoder.encode()?;
 
         for (input, mut output) in result.recovery_iter().zip(parity) {
             let output = output.as_mut();
             if output.len() != shard_byte_len {
-                return Err("Wrong parity shard byte length; qed".to_string());
+                return Err(ErasureCodingError::WrongParityShardByteLength {
+                    expected: shard_byte_len,
+                    actual: output.len(),
+                });
             }
             output.copy_from_slice(input);
         }
@@ -93,12 +113,11 @@ impl ErasureCoding {
         &self,
         source: SourceIter,
         parity: ParityIter,
-    ) -> Result<(), String>
+    ) -> Result<(), ErasureCodingError>
     where
         SourceIter: TrustedLen<Item = RecoveryShardState<&'a [u8], &'a mut [u8]>>,
         ParityIter: TrustedLen<Item = RecoveryShardState<&'a [u8], &'a mut [u8]>>,
     {
-        // TODO: Fix error type
         let num_source = source.size_hint().0;
         let num_parity = parity.size_hint().0;
         let mut source = source.enumerate().peekable();
@@ -140,8 +159,13 @@ impl ErasureCoding {
             }
         }
 
-        let mut decoder = ReedSolomonDecoder::new(num_source, num_parity, shard_byte_len)
-            .map_err(|error| error.to_string())?;
+        let mut decoder = HighRateDecoder::new(
+            num_source,
+            num_parity,
+            shard_byte_len,
+            DefaultEngine::new(),
+            None,
+        )?;
 
         let mut all_source_shards = vec![MaybeUninit::uninit(); num_source];
         let mut source_shards_to_recover = Vec::new();
@@ -149,9 +173,7 @@ impl ErasureCoding {
             match shard {
                 RecoveryShardState::Present(shard_bytes) => {
                     all_source_shards[index].write(shard_bytes);
-                    decoder
-                        .add_original_shard(index, shard_bytes)
-                        .map_err(|error| error.to_string())?;
+                    decoder.add_original_shard(index, shard_bytes)?;
                 }
                 RecoveryShardState::MissingRecover(shard_bytes) => {
                     source_shards_to_recover.push((index, shard_bytes));
@@ -164,9 +186,7 @@ impl ErasureCoding {
         for (index, shard) in parity {
             match shard {
                 RecoveryShardState::Present(shard_bytes) => {
-                    decoder
-                        .add_recovery_shard(index, shard_bytes)
-                        .map_err(|error| error.to_string())?;
+                    decoder.add_recovery_shard(index, shard_bytes)?;
                 }
                 RecoveryShardState::MissingRecover(shard_bytes) => {
                     parity_shards_to_recover.push((index, shard_bytes));
@@ -175,11 +195,14 @@ impl ErasureCoding {
             }
         }
 
-        let result = decoder.decode().map_err(|error| error.to_string())?;
+        let result = decoder.decode()?;
 
         for (index, output) in source_shards_to_recover {
             if output.len() != shard_byte_len {
-                return Err("Wrong source shard byte length; qed".to_string());
+                return Err(ErasureCodingError::WrongSourceShardByteLength {
+                    expected: shard_byte_len,
+                    actual: output.len(),
+                });
             }
             let shard = result
                 .restored_original(index)
@@ -190,20 +213,26 @@ impl ErasureCoding {
 
         let all_source_shards = unsafe { all_source_shards.assume_init_ref() };
         if !parity_shards_to_recover.is_empty() {
-            let mut encoder = ReedSolomonEncoder::new(num_source, num_parity, shard_byte_len)
-                .map_err(|error| error.to_string())?;
+            let mut encoder = HighRateEncoder::new(
+                num_source,
+                num_parity,
+                shard_byte_len,
+                DefaultEngine::new(),
+                None,
+            )?;
 
             for shard in all_source_shards {
-                encoder
-                    .add_original_shard(shard)
-                    .map_err(|error| error.to_string())?;
+                encoder.add_original_shard(shard)?;
             }
 
-            let result = encoder.encode().map_err(|error| error.to_string())?;
+            let result = encoder.encode()?;
 
             for (index, output) in parity_shards_to_recover {
                 if output.len() != shard_byte_len {
-                    return Err("Wrong parity shard byte length; qed".to_string());
+                    return Err(ErasureCodingError::WrongParityShardByteLength {
+                        expected: shard_byte_len,
+                        actual: output.len(),
+                    });
                 }
                 output.copy_from_slice(
                     result

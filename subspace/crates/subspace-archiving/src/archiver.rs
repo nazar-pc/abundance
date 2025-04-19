@@ -1,10 +1,6 @@
-extern crate alloc;
-
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
+use alloc::boxed::Box;
 use alloc::collections::VecDeque;
-#[cfg(not(feature = "std"))]
-use alloc::vec;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use parity_scale_codec::{Compact, CompactLen, Decode, Encode, Input, Output};
@@ -30,6 +26,30 @@ const INITIAL_LAST_ARCHIVED_BLOCK: LastArchivedBlock = LastArchivedBlock {
     // field above), meaning we did not in fact archive actual blocks yet.
     archived_progress: ArchivedBlockProgress::Partial(0),
 };
+
+struct ArchivedHistorySegmentOutput<'a> {
+    segment: &'a mut ArchivedHistorySegment,
+    offset: usize,
+}
+
+impl Output for ArchivedHistorySegmentOutput<'_> {
+    #[inline]
+    fn write(&mut self, mut bytes: &[u8]) {
+        while !bytes.is_empty() {
+            let piece = self
+                .segment
+                .iter_mut()
+                .skip(self.offset / Record::SIZE)
+                .next()
+                .expect("Encoding never exceeds the segment size; qed");
+            let output = &mut piece.record_mut().as_flattened_mut()[self.offset % Record::SIZE..];
+            let bytes_to_write = output.len().min(bytes.len());
+            output[..bytes_to_write].copy_from_slice(&bytes[..bytes_to_write]);
+            self.offset += bytes_to_write;
+            bytes = &bytes[bytes_to_write..];
+        }
+    }
+}
 
 /// Segment represents a collection of items stored in archival history of the Subspace blockchain
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -652,26 +672,14 @@ impl Archiver {
     /// Take segment as an input, apply necessary transformations and produce archived segment
     fn produce_archived_segment(&mut self, segment: Segment) -> NewArchivedSegment {
         let mut pieces = {
-            // Serialize segment into concatenation of raw records
-            let mut raw_record_shards = RecordedHistorySegment::new_boxed();
-            // TODO: Custom encoder that can encode into records of `ArchivedHistorySegment`
-            //  directly without extra clone below
-            segment.encode_to(&mut raw_record_shards.as_mut().as_mut());
-
-            // Segment is quite big and no longer necessary
-            drop(segment);
-
             let mut pieces = ArchivedHistorySegment::default();
 
-            for (input, output) in raw_record_shards.iter().zip(pieces.iter_mut()) {
-                output
-                    .record_mut()
-                    .as_flattened_mut()
-                    .copy_from_slice(input.as_ref());
-            }
-
-            // Recorded history segment is quite big and no longer necessary
-            drop(raw_record_shards);
+            segment.encode_to(&mut ArchivedHistorySegmentOutput {
+                segment: &mut pieces,
+                offset: 0,
+            });
+            // Segment is quite big and no longer necessary
+            drop(segment);
 
             let (source_shards, parity_shards) =
                 pieces.split_at_mut(RecordedHistorySegment::NUM_RAW_RECORDS);
@@ -687,11 +695,11 @@ impl Archiver {
         };
 
         // Collect hashes to commitments from all records
-        let (record_commitments, parity_chunks_roots) = {
+        let record_commitments = {
             #[cfg(not(feature = "parallel"))]
-            let source_pieces = pieces.iter();
+            let source_pieces = pieces.iter_mut();
             #[cfg(feature = "parallel")]
-            let source_pieces = pieces.par_iter();
+            let source_pieces = pieces.par_iter_mut();
 
             // Here we build a tree of record chunks, with the first half being source chunks as
             // they are originally and the second half being parity chunks. While we build tree
@@ -728,10 +736,16 @@ impl Archiver {
                 let record_commitment =
                     BalancedHashedMerkleTree::<1>::new(&[source_chunks_root, parity_chunks_root])
                         .root();
-                (record_commitment, parity_chunks_root)
+
+                piece.commitment_mut().copy_from_slice(&record_commitment);
+                piece
+                    .parity_chunks_root_mut()
+                    .copy_from_slice(&parity_chunks_root);
+
+                record_commitment
             });
 
-            iter.unzip::<_, _, Vec<_>, Vec<_>>()
+            iter.collect::<Vec<_>>()
         };
 
         let segment_merkle_tree =
@@ -747,18 +761,10 @@ impl Archiver {
         // Create witness for every record and write it to corresponding piece.
         pieces
             .iter_mut()
-            .zip(&record_commitments)
-            .zip(&parity_chunks_roots)
             .zip(segment_merkle_tree.all_proofs())
-            .for_each(
-                |(((piece, record_commitment), parity_chunks_root), record_witness)| {
-                    piece.commitment_mut().copy_from_slice(record_commitment);
-                    piece
-                        .parity_chunks_root_mut()
-                        .copy_from_slice(parity_chunks_root);
-                    piece.witness_mut().copy_from_slice(&record_witness);
-                },
-            );
+            .for_each(|(piece, record_witness)| {
+                piece.witness_mut().copy_from_slice(&record_witness);
+            });
 
         // Now produce segment header
         let segment_header = SegmentHeader::V0 {

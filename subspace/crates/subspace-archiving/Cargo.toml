@@ -33,7 +33,6 @@ subspace-core-primitives.workspace = true
 subspace-verification = { workspace = true, features = ["alloc"] }
 
 [features]
-default = ["std"]
 parallel = [
     "dep:rayon",
     "subspace-core-primitives/parallel",
@@ -41,12 +40,6 @@ parallel = [
 serde = [
     "dep:serde",
     "subspace-core-primitives/serde",
-]
-# TODO: Remove `std` feature
-std = [
-    "parity-scale-codec/std",
-    "serde",
-    "thiserror/std",
 ]
 
 [[bench]]

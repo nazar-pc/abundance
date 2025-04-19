@@ -1,24 +1,18 @@
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
-#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use subspace_core_primitives::pieces::{Piece, Record};
 use subspace_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
-use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
+use subspace_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 
 /// Reconstructor-related instantiation error
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ReconstructorError {
-    // TODO: Should be a better type than a string
     /// Segment size is not bigger than record size
     #[error("Error during data shards reconstruction: {0}")]
-    DataShardsReconstruction(String),
+    DataShardsReconstruction(#[from] ErasureCodingError),
     /// Not enough shards
     #[error("Not enough shards: {num_shards}")]
     NotEnoughShards { num_shards: usize },
@@ -89,9 +83,7 @@ impl PiecesReconstructor {
                         ),
                     },
                 );
-            self.erasure_coding
-                .recover(source, parity)
-                .map_err(ReconstructorError::DataShardsReconstruction)?;
+            self.erasure_coding.recover(source, parity)?;
         }
 
         let record_commitments = {
@@ -124,11 +116,7 @@ impl PiecesReconstructor {
                         let mut parity_chunks = Record::new_boxed();
 
                         self.erasure_coding
-                            .extend(piece.record().iter(), parity_chunks.iter_mut())
-                            .expect(
-                                "Erasure coding instance is deliberately configured to \
-                                support this input; qed",
-                            );
+                            .extend(piece.record().iter(), parity_chunks.iter_mut())?;
 
                         let parity_chunks_root = BalancedHashedMerkleTree::new_in(
                             &mut record_merkle_tree,
@@ -153,7 +141,7 @@ impl PiecesReconstructor {
                     .parity_chunks_root_mut()
                     .copy_from_slice(&parity_chunks_root);
 
-                Ok(record_commitment)
+                Ok::<_, ReconstructorError>(record_commitment)
             })
             .collect::<Result<Vec<_>, _>>()?
         };
