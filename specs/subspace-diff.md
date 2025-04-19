@@ -28,6 +28,10 @@ KZG is no longer used and was replaced with Merkle Tree.
 `Solution` data structure no longer includes reward address in it, reward claiming mechanism is different (not
 implemented right now, details will be added later).
 
+## Chunks
+
+Not being constrained to KZG's 254 bits (31 bytes in practice) scalars, chunk size is now uniformly 32 bytes everywhere.
+
 ## Dynamic issuance
 
 Dynamic issuance is different (not implemented right now, details will be added later).
@@ -39,3 +43,11 @@ erasure coding of records, so it can commit to erasure coded chunks too. This al
 before even though technically record doesn't contain parity chunks. To aid efficient verification of pieces, source and
 parity chunks are first committed to separately before combining into record commitment, with parity chunks root also
 included in the piece alongside record root.
+
+## Erasure coding
+
+Erasure coding is no longer based on BLS12-381 (related to KZG), instead [reed-solomon-simd] library is used. Not only
+this improved performance substantially, this also reduced the need to constrain record chunks to 254 bits (31 bytes in
+practice), increasing record size slightly and simplifying a lot of places in the code.
+
+[reed-solomon-simd]: https://github.com/AndersTrier/reed-solomon-simd
