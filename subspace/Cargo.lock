@@ -11506,19 +11506,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "subspace-kzg"
-version = "0.1.0"
-dependencies = [
- "derive_more 1.0.0",
- "kzg",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "rust-kzg-blst",
- "static_assertions",
- "subspace-core-primitives",
-]
-
-[[package]]
 name = "subspace-logging"
 version = "0.0.1"
 dependencies = [
@@ -11643,7 +11630,6 @@ dependencies = [
  "subspace-core-primitives",
  "subspace-erasure-coding",
  "subspace-farmer-components",
- "subspace-kzg",
  "subspace-proof-of-space",
 ]
 
