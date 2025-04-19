@@ -613,11 +613,7 @@ fn record_encoding<PosTable>(
     // Derive PoSpace table
     let pos_table = table_generator.generate_parallel(pos_seed);
 
-    // TODO: Should have been just `::new()`, but https://github.com/rust-lang/rust/issues/53827
-    let parity_record_chunks =
-        Box::<[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]>::new_zeroed();
-    // SAFETY: Zero-initialized is a valid invariant
-    let mut parity_record_chunks = unsafe { parity_record_chunks.assume_init() };
+    let mut parity_record_chunks = Record::new_boxed();
 
     // Erasure code source record chunks
     erasure_coding

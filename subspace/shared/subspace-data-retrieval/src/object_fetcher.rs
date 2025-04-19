@@ -331,13 +331,7 @@ where
 
         // Discard piece data before the offset.
         // If this is the first piece in a segment, this automatically skips the segment header.
-        let piece_data = piece
-            .record()
-            .to_raw_record_chunks()
-            .flatten()
-            .skip(offset as usize)
-            .copied()
-            .collect::<Vec<u8>>();
+        let piece_data = piece.record().as_flattened()[offset as usize..].to_vec();
 
         raw_data.add_piece_data(next_source_piece_index, piece_data, mapping)?;
         next_source_piece_index = next_source_piece_index.next_source_index();
@@ -369,12 +363,7 @@ where
             // Get the second piece for the object
             let piece = self.read_piece(next_source_piece_index, mapping).await?;
             // We want all the piece data
-            let piece_data = piece
-                .record()
-                .to_raw_record_chunks()
-                .flatten()
-                .copied()
-                .collect::<Vec<u8>>();
+            let piece_data = piece.record().as_flattened().to_vec();
 
             raw_data.add_piece_data(next_source_piece_index, piece_data, mapping)?;
             next_source_piece_index = next_source_piece_index.next_source_index();
@@ -431,17 +420,7 @@ where
                 .await?
                 .into_iter()
                 .zip(remaining_piece_indexes.iter().copied())
-                .map(|(piece, piece_index)| {
-                    (
-                        piece_index,
-                        piece
-                            .record()
-                            .to_raw_record_chunks()
-                            .flatten()
-                            .copied()
-                            .collect::<Vec<u8>>(),
-                    )
-                });
+                .map(|(piece, piece_index)| (piece_index, piece.record().as_flattened().to_vec()));
 
             for (piece_index, piece_data) in pieces {
                 let mut new_data = RawPieceData::new_for_next_piece(

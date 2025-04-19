@@ -24,26 +24,11 @@ fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
     &data[offset as usize + Compact::compact_len(&size)..][..size as usize]
 }
 
-fn extract_data_from_source_record<O: Into<u32>>(record: &Record, offset: O) -> Vec<u8> {
+fn extract_data_from_source_record<O: Into<u32>>(record: &Record, offset: O) -> &[u8] {
     let offset: u32 = offset.into();
-    let Compact(size) = Compact::<u32>::decode(
-        &mut record
-            .to_raw_record_chunks()
-            .flatten()
-            .copied()
-            .skip(offset as usize)
-            .take(8)
-            .collect::<Vec<_>>()
-            .as_slice(),
-    )
-    .unwrap();
-    record
-        .to_raw_record_chunks()
-        .flatten()
-        .copied()
-        .skip(offset as usize + Compact::compact_len(&size))
-        .take(size as usize)
-        .collect()
+    let Compact(size) =
+        Compact::<u32>::decode(&mut &record.as_flattened()[offset as usize..]).unwrap();
+    &record.as_flattened()[offset as usize + Compact::compact_len(&size)..][..size as usize]
 }
 
 #[track_caller]
@@ -670,14 +655,8 @@ fn object_on_the_edge_of_segment() {
 
     // Ensure bytes are mapped correctly
     assert_eq!(
-        archived_segments[1].pieces[0]
-            .record()
-            .to_raw_record_chunks()
-            .flatten()
-            .copied()
-            .skip(object_mapping[0].offset as usize)
-            .take(mapped_bytes.len())
-            .collect::<Vec<_>>(),
+        archived_segments[1].pieces[0].record().as_flattened()[object_mapping[0].offset as usize..]
+            [..mapped_bytes.len()],
         mapped_bytes
     );
 }

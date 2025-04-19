@@ -10,7 +10,6 @@ use alloc::vec::Vec;
 use rayon::prelude::*;
 use subspace_core_primitives::pieces::{Piece, Record};
 use subspace_core_primitives::segments::ArchivedHistorySegment;
-use subspace_core_primitives::ScalarBytes;
 use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
 
 /// Reconstructor-related instantiation error
@@ -97,13 +96,7 @@ impl PiecesReconstructor {
                         )
                         .root();
 
-                        // TODO: Should have been just `::new()`, but
-                        //  https://github.com/rust-lang/rust/issues/53827
-                        let parity_chunks = Box::<
-                            [[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS],
-                        >::new_zeroed();
-                        // SAFETY: Zero-initialized is a valid invariant
-                        let mut parity_chunks = unsafe { parity_chunks.assume_init() };
+                        let mut parity_chunks = Record::new_boxed();
 
                         self.erasure_coding
                             .extend(piece.record().iter(), parity_chunks.iter_mut())

@@ -356,6 +356,7 @@ pub fn recover_source_record(
     // Restore source record scalars
     let mut recovered_record = Record::new_boxed();
     // TODO: This will need to be simplified once chunks are no longer interleaved
+    // TODO: This is not correct for interleaved version anyway
     let (source, parity) = sector_record_chunks
         .iter()
         .zip(recovered_record.iter_mut())

@@ -52,7 +52,7 @@ fn compact_encoded(object_len: usize) -> Vec<u8> {
 fn extract_raw_data(pieces: Vec<&Piece>) -> impl DoubleEndedIterator<Item = u8> + '_ {
     pieces
         .into_iter()
-        .flat_map(|piece| piece.record().to_raw_record_chunks().flatten())
+        .flat_map(|piece| piece.record().as_flattened())
         .copied()
 }
 
@@ -62,7 +62,7 @@ fn extract_raw_data_mut(
 ) -> impl DoubleEndedIterator<Item = &'_ mut u8> + '_ {
     pieces
         .into_iter()
-        .flat_map(|piece| piece.record_mut().to_mut_raw_record_chunks().flatten())
+        .flat_map(|piece| piece.record_mut().as_flattened_mut())
 }
 
 /// Sets the data at the end of the piece to the correct byte values for padding.

@@ -98,17 +98,6 @@ impl Scalar {
         self.into()
     }
 
-    /// Convert scalar into safe bytes, returns `None` if not possible to convert due to larger
-    /// internal value
-    pub fn try_to_safe_bytes(&self) -> Option<[u8; ScalarBytes::SAFE_BYTES]> {
-        let bytes = self.to_bytes();
-        if bytes[0] == 0 {
-            Some(bytes[1..].try_into().expect("Correct length; qed"))
-        } else {
-            None
-        }
-    }
-
     /// Convenient conversion from slice of scalar to underlying representation for efficiency
     /// purposes.
     #[inline]

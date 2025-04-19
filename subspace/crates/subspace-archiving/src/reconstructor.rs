@@ -10,8 +10,7 @@ use core::mem;
 use parity_scale_codec::Decode;
 use subspace_core_primitives::pieces::Piece;
 use subspace_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentHeader, SegmentIndex,
+    ArchivedBlockProgress, LastArchivedBlock, RecordedHistorySegment, SegmentHeader, SegmentIndex,
 };
 use subspace_core_primitives::BlockNumber;
 use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
@@ -83,15 +82,9 @@ impl Reconstructor {
             // Take each source shards here
             .step_by(2)
             .zip(segment_data.iter_mut())
-            .all(|(maybe_piece, raw_record)| {
+            .all(|(maybe_piece, record)| {
                 if let Some(piece) = maybe_piece {
-                    piece
-                        .record()
-                        .to_raw_record_chunks()
-                        .zip(raw_record.iter_mut())
-                        .for_each(|(source, target)| {
-                            target.copy_from_slice(source);
-                        });
+                    record.copy_from_slice(piece.record().as_slice());
                     true
                 } else {
                     false
@@ -102,47 +95,35 @@ impl Reconstructor {
             // coding.
 
             // TODO: This will need to be simplified once pieces are no longer interleaved
-            // TODO: This will need to be simplified once chunks are always 32 bytes
             {
-                let mut reconstructed_pieces = ArchivedHistorySegment::default();
-
-                // TODO: This will need to be simplified once pieces are no longer interleaved
-                {
-                    let (source, parity) = segment_pieces
-                        .iter()
-                        .zip(reconstructed_pieces.iter_mut())
-                        .map(
-                            |(maybe_input_piece, output_piece)| match maybe_input_piece {
+                let (source, parity) = segment_pieces
+                    .array_chunks::<2>()
+                    .zip(segment_data.iter_mut())
+                    .map(
+                        |([maybe_source_piece, maybe_parity_piece], output_record)| {
+                            let source = match maybe_source_piece {
                                 Some(input_piece) => {
-                                    output_piece
-                                        .record_mut()
-                                        .copy_from_slice(input_piece.record().as_slice());
+                                    output_record.copy_from_slice(input_piece.record().as_slice());
                                     RecoveryShardState::Present(input_piece.record().as_flattened())
                                 }
                                 None => RecoveryShardState::MissingRecover(
-                                    output_piece.record_mut().as_flattened_mut(),
+                                    output_record.as_flattened_mut(),
                                 ),
-                            },
-                        )
-                        .array_chunks::<2>()
-                        .map(|[a, b]| (a, b))
-                        .unzip::<_, _, Vec<_>, Vec<_>>();
-                    self.erasure_coding
-                        .recover(source.into_iter(), parity.into_iter())
-                        .map_err(ReconstructorError::DataShardsReconstruction)?;
-                }
+                            };
+                            let parity = match maybe_parity_piece {
+                                Some(input_piece) => {
+                                    RecoveryShardState::Present(input_piece.record().as_flattened())
+                                }
+                                None => RecoveryShardState::MissingIgnore,
+                            };
 
-                for (input_piece, output_record) in reconstructed_pieces
-                    .iter()
-                    .step_by(2)
-                    .zip(segment_data.iter_mut())
-                {
-                    for (input_chunk, output_chunk) in
-                        input_piece.record().iter().zip(output_record.iter_mut())
-                    {
-                        output_chunk.copy_from_slice(input_chunk);
-                    }
-                }
+                            (source, parity)
+                        },
+                    )
+                    .unzip::<_, _, Vec<_>, Vec<_>>();
+                self.erasure_coding
+                    .recover(source.into_iter(), parity.into_iter())
+                    .map_err(ReconstructorError::DataShardsReconstruction)?;
             }
         }
 

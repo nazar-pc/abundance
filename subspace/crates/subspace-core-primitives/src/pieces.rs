@@ -472,24 +472,6 @@ impl Record {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
-
-    /// Convert from a record to its raw bytes, assumes dealing with source record that only stores
-    /// safe bytes in its chunks.
-    #[inline]
-    pub fn to_raw_record_chunks(
-        &self,
-    ) -> impl DoubleEndedIterator<Item = &'_ [u8; ScalarBytes::SAFE_BYTES]> + '_ {
-        self.iter()
-    }
-
-    /// Convert from a record to mutable raw bytes, assumes dealing with source record that only stores
-    /// safe bytes in its chunks.
-    #[inline]
-    pub fn to_mut_raw_record_chunks(
-        &mut self,
-    ) -> impl DoubleEndedIterator<Item = &'_ mut [u8; ScalarBytes::SAFE_BYTES]> + '_ {
-        self.iter_mut()
-    }
 }
 
 /// Record commitment contained within a piece.
