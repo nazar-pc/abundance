@@ -31,6 +31,30 @@ const INITIAL_LAST_ARCHIVED_BLOCK: LastArchivedBlock = LastArchivedBlock {
     archived_progress: ArchivedBlockProgress::Partial(0),
 };
 
+struct ArchivedHistorySegmentOutput<'a> {
+    segment: &'a mut ArchivedHistorySegment,
+    offset: usize,
+}
+
+impl Output for ArchivedHistorySegmentOutput<'_> {
+    #[inline]
+    fn write(&mut self, mut bytes: &[u8]) {
+        while !bytes.is_empty() {
+            let piece = self
+                .segment
+                .iter_mut()
+                .skip(self.offset / Record::SIZE)
+                .next()
+                .expect("Encoding never exceeds the segment size; qed");
+            let output = &mut piece.record_mut().as_flattened_mut()[self.offset % Record::SIZE..];
+            let bytes_to_write = output.len().min(bytes.len());
+            output[..bytes_to_write].copy_from_slice(&bytes[..bytes_to_write]);
+            self.offset += bytes_to_write;
+            bytes = &bytes[bytes_to_write..];
+        }
+    }
+}
+
 /// Segment represents a collection of items stored in archival history of the Subspace blockchain
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Segment {
@@ -652,26 +676,14 @@ impl Archiver {
     /// Take segment as an input, apply necessary transformations and produce archived segment
     fn produce_archived_segment(&mut self, segment: Segment) -> NewArchivedSegment {
         let mut pieces = {
-            // Serialize segment into concatenation of raw records
-            let mut raw_record_shards = RecordedHistorySegment::new_boxed();
-            // TODO: Custom encoder that can encode into records of `ArchivedHistorySegment`
-            //  directly without extra clone below
-            segment.encode_to(&mut raw_record_shards.as_mut().as_mut());
-
-            // Segment is quite big and no longer necessary
-            drop(segment);
-
             let mut pieces = ArchivedHistorySegment::default();
 
-            for (input, output) in raw_record_shards.iter().zip(pieces.iter_mut()) {
-                output
-                    .record_mut()
-                    .as_flattened_mut()
-                    .copy_from_slice(input.as_ref());
-            }
-
-            // Recorded history segment is quite big and no longer necessary
-            drop(raw_record_shards);
+            segment.encode_to(&mut ArchivedHistorySegmentOutput {
+                segment: &mut pieces,
+                offset: 0,
+            });
+            // Segment is quite big and no longer necessary
+            drop(segment);
 
             let (source_shards, parity_shards) =
                 pieces.split_at_mut(RecordedHistorySegment::NUM_RAW_RECORDS);
