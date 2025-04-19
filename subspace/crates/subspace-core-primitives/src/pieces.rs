@@ -351,7 +351,7 @@ impl From<&mut [[u8; ScalarBytes::SAFE_BYTES]; RawRecord::NUM_CHUNKS]> for &mut 
     }
 }
 
-impl From<&RawRecord> for &[u8; ScalarBytes::SAFE_BYTES * RawRecord::NUM_CHUNKS] {
+impl From<&RawRecord> for &[u8; RawRecord::SIZE] {
     #[inline]
     fn from(value: &RawRecord) -> Self {
         // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
@@ -360,16 +360,16 @@ impl From<&RawRecord> for &[u8; ScalarBytes::SAFE_BYTES * RawRecord::NUM_CHUNKS]
     }
 }
 
-impl From<&[u8; ScalarBytes::SAFE_BYTES * RawRecord::NUM_CHUNKS]> for &RawRecord {
+impl From<&[u8; RawRecord::SIZE]> for &RawRecord {
     #[inline]
-    fn from(value: &[u8; ScalarBytes::SAFE_BYTES * RawRecord::NUM_CHUNKS]) -> Self {
+    fn from(value: &[u8; RawRecord::SIZE]) -> Self {
         // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
         // layout as inner array, while array of byte arrays has the same alignment as a single byte
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut RawRecord> for &mut [u8; ScalarBytes::SAFE_BYTES * RawRecord::NUM_CHUNKS] {
+impl From<&mut RawRecord> for &mut [u8; RawRecord::SIZE] {
     #[inline]
     fn from(value: &mut RawRecord) -> Self {
         // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
@@ -378,9 +378,9 @@ impl From<&mut RawRecord> for &mut [u8; ScalarBytes::SAFE_BYTES * RawRecord::NUM
     }
 }
 
-impl From<&mut [u8; ScalarBytes::SAFE_BYTES * RawRecord::NUM_CHUNKS]> for &mut RawRecord {
+impl From<&mut [u8; RawRecord::SIZE]> for &mut RawRecord {
     #[inline]
-    fn from(value: &mut [u8; ScalarBytes::SAFE_BYTES * RawRecord::NUM_CHUNKS]) -> Self {
+    fn from(value: &mut [u8; RawRecord::SIZE]) -> Self {
         // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
         // layout as inner array, while array of byte arrays has the same alignment as a single byte
         unsafe { mem::transmute(value) }
@@ -448,7 +448,7 @@ impl RawRecord {
 /// NOTE: This is a stack-allocated data structure and can cause stack overflow!
 #[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut)]
 #[repr(transparent)]
-pub struct Record([[u8; ScalarBytes::FULL_BYTES]; Self::NUM_CHUNKS]);
+pub struct Record([[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]);
 
 impl fmt::Debug for Record {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -512,7 +512,7 @@ impl From<&mut [[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]> for &mut Rec
     }
 }
 
-impl From<&Record> for &[u8; ScalarBytes::FULL_BYTES * Record::NUM_CHUNKS] {
+impl From<&Record> for &[u8; Record::SIZE] {
     #[inline]
     fn from(value: &Record) -> Self {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
@@ -521,16 +521,16 @@ impl From<&Record> for &[u8; ScalarBytes::FULL_BYTES * Record::NUM_CHUNKS] {
     }
 }
 
-impl From<&[u8; ScalarBytes::FULL_BYTES * Record::NUM_CHUNKS]> for &Record {
+impl From<&[u8; Record::SIZE]> for &Record {
     #[inline]
-    fn from(value: &[u8; ScalarBytes::FULL_BYTES * Record::NUM_CHUNKS]) -> Self {
+    fn from(value: &[u8; Record::SIZE]) -> Self {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         // as inner array, while array of byte arrays has the same alignment as a single byte
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut Record> for &mut [u8; ScalarBytes::FULL_BYTES * Record::NUM_CHUNKS] {
+impl From<&mut Record> for &mut [u8; Record::SIZE] {
     #[inline]
     fn from(value: &mut Record) -> Self {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
@@ -539,9 +539,9 @@ impl From<&mut Record> for &mut [u8; ScalarBytes::FULL_BYTES * Record::NUM_CHUNK
     }
 }
 
-impl From<&mut [u8; ScalarBytes::FULL_BYTES * Record::NUM_CHUNKS]> for &mut Record {
+impl From<&mut [u8; Record::SIZE]> for &mut Record {
     #[inline]
-    fn from(value: &mut [u8; ScalarBytes::FULL_BYTES * Record::NUM_CHUNKS]) -> Self {
+    fn from(value: &mut [u8; Record::SIZE]) -> Self {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         // as inner array, while array of byte arrays has the same alignment as a single byte
         unsafe { mem::transmute(value) }
@@ -551,7 +551,7 @@ impl From<&mut [u8; ScalarBytes::FULL_BYTES * Record::NUM_CHUNKS]> for &mut Reco
 impl Record {
     /// Number of chunks (scalars) within one record.
     pub const NUM_CHUNKS: usize = RawRecord::NUM_CHUNKS;
-    /// Number of s-buckets contained within one record (and by extension sector).
+    /// Number of s-buckets contained within one sector record.
     ///
     /// Essentially we chunk records into scalars and erasure code them.
     pub const NUM_S_BUCKETS: usize = Self::NUM_CHUNKS
@@ -642,10 +642,7 @@ impl Record {
     pub fn to_raw_record_chunks(
         &self,
     ) -> impl DoubleEndedIterator<Item = &'_ [u8; ScalarBytes::SAFE_BYTES]> + '_ {
-        // We have zero byte padding from [`ScalarBytes::SAFE_BYTES`] to
-        // [`ScalarBytes::FULL_BYTES`] that we need to skip
         self.iter()
-            .map(|bytes| bytes[1..].try_into().expect("Correct length; qed"))
     }
 
     /// Convert from a record to mutable raw bytes, assumes dealing with source record that only stores
@@ -655,7 +652,6 @@ impl Record {
         &mut self,
     ) -> impl DoubleEndedIterator<Item = &'_ mut [u8; ScalarBytes::SAFE_BYTES]> + '_ {
         self.iter_mut()
-            .map(|bytes| (&mut bytes[1..]).try_into().expect("Correct length; qed"))
     }
 }
 

@@ -256,7 +256,7 @@ impl ScalarBytes {
     ///
     /// NOTE: After encoding more bytes can be used, so don't rely on this as the max number of
     /// bytes stored within at all times!
-    pub const SAFE_BYTES: usize = 31;
+    pub const SAFE_BYTES: usize = 32;
     /// How many bytes Scalar contains physically, use [`Self::SAFE_BYTES`] for the amount of data
     /// that you can put into it safely (for instance before encoding).
     pub const FULL_BYTES: usize = 32;

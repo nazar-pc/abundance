@@ -680,11 +680,7 @@ impl Archiver {
                             .nth(record_offset)
                             .expect("Statically known to exist in a record; qed")
                     })
-                    .map(|bytes| {
-                        let mut result = [0u8; ScalarBytes::FULL_BYTES];
-                        result[1..][..ScalarBytes::SAFE_BYTES].copy_from_slice(bytes);
-                        result
-                    })
+                    .copied()
                     .collect_into(&mut tmp_source_shards_scalars);
 
                 pieces

@@ -1,9 +1,6 @@
 //! KZG primitives for Subspace Network
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(test)]
-mod tests;
-
 extern crate alloc;
 
 #[cfg(not(feature = "std"))]
@@ -30,22 +27,6 @@ const_assert_eq!(
     mem::align_of::<Option<Scalar>>(),
     mem::align_of::<Option<FsFr>>()
 );
-
-impl From<&[u8; ScalarBytes::SAFE_BYTES]> for Scalar {
-    #[inline]
-    fn from(value: &[u8; ScalarBytes::SAFE_BYTES]) -> Self {
-        let mut bytes = [0u8; ScalarBytes::FULL_BYTES];
-        bytes[1..].copy_from_slice(value);
-        Self::try_from(bytes).expect("Safe bytes always fit into scalar and thus succeed; qed")
-    }
-}
-
-impl From<[u8; ScalarBytes::SAFE_BYTES]> for Scalar {
-    #[inline]
-    fn from(value: [u8; ScalarBytes::SAFE_BYTES]) -> Self {
-        Self::from(&value)
-    }
-}
 
 impl TryFrom<&[u8; ScalarBytes::FULL_BYTES]> for Scalar {
     type Error = String;

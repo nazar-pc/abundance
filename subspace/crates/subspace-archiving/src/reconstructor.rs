@@ -13,7 +13,7 @@ use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
     SegmentHeader, SegmentIndex,
 };
-use subspace_core_primitives::{BlockNumber, ScalarBytes};
+use subspace_core_primitives::BlockNumber;
 use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
 
 /// Reconstructor-related instantiation error
@@ -140,7 +140,7 @@ impl Reconstructor {
                     for (input_chunk, output_chunk) in
                         input_piece.record().iter().zip(output_record.iter_mut())
                     {
-                        output_chunk.copy_from_slice(&input_chunk[1..][..ScalarBytes::SAFE_BYTES]);
+                        output_chunk.copy_from_slice(input_chunk);
                     }
                 }
             }
