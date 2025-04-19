@@ -278,171 +278,6 @@ impl PieceOffset {
     }
 }
 
-/// Raw record contained within recorded history segment before archiving is applied.
-///
-/// NOTE: This is a stack-allocated data structure and can cause stack overflow!
-#[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut)]
-#[repr(transparent)]
-pub struct RawRecord([[u8; ScalarBytes::SAFE_BYTES]; Self::NUM_CHUNKS]);
-
-impl fmt::Debug for RawRecord {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.0.as_flattened() {
-            write!(f, "{byte:02x}")?;
-        }
-        Ok(())
-    }
-}
-
-impl Default for RawRecord {
-    #[inline]
-    fn default() -> Self {
-        Self([Default::default(); Self::NUM_CHUNKS])
-    }
-}
-
-impl AsRef<[u8]> for RawRecord {
-    #[inline]
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_slice().as_flattened()
-    }
-}
-
-impl AsMut<[u8]> for RawRecord {
-    #[inline]
-    fn as_mut(&mut self) -> &mut [u8] {
-        self.0.as_mut_slice().as_flattened_mut()
-    }
-}
-
-impl From<&RawRecord> for &[[u8; ScalarBytes::SAFE_BYTES]; RawRecord::NUM_CHUNKS] {
-    #[inline]
-    fn from(value: &RawRecord) -> Self {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&[[u8; ScalarBytes::SAFE_BYTES]; RawRecord::NUM_CHUNKS]> for &RawRecord {
-    #[inline]
-    fn from(value: &[[u8; ScalarBytes::SAFE_BYTES]; RawRecord::NUM_CHUNKS]) -> Self {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&mut RawRecord> for &mut [[u8; ScalarBytes::SAFE_BYTES]; RawRecord::NUM_CHUNKS] {
-    #[inline]
-    fn from(value: &mut RawRecord) -> Self {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&mut [[u8; ScalarBytes::SAFE_BYTES]; RawRecord::NUM_CHUNKS]> for &mut RawRecord {
-    #[inline]
-    fn from(value: &mut [[u8; ScalarBytes::SAFE_BYTES]; RawRecord::NUM_CHUNKS]) -> Self {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&RawRecord> for &[u8; RawRecord::SIZE] {
-    #[inline]
-    fn from(value: &RawRecord) -> Self {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout as inner array, while array of byte arrays has the same alignment as a single byte
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&[u8; RawRecord::SIZE]> for &RawRecord {
-    #[inline]
-    fn from(value: &[u8; RawRecord::SIZE]) -> Self {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout as inner array, while array of byte arrays has the same alignment as a single byte
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&mut RawRecord> for &mut [u8; RawRecord::SIZE] {
-    #[inline]
-    fn from(value: &mut RawRecord) -> Self {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout as inner array, while array of byte arrays has the same alignment as a single byte
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl From<&mut [u8; RawRecord::SIZE]> for &mut RawRecord {
-    #[inline]
-    fn from(value: &mut [u8; RawRecord::SIZE]) -> Self {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout as inner array, while array of byte arrays has the same alignment as a single byte
-        unsafe { mem::transmute(value) }
-    }
-}
-
-impl RawRecord {
-    /// Number of chunks (scalars) within one raw record.
-    pub const NUM_CHUNKS: usize = 2_usize.pow(15);
-    /// Size of raw record in bytes, is guaranteed to be a multiple of [`ScalarBytes::SAFE_BYTES`].
-    pub const SIZE: usize = ScalarBytes::SAFE_BYTES * Self::NUM_CHUNKS;
-
-    /// Create boxed value without hitting stack overflow
-    #[cfg(feature = "alloc")]
-    #[inline]
-    pub fn new_boxed() -> Box<Self> {
-        // TODO: Should have been just `::new()`, but https://github.com/rust-lang/rust/issues/53827
-        // SAFETY: Data structure filled with zeroes is a valid invariant
-        unsafe { Box::new_zeroed().assume_init() }
-    }
-
-    /// Convenient conversion from slice of record to underlying representation for efficiency
-    /// purposes.
-    #[inline]
-    pub fn slice_to_repr(value: &[Self]) -> &[[[u8; ScalarBytes::SAFE_BYTES]; Self::NUM_CHUNKS]] {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from slice of underlying representation to record for efficiency
-    /// purposes.
-    #[inline]
-    pub fn slice_from_repr(value: &[[[u8; ScalarBytes::SAFE_BYTES]; Self::NUM_CHUNKS]]) -> &[Self] {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from mutable slice of record to underlying representation for
-    /// efficiency purposes.
-    #[inline]
-    pub fn slice_mut_to_repr(
-        value: &mut [Self],
-    ) -> &mut [[[u8; ScalarBytes::SAFE_BYTES]; Self::NUM_CHUNKS]] {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from mutable slice of underlying representation to record for
-    /// efficiency purposes.
-    #[inline]
-    pub fn slice_mut_from_repr(
-        value: &mut [[[u8; ScalarBytes::SAFE_BYTES]; Self::NUM_CHUNKS]],
-    ) -> &mut [Self] {
-        // SAFETY: `RawRecord` is `#[repr(transparent)]` and guaranteed to have the same memory
-        // layout
-        unsafe { mem::transmute(value) }
-    }
-}
-
 /// Record contained within a piece.
 ///
 /// NOTE: This is a stack-allocated data structure and can cause stack overflow!
@@ -462,7 +297,7 @@ impl fmt::Debug for Record {
 impl Default for Record {
     #[inline]
     fn default() -> Self {
-        Self([Default::default(); Self::NUM_CHUNKS])
+        Self([Default::default(); Record::NUM_CHUNKS])
     }
 }
 
@@ -549,17 +384,16 @@ impl From<&mut [u8; Record::SIZE]> for &mut Record {
 }
 
 impl Record {
-    /// Number of chunks (scalars) within one record.
-    pub const NUM_CHUNKS: usize = RawRecord::NUM_CHUNKS;
+    /// Number of chunks within one record.
+    pub const NUM_CHUNKS: usize = 2_usize.pow(15);
     /// Number of s-buckets contained within one sector record.
     ///
-    /// Essentially we chunk records into scalars and erasure code them.
-    pub const NUM_S_BUCKETS: usize = Self::NUM_CHUNKS
+    /// Essentially we chunk records and erasure code them.
+    pub const NUM_S_BUCKETS: usize = Record::NUM_CHUNKS
         * RecordedHistorySegment::ERASURE_CODING_RATE.1
         / RecordedHistorySegment::ERASURE_CODING_RATE.0;
-    /// Size of a segment record given the global piece size (in bytes) after erasure coding
-    /// [`RawRecord`], is guaranteed to be a multiple of [`ScalarBytes::FULL_BYTES`].
-    pub const SIZE: usize = ScalarBytes::FULL_BYTES * Self::NUM_CHUNKS;
+    /// Size of a segment record, it is guaranteed to be a multiple of [`ScalarBytes::FULL_BYTES`]
+    pub const SIZE: usize = ScalarBytes::FULL_BYTES * Record::NUM_CHUNKS;
 
     /// Create boxed value without hitting stack overflow
     #[inline]
@@ -570,7 +404,7 @@ impl Record {
         unsafe { Box::new_zeroed().assume_init() }
     }
 
-    /// Create vector filled with zeroe records without hitting stack overflow
+    /// Create vector filled with zeroed records without hitting stack overflow
     #[inline]
     #[cfg(feature = "alloc")]
     pub fn new_zero_vec(length: usize) -> Vec<Self> {
@@ -584,7 +418,8 @@ impl Record {
             let slice = unsafe {
                 slice::from_raw_parts_mut(
                     slice.as_mut_ptr()
-                        as *mut [[mem::MaybeUninit<u8>; ScalarBytes::FULL_BYTES]; Self::NUM_CHUNKS],
+                        as *mut [[mem::MaybeUninit<u8>; ScalarBytes::FULL_BYTES];
+                            Record::NUM_CHUNKS],
                     length,
                 )
             };
@@ -603,7 +438,7 @@ impl Record {
     /// Convenient conversion from slice of record to underlying representation for efficiency
     /// purposes.
     #[inline]
-    pub fn slice_to_repr(value: &[Self]) -> &[[[u8; ScalarBytes::FULL_BYTES]; Self::NUM_CHUNKS]] {
+    pub fn slice_to_repr(value: &[Self]) -> &[[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]] {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -611,7 +446,9 @@ impl Record {
     /// Convenient conversion from slice of underlying representation to record for efficiency
     /// purposes.
     #[inline]
-    pub fn slice_from_repr(value: &[[[u8; ScalarBytes::FULL_BYTES]; Self::NUM_CHUNKS]]) -> &[Self] {
+    pub fn slice_from_repr(
+        value: &[[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]],
+    ) -> &[Self] {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -621,7 +458,7 @@ impl Record {
     #[inline]
     pub fn slice_mut_to_repr(
         value: &mut [Self],
-    ) -> &mut [[[u8; ScalarBytes::FULL_BYTES]; Self::NUM_CHUNKS]] {
+    ) -> &mut [[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]] {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -630,7 +467,7 @@ impl Record {
     /// efficiency purposes.
     #[inline]
     pub fn slice_mut_from_repr(
-        value: &mut [[[u8; ScalarBytes::FULL_BYTES]; Self::NUM_CHUNKS]],
+        value: &mut [[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]],
     ) -> &mut [Self] {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }

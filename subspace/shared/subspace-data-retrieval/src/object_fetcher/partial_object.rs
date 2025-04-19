@@ -24,7 +24,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use subspace_core_primitives::hashes::{blake3_hash, Blake3Hash};
 use subspace_core_primitives::objects::GlobalObject;
-use subspace_core_primitives::pieces::{PieceIndex, RawRecord};
+use subspace_core_primitives::pieces::{PieceIndex, Record};
 use subspace_core_primitives::segments::RecordedHistorySegment;
 use tracing::{debug, trace};
 
@@ -78,7 +78,7 @@ impl RawPieceData {
         // How much bytes are definitely available starting at `piece_index` and `offset` without
         // crossing a segment boundary.
         let bytes_available_in_segment =
-            (data_shards - source_position_in_segment) * RawRecord::SIZE - offset as usize;
+            (data_shards - source_position_in_segment) * Record::SIZE - offset as usize;
 
         Self {
             segment_data_length: Some(bytes_available_in_segment),
@@ -106,7 +106,7 @@ impl RawPieceData {
             // How much bytes are definitely available starting at `piece_index` and `offset` without
             // crossing a segment boundary.
             let bytes_available_in_segment =
-                (data_shards - source_position_in_segment) * RawRecord::SIZE;
+                (data_shards - source_position_in_segment) * Record::SIZE;
             let remaining_data_length = min(remaining_data_length, bytes_available_in_segment);
 
             Self {

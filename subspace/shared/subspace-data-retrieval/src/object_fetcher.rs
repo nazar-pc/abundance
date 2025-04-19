@@ -11,7 +11,7 @@ use std::sync::Arc;
 use subspace_archiving::archiver::SegmentItem;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::{GlobalObject, GlobalObjectMapping};
-use subspace_core_primitives::pieces::{Piece, PieceIndex, RawRecord};
+use subspace_core_primitives::pieces::{Piece, PieceIndex, Record};
 use subspace_core_primitives::segments::{RecordedHistorySegment, SegmentIndex};
 use tracing::{debug, trace, warn};
 
@@ -62,7 +62,7 @@ pub enum Error {
     /// Supplied piece offset is too large
     #[error(
         "Piece offset is too large, must be less than {}, object: {mapping:?}",
-        RawRecord::SIZE
+        Record::SIZE
     )]
     PieceOffsetTooLarge { mapping: GlobalObject },
 
@@ -280,10 +280,10 @@ where
                 return Err(Error::PieceOffsetInSegmentHeader { mapping });
             }
 
-            if offset >= RawRecord::SIZE as u32 {
+            if offset >= Record::SIZE as u32 {
                 debug!(
                     ?mapping,
-                    RawRecord_SIZE = RawRecord::SIZE,
+                    Record_SIZE = Record::SIZE,
                     "Invalid piece offset for object: must be less than the size of a raw record",
                 );
 
@@ -417,7 +417,7 @@ where
         // the same time. (Larger objects have already been rejected during length decoding.)
         let remaining_piece_count = partial_object
             .max_remaining_download_length()
-            .div_ceil(RawRecord::SIZE);
+            .div_ceil(Record::SIZE);
 
         if remaining_piece_count > 0 {
             let remaining_piece_indexes = (next_source_piece_index..)

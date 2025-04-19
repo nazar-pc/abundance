@@ -12,7 +12,7 @@ use parity_scale_codec::{Compact, CompactLen, Decode, Encode, Input, Output};
 use rayon::prelude::*;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::{BlockObject, BlockObjectMapping, GlobalObject};
-use subspace_core_primitives::pieces::{RawRecord, Record};
+use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
     SegmentCommitment, SegmentHeader, SegmentIndex,
@@ -217,7 +217,7 @@ pub enum ArchiverInstantiationError {
 ///
 /// It takes new confirmed (at `K` depth) blocks and concatenates them into a buffer, buffer is
 /// sliced into segments of [`RecordedHistorySegment::SIZE`] size, segments are sliced into source
-/// records of [`RawRecord::SIZE`], records are erasure coded, committed to, then commitments with
+/// records of [`Record::SIZE`], records are erasure coded, committed to, then commitments with
 /// witnesses are appended and records become pieces that are returned alongside the corresponding
 /// segment header.
 ///
@@ -628,12 +628,12 @@ impl Archiver {
                             + 1
                             + Compact::compact_len(&(bytes.len() as u32))
                             + block_object.offset as usize;
-                        let raw_piece_offset = (offset_in_segment % RawRecord::SIZE)
+                        let raw_piece_offset = (offset_in_segment % Record::SIZE)
                             .try_into()
                             .expect("Offset within piece should always fit in 32-bit integer; qed");
                         corrected_object_mapping.push(GlobalObject {
                             hash: block_object.hash,
-                            piece_index: source_piece_indexes[offset_in_segment / RawRecord::SIZE],
+                            piece_index: source_piece_indexes[offset_in_segment / Record::SIZE],
                             offset: raw_piece_offset,
                         });
                     }
@@ -670,10 +670,10 @@ impl Archiver {
             //  `ScalarBytes::FULL_BYTES` and should be removed once `ScalarBytes::SAFE_BYTES` is no
             //  longer a constraint for erasure coding
             // Iterate over the chunks of `ScalarBytes::SAFE_BYTES` bytes of all records
-            for record_offset in 0..RawRecord::NUM_CHUNKS {
+            for record_offset in 0..Record::NUM_CHUNKS {
                 // Collect chunks of each record at the same offset
                 raw_record_shards
-                    .array_chunks::<{ RawRecord::SIZE }>()
+                    .array_chunks::<{ Record::SIZE }>()
                     .map(|record_bytes| {
                         record_bytes
                             .array_chunks::<{ ScalarBytes::SAFE_BYTES }>()
