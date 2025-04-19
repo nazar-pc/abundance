@@ -237,21 +237,12 @@ where
                 .expect("Within s-bucket range; qed")
                 .expect("Winning chunk was plotted; qed");
 
-            let recovered_sector_record_chunks = recover_extended_record_chunks(
+            let chunks = recover_extended_record_chunks(
                 &sector_record_chunks,
                 piece_offset,
                 self.erasure_coding,
             )?;
             drop(sector_record_chunks);
-
-            // TODO: This un-interleaves chunks since that is how record commitment is done. This
-            //  should be re-considered once erasure coding no longer interleaves chunks.
-            let chunks = recovered_sector_record_chunks
-                .iter()
-                .step_by(2)
-                .chain(recovered_sector_record_chunks.iter().skip(1).step_by(2))
-                .copied()
-                .collect::<Vec<_>>();
 
             // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
             //  allows the code to compile. Constant 16 is hardcoded here and in `if` branch below
@@ -260,7 +251,7 @@ where
                 assert!(Record::NUM_S_BUCKETS.ilog2() == 16);
             };
             let record_merkle_tree = BalancedHashedMerkleTree::<16>::new_boxed(
-                RecordChunk::slice_to_repr(&chunks)
+                RecordChunk::slice_to_repr(chunks.as_slice())
                     .try_into()
                     .expect("Statically guaranteed to have correct length; qed"),
             );
@@ -282,20 +273,7 @@ where
 
             let chunk_witness = record_merkle_tree
                 .all_proofs()
-                .nth(
-                    // TODO: This is a translation from erasure coder's interleaved chunks that farmer uses for
-                    //  proofs to the way segment commitment is done where all source chunks are followed by
-                    //  parity chunks. This should be re-considered once erasure coding no longer interleaves
-                    //  chunks.
-                    {
-                        let original_index = usize::from(self.s_bucket);
-                        if original_index % 2 == 0 {
-                            original_index / 2
-                        } else {
-                            Record::NUM_CHUNKS + original_index / 2
-                        }
-                    },
-                )
+                .nth(usize::from(self.s_bucket))
                 .expect("Chunk offset is valid, hence corresponding proof exists; qed");
 
             Solution {

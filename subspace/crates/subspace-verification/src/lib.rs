@@ -223,18 +223,7 @@ where
     if !BalancedHashedMerkleTree::<16>::verify(
         &solution.record_commitment,
         &solution.chunk_witness,
-        // TODO: This is a translation from erasure coder's interleaved chunks that farmer uses for
-        //  proofs to the way segment commitment is done where all source chunks are followed by
-        //  parity chunks. This should be re-considered once erasure coding no longer interleaves
-        //  chunks.
-        {
-            let original_index = usize::from(s_bucket_audit_index);
-            if original_index % 2 == 0 {
-                original_index / 2
-            } else {
-                Record::NUM_CHUNKS + original_index / 2
-            }
-        },
+        usize::from(s_bucket_audit_index),
         *solution.chunk,
     ) {
         return Err(Error::InvalidChunkWitness);

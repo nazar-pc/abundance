@@ -11,8 +11,6 @@ mod piece;
 pub use crate::pieces::flat_pieces::FlatPieces;
 #[cfg(feature = "alloc")]
 pub use crate::pieces::piece::Piece;
-#[cfg(feature = "alloc")]
-pub use crate::segments::ArchivedHistorySegment;
 use crate::segments::{RecordedHistorySegment, SegmentIndex};
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
@@ -102,7 +100,7 @@ impl From<PieceIndex> for u64 {
 
 impl PieceIndex {
     /// Size in bytes.
-    pub const SIZE: usize = mem::size_of::<u64>();
+    pub const SIZE: usize = size_of::<u64>();
     /// Piece index 0.
     pub const ZERO: PieceIndex = PieceIndex(0);
     /// Piece index 1.
@@ -139,47 +137,23 @@ impl PieceIndex {
         (self.0 % RecordedHistorySegment::NUM_PIECES as u64) as u32
     }
 
-    /// Position of a source piece in the source pieces for a segment.
-    /// Panics if the piece is not a source piece.
-    #[inline]
-    pub const fn source_position(&self) -> u32 {
-        assert!(self.is_source());
-
-        let source_start = self.position() / RecordedHistorySegment::ERASURE_CODING_RATE.1 as u32
-            * RecordedHistorySegment::ERASURE_CODING_RATE.0 as u32;
-        let source_offset = self.position() % RecordedHistorySegment::ERASURE_CODING_RATE.1 as u32;
-
-        source_start + source_offset
-    }
-
-    /// Returns the piece index for a source position and segment index.
-    /// Overflows to the next segment if the position is greater than the last source position.
-    #[inline]
-    pub const fn from_source_position(
-        source_position: u32,
-        segment_index: SegmentIndex,
-    ) -> PieceIndex {
-        let source_position = source_position as u64;
-        let start = source_position / RecordedHistorySegment::ERASURE_CODING_RATE.0 as u64
-            * RecordedHistorySegment::ERASURE_CODING_RATE.1 as u64;
-        let offset = source_position % RecordedHistorySegment::ERASURE_CODING_RATE.0 as u64;
-
-        PieceIndex(segment_index.first_piece_index().0 + start + offset)
-    }
-
     /// Is this piece index a source piece?
     #[inline]
     pub const fn is_source(&self) -> bool {
-        // Source pieces are interleaved with parity pieces, source first
-        self.0 % (RecordedHistorySegment::ERASURE_CODING_RATE.1 as u64)
-            < (RecordedHistorySegment::ERASURE_CODING_RATE.0 as u64)
+        self.position() < RecordedHistorySegment::NUM_RAW_RECORDS as u32
     }
 
     /// Returns the next source piece index.
     /// Panics if the piece is not a source piece.
     #[inline]
-    pub const fn next_source_index(&self) -> PieceIndex {
-        PieceIndex::from_source_position(self.source_position() + 1, self.segment_index())
+    pub const fn next_source_index(&self) -> Self {
+        if self.position() + 1 < RecordedHistorySegment::NUM_RAW_RECORDS as u32 {
+            // Same segment
+            Self(self.0 + 1)
+        } else {
+            // Next segment
+            Self(self.0 + RecordedHistorySegment::NUM_RAW_RECORDS as u64)
+        }
     }
 }
 

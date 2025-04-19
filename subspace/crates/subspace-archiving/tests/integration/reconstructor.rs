@@ -299,11 +299,10 @@ fn partial_data() {
                 &pieces
                     .source_pieces()
                     .map(Some)
-                    .zip(iter::repeat_n(
+                    .chain(iter::repeat_n(
                         None,
                         RecordedHistorySegment::NUM_RAW_RECORDS,
                     ))
-                    .flat_map(|(a, b)| [a, b])
                     .collect::<Vec<_>>(),
             )
             .unwrap();
@@ -316,12 +315,7 @@ fn partial_data() {
         let contents = Reconstructor::new(erasure_coding.clone())
             .add_segment(
                 &iter::repeat_n(None, RecordedHistorySegment::NUM_RAW_RECORDS)
-                    .chain(
-                        pieces
-                            .pieces()
-                            .skip(RecordedHistorySegment::NUM_RAW_RECORDS)
-                            .map(Some),
-                    )
+                    .chain(pieces.parity_pieces().map(Some))
                     .collect::<Vec<_>>(),
             )
             .unwrap();

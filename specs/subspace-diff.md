@@ -51,3 +51,6 @@ this improved performance substantially, this also reduced the need to constrain
 practice), increasing record size slightly and simplifying a lot of places in the code.
 
 [reed-solomon-simd]: https://github.com/AndersTrier/reed-solomon-simd
+
+Both pieces in a segment and chunks in a sector had source/parity interleaving, which for simplicity was removed. Now
+all source pieces/chunks go first, followed by all parity pieces/chunks.

@@ -73,7 +73,7 @@ impl RawPieceData {
         } = mapping;
 
         let data_shards = RecordedHistorySegment::NUM_RAW_RECORDS;
-        let source_position_in_segment = piece_index.source_position() as usize;
+        let source_position_in_segment = piece_index.position() as usize;
 
         // How much bytes are definitely available starting at `piece_index` and `offset` without
         // crossing a segment boundary.
@@ -90,7 +90,7 @@ impl RawPieceData {
 
     /// Create a new empty `RawPieceData` object for the next piece in an object.
     pub fn new_for_next_piece(remaining_data_length: usize, piece_index: PieceIndex) -> Self {
-        let source_position_in_segment = piece_index.source_position() as usize;
+        let source_position_in_segment = piece_index.position() as usize;
         let first_data_piece_in_segment = source_position_in_segment == 0;
 
         if first_data_piece_in_segment {
@@ -134,7 +134,7 @@ impl RawPieceData {
         );
 
         let data_shards = RecordedHistorySegment::NUM_RAW_RECORDS;
-        let source_position_in_segment = piece_index.source_position() as usize;
+        let source_position_in_segment = piece_index.position() as usize;
 
         // The last few bytes might contain padding if a piece is the last piece in the segment
         let last_data_piece_in_segment = source_position_in_segment == data_shards - 1;

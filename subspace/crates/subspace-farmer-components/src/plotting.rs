@@ -622,7 +622,7 @@ fn record_encoding<PosTable>(
         .zip(
             source_record_chunks
                 .par_iter()
-                .interleave(parity_record_chunks.par_iter()),
+                .chain(parity_record_chunks.par_iter()),
         )
         .map(|(s_bucket, record_chunk)| {
             if let Some(proof) = pos_table.find_proof(s_bucket.into()) {
@@ -662,8 +662,7 @@ fn record_encoding<PosTable>(
     // remaining number of unencoded erasure coded record chunks to the end
     source_record_chunks
         .iter()
-        .zip(parity_record_chunks.iter())
-        .flat_map(|(a, b)| [a, b])
+        .chain(parity_record_chunks.iter())
         .zip(encoded_chunks_used.iter())
         // Skip chunks that were used previously
         .filter_map(|(record_chunk, encoded_chunk_used)| {
