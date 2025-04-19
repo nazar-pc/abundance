@@ -11409,6 +11409,7 @@ version = "0.1.0"
 dependencies = [
  "rand 0.8.5",
  "reed-solomon-simd",
+ "thiserror 2.0.12",
 ]
 
 [[package]]

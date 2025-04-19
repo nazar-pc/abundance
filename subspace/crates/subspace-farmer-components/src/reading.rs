@@ -20,7 +20,7 @@ use std::{fmt, io};
 use subspace_core_primitives::hashes::blake3_hash;
 use subspace_core_primitives::pieces::{Piece, PieceOffset, Record, RecordChunk};
 use subspace_core_primitives::sectors::{SBucket, SectorId};
-use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
+use subspace_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use subspace_proof_of_space::{Table, TableGenerator};
 use thiserror::Error;
 use tracing::debug;
@@ -54,7 +54,7 @@ pub enum ReadingError {
         /// Piece offset
         piece_offset: PieceOffset,
         /// Lower-level error
-        error: String,
+        error: ErasureCodingError,
     },
     /// Wrong record size after decoding
     #[error("Wrong record size after decoding: expected {expected}, actual {actual}")]

@@ -14,14 +14,14 @@ use subspace_core_primitives::segments::{
     SegmentHeader, SegmentIndex,
 };
 use subspace_core_primitives::BlockNumber;
-use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
+use subspace_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 
 /// Reconstructor-related instantiation error
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ReconstructorError {
     /// Error during data shards reconstruction
     #[error("Error during data shards reconstruction: {0}")]
-    DataShardsReconstruction(String),
+    DataShardsReconstruction(#[from] ErasureCodingError),
     /// Not enough shards
     #[error("Not enough shards: {num_shards}")]
     NotEnoughShards { num_shards: usize },
@@ -121,9 +121,7 @@ impl Reconstructor {
                         }
                         None => RecoveryShardState::MissingIgnore,
                     });
-            self.erasure_coding
-                .recover(source, parity)
-                .map_err(ReconstructorError::DataShardsReconstruction)?;
+            self.erasure_coding.recover(source, parity)?;
         }
 
         let segment = Segment::decode(&mut AsRef::<[u8]>::as_ref(segment_data.as_ref()))
