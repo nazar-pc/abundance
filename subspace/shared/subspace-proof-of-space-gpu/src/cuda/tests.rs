@@ -21,11 +21,7 @@ fn basic() {
         .expect("Need CUDA device to run this test");
 
     let mut table_generator = PosTable::generator();
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let global_mutex = Default::default();
     let mut cpu_records_encoder = CpuRecordsEncoder::<PosTable>::new(
         slice::from_mut(&mut table_generator),

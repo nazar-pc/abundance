@@ -9,7 +9,6 @@ use std::fs::OpenOptions;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::solutions::SolutionRange;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::single_disk_farm::direct_io_file::DirectIoFile;
@@ -153,11 +152,7 @@ where
     } = audit_options;
 
     let sector_size = sector_size(single_disk_farm_info.pieces_in_sector());
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .map_err(|error| anyhow!("Failed to instantiate erasure coding: {error}"))?;
+    let erasure_coding = ErasureCoding::new();
     let table_generator = Mutex::new(PosTable::generator());
 
     let sectors_metadata = SingleDiskFarm::read_all_sectors_metadata(&disk_farm)
@@ -319,11 +314,7 @@ where
         limit_sector_count,
     } = prove_options;
 
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .map_err(|error| anyhow!("Failed to instantiate erasure coding: {error}"))?;
+    let erasure_coding = ErasureCoding::new();
     let table_generator = Mutex::new(PosTable::generator());
 
     let mut sectors_metadata = SingleDiskFarm::read_all_sectors_metadata(&disk_farm)

@@ -8,7 +8,6 @@ use std::num::NonZeroUsize;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::pieces::Record;
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::cluster::controller::ClusterPieceGetter;
@@ -158,11 +157,7 @@ where
         additional_components: _,
     } = plotter_args;
 
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .map_err(|error| anyhow!("Failed to instantiate erasure coding: {error}"))?;
+    let erasure_coding = ErasureCoding::new();
     let piece_getter = ClusterPieceGetter::new(nats_client.clone(), cache_group);
 
     let global_mutex = Arc::default();

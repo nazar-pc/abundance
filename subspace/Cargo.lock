@@ -5113,11 +5113,8 @@ version = "0.1.0"
 source = "git+https://github.com/grandinetech/rust-kzg?rev=6c8fcc623df3d7e8c0f30951a49bfea764f90bf4#6c8fcc623df3d7e8c0f30951a49bfea764f90bf4"
 dependencies = [
  "blst",
- "num_cpus",
- "rayon",
  "sha2 0.10.8",
  "siphasher 1.0.1",
- "threadpool",
 ]
 
 [[package]]
@@ -8353,8 +8350,6 @@ dependencies = [
  "kzg",
  "libc",
  "once_cell",
- "rand 0.8.5",
- "rayon",
  "smallvec",
 ]
 
@@ -11412,12 +11407,8 @@ dependencies = [
 name = "subspace-erasure-coding"
 version = "0.1.0"
 dependencies = [
- "kzg",
  "rand 0.8.5",
  "reed-solomon-simd",
- "rust-kzg-blst",
- "subspace-core-primitives",
- "subspace-kzg",
 ]
 
 [[package]]

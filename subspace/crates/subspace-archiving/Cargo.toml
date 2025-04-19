@@ -46,7 +46,6 @@ serde = [
 std = [
     "parity-scale-codec/std",
     "serde",
-    "subspace-erasure-coding/std",
     "thiserror/std",
 ]
 

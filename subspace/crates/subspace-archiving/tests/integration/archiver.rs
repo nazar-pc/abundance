@@ -6,7 +6,6 @@ use rayon::prelude::*;
 use std::assert_matches::assert_matches;
 use std::io::Write;
 use std::iter;
-use std::num::NonZeroUsize;
 use subspace_archiving::archiver::{Archiver, ArchiverInstantiationError, SegmentItem};
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::{BlockObject, BlockObjectMapping, GlobalObject};
@@ -49,11 +48,7 @@ fn compare_block_objects_to_global_objects<'a>(
 #[test]
 fn archiver() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
 
     let (block_0, block_0_object_mapping) = {
@@ -391,11 +386,7 @@ fn archiver() {
 
 #[test]
 fn invalid_usage() {
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     {
         let result = Archiver::with_initial_state(
             erasure_coding.clone(),
@@ -460,11 +451,7 @@ fn invalid_usage() {
 
 #[test]
 fn one_byte_smaller_segment() {
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
 
     // Carefully compute the block size such that there is just 2 bytes left to fill the segment,
     // but this should already produce archived segment since just enum variant and smallest compact
@@ -496,11 +483,7 @@ fn one_byte_smaller_segment() {
 
 #[test]
 fn spill_over_edge_case() {
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding);
 
     // Carefully compute the block size such that there is just 2 bytes left to fill the segment,
@@ -550,11 +533,7 @@ fn spill_over_edge_case() {
 #[test]
 fn object_on_the_edge_of_segment() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding);
     let first_block = vec![0u8; RecordedHistorySegment::SIZE];
     let block_1_outcome = archiver.add_block(first_block.clone(), BlockObjectMapping::default());

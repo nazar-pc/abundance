@@ -344,14 +344,6 @@ where
         records: &mut [Record],
         abort_early: &AtomicBool,
     ) -> anyhow::Result<SectorContentsMap> {
-        if self.erasure_coding.max_shards() < Record::NUM_S_BUCKETS {
-            return Err(anyhow::anyhow!(
-                "Invalid erasure coding instance: {} shards needed, {} supported",
-                Record::NUM_S_BUCKETS,
-                self.erasure_coding.max_shards()
-            ));
-        }
-
         if self.table_generators.is_empty() {
             return Err(anyhow::anyhow!("No table generators"));
         }
@@ -618,7 +610,7 @@ fn record_encoding<PosTable>(
     // Erasure code source record chunks
     erasure_coding
         .extend(record.iter(), parity_record_chunks.iter_mut())
-        .expect("Instance was verified to be able to work with this many values earlier; qed");
+        .expect("Statically guaranteed valid inputs; qed");
     let source_record_chunks = record.to_vec();
 
     chunks_scratch.clear();

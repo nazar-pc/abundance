@@ -2,11 +2,10 @@ use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::assert_matches::assert_matches;
 use std::iter;
-use std::num::NonZeroUsize;
 use subspace_archiving::archiver::Archiver;
 use subspace_archiving::reconstructor::{Reconstructor, ReconstructorError};
 use subspace_core_primitives::objects::BlockObjectMapping;
-use subspace_core_primitives::pieces::{FlatPieces, Piece, Record};
+use subspace_core_primitives::pieces::{FlatPieces, Piece};
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
     SegmentIndex,
@@ -20,11 +19,7 @@ fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
 #[test]
 fn basic() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
     // Block that fits into the segment fully
     let block_0 = {
@@ -268,11 +263,7 @@ fn basic() {
 #[test]
 fn partial_data() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
     // Block that fits into the segment fully
     let block_0 = {
@@ -358,11 +349,7 @@ fn partial_data() {
 #[test]
 fn invalid_usage() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
     // Block that overflows into the next segments
     let block_0 = {

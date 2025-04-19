@@ -1,9 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
-use std::num::NonZeroUsize;
 use subspace_archiving::archiver::Archiver;
-use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::segments::RecordedHistorySegment;
 use subspace_erasure_coding::ErasureCoding;
 
@@ -14,11 +12,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let mut input = vec![0u8; AMOUNT_OF_DATA];
     rng.fill_bytes(input.as_mut_slice());
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let archiver = Archiver::new(erasure_coding);
 
     c.bench_function("segment-archiving-whole-segment", |b| {

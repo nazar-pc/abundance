@@ -36,9 +36,6 @@ pub trait ProvableSolutions: ExactSizeIterator {
 /// Errors that happen during proving
 #[derive(Debug, Error)]
 pub enum ProvingError {
-    /// Invalid erasure coding instance
-    #[error("Invalid erasure coding instance")]
-    InvalidErasureCodingInstance,
     /// Failed to create polynomial for record
     #[error("Failed to create polynomial for record at offset {piece_offset}: {error}")]
     FailedToCreatePolynomialForRecord {
@@ -62,7 +59,6 @@ impl ProvingError {
     /// Whether this error is fatal and makes farm unusable
     pub fn is_fatal(&self) -> bool {
         match self {
-            ProvingError::InvalidErasureCodingInstance => true,
             ProvingError::FailedToCreatePolynomialForRecord { .. } => false,
             ProvingError::FailedToDecodeSectorContentsMap(_) => false,
             ProvingError::Io(_) => true,
@@ -356,10 +352,6 @@ where
         mode: ReadSectorRecordChunksMode,
         table_generator: TableGenerator,
     ) -> Result<Self, ProvingError> {
-        if erasure_coding.max_shards() < Record::NUM_S_BUCKETS {
-            return Err(ProvingError::InvalidErasureCodingInstance);
-        }
-
         let sector_contents_map = {
             let mut sector_contents_map_bytes =
                 vec![0; SectorContentsMap::encoded_size(sector_metadata.pieces_in_sector)];
