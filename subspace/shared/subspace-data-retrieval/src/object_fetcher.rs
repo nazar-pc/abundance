@@ -11,7 +11,7 @@ use std::sync::Arc;
 use subspace_archiving::archiver::SegmentItem;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::{GlobalObject, GlobalObjectMapping};
-use subspace_core_primitives::pieces::{Piece, PieceIndex, RawRecord};
+use subspace_core_primitives::pieces::{Piece, PieceIndex, Record};
 use subspace_core_primitives::segments::{RecordedHistorySegment, SegmentIndex};
 use tracing::{debug, trace, warn};
 
@@ -62,7 +62,7 @@ pub enum Error {
     /// Supplied piece offset is too large
     #[error(
         "Piece offset is too large, must be less than {}, object: {mapping:?}",
-        RawRecord::SIZE
+        Record::SIZE
     )]
     PieceOffsetTooLarge { mapping: GlobalObject },
 
@@ -280,10 +280,10 @@ where
                 return Err(Error::PieceOffsetInSegmentHeader { mapping });
             }
 
-            if offset >= RawRecord::SIZE as u32 {
+            if offset >= Record::SIZE as u32 {
                 debug!(
                     ?mapping,
-                    RawRecord_SIZE = RawRecord::SIZE,
+                    Record_SIZE = Record::SIZE,
                     "Invalid piece offset for object: must be less than the size of a raw record",
                 );
 
@@ -331,13 +331,7 @@ where
 
         // Discard piece data before the offset.
         // If this is the first piece in a segment, this automatically skips the segment header.
-        let piece_data = piece
-            .record()
-            .to_raw_record_chunks()
-            .flatten()
-            .skip(offset as usize)
-            .copied()
-            .collect::<Vec<u8>>();
+        let piece_data = piece.record().as_flattened()[offset as usize..].to_vec();
 
         raw_data.add_piece_data(next_source_piece_index, piece_data, mapping)?;
         next_source_piece_index = next_source_piece_index.next_source_index();
@@ -369,12 +363,7 @@ where
             // Get the second piece for the object
             let piece = self.read_piece(next_source_piece_index, mapping).await?;
             // We want all the piece data
-            let piece_data = piece
-                .record()
-                .to_raw_record_chunks()
-                .flatten()
-                .copied()
-                .collect::<Vec<u8>>();
+            let piece_data = piece.record().as_flattened().to_vec();
 
             raw_data.add_piece_data(next_source_piece_index, piece_data, mapping)?;
             next_source_piece_index = next_source_piece_index.next_source_index();
@@ -417,7 +406,7 @@ where
         // the same time. (Larger objects have already been rejected during length decoding.)
         let remaining_piece_count = partial_object
             .max_remaining_download_length()
-            .div_ceil(RawRecord::SIZE);
+            .div_ceil(Record::SIZE);
 
         if remaining_piece_count > 0 {
             let remaining_piece_indexes = (next_source_piece_index..)
@@ -431,17 +420,7 @@ where
                 .await?
                 .into_iter()
                 .zip(remaining_piece_indexes.iter().copied())
-                .map(|(piece, piece_index)| {
-                    (
-                        piece_index,
-                        piece
-                            .record()
-                            .to_raw_record_chunks()
-                            .flatten()
-                            .copied()
-                            .collect::<Vec<u8>>(),
-                    )
-                });
+                .map(|(piece, piece_index)| (piece_index, piece.record().as_flattened().to_vec()));
 
             for (piece_index, piece_data) in pieces {
                 let mut new_data = RawPieceData::new_for_next_piece(

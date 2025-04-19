@@ -5,7 +5,8 @@
 
 use crate::auditing::ChunkCandidate;
 use crate::reading::{
-    read_record_metadata, read_sector_record_chunks, ReadSectorRecordChunksMode, ReadingError,
+    read_record_metadata, read_sector_record_chunks, recover_extended_record_chunks,
+    ReadSectorRecordChunksMode, ReadingError,
 };
 use crate::sector::{
     SectorContentsMap, SectorContentsMapFromBytesError, SectorMetadataChecksummed,
@@ -15,12 +16,12 @@ use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use futures::FutureExt;
 use std::collections::VecDeque;
 use std::io;
-use subspace_core_primitives::pieces::{PieceOffset, Record};
+use subspace_core_primitives::pieces::{PieceOffset, Record, RecordChunk};
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::{SBucket, SectorId};
 use subspace_core_primitives::solutions::{ChunkWitness, Solution, SolutionRange};
-use subspace_core_primitives::{PublicKey, ScalarBytes};
-use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
+use subspace_core_primitives::PublicKey;
+use subspace_erasure_coding::ErasureCoding;
 use subspace_proof_of_space::Table;
 use thiserror::Error;
 
@@ -35,9 +36,6 @@ pub trait ProvableSolutions: ExactSizeIterator {
 /// Errors that happen during proving
 #[derive(Debug, Error)]
 pub enum ProvingError {
-    /// Invalid erasure coding instance
-    #[error("Invalid erasure coding instance")]
-    InvalidErasureCodingInstance,
     /// Failed to create polynomial for record
     #[error("Failed to create polynomial for record at offset {piece_offset}: {error}")]
     FailedToCreatePolynomialForRecord {
@@ -61,7 +59,6 @@ impl ProvingError {
     /// Whether this error is fatal and makes farm unusable
     pub fn is_fatal(&self) -> bool {
         match self {
-            ProvingError::InvalidErasureCodingInstance => true,
             ProvingError::FailedToCreatePolynomialForRecord { .. } => false,
             ProvingError::FailedToDecodeSectorContentsMap(_) => false,
             ProvingError::Io(_) => true,
@@ -240,33 +237,11 @@ where
                 .expect("Within s-bucket range; qed")
                 .expect("Winning chunk was plotted; qed");
 
-            // TODO: Use `recover_extended_record_chunks`?
-            let mut recovered_sector_record_chunks =
-                vec![[0u8; ScalarBytes::FULL_BYTES]; Record::NUM_S_BUCKETS];
-            {
-                // TODO: This will need to be simplified once chunks are no longer interleaved
-                let (source, parity) = sector_record_chunks
-                    .iter()
-                    .zip(recovered_sector_record_chunks.iter_mut())
-                    .map(
-                        |(maybe_input_chunk, output_chunk)| match maybe_input_chunk {
-                            Some(input_chunk) => {
-                                output_chunk.copy_from_slice(input_chunk.as_slice());
-                                RecoveryShardState::Present(output_chunk.as_slice())
-                            }
-                            None => RecoveryShardState::MissingRecover(output_chunk.as_mut_slice()),
-                        },
-                    )
-                    .array_chunks::<2>()
-                    .map(|[a, b]| (a, b))
-                    .unzip::<_, _, Vec<_>, Vec<_>>();
-                self.erasure_coding
-                    .recover(source.into_iter(), parity.into_iter())
-                    .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
-                        piece_offset,
-                        error,
-                    })?;
-            }
+            let recovered_sector_record_chunks = recover_extended_record_chunks(
+                &sector_record_chunks,
+                piece_offset,
+                self.erasure_coding,
+            )?;
             drop(sector_record_chunks);
 
             // TODO: This un-interleaves chunks since that is how record commitment is done. This
@@ -285,8 +260,7 @@ where
                 assert!(Record::NUM_S_BUCKETS.ilog2() == 16);
             };
             let record_merkle_tree = BalancedHashedMerkleTree::<16>::new_boxed(
-                chunks
-                    .as_slice()
+                RecordChunk::slice_to_repr(&chunks)
                     .try_into()
                     .expect("Statically guaranteed to have correct length; qed"),
             );
@@ -378,10 +352,6 @@ where
         mode: ReadSectorRecordChunksMode,
         table_generator: TableGenerator,
     ) -> Result<Self, ProvingError> {
-        if erasure_coding.max_shards() < Record::NUM_S_BUCKETS {
-            return Err(ProvingError::InvalidErasureCodingInstance);
-        }
-
         let sector_contents_map = {
             let mut sector_contents_map_bytes =
                 vec![0; SectorContentsMap::encoded_size(sector_metadata.pieces_in_sector)];

@@ -22,8 +22,8 @@ mod tests;
 extern crate alloc;
 
 use crate::hashes::{blake3_hash, blake3_hash_list, Blake3Hash};
-use core::{fmt, mem};
-use derive_more::{Add, AsMut, AsRef, Deref, DerefMut, Display, Div, From, Into, Mul, Rem, Sub};
+use core::fmt;
+use derive_more::{Add, AsMut, AsRef, Deref, Display, Div, From, Into, Mul, Rem, Sub};
 use num_traits::{WrappingAdd, WrappingSub};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -36,7 +36,7 @@ use serde::{Deserializer, Serializer};
 use static_assertions::const_assert;
 
 // Refuse to compile on lower than 32-bit platforms
-const_assert!(core::mem::size_of::<usize>() >= core::mem::size_of::<u32>());
+const_assert!(size_of::<usize>() >= size_of::<u32>());
 
 /// Signing context used for creating reward signatures by farmers.
 pub const REWARD_SIGNING_CONTEXT: &[u8] = b"subspace_reward";
@@ -214,81 +214,6 @@ impl PublicKey {
     /// Public key hash.
     pub fn hash(&self) -> Blake3Hash {
         blake3_hash(&self.0)
-    }
-}
-
-// TODO: This has nothing to do with BLS12-381 anymore
-/// Single BLS12-381 scalar with big-endian representation, not guaranteed to be valid
-#[derive(
-    Default,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    From,
-    Into,
-    AsRef,
-    AsMut,
-    Deref,
-    DerefMut,
-)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(transparent))]
-#[repr(C)]
-pub struct ScalarBytes([u8; ScalarBytes::FULL_BYTES]);
-
-impl fmt::Debug for ScalarBytes {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02x}")?;
-        }
-        Ok(())
-    }
-}
-
-impl ScalarBytes {
-    /// How many full bytes can be stored in BLS12-381 scalar (for instance before encoding). It is
-    /// actually 254 bits, but bits are mut harder to work with and likely not worth it.
-    ///
-    /// NOTE: After encoding more bytes can be used, so don't rely on this as the max number of
-    /// bytes stored within at all times!
-    pub const SAFE_BYTES: usize = 31;
-    /// How many bytes Scalar contains physically, use [`Self::SAFE_BYTES`] for the amount of data
-    /// that you can put into it safely (for instance before encoding).
-    pub const FULL_BYTES: usize = 32;
-
-    /// Convenient conversion from slice to underlying representation for efficiency purposes
-    #[inline]
-    pub fn slice_to_repr(value: &[Self]) -> &[[u8; ScalarBytes::FULL_BYTES]] {
-        // SAFETY: `ScalarBytes` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from slice of underlying representation for efficiency purposes
-    #[inline]
-    pub fn slice_from_repr(value: &[[u8; ScalarBytes::FULL_BYTES]]) -> &[Self] {
-        // SAFETY: `ScalarBytes` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from mutable slice to underlying representation for efficiency
-    /// purposes
-    #[inline]
-    pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; ScalarBytes::FULL_BYTES]] {
-        // SAFETY: `ScalarBytes` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from mutable slice of underlying representation for efficiency
-    /// purposes
-    #[inline]
-    pub fn slice_mut_from_repr(value: &mut [[u8; ScalarBytes::FULL_BYTES]]) -> &mut [Self] {
-        // SAFETY: `ScalarBytes` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
     }
 }
 

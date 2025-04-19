@@ -1,7 +1,7 @@
 use crate::cuda::cuda_devices;
 use std::num::NonZeroUsize;
 use std::slice;
-use subspace_core_primitives::hashes::{blake3_254_hash_to_scalar, blake3_hash};
+use subspace_core_primitives::hashes::blake3_hash;
 use subspace_core_primitives::pieces::{PieceOffset, Record};
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::HistorySize;
@@ -21,11 +21,7 @@ fn basic() {
         .expect("Need CUDA device to run this test");
 
     let mut table_generator = PosTable::generator();
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let global_mutex = Default::default();
     let mut cpu_records_encoder = CpuRecordsEncoder::<PosTable>::new(
         slice::from_mut(&mut table_generator),
@@ -39,7 +35,7 @@ fn basic() {
     record
         .iter_mut()
         .enumerate()
-        .for_each(|(index, chunk)| *chunk = *blake3_254_hash_to_scalar(&index.to_le_bytes()));
+        .for_each(|(index, chunk)| *chunk = *blake3_hash(&index.to_le_bytes()));
 
     let mut cpu_encoded_records = Record::new_zero_vec(2);
     for cpu_encoded_record in &mut cpu_encoded_records {

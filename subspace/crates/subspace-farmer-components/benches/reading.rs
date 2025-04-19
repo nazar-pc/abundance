@@ -5,10 +5,10 @@ use parking_lot::Mutex;
 use rand::prelude::*;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::num::{NonZeroU64, NonZeroUsize};
+use std::num::NonZeroU64;
 use std::{env, fs, slice};
 use subspace_archiving::archiver::Archiver;
-use subspace_core_primitives::pieces::{PieceOffset, Record};
+use subspace_core_primitives::pieces::PieceOffset;
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use subspace_core_primitives::PublicKey;
@@ -48,11 +48,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let sector_index = 0;
     let mut input = RecordedHistorySegment::new_boxed();
     StdRng::seed_from_u64(42).fill(AsMut::<[u8]>::as_mut(input.as_mut()));
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
     let mut table_generator = PosTable::generator();
     let archived_history_segment = archiver

@@ -18,7 +18,6 @@ use std::pin::pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::PublicKey;
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_erasure_coding::ErasureCoding;
@@ -452,11 +451,7 @@ where
         .map_err(|error| anyhow!("Failed to configure networking: {error}"))?
     };
 
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .map_err(|error| anyhow!("Failed to instantiate erasure coding: {error}"))?;
+    let erasure_coding = ErasureCoding::new();
     let piece_provider = PieceProvider::new(
         node.clone(),
         SegmentCommitmentPieceValidator::new(node.clone(), node_client.clone()),

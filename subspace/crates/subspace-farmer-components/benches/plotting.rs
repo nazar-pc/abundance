@@ -2,9 +2,8 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughpu
 use futures::executor::block_on;
 use rand::prelude::*;
 use std::env;
-use std::num::{NonZeroU64, NonZeroUsize};
+use std::num::NonZeroU64;
 use subspace_archiving::archiver::Archiver;
-use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use subspace_core_primitives::PublicKey;
 use subspace_erasure_coding::ErasureCoding;
@@ -28,11 +27,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let sector_index = 0;
     let mut input = RecordedHistorySegment::new_boxed();
     StdRng::seed_from_u64(42).fill(AsMut::<[u8]>::as_mut(input.as_mut()));
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
     let mut table_generators = [
         PosTable::generator(),

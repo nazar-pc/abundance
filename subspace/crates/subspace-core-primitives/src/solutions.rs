@@ -1,10 +1,10 @@
 //! Solutions-related data structures and functions.
 
-use crate::pieces::{PieceOffset, Record, RecordCommitment, RecordWitness};
+use crate::pieces::{PieceOffset, Record, RecordChunk, RecordCommitment, RecordWitness};
 use crate::pos::PosProof;
 use crate::sectors::SectorIndex;
 use crate::segments::{HistorySize, SegmentIndex};
-use crate::{PublicKey, ScalarBytes};
+use crate::PublicKey;
 use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::fmt;
@@ -245,7 +245,7 @@ pub struct Solution {
     /// Witness for above record commitment
     pub record_witness: RecordWitness,
     /// Chunk at above offset
-    pub chunk: ScalarBytes,
+    pub chunk: RecordChunk,
     /// Witness for above chunk
     pub chunk_witness: ChunkWitness,
     /// Proof of space for piece offset
@@ -262,7 +262,7 @@ impl Solution {
             piece_offset: PieceOffset::default(),
             record_commitment: RecordCommitment::default(),
             record_witness: RecordWitness::default(),
-            chunk: ScalarBytes::default(),
+            chunk: RecordChunk::default(),
             chunk_witness: ChunkWitness::default(),
             proof_of_space: PosProof::default(),
         }

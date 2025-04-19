@@ -52,7 +52,7 @@ fn compact_encoded(object_len: usize) -> Vec<u8> {
 fn extract_raw_data(pieces: Vec<&Piece>) -> impl DoubleEndedIterator<Item = u8> + '_ {
     pieces
         .into_iter()
-        .flat_map(|piece| piece.record().to_raw_record_chunks().flatten())
+        .flat_map(|piece| piece.record().as_flattened())
         .copied()
 }
 
@@ -62,7 +62,7 @@ fn extract_raw_data_mut(
 ) -> impl DoubleEndedIterator<Item = &'_ mut u8> + '_ {
     pieces
         .into_iter()
-        .flat_map(|piece| piece.record_mut().to_mut_raw_record_chunks().flatten())
+        .flat_map(|piece| piece.record_mut().as_flattened_mut())
 }
 
 /// Sets the data at the end of the piece to the correct byte values for padding.
@@ -136,7 +136,7 @@ fn write_segment_header(mut piece: &mut Piece, remaining_len: usize) -> Vec<u8> 
     let raw_data = extract_raw_data(vec![&piece])
         .skip(segment_prefix_len)
         .collect::<Vec<u8>>();
-    assert_eq!(raw_data.len(), RawRecord::SIZE - segment_prefix_len);
+    assert_eq!(raw_data.len(), Record::SIZE - segment_prefix_len);
 
     raw_data
 }
@@ -251,8 +251,8 @@ fn create_mapping(
             let replaced_padding_data = raw_data
                 .splice(
                     // The padding range we want to skip
-                    byte_position_in_raw_data + RawRecord::SIZE - skip_padding
-                        ..byte_position_in_raw_data + RawRecord::SIZE,
+                    byte_position_in_raw_data + Record::SIZE - skip_padding
+                        ..byte_position_in_raw_data + Record::SIZE,
                     // Delete the padding bytes
                     iter::empty(),
                 )
@@ -281,7 +281,7 @@ fn create_mapping(
             let _replaced_piece_data = raw_data
                 .splice(
                     // The entire piece range, in bytes
-                    byte_position_in_raw_data..byte_position_in_raw_data + RawRecord::SIZE,
+                    byte_position_in_raw_data..byte_position_in_raw_data + Record::SIZE,
                     // The remaining data from the piece, excluding the segment header
                     raw_data_after_segment_header.iter().copied(),
                 )
@@ -289,7 +289,7 @@ fn create_mapping(
 
             assert_eq!(
                 raw_data.len(),
-                original_len - RawRecord::SIZE + raw_data_after_segment_header.len()
+                original_len - Record::SIZE + raw_data_after_segment_header.len()
             );
         }
     }
@@ -320,9 +320,9 @@ fn byte_position_in_extract_raw_data(
 ) -> usize {
     let piece_position_in_raw_data = (piece_index - start_piece_index) / 2;
     assert!(
-        piece_position_in_raw_data < max_supported_object_length().div_ceil(RawRecord::SIZE),
+        piece_position_in_raw_data < max_supported_object_length().div_ceil(Record::SIZE),
         "{piece_position_in_raw_data} < {}",
-        max_supported_object_length().div_ceil(RawRecord::SIZE)
+        max_supported_object_length().div_ceil(Record::SIZE)
     );
     assert!(
         piece_position_in_raw_data < pieces_len,
@@ -330,7 +330,7 @@ fn byte_position_in_extract_raw_data(
         pieces_len
     );
 
-    let byte_position_in_raw_data = piece_position_in_raw_data * RawRecord::SIZE;
+    let byte_position_in_raw_data = piece_position_in_raw_data * Record::SIZE;
     assert!(
         byte_position_in_raw_data < raw_data_len,
         "{byte_position_in_raw_data} < {raw_data_len}",
@@ -431,7 +431,7 @@ async fn get_single_piece_object_potential_padding() {
     // 3 sub-cases:
     // - - potential padding that has the wrong byte value for padding
     let object_len = 10;
-    let offset = RawRecord::SIZE - object_len - compact_encoded(object_len).len();
+    let offset = Record::SIZE - object_len - compact_encoded(object_len).len();
     let piece_index = ArchivedHistorySegment::NUM_PIECES - 2;
 
     let mut piece = random_piece();
@@ -446,7 +446,7 @@ async fn get_single_piece_object_potential_padding() {
 
     // - - potential padding that has the right byte value for padding, but is part of the object
     let object_len = 10;
-    let offset = RawRecord::SIZE - object_len - compact_encoded(object_len).len();
+    let offset = Record::SIZE - object_len - compact_encoded(object_len).len();
     let piece_index = ArchivedHistorySegment::NUM_PIECES - 2;
 
     // Generate random piece data, but put potential padding at the end
@@ -464,7 +464,7 @@ async fn get_single_piece_object_potential_padding() {
     // - - potential padding that has the right byte value for padding, but only some is part of the object
     let object_len = 10;
     let unused_padding = 1;
-    let offset = RawRecord::SIZE - object_len - compact_encoded(object_len).len() - unused_padding;
+    let offset = Record::SIZE - object_len - compact_encoded(object_len).len() - unused_padding;
     let piece_index = ArchivedHistorySegment::NUM_PIECES - 2;
 
     // Generate random piece data, but put potential padding at the end
@@ -481,9 +481,9 @@ async fn get_single_piece_object_potential_padding() {
 
     // - end of segment, start of object length is in potential padding (but object does not cross into the next segment)
     let object_len = 2;
-    let offset = RawRecord::SIZE - object_len - compact_encoded(object_len).len();
+    let offset = Record::SIZE - object_len - compact_encoded(object_len).len();
     let piece_index = ArchivedHistorySegment::NUM_PIECES - 2;
-    assert!(offset >= RawRecord::SIZE - MAX_SEGMENT_PADDING - 1);
+    assert!(offset >= Record::SIZE - MAX_SEGMENT_PADDING - 1);
 
     let mut piece = random_piece();
     write_potential_padding(&mut piece, MAX_SEGMENT_PADDING);
@@ -498,9 +498,9 @@ async fn get_single_piece_object_potential_padding() {
 
     // - end of segment, zero-length object in potential padding (but object does not cross into the next segment)
     let object_len = 0;
-    let offset = RawRecord::SIZE - object_len - compact_encoded(object_len).len();
+    let offset = Record::SIZE - object_len - compact_encoded(object_len).len();
     let piece_index = ArchivedHistorySegment::NUM_PIECES - 2;
-    assert!(offset >= RawRecord::SIZE - MAX_SEGMENT_PADDING - 1);
+    assert!(offset >= Record::SIZE - MAX_SEGMENT_PADDING - 1);
 
     let mut piece = random_piece();
     write_potential_padding(&mut piece, MAX_SEGMENT_PADDING);
@@ -524,7 +524,7 @@ async fn get_multi_piece_object_length_outside_padding() {
     // 3 sub-cases:
     // - - potential padding that has the wrong byte value for padding
     let object_len = 1000;
-    let offset = RawRecord::SIZE - object_len / 2 - compact_encoded(object_len).len();
+    let offset = Record::SIZE - object_len / 2 - compact_encoded(object_len).len();
     let start_piece_index = ArchivedHistorySegment::NUM_PIECES - 2;
 
     let mut piece1 = random_piece();
@@ -549,7 +549,7 @@ async fn get_multi_piece_object_length_outside_padding() {
 
     // - - potential padding that has the right byte value for padding, but is part of the object
     let object_len = 100;
-    let offset = RawRecord::SIZE - object_len / 2 - compact_encoded(object_len).len();
+    let offset = Record::SIZE - object_len / 2 - compact_encoded(object_len).len();
     let start_piece_index = ArchivedHistorySegment::NUM_PIECES - 2;
 
     let mut piece1 = random_piece();
@@ -575,7 +575,7 @@ async fn get_multi_piece_object_length_outside_padding() {
     // - - actual padding that has the right byte value for padding, and isn't part of the object
     let object_len = 10;
     let skip_padding = 1;
-    let offset = RawRecord::SIZE - object_len / 2 - compact_encoded(object_len).len();
+    let offset = Record::SIZE - object_len / 2 - compact_encoded(object_len).len();
     let start_piece_index = ArchivedHistorySegment::NUM_PIECES - 2;
 
     let mut piece1 = random_piece();
@@ -601,8 +601,8 @@ async fn get_multi_piece_object_length_outside_padding() {
     // - end of segment, end of object goes into padding, and multiple pieces from both segments
     // 3 sub-cases:
     // - - potential padding that has the wrong byte value for padding
-    let object_len = 3 * RawRecord::SIZE;
-    let offset = RawRecord::SIZE / 2 - compact_encoded(object_len).len();
+    let object_len = 3 * Record::SIZE;
+    let offset = Record::SIZE / 2 - compact_encoded(object_len).len();
     let start_piece_index = ArchivedHistorySegment::NUM_PIECES - 4;
 
     let mut piece1 = random_piece();
@@ -633,8 +633,8 @@ async fn get_multi_piece_object_length_outside_padding() {
     // block enum variants. Strictly we want compact_encoded(object_len) here, but it doesn't
     // change the encoded size in practice.
     let overhead =
-        2 * compact_encoded(4 * RawRecord::SIZE).len() + max_segment_header_encoded_size() + 3;
-    let object_len = 4 * RawRecord::SIZE - overhead;
+        2 * compact_encoded(4 * Record::SIZE).len() + max_segment_header_encoded_size() + 3;
+    let object_len = 4 * Record::SIZE - overhead;
     let offset = 0;
     let start_piece_index = ArchivedHistorySegment::NUM_PIECES - 4;
 
@@ -645,7 +645,7 @@ async fn get_multi_piece_object_length_outside_padding() {
     write_potential_padding(&mut piece2, MAX_SEGMENT_PADDING);
 
     write_object_length(vec![&mut piece1], offset, object_len, None);
-    let after_segment_header = write_segment_header(&mut piece3, 2 * RawRecord::SIZE - overhead);
+    let after_segment_header = write_segment_header(&mut piece3, 2 * Record::SIZE - overhead);
 
     let (mapping, object_data) = create_mapping(
         vec![&piece1, &piece2, &piece3, &piece4],
@@ -667,11 +667,11 @@ async fn get_multi_piece_object_length_outside_padding() {
     // block enum variants. Strictly we want compact_encoded(object_len) here, but it doesn't
     // change the encoded size in practice.
     let skip_padding = MAX_SEGMENT_PADDING;
-    let overhead = 2 * compact_encoded(6 * RawRecord::SIZE).len()
+    let overhead = 2 * compact_encoded(6 * Record::SIZE).len()
         + max_segment_header_encoded_size()
         + 3
         + skip_padding;
-    let object_len = 6 * RawRecord::SIZE - overhead;
+    let object_len = 6 * Record::SIZE - overhead;
     let offset = 0;
     let start_piece_index = ArchivedHistorySegment::NUM_PIECES - 6;
 
@@ -684,7 +684,7 @@ async fn get_multi_piece_object_length_outside_padding() {
     write_potential_padding(&mut piece3, MAX_SEGMENT_PADDING);
 
     write_object_length(vec![&mut piece1], offset, object_len, None);
-    let after_segment_header = write_segment_header(&mut piece4, 3 * RawRecord::SIZE - overhead);
+    let after_segment_header = write_segment_header(&mut piece4, 3 * Record::SIZE - overhead);
 
     let (mapping, object_data) = create_mapping(
         vec![&piece1, &piece2, &piece3, &piece4, &piece5, &piece6],
@@ -714,7 +714,7 @@ async fn get_multi_piece_object_length_overlaps_padding() {
     // - - potential padding that has the wrong byte value for padding
     let in_first_segment = 1;
     let object_len = 64;
-    let offset = RawRecord::SIZE - in_first_segment;
+    let offset = Record::SIZE - in_first_segment;
     let start_piece_index = ArchivedHistorySegment::NUM_PIECES - 2;
 
     let mut piece1 = random_piece();
@@ -754,7 +754,7 @@ async fn get_multi_piece_object_length_overlaps_padding() {
     // The first SCALE-encoded number that ends in 0x00 is 16384 (except for zero).
     let object_len = 16384;
     let in_first_segment = compact_encoded(object_len).len();
-    let offset = RawRecord::SIZE - in_first_segment;
+    let offset = Record::SIZE - in_first_segment;
     let start_piece_index = ArchivedHistorySegment::NUM_PIECES - 2;
 
     let mut piece1 = random_piece();
@@ -788,7 +788,7 @@ async fn get_multi_piece_object_length_overlaps_padding() {
     let object_len = 16384;
     let skip_padding = 1;
     let in_first_segment = compact_encoded(object_len).len() - skip_padding;
-    let offset = RawRecord::SIZE - in_first_segment - skip_padding;
+    let offset = Record::SIZE - in_first_segment - skip_padding;
     let start_piece_index = ArchivedHistorySegment::NUM_PIECES - 2;
 
     let mut piece1 = random_piece();

@@ -6,7 +6,7 @@ mod archival_history_segment;
 #[cfg(feature = "scale-codec")]
 use crate::hashes::blake3_hash;
 use crate::hashes::Blake3Hash;
-use crate::pieces::{PieceIndex, RawRecord};
+use crate::pieces::{PieceIndex, Record};
 #[cfg(feature = "alloc")]
 pub use crate::segments::archival_history_segment::ArchivedHistorySegment;
 use crate::BlockNumber;
@@ -424,7 +424,7 @@ impl SegmentHeader {
 /// NOTE: This is a stack-allocated data structure and can cause stack overflow!
 #[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut)]
 #[repr(transparent)]
-pub struct RecordedHistorySegment([RawRecord; Self::NUM_RAW_RECORDS]);
+pub struct RecordedHistorySegment([Record; Self::NUM_RAW_RECORDS]);
 
 impl fmt::Debug for RecordedHistorySegment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -436,23 +436,21 @@ impl fmt::Debug for RecordedHistorySegment {
 impl Default for RecordedHistorySegment {
     #[inline]
     fn default() -> Self {
-        Self([RawRecord::default(); Self::NUM_RAW_RECORDS])
+        Self([Record::default(); Self::NUM_RAW_RECORDS])
     }
 }
 
 impl AsRef<[u8]> for RecordedHistorySegment {
     #[inline]
     fn as_ref(&self) -> &[u8] {
-        RawRecord::slice_to_repr(&self.0)
-            .as_flattened()
-            .as_flattened()
+        Record::slice_to_repr(&self.0).as_flattened().as_flattened()
     }
 }
 
 impl AsMut<[u8]> for RecordedHistorySegment {
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
-        RawRecord::slice_mut_to_repr(&mut self.0)
+        Record::slice_mut_to_repr(&mut self.0)
             .as_flattened_mut()
             .as_flattened_mut()
     }
@@ -472,7 +470,7 @@ impl RecordedHistorySegment {
     /// It includes half of the records (just source records) that will later be erasure coded and
     /// together with corresponding commitments and witnesses will result in
     /// [`Self::NUM_PIECES`] [`Piece`]s of archival history.
-    pub const SIZE: usize = RawRecord::SIZE * Self::NUM_RAW_RECORDS;
+    pub const SIZE: usize = Record::SIZE * Self::NUM_RAW_RECORDS;
 
     /// Create boxed value without hitting stack overflow
     #[inline]

@@ -1,6 +1,5 @@
 //! Hashes-related data structures and functions.
 
-use crate::ScalarBytes;
 use core::array::TryFromSliceError;
 use core::fmt;
 use derive_more::{AsMut, AsRef, Deref, DerefMut, From, Into};
@@ -158,13 +157,4 @@ pub fn blake3_hash_list(data: &[&[u8]]) -> Blake3Hash {
         state.update(d);
     }
     state.finalize().as_bytes().into()
-}
-
-/// BLAKE3 hashing of a single value truncated to 254 bits as Scalar for usage with KZG.
-#[inline]
-pub fn blake3_254_hash_to_scalar(data: &[u8]) -> ScalarBytes {
-    let mut hash = blake3_hash(data);
-    // Erase first 2 bits to effectively truncate the hash (number is interpreted as big-endian)
-    hash[0] &= 0b00111111;
-    ScalarBytes(*hash)
 }

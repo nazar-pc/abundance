@@ -12,12 +12,12 @@ use parity_scale_codec::{Compact, CompactLen, Decode, Encode, Input, Output};
 use rayon::prelude::*;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::{BlockObject, BlockObjectMapping, GlobalObject};
-use subspace_core_primitives::pieces::{RawRecord, Record};
+use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
     SegmentCommitment, SegmentHeader, SegmentIndex,
 };
-use subspace_core_primitives::{BlockNumber, ScalarBytes};
+use subspace_core_primitives::BlockNumber;
 use subspace_erasure_coding::ErasureCoding;
 
 const INITIAL_LAST_ARCHIVED_BLOCK: LastArchivedBlock = LastArchivedBlock {
@@ -217,7 +217,7 @@ pub enum ArchiverInstantiationError {
 ///
 /// It takes new confirmed (at `K` depth) blocks and concatenates them into a buffer, buffer is
 /// sliced into segments of [`RecordedHistorySegment::SIZE`] size, segments are sliced into source
-/// records of [`RawRecord::SIZE`], records are erasure coded, committed to, then commitments with
+/// records of [`Record::SIZE`], records are erasure coded, committed to, then commitments with
 /// witnesses are appended and records become pieces that are returned alongside the corresponding
 /// segment header.
 ///
@@ -628,12 +628,12 @@ impl Archiver {
                             + 1
                             + Compact::compact_len(&(bytes.len() as u32))
                             + block_object.offset as usize;
-                        let raw_piece_offset = (offset_in_segment % RawRecord::SIZE)
+                        let raw_piece_offset = (offset_in_segment % Record::SIZE)
                             .try_into()
                             .expect("Offset within piece should always fit in 32-bit integer; qed");
                         corrected_object_mapping.push(GlobalObject {
                             hash: block_object.hash,
-                            piece_index: source_piece_indexes[offset_in_segment / RawRecord::SIZE],
+                            piece_index: source_piece_indexes[offset_in_segment / Record::SIZE],
                             offset: raw_piece_offset,
                         });
                     }
@@ -653,51 +653,26 @@ impl Archiver {
     fn produce_archived_segment(&mut self, segment: Segment) -> NewArchivedSegment {
         let mut pieces = {
             // Serialize segment into concatenation of raw records
-            let mut raw_record_shards = Vec::<u8>::with_capacity(RecordedHistorySegment::SIZE);
-            segment.encode_to(&mut raw_record_shards);
-            // Segment might require some padding (see [`Self::produce_segment`] for details)
-            raw_record_shards.resize(raw_record_shards.capacity(), 0);
+            let mut raw_record_shards = RecordedHistorySegment::new_boxed();
+            // TODO: Custom encoder that can encode into records of `ArchivedHistorySegment`
+            //  directly without extra clone below
+            segment.encode_to(&mut raw_record_shards.as_mut().as_mut());
 
             // Segment is quite big and no longer necessary
             drop(segment);
 
             let mut pieces = ArchivedHistorySegment::default();
 
-            // Scratch buffer to avoid re-allocation
-            let mut tmp_source_shards_scalars =
-                Vec::with_capacity(RecordedHistorySegment::NUM_RAW_RECORDS);
-            // TODO: This loop is only needed to expand `ScalarBytes::SAFE_BYTES` to
-            //  `ScalarBytes::FULL_BYTES` and should be removed once `ScalarBytes::SAFE_BYTES` is no
-            //  longer a constraint for erasure coding
-            // Iterate over the chunks of `ScalarBytes::SAFE_BYTES` bytes of all records
-            for record_offset in 0..RawRecord::NUM_CHUNKS {
-                // Collect chunks of each record at the same offset
-                raw_record_shards
-                    .array_chunks::<{ RawRecord::SIZE }>()
-                    .map(|record_bytes| {
-                        record_bytes
-                            .array_chunks::<{ ScalarBytes::SAFE_BYTES }>()
-                            .nth(record_offset)
-                            .expect("Statically known to exist in a record; qed")
-                    })
-                    .map(|bytes| {
-                        let mut result = [0u8; ScalarBytes::FULL_BYTES];
-                        result[1..][..ScalarBytes::SAFE_BYTES].copy_from_slice(bytes);
-                        result
-                    })
-                    .collect_into(&mut tmp_source_shards_scalars);
-
-                pieces
-                    .source_mut()
-                    .map(|piece| {
-                        piece
-                            .record_mut()
-                            .get_mut(record_offset)
-                            .expect("Statically known to exist in a record; qed")
-                    })
-                    .zip(tmp_source_shards_scalars.drain(..))
-                    .for_each(|(output, input)| output.copy_from_slice(&input));
+            // TODO: This will be simplified once source and parity are not interleaved
+            for (input, output) in raw_record_shards.iter().zip(pieces.iter_mut().step_by(2)) {
+                output
+                    .record_mut()
+                    .as_flattened_mut()
+                    .copy_from_slice(input.as_ref());
             }
+
+            // Recorded history segment is quite big and no longer necessary
+            drop(raw_record_shards);
 
             // TODO: This will be simplified once source and parity are not interleaved
             let mut source_shards = Vec::with_capacity(RecordedHistorySegment::NUM_RAW_RECORDS);
@@ -737,12 +712,7 @@ impl Archiver {
                         BalancedHashedMerkleTree::new_in(&mut record_merkle_tree, piece.record())
                             .root();
 
-                    // TODO: Should have been just `::new()`, but
-                    //  https://github.com/rust-lang/rust/issues/53827
-                    let parity_chunks =
-                        Box::<[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]>::new_zeroed();
-                    // SAFETY: Zero-initialized is a valid invariant
-                    let mut parity_chunks = unsafe { parity_chunks.assume_init() };
+                    let mut parity_chunks = Record::new_boxed();
 
                     self.erasure_coding
                         .extend(piece.record().iter(), parity_chunks.iter_mut())

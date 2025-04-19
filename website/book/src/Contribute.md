@@ -62,3 +62,12 @@ The first thing that comes to mind is having multiple rewards addresses specifie
 portion of rewards probabilistically ending up in a wallet of the developer/contributor that farmer wants to support.
 This doesn't solve the problem of discoverability though. One way or another there should not be a big
 treasury/governance structure that is responsible for managing funds, it should be more direct and more distributed.
+
+## GPU plotting
+
+GPU plotting was inherited from [Subspace reference implementation], but due to getting rid of KZG it is temporarily a
+bit broken.
+
+Fixing it is an immediate priority. That said, rewriting the whole thing with Rust GPU is also a very desirable thing,
+such that a wider range of hardware (basically anything Vulkan-capable) can be supported, including iGPUs of desktop
+CPUs and various SBCs.

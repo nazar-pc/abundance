@@ -11,9 +11,10 @@ use rayon::prelude::*;
 use std::collections::HashSet;
 use std::io;
 use subspace_core_primitives::hashes::Blake3Hash;
+use subspace_core_primitives::pieces::RecordChunk;
 use subspace_core_primitives::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
 use subspace_core_primitives::solutions::SolutionRange;
-use subspace_core_primitives::{PublicKey, ScalarBytes};
+use subspace_core_primitives::PublicKey;
 use subspace_verification::is_within_solution_range;
 use thiserror::Error;
 
@@ -208,9 +209,9 @@ fn collect_sector_auditing_details(
 
     let sector_slot_challenge = sector_id.derive_sector_slot_challenge(global_challenge);
     let s_bucket_audit_index = sector_slot_challenge.s_bucket_audit_index();
-    let s_bucket_audit_size = ScalarBytes::FULL_BYTES
+    let s_bucket_audit_size = RecordChunk::SIZE
         * usize::from(sector_metadata.s_bucket_sizes[usize::from(s_bucket_audit_index)]);
-    let s_bucket_audit_offset = ScalarBytes::FULL_BYTES as u64
+    let s_bucket_audit_offset = RecordChunk::SIZE as u64
         * sector_metadata
             .s_bucket_sizes
             .iter()
@@ -242,7 +243,7 @@ fn map_winning_chunks(
 ) -> Option<Vec<ChunkCandidate>> {
     // Map all winning chunks
     let mut chunk_candidates = s_bucket
-        .array_chunks::<{ ScalarBytes::FULL_BYTES }>()
+        .array_chunks::<{ RecordChunk::SIZE }>()
         .enumerate()
         .filter_map(|(chunk_offset, chunk)| {
             is_within_solution_range(

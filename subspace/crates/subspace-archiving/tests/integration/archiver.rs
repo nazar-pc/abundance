@@ -6,7 +6,6 @@ use rayon::prelude::*;
 use std::assert_matches::assert_matches;
 use std::io::Write;
 use std::iter;
-use std::num::NonZeroUsize;
 use subspace_archiving::archiver::{Archiver, ArchiverInstantiationError, SegmentItem};
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::{BlockObject, BlockObjectMapping, GlobalObject};
@@ -24,26 +23,11 @@ fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
     &data[offset as usize + Compact::compact_len(&size)..][..size as usize]
 }
 
-fn extract_data_from_source_record<O: Into<u32>>(record: &Record, offset: O) -> Vec<u8> {
+fn extract_data_from_source_record<O: Into<u32>>(record: &Record, offset: O) -> &[u8] {
     let offset: u32 = offset.into();
-    let Compact(size) = Compact::<u32>::decode(
-        &mut record
-            .to_raw_record_chunks()
-            .flatten()
-            .copied()
-            .skip(offset as usize)
-            .take(8)
-            .collect::<Vec<_>>()
-            .as_slice(),
-    )
-    .unwrap();
-    record
-        .to_raw_record_chunks()
-        .flatten()
-        .copied()
-        .skip(offset as usize + Compact::compact_len(&size))
-        .take(size as usize)
-        .collect()
+    let Compact(size) =
+        Compact::<u32>::decode(&mut &record.as_flattened()[offset as usize..]).unwrap();
+    &record.as_flattened()[offset as usize + Compact::compact_len(&size)..][..size as usize]
 }
 
 #[track_caller]
@@ -64,11 +48,7 @@ fn compare_block_objects_to_global_objects<'a>(
 #[test]
 fn archiver() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
 
     let (block_0, block_0_object_mapping) = {
@@ -164,7 +144,7 @@ fn archiver() {
     {
         let last_archived_block = first_archived_segment.segment_header.last_archived_block();
         assert_eq!(last_archived_block.number, 1);
-        assert_eq!(last_archived_block.partial_archived(), Some(65011701));
+        assert_eq!(last_archived_block.partial_archived(), Some(67108853));
     }
 
     // All block mappings must appear in the global object mapping
@@ -283,13 +263,13 @@ fn archiver() {
         let archived_segment = archived_segments.first().unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block();
         assert_eq!(last_archived_block.number, 2);
-        assert_eq!(last_archived_block.partial_archived(), Some(108352749));
+        assert_eq!(last_archived_block.partial_archived(), Some(111848003));
     }
     {
         let archived_segment = archived_segments.get(1).unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block();
         assert_eq!(last_archived_block.number, 2);
-        assert_eq!(last_archived_block.partial_archived(), Some(238376084));
+        assert_eq!(last_archived_block.partial_archived(), Some(246065642));
     }
 
     // Check that both archived segments have expected content and valid pieces in them
@@ -336,7 +316,7 @@ fn archiver() {
 
     // Add a block such that it fits in the next segment exactly
     let block_3 = {
-        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 21670860];
+        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369910];
         rng.fill_bytes(block.as_mut_slice());
         block
     };
@@ -406,11 +386,7 @@ fn archiver() {
 
 #[test]
 fn invalid_usage() {
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     {
         let result = Archiver::with_initial_state(
             erasure_coding.clone(),
@@ -475,11 +451,7 @@ fn invalid_usage() {
 
 #[test]
 fn one_byte_smaller_segment() {
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
 
     // Carefully compute the block size such that there is just 2 bytes left to fill the segment,
     // but this should already produce archived segment since just enum variant and smallest compact
@@ -511,11 +483,7 @@ fn one_byte_smaller_segment() {
 
 #[test]
 fn spill_over_edge_case() {
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding);
 
     // Carefully compute the block size such that there is just 2 bytes left to fill the segment,
@@ -565,11 +533,7 @@ fn spill_over_edge_case() {
 #[test]
 fn object_on_the_edge_of_segment() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
-    let erasure_coding = ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding);
     let first_block = vec![0u8; RecordedHistorySegment::SIZE];
     let block_1_outcome = archiver.add_block(first_block.clone(), BlockObjectMapping::default());
@@ -670,14 +634,8 @@ fn object_on_the_edge_of_segment() {
 
     // Ensure bytes are mapped correctly
     assert_eq!(
-        archived_segments[1].pieces[0]
-            .record()
-            .to_raw_record_chunks()
-            .flatten()
-            .copied()
-            .skip(object_mapping[0].offset as usize)
-            .take(mapped_bytes.len())
-            .collect::<Vec<_>>(),
+        archived_segments[1].pieces[0].record().as_flattened()[object_mapping[0].offset as usize..]
+            [..mapped_bytes.len()],
         mapped_bytes
     );
 }

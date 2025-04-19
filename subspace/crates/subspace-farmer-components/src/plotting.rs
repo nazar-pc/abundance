@@ -26,11 +26,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::hashes::{blake3_hash, blake3_hash_parallel, Blake3Hash};
-use subspace_core_primitives::pieces::{Piece, PieceIndex, PieceOffset, Record};
+use subspace_core_primitives::pieces::{Piece, PieceIndex, PieceOffset, Record, RecordChunk};
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::{SBucket, SectorId, SectorIndex};
 use subspace_core_primitives::segments::HistorySize;
-use subspace_core_primitives::{PublicKey, ScalarBytes};
+use subspace_core_primitives::PublicKey;
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_proof_of_space::{Table, TableGenerator};
@@ -344,14 +344,6 @@ where
         records: &mut [Record],
         abort_early: &AtomicBool,
     ) -> anyhow::Result<SectorContentsMap> {
-        if self.erasure_coding.max_shards() < Record::NUM_S_BUCKETS {
-            return Err(anyhow::anyhow!(
-                "Invalid erasure coding instance: {} shards needed, {} supported",
-                Record::NUM_S_BUCKETS,
-                self.erasure_coding.max_shards()
-            ));
-        }
-
         if self.table_generators.is_empty() {
             return Err(anyhow::anyhow!("No table generators"));
         }
@@ -561,7 +553,7 @@ pub fn write_sector(
                     .iter_s_bucket_records(s_bucket)
                     .expect("S-bucket guaranteed to be in range; qed")
             })
-            .zip(s_buckets_region.array_chunks_mut::<{ ScalarBytes::FULL_BYTES }>())
+            .zip(s_buckets_region.array_chunks_mut::<{ RecordChunk::SIZE }>())
         {
             let num_encoded_record_chunks =
                 usize::from(num_encoded_record_chunks[usize::from(piece_offset)]);
@@ -606,23 +598,19 @@ fn record_encoding<PosTable>(
     mut encoded_chunks_used: EncodedChunksUsed<'_>,
     table_generator: &mut PosTable::Generator,
     erasure_coding: &ErasureCoding,
-    chunks_scratch: &mut Vec<[u8; ScalarBytes::FULL_BYTES]>,
+    chunks_scratch: &mut Vec<[u8; RecordChunk::SIZE]>,
 ) where
     PosTable: Table,
 {
     // Derive PoSpace table
     let pos_table = table_generator.generate_parallel(pos_seed);
 
-    // TODO: Should have been just `::new()`, but https://github.com/rust-lang/rust/issues/53827
-    let parity_record_chunks =
-        Box::<[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]>::new_zeroed();
-    // SAFETY: Zero-initialized is a valid invariant
-    let mut parity_record_chunks = unsafe { parity_record_chunks.assume_init() };
+    let mut parity_record_chunks = Record::new_boxed();
 
     // Erasure code source record chunks
     erasure_coding
         .extend(record.iter(), parity_record_chunks.iter_mut())
-        .expect("Instance was verified to be able to work with this many values earlier; qed");
+        .expect("Statically guaranteed valid inputs; qed");
     let source_record_chunks = record.to_vec();
 
     chunks_scratch.clear();
@@ -641,7 +629,7 @@ fn record_encoding<PosTable>(
                 (Simd::from(*record_chunk) ^ Simd::from(*proof.hash())).to_array()
             } else {
                 // Dummy value indicating no proof
-                [0; ScalarBytes::FULL_BYTES]
+                [0; RecordChunk::SIZE]
             }
         })
         .collect_into_vec(chunks_scratch);
@@ -650,7 +638,7 @@ fn record_encoding<PosTable>(
         .zip(encoded_chunks_used.iter_mut())
         .filter_map(|(maybe_encoded_chunk, mut encoded_chunk_used)| {
             // No proof, see above
-            if maybe_encoded_chunk == [0; ScalarBytes::FULL_BYTES] {
+            if maybe_encoded_chunk == [0; RecordChunk::SIZE] {
                 None
             } else {
                 *encoded_chunk_used = true;

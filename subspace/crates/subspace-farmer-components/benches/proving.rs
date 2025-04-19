@@ -8,11 +8,10 @@ use schnorrkel::Keypair;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::num::{NonZeroU64, NonZeroUsize};
+use std::num::NonZeroU64;
 use std::{env, fs, slice};
 use subspace_archiving::archiver::Archiver;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment};
@@ -57,11 +56,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut input = RecordedHistorySegment::new_boxed();
     let mut rng = StdRng::seed_from_u64(42);
     rng.fill(AsMut::<[u8]>::as_mut(input.as_mut()));
-    let erasure_coding = &ErasureCoding::new(
-        NonZeroUsize::new(Record::NUM_S_BUCKETS.next_power_of_two().ilog2() as usize)
-            .expect("Not zero; qed"),
-    )
-    .unwrap();
+    let erasure_coding = &ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
     let mut table_generator = PosTable::generator();
     let archived_history_segment = archiver

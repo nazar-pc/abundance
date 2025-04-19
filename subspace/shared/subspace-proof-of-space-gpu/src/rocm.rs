@@ -7,8 +7,7 @@ use rust_kzg_blst::types::fr::FsFr;
 use std::ops::DerefMut;
 use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::pos::{PosProof, PosSeed};
-use subspace_core_primitives::ScalarBytes;
-use subspace_kzg::Scalar;
+use subspace_core_primitives::RecordChunk;
 
 extern "C" {
     /// # Returns
@@ -32,7 +31,7 @@ extern "C" {
     /// # Assumptions
     /// * `seed` must be a valid pointer to a 32-byte.
     /// * `record` must be a valid pointer to the record data (`*const Record`), with a length of `1 << lg_record_size`.
-    /// * `parity_record_chunks` must be valid mutable pointer to `Scalar` elements, each with a length of `1 << lg_record_size`.
+    /// * `parity_record_chunks` must be valid mutable pointer to `FsFr` elements, each with a length of `1 << lg_record_size`.
     /// * `chunks_scratch` must be a valid mutable pointer where up to `challenges_count` 32-byte chunks of GPU-calculated data will be written.
     /// * `gpu_id` must be a valid identifier of an available GPU. The available GPUs can be determined by using the `gpu_count` function.
     fn generate_and_encode_pospace_dispatch(
@@ -86,10 +85,9 @@ impl RocmDevice {
         }
 
         let mut proof_count = 0u32;
-        let mut chunks_scratch_gpu =
-            Vec::<[u8; ScalarBytes::FULL_BYTES]>::with_capacity(challenge_len);
+        let mut chunks_scratch_gpu = Vec::<[u8; RecordChunk::SIZE]>::with_capacity(challenge_len);
         let mut challenge_index_gpu = Vec::<u32>::with_capacity(challenge_len);
-        let mut parity_record_chunks = Vec::<Scalar>::with_capacity(Record::NUM_CHUNKS);
+        let mut parity_record_chunks = Vec::<FsFr>::with_capacity(Record::NUM_CHUNKS);
 
         let error = unsafe {
             generate_and_encode_pospace_dispatch(
@@ -100,7 +98,7 @@ impl RocmDevice {
                 record.as_ptr(),
                 chunks_scratch_gpu.as_mut_ptr(),
                 &mut proof_count,
-                Scalar::slice_mut_to_repr(&mut parity_record_chunks).as_mut_ptr(),
+                parity_record_chunks.as_mut_ptr(),
                 self.gpu_id,
             )
         };
