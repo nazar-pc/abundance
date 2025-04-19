@@ -130,7 +130,7 @@ fn segment_reconstruction_fails() {
     if let Err(error) = result {
         assert!(matches!(
             error,
-            ReconstructorError::DataShardsReconstruction(..)
+            ReconstructorError::NotEnoughShards { num_shards: 1 }
         ));
     }
 
@@ -169,7 +169,7 @@ fn piece_reconstruction_fails() {
     if let Err(error) = result {
         assert!(matches!(
             error,
-            ReconstructorError::DataShardsReconstruction(..)
+            ReconstructorError::NotEnoughShards { num_shards: 1 }
         ));
     }
 

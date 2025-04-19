@@ -89,6 +89,7 @@ impl RocmDevice {
         let mut challenge_index_gpu = Vec::<u32>::with_capacity(challenge_len);
         let mut parity_record_chunks = Vec::<FsFr>::with_capacity(Record::NUM_CHUNKS);
 
+        // TODO: This is doing interleaving for source and parity chunks now, but shouldn't
         let error = unsafe {
             generate_and_encode_pospace_dispatch(
                 u32::from(PosProof::K),
@@ -145,8 +146,7 @@ impl RocmDevice {
                     .chain(
                         source_record_chunks
                             .into_iter()
-                            .zip(parity_record_chunks)
-                            .flat_map(|(a, b)| [a, b.to_bytes()])
+                            .chain(parity_record_chunks)
                             .zip(encoded_chunks_used.iter())
                             // Skip chunks that were used previously
                             .filter_map(|(record_chunk, encoded_chunk_used)| {

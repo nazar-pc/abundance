@@ -305,31 +305,44 @@ pub fn recover_extended_record_chunks(
     erasure_coding: &ErasureCoding,
 ) -> Result<Box<[RecordChunk; Record::NUM_S_BUCKETS]>, ReadingError> {
     // Restore source record scalars
-    // TODO: Would be nice to recover directly into `Box<[RecordChunk; Record::NUM_S_BUCKETS]>`
+
     let mut recovered_sector_record_chunks = vec![[0u8; RecordChunk::SIZE]; Record::NUM_S_BUCKETS];
     {
-        // TODO: This will need to be simplified once chunks are no longer interleaved
-        let (source, parity) = sector_record_chunks
+        let (source_sector_record_chunks, parity_sector_record_chunks) =
+            sector_record_chunks.split_at(Record::NUM_CHUNKS);
+        let (source_recovered_sector_record_chunks, parity_recovered_sector_record_chunks) =
+            recovered_sector_record_chunks.split_at_mut(Record::NUM_CHUNKS);
+
+        let source = source_sector_record_chunks
             .iter()
-            .zip(recovered_sector_record_chunks.iter_mut())
+            .zip(source_recovered_sector_record_chunks.iter_mut())
             .map(
                 |(maybe_input_chunk, output_chunk)| match maybe_input_chunk {
                     Some(input_chunk) => {
                         output_chunk.copy_from_slice(input_chunk.as_slice());
-                        RecoveryShardState::Present(output_chunk.as_slice())
+                        RecoveryShardState::Present(input_chunk.as_slice())
                     }
                     None => RecoveryShardState::MissingRecover(output_chunk.as_mut_slice()),
                 },
-            )
-            .array_chunks::<2>()
-            .map(|[a, b]| (a, b))
-            .unzip::<_, _, Vec<_>, Vec<_>>();
-        erasure_coding
-            .recover(source.into_iter(), parity.into_iter())
-            .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
+            );
+        let parity = parity_sector_record_chunks
+            .iter()
+            .zip(parity_recovered_sector_record_chunks.iter_mut())
+            .map(
+                |(maybe_input_chunk, output_chunk)| match maybe_input_chunk {
+                    Some(input_chunk) => {
+                        output_chunk.copy_from_slice(input_chunk.as_slice());
+                        RecoveryShardState::Present(input_chunk.as_slice())
+                    }
+                    None => RecoveryShardState::MissingRecover(output_chunk.as_mut_slice()),
+                },
+            );
+        erasure_coding.recover(source, parity).map_err(|error| {
+            ReadingError::FailedToErasureDecodeRecord {
                 piece_offset,
                 error,
-            })?;
+            }
+        })?;
     }
 
     // Allocation in vector can be larger than contents, we need to make sure allocation is the same
@@ -353,29 +366,34 @@ pub fn recover_source_record(
 ) -> Result<Box<Record>, ReadingError> {
     // Restore source record scalars
     let mut recovered_record = Record::new_boxed();
-    // TODO: This will need to be simplified once chunks are no longer interleaved
-    // TODO: This is not correct for interleaved version anyway
-    let (source, parity) = sector_record_chunks
+
+    let (source_sector_record_chunks, parity_sector_record_chunks) =
+        sector_record_chunks.split_at(Record::NUM_CHUNKS);
+    let source = source_sector_record_chunks
         .iter()
         .zip(recovered_record.iter_mut())
         .map(
             |(maybe_input_chunk, output_chunk)| match maybe_input_chunk {
                 Some(input_chunk) => {
                     output_chunk.copy_from_slice(input_chunk.as_slice());
-                    RecoveryShardState::Present(output_chunk.as_slice())
+                    RecoveryShardState::Present(input_chunk.as_slice())
                 }
                 None => RecoveryShardState::MissingRecover(output_chunk.as_mut_slice()),
             },
-        )
-        .array_chunks::<2>()
-        .map(|[a, b]| (a, b))
-        .unzip::<_, _, Vec<_>, Vec<_>>();
-    erasure_coding
-        .recover(source.into_iter(), parity.into_iter())
-        .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
+        );
+    let parity =
+        parity_sector_record_chunks
+            .iter()
+            .map(|maybe_input_chunk| match maybe_input_chunk {
+                Some(input_chunk) => RecoveryShardState::Present(input_chunk.as_slice()),
+                None => RecoveryShardState::MissingIgnore,
+            });
+    erasure_coding.recover(source, parity).map_err(|error| {
+        ReadingError::FailedToErasureDecodeRecord {
             piece_offset,
             error,
-        })?;
+        }
+    })?;
 
     Ok(recovered_record)
 }

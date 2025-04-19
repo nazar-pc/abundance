@@ -598,8 +598,8 @@ impl Archiver {
         segment_index: SegmentIndex,
         items: impl Iterator<Item = &'a mut SegmentItem>,
     ) -> Vec<GlobalObject> {
-        let source_piece_indexes = &segment_index.segment_piece_indexes_source_first()
-            [..RecordedHistorySegment::NUM_RAW_RECORDS];
+        let source_piece_indexes =
+            &segment_index.segment_piece_indexes()[..RecordedHistorySegment::NUM_RAW_RECORDS];
 
         let mut corrected_object_mapping = Vec::new();
         let mut base_offset_in_segment = Segment::default().encoded_size();
@@ -663,8 +663,7 @@ impl Archiver {
 
             let mut pieces = ArchivedHistorySegment::default();
 
-            // TODO: This will be simplified once source and parity are not interleaved
-            for (input, output) in raw_record_shards.iter().zip(pieces.iter_mut().step_by(2)) {
+            for (input, output) in raw_record_shards.iter().zip(pieces.iter_mut()) {
                 output
                     .record_mut()
                     .as_flattened_mut()
@@ -674,16 +673,14 @@ impl Archiver {
             // Recorded history segment is quite big and no longer necessary
             drop(raw_record_shards);
 
-            // TODO: This will be simplified once source and parity are not interleaved
-            let mut source_shards = Vec::with_capacity(RecordedHistorySegment::NUM_RAW_RECORDS);
-            let mut parity_shards = Vec::with_capacity(RecordedHistorySegment::NUM_RAW_RECORDS);
-            for [source, parity] in pieces.array_chunks_mut::<2>() {
-                source_shards.push(source.record());
-                parity_shards.push(parity.record_mut());
-            }
+            let (source_shards, parity_shards) =
+                pieces.split_at_mut(RecordedHistorySegment::NUM_RAW_RECORDS);
 
             self.erasure_coding
-                .extend(source_shards.into_iter(), parity_shards.into_iter())
+                .extend(
+                    source_shards.iter().map(|shard| shard.record()),
+                    parity_shards.iter_mut().map(|shard| shard.record_mut()),
+                )
                 .expect("Statically correct parameters; qed");
 
             pieces

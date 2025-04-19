@@ -9,7 +9,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use subspace_core_primitives::pieces::{Piece, Record};
-use subspace_core_primitives::segments::ArchivedHistorySegment;
+use subspace_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
 use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
 
 /// Reconstructor-related instantiation error
@@ -19,6 +19,9 @@ pub enum ReconstructorError {
     /// Segment size is not bigger than record size
     #[error("Error during data shards reconstruction: {0}")]
     DataShardsReconstruction(String),
+    /// Not enough shards
+    #[error("Not enough shards: {num_shards}")]
+    NotEnoughShards { num_shards: usize },
     /// Incorrect piece position provided.
     #[error("Incorrect piece position provided.")]
     IncorrectPiecePosition,
@@ -41,13 +44,22 @@ impl PiecesReconstructor {
         &self,
         input_pieces: &[Option<Piece>],
     ) -> Result<ArchivedHistorySegment, ReconstructorError> {
+        if input_pieces.len() < ArchivedHistorySegment::NUM_PIECES {
+            return Err(ReconstructorError::NotEnoughShards {
+                num_shards: input_pieces.len(),
+            });
+        }
         let mut reconstructed_pieces = ArchivedHistorySegment::default();
 
-        // TODO: This will need to be simplified once pieces are no longer interleaved
         {
-            let (source, parity) = input_pieces
+            let (source_input_pieces, parity_input_pieces) =
+                input_pieces.split_at(RecordedHistorySegment::NUM_RAW_RECORDS);
+            let (source_reconstructed_pieces, parity_reconstructed_pieces) =
+                reconstructed_pieces.split_at_mut(RecordedHistorySegment::NUM_RAW_RECORDS);
+
+            let source = source_input_pieces
                 .iter()
-                .zip(reconstructed_pieces.iter_mut())
+                .zip(source_reconstructed_pieces)
                 .map(
                     |(maybe_input_piece, output_piece)| match maybe_input_piece {
                         Some(input_piece) => {
@@ -60,12 +72,25 @@ impl PiecesReconstructor {
                             output_piece.record_mut().as_flattened_mut(),
                         ),
                     },
-                )
-                .array_chunks::<2>()
-                .map(|[a, b]| (a, b))
-                .unzip::<_, _, Vec<_>, Vec<_>>();
+                );
+            let parity = parity_input_pieces
+                .iter()
+                .zip(parity_reconstructed_pieces.iter_mut())
+                .map(
+                    |(maybe_input_piece, output_piece)| match maybe_input_piece {
+                        Some(input_piece) => {
+                            output_piece
+                                .record_mut()
+                                .copy_from_slice(input_piece.record().as_slice());
+                            RecoveryShardState::Present(input_piece.record().as_flattened())
+                        }
+                        None => RecoveryShardState::MissingRecover(
+                            output_piece.record_mut().as_flattened_mut(),
+                        ),
+                    },
+                );
             self.erasure_coding
-                .recover(source.into_iter(), parity.into_iter())
+                .recover(source, parity)
                 .map_err(ReconstructorError::DataShardsReconstruction)?;
         }
 

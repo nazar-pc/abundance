@@ -104,6 +104,7 @@ impl SegmentIndex {
     }
 
     /// List of piece indexes that belong to this segment.
+    #[inline]
     pub fn segment_piece_indexes(&self) -> [PieceIndex; RecordedHistorySegment::NUM_PIECES] {
         let mut piece_indices = [PieceIndex::ZERO; RecordedHistorySegment::NUM_PIECES];
         (self.first_piece_index()..=self.last_piece_index())
@@ -113,25 +114,6 @@ impl SegmentIndex {
             });
 
         piece_indices
-    }
-
-    /// List of piece indexes that belong to this segment with source pieces first.
-    pub fn segment_piece_indexes_source_first(
-        &self,
-    ) -> [PieceIndex; RecordedHistorySegment::NUM_PIECES] {
-        let mut source_first_piece_indices = [PieceIndex::ZERO; RecordedHistorySegment::NUM_PIECES];
-
-        let piece_indices = self.segment_piece_indexes();
-        piece_indices
-            .into_iter()
-            .step_by(2)
-            .chain(piece_indices.into_iter().skip(1).step_by(2))
-            .zip(&mut source_first_piece_indices)
-            .for_each(|(input, output)| {
-                *output = input;
-            });
-
-        source_first_piece_indices
     }
 
     /// Checked integer subtraction. Computes `self - rhs`, returning `None` if overflow occurred.

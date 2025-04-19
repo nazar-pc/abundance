@@ -268,9 +268,7 @@ where
 
             // We could parse each segment header to do this check perfectly, but it's an edge
             // case, so we just do a best-effort check
-            if piece_index.source_position() == 0
-                && offset < min_segment_header_encoded_size() as u32
-            {
+            if piece_index.position() == 0 && offset < min_segment_header_encoded_size() as u32 {
                 debug!(
                     ?mapping,
                     min_segment_header_encoded_size = ?min_segment_header_encoded_size(),
@@ -341,7 +339,7 @@ where
             PartialObject::new_with_padding(&raw_data, self.max_object_len, mapping)?
         {
             // We've used up this data, so just drop it
-            std::mem::drop(raw_data);
+            drop(raw_data);
 
             trace!(
                 %next_source_piece_index,

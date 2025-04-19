@@ -10,7 +10,8 @@ use core::mem;
 use parity_scale_codec::Decode;
 use subspace_core_primitives::pieces::Piece;
 use subspace_core_primitives::segments::{
-    ArchivedBlockProgress, LastArchivedBlock, RecordedHistorySegment, SegmentHeader, SegmentIndex,
+    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
+    SegmentHeader, SegmentIndex,
 };
 use subspace_core_primitives::BlockNumber;
 use subspace_erasure_coding::{ErasureCoding, RecoveryShardState};
@@ -21,6 +22,9 @@ pub enum ReconstructorError {
     /// Error during data shards reconstruction
     #[error("Error during data shards reconstruction: {0}")]
     DataShardsReconstruction(String),
+    /// Not enough shards
+    #[error("Not enough shards: {num_shards}")]
+    NotEnoughShards { num_shards: usize },
     /// Segment size is not bigger than record size
     #[error("Error during segment decoding: {0}")]
     SegmentDecoding(parity_scale_codec::Error),
@@ -75,12 +79,15 @@ impl Reconstructor {
         &self,
         segment_pieces: &[Option<Piece>],
     ) -> Result<Segment, ReconstructorError> {
+        if segment_pieces.len() < ArchivedHistorySegment::NUM_PIECES {
+            return Err(ReconstructorError::NotEnoughShards {
+                num_shards: segment_pieces.len(),
+            });
+        }
         let mut segment_data = RecordedHistorySegment::new_boxed();
 
         if !segment_pieces
             .iter()
-            // Take each source shards here
-            .step_by(2)
             .zip(segment_data.iter_mut())
             .all(|(maybe_piece, record)| {
                 if let Some(piece) = maybe_piece {
@@ -94,37 +101,29 @@ impl Reconstructor {
             // If not all data pieces are available, need to reconstruct data shards using erasure
             // coding.
 
-            // TODO: This will need to be simplified once pieces are no longer interleaved
-            {
-                let (source, parity) = segment_pieces
-                    .array_chunks::<2>()
-                    .zip(segment_data.iter_mut())
-                    .map(
-                        |([maybe_source_piece, maybe_parity_piece], output_record)| {
-                            let source = match maybe_source_piece {
-                                Some(input_piece) => {
-                                    output_record.copy_from_slice(input_piece.record().as_slice());
-                                    RecoveryShardState::Present(input_piece.record().as_flattened())
-                                }
-                                None => RecoveryShardState::MissingRecover(
-                                    output_record.as_flattened_mut(),
-                                ),
-                            };
-                            let parity = match maybe_parity_piece {
-                                Some(input_piece) => {
-                                    RecoveryShardState::Present(input_piece.record().as_flattened())
-                                }
-                                None => RecoveryShardState::MissingIgnore,
-                            };
-
-                            (source, parity)
-                        },
-                    )
-                    .unzip::<_, _, Vec<_>, Vec<_>>();
-                self.erasure_coding
-                    .recover(source.into_iter(), parity.into_iter())
-                    .map_err(ReconstructorError::DataShardsReconstruction)?;
-            }
+            let (source_segment_pieces, parity_segment_pieces) =
+                segment_pieces.split_at(RecordedHistorySegment::NUM_RAW_RECORDS);
+            let source = segment_data.iter_mut().zip(source_segment_pieces).map(
+                |(output_record, maybe_source_piece)| match maybe_source_piece {
+                    Some(input_piece) => {
+                        output_record.copy_from_slice(input_piece.record().as_slice());
+                        RecoveryShardState::Present(input_piece.record().as_flattened())
+                    }
+                    None => RecoveryShardState::MissingRecover(output_record.as_flattened_mut()),
+                },
+            );
+            let parity =
+                parity_segment_pieces
+                    .iter()
+                    .map(|maybe_source_piece| match maybe_source_piece {
+                        Some(input_piece) => {
+                            RecoveryShardState::Present(input_piece.record().as_flattened())
+                        }
+                        None => RecoveryShardState::MissingIgnore,
+                    });
+            self.erasure_coding
+                .recover(source, parity)
+                .map_err(ReconstructorError::DataShardsReconstruction)?;
         }
 
         let segment = Segment::decode(&mut AsRef::<[u8]>::as_ref(segment_data.as_ref()))
