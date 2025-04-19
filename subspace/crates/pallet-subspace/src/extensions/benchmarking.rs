@@ -15,11 +15,11 @@ use sp_consensus_slots::Slot;
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, NumberFor};
 use sp_runtime::transaction_validity::TransactionSource;
 use sp_std::collections::btree_map::BTreeMap;
-use subspace_core_primitives::pieces::PieceOffset;
+use subspace_core_primitives::pieces::{PieceOffset, RecordChunk};
 use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::segments::{SegmentCommitment, SegmentIndex};
 use subspace_core_primitives::solutions::RewardSignature;
-use subspace_core_primitives::{PublicKey, RecordChunk};
+use subspace_core_primitives::PublicKey;
 
 pub struct Pallet<T: Config>(Subspace<T>);
 

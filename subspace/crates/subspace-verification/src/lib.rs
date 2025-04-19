@@ -18,12 +18,12 @@ use schnorrkel::SignatureError;
 use subspace_core_primitives::hashes::{blake3_hash_list, blake3_hash_with_key, Blake3Hash};
 #[cfg(feature = "alloc")]
 use subspace_core_primitives::pieces::PieceArray;
-use subspace_core_primitives::pieces::{Record, RecordCommitment, RecordWitness};
+use subspace_core_primitives::pieces::{Record, RecordChunk, RecordCommitment, RecordWitness};
 use subspace_core_primitives::pot::PotOutput;
 use subspace_core_primitives::sectors::{SectorId, SectorSlotChallenge};
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment, SegmentCommitment};
 use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
-use subspace_core_primitives::{BlockNumber, BlockWeight, PublicKey, RecordChunk, SlotNumber};
+use subspace_core_primitives::{BlockNumber, BlockWeight, PublicKey, SlotNumber};
 use subspace_proof_of_space::Table;
 
 /// Errors encountered by the Subspace consensus primitives.

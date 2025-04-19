@@ -11,9 +11,10 @@ use rayon::prelude::*;
 use std::collections::HashSet;
 use std::io;
 use subspace_core_primitives::hashes::Blake3Hash;
+use subspace_core_primitives::pieces::RecordChunk;
 use subspace_core_primitives::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
 use subspace_core_primitives::solutions::SolutionRange;
-use subspace_core_primitives::{PublicKey, RecordChunk};
+use subspace_core_primitives::PublicKey;
 use subspace_verification::is_within_solution_range;
 use thiserror::Error;
 

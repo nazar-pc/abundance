@@ -12,7 +12,7 @@ use derive_more::{AsRef, Deref, DerefMut, From, Into};
 use kzg::Fr;
 use rust_kzg_blst::types::fr::FsFr;
 use static_assertions::const_assert_eq;
-use subspace_core_primitives::RecordChunk;
+use subspace_core_primitives::pieces::RecordChunk;
 
 /// Representation of a single BLS12-381 scalar value.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Deref, DerefMut)]

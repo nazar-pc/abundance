@@ -1,10 +1,10 @@
 //! Solutions-related data structures and functions.
 
-use crate::pieces::{PieceOffset, Record, RecordCommitment, RecordWitness};
+use crate::pieces::{PieceOffset, Record, RecordChunk, RecordCommitment, RecordWitness};
 use crate::pos::PosProof;
 use crate::sectors::SectorIndex;
 use crate::segments::{HistorySize, SegmentIndex};
-use crate::{PublicKey, RecordChunk};
+use crate::PublicKey;
 use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::fmt;

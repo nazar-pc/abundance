@@ -1,7 +1,7 @@
 use crate::rocm::rocm_devices;
 use std::num::NonZeroUsize;
 use std::slice;
-use subspace_core_primitives::hashes::{blake3_254_hash_to_scalar, blake3_hash};
+use subspace_core_primitives::hashes::blake3_hash;
 use subspace_core_primitives::pieces::{PieceOffset, Record};
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::HistorySize;
@@ -39,7 +39,7 @@ fn basic() {
     record
         .iter_mut()
         .enumerate()
-        .for_each(|(index, chunk)| *chunk = *blake3_254_hash_to_scalar(&index.to_le_bytes()));
+        .for_each(|(index, chunk)| *chunk = *blake3_hash(&index.to_le_bytes()));
 
     let mut cpu_encoded_records = Record::new_zero_vec(2);
     for cpu_encoded_record in &mut cpu_encoded_records {

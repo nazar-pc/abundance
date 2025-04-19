@@ -22,8 +22,8 @@ mod tests;
 extern crate alloc;
 
 use crate::hashes::{blake3_hash, blake3_hash_list, Blake3Hash};
-use core::{fmt, mem};
-use derive_more::{Add, AsMut, AsRef, Deref, DerefMut, Display, Div, From, Into, Mul, Rem, Sub};
+use core::fmt;
+use derive_more::{Add, AsMut, AsRef, Deref, Display, Div, From, Into, Mul, Rem, Sub};
 use num_traits::{WrappingAdd, WrappingSub};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -36,7 +36,7 @@ use serde::{Deserializer, Serializer};
 use static_assertions::const_assert;
 
 // Refuse to compile on lower than 32-bit platforms
-const_assert!(core::mem::size_of::<usize>() >= core::mem::size_of::<u32>());
+const_assert!(size_of::<usize>() >= size_of::<u32>());
 
 /// Signing context used for creating reward signatures by farmers.
 pub const REWARD_SIGNING_CONTEXT: &[u8] = b"subspace_reward";
@@ -214,73 +214,6 @@ impl PublicKey {
     /// Public key hash.
     pub fn hash(&self) -> Blake3Hash {
         blake3_hash(&self.0)
-    }
-}
-
-/// Chunk contained in a record
-#[derive(
-    Default,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    From,
-    Into,
-    AsRef,
-    AsMut,
-    Deref,
-    DerefMut,
-)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(transparent))]
-#[repr(C)]
-pub struct RecordChunk([u8; RecordChunk::SIZE]);
-
-impl fmt::Debug for RecordChunk {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02x}")?;
-        }
-        Ok(())
-    }
-}
-
-impl RecordChunk {
-    /// Size of the chunk in bytes
-    pub const SIZE: usize = 32;
-
-    /// Convenient conversion from slice to underlying representation for efficiency purposes
-    #[inline]
-    pub fn slice_to_repr(value: &[Self]) -> &[[u8; RecordChunk::SIZE]] {
-        // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from slice of underlying representation for efficiency purposes
-    #[inline]
-    pub fn slice_from_repr(value: &[[u8; RecordChunk::SIZE]]) -> &[Self] {
-        // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from mutable slice to underlying representation for efficiency
-    /// purposes
-    #[inline]
-    pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; RecordChunk::SIZE]] {
-        // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from mutable slice of underlying representation for efficiency
-    /// purposes
-    #[inline]
-    pub fn slice_mut_from_repr(value: &mut [[u8; RecordChunk::SIZE]]) -> &mut [Self] {
-        // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
     }
 }
 

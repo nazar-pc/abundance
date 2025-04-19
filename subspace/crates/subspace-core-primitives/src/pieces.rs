@@ -14,7 +14,6 @@ pub use crate::pieces::piece::Piece;
 #[cfg(feature = "alloc")]
 pub use crate::segments::ArchivedHistorySegment;
 use crate::segments::{RecordedHistorySegment, SegmentIndex};
-use crate::RecordChunk;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
@@ -275,6 +274,73 @@ impl PieceOffset {
     #[inline]
     pub const fn to_bytes(self) -> [u8; mem::size_of::<u16>()] {
         self.0.to_le_bytes()
+    }
+}
+
+/// Chunk contained in a record
+#[derive(
+    Default,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    From,
+    Into,
+    AsRef,
+    AsMut,
+    Deref,
+    DerefMut,
+)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
+#[repr(C)]
+pub struct RecordChunk([u8; RecordChunk::SIZE]);
+
+impl fmt::Debug for RecordChunk {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+impl RecordChunk {
+    /// Size of the chunk in bytes
+    pub const SIZE: usize = 32;
+
+    /// Convenient conversion from slice to underlying representation for efficiency purposes
+    #[inline]
+    pub fn slice_to_repr(value: &[Self]) -> &[[u8; RecordChunk::SIZE]] {
+        // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from slice of underlying representation for efficiency purposes
+    #[inline]
+    pub fn slice_from_repr(value: &[[u8; RecordChunk::SIZE]]) -> &[Self] {
+        // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from mutable slice to underlying representation for efficiency
+    /// purposes
+    #[inline]
+    pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; RecordChunk::SIZE]] {
+        // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from mutable slice of underlying representation for efficiency
+    /// purposes
+    #[inline]
+    pub fn slice_mut_from_repr(value: &mut [[u8; RecordChunk::SIZE]]) -> &mut [Self] {
+        // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
     }
 }
 
