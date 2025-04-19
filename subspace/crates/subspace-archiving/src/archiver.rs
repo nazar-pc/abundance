@@ -1,10 +1,6 @@
-extern crate alloc;
-
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
+use alloc::boxed::Box;
 use alloc::collections::VecDeque;
-#[cfg(not(feature = "std"))]
-use alloc::vec;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use parity_scale_codec::{Compact, CompactLen, Decode, Encode, Input, Output};

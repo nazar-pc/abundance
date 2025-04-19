@@ -1,10 +1,5 @@
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
-#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

@@ -1,10 +1,4 @@
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-
 use crate::archiver::{Segment, SegmentItem};
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::mem;
 use parity_scale_codec::Decode;
