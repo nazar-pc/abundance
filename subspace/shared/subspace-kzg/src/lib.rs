@@ -12,7 +12,7 @@ use derive_more::{AsRef, Deref, DerefMut, From, Into};
 use kzg::Fr;
 use rust_kzg_blst::types::fr::FsFr;
 use static_assertions::const_assert_eq;
-use subspace_core_primitives::ScalarBytes;
+use subspace_core_primitives::RecordChunk;
 
 /// Representation of a single BLS12-381 scalar value.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Deref, DerefMut)]
@@ -28,64 +28,64 @@ const_assert_eq!(
     mem::align_of::<Option<FsFr>>()
 );
 
-impl TryFrom<&[u8; ScalarBytes::FULL_BYTES]> for Scalar {
+impl TryFrom<&[u8; RecordChunk::SIZE]> for Scalar {
     type Error = String;
 
     #[inline]
-    fn try_from(value: &[u8; ScalarBytes::FULL_BYTES]) -> Result<Self, Self::Error> {
+    fn try_from(value: &[u8; RecordChunk::SIZE]) -> Result<Self, Self::Error> {
         Self::try_from(*value)
     }
 }
 
-impl TryFrom<[u8; ScalarBytes::FULL_BYTES]> for Scalar {
+impl TryFrom<[u8; RecordChunk::SIZE]> for Scalar {
     type Error = String;
 
     #[inline]
-    fn try_from(value: [u8; ScalarBytes::FULL_BYTES]) -> Result<Self, Self::Error> {
+    fn try_from(value: [u8; RecordChunk::SIZE]) -> Result<Self, Self::Error> {
         FsFr::from_bytes(&value).map(Scalar)
     }
 }
 
-impl TryFrom<&ScalarBytes> for Scalar {
+impl TryFrom<&RecordChunk> for Scalar {
     type Error = String;
 
     #[inline]
-    fn try_from(value: &ScalarBytes) -> Result<Self, Self::Error> {
+    fn try_from(value: &RecordChunk) -> Result<Self, Self::Error> {
         FsFr::from_bytes(value.as_ref()).map(Scalar)
     }
 }
 
-impl TryFrom<ScalarBytes> for Scalar {
+impl TryFrom<RecordChunk> for Scalar {
     type Error = String;
 
     #[inline]
-    fn try_from(value: ScalarBytes) -> Result<Self, Self::Error> {
+    fn try_from(value: RecordChunk) -> Result<Self, Self::Error> {
         Self::try_from(&value)
     }
 }
 
-impl From<&Scalar> for [u8; ScalarBytes::FULL_BYTES] {
+impl From<&Scalar> for [u8; RecordChunk::SIZE] {
     #[inline]
     fn from(value: &Scalar) -> Self {
         value.0.to_bytes()
     }
 }
 
-impl From<Scalar> for [u8; ScalarBytes::FULL_BYTES] {
+impl From<Scalar> for [u8; RecordChunk::SIZE] {
     #[inline]
     fn from(value: Scalar) -> Self {
         Self::from(&value)
     }
 }
 
-impl From<&Scalar> for ScalarBytes {
+impl From<&Scalar> for RecordChunk {
     #[inline]
     fn from(value: &Scalar) -> Self {
-        ScalarBytes::from(value.0.to_bytes())
+        RecordChunk::from(value.0.to_bytes())
     }
 }
 
-impl From<Scalar> for ScalarBytes {
+impl From<Scalar> for RecordChunk {
     #[inline]
     fn from(value: Scalar) -> Self {
         Self::from(&value)
@@ -94,7 +94,7 @@ impl From<Scalar> for ScalarBytes {
 
 impl Scalar {
     /// Convert scalar into bytes
-    pub fn to_bytes(&self) -> [u8; ScalarBytes::FULL_BYTES] {
+    pub fn to_bytes(&self) -> [u8; RecordChunk::SIZE] {
         self.into()
     }
 

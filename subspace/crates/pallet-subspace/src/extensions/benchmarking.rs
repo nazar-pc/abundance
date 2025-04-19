@@ -19,7 +19,7 @@ use subspace_core_primitives::pieces::PieceOffset;
 use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::segments::{SegmentCommitment, SegmentIndex};
 use subspace_core_primitives::solutions::RewardSignature;
-use subspace_core_primitives::{PublicKey, ScalarBytes};
+use subspace_core_primitives::{PublicKey, RecordChunk};
 
 pub struct Pallet<T: Config>(Subspace<T>);
 

@@ -7,7 +7,7 @@ use rust_kzg_blst::types::fr::FsFr;
 use std::ops::DerefMut;
 use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::pos::{PosProof, PosSeed};
-use subspace_core_primitives::ScalarBytes;
+use subspace_core_primitives::RecordChunk;
 use subspace_kzg::Scalar;
 
 extern "C" {
@@ -86,8 +86,7 @@ impl CudaDevice {
         }
 
         let mut proof_count = 0u32;
-        let mut chunks_scratch_gpu =
-            Vec::<[u8; ScalarBytes::FULL_BYTES]>::with_capacity(challenge_len);
+        let mut chunks_scratch_gpu = Vec::<[u8; RecordChunk::SIZE]>::with_capacity(challenge_len);
         let mut challenge_index_gpu = Vec::<u32>::with_capacity(challenge_len);
         let mut parity_record_chunks = Vec::<Scalar>::with_capacity(Record::NUM_CHUNKS);
 

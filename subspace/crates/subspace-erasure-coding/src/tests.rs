@@ -1,7 +1,7 @@
 // use crate::ErasureCoding;
 // use std::iter;
 // use std::num::NonZeroUsize;
-// use subspace_core_primitives::ScalarBytes;
+// use subspace_core_primitives::RecordChunk;
 // use subspace_kzg::Scalar;
 //
 // // TODO: This could have been done in-place, once implemented can be exposed as a utility
@@ -41,7 +41,7 @@
 //     let ec = ErasureCoding::new(scale).unwrap();
 //
 //     let source_shards = (0..num_shards / 2)
-//         .map(|_| rand::random::<[u8; ScalarBytes::SAFE_BYTES]>())
+//         .map(|_| rand::random::<[u8; RecordChunk::SAFE_BYTES]>())
 //         .map(Scalar::from)
 //         .collect::<Vec<_>>();
 //

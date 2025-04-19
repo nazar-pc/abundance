@@ -20,7 +20,7 @@ use subspace_core_primitives::pieces::{PieceOffset, Record};
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::{SBucket, SectorId};
 use subspace_core_primitives::solutions::{ChunkWitness, Solution, SolutionRange};
-use subspace_core_primitives::{PublicKey, ScalarBytes};
+use subspace_core_primitives::{PublicKey, RecordChunk};
 use subspace_erasure_coding::ErasureCoding;
 use subspace_proof_of_space::Table;
 use thiserror::Error;
@@ -264,7 +264,7 @@ where
                 assert!(Record::NUM_S_BUCKETS.ilog2() == 16);
             };
             let record_merkle_tree = BalancedHashedMerkleTree::<16>::new_boxed(
-                ScalarBytes::slice_to_repr(&chunks)
+                RecordChunk::slice_to_repr(&chunks)
                     .try_into()
                     .expect("Statically guaranteed to have correct length; qed"),
             );

@@ -30,7 +30,7 @@ use subspace_core_primitives::pieces::{Piece, PieceIndex, PieceOffset, Record};
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::{SBucket, SectorId, SectorIndex};
 use subspace_core_primitives::segments::HistorySize;
-use subspace_core_primitives::{PublicKey, ScalarBytes};
+use subspace_core_primitives::{PublicKey, RecordChunk};
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_proof_of_space::{Table, TableGenerator};
@@ -561,7 +561,7 @@ pub fn write_sector(
                     .iter_s_bucket_records(s_bucket)
                     .expect("S-bucket guaranteed to be in range; qed")
             })
-            .zip(s_buckets_region.array_chunks_mut::<{ ScalarBytes::FULL_BYTES }>())
+            .zip(s_buckets_region.array_chunks_mut::<{ RecordChunk::SIZE }>())
         {
             let num_encoded_record_chunks =
                 usize::from(num_encoded_record_chunks[usize::from(piece_offset)]);
@@ -606,7 +606,7 @@ fn record_encoding<PosTable>(
     mut encoded_chunks_used: EncodedChunksUsed<'_>,
     table_generator: &mut PosTable::Generator,
     erasure_coding: &ErasureCoding,
-    chunks_scratch: &mut Vec<[u8; ScalarBytes::FULL_BYTES]>,
+    chunks_scratch: &mut Vec<[u8; RecordChunk::SIZE]>,
 ) where
     PosTable: Table,
 {
@@ -637,7 +637,7 @@ fn record_encoding<PosTable>(
                 (Simd::from(*record_chunk) ^ Simd::from(*proof.hash())).to_array()
             } else {
                 // Dummy value indicating no proof
-                [0; ScalarBytes::FULL_BYTES]
+                [0; RecordChunk::SIZE]
             }
         })
         .collect_into_vec(chunks_scratch);
@@ -646,7 +646,7 @@ fn record_encoding<PosTable>(
         .zip(encoded_chunks_used.iter_mut())
         .filter_map(|(maybe_encoded_chunk, mut encoded_chunk_used)| {
             // No proof, see above
-            if maybe_encoded_chunk == [0; ScalarBytes::FULL_BYTES] {
+            if maybe_encoded_chunk == [0; RecordChunk::SIZE] {
                 None
             } else {
                 *encoded_chunk_used = true;

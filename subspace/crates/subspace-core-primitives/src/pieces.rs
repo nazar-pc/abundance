@@ -14,7 +14,7 @@ pub use crate::pieces::piece::Piece;
 #[cfg(feature = "alloc")]
 pub use crate::segments::ArchivedHistorySegment;
 use crate::segments::{RecordedHistorySegment, SegmentIndex};
-use crate::ScalarBytes;
+use crate::RecordChunk;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
@@ -283,7 +283,7 @@ impl PieceOffset {
 /// NOTE: This is a stack-allocated data structure and can cause stack overflow!
 #[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut)]
 #[repr(transparent)]
-pub struct Record([[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]);
+pub struct Record([[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]);
 
 impl fmt::Debug for Record {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -315,7 +315,7 @@ impl AsMut<[u8]> for Record {
     }
 }
 
-impl From<&Record> for &[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS] {
+impl From<&Record> for &[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
     #[inline]
     fn from(value: &Record) -> Self {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
@@ -323,15 +323,15 @@ impl From<&Record> for &[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS] {
     }
 }
 
-impl From<&[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]> for &Record {
+impl From<&[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &Record {
     #[inline]
-    fn from(value: &[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]) -> Self {
+    fn from(value: &[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]) -> Self {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
-impl From<&mut Record> for &mut [[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS] {
+impl From<&mut Record> for &mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
     #[inline]
     fn from(value: &mut Record) -> Self {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
@@ -339,9 +339,9 @@ impl From<&mut Record> for &mut [[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUN
     }
 }
 
-impl From<&mut [[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]> for &mut Record {
+impl From<&mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &mut Record {
     #[inline]
-    fn from(value: &mut [[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]) -> Self {
+    fn from(value: &mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]) -> Self {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -392,8 +392,8 @@ impl Record {
     pub const NUM_S_BUCKETS: usize = Record::NUM_CHUNKS
         * RecordedHistorySegment::ERASURE_CODING_RATE.1
         / RecordedHistorySegment::ERASURE_CODING_RATE.0;
-    /// Size of a segment record, it is guaranteed to be a multiple of [`ScalarBytes::FULL_BYTES`]
-    pub const SIZE: usize = ScalarBytes::FULL_BYTES * Record::NUM_CHUNKS;
+    /// Size of a segment record, it is guaranteed to be a multiple of [`RecordChunk::SIZE`]
+    pub const SIZE: usize = RecordChunk::SIZE * Record::NUM_CHUNKS;
 
     /// Create boxed value without hitting stack overflow
     #[inline]
@@ -418,8 +418,7 @@ impl Record {
             let slice = unsafe {
                 slice::from_raw_parts_mut(
                     slice.as_mut_ptr()
-                        as *mut [[mem::MaybeUninit<u8>; ScalarBytes::FULL_BYTES];
-                            Record::NUM_CHUNKS],
+                        as *mut [[mem::MaybeUninit<u8>; RecordChunk::SIZE]; Record::NUM_CHUNKS],
                     length,
                 )
             };
@@ -438,7 +437,7 @@ impl Record {
     /// Convenient conversion from slice of record to underlying representation for efficiency
     /// purposes.
     #[inline]
-    pub fn slice_to_repr(value: &[Self]) -> &[[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]] {
+    pub fn slice_to_repr(value: &[Self]) -> &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -446,9 +445,7 @@ impl Record {
     /// Convenient conversion from slice of underlying representation to record for efficiency
     /// purposes.
     #[inline]
-    pub fn slice_from_repr(
-        value: &[[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]],
-    ) -> &[Self] {
+    pub fn slice_from_repr(value: &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]]) -> &[Self] {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -458,7 +455,7 @@ impl Record {
     #[inline]
     pub fn slice_mut_to_repr(
         value: &mut [Self],
-    ) -> &mut [[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]] {
+    ) -> &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -467,7 +464,7 @@ impl Record {
     /// efficiency purposes.
     #[inline]
     pub fn slice_mut_from_repr(
-        value: &mut [[[u8; ScalarBytes::FULL_BYTES]; Record::NUM_CHUNKS]],
+        value: &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]],
     ) -> &mut [Self] {
         // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }

@@ -23,7 +23,7 @@ use subspace_core_primitives::pot::PotOutput;
 use subspace_core_primitives::sectors::{SectorId, SectorSlotChallenge};
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment, SegmentCommitment};
 use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
-use subspace_core_primitives::{BlockNumber, BlockWeight, PublicKey, ScalarBytes, SlotNumber};
+use subspace_core_primitives::{BlockNumber, BlockWeight, PublicKey, RecordChunk, SlotNumber};
 use subspace_proof_of_space::Table;
 
 /// Errors encountered by the Subspace consensus primitives.
@@ -346,7 +346,7 @@ pub fn is_record_commitment_valid(
 
 /// Derive proof of time entropy from chunk and proof of time for injection purposes.
 #[inline]
-pub fn derive_pot_entropy(chunk: &ScalarBytes, proof_of_time: PotOutput) -> Blake3Hash {
+pub fn derive_pot_entropy(chunk: &RecordChunk, proof_of_time: PotOutput) -> Blake3Hash {
     blake3_hash_list(&[chunk.as_ref(), proof_of_time.as_ref()])
 }
 
