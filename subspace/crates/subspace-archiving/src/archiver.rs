@@ -687,11 +687,11 @@ impl Archiver {
         };
 
         // Collect hashes to commitments from all records
-        let (record_commitments, parity_chunks_roots) = {
+        let record_commitments = {
             #[cfg(not(feature = "parallel"))]
-            let source_pieces = pieces.iter();
+            let source_pieces = pieces.iter_mut();
             #[cfg(feature = "parallel")]
-            let source_pieces = pieces.par_iter();
+            let source_pieces = pieces.par_iter_mut();
 
             // Here we build a tree of record chunks, with the first half being source chunks as
             // they are originally and the second half being parity chunks. While we build tree
@@ -728,10 +728,16 @@ impl Archiver {
                 let record_commitment =
                     BalancedHashedMerkleTree::<1>::new(&[source_chunks_root, parity_chunks_root])
                         .root();
-                (record_commitment, parity_chunks_root)
+
+                piece.commitment_mut().copy_from_slice(&record_commitment);
+                piece
+                    .parity_chunks_root_mut()
+                    .copy_from_slice(&parity_chunks_root);
+
+                record_commitment
             });
 
-            iter.unzip::<_, _, Vec<_>, Vec<_>>()
+            iter.collect::<Vec<_>>()
         };
 
         let segment_merkle_tree =
@@ -747,18 +753,10 @@ impl Archiver {
         // Create witness for every record and write it to corresponding piece.
         pieces
             .iter_mut()
-            .zip(&record_commitments)
-            .zip(&parity_chunks_roots)
             .zip(segment_merkle_tree.all_proofs())
-            .for_each(
-                |(((piece, record_commitment), parity_chunks_root), record_witness)| {
-                    piece.commitment_mut().copy_from_slice(record_commitment);
-                    piece
-                        .parity_chunks_root_mut()
-                        .copy_from_slice(parity_chunks_root);
-                    piece.witness_mut().copy_from_slice(&record_witness);
-                },
-            );
+            .for_each(|(piece, record_witness)| {
+                piece.witness_mut().copy_from_slice(&record_witness);
+            });
 
         // Now produce segment header
         let segment_header = SegmentHeader::V0 {
