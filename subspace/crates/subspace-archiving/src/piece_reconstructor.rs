@@ -92,43 +92,36 @@ impl PiecesReconstructor {
             let iter = reconstructed_pieces.par_iter_mut().zip_eq(input_pieces);
 
             iter.map(|(piece, maybe_input_piece)| {
-                let (record_commitment, parity_chunks_root) =
-                    if let Some(input_piece) = maybe_input_piece {
-                        (
-                            **input_piece.commitment(),
-                            **input_piece.parity_chunks_root(),
-                        )
-                    } else {
-                        // TODO: Reuse allocations between iterations
-                        let [source_chunks_root, parity_chunks_root] = {
-                            let mut parity_chunks = Record::new_boxed();
+                let (record_commitment, parity_chunks_root) = if let Some(input_piece) =
+                    maybe_input_piece
+                {
+                    (
+                        **input_piece.commitment(),
+                        **input_piece.parity_chunks_root(),
+                    )
+                } else {
+                    // TODO: Reuse allocations between iterations
+                    let [source_chunks_root, parity_chunks_root] = {
+                        let mut parity_chunks = Record::new_boxed();
 
-                            self.erasure_coding
-                                .extend(piece.record().iter(), parity_chunks.iter_mut())?;
+                        self.erasure_coding
+                            .extend(piece.record().iter(), parity_chunks.iter_mut())?;
 
-                            let source_chunks_root = BalancedHashedMerkleTree::<
-                                { Record::NUM_CHUNKS.ilog2() },
-                            >::compute_root_only(
-                                piece.record()
-                            );
+                        let source_chunks_root =
+                            BalancedHashedMerkleTree::compute_root_only(piece.record());
 
-                            let parity_chunks_root = BalancedHashedMerkleTree::<
-                                { Record::NUM_CHUNKS.ilog2() },
-                            >::compute_root_only(
-                                &parity_chunks
-                            );
+                        let parity_chunks_root =
+                            BalancedHashedMerkleTree::compute_root_only(&parity_chunks);
 
-                            [source_chunks_root, parity_chunks_root]
-                        };
-
-                        let record_commitment = BalancedHashedMerkleTree::<1>::new(&[
-                            source_chunks_root,
-                            parity_chunks_root,
-                        ])
-                        .root();
-
-                        (record_commitment, parity_chunks_root)
+                        [source_chunks_root, parity_chunks_root]
                     };
+
+                    let record_commitment =
+                        BalancedHashedMerkleTree::new(&[source_chunks_root, parity_chunks_root])
+                            .root();
+
+                    (record_commitment, parity_chunks_root)
+                };
 
                 piece.commitment_mut().copy_from_slice(&record_commitment);
                 piece
@@ -141,7 +134,7 @@ impl PiecesReconstructor {
         };
 
         let segment_merkle_tree =
-            BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES.ilog2() }>::new_boxed(
+            BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES }>::new_boxed(
                 record_commitments
                     .as_slice()
                     .try_into()

@@ -704,7 +704,6 @@ impl Archiver {
             // could have been a single tree, and it would end up with the same root. Building them
             // separately requires less RAM and allows to capture parity chunks root more easily.
             let iter = source_pieces.map(|piece| {
-                // TODO: Reuse allocations between iterations
                 let [source_chunks_root, parity_chunks_root] = {
                     let mut parity_chunks = Record::new_boxed();
 
@@ -715,21 +714,15 @@ impl Archiver {
                             input; qed",
                         );
 
-                    let source_chunks_root = BalancedHashedMerkleTree::<
-                        { Record::NUM_CHUNKS.ilog2() },
-                    >::compute_root_only(
-                        piece.record()
-                    );
-                    let parity_chunks_root = BalancedHashedMerkleTree::<
-                        { Record::NUM_CHUNKS.ilog2() },
-                    >::compute_root_only(
-                        &parity_chunks
-                    );
+                    let source_chunks_root =
+                        BalancedHashedMerkleTree::compute_root_only(piece.record());
+                    let parity_chunks_root =
+                        BalancedHashedMerkleTree::compute_root_only(&parity_chunks);
 
                     [source_chunks_root, parity_chunks_root]
                 };
 
-                let record_commitment = BalancedHashedMerkleTree::<1>::compute_root_only(&[
+                let record_commitment = BalancedHashedMerkleTree::compute_root_only(&[
                     source_chunks_root,
                     parity_chunks_root,
                 ]);
@@ -746,7 +739,7 @@ impl Archiver {
         };
 
         let segment_merkle_tree =
-            BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES.ilog2() }>::new_boxed(
+            BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES }>::new_boxed(
                 record_commitments
                     .as_slice()
                     .try_into()

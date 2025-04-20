@@ -1,15 +1,10 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(generic_const_exprs)]
 
-use ab_merkle_tree::balanced_hashed::{BalancedHashedMerkleTree, num_hashes, num_leaves};
+use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use blake3::OUT_LEN;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
-
-#[test]
-fn basic_0() {
-    test_basic::<0>();
-}
 
 #[test]
 fn basic_1() {
@@ -22,31 +17,35 @@ fn basic_2() {
 }
 
 #[test]
-fn basic_3() {
-    test_basic::<3>();
-}
-
-#[test]
 fn basic_4() {
     test_basic::<4>();
 }
 
 #[test]
-fn basic_5() {
-    test_basic::<5>();
+fn basic_8() {
+    test_basic::<8>();
 }
 
-fn test_basic<const NUM_LEAVES_LOG_2: u32>()
+#[test]
+fn basic_16() {
+    test_basic::<16>();
+}
+
+#[test]
+fn basic_32() {
+    test_basic::<32>();
+}
+
+fn test_basic<const N: usize>()
 where
-    [(); OUT_LEN * NUM_LEAVES_LOG_2 as usize]:,
-    [(); NUM_LEAVES_LOG_2 as usize + 1]:,
-    [(); num_leaves(NUM_LEAVES_LOG_2)]:,
-    [(); num_hashes(NUM_LEAVES_LOG_2)]:,
+    [(); N - 1]:,
+    [(); N.ilog2() as usize + 1]:,
+    [(); OUT_LEN * N.ilog2() as usize]:,
 {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
     let leaf_hashes = {
-        let mut leaf_hashes = [[0u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)];
+        let mut leaf_hashes = [[0u8; OUT_LEN]; N];
         for hash in &mut leaf_hashes {
             rng.fill_bytes(hash);
         }
@@ -72,26 +71,26 @@ where
         hash
     };
     let random_proof = {
-        let mut proof = [0u8; OUT_LEN * NUM_LEAVES_LOG_2 as usize];
+        let mut proof = [0u8; OUT_LEN * N.ilog2() as usize];
         rng.fill_bytes(&mut proof);
         proof
     };
     for (leaf_index, (proof, leaf_hash)) in tree.all_proofs().zip(leaf_hashes).enumerate().skip(2) {
         assert!(
             BalancedHashedMerkleTree::verify(&root, &proof, leaf_index, leaf_hash),
-            "num_leaves_log_2 {NUM_LEAVES_LOG_2} leaf_index {leaf_index}"
+            "N {N} leaf_index {leaf_index}"
         );
         assert!(
             !BalancedHashedMerkleTree::verify(&root, &random_proof, leaf_index, leaf_hash),
-            "num_leaves_log_2 {NUM_LEAVES_LOG_2} leaf_index {leaf_index}"
+            "N {N} leaf_index {leaf_index}"
         );
         assert!(
             !BalancedHashedMerkleTree::verify(&root, &proof, leaf_index + 1, leaf_hash),
-            "num_leaves_log_2 {NUM_LEAVES_LOG_2} leaf_index {leaf_index}"
+            "N {N} leaf_index {leaf_index}"
         );
         assert!(
             !BalancedHashedMerkleTree::verify(&root, &proof, leaf_index, random_hash),
-            "num_leaves_log_2 {NUM_LEAVES_LOG_2} leaf_index {leaf_index}"
+            "N {N} leaf_index {leaf_index}"
         );
     }
 }
