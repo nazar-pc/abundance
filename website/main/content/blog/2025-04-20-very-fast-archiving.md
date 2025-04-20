@@ -99,6 +99,12 @@ multithreaded before, imagine that! And there are still opportunities for perfor
 it ever becomes critical. This also implies much faster piece reconstruction in case it is necessary due to node sync
 or plotting, this was a very costly operation in the past.
 
+Moreover, I originally thought that the logarithmic proof size would increase the piece overhead. It turns out we're
+saving a lot more by not wasting each 32nd byte of the record on padding due to KZG, so there is actually a large
+utilization improvement! It will actually be very handy as out proofs increase in size when we add sharding to the mix.
+The only place where it does use more space is the solution data structure. While unfortunate, being one per block it is
+not too bad.
+
 When designing Subspace we had many iterations of the design, and I think at some point we were stuck with KZG without
 necessarily fully taking advantage of it. There were various ideas about things like distributed archiving, which might
 end up benefiting from KZG, but at this point I don't really think it is worth it. It is too slow, cumbersome to use and
