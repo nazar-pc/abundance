@@ -47,7 +47,7 @@ and how it is supposed to be used in [PR 52]. I know it is a lot of text, but it
 comprehend than trying to infer what it does and why from the macros source code (even though I tried to document it as
 well).
 
-[contract macro documentation]: https://abundance.build/rust-docs/ab_contracts_macros/attr.contract.html
+[contract macro documentation]: /rust-docs/ab_contracts_macros/attr.contract.html
 
 [PR 52]: https://github.com/nazar-pc/abundance/pull/52
 

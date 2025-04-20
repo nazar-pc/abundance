@@ -38,7 +38,7 @@ Everything is a contract" seems to be working reasonably well.
 
 [Contacts overview]: https://github.com/nazar-pc/abundance/pull/16
 
-[rendered]: https://abundance.build/book/Execution_environment/Contracts_overview.html
+[rendered]: /book/Execution_environment/Contracts_overview.html
 
 [PR 19]: https://github.com/nazar-pc/abundance/pull/19
 
