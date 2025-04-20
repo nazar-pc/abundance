@@ -133,7 +133,7 @@ many `const fn` functions and methods in the codebase. I'll also extend annotati
 I need to work some more on documentation, and last week I added [Transaction overview] page to the book with some more
 details now that things have settled a bit.
 
-[Transaction overview]: https://abundance.build/book/Execution_environment/Transactions_overview.html
+[Transaction overview]: /book/Execution_environment/Transactions_overview.html
 
 ## ELF
 

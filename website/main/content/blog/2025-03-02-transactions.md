@@ -26,7 +26,7 @@ support, support for whitelisting/blacklisting transactions depending on signer 
 can't think of right now. At the same time, contracts should compile to compact RISC-V binary and not require heap
 allocation in most cases, ideally taking advantage of zero-copy mechanisms whenever possible.
 
-[in the book]: https://abundance.build/book/Execution_environment/Contracts_overview.html
+[in the book]: /book/Execution_environment/Contracts_overview.html
 
 As a result, I came with a trait that looks something like this (a bit simplified for this article):
 
@@ -121,15 +121,15 @@ can be derived, and derived trait will contain `const METADATA`. This metadata c
 shapes that can be passed between host and guest environment as "bytes," meaning no serialization code is necessary,
 just a pointer to existing memory.
 
-[`TrivialType`]: https://abundance.build/rust-docs/ab_contracts_io_type/trivial_type/trait.TrivialType.html
+[`TrivialType`]: /rust-docs/ab_contracts_io_type/trivial_type/trait.TrivialType.html
 
-[`IoType`]: https://abundance.build/rust-docs/ab_contracts_io_type/trait.IoType.html
+[`IoType`]: /rust-docs/ab_contracts_io_type/trait.IoType.html
 
 [`#[contract]`][contract] macro also implements metadata, but this time for the all methods, which includes data
 structures involved too. As the result, all of this information is put into `ELF` section to be uploaded to the
 blockchain together with the code and can be read by various tools.
 
-[contract]: https://abundance.build/rust-docs/ab_contracts_macros/attr.contract.html
+[contract]: /rust-docs/ab_contracts_macros/attr.contract.html
 
 There is a bunch of places that read the metadata to make sense of the data structures various methods expect. Execution
 environment uses it to decode data structure received from one contract and to generate another data structure when

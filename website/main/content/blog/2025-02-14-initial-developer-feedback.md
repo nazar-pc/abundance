@@ -21,7 +21,7 @@ understand. To make things easier to comprehend, two contracts were introduced: 
 
 [PR 57]: https://github.com/nazar-pc/abundance/pull/57
 
-[Contracts overview]: https://abundance.build/book/Execution_environment/Contracts_overview.html
+[Contracts overview]: /book/Execution_environment/Contracts_overview.html
 
 [PR 58]: https://github.com/nazar-pc/abundance/pull/58
 

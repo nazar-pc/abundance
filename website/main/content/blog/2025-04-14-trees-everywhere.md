@@ -13,7 +13,7 @@ applied in more interesting ways than just a hash function.
 
 <!--more-->
 
-# KZG and quantum computers
+## KZG and quantum computers
 
 There are several places in blockchains where vector commitments are used, and there are several commitment schemes
 that might be applicable depending on the use case. [Subspace] being Proof-of-Archival-Storage consensus, required a way
@@ -59,7 +59,7 @@ reason why reward address (tied to Sr25519 signature scheme) was removed from `S
 
 [PR 169]: https://github.com/nazar-pc/abundance/pull/169
 
-# Blake3
+## Blake3
 
 [Blake3] is a modern and very fast hash function. The reason it is fast is not only because the underlying primitives
 are fast, but also because it is actually based on Merkle Tree internally, rather than more common (in hash functions)
@@ -93,7 +93,7 @@ will be upgraded to take advantage of blake3 properties later.
 
 [PR 171]: https://github.com/nazar-pc/abundance/pull/171
 
-# Other updates
+## Other updates
 
 There were other minor updates, but I want to mention just two.
 
@@ -101,7 +101,7 @@ A book now has [Contribute] page with a few topics that we are not actively work
 contributions or collaborate on. Please join out [Zulip chat] to discuss if any of them are interesting, or you have
 something else of interest in mind.
 
-[Contribute]: https://abundance.build/book/Contribute.html
+[Contribute]: /book/Contribute.html
 
 [Zulip chat]: https://abundance.zulipchat.com/
 
