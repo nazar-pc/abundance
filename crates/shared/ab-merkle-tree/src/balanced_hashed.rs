@@ -139,6 +139,52 @@ where
         }
     }
 
+    /// Compute Merkle Tree Root.
+    ///
+    /// This is functionally equivalent to creating an instance first and calling [`Self::root()`]
+    /// method, but is faster and avoids heap allocation when root is the only thing that is needed.
+    pub fn compute_root_only(
+        leaf_hashes: &[[u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)],
+    ) -> [u8; OUT_LEN]
+    where
+        [(); NUM_LEAVES_LOG_2 as usize + 1]:,
+    {
+        if leaf_hashes.len() == 1 {
+            return leaf_hashes[0];
+        }
+
+        // Stack of intermediate nodes per tree level
+        let mut stack = [[0u8; OUT_LEN]; NUM_LEAVES_LOG_2 as usize + 1];
+        // Bitmask: bit `i = 1` if level `i` is active
+        let mut active_levels = 0_u32;
+
+        let mut pair = [0u8; OUT_LEN * 2];
+        for &hash in leaf_hashes {
+            let mut current = hash;
+            let mut level = 0;
+
+            // Check if level is active by testing bit (active_levels & (1 << level))
+            while (active_levels & (1 << level)) != 0 {
+                current = {
+                    pair[..OUT_LEN].copy_from_slice(&stack[level]);
+                    pair[OUT_LEN..].copy_from_slice(&current);
+
+                    *blake3::hash(&pair).as_bytes()
+                };
+
+                // Clear bit for level
+                active_levels &= !(1 << level);
+                level += 1;
+            }
+
+            stack[level] = current;
+            // Set bit for level
+            active_levels |= 1 << level;
+        }
+
+        stack[NUM_LEAVES_LOG_2 as usize]
+    }
+
     /// Get the root of Merkle Tree.
     ///
     /// In case a tree contains a single leaf hash, that leaf hash is returned.

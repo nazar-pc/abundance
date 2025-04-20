@@ -1,5 +1,4 @@
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
-use alloc::boxed::Box;
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
@@ -38,9 +37,7 @@ impl Output for ArchivedHistorySegmentOutput<'_> {
         while !bytes.is_empty() {
             let piece = self
                 .segment
-                .iter_mut()
-                .skip(self.offset / Record::SIZE)
-                .next()
+                .get_mut(self.offset / Record::SIZE)
                 .expect("Encoding never exceeds the segment size; qed");
             let output = &mut piece.record_mut().as_flattened_mut()[self.offset % Record::SIZE..];
             let bytes_to_write = output.len().min(bytes.len());
@@ -709,14 +706,6 @@ impl Archiver {
             let iter = source_pieces.map(|piece| {
                 // TODO: Reuse allocations between iterations
                 let [source_chunks_root, parity_chunks_root] = {
-                    let mut record_merkle_tree = Box::<
-                        BalancedHashedMerkleTree<{ Record::NUM_CHUNKS.ilog2() }>,
-                    >::new_uninit();
-
-                    let source_chunks_root =
-                        BalancedHashedMerkleTree::new_in(&mut record_merkle_tree, piece.record())
-                            .root();
-
                     let mut parity_chunks = Record::new_boxed();
 
                     self.erasure_coding
@@ -726,16 +715,24 @@ impl Archiver {
                             input; qed",
                         );
 
-                    let parity_chunks_root =
-                        BalancedHashedMerkleTree::new_in(&mut record_merkle_tree, &parity_chunks)
-                            .root();
+                    let source_chunks_root = BalancedHashedMerkleTree::<
+                        { Record::NUM_CHUNKS.ilog2() },
+                    >::compute_root_only(
+                        piece.record()
+                    );
+                    let parity_chunks_root = BalancedHashedMerkleTree::<
+                        { Record::NUM_CHUNKS.ilog2() },
+                    >::compute_root_only(
+                        &parity_chunks
+                    );
 
                     [source_chunks_root, parity_chunks_root]
                 };
 
-                let record_commitment =
-                    BalancedHashedMerkleTree::<1>::new(&[source_chunks_root, parity_chunks_root])
-                        .root();
+                let record_commitment = BalancedHashedMerkleTree::<1>::compute_root_only(&[
+                    source_chunks_root,
+                    parity_chunks_root,
+                ]);
 
                 piece.commitment_mut().copy_from_slice(&record_commitment);
                 piece

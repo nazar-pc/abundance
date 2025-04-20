@@ -39,6 +39,7 @@ fn basic_5() {
 fn test_basic<const NUM_LEAVES_LOG_2: u32>()
 where
     [(); OUT_LEN * NUM_LEAVES_LOG_2 as usize]:,
+    [(); NUM_LEAVES_LOG_2 as usize + 1]:,
     [(); num_leaves(NUM_LEAVES_LOG_2)]:,
     [(); num_hashes(NUM_LEAVES_LOG_2)]:,
 {
@@ -57,6 +58,11 @@ where
     #[cfg(feature = "alloc")]
     assert_eq!(
         BalancedHashedMerkleTree::new_boxed(&leaf_hashes).root(),
+        root
+    );
+
+    assert_eq!(
+        BalancedHashedMerkleTree::compute_root_only(&leaf_hashes),
         root
     );
 

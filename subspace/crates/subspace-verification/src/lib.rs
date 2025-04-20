@@ -16,9 +16,9 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
 use subspace_core_primitives::hashes::{blake3_hash_list, blake3_hash_with_key, Blake3Hash};
-#[cfg(feature = "alloc")]
-use subspace_core_primitives::pieces::PieceArray;
-use subspace_core_primitives::pieces::{Record, RecordChunk, RecordCommitment, RecordWitness};
+use subspace_core_primitives::pieces::{
+    PieceArray, Record, RecordChunk, RecordCommitment, RecordWitness,
+};
 use subspace_core_primitives::pot::PotOutput;
 use subspace_core_primitives::sectors::{SectorId, SectorSlotChallenge};
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment, SegmentCommitment};
@@ -292,7 +292,6 @@ where
 }
 
 /// Validate witness embedded within a piece produced by archiver
-#[cfg(feature = "alloc")]
 pub fn is_piece_valid(
     piece: &PieceArray,
     segment_commitment: &SegmentCommitment,
@@ -301,10 +300,11 @@ pub fn is_piece_valid(
     let (record, &record_commitment, parity_chunks_root, record_witness) = piece.split();
 
     let source_record_merkle_tree_root =
-        BalancedHashedMerkleTree::<{ Record::NUM_CHUNKS.ilog2() }>::new_boxed(record).root();
-    let record_merkle_tree_root =
-        BalancedHashedMerkleTree::<1>::new(&[source_record_merkle_tree_root, **parity_chunks_root])
-            .root();
+        BalancedHashedMerkleTree::<{ Record::NUM_CHUNKS.ilog2() }>::compute_root_only(record);
+    let record_merkle_tree_root = BalancedHashedMerkleTree::<1>::compute_root_only(&[
+        source_record_merkle_tree_root,
+        **parity_chunks_root,
+    ]);
 
     if record_merkle_tree_root != *record_commitment {
         return false;
