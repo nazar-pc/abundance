@@ -2,7 +2,7 @@
 title: Very fast archiving
 date: 2025-04-20
 draft: false
-description: Looking into vector commitments and other updates
+description: Supercharging archiver with Merkle Trees and faster erasure coding
 tags: [ status-update ]
 authors: [ nazar-pc ]
 ---
