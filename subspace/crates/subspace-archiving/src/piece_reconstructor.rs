@@ -1,5 +1,4 @@
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -103,35 +102,23 @@ impl PiecesReconstructor {
                 } else {
                     // TODO: Reuse allocations between iterations
                     let [source_chunks_root, parity_chunks_root] = {
-                        let mut record_merkle_tree = Box::<
-                            BalancedHashedMerkleTree<{ Record::NUM_CHUNKS.ilog2() }>,
-                        >::new_uninit();
-
-                        let source_chunks_root = BalancedHashedMerkleTree::new_in(
-                            &mut record_merkle_tree,
-                            piece.record(),
-                        )
-                        .root();
-
                         let mut parity_chunks = Record::new_boxed();
 
                         self.erasure_coding
                             .extend(piece.record().iter(), parity_chunks.iter_mut())?;
 
-                        let parity_chunks_root = BalancedHashedMerkleTree::new_in(
-                            &mut record_merkle_tree,
-                            &parity_chunks,
-                        )
-                        .root();
+                        let source_chunks_root =
+                            BalancedHashedMerkleTree::compute_root_only(piece.record());
+
+                        let parity_chunks_root =
+                            BalancedHashedMerkleTree::compute_root_only(&parity_chunks);
 
                         [source_chunks_root, parity_chunks_root]
                     };
 
-                    let record_commitment = BalancedHashedMerkleTree::<1>::new(&[
-                        source_chunks_root,
-                        parity_chunks_root,
-                    ])
-                    .root();
+                    let record_commitment =
+                        BalancedHashedMerkleTree::new(&[source_chunks_root, parity_chunks_root])
+                            .root();
 
                     (record_commitment, parity_chunks_root)
                 };
@@ -147,7 +134,7 @@ impl PiecesReconstructor {
         };
 
         let segment_merkle_tree =
-            BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES.ilog2() }>::new_boxed(
+            BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES }>::new_boxed(
                 record_commitments
                     .as_slice()
                     .try_into()

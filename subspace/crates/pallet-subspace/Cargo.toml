@@ -58,7 +58,6 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "subspace-runtime-primitives/std",
-    "subspace-verification/std"
 ]
 runtime-benchmarks = [
     "frame-benchmarking",

@@ -8,18 +8,6 @@ use core::iter::TrustedLen;
 use core::mem;
 use core::mem::MaybeUninit;
 
-/// Number of hashes, including root and excluding already provided leaf hashes
-#[inline(always)]
-pub const fn num_hashes(num_leaves_log_2: u32) -> usize {
-    2_usize.pow(num_leaves_log_2) - 1
-}
-
-/// Number of leaves in a tree
-#[inline(always)]
-pub const fn num_leaves(num_leaves_log_2: u32) -> usize {
-    2_usize.pow(num_leaves_log_2)
-}
-
 /// Merkle Tree variant that has hash-sized leaves and is fully balanced according to configured
 /// generic parameter.
 ///
@@ -29,16 +17,14 @@ pub const fn num_leaves(num_leaves_log_2: u32) -> usize {
 ///
 /// With all parameters of the tree known statically, it results in the most efficient version of
 /// the code being generated for a given set of parameters.
-///
-/// `NUM_LEAVES_LOG_2` is base-2 logarithm of the number of leaves in a tree.
 #[derive(Debug)]
-pub struct BalancedHashedMerkleTree<'a, const NUM_LEAVES_LOG_2: u32>
+pub struct BalancedHashedMerkleTree<'a, const N: usize>
 where
-    [(); num_hashes(NUM_LEAVES_LOG_2)]:,
+    [(); N - 1]:,
 {
     leaf_hashes: &'a [[u8; OUT_LEN]],
     // This tree doesn't include leaves because we know the size
-    tree: [[u8; OUT_LEN]; num_hashes(NUM_LEAVES_LOG_2)],
+    tree: [[u8; OUT_LEN]; N - 1],
 }
 
 // TODO: Replace hashing individual records with blake3 and building tree manually with building the
@@ -46,16 +32,16 @@ where
 //  https://github.com/BLAKE3-team/BLAKE3/issues/470 for details. Two options are:
 //  expand values to 1024 bytes or modify blake3 to use 32-byte chunk size (at which point it'll
 //  unfortunately stop being blake3)
-impl<'a, const NUM_LEAVES_LOG_2: u32> BalancedHashedMerkleTree<'a, NUM_LEAVES_LOG_2>
+impl<'a, const N: usize> BalancedHashedMerkleTree<'a, N>
 where
-    [(); num_hashes(NUM_LEAVES_LOG_2)]:,
+    [(); N - 1]:,
 {
     /// Create a new tree from a fixed set of elements.
     ///
     /// The data structure is statically allocated and might be too large to fit on the stack!
     /// If that is the case, use `new_boxed()` method.
-    pub fn new(leaf_hashes: &'a [[u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)]) -> Self {
-        let mut tree = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); num_hashes(NUM_LEAVES_LOG_2)];
+    pub fn new(leaf_hashes: &'a [[u8; OUT_LEN]; N]) -> Self {
+        let mut tree = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); _];
 
         Self::init_internal(leaf_hashes, &mut tree);
 
@@ -69,7 +55,7 @@ where
     /// Like [`Self::new()`], but used pre-allocated memory for instantiation
     pub fn new_in<'b>(
         instance: &'b mut MaybeUninit<Self>,
-        leaf_hashes: &'a [[u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)],
+        leaf_hashes: &'a [[u8; OUT_LEN]; N],
     ) -> &'b mut Self {
         let instance_ptr = instance.as_mut_ptr();
         // SAFETY: Valid and correctly aligned non-null pointer
@@ -82,7 +68,7 @@ where
             // SAFETY: Allocated and correctly aligned uninitialized data
             unsafe {
                 tree_ptr
-                    .cast::<[MaybeUninit<[u8; OUT_LEN]>; num_hashes(NUM_LEAVES_LOG_2)]>()
+                    .cast::<[MaybeUninit<[u8; OUT_LEN]>; N - 1]>()
                     .as_mut_unchecked()
             }
         };
@@ -96,7 +82,7 @@ where
     /// Like [`Self::new()`], but creates heap-allocated instance, avoiding excessive stack usage
     /// for large trees
     #[cfg(feature = "alloc")]
-    pub fn new_boxed(leaf_hashes: &'a [[u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)]) -> Box<Self> {
+    pub fn new_boxed(leaf_hashes: &'a [[u8; OUT_LEN]; N]) -> Box<Self> {
         let mut instance = Box::<Self>::new_uninit();
 
         Self::new_in(&mut instance, leaf_hashes);
@@ -106,8 +92,8 @@ where
     }
 
     fn init_internal(
-        leaf_hashes: &[[u8; OUT_LEN]; num_leaves(NUM_LEAVES_LOG_2)],
-        tree: &mut [MaybeUninit<[u8; OUT_LEN]>; num_hashes(NUM_LEAVES_LOG_2)],
+        leaf_hashes: &[[u8; OUT_LEN]; N],
+        tree: &mut [MaybeUninit<[u8; OUT_LEN]>; N - 1],
     ) {
         let mut tree_hashes = tree.as_mut_slice();
         let mut level_hashes = leaf_hashes.as_slice();
@@ -139,6 +125,50 @@ where
         }
     }
 
+    /// Compute Merkle Tree Root.
+    ///
+    /// This is functionally equivalent to creating an instance first and calling [`Self::root()`]
+    /// method, but is faster and avoids heap allocation when root is the only thing that is needed.
+    pub fn compute_root_only(leaf_hashes: &[[u8; OUT_LEN]; N]) -> [u8; OUT_LEN]
+    where
+        [(); N.ilog2() as usize + 1]:,
+    {
+        if leaf_hashes.len() == 1 {
+            return leaf_hashes[0];
+        }
+
+        // Stack of intermediate nodes per tree level
+        let mut stack = [[0u8; OUT_LEN]; N.ilog2() as usize + 1];
+        // Bitmask: bit `i = 1` if level `i` is active
+        let mut active_levels = 0_u32;
+
+        let mut pair = [0u8; OUT_LEN * 2];
+        for &hash in leaf_hashes {
+            let mut current = hash;
+            let mut level = 0;
+
+            // Check if level is active by testing bit (active_levels & (1 << level))
+            while (active_levels & (1 << level)) != 0 {
+                current = {
+                    pair[..OUT_LEN].copy_from_slice(&stack[level]);
+                    pair[OUT_LEN..].copy_from_slice(&current);
+
+                    *blake3::hash(&pair).as_bytes()
+                };
+
+                // Clear bit for level
+                active_levels &= !(1 << level);
+                level += 1;
+            }
+
+            stack[level] = current;
+            // Set bit for level
+            active_levels |= 1 << level;
+        }
+
+        stack[N.ilog2() as usize]
+    }
+
     /// Get the root of Merkle Tree.
     ///
     /// In case a tree contains a single leaf hash, that leaf hash is returned.
@@ -154,14 +184,13 @@ where
     /// Iterator over proofs in the same order as provided leaf hashes
     pub fn all_proofs(
         &self,
-    ) -> impl ExactSizeIterator<Item = [u8; OUT_LEN * NUM_LEAVES_LOG_2 as usize]> + TrustedLen
+    ) -> impl ExactSizeIterator<Item = [u8; OUT_LEN * N.ilog2() as usize]> + TrustedLen
     where
-        [(); OUT_LEN * NUM_LEAVES_LOG_2 as usize]:,
+        [(); OUT_LEN * N.ilog2() as usize]:,
     {
         let iter = self.leaf_hashes.array_chunks().enumerate().flat_map(
             |(pair_index, &[left_hash, right_hash])| {
-                let mut left_proof =
-                    [MaybeUninit::<[u8; OUT_LEN]>::uninit(); NUM_LEAVES_LOG_2 as usize];
+                let mut left_proof = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); N.ilog2() as usize];
                 left_proof[0].write(right_hash);
 
                 let left_proof = {
@@ -169,7 +198,7 @@ where
 
                     let mut tree_hashes = self.tree.as_slice();
                     let mut parent_position = pair_index;
-                    let mut parent_level_size = num_leaves(NUM_LEAVES_LOG_2) / 2;
+                    let mut parent_level_size = N / 2;
 
                     for hash in shared_proof {
                         let parent_other_position = if parent_position % 2 == 0 {
@@ -199,38 +228,35 @@ where
                 // SAFETY: From and to have the same size and alignment
                 let left_proof = unsafe {
                     mem::transmute_copy::<
-                        [[u8; OUT_LEN]; NUM_LEAVES_LOG_2 as usize],
-                        [u8; OUT_LEN * NUM_LEAVES_LOG_2 as usize],
+                        [[u8; OUT_LEN]; N.ilog2() as usize],
+                        [u8; OUT_LEN * N.ilog2() as usize],
                     >(&left_proof)
                 };
                 let right_proof = unsafe {
                     mem::transmute_copy::<
-                        [[u8; OUT_LEN]; NUM_LEAVES_LOG_2 as usize],
-                        [u8; OUT_LEN * NUM_LEAVES_LOG_2 as usize],
+                        [[u8; OUT_LEN]; N.ilog2() as usize],
+                        [u8; OUT_LEN * N.ilog2() as usize],
                     >(&right_proof)
                 };
                 [left_proof, right_proof]
             },
         );
 
-        ProofsIterator {
-            iter,
-            len: num_leaves(NUM_LEAVES_LOG_2),
-        }
+        ProofsIterator { iter, len: N }
     }
 
     /// Verify previously generated proof
     #[inline]
     pub fn verify(
         root: &[u8; OUT_LEN],
-        proof: &[u8; OUT_LEN * NUM_LEAVES_LOG_2 as usize],
+        proof: &[u8; OUT_LEN * N.ilog2() as usize],
         leaf_index: usize,
         leaf_hash: [u8; OUT_LEN],
     ) -> bool
     where
-        [(); OUT_LEN * NUM_LEAVES_LOG_2 as usize]:,
+        [(); OUT_LEN * N.ilog2() as usize]:,
     {
-        if leaf_index >= num_leaves(NUM_LEAVES_LOG_2) {
+        if leaf_index >= N {
             return false;
         }
 

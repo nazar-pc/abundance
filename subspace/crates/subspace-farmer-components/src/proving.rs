@@ -248,9 +248,9 @@ where
             //  allows the code to compile. Constant 16 is hardcoded here and in `if` branch below
             //  for compilation to succeed
             const _: () = {
-                assert!(Record::NUM_S_BUCKETS.ilog2() == 16);
+                assert!(Record::NUM_S_BUCKETS == 65536);
             };
-            let record_merkle_tree = BalancedHashedMerkleTree::<16>::new_boxed(
+            let record_merkle_tree = BalancedHashedMerkleTree::<65536>::new_boxed(
                 RecordChunk::slice_to_repr(chunks.as_slice())
                     .try_into()
                     .expect("Statically guaranteed to have correct length; qed"),

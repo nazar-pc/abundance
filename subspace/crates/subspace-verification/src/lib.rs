@@ -16,9 +16,9 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
 use subspace_core_primitives::hashes::{blake3_hash_list, blake3_hash_with_key, Blake3Hash};
-#[cfg(feature = "alloc")]
-use subspace_core_primitives::pieces::PieceArray;
-use subspace_core_primitives::pieces::{Record, RecordChunk, RecordCommitment, RecordWitness};
+use subspace_core_primitives::pieces::{
+    PieceArray, Record, RecordChunk, RecordCommitment, RecordWitness,
+};
 use subspace_core_primitives::pot::PotOutput;
 use subspace_core_primitives::sectors::{SectorId, SectorSlotChallenge};
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment, SegmentCommitment};
@@ -217,10 +217,10 @@ where
     //  the code to compile. Constant 16 is hardcoded here and in `if` branch below for compilation
     //  to succeed
     const _: () = {
-        assert!(Record::NUM_S_BUCKETS.ilog2() == 16);
+        assert!(Record::NUM_S_BUCKETS == 65536);
     };
     // Check that chunk belongs to the record
-    if !BalancedHashedMerkleTree::<16>::verify(
+    if !BalancedHashedMerkleTree::<65536>::verify(
         &solution.record_commitment,
         &solution.chunk_witness,
         usize::from(s_bucket_audit_index),
@@ -292,7 +292,6 @@ where
 }
 
 /// Validate witness embedded within a piece produced by archiver
-#[cfg(feature = "alloc")]
 pub fn is_piece_valid(
     piece: &PieceArray,
     segment_commitment: &SegmentCommitment,
@@ -300,17 +299,17 @@ pub fn is_piece_valid(
 ) -> bool {
     let (record, &record_commitment, parity_chunks_root, record_witness) = piece.split();
 
-    let source_record_merkle_tree_root =
-        BalancedHashedMerkleTree::<{ Record::NUM_CHUNKS.ilog2() }>::new_boxed(record).root();
-    let record_merkle_tree_root =
-        BalancedHashedMerkleTree::<1>::new(&[source_record_merkle_tree_root, **parity_chunks_root])
-            .root();
+    let source_record_merkle_tree_root = BalancedHashedMerkleTree::compute_root_only(record);
+    let record_merkle_tree_root = BalancedHashedMerkleTree::compute_root_only(&[
+        source_record_merkle_tree_root,
+        **parity_chunks_root,
+    ]);
 
     if record_merkle_tree_root != *record_commitment {
         return false;
     }
 
-    BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES.ilog2() }>::verify(
+    BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
         segment_commitment,
         record_witness,
         position as usize,
@@ -325,7 +324,7 @@ pub fn is_record_commitment_valid(
     record_witness: &RecordWitness,
     position: u32,
 ) -> bool {
-    BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES.ilog2() }>::verify(
+    BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
         segment_commitment,
         record_witness,
         position as usize,
