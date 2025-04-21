@@ -140,8 +140,8 @@ impl PiecesReconstructor {
         reconstructed_pieces
             .iter_mut()
             .zip(segment_merkle_tree.all_proofs())
-            .for_each(|(piece, record_witness)| {
-                piece.witness_mut().copy_from_slice(&record_witness);
+            .for_each(|(piece, record_proof)| {
+                piece.proof_mut().copy_from_slice(&record_proof);
             });
 
         Ok(reconstructed_pieces)

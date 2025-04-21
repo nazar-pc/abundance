@@ -19,7 +19,7 @@ use std::io;
 use subspace_core_primitives::pieces::{PieceOffset, Record, RecordChunk};
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::{SBucket, SectorId};
-use subspace_core_primitives::solutions::{ChunkWitness, Solution, SolutionRange};
+use subspace_core_primitives::solutions::{ChunkProof, Solution, SolutionRange};
 use subspace_core_primitives::PublicKey;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_proof_of_space::Table;
@@ -271,7 +271,7 @@ where
                 "Quality exists for this s-bucket, otherwise it wouldn't be a winning chunk; qed",
             );
 
-            let chunk_witness = record_merkle_tree
+            let chunk_proof = record_merkle_tree
                 .all_proofs()
                 .nth(usize::from(self.s_bucket))
                 .expect("Chunk offset is valid, hence corresponding proof exists; qed");
@@ -282,9 +282,9 @@ where
                 history_size: self.sector_metadata.history_size,
                 piece_offset,
                 record_root: record_metadata.root,
-                record_witness: record_metadata.witness,
+                record_proof: record_metadata.proof,
                 chunk,
-                chunk_witness: ChunkWitness::from(chunk_witness),
+                chunk_proof: ChunkProof::from(chunk_proof),
                 proof_of_space,
             }
         };

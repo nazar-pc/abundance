@@ -117,9 +117,9 @@ pub enum Error<Header: HeaderT> {
     /// Invalid audit chunk offset
     #[error("Invalid audit chunk offset")]
     InvalidAuditChunkOffset,
-    /// Invalid chunk witness
-    #[error("Invalid chunk witness")]
-    InvalidChunkWitness,
+    /// Invalid chunk proof
+    #[error("Invalid chunk proof")]
+    InvalidChunkProof,
     /// Piece verification failed
     #[error("Piece verification failed")]
     InvalidPieceOffset {
@@ -227,7 +227,7 @@ where
                 VerificationPrimitiveError::InvalidAuditChunkOffset => {
                     Error::InvalidAuditChunkOffset
                 }
-                VerificationPrimitiveError::InvalidChunkWitness => Error::InvalidChunkWitness,
+                VerificationPrimitiveError::InvalidChunkProof => Error::InvalidChunkProof,
                 VerificationPrimitiveError::SectorExpired {
                     expiration_history_size,
                     current_history_size,

@@ -448,7 +448,7 @@ impl RecordedHistorySegment {
     /// Size of recorded history segment in bytes.
     ///
     /// It includes half of the records (just source records) that will later be erasure coded and
-    /// together with corresponding roots and witnesses will result in
+    /// together with corresponding roots and proofs will result in
     /// [`Self::NUM_PIECES`] [`Piece`]s of archival history.
     pub const SIZE: usize = Record::SIZE * Self::NUM_RAW_RECORDS;
 

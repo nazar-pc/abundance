@@ -234,9 +234,8 @@ pub enum ArchiverInstantiationError {
 ///
 /// It takes new confirmed (at `K` depth) blocks and concatenates them into a buffer, buffer is
 /// sliced into segments of [`RecordedHistorySegment::SIZE`] size, segments are sliced into source
-/// records of [`Record::SIZE`], records are erasure coded, committed to, then roots with
-/// witnesses are appended and records become pieces that are returned alongside the corresponding
-/// segment header.
+/// records of [`Record::SIZE`], records are erasure coded, committed to, then roots with proofs are
+/// appended and records become pieces that are returned alongside the corresponding segment header.
 ///
 /// ## Panics
 /// Panics when operating on blocks, whose length doesn't fit into u32 (should never be the case in
@@ -748,12 +747,12 @@ impl Archiver {
 
         let segment_root = SegmentRoot::from(segment_merkle_tree.root());
 
-        // Create witness for every record and write it to corresponding piece.
+        // Create proof for every record and write it to corresponding piece.
         pieces
             .iter_mut()
             .zip(segment_merkle_tree.all_proofs())
-            .for_each(|(piece, record_witness)| {
-                piece.witness_mut().copy_from_slice(&record_witness);
+            .for_each(|(piece, record_proof)| {
+                piece.proof_mut().copy_from_slice(&record_proof);
             });
 
         // Now produce segment header

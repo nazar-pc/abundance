@@ -103,9 +103,9 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: u64) {
             history_size: HistorySize::from(SegmentIndex::ZERO),
             piece_offset: PieceOffset::default(),
             record_root: Default::default(),
-            record_witness: Default::default(),
+            record_proof: Default::default(),
             chunk,
-            chunk_witness: Default::default(),
+            chunk_proof: Default::default(),
             proof_of_space: Default::default(),
         },
     );

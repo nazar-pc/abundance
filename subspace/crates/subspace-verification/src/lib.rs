@@ -16,9 +16,7 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
 use subspace_core_primitives::hashes::{blake3_hash_list, blake3_hash_with_key, Blake3Hash};
-use subspace_core_primitives::pieces::{
-    PieceArray, Record, RecordChunk, RecordRoot, RecordWitness,
-};
+use subspace_core_primitives::pieces::{PieceArray, Record, RecordChunk, RecordProof, RecordRoot};
 use subspace_core_primitives::pot::PotOutput;
 use subspace_core_primitives::sectors::{SectorId, SectorSlotChallenge};
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment, SegmentRoot};
@@ -65,9 +63,9 @@ pub enum Error {
     /// Invalid audit chunk offset
     #[error("Invalid audit chunk offset")]
     InvalidAuditChunkOffset,
-    /// Invalid chunk witness
-    #[error("Invalid chunk witness")]
-    InvalidChunkWitness,
+    /// Invalid chunk proof
+    #[error("Invalid chunk proof")]
+    InvalidChunkProof,
     /// Invalid history size
     #[error("Invalid history size")]
     InvalidHistorySize,
@@ -222,11 +220,11 @@ where
     // Check that chunk belongs to the record
     if !BalancedHashedMerkleTree::<65536>::verify(
         &solution.record_root,
-        &solution.chunk_witness,
+        &solution.chunk_proof,
         usize::from(s_bucket_audit_index),
         *solution.chunk,
     ) {
-        return Err(Error::InvalidChunkWitness);
+        return Err(Error::InvalidChunkProof);
     }
 
     if let Some(PieceCheckParams {
@@ -279,7 +277,7 @@ where
         if !is_record_root_valid(
             &solution.record_root,
             segment_root,
-            &solution.record_witness,
+            &solution.record_proof,
             position,
         ) {
             return Err(Error::InvalidPiece);
@@ -289,9 +287,9 @@ where
     Ok(solution_distance)
 }
 
-/// Validate witness embedded within a piece produced by archiver
+/// Validate proof embedded within a piece produced by archiver
 pub fn is_piece_valid(piece: &PieceArray, segment_root: &SegmentRoot, position: u32) -> bool {
-    let (record, &record_root, parity_chunks_root, record_witness) = piece.split();
+    let (record, &record_root, parity_chunks_root, record_proof) = piece.split();
 
     let source_record_merkle_tree_root = BalancedHashedMerkleTree::compute_root_only(record);
     let record_merkle_tree_root = BalancedHashedMerkleTree::compute_root_only(&[
@@ -305,22 +303,22 @@ pub fn is_piece_valid(piece: &PieceArray, segment_root: &SegmentRoot, position: 
 
     BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
         segment_root,
-        record_witness,
+        record_proof,
         position as usize,
         *record_root,
     )
 }
 
-/// Validate witness for record root hash produced by archiver
+/// Validate proof for record root hash produced by archiver
 pub fn is_record_root_valid(
     record_root: &RecordRoot,
     segment_root: &SegmentRoot,
-    record_witness: &RecordWitness,
+    record_proof: &RecordProof,
     position: u32,
 ) -> bool {
     BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
         segment_root,
-        record_witness,
+        record_proof,
         position as usize,
         **record_root,
     )

@@ -57,4 +57,4 @@ all source pieces/chunks go first, followed by all parity pieces/chunks.
 
 ## Terminology
 
-After switching from KZG to Merkle Trees, commitments are renamed to roots.
+After switching from KZG to Merkle Trees, commitments are renamed to roots, witnesses to proofs.
