@@ -32,6 +32,16 @@ pub struct ShimTable {
     seed: PosSeed,
 }
 
+impl subspace_core_primitives::solutions::SolutionPotVerifier for ShimTable {
+    fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
+        let Some(correct_proof) = find_proof(seed, challenge_index) else {
+            return false;
+        };
+
+        &correct_proof == proof
+    }
+}
+
 impl Table for ShimTable {
     const TABLE_TYPE: PosTableType = PosTableType::Shim;
     #[cfg(feature = "alloc")]
@@ -48,11 +58,11 @@ impl Table for ShimTable {
     }
 
     fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
-        let Some(correct_proof) = find_proof(seed, challenge_index) else {
-            return false;
-        };
-
-        &correct_proof == proof
+        <Self as subspace_core_primitives::solutions::SolutionPotVerifier>::is_proof_valid(
+            seed,
+            challenge_index,
+            proof,
+        )
     }
 }
 

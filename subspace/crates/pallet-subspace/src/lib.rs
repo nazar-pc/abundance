@@ -42,7 +42,6 @@ use subspace_core_primitives::segments::{
 };
 use subspace_core_primitives::solutions::SolutionRange;
 use subspace_core_primitives::SlotNumber;
-use subspace_verification::derive_pot_entropy;
 
 /// Custom origin for validated unsigned extrinsics.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -645,10 +644,10 @@ impl<T: Config> Pallet<T> {
             last_entropy_injection_block.checked_sub(&lookback_in_blocks);
 
         if (block_number % pot_entropy_injection_interval).is_zero() {
-            let current_block_entropy = derive_pot_entropy(
-                &pre_digest.solution().chunk,
-                pre_digest.pot_info().proof_of_time(),
-            );
+            let current_block_entropy = pre_digest
+                .pot_info()
+                .proof_of_time()
+                .derive_pot_entropy(&pre_digest.solution().chunk);
             // Collect entropy every `pot_entropy_injection_interval` blocks
             entropy.insert(
                 block_number,

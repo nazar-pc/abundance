@@ -49,12 +49,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use subspace_core_primitives::pot::{PotCheckpoints, PotOutput};
 use subspace_core_primitives::sectors::SectorId;
-use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
+use subspace_core_primitives::solutions::{
+    RewardSignature, Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
+    SolutionVerifyPieceCheckParams,
+};
 use subspace_core_primitives::{BlockNumber, PublicKey, REWARD_SIGNING_CONTEXT};
 use subspace_proof_of_space::Table;
-use subspace_verification::{
-    check_reward_signature, verify_solution, PieceCheckParams, VerifySolutionParams,
-};
+use subspace_verification::check_reward_signature;
 use tracing::{debug, error, info, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
@@ -540,13 +541,12 @@ where
                 .segment_root(parent_hash, sector_expiration_check_segment_index)
                 .ok()?;
 
-            let solution_verification_result = verify_solution::<PosTable>(
-                &solution,
+            let solution_verification_result = solution.verify::<PosTable>(
                 slot.into(),
-                &VerifySolutionParams {
+                &SolutionVerifyParams {
                     proof_of_time,
                     solution_range,
-                    piece_check_params: Some(PieceCheckParams {
+                    piece_check_params: Some(SolutionVerifyPieceCheckParams {
                         max_pieces_in_sector,
                         segment_root,
                         recent_segments: chain_constants.recent_segments(),
@@ -588,7 +588,7 @@ where
                         // Votes were removed
                     }
                 }
-                Err(error @ subspace_verification::Error::OutsideSolutionRange { .. }) => {
+                Err(error @ SolutionVerifyError::OutsideSolutionRange { .. }) => {
                     // Solution range might have just adjusted, but when farmer was auditing they
                     // didn't know about this, so downgrade warning to debug message
                     if runtime_api

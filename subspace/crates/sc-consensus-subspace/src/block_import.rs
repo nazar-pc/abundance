@@ -38,10 +38,13 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
-use subspace_core_primitives::solutions::{SolutionDistance, SolutionRange};
+use subspace_core_primitives::solutions::{
+    SolutionDistance, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
+    SolutionVerifyPieceCheckParams,
+};
 use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_proof_of_space::Table;
-use subspace_verification::{calculate_block_weight, PieceCheckParams, VerifySolutionParams};
+use subspace_verification::calculate_block_weight;
 use tracing::warn;
 
 /// Notification with number of the block that is about to be imported and acknowledgement sender
@@ -57,7 +60,6 @@ where
     /// the consensus block.
     pub acknowledgement_sender: mpsc::Sender<()>,
 }
-use subspace_verification::Error as VerificationPrimitiveError;
 
 /// Errors encountered by the Subspace authorship task.
 #[derive(Debug, thiserror::Error)]
@@ -206,7 +208,7 @@ where
             }
             VerificationError::InvalidProofOfTime => Error::InvalidProofOfTime,
             VerificationError::VerificationError(slot, error) => match error {
-                VerificationPrimitiveError::InvalidPieceOffset {
+                SolutionVerifyError::InvalidPieceOffset {
                     piece_offset,
                     max_pieces_in_sector,
                 } => Error::InvalidPieceOffset {
@@ -214,8 +216,8 @@ where
                     piece_offset,
                     max_pieces_in_sector,
                 },
-                VerificationPrimitiveError::InvalidPiece => Error::InvalidPiece(slot),
-                VerificationPrimitiveError::OutsideSolutionRange {
+                SolutionVerifyError::InvalidPiece => Error::InvalidPiece(slot),
+                SolutionVerifyError::OutsideSolutionRange {
                     solution_range,
                     solution_distance,
                 } => Error::OutsideOfSolutionRange {
@@ -223,19 +225,17 @@ where
                     solution_range,
                     solution_distance,
                 },
-                VerificationPrimitiveError::InvalidProofOfSpace => Error::InvalidProofOfSpace,
-                VerificationPrimitiveError::InvalidAuditChunkOffset => {
-                    Error::InvalidAuditChunkOffset
-                }
-                VerificationPrimitiveError::InvalidChunkProof => Error::InvalidChunkProof,
-                VerificationPrimitiveError::SectorExpired {
+                SolutionVerifyError::InvalidProofOfSpace => Error::InvalidProofOfSpace,
+                SolutionVerifyError::InvalidAuditChunkOffset => Error::InvalidAuditChunkOffset,
+                SolutionVerifyError::InvalidChunkProof => Error::InvalidChunkProof,
+                SolutionVerifyError::SectorExpired {
                     expiration_history_size,
                     current_history_size,
                 } => Error::SectorExpired {
                     expiration_history_size,
                     current_history_size,
                 },
-                VerificationPrimitiveError::InvalidHistorySize => Error::InvalidHistorySize,
+                SolutionVerifyError::InvalidHistorySize => Error::InvalidHistorySize,
             },
         }
     }
@@ -471,25 +471,29 @@ where
 
         // Piece is not checked during initial block verification because it requires access to
         // segment header and runtime, check it now.
-        subspace_verification::verify_solution::<PosTable>(
-            pre_digest.solution(),
-            // Slot was already checked during initial block verification
-            pre_digest.slot().into(),
-            &VerifySolutionParams {
-                proof_of_time: subspace_digest_items.pre_digest.pot_info().proof_of_time(),
-                solution_range: subspace_digest_items.solution_range,
-                piece_check_params: Some(PieceCheckParams {
-                    max_pieces_in_sector,
-                    segment_root,
-                    recent_segments: chain_constants.recent_segments(),
-                    recent_history_fraction: chain_constants.recent_history_fraction(),
-                    min_sector_lifetime: chain_constants.min_sector_lifetime(),
-                    current_history_size: self.client.runtime_api().history_size(parent_hash)?,
-                    sector_expiration_check_segment_root,
-                }),
-            },
-        )
-        .map_err(|error| VerificationError::VerificationError(pre_digest.slot(), error))?;
+        pre_digest
+            .solution()
+            .verify::<PosTable>(
+                // Slot was already checked during initial block verification
+                pre_digest.slot().into(),
+                &SolutionVerifyParams {
+                    proof_of_time: subspace_digest_items.pre_digest.pot_info().proof_of_time(),
+                    solution_range: subspace_digest_items.solution_range,
+                    piece_check_params: Some(SolutionVerifyPieceCheckParams {
+                        max_pieces_in_sector,
+                        segment_root,
+                        recent_segments: chain_constants.recent_segments(),
+                        recent_history_fraction: chain_constants.recent_history_fraction(),
+                        min_sector_lifetime: chain_constants.min_sector_lifetime(),
+                        current_history_size: self
+                            .client
+                            .runtime_api()
+                            .history_size(parent_hash)?,
+                        sector_expiration_check_segment_root,
+                    }),
+                },
+            )
+            .map_err(|error| VerificationError::VerificationError(pre_digest.slot(), error))?;
 
         // If the body is passed through, we need to use the runtime to check that the
         // internally-set timestamp in the inherents actually matches the slot set in the seal

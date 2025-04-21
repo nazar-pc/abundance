@@ -2,13 +2,16 @@
 
 use crate::hashes::{blake3_hash_with_key, Blake3Hash};
 use crate::pieces::{PieceOffset, Record, RecordChunk, RecordProof, RecordRoot};
-use crate::pos::PosProof;
-use crate::sectors::{SectorIndex, SectorSlotChallenge};
-use crate::segments::{HistorySize, SegmentIndex};
+use crate::pos::{PosProof, PosSeed};
+use crate::pot::PotOutput;
+use crate::sectors::{SectorId, SectorIndex, SectorSlotChallenge};
+use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
 use crate::{BlockNumber, PublicKey, SlotNumber};
+use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::fmt;
+use core::simd::Simd;
 use derive_more::{
     Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, From, Into, Sub, SubAssign,
 };
@@ -410,6 +413,90 @@ impl ChunkProof {
     const NUM_HASHES: usize = Record::NUM_S_BUCKETS.ilog2() as usize;
 }
 
+/// Errors encountered by the Subspace consensus primitives.
+#[derive(Debug, Eq, PartialEq, thiserror::Error)]
+pub enum SolutionVerifyError {
+    /// Invalid piece offset
+    #[error("Piece verification failed")]
+    InvalidPieceOffset {
+        /// Index of the piece that failed verification
+        piece_offset: u16,
+        /// How many pieces one sector is supposed to contain (max)
+        max_pieces_in_sector: u16,
+    },
+    /// Sector expired
+    #[error("Sector expired")]
+    SectorExpired {
+        /// Expiration history size
+        expiration_history_size: HistorySize,
+        /// Current history size
+        current_history_size: HistorySize,
+    },
+    /// Piece verification failed
+    #[error("Piece verification failed")]
+    InvalidPiece,
+    /// Solution is outside of challenge range
+    #[error("Solution distance {solution_distance} is outside of solution range {solution_range}")]
+    OutsideSolutionRange {
+        /// Solution range
+        solution_range: SolutionRange,
+        /// Solution distance
+        solution_distance: SolutionDistance,
+    },
+    /// Invalid proof of space
+    #[error("Invalid proof of space")]
+    InvalidProofOfSpace,
+    /// Invalid audit chunk offset
+    #[error("Invalid audit chunk offset")]
+    InvalidAuditChunkOffset,
+    /// Invalid chunk proof
+    #[error("Invalid chunk proof")]
+    InvalidChunkProof,
+    /// Invalid history size
+    #[error("Invalid history size")]
+    InvalidHistorySize,
+}
+
+/// Parameters for checking piece validity
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+pub struct SolutionVerifyPieceCheckParams {
+    /// How many pieces one sector is supposed to contain (max)
+    pub max_pieces_in_sector: u16,
+    /// Segment root of the segment to which piece belongs
+    pub segment_root: SegmentRoot,
+    /// Number of latest archived segments that are considered "recent history"
+    pub recent_segments: HistorySize,
+    /// Fraction of pieces from the "recent history" (`recent_segments`) in each sector
+    pub recent_history_fraction: (HistorySize, HistorySize),
+    /// Minimum lifetime of a plotted sector, measured in archived segments
+    pub min_sector_lifetime: HistorySize,
+    /// Current size of the history
+    pub current_history_size: HistorySize,
+    /// Segment root at `min_sector_lifetime` from sector creation (if exists)
+    pub sector_expiration_check_segment_root: Option<SegmentRoot>,
+}
+
+/// Parameters for solution verification
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
+pub struct SolutionVerifyParams {
+    /// Proof of time for which solution is built
+    pub proof_of_time: PotOutput,
+    /// Solution range
+    pub solution_range: SolutionRange,
+    /// Parameters for checking piece validity.
+    ///
+    /// If `None`, piece validity check will be skipped.
+    pub piece_check_params: Option<SolutionVerifyPieceCheckParams>,
+}
+
+/// Proof-of-time verifier to be used in [`Solution::verify()`]
+pub trait SolutionPotVerifier {
+    /// Check whether proof created earlier is valid
+    fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool;
+}
+
 /// Farmer solution for slot challenge.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
@@ -450,5 +537,125 @@ impl Solution {
             chunk_proof: ChunkProof::default(),
             proof_of_space: PosProof::default(),
         }
+    }
+
+    /// Verify whether solution is valid, returns solution distance that is `<= solution_range/2` on
+    /// success.
+    pub fn verify<PotVerifier>(
+        &self,
+        slot: SlotNumber,
+        params: &SolutionVerifyParams,
+    ) -> Result<SolutionDistance, SolutionVerifyError>
+    where
+        PotVerifier: SolutionPotVerifier,
+    {
+        let SolutionVerifyParams {
+            proof_of_time,
+            solution_range,
+            piece_check_params,
+        } = params;
+
+        let sector_id = SectorId::new(self.public_key.hash(), self.sector_index, self.history_size);
+
+        let global_randomness = proof_of_time.derive_global_randomness();
+        let global_challenge = global_randomness.derive_global_challenge(slot);
+        let sector_slot_challenge = sector_id.derive_sector_slot_challenge(&global_challenge);
+        let s_bucket_audit_index = sector_slot_challenge.s_bucket_audit_index();
+
+        // Check that proof of space is valid
+        if !PotVerifier::is_proof_valid(
+            &sector_id.derive_evaluation_seed(self.piece_offset),
+            s_bucket_audit_index.into(),
+            &self.proof_of_space,
+        ) {
+            return Err(SolutionVerifyError::InvalidProofOfSpace);
+        };
+
+        let masked_chunk =
+            (Simd::from(*self.chunk) ^ Simd::from(*self.proof_of_space.hash())).to_array();
+
+        let solution_distance =
+            SolutionDistance::calculate(&global_challenge, &masked_chunk, &sector_slot_challenge);
+
+        if solution_distance.is_within(*solution_range) {
+            return Err(SolutionVerifyError::OutsideSolutionRange {
+                solution_range: *solution_range,
+                solution_distance,
+            });
+        }
+
+        // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows
+        //  the code to compile. Constant 16 is hardcoded here and in `if` branch below for compilation
+        //  to succeed
+        const _: () = {
+            assert!(Record::NUM_S_BUCKETS == 65536);
+        };
+        // Check that chunk belongs to the record
+        if !BalancedHashedMerkleTree::<65536>::verify(
+            &self.record_root,
+            &self.chunk_proof,
+            usize::from(s_bucket_audit_index),
+            *self.chunk,
+        ) {
+            return Err(SolutionVerifyError::InvalidChunkProof);
+        }
+
+        if let Some(SolutionVerifyPieceCheckParams {
+            max_pieces_in_sector,
+            segment_root,
+            recent_segments,
+            recent_history_fraction,
+            min_sector_lifetime,
+            current_history_size,
+            sector_expiration_check_segment_root,
+        }) = piece_check_params
+        {
+            if u16::from(self.piece_offset) >= *max_pieces_in_sector {
+                return Err(SolutionVerifyError::InvalidPieceOffset {
+                    piece_offset: u16::from(self.piece_offset),
+                    max_pieces_in_sector: *max_pieces_in_sector,
+                });
+            }
+            if let Some(sector_expiration_check_segment_root) = sector_expiration_check_segment_root
+            {
+                let expiration_history_size = match sector_id.derive_expiration_history_size(
+                    self.history_size,
+                    sector_expiration_check_segment_root,
+                    *min_sector_lifetime,
+                ) {
+                    Some(expiration_history_size) => expiration_history_size,
+                    None => {
+                        return Err(SolutionVerifyError::InvalidHistorySize);
+                    }
+                };
+
+                if expiration_history_size <= *current_history_size {
+                    return Err(SolutionVerifyError::SectorExpired {
+                        expiration_history_size,
+                        current_history_size: *current_history_size,
+                    });
+                }
+            }
+
+            let position = sector_id
+                .derive_piece_index(
+                    self.piece_offset,
+                    self.history_size,
+                    *max_pieces_in_sector,
+                    *recent_segments,
+                    *recent_history_fraction,
+                )
+                .position();
+
+            // Check that piece is part of the blockchain history
+            if !self
+                .record_root
+                .is_valid(segment_root, &self.record_proof, position)
+            {
+                return Err(SolutionVerifyError::InvalidPiece);
+            }
+        }
+
+        Ok(solution_distance)
     }
 }
