@@ -10,7 +10,7 @@ mod benchmarks {
     use crate::{
         AllowAuthoringByAnyone, Call, Config, EnableRewards, EnableRewardsAt,
         NextSolutionRangeOverride, Pallet, PotSlotIterations, PotSlotIterationsUpdate,
-        PotSlotIterationsValue, RawOrigin as SubspaceOrigin, SegmentCommitment,
+        PotSlotIterationsValue, RawOrigin as SubspaceOrigin, SegmentRoot,
         ShouldAdjustSolutionRange, SolutionRanges,
     };
     #[cfg(not(feature = "std"))]
@@ -40,7 +40,7 @@ mod benchmarks {
         #[extrinsic_call]
         _(RawOrigin::None, segment_headers);
 
-        assert_eq!(SegmentCommitment::<T>::count(), x);
+        assert_eq!(SegmentRoot::<T>::count(), x);
     }
 
     /// Benchmark `enable_solution_range_adjustment` extrinsic with the worst possible conditions,
@@ -106,7 +106,7 @@ mod benchmarks {
     fn create_segment_header(segment_index: SegmentIndex) -> SegmentHeader {
         SegmentHeader::V0 {
             segment_index,
-            segment_commitment: subspace_core_primitives::segments::SegmentCommitment::default(),
+            segment_root: subspace_core_primitives::segments::SegmentRoot::default(),
             prev_segment_header_hash: Blake3Hash::default(),
             last_archived_block: LastArchivedBlock {
                 number: 0,

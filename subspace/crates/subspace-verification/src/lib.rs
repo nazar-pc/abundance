@@ -16,12 +16,10 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
 use subspace_core_primitives::hashes::{blake3_hash_list, blake3_hash_with_key, Blake3Hash};
-use subspace_core_primitives::pieces::{
-    PieceArray, Record, RecordChunk, RecordCommitment, RecordWitness,
-};
+use subspace_core_primitives::pieces::{PieceArray, Record, RecordChunk, RecordProof, RecordRoot};
 use subspace_core_primitives::pot::PotOutput;
 use subspace_core_primitives::sectors::{SectorId, SectorSlotChallenge};
-use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment, SegmentCommitment};
+use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment, SegmentRoot};
 use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
 use subspace_core_primitives::{BlockNumber, BlockWeight, PublicKey, SlotNumber};
 use subspace_proof_of_space::Table;
@@ -65,9 +63,9 @@ pub enum Error {
     /// Invalid audit chunk offset
     #[error("Invalid audit chunk offset")]
     InvalidAuditChunkOffset,
-    /// Invalid chunk witness
-    #[error("Invalid chunk witness")]
-    InvalidChunkWitness,
+    /// Invalid chunk proof
+    #[error("Invalid chunk proof")]
+    InvalidChunkProof,
     /// Invalid history size
     #[error("Invalid history size")]
     InvalidHistorySize,
@@ -130,8 +128,8 @@ pub fn is_within_solution_range(
 pub struct PieceCheckParams {
     /// How many pieces one sector is supposed to contain (max)
     pub max_pieces_in_sector: u16,
-    /// Segment commitment of segment to which piece belongs
-    pub segment_commitment: SegmentCommitment,
+    /// Segment root of segment to which piece belongs
+    pub segment_root: SegmentRoot,
     /// Number of latest archived segments that are considered "recent history"
     pub recent_segments: HistorySize,
     /// Fraction of pieces from the "recent history" (`recent_segments`) in each sector
@@ -140,8 +138,8 @@ pub struct PieceCheckParams {
     pub min_sector_lifetime: HistorySize,
     /// Current size of the history
     pub current_history_size: HistorySize,
-    /// Segment commitment at `min_sector_lifetime` from sector creation (if exists)
-    pub sector_expiration_check_segment_commitment: Option<SegmentCommitment>,
+    /// Segment root at `min_sector_lifetime` from sector creation (if exists)
+    pub sector_expiration_check_segment_root: Option<SegmentRoot>,
 }
 
 /// Parameters for solution verification
@@ -221,22 +219,22 @@ where
     };
     // Check that chunk belongs to the record
     if !BalancedHashedMerkleTree::<65536>::verify(
-        &solution.record_commitment,
-        &solution.chunk_witness,
+        &solution.record_root,
+        &solution.chunk_proof,
         usize::from(s_bucket_audit_index),
         *solution.chunk,
     ) {
-        return Err(Error::InvalidChunkWitness);
+        return Err(Error::InvalidChunkProof);
     }
 
     if let Some(PieceCheckParams {
         max_pieces_in_sector,
-        segment_commitment,
+        segment_root,
         recent_segments,
         recent_history_fraction,
         min_sector_lifetime,
         current_history_size,
-        sector_expiration_check_segment_commitment,
+        sector_expiration_check_segment_root,
     }) = piece_check_params
     {
         if u16::from(solution.piece_offset) >= *max_pieces_in_sector {
@@ -245,12 +243,10 @@ where
                 max_pieces_in_sector: *max_pieces_in_sector,
             });
         }
-        if let Some(sector_expiration_check_segment_commitment) =
-            sector_expiration_check_segment_commitment
-        {
+        if let Some(sector_expiration_check_segment_root) = sector_expiration_check_segment_root {
             let expiration_history_size = match sector_id.derive_expiration_history_size(
                 solution.history_size,
-                sector_expiration_check_segment_commitment,
+                sector_expiration_check_segment_root,
                 *min_sector_lifetime,
             ) {
                 Some(expiration_history_size) => expiration_history_size,
@@ -278,10 +274,10 @@ where
             .position();
 
         // Check that piece is part of the blockchain history
-        if !is_record_commitment_valid(
-            &solution.record_commitment,
-            segment_commitment,
-            &solution.record_witness,
+        if !is_record_root_valid(
+            &solution.record_root,
+            segment_root,
+            &solution.record_proof,
             position,
         ) {
             return Err(Error::InvalidPiece);
@@ -291,13 +287,9 @@ where
     Ok(solution_distance)
 }
 
-/// Validate witness embedded within a piece produced by archiver
-pub fn is_piece_valid(
-    piece: &PieceArray,
-    segment_commitment: &SegmentCommitment,
-    position: u32,
-) -> bool {
-    let (record, &record_commitment, parity_chunks_root, record_witness) = piece.split();
+/// Validate proof embedded within a piece produced by archiver
+pub fn is_piece_valid(piece: &PieceArray, segment_root: &SegmentRoot, position: u32) -> bool {
+    let (record, &record_root, parity_chunks_root, record_proof) = piece.split();
 
     let source_record_merkle_tree_root = BalancedHashedMerkleTree::compute_root_only(record);
     let record_merkle_tree_root = BalancedHashedMerkleTree::compute_root_only(&[
@@ -305,30 +297,30 @@ pub fn is_piece_valid(
         **parity_chunks_root,
     ]);
 
-    if record_merkle_tree_root != *record_commitment {
+    if record_merkle_tree_root != *record_root {
         return false;
     }
 
     BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
-        segment_commitment,
-        record_witness,
+        segment_root,
+        record_proof,
         position as usize,
-        *record_commitment,
+        *record_root,
     )
 }
 
-/// Validate witness for record commitment hash produced by archiver
-pub fn is_record_commitment_valid(
-    record_commitment: &RecordCommitment,
-    segment_commitment: &SegmentCommitment,
-    record_witness: &RecordWitness,
+/// Validate proof for record root hash produced by archiver
+pub fn is_record_root_valid(
+    record_root: &RecordRoot,
+    segment_root: &SegmentRoot,
+    record_proof: &RecordProof,
     position: u32,
 ) -> bool {
     BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
-        segment_commitment,
-        record_witness,
+        segment_root,
+        record_proof,
         position as usize,
-        **record_commitment,
+        **record_root,
     )
 }
 

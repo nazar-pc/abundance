@@ -15,7 +15,7 @@ use std::{mem, slice};
 use subspace_core_primitives::checksum::Blake3Checksummed;
 use subspace_core_primitives::hashes::{blake3_hash, Blake3Hash};
 use subspace_core_primitives::pieces::{
-    PieceOffset, Record, RecordChunksRoot, RecordCommitment, RecordWitness,
+    PieceOffset, Record, RecordChunksRoot, RecordProof, RecordRoot,
 };
 use subspace_core_primitives::sectors::{SBucket, SectorIndex};
 use subspace_core_primitives::segments::{HistorySize, SegmentIndex};
@@ -42,7 +42,7 @@ pub const fn sector_record_metadata_size(pieces_in_sector: u16) -> usize {
 ///
 /// NOTE: Each sector also has corresponding fixed size metadata whose size can be obtained with
 /// [`SectorMetadataChecksummed::encoded_size()`], size of the record chunks (s-buckets) with
-/// [`sector_record_chunks_size()`] and size of record commitments and witnesses with
+/// [`sector_record_chunks_size()`] and size of record roots and proofs with
 /// [`sector_record_metadata_size()`]. This function just combines those three together for
 /// convenience.
 #[inline]
@@ -136,22 +136,22 @@ impl SectorMetadataChecksummed {
     }
 }
 
-/// Commitment and witness corresponding to the same record
+/// Root and proof corresponding to the same record
 #[derive(Debug, Default, Clone, Encode, Decode)]
 pub(crate) struct RecordMetadata {
-    /// Record commitment
-    pub(crate) commitment: RecordCommitment,
+    /// Record root
+    pub(crate) root: RecordRoot,
     /// Parity chunks root
     pub(crate) parity_chunks_root: RecordChunksRoot,
-    /// Record witness
-    pub(crate) witness: RecordWitness,
+    /// Record proof
+    pub(crate) proof: RecordProof,
     /// Checksum (hash) of the whole piece
     pub(crate) piece_checksum: Blake3Hash,
 }
 
 impl RecordMetadata {
     pub(crate) const fn encoded_size() -> usize {
-        RecordWitness::SIZE + RecordCommitment::SIZE + RecordChunksRoot::SIZE + Blake3Hash::SIZE
+        RecordProof::SIZE + RecordRoot::SIZE + RecordChunksRoot::SIZE + Blake3Hash::SIZE
     }
 }
 
@@ -160,7 +160,7 @@ impl RecordMetadata {
 pub(crate) struct RawSector {
     /// List of records, likely downloaded from the network
     pub(crate) records: Vec<Record>,
-    /// Metadata (commitment and witness) corresponding to the same record
+    /// Metadata (root and proof) corresponding to the same record
     pub(crate) metadata: Vec<RecordMetadata>,
 }
 

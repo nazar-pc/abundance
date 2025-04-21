@@ -117,9 +117,9 @@ pub enum Error<Header: HeaderT> {
     /// Invalid audit chunk offset
     #[error("Invalid audit chunk offset")]
     InvalidAuditChunkOffset,
-    /// Invalid chunk witness
-    #[error("Invalid chunk witness")]
-    InvalidChunkWitness,
+    /// Invalid chunk proof
+    #[error("Invalid chunk proof")]
+    InvalidChunkProof,
     /// Piece verification failed
     #[error("Piece verification failed")]
     InvalidPieceOffset {
@@ -145,15 +145,15 @@ pub enum Error<Header: HeaderT> {
     /// Segment header not found
     #[error("Segment header for index {0} not found")]
     SegmentHeaderNotFound(SegmentIndex),
-    /// Different segment commitment found
+    /// Different segment root found
     #[error(
-        "Different segment commitment for segment index {0} was found in storage, likely fork \
+        "Different segment root for segment index {0} was found in storage, likely fork \
         below archiving point"
     )]
-    DifferentSegmentCommitment(SegmentIndex),
-    /// Segment commitment not found
-    #[error("Segment commitment for segment index {0} not found")]
-    SegmentCommitmentNotFound(SegmentIndex),
+    DifferentSegmentRoot(SegmentIndex),
+    /// Segment root not found
+    #[error("Segment root for segment index {0} not found")]
+    SegmentRootNotFound(SegmentIndex),
     /// Sector expired
     #[error("Sector expired")]
     SectorExpired {
@@ -227,7 +227,7 @@ where
                 VerificationPrimitiveError::InvalidAuditChunkOffset => {
                     Error::InvalidAuditChunkOffset
                 }
-                VerificationPrimitiveError::InvalidChunkWitness => Error::InvalidChunkWitness,
+                VerificationPrimitiveError::InvalidChunkProof => Error::InvalidChunkProof,
                 VerificationPrimitiveError::SectorExpired {
                     expiration_history_size,
                     current_history_size,
@@ -450,13 +450,13 @@ where
         );
         let segment_index = piece_index.segment_index();
 
-        let segment_commitment = self
+        let segment_root = self
             .segment_headers_store
             .get_segment_header(segment_index)
-            .map(|segment_header| segment_header.segment_commitment())
-            .ok_or(Error::SegmentCommitmentNotFound(segment_index))?;
+            .map(|segment_header| segment_header.segment_root())
+            .ok_or(Error::SegmentRootNotFound(segment_index))?;
 
-        let sector_expiration_check_segment_commitment = self
+        let sector_expiration_check_segment_root = self
             .segment_headers_store
             .get_segment_header(
                 subspace_digest_items
@@ -467,7 +467,7 @@ where
                     .ok_or(Error::InvalidHistorySize)?
                     .segment_index(),
             )
-            .map(|segment_header| segment_header.segment_commitment());
+            .map(|segment_header| segment_header.segment_root());
 
         // Piece is not checked during initial block verification because it requires access to
         // segment header and runtime, check it now.
@@ -480,12 +480,12 @@ where
                 solution_range: subspace_digest_items.solution_range,
                 piece_check_params: Some(PieceCheckParams {
                     max_pieces_in_sector,
-                    segment_commitment,
+                    segment_root,
                     recent_segments: chain_constants.recent_segments(),
                     recent_history_fraction: chain_constants.recent_history_fraction(),
                     min_sector_lifetime: chain_constants.min_sector_lifetime(),
                     current_history_size: self.client.runtime_api().history_size(parent_hash)?,
-                    sector_expiration_check_segment_commitment,
+                    sector_expiration_check_segment_root,
                 }),
             },
         )
@@ -610,20 +610,20 @@ where
                 .extend(values.iter().map(|(k, v)| (k.to_vec(), Some(v.to_vec()))))
         });
 
-        for (&segment_index, segment_commitment) in &subspace_digest_items.segment_commitments {
-            let found_segment_commitment = self
+        for (&segment_index, segment_root) in &subspace_digest_items.segment_roots {
+            let found_segment_root = self
                 .segment_headers_store
                 .get_segment_header(segment_index)
                 .ok_or_else(|| Error::SegmentHeaderNotFound(segment_index))?
-                .segment_commitment();
+                .segment_root();
 
-            if &found_segment_commitment != segment_commitment {
+            if &found_segment_root != segment_root {
                 warn!(
-                    "Different segment commitment for segment index {} was found in storage, \
+                    "Different segment root for segment index {} was found in storage, \
                     likely fork below archiving point. expected {:?}, found {:?}",
-                    segment_index, segment_commitment, found_segment_commitment
+                    segment_index, segment_root, found_segment_root
                 );
-                return Err(Error::DifferentSegmentCommitment(segment_index));
+                return Err(Error::DifferentSegmentRoot(segment_index));
             }
         }
 

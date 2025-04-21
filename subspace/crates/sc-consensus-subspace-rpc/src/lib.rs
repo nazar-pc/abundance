@@ -394,10 +394,10 @@ where
                                 sector_index,
                                 history_size: solution.history_size,
                                 piece_offset: solution.piece_offset,
-                                record_commitment: solution.record_commitment,
-                                record_witness: solution.record_witness,
+                                record_root: solution.record_root,
+                                record_proof: solution.record_proof,
                                 chunk: solution.chunk,
-                                chunk_witness: solution.chunk_witness,
+                                chunk_proof: solution.chunk_proof,
                                 proof_of_space: solution.proof_of_space,
                             };
 

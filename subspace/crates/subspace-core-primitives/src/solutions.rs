@@ -1,6 +1,6 @@
 //! Solutions-related data structures and functions.
 
-use crate::pieces::{PieceOffset, Record, RecordChunk, RecordCommitment, RecordWitness};
+use crate::pieces::{PieceOffset, Record, RecordChunk, RecordProof, RecordRoot};
 use crate::pos::PosProof;
 use crate::sectors::SectorIndex;
 use crate::segments::{HistorySize, SegmentIndex};
@@ -132,16 +132,16 @@ impl RewardSignature {
     pub const SIZE: usize = 64;
 }
 
-/// Witness for chunk contained within a record.
+/// Proof for chunk contained within a record.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[repr(transparent)]
-pub struct ChunkWitness([u8; ChunkWitness::SIZE]);
+pub struct ChunkProof([u8; ChunkProof::SIZE]);
 
-impl fmt::Debug for ChunkWitness {
+impl fmt::Debug for ChunkProof {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for byte in self.0 {
             write!(f, "{byte:02x}")?;
@@ -153,51 +153,51 @@ impl fmt::Debug for ChunkWitness {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct ChunkWitnessBinary(#[serde(with = "BigArray")] [u8; ChunkWitness::SIZE]);
+struct ChunkProofBinary(#[serde(with = "BigArray")] [u8; ChunkProof::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct ChunkWitnessHex(#[serde(with = "hex")] [u8; ChunkWitness::SIZE]);
+struct ChunkProofHex(#[serde(with = "hex")] [u8; ChunkProof::SIZE]);
 
 #[cfg(feature = "serde")]
-impl Serialize for ChunkWitness {
+impl Serialize for ChunkProof {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            ChunkWitnessHex(self.0).serialize(serializer)
+            ChunkProofHex(self.0).serialize(serializer)
         } else {
-            ChunkWitnessBinary(self.0).serialize(serializer)
+            ChunkProofBinary(self.0).serialize(serializer)
         }
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for ChunkWitness {
+impl<'de> Deserialize<'de> for ChunkProof {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            ChunkWitnessHex::deserialize(deserializer)?.0
+            ChunkProofHex::deserialize(deserializer)?.0
         } else {
-            ChunkWitnessBinary::deserialize(deserializer)?.0
+            ChunkProofBinary::deserialize(deserializer)?.0
         }))
     }
 }
 
-impl Default for ChunkWitness {
+impl Default for ChunkProof {
     #[inline]
     fn default() -> Self {
         Self([0; Self::SIZE])
     }
 }
 
-impl TryFrom<&[u8]> for ChunkWitness {
+impl TryFrom<&[u8]> for ChunkProof {
     type Error = TryFromSliceError;
 
     #[inline]
@@ -206,22 +206,22 @@ impl TryFrom<&[u8]> for ChunkWitness {
     }
 }
 
-impl AsRef<[u8]> for ChunkWitness {
+impl AsRef<[u8]> for ChunkProof {
     #[inline]
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
 
-impl AsMut<[u8]> for ChunkWitness {
+impl AsMut<[u8]> for ChunkProof {
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }
 }
 
-impl ChunkWitness {
-    /// Size of chunk witness in bytes.
+impl ChunkProof {
+    /// Size of chunk proof in bytes.
     pub const SIZE: usize = OUT_LEN * Self::NUM_HASHES;
     const NUM_HASHES: usize = Record::NUM_S_BUCKETS.ilog2() as usize;
 }
@@ -240,14 +240,14 @@ pub struct Solution {
     pub history_size: HistorySize,
     /// Pieces offset within sector
     pub piece_offset: PieceOffset,
-    /// Record commitment that can use used to verify that piece was included in blockchain history
-    pub record_commitment: RecordCommitment,
-    /// Witness for above record commitment
-    pub record_witness: RecordWitness,
+    /// Record root that can use used to verify that piece was included in blockchain history
+    pub record_root: RecordRoot,
+    /// Proof for above record root
+    pub record_proof: RecordProof,
     /// Chunk at above offset
     pub chunk: RecordChunk,
-    /// Witness for above chunk
-    pub chunk_witness: ChunkWitness,
+    /// Proof for above chunk
+    pub chunk_proof: ChunkProof,
     /// Proof of space for piece offset
     pub proof_of_space: PosProof,
 }
@@ -260,10 +260,10 @@ impl Solution {
             sector_index: 0,
             history_size: HistorySize::from(SegmentIndex::ZERO),
             piece_offset: PieceOffset::default(),
-            record_commitment: RecordCommitment::default(),
-            record_witness: RecordWitness::default(),
+            record_root: RecordRoot::default(),
+            record_proof: RecordProof::default(),
             chunk: RecordChunk::default(),
-            chunk_witness: ChunkWitness::default(),
+            chunk_proof: ChunkProof::default(),
             proof_of_space: PosProof::default(),
         }
     }

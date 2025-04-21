@@ -135,7 +135,7 @@ impl<'a> SegmentHeaderDownloader<'a> {
             trace!(%retry_attempt, "Downloading last segment headers");
 
             // Get random peers. Some of them could be bootstrap nodes with no support for
-            // request-response protocol for segment commitment.
+            // request-response protocol for segment root.
             let get_peers_result = self
                 .dsn_node
                 .get_closest_peers(PeerId::random().into())

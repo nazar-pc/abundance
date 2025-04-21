@@ -10,7 +10,7 @@ use subspace_archiving::archiver::SegmentItem;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::GlobalObject;
 use subspace_core_primitives::segments::{
-    ArchivedBlockProgress, LastArchivedBlock, SegmentCommitment, SegmentHeader, SegmentIndex,
+    ArchivedBlockProgress, LastArchivedBlock, SegmentHeader, SegmentIndex, SegmentRoot,
 };
 use subspace_runtime_primitives::MAX_BLOCK_LENGTH;
 
@@ -33,7 +33,7 @@ const BLOCK_CONTINUATION_VARIANT: u8 = 3;
 pub fn min_segment_header_encoded_size() -> usize {
     let min_segment_header = SegmentHeader::V0 {
         segment_index: 0.into(),
-        segment_commitment: SegmentCommitment::default(),
+        segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),
         last_archived_block: LastArchivedBlock {
             number: 0,
@@ -49,7 +49,7 @@ pub fn min_segment_header_encoded_size() -> usize {
 pub fn max_segment_header_encoded_size() -> usize {
     let max_segment_header = SegmentHeader::V0 {
         segment_index: u64::MAX.into(),
-        segment_commitment: SegmentCommitment::default(),
+        segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),
         last_archived_block: LastArchivedBlock {
             number: u32::MAX,

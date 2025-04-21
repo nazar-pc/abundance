@@ -511,18 +511,18 @@ where
                     chain_constants.recent_history_fraction(),
                 )
                 .segment_index();
-            let maybe_segment_commitment = self
+            let maybe_segment_root = self
                 .segment_headers_store
                 .get_segment_header(segment_index)
-                .map(|segment_header| segment_header.segment_commitment());
+                .map(|segment_header| segment_header.segment_root());
 
-            let segment_commitment = match maybe_segment_commitment {
-                Some(segment_commitment) => segment_commitment,
+            let segment_root = match maybe_segment_root {
+                Some(segment_root) => segment_root,
                 None => {
                     warn!(
                         %slot,
                         %segment_index,
-                        "Segment commitment not found",
+                        "Segment root not found",
                     );
                     continue;
                 }
@@ -536,8 +536,8 @@ where
                     continue;
                 }
             };
-            let sector_expiration_check_segment_commitment = runtime_api
-                .segment_commitment(parent_hash, sector_expiration_check_segment_index)
+            let sector_expiration_check_segment_root = runtime_api
+                .segment_root(parent_hash, sector_expiration_check_segment_index)
                 .ok()?;
 
             let solution_verification_result = verify_solution::<PosTable>(
@@ -548,12 +548,12 @@ where
                     solution_range,
                     piece_check_params: Some(PieceCheckParams {
                         max_pieces_in_sector,
-                        segment_commitment,
+                        segment_root,
                         recent_segments: chain_constants.recent_segments(),
                         recent_history_fraction: chain_constants.recent_history_fraction(),
                         min_sector_lifetime: chain_constants.min_sector_lifetime(),
                         current_history_size: history_size,
-                        sector_expiration_check_segment_commitment,
+                        sector_expiration_check_segment_root,
                     }),
                 },
             );
@@ -582,7 +582,7 @@ where
                         }
                     } else if !parent_header.number().is_zero() {
                         // Not sending vote on top of genesis block since segment headers since piece
-                        // verification wouldn't be possible due to missing (for now) segment commitment
+                        // verification wouldn't be possible due to missing (for now) segment root
                         // info!(%slot, "🗳️ Claimed vote at slot");
 
                         // Votes were removed

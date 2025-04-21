@@ -807,9 +807,9 @@ fn process_piece(
             .as_flattened_mut()
             .copy_from_slice(piece.record().as_flattened());
         *metadata = RecordMetadata {
-            commitment: *piece.commitment(),
+            root: *piece.root(),
             parity_chunks_root: *piece.parity_chunks_root(),
-            witness: *piece.witness(),
+            proof: *piece.proof(),
             piece_checksum: blake3_hash(piece.as_ref()),
         };
     }

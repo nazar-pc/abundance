@@ -8,7 +8,7 @@ use crate::hashes::{
 };
 use crate::pieces::{PieceIndex, PieceOffset, Record};
 use crate::pos::PosSeed;
-use crate::segments::{HistorySize, SegmentCommitment};
+use crate::segments::{HistorySize, SegmentRoot};
 use crate::U256;
 use core::hash::Hash;
 use core::iter::Step;
@@ -141,7 +141,7 @@ impl SectorId {
     pub fn derive_expiration_history_size(
         &self,
         history_size: HistorySize,
-        sector_expiration_check_segment_commitment: &SegmentCommitment,
+        sector_expiration_check_segment_root: &SegmentRoot,
         min_sector_lifetime: HistorySize,
     ) -> Option<HistorySize> {
         let sector_expiration_check_history_size =
@@ -149,7 +149,7 @@ impl SectorId {
 
         let input_hash = U256::from_le_bytes(*blake3_hash_list(&[
             self.as_ref(),
-            sector_expiration_check_segment_commitment.as_ref(),
+            sector_expiration_check_segment_root.as_ref(),
         ]));
 
         let last_possible_expiration =

@@ -21,7 +21,7 @@ use subspace_farmer::cluster::controller::farms::{maintain_farms, FarmIndex};
 use subspace_farmer::cluster::nats_client::NatsClient;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCaches};
-use subspace_farmer::farmer_piece_getter::piece_validator::SegmentCommitmentPieceValidator;
+use subspace_farmer::farmer_piece_getter::piece_validator::SegmentRootPieceValidator;
 use subspace_farmer::farmer_piece_getter::{DsnCacheRetryPolicy, FarmerPieceGetter};
 use subspace_farmer::node_client::caching_proxy_node_client::CachingProxyNodeClient;
 use subspace_farmer::node_client::rpc_node_client::RpcNodeClient;
@@ -164,7 +164,7 @@ pub(super) async fn controller(
 
     let piece_provider = PieceProvider::new(
         node.clone(),
-        SegmentCommitmentPieceValidator::new(node.clone(), node_client.clone()),
+        SegmentRootPieceValidator::new(node.clone(), node_client.clone()),
         Arc::new(Semaphore::new(
             out_connections as usize * PIECE_PROVIDER_MULTIPLIER,
         )),

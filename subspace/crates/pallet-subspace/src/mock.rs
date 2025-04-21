@@ -15,8 +15,7 @@ use std::sync::Once;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::{Piece, PieceOffset};
 use subspace_core_primitives::segments::{
-    ArchivedBlockProgress, HistorySize, LastArchivedBlock, SegmentCommitment, SegmentHeader,
-    SegmentIndex,
+    ArchivedBlockProgress, HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex, SegmentRoot,
 };
 use subspace_core_primitives::solutions::{Solution, SolutionRange};
 use subspace_core_primitives::PublicKey;
@@ -103,10 +102,10 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: u64) {
             sector_index: 0,
             history_size: HistorySize::from(SegmentIndex::ZERO),
             piece_offset: PieceOffset::default(),
-            record_commitment: Default::default(),
-            record_witness: Default::default(),
+            record_root: Default::default(),
+            record_proof: Default::default(),
             chunk,
-            chunk_witness: Default::default(),
+            chunk_proof: Default::default(),
             proof_of_space: Default::default(),
         },
     );
@@ -163,7 +162,7 @@ pub fn new_test_ext() -> TestExternalities {
 pub fn create_segment_header(segment_index: SegmentIndex) -> SegmentHeader {
     SegmentHeader::V0 {
         segment_index,
-        segment_commitment: SegmentCommitment::default(),
+        segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),
         last_archived_block: LastArchivedBlock {
             number: 0,

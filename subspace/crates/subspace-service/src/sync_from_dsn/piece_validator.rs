@@ -8,12 +8,12 @@ use subspace_networking::Node;
 use subspace_verification::is_piece_valid;
 use tracing::{error, warn};
 
-pub(crate) struct SegmentCommitmentPieceValidator<AS> {
+pub(crate) struct SegmentRootPieceValidator<AS> {
     dsn_node: Node,
     segment_headers_store: SegmentHeadersStore<AS>,
 }
 
-impl<AS> SegmentCommitmentPieceValidator<AS>
+impl<AS> SegmentRootPieceValidator<AS>
 where
     AS: AuxStore + Send + Sync + 'static,
 {
@@ -27,7 +27,7 @@ where
 }
 
 #[async_trait]
-impl<AS> PieceValidator for SegmentCommitmentPieceValidator<AS>
+impl<AS> PieceValidator for SegmentRootPieceValidator<AS>
 where
     AS: AuxStore + Send + Sync + 'static,
 {
@@ -44,17 +44,17 @@ where
         let segment_index = piece_index.segment_index();
 
         let maybe_segment_header = self.segment_headers_store.get_segment_header(segment_index);
-        let segment_commitment = match maybe_segment_header {
-            Some(segment_header) => segment_header.segment_commitment(),
+        let segment_root = match maybe_segment_header {
+            Some(segment_header) => segment_header.segment_root(),
             None => {
-                error!(%segment_index, "No segment commitment in the cache.");
+                error!(%segment_index, "No segment root in the cache.");
 
                 return None;
             }
         };
 
         let is_valid_fut = tokio::task::spawn_blocking(move || {
-            is_piece_valid(&piece, &segment_commitment, piece_index.position()).then_some(piece)
+            is_piece_valid(&piece, &segment_root, piece_index.position()).then_some(piece)
         });
 
         match is_valid_fut.await.unwrap_or_default() {

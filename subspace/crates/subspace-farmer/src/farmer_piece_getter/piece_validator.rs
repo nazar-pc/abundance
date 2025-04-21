@@ -13,12 +13,12 @@ use tracing::{error, warn};
 ///
 /// Implements [`PieceValidator`].
 #[derive(Debug, Clone)]
-pub struct SegmentCommitmentPieceValidator<NC> {
+pub struct SegmentRootPieceValidator<NC> {
     dsn_node: Node,
     node_client: NC,
 }
 
-impl<NC> SegmentCommitmentPieceValidator<NC> {
+impl<NC> SegmentRootPieceValidator<NC> {
     /// Create new instance
     pub fn new(dsn_node: Node, node_client: NC) -> Self {
         Self {
@@ -29,7 +29,7 @@ impl<NC> SegmentCommitmentPieceValidator<NC> {
 }
 
 #[async_trait]
-impl<NC> PieceValidator for SegmentCommitmentPieceValidator<NC>
+impl<NC> PieceValidator for SegmentRootPieceValidator<NC>
 where
     NC: NodeClient,
 {
@@ -57,20 +57,20 @@ where
             }
         };
 
-        let segment_commitment = match segment_headers.into_iter().next().flatten() {
-            Some(segment_header) => segment_header.segment_commitment(),
+        let segment_root = match segment_headers.into_iter().next().flatten() {
+            Some(segment_header) => segment_header.segment_root(),
             None => {
                 error!(
                     %piece_index,
                     %segment_index,
-                    "Segment commitment for segment index wasn't found on node"
+                    "Segment root for segment index wasn't found on node"
                 );
                 return None;
             }
         };
 
         let is_valid_fut = tokio::task::spawn_blocking(move || {
-            is_piece_valid(&piece, &segment_commitment, piece_index.position()).then_some(piece)
+            is_piece_valid(&piece, &segment_root, piece_index.position()).then_some(piece)
         });
 
         match is_valid_fut.await.unwrap_or_default() {
