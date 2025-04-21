@@ -1,6 +1,7 @@
 //! Proof of time-related data structures.
 
 use crate::hashes::{blake3_hash, blake3_hash_list, Blake3Hash};
+use crate::pieces::RecordChunk;
 use crate::Randomness;
 use core::fmt;
 use core::num::NonZeroU8;
@@ -276,6 +277,12 @@ impl PotOutput {
         let mut seed = PotSeed::default();
         seed.copy_from_slice(&hash[..Self::SIZE]);
         seed
+    }
+
+    /// Derive proof of time entropy from chunk and proof of time for injection purposes
+    #[inline]
+    pub fn derive_pot_entropy(&self, solution_chunk: &RecordChunk) -> Blake3Hash {
+        blake3_hash_list(&[solution_chunk.as_ref(), &self.0])
     }
 }
 

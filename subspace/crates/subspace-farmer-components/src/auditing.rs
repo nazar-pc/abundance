@@ -13,9 +13,8 @@ use std::io;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::RecordChunk;
 use subspace_core_primitives::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
-use subspace_core_primitives::solutions::SolutionRange;
+use subspace_core_primitives::solutions::{SolutionDistance, SolutionRange};
 use subspace_core_primitives::PublicKey;
-use subspace_verification::is_within_solution_range;
 use thiserror::Error;
 
 /// Errors that happen during proving
@@ -48,8 +47,8 @@ pub struct AuditResult<'a, Sector> {
 pub(crate) struct ChunkCandidate {
     /// Chunk offset within s-bucket
     pub(crate) chunk_offset: u32,
-    /// Solution distance of this chunk, can be used to prioritize higher quality solutions
-    pub(crate) solution_distance: SolutionRange,
+    /// Solution distance of this chunk, which can be used to prioritize higher quality solutions
+    pub(crate) solution_distance: SolutionDistance,
 }
 
 /// Audit a single sector and generate a stream of solutions.
@@ -246,16 +245,14 @@ fn map_winning_chunks(
         .array_chunks::<{ RecordChunk::SIZE }>()
         .enumerate()
         .filter_map(|(chunk_offset, chunk)| {
-            is_within_solution_range(
-                global_challenge,
-                chunk,
-                sector_slot_challenge,
-                solution_range,
-            )
-            .map(|solution_distance| ChunkCandidate {
-                chunk_offset: chunk_offset as u32,
-                solution_distance,
-            })
+            let solution_distance =
+                SolutionDistance::calculate(global_challenge, chunk, sector_slot_challenge);
+            solution_distance
+                .is_within(solution_range)
+                .then_some(ChunkCandidate {
+                    chunk_offset: chunk_offset as u32,
+                    solution_distance,
+                })
         })
         .collect::<Vec<_>>();
 

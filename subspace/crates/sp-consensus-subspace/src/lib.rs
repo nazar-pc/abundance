@@ -22,9 +22,8 @@ use sp_std::num::NonZeroU32;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed};
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
-use subspace_core_primitives::solutions::{Solution, SolutionRange};
+use subspace_core_primitives::solutions::{Solution, SolutionRange, SolutionVerifyParams};
 use subspace_core_primitives::{BlockNumber, PublicKey};
-use subspace_verification::VerifySolutionParams;
 
 /// The `ConsensusEngineId` of Subspace.
 const SUBSPACE_ENGINE_ID: ConsensusEngineId = *b"SUB_";
@@ -162,16 +161,16 @@ enum ConsensusLog {
 #[derive(Decode, Encode, MaxEncodedLen, PartialEq, Eq, Clone, Copy, Debug, TypeInfo)]
 pub struct SolutionRanges {
     /// Solution range in current block/era.
-    pub current: u64,
+    pub current: SolutionRange,
     /// Solution range that will be used in the next block/era.
-    pub next: Option<u64>,
+    pub next: Option<SolutionRange>,
 }
 
 impl Default for SolutionRanges {
     #[inline]
     fn default() -> Self {
         Self {
-            current: u64::MAX,
+            current: SolutionRange::MAX,
             next: None,
         }
     }
@@ -295,11 +294,11 @@ impl PassBy for WrappedSolution {
 
 /// Wrapped solution verification parameters for the purposes of runtime interface.
 #[derive(Debug, Encode, Decode)]
-pub struct WrappedVerifySolutionParams<'a>(Cow<'a, VerifySolutionParams>);
+pub struct WrappedVerifySolutionParams<'a>(Cow<'a, SolutionVerifyParams>);
 
-impl<'a> From<&'a VerifySolutionParams> for WrappedVerifySolutionParams<'a> {
+impl<'a> From<&'a SolutionVerifyParams> for WrappedVerifySolutionParams<'a> {
     #[inline]
-    fn from(value: &'a VerifySolutionParams) -> Self {
+    fn from(value: &'a SolutionVerifyParams) -> Self {
         Self(Cow::Borrowed(value))
     }
 }

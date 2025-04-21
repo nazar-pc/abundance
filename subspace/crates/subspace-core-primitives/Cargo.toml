@@ -11,6 +11,7 @@ include = [
 ]
 
 [dependencies]
+ab-merkle-tree = { workspace = true }
 blake3.workspace = true
 bytes = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["full"] }
@@ -22,6 +23,7 @@ scale-info = { workspace = true, features = ["derive"], optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 serde-big-array.workspace = true
 static_assertions.workspace = true
+thiserror = { workspace = true }
 uint.workspace = true
 
 [dev-dependencies]

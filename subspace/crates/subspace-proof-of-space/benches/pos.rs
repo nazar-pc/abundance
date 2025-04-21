@@ -91,7 +91,7 @@ fn pos_bench<PosTable>(
 
     group.bench_function("verification", |b| {
         b.iter(|| {
-            assert!(PosTable::is_proof_valid(
+            assert!(<PosTable as Table>::is_proof_valid(
                 &seed,
                 challenge_index_with_solution,
                 &proof

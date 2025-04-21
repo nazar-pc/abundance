@@ -6805,7 +6805,6 @@ dependencies = [
  "sp-std",
  "subspace-core-primitives",
  "subspace-runtime-primitives",
- "subspace-verification",
 ]
 
 [[package]]
@@ -10647,7 +10646,6 @@ dependencies = [
  "sp-std",
  "sp-timestamp",
  "subspace-core-primitives",
- "subspace-verification",
  "thiserror 2.0.12",
 ]
 
@@ -11360,7 +11358,6 @@ dependencies = [
  "serde",
  "subspace-core-primitives",
  "subspace-erasure-coding",
- "subspace-verification",
  "thiserror 2.0.12",
 ]
 
@@ -11368,6 +11365,7 @@ dependencies = [
 name = "subspace-core-primitives"
 version = "0.1.0"
 dependencies = [
+ "ab-merkle-tree",
  "blake3",
  "bytes",
  "derive_more 1.0.0",
@@ -11380,6 +11378,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "static_assertions",
+ "thiserror 2.0.12",
  "uint 0.10.0",
 ]
 
@@ -11461,7 +11460,6 @@ dependencies = [
  "subspace-proof-of-space",
  "subspace-proof-of-space-gpu",
  "subspace-rpc-primitives",
- "subspace-verification",
  "substrate-bip39",
  "tempfile",
  "thiserror 2.0.12",
@@ -11499,7 +11497,6 @@ dependencies = [
  "subspace-data-retrieval",
  "subspace-erasure-coding",
  "subspace-proof-of-space",
- "subspace-verification",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
@@ -11774,7 +11771,6 @@ dependencies = [
  "subspace-networking",
  "subspace-proof-of-space",
  "subspace-runtime-primitives",
- "subspace-verification",
  "substrate-prometheus-endpoint",
  "thiserror 2.0.12",
  "tokio",
@@ -11785,12 +11781,8 @@ dependencies = [
 name = "subspace-verification"
 version = "0.1.0"
 dependencies = [
- "ab-merkle-tree",
- "parity-scale-codec",
  "schnorrkel",
  "subspace-core-primitives",
- "subspace-proof-of-space",
- "thiserror 2.0.12",
 ]
 
 [[package]]

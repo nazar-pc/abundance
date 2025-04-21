@@ -50,7 +50,6 @@ use static_assertions::const_assert;
 use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::Piece;
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
-use subspace_core_primitives::solutions::solution_range_to_pieces;
 use subspace_core_primitives::{PublicKey, SlotNumber};
 use subspace_runtime_primitives::utility::{
     DefaultNonceProvider, MaybeNestedCall, MaybeUtilityCall,
@@ -254,7 +253,7 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
     pub CreditSupply: Balance = Balances::total_issuance();
     pub TotalSpacePledged: u128 = {
-        let pieces = solution_range_to_pieces(Subspace::solution_ranges().current, SLOT_PROBABILITY);
+        let pieces = Subspace::solution_ranges().current.to_pieces(SLOT_PROBABILITY);
         pieces as u128 * Piece::SIZE as u128
     };
     pub BlockchainHistorySize: u128 = u128::from(Subspace::archived_history_size());

@@ -17,6 +17,7 @@ pub mod shim;
 #[cfg(feature = "alloc")]
 use core::fmt;
 use subspace_core_primitives::pos::{PosProof, PosSeed};
+use subspace_core_primitives::solutions::SolutionPotVerifier;
 
 /// Proof of space table type
 #[derive(Debug, Clone, Copy)]
@@ -46,7 +47,7 @@ pub trait TableGenerator<T: Table>: fmt::Debug + Default + Clone + Send + Sized 
 }
 
 /// Proof of space kind
-pub trait Table: Sized + Send + Sync + 'static {
+pub trait Table: SolutionPotVerifier + Sized + Send + Sync + 'static {
     /// Proof of space table type
     const TABLE_TYPE: PosTableType;
     /// Instance that can be used to generate tables with better performance

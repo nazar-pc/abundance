@@ -39,9 +39,10 @@ use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::thread::available_parallelism;
+use subspace_core_primitives::solutions::{SolutionVerifyError, SolutionVerifyParams};
 use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_proof_of_space::Table;
-use subspace_verification::{check_reward_signature, verify_solution, VerifySolutionParams};
+use subspace_verification::check_reward_signature;
 use tokio::runtime::Handle;
 use tracing::{debug, info, trace, warn};
 
@@ -71,7 +72,7 @@ pub enum VerificationError<Header: HeaderT> {
     InvalidProofOfTime,
     /// Verification error
     #[error("Verification error on slot {0:?}: {1:?}")]
-    VerificationError(Slot, subspace_verification::Error),
+    VerificationError(Slot, SolutionVerifyError),
 }
 
 /// A header which has been checked
@@ -95,7 +96,7 @@ where
     /// The header being verified.
     header: Header,
     /// Parameters for solution verification
-    verify_solution_params: &'a VerifySolutionParams,
+    verify_solution_params: &'a SolutionVerifyParams,
 }
 
 /// Options for Subspace block verifier
@@ -336,7 +337,9 @@ where
         }
 
         // Verify that solution is valid
-        verify_solution::<PosTable>(pre_digest.solution(), slot.into(), verify_solution_params)
+        pre_digest
+            .solution()
+            .verify::<PosTable>(slot.into(), verify_solution_params)
             .map_err(|error| VerificationError::VerificationError(slot, error))?;
 
         Ok(CheckedHeader {
@@ -441,7 +444,7 @@ where
             .check_header(
                 VerificationParams {
                     header: block.header.clone(),
-                    verify_solution_params: &VerifySolutionParams {
+                    verify_solution_params: &SolutionVerifyParams {
                         proof_of_time: subspace_digest_items.pre_digest.pot_info().proof_of_time(),
                         solution_range: subspace_digest_items.solution_range,
                         piece_check_params: None,

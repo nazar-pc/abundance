@@ -15,7 +15,6 @@ use subspace_core_primitives::segments::{
     SegmentHeader, SegmentIndex, SegmentRoot,
 };
 use subspace_erasure_coding::ErasureCoding;
-use subspace_verification::is_piece_valid;
 
 fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
     let offset: u32 = offset.into();
@@ -181,8 +180,7 @@ fn archiver() {
         .map(|(position, piece)| {
             (
                 position,
-                is_piece_valid(
-                    piece,
+                piece.is_valid(
                     &first_archived_segment.segment_header.segment_root(),
                     position as u32,
                 ),
@@ -298,8 +296,7 @@ fn archiver() {
             .map(|(position, piece)| {
                 (
                     position,
-                    is_piece_valid(
-                        piece,
+                    piece.is_valid(
                         &archived_segment.segment_header.segment_root(),
                         position as u32,
                     ),
@@ -370,8 +367,7 @@ fn archiver() {
             .map(|(position, piece)| {
                 (
                     position,
-                    is_piece_valid(
-                        piece,
+                    piece.is_valid(
                         &archived_segment.segment_header.segment_root(),
                         position as u32,
                     ),
