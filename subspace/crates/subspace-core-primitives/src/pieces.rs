@@ -638,6 +638,21 @@ impl From<&mut [u8; RecordRoot::SIZE]> for &mut RecordRoot {
 impl RecordRoot {
     /// Size of record root in bytes.
     pub const SIZE: usize = 32;
+
+    /// Validate record root hash produced by the archiver
+    pub fn is_valid(
+        &self,
+        segment_root: &SegmentRoot,
+        record_proof: &RecordProof,
+        position: u32,
+    ) -> bool {
+        BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
+            segment_root,
+            record_proof,
+            position as usize,
+            self.0,
+        )
+    }
 }
 
 /// Record chunks root (source or parity) contained within a piece.
@@ -1002,12 +1017,7 @@ impl PieceArray {
             return false;
         }
 
-        BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
-            segment_root,
-            record_proof,
-            position as usize,
-            *record_root,
-        )
+        record_root.is_valid(segment_root, record_proof, position)
     }
 
     /// Split piece into underlying components.

@@ -16,10 +16,10 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
 use subspace_core_primitives::hashes::{blake3_hash_list, blake3_hash_with_key, Blake3Hash};
-use subspace_core_primitives::pieces::{Record, RecordChunk, RecordProof, RecordRoot};
+use subspace_core_primitives::pieces::{Record, RecordChunk};
 use subspace_core_primitives::pot::PotOutput;
 use subspace_core_primitives::sectors::{SectorId, SectorSlotChallenge};
-use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment, SegmentRoot};
+use subspace_core_primitives::segments::{HistorySize, SegmentRoot};
 use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
 use subspace_core_primitives::{BlockNumber, BlockWeight, PublicKey, SlotNumber};
 use subspace_proof_of_space::Table;
@@ -274,32 +274,15 @@ where
             .position();
 
         // Check that piece is part of the blockchain history
-        if !is_record_root_valid(
-            &solution.record_root,
-            segment_root,
-            &solution.record_proof,
-            position,
-        ) {
+        if !solution
+            .record_root
+            .is_valid(segment_root, &solution.record_proof, position)
+        {
             return Err(Error::InvalidPiece);
         }
     }
 
     Ok(solution_distance)
-}
-
-/// Validate proof for record root hash produced by archiver
-pub fn is_record_root_valid(
-    record_root: &RecordRoot,
-    segment_root: &SegmentRoot,
-    record_proof: &RecordProof,
-    position: u32,
-) -> bool {
-    BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
-        segment_root,
-        record_proof,
-        position as usize,
-        **record_root,
-    )
 }
 
 /// Derive proof of time entropy from chunk and proof of time for injection purposes.
