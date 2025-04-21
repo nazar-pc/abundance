@@ -276,14 +276,14 @@ pub mod pallet {
     #[pallet::storage]
     pub(super) type EraStartSlot<T> = StorageValue<_, Slot>;
 
-    /// Mapping from segment index to corresponding segment commitment of contained records.
+    /// Mapping from segment index to corresponding segment root of contained records.
     #[pallet::storage]
-    #[pallet::getter(fn segment_commitment)]
-    pub(super) type SegmentCommitment<T> = CountedStorageMap<
+    #[pallet::getter(fn segment_root)]
+    pub(super) type SegmentRoot<T> = CountedStorageMap<
         _,
         Twox64Concat,
         SegmentIndex,
-        subspace_core_primitives::segments::SegmentCommitment,
+        subspace_core_primitives::segments::SegmentRoot,
     >;
 
     /// Whether the segment headers inherent has been processed in this block (temporary value).
@@ -495,7 +495,7 @@ impl<T: Config> Pallet<T> {
     /// Total number of pieces in the blockchain
     pub fn history_size() -> HistorySize {
         // Chain starts with one segment plotted, even if it is not recorded in the runtime yet
-        let number_of_segments = u64::from(SegmentCommitment::<T>::count()).max(1);
+        let number_of_segments = u64::from(SegmentRoot::<T>::count()).max(1);
         HistorySize::from(NonZeroU64::new(number_of_segments).expect("Not zero; qed"))
     }
 
@@ -753,14 +753,14 @@ impl<T: Config> Pallet<T> {
         );
 
         for segment_header in segment_headers {
-            SegmentCommitment::<T>::insert(
+            SegmentRoot::<T>::insert(
                 segment_header.segment_index(),
-                segment_header.segment_commitment(),
+                segment_header.segment_root(),
             );
             // Deposit global randomness data such that light client can validate blocks later.
-            frame_system::Pallet::<T>::deposit_log(DigestItem::segment_commitment(
+            frame_system::Pallet::<T>::deposit_log(DigestItem::segment_root(
                 segment_header.segment_index(),
-                segment_header.segment_commitment(),
+                segment_header.segment_root(),
             ));
             Self::deposit_event(Event::SegmentHeaderStored { segment_header });
         }
@@ -851,7 +851,7 @@ impl<T: Config> Pallet<T> {
 
     /// Size of the archived history of the blockchain in bytes
     pub fn archived_history_size() -> u64 {
-        let archived_segments = SegmentCommitment::<T>::count();
+        let archived_segments = SegmentRoot::<T>::count();
 
         u64::from(archived_segments) * ArchivedHistorySegment::SIZE as u64
     }
@@ -914,15 +914,13 @@ fn check_segment_headers<T: Config>(
 
     // Segment in segment headers should monotonically increase
     if first_segment_header.segment_index() > SegmentIndex::ZERO
-        && !SegmentCommitment::<T>::contains_key(
-            first_segment_header.segment_index() - SegmentIndex::ONE,
-        )
+        && !SegmentRoot::<T>::contains_key(first_segment_header.segment_index() - SegmentIndex::ONE)
     {
         return Err(InvalidTransaction::BadMandatory.into());
     }
 
     // Segment headers should never repeat
-    if SegmentCommitment::<T>::contains_key(first_segment_header.segment_index()) {
+    if SegmentRoot::<T>::contains_key(first_segment_header.segment_index()) {
         return Err(InvalidTransaction::BadMandatory.into());
     }
 
@@ -937,7 +935,7 @@ fn check_segment_headers<T: Config>(
         }
 
         // Segment headers should never repeat
-        if SegmentCommitment::<T>::contains_key(segment_index) {
+        if SegmentRoot::<T>::contains_key(segment_index) {
             return Err(InvalidTransaction::BadMandatory.into());
         }
 

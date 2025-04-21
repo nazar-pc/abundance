@@ -398,7 +398,7 @@ pub fn recover_source_record(
     Ok(recovered_record)
 }
 
-/// Read metadata (commitment and witness) for record
+/// Read metadata (roots and witness) for record
 pub(crate) async fn read_record_metadata<S, A>(
     piece_offset: PieceOffset,
     pieces_in_sector: u16,
@@ -410,7 +410,7 @@ where
 {
     let sector_metadata_start = SectorContentsMap::encoded_size(pieces_in_sector) as u64
         + sector_record_chunks_size(pieces_in_sector) as u64;
-    // Move to the beginning of the commitment and witness we care about
+    // Move to the beginning of the root and witness we care about
     let record_metadata_offset =
         sector_metadata_start + RecordMetadata::encoded_size() as u64 * u64::from(piece_offset);
 
@@ -485,7 +485,7 @@ where
 
     piece.record_mut().copy_from_slice(record.as_slice());
 
-    *piece.commitment_mut() = record_metadata.commitment;
+    *piece.root_mut() = record_metadata.root;
     *piece.parity_chunks_root_mut() = record_metadata.parity_chunks_root;
     *piece.witness_mut() = record_metadata.witness;
 

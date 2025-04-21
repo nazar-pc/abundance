@@ -21,9 +21,7 @@ use sp_runtime_interface::pass_by::PassBy;
 use sp_std::num::NonZeroU32;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed};
-use subspace_core_primitives::segments::{
-    HistorySize, SegmentCommitment, SegmentHeader, SegmentIndex,
-};
+use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
 use subspace_core_primitives::solutions::{Solution, SolutionRange};
 use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_verification::VerifySolutionParams;
@@ -149,9 +147,9 @@ enum ConsensusLog {
     /// Solution range for next block/era.
     #[codec(index = 3)]
     NextSolutionRange(SolutionRange),
-    /// Segment commitments.
+    /// Segment roots.
     #[codec(index = 4)]
-    SegmentCommitment((SegmentIndex, SegmentCommitment)),
+    SegmentRoot((SegmentIndex, SegmentRoot)),
     /// Enable Solution range adjustment and Override Solution Range.
     #[codec(index = 5)]
     EnableSolutionRangeAdjustmentAndOverride(Option<SolutionRange>),
@@ -282,7 +280,7 @@ impl From<&Solution> for WrappedSolution {
             sector_index: solution.sector_index,
             history_size: solution.history_size,
             piece_offset: solution.piece_offset,
-            record_commitment: solution.record_commitment,
+            record_root: solution.record_root,
             record_witness: solution.record_witness,
             chunk: solution.chunk,
             chunk_witness: solution.chunk_witness,
@@ -372,8 +370,8 @@ sp_api::decl_runtime_apis! {
         /// How many pieces one sector is supposed to contain (max)
         fn max_pieces_in_sector() -> u16;
 
-        /// Get the segment commitment of records for specified segment index
-        fn segment_commitment(segment_index: SegmentIndex) -> Option<SegmentCommitment>;
+        /// Get the segment root of records for specified segment index
+        fn segment_root(segment_index: SegmentIndex) -> Option<SegmentRoot>;
 
         /// Returns `Vec<SegmentHeader>` if a given extrinsic has them.
         fn extract_segment_headers(ext: &Block::Extrinsic) -> Option<Vec<SegmentHeader >>;

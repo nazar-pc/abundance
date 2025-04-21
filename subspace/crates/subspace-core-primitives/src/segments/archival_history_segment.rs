@@ -20,7 +20,7 @@ impl ArchivedHistorySegment {
     /// Size of archived history segment in bytes.
     ///
     /// It includes erasure coded [`crate::pieces::PieceArray`]s (both source and parity) that are
-    /// composed of [`crate::pieces::Record`]s together with corresponding commitments and
+    /// composed of [`crate::pieces::Record`]s together with corresponding roots and
     /// witnesses.
     pub const SIZE: usize = Piece::SIZE * Self::NUM_PIECES;
 

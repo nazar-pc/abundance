@@ -123,16 +123,16 @@ impl SegmentIndex {
     }
 }
 
-/// Segment commitment contained within segment header.
+/// Segment root contained within segment header.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[repr(transparent)]
-pub struct SegmentCommitment([u8; SegmentCommitment::SIZE]);
+pub struct SegmentRoot([u8; SegmentRoot::SIZE]);
 
-impl fmt::Debug for SegmentCommitment {
+impl fmt::Debug for SegmentRoot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for byte in self.0 {
             write!(f, "{byte:02x}")?;
@@ -144,51 +144,51 @@ impl fmt::Debug for SegmentCommitment {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct SegmentCommitmentBinary(#[serde(with = "BigArray")] [u8; SegmentCommitment::SIZE]);
+struct SegmentRootBinary(#[serde(with = "BigArray")] [u8; SegmentRoot::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct SegmentCommitmentHex(#[serde(with = "hex")] [u8; SegmentCommitment::SIZE]);
+struct SegmentRootHex(#[serde(with = "hex")] [u8; SegmentRoot::SIZE]);
 
 #[cfg(feature = "serde")]
-impl Serialize for SegmentCommitment {
+impl Serialize for SegmentRoot {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            SegmentCommitmentHex(self.0).serialize(serializer)
+            SegmentRootHex(self.0).serialize(serializer)
         } else {
-            SegmentCommitmentBinary(self.0).serialize(serializer)
+            SegmentRootBinary(self.0).serialize(serializer)
         }
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for SegmentCommitment {
+impl<'de> Deserialize<'de> for SegmentRoot {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            SegmentCommitmentHex::deserialize(deserializer)?.0
+            SegmentRootHex::deserialize(deserializer)?.0
         } else {
-            SegmentCommitmentBinary::deserialize(deserializer)?.0
+            SegmentRootBinary::deserialize(deserializer)?.0
         }))
     }
 }
 
-impl Default for SegmentCommitment {
+impl Default for SegmentRoot {
     #[inline]
     fn default() -> Self {
         Self([0; Self::SIZE])
     }
 }
 
-impl TryFrom<&[u8]> for SegmentCommitment {
+impl TryFrom<&[u8]> for SegmentRoot {
     type Error = TryFromSliceError;
 
     #[inline]
@@ -197,22 +197,22 @@ impl TryFrom<&[u8]> for SegmentCommitment {
     }
 }
 
-impl AsRef<[u8]> for SegmentCommitment {
+impl AsRef<[u8]> for SegmentRoot {
     #[inline]
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
 
-impl AsMut<[u8]> for SegmentCommitment {
+impl AsMut<[u8]> for SegmentRoot {
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }
 }
 
-impl SegmentCommitment {
-    /// Size of segment commitment in bytes.
+impl SegmentRoot {
+    /// Size of segment root in bytes.
     pub const SIZE: usize = 32;
 }
 
@@ -347,8 +347,8 @@ pub enum SegmentHeader {
     V0 {
         /// Segment index
         segment_index: SegmentIndex,
-        /// Root of commitments of all records in a segment.
-        segment_commitment: SegmentCommitment,
+        /// Root of roots of all records in a segment.
+        segment_root: SegmentRoot,
         /// Hash of the segment header of the previous segment
         prev_segment_header_hash: Blake3Hash,
         /// Last archived block
@@ -371,12 +371,10 @@ impl SegmentHeader {
         }
     }
 
-    /// Segment commitment of the records in a segment.
-    pub fn segment_commitment(&self) -> SegmentCommitment {
+    /// Segment root of the records in a segment.
+    pub fn segment_root(&self) -> SegmentRoot {
         match self {
-            Self::V0 {
-                segment_commitment, ..
-            } => *segment_commitment,
+            Self::V0 { segment_root, .. } => *segment_root,
         }
     }
 
@@ -450,7 +448,7 @@ impl RecordedHistorySegment {
     /// Size of recorded history segment in bytes.
     ///
     /// It includes half of the records (just source records) that will later be erasure coded and
-    /// together with corresponding commitments and witnesses will result in
+    /// together with corresponding roots and witnesses will result in
     /// [`Self::NUM_PIECES`] [`Piece`]s of archival history.
     pub const SIZE: usize = Record::SIZE * Self::NUM_RAW_RECORDS;
 

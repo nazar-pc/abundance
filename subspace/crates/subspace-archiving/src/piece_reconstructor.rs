@@ -85,20 +85,16 @@ impl PiecesReconstructor {
             self.erasure_coding.recover(source, parity)?;
         }
 
-        let record_commitments = {
+        let record_roots = {
             #[cfg(not(feature = "parallel"))]
             let iter = reconstructed_pieces.iter_mut().zip(input_pieces);
             #[cfg(feature = "parallel")]
             let iter = reconstructed_pieces.par_iter_mut().zip_eq(input_pieces);
 
             iter.map(|(piece, maybe_input_piece)| {
-                let (record_commitment, parity_chunks_root) = if let Some(input_piece) =
-                    maybe_input_piece
+                let (record_root, parity_chunks_root) = if let Some(input_piece) = maybe_input_piece
                 {
-                    (
-                        **input_piece.commitment(),
-                        **input_piece.parity_chunks_root(),
-                    )
+                    (**input_piece.root(), **input_piece.parity_chunks_root())
                 } else {
                     // TODO: Reuse allocations between iterations
                     let [source_chunks_root, parity_chunks_root] = {
@@ -116,26 +112,26 @@ impl PiecesReconstructor {
                         [source_chunks_root, parity_chunks_root]
                     };
 
-                    let record_commitment =
+                    let record_root =
                         BalancedHashedMerkleTree::new(&[source_chunks_root, parity_chunks_root])
                             .root();
 
-                    (record_commitment, parity_chunks_root)
+                    (record_root, parity_chunks_root)
                 };
 
-                piece.commitment_mut().copy_from_slice(&record_commitment);
+                piece.root_mut().copy_from_slice(&record_root);
                 piece
                     .parity_chunks_root_mut()
                     .copy_from_slice(&parity_chunks_root);
 
-                Ok::<_, ReconstructorError>(record_commitment)
+                Ok::<_, ReconstructorError>(record_root)
             })
             .collect::<Result<Vec<_>, _>>()?
         };
 
         let segment_merkle_tree =
             BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES }>::new_boxed(
-                record_commitments
+                record_roots
                     .as_slice()
                     .try_into()
                     .expect("Statically guaranteed to have correct length; qed"),

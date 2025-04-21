@@ -49,9 +49,7 @@ use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::Piece;
-use subspace_core_primitives::segments::{
-    HistorySize, SegmentCommitment, SegmentHeader, SegmentIndex,
-};
+use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
 use subspace_core_primitives::solutions::solution_range_to_pieces;
 use subspace_core_primitives::{PublicKey, SlotNumber};
 use subspace_runtime_primitives::utility::{
@@ -554,8 +552,8 @@ impl_runtime_apis! {
             MAX_PIECES_IN_SECTOR
         }
 
-        fn segment_commitment(segment_index: SegmentIndex) -> Option<SegmentCommitment> {
-            Subspace::segment_commitment(segment_index)
+        fn segment_root(segment_index: SegmentIndex) -> Option<SegmentRoot> {
+            Subspace::segment_root(segment_index)
         }
 
         fn extract_segment_headers(ext: &<Block as BlockT>::Extrinsic) -> Option<Vec<SegmentHeader >> {

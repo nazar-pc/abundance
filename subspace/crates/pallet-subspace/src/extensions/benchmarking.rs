@@ -2,8 +2,7 @@
 
 use crate::extensions::SubspaceExtension;
 use crate::pallet::{
-    BlockSlots, CurrentBlockAuthorInfo, SegmentCommitment as SubspaceSegmentCommitment,
-    SolutionRanges,
+    BlockSlots, CurrentBlockAuthorInfo, SegmentRoot as SubspaceSegmentRoot, SolutionRanges,
 };
 use crate::{Config, Pallet as Subspace};
 use frame_benchmarking::v2::*;
@@ -17,7 +16,7 @@ use sp_runtime::transaction_validity::TransactionSource;
 use sp_std::collections::btree_map::BTreeMap;
 use subspace_core_primitives::pieces::{PieceOffset, RecordChunk};
 use subspace_core_primitives::sectors::SectorIndex;
-use subspace_core_primitives::segments::{SegmentCommitment, SegmentIndex};
+use subspace_core_primitives::segments::{SegmentIndex, SegmentRoot};
 use subspace_core_primitives::solutions::RewardSignature;
 use subspace_core_primitives::PublicKey;
 

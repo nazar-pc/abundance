@@ -394,7 +394,7 @@ where
                                 sector_index,
                                 history_size: solution.history_size,
                                 piece_offset: solution.piece_offset,
-                                record_commitment: solution.record_commitment,
+                                record_root: solution.record_root,
                                 record_witness: solution.record_witness,
                                 chunk: solution.chunk,
                                 chunk_witness: solution.chunk_witness,

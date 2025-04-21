@@ -41,7 +41,7 @@ Dynamic issuance is different (not implemented right now, details will be added 
 Since KZG is no longer used and a farmer still does erasure coding during plotting, archiver was modified to also do
 erasure coding of records, so it can commit to erasure coded chunks too. This allows a farmer to generate proofs like
 before even though technically record doesn't contain parity chunks. To aid efficient verification of pieces, source and
-parity chunks are first committed to separately before combining into record commitment, with parity chunks root also
+parity chunks are first committed to separately before combining into record root, with parity chunks root also
 included in the piece alongside record root.
 
 ## Erasure coding
@@ -54,3 +54,7 @@ practice), increasing record size slightly and simplifying a lot of places in th
 
 Both pieces in a segment and chunks in a sector had source/parity interleaving, which for simplicity was removed. Now
 all source pieces/chunks go first, followed by all parity pieces/chunks.
+
+## Terminology
+
+After switching from KZG to Merkle Trees, commitments are renamed to roots.

@@ -56,7 +56,7 @@ fn segment_headers_store_block_number_queries_work() {
 
     let segment_header0 = SegmentHeader::V0 {
         segment_index: SegmentIndex::ZERO,
-        segment_commitment: Default::default(),
+        segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
         last_archived_block: LastArchivedBlock {
             number: 0,
@@ -66,7 +66,7 @@ fn segment_headers_store_block_number_queries_work() {
 
     let segment_header1 = SegmentHeader::V0 {
         segment_index: SegmentIndex::ONE,
-        segment_commitment: Default::default(),
+        segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
         last_archived_block: LastArchivedBlock {
             number: 652,
@@ -76,7 +76,7 @@ fn segment_headers_store_block_number_queries_work() {
 
     let segment_header2 = SegmentHeader::V0 {
         segment_index: SegmentIndex::from(2),
-        segment_commitment: Default::default(),
+        segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
         last_archived_block: LastArchivedBlock {
             number: 752,
@@ -86,7 +86,7 @@ fn segment_headers_store_block_number_queries_work() {
 
     let segment_header3 = SegmentHeader::V0 {
         segment_index: SegmentIndex::from(3),
-        segment_commitment: Default::default(),
+        segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
         last_archived_block: LastArchivedBlock {
             number: 806,
@@ -96,7 +96,7 @@ fn segment_headers_store_block_number_queries_work() {
 
     let segment_header4 = SegmentHeader::V0 {
         segment_index: SegmentIndex::from(4),
-        segment_commitment: Default::default(),
+        segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
         last_archived_block: LastArchivedBlock {
             number: 806,

@@ -7,8 +7,7 @@ use rand::{thread_rng, RngCore};
 use std::iter;
 use subspace_core_primitives::hashes::blake3_hash;
 use subspace_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, SegmentCommitment,
-    SegmentHeader,
+    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, SegmentHeader, SegmentRoot,
 };
 use subspace_logging::init_logger;
 
@@ -87,7 +86,7 @@ fn write_segment_header(mut piece: &mut Piece, remaining_len: usize) -> Vec<u8> 
         // SegmentHeader
         let segment_header = SegmentHeader::V0 {
             segment_index: u64::MAX.into(),
-            segment_commitment: SegmentCommitment::default(),
+            segment_root: SegmentRoot::default(),
             prev_segment_header_hash: Blake3Hash::default(),
             last_archived_block: LastArchivedBlock {
                 number: u32::MAX,

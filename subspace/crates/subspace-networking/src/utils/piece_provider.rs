@@ -30,10 +30,10 @@ use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use tokio_stream::StreamMap;
 use tracing::{debug, trace, warn, Instrument};
 
-/// Validates piece against using its commitment.
+/// Validates piece against using its root.
 #[async_trait]
 pub trait PieceValidator: Sync + Send {
-    /// Validates piece against using its commitment.
+    /// Validates piece against using its root.
     async fn validate_piece(
         &self,
         source_peer_id: PeerId,

@@ -19,7 +19,7 @@ mod utils;
 use crate::config::{ChainSyncMode, SubspaceConfiguration, SubspaceNetworking};
 use crate::dsn::{create_dsn_instance, DsnConfigurationError};
 use crate::metrics::NodeMetrics;
-use crate::sync_from_dsn::piece_validator::SegmentCommitmentPieceValidator;
+use crate::sync_from_dsn::piece_validator::SegmentRootPieceValidator;
 use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::sync_from_dsn::DsnPieceGetter;
 use crate::task_spawner::SpawnTasksParams;
@@ -496,7 +496,7 @@ where
 
             let piece_provider = PieceProvider::new(
                 node.clone(),
-                SegmentCommitmentPieceValidator::new(node.clone(), segment_headers_store.clone()),
+                SegmentRootPieceValidator::new(node.clone(), segment_headers_store.clone()),
                 Arc::new(Semaphore::new(
                     out_connections as usize * PIECE_PROVIDER_MULTIPLIER,
                 )),

@@ -10,7 +10,7 @@ use sp_std::collections::btree_map::{BTreeMap, Entry};
 use sp_std::fmt;
 use sp_std::num::NonZeroU32;
 use subspace_core_primitives::pot::PotOutput;
-use subspace_core_primitives::segments::{SegmentCommitment, SegmentIndex};
+use subspace_core_primitives::segments::{SegmentIndex, SegmentRoot};
 use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
 use subspace_core_primitives::PublicKey;
 
@@ -124,14 +124,11 @@ pub trait CompatibleDigestItem: Sized {
     /// If this item is a Subspace next solution range, return it.
     fn as_next_solution_range(&self) -> Option<SolutionRange>;
 
-    /// Construct a digest item which contains segment commitment.
-    fn segment_commitment(
-        segment_index: SegmentIndex,
-        segment_commitment: SegmentCommitment,
-    ) -> Self;
+    /// Construct a digest item which contains segment root.
+    fn segment_root(segment_index: SegmentIndex, segment_root: SegmentRoot) -> Self;
 
-    /// If this item is a Subspace segment commitment, return it.
-    fn as_segment_commitment(&self) -> Option<(SegmentIndex, SegmentCommitment)>;
+    /// If this item is a Subspace segment root, return it.
+    fn as_segment_root(&self) -> Option<(SegmentIndex, SegmentRoot)>;
 
     /// Construct digest item than indicates enabling of solution range adjustment and override next
     /// solution range.
@@ -235,20 +232,17 @@ impl CompatibleDigestItem for DigestItem {
         })
     }
 
-    fn segment_commitment(
-        segment_index: SegmentIndex,
-        segment_commitment: SegmentCommitment,
-    ) -> Self {
+    fn segment_root(segment_index: SegmentIndex, segment_root: SegmentRoot) -> Self {
         Self::Consensus(
             SUBSPACE_ENGINE_ID,
-            ConsensusLog::SegmentCommitment((segment_index, segment_commitment)).encode(),
+            ConsensusLog::SegmentRoot((segment_index, segment_root)).encode(),
         )
     }
 
-    fn as_segment_commitment(&self) -> Option<(SegmentIndex, SegmentCommitment)> {
+    fn as_segment_root(&self) -> Option<(SegmentIndex, SegmentRoot)> {
         self.consensus_try_to(&SUBSPACE_ENGINE_ID).and_then(|c| {
-            if let ConsensusLog::SegmentCommitment(segment_commitment) = c {
-                Some(segment_commitment)
+            if let ConsensusLog::SegmentRoot(segment_root) = c {
+                Some(segment_root)
             } else {
                 None
             }
@@ -311,8 +305,8 @@ pub enum ErrorDigestType {
     PotParametersChange,
     /// Next solution range
     NextSolutionRange,
-    /// Segment commitment
-    SegmentCommitment,
+    /// Segment root
+    SegmentRoot,
     /// Generic consensus
     Consensus,
     /// Enable solution range adjustment and override solution range
@@ -342,8 +336,8 @@ impl fmt::Display for ErrorDigestType {
             ErrorDigestType::NextSolutionRange => {
                 write!(f, "NextSolutionRange")
             }
-            ErrorDigestType::SegmentCommitment => {
-                write!(f, "SegmentCommitment")
+            ErrorDigestType::SegmentRoot => {
+                write!(f, "SegmentRoot")
             }
             ErrorDigestType::Consensus => {
                 write!(f, "Consensus")
@@ -404,8 +398,8 @@ pub struct SubspaceDigestItems {
     pub pot_parameters_change: Option<PotParametersChange>,
     /// Next solution range
     pub next_solution_range: Option<SolutionRange>,
-    /// Segment commitments
-    pub segment_commitments: BTreeMap<SegmentIndex, SegmentCommitment>,
+    /// Segment roots
+    pub segment_roots: BTreeMap<SegmentIndex, SegmentRoot>,
     /// Enable solution range adjustment and Override solution range
     pub enable_solution_range_adjustment_and_override: Option<Option<SolutionRange>>,
     /// Root plot public key was updated
@@ -423,7 +417,7 @@ where
     let mut maybe_solution_range = None;
     let mut maybe_pot_parameters_change = None;
     let mut maybe_next_solution_range = None;
-    let mut segment_commitments = BTreeMap::new();
+    let mut segment_roots = BTreeMap::new();
     let mut maybe_enable_and_override_solution_range = None;
     let mut maybe_root_plot_public_key_update = None;
 
@@ -493,11 +487,11 @@ where
                             }
                         }
                     }
-                    ConsensusLog::SegmentCommitment((segment_index, segment_commitment)) => {
-                        if let Entry::Vacant(entry) = segment_commitments.entry(segment_index) {
-                            entry.insert(segment_commitment);
+                    ConsensusLog::SegmentRoot((segment_index, segment_root)) => {
+                        if let Entry::Vacant(entry) = segment_roots.entry(segment_index) {
+                            entry.insert(segment_root);
                         } else {
-                            return Err(Error::Duplicate(ErrorDigestType::SegmentCommitment));
+                            return Err(Error::Duplicate(ErrorDigestType::SegmentRoot));
                         }
                     }
                     ConsensusLog::EnableSolutionRangeAdjustmentAndOverride(
@@ -563,7 +557,7 @@ where
             .ok_or(Error::Missing(ErrorDigestType::SolutionRange))?,
         pot_parameters_change: maybe_pot_parameters_change,
         next_solution_range: maybe_next_solution_range,
-        segment_commitments,
+        segment_roots,
         enable_solution_range_adjustment_and_override: maybe_enable_and_override_solution_range,
         root_plot_public_key_update: maybe_root_plot_public_key_update,
     })

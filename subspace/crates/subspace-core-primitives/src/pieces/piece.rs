@@ -18,7 +18,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// This version is allocated on the heap, for stack-allocated piece see [`PieceArray`].
 ///
 /// Internally piece contains a record and corresponding witness that together with segment
-/// commitment of the segment this piece belongs to can be used to verify that a piece belongs to
+/// root of the segment this piece belongs to can be used to verify that a piece belongs to
 /// the actual archival history of the blockchain.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Piece(pub(super) CowBytes);

@@ -1,6 +1,6 @@
 //! Solutions-related data structures and functions.
 
-use crate::pieces::{PieceOffset, Record, RecordChunk, RecordCommitment, RecordWitness};
+use crate::pieces::{PieceOffset, Record, RecordChunk, RecordRoot, RecordWitness};
 use crate::pos::PosProof;
 use crate::sectors::SectorIndex;
 use crate::segments::{HistorySize, SegmentIndex};
@@ -240,9 +240,9 @@ pub struct Solution {
     pub history_size: HistorySize,
     /// Pieces offset within sector
     pub piece_offset: PieceOffset,
-    /// Record commitment that can use used to verify that piece was included in blockchain history
-    pub record_commitment: RecordCommitment,
-    /// Witness for above record commitment
+    /// Record root that can use used to verify that piece was included in blockchain history
+    pub record_root: RecordRoot,
+    /// Witness for above record root
     pub record_witness: RecordWitness,
     /// Chunk at above offset
     pub chunk: RecordChunk,
@@ -260,7 +260,7 @@ impl Solution {
             sector_index: 0,
             history_size: HistorySize::from(SegmentIndex::ZERO),
             piece_offset: PieceOffset::default(),
-            record_commitment: RecordCommitment::default(),
+            record_root: RecordRoot::default(),
             record_witness: RecordWitness::default(),
             chunk: RecordChunk::default(),
             chunk_witness: ChunkWitness::default(),

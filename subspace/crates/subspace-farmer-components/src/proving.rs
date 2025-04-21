@@ -281,7 +281,7 @@ where
                 sector_index: self.sector_metadata.sector_index,
                 history_size: self.sector_metadata.history_size,
                 piece_offset,
-                record_commitment: record_metadata.commitment,
+                record_root: record_metadata.root,
                 record_witness: record_metadata.witness,
                 chunk,
                 chunk_witness: ChunkWitness::from(chunk_witness),

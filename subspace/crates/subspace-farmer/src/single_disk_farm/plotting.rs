@@ -921,23 +921,23 @@ where
                     %expiration_check_segment_index,
                     "Determined sector expiration check segment index"
                 );
-                let maybe_sector_expiration_check_segment_commitment = node_client
+                let maybe_sector_expiration_check_segment_root = node_client
                     .segment_headers(vec![expiration_check_segment_index])
                     .await
                     .map_err(|error| PlottingError::FailedToGetSegmentHeader { error })?
                     .into_iter()
                     .next()
                     .flatten()
-                    .map(|segment_header| segment_header.segment_commitment());
+                    .map(|segment_header| segment_header.segment_root());
 
-                if let Some(sector_expiration_check_segment_commitment) =
-                    maybe_sector_expiration_check_segment_commitment
+                if let Some(sector_expiration_check_segment_root) =
+                    maybe_sector_expiration_check_segment_root
                 {
                     let sector_id = SectorId::new(public_key_hash, sector_index, history_size);
                     let expiration_history_size = sector_id
                         .derive_expiration_history_size(
                             history_size,
-                            &sector_expiration_check_segment_commitment,
+                            &sector_expiration_check_segment_root,
                             min_sector_lifetime,
                         )
                         .expect(

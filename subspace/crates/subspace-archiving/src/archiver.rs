@@ -10,7 +10,7 @@ use subspace_core_primitives::objects::{BlockObject, BlockObjectMapping, GlobalO
 use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentCommitment, SegmentHeader, SegmentIndex,
+    SegmentHeader, SegmentIndex, SegmentRoot,
 };
 use subspace_core_primitives::BlockNumber;
 use subspace_erasure_coding::ErasureCoding;
@@ -234,7 +234,7 @@ pub enum ArchiverInstantiationError {
 ///
 /// It takes new confirmed (at `K` depth) blocks and concatenates them into a buffer, buffer is
 /// sliced into segments of [`RecordedHistorySegment::SIZE`] size, segments are sliced into source
-/// records of [`Record::SIZE`], records are erasure coded, committed to, then commitments with
+/// records of [`Record::SIZE`], records are erasure coded, committed to, then roots with
 /// witnesses are appended and records become pieces that are returned alongside the corresponding
 /// segment header.
 ///
@@ -691,8 +691,8 @@ impl Archiver {
             pieces
         };
 
-        // Collect hashes to commitments from all records
-        let record_commitments = {
+        // Collect hashes to roots from all records
+        let record_roots = {
             #[cfg(not(feature = "parallel"))]
             let source_pieces = pieces.iter_mut();
             #[cfg(feature = "parallel")]
@@ -722,17 +722,17 @@ impl Archiver {
                     [source_chunks_root, parity_chunks_root]
                 };
 
-                let record_commitment = BalancedHashedMerkleTree::compute_root_only(&[
+                let record_root = BalancedHashedMerkleTree::compute_root_only(&[
                     source_chunks_root,
                     parity_chunks_root,
                 ]);
 
-                piece.commitment_mut().copy_from_slice(&record_commitment);
+                piece.root_mut().copy_from_slice(&record_root);
                 piece
                     .parity_chunks_root_mut()
                     .copy_from_slice(&parity_chunks_root);
 
-                record_commitment
+                record_root
             });
 
             iter.collect::<Vec<_>>()
@@ -740,13 +740,13 @@ impl Archiver {
 
         let segment_merkle_tree =
             BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES }>::new_boxed(
-                record_commitments
+                record_roots
                     .as_slice()
                     .try_into()
                     .expect("Statically guaranteed to have correct length; qed"),
             );
 
-        let segment_commitment = SegmentCommitment::from(segment_merkle_tree.root());
+        let segment_root = SegmentRoot::from(segment_merkle_tree.root());
 
         // Create witness for every record and write it to corresponding piece.
         pieces
@@ -759,7 +759,7 @@ impl Archiver {
         // Now produce segment header
         let segment_header = SegmentHeader::V0 {
             segment_index: self.segment_index,
-            segment_commitment,
+            segment_root,
             prev_segment_header_hash: self.prev_segment_header_hash,
             last_archived_block: self.last_archived_block,
         };

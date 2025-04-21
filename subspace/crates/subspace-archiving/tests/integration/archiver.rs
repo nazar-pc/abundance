@@ -12,7 +12,7 @@ use subspace_core_primitives::objects::{BlockObject, BlockObjectMapping, GlobalO
 use subspace_core_primitives::pieces::{Piece, Record};
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentCommitment, SegmentHeader, SegmentIndex,
+    SegmentHeader, SegmentIndex, SegmentRoot,
 };
 use subspace_erasure_coding::ErasureCoding;
 use subspace_verification::is_piece_valid;
@@ -183,7 +183,7 @@ fn archiver() {
                 position,
                 is_piece_valid(
                     piece,
-                    &first_archived_segment.segment_header.segment_commitment(),
+                    &first_archived_segment.segment_header.segment_root(),
                     position as u32,
                 ),
             )
@@ -300,7 +300,7 @@ fn archiver() {
                     position,
                     is_piece_valid(
                         piece,
-                        &archived_segment.segment_header.segment_commitment(),
+                        &archived_segment.segment_header.segment_root(),
                         position as u32,
                     ),
                 )
@@ -372,7 +372,7 @@ fn archiver() {
                     position,
                     is_piece_valid(
                         piece,
-                        &archived_segment.segment_header.segment_commitment(),
+                        &archived_segment.segment_header.segment_root(),
                         position as u32,
                     ),
                 )
@@ -392,7 +392,7 @@ fn invalid_usage() {
             erasure_coding.clone(),
             SegmentHeader::V0 {
                 segment_index: SegmentIndex::ZERO,
-                segment_commitment: SegmentCommitment::default(),
+                segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
                     number: 0,
@@ -418,7 +418,7 @@ fn invalid_usage() {
             erasure_coding.clone(),
             SegmentHeader::V0 {
                 segment_index: SegmentIndex::ZERO,
-                segment_commitment: SegmentCommitment::default(),
+                segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
                     number: 0,
@@ -561,7 +561,7 @@ fn object_on_the_edge_of_segment() {
             // Segment header segment item
             - SegmentItem::ParentSegmentHeader(SegmentHeader::V0 {
                 segment_index: SegmentIndex::ZERO,
-                segment_commitment: Default::default(),
+                segment_root: Default::default(),
                 prev_segment_header_hash: Default::default(),
                 last_archived_block: LastArchivedBlock {
                     number: 0,

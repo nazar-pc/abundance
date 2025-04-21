@@ -42,10 +42,10 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Subspace::DidProcessSegmentHeaders` (r:1 w:1)
 	/// Proof: `Subspace::DidProcessSegmentHeaders` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::SegmentCommitment` (r:20 w:20)
-	/// Proof: `Subspace::SegmentCommitment` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::CounterForSegmentCommitment` (r:1 w:1)
-	/// Proof: `Subspace::CounterForSegmentCommitment` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Subspace::SegmentRoot` (r:20 w:20)
+	/// Proof: `Subspace::SegmentRoot` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Subspace::CounterForSegmentRoot` (r:1 w:1)
+	/// Proof: `Subspace::CounterForSegmentRoot` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `System::Digest` (r:1 w:1)
 	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `x` is `[1, 20]`.
@@ -114,10 +114,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	/// Storage: `Subspace::DidProcessSegmentHeaders` (r:1 w:1)
 	/// Proof: `Subspace::DidProcessSegmentHeaders` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::SegmentCommitment` (r:20 w:20)
-	/// Proof: `Subspace::SegmentCommitment` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Subspace::CounterForSegmentCommitment` (r:1 w:1)
-	/// Proof: `Subspace::CounterForSegmentCommitment` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Subspace::SegmentRoot` (r:20 w:20)
+	/// Proof: `Subspace::SegmentRoot` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Subspace::CounterForSegmentRoot` (r:1 w:1)
+	/// Proof: `Subspace::CounterForSegmentRoot` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `System::Digest` (r:1 w:1)
 	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `x` is `[1, 20]`.
