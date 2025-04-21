@@ -19,10 +19,10 @@ ideas we've been discussing.
 
 ## Where to find the spec and the first drafts
 
-[PR192](https://github.com/nazar-pc/abundance/pull/192) adds to the repo a new `spec` directory
-including a `README` with the description of all the components of the spec that have been drafted,
-and that I am currently working on. In this PR you can already find a first draft of the spec for
-the sharded archiving protocol that we've been discussing the past few weeks. Additionally,
+[PR192](https://github.com/nazar-pc/abundance/pull/192) adds a `README` to the `spec` directory
+including a description of all the components of the spec that have been drafted, and that I am
+currently working on. In this PR you can already find a first draft of the spec for the sharded
+archiving protocol that we've been discussing the past few weeks. Additionally,
 [PR193](https://github.com/nazar-pc/abundance/pull/193) includes the draft for the data availability
 sampling protocol.
 
