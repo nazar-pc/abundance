@@ -19,7 +19,7 @@ ideas we've been discussing.
 
 ## Where to find the spec and the first drafts
 
-[PR192](https://github.com/nazar-pc/abundance/pull/192) adds a `README` to the `spec` directory
+[PR192](https://github.com/nazar-pc/abundance/pull/192) adds a `README` to the `specs` directory
 including a description of all the components of the spec that have been drafted, and that I am
 currently working on. In this PR you can already find a first draft of the spec for the sharded
 archiving protocol that we've been discussing the past few weeks. Additionally,
