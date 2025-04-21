@@ -100,7 +100,7 @@ wallet contract.
 
 ## Hardware wallets
 
-I'd like to dedicate a whole separate section for hardware wallets, especially in the context of recent [ByBit hask].
+I'd like to dedicate a whole separate section for hardware wallets, especially in the context of recent [ByBit hack].
 
 [ByBit hack]: https://x.com/Bybit_Official/status/1892965292931702929
 
