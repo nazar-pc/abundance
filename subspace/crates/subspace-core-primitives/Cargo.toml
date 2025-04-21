@@ -11,6 +11,7 @@ include = [
 ]
 
 [dependencies]
+ab-merkle-tree = { workspace = true }
 blake3.workspace = true
 bytes = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["full"] }

@@ -6,7 +6,6 @@ use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_networking::libp2p::PeerId;
 use subspace_networking::utils::piece_provider::PieceValidator;
 use subspace_networking::Node;
-use subspace_verification::is_piece_valid;
 use tracing::{error, warn};
 
 /// Farmer-specific validator for pieces retrieved from the network.
@@ -70,7 +69,9 @@ where
         };
 
         let is_valid_fut = tokio::task::spawn_blocking(move || {
-            is_piece_valid(&piece, &segment_root, piece_index.position()).then_some(piece)
+            piece
+                .is_valid(&segment_root, piece_index.position())
+                .then_some(piece)
         });
 
         match is_valid_fut.await.unwrap_or_default() {

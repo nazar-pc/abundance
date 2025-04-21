@@ -29,8 +29,6 @@ thiserror.workspace = true
 criterion.workspace = true
 rand_core = { workspace = true }
 rand_chacha = { workspace = true }
-subspace-core-primitives.workspace = true
-subspace-verification = { workspace = true }
 
 [features]
 parallel = [

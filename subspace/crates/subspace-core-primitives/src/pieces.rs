@@ -11,11 +11,12 @@ mod piece;
 pub use crate::pieces::flat_pieces::FlatPieces;
 #[cfg(feature = "alloc")]
 pub use crate::pieces::piece::Piece;
-use crate::segments::{RecordedHistorySegment, SegmentIndex};
+use crate::segments::{RecordedHistorySegment, SegmentIndex, SegmentRoot};
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use ::serde::{Deserializer, Serializer};
+use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
@@ -985,6 +986,28 @@ impl PieceArray {
         // TODO: Should have been just `::new()`, but https://github.com/rust-lang/rust/issues/53827
         // SAFETY: Data structure filled with zeroes is a valid invariant
         unsafe { Box::<Self>::new_zeroed().assume_init() }
+    }
+
+    /// Validate proof embedded within a piece produced by the archiver
+    pub fn is_valid(&self, segment_root: &SegmentRoot, position: u32) -> bool {
+        let (record, &record_root, parity_chunks_root, record_proof) = self.split();
+
+        let source_record_merkle_tree_root = BalancedHashedMerkleTree::compute_root_only(record);
+        let record_merkle_tree_root = BalancedHashedMerkleTree::compute_root_only(&[
+            source_record_merkle_tree_root,
+            **parity_chunks_root,
+        ]);
+
+        if record_merkle_tree_root != *record_root {
+            return false;
+        }
+
+        BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
+            segment_root,
+            record_proof,
+            position as usize,
+            *record_root,
+        )
     }
 
     /// Split piece into underlying components.

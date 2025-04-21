@@ -11360,7 +11360,6 @@ dependencies = [
  "serde",
  "subspace-core-primitives",
  "subspace-erasure-coding",
- "subspace-verification",
  "thiserror 2.0.12",
 ]
 
@@ -11368,6 +11367,7 @@ dependencies = [
 name = "subspace-core-primitives"
 version = "0.1.0"
 dependencies = [
+ "ab-merkle-tree",
  "blake3",
  "bytes",
  "derive_more 1.0.0",
@@ -11461,7 +11461,6 @@ dependencies = [
  "subspace-proof-of-space",
  "subspace-proof-of-space-gpu",
  "subspace-rpc-primitives",
- "subspace-verification",
  "substrate-bip39",
  "tempfile",
  "thiserror 2.0.12",
@@ -11774,7 +11773,6 @@ dependencies = [
  "subspace-networking",
  "subspace-proof-of-space",
  "subspace-runtime-primitives",
- "subspace-verification",
  "substrate-prometheus-endpoint",
  "thiserror 2.0.12",
  "tokio",
