@@ -36,13 +36,14 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor, One};
 use sp_runtime::Justifications;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
 use subspace_core_primitives::solutions::{
     SolutionDistance, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
     SolutionVerifyPieceCheckParams,
 };
-use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_core_primitives::BlockNumber;
 use subspace_proof_of_space::Table;
 use subspace_verification::calculate_block_weight;
 use tracing::warn;
@@ -320,7 +321,7 @@ where
         block_hash: Block::Hash,
         header: Block::Header,
         extrinsics: Option<Vec<Block::Extrinsic>>,
-        root_plot_public_key: &Option<PublicKey>,
+        root_plot_public_key_hash: &Option<Blake3Hash>,
         subspace_digest_items: &SubspaceDigestItems,
         justifications: &Option<Justifications>,
     ) -> Result<(), Error<Block::Header>> {
@@ -328,8 +329,8 @@ where
         let parent_hash = *header.parent_hash();
 
         let pre_digest = &subspace_digest_items.pre_digest;
-        if let Some(root_plot_public_key) = root_plot_public_key {
-            if &pre_digest.solution().public_key != root_plot_public_key {
+        if let Some(root_plot_public_key) = root_plot_public_key_hash {
+            if &pre_digest.solution().public_key_hash != root_plot_public_key {
                 // Only root plot public key is allowed.
                 return Err(Error::OnlyRootPlotPublicKeyAllowed);
             }
@@ -432,7 +433,7 @@ where
         }
 
         let sector_id = SectorId::new(
-            pre_digest.solution().public_key.hash(),
+            &pre_digest.solution().public_key_hash,
             pre_digest.solution().sector_index,
             pre_digest.solution().history_size,
         );
@@ -580,16 +581,16 @@ where
         // be done again here (often can't because parent block would be missing in special sync
         // modes).
         if !matches!(block.state_action, StateAction::ApplyChanges(_)) {
-            let root_plot_public_key = self
+            let root_plot_public_key_hash = self
                 .client
                 .runtime_api()
-                .root_plot_public_key(*block.header.parent_hash())?;
+                .root_plot_public_key_hash(*block.header.parent_hash())?;
 
             self.block_import_verification(
                 block_hash,
                 block.header.clone(),
                 block.body.clone(),
-                &root_plot_public_key,
+                &root_plot_public_key_hash,
                 &subspace_digest_items,
                 &block.justifications,
             )

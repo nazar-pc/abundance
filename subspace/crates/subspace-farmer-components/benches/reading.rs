@@ -45,6 +45,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         .unwrap_or(10);
 
     let public_key = PublicKey::default();
+    let public_key_hash = &public_key.hash();
     let sector_index = 0;
     let mut input = RecordedHistorySegment::new_boxed();
     StdRng::seed_from_u64(42).fill(AsMut::<[u8]>::as_mut(input.as_mut()));
@@ -98,7 +99,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         (
             PlottedSector {
                 sector_id: SectorId::new(
-                    public_key.hash(),
+                    public_key_hash,
                     sector_index,
                     farmer_protocol_info.history_size,
                 ),
@@ -114,7 +115,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let mut plotted_sector_bytes = Vec::new();
 
         let plotted_sector = block_on(plot_sector(PlotSectorOptions {
-            public_key: &public_key,
+            public_key_hash,
             sector_index,
             piece_getter: &archived_history_segment,
             farmer_protocol_info,

@@ -17,7 +17,6 @@ use sp_std::collections::btree_map::BTreeMap;
 use subspace_core_primitives::pieces::{PieceOffset, RecordChunk};
 use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::segments::{SegmentIndex, SegmentRoot};
-use subspace_core_primitives::solutions::RewardSignature;
 use subspace_core_primitives::PublicKey;
 
 pub struct Pallet<T: Config>(Subspace<T>);

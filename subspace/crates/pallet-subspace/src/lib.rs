@@ -103,7 +103,6 @@ pub mod pallet {
     use subspace_core_primitives::pot::PotCheckpoints;
     use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
     use subspace_core_primitives::solutions::SolutionRange;
-    use subspace_core_primitives::PublicKey;
 
     /// Override for next solution range adjustment
     #[derive(Debug, Encode, Decode, TypeInfo)]
@@ -146,7 +145,7 @@ pub mod pallet {
         /// for everyone.
         FirstFarmer,
         /// Specified root farmer is allowed to author blocks unless unlocked for everyone.
-        RootFarmer(PublicKey),
+        RootFarmer(Blake3Hash),
     }
 
     #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo)]
@@ -213,9 +212,9 @@ pub mod pallet {
                 AllowAuthoringBy::FirstFarmer => {
                     AllowAuthoringByAnyone::<T>::put(false);
                 }
-                AllowAuthoringBy::RootFarmer(root_farmer) => {
+                AllowAuthoringBy::RootFarmer(public_key_hash) => {
                     AllowAuthoringByAnyone::<T>::put(false);
-                    RootPlotPublicKey::<T>::put(root_farmer);
+                    RootPlotPublicKeyHash::<T>::put(public_key_hash);
                 }
             }
             PotSlotIterations::<T>::put(PotSlotIterationsValue {
@@ -311,8 +310,8 @@ pub mod pallet {
     ///
     /// Set just once to make sure no one else can author blocks until allowed for anyone.
     #[pallet::storage]
-    #[pallet::getter(fn root_plot_public_key)]
-    pub(super) type RootPlotPublicKey<T> = StorageValue<_, PublicKey>;
+    #[pallet::getter(fn root_plot_public_key_hash)]
+    pub(super) type RootPlotPublicKeyHash<T> = StorageValue<_, Blake3Hash>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -366,9 +365,11 @@ pub mod pallet {
             ensure_root(origin)?;
 
             AllowAuthoringByAnyone::<T>::put(true);
-            RootPlotPublicKey::<T>::take();
+            RootPlotPublicKeyHash::<T>::take();
             // Deposit root plot public key update such that light client can validate blocks later.
-            frame_system::Pallet::<T>::deposit_log(DigestItem::root_plot_public_key_update(None));
+            frame_system::Pallet::<T>::deposit_log(DigestItem::root_plot_public_key_hash_update(
+                None,
+            ));
 
             Ok(())
         }
@@ -511,21 +512,23 @@ impl<T: Config> Pallet<T> {
         CurrentSlot::<T>::put(pre_digest.slot());
 
         {
-            let farmer_public_key = pre_digest.solution().public_key;
+            let farmer_public_key_hash = pre_digest.solution().public_key_hash;
 
             // Optional restriction for block authoring to the root user
             if !AllowAuthoringByAnyone::<T>::get() {
-                RootPlotPublicKey::<T>::mutate(|maybe_root_plot_public_key| {
-                    if let Some(root_plot_public_key) = maybe_root_plot_public_key {
-                        if root_plot_public_key != &farmer_public_key {
+                RootPlotPublicKeyHash::<T>::mutate(|maybe_root_plot_public_key_hash| {
+                    if let Some(root_plot_public_key_hash) = maybe_root_plot_public_key_hash {
+                        if root_plot_public_key_hash != &farmer_public_key_hash {
                             panic!("Client bug, authoring must be only done by the root user");
                         }
                     } else {
-                        maybe_root_plot_public_key.replace(farmer_public_key);
+                        maybe_root_plot_public_key_hash.replace(farmer_public_key_hash);
                         // Deposit root plot public key update such that light client can validate
                         // blocks later.
                         frame_system::Pallet::<T>::deposit_log(
-                            DigestItem::root_plot_public_key_update(Some(farmer_public_key)),
+                            DigestItem::root_plot_public_key_hash_update(Some(
+                                farmer_public_key_hash,
+                            )),
                         );
                     }
                 });

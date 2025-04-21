@@ -253,65 +253,18 @@ const_assert!(SolutionRange::from_pieces(1, (1, 6)).to_pieces((1, 6)) == 1);
 const_assert!(SolutionRange::from_pieces(3, (1, 6)).to_pieces((1, 6)) == 3);
 const_assert!(SolutionRange::from_pieces(5, (1, 6)).to_pieces((1, 6)) == 5);
 
+// TODO: Remove this from core primitives
 /// A Ristretto Schnorr signature as bytes produced by `schnorrkel` crate.
-#[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Deref, From, Into)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
-pub struct RewardSignature([u8; RewardSignature::SIZE]);
-
-impl fmt::Debug for RewardSignature {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02x}")?;
-        }
-        Ok(())
-    }
-}
-
-#[cfg(feature = "serde")]
-#[derive(Serialize, Deserialize)]
-#[serde(transparent)]
-struct RewardSignatureBinary(#[serde(with = "BigArray")] [u8; RewardSignature::SIZE]);
-
-#[cfg(feature = "serde")]
-#[derive(Serialize, Deserialize)]
-#[serde(transparent)]
-struct RewardSignatureHex(#[serde(with = "hex")] [u8; RewardSignature::SIZE]);
-
-#[cfg(feature = "serde")]
-impl Serialize for RewardSignature {
-    #[inline]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        if serializer.is_human_readable() {
-            RewardSignatureHex(self.0).serialize(serializer)
-        } else {
-            RewardSignatureBinary(self.0).serialize(serializer)
-        }
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for RewardSignature {
-    #[inline]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Self(if deserializer.is_human_readable() {
-            RewardSignatureHex::deserialize(deserializer)?.0
-        } else {
-            RewardSignatureBinary::deserialize(deserializer)?.0
-        }))
-    }
-}
-
-impl AsRef<[u8]> for RewardSignature {
-    #[inline]
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct RewardSignature {
+    /// Public key that signature corresponds to
+    #[serde(with = "hex")]
+    pub public_key: [u8; PublicKey::SIZE],
+    /// Signature itself
+    #[serde(with = "hex")]
+    pub signature: [u8; RewardSignature::SIZE],
 }
 
 impl RewardSignature {
@@ -504,7 +457,7 @@ pub trait SolutionPotVerifier {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Solution {
     /// Public key of the farmer that created the solution
-    pub public_key: PublicKey,
+    pub public_key_hash: Blake3Hash,
     /// Index of the sector where the solution was found
     pub sector_index: SectorIndex,
     /// Size of the blockchain history at the time of sector creation
@@ -524,10 +477,10 @@ pub struct Solution {
 }
 
 impl Solution {
-    /// Dummy solution for the genesis block
-    pub fn genesis_solution(public_key: PublicKey) -> Self {
+    /// Fake solution for the genesis block
+    pub fn genesis_solution() -> Self {
         Self {
-            public_key,
+            public_key_hash: Blake3Hash::default(),
             sector_index: 0,
             history_size: HistorySize::from(SegmentIndex::ZERO),
             piece_offset: PieceOffset::default(),
@@ -554,7 +507,7 @@ impl Solution {
             piece_check_params,
         } = params;
 
-        let sector_id = SectorId::new(self.public_key.hash(), self.sector_index, self.history_size);
+        let sector_id = SectorId::new(&self.public_key_hash, self.sector_index, self.history_size);
 
         let global_randomness = proof_of_time.derive_global_randomness();
         let global_challenge = global_randomness.derive_global_challenge(slot);

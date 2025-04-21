@@ -9,9 +9,9 @@ use futures::{SinkExt, StreamExt};
 use std::collections::HashSet;
 use std::future::Future;
 use std::sync::Arc;
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::{Piece, PieceOffset};
 use subspace_core_primitives::sectors::{SectorId, SectorIndex};
-use subspace_core_primitives::PublicKey;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{sector_size, SectorMetadataChecksummed};
@@ -51,7 +51,7 @@ impl DiskPieceReader {
     /// dedicated thread.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn new<PosTable>(
-        public_key: PublicKey,
+        public_key_hash: Blake3Hash,
         pieces_in_sector: u16,
         plot_file: Arc<DirectIoFile>,
         sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
@@ -67,7 +67,7 @@ impl DiskPieceReader {
 
         let reading_fut = async move {
             read_pieces::<PosTable, _>(
-                public_key,
+                public_key_hash,
                 pieces_in_sector,
                 &*plot_file,
                 sectors_metadata,
@@ -110,7 +110,7 @@ impl DiskPieceReader {
 
 #[allow(clippy::too_many_arguments)]
 async fn read_pieces<PosTable, S>(
-    public_key: PublicKey,
+    public_key_hash: Blake3Hash,
     pieces_in_sector: u16,
     plot_file: S,
     sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
@@ -195,7 +195,7 @@ async fn read_pieces<PosTable, S>(
         global_mutex.lock().await;
 
         let maybe_piece = read_piece::<PosTable, _, _>(
-            &public_key,
+            &public_key_hash,
             piece_offset,
             &sector_metadata,
             // TODO: Async
@@ -212,7 +212,7 @@ async fn read_pieces<PosTable, S>(
 }
 
 async fn read_piece<PosTable, S, A>(
-    public_key: &PublicKey,
+    public_key_hash: &Blake3Hash,
     piece_offset: PieceOffset,
     sector_metadata: &SectorMetadataChecksummed,
     sector: &ReadAt<S, A>,
@@ -227,11 +227,7 @@ where
 {
     let sector_index = sector_metadata.sector_index;
 
-    let sector_id = SectorId::new(
-        public_key.hash(),
-        sector_index,
-        sector_metadata.history_size,
-    );
+    let sector_id = SectorId::new(public_key_hash, sector_index, sector_metadata.history_size);
 
     let piece = match reading::read_piece::<PosTable, _, _>(
         piece_offset,

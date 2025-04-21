@@ -16,11 +16,11 @@ use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use futures::FutureExt;
 use std::collections::VecDeque;
 use std::io;
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::{PieceOffset, Record, RecordChunk};
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::{SBucket, SectorId};
 use subspace_core_primitives::solutions::{ChunkProof, Solution, SolutionDistance};
-use subspace_core_primitives::PublicKey;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_proof_of_space::Table;
 use thiserror::Error;
@@ -84,7 +84,7 @@ pub struct SolutionCandidates<'a, Sector>
 where
     Sector: 'a,
 {
-    public_key: &'a PublicKey,
+    public_key_hash: &'a Blake3Hash,
     sector_id: SectorId,
     s_bucket: SBucket,
     sector: Sector,
@@ -98,7 +98,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            public_key: self.public_key,
+            public_key_hash: self.public_key_hash,
             sector_id: self.sector_id,
             s_bucket: self.s_bucket,
             sector: self.sector.clone(),
@@ -113,7 +113,7 @@ where
     Sector: ReadAtSync + 'a,
 {
     pub(crate) fn new(
-        public_key: &'a PublicKey,
+        public_key_hash: &'a Blake3Hash,
         sector_id: SectorId,
         s_bucket: SBucket,
         sector: Sector,
@@ -121,7 +121,7 @@ where
         chunk_candidates: VecDeque<ChunkCandidate>,
     ) -> Self {
         Self {
-            public_key,
+            public_key_hash,
             sector_id,
             s_bucket,
             sector,
@@ -152,7 +152,7 @@ where
         TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
     {
         SolutionsIterator::<'a, PosTable, _, _>::new(
-            self.public_key,
+            self.public_key_hash,
             self.sector_id,
             self.s_bucket,
             self.sector,
@@ -173,7 +173,7 @@ where
     PosTable: Table,
     TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
 {
-    public_key: &'a PublicKey,
+    public_key_hash: &'a Blake3Hash,
     sector_id: SectorId,
     s_bucket: SBucket,
     sector_metadata: &'a SectorMetadataChecksummed,
@@ -277,7 +277,7 @@ where
                 .expect("Chunk offset is valid, hence corresponding proof exists; qed");
 
             Solution {
-                public_key: *self.public_key,
+                public_key_hash: *self.public_key_hash,
                 sector_index: self.sector_metadata.sector_index,
                 history_size: self.sector_metadata.history_size,
                 piece_offset,
@@ -320,7 +320,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     fn new(
-        public_key: &'a PublicKey,
+        public_key_hash: &'a Blake3Hash,
         sector_id: SectorId,
         s_bucket: SBucket,
         sector: Sector,
@@ -369,7 +369,7 @@ where
         let count = winning_chunks.len();
 
         Ok(Self {
-            public_key,
+            public_key_hash,
             sector_id,
             s_bucket,
             sector_metadata,

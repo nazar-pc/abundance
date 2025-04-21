@@ -812,7 +812,7 @@ where
         debug!(?notification, "Solution notification");
 
         let slot = notification.solution_response.slot_number;
-        let public_key = notification.solution_response.solution.public_key;
+        let public_key_hash = notification.solution_response.solution.public_key_hash;
         let sector_index = notification.solution_response.solution.sector_index;
 
         if let Err(error) = node_client
@@ -822,7 +822,7 @@ where
             warn!(
                 %error,
                 %slot,
-                %public_key,
+                %public_key_hash,
                 %sector_index,
                 "Failed to send solution response"
             );

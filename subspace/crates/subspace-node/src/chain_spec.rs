@@ -55,11 +55,12 @@ pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
             sudo_account.clone(),
             balances,
             GenesisParams {
-                allow_authoring_by: AllowAuthoringBy::RootFarmer(PublicKey::from(
-                    hex_literal::hex!(
+                allow_authoring_by: AllowAuthoringBy::RootFarmer(
+                    PublicKey::from(hex_literal::hex!(
                         "e6a489dab63b650cf475431fc46649f4256167443fea241fca0bb3f86b29837a"
-                    ),
-                )),
+                    ))
+                    .hash(),
+                ),
                 // TODO: Adjust once we bench PoT on faster hardware
                 // About 1s on 6.2 GHz Raptor Lake CPU (14900KS)
                 pot_slot_iterations: NonZeroU32::new(206_557_520).expect("Not zero; qed"),

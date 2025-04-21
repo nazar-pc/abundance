@@ -47,10 +47,11 @@ use sp_runtime::{generic, ApplyExtrinsicResult, ExtrinsicInclusionMode};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::Piece;
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
-use subspace_core_primitives::{PublicKey, SlotNumber};
+use subspace_core_primitives::SlotNumber;
 use subspace_runtime_primitives::utility::{
     DefaultNonceProvider, MaybeNestedCall, MaybeUtilityCall,
 };
@@ -567,8 +568,8 @@ impl_runtime_apis! {
             }
         }
 
-        fn root_plot_public_key() -> Option<PublicKey> {
-            Subspace::root_plot_public_key()
+        fn root_plot_public_key_hash() -> Option<Blake3Hash> {
+            Subspace::root_plot_public_key_hash()
         }
 
         fn should_adjust_solution_range() -> bool {

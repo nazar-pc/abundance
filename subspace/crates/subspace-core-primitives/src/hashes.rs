@@ -35,6 +35,15 @@ use serde::{Deserializer, Serializer};
 )]
 pub struct Blake3Hash([u8; Blake3Hash::SIZE]);
 
+impl fmt::Display for Blake3Hash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]

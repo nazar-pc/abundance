@@ -47,13 +47,14 @@ use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::{PotCheckpoints, PotOutput};
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::solutions::{
     RewardSignature, Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
     SolutionVerifyPieceCheckParams,
 };
-use subspace_core_primitives::{BlockNumber, PublicKey, REWARD_SIGNING_CONTEXT};
+use subspace_core_primitives::{BlockNumber, REWARD_SIGNING_CONTEXT};
 use subspace_proof_of_space::Table;
 use subspace_verification::check_reward_signature;
 use tracing::{debug, error, info, warn};
@@ -137,8 +138,8 @@ pub struct NewSlotNotification {
 pub struct RewardSigningNotification {
     /// Hash to be signed.
     pub hash: H256,
-    /// Public key of the plot identity that should create signature.
-    pub public_key: PublicKey,
+    /// Public key hash of the plot identity that should create signature.
+    pub public_key_hash: Blake3Hash,
     /// Sender that can be used to send signature for the header.
     pub signature_sender: TracingUnboundedSender<RewardSignature>,
 }
@@ -229,13 +230,13 @@ where
             return;
         }
 
-        let maybe_root_plot_public_key = self
+        let maybe_root_plot_public_key_hash = self
             .client
             .runtime_api()
-            .root_plot_public_key(self.client.info().best_hash)
+            .root_plot_public_key_hash(self.client.info().best_hash)
             .ok()
             .flatten();
-        if maybe_root_plot_public_key.is_some() && !self.force_authoring {
+        if maybe_root_plot_public_key_hash.is_some() && !self.force_authoring {
             debug!(
                 "Skipping farming slot {slot} due to root public key present and force authoring \
                 not enabled"
@@ -371,7 +372,8 @@ where
         let solution_range =
             extract_solution_range_for_block(self.client.as_ref(), parent_hash).ok()?;
 
-        let maybe_root_plot_public_key = runtime_api.root_plot_public_key(parent_hash).ok()?;
+        let maybe_root_plot_public_key_hash =
+            runtime_api.root_plot_public_key_hash(parent_hash).ok()?;
 
         let parent_pot_parameters = runtime_api.pot_parameters(parent_hash).ok()?;
         let parent_future_slot = if parent_header.number().is_zero() {
@@ -486,8 +488,8 @@ where
         let mut maybe_pre_digest = None;
 
         while let Some(solution) = solution_receiver.next().await {
-            if let Some(root_plot_public_key) = &maybe_root_plot_public_key {
-                if &solution.public_key != root_plot_public_key {
+            if let Some(root_plot_public_key_hash) = &maybe_root_plot_public_key_hash {
+                if &solution.public_key_hash != root_plot_public_key_hash {
                     // Only root plot public key is allowed, no need to even try to claim block or
                     // vote.
                     continue;
@@ -495,7 +497,7 @@ where
             }
 
             let sector_id = SectorId::new(
-                solution.public_key.hash(),
+                &solution.public_key_hash,
                 solution.sector_index,
                 solution.history_size,
             );
@@ -633,7 +635,7 @@ where
         let signature = self
             .sign_reward(
                 H256::from_slice(header_hash.as_ref()),
-                pre_digest.solution().public_key,
+                pre_digest.solution().public_key_hash,
             )
             .await?;
 
@@ -767,7 +769,7 @@ where
     async fn sign_reward(
         &self,
         hash: H256,
-        public_key: PublicKey,
+        public_key_hash: Blake3Hash,
     ) -> Result<RewardSignature, ConsensusError> {
         let (signature_sender, mut signature_receiver) =
             tracing_unbounded("subspace_signature_signing_stream", 100);
@@ -776,7 +778,7 @@ where
             .reward_signing_notification_sender
             .notify(|| RewardSigningNotification {
                 hash,
-                public_key,
+                public_key_hash,
                 signature_sender,
             });
 
@@ -784,7 +786,7 @@ where
             if check_reward_signature(
                 hash.as_ref(),
                 &signature,
-                &public_key,
+                &public_key_hash,
                 &self.reward_signing_context,
             )
             .is_err()
@@ -800,8 +802,8 @@ where
         }
 
         Err(ConsensusError::CannotSign(format!(
-            "Farmer didn't sign reward. Key: {:?}",
-            public_key
+            "Farmer didn't sign reward. Public key hash: {:?}",
+            public_key_hash
         )))
     }
 }

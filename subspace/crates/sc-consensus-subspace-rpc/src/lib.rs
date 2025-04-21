@@ -386,26 +386,14 @@ where
                     // into data structure `sc-consensus-subspace` expects
                     let forward_solution_fut = async move {
                         while let Some(solution) = response_receiver.next().await {
-                            let public_key = solution.public_key;
+                            let public_key_hash = solution.public_key_hash;
                             let sector_index = solution.sector_index;
-
-                            let solution = Solution {
-                                public_key,
-                                sector_index,
-                                history_size: solution.history_size,
-                                piece_offset: solution.piece_offset,
-                                record_root: solution.record_root,
-                                record_proof: solution.record_proof,
-                                chunk: solution.chunk,
-                                chunk_proof: solution.chunk_proof,
-                                proof_of_space: solution.proof_of_space,
-                            };
 
                             if solution_sender.try_send(solution).is_err() {
                                 warn!(
                                     slot = %slot_number,
                                     %sector_index,
-                                    %public_key,
+                                    %public_key_hash,
                                     "Solution receiver is closed, likely because farmer was too slow"
                                 );
                             }
@@ -459,7 +447,7 @@ where
             move |reward_signing_notification| {
                 let RewardSigningNotification {
                     hash,
-                    public_key,
+                    public_key_hash,
                     signature_sender,
                 } = reward_signing_notification;
 
@@ -503,7 +491,7 @@ where
                 // This will be sent to the farmer
                 RewardSigningInfo {
                     hash: hash.into(),
-                    public_key,
+                    public_key_hash,
                 }
             },
         );

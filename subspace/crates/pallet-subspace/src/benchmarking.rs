@@ -71,7 +71,7 @@ mod benchmarks {
         _(RawOrigin::Root);
 
         assert!(AllowAuthoringByAnyone::<T>::get());
-        assert!(Pallet::<T>::root_plot_public_key().is_none());
+        assert!(Pallet::<T>::root_plot_public_key_hash().is_none());
     }
 
     #[benchmark]

@@ -1048,8 +1048,10 @@ impl SingleDiskFarm {
             })
         }));
 
+        let public_key_hash = public_key.hash();
+
         let plotting_scheduler_options = PlottingSchedulerOptions {
-            public_key_hash: public_key.hash(),
+            public_key_hash,
             sectors_indices_left_to_plot,
             target_sector_count,
             last_archived_segment_index: farmer_app_info.protocol_info.history_size.segment_index(),
@@ -1099,7 +1101,7 @@ impl SingleDiskFarm {
                     let plot_audit = PlotAudit::new(&farming_plot);
 
                     let farming_options = FarmingOptions {
-                        public_key,
+                        public_key_hash,
                         reward_address,
                         node_client,
                         plot_audit,
@@ -1148,7 +1150,7 @@ impl SingleDiskFarm {
         }));
 
         let (piece_reader, reading_fut) = DiskPieceReader::new::<PosTable>(
-            public_key,
+            public_key_hash,
             pieces_in_sector,
             plot_file,
             Arc::clone(&sectors_metadata),
@@ -1632,7 +1634,7 @@ impl SingleDiskFarm {
     /// Read information about sectors plotted so far
     pub fn plotted_sectors(&self) -> SingleDiskPlottedSectors {
         SingleDiskPlottedSectors {
-            public_key: *self.single_disk_farm_info.public_key(),
+            public_key_hash: self.single_disk_farm_info.public_key().hash(),
             pieces_in_sector: self.pieces_in_sector,
             farmer_protocol_info: self.farmer_protocol_info,
             sectors_metadata: Arc::clone(&self.sectors_metadata),

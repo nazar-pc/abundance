@@ -9,10 +9,10 @@ use sp_runtime::DigestItem;
 use sp_std::collections::btree_map::{BTreeMap, Entry};
 use sp_std::fmt;
 use sp_std::num::NonZeroU32;
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::PotOutput;
 use subspace_core_primitives::segments::{SegmentIndex, SegmentRoot};
 use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
-use subspace_core_primitives::PublicKey;
 
 /// A Subspace pre-runtime digest. This contains all data required to validate a block and for the
 /// Subspace runtime module.
@@ -141,10 +141,10 @@ pub trait CompatibleDigestItem: Sized {
     fn as_enable_solution_range_adjustment_and_override(&self) -> Option<Option<SolutionRange>>;
 
     /// Construct digest item that indicates update of root plot public key.
-    fn root_plot_public_key_update(root_plot_public_key: Option<PublicKey>) -> Self;
+    fn root_plot_public_key_hash_update(root_plot_public_key: Option<Blake3Hash>) -> Self;
 
     /// If this item is a Subspace update of root plot public key, return it.
-    fn as_root_plot_public_key_update(&self) -> Option<Option<PublicKey>>;
+    fn as_root_plot_public_key_hash_update(&self) -> Option<Option<Blake3Hash>>;
 }
 
 impl CompatibleDigestItem for DigestItem {
@@ -272,17 +272,17 @@ impl CompatibleDigestItem for DigestItem {
         })
     }
 
-    fn root_plot_public_key_update(root_plot_public_key: Option<PublicKey>) -> Self {
+    fn root_plot_public_key_hash_update(root_plot_public_key_hash: Option<Blake3Hash>) -> Self {
         Self::Consensus(
             SUBSPACE_ENGINE_ID,
-            ConsensusLog::RootPlotPublicKeyUpdate(root_plot_public_key).encode(),
+            ConsensusLog::RootPlotPublicKeyHashUpdate(root_plot_public_key_hash).encode(),
         )
     }
 
-    fn as_root_plot_public_key_update(&self) -> Option<Option<PublicKey>> {
+    fn as_root_plot_public_key_hash_update(&self) -> Option<Option<Blake3Hash>> {
         self.consensus_try_to(&SUBSPACE_ENGINE_ID).and_then(|c| {
-            if let ConsensusLog::RootPlotPublicKeyUpdate(root_plot_public_key) = c {
-                Some(root_plot_public_key)
+            if let ConsensusLog::RootPlotPublicKeyHashUpdate(root_plot_public_key_hash) = c {
+                Some(root_plot_public_key_hash)
             } else {
                 None
             }
@@ -403,7 +403,7 @@ pub struct SubspaceDigestItems {
     /// Enable solution range adjustment and Override solution range
     pub enable_solution_range_adjustment_and_override: Option<Option<SolutionRange>>,
     /// Root plot public key was updated
-    pub root_plot_public_key_update: Option<Option<PublicKey>>,
+    pub root_plot_public_key_hash_update: Option<Option<Blake3Hash>>,
 }
 
 /// Extract the Subspace global randomness from the given header.
@@ -419,7 +419,7 @@ where
     let mut maybe_next_solution_range = None;
     let mut segment_roots = BTreeMap::new();
     let mut maybe_enable_and_override_solution_range = None;
-    let mut maybe_root_plot_public_key_update = None;
+    let mut maybe_root_plot_public_key_hash_update = None;
 
     for log in header.digest().logs() {
         match log {
@@ -507,15 +507,15 @@ where
                                 .replace(override_solution_range);
                         }
                     },
-                    ConsensusLog::RootPlotPublicKeyUpdate(root_plot_public_key_update) => {
-                        match maybe_root_plot_public_key_update {
+                    ConsensusLog::RootPlotPublicKeyHashUpdate(root_plot_public_key_update) => {
+                        match maybe_root_plot_public_key_hash_update {
                             Some(_) => {
                                 return Err(Error::Duplicate(
                                     ErrorDigestType::EnableSolutionRangeAdjustmentAndOverride,
                                 ));
                             }
                             None => {
-                                maybe_root_plot_public_key_update
+                                maybe_root_plot_public_key_hash_update
                                     .replace(root_plot_public_key_update);
                             }
                         }
@@ -559,7 +559,7 @@ where
         next_solution_range: maybe_next_solution_range,
         segment_roots,
         enable_solution_range_adjustment_and_override: maybe_enable_and_override_solution_range,
-        root_plot_public_key_update: maybe_root_plot_public_key_update,
+        root_plot_public_key_hash_update: maybe_root_plot_public_key_hash_update,
     })
 }
 
@@ -574,7 +574,7 @@ where
     if header.number().is_zero() {
         return Ok(PreDigest::V0 {
             slot: Slot::from(0),
-            solution: Solution::genesis_solution(PublicKey::from([0u8; 32])),
+            solution: Solution::genesis_solution(),
             pot_info: PreDigestPotInfo::V0 {
                 proof_of_time: Default::default(),
                 future_proof_of_time: Default::default(),
@@ -675,7 +675,7 @@ pub struct NextDigestsVerificationParams<'a, Header: HeaderT> {
     pub maybe_next_solution_range_override: &'a mut Option<SolutionRange>,
     /// Root plot public key.
     /// Value is updated when digest items contain an update.
-    pub maybe_root_plot_public_key: &'a mut Option<PublicKey>,
+    pub maybe_root_plot_public_key_hash: &'a mut Option<Blake3Hash>,
 }
 
 /// Derives and verifies next digest items based on their respective intervals.
@@ -690,7 +690,7 @@ pub fn verify_next_digests<Header: HeaderT>(
         era_start_slot,
         should_adjust_solution_range,
         maybe_next_solution_range_override,
-        maybe_root_plot_public_key: root_plot_public_key,
+        maybe_root_plot_public_key_hash: root_plot_public_key_hash,
     } = params;
 
     // verify solution range adjustment and override
@@ -735,15 +735,16 @@ pub fn verify_next_digests<Header: HeaderT>(
         ));
     }
 
-    if let Some(updated_root_plot_public_key) = header_digests.root_plot_public_key_update {
-        match updated_root_plot_public_key {
-            Some(updated_root_plot_public_key) => {
+    if let Some(updated_root_plot_public_key_hash) = header_digests.root_plot_public_key_hash_update
+    {
+        match updated_root_plot_public_key_hash {
+            Some(updated_root_plot_public_key_hash) => {
                 if number.is_one()
-                    && root_plot_public_key.is_none()
-                    && header_digests.pre_digest.solution().public_key
-                        == updated_root_plot_public_key
+                    && root_plot_public_key_hash.is_none()
+                    && header_digests.pre_digest.solution().public_key_hash
+                        == updated_root_plot_public_key_hash
                 {
-                    root_plot_public_key.replace(updated_root_plot_public_key);
+                    root_plot_public_key_hash.replace(updated_root_plot_public_key_hash);
                 } else {
                     return Err(Error::NextDigestVerificationError(
                         ErrorDigestType::RootPlotPublicKeyUpdate,
@@ -751,7 +752,7 @@ pub fn verify_next_digests<Header: HeaderT>(
                 }
             }
             None => {
-                root_plot_public_key.take();
+                root_plot_public_key_hash.take();
             }
         }
     }

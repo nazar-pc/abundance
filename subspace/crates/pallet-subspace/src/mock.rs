@@ -98,7 +98,7 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: u64) {
     let pre_digest = make_pre_digest(
         slot.into(),
         Solution {
-            public_key: PublicKey::from(keypair.public.to_bytes()),
+            public_key_hash: PublicKey::from(keypair.public.to_bytes()).hash(),
             sector_index: 0,
             history_size: HistorySize::from(SegmentIndex::ZERO),
             piece_offset: PieceOffset::default(),
