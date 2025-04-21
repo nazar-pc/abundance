@@ -37,7 +37,6 @@ subspace-core-primitives = { workspace = true, features = ["parallel"] }
 subspace-data-retrieval.workspace = true
 subspace-erasure-coding.workspace = true
 subspace-proof-of-space = { workspace = true, features = ["parallel"] }
-subspace-verification.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "signal", "sync"] }
 tracing.workspace = true

@@ -11498,7 +11498,6 @@ dependencies = [
  "subspace-data-retrieval",
  "subspace-erasure-coding",
  "subspace-proof-of-space",
- "subspace-verification",
  "thiserror 2.0.12",
  "tokio",
  "tracing",

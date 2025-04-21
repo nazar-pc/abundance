@@ -13,7 +13,7 @@ use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::sync::Once;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pieces::{Piece, PieceOffset};
+use subspace_core_primitives::pieces::PieceOffset;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex, SegmentRoot,
 };
@@ -59,9 +59,9 @@ impl pallet_balances::Config for Test {
 /// 1 in 6 slots (on average, not counting collisions) will have a block.
 pub const SLOT_PROBABILITY: (u64, u64) = (3, 10);
 
-// 1GB
+// 1GiB
 pub const INITIAL_SOLUTION_RANGE: SolutionRange =
-    u64::MAX / (1024 * 1024 * 1024 / Piece::SIZE as u64) * SLOT_PROBABILITY.0 / SLOT_PROBABILITY.1;
+    SolutionRange::from_pieces(1024, SLOT_PROBABILITY);
 
 parameter_types! {
     pub const MockConsensusConstants: ConsensusConstants<u64> = ConsensusConstants {

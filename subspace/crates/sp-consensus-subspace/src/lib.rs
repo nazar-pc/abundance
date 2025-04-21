@@ -162,16 +162,16 @@ enum ConsensusLog {
 #[derive(Decode, Encode, MaxEncodedLen, PartialEq, Eq, Clone, Copy, Debug, TypeInfo)]
 pub struct SolutionRanges {
     /// Solution range in current block/era.
-    pub current: u64,
+    pub current: SolutionRange,
     /// Solution range that will be used in the next block/era.
-    pub next: Option<u64>,
+    pub next: Option<SolutionRange>,
 }
 
 impl Default for SolutionRanges {
     #[inline]
     fn default() -> Self {
         Self {
-            current: u64::MAX,
+            current: SolutionRange::MAX,
             next: None,
         }
     }

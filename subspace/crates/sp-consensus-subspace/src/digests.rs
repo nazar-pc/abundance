@@ -642,11 +642,10 @@ pub fn derive_next_solution_range<Header: HeaderT>(
         // era has change so take this override and reset it
         solution_range_override
     } else {
-        subspace_verification::derive_next_solution_range(
+        current_solution_range.derive_next(
             u64::from(era_start_slot),
             u64::from(current_slot),
             slot_probability,
-            current_solution_range,
             era_duration
                 .try_into()
                 .unwrap_or_else(|_| panic!("Era duration is always within u64; qed")),

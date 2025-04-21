@@ -19,7 +19,7 @@ use std::io;
 use subspace_core_primitives::pieces::{PieceOffset, Record, RecordChunk};
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::{SBucket, SectorId};
-use subspace_core_primitives::solutions::{ChunkProof, Solution, SolutionRange};
+use subspace_core_primitives::solutions::{ChunkProof, Solution, SolutionDistance};
 use subspace_core_primitives::PublicKey;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_proof_of_space::Table;
@@ -30,7 +30,7 @@ use thiserror::Error;
 /// Solutions are generated on demand during iteration.
 pub trait ProvableSolutions: ExactSizeIterator {
     /// Best solution distance found, `None` in case there are no solutions
-    fn best_solution_distance(&self) -> Option<SolutionRange>;
+    fn best_solution_distance(&self) -> Option<SolutionDistance>;
 }
 
 /// Errors that happen during proving
@@ -72,7 +72,7 @@ struct WinningChunk {
     /// Piece offset in a sector
     piece_offset: PieceOffset,
     /// Solution distance of this chunk
-    solution_distance: SolutionRange,
+    solution_distance: SolutionDistance,
 }
 
 /// Container for solution candidates.
@@ -183,7 +183,7 @@ where
     sector: ReadAt<Sector, !>,
     winning_chunks: VecDeque<WinningChunk>,
     count: usize,
-    best_solution_distance: Option<SolutionRange>,
+    best_solution_distance: Option<SolutionDistance>,
     mode: ReadSectorRecordChunksMode,
     table_generator: TableGenerator,
 }
@@ -307,7 +307,7 @@ where
     PosTable: Table,
     TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
 {
-    fn best_solution_distance(&self) -> Option<SolutionRange> {
+    fn best_solution_distance(&self) -> Option<SolutionDistance> {
         self.best_solution_distance
     }
 }

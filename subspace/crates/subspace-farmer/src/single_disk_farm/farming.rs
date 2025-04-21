@@ -23,7 +23,7 @@ use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::segments::{HistorySize, SegmentIndex};
-use subspace_core_primitives::solutions::{Solution, SolutionRange};
+use subspace_core_primitives::solutions::{Solution, SolutionDistance};
 use subspace_core_primitives::PublicKey;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::auditing::{audit_plot_sync, AuditingError};
@@ -285,9 +285,11 @@ where
 
             sectors_solutions.sort_by(|a, b| {
                 let a_solution_distance =
-                    a.1.best_solution_distance().unwrap_or(SolutionRange::MAX);
+                    a.1.best_solution_distance()
+                        .unwrap_or(SolutionDistance::MAX);
                 let b_solution_distance =
-                    b.1.best_solution_distance().unwrap_or(SolutionRange::MAX);
+                    b.1.best_solution_distance()
+                        .unwrap_or(SolutionDistance::MAX);
 
                 a_solution_distance.cmp(&b_solution_distance)
             });

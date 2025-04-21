@@ -38,7 +38,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
-use subspace_core_primitives::solutions::SolutionRange;
+use subspace_core_primitives::solutions::{SolutionDistance, SolutionRange};
 use subspace_core_primitives::{BlockNumber, PublicKey};
 use subspace_proof_of_space::Table;
 use subspace_verification::{calculate_block_weight, PieceCheckParams, VerifySolutionParams};
@@ -100,16 +100,16 @@ pub enum Error<Header: HeaderT> {
     InvalidProofOfTime,
     /// Solution is outside of solution range
     #[error(
-        "Solution distance {solution_distance} is outside of solution range \
-        {half_solution_range} (half of actual solution range) for slot {slot}"
+        "Solution distance {solution_distance} is outside of solution range {solution_range} for \
+        slot {slot}"
     )]
     OutsideOfSolutionRange {
         /// Time slot
         slot: Slot,
-        /// Half of solution range
-        half_solution_range: SolutionRange,
+        /// Solution range
+        solution_range: SolutionRange,
         /// Solution distance
-        solution_distance: SolutionRange,
+        solution_distance: SolutionDistance,
     },
     /// Invalid proof of space
     #[error("Invalid proof of space")]
@@ -216,11 +216,11 @@ where
                 },
                 VerificationPrimitiveError::InvalidPiece => Error::InvalidPiece(slot),
                 VerificationPrimitiveError::OutsideSolutionRange {
-                    half_solution_range,
+                    solution_range,
                     solution_distance,
                 } => Error::OutsideOfSolutionRange {
                     slot,
-                    half_solution_range,
+                    solution_range,
                     solution_distance,
                 },
                 VerificationPrimitiveError::InvalidProofOfSpace => Error::InvalidProofOfSpace,

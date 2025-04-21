@@ -40,8 +40,9 @@ use sp_std::prelude::*;
 use subspace_core_primitives::segments::{
     ArchivedHistorySegment, HistorySize, SegmentHeader, SegmentIndex,
 };
+use subspace_core_primitives::solutions::SolutionRange;
 use subspace_core_primitives::SlotNumber;
-use subspace_verification::{derive_next_solution_range, derive_pot_entropy};
+use subspace_verification::derive_pot_entropy;
 
 /// Custom origin for validated unsigned extrinsics.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -346,7 +347,7 @@ pub mod pallet {
         #[pallet::weight(< T as Config >::WeightInfo::enable_solution_range_adjustment())]
         pub fn enable_solution_range_adjustment(
             origin: OriginFor<T>,
-            solution_range_override: Option<u64>,
+            solution_range_override: Option<SolutionRange>,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -584,12 +585,11 @@ impl<T: Config> Pallet<T> {
                 {
                     next_solution_range = solution_range_override.solution_range;
                 } else {
-                    next_solution_range = derive_next_solution_range(
+                    next_solution_range = solution_ranges.current.derive_next(
                         // If Era start slot is not found it means we have just finished the first era
                         u64::from(EraStartSlot::<T>::get().unwrap_or_default()),
                         u64::from(current_slot),
                         slot_probability,
-                        solution_ranges.current,
                         era_duration
                             .try_into()
                             .unwrap_or_else(|_| panic!("Era duration is always within u64; qed")),
@@ -769,7 +769,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn do_enable_solution_range_adjustment(solution_range_override: Option<u64>) -> DispatchResult {
+    fn do_enable_solution_range_adjustment(
+        solution_range_override: Option<SolutionRange>,
+    ) -> DispatchResult {
         if ShouldAdjustSolutionRange::<T>::get() {
             return Err(Error::<T>::SolutionRangeAdjustmentAlreadyEnabled.into());
         }

@@ -39,7 +39,7 @@ use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
 
-/// Piece index in consensus
+/// Piece index
 #[derive(
     Debug,
     Display,

@@ -9,19 +9,20 @@
 #![no_std]
 
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
-use core::mem;
 use core::simd::Simd;
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
-use subspace_core_primitives::hashes::{blake3_hash_list, blake3_hash_with_key, Blake3Hash};
+use subspace_core_primitives::hashes::{blake3_hash_list, Blake3Hash};
 use subspace_core_primitives::pieces::{Record, RecordChunk};
 use subspace_core_primitives::pot::PotOutput;
-use subspace_core_primitives::sectors::{SectorId, SectorSlotChallenge};
+use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::{HistorySize, SegmentRoot};
-use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
-use subspace_core_primitives::{BlockNumber, BlockWeight, PublicKey, SlotNumber};
+use subspace_core_primitives::solutions::{
+    RewardSignature, Solution, SolutionDistance, SolutionRange,
+};
+use subspace_core_primitives::{BlockWeight, PublicKey, SlotNumber};
 use subspace_proof_of_space::Table;
 
 /// Errors encountered by the Subspace consensus primitives.
@@ -47,15 +48,12 @@ pub enum Error {
     #[error("Piece verification failed")]
     InvalidPiece,
     /// Solution is outside of challenge range
-    #[error(
-        "Solution distance {solution_distance} is outside of solution range \
-        {half_solution_range} (half of actual solution range)"
-    )]
+    #[error("Solution distance {solution_distance} is outside of solution range {solution_range}")]
     OutsideSolutionRange {
-        /// Half of solution range
-        half_solution_range: SolutionRange,
+        /// Solution range
+        solution_range: SolutionRange,
         /// Solution distance
-        solution_distance: SolutionRange,
+        solution_distance: SolutionDistance,
     },
     /// Invalid proof of space
     #[error("Invalid proof of space")]
@@ -81,45 +79,6 @@ pub fn check_reward_signature(
     let public_key = schnorrkel::PublicKey::from_bytes(public_key.as_ref())?;
     let signature = schnorrkel::Signature::from_bytes(signature.as_ref())?;
     public_key.verify(reward_signing_context.bytes(hash), &signature)
-}
-
-/// Calculates solution distance for given parameters, is used as a primitive to check whether
-/// solution distance is within solution range (see [`is_within_solution_range()`]).
-fn calculate_solution_distance(
-    global_challenge: &Blake3Hash,
-    chunk: &[u8; 32],
-    sector_slot_challenge: &SectorSlotChallenge,
-) -> SolutionRange {
-    let audit_chunk = blake3_hash_with_key(sector_slot_challenge, chunk);
-    let audit_chunk_as_solution_range: SolutionRange = SolutionRange::from_le_bytes(
-        *audit_chunk
-            .array_chunks::<{ mem::size_of::<SolutionRange>() }>()
-            .next()
-            .expect("Solution range is smaller in size than global challenge; qed"),
-    );
-    let global_challenge_as_solution_range: SolutionRange = SolutionRange::from_le_bytes(
-        *global_challenge
-            .array_chunks::<{ mem::size_of::<SolutionRange>() }>()
-            .next()
-            .expect("Solution range is smaller in size than global challenge; qed"),
-    );
-    subspace_core_primitives::solutions::bidirectional_distance(
-        &global_challenge_as_solution_range,
-        &audit_chunk_as_solution_range,
-    )
-}
-
-/// Returns `Some(solution_distance)` if solution distance is within the solution range for provided
-/// parameters.
-pub fn is_within_solution_range(
-    global_challenge: &Blake3Hash,
-    chunk: &[u8; 32],
-    sector_slot_challenge: &SectorSlotChallenge,
-    solution_range: SolutionRange,
-) -> Option<SolutionRange> {
-    let solution_distance =
-        calculate_solution_distance(global_challenge, chunk, sector_slot_challenge);
-    (solution_distance <= solution_range / 2).then_some(solution_distance)
 }
 
 /// Parameters for checking piece validity
@@ -158,7 +117,7 @@ pub struct VerifySolutionParams {
 
 /// Calculate weight derived from provided solution range
 pub fn calculate_block_weight(solution_range: SolutionRange) -> BlockWeight {
-    BlockWeight::from(SolutionRange::MAX - solution_range)
+    BlockWeight::from(u64::from(SolutionRange::MAX - solution_range))
 }
 
 /// Verify whether solution is valid, returns solution distance that is `<= solution_range/2` on
@@ -167,7 +126,7 @@ pub fn verify_solution<'a, PosTable>(
     solution: &'a Solution,
     slot: SlotNumber,
     params: &'a VerifySolutionParams,
-) -> Result<SolutionRange, Error>
+) -> Result<SolutionDistance, Error>
 where
     PosTable: Table,
 {
@@ -201,12 +160,11 @@ where
         (Simd::from(*solution.chunk) ^ Simd::from(*solution.proof_of_space.hash())).to_array();
 
     let solution_distance =
-        calculate_solution_distance(&global_challenge, &masked_chunk, &sector_slot_challenge);
+        SolutionDistance::calculate(&global_challenge, &masked_chunk, &sector_slot_challenge);
 
-    // Check that solution is within solution range
-    if solution_distance > solution_range / 2 {
+    if solution_distance.is_within(*solution_range) {
         return Err(Error::OutsideSolutionRange {
-            half_solution_range: solution_range / 2,
+            solution_range: *solution_range,
             solution_distance,
         });
     }
@@ -289,44 +247,4 @@ where
 #[inline]
 pub fn derive_pot_entropy(chunk: &RecordChunk, proof_of_time: PotOutput) -> Blake3Hash {
     blake3_hash_list(&[chunk.as_ref(), proof_of_time.as_ref()])
-}
-
-/// Derives next solution range based on the total era slots and slot probability
-pub fn derive_next_solution_range(
-    start_slot: SlotNumber,
-    current_slot: SlotNumber,
-    slot_probability: (u64, u64),
-    current_solution_range: SolutionRange,
-    era_duration: BlockNumber,
-) -> u64 {
-    // calculate total slots within this era
-    let era_slot_count = current_slot - start_slot;
-
-    // Now we need to re-calculate solution range. The idea here is to keep block production at
-    // the same pace while space pledged on the network changes. For this we adjust previous
-    // solution range according to actual and expected number of blocks per era.
-
-    // Below is code analogous to the following, but without using floats:
-    // ```rust
-    // let actual_slots_per_block = era_slot_count as f64 / era_duration as f64;
-    // let expected_slots_per_block =
-    //     slot_probability.1 as f64 / slot_probability.0 as f64;
-    // let adjustment_factor =
-    //     (actual_slots_per_block / expected_slots_per_block).clamp(0.25, 4.0);
-    //
-    // next_solution_range =
-    //     (solution_ranges.current as f64 * adjustment_factor).round() as u64;
-    // ```
-    u64::try_from(
-        u128::from(current_solution_range)
-            .saturating_mul(u128::from(era_slot_count))
-            .saturating_mul(u128::from(slot_probability.0))
-            / u128::from(era_duration)
-            / u128::from(slot_probability.1),
-    )
-    .unwrap_or(u64::MAX)
-    .clamp(
-        current_solution_range / 4,
-        current_solution_range.saturating_mul(4),
-    )
 }

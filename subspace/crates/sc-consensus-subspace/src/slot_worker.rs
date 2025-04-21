@@ -562,7 +562,7 @@ where
                 Ok(solution_distance) => {
                     // If solution is of high enough quality and block pre-digest wasn't produced yet,
                     // block reward is claimed
-                    if solution_distance <= solution_range / 2 {
+                    if solution_distance.is_within(solution_range) {
                         if maybe_pre_digest.is_none() {
                             info!(%slot, "🚜 Claimed block at slot");
                             maybe_pre_digest.replace(PreDigest::V0 {
@@ -820,7 +820,7 @@ where
 pub(crate) fn extract_solution_range_for_block<Block, Client>(
     client: &Client,
     parent_hash: Block::Hash,
-) -> Result<u64, ApiError>
+) -> Result<SolutionRange, ApiError>
 where
     Block: BlockT,
     Client: ProvideRuntimeApi<Block>,
