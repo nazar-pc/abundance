@@ -559,33 +559,23 @@ where
             );
 
             match solution_verification_result {
-                Ok(solution_distance) => {
-                    // If solution is of high enough quality and block pre-digest wasn't produced yet,
-                    // block reward is claimed
-                    if solution_distance.is_within(solution_range) {
-                        if maybe_pre_digest.is_none() {
-                            info!(%slot, "🚜 Claimed block at slot");
-                            maybe_pre_digest.replace(PreDigest::V0 {
-                                slot,
-                                solution,
-                                pot_info: PreDigestPotInfo::V0 {
-                                    proof_of_time,
-                                    future_proof_of_time,
-                                },
-                            });
-                        } else {
-                            info!(
-                                %slot,
-                                "Skipping solution that has quality sufficient for block because \
-                                block pre-digest was already created",
-                            );
-                        }
-                    } else if !parent_header.number().is_zero() {
-                        // Not sending vote on top of genesis block since segment headers since piece
-                        // verification wouldn't be possible due to missing (for now) segment root
-                        // info!(%slot, "🗳️ Claimed vote at slot");
-
-                        // Votes were removed
+                Ok(()) => {
+                    if maybe_pre_digest.is_none() {
+                        info!(%slot, "🚜 Claimed block at slot");
+                        maybe_pre_digest.replace(PreDigest::V0 {
+                            slot,
+                            solution,
+                            pot_info: PreDigestPotInfo::V0 {
+                                proof_of_time,
+                                future_proof_of_time,
+                            },
+                        });
+                    } else {
+                        info!(
+                            %slot,
+                            "Skipping solution that has quality sufficient for block because \
+                            block pre-digest was already created",
+                        );
                     }
                 }
                 Err(error @ SolutionVerifyError::OutsideSolutionRange { .. }) => {

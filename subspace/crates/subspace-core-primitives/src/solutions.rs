@@ -413,7 +413,7 @@ impl ChunkProof {
     const NUM_HASHES: usize = Record::NUM_S_BUCKETS.ilog2() as usize;
 }
 
-/// Errors encountered by the Subspace consensus primitives.
+/// Solution verification errors
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
 pub enum SolutionVerifyError {
     /// Invalid piece offset
@@ -435,7 +435,7 @@ pub enum SolutionVerifyError {
     /// Piece verification failed
     #[error("Piece verification failed")]
     InvalidPiece,
-    /// Solution is outside of challenge range
+    /// Solution is outside the solution range
     #[error("Solution distance {solution_distance} is outside of solution range {solution_range}")]
     OutsideSolutionRange {
         /// Solution range
@@ -505,9 +505,9 @@ pub trait SolutionPotVerifier {
 pub struct Solution {
     /// Public key of the farmer that created the solution
     pub public_key: PublicKey,
-    /// Index of the sector where solution was found
+    /// Index of the sector where the solution was found
     pub sector_index: SectorIndex,
-    /// Size of the blockchain history at time of sector creation
+    /// Size of the blockchain history at the time of sector creation
     pub history_size: HistorySize,
     /// Pieces offset within sector
     pub piece_offset: PieceOffset,
@@ -515,9 +515,9 @@ pub struct Solution {
     pub record_root: RecordRoot,
     /// Proof for above record root
     pub record_proof: RecordProof,
-    /// Chunk at above offset
+    /// Chunk at the above offset
     pub chunk: RecordChunk,
-    /// Proof for above chunk
+    /// Proof for the above chunk
     pub chunk_proof: ChunkProof,
     /// Proof of space for piece offset
     pub proof_of_space: PosProof,
@@ -539,13 +539,12 @@ impl Solution {
         }
     }
 
-    /// Verify whether solution is valid, returns solution distance that is `<= solution_range/2` on
-    /// success.
+    /// Check solution validity
     pub fn verify<PotVerifier>(
         &self,
         slot: SlotNumber,
         params: &SolutionVerifyParams,
-    ) -> Result<SolutionDistance, SolutionVerifyError>
+    ) -> Result<(), SolutionVerifyError>
     where
         PotVerifier: SolutionPotVerifier,
     {
@@ -656,6 +655,6 @@ impl Solution {
             }
         }
 
-        Ok(solution_distance)
+        Ok(())
     }
 }
