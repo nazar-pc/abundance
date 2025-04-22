@@ -388,11 +388,3 @@ sp_api::decl_runtime_apis! {
         fn chain_constants() -> ChainConstants;
     }
 }
-
-#[cfg(all(feature = "std", feature = "runtime-benchmarks"))]
-fn kzg_instance() -> &'static Kzg {
-    use std::sync::OnceLock;
-    static KZG: OnceLock<Kzg> = OnceLock::new();
-
-    KZG.get_or_init(Kzg::new)
-}
