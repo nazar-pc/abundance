@@ -47,10 +47,11 @@ use sp_runtime::{generic, ApplyExtrinsicResult, ExtrinsicInclusionMode};
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::Piece;
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
-use subspace_core_primitives::{PublicKey, SlotNumber};
+use subspace_core_primitives::SlotNumber;
 use subspace_runtime_primitives::utility::{
     DefaultNonceProvider, MaybeNestedCall, MaybeUtilityCall,
 };
@@ -451,7 +452,6 @@ mod benches {
         [frame_system, SystemBench::<Runtime>]
         [pallet_balances, Balances]
         [pallet_runtime_configs, RuntimeConfigs]
-        [pallet_subspace, Subspace]
         [pallet_timestamp, Timestamp]
     );
 }
@@ -567,8 +567,8 @@ impl_runtime_apis! {
             }
         }
 
-        fn root_plot_public_key() -> Option<PublicKey> {
-            Subspace::root_plot_public_key()
+        fn root_plot_public_key_hash() -> Option<Blake3Hash> {
+            Subspace::root_plot_public_key_hash()
         }
 
         fn should_adjust_solution_range() -> bool {
@@ -653,7 +653,6 @@ impl_runtime_apis! {
             use frame_support::traits::StorageInfoTrait;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
-            use pallet_subspace::extensions::benchmarking::Pallet as SubspaceExtensionBench;
 
             let mut list = Vec::<BenchmarkList>::new();
             list_benchmarks!(list, extra);
@@ -671,7 +670,6 @@ impl_runtime_apis! {
 
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
-            use pallet_subspace::extensions::benchmarking::Pallet as SubspaceExtensionBench;
 
             use frame_support::traits::WhitelistedStorageKeys;
             let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();

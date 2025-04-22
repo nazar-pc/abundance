@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
-use subspace_core_primitives::{PublicKey, SlotNumber};
+use subspace_core_primitives::SlotNumber;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::libp2p::Multiaddr;
 
@@ -123,8 +123,8 @@ pub struct RewardSigningInfo {
     /// Hash to be signed.
     #[serde(with = "hex")]
     pub hash: [u8; 32],
-    /// Public key of the plot identity that should create signature.
-    pub public_key: PublicKey,
+    /// Public key hash of the plot identity that should create signature.
+    pub public_key_hash: Blake3Hash,
 }
 
 /// Signature in response to reward hash signing request.

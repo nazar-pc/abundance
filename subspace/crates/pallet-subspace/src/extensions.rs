@@ -1,7 +1,5 @@
 //! Extensions for unsigned general extrinsics
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
 pub mod weights;
 
 use crate::pallet::Call as SubspaceCall;

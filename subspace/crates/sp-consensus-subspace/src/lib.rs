@@ -23,7 +23,7 @@ use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed};
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
 use subspace_core_primitives::solutions::{Solution, SolutionRange, SolutionVerifyParams};
-use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_core_primitives::BlockNumber;
 
 /// The `ConsensusEngineId` of Subspace.
 const SUBSPACE_ENGINE_ID: ConsensusEngineId = *b"SUB_";
@@ -154,7 +154,7 @@ enum ConsensusLog {
     EnableSolutionRangeAdjustmentAndOverride(Option<SolutionRange>),
     /// Root plot public key was updated.
     #[codec(index = 6)]
-    RootPlotPublicKeyUpdate(Option<PublicKey>),
+    RootPlotPublicKeyHashUpdate(Option<Blake3Hash>),
 }
 
 /// Subspace solution ranges used for challenges.
@@ -275,7 +275,7 @@ impl From<&Solution> for WrappedSolution {
     #[inline]
     fn from(solution: &Solution) -> Self {
         Self(Solution {
-            public_key: solution.public_key,
+            public_key_hash: solution.public_key_hash,
             sector_index: solution.sector_index,
             history_size: solution.history_size,
             piece_offset: solution.piece_offset,
@@ -378,8 +378,8 @@ sp_api::decl_runtime_apis! {
         /// Checks if the extrinsic is an inherent.
         fn is_inherent(ext: &Block::Extrinsic) -> bool;
 
-        /// Returns root plot public key in case block authoring is restricted.
-        fn root_plot_public_key() -> Option<PublicKey>;
+        /// Returns root plot public key hash in case block authoring is restricted.
+        fn root_plot_public_key_hash() -> Option<Blake3Hash>;
 
         /// Whether solution range adjustment is enabled.
         fn should_adjust_solution_range() -> bool;
@@ -387,12 +387,4 @@ sp_api::decl_runtime_apis! {
         /// Get Subspace blockchain constants
         fn chain_constants() -> ChainConstants;
     }
-}
-
-#[cfg(all(feature = "std", feature = "runtime-benchmarks"))]
-fn kzg_instance() -> &'static Kzg {
-    use std::sync::OnceLock;
-    static KZG: OnceLock<Kzg> = OnceLock::new();
-
-    KZG.get_or_init(Kzg::new)
 }

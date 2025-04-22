@@ -39,8 +39,9 @@ use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::thread::available_parallelism;
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::solutions::{SolutionVerifyError, SolutionVerifyParams};
-use subspace_core_primitives::{BlockNumber, PublicKey};
+use subspace_core_primitives::BlockNumber;
 use subspace_proof_of_space::Table;
 use subspace_verification::check_reward_signature;
 use tokio::runtime::Handle;
@@ -328,7 +329,7 @@ where
         if check_reward_signature(
             pre_hash.as_ref(),
             &signature,
-            &pre_digest.solution().public_key,
+            &pre_digest.solution().public_key_hash,
             &self.reward_signing_context,
         )
         .is_err()
@@ -354,7 +355,7 @@ where
         slot_now: Slot,
         slot: Slot,
         header: &Block::Header,
-        author: &PublicKey,
+        public_key_hash: &Blake3Hash,
         origin: &BlockOrigin,
     ) -> Result<(), String> {
         // don't report any equivocations during initial sync
@@ -369,7 +370,7 @@ where
 
         // check if authorship of this header is an equivocation and return a proof if so.
         let equivocation_proof =
-            match check_equivocation(&*self.client, slot_now, slot, header, author)
+            match check_equivocation(&*self.client, slot_now, slot, header, public_key_hash)
                 .map_err(|error| error.to_string())?
             {
                 Some(proof) => proof,
@@ -378,7 +379,7 @@ where
 
         info!(
             "Slot author {:?} is equivocating at slot {} with headers {:?} and {:?}",
-            author,
+            public_key_hash,
             slot,
             equivocation_proof.first_header.hash(),
             equivocation_proof.second_header.hash(),
@@ -486,7 +487,7 @@ where
                 slot_now,
                 slot,
                 &block.header,
-                &pre_digest.solution().public_key,
+                &pre_digest.solution().public_key_hash,
                 &block.origin,
             )
             .await

@@ -30,7 +30,6 @@ use subspace_core_primitives::pieces::{Piece, PieceIndex, PieceOffset, Record, R
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::{SBucket, SectorId, SectorIndex};
 use subspace_core_primitives::segments::HistorySize;
-use subspace_core_primitives::PublicKey;
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_erasure_coding::ErasureCoding;
 use subspace_proof_of_space::{Table, TableGenerator};
@@ -106,7 +105,7 @@ pub enum PlottingError {
 #[derive(Debug)]
 pub struct PlotSectorOptions<'a, RE, PG> {
     /// Public key corresponding to sector
-    pub public_key: &'a PublicKey,
+    pub public_key_hash: &'a Blake3Hash,
     /// Sector index
     pub sector_index: SectorIndex,
     /// Getter for pieces of archival history
@@ -146,7 +145,7 @@ where
     PG: PieceGetter + Send + Sync,
 {
     let PlotSectorOptions {
-        public_key,
+        public_key_hash,
         sector_index,
         piece_getter,
         farmer_protocol_info,
@@ -165,7 +164,7 @@ where
     };
 
     let download_sector_fut = download_sector(DownloadSectorOptions {
-        public_key,
+        public_key_hash,
         sector_index,
         piece_getter,
         farmer_protocol_info,
@@ -209,7 +208,7 @@ pub struct DownloadedSector {
 #[derive(Debug)]
 pub struct DownloadSectorOptions<'a, PG> {
     /// Public key corresponding to sector
-    pub public_key: &'a PublicKey,
+    pub public_key_hash: &'a Blake3Hash,
     /// Sector index
     pub sector_index: SectorIndex,
     /// Getter for pieces of archival history
@@ -233,7 +232,7 @@ where
     PG: PieceGetter + Send + Sync,
 {
     let DownloadSectorOptions {
-        public_key,
+        public_key_hash,
         sector_index,
         piece_getter,
         farmer_protocol_info,
@@ -242,7 +241,7 @@ where
     } = options;
 
     let sector_id = SectorId::new(
-        public_key.hash(),
+        public_key_hash,
         sector_index,
         farmer_protocol_info.history_size,
     );

@@ -276,9 +276,10 @@ where
                     global_mutex.lock().await;
 
                     let downloading_start = Instant::now();
+                    let public_key_hash = &public_key.hash();
 
                     let downloaded_sector_fut = download_sector(DownloadSectorOptions {
-                        public_key: &public_key,
+                        public_key_hash,
                         sector_index,
                         piece_getter: &piece_getter,
                         farmer_protocol_info,

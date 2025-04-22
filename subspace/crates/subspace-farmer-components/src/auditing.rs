@@ -14,7 +14,6 @@ use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::RecordChunk;
 use subspace_core_primitives::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
 use subspace_core_primitives::solutions::{SolutionDistance, SolutionRange};
-use subspace_core_primitives::PublicKey;
 use thiserror::Error;
 
 /// Errors that happen during proving
@@ -55,7 +54,7 @@ pub(crate) struct ChunkCandidate {
 ///
 /// This is primarily helpful in test environment, prefer [`audit_plot_sync`] for auditing real plots.
 pub fn audit_sector_sync<'a, Sector>(
-    public_key: &'a PublicKey,
+    public_key_hash: &'a Blake3Hash,
     global_challenge: &Blake3Hash,
     solution_range: SolutionRange,
     sector: Sector,
@@ -70,7 +69,7 @@ where
         s_bucket_audit_index,
         s_bucket_audit_size,
         s_bucket_audit_offset_in_sector,
-    } = collect_sector_auditing_details(public_key.hash(), global_challenge, sector_metadata);
+    } = collect_sector_auditing_details(public_key_hash, global_challenge, sector_metadata);
 
     let mut s_bucket = vec![0; s_bucket_audit_size];
     sector
@@ -93,7 +92,7 @@ where
     Ok(Some(AuditResult {
         sector_index: sector_metadata.sector_index,
         solution_candidates: SolutionCandidates::new(
-            public_key,
+            public_key_hash,
             sector_id,
             s_bucket_audit_index,
             sector,
@@ -111,7 +110,7 @@ where
 /// Plot is assumed to contain concatenated series of sectors as created by functions in
 /// [`plotting`](crate::plotting) module earlier.
 pub fn audit_plot_sync<'a, 'b, Plot>(
-    public_key: &'a PublicKey,
+    public_key_hash: &'a Blake3Hash,
     global_challenge: &Blake3Hash,
     solution_range: SolutionRange,
     plot: &'a Plot,
@@ -121,8 +120,6 @@ pub fn audit_plot_sync<'a, 'b, Plot>(
 where
     Plot: ReadAtSync + 'a,
 {
-    let public_key_hash = public_key.hash();
-
     // Create auditing info for all sectors in parallel
     sectors_metadata
         .par_iter()
@@ -173,7 +170,7 @@ where
             Some(Ok(AuditResult {
                 sector_index: sector_metadata.sector_index,
                 solution_candidates: SolutionCandidates::new(
-                    public_key,
+                    public_key_hash,
                     sector_auditing_info.sector_id,
                     sector_auditing_info.s_bucket_audit_index,
                     sector,
@@ -196,7 +193,7 @@ struct SectorAuditingDetails {
 }
 
 fn collect_sector_auditing_details(
-    public_key_hash: Blake3Hash,
+    public_key_hash: &Blake3Hash,
     global_challenge: &Blake3Hash,
     sector_metadata: &SectorMetadataChecksummed,
 ) -> SectorAuditingDetails {

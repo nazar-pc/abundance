@@ -14,7 +14,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 parity-scale-codec = { workspace = true, features = ["derive"] }
-frame-benchmarking = { workspace = true, optional = true }
 frame-support.workspace = true
 frame-system.workspace = true
 log.workspace = true
@@ -43,7 +42,6 @@ serde = [
 ]
 std = [
     "parity-scale-codec/std",
-    "frame-benchmarking?/std",
     "frame-support/std",
     "frame-system/std",
     "log/std",
@@ -58,7 +56,4 @@ std = [
     "sp-std/std",
     "subspace-runtime-primitives/std",
 ]
-runtime-benchmarks = [
-    "frame-benchmarking",
-    "frame-benchmarking/runtime-benchmarks",
-]
+runtime-benchmarks = []

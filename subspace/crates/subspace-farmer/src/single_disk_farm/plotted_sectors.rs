@@ -3,9 +3,9 @@ use async_lock::RwLock as AsyncRwLock;
 use async_trait::async_trait;
 use futures::{stream, Stream};
 use std::sync::Arc;
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::PieceOffset;
 use subspace_core_primitives::sectors::SectorId;
-use subspace_core_primitives::PublicKey;
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_farmer_components::sector::SectorMetadataChecksummed;
 use subspace_farmer_components::FarmerProtocolInfo;
@@ -13,7 +13,7 @@ use subspace_farmer_components::FarmerProtocolInfo;
 /// Getter for single disk plotted sectors
 #[derive(Debug)]
 pub struct SingleDiskPlottedSectors {
-    pub(super) public_key: PublicKey,
+    pub(super) public_key_hash: Blake3Hash,
     pub(super) pieces_in_sector: u16,
     pub(super) farmer_protocol_info: FarmerProtocolInfo,
     pub(super) sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
@@ -27,12 +27,14 @@ impl PlottedSectors for SingleDiskPlottedSectors {
         Box<dyn Stream<Item = Result<PlottedSector, FarmError>> + Unpin + Send + '_>,
         FarmError,
     > {
-        let public_key_hash = self.public_key.hash();
         let sectors_metadata = self.sectors_metadata.read().await.clone();
         Ok(Box::new(stream::iter((0..).zip(sectors_metadata).map(
             move |(sector_index, sector_metadata)| {
-                let sector_id =
-                    SectorId::new(public_key_hash, sector_index, sector_metadata.history_size);
+                let sector_id = SectorId::new(
+                    &self.public_key_hash,
+                    sector_index,
+                    sector_metadata.history_size,
+                );
 
                 let mut piece_indexes = Vec::with_capacity(usize::from(self.pieces_in_sector));
                 (PieceOffset::ZERO..)

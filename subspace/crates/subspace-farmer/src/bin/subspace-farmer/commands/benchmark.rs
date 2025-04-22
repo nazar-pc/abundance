@@ -151,6 +151,7 @@ where
         filter,
     } = audit_options;
 
+    let public_key_hash = &single_disk_farm_info.public_key().hash();
     let sector_size = sector_size(single_disk_farm_info.pieces_in_sector());
     let erasure_coding = ErasureCoding::new();
     let table_generator = Mutex::new(PosTable::generator());
@@ -179,7 +180,7 @@ where
                     rand::random::<[u8; 32]>,
                     |global_challenge| {
                         let options = PlotAuditOptions::<PosTable> {
-                            public_key: single_disk_farm_info.public_key(),
+                            public_key_hash,
                             slot_info: SlotInfo {
                                 slot_number: 0,
                                 global_challenge: Blake3Hash::from(global_challenge),
@@ -212,7 +213,7 @@ where
                     rand::random::<[u8; 32]>,
                     |global_challenge| {
                         let options = PlotAuditOptions::<PosTable> {
-                            public_key: single_disk_farm_info.public_key(),
+                            public_key_hash,
                             slot_info: SlotInfo {
                                 slot_number: 0,
                                 global_challenge: Blake3Hash::from(global_challenge),
@@ -243,7 +244,7 @@ where
                     rand::random::<[u8; 32]>,
                     |global_challenge| {
                         let options = PlotAuditOptions::<PosTable> {
-                            public_key: single_disk_farm_info.public_key(),
+                            public_key_hash,
                             slot_info: SlotInfo {
                                 slot_number: 0,
                                 global_challenge: Blake3Hash::from(global_challenge),
@@ -314,6 +315,7 @@ where
         limit_sector_count,
     } = prove_options;
 
+    let public_key_hash = &single_disk_farm_info.public_key().hash();
     let erasure_coding = ErasureCoding::new();
     let table_generator = Mutex::new(PosTable::generator());
 
@@ -336,7 +338,7 @@ where
                 .map_err(|error| anyhow::anyhow!("Failed to open plot: {error}"))?;
             let plot_audit = PlotAudit::new(&plot);
             let mut options = PlotAuditOptions::<PosTable> {
-                public_key: single_disk_farm_info.public_key(),
+                public_key_hash,
                 slot_info: SlotInfo {
                     slot_number: 0,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
@@ -406,7 +408,7 @@ where
             .map_err(|error| anyhow::anyhow!("Failed to open plot: {error}"))?;
             let plot_audit = PlotAudit::new(&plot);
             let mut options = PlotAuditOptions::<PosTable> {
-                public_key: single_disk_farm_info.public_key(),
+                public_key_hash,
                 slot_info: SlotInfo {
                     slot_number: 0,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
@@ -474,7 +476,7 @@ where
                 .map_err(|error| anyhow::anyhow!("Failed to open plot: {error}"))?;
             let plot_audit = PlotAudit::new(&plot);
             let mut options = PlotAuditOptions::<PosTable> {
-                public_key: single_disk_farm_info.public_key(),
+                public_key_hash,
                 slot_info: SlotInfo {
                     slot_number: 0,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),

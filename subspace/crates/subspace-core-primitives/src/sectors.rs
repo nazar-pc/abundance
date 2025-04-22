@@ -58,14 +58,15 @@ impl AsRef<[u8]> for SectorId {
 }
 
 impl SectorId {
-    /// Create new sector ID by deriving it from public key and sector index
+    /// Create a new sector ID by deriving it from public key and sector index
+    #[inline]
     pub fn new(
-        public_key_hash: Blake3Hash,
+        public_key_hash: &Blake3Hash,
         sector_index: SectorIndex,
         history_size: HistorySize,
     ) -> Self {
         Self(blake3_hash_list_with_key(
-            &public_key_hash,
+            public_key_hash,
             &[
                 &sector_index.to_le_bytes(),
                 &history_size.get().to_le_bytes(),

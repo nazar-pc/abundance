@@ -5,6 +5,7 @@
 
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::solutions::{RewardSignature, SolutionRange};
 use subspace_core_primitives::{BlockWeight, PublicKey};
 
@@ -12,11 +13,14 @@ use subspace_core_primitives::{BlockWeight, PublicKey};
 pub fn check_reward_signature(
     hash: &[u8],
     signature: &RewardSignature,
-    public_key: &PublicKey,
+    public_key_hash: &Blake3Hash,
     reward_signing_context: &SigningContext,
 ) -> Result<(), SignatureError> {
-    let public_key = schnorrkel::PublicKey::from_bytes(public_key.as_ref())?;
-    let signature = schnorrkel::Signature::from_bytes(signature.as_ref())?;
+    if public_key_hash != &PublicKey::from(signature.public_key).hash() {
+        return Err(SignatureError::InvalidKey);
+    }
+    let public_key = schnorrkel::PublicKey::from_bytes(signature.public_key.as_ref())?;
+    let signature = schnorrkel::Signature::from_bytes(signature.signature.as_ref())?;
     public_key.verify(reward_signing_context.bytes(hash), &signature)
 }
 

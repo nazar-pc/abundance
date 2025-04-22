@@ -24,6 +24,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         .unwrap_or_else(|_error| MAX_PIECES_IN_SECTOR);
 
     let public_key = PublicKey::default();
+    let public_key_hash = &public_key.hash();
     let sector_index = 0;
     let mut input = RecordedHistorySegment::new_boxed();
     StdRng::seed_from_u64(42).fill(AsMut::<[u8]>::as_mut(input.as_mut()));
@@ -68,7 +69,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     group.bench_function("in-memory", |b| {
         b.iter(|| {
             block_on(plot_sector(PlotSectorOptions {
-                public_key: black_box(&public_key),
+                public_key_hash: black_box(public_key_hash),
                 sector_index: black_box(sector_index),
                 piece_getter: black_box(&archived_history_segment),
                 farmer_protocol_info: black_box(farmer_protocol_info),

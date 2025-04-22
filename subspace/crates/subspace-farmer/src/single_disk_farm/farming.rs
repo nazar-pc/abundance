@@ -19,6 +19,7 @@ use rayon::ThreadPool;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
+use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::SectorIndex;
@@ -78,7 +79,7 @@ where
     PosTable: Table,
 {
     /// Public key of the farm
-    pub public_key: &'a PublicKey,
+    pub public_key_hash: &'a Blake3Hash,
     /// Slot info for the audit
     pub slot_info: SlotInfo,
     /// Metadata of all sectors plotted so far
@@ -137,7 +138,7 @@ where
         PosTable: Table,
     {
         let PlotAuditOptions {
-            public_key,
+            public_key_hash,
             slot_info,
             sectors_metadata,
             erasure_coding,
@@ -147,7 +148,7 @@ where
         } = options;
 
         let audit_results = audit_plot_sync(
-            public_key,
+            public_key_hash,
             &slot_info.global_challenge,
             slot_info.solution_range,
             &self.0,
@@ -190,7 +191,7 @@ where
 }
 
 pub(super) struct FarmingOptions<NC, PlotAudit> {
-    pub(super) public_key: PublicKey,
+    pub(super) public_key_hash: Blake3Hash,
     // TODO: Use `reward_address` in the future
     #[expect(
         dead_code,
@@ -223,7 +224,7 @@ where
     Plot: ReadAtSync + 'a,
 {
     let FarmingOptions {
-        public_key,
+        public_key_hash,
         // TODO: Use `reward_address` in the future
         reward_address: _,
         node_client,
@@ -272,7 +273,7 @@ where
                     let _span_guard = span.enter();
 
                     plot_audit.audit(PlotAuditOptions::<PosTable> {
-                        public_key: &public_key,
+                        public_key_hash: &public_key_hash,
                         slot_info,
                         sectors_metadata: &sectors_metadata,
                         erasure_coding: &erasure_coding,
