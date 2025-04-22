@@ -576,7 +576,7 @@ impl Solution {
         let solution_distance =
             SolutionDistance::calculate(&global_challenge, &masked_chunk, &sector_slot_challenge);
 
-        if solution_distance.is_within(*solution_range) {
+        if !solution_distance.is_within(*solution_range) {
             return Err(SolutionVerifyError::OutsideSolutionRange {
                 solution_range: *solution_range,
                 solution_distance,
