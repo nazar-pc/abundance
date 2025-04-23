@@ -10,10 +10,13 @@ include = [
     "/Cargo.toml",
 ]
 
+# TODO: Benches
+
 [dependencies]
 # TODO: This is not actually `no_std` compatible yet, see https://github.com/AndersTrier/reed-solomon-simd/pull/63
 reed-solomon-simd = { workspace = true }
 thiserror = { version = "2.0.12", default-features = false }
 
 [dev-dependencies]
-rand.workspace = true
+rand_core = { workspace = true }
+rand_chacha = { workspace = true }
