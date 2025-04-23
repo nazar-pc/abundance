@@ -41,7 +41,7 @@ This section collects a list of data structures required for the operation of th
 - When added to the buffer, blocks are turned into `SegmentItem`s.
 - Each segment will have the parent `segment_header` included as the first item. Each
   `segment_header` includes the hash of the previous segment header and the segment proof of the
-  previous segment. Together, segment headers form a chain that is used for quick and efficient
+  current segment. Together, segment headers form a chain that is used for quick and efficient
   verification of pieces corresponding to the actual archival history of the blockchain.
 - Segment items are combined into segments. Each segment contains at least two of the following
   `SegmentItem`s, in this order:
@@ -56,86 +56,62 @@ This section collects a list of data structures required for the operation of th
 #### 3. Block Info Construction
 
 - Input: Blocks produced in the shard.
-- When a new block is produced and included to the chain in a shard, farmers (and any other node in
-  the system), extend the block using an error correction scheme to generate parity shares:
+- When a new block is produced and included in the chain within a shard, farmers (and other nodes in
+  the system) extend the block using an error correction scheme to generate parity shares:
 
-  1. The block is split into `source_shares = ceil(block_size/SHARE_SIZE)` shares of `SHARE_SIZE`
-     bytes.
-  2. Each share is arranged into a different column of a
-     `source_shares x SHARE_SIZE = ceil(block_size/SHARE_SIZE) x SHARE_SIZE` matrix.
+  1. The block is split into `source_shares = ceil(block_size / SHARE_SIZE)` shares, each of
+     `SHARE_SIZE` bytes.
 
-```
-| source_share_0 |
-| source_share_1 |
-...
-| source_share_M |
-```
+  ```
+  | source_share_1 | source_share_2 | ... | source_share_M |
+  ```
 
-3. Shares are erasure coded column-wise with `extend(column, ERASURE_CODING_RATE)`. This effectively
-   doubles the number of rows and, hence, the shares per block to `total_shares = 2*source_shares`.
+  3. Shares are erasure coded with `extend(row, ERASURE_CODING_RATE)`. This doubles the number of
+     shares, resulting in `total_shares = 2 * source_shares` shares per block.
 
-- The erasure coding rate is `ERASURE_CODING_RATE = 2`, which means that the number of shares
-  generated is `total_shares = 2 * M`.
+- The erasure coding rate is `ERASURE_CODING_RATE = 1/2`, meaning the number of shares generated is
+  `total_shares = 2 * M`.
 
-```
-| source_share_0 |
-| source_share_1 |
-...
-| source_share_M |
-| parity_share_0 |
-| parity_share_1 |
-...
-| parity_share_M |
-```
+  ```
+  | source_share_1 | source_share_2 | ... | source_share_M | parity_share_1 | parity_share_2 | ... | parity_share_M |
+  ```
 
-- The erasure coding scheme used is Reed-Solomon, which allows to recover the original data from any
+- The erasure coding scheme used is Reed-Solomon, allowing recovery of the original data from any
   `M` shares.
 - The size of each share is `SHARE_SIZE = block_size / source_share`.
-- The number of chunks per share is `num_chunks_per_share = SHARE_SIZE / BLOCK_CHUNK_SIZE`, where
+- The number of chunks per share is `NUM_CHUNKS = SHARE_SIZE / BLOCK_CHUNK_SIZE`, where
   `BLOCK_CHUNK_SIZE` is the size of each chunk.
 
-4. Shares themselves are divided into chunks of size `BLOCK_CHUNK_SIZE`, in a way that `SHARE_SIZE`
-   must be multiple of `BLOCK_CHUNK_SIZE`, `SHARE_SIZE = n x BLOCK_CHUNK_SIZE`.
-5. For each row, a proof of the row chunks is created by building a Merkle Proof of the individual
-   chunks in the share, `Cbs_i`.
-6. Along with the proof, a proof is created for each share, `π_i`, that allows to prove that a chunk
-   belongs to the share without having to provide all other chunks in the share. This is done by
-   adding the relevant path from the root to the chunk in the Merkle tree created for the share.
-   Suppose you have a Merkle tree with 4 shares: `(bs1, bs2, bs3, bs4)`, and you want to prove that
-   `bs1` belongs to the share. You would need to provide the set of sibling hashes
-   `hash(bs2), hash(bs3 || bs4)` as the proof.
-7. All the share proofs are combined into a single proof for the block, `C_block`, by hashing each
-   of the share proofs to `h_i` and interpolating a polynomial over them,
-   `C_block = Merkle_Proof(Cbs_0, Cbs_1, ..., Cbs_{total_shares - 1})`.
-8. Total chunks:
-   `total_chunks = total_shares * num_chunks_per_share = 2 * source_share * (SHARE_SIZE / BLOCK_CHUNK_SIZE)`.
-9. It is worth noting that the number of shares for each block is dynamic and depends on the
-   specific block size. When `block_size` is not a multiple of `SHARE_SIZE`, the last share will be
-   smaller than `SHARE_SIZE` and padded with zeroes until it reaches size `SHARE_SIZE`.
+  4. Shares are divided into chunks of size `BLOCK_CHUNK_SIZE`, such that `SHARE_SIZE` is a multiple
+     of `BLOCK_CHUNK_SIZE`, i.e., `SHARE_SIZE = n x BLOCK_CHUNK_SIZE`.
+  5. For each column, a proof of the column chunks is created by building a Merkle Proof of the
+     individual chunks in the share, and getting its corresponding `root_share_i`.
+  6. Along with the proof, a proof is created for each share, `π_i`, to prove that a chunk belongs
+     to the share without providing all other chunks in the share. This is achieved by including the
+     relevant path from the root to the chunk in the Merkle tree created for the share. For example,
+     in a Merkle tree with 4 shares `(bs1, bs2, bs3, bs4)`, to prove `bs1` belongs to the share, you
+     provide the sibling hashes `hash(bs2), hash(bs3 || bs4)` as the proof.
+  7. All share proofs are combined into a single proof for the block, `C_block`, by hashing each
+     share proof to `h_i` and interpolating a polynomial over them,
+     `C_block = Merkle_Proof(root_share_1, Cbs_2, ..., Cbs_{total_shares - 1})`.
+  8. The number of shares per block is dynamic and depends on the block size. If `block_size` is not
+     a multiple of `SHARE_SIZE`, the last share is padded with zeroes to reach `SHARE_SIZE`.
 
-```
-| source_share_0 | π_0 | C_bs_0 |
-| source_share_1 | π_1 | Cb_1 |
-...
-| source_share_M | π_M | Cb_M |
-| parity_share_0 | π_s0 | Cbs_0 |
-| parity_share_1 | π_s1 | Cbs_1 |
-...
-| parity_share_M | π_sM | Cbs_M |
-```
+  ```
+  | source_share_1 | π_1 | root_share_1 | source_share_2 | π_2 | Cbs_2 | ... | source_share_M | π_M | Cbs_M | parity_share_1 | π_s1 | Cbs_s1 | parity_share_2 | π_s2 | Cbs_s2 | ... | parity_share_M | π_sM | Cbs_sM |
+  ```
 
-- When the proof for the block is generated, a new `BlockInfo` data structure is generated that is
-  used to submit the block information to the parent chain. Any node (not only farmers) are allowed
-  to perform this operation.
-- New encoded blocks need to be stored by farmers and made available for retrieval by other shards
-  and nodes in the system.
+- When the proof for the block is generated, a `BlockInfo` data structure is created to submit the
+  block information to the parent chain. Any node (not only farmers) can perform this operation.
+- New encoded blocks must be stored by farmers and made available for retrieval by other shards and
+  nodes in the system.
 
 ```rust
-type BlockInfo {
-    shard_id: [u8; 20]
-    block_height: u64
-    block_hash: [u8; 32]
-    block_proof: [u8;32]
+struct BlockInfo {
+    shard_id: ShardId, // 4B
+    block_height: u64,
+    block_hash: [u8; 32],
+    block_proof: [u8; 32],
 }
 ```
 
@@ -179,18 +155,18 @@ type BlockInfo {
 - Input: Buffered data of size `RAW_RECORD_SIZE`.
 - When the buffer (after encoding) contains enough data to fill a record of `RAW_RECORD_SIZE` bytes,
   it is archived:
-  1. Split the record into `d = 2^15 =NUM_CHUNKS` chunks of size `SAFE_BYTES`.
+  1. Split the record into `NUM_CHUNKS = 2^15` chunks 32 bytes each.
   2. Perform the same operations to extend with parity chunks and commit to the chunks as was done
      for the block. This is done by creating a Merkle tree of the chunks of a record, and committing
      to it.
-- Erasure code records column-wise with `extend(column, ERASURE_CODING_RATE)`. This effectively
-  doubles the number of rows and thus, records per segment to `NUM_PIECES` (256).
+- Erasure code records with `extend(column, ERASURE_CODING_RATE)`. This effectively doubles the
+  number of records and thus, records per segment to `NUM_PIECES` (256).
 - For each row, a proof of the row chunks is created by building a Merkle Proof of the individual
   chunks in the share, `Cs_i`, along with their proof `ws_i`.
-- For each record, form a `piece = record || record_proof || record_proof`, `(ri∣∣Ci∣∣πi)`
+- For each record, form a `piece = record || record_root || record_chunks_root || record_proof`.
 - Compute the `segment_root` by computing the Merkle proof of all the record proofs of all rows, the
   raw records and the extended records `C_segment = Merkle_Proof(C0, C1, ..., Cn, C00, Cnn)`.
-- Append the `segment_root` to the global `segment_proofs[]` table of the chain.
+- Append the `segment_root` to the global `segment_roots[]` table of the chain.
 - The segment now consists of `NUM_PIECES` records of roughly 1MiB each
   (`32 bytes * 2^15 chunks + 32 bytes proof + ~120 bytes proof`), `NUM_PIECES` piece
   proofs, `NUM_PIECES` proofs of 32 bytes each and one 32-byte `segment_root`.
@@ -212,10 +188,10 @@ type BlockInfo {
   transaction that submits the segments into the parent's shard history.
 
 ```rust
-type SegmentInfo = {
-  segment_root: Vec<u8>, // 32B
-  segment_index: u64, // 8B
+struct SegmentInfo {
   shard_id: ShardId, // 4B
+  segment_index: u64,
+  segment_root: [u8; 32],
 }
 ```
 
@@ -225,7 +201,7 @@ type SegmentInfo = {
 
 - Input: Transaction with `SegmentInfo` in the beacon chain.
 - The execution of the `SegmentInfo` transaction when included in a block of the beacon chain
-  triggers the proof of the shard's segment in the global history of the beacon chain.
+  commits the root of the shard's segment in the global history of the beacon chain.
 - To verify the `SegmentInfo` and execute the transaction, nodes verify the following:
   - Ensure `segment_index` is the subsequent index after the last one committed for the shard.
 - If the verification of the `SegmentInfo` is successful, the child shard segment is added to the
