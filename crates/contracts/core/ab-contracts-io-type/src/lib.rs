@@ -1,6 +1,7 @@
 #![feature(maybe_uninit_slice, non_null_from_ref, ptr_as_uninit)]
 #![no_std]
 
+pub mod bool;
 pub mod fixed_capacity_bytes;
 pub mod fixed_capacity_string;
 pub mod maybe_data;

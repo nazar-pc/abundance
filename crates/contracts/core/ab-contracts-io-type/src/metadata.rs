@@ -72,7 +72,7 @@ impl IoTypeDetails {
 pub enum IoTypeMetadataKind {
     /// `()`
     Unit,
-    /// `bool`
+    /// [`Bool`](crate::bool::Bool)
     Bool,
     /// `u8`
     U8,

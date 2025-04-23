@@ -1,6 +1,7 @@
 use crate::ffi::flip::FlipperFlipArgs;
 use ab_contracts_common::env::{Blake3Hash, MethodContext};
 use ab_contracts_common::{Address, Contract, ShardIndex};
+use ab_contracts_io_type::bool::Bool;
 use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::TxHandler;
@@ -17,13 +18,13 @@ use schnorrkel::Keypair;
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct Flipper {
-    pub value: bool,
+    pub value: Bool,
 }
 
 #[contract]
 impl Flipper {
     #[init]
-    pub fn new(#[input] &init_value: &bool) -> Self {
+    pub fn new(#[input] &init_value: &Bool) -> Self {
         Self { value: init_value }
     }
 
@@ -74,7 +75,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             .unwrap();
 
         // Initialize state
-        env.flipper_new(MethodContext::Keep, flipper_address, &true)
+        env.flipper_new(MethodContext::Keep, flipper_address, &Bool::new(true))
             .unwrap();
 
         flipper_address
