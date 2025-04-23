@@ -93,6 +93,8 @@ fn check_repr() {
         (IoTypeMetadataKind::VariableElements16b, 87),
         (IoTypeMetadataKind::VariableElements32b, 88),
         (IoTypeMetadataKind::VariableElements0, 89),
+        (IoTypeMetadataKind::FixedCapacityBytes8b, 90),
+        (IoTypeMetadataKind::FixedCapacityBytes16b, 91),
         (IoTypeMetadataKind::Address, 128),
         (IoTypeMetadataKind::Balance, 129),
     ];
