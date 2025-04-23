@@ -18,7 +18,6 @@ frame-support.workspace = true
 frame-system.workspace = true
 log.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
-schnorrkel.workspace = true
 serde = { workspace = true, features = ["alloc", "derive"], optional = true }
 sp-consensus-subspace.workspace = true
 sp-consensus-slots.workspace = true
@@ -31,6 +30,7 @@ subspace-runtime-primitives.workspace = true
 env_logger.workspace = true
 pallet-balances = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["min_const_gen"] }
+schnorrkel.workspace = true
 sp-io.workspace = true
 subspace-core-primitives.workspace = true
 
@@ -46,7 +46,6 @@ std = [
     "frame-system/std",
     "log/std",
     "scale-info/std",
-    "schnorrkel/std",
     "serde",
     "serde/std",
     "sp-consensus-subspace/std",
