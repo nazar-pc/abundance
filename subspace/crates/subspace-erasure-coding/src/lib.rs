@@ -1,13 +1,5 @@
-#![feature(trusted_len)]
-#![feature(
-    maybe_uninit_slice,
-    maybe_uninit_uninit_array_transpose,
-    maybe_uninit_write_slice
-)]
+#![feature(maybe_uninit_slice, trusted_len)]
 #![no_std]
-
-#[cfg(test)]
-mod tests;
 
 extern crate alloc;
 
@@ -108,7 +100,6 @@ impl ErasureCoding {
     }
 
     /// Recover missing shards
-    // TODO: Refactor to use byte slices once shards are no longer interleaved
     pub fn recover<'a, SourceIter, ParityIter>(
         &self,
         source: SourceIter,
