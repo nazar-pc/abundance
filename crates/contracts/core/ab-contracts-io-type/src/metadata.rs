@@ -72,7 +72,7 @@ impl IoTypeDetails {
 pub enum IoTypeMetadataKind {
     /// `()`
     Unit,
-    /// `bool`
+    /// [`Bool`](crate::bool::Bool)
     Bool,
     /// `u8`
     U8,
@@ -260,19 +260,19 @@ pub enum IoTypeMetadataKind {
     EnumNoFields10,
     /// Array `[T; N]` with up to 2^8 elements.
     ///
-    /// Arrays with up to 2^8 encoded as follows:
+    /// Encoded as follows:
     /// * 1 byte number of elements
     /// * Recursive metadata of contained type
     Array8b,
     /// Array `[T; N]` with up to 2^16 elements.
     ///
-    /// Arrays with up to 2^16 encoded as follows:
+    /// Encoded as follows:
     /// * 2 bytes number of elements (little-endian)
     /// * Recursive metadata of contained type
     Array16b,
     /// Array `[T; N]` with up to 2^32 elements.
     ///
-    /// Arrays with up to 2^32 encoded as follows:
+    /// Encoded as follows:
     /// * 4 bytes number of elements (little-endian)
     /// * Recursive metadata of contained type
     Array32b,
@@ -298,17 +298,17 @@ pub enum IoTypeMetadataKind {
     ArrayU8x4096,
     /// Variable bytes with up to 2^8 bytes recommended allocation.
     ///
-    /// Variable bytes with up to 2^8 bytes encoded as follows:
+    /// Encoded as follows:
     /// * 1 byte recommended allocation in bytes
     VariableBytes8b,
     /// Variable bytes with up to 2^16 bytes recommended allocation.
     ///
-    /// Variable bytes with up to 2^16 bytes encoded as follows:
+    /// Encoded as follows:
     /// * 2 bytes recommended allocation in bytes (little-endian)
     VariableBytes16b,
     /// Variable bytes with up to 2^32 bytes recommended allocation.
     ///
-    /// Variable bytes with up to 2^8 bytes encoded as follows:
+    /// Encoded as follows:
     /// * 4 bytes recommended allocation in bytes (little-endian)
     VariableBytes32b,
     /// Compact alias [`VariableBytes<0>`](crate::variable_bytes::VariableBytes)
@@ -339,21 +339,47 @@ pub enum IoTypeMetadataKind {
     VariableBytes1048576,
     /// Variable elements with up to 2^8 elements recommended allocation.
     ///
-    /// Variable elements with up to 2^8 elements encoded as follows:
+    /// Encoded as follows:
     /// * 1 byte recommended allocation in bytes
     VariableElements8b,
     /// Variable elements with up to 2^16 elements recommended allocation.
     ///
-    /// Variable elements with up to 2^16 elements encoded as follows:
+    /// Encoded as follows:
     /// * 2 bytes recommended allocation in elements (little-endian)
     VariableElements16b,
     /// Variable elements with up to 2^32 elements recommended allocation.
     ///
-    /// Variable elements with up to 2^8 elements encoded as follows:
+    /// Encoded as follows:
     /// * 4 bytes recommended allocation in elements (little-endian)
     VariableElements32b,
     /// Compact alias [`VariableElements<0, T>`](crate::variable_elements::VariableElements)
     VariableElements0,
+    /// Fixed capacity bytes with up to 2^8 bytes capacity.
+    ///
+    /// Encoded as follows:
+    /// * 1 byte capacity
+    FixedCapacityBytes8b,
+    /// Fixed capacity bytes with up to 2^16 bytes capacity.
+    ///
+    /// Encoded as follows:
+    /// * 2 bytes capacity (little-endian)
+    FixedCapacityBytes16b,
+    /// Fixed capacity UTF-8 string with up to 2^8 bytes capacity.
+    ///
+    /// This is a string only by convention, there is no runtime verification done, contents is
+    /// treated as regular bytes.
+    ///
+    /// Encoded as follows:
+    /// * 1 byte capacity
+    FixedCapacityString8b,
+    /// Fixed capacity UTF-8 bytes with up to 2^16 bytes capacity.
+    ///
+    /// This is a string only by convention, there is no runtime verification done, contents is
+    /// treated as regular bytes.
+    ///
+    /// Encoded as follows:
+    /// * 2 bytes capacity (little-endian)
+    FixedCapacityString16b,
     /// Address of a contract.
     ///
     /// Internally `u128` with `8` byte alignment
@@ -460,6 +486,10 @@ impl IoTypeMetadataKind {
             87 => Self::VariableElements16b,
             88 => Self::VariableElements32b,
             89 => Self::VariableElements0,
+            90 => Self::FixedCapacityBytes8b,
+            91 => Self::FixedCapacityBytes16b,
+            92 => Self::FixedCapacityString8b,
+            93 => Self::FixedCapacityString16b,
             128 => Self::Address,
             129 => Self::Balance,
             _ => {

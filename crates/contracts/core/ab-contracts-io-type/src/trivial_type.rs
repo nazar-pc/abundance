@@ -85,9 +85,6 @@ where
 unsafe impl TrivialType for () {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Unit as u8];
 }
-unsafe impl TrivialType for bool {
-    const METADATA: &[u8] = &[IoTypeMetadataKind::Bool as u8];
-}
 unsafe impl TrivialType for u8 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U8 as u8];
 }

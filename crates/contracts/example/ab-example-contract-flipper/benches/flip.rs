@@ -1,5 +1,6 @@
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Contract, ShardIndex};
+use ab_contracts_io_type::bool::Bool;
 use ab_example_contract_flipper::{Flipper, FlipperExt};
 use ab_executor_native::NativeExecutor;
 use ab_system_contract_code::CodeExt;
@@ -21,7 +22,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             .unwrap();
 
         // Initialize state
-        env.flipper_new(MethodContext::Keep, flipper_address, &true)
+        env.flipper_new(MethodContext::Keep, flipper_address, &Bool::new(true))
             .unwrap();
 
         flipper_address

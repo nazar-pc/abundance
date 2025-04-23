@@ -124,6 +124,12 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
         | IoTypeMetadataKind::VariableElements16b
         | IoTypeMetadataKind::VariableElements32b
         | IoTypeMetadataKind::VariableElements0 => b"VariableElements",
+        IoTypeMetadataKind::FixedCapacityBytes8b | IoTypeMetadataKind::FixedCapacityBytes16b => {
+            b"FixedCapacityBytes"
+        }
+        IoTypeMetadataKind::FixedCapacityString8b | IoTypeMetadataKind::FixedCapacityString16b => {
+            b"FixedCapacityString"
+        }
         IoTypeMetadataKind::Address => b"Address",
         IoTypeMetadataKind::Balance => b"Balance",
     })

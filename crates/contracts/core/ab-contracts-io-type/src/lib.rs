@@ -1,6 +1,9 @@
 #![feature(maybe_uninit_slice, non_null_from_ref, ptr_as_uninit)]
 #![no_std]
 
+pub mod bool;
+pub mod fixed_capacity_bytes;
+pub mod fixed_capacity_string;
 pub mod maybe_data;
 pub mod metadata;
 pub mod trivial_type;
@@ -212,5 +215,8 @@ pub unsafe trait IoType {
     unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>>;
 }
 
-/// Marker trait, companion to [`IoType`] that indicates the ability to store optional contents
+/// Marker trait, companion to [`IoType`] that indicates the ability to store optional contents.
+///
+/// This means that zero bytes size is a valid invariant. This type is never implemented for types
+/// implementing [`TrivialType`] because they always have fixed size, and it is not zero.
 pub trait IoTypeOptional: IoType {}
