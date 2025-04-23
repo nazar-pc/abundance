@@ -364,6 +364,22 @@ pub enum IoTypeMetadataKind {
     /// Encoded as follows:
     /// * 2 bytes capacity (little-endian)
     FixedCapacityBytes16b,
+    /// Fixed capacity UTF-8 string with up to 2^8 bytes capacity.
+    ///
+    /// This is a string only by convention, there is no runtime verification done, contents is
+    /// treated as regular bytes.
+    ///
+    /// Encoded as follows:
+    /// * 1 byte capacity
+    FixedCapacityString8b,
+    /// Fixed capacity UTF-8 bytes with up to 2^16 bytes capacity.
+    ///
+    /// This is a string only by convention, there is no runtime verification done, contents is
+    /// treated as regular bytes.
+    ///
+    /// Encoded as follows:
+    /// * 2 bytes capacity (little-endian)
+    FixedCapacityString16b,
     /// Address of a contract.
     ///
     /// Internally `u128` with `8` byte alignment
@@ -472,6 +488,8 @@ impl IoTypeMetadataKind {
             89 => Self::VariableElements0,
             90 => Self::FixedCapacityBytes8b,
             91 => Self::FixedCapacityBytes16b,
+            92 => Self::FixedCapacityString8b,
+            93 => Self::FixedCapacityString16b,
             128 => Self::Address,
             129 => Self::Balance,
             _ => {

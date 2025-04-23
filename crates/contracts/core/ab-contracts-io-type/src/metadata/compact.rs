@@ -255,12 +255,12 @@ pub(super) const fn compact_metadata<'i, 'o>(
         | IoTypeMetadataKind::ArrayU8x1024
         | IoTypeMetadataKind::ArrayU8x2028
         | IoTypeMetadataKind::ArrayU8x4096 => copy_n_bytes(input, output, 1),
-        IoTypeMetadataKind::VariableBytes8b | IoTypeMetadataKind::FixedCapacityBytes8b => {
-            copy_n_bytes(input, output, 1 + 1)
-        }
-        IoTypeMetadataKind::VariableBytes16b | IoTypeMetadataKind::FixedCapacityBytes16b => {
-            copy_n_bytes(input, output, 1 + 2)
-        }
+        IoTypeMetadataKind::VariableBytes8b
+        | IoTypeMetadataKind::FixedCapacityBytes8b
+        | IoTypeMetadataKind::FixedCapacityString8b => copy_n_bytes(input, output, 1 + 1),
+        IoTypeMetadataKind::VariableBytes16b
+        | IoTypeMetadataKind::FixedCapacityBytes16b
+        | IoTypeMetadataKind::FixedCapacityString16b => copy_n_bytes(input, output, 1 + 2),
         IoTypeMetadataKind::VariableBytes32b => copy_n_bytes(input, output, 1 + 4),
         IoTypeMetadataKind::VariableBytes0
         | IoTypeMetadataKind::VariableBytes512

@@ -2,6 +2,7 @@
 #![no_std]
 
 pub mod fixed_capacity_bytes;
+pub mod fixed_capacity_string;
 pub mod maybe_data;
 pub mod metadata;
 pub mod trivial_type;

@@ -182,7 +182,9 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
         IoTypeMetadataKind::ArrayU8x1024 => Some((IoTypeDetails::bytes(1024), metadata)),
         IoTypeMetadataKind::ArrayU8x2028 => Some((IoTypeDetails::bytes(2028), metadata)),
         IoTypeMetadataKind::ArrayU8x4096 => Some((IoTypeDetails::bytes(4096), metadata)),
-        IoTypeMetadataKind::VariableBytes8b | IoTypeMetadataKind::FixedCapacityBytes8b => {
+        IoTypeMetadataKind::VariableBytes8b
+        | IoTypeMetadataKind::FixedCapacityBytes8b
+        | IoTypeMetadataKind::FixedCapacityString8b => {
             if metadata.is_empty() {
                 return None;
             }
@@ -192,7 +194,9 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
 
             Some((IoTypeDetails::bytes(num_bytes), metadata))
         }
-        IoTypeMetadataKind::VariableBytes16b | IoTypeMetadataKind::FixedCapacityBytes16b => {
+        IoTypeMetadataKind::VariableBytes16b
+        | IoTypeMetadataKind::FixedCapacityBytes16b
+        | IoTypeMetadataKind::FixedCapacityString16b => {
             if metadata.is_empty() {
                 return None;
             }
