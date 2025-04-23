@@ -15,6 +15,22 @@ include = [
 # Necessary for CLI options to work on benches
 bench = false
 
+[[bench]]
+name = "plotting"
+harness = false
+
+[[bench]]
+name = "reading"
+harness = false
+
+[[bench]]
+name = "auditing"
+harness = false
+
+[[bench]]
+name = "proving"
+harness = false
+
 [dependencies]
 ab-merkle-tree = { workspace = true, features = ["alloc"] }
 anyhow.workspace = true
@@ -29,7 +45,6 @@ parity-scale-codec.workspace = true
 parking_lot.workspace = true
 rand.workspace = true
 rayon.workspace = true
-schnorrkel.workspace = true
 serde = { workspace = true, features = ["derive"] }
 static_assertions.workspace = true
 subspace-archiving = { workspace = true, features = ["parallel"] }
@@ -47,20 +62,5 @@ winapi = "0.3.9"
 [dev-dependencies]
 criterion.workspace = true
 futures.workspace = true
+schnorrkel.workspace = true
 subspace-proof-of-space.workspace = true
-
-[[bench]]
-name = "plotting"
-harness = false
-
-[[bench]]
-name = "reading"
-harness = false
-
-[[bench]]
-name = "auditing"
-harness = false
-
-[[bench]]
-name = "proving"
-harness = false

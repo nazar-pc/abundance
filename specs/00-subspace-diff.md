@@ -28,6 +28,10 @@ KZG is no longer used and was replaced with Merkle Tree.
 `Solution` data structure no longer includes reward address in it, reward claiming mechanism is different (not
 implemented right now, details will be added later).
 
+`Solution` doesn't have `public_key`, instead it only has `public_key_hash`. The hash is the only thing needed for
+consensus anyway and makes the data structure constant size in case other kinds of public keys (PQC) with different
+sizes are introduced in the future.
+
 ## Chunks
 
 Not being constrained to KZG's 254 bits (31 bytes in practice) scalars, chunk size is now uniformly 32 bytes everywhere.

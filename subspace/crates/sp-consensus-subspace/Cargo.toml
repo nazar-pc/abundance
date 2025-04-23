@@ -17,7 +17,6 @@ async-trait = { workspace = true, optional = true }
 parity-scale-codec.workspace = true
 log.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
-schnorrkel.workspace = true
 sp-api.workspace = true
 sp-application-crypto.workspace = true
 sp-consensus-slots.workspace = true
@@ -39,7 +38,6 @@ std = [
     "parity-scale-codec/std",
     "log/std",
     "scale-info/std",
-    "schnorrkel/std",
     "sp-api/std",
     "sp-application-crypto/std",
     "sp-consensus-slots/std",
