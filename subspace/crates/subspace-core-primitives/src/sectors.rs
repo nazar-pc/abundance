@@ -25,7 +25,6 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use static_assertions::const_assert_eq;
 
 /// Sector index in consensus
 pub type SectorIndex = u16;
@@ -40,7 +39,9 @@ impl SectorSlotChallenge {
     pub fn s_bucket_audit_index(&self) -> SBucket {
         // As long as number of s-buckets is 2^16, we can pick first two bytes instead of actually
         // calculating `U256::from_le_bytes(self.0) % Record::NUM_S_BUCKETS)`
-        const_assert_eq!(Record::NUM_S_BUCKETS, 1 << u16::BITS as usize);
+        const _: () = const {
+            assert!(Record::NUM_S_BUCKETS == 1 << u16::BITS as usize);
+        };
         SBucket::from(u16::from_le_bytes([self.0[0], self.0[1]]))
     }
 }

@@ -25,7 +25,6 @@ use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
-use static_assertions::const_assert;
 
 /// Solution distance
 #[derive(Debug, Display, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
@@ -248,10 +247,12 @@ impl SolutionRange {
     }
 }
 
-// Quick test to ensure functions above are the inverse of each other
-const_assert!(SolutionRange::from_pieces(1, (1, 6)).to_pieces((1, 6)) == 1);
-const_assert!(SolutionRange::from_pieces(3, (1, 6)).to_pieces((1, 6)) == 3);
-const_assert!(SolutionRange::from_pieces(5, (1, 6)).to_pieces((1, 6)) == 5);
+// Quick test to ensure the functions above are the inverse of each other
+const _: () = {
+    assert!(SolutionRange::from_pieces(1, (1, 6)).to_pieces((1, 6)) == 1);
+    assert!(SolutionRange::from_pieces(3, (1, 6)).to_pieces((1, 6)) == 3);
+    assert!(SolutionRange::from_pieces(5, (1, 6)).to_pieces((1, 6)) == 5);
+};
 
 /// Proof for chunk contained within a record.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]

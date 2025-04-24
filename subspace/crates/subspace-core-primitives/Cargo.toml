@@ -21,7 +21,6 @@ rayon = { workspace = true, optional = true }
 scale-info = { workspace = true, features = ["derive"], optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 serde-big-array.workspace = true
-static_assertions.workspace = true
 thiserror = { workspace = true }
 
 [dev-dependencies]

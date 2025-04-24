@@ -11384,7 +11384,6 @@ dependencies = [
  "scale-info",
  "serde",
  "serde-big-array",
- "static_assertions",
  "thiserror 2.0.12",
 ]
 

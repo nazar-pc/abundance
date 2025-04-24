@@ -34,10 +34,13 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use serde::{Deserializer, Serializer};
-use static_assertions::const_assert;
 
-// Refuse to compile on lower than 32-bit platforms
-const_assert!(size_of::<usize>() >= size_of::<u32>());
+const _: () = {
+    assert!(
+        size_of::<usize>() >= size_of::<u32>(),
+        "Must be at least 32-bit platform"
+    );
+};
 
 /// Type of randomness.
 #[derive(Default, Copy, Clone, Eq, PartialEq, From, Into, Deref)]
