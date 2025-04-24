@@ -240,11 +240,13 @@ impl HistorySize {
     pub const ONE: Self = Self(NonZeroU64::new(1).expect("Not zero; qed"));
 
     /// Create new instance.
+    #[inline(always)]
     pub const fn new(value: NonZeroU64) -> Self {
         Self(value)
     }
 
     /// Size of blockchain history in pieces.
+    #[inline(always)]
     pub const fn in_pieces(&self) -> NonZeroU64 {
         self.0.saturating_mul(
             NonZeroU64::new(RecordedHistorySegment::NUM_PIECES as u64).expect("Not zero; qed"),
@@ -252,6 +254,7 @@ impl HistorySize {
     }
 
     /// Segment index that corresponds to this history size.
+    #[inline(always)]
     pub fn segment_index(&self) -> SegmentIndex {
         SegmentIndex::from(self.0.get() - 1)
     }
@@ -259,6 +262,7 @@ impl HistorySize {
     /// History size at which expiration check for sector happens.
     ///
     /// Returns `None` on overflow.
+    #[inline(always)]
     pub fn sector_expiration_check(&self, min_sector_lifetime: Self) -> Option<Self> {
         self.0.checked_add(min_sector_lifetime.0.get()).map(Self)
     }
@@ -288,6 +292,7 @@ impl Default for ArchivedBlockProgress {
 
 impl ArchivedBlockProgress {
     /// Return the number of partially archived bytes if the progress is not complete.
+    #[inline(always)]
     pub fn partial(&self) -> Option<u32> {
         match self {
             Self::Complete => None,
@@ -296,6 +301,7 @@ impl ArchivedBlockProgress {
     }
 
     /// Sets new number of partially archived bytes.
+    #[inline(always)]
     pub fn set_partial(&mut self, new_partial: u32) {
         *self = Self::Partial(new_partial);
     }
@@ -315,16 +321,19 @@ pub struct LastArchivedBlock {
 
 impl LastArchivedBlock {
     /// Returns the number of partially archived bytes for a block.
+    #[inline(always)]
     pub fn partial_archived(&self) -> Option<u32> {
         self.archived_progress.partial()
     }
 
     /// Sets new number of partially archived bytes.
+    #[inline(always)]
     pub fn set_partial_archived(&mut self, new_partial: BlockNumber) {
         self.archived_progress.set_partial(new_partial);
     }
 
     /// Sets the archived state of this block to [`ArchivedBlockProgress::Complete`].
+    #[inline(always)]
     pub fn set_complete(&mut self) {
         self.archived_progress = ArchivedBlockProgress::Complete;
     }
@@ -360,11 +369,13 @@ impl SegmentHeader {
     /// Hash of the whole segment header
     // TODO: This should not depend on scale codec eventually (ideally)
     #[cfg(feature = "scale-codec")]
+    #[inline(always)]
     pub fn hash(&self) -> Blake3Hash {
         blake3_hash(&self.encode())
     }
 
     /// Segment index
+    #[inline(always)]
     pub fn segment_index(&self) -> SegmentIndex {
         match self {
             Self::V0 { segment_index, .. } => *segment_index,
@@ -372,6 +383,7 @@ impl SegmentHeader {
     }
 
     /// Segment root of the records in a segment.
+    #[inline(always)]
     pub fn segment_root(&self) -> SegmentRoot {
         match self {
             Self::V0 { segment_root, .. } => *segment_root,
@@ -379,6 +391,7 @@ impl SegmentHeader {
     }
 
     /// Hash of the segment header of the previous segment
+    #[inline(always)]
     pub fn prev_segment_header_hash(&self) -> Blake3Hash {
         match self {
             Self::V0 {
@@ -389,6 +402,7 @@ impl SegmentHeader {
     }
 
     /// Last archived block
+    #[inline(always)]
     pub fn last_archived_block(&self) -> LastArchivedBlock {
         match self {
             Self::V0 {

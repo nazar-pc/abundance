@@ -129,13 +129,14 @@ impl Blake3Hash {
 }
 
 /// BLAKE3 hashing of a single value.
+#[inline(always)]
 pub fn blake3_hash(data: &[u8]) -> Blake3Hash {
     blake3::hash(data).as_bytes().into()
 }
 
 /// BLAKE3 hashing of a single value in parallel (only useful for large values well above 128kiB).
 #[cfg(feature = "parallel")]
-#[inline]
+#[inline(always)]
 pub fn blake3_hash_parallel(data: &[u8]) -> Blake3Hash {
     let mut state = blake3::Hasher::new();
     state.update_rayon(data);
@@ -143,13 +144,13 @@ pub fn blake3_hash_parallel(data: &[u8]) -> Blake3Hash {
 }
 
 /// BLAKE3 keyed hashing of a single value.
-#[inline]
+#[inline(always)]
 pub fn blake3_hash_with_key(key: &[u8; 32], data: &[u8]) -> Blake3Hash {
     blake3::keyed_hash(key, data).as_bytes().into()
 }
 
 /// BLAKE3 keyed hashing of a list of values.
-#[inline]
+#[inline(always)]
 pub fn blake3_hash_list_with_key(key: &[u8; 32], data: &[&[u8]]) -> Blake3Hash {
     let mut state = blake3::Hasher::new_keyed(key);
     for d in data {
@@ -159,7 +160,7 @@ pub fn blake3_hash_list_with_key(key: &[u8; 32], data: &[&[u8]]) -> Blake3Hash {
 }
 
 /// BLAKE3 hashing of a list of values.
-#[inline]
+#[inline(always)]
 pub fn blake3_hash_list(data: &[&[u8]]) -> Blake3Hash {
     let mut state = blake3::Hasher::new();
     for d in data {

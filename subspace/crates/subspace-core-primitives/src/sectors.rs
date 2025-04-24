@@ -1,5 +1,6 @@
 //! Sectors-related data structures.
 
+mod nano_u256;
 #[cfg(test)]
 mod tests;
 
@@ -8,8 +9,8 @@ use crate::hashes::{
 };
 use crate::pieces::{PieceIndex, PieceOffset, Record};
 use crate::pos::PosSeed;
+use crate::sectors::nano_u256::NanoU256;
 use crate::segments::{HistorySize, SegmentRoot};
-use crate::U256;
 use core::hash::Hash;
 use core::iter::Step;
 use core::num::{NonZeroU64, TryFromIntError};
@@ -94,7 +95,7 @@ impl SectorId {
             let piece_offset_bytes = piece_offset.to_bytes();
             let mut key = [0; 32];
             key[..piece_offset_bytes.len()].copy_from_slice(&piece_offset_bytes);
-            U256::from_le_bytes(*blake3_hash_with_key(&key, self.as_ref()))
+            NanoU256::from_le_bytes(*blake3_hash_with_key(&key, self.as_ref()))
         };
         let history_size_in_pieces = history_size.in_pieces().get();
         let num_interleaved_pieces = 1.max(
@@ -109,15 +110,13 @@ impl SectorId {
         {
             // For odd piece offsets at the beginning of the sector pick pieces at random from
             // recent history only
-            input_hash % U256::from(recent_segments_in_pieces)
-                + U256::from(history_size_in_pieces - recent_segments_in_pieces)
+            (input_hash % recent_segments_in_pieces)
+                + (history_size_in_pieces - recent_segments_in_pieces)
         } else {
-            input_hash % U256::from(history_size_in_pieces)
+            input_hash % history_size_in_pieces
         };
 
-        PieceIndex::from(u64::try_from(piece_index).expect(
-            "Remainder of division by PieceIndex is guaranteed to fit into PieceIndex; qed",
-        ))
+        PieceIndex::from(piece_index)
     }
 
     /// Derive sector slot challenge for this sector from provided global challenge
@@ -148,7 +147,7 @@ impl SectorId {
         let sector_expiration_check_history_size =
             history_size.sector_expiration_check(min_sector_lifetime)?;
 
-        let input_hash = U256::from_le_bytes(*blake3_hash_list(&[
+        let input_hash = NanoU256::from_le_bytes(*blake3_hash_list(&[
             self.as_ref(),
             sector_expiration_check_segment_root.as_ref(),
         ]));
@@ -156,12 +155,9 @@ impl SectorId {
         let last_possible_expiration =
             min_sector_lifetime.checked_add(history_size.get().checked_mul(4u64)?)?;
         let expires_in = input_hash
-            % U256::from(
-                last_possible_expiration
-                    .get()
-                    .checked_sub(sector_expiration_check_history_size.get())?,
-            );
-        let expires_in = u64::try_from(expires_in).expect("Number modulo u64 fits into u64; qed");
+            % last_possible_expiration
+                .get()
+                .checked_sub(sector_expiration_check_history_size.get())?;
 
         let expiration_history_size = sector_expiration_check_history_size.get() + expires_in;
         let expiration_history_size = NonZeroU64::try_from(expiration_history_size).expect(

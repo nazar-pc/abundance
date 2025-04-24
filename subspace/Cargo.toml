@@ -57,7 +57,6 @@ memmap2 = "0.9.5"
 mimalloc = "0.1.43"
 multihash = "0.19.1"
 nohash-hasher = "0.2.0"
-num-traits = { version = "0.2.18", default-features = false }
 num_cpus = "1.16.0"
 ouroboros = "0.18.4"
 pallet-balances = { git = "https://github.com/subspace/polkadot-sdk", rev = "ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6", default-features = false }
@@ -165,7 +164,6 @@ tokio = "1.40.0"
 tokio-stream = "0.1.16"
 tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = "0.3.18"
-uint = { version = "0.10.0", default-features = false }
 ulid = "1.1.3"
 unsigned-varint = "0.8.0"
 void = "1.0.2"
@@ -226,7 +224,6 @@ subspace-proof-of-space = { opt-level = 3 }
 subspace-proof-of-time = { opt-level = 3 }
 substrate-bip39 = { opt-level = 3 }
 twox-hash = { opt-level = 3 }
-uint = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }

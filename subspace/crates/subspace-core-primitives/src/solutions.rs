@@ -260,10 +260,10 @@ const_assert!(SolutionRange::from_pieces(5, (1, 6)).to_pieces((1, 6)) == 5);
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RewardSignature {
     /// Public key that signature corresponds to
-    #[serde(with = "hex")]
+    #[cfg_attr(feature = "serde", serde(with = "hex"))]
     pub public_key: [u8; PublicKey::SIZE],
     /// Signature itself
-    #[serde(with = "hex")]
+    #[cfg_attr(feature = "serde", serde(with = "hex"))]
     pub signature: [u8; RewardSignature::SIZE],
 }
 
