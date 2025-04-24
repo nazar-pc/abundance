@@ -19,7 +19,7 @@ use std::pin::pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::PublicKey;
+use subspace_core_primitives::sr25519::PublicKey;
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farm::{PlottedSectors, SectorPlottingDetails, SectorUpdate};

@@ -19,11 +19,12 @@ pub mod pot;
 pub mod sectors;
 pub mod segments;
 pub mod solutions;
+pub mod sr25519;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-use crate::hashes::{blake3_hash, blake3_hash_list, Blake3Hash};
+use crate::hashes::{blake3_hash_list, Blake3Hash};
 use core::fmt;
 use derive_more::{AsMut, AsRef, Deref, From, Into};
 #[cfg(feature = "scale-codec")]
@@ -38,9 +39,6 @@ use static_assertions::const_assert;
 
 // Refuse to compile on lower than 32-bit platforms
 const_assert!(size_of::<usize>() >= size_of::<u32>());
-
-/// Signing context used for creating reward signatures by farmers.
-pub const REWARD_SIGNING_CONTEXT: &[u8] = b"subspace_reward";
 
 /// Type of randomness.
 #[derive(Default, Copy, Clone, Eq, PartialEq, From, Into, Deref)]
@@ -137,83 +135,3 @@ pub type SlotNumber = u64;
 ///
 /// The closer solution's tag is to the target, the heavier it is.
 pub type BlockWeight = u128;
-
-/// A Ristretto Schnorr public key as bytes produced by `schnorrkel` crate.
-#[derive(Default, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Deref, From, Into)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
-pub struct PublicKey([u8; PublicKey::SIZE]);
-
-impl fmt::Debug for PublicKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02x}")?;
-        }
-        Ok(())
-    }
-}
-
-#[cfg(feature = "serde")]
-#[derive(Serialize, Deserialize)]
-#[serde(transparent)]
-struct PublicKeyBinary([u8; PublicKey::SIZE]);
-
-#[cfg(feature = "serde")]
-#[derive(Serialize, Deserialize)]
-#[serde(transparent)]
-struct PublicKeyHex(#[serde(with = "hex")] [u8; PublicKey::SIZE]);
-
-#[cfg(feature = "serde")]
-impl Serialize for PublicKey {
-    #[inline]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        if serializer.is_human_readable() {
-            PublicKeyHex(self.0).serialize(serializer)
-        } else {
-            PublicKeyBinary(self.0).serialize(serializer)
-        }
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for PublicKey {
-    #[inline]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Self(if deserializer.is_human_readable() {
-            PublicKeyHex::deserialize(deserializer)?.0
-        } else {
-            PublicKeyBinary::deserialize(deserializer)?.0
-        }))
-    }
-}
-
-impl fmt::Display for PublicKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02x}")?;
-        }
-        Ok(())
-    }
-}
-
-impl AsRef<[u8]> for PublicKey {
-    #[inline]
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl PublicKey {
-    /// Public key size in bytes
-    pub const SIZE: usize = 32;
-
-    /// Public key hash.
-    pub fn hash(&self) -> Blake3Hash {
-        blake3_hash(&self.0)
-    }
-}

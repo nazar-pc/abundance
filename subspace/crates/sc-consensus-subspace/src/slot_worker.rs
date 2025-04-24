@@ -51,10 +51,11 @@ use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::{PotCheckpoints, PotOutput};
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::solutions::{
-    RewardSignature, Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
+    Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
     SolutionVerifyPieceCheckParams,
 };
-use subspace_core_primitives::{BlockNumber, REWARD_SIGNING_CONTEXT};
+use subspace_core_primitives::sr25519::{RewardSignature, REWARD_SIGNING_CONTEXT};
+use subspace_core_primitives::BlockNumber;
 use subspace_proof_of_space::Table;
 use subspace_verification::check_reward_signature;
 use tracing::{debug, error, info, warn};

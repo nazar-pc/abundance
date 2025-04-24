@@ -9,7 +9,7 @@ use std::any::type_name_of_val;
 use std::pin::pin;
 use std::time::Duration;
 use subspace_core_primitives::sectors::SectorIndex;
-use subspace_core_primitives::PublicKey;
+use subspace_core_primitives::sr25519::PublicKey;
 use subspace_farmer_components::FarmerProtocolInfo;
 use tracing::{error, trace};
 

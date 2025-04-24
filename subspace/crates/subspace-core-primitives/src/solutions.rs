@@ -6,7 +6,7 @@ use crate::pos::{PosProof, PosSeed};
 use crate::pot::PotOutput;
 use crate::sectors::{SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
-use crate::{BlockNumber, PublicKey, SlotNumber};
+use crate::{BlockNumber, SlotNumber};
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
@@ -252,25 +252,6 @@ impl SolutionRange {
 const_assert!(SolutionRange::from_pieces(1, (1, 6)).to_pieces((1, 6)) == 1);
 const_assert!(SolutionRange::from_pieces(3, (1, 6)).to_pieces((1, 6)) == 3);
 const_assert!(SolutionRange::from_pieces(5, (1, 6)).to_pieces((1, 6)) == 5);
-
-// TODO: Remove this from core primitives
-/// A Ristretto Schnorr signature as bytes produced by `schnorrkel` crate.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct RewardSignature {
-    /// Public key that signature corresponds to
-    #[cfg_attr(feature = "serde", serde(with = "hex"))]
-    pub public_key: [u8; PublicKey::SIZE],
-    /// Signature itself
-    #[cfg_attr(feature = "serde", serde(with = "hex"))]
-    pub signature: [u8; RewardSignature::SIZE],
-}
-
-impl RewardSignature {
-    /// Reward signature size in bytes
-    pub const SIZE: usize = 64;
-}
 
 /// Proof for chunk contained within a record.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]

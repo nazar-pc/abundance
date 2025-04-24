@@ -30,7 +30,7 @@ use std::sync::Arc;
 use std::task::Poll;
 use std::time::{Duration, Instant};
 use subspace_core_primitives::sectors::SectorIndex;
-use subspace_core_primitives::PublicKey;
+use subspace_core_primitives::sr25519::PublicKey;
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_farmer_components::sector::sector_size;
 use subspace_farmer_components::FarmerProtocolInfo;

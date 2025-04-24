@@ -79,7 +79,7 @@ use static_assertions::const_assert;
 use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::pot::PotSeed;
-use subspace_core_primitives::REWARD_SIGNING_CONTEXT;
+use subspace_core_primitives::sr25519::REWARD_SIGNING_CONTEXT;
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_proof_of_space::Table;

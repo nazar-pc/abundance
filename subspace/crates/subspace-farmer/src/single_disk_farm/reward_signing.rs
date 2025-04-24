@@ -2,8 +2,7 @@ use crate::node_client::NodeClient;
 use crate::single_disk_farm::identity::Identity;
 use futures::StreamExt;
 use std::future::Future;
-use subspace_core_primitives::solutions::RewardSignature;
-use subspace_core_primitives::PublicKey;
+use subspace_core_primitives::sr25519::{PublicKey, RewardSignature, Signature};
 use subspace_rpc_primitives::{RewardSignatureResponse, RewardSigningInfo};
 use tracing::{info, warn};
 
@@ -36,8 +35,8 @@ where
                 .submit_reward_signature(RewardSignatureResponse {
                     hash,
                     signature: Some(RewardSignature {
-                        public_key: identity.public_key().to_bytes(),
-                        signature: signature.to_bytes(),
+                        public_key: PublicKey::from(identity.public_key().to_bytes()),
+                        signature: Signature::from(signature.to_bytes()),
                     }),
                 })
                 .await
