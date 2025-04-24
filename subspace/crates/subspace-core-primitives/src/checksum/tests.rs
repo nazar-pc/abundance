@@ -1,11 +1,17 @@
 use super::Blake3Checksummed;
 use crate::hashes::Blake3Hash;
 use parity_scale_codec::{Decode, Encode};
-use rand::prelude::*;
+use rand_chacha::ChaCha8Rng;
+use rand_core::{RngCore, SeedableRng};
 
 #[test]
 fn basic() {
-    let random_bytes = random::<[u8; 64]>();
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let random_bytes = {
+        let mut random_bytes = [0u8; 64];
+        rng.fill_bytes(&mut random_bytes);
+        random_bytes
+    };
 
     let plain_encoding = random_bytes.encode();
     let checksummed_encoding = Blake3Checksummed(random_bytes).encode();
@@ -25,5 +31,5 @@ fn basic() {
     // Non-checksummed encoding fails to decode
     assert!(Blake3Checksummed::<[u8; 64]>::decode(&mut plain_encoding.as_slice()).is_err());
     // Incorrectly checksummed data fails to decode
-    assert!(Blake3Checksummed::<[u8; 32]>::decode(&mut random::<[u8; 64]>().as_ref()).is_err());
+    assert!(Blake3Checksummed::<[u8; 32]>::decode(&mut random_bytes.as_ref()).is_err());
 }
