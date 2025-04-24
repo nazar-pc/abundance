@@ -3,11 +3,13 @@
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![no_std]
 
+pub mod sr25519;
+
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
+use sr25519::RewardSignature;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::solutions::SolutionRange;
-use subspace_core_primitives::sr25519::RewardSignature;
 use subspace_core_primitives::BlockWeight;
 
 /// Check the reward signature validity.

@@ -54,10 +54,10 @@ use subspace_core_primitives::solutions::{
     Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
     SolutionVerifyPieceCheckParams,
 };
-use subspace_core_primitives::sr25519::{RewardSignature, REWARD_SIGNING_CONTEXT};
 use subspace_core_primitives::BlockNumber;
 use subspace_proof_of_space::Table;
 use subspace_verification::check_reward_signature;
+use subspace_verification::sr25519::{RewardSignature, REWARD_SIGNING_CONTEXT};
 use tracing::{debug, error, info, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.

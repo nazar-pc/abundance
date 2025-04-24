@@ -19,7 +19,6 @@ pub mod pot;
 pub mod sectors;
 pub mod segments;
 pub mod solutions;
-pub mod sr25519;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;

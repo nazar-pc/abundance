@@ -13,7 +13,7 @@ use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::PotOutput;
 use subspace_core_primitives::segments::{SegmentIndex, SegmentRoot};
 use subspace_core_primitives::solutions::{Solution, SolutionRange};
-use subspace_core_primitives::sr25519::RewardSignature;
+use subspace_verification::sr25519::RewardSignature;
 
 /// A Subspace pre-runtime digest. This contains all data required to validate a block and for the
 /// Subspace runtime module.

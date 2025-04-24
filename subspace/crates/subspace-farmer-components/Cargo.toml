@@ -64,3 +64,4 @@ criterion.workspace = true
 futures.workspace = true
 schnorrkel.workspace = true
 subspace-proof-of-space.workspace = true
+subspace-verification = { workspace = true }

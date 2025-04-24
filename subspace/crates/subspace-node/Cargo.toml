@@ -51,6 +51,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 tracing.workspace = true
 subspace-logging.workspace = true
+subspace-verification = { workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils.workspace = true

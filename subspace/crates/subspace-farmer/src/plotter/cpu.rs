@@ -27,7 +27,6 @@ use std::sync::Arc;
 use std::task::Poll;
 use std::time::Instant;
 use subspace_core_primitives::sectors::SectorIndex;
-use subspace_core_primitives::sr25519::PublicKey;
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_farmer_components::plotting::{
     download_sector, encode_sector, write_sector, CpuRecordsEncoder, DownloadSectorOptions,
@@ -35,6 +34,7 @@ use subspace_farmer_components::plotting::{
 };
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_proof_of_space::Table;
+use subspace_verification::sr25519::PublicKey;
 use tokio::task::yield_now;
 use tracing::{warn, Instrument};
 

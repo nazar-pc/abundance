@@ -6812,6 +6812,7 @@ dependencies = [
  "sp-std",
  "subspace-core-primitives",
  "subspace-runtime-primitives",
+ "subspace-verification",
 ]
 
 [[package]]
@@ -10652,6 +10653,7 @@ dependencies = [
  "sp-std",
  "sp-timestamp",
  "subspace-core-primitives",
+ "subspace-verification",
  "thiserror 2.0.12",
 ]
 
@@ -11455,6 +11457,7 @@ dependencies = [
  "subspace-proof-of-space",
  "subspace-proof-of-space-gpu",
  "subspace-rpc-primitives",
+ "subspace-verification",
  "substrate-bip39",
  "tempfile",
  "thiserror 2.0.12",
@@ -11492,6 +11495,7 @@ dependencies = [
  "subspace-core-primitives",
  "subspace-data-retrieval",
  "subspace-proof-of-space",
+ "subspace-verification",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
@@ -11587,6 +11591,7 @@ dependencies = [
  "subspace-runtime",
  "subspace-runtime-primitives",
  "subspace-service",
+ "subspace-verification",
  "substrate-build-script-utils",
  "substrate-prometheus-endpoint",
  "tempfile",
@@ -11648,6 +11653,7 @@ dependencies = [
  "subspace-core-primitives",
  "subspace-farmer-components",
  "subspace-networking",
+ "subspace-verification",
 ]
 
 [[package]]
@@ -11766,6 +11772,7 @@ dependencies = [
  "subspace-networking",
  "subspace-proof-of-space",
  "subspace-runtime-primitives",
+ "subspace-verification",
  "substrate-prometheus-endpoint",
  "thiserror 2.0.12",
  "tokio",
@@ -11776,7 +11783,13 @@ dependencies = [
 name = "subspace-verification"
 version = "0.1.0"
 dependencies = [
+ "derive_more 1.0.0",
+ "hex",
+ "parity-scale-codec",
+ "scale-info",
  "schnorrkel",
+ "serde",
+ "serde-big-array",
  "subspace-core-primitives",
 ]
 

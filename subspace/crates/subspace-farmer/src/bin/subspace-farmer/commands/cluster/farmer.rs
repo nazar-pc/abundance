@@ -17,7 +17,6 @@ use std::num::NonZeroUsize;
 use std::pin::{pin, Pin};
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::sr25519::PublicKey;
 use subspace_farmer::cluster::controller::ClusterNodeClient;
 use subspace_farmer::cluster::farmer::farmer_service;
 use subspace_farmer::cluster::nats_client::NatsClient;
@@ -34,6 +33,7 @@ use subspace_farmer::utils::{
 };
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_proof_of_space::Table;
+use subspace_verification::sr25519::PublicKey;
 use tracing::{error, info, info_span, warn, Instrument};
 
 const FARM_ERROR_PRINT_INTERVAL: Duration = Duration::from_secs(30);

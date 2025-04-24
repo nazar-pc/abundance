@@ -12,7 +12,6 @@ use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use subspace_core_primitives::solutions::SolutionRange;
-use subspace_core_primitives::sr25519::PublicKey;
 use subspace_farmer_components::auditing::audit_plot_sync;
 use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use subspace_farmer_components::plotting::{
@@ -24,6 +23,7 @@ use subspace_farmer_components::sector::{
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_proof_of_space::chia::ChiaTable;
 use subspace_proof_of_space::Table;
+use subspace_verification::sr25519::PublicKey;
 
 type PosTable = ChiaTable;
 

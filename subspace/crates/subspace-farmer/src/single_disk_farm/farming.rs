@@ -26,7 +26,6 @@ use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::segments::{HistorySize, SegmentIndex};
 use subspace_core_primitives::solutions::{Solution, SolutionDistance};
-use subspace_core_primitives::sr25519::PublicKey;
 use subspace_farmer_components::auditing::{audit_plot_sync, AuditingError};
 use subspace_farmer_components::proving::{ProvableSolutions, ProvingError};
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
@@ -34,6 +33,7 @@ use subspace_farmer_components::sector::{SectorMetadata, SectorMetadataChecksumm
 use subspace_farmer_components::ReadAtSync;
 use subspace_proof_of_space::{Table, TableGenerator};
 use subspace_rpc_primitives::{SlotInfo, SolutionResponse};
+use subspace_verification::sr25519::PublicKey;
 use tracing::{debug, error, info, trace, warn, Span};
 
 /// How many non-fatal errors should happen in a row before farm is considered non-operational

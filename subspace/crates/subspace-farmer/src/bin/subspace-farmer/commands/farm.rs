@@ -19,7 +19,6 @@ use std::pin::pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::sr25519::PublicKey;
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farm::{PlottedSectors, SectorPlottingDetails, SectorUpdate};
@@ -52,6 +51,7 @@ use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_metrics::{start_prometheus_metrics_server, RegistryAdapter};
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_proof_of_space::Table;
+use subspace_verification::sr25519::PublicKey;
 use tracing::{error, info, info_span, warn, Instrument};
 
 /// Get piece retry attempts number.

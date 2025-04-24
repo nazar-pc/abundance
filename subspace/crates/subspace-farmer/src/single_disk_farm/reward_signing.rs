@@ -2,8 +2,8 @@ use crate::node_client::NodeClient;
 use crate::single_disk_farm::identity::Identity;
 use futures::StreamExt;
 use std::future::Future;
-use subspace_core_primitives::sr25519::{PublicKey, RewardSignature, Signature};
 use subspace_rpc_primitives::{RewardSignatureResponse, RewardSigningInfo};
+use subspace_verification::sr25519::{PublicKey, RewardSignature, Signature};
 use tracing::{info, warn};
 
 pub(super) async fn reward_signing<NC>(

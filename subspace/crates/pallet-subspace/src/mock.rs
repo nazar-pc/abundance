@@ -18,8 +18,8 @@ use subspace_core_primitives::segments::{
     ArchivedBlockProgress, HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex, SegmentRoot,
 };
 use subspace_core_primitives::solutions::{Solution, SolutionRange};
-use subspace_core_primitives::sr25519::PublicKey;
 use subspace_runtime_primitives::ConsensusEventSegmentSize;
+use subspace_verification::sr25519::PublicKey;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type Balance = u128;
