@@ -13,35 +13,35 @@ documentation = "https://docs.rs/sc-consensus-subspace"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-ab-erasure-coding.workspace = true
-async-trait.workspace = true
+ab-erasure-coding = { workspace = true }
+async-trait = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
-futures.workspace = true
-parking_lot.workspace = true
-rand.workspace = true
-rand_chacha.workspace = true
-rayon.workspace = true
-schnorrkel.workspace = true
-sc-client-api.workspace = true
-sc-consensus.workspace = true
-sc-consensus-slots.workspace = true
-sc-proof-of-time.workspace = true
-sc-telemetry.workspace = true
-sc-utils.workspace = true
-sp-api.workspace = true
-sp-blockchain.workspace = true
+futures = { workspace = true }
+parking_lot = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+rayon = { workspace = true }
+schnorrkel = { workspace = true }
+sc-client-api = { workspace = true }
+sc-consensus = { workspace = true }
+sc-consensus-slots = { workspace = true }
+sc-proof-of-time = { workspace = true }
+sc-telemetry = { workspace = true }
+sc-utils = { workspace = true }
+sp-api = { workspace = true }
+sp-blockchain = { workspace = true }
 sp-block-builder = { workspace = true, features = ["std"] }
-sp-consensus.workspace = true
+sp-consensus = { workspace = true }
 sp-consensus-subspace = { workspace = true, features = ["std"] }
-sp-consensus-slots.workspace = true
-sp-core.workspace = true
-sp-inherents.workspace = true
+sp-consensus-slots = { workspace = true }
+sp-core = { workspace = true }
+sp-inherents = { workspace = true }
 sp-objects = { workspace = true, features = ["std"] }
-sp-runtime.workspace = true
+sp-runtime = { workspace = true }
 subspace-archiving = { workspace = true, features = ["parallel"] }
-subspace-core-primitives.workspace = true
-subspace-proof-of-space.workspace = true
-subspace-verification.workspace = true
-thiserror.workspace = true
+subspace-core-primitives = { workspace = true }
+subspace-proof-of-space = { workspace = true }
+subspace-verification = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time"] }
-tracing.workspace = true
+tracing = { workspace = true }

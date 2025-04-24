@@ -19,10 +19,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 parity-scale-codec = { workspace = true, features = ["derive"] }
-frame-support.workspace = true
-frame-system.workspace = true
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
-subspace-runtime-primitives.workspace = true
+subspace-runtime-primitives = { workspace = true }
 
 [features]
 default = ["std"]

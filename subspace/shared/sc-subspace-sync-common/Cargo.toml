@@ -14,12 +14,12 @@ include = [
 ]
 
 [dependencies]
-array-bytes.workspace = true
-futures.workspace = true
-sc-client-api.workspace = true
-sc-consensus.workspace = true
-sc-network.workspace = true
-sc-network-sync.workspace = true
-sp-blockchain.workspace = true
-sp-runtime.workspace = true
-tracing.workspace = true
+array-bytes = { workspace = true }
+futures = { workspace = true }
+sc-client-api = { workspace = true }
+sc-consensus = { workspace = true }
+sc-network = { workspace = true }
+sc-network-sync = { workspace = true }
+sp-blockchain = { workspace = true }
+sp-runtime = { workspace = true }
+tracing = { workspace = true }

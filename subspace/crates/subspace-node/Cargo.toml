@@ -20,41 +20,41 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
-fdlimit.workspace = true
+fdlimit = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 frame-benchmarking-cli = { workspace = true, optional = true }
-frame-support.workspace = true
-futures.workspace = true
-hex-literal.workspace = true
-mimalloc.workspace = true
-prometheus-client.workspace = true
-sc-chain-spec.workspace = true
-sc-cli.workspace = true
-sc-consensus-slots.workspace = true
-sc-consensus-subspace.workspace = true
-sc-network.workspace = true
-sc-service.workspace = true
-sc-storage-monitor.workspace = true
-serde_json.workspace = true
-sp-core.workspace = true
-sp-runtime.workspace = true
-subspace-core-primitives.workspace = true
-subspace-metrics.workspace = true
-subspace-networking.workspace = true
-subspace-proof-of-space.workspace = true
-subspace-runtime.workspace = true
-subspace-runtime-primitives.workspace = true
-subspace-service.workspace = true
-substrate-prometheus-endpoint.workspace = true
-tempfile.workspace = true
-thiserror.workspace = true
+frame-support = { workspace = true }
+futures = { workspace = true }
+hex-literal = { workspace = true }
+mimalloc = { workspace = true }
+prometheus-client = { workspace = true }
+sc-chain-spec = { workspace = true }
+sc-cli = { workspace = true }
+sc-consensus-slots = { workspace = true }
+sc-consensus-subspace = { workspace = true }
+sc-network = { workspace = true }
+sc-service = { workspace = true }
+sc-storage-monitor = { workspace = true }
+serde_json = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+subspace-core-primitives = { workspace = true }
+subspace-metrics = { workspace = true }
+subspace-networking = { workspace = true }
+subspace-proof-of-space = { workspace = true }
+subspace-runtime = { workspace = true }
+subspace-runtime-primitives = { workspace = true }
+subspace-service = { workspace = true }
+substrate-prometheus-endpoint = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
-tracing.workspace = true
-subspace-logging.workspace = true
+tracing = { workspace = true }
+subspace-logging = { workspace = true }
 subspace-verification = { workspace = true }
 
 [build-dependencies]
-substrate-build-script-utils.workspace = true
+substrate-build-script-utils = { workspace = true }
 
 [features]
 default = []

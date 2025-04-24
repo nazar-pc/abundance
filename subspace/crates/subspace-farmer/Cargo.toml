@@ -16,61 +16,61 @@ name = "subspace-farmer"
 required-features = ["binary"]
 
 [dependencies]
-ab-erasure-coding.workspace = true
-anyhow.workspace = true
-async-lock.workspace = true
+ab-erasure-coding = { workspace = true }
+anyhow = { workspace = true }
+async-lock = { workspace = true }
 async-nats = { workspace = true, optional = true }
-async-trait.workspace = true
+async-trait = { workspace = true }
 backoff = { workspace = true, features = ["futures", "tokio"] }
-base58.workspace = true
-blake2.workspace = true
-blake3.workspace = true
-bytes.workspace = true
-bytesize.workspace = true
+base58 = { workspace = true }
+blake2 = { workspace = true }
+blake3 = { workspace = true }
+bytes = { workspace = true }
+bytesize = { workspace = true }
 clap = { workspace = true, features = ["derive"], optional = true }
 criterion = { workspace = true, features = ["rayon", "async"], optional = true }
 derive_more = { workspace = true, features = ["full"] }
-event-listener.workspace = true
-event-listener-primitives.workspace = true
+event-listener = { workspace = true }
+event-listener-primitives = { workspace = true }
 fdlimit = { workspace = true, optional = true }
-fs4.workspace = true
-futures.workspace = true
+fs4 = { workspace = true }
+futures = { workspace = true }
 hex = { workspace = true, features = ["serde"] }
 hwlocality = { workspace = true, features = ["vendored"], optional = true }
 jsonrpsee = { workspace = true, features = ["ws-client"] }
 mimalloc = { workspace = true, optional = true }
-num_cpus.workspace = true
-ouroboros.workspace = true
-parity-scale-codec.workspace = true
-parking_lot.workspace = true
-pin-project.workspace = true
-prometheus-client.workspace = true
-rand.workspace = true
-rayon.workspace = true
-schnorrkel.workspace = true
+num_cpus = { workspace = true }
+ouroboros = { workspace = true }
+parity-scale-codec = { workspace = true }
+parking_lot = { workspace = true }
+pin-project = { workspace = true }
+prometheus-client = { workspace = true }
+rand = { workspace = true }
+rayon = { workspace = true }
+schnorrkel = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
-static_assertions.workspace = true
-ss58-registry.workspace = true
-subspace-core-primitives.workspace = true
-subspace-data-retrieval.workspace = true
-subspace-farmer-components.workspace = true
+serde_json = { workspace = true }
+static_assertions = { workspace = true }
+ss58-registry = { workspace = true }
+subspace-core-primitives = { workspace = true }
+subspace-data-retrieval = { workspace = true }
+subspace-farmer-components = { workspace = true }
 subspace-logging = { workspace = true, optional = true }
 subspace-metrics = { workspace = true, optional = true }
-subspace-networking.workspace = true
-subspace-proof-of-space.workspace = true
+subspace-networking = { workspace = true }
+subspace-proof-of-space = { workspace = true }
 subspace-proof-of-space-gpu = { workspace = true, optional = true }
-subspace-rpc-primitives.workspace = true
+subspace-rpc-primitives = { workspace = true }
 subspace-verification = { workspace = true }
-substrate-bip39.workspace = true
-tempfile.workspace = true
-thiserror.workspace = true
-thread-priority.workspace = true
+substrate-bip39 = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+thread-priority = { workspace = true }
 tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = { workspace = true, features = ["sync"] }
-tracing.workspace = true
+tracing = { workspace = true }
 ulid = { workspace = true, features = ["serde"] }
-zeroize.workspace = true
+zeroize = { workspace = true }
 
 [features]
 default = ["default-library", "binary"]
