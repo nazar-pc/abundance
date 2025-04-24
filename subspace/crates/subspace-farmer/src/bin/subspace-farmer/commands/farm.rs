@@ -1,6 +1,7 @@
 use crate::commands::shared::network::{configure_network, NetworkArgs};
 use crate::commands::shared::{derive_libp2p_keypair, DiskFarm, PlottingThreadPriority};
 use crate::utils::shutdown_signal;
+use ab_erasure_coding::ErasureCoding;
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock, Semaphore};
 use backoff::ExponentialBackoff;
@@ -20,7 +21,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::PublicKey;
 use subspace_data_retrieval::piece_getter::PieceGetter;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farm::{PlottedSectors, SectorPlottingDetails, SectorUpdate};
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCaches};

@@ -1,10 +1,10 @@
+use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use subspace_core_primitives::pieces::{Piece, Record};
 use subspace_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
-use subspace_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 
 /// Reconstructor-related instantiation error
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]

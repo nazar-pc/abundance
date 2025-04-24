@@ -1,3 +1,4 @@
+use ab_erasure_coding::ErasureCoding;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use futures::executor::block_on;
 use rand::prelude::*;
@@ -6,7 +7,6 @@ use std::num::NonZeroU64;
 use subspace_archiving::archiver::Archiver;
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use subspace_core_primitives::PublicKey;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::plotting::{plot_sector, CpuRecordsEncoder, PlotSectorOptions};
 use subspace_farmer_components::sector::sector_size;
 use subspace_farmer_components::FarmerProtocolInfo;

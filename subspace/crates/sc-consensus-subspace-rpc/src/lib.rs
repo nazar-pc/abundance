@@ -2,6 +2,7 @@
 
 #![feature(try_blocks)]
 
+use ab_erasure_coding::ErasureCoding;
 use futures::channel::mpsc;
 use futures::{future, FutureExt, StreamExt};
 use jsonrpsee::core::async_trait;
@@ -40,7 +41,6 @@ use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
 use subspace_core_primitives::solutions::Solution;
 use subspace_core_primitives::{BlockHash, SlotNumber};
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_rpc_primitives::{

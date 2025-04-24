@@ -1,3 +1,4 @@
+use ab_erasure_coding::ErasureCoding;
 use parity_scale_codec::{Compact, CompactLen, Decode, Encode};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -14,7 +15,6 @@ use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
     SegmentHeader, SegmentIndex, SegmentRoot,
 };
-use subspace_erasure_coding::ErasureCoding;
 
 fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
     let offset: u32 = offset.into();

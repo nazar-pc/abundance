@@ -1,3 +1,4 @@
+use ab_erasure_coding::ErasureCoding;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::assert_matches::assert_matches;
@@ -10,7 +11,6 @@ use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
     SegmentIndex,
 };
-use subspace_erasure_coding::ErasureCoding;
 
 fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
     pieces.pieces().map(Some).collect()

@@ -40,6 +40,7 @@ use crate::single_disk_farm::plotting::{
 use crate::single_disk_farm::reward_signing::reward_signing;
 use crate::utils::{tokio_rayon_spawn_handler, AsyncJoinOnDrop};
 use crate::{farm, KNOWN_PEERS_CACHE_SIZE};
+use ab_erasure_coding::ErasureCoding;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use async_trait::async_trait;
 use event_listener_primitives::{Bag, HandlerId};
@@ -70,7 +71,6 @@ use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::segments::{HistorySize, SegmentIndex};
 use subspace_core_primitives::PublicKey;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::file_ext::FileExt;
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{sector_size, SectorMetadata, SectorMetadataChecksummed};

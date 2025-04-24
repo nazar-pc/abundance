@@ -13,6 +13,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-erasure-coding"
+version = "0.1.0"
+dependencies = [
+ "reed-solomon-simd",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "ab-merkle-tree"
 version = "0.0.1"
 dependencies = [
@@ -8907,6 +8915,7 @@ dependencies = [
 name = "sc-consensus-subspace"
 version = "0.1.0"
 dependencies = [
+ "ab-erasure-coding",
  "async-trait",
  "futures",
  "parity-scale-codec",
@@ -8933,7 +8942,6 @@ dependencies = [
  "sp-runtime",
  "subspace-archiving",
  "subspace-core-primitives",
- "subspace-erasure-coding",
  "subspace-proof-of-space",
  "subspace-verification",
  "thiserror 2.0.12",
@@ -8945,6 +8953,7 @@ dependencies = [
 name = "sc-consensus-subspace-rpc"
 version = "0.1.0"
 dependencies = [
+ "ab-erasure-coding",
  "async-oneshot",
  "futures",
  "futures-timer",
@@ -8966,7 +8975,6 @@ dependencies = [
  "sp-runtime",
  "subspace-archiving",
  "subspace-core-primitives",
- "subspace-erasure-coding",
  "subspace-farmer-components",
  "subspace-networking",
  "subspace-rpc-primitives",
@@ -11347,6 +11355,7 @@ dependencies = [
 name = "subspace-archiving"
 version = "0.1.0"
 dependencies = [
+ "ab-erasure-coding",
  "ab-merkle-tree",
  "criterion",
  "parity-scale-codec",
@@ -11355,7 +11364,6 @@ dependencies = [
  "rayon",
  "serde",
  "subspace-core-primitives",
- "subspace-erasure-coding",
  "thiserror 2.0.12",
 ]
 
@@ -11384,6 +11392,7 @@ dependencies = [
 name = "subspace-data-retrieval"
 version = "0.1.0"
 dependencies = [
+ "ab-erasure-coding",
  "anyhow",
  "async-trait",
  "futures",
@@ -11392,7 +11401,6 @@ dependencies = [
  "rand 0.8.5",
  "subspace-archiving",
  "subspace-core-primitives",
- "subspace-erasure-coding",
  "subspace-logging",
  "subspace-runtime-primitives",
  "thiserror 2.0.12",
@@ -11401,19 +11409,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "subspace-erasure-coding"
-version = "0.1.0"
-dependencies = [
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "reed-solomon-simd",
- "thiserror 2.0.12",
-]
-
-[[package]]
 name = "subspace-farmer"
 version = "0.1.0"
 dependencies = [
+ "ab-erasure-coding",
  "anyhow",
  "async-lock 3.4.0",
  "async-nats",
@@ -11451,7 +11450,6 @@ dependencies = [
  "static_assertions",
  "subspace-core-primitives",
  "subspace-data-retrieval",
- "subspace-erasure-coding",
  "subspace-farmer-components",
  "subspace-logging",
  "subspace-metrics",
@@ -11474,6 +11472,7 @@ dependencies = [
 name = "subspace-farmer-components"
 version = "0.1.0"
 dependencies = [
+ "ab-erasure-coding",
  "ab-merkle-tree",
  "anyhow",
  "async-lock 3.4.0",
@@ -11494,7 +11493,6 @@ dependencies = [
  "subspace-archiving",
  "subspace-core-primitives",
  "subspace-data-retrieval",
- "subspace-erasure-coding",
  "subspace-proof-of-space",
  "thiserror 2.0.12",
  "tokio",
@@ -11620,12 +11618,12 @@ dependencies = [
 name = "subspace-proof-of-space-gpu"
 version = "0.1.0"
 dependencies = [
+ "ab-erasure-coding",
  "blst",
  "cc",
  "rust-kzg-blst",
  "sppark",
  "subspace-core-primitives",
- "subspace-erasure-coding",
  "subspace-farmer-components",
  "subspace-proof-of-space",
 ]
@@ -11717,6 +11715,7 @@ dependencies = [
 name = "subspace-service"
 version = "0.1.0"
 dependencies = [
+ "ab-erasure-coding",
  "anyhow",
  "async-lock 3.4.0",
  "async-trait",
@@ -11766,7 +11765,6 @@ dependencies = [
  "subspace-archiving",
  "subspace-core-primitives",
  "subspace-data-retrieval",
- "subspace-erasure-coding",
  "subspace-networking",
  "subspace-proof-of-space",
  "subspace-runtime-primitives",

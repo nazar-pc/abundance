@@ -16,6 +16,7 @@ name = "subspace-farmer"
 required-features = ["binary"]
 
 [dependencies]
+ab-erasure-coding.workspace = true
 anyhow.workspace = true
 async-lock.workspace = true
 async-nats = { workspace = true, optional = true }
@@ -53,7 +54,6 @@ static_assertions.workspace = true
 ss58-registry.workspace = true
 subspace-core-primitives.workspace = true
 subspace-data-retrieval.workspace = true
-subspace-erasure-coding.workspace = true
 subspace-farmer-components.workspace = true
 subspace-logging = { workspace = true, optional = true }
 subspace-metrics = { workspace = true, optional = true }

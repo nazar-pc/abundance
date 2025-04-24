@@ -1,3 +1,4 @@
+use ab_erasure_coding::ErasureCoding;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 #[cfg(feature = "parallel")]
@@ -7,7 +8,6 @@ use subspace_archiving::piece_reconstructor::{PiecesReconstructor, Reconstructor
 use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::{FlatPieces, Piece};
 use subspace_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
-use subspace_erasure_coding::ErasureCoding;
 
 fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
     pieces.pieces().map(Some).collect()

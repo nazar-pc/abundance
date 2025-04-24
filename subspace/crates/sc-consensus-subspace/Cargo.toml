@@ -13,6 +13,7 @@ documentation = "https://docs.rs/sc-consensus-subspace"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+ab-erasure-coding.workspace = true
 async-trait.workspace = true
 parity-scale-codec = { workspace = true, features = ["derive"] }
 futures.workspace = true
@@ -39,7 +40,6 @@ sp-objects = { workspace = true, features = ["std"] }
 sp-runtime.workspace = true
 subspace-archiving = { workspace = true, features = ["parallel"] }
 subspace-core-primitives.workspace = true
-subspace-erasure-coding.workspace = true
 subspace-proof-of-space.workspace = true
 subspace-verification.workspace = true
 thiserror.workspace = true

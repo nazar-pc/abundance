@@ -1,3 +1,4 @@
+use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
@@ -13,7 +14,6 @@ use subspace_core_primitives::segments::{
     SegmentHeader, SegmentIndex, SegmentRoot,
 };
 use subspace_core_primitives::BlockNumber;
-use subspace_erasure_coding::ErasureCoding;
 
 const INITIAL_LAST_ARCHIVED_BLOCK: LastArchivedBlock = LastArchivedBlock {
     number: 0,

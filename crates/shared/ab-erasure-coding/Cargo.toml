@@ -1,22 +1,28 @@
 [package]
-name = "subspace-erasure-coding"
-description = "Polynomial erasure coding implementation used in Subspace Network"
+name = "ab-erasure-coding"
+description = "Erasure coding implementation"
 license = "0BSD"
 version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
-edition = "2021"
+edition = "2024"
 include = [
     "/src",
     "/Cargo.toml",
 ]
+
+[package.metadata.docs.rs]
+all-features = true
 
 # TODO: Benches
 
 [dependencies]
 # TODO: This is not actually `no_std` compatible yet, see https://github.com/AndersTrier/reed-solomon-simd/pull/63
 reed-solomon-simd = { workspace = true }
-thiserror = { version = "2.0.12", default-features = false }
+thiserror = { workspace = true, default-features = false }
 
 [dev-dependencies]
 rand_core = { workspace = true }
 rand_chacha = { workspace = true }
+
+[lints]
+workspace = true

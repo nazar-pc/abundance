@@ -11,6 +11,7 @@ use crate::farm::{
 use crate::node_client::NodeClient;
 use crate::single_disk_farm::metrics::SingleDiskFarmMetrics;
 use crate::single_disk_farm::Handlers;
+use ab_erasure_coding::ErasureCoding;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use futures::channel::mpsc;
 use futures::StreamExt;
@@ -26,7 +27,6 @@ use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::segments::{HistorySize, SegmentIndex};
 use subspace_core_primitives::solutions::{Solution, SolutionDistance};
 use subspace_core_primitives::PublicKey;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::auditing::{audit_plot_sync, AuditingError};
 use subspace_farmer_components::proving::{ProvableSolutions, ProvingError};
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;

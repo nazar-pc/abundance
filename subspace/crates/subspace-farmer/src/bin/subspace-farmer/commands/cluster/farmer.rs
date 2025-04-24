@@ -1,6 +1,7 @@
 //! Metrics specific for single disk farm
 
 use crate::commands::shared::DiskFarm;
+use ab_erasure_coding::ErasureCoding;
 use anyhow::anyhow;
 use async_lock::Mutex as AsyncMutex;
 use backoff::ExponentialBackoff;
@@ -17,7 +18,6 @@ use std::pin::{pin, Pin};
 use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::PublicKey;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::cluster::controller::ClusterNodeClient;
 use subspace_farmer::cluster::farmer::farmer_service;
 use subspace_farmer::cluster::nats_client::NatsClient;

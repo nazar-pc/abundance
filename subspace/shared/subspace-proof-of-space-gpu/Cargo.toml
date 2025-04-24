@@ -22,7 +22,7 @@ sppark = { workspace = true, optional = true }
 subspace-core-primitives = { workspace = true, optional = true }
 
 [dev-dependencies]
-subspace-erasure-coding.workspace = true
+ab-erasure-coding.workspace = true
 subspace-farmer-components.workspace = true
 subspace-proof-of-space.workspace = true
 

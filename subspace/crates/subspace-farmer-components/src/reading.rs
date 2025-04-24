@@ -9,6 +9,7 @@ use crate::sector::{
     SectorMetadataChecksummed,
 };
 use crate::{ReadAt, ReadAtAsync, ReadAtSync};
+use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use parity_scale_codec::Decode;
@@ -20,7 +21,6 @@ use std::{fmt, io};
 use subspace_core_primitives::hashes::blake3_hash;
 use subspace_core_primitives::pieces::{Piece, PieceOffset, Record, RecordChunk};
 use subspace_core_primitives::sectors::{SBucket, SectorId};
-use subspace_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use subspace_proof_of_space::{Table, TableGenerator};
 use thiserror::Error;
 use tracing::debug;

@@ -1,3 +1,4 @@
+use ab_erasure_coding::ErasureCoding;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use futures::executor::block_on;
 use futures::FutureExt;
@@ -12,7 +13,6 @@ use subspace_core_primitives::pieces::PieceOffset;
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use subspace_core_primitives::PublicKey;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use subspace_farmer_components::plotting::{
     plot_sector, CpuRecordsEncoder, PlotSectorOptions, PlottedSector,

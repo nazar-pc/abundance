@@ -1,9 +1,9 @@
+use ab_erasure_coding::ErasureCoding;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use subspace_archiving::archiver::Archiver;
 use subspace_core_primitives::segments::RecordedHistorySegment;
-use subspace_erasure_coding::ErasureCoding;
 
 const AMOUNT_OF_DATA: usize = RecordedHistorySegment::SIZE;
 const SMALL_BLOCK_SIZE: usize = 500;

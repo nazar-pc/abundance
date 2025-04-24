@@ -11,6 +11,7 @@ use crate::plotter::gpu::gpu_encoders_manager::GpuRecordsEncoderManager;
 use crate::plotter::gpu::metrics::GpuPlotterMetrics;
 use crate::plotter::{Plotter, SectorPlottingProgress};
 use crate::utils::AsyncJoinOnDrop;
+use ab_erasure_coding::ErasureCoding;
 use async_lock::{Mutex as AsyncMutex, Semaphore, SemaphoreGuardArc};
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -31,7 +32,6 @@ use std::time::Instant;
 use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::PublicKey;
 use subspace_data_retrieval::piece_getter::PieceGetter;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::plotting::{
     download_sector, encode_sector, write_sector, DownloadSectorOptions, EncodeSectorOptions,
     PlottingError, RecordsEncoder,

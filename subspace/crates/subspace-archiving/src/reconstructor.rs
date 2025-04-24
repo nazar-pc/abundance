@@ -1,4 +1,5 @@
 use crate::archiver::{Segment, SegmentItem};
+use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use alloc::vec::Vec;
 use core::mem;
 use parity_scale_codec::Decode;
@@ -8,7 +9,6 @@ use subspace_core_primitives::segments::{
     SegmentHeader, SegmentIndex,
 };
 use subspace_core_primitives::BlockNumber;
-use subspace_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 
 /// Reconstructor-related instantiation error
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]

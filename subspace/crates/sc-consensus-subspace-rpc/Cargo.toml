@@ -13,6 +13,7 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+ab-erasure-coding.workspace = true
 async-oneshot.workspace = true
 futures.workspace = true
 futures-timer.workspace = true
@@ -34,7 +35,6 @@ sp-objects.workspace = true
 sp-runtime.workspace = true
 subspace-archiving.workspace = true
 subspace-core-primitives.workspace = true
-subspace-erasure-coding.workspace = true
 subspace-farmer-components.workspace = true
 subspace-networking.workspace = true
 subspace-rpc-primitives.workspace = true

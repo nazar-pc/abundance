@@ -1,12 +1,12 @@
 #![feature(assert_matches, trusted_len)]
 
+use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use reed_solomon_simd::Error;
 use std::assert_matches::assert_matches;
 use std::iter::TrustedLen;
 use std::ops::Range;
-use subspace_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 
 fn corrupt_shards<'a, Iter>(
     iter: Iter,
@@ -27,9 +27,15 @@ where
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn basic_data() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
-    let num_shards = 2usize.pow(8);
+    let num_shards = 2usize.pow(if cfg!(miri) {
+        // Miri is very slow, use less data for it
+        3
+    } else {
+        8
+    });
     let ec = ErasureCoding::new();
 
     let source_shards = (0..num_shards / 2)

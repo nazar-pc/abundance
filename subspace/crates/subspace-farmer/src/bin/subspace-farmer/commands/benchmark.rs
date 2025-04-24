@@ -1,4 +1,5 @@
 use crate::PosTable;
+use ab_erasure_coding::ErasureCoding;
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use criterion::{black_box, BatchSize, Criterion, Throughput};
@@ -10,7 +11,6 @@ use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::solutions::SolutionRange;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::single_disk_farm::direct_io_file::DirectIoFile;
 use subspace_farmer::single_disk_farm::farming::rayon_files::RayonFiles;
 use subspace_farmer::single_disk_farm::farming::{PlotAudit, PlotAuditOptions};
