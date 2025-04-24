@@ -2,7 +2,7 @@
 
 use crate::hashes::{blake3_hash, blake3_hash_list, Blake3Hash};
 use crate::pieces::RecordChunk;
-use crate::Randomness;
+use crate::SlotNumber;
 use core::fmt;
 use core::num::NonZeroU8;
 use core::str::FromStr;
@@ -22,7 +22,7 @@ use serde::{Deserializer, Serializer};
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
-pub struct PotKey([u8; Self::SIZE]);
+pub struct PotKey([u8; PotKey::SIZE]);
 
 impl fmt::Debug for PotKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -105,7 +105,7 @@ impl PotKey {
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
-pub struct PotSeed([u8; Self::SIZE]);
+pub struct PotSeed([u8; PotSeed::SIZE]);
 
 impl fmt::Debug for PotSeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -193,7 +193,7 @@ impl PotSeed {
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
-pub struct PotOutput([u8; Self::SIZE]);
+pub struct PotOutput([u8; PotOutput::SIZE]);
 
 impl fmt::Debug for PotOutput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -257,11 +257,10 @@ impl PotOutput {
     /// Size of proof of time proof in bytes
     pub const SIZE: usize = 16;
 
-    // TODO: The seed is only 128-bits, should it be made larger somehow?
-    /// Derives the global randomness from the output
+    /// Derives the global challenge from the output and slot
     #[inline]
-    pub fn derive_global_randomness(&self) -> Randomness {
-        Randomness::from(*blake3_hash(&self.0))
+    pub fn derive_global_challenge(&self, slot: SlotNumber) -> Blake3Hash {
+        blake3_hash_list(&[&self.0, &slot.to_le_bytes()])
     }
 
     /// Derive seed from proof of time in case entropy injection is not needed
@@ -292,7 +291,7 @@ impl PotOutput {
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
-pub struct PotCheckpoints([PotOutput; Self::NUM_CHECKPOINTS.get() as usize]);
+pub struct PotCheckpoints([PotOutput; PotCheckpoints::NUM_CHECKPOINTS.get() as usize]);
 
 impl PotCheckpoints {
     /// Number of PoT checkpoints produced (used to optimize verification)

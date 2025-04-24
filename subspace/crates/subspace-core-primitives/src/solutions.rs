@@ -491,8 +491,7 @@ impl Solution {
 
         let sector_id = SectorId::new(&self.public_key_hash, self.sector_index, self.history_size);
 
-        let global_randomness = proof_of_time.derive_global_randomness();
-        let global_challenge = global_randomness.derive_global_challenge(slot);
+        let global_challenge = proof_of_time.derive_global_challenge(slot);
         let sector_slot_challenge = sector_id.derive_sector_slot_challenge(&global_challenge);
         let s_bucket_audit_index = sector_slot_challenge.s_bucket_audit_index();
 

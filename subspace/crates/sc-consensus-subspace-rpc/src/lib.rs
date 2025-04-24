@@ -410,7 +410,6 @@ where
 
             let global_challenge = new_slot_info
                 .proof_of_time
-                .derive_global_randomness()
                 .derive_global_challenge(slot_number);
 
             // This will be sent to the farmer
