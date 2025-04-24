@@ -9,7 +9,7 @@ use std::num::NonZeroU64;
 use std::{env, fs, slice};
 use subspace_archiving::archiver::Archiver;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::sectors::SectorId;
+use subspace_core_primitives::sectors::{SectorId, SectorIndex};
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use subspace_core_primitives::solutions::SolutionRange;
 use subspace_farmer_components::auditing::audit_plot_sync;
@@ -46,7 +46,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let public_key = &PublicKey::default();
     let public_key_hash = &public_key.hash();
-    let sector_index = 0;
+    let sector_index = SectorIndex::ZERO;
     let mut input = RecordedHistorySegment::new_boxed();
     StdRng::seed_from_u64(42).fill(AsMut::<[u8]>::as_mut(input.as_mut()));
     let erasure_coding = ErasureCoding::new();

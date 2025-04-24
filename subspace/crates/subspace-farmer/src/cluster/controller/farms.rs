@@ -23,7 +23,6 @@ use std::mem;
 use std::pin::pin;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use subspace_core_primitives::sectors::SectorIndex;
 use tokio::sync::broadcast;
 use tokio::task;
 use tokio::time::MissedTickBehavior;
@@ -405,7 +404,7 @@ async fn collect_farmer_farms(
 async fn initialize_farm(
     farm_index: FarmIndex,
     farm_id: FarmId,
-    total_sectors_count: SectorIndex,
+    total_sectors_count: u16,
     plotted_pieces: Arc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     nats_client: &NatsClient,
 ) -> anyhow::Result<ClusterFarm> {

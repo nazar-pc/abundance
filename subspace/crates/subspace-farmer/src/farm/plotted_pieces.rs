@@ -96,7 +96,7 @@ where
                         %error,
                         %piece_index,
                         farm_index = ?piece_details.farm_index,
-                        sector_index = piece_details.sector_index,
+                        sector_index = %piece_details.sector_index,
                         "Failed to retrieve piece"
                     );
                     None

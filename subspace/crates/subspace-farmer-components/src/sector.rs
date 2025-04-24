@@ -124,7 +124,7 @@ impl SectorMetadataChecksummed {
     #[inline]
     pub fn encoded_size() -> usize {
         let default = SectorMetadataChecksummed::from(SectorMetadata {
-            sector_index: 0,
+            sector_index: SectorIndex::ZERO,
             pieces_in_sector: 0,
             // TODO: Should have been just `::new()`, but https://github.com/rust-lang/rust/issues/53827
             // SAFETY: Data structure filled with zeroes is a valid invariant

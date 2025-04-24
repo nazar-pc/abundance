@@ -303,7 +303,7 @@ where
                 handlers
                     .farming_notification
                     .call_simple(&FarmingNotification::Auditing(AuditingDetails {
-                        sectors_count: sectors_metadata.len() as SectorIndex,
+                        sectors_count: sectors_metadata.len() as u16,
                         time,
                     }));
             }
@@ -440,7 +440,7 @@ where
                 if let Some(existing_sector_metadata) = sectors_metadata
                     .write()
                     .await
-                    .get_mut(sector_index as usize)
+                    .get_mut(usize::from(sector_index))
                 {
                     *existing_sector_metadata = SectorMetadataChecksummed::from(SectorMetadata {
                         sector_index,

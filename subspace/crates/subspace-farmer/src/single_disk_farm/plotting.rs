@@ -234,7 +234,8 @@ async fn process_plotting_result(
     {
         let mut sectors_metadata = sectors_metadata.write().await;
         // If exists then we're replotting, otherwise we create sector for the first time
-        if let Some(existing_sector_metadata) = sectors_metadata.get_mut(sector_index as usize) {
+        if let Some(existing_sector_metadata) = sectors_metadata.get_mut(usize::from(sector_index))
+        {
             *existing_sector_metadata = sector_metadata;
         } else {
             sectors_metadata.push(sector_metadata);
@@ -244,8 +245,8 @@ async fn process_plotting_result(
     // Inform others that this sector is no longer being modified
     sectors_being_modified.write().await.remove(&sector_index);
 
-    if sector_index + 1 > metadata_header.plotted_sector_count {
-        metadata_header.plotted_sector_count = sector_index + 1;
+    if u16::from(sector_index) + 1 > metadata_header.plotted_sector_count {
+        metadata_header.plotted_sector_count = u16::from(sector_index) + 1;
 
         let encoded_metadata_header = metadata_header.encode();
         let write_fut =
@@ -328,7 +329,7 @@ where
     let maybe_old_sector_metadata = sectors_metadata
         .read()
         .await
-        .get(sector_index as usize)
+        .get(usize::from(sector_index))
         .cloned();
     let replotting = maybe_old_sector_metadata.is_some();
 
@@ -694,7 +695,7 @@ async fn plot_single_sector_internal(
 pub(super) struct PlottingSchedulerOptions<NC> {
     pub(super) public_key_hash: Blake3Hash,
     pub(super) sectors_indices_left_to_plot: Range<SectorIndex>,
-    pub(super) target_sector_count: SectorIndex,
+    pub(super) target_sector_count: u16,
     pub(super) last_archived_segment_index: SegmentIndex,
     pub(super) min_sector_lifetime: HistorySize,
     pub(super) node_client: NC,
@@ -821,7 +822,7 @@ struct SectorToReplot {
 async fn send_plotting_notifications<NC>(
     public_key_hash: Blake3Hash,
     sectors_indices_left_to_plot: Range<SectorIndex>,
-    target_sector_count: SectorIndex,
+    target_sector_count: u16,
     min_sector_lifetime: HistorySize,
     node_client: &NC,
     handlers: &Handlers,
@@ -839,8 +840,8 @@ where
         if let Err(error) = sectors_to_plot_sender
             .send(SectorToPlot {
                 sector_index,
-                progress: sector_index as f32 / target_sector_count as f32 * 100.0,
-                last_queued: sector_index + 1 == target_sector_count,
+                progress: u16::from(sector_index) as f32 / target_sector_count as f32 * 100.0,
+                last_queued: u16::from(sector_index) + 1 == target_sector_count,
                 acknowledgement_sender,
             })
             .await

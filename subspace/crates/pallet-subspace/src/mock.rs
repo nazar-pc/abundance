@@ -14,6 +14,7 @@ use std::num::NonZeroU32;
 use std::sync::Once;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::PieceOffset;
+use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex, SegmentRoot,
 };
@@ -99,7 +100,7 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: u64) {
         slot.into(),
         Solution {
             public_key_hash: PublicKey::from(keypair.public.to_bytes()).hash(),
-            sector_index: 0,
+            sector_index: SectorIndex::ZERO,
             history_size: HistorySize::from(SegmentIndex::ZERO),
             piece_offset: PieceOffset::default(),
             record_root: Default::default(),

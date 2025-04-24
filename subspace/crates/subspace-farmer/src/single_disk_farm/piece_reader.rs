@@ -146,9 +146,9 @@ async fn read_pieces<PosTable, S>(
         let (sector_metadata, sector_count) = {
             let sectors_metadata = sectors_metadata.read().await;
 
-            let sector_count = sectors_metadata.len() as SectorIndex;
+            let sector_count = sectors_metadata.len() as u16;
 
-            let sector_metadata = match sectors_metadata.get(sector_index as usize) {
+            let sector_metadata = match sectors_metadata.get(usize::from(sector_index)) {
                 Some(sector_metadata) => sector_metadata.clone(),
                 None => {
                     error!(
@@ -164,7 +164,7 @@ async fn read_pieces<PosTable, S>(
         };
 
         // Sector must be plotted
-        if sector_index >= sector_count {
+        if u16::from(sector_index) >= sector_count {
             warn!(
                 %sector_index,
                 %piece_offset,

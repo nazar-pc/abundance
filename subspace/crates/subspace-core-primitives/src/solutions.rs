@@ -463,7 +463,7 @@ impl Solution {
     pub fn genesis_solution() -> Self {
         Self {
             public_key_hash: Blake3Hash::default(),
-            sector_index: 0,
+            sector_index: SectorIndex::ZERO,
             history_size: HistorySize::from(SegmentIndex::ZERO),
             piece_offset: PieceOffset::default(),
             record_root: RecordRoot::default(),
