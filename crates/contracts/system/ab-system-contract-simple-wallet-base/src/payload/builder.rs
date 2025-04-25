@@ -132,7 +132,7 @@ impl TransactionPayloadBuilder {
             ..
         } = method_metadata_item;
         let number_of_arguments =
-            num_arguments.saturating_add(method_kind.has_self().then_some(1).unwrap_or_default());
+            num_arguments.saturating_add(if method_kind.has_self() { 1 } else { 0 });
 
         if number_of_arguments > MAX_TOTAL_METHOD_ARGS {
             return Err(TransactionPayloadBuilderError::TooManyArguments(

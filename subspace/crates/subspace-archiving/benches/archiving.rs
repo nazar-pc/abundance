@@ -1,5 +1,5 @@
 use ab_erasure_coding::ErasureCoding;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use subspace_archiving::archiver::Archiver;

@@ -1,9 +1,9 @@
 use frame_support::traits::Get;
 use sc_service::Properties;
 use sp_core::crypto::AccountId32;
-use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::IdentifyAccount;
+use sp_core::{Pair, Public, sr25519};
 use sp_runtime::MultiSigner;
+use sp_runtime::traits::IdentifyAccount;
 use subspace_runtime::SS58Prefix;
 use subspace_runtime_primitives::DECIMAL_PLACES;
 

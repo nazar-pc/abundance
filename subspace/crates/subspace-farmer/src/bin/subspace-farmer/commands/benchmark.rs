@@ -117,7 +117,7 @@ fn audit(audit_options: AuditOptions) -> anyhow::Result<()> {
             SingleDiskFarmSummary::NotFound { directory } => {
                 return Err(anyhow!(
                     "No single disk farm info found, make sure {} is a valid path to the farm and \
-                    process have permissions to access it",
+                process have permissions to access it",
                     directory.display()
                 ));
             }
@@ -280,7 +280,7 @@ fn prove(prove_options: ProveOptions) -> anyhow::Result<()> {
             SingleDiskFarmSummary::NotFound { directory } => {
                 return Err(anyhow!(
                     "No single disk farm info found, make sure {} is a valid path to the farm and \
-                    process have permissions to access it",
+                process have permissions to access it",
                     directory.display()
                 ));
             }

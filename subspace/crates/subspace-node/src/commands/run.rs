@@ -2,9 +2,9 @@ mod consensus;
 mod shared;
 
 use crate::commands::run::consensus::{
-    create_consensus_chain_configuration, ConsensusChainConfiguration, ConsensusChainOptions,
+    ConsensusChainConfiguration, ConsensusChainOptions, create_consensus_chain_configuration,
 };
-use crate::{set_default_ss58_version, Error, PosTable};
+use crate::{Error, PosTable, set_default_ss58_version};
 use clap::Parser;
 use futures::FutureExt;
 use sc_cli::Signals;
@@ -12,7 +12,7 @@ use sc_consensus_slots::SlotProportion;
 use sc_storage_monitor::StorageMonitorService;
 use std::env;
 use subspace_logging::init_logger;
-use subspace_metrics::{start_prometheus_metrics_server, RegistryAdapter};
+use subspace_metrics::{RegistryAdapter, start_prometheus_metrics_server};
 use subspace_runtime::RuntimeApi;
 use subspace_service::config::ChainSyncMode;
 use tracing::{debug, info, info_span, warn};

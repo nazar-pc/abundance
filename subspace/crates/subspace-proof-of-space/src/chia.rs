@@ -1,9 +1,9 @@
 //! Chia proof of space implementation
+#[cfg(feature = "alloc")]
+use crate::TableGenerator;
 use crate::chiapos::Tables;
 #[cfg(feature = "alloc")]
 use crate::chiapos::TablesCache;
-#[cfg(feature = "alloc")]
-use crate::TableGenerator;
 use crate::{PosTableType, Table};
 use core::mem;
 use subspace_core_primitives::pos::{PosProof, PosSeed};
@@ -76,12 +76,10 @@ impl Table for ChiaTable {
         let mut challenge = [0; 32];
         challenge[..mem::size_of::<u32>()].copy_from_slice(&challenge_index.to_le_bytes());
 
-        let proof = self
-            .tables
+        self.tables
             .find_proof(&challenge)
             .next()
-            .map(PosProof::from);
-        proof
+            .map(PosProof::from)
     }
 
     fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {

@@ -5,7 +5,7 @@ mod nano_u256;
 mod tests;
 
 use crate::hashes::{
-    blake3_hash_list, blake3_hash_list_with_key, blake3_hash_with_key, Blake3Hash,
+    Blake3Hash, blake3_hash_list, blake3_hash_list_with_key, blake3_hash_with_key,
 };
 use crate::pieces::{PieceIndex, PieceOffset, Record};
 use crate::pos::PosSeed;

@@ -114,9 +114,10 @@ pub enum Error {
 
     /// Supplied piece offset is inside the minimum segment header size
     #[error(
-            "Piece offset is inside the segment header, min size of segment header: {}, object: {mapping:?}",
-            min_segment_header_encoded_size(),
-        )]
+        "Piece offset is inside the segment header, min size of segment header: {}, object: \
+        {mapping:?}",
+        min_segment_header_encoded_size()
+    )]
     PieceOffsetInSegmentHeader { mapping: GlobalObject },
 
     /// Segment decoding error

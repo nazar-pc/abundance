@@ -1,21 +1,21 @@
 //! Consensus extension module tests for Subspace consensus.
 
 use crate::mock::{
-    create_segment_header, go_to_block, new_test_ext, progress_to_block, RuntimeEvent,
-    RuntimeOrigin, Subspace, System, Test, INITIAL_SOLUTION_RANGE, SLOT_PROBABILITY,
+    INITIAL_SOLUTION_RANGE, RuntimeEvent, RuntimeOrigin, SLOT_PROBABILITY, Subspace, System, Test,
+    create_segment_header, go_to_block, new_test_ext, progress_to_block,
 };
 use crate::{
-    pallet, AllowAuthoringByAnyone, Call, Config, PotSlotIterations, PotSlotIterationsValue,
+    AllowAuthoringByAnyone, Call, Config, PotSlotIterations, PotSlotIterationsValue, pallet,
 };
 use frame_support::{assert_err, assert_ok};
 use frame_system::{EventRecord, Phase};
 use schnorrkel::Keypair;
 use sp_consensus_subspace::SolutionRanges;
+use sp_runtime::DispatchError;
 use sp_runtime::traits::BlockNumberProvider;
 use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionPriority, TransactionSource, ValidTransaction,
 };
-use sp_runtime::DispatchError;
 use std::assert_matches::assert_matches;
 use std::num::NonZeroU32;
 use subspace_core_primitives::pot::SlotNumber;
@@ -299,13 +299,15 @@ fn allow_authoring_by_anyone_works() {
             frame_system::Pallet::<Test>::current_block_number() + 1,
         );
         // However authoring with a different public key panics (client error)
-        assert!(std::panic::catch_unwind(|| {
-            progress_to_block(
-                &keypair2,
-                frame_system::Pallet::<Test>::current_block_number() + 1,
-            );
-        })
-        .is_err());
+        assert!(
+            std::panic::catch_unwind(|| {
+                progress_to_block(
+                    &keypair2,
+                    frame_system::Pallet::<Test>::current_block_number() + 1,
+                );
+            })
+            .is_err()
+        );
 
         // Unlock authoring by anyone
         assert_err!(

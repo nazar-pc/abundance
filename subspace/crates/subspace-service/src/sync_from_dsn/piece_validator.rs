@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use sc_client_api::AuxStore;
 use sc_consensus_subspace::archiver::SegmentHeadersStore;
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
+use subspace_networking::Node;
 use subspace_networking::libp2p::PeerId;
 use subspace_networking::utils::piece_provider::PieceValidator;
-use subspace_networking::Node;
 use tracing::{error, warn};
 
 pub(crate) struct SegmentRootPieceValidator<AS> {

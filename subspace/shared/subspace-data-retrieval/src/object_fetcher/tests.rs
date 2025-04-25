@@ -3,7 +3,7 @@
 use super::*;
 use crate::object_fetcher::partial_object::PADDING_BYTE_VALUE;
 use parity_scale_codec::{Compact, CompactLen, Encode};
-use rand::{thread_rng, RngCore};
+use rand::{RngCore, thread_rng};
 use std::iter;
 use subspace_core_primitives::hashes::blake3_hash;
 use subspace_core_primitives::segments::{

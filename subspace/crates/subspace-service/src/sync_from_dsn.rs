@@ -8,26 +8,26 @@ use crate::sync_from_dsn::segment_header_downloader::SegmentHeaderDownloader;
 use ab_erasure_coding::ErasureCoding;
 use async_trait::async_trait;
 use futures::channel::mpsc;
-use futures::{select, FutureExt, Stream, StreamExt};
+use futures::{FutureExt, Stream, StreamExt, select};
 use sc_client_api::{AuxStore, BlockBackend, BlockchainEvents};
 use sc_consensus::import_queue::ImportQueueService;
 use sc_consensus_subspace::archiver::SegmentHeadersStore;
-use sc_network::service::traits::NetworkService;
 use sc_network::NetworkBlock;
+use sc_network::service::traits::NetworkService;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_subspace::SubspaceApi;
 use sp_runtime::traits::{Block as BlockT, CheckedSub, NumberFor};
 use std::fmt;
 use std::future::Future;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::segments::SegmentIndex;
 use subspace_data_retrieval::piece_getter::PieceGetter;
-use subspace_networking::utils::piece_provider::{PieceProvider, PieceValidator};
 use subspace_networking::Node;
+use subspace_networking::utils::piece_provider::{PieceProvider, PieceValidator};
 use tracing::{debug, info, warn};
 
 /// How much time to wait for new block to be imported before timing out and starting sync from DSN
@@ -224,11 +224,10 @@ async fn create_imported_blocks_observer<Block, Client>(
             Err(_timeout) => {
                 if let Err(error) =
                     notifications_sender.try_send(NotificationReason::NoImportedBlocks)
+                    && error.is_disconnected()
                 {
-                    if error.is_disconnected() {
-                        // Receiving side was closed
-                        return;
-                    }
+                    // Receiving side was closed
+                    return;
                 }
             }
         }
@@ -250,15 +249,14 @@ async fn create_substrate_network_observer(
         let was_online = last_online
             .map(|last_online| last_online.elapsed() < MIN_OFFLINE_PERIOD)
             .unwrap_or_default();
-        if is_online && !was_online {
-            if let Err(error) =
+        if is_online
+            && !was_online
+            && let Err(error) =
                 notifications_sender.try_send(NotificationReason::WentOnlineSubstrate)
-            {
-                if error.is_disconnected() {
-                    // Receiving side was closed
-                    return;
-                }
-            }
+            && error.is_disconnected()
+        {
+            // Receiving side was closed
+            return;
         }
 
         if is_online {

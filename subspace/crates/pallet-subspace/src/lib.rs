@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(array_chunks, assert_matches, let_chains, portable_simd)]
+#![feature(array_chunks, assert_matches, portable_simd)]
 #![warn(unused_must_use, unsafe_code, unused_variables)]
 
 extern crate alloc;
@@ -93,7 +93,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use sp_consensus_subspace::digests::CompatibleDigestItem;
-    use sp_consensus_subspace::inherents::{InherentError, InherentType, INHERENT_IDENTIFIER};
+    use sp_consensus_subspace::inherents::{INHERENT_IDENTIFIER, InherentError, InherentType};
     use sp_runtime::DigestItem;
     use subspace_core_primitives::hashes::Blake3Hash;
     use subspace_core_primitives::pot::{PotCheckpoints, SlotNumber};
@@ -657,29 +657,29 @@ impl<T: Config> Pallet<T> {
             );
 
             // Update target slot for entropy injection once we know it
-            if let Some(entropy_source_block_number) = maybe_entropy_source_block_number {
-                if let Some(entropy_value) = entropy.get_mut(&entropy_source_block_number) {
-                    let target_slot = pre_digest
-                        .slot()
-                        .checked_add(pot_entropy_injection_delay)
-                        .unwrap_or(SlotNumber::MAX);
+            if let Some(entropy_source_block_number) = maybe_entropy_source_block_number
+                && let Some(entropy_value) = entropy.get_mut(&entropy_source_block_number)
+            {
+                let target_slot = pre_digest
+                    .slot()
+                    .checked_add(pot_entropy_injection_delay)
+                    .unwrap_or(SlotNumber::MAX);
+                debug!(
+                    target: "runtime::subspace",
+                    "Pot entropy injection will happen at slot {target_slot:?}",
+                );
+                entropy_value.target_slot.replace(target_slot);
+
+                // Schedule PoT slot iterations update at the same slot as entropy
+                if let Some(update) = &mut pot_slot_iterations.update
+                    && update.target_slot.is_none()
+                {
                     debug!(
                         target: "runtime::subspace",
-                        "Pot entropy injection will happen at slot {target_slot:?}",
+                        "Scheduling PoT slots update to happen at slot {target_slot:?}"
                     );
-                    entropy_value.target_slot.replace(target_slot);
-
-                    // Schedule PoT slot iterations update at the same slot as entropy
-                    if let Some(update) = &mut pot_slot_iterations.update
-                        && update.target_slot.is_none()
-                    {
-                        debug!(
-                            target: "runtime::subspace",
-                            "Scheduling PoT slots update to happen at slot {target_slot:?}"
-                        );
-                        update.target_slot.replace(target_slot);
-                        PotSlotIterations::<T>::put(pot_slot_iterations);
-                    }
+                    update.target_slot.replace(target_slot);
+                    PotSlotIterations::<T>::put(pot_slot_iterations);
                 }
             }
 
@@ -722,13 +722,12 @@ impl<T: Config> Pallet<T> {
         }
 
         // Clean up old values we'll no longer need
-        if let Some(entry) = entropy.first_entry() {
-            if let Some(target_slot) = entry.get().target_slot
-                && target_slot < current_slot
-            {
-                entry.remove();
-                PotEntropy::<T>::put(entropy);
-            }
+        if let Some(entry) = entropy.first_entry()
+            && let Some(target_slot) = entry.get().target_slot
+            && target_slot < current_slot
+        {
+            entry.remove();
+            PotEntropy::<T>::put(entropy);
         }
     }
 

@@ -1,7 +1,7 @@
 use ab_erasure_coding::ErasureCoding;
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use futures::executor::block_on;
+use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use futures::FutureExt;
+use futures::executor::block_on;
 use parking_lot::Mutex;
 use rand::prelude::*;
 use std::fs::OpenOptions;
@@ -14,15 +14,15 @@ use subspace_core_primitives::sectors::{SectorId, SectorIndex};
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use subspace_farmer_components::plotting::{
-    plot_sector, CpuRecordsEncoder, PlotSectorOptions, PlottedSector,
+    CpuRecordsEncoder, PlotSectorOptions, PlottedSector, plot_sector,
 };
-use subspace_farmer_components::reading::{read_piece, ReadSectorRecordChunksMode};
+use subspace_farmer_components::reading::{ReadSectorRecordChunksMode, read_piece};
 use subspace_farmer_components::sector::{
-    sector_size, SectorContentsMap, SectorMetadata, SectorMetadataChecksummed,
+    SectorContentsMap, SectorMetadata, SectorMetadataChecksummed, sector_size,
 };
 use subspace_farmer_components::{FarmerProtocolInfo, ReadAt, ReadAtSync};
-use subspace_proof_of_space::chia::ChiaTable;
 use subspace_proof_of_space::Table;
+use subspace_proof_of_space::chia::ChiaTable;
 use subspace_verification::sr25519::PublicKey;
 
 type PosTable = ChiaTable;

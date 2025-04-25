@@ -383,7 +383,7 @@ where
     } = method_metadata_item;
 
     let number_of_arguments =
-        usize::from(num_arguments) + method_kind.has_self().then_some(1).unwrap_or_default();
+        usize::from(num_arguments) + if method_kind.has_self() { 1 } else { 0 };
 
     if number_of_arguments > usize::from(MAX_TOTAL_METHOD_ARGS) {
         debug!(%number_of_arguments, "Too many arguments");

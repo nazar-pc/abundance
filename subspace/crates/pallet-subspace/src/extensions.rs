@@ -4,11 +4,12 @@ pub mod weights;
 
 use crate::pallet::Call as SubspaceCall;
 use crate::{Config, Origin};
-use frame_support::pallet_prelude::{PhantomData, TypeInfo, Weight};
 use frame_support::RuntimeDebugNoBound;
+use frame_support::pallet_prelude::{PhantomData, TypeInfo, Weight};
 use frame_system::pallet_prelude::RuntimeCallFor;
 use parity_scale_codec::{Decode, Encode};
 use scale_info::prelude::fmt;
+use sp_runtime::DispatchResult;
 use sp_runtime::traits::{
     AsSystemOriginSigner, DispatchInfoOf, DispatchOriginOf, Dispatchable, Implication,
     PostDispatchInfoOf, TransactionExtension, ValidateResult,
@@ -16,7 +17,6 @@ use sp_runtime::traits::{
 use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
 };
-use sp_runtime::DispatchResult;
 
 /// Trait to convert Runtime call to possible Subspace call.
 pub trait MaybeSubspaceCall<Runtime>
@@ -105,7 +105,7 @@ where
                     ValidTransaction::default(),
                     ExtensionWeightData::Skipped,
                     origin,
-                ))
+                ));
             }
         };
 

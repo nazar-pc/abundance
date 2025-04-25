@@ -5,13 +5,13 @@
 //! only used for cold storage purposes or when there is a need to prove a solution to consensus.
 
 use crate::sector::{
-    sector_record_chunks_size, RecordMetadata, SectorContentsMap, SectorContentsMapFromBytesError,
-    SectorMetadataChecksummed,
+    RecordMetadata, SectorContentsMap, SectorContentsMapFromBytesError, SectorMetadataChecksummed,
+    sector_record_chunks_size,
 };
 use crate::{ReadAt, ReadAtAsync, ReadAtSync};
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
-use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use futures::stream::FuturesUnordered;
 use parity_scale_codec::Decode;
 use rayon::prelude::*;
 use std::mem::ManuallyDrop;

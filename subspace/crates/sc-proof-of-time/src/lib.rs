@@ -1,7 +1,5 @@
 //! Subspace proof of time implementation.
 
-#![feature(let_chains)]
-
 mod slots;
 pub mod source;
 pub mod verifier;
@@ -88,11 +86,11 @@ pub async fn start_slot_worker<Block, Client, SC, Worker, SO, CIDP>(
                 }
             },
         };
-        if let Some(last_proven_slot) = maybe_last_proven_slot {
-            if last_proven_slot >= slot {
-                // Already processed
-                continue;
-            }
+        if let Some(last_proven_slot) = maybe_last_proven_slot
+            && last_proven_slot >= slot
+        {
+            // Already processed
+            continue;
         }
         maybe_last_proven_slot.replace(slot);
 

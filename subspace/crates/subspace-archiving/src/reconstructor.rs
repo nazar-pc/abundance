@@ -3,12 +3,12 @@ use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use alloc::vec::Vec;
 use core::mem;
 use parity_scale_codec::Decode;
+use subspace_core_primitives::BlockNumber;
 use subspace_core_primitives::pieces::Piece;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
     SegmentHeader, SegmentIndex,
 };
-use subspace_core_primitives::BlockNumber;
 
 /// Reconstructor-related instantiation error
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]

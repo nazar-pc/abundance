@@ -27,7 +27,7 @@ use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_consensus_subspace::digests::{
-    extract_subspace_digest_items, CompatibleDigestItem, PreDigest, SubspaceDigestItems,
+    CompatibleDigestItem, PreDigest, SubspaceDigestItems, extract_subspace_digest_items,
 };
 use sp_consensus_subspace::{ChainConstants, PotNextSlotInput, SubspaceApi, SubspaceJustification};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
@@ -35,13 +35,13 @@ use sp_runtime::{DigestItem, Justifications};
 use std::iter;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread::available_parallelism;
+use subspace_core_primitives::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::solutions::{SolutionVerifyError, SolutionVerifyParams};
-use subspace_core_primitives::BlockNumber;
 use subspace_proof_of_space::Table;
 use subspace_verification::check_reward_signature;
 use tokio::runtime::Handle;
