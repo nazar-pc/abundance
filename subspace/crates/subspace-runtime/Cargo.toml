@@ -104,6 +104,5 @@ runtime-benchmarks = [
     "pallet-subspace/runtime-benchmarks",
     "pallet-timestamp/runtime-benchmarks",
     "pallet-utility/runtime-benchmarks",
-    "sp-consensus-subspace/runtime-benchmarks",
     "sp-runtime/runtime-benchmarks",
 ]

@@ -1,13 +1,13 @@
 //! Private implementation details of Subspace consensus digests.
 
 use crate::{ConsensusLog, PotParametersChange, SUBSPACE_ENGINE_ID};
+use alloc::collections::btree_map::{BTreeMap, Entry};
+use core::fmt;
+use core::num::NonZeroU32;
 use log::trace;
 use parity_scale_codec::{Decode, Encode};
 use sp_runtime::traits::{Header as HeaderT, One, Zero};
 use sp_runtime::DigestItem;
-use sp_std::collections::btree_map::{BTreeMap, Entry};
-use sp_std::fmt;
-use sp_std::num::NonZeroU32;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::{PotOutput, SlotNumber};
 use subspace_core_primitives::segments::{SegmentIndex, SegmentRoot};

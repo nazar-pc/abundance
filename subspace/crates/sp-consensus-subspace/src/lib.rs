@@ -9,19 +9,16 @@ extern crate alloc;
 pub mod digests;
 pub mod inherents;
 
-use alloc::borrow::Cow;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use core::num::NonZeroU32;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{ConsensusEngineId, Justification};
-use sp_runtime_interface::pass_by;
-use sp_runtime_interface::pass_by::PassBy;
-use sp_std::num::NonZeroU32;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed, SlotDuration, SlotNumber};
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
-use subspace_core_primitives::solutions::{Solution, SolutionRange, SolutionVerifyParams};
+use subspace_core_primitives::solutions::SolutionRange;
 use subspace_core_primitives::BlockNumber;
 
 /// The `ConsensusEngineId` of Subspace.
@@ -264,61 +261,6 @@ impl ChainConstants {
         } = self;
         *min_sector_lifetime
     }
-}
-
-/// Wrapped solution for the purposes of runtime interface.
-#[derive(Debug, Encode, Decode)]
-pub struct WrappedSolution(Solution);
-
-impl From<&Solution> for WrappedSolution {
-    #[inline]
-    fn from(solution: &Solution) -> Self {
-        Self(Solution {
-            public_key_hash: solution.public_key_hash,
-            sector_index: solution.sector_index,
-            history_size: solution.history_size,
-            piece_offset: solution.piece_offset,
-            record_root: solution.record_root,
-            record_proof: solution.record_proof,
-            chunk: solution.chunk,
-            chunk_proof: solution.chunk_proof,
-            proof_of_space: solution.proof_of_space,
-        })
-    }
-}
-
-impl PassBy for WrappedSolution {
-    type PassBy = pass_by::Codec<Self>;
-}
-
-/// Wrapped solution verification parameters for the purposes of runtime interface.
-#[derive(Debug, Encode, Decode)]
-pub struct WrappedVerifySolutionParams<'a>(Cow<'a, SolutionVerifyParams>);
-
-impl<'a> From<&'a SolutionVerifyParams> for WrappedVerifySolutionParams<'a> {
-    #[inline]
-    fn from(value: &'a SolutionVerifyParams) -> Self {
-        Self(Cow::Borrowed(value))
-    }
-}
-
-impl PassBy for WrappedVerifySolutionParams<'_> {
-    type PassBy = pass_by::Codec<Self>;
-}
-
-/// Wrapped proof of time output for the purposes of runtime interface.
-#[derive(Debug, Encode, Decode)]
-pub struct WrappedPotOutput(PotOutput);
-
-impl From<PotOutput> for WrappedPotOutput {
-    #[inline]
-    fn from(value: PotOutput) -> Self {
-        Self(value)
-    }
-}
-
-impl PassBy for WrappedPotOutput {
-    type PassBy = pass_by::Codec<Self>;
 }
 
 /// Proof of time parameters
