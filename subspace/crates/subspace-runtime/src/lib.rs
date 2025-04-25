@@ -36,7 +36,6 @@ use frame_system::pallet_prelude::RuntimeCallFor;
 pub use pallet_subspace::AllowAuthoringBy;
 use pallet_subspace::ConsensusConstants;
 use sp_api::impl_runtime_apis;
-use sp_consensus_slots::SlotDuration;
 use sp_consensus_subspace::{ChainConstants, PotParameters, SolutionRanges};
 use sp_core::OpaqueMetadata;
 use sp_runtime::traits::{AccountIdLookup, BlakeTwo256, Block as BlockT};
@@ -49,7 +48,7 @@ use static_assertions::const_assert;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::Piece;
-use subspace_core_primitives::pot::SlotNumber;
+use subspace_core_primitives::pot::{SlotDuration, SlotNumber};
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
 use subspace_runtime_primitives::utility::{
     DefaultNonceProvider, MaybeNestedCall, MaybeUtilityCall,
@@ -82,7 +81,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
-const SLOT_DURATION: u64 = 1000;
+const SLOT_DURATION: SlotDuration = SlotDuration::from_millis(1000);
 
 /// Number of slots between slot arrival and when corresponding block can be produced.
 const BLOCK_AUTHORING_DELAY: SlotNumber = SlotNumber::new(4);
@@ -212,7 +211,7 @@ impl pallet_timestamp::Config for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = Moment;
     type OnTimestampSet = ();
-    type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
+    type MinimumPeriod = ConstU64<{ SLOT_DURATION.as_millis() as u64 / 2 }>;
     type WeightInfo = ();
 }
 
@@ -575,7 +574,7 @@ impl_runtime_apis! {
                 block_authoring_delay: BLOCK_AUTHORING_DELAY,
                 era_duration: ERA_DURATION_IN_BLOCKS,
                 slot_probability: SLOT_PROBABILITY,
-                slot_duration: SlotDuration::from_millis(SLOT_DURATION),
+                slot_duration: SLOT_DURATION,
                 recent_segments: RECENT_SEGMENTS,
                 recent_history_fraction: RECENT_HISTORY_FRACTION,
                 min_sector_lifetime: MIN_SECTOR_LIFETIME,

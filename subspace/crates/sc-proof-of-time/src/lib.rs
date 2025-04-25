@@ -12,12 +12,11 @@ use sc_consensus_slots::{SimpleSlotWorker, SimpleSlotWorkerToSlotWorker, SlotWor
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{SelectChain, SyncOracle};
-use sp_consensus_slots::SlotDuration;
 use sp_consensus_subspace::SubspaceApi;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
-use subspace_core_primitives::pot::{PotCheckpoints, SlotNumber};
+use subspace_core_primitives::pot::{PotCheckpoints, SlotDuration, SlotNumber};
 use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, error, info, trace};
 

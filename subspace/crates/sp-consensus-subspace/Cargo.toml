@@ -19,7 +19,6 @@ log = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-api = { workspace = true }
 sp-application-crypto = { workspace = true }
-sp-consensus-slots = { workspace = true }
 sp-core = { workspace = true }
 sp-externalities = { workspace = true }
 sp-inherents = { workspace = true }
@@ -41,7 +40,6 @@ std = [
     "scale-info/std",
     "sp-api/std",
     "sp-application-crypto/std",
-    "sp-consensus-slots/std",
     "sp-core/std",
     "sp-externalities/std",
     "sp-inherents/std",

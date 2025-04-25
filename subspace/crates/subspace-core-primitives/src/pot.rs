@@ -6,6 +6,7 @@ use core::fmt;
 use core::iter::Step;
 use core::num::NonZeroU8;
 use core::str::FromStr;
+use core::time::Duration;
 use derive_more::{
     Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, Div, DivAssign, From, Mul, MulAssign,
     Sub, SubAssign,
@@ -18,6 +19,53 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use serde::{Deserializer, Serializer};
+
+/// Slot duration
+#[derive(Debug, Display, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[repr(transparent)]
+pub struct SlotDuration(u16);
+
+impl From<u16> for SlotDuration {
+    #[inline(always)]
+    fn from(original: u16) -> Self {
+        Self(original)
+    }
+}
+
+impl From<SlotDuration> for u16 {
+    #[inline(always)]
+    fn from(original: SlotDuration) -> Self {
+        original.0
+    }
+}
+
+impl SlotDuration {
+    /// Size in bytes
+    pub const SIZE: usize = size_of::<u16>();
+
+    /// Create new instance
+    #[inline(always)]
+    pub const fn from_millis(n: u16) -> Self {
+        Self(n)
+    }
+
+    /// Get internal representation
+    #[inline(always)]
+    pub const fn as_millis(self) -> u16 {
+        self.0
+    }
+
+    /// Get the value as [`Duration`] instance
+    #[inline(always)]
+    pub const fn as_duration(self) -> Duration {
+        Duration::from_millis(self.as_millis() as u64)
+    }
+}
 
 /// Slot number
 #[derive(

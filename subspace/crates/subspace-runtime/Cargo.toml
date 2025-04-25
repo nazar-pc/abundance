@@ -36,7 +36,6 @@ scale-info = { workspace = true, features = ["derive"] }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-subspace = { workspace = true }
-sp-consensus-slots = { workspace = true }
 sp-core = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
@@ -80,7 +79,6 @@ std = [
     "sp-api/std",
     "sp-block-builder/std",
     "sp-consensus-subspace/std",
-    "sp-consensus-slots/std",
     "sp-core/std",
     "sp-genesis-builder/std",
     "sp-inherents/std",
