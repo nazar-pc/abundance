@@ -14,8 +14,8 @@ use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::{Piece, PieceOffset};
 use subspace_core_primitives::sectors::{SectorId, SectorIndex};
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
-use subspace_farmer_components::sector::{sector_size, SectorMetadataChecksummed};
-use subspace_farmer_components::{reading, ReadAt, ReadAtAsync, ReadAtSync};
+use subspace_farmer_components::sector::{SectorMetadataChecksummed, sector_size};
+use subspace_farmer_components::{ReadAt, ReadAtAsync, ReadAtSync, reading};
 use subspace_proof_of_space::Table;
 use tracing::{error, warn};
 

@@ -4,7 +4,7 @@
 
 use ab_erasure_coding::ErasureCoding;
 use futures::channel::mpsc;
-use futures::{future, FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt, future};
 use jsonrpsee::core::async_trait;
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
@@ -12,15 +12,15 @@ use jsonrpsee::{Extensions, PendingSubscriptionSink};
 use parking_lot::Mutex;
 use sc_client_api::{AuxStore, BlockBackend};
 use sc_consensus_subspace::archiver::{
-    recreate_genesis_segment, ArchivedSegmentNotification, SegmentHeadersStore,
+    ArchivedSegmentNotification, SegmentHeadersStore, recreate_genesis_segment,
 };
 use sc_consensus_subspace::notification::SubspaceNotificationStream;
 use sc_consensus_subspace::slot_worker::{
     NewSlotNotification, RewardSigningNotification, SubspaceSyncOracle,
 };
-use sc_rpc::utils::{BoundedVecDeque, PendingSubscription};
 use sc_rpc::SubscriptionTaskExecutor;
-use sc_rpc_api::{check_if_safe, UnsafeRpcError};
+use sc_rpc::utils::{BoundedVecDeque, PendingSubscription};
+use sc_rpc_api::{UnsafeRpcError, check_if_safe};
 use sc_utils::mpsc::TracingUnboundedSender;
 use schnellru::{ByLength, LruMap};
 use sp_api::{ApiError, ProvideRuntimeApi};
@@ -30,23 +30,23 @@ use sp_consensus_subspace::{ChainConstants, SubspaceApi};
 use sp_core::H256;
 use sp_objects::ObjectsApi;
 use sp_runtime::traits::Block as BlockT;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use subspace_archiving::archiver::NewArchivedSegment;
+use subspace_core_primitives::BlockHash;
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
 use subspace_core_primitives::solutions::Solution;
-use subspace_core_primitives::BlockHash;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_rpc_primitives::{
-    FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
-    MAX_SEGMENT_HEADERS_PER_REQUEST,
+    FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, RewardSignatureResponse, RewardSigningInfo,
+    SlotInfo, SolutionResponse,
 };
 use tracing::{debug, error, warn};
 
@@ -744,8 +744,7 @@ where
             );
 
             return Err(Error::StringError(format!(
-                "Request limit ({}) exceed the server limit: {} ",
-                limit, MAX_SEGMENT_HEADERS_PER_REQUEST
+                "Request limit ({limit}) exceed the server limit: {MAX_SEGMENT_HEADERS_PER_REQUEST}"
             )));
         };
 

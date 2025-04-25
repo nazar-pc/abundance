@@ -12,29 +12,31 @@ pub(super) unsafe fn create(
 ) -> PotCheckpoints {
     let mut checkpoints = PotCheckpoints::default();
 
-    let keys_reg = expand_key(key);
-    let xor_key = _mm_xor_si128(keys_reg[10], keys_reg[0]);
-    let mut seed_reg = _mm_loadu_si128(seed.as_ptr() as *const __m128i);
-    seed_reg = _mm_xor_si128(seed_reg, keys_reg[0]);
-    for checkpoint in checkpoints.iter_mut() {
-        for _ in 0..checkpoint_iterations {
-            seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[1]);
-            seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[2]);
-            seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[3]);
-            seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[4]);
-            seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[5]);
-            seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[6]);
-            seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[7]);
-            seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[8]);
-            seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[9]);
-            seed_reg = _mm_aesenclast_si128(seed_reg, xor_key);
-        }
+    unsafe {
+        let keys_reg = expand_key(key);
+        let xor_key = _mm_xor_si128(keys_reg[10], keys_reg[0]);
+        let mut seed_reg = _mm_loadu_si128(seed.as_ptr() as *const __m128i);
+        seed_reg = _mm_xor_si128(seed_reg, keys_reg[0]);
+        for checkpoint in checkpoints.iter_mut() {
+            for _ in 0..checkpoint_iterations {
+                seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[1]);
+                seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[2]);
+                seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[3]);
+                seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[4]);
+                seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[5]);
+                seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[6]);
+                seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[7]);
+                seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[8]);
+                seed_reg = _mm_aesenc_si128(seed_reg, keys_reg[9]);
+                seed_reg = _mm_aesenclast_si128(seed_reg, xor_key);
+            }
 
-        let checkpoint_reg = _mm_xor_si128(seed_reg, keys_reg[0]);
-        _mm_storeu_si128(
-            checkpoint.as_mut().as_mut_ptr() as *mut __m128i,
-            checkpoint_reg,
-        );
+            let checkpoint_reg = _mm_xor_si128(seed_reg, keys_reg[0]);
+            _mm_storeu_si128(
+                checkpoint.as_mut().as_mut_ptr() as *mut __m128i,
+                checkpoint_reg,
+            );
+        }
     }
 
     checkpoints
@@ -72,9 +74,10 @@ macro_rules! expand_round {
 unsafe fn expand_key(key: &[u8; 16]) -> RoundKeys {
     // SAFETY: `RoundKeys` is a `[__m128i; 11]` which can be initialized
     // with all zeroes.
-    let mut keys: RoundKeys = mem::zeroed();
+    let mut keys: RoundKeys = unsafe { mem::zeroed() };
 
-    let k = _mm_loadu_si128(key.as_ptr() as *const __m128i);
+    // SAFETY: No alignment requirement in `_mm_loadu_si128`
+    let k = unsafe { _mm_loadu_si128(key.as_ptr() as *const __m128i) };
     keys[0] = k;
 
     expand_round!(keys, 1, 0x01);

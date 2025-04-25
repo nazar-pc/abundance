@@ -15,8 +15,8 @@
 //! to the base Substrate behavior where major syncing is assumed to not happen in case authoring is
 //! forced.
 
-use crate::archiver::SegmentHeadersStore;
 use crate::SubspaceLink;
+use crate::archiver::SegmentHeadersStore;
 use futures::channel::mpsc;
 use futures::{StreamExt, TryFutureExt};
 use sc_client_api::AuxStore;
@@ -25,17 +25,17 @@ use sc_consensus::{BoxBlockImport, JustificationSyncLink, StorageChanges};
 use sc_consensus_slots::{
     BackoffAuthoringBlocksStrategy, SimpleSlotWorker, SlotInfo, SlotLenienceType, SlotProportion,
 };
-use sc_proof_of_time::verifier::PotVerifier;
 use sc_proof_of_time::PotSlotWorker;
+use sc_proof_of_time::verifier::PotVerifier;
 use sc_telemetry::TelemetryHandle;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
+use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
 use schnorrkel::context::SigningContext;
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SyncOracle};
 use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::{
-    extract_pre_digest, CompatibleDigestItem, PreDigest, PreDigestPotInfo,
+    CompatibleDigestItem, PreDigest, PreDigestPotInfo, extract_pre_digest,
 };
 use sp_consensus_subspace::{PotNextSlotInput, SubspaceApi, SubspaceJustification};
 use sp_core::H256;
@@ -45,8 +45,9 @@ use std::collections::BTreeMap;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use subspace_core_primitives::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, SlotNumber};
 use subspace_core_primitives::sectors::SectorId;
@@ -54,10 +55,9 @@ use subspace_core_primitives::solutions::{
     Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
     SolutionVerifyPieceCheckParams,
 };
-use subspace_core_primitives::BlockNumber;
 use subspace_proof_of_space::Table;
 use subspace_verification::check_reward_signature;
-use subspace_verification::sr25519::{RewardSignature, REWARD_SIGNING_CONTEXT};
+use subspace_verification::sr25519::{REWARD_SIGNING_CONTEXT, RewardSignature};
 use tracing::{debug, error, info, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
@@ -491,12 +491,12 @@ where
         let mut maybe_pre_digest = None;
 
         while let Some(solution) = solution_receiver.next().await {
-            if let Some(root_plot_public_key_hash) = &maybe_root_plot_public_key_hash {
-                if &solution.public_key_hash != root_plot_public_key_hash {
-                    // Only root plot public key is allowed, no need to even try to claim block or
-                    // vote.
-                    continue;
-                }
+            if let Some(root_plot_public_key_hash) = &maybe_root_plot_public_key_hash
+                && &solution.public_key_hash != root_plot_public_key_hash
+            {
+                // Only root plot public key is allowed, no need to even try to claim block or
+                // vote.
+                continue;
             }
 
             let sector_id = SectorId::new(
@@ -661,17 +661,16 @@ where
     }
 
     fn should_backoff(&self, slot: Slot, chain_head: &Block::Header) -> bool {
-        if let Some(strategy) = &self.backoff_authoring_blocks {
-            if let Ok(chain_head_slot) = extract_pre_digest(chain_head).map(|digest| digest.slot())
-            {
-                return strategy.should_backoff(
-                    *chain_head.number(),
-                    Slot::from(chain_head_slot.as_u64()),
-                    self.client.info().finalized_number,
-                    slot,
-                    self.logging_target(),
-                );
-            }
+        if let Some(strategy) = &self.backoff_authoring_blocks
+            && let Ok(chain_head_slot) = extract_pre_digest(chain_head).map(|digest| digest.slot())
+        {
+            return strategy.should_backoff(
+                *chain_head.number(),
+                Slot::from(chain_head_slot.as_u64()),
+                self.client.info().finalized_number,
+                slot,
+                self.logging_target(),
+            );
         }
         false
     }
@@ -805,8 +804,7 @@ where
         }
 
         Err(ConsensusError::CannotSign(format!(
-            "Farmer didn't sign reward. Public key hash: {:?}",
-            public_key_hash
+            "Farmer didn't sign reward. Public key hash: {public_key_hash:?}"
         )))
     }
 }

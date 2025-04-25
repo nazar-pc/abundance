@@ -9,7 +9,7 @@ use crate::single_disk_farm::{
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock, Semaphore, SemaphoreGuard};
 use futures::channel::{mpsc, oneshot};
 use futures::stream::FuturesOrdered;
-use futures::{select, FutureExt, SinkExt, StreamExt};
+use futures::{FutureExt, SinkExt, StreamExt, select};
 use parity_scale_codec::Encode;
 use rand::prelude::*;
 use std::collections::HashSet;
@@ -31,7 +31,7 @@ use subspace_verification::sr25519::PublicKey;
 use thiserror::Error;
 use tokio::sync::watch;
 use tokio::task;
-use tracing::{debug, info, info_span, trace, warn, Instrument};
+use tracing::{Instrument, debug, info, info_span, trace, warn};
 
 const FARMER_APP_INFO_RETRY_INTERVAL: Duration = Duration::from_millis(500);
 const PLOTTING_RETRY_DELAY: Duration = Duration::from_secs(1);
@@ -362,26 +362,26 @@ where
             }
         };
 
-        if let Some(old_sector_metadata) = &maybe_old_sector_metadata {
-            if farmer_app_info.protocol_info.history_size <= old_sector_metadata.history_size {
-                if farmer_app_info.protocol_info.min_sector_lifetime == HistorySize::ONE {
-                    debug!(
-                        current_history_size = %farmer_app_info.protocol_info.history_size,
-                        old_sector_history_size = %old_sector_metadata.history_size,
-                        "Latest protocol history size is not yet newer than old sector history \
-                        size, wait for a bit and try again"
-                    );
-                    tokio::time::sleep(FARMER_APP_INFO_RETRY_INTERVAL).await;
-                    continue;
-                } else {
-                    debug!(
-                        current_history_size = %farmer_app_info.protocol_info.history_size,
-                        old_sector_history_size = %old_sector_metadata.history_size,
-                        "Skipped sector plotting, likely redundant due to redundant archived \
-                        segment notification"
-                    );
-                    return PlotSingleSectorResult::Skipped;
-                }
+        if let Some(old_sector_metadata) = &maybe_old_sector_metadata
+            && farmer_app_info.protocol_info.history_size <= old_sector_metadata.history_size
+        {
+            if farmer_app_info.protocol_info.min_sector_lifetime == HistorySize::ONE {
+                debug!(
+                    current_history_size = %farmer_app_info.protocol_info.history_size,
+                    old_sector_history_size = %old_sector_metadata.history_size,
+                    "Latest protocol history size is not yet newer than old sector history \
+                    size, wait for a bit and try again"
+                );
+                tokio::time::sleep(FARMER_APP_INFO_RETRY_INTERVAL).await;
+                continue;
+            } else {
+                debug!(
+                    current_history_size = %farmer_app_info.protocol_info.history_size,
+                    old_sector_history_size = %old_sector_metadata.history_size,
+                    "Skipped sector plotting, likely redundant due to redundant archived \
+                    segment notification"
+                );
+                return PlotSingleSectorResult::Skipped;
             }
         }
 

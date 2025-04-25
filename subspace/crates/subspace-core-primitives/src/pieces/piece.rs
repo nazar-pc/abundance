@@ -1,5 +1,5 @@
-use crate::pieces::cow_bytes::CowBytes;
 use crate::pieces::PieceArray;
+use crate::pieces::cow_bytes::CowBytes;
 use alloc::format;
 use alloc::vec::Vec;
 use bytes::{Bytes, BytesMut};

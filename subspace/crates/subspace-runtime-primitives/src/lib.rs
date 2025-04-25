@@ -89,9 +89,9 @@ parameter_types! {
 /// structures.
 pub mod opaque {
     use super::BlockNumber;
+    pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
     use sp_runtime::generic;
     use sp_runtime::traits::BlakeTwo256;
-    pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
     /// Opaque block header type.
     pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
@@ -166,8 +166,8 @@ pub mod tests_utils {
     use frame_support::weights::Weight;
     use frame_system::limits::BlockWeights;
     use pallet_transaction_payment::{Multiplier, MultiplierUpdate};
-    use sp_runtime::traits::{Convert, Get};
     use sp_runtime::BuildStorage;
+    use sp_runtime::traits::{Convert, Get};
     use std::marker::PhantomData;
 
     pub struct FeeMultiplierUtils<Runtime, BlockWeightsGetter>(

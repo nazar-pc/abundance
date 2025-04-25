@@ -1,5 +1,5 @@
-use crate::sync_from_dsn::segment_header_downloader::SegmentHeaderDownloader;
 use crate::sync_from_dsn::PieceGetter;
+use crate::sync_from_dsn::segment_header_downloader::SegmentHeaderDownloader;
 use crate::utils::wait_for_block_import;
 use ab_erasure_coding::ErasureCoding;
 use sc_client_api::{AuxStore, BlockchainEvents, ProofProvider};
@@ -8,10 +8,10 @@ use sc_consensus::{
     BlockImport, BlockImportParams, ForkChoiceStrategy, ImportedState, IncomingBlock, StateAction,
     StorageChanges,
 };
-use sc_consensus_subspace::archiver::{decode_block, SegmentHeadersStore};
+use sc_consensus_subspace::archiver::{SegmentHeadersStore, decode_block};
 use sc_network::{NetworkBlock, PeerId};
-use sc_network_sync::service::network::NetworkServiceHandle;
 use sc_network_sync::SyncingService;
+use sc_network_sync::service::network::NetworkServiceHandle;
 use sc_subspace_sync_common::snap_sync_engine::SnapSyncingEngine;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -24,8 +24,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use subspace_archiving::reconstructor::Reconstructor;
-use subspace_core_primitives::segments::SegmentIndex;
 use subspace_core_primitives::BlockNumber;
+use subspace_core_primitives::segments::SegmentIndex;
 use subspace_data_retrieval::segment_downloading::download_segment_pieces;
 use subspace_networking::Node;
 use tokio::task;
@@ -136,7 +136,7 @@ where
 {
     sync_segment_headers(segment_headers_store, node)
         .await
-        .map_err(|error| format!("Failed to sync segment headers: {}", error))?;
+        .map_err(|error| format!("Failed to sync segment headers: {error}"))?;
 
     let target_segment_index = segment_headers_store
         .max_segment_index()

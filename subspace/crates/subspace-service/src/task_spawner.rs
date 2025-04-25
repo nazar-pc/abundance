@@ -19,7 +19,7 @@ use sc_client_api::{BlockchainEvents, UsageProvider};
 use sc_network_sync::SyncingService;
 use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{
-    propagate_transaction_notifications, start_rpc_servers, Configuration, Error, TaskManager,
+    Configuration, Error, TaskManager, propagate_transaction_notifications, start_rpc_servers,
 };
 use sc_transaction_pool_api::MaintainedTransactionPool;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};

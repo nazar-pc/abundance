@@ -471,10 +471,12 @@ fn one_byte_smaller_segment() {
     );
     // Cutting just one byte more is not sufficient to produce a segment, this is a protection
     // against code regressions
-    assert!(Archiver::new(erasure_coding)
-        .add_block(vec![0u8; block_size - 1], BlockObjectMapping::default())
-        .archived_segments
-        .is_empty());
+    assert!(
+        Archiver::new(erasure_coding)
+            .add_block(vec![0u8; block_size - 1], BlockObjectMapping::default())
+            .archived_segments
+            .is_empty()
+    );
 }
 
 #[test]
@@ -496,10 +498,12 @@ fn spill_over_edge_case() {
         - Compact::compact_len(&(RecordedHistorySegment::SIZE as u32))
         // We leave three bytes at the end intentionally
         - 3;
-    assert!(archiver
-        .add_block(vec![0u8; block_size], BlockObjectMapping::default())
-        .archived_segments
-        .is_empty());
+    assert!(
+        archiver
+            .add_block(vec![0u8; block_size], BlockObjectMapping::default())
+            .archived_segments
+            .is_empty()
+    );
 
     // Here we add one more block with internal length that takes 4 bytes in compact length
     // encoding + one more for enum variant, this should result in new segment being created, but

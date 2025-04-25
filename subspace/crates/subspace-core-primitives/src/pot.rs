@@ -1,6 +1,6 @@
 //! Proof of time-related data structures.
 
-use crate::hashes::{blake3_hash, blake3_hash_list, Blake3Hash};
+use crate::hashes::{Blake3Hash, blake3_hash, blake3_hash_list};
 use crate::pieces::RecordChunk;
 use core::fmt;
 use core::iter::Step;

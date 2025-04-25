@@ -29,7 +29,7 @@ use alloc::vec::Vec;
 use core::num::NonZeroU64;
 use frame_support::genesis_builder_helper::{build_state, get_preset};
 use frame_support::inherent::ProvideInherent;
-use frame_support::traits::{ConstU16, ConstU32, ConstU64, ConstU8, Everything};
+use frame_support::traits::{ConstU8, ConstU16, ConstU32, ConstU64, Everything};
 use frame_support::weights::constants::ParityDbWeight;
 use frame_support::weights::{ConstantMultiplier, Weight};
 use frame_support::{construct_runtime, parameter_types};
@@ -43,7 +43,7 @@ use sp_core::OpaqueMetadata;
 use sp_runtime::traits::{AccountIdLookup, BlakeTwo256, Block as BlockT};
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::type_with_default::TypeWithDefault;
-use sp_runtime::{generic, ApplyExtrinsicResult, ExtrinsicInclusionMode};
+use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode, generic};
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 use subspace_core_primitives::hashes::Blake3Hash;
@@ -55,9 +55,9 @@ use subspace_runtime_primitives::utility::{
     DefaultNonceProvider, MaybeNestedCall, MaybeUtilityCall,
 };
 use subspace_runtime_primitives::{
-    maximum_normal_block_length, AccountId, Balance, BlockNumber, ConsensusEventSegmentSize, Hash,
-    Moment, Nonce, Signature, SlowAdjustingFeeUpdate, TargetBlockFullness, BLOCK_WEIGHT_FOR_2_SEC,
-    MIN_REPLICATION_FACTOR, NORMAL_DISPATCH_RATIO, SHANNON, SLOT_PROBABILITY,
+    AccountId, BLOCK_WEIGHT_FOR_2_SEC, Balance, BlockNumber, ConsensusEventSegmentSize, Hash,
+    MIN_REPLICATION_FACTOR, Moment, NORMAL_DISPATCH_RATIO, Nonce, SHANNON, SLOT_PROBABILITY,
+    Signature, SlowAdjustingFeeUpdate, TargetBlockFullness, maximum_normal_block_length,
 };
 
 /// How many pieces one sector is supposed to contain (max)

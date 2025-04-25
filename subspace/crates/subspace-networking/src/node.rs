@@ -4,8 +4,8 @@ mod tests;
 use crate::protocols::request_response::handlers::generic_request_handler::GenericRequest;
 use crate::protocols::request_response::request_response_factory;
 use crate::shared::{Command, CreatedSubscription, PeerDiscovered, Shared};
-use crate::utils::multihash::Multihash;
 use crate::utils::HandlerFn;
+use crate::utils::multihash::Multihash;
 use bytes::Bytes;
 use event_listener_primitives::HandlerId;
 use futures::channel::{mpsc, oneshot};
@@ -458,7 +458,7 @@ impl Node {
         &self,
         key: Multihash,
         acquire_permit: bool,
-    ) -> Result<impl Stream<Item = PeerId>, GetClosestPeersError> {
+    ) -> Result<impl Stream<Item = PeerId> + use<>, GetClosestPeersError> {
         let permit = if acquire_permit {
             Some(self.shared.rate_limiter.acquire_permit().await)
         } else {
@@ -495,7 +495,7 @@ impl Node {
         &self,
         key: RecordKey,
         acquire_permit: bool,
-    ) -> Result<impl Stream<Item = PeerId>, GetProvidersError> {
+    ) -> Result<impl Stream<Item = PeerId> + use<>, GetProvidersError> {
         let permit = if acquire_permit {
             Some(self.shared.rate_limiter.acquire_permit().await)
         } else {
@@ -688,7 +688,7 @@ impl NodeRequestsBatchHandle {
     pub async fn get_providers(
         &mut self,
         key: RecordKey,
-    ) -> Result<impl Stream<Item = PeerId>, GetProvidersError> {
+    ) -> Result<impl Stream<Item = PeerId> + use<>, GetProvidersError> {
         self.node.get_providers_internal(key, false).await
     }
 
@@ -696,7 +696,7 @@ impl NodeRequestsBatchHandle {
     pub async fn get_closest_peers(
         &mut self,
         key: Multihash,
-    ) -> Result<impl Stream<Item = PeerId>, GetClosestPeersError> {
+    ) -> Result<impl Stream<Item = PeerId> + use<>, GetClosestPeersError> {
         self.node.get_closest_peers_internal(key, false).await
     }
     /// Sends the generic request to the peer and awaits the result.

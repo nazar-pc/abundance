@@ -2,7 +2,6 @@
 
 #![forbid(unsafe_code, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(let_chains)]
 
 extern crate alloc;
 
@@ -15,11 +14,11 @@ use core::num::NonZeroU32;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{ConsensusEngineId, Justification};
+use subspace_core_primitives::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed, SlotDuration, SlotNumber};
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
 use subspace_core_primitives::solutions::SolutionRange;
-use subspace_core_primitives::BlockNumber;
 
 /// The `ConsensusEngineId` of Subspace.
 const SUBSPACE_ENGINE_ID: ConsensusEngineId = *b"SUB_";
