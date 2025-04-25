@@ -32,35 +32,36 @@ name = "proving"
 harness = false
 
 [dependencies]
+ab-erasure-coding = { workspace = true }
 ab-merkle-tree = { workspace = true, features = ["alloc"] }
-anyhow.workspace = true
-async-lock.workspace = true
+anyhow = { workspace = true }
+async-lock = { workspace = true }
 backoff = { workspace = true, features = ["futures", "tokio"] }
-bitvec.workspace = true
-fs2.workspace = true
-futures.workspace = true
-hex.workspace = true
-libc.workspace = true
-parity-scale-codec.workspace = true
-parking_lot.workspace = true
-rand.workspace = true
-rayon.workspace = true
+bitvec = { workspace = true }
+fs2 = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
+libc = { workspace = true }
+parity-scale-codec = { workspace = true }
+parking_lot = { workspace = true }
+rand = { workspace = true }
+rayon = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-static_assertions.workspace = true
+static_assertions = { workspace = true }
 subspace-archiving = { workspace = true, features = ["parallel"] }
 subspace-core-primitives = { workspace = true, features = ["parallel"] }
-subspace-data-retrieval.workspace = true
-subspace-erasure-coding.workspace = true
+subspace-data-retrieval = { workspace = true }
 subspace-proof-of-space = { workspace = true, features = ["parallel"] }
-thiserror.workspace = true
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "signal", "sync"] }
-tracing.workspace = true
+tracing = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.9"
 
 [dev-dependencies]
-criterion.workspace = true
-futures.workspace = true
-schnorrkel.workspace = true
-subspace-proof-of-space.workspace = true
+criterion = { workspace = true }
+futures = { workspace = true }
+schnorrkel = { workspace = true }
+subspace-proof-of-space = { workspace = true }
+subspace-verification = { workspace = true }

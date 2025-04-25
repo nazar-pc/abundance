@@ -2,11 +2,15 @@
 
 use crate::hashes::{blake3_hash, blake3_hash_list, Blake3Hash};
 use crate::pieces::RecordChunk;
-use crate::Randomness;
 use core::fmt;
+use core::iter::Step;
 use core::num::NonZeroU8;
 use core::str::FromStr;
-use derive_more::{AsMut, AsRef, Deref, DerefMut, From};
+use core::time::Duration;
+use derive_more::{
+    Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, Div, DivAssign, From, Mul, MulAssign,
+    Sub, SubAssign,
+};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "scale-codec")]
@@ -16,13 +20,174 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use serde::{Deserializer, Serializer};
 
+/// Slot duration
+#[derive(Debug, Display, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[repr(transparent)]
+pub struct SlotDuration(u16);
+
+impl From<u16> for SlotDuration {
+    #[inline(always)]
+    fn from(original: u16) -> Self {
+        Self(original)
+    }
+}
+
+impl From<SlotDuration> for u16 {
+    #[inline(always)]
+    fn from(original: SlotDuration) -> Self {
+        original.0
+    }
+}
+
+impl SlotDuration {
+    /// Size in bytes
+    pub const SIZE: usize = size_of::<u16>();
+
+    /// Create new instance
+    #[inline(always)]
+    pub const fn from_millis(n: u16) -> Self {
+        Self(n)
+    }
+
+    /// Get internal representation
+    #[inline(always)]
+    pub const fn as_millis(self) -> u16 {
+        self.0
+    }
+
+    /// Get the value as [`Duration`] instance
+    #[inline(always)]
+    pub const fn as_duration(self) -> Duration {
+        Duration::from_millis(self.as_millis() as u64)
+    }
+}
+
+/// Slot number
+#[derive(
+    Debug,
+    Display,
+    Default,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    Add,
+    AddAssign,
+    Sub,
+    SubAssign,
+    Mul,
+    MulAssign,
+    Div,
+    DivAssign,
+)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[repr(transparent)]
+pub struct SlotNumber(u64);
+
+impl Step for SlotNumber {
+    #[inline(always)]
+    fn steps_between(start: &Self, end: &Self) -> (usize, Option<usize>) {
+        u64::steps_between(&start.0, &end.0)
+    }
+
+    #[inline(always)]
+    fn forward_checked(start: Self, count: usize) -> Option<Self> {
+        u64::forward_checked(start.0, count).map(Self)
+    }
+
+    #[inline(always)]
+    fn backward_checked(start: Self, count: usize) -> Option<Self> {
+        u64::backward_checked(start.0, count).map(Self)
+    }
+}
+
+impl From<u64> for SlotNumber {
+    #[inline(always)]
+    fn from(original: u64) -> Self {
+        Self(original)
+    }
+}
+
+impl From<SlotNumber> for u64 {
+    #[inline(always)]
+    fn from(original: SlotNumber) -> Self {
+        original.0
+    }
+}
+
+impl From<SlotNumber> for u128 {
+    #[inline(always)]
+    fn from(original: SlotNumber) -> Self {
+        u128::from(original.0)
+    }
+}
+
+impl SlotNumber {
+    /// Size in bytes
+    pub const SIZE: usize = size_of::<u64>();
+    /// Slot 0
+    pub const ZERO: Self = Self(0);
+    /// Slot 1
+    pub const ONE: Self = Self(1);
+    /// Max slot
+    pub const MAX: Self = Self(u64::MAX);
+
+    /// Create new instance
+    #[inline(always)]
+    pub const fn new(n: u64) -> Self {
+        Self(n)
+    }
+
+    /// Get internal representation
+    #[inline(always)]
+    pub const fn as_u64(self) -> u64 {
+        self.0
+    }
+
+    /// Create slot number from bytes
+    #[inline(always)]
+    pub const fn from_bytes(bytes: [u8; Self::SIZE]) -> Self {
+        Self(u64::from_le_bytes(bytes))
+    }
+
+    /// Convert slot number to bytes
+    #[inline(always)]
+    pub const fn to_bytes(self) -> [u8; Self::SIZE] {
+        self.0.to_le_bytes()
+    }
+
+    /// Checked integer addition. Computes `self + rhs`, returning `None` if overflow occurred
+    #[inline]
+    pub fn checked_add(self, rhs: Self) -> Option<Self> {
+        self.0.checked_add(rhs.0).map(Self)
+    }
+
+    /// Checked integer subtraction. Computes `self - rhs`, returning `None` if overflow occurred
+    #[inline]
+    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
+        self.0.checked_sub(rhs.0).map(Self)
+    }
+}
+
 /// Proof of time key(input to the encryption).
 #[derive(Default, Copy, Clone, Eq, PartialEq, From, AsRef, AsMut, Deref, DerefMut)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
-pub struct PotKey([u8; Self::SIZE]);
+pub struct PotKey([u8; PotKey::SIZE]);
 
 impl fmt::Debug for PotKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -105,7 +270,7 @@ impl PotKey {
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
-pub struct PotSeed([u8; Self::SIZE]);
+pub struct PotSeed([u8; PotSeed::SIZE]);
 
 impl fmt::Debug for PotSeed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -193,7 +358,7 @@ impl PotSeed {
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
-pub struct PotOutput([u8; Self::SIZE]);
+pub struct PotOutput([u8; PotOutput::SIZE]);
 
 impl fmt::Debug for PotOutput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -257,11 +422,10 @@ impl PotOutput {
     /// Size of proof of time proof in bytes
     pub const SIZE: usize = 16;
 
-    // TODO: The seed is only 128-bits, should it be made larger somehow?
-    /// Derives the global randomness from the output
+    /// Derives the global challenge from the output and slot
     #[inline]
-    pub fn derive_global_randomness(&self) -> Randomness {
-        Randomness::from(*blake3_hash(&self.0))
+    pub fn derive_global_challenge(&self, slot: SlotNumber) -> Blake3Hash {
+        blake3_hash_list(&[&self.0, &slot.to_bytes()])
     }
 
     /// Derive seed from proof of time in case entropy injection is not needed
@@ -292,7 +456,7 @@ impl PotOutput {
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
-pub struct PotCheckpoints([PotOutput; Self::NUM_CHECKPOINTS.get() as usize]);
+pub struct PotCheckpoints([PotOutput; PotCheckpoints::NUM_CHECKPOINTS.get() as usize]);
 
 impl PotCheckpoints {
     /// Number of PoT checkpoints produced (used to optimize verification)

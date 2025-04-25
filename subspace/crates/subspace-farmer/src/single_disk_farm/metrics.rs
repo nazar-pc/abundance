@@ -9,7 +9,6 @@ use prometheus_client::registry::{Registry, Unit};
 use std::fmt;
 use std::sync::atomic::{AtomicI64, AtomicU64};
 use std::time::Duration;
-use subspace_core_primitives::sectors::SectorIndex;
 
 #[derive(Debug, Copy, Clone)]
 pub(super) enum SectorState {
@@ -59,8 +58,8 @@ impl SingleDiskFarmMetrics {
     pub(super) fn new(
         registry: &mut Registry,
         farm_id: &FarmId,
-        total_sectors_count: SectorIndex,
-        plotted_sectors_count: SectorIndex,
+        total_sectors_count: u16,
+        plotted_sectors_count: u16,
     ) -> Self {
         let sub_registry = registry
             .sub_registry_with_prefix("farm")
@@ -252,7 +251,7 @@ impl SingleDiskFarmMetrics {
             .inc();
     }
 
-    pub(super) fn update_sectors_total(&self, sectors: SectorIndex, state: SectorState) {
+    pub(super) fn update_sectors_total(&self, sectors: u16, state: SectorState) {
         self.sectors_total
             .get_or_create(&vec![("state", state.to_string())])
             .set(i64::from(sectors));

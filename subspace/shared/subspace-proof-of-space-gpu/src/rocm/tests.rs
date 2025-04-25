@@ -1,11 +1,11 @@
 use crate::rocm::rocm_devices;
+use ab_erasure_coding::ErasureCoding;
 use std::num::NonZeroUsize;
 use std::slice;
 use subspace_core_primitives::hashes::blake3_hash;
 use subspace_core_primitives::pieces::{PieceOffset, Record};
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::HistorySize;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::plotting::{CpuRecordsEncoder, RecordsEncoder};
 use subspace_farmer_components::sector::SectorContentsMap;
 use subspace_proof_of_space::chia::ChiaTable;

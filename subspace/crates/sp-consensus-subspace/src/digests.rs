@@ -1,18 +1,18 @@
 //! Private implementation details of Subspace consensus digests.
 
 use crate::{ConsensusLog, PotParametersChange, SUBSPACE_ENGINE_ID};
+use alloc::collections::btree_map::{BTreeMap, Entry};
+use core::fmt;
+use core::num::NonZeroU32;
 use log::trace;
 use parity_scale_codec::{Decode, Encode};
-use sp_consensus_slots::Slot;
 use sp_runtime::traits::{Header as HeaderT, One, Zero};
 use sp_runtime::DigestItem;
-use sp_std::collections::btree_map::{BTreeMap, Entry};
-use sp_std::fmt;
-use sp_std::num::NonZeroU32;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pot::PotOutput;
+use subspace_core_primitives::pot::{PotOutput, SlotNumber};
 use subspace_core_primitives::segments::{SegmentIndex, SegmentRoot};
-use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
+use subspace_core_primitives::solutions::{Solution, SolutionRange};
+use subspace_verification::sr25519::RewardSignature;
 
 /// A Subspace pre-runtime digest. This contains all data required to validate a block and for the
 /// Subspace runtime module.
@@ -21,8 +21,8 @@ pub enum PreDigest {
     /// Initial version of the pre-digest
     #[codec(index = 0)]
     V0 {
-        /// Slot
-        slot: Slot,
+        /// Slot number
+        slot: SlotNumber,
         /// Solution (includes PoR)
         solution: Solution,
         /// Proof of time information
@@ -33,7 +33,7 @@ pub enum PreDigest {
 impl PreDigest {
     /// Slot
     #[inline]
-    pub fn slot(&self) -> Slot {
+    pub fn slot(&self) -> SlotNumber {
         let Self::V0 { slot, .. } = self;
         *slot
     }
@@ -573,7 +573,7 @@ where
     // dummy one to not break any invariants in the rest of the code
     if header.number().is_zero() {
         return Ok(PreDigest::V0 {
-            slot: Slot::from(0),
+            slot: SlotNumber::ZERO,
             solution: Solution::genesis_solution(),
             pot_info: PreDigestPotInfo::V0 {
                 proof_of_time: Default::default(),
@@ -605,11 +605,11 @@ pub struct DeriveNextSolutionRangeParams<Header: HeaderT> {
     /// Slot probability at which a block is produced.
     pub slot_probability: (u64, u64),
     /// Current slot of the block.
-    pub current_slot: Slot,
+    pub current_slot: SlotNumber,
     /// Current solution range of the block.
     pub current_solution_range: SolutionRange,
     /// Slot at which era has begun.
-    pub era_start_slot: Slot,
+    pub era_start_slot: SlotNumber,
     /// Flag to check if the next solution range should be adjusted.
     pub should_adjust_solution_range: bool,
     /// Solution range override that should be used instead of deriving from current.
@@ -643,8 +643,8 @@ pub fn derive_next_solution_range<Header: HeaderT>(
         solution_range_override
     } else {
         current_solution_range.derive_next(
-            u64::from(era_start_slot),
-            u64::from(current_slot),
+            era_start_slot,
+            current_slot,
             slot_probability,
             era_duration
                 .try_into()
@@ -666,7 +666,7 @@ pub struct NextDigestsVerificationParams<'a, Header: HeaderT> {
     /// Slot probability.
     pub slot_probability: (u64, u64),
     /// Current Era start slot.
-    pub era_start_slot: Slot,
+    pub era_start_slot: SlotNumber,
     /// Should the solution range be adjusted on era change.
     /// If the digest logs indicate that solution range adjustment has been enabled, value is updated.
     pub should_adjust_solution_range: &'a mut bool,

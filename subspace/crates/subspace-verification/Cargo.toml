@@ -14,5 +14,28 @@ include = [
 ]
 
 [dependencies]
-schnorrkel.workspace = true
-subspace-core-primitives.workspace = true
+derive_more = { workspace = true, features = ["deref", "from", "into"] }
+hex = { workspace = true, optional = true }
+parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
+scale-info = { workspace = true, features = ["derive"], optional = true }
+schnorrkel = { workspace = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+serde-big-array = { workspace = true }
+subspace-core-primitives = { workspace = true }
+
+[features]
+alloc = [
+    "hex?/alloc",
+    "serde/alloc",
+]
+scale-codec = [
+    "dep:parity-scale-codec",
+    "dep:scale-info",
+    "alloc",
+]
+serde = [
+    "alloc",
+    "dep:hex",
+    "dep:serde",
+    "hex/serde",
+]

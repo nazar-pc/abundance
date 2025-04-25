@@ -12,6 +12,7 @@ use crate::sector::{
     SectorContentsMap, SectorContentsMapFromBytesError, SectorMetadataChecksummed,
 };
 use crate::{ReadAt, ReadAtSync};
+use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use futures::FutureExt;
 use std::collections::VecDeque;
@@ -21,7 +22,6 @@ use subspace_core_primitives::pieces::{PieceOffset, Record, RecordChunk};
 use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::{SBucket, SectorId};
 use subspace_core_primitives::solutions::{ChunkProof, Solution, SolutionDistance};
-use subspace_erasure_coding::ErasureCoding;
 use subspace_proof_of_space::Table;
 use thiserror::Error;
 

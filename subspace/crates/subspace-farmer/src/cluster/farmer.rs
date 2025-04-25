@@ -104,7 +104,7 @@ pub struct ClusterFarmerFarmDetails {
     /// Farm ID
     pub farm_id: FarmId,
     /// Total number of sectors in the farm
-    pub total_sectors_count: SectorIndex,
+    pub total_sectors_count: u16,
 }
 
 /// Broadcast with sector updates by farmers
@@ -238,7 +238,7 @@ struct Handlers {
 pub struct ClusterFarm {
     farm_id: FarmId,
     farm_id_string: String,
-    total_sectors_count: SectorIndex,
+    total_sectors_count: u16,
     nats_client: NatsClient,
     handlers: Arc<Handlers>,
     background_tasks: AsyncJoinOnDrop<()>,
@@ -250,7 +250,7 @@ impl Farm for ClusterFarm {
         &self.farm_id
     }
 
-    fn total_sectors_count(&self) -> SectorIndex {
+    fn total_sectors_count(&self) -> u16 {
         self.total_sectors_count
     }
 
@@ -296,7 +296,7 @@ impl ClusterFarm {
     /// [`ClusterFarmerIdentifyBroadcast`]
     pub async fn new(
         farm_id: FarmId,
-        total_sectors_count: SectorIndex,
+        total_sectors_count: u16,
         nats_client: NatsClient,
     ) -> anyhow::Result<Self> {
         let farm_id_string = farm_id.to_string();
@@ -395,7 +395,7 @@ impl ClusterFarm {
 struct FarmDetails {
     farm_id: FarmId,
     farm_id_string: String,
-    total_sectors_count: SectorIndex,
+    total_sectors_count: u16,
     piece_reader: Arc<dyn PieceReader + 'static>,
     plotted_sectors: Arc<dyn PlottedSectors + 'static>,
     _background_tasks: Option<AsyncJoinOnDrop<()>>,

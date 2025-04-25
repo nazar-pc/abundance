@@ -7,7 +7,6 @@ use crate::{PosTableType, Table};
 use core::iter;
 use subspace_core_primitives::hashes::blake3_hash;
 use subspace_core_primitives::pos::{PosProof, PosSeed};
-use subspace_core_primitives::U256;
 
 /// Subspace proof of space table generator.
 ///
@@ -68,7 +67,7 @@ impl Table for ShimTable {
 
 fn find_proof(seed: &PosSeed, challenge_index: u32) -> Option<PosProof> {
     let quality = blake3_hash(&challenge_index.to_le_bytes());
-    if U256::from_le_bytes(*quality) % U256::from(3u32) > U256::zero() {
+    if quality[0] % 3 > 0 {
         let mut proof = PosProof::default();
         proof
             .iter_mut()
@@ -96,10 +95,10 @@ mod tests {
 
         let table = ShimTable::generate(&seed);
 
-        assert!(table.find_proof(0).is_none());
+        assert!(table.find_proof(1).is_none());
 
         {
-            let challenge_index = 2;
+            let challenge_index = 0;
             let proof = table.find_proof(challenge_index).unwrap();
             assert!(ShimTable::is_proof_valid(&seed, challenge_index, &proof));
         }

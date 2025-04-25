@@ -59,6 +59,12 @@ practice), increasing record size slightly and simplifying a lot of places in th
 Both pieces in a segment and chunks in a sector had source/parity interleaving, which for simplicity was removed. Now
 all source pieces/chunks go first, followed by all parity pieces/chunks.
 
+## Global challenge
+
+Global challenge in Subspace was derived by hashing global randomness and slot, but global randomness itself was just a
+hash of PoT output. This was changed to instead hash PoT with slot directly, saving one hash and otherwise unnecessary
+randomness abstraction.
+
 ## Terminology
 
 After switching from KZG to Merkle Trees, commitments are renamed to roots, witnesses to proofs. Scalars are also called

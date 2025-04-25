@@ -23,6 +23,7 @@ use crate::sync_from_dsn::piece_validator::SegmentRootPieceValidator;
 use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::sync_from_dsn::DsnPieceGetter;
 use crate::task_spawner::SpawnTasksParams;
+use ab_erasure_coding::ErasureCoding;
 use async_lock::Semaphore;
 use core::sync::atomic::{AtomicU32, Ordering};
 use frame_system_rpc_runtime_api::AccountNonceApi;
@@ -72,19 +73,17 @@ use sp_core::traits::SpawnEssentialNamed;
 use sp_objects::ObjectsApi;
 use sp_offchain::OffchainWorkerApi;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo};
-use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use static_assertions::const_assert;
 use std::sync::Arc;
 use std::time::Duration;
 use subspace_core_primitives::pot::PotSeed;
-use subspace_core_primitives::REWARD_SIGNING_CONTEXT;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_proof_of_space::Table;
 use subspace_runtime_primitives::opaque::Block;
 use subspace_runtime_primitives::{AccountId, Balance, Nonce};
+use subspace_verification::sr25519::REWARD_SIGNING_CONTEXT;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info, Instrument};
 pub use utils::wait_for_block_import;
@@ -226,7 +225,6 @@ where
         + Metadata<Block>
         + BlockBuilder<Block>
         + OffchainWorkerApi<Block>
-        + SessionKeys<Block>
         + TaggedTransactionQueue<Block>
         + SubspaceApi<Block>
         + ObjectsApi<Block>,
@@ -421,7 +419,6 @@ where
         + AccountNonceApi<Block, AccountId, Nonce>
         + BlockBuilder<Block>
         + OffchainWorkerApi<Block>
-        + SessionKeys<Block>
         + TaggedTransactionQueue<Block>
         + TransactionPaymentApi<Block, Balance>
         + SubspaceApi<Block>

@@ -1,6 +1,7 @@
 //! Fetching segments of the archived history of Subspace Network.
 
 use crate::piece_getter::PieceGetter;
+use ab_erasure_coding::ErasureCoding;
 use futures::StreamExt;
 use subspace_archiving::archiver::Segment;
 use subspace_archiving::reconstructor::{Reconstructor, ReconstructorError};
@@ -8,7 +9,6 @@ use subspace_core_primitives::pieces::Piece;
 use subspace_core_primitives::segments::{
     ArchivedHistorySegment, RecordedHistorySegment, SegmentIndex,
 };
-use subspace_erasure_coding::ErasureCoding;
 use tokio::task::spawn_blocking;
 use tracing::debug;
 

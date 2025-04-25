@@ -5,7 +5,7 @@ use futures::{stream, Stream};
 use std::sync::Arc;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::PieceOffset;
-use subspace_core_primitives::sectors::SectorId;
+use subspace_core_primitives::sectors::{SectorId, SectorIndex};
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_farmer_components::sector::SectorMetadataChecksummed;
 use subspace_farmer_components::FarmerProtocolInfo;
@@ -28,35 +28,37 @@ impl PlottedSectors for SingleDiskPlottedSectors {
         FarmError,
     > {
         let sectors_metadata = self.sectors_metadata.read().await.clone();
-        Ok(Box::new(stream::iter((0..).zip(sectors_metadata).map(
-            move |(sector_index, sector_metadata)| {
-                let sector_id = SectorId::new(
-                    &self.public_key_hash,
-                    sector_index,
-                    sector_metadata.history_size,
-                );
+        Ok(Box::new(stream::iter(
+            (SectorIndex::ZERO..).zip(sectors_metadata).map(
+                move |(sector_index, sector_metadata)| {
+                    let sector_id = SectorId::new(
+                        &self.public_key_hash,
+                        sector_index,
+                        sector_metadata.history_size,
+                    );
 
-                let mut piece_indexes = Vec::with_capacity(usize::from(self.pieces_in_sector));
-                (PieceOffset::ZERO..)
-                    .take(usize::from(self.pieces_in_sector))
-                    .map(|piece_offset| {
-                        sector_id.derive_piece_index(
-                            piece_offset,
-                            sector_metadata.history_size,
-                            self.farmer_protocol_info.max_pieces_in_sector,
-                            self.farmer_protocol_info.recent_segments,
-                            self.farmer_protocol_info.recent_history_fraction,
-                        )
+                    let mut piece_indexes = Vec::with_capacity(usize::from(self.pieces_in_sector));
+                    (PieceOffset::ZERO..)
+                        .take(usize::from(self.pieces_in_sector))
+                        .map(|piece_offset| {
+                            sector_id.derive_piece_index(
+                                piece_offset,
+                                sector_metadata.history_size,
+                                self.farmer_protocol_info.max_pieces_in_sector,
+                                self.farmer_protocol_info.recent_segments,
+                                self.farmer_protocol_info.recent_history_fraction,
+                            )
+                        })
+                        .collect_into(&mut piece_indexes);
+
+                    Ok(PlottedSector {
+                        sector_id,
+                        sector_index,
+                        sector_metadata,
+                        piece_indexes,
                     })
-                    .collect_into(&mut piece_indexes);
-
-                Ok(PlottedSector {
-                    sector_id,
-                    sector_index,
-                    sector_metadata,
-                    piece_indexes,
-                })
-            },
-        ))))
+                },
+            ),
+        )))
     }
 }

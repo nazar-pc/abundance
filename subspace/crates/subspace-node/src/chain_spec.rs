@@ -8,12 +8,12 @@ use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use subspace_core_primitives::pot::PotKey;
 use subspace_core_primitives::solutions::SolutionRange;
-use subspace_core_primitives::PublicKey;
 use subspace_runtime::{
     AllowAuthoringBy, BalancesConfig, RuntimeConfigsConfig, RuntimeGenesisConfig, SubspaceConfig,
     SudoConfig, SystemConfig, WASM_BINARY,
 };
 use subspace_runtime_primitives::{AccountId, Balance, SLOT_PROBABILITY, SSC};
+use subspace_verification::sr25519::PublicKey;
 
 // We assume initial plot size starts with a single sector.
 const INITIAL_SOLUTION_RANGE: SolutionRange = SolutionRange::from_pieces(1000, SLOT_PROBABILITY);

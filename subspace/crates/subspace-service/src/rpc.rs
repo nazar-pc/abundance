@@ -6,6 +6,7 @@
 
 #![warn(missing_docs)]
 
+use ab_erasure_coding::ErasureCoding;
 use jsonrpsee::RpcModule;
 use sc_client_api::{AuxStore, BlockBackend};
 use sc_consensus_subspace::archiver::{ArchivedSegmentNotification, SegmentHeadersStore};
@@ -21,7 +22,6 @@ use sp_consensus::SyncOracle;
 use sp_consensus_subspace::SubspaceApi;
 use sp_objects::ObjectsApi;
 use std::sync::Arc;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_runtime_primitives::opaque::Block;
 

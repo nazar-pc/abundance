@@ -16,21 +16,21 @@ include = [
 bench = false
 
 [dependencies]
-chacha20.workspace = true
+chacha20 = { workspace = true }
 derive_more = { workspace = true, features = ["full"] }
 parking_lot = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
-seq-macro.workspace = true
+seq-macro = { workspace = true }
 sha2 = { workspace = true, optional = true }
-spin.workspace = true
-static_assertions.workspace = true
-subspace-core-primitives.workspace = true
+spin = { workspace = true }
+static_assertions = { workspace = true }
+subspace-core-primitives = { workspace = true }
 
 [dev-dependencies]
-bitvec.workspace = true
-criterion.workspace = true
-rayon.workspace = true
-sha2.workspace = true
+bitvec = { workspace = true }
+criterion = { workspace = true }
+rayon = { workspace = true }
+sha2 = { workspace = true }
 
 [[bench]]
 name = "pos"

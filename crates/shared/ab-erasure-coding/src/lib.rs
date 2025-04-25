@@ -7,9 +7,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;
+use reed_solomon_simd::Error;
 use reed_solomon_simd::engine::DefaultEngine;
 use reed_solomon_simd::rate::{HighRateDecoder, HighRateEncoder, RateDecoder, RateEncoder};
-use reed_solomon_simd::Error;
 
 /// Error that occurs when calling [`ErasureCoding::recover()`]
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -26,6 +26,7 @@ pub enum ErasureCodingError {
 }
 
 /// State of the shard for recovery
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum RecoveryShardState<PresentShard, MissingShard> {
     /// Shard is present and will be used for recovery
     Present(PresentShard),
@@ -150,60 +151,64 @@ impl ErasureCoding {
             }
         }
 
-        let mut decoder = HighRateDecoder::new(
-            num_source,
-            num_parity,
-            shard_byte_len,
-            DefaultEngine::new(),
-            None,
-        )?;
-
         let mut all_source_shards = vec![MaybeUninit::uninit(); num_source];
-        let mut source_shards_to_recover = Vec::new();
-        for (index, shard) in source {
-            match shard {
-                RecoveryShardState::Present(shard_bytes) => {
-                    all_source_shards[index].write(shard_bytes);
-                    decoder.add_original_shard(index, shard_bytes)?;
-                }
-                RecoveryShardState::MissingRecover(shard_bytes) => {
-                    source_shards_to_recover.push((index, shard_bytes));
-                }
-                RecoveryShardState::MissingIgnore => {}
-            }
-        }
-
         let mut parity_shards_to_recover = Vec::new();
-        for (index, shard) in parity {
-            match shard {
-                RecoveryShardState::Present(shard_bytes) => {
-                    decoder.add_recovery_shard(index, shard_bytes)?;
+
+        {
+            let mut decoder = HighRateDecoder::new(
+                num_source,
+                num_parity,
+                shard_byte_len,
+                DefaultEngine::new(),
+                None,
+            )?;
+
+            let mut source_shards_to_recover = Vec::new();
+            for (index, shard) in source {
+                match shard {
+                    RecoveryShardState::Present(shard_bytes) => {
+                        all_source_shards[index].write(shard_bytes);
+                        decoder.add_original_shard(index, shard_bytes)?;
+                    }
+                    RecoveryShardState::MissingRecover(shard_bytes) => {
+                        source_shards_to_recover.push((index, shard_bytes));
+                    }
+                    RecoveryShardState::MissingIgnore => {}
                 }
-                RecoveryShardState::MissingRecover(shard_bytes) => {
-                    parity_shards_to_recover.push((index, shard_bytes));
+            }
+
+            for (index, shard) in parity {
+                match shard {
+                    RecoveryShardState::Present(shard_bytes) => {
+                        decoder.add_recovery_shard(index, shard_bytes)?;
+                    }
+                    RecoveryShardState::MissingRecover(shard_bytes) => {
+                        parity_shards_to_recover.push((index, shard_bytes));
+                    }
+                    RecoveryShardState::MissingIgnore => {}
                 }
-                RecoveryShardState::MissingIgnore => {}
+            }
+
+            let result = decoder.decode()?;
+
+            for (index, output) in source_shards_to_recover {
+                if output.len() != shard_byte_len {
+                    return Err(ErasureCodingError::WrongSourceShardByteLength {
+                        expected: shard_byte_len,
+                        actual: output.len(),
+                    });
+                }
+                let shard = result
+                    .restored_original(index)
+                    .expect("Always corresponds to a missing original shard; qed");
+                output.copy_from_slice(shard);
+                all_source_shards[index].write(output);
             }
         }
 
-        let result = decoder.decode()?;
-
-        for (index, output) in source_shards_to_recover {
-            if output.len() != shard_byte_len {
-                return Err(ErasureCodingError::WrongSourceShardByteLength {
-                    expected: shard_byte_len,
-                    actual: output.len(),
-                });
-            }
-            let shard = result
-                .restored_original(index)
-                .expect("Always corresponds to a missing original shard; qed");
-            all_source_shards[index].write(shard);
-            output.copy_from_slice(shard);
-        }
-
-        let all_source_shards = unsafe { all_source_shards.assume_init_ref() };
         if !parity_shards_to_recover.is_empty() {
+            let all_source_shards = unsafe { all_source_shards.assume_init_ref() };
+
             let mut encoder = HighRateEncoder::new(
                 num_source,
                 num_parity,

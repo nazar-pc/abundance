@@ -15,12 +15,12 @@ use subspace_networking::utils::multihash::ToMultihash;
 use tempfile::tempdir;
 
 const FAKE_SECTOR_SIZE: usize = 2 * 1024 * 1024;
-const TARGET_SECTOR_COUNT: SectorIndex = 5;
+const TARGET_SECTOR_COUNT: u16 = 5;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn basic() {
     let dummy_sector_metadata = SectorMetadataChecksummed::from(SectorMetadata {
-        sector_index: 0,
+        sector_index: SectorIndex::ZERO,
         pieces_in_sector: 0,
         s_bucket_sizes: Box::new([0u16; Record::NUM_S_BUCKETS]),
         history_size: HistorySize::new(NonZeroU64::MIN),

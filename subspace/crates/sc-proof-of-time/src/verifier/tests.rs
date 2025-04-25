@@ -1,9 +1,8 @@
 use crate::verifier::PotVerifier;
-use sp_consensus_slots::Slot;
 use sp_consensus_subspace::{PotNextSlotInput, PotParametersChange};
 use std::num::NonZeroU32;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pot::PotSeed;
+use subspace_core_primitives::pot::{PotSeed, SlotNumber};
 
 const SEED: [u8; 16] = [
     0xd6, 0x66, 0xcc, 0xd8, 0xd5, 0x93, 0xc2, 0x3d, 0xa8, 0xdb, 0x6b, 0x5b, 0x14, 0x13, 0xb1, 0x3a,
@@ -20,11 +19,11 @@ fn test_basic() {
     // Expected to be valid
     assert!(verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(1),
+            slot: SlotNumber::ONE,
             slot_iterations,
             seed: genesis_seed,
         },
-        Slot::from(1),
+        SlotNumber::ONE,
         checkpoints_1.output(),
         None
     ));
@@ -33,22 +32,22 @@ fn test_basic() {
     // Invalid number of slots
     assert!(!verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(1),
+            slot: SlotNumber::ONE,
             slot_iterations,
             seed: genesis_seed,
         },
-        Slot::from(2),
+        SlotNumber::new(2),
         checkpoints_1.output(),
         None
     ));
     // Invalid seed
     assert!(!verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(1),
+            slot: SlotNumber::ONE,
             slot_iterations,
             seed: checkpoints_1.output().seed(),
         },
-        Slot::from(1),
+        SlotNumber::ONE,
         checkpoints_1.output(),
         None
     ));
@@ -67,21 +66,21 @@ fn test_basic() {
     // Expected to be valid
     assert!(verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(2),
+            slot: SlotNumber::new(2),
             slot_iterations,
             seed: seed_1,
         },
-        Slot::from(1),
+        SlotNumber::ONE,
         checkpoints_2.output(),
         None
     ));
     assert!(verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(1),
+            slot: SlotNumber::ONE,
             slot_iterations,
             seed: genesis_seed,
         },
-        Slot::from(2),
+        SlotNumber::new(2),
         checkpoints_2.output(),
         None
     ));
@@ -90,35 +89,35 @@ fn test_basic() {
     // Invalid number of slots
     assert!(!verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(1),
+            slot: SlotNumber::ONE,
             slot_iterations,
             seed: seed_1,
         },
-        Slot::from(2),
+        SlotNumber::new(2),
         checkpoints_2.output(),
         None
     ));
     // Invalid seed
     assert!(!verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(1),
+            slot: SlotNumber::ONE,
             slot_iterations,
             seed: seed_1,
         },
-        Slot::from(2),
+        SlotNumber::new(2),
         checkpoints_2.output(),
         None
     ));
     // Invalid number of iterations
     assert!(!verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(1),
+            slot: SlotNumber::ONE,
             slot_iterations: slot_iterations
                 .checked_mul(NonZeroU32::new(2).unwrap())
                 .unwrap(),
             seed: genesis_seed,
         },
-        Slot::from(2),
+        SlotNumber::new(2),
         checkpoints_2.output(),
         None
     ));
@@ -144,14 +143,14 @@ fn parameters_change() {
     // Changing parameters after first slot
     assert!(verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(1),
+            slot: SlotNumber::ONE,
             slot_iterations: slot_iterations_1,
             seed: genesis_seed,
         },
-        Slot::from(1),
+        SlotNumber::ONE,
         checkpoints_1.output(),
         Some(PotParametersChange {
-            slot: Slot::from(2),
+            slot: SlotNumber::new(2),
             slot_iterations: slot_iterations_2,
             entropy,
         })
@@ -159,14 +158,14 @@ fn parameters_change() {
     // Changing parameters in the middle
     assert!(verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(1),
+            slot: SlotNumber::ONE,
             slot_iterations: slot_iterations_1,
             seed: genesis_seed,
         },
-        Slot::from(3),
+        SlotNumber::new(3),
         checkpoints_3.output(),
         Some(PotParametersChange {
-            slot: Slot::from(2),
+            slot: SlotNumber::new(2),
             slot_iterations: slot_iterations_2,
             entropy,
         })
@@ -174,14 +173,14 @@ fn parameters_change() {
     // Changing parameters on last slot
     assert!(verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(1),
+            slot: SlotNumber::ONE,
             slot_iterations: slot_iterations_1,
             seed: genesis_seed,
         },
-        Slot::from(2),
+        SlotNumber::new(2),
         checkpoints_2.output(),
         Some(PotParametersChange {
-            slot: Slot::from(2),
+            slot: SlotNumber::new(2),
             slot_iterations: slot_iterations_2,
             entropy,
         })
@@ -189,14 +188,14 @@ fn parameters_change() {
     // Not changing parameters because changes apply to the very first slot that is verified
     assert!(verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(2),
+            slot: SlotNumber::new(2),
             slot_iterations: slot_iterations_2,
             seed: checkpoints_1.output().seed_with_entropy(&entropy),
         },
-        Slot::from(2),
+        SlotNumber::new(2),
         checkpoints_3.output(),
         Some(PotParametersChange {
-            slot: Slot::from(2),
+            slot: SlotNumber::new(2),
             slot_iterations: slot_iterations_2,
             entropy,
         })
@@ -205,25 +204,25 @@ fn parameters_change() {
     // Missing parameters change
     assert!(!verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(1),
+            slot: SlotNumber::ONE,
             slot_iterations: slot_iterations_1,
             seed: genesis_seed,
         },
-        Slot::from(3),
+        SlotNumber::new(3),
         checkpoints_3.output(),
         None
     ));
     // Invalid slot
     assert!(!verifier.is_output_valid(
         PotNextSlotInput {
-            slot: Slot::from(2),
+            slot: SlotNumber::new(2),
             slot_iterations: slot_iterations_1,
             seed: genesis_seed,
         },
-        Slot::from(3),
+        SlotNumber::new(3),
         checkpoints_3.output(),
         Some(PotParametersChange {
-            slot: Slot::from(2),
+            slot: SlotNumber::new(2),
             slot_iterations: slot_iterations_2,
             entropy,
         })

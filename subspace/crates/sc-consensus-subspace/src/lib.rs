@@ -21,9 +21,9 @@ use crate::archiver::{ArchivedSegmentNotification, ObjectMappingNotification};
 use crate::block_import::BlockImportingNotification;
 use crate::notification::{SubspaceNotificationSender, SubspaceNotificationStream};
 use crate::slot_worker::{NewSlotNotification, RewardSigningNotification};
+use ab_erasure_coding::ErasureCoding;
 use sp_consensus_subspace::ChainConstants;
 use sp_runtime::traits::Block as BlockT;
-use subspace_erasure_coding::ErasureCoding;
 
 /// State that must be shared between various consensus components.
 #[derive(Clone)]

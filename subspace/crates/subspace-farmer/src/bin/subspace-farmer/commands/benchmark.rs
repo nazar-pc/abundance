@@ -1,4 +1,5 @@
 use crate::PosTable;
+use ab_erasure_coding::ErasureCoding;
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use criterion::{black_box, BatchSize, Criterion, Throughput};
@@ -9,8 +10,8 @@ use std::fs::OpenOptions;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use subspace_core_primitives::hashes::Blake3Hash;
+use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::solutions::SolutionRange;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::single_disk_farm::direct_io_file::DirectIoFile;
 use subspace_farmer::single_disk_farm::farming::rayon_files::RayonFiles;
 use subspace_farmer::single_disk_farm::farming::{PlotAudit, PlotAuditOptions};
@@ -182,7 +183,7 @@ where
                         let options = PlotAuditOptions::<PosTable> {
                             public_key_hash,
                             slot_info: SlotInfo {
-                                slot_number: 0,
+                                slot_number: SlotNumber::ZERO,
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
@@ -215,7 +216,7 @@ where
                         let options = PlotAuditOptions::<PosTable> {
                             public_key_hash,
                             slot_info: SlotInfo {
-                                slot_number: 0,
+                                slot_number: SlotNumber::ZERO,
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
@@ -246,7 +247,7 @@ where
                         let options = PlotAuditOptions::<PosTable> {
                             public_key_hash,
                             slot_info: SlotInfo {
-                                slot_number: 0,
+                                slot_number: SlotNumber::ZERO,
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
@@ -340,7 +341,7 @@ where
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key_hash,
                 slot_info: SlotInfo {
-                    slot_number: 0,
+                    slot_number: SlotNumber::ZERO,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
@@ -410,7 +411,7 @@ where
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key_hash,
                 slot_info: SlotInfo {
-                    slot_number: 0,
+                    slot_number: SlotNumber::ZERO,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
@@ -478,7 +479,7 @@ where
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key_hash,
                 slot_info: SlotInfo {
-                    slot_number: 0,
+                    slot_number: SlotNumber::ZERO,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,

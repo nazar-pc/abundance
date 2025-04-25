@@ -12,6 +12,7 @@ use crate::sector::{
 };
 use crate::segment_reconstruction::recover_missing_piece;
 use crate::FarmerProtocolInfo;
+use ab_erasure_coding::ErasureCoding;
 use async_lock::{Mutex as AsyncMutex, Semaphore};
 use backoff::future::retry;
 use backoff::{Error as BackoffError, ExponentialBackoff};
@@ -31,7 +32,6 @@ use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::{SBucket, SectorId, SectorIndex};
 use subspace_core_primitives::segments::HistorySize;
 use subspace_data_retrieval::piece_getter::PieceGetter;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_proof_of_space::{Table, TableGenerator};
 use thiserror::Error;
 use tracing::{debug, trace, warn};

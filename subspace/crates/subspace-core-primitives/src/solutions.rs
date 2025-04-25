@@ -3,10 +3,10 @@
 use crate::hashes::{blake3_hash_with_key, Blake3Hash};
 use crate::pieces::{PieceOffset, Record, RecordChunk, RecordProof, RecordRoot};
 use crate::pos::{PosProof, PosSeed};
-use crate::pot::PotOutput;
+use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
-use crate::{BlockNumber, PublicKey, SlotNumber};
+use crate::BlockNumber;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
@@ -25,7 +25,6 @@ use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
-use static_assertions::const_assert;
 
 /// Solution distance
 #[derive(Debug, Display, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
@@ -248,29 +247,12 @@ impl SolutionRange {
     }
 }
 
-// Quick test to ensure functions above are the inverse of each other
-const_assert!(SolutionRange::from_pieces(1, (1, 6)).to_pieces((1, 6)) == 1);
-const_assert!(SolutionRange::from_pieces(3, (1, 6)).to_pieces((1, 6)) == 3);
-const_assert!(SolutionRange::from_pieces(5, (1, 6)).to_pieces((1, 6)) == 5);
-
-// TODO: Remove this from core primitives
-/// A Ristretto Schnorr signature as bytes produced by `schnorrkel` crate.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct RewardSignature {
-    /// Public key that signature corresponds to
-    #[serde(with = "hex")]
-    pub public_key: [u8; PublicKey::SIZE],
-    /// Signature itself
-    #[serde(with = "hex")]
-    pub signature: [u8; RewardSignature::SIZE],
-}
-
-impl RewardSignature {
-    /// Reward signature size in bytes
-    pub const SIZE: usize = 64;
-}
+// Quick test to ensure the functions above are the inverse of each other
+const _: () = {
+    assert!(SolutionRange::from_pieces(1, (1, 6)).to_pieces((1, 6)) == 1);
+    assert!(SolutionRange::from_pieces(3, (1, 6)).to_pieces((1, 6)) == 3);
+    assert!(SolutionRange::from_pieces(5, (1, 6)).to_pieces((1, 6)) == 5);
+};
 
 /// Proof for chunk contained within a record.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
@@ -481,7 +463,7 @@ impl Solution {
     pub fn genesis_solution() -> Self {
         Self {
             public_key_hash: Blake3Hash::default(),
-            sector_index: 0,
+            sector_index: SectorIndex::ZERO,
             history_size: HistorySize::from(SegmentIndex::ZERO),
             piece_offset: PieceOffset::default(),
             record_root: RecordRoot::default(),
@@ -509,8 +491,7 @@ impl Solution {
 
         let sector_id = SectorId::new(&self.public_key_hash, self.sector_index, self.history_size);
 
-        let global_randomness = proof_of_time.derive_global_randomness();
-        let global_challenge = global_randomness.derive_global_challenge(slot);
+        let global_challenge = proof_of_time.derive_global_challenge(slot);
         let sector_slot_challenge = sector_id.derive_sector_slot_challenge(&global_challenge);
         let s_bucket_audit_index = sector_slot_challenge.s_bucket_audit_index();
 

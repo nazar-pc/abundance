@@ -16,7 +16,6 @@ use sc_network_gossip::{Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
-use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::{extract_pre_digest, extract_subspace_digest_items};
 use sp_consensus_subspace::{ChainConstants, PotNextSlotInput, SubspaceApi};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Zero};
@@ -24,7 +23,7 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::thread;
-use subspace_core_primitives::pot::PotCheckpoints;
+use subspace_core_primitives::pot::{PotCheckpoints, SlotNumber};
 use thread_priority::{set_current_thread_priority, ThreadPriority};
 use tokio::sync::broadcast;
 use tracing::{debug, error, trace, warn, Span};
@@ -38,7 +37,7 @@ const GOSSIP_INCOMING_CHANNEL_CAPACITY: usize = 10;
 #[derive(Clone)]
 pub struct PotSlotInfo {
     /// Slot number
-    pub slot: Slot,
+    pub slot: SlotNumber,
     /// Proof of time checkpoints
     pub checkpoints: PotCheckpoints,
 }
@@ -60,7 +59,7 @@ pub struct PotSourceWorker<Block, Client, SO> {
     timekeeper_proofs_receiver: mpsc::Receiver<TimekeeperProof>,
     to_gossip_sender: mpsc::Sender<ToGossipMessage>,
     from_gossip_receiver: mpsc::Receiver<(PeerId, GossipProof)>,
-    last_slot_sent: Slot,
+    last_slot_sent: SlotNumber,
     slot_sender: broadcast::Sender<PotSlotInfo>,
     state: Arc<PotState>,
     _block: PhantomData<Block>,
@@ -100,7 +99,7 @@ where
             .map_err(|error| ApiError::Application(error.into()))?;
 
         let parent_slot = if best_header.number().is_zero() {
-            Slot::from(0)
+            SlotNumber::ZERO
         } else {
             // The best one seen
             best_pre_digest.slot() + chain_constants.block_authoring_delay()
@@ -111,7 +110,7 @@ where
 
         let pot_input = if best_header.number().is_zero() {
             PotNextSlotInput {
-                slot: parent_slot + Slot::from(1),
+                slot: parent_slot + SlotNumber::ONE,
                 slot_iterations: pot_parameters.slot_iterations(),
                 seed: pot_verifier.genesis_seed(),
             }
@@ -192,7 +191,7 @@ where
             timekeeper_proofs_receiver,
             to_gossip_sender,
             from_gossip_receiver,
-            last_slot_sent: Slot::from(0),
+            last_slot_sent: SlotNumber::ZERO,
             slot_sender,
             state,
             _block: PhantomData,

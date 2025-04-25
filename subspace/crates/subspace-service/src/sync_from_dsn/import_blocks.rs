@@ -1,5 +1,6 @@
 use crate::sync_from_dsn::segment_header_downloader::SegmentHeaderDownloader;
 use crate::sync_from_dsn::PieceGetter;
+use ab_erasure_coding::ErasureCoding;
 use sc_client_api::{AuxStore, BlockBackend, HeaderBackend};
 use sc_consensus::import_queue::ImportQueueService;
 use sc_consensus::IncomingBlock;
@@ -16,7 +17,6 @@ use subspace_archiving::reconstructor::Reconstructor;
 use subspace_core_primitives::segments::SegmentIndex;
 use subspace_core_primitives::BlockNumber;
 use subspace_data_retrieval::segment_downloading::download_segment_pieces;
-use subspace_erasure_coding::ErasureCoding;
 use tokio::task;
 
 /// How many blocks to queue before pausing and waiting for blocks to be imported, this is

@@ -17,16 +17,16 @@ include = [
 bench = false
 
 [dependencies]
+ab-erasure-coding = { workspace = true }
 ab-merkle-tree = { workspace = true, features = ["alloc"] }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 rayon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
-subspace-erasure-coding.workspace = true
-thiserror.workspace = true
+thiserror = { workspace = true }
 
 [dev-dependencies]
-criterion.workspace = true
+criterion = { workspace = true }
 rand_core = { workspace = true }
 rand_chacha = { workspace = true }
 

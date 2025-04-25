@@ -40,6 +40,7 @@ use crate::single_disk_farm::plotting::{
 use crate::single_disk_farm::reward_signing::reward_signing;
 use crate::utils::{tokio_rayon_spawn_handler, AsyncJoinOnDrop};
 use crate::{farm, KNOWN_PEERS_CACHE_SIZE};
+use ab_erasure_coding::ErasureCoding;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use async_trait::async_trait;
 use event_listener_primitives::{Bag, HandlerId};
@@ -69,8 +70,6 @@ use subspace_core_primitives::hashes::{blake3_hash, Blake3Hash};
 use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::segments::{HistorySize, SegmentIndex};
-use subspace_core_primitives::PublicKey;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::file_ext::FileExt;
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{sector_size, SectorMetadata, SectorMetadataChecksummed};
@@ -78,6 +77,7 @@ use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::KnownPeersManager;
 use subspace_proof_of_space::Table;
 use subspace_rpc_primitives::{FarmerAppInfo, SolutionResponse};
+use subspace_verification::sr25519::PublicKey;
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
@@ -256,7 +256,7 @@ pub enum SingleDiskFarmSummary {
 #[derive(Debug, Encode, Decode)]
 struct PlotMetadataHeader {
     version: u8,
-    plotted_sector_count: SectorIndex,
+    plotted_sector_count: u16,
 }
 
 impl PlotMetadataHeader {
@@ -687,12 +687,12 @@ impl AllocatedSpaceDistribution {
         };
         let target_sector_count = match SectorIndex::try_from(target_sector_count) {
             Ok(target_sector_count) if target_sector_count < SectorIndex::MAX => {
-                target_sector_count
+                u16::from(target_sector_count)
             }
             _ => {
-                // We use this for both count and index, hence index must not reach actual `MAX`
+                // We use `u16` for both count and index, hence index must not reach actual `MAX`
                 // (consensus doesn't care about this, just farmer implementation detail)
-                let max_sectors = SectorIndex::MAX - 1;
+                let max_sectors = u16::from(SectorIndex::MAX) - 1;
                 return Err(SingleDiskFarmError::FarmTooLarge {
                     allocated_space: target_sector_count * sector_size,
                     allocated_sectors: target_sector_count,
@@ -748,7 +748,7 @@ pub struct SingleDiskFarm {
     /// Metadata of all sectors plotted so far
     sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     pieces_in_sector: u16,
-    total_sectors_count: SectorIndex,
+    total_sectors_count: u16,
     span: Span,
     tasks: FuturesUnordered<BackgroundTask>,
     handlers: Arc<Handlers>,
@@ -779,7 +779,7 @@ impl Farm for SingleDiskFarm {
         self.id()
     }
 
-    fn total_sectors_count(&self) -> SectorIndex {
+    fn total_sectors_count(&self) -> u16 {
         self.total_sectors_count
     }
 
@@ -922,7 +922,7 @@ impl SingleDiskFarm {
                 *registry.lock(),
                 single_disk_farm_info.id(),
                 target_sector_count,
-                sectors_metadata.read_blocking().len() as SectorIndex,
+                sectors_metadata.read_blocking().len() as u16,
             ))
         });
 
@@ -945,8 +945,8 @@ impl SingleDiskFarm {
         let sectors_being_modified = Arc::<AsyncRwLock<HashSet<SectorIndex>>>::default();
         let (sectors_to_plot_sender, sectors_to_plot_receiver) = mpsc::channel(1);
         // Some sectors may already be plotted, skip them
-        let sectors_indices_left_to_plot =
-            metadata_header.plotted_sector_count..target_sector_count;
+        let sectors_indices_left_to_plot = SectorIndex::new(metadata_header.plotted_sector_count)
+            ..SectorIndex::new(target_sector_count);
 
         let farming_thread_pool = ThreadPoolBuilder::new()
             .thread_name(move |thread_index| format!("farming-{farm_index}.{thread_index}"))
@@ -1397,7 +1397,9 @@ impl SingleDiskFarm {
                 Vec::<SectorMetadataChecksummed>::with_capacity(usize::from(target_sector_count));
 
             let mut sector_metadata_bytes = vec![0; sector_metadata_size];
-            for sector_index in 0..metadata_header.plotted_sector_count {
+            for sector_index in
+                SectorIndex::ZERO..SectorIndex::new(metadata_header.plotted_sector_count)
+            {
                 let sector_offset =
                     RESERVED_PLOT_METADATA + sector_metadata_size as u64 * u64::from(sector_index);
                 metadata_file.read_exact_at(&mut sector_metadata_bytes, sector_offset)?;
@@ -1627,7 +1629,7 @@ impl SingleDiskFarm {
     }
 
     /// Number of sectors in this farm
-    pub fn total_sectors_count(&self) -> SectorIndex {
+    pub fn total_sectors_count(&self) -> u16 {
         self.total_sectors_count
     }
 
@@ -1884,7 +1886,7 @@ impl SingleDiskFarm {
 
                     metadata_header.plotted_sector_count =
                         ((metadata_size - RESERVED_PLOT_METADATA) / sector_metadata_size as u64)
-                            as SectorIndex;
+                            as u16;
                     let metadata_header_bytes = metadata_header.encode();
 
                     if !dry_run {
@@ -1953,7 +1955,7 @@ impl SingleDiskFarm {
                         sectors to correct value"
                     );
 
-                    metadata_header.plotted_sector_count = (plot_size / sector_size) as SectorIndex;
+                    metadata_header.plotted_sector_count = (plot_size / sector_size) as u16;
                     let metadata_header_bytes = metadata_header.encode();
 
                     if !dry_run {
@@ -1976,6 +1978,7 @@ impl SingleDiskFarm {
             info!("Checking sectors and corresponding metadata");
             (0..metadata_header.plotted_sector_count)
                 .into_par_iter()
+                .map(SectorIndex::new)
                 .map_init(
                     || vec![0u8; Record::SIZE],
                     |scratch_buffer, sector_index| {
@@ -2036,7 +2039,7 @@ impl SingleDiskFarm {
                             warn!(
                                 path = %metadata_file_path.display(),
                                 %sector_index,
-                                found_sector_index = sector_metadata.sector_index,
+                                found_sector_index = %sector_metadata.sector_index,
                                 "Sector index mismatch, replacing with dummy expired sector \
                                 metadata"
                             );

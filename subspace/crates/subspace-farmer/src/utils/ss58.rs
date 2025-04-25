@@ -6,7 +6,7 @@ use blake2::digest::typenum::U64;
 use blake2::digest::FixedOutput;
 use blake2::{Blake2b, Digest};
 use ss58_registry::Ss58AddressFormat;
-use subspace_core_primitives::PublicKey;
+use subspace_verification::sr25519::PublicKey;
 use thiserror::Error;
 
 const PREFIX: &[u8] = b"SS58PRE";

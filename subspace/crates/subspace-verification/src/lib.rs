@@ -3,11 +3,14 @@
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![no_std]
 
+pub mod sr25519;
+
 use schnorrkel::context::SigningContext;
 use schnorrkel::SignatureError;
+use sr25519::RewardSignature;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::solutions::{RewardSignature, SolutionRange};
-use subspace_core_primitives::{BlockWeight, PublicKey};
+use subspace_core_primitives::solutions::SolutionRange;
+use subspace_core_primitives::BlockWeight;
 
 /// Check the reward signature validity.
 pub fn check_reward_signature(
@@ -16,7 +19,7 @@ pub fn check_reward_signature(
     public_key_hash: &Blake3Hash,
     reward_signing_context: &SigningContext,
 ) -> Result<(), SignatureError> {
-    if public_key_hash != &PublicKey::from(signature.public_key).hash() {
+    if public_key_hash != &signature.public_key.hash() {
         return Err(SignatureError::InvalidKey);
     }
     let public_key = schnorrkel::PublicKey::from_bytes(signature.public_key.as_ref())?;

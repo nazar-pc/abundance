@@ -15,7 +15,6 @@ use std::sync::{Arc, Weak};
 use std::{io, mem};
 use subspace_core_primitives::hashes::{blake3_hash_list, Blake3Hash};
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
-use subspace_core_primitives::sectors::SectorIndex;
 use subspace_farmer_components::file_ext::FileExt;
 use subspace_farmer_components::sector::SectorMetadataChecksummed;
 use subspace_networking::libp2p::kad::RecordKey;
@@ -51,7 +50,7 @@ pub struct DiskPlotCache {
     file: Weak<DirectIoFile>,
     sectors_metadata: Weak<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     cached_pieces: Arc<RwLock<CachedPieces>>,
-    target_sector_count: SectorIndex,
+    target_sector_count: u16,
     sector_size: u64,
 }
 
@@ -81,7 +80,7 @@ impl DiskPlotCache {
     pub(crate) fn new(
         file: &Arc<DirectIoFile>,
         sectors_metadata: &Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
-        target_sector_count: SectorIndex,
+        target_sector_count: u16,
         sector_size: u64,
     ) -> Self {
         info!("Checking plot cache contents, this can take a while");
@@ -199,7 +198,7 @@ impl DiskPlotCache {
 
         let element_offset = u64::from(offset) * u64::from(Self::element_size());
         let sectors_metadata = sectors_metadata.read().await;
-        let plotted_sectors_count = sectors_metadata.len() as SectorIndex;
+        let plotted_sectors_count = sectors_metadata.len() as u16;
         let plotted_bytes = self.sector_size * u64::from(plotted_sectors_count);
 
         // Make sure offset is after anything that is already plotted
@@ -286,7 +285,7 @@ impl DiskPlotCache {
         if maybe_piece.is_none()
             && let Some(sectors_metadata) = self.sectors_metadata.upgrade()
         {
-            let plotted_sectors_count = sectors_metadata.read().await.len() as SectorIndex;
+            let plotted_sectors_count = sectors_metadata.read().await.len() as u16;
 
             let mut cached_pieces = self.cached_pieces.write();
             if plotted_sectors_count == self.target_sector_count {

@@ -34,6 +34,7 @@
 mod tests;
 
 use crate::{SubspaceLink, SubspaceNotificationSender};
+use ab_erasure_coding::ErasureCoding;
 use futures::StreamExt;
 use parity_scale_codec::{Decode, Encode};
 use parking_lot::RwLock;
@@ -65,7 +66,6 @@ use subspace_archiving::archiver::{Archiver, NewArchivedSegment};
 use subspace_core_primitives::objects::{BlockObjectMapping, GlobalObject};
 use subspace_core_primitives::segments::{RecordedHistorySegment, SegmentHeader, SegmentIndex};
 use subspace_core_primitives::BlockNumber;
-use subspace_erasure_coding::ErasureCoding;
 use tracing::{debug, info, trace, warn};
 
 /// Number of WASM instances is 8, this is a bit lower to avoid warnings exceeding number of

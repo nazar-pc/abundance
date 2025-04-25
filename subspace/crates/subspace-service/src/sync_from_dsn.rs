@@ -5,6 +5,7 @@ pub(crate) mod snap_sync;
 
 use crate::sync_from_dsn::import_blocks::import_blocks_from_dsn;
 use crate::sync_from_dsn::segment_header_downloader::SegmentHeaderDownloader;
+use ab_erasure_coding::ErasureCoding;
 use async_trait::async_trait;
 use futures::channel::mpsc;
 use futures::{select, FutureExt, Stream, StreamExt};
@@ -25,7 +26,6 @@ use std::time::{Duration, Instant};
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::segments::SegmentIndex;
 use subspace_data_retrieval::piece_getter::PieceGetter;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_networking::utils::piece_provider::{PieceProvider, PieceValidator};
 use subspace_networking::Node;
 use tracing::{debug, info, warn};

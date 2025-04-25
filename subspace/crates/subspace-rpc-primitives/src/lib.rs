@@ -4,10 +4,11 @@ use parity_scale_codec::{Decode, Encode, EncodeLike, Input, Output};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::solutions::{RewardSignature, Solution, SolutionRange};
-use subspace_core_primitives::SlotNumber;
+use subspace_core_primitives::pot::SlotNumber;
+use subspace_core_primitives::solutions::{Solution, SolutionRange};
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::libp2p::Multiaddr;
+use subspace_verification::sr25519::RewardSignature;
 
 /// Defines a limit for number of segments that can be requested over RPC
 pub const MAX_SEGMENT_HEADERS_PER_REQUEST: usize = 1000;

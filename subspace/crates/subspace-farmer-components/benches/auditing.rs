@@ -1,3 +1,4 @@
+use ab_erasure_coding::ErasureCoding;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use futures::executor::block_on;
 use rand::prelude::*;
@@ -8,11 +9,9 @@ use std::num::NonZeroU64;
 use std::{env, fs, slice};
 use subspace_archiving::archiver::Archiver;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::sectors::SectorId;
+use subspace_core_primitives::sectors::{SectorId, SectorIndex};
 use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use subspace_core_primitives::solutions::SolutionRange;
-use subspace_core_primitives::PublicKey;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::auditing::audit_plot_sync;
 use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use subspace_farmer_components::plotting::{
@@ -24,6 +23,7 @@ use subspace_farmer_components::sector::{
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_proof_of_space::chia::ChiaTable;
 use subspace_proof_of_space::Table;
+use subspace_verification::sr25519::PublicKey;
 
 type PosTable = ChiaTable;
 
@@ -46,7 +46,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let public_key = &PublicKey::default();
     let public_key_hash = &public_key.hash();
-    let sector_index = 0;
+    let sector_index = SectorIndex::ZERO;
     let mut input = RecordedHistorySegment::new_boxed();
     StdRng::seed_from_u64(42).fill(AsMut::<[u8]>::as_mut(input.as_mut()));
     let erasure_coding = ErasureCoding::new();

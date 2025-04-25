@@ -11,6 +11,7 @@ use crate::farm::{
 use crate::node_client::NodeClient;
 use crate::single_disk_farm::metrics::SingleDiskFarmMetrics;
 use crate::single_disk_farm::Handlers;
+use ab_erasure_coding::ErasureCoding;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use futures::channel::mpsc;
 use futures::StreamExt;
@@ -25,8 +26,6 @@ use subspace_core_primitives::pos::PosSeed;
 use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::segments::{HistorySize, SegmentIndex};
 use subspace_core_primitives::solutions::{Solution, SolutionDistance};
-use subspace_core_primitives::PublicKey;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::auditing::{audit_plot_sync, AuditingError};
 use subspace_farmer_components::proving::{ProvableSolutions, ProvingError};
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
@@ -34,6 +33,7 @@ use subspace_farmer_components::sector::{SectorMetadata, SectorMetadataChecksumm
 use subspace_farmer_components::ReadAtSync;
 use subspace_proof_of_space::{Table, TableGenerator};
 use subspace_rpc_primitives::{SlotInfo, SolutionResponse};
+use subspace_verification::sr25519::PublicKey;
 use tracing::{debug, error, info, trace, warn, Span};
 
 /// How many non-fatal errors should happen in a row before farm is considered non-operational
@@ -303,7 +303,7 @@ where
                 handlers
                     .farming_notification
                     .call_simple(&FarmingNotification::Auditing(AuditingDetails {
-                        sectors_count: sectors_metadata.len() as SectorIndex,
+                        sectors_count: sectors_metadata.len() as u16,
                         time,
                     }));
             }
@@ -440,7 +440,7 @@ where
                 if let Some(existing_sector_metadata) = sectors_metadata
                     .write()
                     .await
-                    .get_mut(sector_index as usize)
+                    .get_mut(usize::from(sector_index))
                 {
                     *existing_sector_metadata = SectorMetadataChecksummed::from(SectorMetadata {
                         sector_index,

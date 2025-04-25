@@ -10,7 +10,6 @@ use crate::{
 use frame_support::{assert_err, assert_ok};
 use frame_system::{EventRecord, Phase};
 use schnorrkel::Keypair;
-use sp_consensus_slots::Slot;
 use sp_consensus_subspace::SolutionRanges;
 use sp_runtime::traits::BlockNumberProvider;
 use sp_runtime::transaction_validity::{
@@ -19,6 +18,7 @@ use sp_runtime::transaction_validity::{
 use sp_runtime::DispatchError;
 use std::assert_matches::assert_matches;
 use std::num::NonZeroU32;
+use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::segments::SegmentIndex;
 use subspace_core_primitives::solutions::SolutionRange;
 
@@ -73,8 +73,8 @@ fn can_update_solution_range_on_era_change() {
         go_to_block(
             &keypair,
             8,
-            u64::from(Subspace::current_slot())
-                + (4 * SLOT_PROBABILITY.1 / SLOT_PROBABILITY.0 + 10),
+            Subspace::current_slot()
+                + SlotNumber::new(4 * SLOT_PROBABILITY.1 / SLOT_PROBABILITY.0 + 10),
         );
         // This should cause solution range to increase as apparent pledged space decreased
         assert!(Subspace::solution_ranges().next.unwrap() > last_solution_range);
@@ -159,8 +159,8 @@ fn solution_range_should_not_update_when_disabled() {
         go_to_block(
             &keypair,
             8,
-            u64::from(Subspace::current_slot())
-                + (4 * SLOT_PROBABILITY.1 / SLOT_PROBABILITY.0 + 10),
+            Subspace::current_slot()
+                + SlotNumber::new(4 * SLOT_PROBABILITY.1 / SLOT_PROBABILITY.0 + 10),
         );
         // Solution rage will still be the same even after the apparent pledged space has decreased
         // since adjustment is disabled
@@ -383,7 +383,7 @@ fn set_pot_slot_iterations_works() {
                 .as_mut()
                 .unwrap()
                 .target_slot
-                .replace(Slot::from(1));
+                .replace(SlotNumber::ONE);
         });
         assert_matches!(
             Subspace::set_pot_slot_iterations(

@@ -1,5 +1,6 @@
 //! Sectors-related data structures.
 
+mod nano_u256;
 #[cfg(test)]
 mod tests;
 
@@ -8,8 +9,8 @@ use crate::hashes::{
 };
 use crate::pieces::{PieceIndex, PieceOffset, Record};
 use crate::pos::PosSeed;
+use crate::sectors::nano_u256::NanoU256;
 use crate::segments::{HistorySize, SegmentRoot};
-use crate::U256;
 use core::hash::Hash;
 use core::iter::Step;
 use core::num::{NonZeroU64, TryFromIntError};
@@ -24,10 +25,123 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use static_assertions::const_assert_eq;
 
 /// Sector index in consensus
-pub type SectorIndex = u16;
+#[derive(
+    Debug,
+    Display,
+    Default,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    Add,
+    AddAssign,
+    Sub,
+    SubAssign,
+    Mul,
+    MulAssign,
+    Div,
+    DivAssign,
+)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[repr(transparent)]
+pub struct SectorIndex(u16);
+
+impl Step for SectorIndex {
+    #[inline(always)]
+    fn steps_between(start: &Self, end: &Self) -> (usize, Option<usize>) {
+        u16::steps_between(&start.0, &end.0)
+    }
+
+    #[inline(always)]
+    fn forward_checked(start: Self, count: usize) -> Option<Self> {
+        u16::forward_checked(start.0, count).map(Self)
+    }
+
+    #[inline(always)]
+    fn backward_checked(start: Self, count: usize) -> Option<Self> {
+        u16::backward_checked(start.0, count).map(Self)
+    }
+}
+
+impl From<u16> for SectorIndex {
+    #[inline(always)]
+    fn from(original: u16) -> Self {
+        Self(original)
+    }
+}
+
+impl TryFrom<u64> for SectorIndex {
+    type Error = TryFromIntError;
+
+    #[inline]
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        Ok(Self(u16::try_from(value)?))
+    }
+}
+
+impl From<SectorIndex> for u16 {
+    #[inline(always)]
+    fn from(original: SectorIndex) -> Self {
+        original.0
+    }
+}
+
+impl From<SectorIndex> for u32 {
+    #[inline(always)]
+    fn from(original: SectorIndex) -> Self {
+        u32::from(original.0)
+    }
+}
+
+impl From<SectorIndex> for u64 {
+    #[inline(always)]
+    fn from(original: SectorIndex) -> Self {
+        u64::from(original.0)
+    }
+}
+
+impl From<SectorIndex> for usize {
+    #[inline(always)]
+    fn from(original: SectorIndex) -> Self {
+        usize::from(original.0)
+    }
+}
+
+impl SectorIndex {
+    /// Size in bytes
+    pub const SIZE: usize = size_of::<u16>();
+    /// Sector index 0
+    pub const ZERO: Self = Self(0);
+    /// Max sector index
+    pub const MAX: Self = Self(u16::MAX);
+
+    /// Create new instance
+    #[inline(always)]
+    pub const fn new(n: u16) -> Self {
+        Self(n)
+    }
+
+    /// Create sector index from bytes.
+    #[inline(always)]
+    pub const fn from_bytes(bytes: [u8; Self::SIZE]) -> Self {
+        Self(u16::from_le_bytes(bytes))
+    }
+
+    /// Convert sector index to bytes.
+    #[inline(always)]
+    pub const fn to_bytes(self) -> [u8; Self::SIZE] {
+        self.0.to_le_bytes()
+    }
+}
 
 /// Challenge used for a particular sector for particular slot
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deref)]
@@ -39,7 +153,9 @@ impl SectorSlotChallenge {
     pub fn s_bucket_audit_index(&self) -> SBucket {
         // As long as number of s-buckets is 2^16, we can pick first two bytes instead of actually
         // calculating `U256::from_le_bytes(self.0) % Record::NUM_S_BUCKETS)`
-        const_assert_eq!(Record::NUM_S_BUCKETS, 1 << u16::BITS as usize);
+        const _: () = const {
+            assert!(Record::NUM_S_BUCKETS == 1 << u16::BITS as usize);
+        };
         SBucket::from(u16::from_le_bytes([self.0[0], self.0[1]]))
     }
 }
@@ -67,10 +183,7 @@ impl SectorId {
     ) -> Self {
         Self(blake3_hash_list_with_key(
             public_key_hash,
-            &[
-                &sector_index.to_le_bytes(),
-                &history_size.get().to_le_bytes(),
-            ],
+            &[&sector_index.to_bytes(), &history_size.get().to_le_bytes()],
         ))
     }
 
@@ -94,7 +207,7 @@ impl SectorId {
             let piece_offset_bytes = piece_offset.to_bytes();
             let mut key = [0; 32];
             key[..piece_offset_bytes.len()].copy_from_slice(&piece_offset_bytes);
-            U256::from_le_bytes(*blake3_hash_with_key(&key, self.as_ref()))
+            NanoU256::from_le_bytes(*blake3_hash_with_key(&key, self.as_ref()))
         };
         let history_size_in_pieces = history_size.in_pieces().get();
         let num_interleaved_pieces = 1.max(
@@ -109,15 +222,13 @@ impl SectorId {
         {
             // For odd piece offsets at the beginning of the sector pick pieces at random from
             // recent history only
-            input_hash % U256::from(recent_segments_in_pieces)
-                + U256::from(history_size_in_pieces - recent_segments_in_pieces)
+            (input_hash % recent_segments_in_pieces)
+                + (history_size_in_pieces - recent_segments_in_pieces)
         } else {
-            input_hash % U256::from(history_size_in_pieces)
+            input_hash % history_size_in_pieces
         };
 
-        PieceIndex::from(u64::try_from(piece_index).expect(
-            "Remainder of division by PieceIndex is guaranteed to fit into PieceIndex; qed",
-        ))
+        PieceIndex::from(piece_index)
     }
 
     /// Derive sector slot challenge for this sector from provided global challenge
@@ -148,7 +259,7 @@ impl SectorId {
         let sector_expiration_check_history_size =
             history_size.sector_expiration_check(min_sector_lifetime)?;
 
-        let input_hash = U256::from_le_bytes(*blake3_hash_list(&[
+        let input_hash = NanoU256::from_le_bytes(*blake3_hash_list(&[
             self.as_ref(),
             sector_expiration_check_segment_root.as_ref(),
         ]));
@@ -156,12 +267,9 @@ impl SectorId {
         let last_possible_expiration =
             min_sector_lifetime.checked_add(history_size.get().checked_mul(4u64)?)?;
         let expires_in = input_hash
-            % U256::from(
-                last_possible_expiration
-                    .get()
-                    .checked_sub(sector_expiration_check_history_size.get())?,
-            );
-        let expires_in = u64::try_from(expires_in).expect("Number modulo u64 fits into u64; qed");
+            % last_possible_expiration
+                .get()
+                .checked_sub(sector_expiration_check_history_size.get())?;
 
         let expiration_history_size = sector_expiration_check_history_size.get() + expires_in;
         let expiration_history_size = NonZeroU64::try_from(expiration_history_size).expect(

@@ -48,15 +48,16 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pot::{PotCheckpoints, PotOutput};
+use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, SlotNumber};
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::solutions::{
-    RewardSignature, Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
+    Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
     SolutionVerifyPieceCheckParams,
 };
-use subspace_core_primitives::{BlockNumber, REWARD_SIGNING_CONTEXT};
+use subspace_core_primitives::BlockNumber;
 use subspace_proof_of_space::Table;
 use subspace_verification::check_reward_signature;
+use subspace_verification::sr25519::{RewardSignature, REWARD_SIGNING_CONTEXT};
 use tracing::{debug, error, info, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
@@ -117,8 +118,8 @@ where
 /// Information about new slot that just arrived
 #[derive(Debug, Copy, Clone)]
 pub struct NewSlotInfo {
-    /// Slot
-    pub slot: Slot,
+    /// Slot number
+    pub slot: SlotNumber,
     /// The PoT output for `slot`
     pub proof_of_time: PotOutput,
     /// Acceptable solution range for block authoring
@@ -203,9 +204,9 @@ where
     segment_headers_store: SegmentHeadersStore<AS>,
     /// Solution receivers for challenges that were sent to farmers and expected to be received
     /// eventually
-    pending_solutions: BTreeMap<Slot, mpsc::Receiver<Solution>>,
+    pending_solutions: BTreeMap<SlotNumber, mpsc::Receiver<Solution>>,
     /// Collection of PoT slots that can be retrieved later if needed by block production
-    pot_checkpoints: BTreeMap<Slot, PotCheckpoints>,
+    pot_checkpoints: BTreeMap<SlotNumber, PotCheckpoints>,
     pot_verifier: PotVerifier,
     _pos_table: PhantomData<PosTable>,
 }
@@ -218,7 +219,7 @@ where
     Client::Api: SubspaceApi<Block>,
     SO: SyncOracle + Send + Sync,
 {
-    fn on_proof(&mut self, slot: Slot, checkpoints: PotCheckpoints) {
+    fn on_proof(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints) {
         // Remove checkpoints from future slots, if present they are out of date anyway
         self.pot_checkpoints
             .retain(|&stored_slot, _checkpoints| stored_slot < slot);
@@ -341,6 +342,8 @@ where
         slot: Slot,
         _aux_data: &Self::AuxData,
     ) -> Option<Self::Claim> {
+        let slot = SlotNumber::new(u64::from(slot));
+
         let parent_pre_digest = match extract_pre_digest(parent_header) {
             Ok(pre_digest) => pre_digest,
             Err(error) => {
@@ -394,7 +397,7 @@ where
 
             let pot_input = if parent_header.number().is_zero() {
                 PotNextSlotInput {
-                    slot: parent_slot + Slot::from(1),
+                    slot: parent_slot + SlotNumber::ONE,
                     slot_iterations: parent_pot_parameters.slot_iterations(),
                     seed: self.pot_verifier.genesis_seed(),
                 }
@@ -425,7 +428,7 @@ where
 
             let mut checkpoints_pot_input = if parent_header.number().is_zero() {
                 PotNextSlotInput {
-                    slot: parent_slot + Slot::from(1),
+                    slot: parent_slot + SlotNumber::ONE,
                     slot_iterations: parent_pot_parameters.slot_iterations(),
                     seed: self.pot_verifier.genesis_seed(),
                 }
@@ -441,10 +444,10 @@ where
             };
             let seed = checkpoints_pot_input.seed;
 
-            let mut checkpoints = Vec::with_capacity((*future_slot - *parent_future_slot) as usize);
+            let mut checkpoints =
+                Vec::with_capacity((future_slot - parent_future_slot).as_u64() as usize);
 
-            for slot in *parent_future_slot + 1..=*future_slot {
-                let slot = Slot::from(slot);
+            for slot in parent_future_slot + SlotNumber::ONE..=future_slot {
                 let maybe_slot_checkpoints = self.pot_verifier.get_checkpoints(
                     checkpoints_pot_input.slot_iterations,
                     checkpoints_pot_input.seed,
@@ -544,7 +547,7 @@ where
                 .ok()?;
 
             let solution_verification_result = solution.verify::<PosTable>(
-                slot.into(),
+                slot,
                 &SolutionVerifyParams {
                     proof_of_time,
                     solution_range,
@@ -663,7 +666,7 @@ where
             {
                 return strategy.should_backoff(
                     *chain_head.number(),
-                    chain_head_slot,
+                    Slot::from(chain_head_slot.as_u64()),
                     self.client.info().finalized_number,
                     slot,
                     self.logging_target(),
@@ -699,7 +702,7 @@ where
             .map(|d| d.slot());
 
         sc_consensus_slots::proposing_remaining_duration(
-            parent_slot,
+            parent_slot.map(|parent_slot| Slot::from(parent_slot.as_u64())),
             slot_info,
             &self.block_proposal_slot_portion,
             self.max_block_proposal_slot_portion.as_ref(),

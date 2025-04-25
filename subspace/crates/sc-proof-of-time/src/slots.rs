@@ -4,6 +4,7 @@ use sp_consensus_slots::Slot;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, Header};
 use std::time::Duration;
+use subspace_core_primitives::pot::SlotNumber;
 use tracing::error;
 
 pub(super) struct SlotInfoProducer<Block, SC, IDP> {
@@ -35,7 +36,7 @@ where
     SC: SelectChain<Block>,
     IDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
-    pub(super) async fn produce_slot_info(&self, slot: Slot) -> Option<SlotInfo<Block>> {
+    pub(super) async fn produce_slot_info(&self, slot: SlotNumber) -> Option<SlotInfo<Block>> {
         let best_header = match self.select_chain.best_chain().await {
             Ok(best_header) => best_header,
             Err(error) => {
@@ -65,7 +66,7 @@ where
         };
 
         Some(SlotInfo::new(
-            slot,
+            Slot::from(slot.as_u64()),
             Box::new(inherent_data_providers),
             self.slot_duration,
             best_header,

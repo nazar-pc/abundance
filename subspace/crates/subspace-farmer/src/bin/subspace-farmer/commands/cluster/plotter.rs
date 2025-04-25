@@ -1,4 +1,5 @@
 use crate::commands::shared::PlottingThreadPriority;
+use ab_erasure_coding::ErasureCoding;
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, Semaphore};
 use clap::Parser;
@@ -9,7 +10,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use subspace_data_retrieval::piece_getter::PieceGetter;
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer::cluster::controller::ClusterPieceGetter;
 use subspace_farmer::cluster::nats_client::NatsClient;
 use subspace_farmer::cluster::plotter::plotter_service;

@@ -26,7 +26,6 @@ use sc_proof_of_time::verifier::PotVerifier;
 use sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
-use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::{
     extract_pre_digest, extract_subspace_digest_items, SubspaceDigestItems,
 };
@@ -37,6 +36,7 @@ use sp_runtime::Justifications;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use subspace_core_primitives::hashes::Blake3Hash;
+use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::sectors::SectorId;
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
 use subspace_core_primitives::solutions::{
@@ -79,7 +79,7 @@ pub enum Error<Header: HeaderT> {
     GenesisUnavailable,
     /// Slot number must increase
     #[error("Slot number must increase: parent slot: {0}, this slot: {1}")]
-    SlotMustIncrease(Slot, Slot),
+    SlotMustIncrease(SlotNumber, SlotNumber),
     /// Header has a bad seal
     #[error("Header {0:?} has a bad seal")]
     HeaderBadSeal(Header::Hash),
@@ -108,7 +108,7 @@ pub enum Error<Header: HeaderT> {
     )]
     OutsideOfSolutionRange {
         /// Time slot
-        slot: Slot,
+        slot: SlotNumber,
         /// Solution range
         solution_range: SolutionRange,
         /// Solution distance
@@ -127,7 +127,7 @@ pub enum Error<Header: HeaderT> {
     #[error("Piece verification failed")]
     InvalidPieceOffset {
         /// Time slot
-        slot: Slot,
+        slot: SlotNumber,
         /// Index of the piece that failed verification
         piece_offset: u16,
         /// How many pieces one sector is supposed to contain (max)
@@ -135,7 +135,7 @@ pub enum Error<Header: HeaderT> {
     },
     /// Piece verification failed
     #[error("Piece verification failed for slot {0}")]
-    InvalidPiece(Slot),
+    InvalidPiece(SlotNumber),
     /// Block has invalid associated solution range
     #[error("Invalid solution range for block {0}")]
     InvalidSolutionRange(Header::Hash),
@@ -401,7 +401,7 @@ where
                 }
 
                 // Number of checkpoints must match future slot number
-                if checkpoints.len() as u64 != *future_slot {
+                if checkpoints.len() as u64 != future_slot.as_u64() {
                     return Err(Error::InvalidSubspaceJustificationContents);
                 }
             } else {
@@ -426,7 +426,7 @@ where
                 }
 
                 // Number of checkpoints must match number of proofs that were not yet seen on chain
-                if checkpoints.len() as u64 != (*future_slot - *parent_future_slot) {
+                if checkpoints.len() as u64 != (future_slot - parent_future_slot).as_u64() {
                     return Err(Error::InvalidSubspaceJustificationContents);
                 }
             }
@@ -476,7 +476,7 @@ where
             .solution()
             .verify::<PosTable>(
                 // Slot was already checked during initial block verification
-                pre_digest.slot().into(),
+                pre_digest.slot(),
                 &SolutionVerifyParams {
                     proof_of_time: subspace_digest_items.pre_digest.pot_info().proof_of_time(),
                     solution_range: subspace_digest_items.solution_range,

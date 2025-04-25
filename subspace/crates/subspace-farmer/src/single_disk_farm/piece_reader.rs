@@ -2,6 +2,7 @@
 
 use crate::farm::{FarmError, PieceReader};
 use crate::single_disk_farm::direct_io_file::DirectIoFile;
+use ab_erasure_coding::ErasureCoding;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use async_trait::async_trait;
 use futures::channel::{mpsc, oneshot};
@@ -12,7 +13,6 @@ use std::sync::Arc;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::{Piece, PieceOffset};
 use subspace_core_primitives::sectors::{SectorId, SectorIndex};
-use subspace_erasure_coding::ErasureCoding;
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{sector_size, SectorMetadataChecksummed};
 use subspace_farmer_components::{reading, ReadAt, ReadAtAsync, ReadAtSync};
@@ -146,9 +146,9 @@ async fn read_pieces<PosTable, S>(
         let (sector_metadata, sector_count) = {
             let sectors_metadata = sectors_metadata.read().await;
 
-            let sector_count = sectors_metadata.len() as SectorIndex;
+            let sector_count = sectors_metadata.len() as u16;
 
-            let sector_metadata = match sectors_metadata.get(sector_index as usize) {
+            let sector_metadata = match sectors_metadata.get(usize::from(sector_index)) {
                 Some(sector_metadata) => sector_metadata.clone(),
                 None => {
                     error!(
@@ -164,7 +164,7 @@ async fn read_pieces<PosTable, S>(
         };
 
         // Sector must be plotted
-        if sector_index >= sector_count {
+        if u16::from(sector_index) >= sector_count {
             warn!(
                 %sector_index,
                 %piece_offset,

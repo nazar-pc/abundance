@@ -234,7 +234,7 @@ pub trait PlotCache: Send + Sync + fmt::Debug {
 #[derive(Debug, Copy, Clone, Encode, Decode)]
 pub struct AuditingDetails {
     /// Number of sectors that were audited
-    pub sectors_count: SectorIndex,
+    pub sectors_count: u16,
     /// Audit duration
     pub time: Duration,
 }
@@ -529,7 +529,7 @@ pub trait Farm {
     fn id(&self) -> &FarmId;
 
     /// Number of sectors in this farm
-    fn total_sectors_count(&self) -> SectorIndex;
+    fn total_sectors_count(&self) -> u16;
 
     /// Get plotted sectors instance
     fn plotted_sectors(&self) -> Arc<dyn PlottedSectors + 'static>;
@@ -567,7 +567,7 @@ where
     }
 
     #[inline]
-    fn total_sectors_count(&self) -> SectorIndex {
+    fn total_sectors_count(&self) -> u16 {
         self.as_ref().total_sectors_count()
     }
 

@@ -14,25 +14,22 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 parity-scale-codec = { workspace = true, features = ["derive"] }
-frame-support.workspace = true
-frame-system.workspace = true
-log.workspace = true
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+log = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["alloc", "derive"], optional = true }
-sp-consensus-subspace.workspace = true
-sp-consensus-slots.workspace = true
-sp-runtime.workspace = true
-sp-std.workspace = true
-subspace-core-primitives.workspace = true
-subspace-runtime-primitives.workspace = true
+sp-consensus-subspace = { workspace = true }
+sp-runtime = { workspace = true }
+subspace-core-primitives = { workspace = true }
+subspace-runtime-primitives = { workspace = true }
 
 [dev-dependencies]
-env_logger.workspace = true
 pallet-balances = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["min_const_gen"] }
-schnorrkel.workspace = true
-sp-io.workspace = true
-subspace-core-primitives.workspace = true
+schnorrkel = { workspace = true }
+sp-io = { workspace = true }
+subspace-verification = { workspace = true }
 
 [features]
 default = ["std"]
@@ -49,10 +46,8 @@ std = [
     "serde",
     "serde/std",
     "sp-consensus-subspace/std",
-    "sp-consensus-slots/std",
     "sp-io/std",
     "sp-runtime/std",
-    "sp-std/std",
     "subspace-runtime-primitives/std",
 ]
 runtime-benchmarks = []
