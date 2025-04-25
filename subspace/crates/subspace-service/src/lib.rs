@@ -73,7 +73,6 @@ use sp_core::traits::SpawnEssentialNamed;
 use sp_objects::ObjectsApi;
 use sp_offchain::OffchainWorkerApi;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo};
-use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use static_assertions::const_assert;
 use std::sync::Arc;
@@ -226,7 +225,6 @@ where
         + Metadata<Block>
         + BlockBuilder<Block>
         + OffchainWorkerApi<Block>
-        + SessionKeys<Block>
         + TaggedTransactionQueue<Block>
         + SubspaceApi<Block>
         + ObjectsApi<Block>,
@@ -421,7 +419,6 @@ where
         + AccountNonceApi<Block, AccountId, Nonce>
         + BlockBuilder<Block>
         + OffchainWorkerApi<Block>
-        + SessionKeys<Block>
         + TaggedTransactionQueue<Block>
         + TransactionPaymentApi<Block, Balance>
         + SubspaceApi<Block>

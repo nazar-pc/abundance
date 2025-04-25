@@ -128,7 +128,6 @@ sp-objects = { version = "0.1.0", path = "crates/sp-objects", default-features =
 sp-offchain = { git = "https://github.com/subspace/polkadot-sdk", rev = "ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6", default-features = false }
 sp-runtime = { git = "https://github.com/subspace/polkadot-sdk", rev = "ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6", default-features = false }
 sp-runtime-interface = { git = "https://github.com/subspace/polkadot-sdk", rev = "ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6", default-features = false }
-sp-session = { git = "https://github.com/subspace/polkadot-sdk", rev = "ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6", default-features = false }
 sp-std = { git = "https://github.com/subspace/polkadot-sdk", rev = "ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6", default-features = false }
 sp-timestamp = { git = "https://github.com/subspace/polkadot-sdk", rev = "ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6", default-features = false }
 sp-transaction-pool = { git = "https://github.com/subspace/polkadot-sdk", rev = "ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6", default-features = false }

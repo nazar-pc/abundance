@@ -38,7 +38,6 @@ use pallet_subspace::ConsensusConstants;
 use sp_api::impl_runtime_apis;
 use sp_consensus_slots::SlotDuration;
 use sp_consensus_subspace::{ChainConstants, PotParameters, SolutionRanges};
-use sp_core::crypto::KeyTypeId;
 use sp_core::OpaqueMetadata;
 use sp_runtime::traits::{AccountIdLookup, BlakeTwo256, Block as BlockT};
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
@@ -60,11 +59,6 @@ use subspace_runtime_primitives::{
     Moment, Nonce, Signature, SlowAdjustingFeeUpdate, TargetBlockFullness, BLOCK_WEIGHT_FOR_2_SEC,
     MIN_REPLICATION_FACTOR, NORMAL_DISPATCH_RATIO, SHANNON, SLOT_PROBABILITY,
 };
-
-sp_runtime::impl_opaque_keys! {
-    pub struct SessionKeys {
-    }
-}
 
 /// How many pieces one sector is supposed to contain (max)
 const MAX_PIECES_IN_SECTOR: u16 = 1000;
@@ -586,18 +580,6 @@ impl_runtime_apis! {
                 recent_history_fraction: RECENT_HISTORY_FRACTION,
                 min_sector_lifetime: MIN_SECTOR_LIFETIME,
             }
-        }
-    }
-
-    impl sp_session::SessionKeys<Block> for Runtime {
-        fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-            SessionKeys::generate(seed)
-        }
-
-        fn decode_session_keys(
-            encoded: Vec<u8>,
-        ) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
-            SessionKeys::decode_into_raw_public_keys(&encoded)
         }
     }
 
