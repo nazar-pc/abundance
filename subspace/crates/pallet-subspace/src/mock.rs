@@ -10,7 +10,6 @@ use sp_runtime::testing::{Digest, DigestItem, TestXt};
 use sp_runtime::BuildStorage;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
-use std::sync::Once;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::PieceOffset;
 use subspace_core_primitives::pot::SlotNumber;
@@ -139,11 +138,6 @@ pub fn make_pre_digest(slot: SlotNumber, solution: Solution) -> Digest {
 }
 
 pub fn new_test_ext() -> TestExternalities {
-    static INITIALIZE_LOGGER: Once = Once::new();
-    INITIALIZE_LOGGER.call_once(|| {
-        let _ = env_logger::try_init_from_env(env_logger::Env::new().default_filter_or("error"));
-    });
-
     let mut storage = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
         .unwrap();

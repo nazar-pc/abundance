@@ -3,7 +3,6 @@
 #![feature(array_chunks, assert_matches, let_chains, portable_simd)]
 #![warn(unused_must_use, unsafe_code, unused_variables)]
 
-#[cfg(not(feature = "std"))]
 extern crate alloc;
 
 #[cfg(test)]
@@ -15,6 +14,8 @@ pub mod extensions;
 pub mod weights;
 
 use crate::extensions::weights::WeightInfo as ExtensionWeightInfo;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use core::num::NonZeroU64;
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::{EnsureOrigin, RuntimeDebug};
@@ -32,7 +33,6 @@ use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
     TransactionValidityError, ValidTransaction,
 };
-use sp_std::prelude::*;
 use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::segments::{
     ArchivedHistorySegment, HistorySize, SegmentHeader, SegmentIndex,
@@ -86,14 +86,15 @@ pub struct ConsensusConstants<BlockNumber> {
 pub mod pallet {
     use crate::weights::WeightInfo;
     use crate::{ConsensusConstants, ExtensionWeightInfo, RawOrigin};
+    use alloc::collections::btree_map::BTreeMap;
+    #[cfg(not(feature = "std"))]
+    use alloc::vec::Vec;
+    use core::num::NonZeroU32;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use sp_consensus_subspace::digests::CompatibleDigestItem;
     use sp_consensus_subspace::inherents::{InherentError, InherentType, INHERENT_IDENTIFIER};
     use sp_runtime::DigestItem;
-    use sp_std::collections::btree_map::BTreeMap;
-    use sp_std::num::NonZeroU32;
-    use sp_std::prelude::*;
     use subspace_core_primitives::hashes::Blake3Hash;
     use subspace_core_primitives::pot::{PotCheckpoints, SlotNumber};
     use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};

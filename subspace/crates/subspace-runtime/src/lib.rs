@@ -24,6 +24,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use crate::fees::{OnChargeTransaction, TransactionByteFee};
 use crate::object_mapping::extract_block_object_mapping;
 use alloc::borrow::Cow;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use core::num::NonZeroU64;
 use frame_support::genesis_builder_helper::{build_state, get_preset};
 use frame_support::inherent::ProvideInherent;
@@ -42,7 +44,6 @@ use sp_runtime::traits::{AccountIdLookup, BlakeTwo256, Block as BlockT};
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::type_with_default::TypeWithDefault;
 use sp_runtime::{generic, ApplyExtrinsicResult, ExtrinsicInclusionMode};
-use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 use subspace_core_primitives::hashes::Blake3Hash;
@@ -620,7 +621,7 @@ impl_runtime_apis! {
         }
 
         fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-            vec![]
+            Vec::new()
         }
     }
 

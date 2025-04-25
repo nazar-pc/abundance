@@ -23,7 +23,6 @@ frame-system = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-core = { workspace = true, optional = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true, optional = true }
 subspace-runtime-primitives = { workspace = true }
 
 [features]
@@ -35,12 +34,10 @@ std = [
     "frame-system/std",
     "scale-info/std",
     "sp-runtime/std",
-    "sp-std?/std",
     "subspace-runtime-primitives/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking",
     "frame-benchmarking/runtime-benchmarks",
     "sp-core",
-    "sp-std",
 ]

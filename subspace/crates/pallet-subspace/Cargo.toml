@@ -21,12 +21,10 @@ scale-info = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["alloc", "derive"], optional = true }
 sp-consensus-subspace = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 subspace-core-primitives = { workspace = true }
 subspace-runtime-primitives = { workspace = true }
 
 [dev-dependencies]
-env_logger = { workspace = true }
 pallet-balances = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["min_const_gen"] }
 schnorrkel = { workspace = true }
@@ -50,7 +48,6 @@ std = [
     "sp-consensus-subspace/std",
     "sp-io/std",
     "sp-runtime/std",
-    "sp-std/std",
     "subspace-runtime-primitives/std",
 ]
 runtime-benchmarks = []
