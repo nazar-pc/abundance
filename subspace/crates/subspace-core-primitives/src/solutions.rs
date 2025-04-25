@@ -3,10 +3,10 @@
 use crate::hashes::{blake3_hash_with_key, Blake3Hash};
 use crate::pieces::{PieceOffset, Record, RecordChunk, RecordProof, RecordRoot};
 use crate::pos::{PosProof, PosSeed};
-use crate::pot::PotOutput;
+use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
-use crate::{BlockNumber, SlotNumber};
+use crate::BlockNumber;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use blake3::OUT_LEN;
 use core::array::TryFromSliceError;

@@ -4,7 +4,6 @@ use crate::{self as pallet_subspace, AllowAuthoringBy, Config, ConsensusConstant
 use frame_support::traits::{ConstU128, OnInitialize};
 use frame_support::{derive_impl, parameter_types};
 use schnorrkel::Keypair;
-use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::{CompatibleDigestItem, PreDigest, PreDigestPotInfo};
 use sp_io::TestExternalities;
 use sp_runtime::testing::{Digest, DigestItem, TestXt};
@@ -14,6 +13,7 @@ use std::num::NonZeroU32;
 use std::sync::Once;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::PieceOffset;
+use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::sectors::SectorIndex;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex, SegmentRoot,
@@ -68,7 +68,7 @@ parameter_types! {
     pub const MockConsensusConstants: ConsensusConstants<u64> = ConsensusConstants {
         pot_entropy_injection_interval: 5,
         pot_entropy_injection_lookback_depth: 2,
-        pot_entropy_injection_delay: 4,
+        pot_entropy_injection_delay: SlotNumber::new(4),
         era_duration: 4,
         slot_probability: SLOT_PROBABILITY,
     };
@@ -82,7 +82,7 @@ impl Config for Test {
     type ExtensionWeightInfo = crate::extensions::weights::SubstrateWeight<Test>;
 }
 
-pub fn go_to_block(keypair: &Keypair, block: u64, slot: u64) {
+pub fn go_to_block(keypair: &Keypair, block: u64, slot: SlotNumber) {
     use frame_support::traits::OnFinalize;
 
     Subspace::on_finalize(System::block_number());
@@ -97,7 +97,7 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: u64) {
     let chunk = Default::default();
 
     let pre_digest = make_pre_digest(
-        slot.into(),
+        slot,
         Solution {
             public_key_hash: PublicKey::from(keypair.public.to_bytes()).hash(),
             sector_index: SectorIndex::ZERO,
@@ -119,14 +119,14 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: u64) {
 
 /// Slots will grow accordingly to blocks
 pub fn progress_to_block(keypair: &Keypair, n: u64) {
-    let mut slot = u64::from(Subspace::current_slot()) + 1;
+    let mut slot = Subspace::current_slot() + SlotNumber::ONE;
     for i in System::block_number() + 1..=n {
         go_to_block(keypair, i, slot);
-        slot += 1;
+        slot += SlotNumber::ONE;
     }
 }
 
-pub fn make_pre_digest(slot: Slot, solution: Solution) -> Digest {
+pub fn make_pre_digest(slot: SlotNumber, solution: Solution) -> Digest {
     let log = DigestItem::subspace_pre_digest(&PreDigest::V0 {
         slot,
         solution,

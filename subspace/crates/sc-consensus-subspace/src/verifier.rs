@@ -26,7 +26,6 @@ use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
-use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::{
     extract_subspace_digest_items, CompatibleDigestItem, PreDigest, SubspaceDigestItems,
 };
@@ -40,6 +39,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::thread::available_parallelism;
 use subspace_core_primitives::hashes::Blake3Hash;
+use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::solutions::{SolutionVerifyError, SolutionVerifyParams};
 use subspace_core_primitives::BlockNumber;
 use subspace_proof_of_space::Table;
@@ -72,8 +72,8 @@ pub enum VerificationError<Header: HeaderT> {
     #[error("Invalid proof of time")]
     InvalidProofOfTime,
     /// Verification error
-    #[error("Verification error on slot {0:?}: {1:?}")]
-    VerificationError(Slot, SolutionVerifyError),
+    #[error("Verification error on slot {0}: {1:?}")]
+    VerificationError(SlotNumber, SolutionVerifyError),
 }
 
 /// A header which has been checked
@@ -255,11 +255,9 @@ where
             }
 
             let future_slot = slot + self.chain_constants.block_authoring_delay();
-            let first_slot_to_check = Slot::from(
-                future_slot
-                    .checked_sub(checkpoints.len() as u64 - 1)
-                    .ok_or(VerificationError::InvalidProofOfTime)?,
-            );
+            let first_slot_to_check = future_slot
+                .checked_sub(SlotNumber::new(checkpoints.len() as u64 - 1))
+                .ok_or(VerificationError::InvalidProofOfTime)?;
             let slot_iterations = subspace_digest_items
                 .pot_parameters_change
                 .as_ref()
@@ -340,7 +338,7 @@ where
         // Verify that solution is valid
         pre_digest
             .solution()
-            .verify::<PosTable>(slot.into(), verify_solution_params)
+            .verify::<PosTable>(slot, verify_solution_params)
             .map_err(|error| VerificationError::VerificationError(slot, error))?;
 
         Ok(CheckedHeader {
@@ -352,8 +350,8 @@ where
 
     async fn check_and_report_equivocation(
         &self,
-        slot_now: Slot,
-        slot: Slot,
+        slot_now: SlotNumber,
+        slot: SlotNumber,
         header: &Block::Header,
         public_key_hash: &Blake3Hash,
         origin: &BlockOrigin,
@@ -369,13 +367,18 @@ where
         let _guard = self.equivocation_mutex.lock().await;
 
         // check if authorship of this header is an equivocation and return a proof if so.
-        let equivocation_proof =
-            match check_equivocation(&*self.client, slot_now, slot, header, public_key_hash)
-                .map_err(|error| error.to_string())?
-            {
-                Some(proof) => proof,
-                None => return Ok(()),
-            };
+        let equivocation_proof = match check_equivocation(
+            &*self.client,
+            slot_now.as_u64().into(),
+            slot.as_u64().into(),
+            header,
+            public_key_hash,
+        )
+        .map_err(|error| error.to_string())?
+        {
+            Some(proof) => proof,
+            None => return Ok(()),
+        };
 
         info!(
             "Slot author {:?} is equivocating at slot {} with headers {:?} and {:?}",
@@ -471,7 +474,7 @@ where
             .load(Ordering::Relaxed)
             .saturating_sub(BlockNumber::from(*pre_header.number()));
         let slot_now = if diff_in_blocks > 0 {
-            slot + Slot::from(
+            slot + SlotNumber::new(
                 u64::from(diff_in_blocks) * self.chain_constants.slot_probability().1
                     / self.chain_constants.slot_probability().0,
             )

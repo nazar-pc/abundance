@@ -36,9 +36,6 @@ pub type BlockNumber = u32;
 /// Block hash in Subspace network.
 pub type BlockHash = [u8; 32];
 
-/// Slot number in Subspace network.
-pub type SlotNumber = u64;
-
 /// BlockWeight type for fork choice rules.
 ///
 /// The closer solution's tag is to the target, the heavier it is.

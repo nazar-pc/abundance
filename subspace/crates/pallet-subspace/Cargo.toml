@@ -20,7 +20,6 @@ log = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["alloc", "derive"], optional = true }
 sp-consensus-subspace = { workspace = true }
-sp-consensus-slots = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 subspace-core-primitives = { workspace = true }
@@ -49,7 +48,6 @@ std = [
     "serde",
     "serde/std",
     "sp-consensus-subspace/std",
-    "sp-consensus-slots/std",
     "sp-io/std",
     "sp-runtime/std",
     "sp-std/std",

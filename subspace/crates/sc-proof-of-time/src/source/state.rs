@@ -1,8 +1,7 @@
 use crate::verifier::PotVerifier;
 use parking_lot::Mutex;
-use sp_consensus_slots::Slot;
 use sp_consensus_subspace::{PotNextSlotInput, PotParametersChange};
-use subspace_core_primitives::pot::PotOutput;
+use subspace_core_primitives::pot::{PotOutput, SlotNumber};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct InnerState {
@@ -13,7 +12,7 @@ struct InnerState {
 impl InnerState {
     pub(super) fn update(
         mut self,
-        mut best_slot: Slot,
+        mut best_slot: SlotNumber,
         mut best_output: PotOutput,
         maybe_updated_parameters_change: Option<Option<PotParametersChange>>,
         pot_verifier: &PotVerifier,
@@ -93,7 +92,7 @@ impl PotState {
     pub(super) fn try_extend(
         &self,
         expected_existing_next_slot_input: PotNextSlotInput,
-        best_slot: Slot,
+        best_slot: SlotNumber,
         best_output: PotOutput,
         maybe_updated_parameters_change: Option<Option<PotParametersChange>>,
     ) -> Result<PotNextSlotInput, PotNextSlotInput> {
@@ -117,7 +116,7 @@ impl PotState {
     /// Returns `Some(next_slot_input)` if reorg happened.
     pub(super) fn update(
         &self,
-        best_slot: Slot,
+        best_slot: SlotNumber,
         best_output: PotOutput,
         maybe_updated_parameters_change: Option<Option<PotParametersChange>>,
     ) -> PotStateUpdateOutcome {
@@ -143,11 +142,9 @@ impl PotState {
             let mut slot_iterations = previous_best_state.next_slot_input.slot_iterations;
             let mut seed = previous_best_state.next_slot_input.seed;
 
-            for slot in u64::from(previous_best_state.next_slot_input.slot)
-                ..u64::from(new_best_state.next_slot_input.slot)
+            for slot in
+                previous_best_state.next_slot_input.slot..new_best_state.next_slot_input.slot
             {
-                let slot = Slot::from(slot);
-
                 let Some(checkpoints) = self.verifier.try_get_checkpoints(slot_iterations, seed)
                 else {
                     break;
@@ -162,7 +159,7 @@ impl PotState {
 
                 // TODO: Consider carrying of the whole `PotNextSlotInput` rather than individual
                 //  variables
-                let next_slot = slot + Slot::from(1);
+                let next_slot = slot + SlotNumber::ONE;
                 slot_iterations = pot_input.slot_iterations;
                 seed = pot_input.seed;
 

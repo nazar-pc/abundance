@@ -38,9 +38,10 @@ use std::sync::{Arc, Weak};
 use std::time::Duration;
 use subspace_archiving::archiver::NewArchivedSegment;
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
+use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
 use subspace_core_primitives::solutions::Solution;
-use subspace_core_primitives::{BlockHash, SlotNumber};
+use subspace_core_primitives::BlockHash;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_rpc_primitives::{
@@ -320,7 +321,7 @@ where
                 farming_timeout: chain_constants
                     .slot_duration()
                     .as_duration()
-                    .mul_f64(SlotNumber::from(chain_constants.block_authoring_delay()) as f64),
+                    .mul_f64(chain_constants.block_authoring_delay().as_u64() as f64),
                 protocol_info,
             }
         };
@@ -369,7 +370,7 @@ where
                 mut solution_sender,
             } = new_slot_notification;
 
-            let slot_number = SlotNumber::from(new_slot_info.slot);
+            let slot_number = new_slot_info.slot;
 
             // Only handle solution responses in case unsafe APIs are allowed
             if allow_solutions {

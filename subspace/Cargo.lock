@@ -6805,7 +6805,6 @@ dependencies = [
  "scale-info",
  "schnorrkel",
  "serde",
- "sp-consensus-slots",
  "sp-consensus-subspace",
  "sp-io",
  "sp-runtime",

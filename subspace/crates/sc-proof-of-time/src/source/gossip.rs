@@ -14,7 +14,6 @@ use sc_network_gossip::{
 };
 use schnellru::{ByLength, LruMap};
 use sp_consensus::SyncOracle;
-use sp_consensus_slots::Slot;
 use sp_consensus_subspace::PotNextSlotInput;
 use sp_runtime::traits::{Block as BlockT, Hash as HashT, HashingFor};
 use std::cmp;
@@ -23,11 +22,11 @@ use std::future::poll_fn;
 use std::num::NonZeroU32;
 use std::pin::pin;
 use std::sync::Arc;
-use subspace_core_primitives::pot::{PotCheckpoints, PotSeed};
+use subspace_core_primitives::pot::{PotCheckpoints, PotSeed, SlotNumber};
 use tracing::{debug, error, trace, warn};
 
 /// How many slots can proof be before it is too far
-const MAX_SLOTS_IN_THE_FUTURE: u64 = 10;
+const MAX_SLOTS_IN_THE_FUTURE: SlotNumber = SlotNumber::new(10);
 /// How much faster PoT verification is expected to be comparing to PoT proving
 const EXPECTED_POT_VERIFICATION_SPEEDUP: usize = 7;
 const GOSSIP_CACHE_PEER_COUNT: u32 = 1_000;
@@ -90,7 +89,7 @@ pub fn pot_gossip_peers_set_config() -> (
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Encode, Decode)]
 pub(super) struct GossipProof {
     /// Slot number
-    pub(super) slot: Slot,
+    pub(super) slot: SlotNumber,
     /// Proof of time seed
     pub(super) seed: PotSeed,
     /// Iterations per slot
@@ -569,7 +568,7 @@ where
         match GossipProof::decode(&mut data) {
             Ok(proof) => {
                 let next_slot_input = self.state.next_slot_input();
-                let current_slot = next_slot_input.slot - Slot::from(1);
+                let current_slot = next_slot_input.slot - SlotNumber::ONE;
 
                 if proof.slot < current_slot {
                     trace!(
@@ -581,7 +580,7 @@ where
                     self.network.report_peer(*sender, rep::GOSSIP_OLD_SLOT);
                     return ValidationResult::Discard;
                 }
-                if proof.slot > current_slot + Slot::from(MAX_SLOTS_IN_THE_FUTURE) {
+                if proof.slot > current_slot + MAX_SLOTS_IN_THE_FUTURE {
                     trace!(
                         %sender,
                         slot = %proof.slot,
@@ -643,7 +642,7 @@ where
     }
 
     fn message_expired<'a>(&'a self) -> Box<dyn FnMut(Block::Hash, &[u8]) -> bool + 'a> {
-        let current_slot = u64::from(self.state.next_slot_input().slot) - 1;
+        let current_slot = self.state.next_slot_input().slot - SlotNumber::ONE;
         Box::new(move |_topic, mut data| {
             if let Ok(proof) = GossipProof::decode(&mut data) {
                 // Slot is the only meaningful expiration policy here

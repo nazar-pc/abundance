@@ -24,7 +24,6 @@ use log::{debug, warn};
 pub use pallet::*;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::{CompatibleDigestItem, PreDigest};
 use sp_consensus_subspace::{PotParameters, PotParametersChange};
 use sp_runtime::generic::DigestItem;
@@ -34,11 +33,11 @@ use sp_runtime::transaction_validity::{
     TransactionValidityError, ValidTransaction,
 };
 use sp_std::prelude::*;
+use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::segments::{
     ArchivedHistorySegment, HistorySize, SegmentHeader, SegmentIndex,
 };
 use subspace_core_primitives::solutions::SolutionRange;
-use subspace_core_primitives::SlotNumber;
 
 /// Custom origin for validated unsigned extrinsics.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -89,7 +88,6 @@ pub mod pallet {
     use crate::{ConsensusConstants, ExtensionWeightInfo, RawOrigin};
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
-    use sp_consensus_slots::Slot;
     use sp_consensus_subspace::digests::CompatibleDigestItem;
     use sp_consensus_subspace::inherents::{InherentError, InherentType, INHERENT_IDENTIFIER};
     use sp_runtime::DigestItem;
@@ -97,7 +95,7 @@ pub mod pallet {
     use sp_std::num::NonZeroU32;
     use sp_std::prelude::*;
     use subspace_core_primitives::hashes::Blake3Hash;
-    use subspace_core_primitives::pot::PotCheckpoints;
+    use subspace_core_primitives::pot::{PotCheckpoints, SlotNumber};
     use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
     use subspace_core_primitives::solutions::SolutionRange;
 
@@ -148,7 +146,7 @@ pub mod pallet {
     #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo)]
     pub(super) struct PotEntropyValue {
         /// Target slot at which entropy should be injected (when known)
-        pub(super) target_slot: Option<Slot>,
+        pub(super) target_slot: Option<SlotNumber>,
         pub(super) entropy: Blake3Hash,
     }
 
@@ -162,7 +160,7 @@ pub mod pallet {
     #[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
     pub(super) struct PotSlotIterationsUpdate {
         /// Target slot at which entropy should be injected (when known)
-        pub(super) target_slot: Option<Slot>,
+        pub(super) target_slot: Option<SlotNumber>,
         pub(super) slot_iterations: NonZeroU32,
     }
 
@@ -251,7 +249,7 @@ pub mod pallet {
     /// Current slot number.
     #[pallet::storage]
     #[pallet::getter(fn current_slot)]
-    pub type CurrentSlot<T> = StorageValue<_, Slot, ValueQuery>;
+    pub type CurrentSlot<T> = StorageValue<_, SlotNumber, ValueQuery>;
 
     /// Solution ranges used for challenges.
     #[pallet::storage]
@@ -270,7 +268,7 @@ pub mod pallet {
 
     /// Slot at which current era started.
     #[pallet::storage]
-    pub(super) type EraStartSlot<T> = StorageValue<_, Slot>;
+    pub(super) type EraStartSlot<T> = StorageValue<_, SlotNumber>;
 
     /// Mapping from segment index to corresponding segment root of contained records.
     #[pallet::storage]
@@ -552,7 +550,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn initialize_solution_range(
-        current_slot: Slot,
+        current_slot: SlotNumber,
         block_number: BlockNumberFor<T>,
         era_duration: BlockNumberFor<T>,
         slot_probability: (u64, u64),
@@ -586,8 +584,8 @@ impl<T: Config> Pallet<T> {
                 } else {
                     next_solution_range = solution_ranges.current.derive_next(
                         // If Era start slot is not found it means we have just finished the first era
-                        u64::from(EraStartSlot::<T>::get().unwrap_or_default()),
-                        u64::from(current_slot),
+                        EraStartSlot::<T>::get().unwrap_or_default(),
+                        current_slot,
                         slot_probability,
                         era_duration
                             .try_into()
@@ -602,7 +600,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn initialize_pot(
-        current_slot: Slot,
+        current_slot: SlotNumber,
         block_number: BlockNumberFor<T>,
         pot_entropy_injection_interval: BlockNumberFor<T>,
         pot_entropy_injection_lookback_depth: u8,
@@ -662,7 +660,8 @@ impl<T: Config> Pallet<T> {
                 if let Some(entropy_value) = entropy.get_mut(&entropy_source_block_number) {
                     let target_slot = pre_digest
                         .slot()
-                        .saturating_add(pot_entropy_injection_delay);
+                        .checked_add(pot_entropy_injection_delay)
+                        .unwrap_or(SlotNumber::MAX);
                     debug!(
                         target: "runtime::subspace",
                         "Pot entropy injection will happen at slot {target_slot:?}",

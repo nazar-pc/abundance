@@ -14,13 +14,13 @@ use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_consensus_slots::{Slot, SlotDuration};
+use sp_consensus_slots::SlotDuration;
 use sp_runtime::{ConsensusEngineId, Justification};
 use sp_runtime_interface::pass_by;
 use sp_runtime_interface::pass_by::PassBy;
 use sp_std::num::NonZeroU32;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed};
+use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed, SlotNumber};
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
 use subspace_core_primitives::solutions::{Solution, SolutionRange, SolutionVerifyParams};
 use subspace_core_primitives::BlockNumber;
@@ -71,8 +71,8 @@ impl SubspaceJustification {
 /// Next slot input for proof of time evaluation
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Decode, Encode, TypeInfo, MaxEncodedLen)]
 pub struct PotNextSlotInput {
-    /// Slot
-    pub slot: Slot,
+    /// Slot number
+    pub slot: SlotNumber,
     /// Slot iterations for this slot
     pub slot_iterations: NonZeroU32,
     /// Seed for this slot
@@ -87,11 +87,11 @@ impl PotNextSlotInput {
     /// block's slot.
     pub fn derive(
         base_slot_iterations: NonZeroU32,
-        parent_slot: Slot,
+        parent_slot: SlotNumber,
         parent_output: PotOutput,
         pot_parameters_change: &Option<PotParametersChange>,
     ) -> Self {
-        let next_slot = parent_slot + Slot::from(1);
+        let next_slot = parent_slot + SlotNumber::ONE;
         let slot_iterations;
         let seed;
 
@@ -123,7 +123,7 @@ impl PotNextSlotInput {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Decode, Encode, TypeInfo, MaxEncodedLen)]
 pub struct PotParametersChange {
     /// At which slot change of parameters takes effect
-    pub slot: Slot,
+    pub slot: SlotNumber,
     /// New number of slot iterations
     pub slot_iterations: NonZeroU32,
     /// Entropy that should be injected at this time
@@ -185,7 +185,7 @@ pub enum ChainConstants {
         /// Depth `K` after which a block enters the recorded history.
         confirmation_depth_k: BlockNumber,
         /// Number of slots between slot arrival and when corresponding block can be produced.
-        block_authoring_delay: Slot,
+        block_authoring_delay: SlotNumber,
         /// Era duration in blocks.
         era_duration: BlockNumber,
         /// Slot probability.
@@ -218,7 +218,7 @@ impl ChainConstants {
     }
 
     /// Number of slots between slot arrival and when corresponding block can be produced.
-    pub fn block_authoring_delay(&self) -> Slot {
+    pub fn block_authoring_delay(&self) -> SlotNumber {
         let Self::V0 {
             block_authoring_delay,
             ..

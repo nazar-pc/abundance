@@ -12,12 +12,12 @@ use sc_consensus_slots::{SimpleSlotWorker, SimpleSlotWorkerToSlotWorker, SlotWor
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{SelectChain, SyncOracle};
-use sp_consensus_slots::{Slot, SlotDuration};
+use sp_consensus_slots::SlotDuration;
 use sp_consensus_subspace::SubspaceApi;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
-use subspace_core_primitives::pot::PotCheckpoints;
+use subspace_core_primitives::pot::{PotCheckpoints, SlotNumber};
 use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, error, info, trace};
 
@@ -28,7 +28,7 @@ where
     /// Called when new proof of time is available for slot.
     ///
     /// NOTE: Can be called more than once in case of reorgs to override old slots.
-    fn on_proof(&mut self, slot: Slot, checkpoints: PotCheckpoints);
+    fn on_proof(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints);
 }
 
 /// Start a new slot worker.
@@ -105,7 +105,7 @@ pub async fn start_slot_worker<Block, Client, SC, Worker, SO, CIDP>(
         }
 
         // Slots that we claim must be `block_authoring_delay` behind the best slot we know of
-        let Some(slot_to_claim) = slot.checked_sub(*block_authoring_delay).map(Slot::from) else {
+        let Some(slot_to_claim) = slot.checked_sub(block_authoring_delay) else {
             trace!("Skipping very early slot during chain start");
             continue;
         };

@@ -36,7 +36,7 @@ use frame_system::pallet_prelude::RuntimeCallFor;
 pub use pallet_subspace::AllowAuthoringBy;
 use pallet_subspace::ConsensusConstants;
 use sp_api::impl_runtime_apis;
-use sp_consensus_slots::{Slot, SlotDuration};
+use sp_consensus_slots::SlotDuration;
 use sp_consensus_subspace::{ChainConstants, PotParameters, SolutionRanges};
 use sp_core::crypto::KeyTypeId;
 use sp_core::OpaqueMetadata;
@@ -50,8 +50,8 @@ use static_assertions::const_assert;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::Piece;
+use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
-use subspace_core_primitives::SlotNumber;
 use subspace_runtime_primitives::utility::{
     DefaultNonceProvider, MaybeNestedCall, MaybeUtilityCall,
 };
@@ -91,7 +91,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 const SLOT_DURATION: u64 = 1000;
 
 /// Number of slots between slot arrival and when corresponding block can be produced.
-const BLOCK_AUTHORING_DELAY: SlotNumber = 4;
+const BLOCK_AUTHORING_DELAY: SlotNumber = SlotNumber::new(4);
 
 /// Interval, in blocks, between blockchain entropy injection into proof of time chain.
 const POT_ENTROPY_INJECTION_INTERVAL: BlockNumber = 50;
@@ -100,15 +100,15 @@ const POT_ENTROPY_INJECTION_INTERVAL: BlockNumber = 50;
 const POT_ENTROPY_INJECTION_LOOKBACK_DEPTH: u8 = 2;
 
 /// Delay after block, in slots, when entropy injection takes effect.
-const POT_ENTROPY_INJECTION_DELAY: SlotNumber = 15;
+const POT_ENTROPY_INJECTION_DELAY: SlotNumber = SlotNumber::new(15);
 
 // Entropy injection interval must be bigger than injection delay or else we may end up in a
 // situation where we'll need to do more than one injection at the same slot
-const_assert!(POT_ENTROPY_INJECTION_INTERVAL as u64 > POT_ENTROPY_INJECTION_DELAY);
+const_assert!(POT_ENTROPY_INJECTION_INTERVAL as u64 > POT_ENTROPY_INJECTION_DELAY.as_u64());
 // Entropy injection delay must be bigger than block authoring delay or else we may include
 // invalid future proofs in parent block, +1 ensures we do not have unnecessary reorgs that will
 // inevitably happen otherwise
-const_assert!(POT_ENTROPY_INJECTION_DELAY > BLOCK_AUTHORING_DELAY + 1);
+const_assert!(POT_ENTROPY_INJECTION_DELAY.as_u64() > BLOCK_AUTHORING_DELAY.as_u64() + 1);
 
 /// Era duration in blocks.
 const ERA_DURATION_IN_BLOCKS: BlockNumber = 2016;
@@ -578,7 +578,7 @@ impl_runtime_apis! {
         fn chain_constants() -> ChainConstants {
             ChainConstants::V0 {
                 confirmation_depth_k: pallet_runtime_configs::ConfirmationDepthK::<Runtime>::get(),
-                block_authoring_delay: Slot::from(BLOCK_AUTHORING_DELAY),
+                block_authoring_delay: BLOCK_AUTHORING_DELAY,
                 era_duration: ERA_DURATION_IN_BLOCKS,
                 slot_probability: SLOT_PROBABILITY,
                 slot_duration: SlotDuration::from_millis(SLOT_DURATION),

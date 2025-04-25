@@ -3,17 +3,16 @@ use crate::verifier::PotVerifier;
 use futures::channel::mpsc;
 use futures::executor::block_on;
 use futures::SinkExt;
-use sp_consensus_slots::Slot;
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use subspace_core_primitives::pot::{PotCheckpoints, PotSeed};
+use subspace_core_primitives::pot::{PotCheckpoints, PotSeed, SlotNumber};
 use subspace_proof_of_time::PotError;
 use tracing::{debug, trace};
 
 /// Proof of time slot information
 pub(super) struct TimekeeperProof {
     /// Slot number
-    pub(super) slot: Slot,
+    pub(super) slot: SlotNumber,
     /// Proof of time seed
     pub(super) seed: PotSeed,
     /// Iterations per slot
