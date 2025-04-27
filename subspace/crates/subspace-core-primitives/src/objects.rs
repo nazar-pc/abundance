@@ -47,6 +47,7 @@ pub enum BlockObjectMapping {
 
 #[cfg(feature = "alloc")]
 impl Default for BlockObjectMapping {
+    #[inline(always)]
     fn default() -> Self {
         Self::V0 {
             objects: Vec::new(),
@@ -57,7 +58,7 @@ impl Default for BlockObjectMapping {
 #[cfg(feature = "alloc")]
 impl BlockObjectMapping {
     /// Returns a newly created BlockObjectMapping from a list of object mappings
-    #[inline]
+    #[inline(always)]
     pub fn from_objects(objects: impl IntoIterator<Item = BlockObject>) -> Self {
         Self::V0 {
             objects: objects.into_iter().collect(),
@@ -65,6 +66,7 @@ impl BlockObjectMapping {
     }
 
     /// Returns the object mappings
+    #[inline(always)]
     pub fn objects(&self) -> &[BlockObject] {
         match self {
             Self::V0 { objects, .. } => objects,
@@ -72,6 +74,7 @@ impl BlockObjectMapping {
     }
 
     /// Returns the object mappings as a mutable slice
+    #[inline(always)]
     pub fn objects_mut(&mut self) -> &mut Vec<BlockObject> {
         match self {
             Self::V0 { objects, .. } => objects,
@@ -83,10 +86,7 @@ impl BlockObjectMapping {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(from = "CompactGlobalObject", into = "CompactGlobalObject")
-)]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct GlobalObject {
     /// Object hash.
     /// We order by hash, so object hash lookups can be performed efficiently.
@@ -96,28 +96,6 @@ pub struct GlobalObject {
     /// Raw record offset of the object in that piece, for use with `Record::to_raw_record_bytes`
     pub offset: u32,
 }
-
-impl From<CompactGlobalObject> for GlobalObject {
-    fn from(object: CompactGlobalObject) -> Self {
-        Self {
-            hash: object.0,
-            piece_index: object.1,
-            offset: object.2,
-        }
-    }
-}
-
-impl From<GlobalObject> for CompactGlobalObject {
-    fn from(object: GlobalObject) -> Self {
-        Self(object.hash, object.piece_index, object.offset)
-    }
-}
-
-/// Space-saving serialization of an object stored in the history of the blockchain
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct CompactGlobalObject(Blake3Hash, PieceIndex, u32);
 
 /// Mapping of objects stored in the history of the blockchain
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
@@ -137,6 +115,7 @@ pub enum GlobalObjectMapping {
 
 #[cfg(feature = "alloc")]
 impl Default for GlobalObjectMapping {
+    #[inline(always)]
     fn default() -> Self {
         Self::V0 {
             objects: Vec::new(),
@@ -147,7 +126,7 @@ impl Default for GlobalObjectMapping {
 #[cfg(feature = "alloc")]
 impl GlobalObjectMapping {
     /// Returns a newly created GlobalObjectMapping from a list of object mappings
-    #[inline]
+    #[inline(always)]
     pub fn from_objects(objects: impl IntoIterator<Item = GlobalObject>) -> Self {
         Self::V0 {
             objects: objects.into_iter().collect(),
@@ -155,6 +134,7 @@ impl GlobalObjectMapping {
     }
 
     /// Returns the object mappings
+    #[inline(always)]
     pub fn objects(&self) -> &[GlobalObject] {
         match self {
             Self::V0 { objects, .. } => objects,
@@ -162,6 +142,7 @@ impl GlobalObjectMapping {
     }
 
     /// Returns the object mappings as a mutable slice
+    #[inline(always)]
     pub fn objects_mut(&mut self) -> &mut Vec<GlobalObject> {
         match self {
             Self::V0 { objects, .. } => objects,
