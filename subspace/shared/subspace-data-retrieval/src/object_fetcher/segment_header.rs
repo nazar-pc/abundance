@@ -7,9 +7,9 @@ use crate::object_fetcher::{Error, decode_data_length};
 use parity_scale_codec::{Decode, Encode, Input, IoReader};
 use std::io::Cursor;
 use subspace_archiving::archiver::SegmentItem;
+use subspace_archiving::objects::GlobalObject;
 use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::objects::GlobalObject;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, LastArchivedBlock, SegmentHeader, SegmentIndex, SegmentRoot,
 };
@@ -158,7 +158,6 @@ mod test {
     use super::*;
     use parity_scale_codec::{Compact, CompactLen};
     use subspace_archiving::archiver::Segment;
-    use subspace_core_primitives::objects::BlockObjectMapping;
 
     #[test]
     fn max_segment_padding_constant() {
@@ -190,7 +189,7 @@ mod test {
     fn block_continuation_variant_constant() {
         let block_continuation = SegmentItem::BlockContinuation {
             bytes: Vec::new(),
-            object_mapping: BlockObjectMapping::default(),
+            object_mapping: Default::default(),
         };
         let block_continuation = block_continuation.encode();
 

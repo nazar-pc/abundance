@@ -4,8 +4,8 @@ use rand_core::{RngCore, SeedableRng};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use subspace_archiving::archiver::Archiver;
+use subspace_archiving::objects::BlockObjectMapping;
 use subspace_archiving::piece_reconstructor::{PiecesReconstructor, ReconstructorError};
-use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::{FlatPieces, Piece};
 use subspace_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
 

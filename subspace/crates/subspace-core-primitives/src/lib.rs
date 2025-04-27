@@ -13,7 +13,6 @@ pub mod block;
 #[cfg(feature = "scale-codec")]
 pub mod checksum;
 pub mod hashes;
-pub mod objects;
 pub mod pieces;
 pub mod pos;
 pub mod pot;

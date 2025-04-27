@@ -60,8 +60,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::Duration;
 use subspace_archiving::archiver::{Archiver, NewArchivedSegment};
+use subspace_archiving::objects::{BlockObjectMapping, GlobalObject};
 use subspace_core_primitives::block::BlockNumber;
-use subspace_core_primitives::objects::{BlockObjectMapping, GlobalObject};
 use subspace_core_primitives::segments::{RecordedHistorySegment, SegmentHeader, SegmentIndex};
 use tracing::{debug, info, trace, warn};
 

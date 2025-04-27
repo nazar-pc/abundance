@@ -2,15 +2,15 @@
 
 use crate::object_fetcher::partial_object::{PartialObject, RawPieceData};
 use crate::object_fetcher::segment_header::{
-    max_segment_header_encoded_size, min_segment_header_encoded_size, MAX_SEGMENT_PADDING,
+    MAX_SEGMENT_PADDING, max_segment_header_encoded_size, min_segment_header_encoded_size,
 };
 use crate::piece_fetcher::download_pieces;
 use crate::piece_getter::PieceGetter;
 use parity_scale_codec::{Compact, CompactLen, Decode};
 use std::sync::Arc;
 use subspace_archiving::archiver::SegmentItem;
+use subspace_archiving::objects::{GlobalObject, GlobalObjectMapping};
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::objects::{GlobalObject, GlobalObjectMapping};
 use subspace_core_primitives::pieces::{Piece, PieceIndex, Record};
 use subspace_core_primitives::segments::{RecordedHistorySegment, SegmentIndex};
 use tracing::{debug, trace, warn};

@@ -1,3 +1,4 @@
+use crate::objects::{BlockObject, BlockObjectMapping, GlobalObject};
 use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use alloc::collections::VecDeque;
@@ -8,7 +9,6 @@ use parity_scale_codec::{Compact, CompactLen, Decode, Encode, Input, Output};
 use rayon::prelude::*;
 use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::objects::{BlockObject, BlockObjectMapping, GlobalObject};
 use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
