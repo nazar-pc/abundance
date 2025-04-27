@@ -89,7 +89,7 @@ fn write_segment_header(mut piece: &mut Piece, remaining_len: usize) -> Vec<u8> 
             segment_root: SegmentRoot::default(),
             prev_segment_header_hash: Blake3Hash::default(),
             last_archived_block: LastArchivedBlock {
-                number: u32::MAX,
+                number: u64::MAX,
                 archived_progress: ArchivedBlockProgress::Partial(u32::MAX),
             },
         }
@@ -230,8 +230,9 @@ fn create_mapping(
         // Find the next piece index with a segment header
         let segment_header_piece_index =
             start_piece_index.next_multiple_of(ArchivedHistorySegment::NUM_PIECES);
-        // And the piece before it can have padding
-        let padding_piece_index = segment_header_piece_index.checked_sub(1);
+        // And the source piece before it can have padding
+        let padding_piece_index =
+            segment_header_piece_index.checked_sub(RecordedHistorySegment::NUM_RAW_RECORDS + 1);
 
         // Skip padding if needed
         if let Some(padding_piece_index) = padding_piece_index
@@ -244,7 +245,19 @@ fn create_mapping(
                 start_piece_index,
                 pieces_len,
                 original_len,
-            );
+            )
+            .unwrap_or_else(|| {
+                panic!(
+                    "must have padding when skip_padding is set: \
+                    skip_padding: {skip_padding} bytes, \
+                    raw_data_after_segment_header: {} bytes, \
+                    padding_piece_index: {padding_piece_index}, \
+                    start_piece_index: {start_piece_index}, \
+                    pieces_len: {pieces_len}, \
+                    original_len: {original_len}",
+                    raw_data_after_segment_header.len(),
+                )
+            });
 
             // Delete the padding bytes we want to skip
             let replaced_padding_data = raw_data
@@ -264,32 +277,34 @@ fn create_mapping(
             );
         }
 
-        // If the offset hasn't already skipped the segment header, skip it now
-        if segment_header_piece_index > start_piece_index {
+        // If this is a segment header piece, the offset will have already skipped the segment
+        // header. If it's any other piece, skip it now.
+        if PieceIndex::from(start_piece_index as u64).position() != 0 {
             let original_len = raw_data.len();
 
-            let mut byte_position_in_raw_data = byte_position_in_extract_raw_data(
+            if let Some(mut byte_position_in_raw_data) = byte_position_in_extract_raw_data(
                 segment_header_piece_index,
                 start_piece_index,
                 pieces_len,
                 original_len,
-            );
-            byte_position_in_raw_data -= skip_padding;
+            ) {
+                byte_position_in_raw_data -= skip_padding;
 
-            // Replace the entire piece with just the raw data after the segment header
-            let _replaced_piece_data = raw_data
-                .splice(
-                    // The entire piece range, in bytes
-                    byte_position_in_raw_data..byte_position_in_raw_data + Record::SIZE,
-                    // The remaining data from the piece, excluding the segment header
-                    raw_data_after_segment_header.iter().copied(),
-                )
-                .collect::<Vec<_>>();
+                // Replace the entire piece with just the raw data after the segment header
+                let _replaced_piece_data = raw_data
+                    .splice(
+                        // The entire piece range, in bytes
+                        byte_position_in_raw_data..byte_position_in_raw_data + Record::SIZE,
+                        // The remaining data from the piece, excluding the segment header
+                        raw_data_after_segment_header.iter().copied(),
+                    )
+                    .collect::<Vec<_>>();
 
-            assert_eq!(
-                raw_data.len(),
-                original_len - Record::SIZE + raw_data_after_segment_header.len()
-            );
+                assert_eq!(
+                    raw_data.len(),
+                    original_len - Record::SIZE + raw_data_after_segment_header.len()
+                );
+            }
         }
     }
 
@@ -311,16 +326,22 @@ fn create_mapping(
 }
 
 /// Returns the byte position of a piece in the raw data, after checking it is valid.
+/// Returns `None` if the piece index is not in the supplied pieces.
 fn byte_position_in_extract_raw_data(
     piece_index: usize,
     start_piece_index: usize,
     pieces_len: usize,
     raw_data_len: usize,
-) -> usize {
+) -> Option<usize> {
     let piece_position_in_raw_data = piece_index - start_piece_index;
+
+    if piece_position_in_raw_data >= pieces_len {
+        return None;
+    }
+
     assert!(
         piece_position_in_raw_data < max_supported_object_length().div_ceil(Record::SIZE),
-        "{piece_position_in_raw_data} < {}",
+        "object length not supported: {piece_position_in_raw_data} < {}",
         max_supported_object_length().div_ceil(Record::SIZE)
     );
     assert!(
@@ -331,10 +352,10 @@ fn byte_position_in_extract_raw_data(
     let byte_position_in_raw_data = piece_position_in_raw_data * Record::SIZE;
     assert!(
         byte_position_in_raw_data < raw_data_len,
-        "{byte_position_in_raw_data} < {raw_data_len}",
+        "byte position not in raw data: {byte_position_in_raw_data} < {raw_data_len}",
     );
 
-    byte_position_in_raw_data
+    Some(byte_position_in_raw_data)
 }
 
 /// Creates an object fetcher from a piece and piece index.

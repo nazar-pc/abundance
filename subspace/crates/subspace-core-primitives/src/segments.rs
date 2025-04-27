@@ -3,7 +3,7 @@
 #[cfg(feature = "alloc")]
 mod archival_history_segment;
 
-use crate::BlockNumber;
+use crate::block::BlockNumber;
 use crate::hashes::Blake3Hash;
 #[cfg(feature = "scale-codec")]
 use crate::hashes::blake3_hash;
@@ -328,7 +328,7 @@ impl LastArchivedBlock {
 
     /// Sets new number of partially archived bytes.
     #[inline(always)]
-    pub fn set_partial_archived(&mut self, new_partial: BlockNumber) {
+    pub fn set_partial_archived(&mut self, new_partial: u32) {
         self.archived_progress.set_partial(new_partial);
     }
 

@@ -31,11 +31,11 @@ use sp_consensus_subspace::digests::{
 };
 use sp_consensus_subspace::{PotNextSlotInput, SubspaceApi, SubspaceJustification};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
-use sp_runtime::Justifications;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor, One};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, One};
+use sp_runtime::{Justifications, SaturatedConversion};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use subspace_core_primitives::BlockNumber;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::sectors::SectorId;
@@ -51,12 +51,9 @@ use tracing::warn;
 /// Notification with number of the block that is about to be imported and acknowledgement sender
 /// that can be used to pause block production if desired.
 #[derive(Debug, Clone)]
-pub struct BlockImportingNotification<Block>
-where
-    Block: BlockT,
-{
+pub struct BlockImportingNotification {
     /// Block number
-    pub block_number: NumberFor<Block>,
+    pub block_number: BlockNumber,
     /// Sender for pausing the block import when operator is not fast enough to process
     /// the consensus block.
     pub acknowledgement_sender: mpsc::Sender<()>,
@@ -253,23 +250,19 @@ where
 }
 
 /// A block-import handler for Subspace.
-pub struct SubspaceBlockImport<PosTable, Block, Client, I, CIDP, AS>
-where
-    Block: BlockT,
-{
+pub struct SubspaceBlockImport<PosTable, Block, Client, I, CIDP, AS> {
     inner: I,
     client: Arc<Client>,
-    subspace_link: SubspaceLink<Block>,
+    subspace_link: SubspaceLink,
     create_inherent_data_providers: CIDP,
     segment_headers_store: SegmentHeadersStore<AS>,
     pot_verifier: PotVerifier,
-    _pos_table: PhantomData<PosTable>,
+    _phantom: PhantomData<(PosTable, Block)>,
 }
 
 impl<PosTable, Block, I, Client, CIDP, AS> Clone
     for SubspaceBlockImport<PosTable, Block, Client, I, CIDP, AS>
 where
-    Block: BlockT,
     I: Clone,
     CIDP: Clone,
 {
@@ -281,7 +274,7 @@ where
             create_inherent_data_providers: self.create_inherent_data_providers.clone(),
             segment_headers_store: self.segment_headers_store.clone(),
             pot_verifier: self.pot_verifier.clone(),
-            _pos_table: PhantomData,
+            _phantom: PhantomData,
         }
     }
 }
@@ -300,7 +293,7 @@ where
     pub fn new(
         client: Arc<Client>,
         block_import: I,
-        subspace_link: SubspaceLink<Block>,
+        subspace_link: SubspaceLink,
         create_inherent_data_providers: CIDP,
         segment_headers_store: SegmentHeadersStore<AS>,
         pot_verifier: PotVerifier,
@@ -312,7 +305,7 @@ where
             create_inherent_data_providers,
             segment_headers_store,
             pot_verifier,
-            _pos_table: PhantomData,
+            _phantom: PhantomData,
         }
     }
 
@@ -559,7 +552,7 @@ where
         mut block: BlockImportParams<Block>,
     ) -> Result<ImportResult, Self::Error> {
         let block_hash = block.post_hash();
-        let block_number = *block.header.number();
+        let block_number = (*block.header.number()).saturated_into::<BlockNumber>();
 
         // Early exit if block already in chain
         match self.client.status(block_hash)? {

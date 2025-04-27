@@ -15,10 +15,9 @@ use sc_storage_monitor::StorageMonitorParams;
 use std::collections::HashSet;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::num::NonZeroU32;
+use std::num::NonZeroU64;
 use std::path::PathBuf;
 use std::str::FromStr;
-use subspace_core_primitives::BlockNumber;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_service::config::{
@@ -31,7 +30,7 @@ use tracing::{error, warn};
 
 /// Roughly 138k empty blocks can fit into one archived segment, hence we need to not allow to prune
 /// more blocks that this
-const MIN_STATE_PRUNING: BlockNumber = 140_000;
+const MIN_STATE_PRUNING: u32 = 140_000;
 
 fn parse_timekeeper_cpu_cores(
     s: &str,
@@ -315,7 +314,7 @@ pub enum CreateObjectMappingConfig {
     /// The archiver will fail if it can't get the data for this block, and snap sync doesn't store
     /// the genesis data on disk. So avoiding genesis also avoids this error.
     /// <https://github.com/paritytech/polkadot-sdk/issues/5366>
-    Block(NonZeroU32),
+    Block(NonZeroU64),
 
     /// Create object mappings as archiving is happening.
     /// This continues from the last archived segment, but mappings that were in the channel or RPC
@@ -545,7 +544,7 @@ pub(super) fn create_consensus_chain_configuration(
             timekeeper_options.timekeeper = true;
 
             if create_object_mappings.is_none() {
-                create_object_mappings = Some(CreateObjectMappingConfig::Block(NonZeroU32::MIN));
+                create_object_mappings = Some(CreateObjectMappingConfig::Block(NonZeroU64::MIN));
             }
 
             if sync.is_none() {

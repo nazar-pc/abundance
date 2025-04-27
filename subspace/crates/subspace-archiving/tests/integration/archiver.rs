@@ -261,13 +261,13 @@ fn archiver() {
         let archived_segment = archived_segments.first().unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block();
         assert_eq!(last_archived_block.number, 2);
-        assert_eq!(last_archived_block.partial_archived(), Some(111848003));
+        assert_eq!(last_archived_block.partial_archived(), Some(111847999));
     }
     {
         let archived_segment = archived_segments.get(1).unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block();
         assert_eq!(last_archived_block.number, 2);
-        assert_eq!(last_archived_block.partial_archived(), Some(246065642));
+        assert_eq!(last_archived_block.partial_archived(), Some(246065634));
     }
 
     // Check that both archived segments have expected content and valid pieces in them
@@ -313,7 +313,7 @@ fn archiver() {
 
     // Add a block such that it fits in the next segment exactly
     let block_3 = {
-        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369910];
+        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369920];
         rng.fill_bytes(block.as_mut_slice());
         block
     };

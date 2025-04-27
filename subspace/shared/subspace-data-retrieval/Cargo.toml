@@ -17,17 +17,15 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true, features = ["std"] }
-parity-scale-codec = { workspace = true, features = ["derive"] }
+parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 subspace-archiving = { workspace = true, features = ["parallel"] }
 subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
-# TODO: Get rid of this dependency, this is not the right place for it
-subspace-runtime-primitives = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "rt"] }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
-rand = { workspace = true }
+rand = { workspace = true, features = ["std", "std_rng"] }
 subspace-logging = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 

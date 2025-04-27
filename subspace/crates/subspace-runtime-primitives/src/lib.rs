@@ -18,7 +18,7 @@ use scale_info::TypeInfo;
 use sp_core::parameter_types;
 use sp_runtime::traits::{Bounded, IdentifyAccount, Verify};
 use sp_runtime::{FixedPointNumber, MultiSignature, Perbill, Perquintill};
-pub use subspace_core_primitives::BlockNumber;
+pub use subspace_core_primitives::block::BlockNumber;
 
 /// Minimum desired number of replicas of the blockchain to be stored by the network,
 /// impacts storage fees.
@@ -68,7 +68,7 @@ pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::Account
 pub type Balance = u128;
 
 /// Index of a transaction in the chain.
-pub type Nonce = u32;
+pub type Nonce = u64;
 
 /// A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
@@ -88,10 +88,10 @@ parameter_types! {
 /// allowing for them to continue syncing the network through upgrades to even the core data
 /// structures.
 pub mod opaque {
-    use super::BlockNumber;
     pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
     use sp_runtime::generic;
     use sp_runtime::traits::BlakeTwo256;
+    use subspace_core_primitives::block::BlockNumber;
 
     /// Opaque block header type.
     pub type Header = generic::Header<BlockNumber, BlakeTwo256>;

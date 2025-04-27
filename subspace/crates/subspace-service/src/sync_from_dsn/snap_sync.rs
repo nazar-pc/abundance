@@ -24,7 +24,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use subspace_archiving::reconstructor::Reconstructor;
-use subspace_core_primitives::BlockNumber;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::segments::SegmentIndex;
 use subspace_data_retrieval::segment_downloading::download_segment_pieces;
 use subspace_networking::Node;
@@ -367,7 +367,7 @@ where
 
     // Wait for blocks to be imported
     // TODO: Replace this hack with actual watching of block import
-    wait_for_block_import(client.as_ref(), last_block_number.into()).await;
+    wait_for_block_import(client.as_ref(), last_block_number).await;
 
     debug!(info = ?client.info(), "Snap sync finished successfully");
 

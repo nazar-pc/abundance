@@ -8,13 +8,13 @@ use sc_consensus_subspace::archiver::{SegmentHeadersStore, decode_block, encode_
 use sc_service::Error;
 use sc_tracing::tracing::{debug, trace};
 use sp_consensus::BlockOrigin;
-use sp_runtime::Saturating;
+use sp_runtime::SaturatedConversion;
 use sp_runtime::generic::SignedBlock;
-use sp_runtime::traits::{Block as BlockT, Header, NumberFor, One};
+use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use subspace_archiving::reconstructor::Reconstructor;
-use subspace_core_primitives::BlockNumber;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::segments::SegmentIndex;
 use subspace_data_retrieval::segment_downloading::download_segment_pieces;
 use tokio::task;
@@ -36,7 +36,7 @@ pub(super) async fn import_blocks_from_dsn<Block, AS, Client, PG, IQS>(
     piece_getter: &PG,
     import_queue_service: &mut IQS,
     last_processed_segment_index: &mut SegmentIndex,
-    last_processed_block_number: &mut <Block::Header as Header>::Number,
+    last_processed_block_number: &mut BlockNumber,
     erasure_coding: &ErasureCoding,
 ) -> Result<u64, Error>
 where
@@ -97,8 +97,6 @@ where
             "Checking segment header"
         );
 
-        let last_archived_block_number = NumberFor::<Block>::from(last_archived_block_number);
-
         let info = client.info();
         // We have already processed this block, it can't change
         if last_archived_block_number <= *last_processed_block_number {
@@ -109,7 +107,7 @@ where
         }
         // Just one partial unprocessed block and this was the last segment available, so nothing to
         // import
-        if last_archived_block_number == *last_processed_block_number + One::one()
+        if last_archived_block_number == *last_processed_block_number + 1
             && last_archived_block_partial
             && segment_indices_iter.peek().is_none()
         {
@@ -141,14 +139,13 @@ where
 
         let mut blocks_to_import = Vec::with_capacity(QUEUED_BLOCKS_LIMIT as usize);
 
-        let mut best_block_number = info.best_number;
+        let mut best_block_number = info.best_number.saturated_into::<BlockNumber>();
         for (block_number, block_bytes) in blocks {
-            let block_number = block_number.into();
-            if block_number == 0u32.into() {
+            if block_number == 0 {
                 let signed_block = client
                     .block(
                         client
-                            .hash(block_number)?
+                            .hash(NumberFor::<Block>::saturated_from(block_number))?
                             .expect("Block before best block number must always be found; qed"),
                     )?
                     .expect("Block before best block number must always be found; qed");
@@ -165,7 +162,7 @@ where
             // than `QUEUED_BLOCKS_LIMIT` elements in the queue, but it should be rare and
             // insignificant. Feel free to address this in case you have a good strategy, but it
             // seems like complexity is not worth it.
-            while block_number.saturating_sub(best_block_number) >= QUEUED_BLOCKS_LIMIT.into() {
+            while block_number.saturating_sub(best_block_number) >= QUEUED_BLOCKS_LIMIT {
                 if !blocks_to_import.is_empty() {
                     // Import queue handles verification and importing it into the client
                     import_queue_service
@@ -178,7 +175,7 @@ where
                     "Number of importing blocks reached queue limit, waiting before retrying"
                 );
                 tokio::time::sleep(WAIT_FOR_BLOCKS_TO_IMPORT).await;
-                best_block_number = client.info().best_number;
+                best_block_number = client.info().best_number.saturated_into::<BlockNumber>();
             }
 
             let signed_block =

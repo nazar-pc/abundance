@@ -7,12 +7,15 @@ use crate::object_fetcher::{Error, decode_data_length};
 use parity_scale_codec::{Decode, Encode, Input, IoReader};
 use std::io::Cursor;
 use subspace_archiving::archiver::SegmentItem;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::GlobalObject;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, LastArchivedBlock, SegmentHeader, SegmentIndex, SegmentRoot,
 };
-use subspace_runtime_primitives::MAX_BLOCK_LENGTH;
+
+/// Maximum block length for non-`Normal` extrinsic is 5 MiB.
+pub const MAX_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
 
 /// The maximum amount of segment padding.
 ///
@@ -52,7 +55,7 @@ pub fn max_segment_header_encoded_size() -> usize {
         segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),
         last_archived_block: LastArchivedBlock {
-            number: u32::MAX,
+            number: BlockNumber::MAX,
             archived_progress: ArchivedBlockProgress::Partial(u32::MAX),
         },
     };
@@ -156,7 +159,6 @@ mod test {
     use parity_scale_codec::{Compact, CompactLen};
     use subspace_archiving::archiver::Segment;
     use subspace_core_primitives::objects::BlockObjectMapping;
-    use subspace_runtime_primitives::MAX_BLOCK_LENGTH;
 
     #[test]
     fn max_segment_padding_constant() {
