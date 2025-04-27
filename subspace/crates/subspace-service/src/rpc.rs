@@ -20,7 +20,6 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_consensus_subspace::SubspaceApi;
-use sp_objects::ObjectsApi;
 use std::sync::Arc;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_runtime_primitives::opaque::Block;
@@ -63,7 +62,7 @@ where
         + Send
         + Sync
         + 'static,
-    C::Api: SubspaceApi<Block> + ObjectsApi<Block>,
+    C::Api: SubspaceApi<Block>,
     SO: SyncOracle + Send + Sync + Clone + 'static,
     AS: AuxStore + Send + Sync + 'static,
 {

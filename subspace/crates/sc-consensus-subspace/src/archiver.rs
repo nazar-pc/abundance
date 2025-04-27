@@ -48,8 +48,7 @@ use sc_client_api::{
 use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_consensus_subspace::{SubspaceApi, SubspaceJustification};
-use sp_objects::ObjectsApi;
+use sp_consensus_subspace::SubspaceJustification;
 use sp_runtime::generic::SignedBlock;
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor, Zero};
 use sp_runtime::{Justifications, SaturatedConversion};
@@ -394,17 +393,17 @@ impl CreateObjectMappings {
     }
 }
 
-fn find_last_archived_block<Block, Client, AS>(
+fn find_last_archived_block<Block, Client, AS, COM>(
     client: &Client,
     segment_headers_store: &SegmentHeadersStore<AS>,
     best_block_to_archive: BlockNumber,
-    create_object_mappings: bool,
+    create_object_mappings: Option<COM>,
 ) -> sp_blockchain::Result<Option<(SegmentHeader, SignedBlock<Block>, BlockObjectMapping)>>
 where
     Block: BlockT,
-    Client: ProvideRuntimeApi<Block> + BlockBackend<Block> + HeaderBackend<Block>,
-    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
+    Client: BlockBackend<Block> + HeaderBackend<Block>,
     AS: AuxStore,
+    COM: Fn(Block) -> BlockObjectMapping,
 {
     let Some(max_segment_index) = segment_headers_store.max_segment_index() else {
         return Ok(None);
@@ -442,14 +441,8 @@ where
         };
 
         // If we're starting mapping creation at this block, return its mappings.
-        let block_object_mappings = if create_object_mappings {
-            client
-                .runtime_api()
-                .extract_block_object_mapping(
-                    *last_archived_block.block.header().parent_hash(),
-                    last_archived_block.block.clone(),
-                )
-                .unwrap_or_default()
+        let block_object_mappings = if let Some(create_object_mappings) = create_object_mappings {
+            create_object_mappings(last_archived_block.block.clone())
         } else {
             BlockObjectMapping::default()
         };
@@ -471,8 +464,7 @@ pub fn recreate_genesis_segment<Block, Client>(
 ) -> Result<Option<NewArchivedSegment>, Box<dyn Error>>
 where
     Block: BlockT,
-    Client: ProvideRuntimeApi<Block> + BlockBackend<Block> + HeaderBackend<Block>,
-    Client::Api: ObjectsApi<Block>,
+    Client: BlockBackend<Block> + HeaderBackend<Block>,
 {
     let genesis_hash = client.info().genesis_hash;
     let Some(signed_block) = client.block(genesis_hash)? else {
@@ -581,8 +573,7 @@ fn initialize_archiver<Block, Client, AS>(
 ) -> sp_blockchain::Result<InitializedArchiver<Block>>
 where
     Block: BlockT,
-    Client: ProvideRuntimeApi<Block> + BlockBackend<Block> + HeaderBackend<Block> + AuxStore,
-    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
+    Client: BlockBackend<Block> + HeaderBackend<Block> + AuxStore,
     AS: AuxStore,
 {
     let client_info = client.info();
@@ -631,7 +622,7 @@ where
             return Err(sp_blockchain::Error::Application(error.into()));
         };
 
-        let Some(best_block_data) = client.block(best_block_to_archive_hash)? else {
+        let Some(_best_block_data) = client.block(best_block_to_archive_hash)? else {
             let error = format!(
                 "Missing data for mapping block {best_block_to_archive} \
                 hash {best_block_to_archive_hash}, \
@@ -641,29 +632,40 @@ where
         };
 
         // Similarly, state can be pruned, even if the data is present
-        client
-            .runtime_api()
-            .extract_block_object_mapping(
-                *best_block_data.block.header().parent_hash(),
-                best_block_data.block.clone(),
-            )
-            .map_err(|error| {
-                sp_blockchain::Error::Application(
-                    format!(
-                        "Missing state for mapping block {best_block_to_archive} \
-                        hash {best_block_to_archive_hash}: {error}, \
-                        try a higher block number, or wipe your node and restart with `--sync full`"
-                    )
-                    .into(),
-                )
-            })?;
+        // TODO: Injection of external logic
+        // client
+        //     .runtime_api()
+        //     .extract_block_object_mapping(
+        //         *best_block_data.block.header().parent_hash(),
+        //         best_block_data.block.clone(),
+        //     )
+        //     .map_err(|error| {
+        //         sp_blockchain::Error::Application(
+        //             format!(
+        //                 "Missing state for mapping block {best_block_to_archive} \
+        //                 hash {best_block_to_archive_hash}: {error}, \
+        //                 try a higher block number, or wipe your node and restart with `--sync full`"
+        //             )
+        //             .into(),
+        //         )
+        //     })?;
     }
 
     let maybe_last_archived_block = find_last_archived_block(
         client,
         segment_headers_store,
         best_block_to_archive,
-        create_object_mappings.is_enabled(),
+        create_object_mappings
+            .is_enabled()
+            .then_some(|_block: Block| {
+                // TODO: Injection of external logic
+                // let parent_hash = *block.header().parent_hash();
+                // client
+                //     .runtime_api()
+                //     .extract_block_object_mapping(parent_hash, block)
+                //     .unwrap_or_default()
+                BlockObjectMapping::default()
+            }),
     )?;
 
     let have_last_segment_header = maybe_last_archived_block.is_some();
@@ -743,32 +745,31 @@ where
             let blocks_to_archive = thread_pool.install(|| {
                 (blocks_to_archive_from..=blocks_to_archive_to)
                     .into_par_iter()
-                    .map_init(
-                        || client.runtime_api(),
-                        |runtime_api, block_number| {
-                            let block_hash = client
-                                .hash(NumberFor::<Block>::saturated_from(block_number))?
-                                .expect("All blocks since last archived must be present; qed");
+                    .map(|block_number| {
+                        let block_hash = client
+                            .hash(NumberFor::<Block>::saturated_from(block_number))?
+                            .expect("All blocks since last archived must be present; qed");
 
-                            let block = client
-                                .block(block_hash)?
-                                .expect("All blocks since last archived must be present; qed");
+                        let block = client
+                            .block(block_hash)?
+                            .expect("All blocks since last archived must be present; qed");
 
-                            let block_object_mappings =
-                                if create_object_mappings.is_enabled_for_block(block_number) {
-                                    runtime_api
-                                        .extract_block_object_mapping(
-                                            *block.block.header().parent_hash(),
-                                            block.block.clone(),
-                                        )
-                                        .unwrap_or_default()
-                                } else {
-                                    BlockObjectMapping::default()
-                                };
+                        let block_object_mappings =
+                            if create_object_mappings.is_enabled_for_block(block_number) {
+                                // TODO: Injection of external logic
+                                // runtime_api
+                                //     .extract_block_object_mapping(
+                                //         *block.block.header().parent_hash(),
+                                //         block.block.clone(),
+                                //     )
+                                //     .unwrap_or_default()
+                                BlockObjectMapping::default()
+                            } else {
+                                BlockObjectMapping::default()
+                            };
 
-                            Ok((block, block_object_mappings))
-                        },
-                    )
+                        Ok((block, block_object_mappings))
+                    })
                     .collect::<sp_blockchain::Result<Vec<(SignedBlock<_>, _)>>>()
             })?;
 
@@ -899,7 +900,6 @@ where
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
     AS: AuxStore + Send + Sync + 'static,
 {
     if create_object_mappings.is_enabled() {
@@ -1114,8 +1114,7 @@ async fn archive_block<Block, Backend, Client, AS>(
 where
     Block: BlockT,
     Backend: BackendT<Block>,
-    Client: ProvideRuntimeApi<Block>
-        + BlockBackend<Block>
+    Client: BlockBackend<Block>
         + HeaderBackend<Block>
         + LockImportRun<Block, Backend>
         + Finalizer<Block, Backend>
@@ -1123,7 +1122,6 @@ where
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
     AS: AuxStore + Send + Sync + 'static,
 {
     let block = client
@@ -1155,14 +1153,16 @@ where
     let create_mappings = create_object_mappings.is_enabled_for_block(block_number_to_archive);
 
     let block_object_mappings = if create_mappings {
-        client
-            .runtime_api()
-            .extract_block_object_mapping(parent_block_hash, block.block.clone())
-            .map_err(|error| {
-                sp_blockchain::Error::Application(
-                    format!("Failed to retrieve block object mappings: {error}").into(),
-                )
-            })?
+        // TODO: Injection of external logic
+        // client
+        //     .runtime_api()
+        //     .extract_block_object_mapping(parent_block_hash, block.block.clone())
+        //     .map_err(|error| {
+        //         sp_blockchain::Error::Application(
+        //             format!("Failed to retrieve block object mappings: {error}").into(),
+        //         )
+        //     })?
+        BlockObjectMapping::default()
     } else {
         BlockObjectMapping::default()
     };

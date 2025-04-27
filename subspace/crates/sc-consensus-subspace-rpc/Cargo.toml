@@ -31,7 +31,6 @@ sp-consensus = { workspace = true }
 sp-consensus-subspace = { workspace = true }
 sp-blockchain = { workspace = true }
 sp-core = { workspace = true }
-sp-objects = { workspace = true }
 sp-runtime = { workspace = true }
 subspace-archiving = { workspace = true }
 subspace-core-primitives = { workspace = true }
