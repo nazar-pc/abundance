@@ -13,7 +13,9 @@ use subspace_core_primitives::objects::GlobalObject;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, LastArchivedBlock, SegmentHeader, SegmentIndex, SegmentRoot,
 };
-use subspace_runtime_primitives::MAX_BLOCK_LENGTH;
+
+/// Maximum block length for non-`Normal` extrinsic is 5 MiB.
+pub const MAX_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
 
 /// The maximum amount of segment padding.
 ///
@@ -157,7 +159,6 @@ mod test {
     use parity_scale_codec::{Compact, CompactLen};
     use subspace_archiving::archiver::Segment;
     use subspace_core_primitives::objects::BlockObjectMapping;
-    use subspace_runtime_primitives::MAX_BLOCK_LENGTH;
 
     #[test]
     fn max_segment_padding_constant() {

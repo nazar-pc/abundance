@@ -20,8 +20,6 @@ hex = { workspace = true, features = ["std"] }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 subspace-archiving = { workspace = true, features = ["parallel"] }
 subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
-# TODO: Get rid of this dependency, this is not the right place for it
-subspace-runtime-primitives = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "rt"] }
 tracing = { workspace = true, features = ["std"] }

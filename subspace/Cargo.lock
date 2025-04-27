@@ -11367,7 +11367,6 @@ dependencies = [
  "subspace-archiving",
  "subspace-core-primitives",
  "subspace-logging",
- "subspace-runtime-primitives",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
