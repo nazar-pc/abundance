@@ -7,7 +7,7 @@ use crate::object_fetcher::{Error, decode_data_length};
 use parity_scale_codec::{Decode, Encode, Input, IoReader};
 use std::io::Cursor;
 use subspace_archiving::archiver::SegmentItem;
-use subspace_core_primitives::BlockNumber;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::GlobalObject;
 use subspace_core_primitives::segments::{

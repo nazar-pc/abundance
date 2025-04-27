@@ -3,13 +3,13 @@
 #[cfg(feature = "alloc")]
 mod archival_history_segment;
 
+use crate::block::BlockNumber;
+use crate::hashes::Blake3Hash;
 #[cfg(feature = "scale-codec")]
 use crate::hashes::blake3_hash;
-use crate::hashes::Blake3Hash;
 use crate::pieces::{PieceIndex, Record};
 #[cfg(feature = "alloc")]
 pub use crate::segments::archival_history_segment::ArchivedHistorySegment;
-use crate::BlockNumber;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::array::TryFromSliceError;

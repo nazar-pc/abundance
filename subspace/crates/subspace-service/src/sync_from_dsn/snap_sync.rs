@@ -24,7 +24,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use subspace_archiving::reconstructor::Reconstructor;
-use subspace_core_primitives::BlockNumber;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::segments::SegmentIndex;
 use subspace_data_retrieval::segment_downloading::download_segment_pieces;
 use subspace_networking::Node;

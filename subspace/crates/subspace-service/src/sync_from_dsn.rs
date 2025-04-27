@@ -24,7 +24,7 @@ use std::future::Future;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
-use subspace_core_primitives::BlockNumber;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::segments::SegmentIndex;
 use subspace_data_retrieval::piece_getter::PieceGetter;

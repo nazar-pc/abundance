@@ -9,6 +9,7 @@
 //  https://github.com/rust-lang/rust/issues/133199
 #![feature(generic_const_exprs)]
 
+pub mod block;
 #[cfg(feature = "scale-codec")]
 pub mod checksum;
 pub mod hashes;
@@ -29,14 +30,3 @@ const _: () = {
         "Must be at least 32-bit platform"
     );
 };
-
-/// Block number in Subspace network.
-pub type BlockNumber = u64;
-
-/// Block hash in Subspace network.
-pub type BlockHash = [u8; 32];
-
-/// BlockWeight type for fork choice rules.
-///
-/// The closer solution's tag is to the target, the heavier it is.
-pub type BlockWeight = u128;

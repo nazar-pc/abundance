@@ -6,7 +6,7 @@ use sc_service::ChainType;
 use sp_core::crypto::Ss58Codec;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
-use subspace_core_primitives::BlockNumber;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::pot::PotKey;
 use subspace_core_primitives::solutions::SolutionRange;
 use subspace_runtime::{

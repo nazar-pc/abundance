@@ -46,6 +46,7 @@ use sp_runtime::type_with_default::TypeWithDefault;
 use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode, generic};
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::Piece;
@@ -55,7 +56,7 @@ use subspace_runtime_primitives::utility::{
     DefaultNonceProvider, MaybeNestedCall, MaybeUtilityCall,
 };
 use subspace_runtime_primitives::{
-    AccountId, BLOCK_WEIGHT_FOR_2_SEC, Balance, BlockNumber, ConsensusEventSegmentSize, Hash,
+    AccountId, BLOCK_WEIGHT_FOR_2_SEC, Balance, ConsensusEventSegmentSize, Hash,
     MIN_REPLICATION_FACTOR, Moment, NORMAL_DISPATCH_RATIO, Nonce, SHANNON, SLOT_PROBABILITY,
     Signature, SlowAdjustingFeeUpdate, TargetBlockFullness, maximum_normal_block_length,
 };

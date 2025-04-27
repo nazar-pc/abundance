@@ -37,7 +37,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use subspace_archiving::archiver::NewArchivedSegment;
-use subspace_core_primitives::BlockHash;
+use subspace_core_primitives::block::BlockHash;
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};

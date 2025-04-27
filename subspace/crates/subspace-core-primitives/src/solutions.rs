@@ -1,6 +1,6 @@
 //! Solutions-related data structures and functions.
 
-use crate::BlockNumber;
+use crate::block::BlockNumber;
 use crate::hashes::{Blake3Hash, blake3_hash_with_key};
 use crate::pieces::{PieceOffset, Record, RecordChunk, RecordProof, RecordRoot};
 use crate::pos::{PosProof, PosSeed};
