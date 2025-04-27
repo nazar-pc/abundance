@@ -8,8 +8,8 @@ use std::assert_matches::assert_matches;
 use std::io::Write;
 use std::iter;
 use subspace_archiving::archiver::{Archiver, ArchiverInstantiationError, SegmentItem};
+use subspace_archiving::objects::{BlockObject, BlockObjectMapping, GlobalObject};
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::objects::{BlockObject, BlockObjectMapping, GlobalObject};
 use subspace_core_primitives::pieces::{Piece, Record};
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,

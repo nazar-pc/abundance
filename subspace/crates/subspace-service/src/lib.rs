@@ -68,7 +68,6 @@ use sp_blockchain::HeaderMetadata;
 use sp_consensus::block_validation::DefaultBlockAnnounceValidator;
 use sp_consensus_subspace::SubspaceApi;
 use sp_core::traits::SpawnEssentialNamed;
-use sp_objects::ObjectsApi;
 use sp_offchain::OffchainWorkerApi;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo};
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
@@ -225,8 +224,7 @@ where
         + BlockBuilder<Block>
         + OffchainWorkerApi<Block>
         + TaggedTransactionQueue<Block>
-        + SubspaceApi<Block>
-        + ObjectsApi<Block>,
+        + SubspaceApi<Block>,
 {
     let executor = sc_service::new_wasm_executor(&config.executor);
 
@@ -419,8 +417,7 @@ where
         + OffchainWorkerApi<Block>
         + TaggedTransactionQueue<Block>
         + TransactionPaymentApi<Block, Balance>
-        + SubspaceApi<Block>
-        + ObjectsApi<Block>,
+        + SubspaceApi<Block>,
 {
     let PartialComponents {
         client,

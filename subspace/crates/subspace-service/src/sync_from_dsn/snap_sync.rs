@@ -13,11 +13,8 @@ use sc_network::{NetworkBlock, PeerId};
 use sc_network_sync::SyncingService;
 use sc_network_sync::service::network::NetworkServiceHandle;
 use sc_subspace_sync_common::snap_sync_engine::SnapSyncingEngine;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
-use sp_consensus_subspace::SubspaceApi;
-use sp_objects::ObjectsApi;
 use sp_runtime::traits::{Block as BlockT, Header};
 use std::collections::{HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -78,14 +75,12 @@ where
     Block: BlockT,
     AS: AuxStore,
     Client: HeaderBackend<Block>
-        + ProvideRuntimeApi<Block>
         + ProofProvider<Block>
         + BlockImport<Block>
         + BlockchainEvents<Block>
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
     PG: PieceGetter,
 {
     let info = client.info();
@@ -255,14 +250,12 @@ where
     AS: AuxStore,
     Block: BlockT,
     Client: HeaderBackend<Block>
-        + ProvideRuntimeApi<Block>
         + ProofProvider<Block>
         + BlockImport<Block>
         + BlockchainEvents<Block>
         + Send
         + Sync
         + 'static,
-    Client::Api: SubspaceApi<Block> + ObjectsApi<Block>,
     IQS: ImportQueueService<Block> + ?Sized,
 {
     debug!("Starting snap sync...");

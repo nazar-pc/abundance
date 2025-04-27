@@ -13,7 +13,6 @@
 )]
 
 mod fees;
-mod object_mapping;
 
 extern crate alloc;
 
@@ -22,7 +21,6 @@ extern crate alloc;
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use crate::fees::{OnChargeTransaction, TransactionByteFee};
-use crate::object_mapping::extract_block_object_mapping;
 use alloc::borrow::Cow;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -48,7 +46,6 @@ use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::Piece;
 use subspace_core_primitives::pot::{SlotDuration, SlotNumber};
 use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
@@ -520,12 +517,6 @@ impl_runtime_apis! {
     impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
         fn offchain_worker(header: &<Block as BlockT>::Header) {
             Executive::offchain_worker(header)
-        }
-    }
-
-    impl sp_objects::ObjectsApi<Block> for Runtime {
-        fn extract_block_object_mapping(block: Block) -> BlockObjectMapping {
-            extract_block_object_mapping(block)
         }
     }
 

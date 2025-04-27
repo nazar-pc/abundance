@@ -4,8 +4,8 @@ use rand_core::{RngCore, SeedableRng};
 use std::assert_matches::assert_matches;
 use std::iter;
 use subspace_archiving::archiver::Archiver;
+use subspace_archiving::objects::BlockObjectMapping;
 use subspace_archiving::reconstructor::{Reconstructor, ReconstructorError};
-use subspace_core_primitives::objects::BlockObjectMapping;
 use subspace_core_primitives::pieces::{FlatPieces, Piece};
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,

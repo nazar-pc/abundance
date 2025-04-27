@@ -36,7 +36,6 @@ sp-consensus-subspace = { workspace = true, features = ["std"] }
 sp-consensus-slots = { workspace = true }
 sp-core = { workspace = true }
 sp-inherents = { workspace = true }
-sp-objects = { workspace = true, features = ["std"] }
 sp-runtime = { workspace = true }
 subspace-archiving = { workspace = true, features = ["parallel"] }
 subspace-core-primitives = { workspace = true }

@@ -8912,7 +8912,6 @@ dependencies = [
  "sp-consensus-subspace",
  "sp-core",
  "sp-inherents",
- "sp-objects",
  "sp-runtime",
  "subspace-archiving",
  "subspace-core-primitives",
@@ -8945,7 +8944,6 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-subspace",
  "sp-core",
- "sp-objects",
  "sp-runtime",
  "subspace-archiving",
  "subspace-core-primitives",
@@ -10837,15 +10835,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-objects"
-version = "0.1.0"
-dependencies = [
- "sp-api",
- "subspace-core-primitives",
- "subspace-runtime-primitives",
-]
-
-[[package]]
 name = "sp-offchain"
 version = "35.0.0"
 source = "git+https://github.com/subspace/polkadot-sdk?rev=ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6#ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6"
@@ -11648,7 +11637,6 @@ dependencies = [
  "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
- "sp-objects",
  "sp-offchain",
  "sp-runtime",
  "sp-transaction-pool",
@@ -11720,7 +11708,6 @@ dependencies = [
  "sp-consensus-subspace",
  "sp-core",
  "sp-io",
- "sp-objects",
  "sp-offchain",
  "sp-runtime",
  "sp-timestamp",
