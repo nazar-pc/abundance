@@ -98,7 +98,7 @@ const POT_ENTROPY_INJECTION_DELAY: SlotNumber = SlotNumber::new(15);
 
 // Entropy injection interval must be bigger than injection delay or else we may end up in a
 // situation where we'll need to do more than one injection at the same slot
-const_assert!(POT_ENTROPY_INJECTION_INTERVAL as u64 > POT_ENTROPY_INJECTION_DELAY.as_u64());
+const_assert!(POT_ENTROPY_INJECTION_INTERVAL > POT_ENTROPY_INJECTION_DELAY.as_u64());
 // Entropy injection delay must be bigger than block authoring delay or else we may include
 // invalid future proofs in parent block, +1 ensures we do not have unnecessary reorgs that will
 // inevitably happen otherwise

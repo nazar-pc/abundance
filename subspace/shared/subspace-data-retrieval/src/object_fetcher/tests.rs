@@ -89,7 +89,7 @@ fn write_segment_header(mut piece: &mut Piece, remaining_len: usize) -> Vec<u8> 
             segment_root: SegmentRoot::default(),
             prev_segment_header_hash: Blake3Hash::default(),
             last_archived_block: LastArchivedBlock {
-                number: u32::MAX,
+                number: u64::MAX,
                 archived_progress: ArchivedBlockProgress::Partial(u32::MAX),
             },
         }

@@ -6,6 +6,7 @@ use sc_service::ChainType;
 use sp_core::crypto::Ss58Codec;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
+use subspace_core_primitives::BlockNumber;
 use subspace_core_primitives::pot::PotKey;
 use subspace_core_primitives::solutions::SolutionRange;
 use subspace_runtime::{
@@ -23,7 +24,7 @@ struct GenesisParams {
     allow_authoring_by: AllowAuthoringBy,
     pot_slot_iterations: NonZeroU32,
     enable_dynamic_cost_of_storage: bool,
-    confirmation_depth_k: u32,
+    confirmation_depth_k: BlockNumber,
 }
 
 pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {

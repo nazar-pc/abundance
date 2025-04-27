@@ -17,12 +17,14 @@ use sc_network::service::traits::NetworkService;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_subspace::SubspaceApi;
-use sp_runtime::traits::{Block as BlockT, CheckedSub, NumberFor};
+use sp_runtime::SaturatedConversion;
+use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::fmt;
 use std::future::Future;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
+use subspace_core_primitives::BlockNumber;
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::segments::SegmentIndex;
 use subspace_data_retrieval::piece_getter::PieceGetter;
@@ -108,7 +110,7 @@ pub(super) fn create_observer_and_worker<Block, AS, NB, Client, PG>(
     client: Arc<Client>,
     mut import_queue_service: Box<dyn ImportQueueService<Block>>,
     network_block: NB,
-    sync_target_block_number: Arc<AtomicU32>,
+    sync_target_block_number: Arc<AtomicU64>,
     pause_sync: Arc<AtomicBool>,
     piece_getter: PG,
     erasure_coding: ErasureCoding,
@@ -272,7 +274,7 @@ async fn create_worker<Block, AS, IQS, NB, Client, PG>(
     client: &Client,
     import_queue_service: &mut IQS,
     network_block: NB,
-    sync_target_block_number: Arc<AtomicU32>,
+    sync_target_block_number: Arc<AtomicU64>,
     pause_sync: Arc<AtomicBool>,
     mut notifications: mpsc::Receiver<NotificationReason>,
     piece_getter: &PG,
@@ -303,7 +305,7 @@ where
     let mut last_processed_segment_index = SegmentIndex::ZERO;
     // TODO: We'll be able to just take finalized block once we are able to decouple pruning from
     //  finality: https://github.com/paritytech/polkadot-sdk/issues/1570
-    let mut last_processed_block_number = info.best_number;
+    let mut last_processed_block_number = info.best_number.saturated_into::<BlockNumber>();
     let segment_header_downloader = SegmentHeaderDownloader::new(node);
 
     while let Some(reason) = notifications.next().await {
@@ -326,14 +328,13 @@ where
                 tokio::time::sleep(CHECK_ALMOST_SYNCED_INTERVAL).await;
 
                 let info = client.info();
-                let target_block_number =
-                    NumberFor::<Block>::from(sync_target_block_number.load(Ordering::Relaxed));
+                let target_block_number = sync_target_block_number.load(Ordering::Relaxed);
 
                 // If less blocks than confirmation depth to the tip of the chain, no need to worry about DSN sync
                 // anymore, it will not be helpful anyway
                 if target_block_number
-                    .checked_sub(&info.best_number)
-                    .map(|diff| diff < chain_constants.confirmation_depth_k().into())
+                    .checked_sub(info.best_number.saturated_into::<BlockNumber>())
+                    .map(|diff| diff < chain_constants.confirmation_depth_k())
                     .unwrap_or_default()
                 {
                     break;

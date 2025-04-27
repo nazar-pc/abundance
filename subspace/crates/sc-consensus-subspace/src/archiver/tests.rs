@@ -112,14 +112,14 @@ fn segment_headers_store_block_number_queries_work() {
     let segment_header0 = segment_headers
         .get_segment_header(SegmentIndex::ZERO)
         .unwrap();
-    let result = segment_headers.segment_headers_for_block(1u32);
+    let result = segment_headers.segment_headers_for_block(1);
     assert_eq!(result, vec![segment_header0]);
 
     // Special case, genesis segment header is included in block 1, not later
     let result = segment_headers.segment_headers_for_block(confirmation_depth_k + 1);
     assert_eq!(result, vec![]);
 
-    for num in 2u32..752u32 {
+    for num in 2..752_u64 {
         let result = segment_headers.segment_headers_for_block(num);
         assert_eq!(result, vec![]);
     }
@@ -133,7 +133,7 @@ fn segment_headers_store_block_number_queries_work() {
         ])
         .unwrap();
 
-    for num in 2u32..752u32 {
+    for num in 2..752_u64 {
         let result = segment_headers.segment_headers_for_block(num);
         assert_eq!(result, vec![]);
     }
@@ -143,11 +143,11 @@ fn segment_headers_store_block_number_queries_work() {
         .get_segment_header(SegmentIndex::ONE)
         .unwrap();
     // last archived block + confirmation depth + 1
-    let result = segment_headers.segment_headers_for_block(753u32);
+    let result = segment_headers.segment_headers_for_block(753);
     assert_eq!(result, vec![segment_header1]);
 
     // No segment headers in between
-    for num in 754u32..852u32 {
+    for num in 754..852_u64 {
         let result = segment_headers.segment_headers_for_block(num);
         assert_eq!(result, vec![]);
     }
@@ -156,13 +156,13 @@ fn segment_headers_store_block_number_queries_work() {
     let segment_header2 = segment_headers
         .get_segment_header(SegmentIndex::from(2))
         .unwrap();
-    let result = segment_headers.segment_headers_for_block(853u32);
+    let result = segment_headers.segment_headers_for_block(853);
     assert_eq!(result, vec![segment_header2]);
 
     // End of third segment
     let segment_header3 = segment_headers
         .get_segment_header(SegmentIndex::from(3))
         .unwrap();
-    let result = segment_headers.segment_headers_for_block(907u32);
+    let result = segment_headers.segment_headers_for_block(907);
     assert_eq!(result, vec![segment_header3, segment_header4]);
 }

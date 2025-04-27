@@ -31,7 +31,7 @@ const _: () = {
 };
 
 /// Block number in Subspace network.
-pub type BlockNumber = u32;
+pub type BlockNumber = u64;
 
 /// Block hash in Subspace network.
 pub type BlockHash = [u8; 32];

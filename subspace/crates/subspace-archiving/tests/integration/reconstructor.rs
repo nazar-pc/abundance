@@ -148,7 +148,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(33554322)
+                archived_progress: ArchivedBlockProgress::Partial(33554318)
             }
         );
 
@@ -168,7 +168,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(33554322)
+                archived_progress: ArchivedBlockProgress::Partial(33554318)
             }
         );
     }
@@ -189,7 +189,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(167771961)
+                archived_progress: ArchivedBlockProgress::Partial(167771953)
             }
         );
     }
@@ -211,7 +211,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(167771961)
+                archived_progress: ArchivedBlockProgress::Partial(167771953)
             }
         );
     }
@@ -232,7 +232,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(301989600)
+                archived_progress: ArchivedBlockProgress::Partial(301989588)
             }
         );
     }
@@ -254,7 +254,7 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: 3,
-                archived_progress: ArchivedBlockProgress::Partial(301989600)
+                archived_progress: ArchivedBlockProgress::Partial(301989588)
             }
         );
     }

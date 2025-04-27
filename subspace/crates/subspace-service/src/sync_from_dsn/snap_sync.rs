@@ -367,7 +367,7 @@ where
 
     // Wait for blocks to be imported
     // TODO: Replace this hack with actual watching of block import
-    wait_for_block_import(client.as_ref(), last_block_number.into()).await;
+    wait_for_block_import(client.as_ref(), last_block_number).await;
 
     debug!(info = ?client.info(), "Snap sync finished successfully");
 

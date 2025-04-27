@@ -23,11 +23,10 @@ use crate::notification::{SubspaceNotificationSender, SubspaceNotificationStream
 use crate::slot_worker::{NewSlotNotification, RewardSigningNotification};
 use ab_erasure_coding::ErasureCoding;
 use sp_consensus_subspace::ChainConstants;
-use sp_runtime::traits::Block as BlockT;
 
 /// State that must be shared between various consensus components.
 #[derive(Clone)]
-pub struct SubspaceLink<Block: BlockT> {
+pub struct SubspaceLink {
     new_slot_notification_sender: SubspaceNotificationSender<NewSlotNotification>,
     new_slot_notification_stream: SubspaceNotificationStream<NewSlotNotification>,
     reward_signing_notification_sender: SubspaceNotificationSender<RewardSigningNotification>,
@@ -36,15 +35,13 @@ pub struct SubspaceLink<Block: BlockT> {
     object_mapping_notification_stream: SubspaceNotificationStream<ObjectMappingNotification>,
     archived_segment_notification_sender: SubspaceNotificationSender<ArchivedSegmentNotification>,
     archived_segment_notification_stream: SubspaceNotificationStream<ArchivedSegmentNotification>,
-    block_importing_notification_sender:
-        SubspaceNotificationSender<BlockImportingNotification<Block>>,
-    block_importing_notification_stream:
-        SubspaceNotificationStream<BlockImportingNotification<Block>>,
+    block_importing_notification_sender: SubspaceNotificationSender<BlockImportingNotification>,
+    block_importing_notification_stream: SubspaceNotificationStream<BlockImportingNotification>,
     chain_constants: ChainConstants,
     erasure_coding: ErasureCoding,
 }
 
-impl<Block: BlockT> SubspaceLink<Block> {
+impl SubspaceLink {
     /// Create new instance.
     pub fn new(chain_constants: ChainConstants, erasure_coding: ErasureCoding) -> Self {
         let (new_slot_notification_sender, new_slot_notification_stream) =
@@ -108,7 +105,7 @@ impl<Block: BlockT> SubspaceLink<Block> {
     /// potentially fail to import in Substrate's internals.
     pub fn block_importing_notification_stream(
         &self,
-    ) -> SubspaceNotificationStream<BlockImportingNotification<Block>> {
+    ) -> SubspaceNotificationStream<BlockImportingNotification> {
         self.block_importing_notification_stream.clone()
     }
 

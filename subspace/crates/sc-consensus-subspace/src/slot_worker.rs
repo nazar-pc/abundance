@@ -168,7 +168,7 @@ where
     /// Strategy and parameters for backing off block production.
     pub backoff_authoring_blocks: Option<BS>,
     /// The source of timestamps for relative slots
-    pub subspace_link: SubspaceLink<Block>,
+    pub subspace_link: SubspaceLink,
     /// Persistent storage of segment headers
     pub segment_headers_store: SegmentHeadersStore<AS>,
     /// The proportion of the slot dedicated to proposing.
@@ -197,7 +197,7 @@ where
     justification_sync_link: L,
     force_authoring: bool,
     backoff_authoring_blocks: Option<BS>,
-    subspace_link: SubspaceLink<Block>,
+    subspace_link: SubspaceLink,
     reward_signing_context: SigningContext,
     block_proposal_slot_portion: SlotProportion,
     max_block_proposal_slot_portion: Option<SlotProportion>,
@@ -342,7 +342,7 @@ where
         slot: Slot,
         _aux_data: &Self::AuxData,
     ) -> Option<Self::Claim> {
-        let slot = SlotNumber::new(u64::from(slot));
+        let slot = SlotNumber::new(<u64 as From<Slot>>::from(slot));
 
         let parent_pre_digest = match extract_pre_digest(parent_header) {
             Ok(pre_digest) => pre_digest,

@@ -68,7 +68,7 @@ pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::Account
 pub type Balance = u128;
 
 /// Index of a transaction in the chain.
-pub type Nonce = u32;
+pub type Nonce = u64;
 
 /// A hash of some data used by the chain.
 pub type Hash = sp_core::H256;

@@ -31,12 +31,12 @@ use sp_consensus_subspace::digests::{
 };
 use sp_consensus_subspace::{ChainConstants, PotNextSlotInput, SubspaceApi, SubspaceJustification};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
-use sp_runtime::{DigestItem, Justifications};
+use sp_runtime::{DigestItem, Justifications, SaturatedConversion};
 use std::iter;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::available_parallelism;
 use subspace_core_primitives::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
@@ -109,7 +109,7 @@ pub struct SubspaceVerifierOptions<Client> {
     /// Context for reward signing
     pub reward_signing_context: SigningContext,
     /// Approximate target block number for syncing purposes
-    pub sync_target_block_number: Arc<AtomicU32>,
+    pub sync_target_block_number: Arc<AtomicU64>,
     /// Whether this node is authoring blocks
     pub is_authoring_blocks: bool,
     /// Proof of time verifier
@@ -124,7 +124,7 @@ where
     client: Arc<Client>,
     chain_constants: ChainConstants,
     reward_signing_context: SigningContext,
-    sync_target_block_number: Arc<AtomicU32>,
+    sync_target_block_number: Arc<AtomicU64>,
     is_authoring_blocks: bool,
     pot_verifier: PotVerifier,
     equivocation_mutex: Mutex<()>,
@@ -165,11 +165,10 @@ where
     }
 
     /// Determine if full proof of time verification is needed for this block number
-    fn full_pot_verification(&self, block_number: NumberFor<Block>) -> bool {
+    fn full_pot_verification(&self, block_number: BlockNumber) -> bool {
         let sync_target_block_number: BlockNumber =
             self.sync_target_block_number.load(Ordering::Relaxed);
-        let Some(diff) = sync_target_block_number.checked_sub(BlockNumber::from(block_number))
-        else {
+        let Some(diff) = sync_target_block_number.checked_sub(block_number) else {
             return true;
         };
 
@@ -409,9 +408,14 @@ where
             "Verifying",
         );
 
-        let best_number = self.client.info().best_number;
+        let block_number = (*block.header.number()).saturated_into::<BlockNumber>();
+        let best_number = self
+            .client
+            .info()
+            .best_number
+            .saturated_into::<BlockNumber>();
         // Reject block below archiving point, but only if we received it from the network
-        if *block.header.number() + self.chain_constants.confirmation_depth_k().into() < best_number
+        if block_number + self.chain_constants.confirmation_depth_k() < best_number
             && matches!(block.origin, BlockOrigin::NetworkBroadcast)
         {
             debug!(
@@ -421,8 +425,7 @@ where
             );
 
             return Err(format!(
-                "Rejecting block #{} below archiving point",
-                block.header.number()
+                "Rejecting block #{block_number} below archiving point"
             ));
         }
 
@@ -435,7 +438,7 @@ where
 
         let subspace_digest_items = extract_subspace_digest_items::<Block::Header>(&block.header)?;
 
-        let full_pot_verification = self.full_pot_verification(*block.header.number());
+        let full_pot_verification = self.full_pot_verification(block_number);
 
         // Stateless header verification only. This means only check that header contains required
         // contents, correct signature and valid Proof-of-Space, but because previous block is not
@@ -472,10 +475,10 @@ where
         let diff_in_blocks = self
             .sync_target_block_number
             .load(Ordering::Relaxed)
-            .saturating_sub(BlockNumber::from(*pre_header.number()));
+            .saturating_sub(block_number);
         let slot_now = if diff_in_blocks > 0 {
             slot + SlotNumber::new(
-                u64::from(diff_in_blocks) * self.chain_constants.slot_probability().1
+                diff_in_blocks * self.chain_constants.slot_probability().1
                     / self.chain_constants.slot_probability().0,
             )
         } else {
