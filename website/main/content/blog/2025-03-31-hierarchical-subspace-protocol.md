@@ -46,7 +46,7 @@ work.
   they have the winning ticket for.
 
 <p align="center">
-<img alt="Distribution of farmers for multi-shard Subspace protocol" src="2025-03-31-farmer-distribution.png"></img>
+<img alt="Distribution of farmers for multi-shard Subspace protocol" src="2025-03-31-farmer-distribution.png">
 </p>
 
 - Shards can be created in the beacon chain's genesis, or later in the history of the chain (we will leave the specifics
@@ -73,7 +73,7 @@ work.
   latest state for their new shard if they don't have it.
 
 <p align="center">
-<img alt="High-level diagram of merged farming idea" src="2025-03-31-merged-farming-idea.png"></img>
+<img alt="High-level diagram of merged farming idea" src="2025-03-31-merged-farming-idea.png">
 </p>
 
 ## From high-level ideas to low-level design
@@ -122,7 +122,7 @@ space coming up with the following ideas --exploring these will be my focus on t
   farming population among shards. This will help us avoid collusion and a big farmer trying to attack a shard.
 
 <p align="center">
-<img alt="Nazar's high-level diagram of refined merged farming" src="2025-03-31-nazar-diagram.png"></img>
+<img alt="Nazar's high-level diagram of refined merged farming" src="2025-03-31-nazar-diagram.png">
 </p>
 
 ## Core subprotocols for the design
@@ -135,7 +135,7 @@ merged mined parallel chains.
 
 
 <p align="center">
-<img alt="Blockreduce hierarchical architecture" src="2025-03-31-blockreduce-image.png"></img>
+<img alt="Blockreduce hierarchical architecture" src="2025-03-31-blockreduce-image.png">
 </p>
 
 The paper presents a hierarchy of Nakamoto-based consensus chains like we have, and it introduces a lot of interesting
