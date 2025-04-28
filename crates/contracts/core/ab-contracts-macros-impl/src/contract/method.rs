@@ -94,8 +94,8 @@ impl MethodReturnType {
 
 #[derive(Default)]
 pub(super) struct ExtTraitComponents {
-    pub(super) definitions: TokenStream,
-    pub(super) impls: TokenStream,
+    pub(super) definition: TokenStream,
+    pub(super) r#impl: TokenStream,
 }
 
 pub(super) struct MethodDetails {
@@ -615,7 +615,7 @@ impl MethodDetails {
         let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name)?;
         let metadata = self.generate_metadata(fn_sig, trait_name)?;
 
-        Ok(quote! {
+        Ok(quote_spanned! {fn_sig.span() =>
             pub mod #original_method_name {
                 use super::*;
 
@@ -636,7 +636,7 @@ impl MethodDetails {
         let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name)?;
         let metadata = self.generate_metadata(fn_sig, trait_name)?;
 
-        Ok(quote! {
+        Ok(quote_spanned! {fn_sig.span() =>
             pub mod #original_method_name {
                 use super::*;
 
@@ -1586,7 +1586,7 @@ impl MethodDetails {
         let mut result_processing = Vec::new();
 
         // Address of the contract
-        method_args.push(quote! {
+        method_args.push(quote_spanned! {fn_sig.span() =>
             contract: ::ab_contracts_macros::__private::Address,
         });
 
@@ -1594,10 +1594,10 @@ impl MethodDetails {
         for slot in &self.slots {
             let arg_name = &slot.arg_name;
 
-            method_args.push(quote! {
+            method_args.push(quote_spanned! {fn_sig.span() =>
                 #arg_name: &::ab_contracts_macros::__private::Address,
             });
-            external_args_args.push(quote! { #arg_name });
+            external_args_args.push(quote_spanned! {fn_sig.span() => #arg_name });
         }
 
         // For each input argument, generate a corresponding read-only argument
@@ -1605,10 +1605,10 @@ impl MethodDetails {
             let type_name = &input.type_name;
             let arg_name = &input.arg_name;
 
-            method_args.push(quote! {
+            method_args.push(quote_spanned! {fn_sig.span() =>
                 #arg_name: &#type_name,
             });
-            external_args_args.push(quote! { #arg_name });
+            external_args_args.push(quote_spanned! {fn_sig.span() => #arg_name });
         }
 
         // For each output argument, generate a corresponding write-only argument
@@ -1626,23 +1626,23 @@ impl MethodDetails {
                 continue;
             }
 
-            method_args.push(quote! {
+            method_args.push(quote_spanned! {fn_sig.span() =>
                 #arg_name: &mut #type_name,
             });
-            external_args_args.push(quote! { #arg_name });
+            external_args_args.push(quote_spanned! {fn_sig.span() => #arg_name });
         }
 
         let original_method_name = &fn_sig.ident;
         let ext_method_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
         // Non-`#[view]` methods can only be called on `&mut Env`
         let env_self = if matches!(self.method_type, MethodType::View) {
-            quote! { &self }
+            quote_spanned! {fn_sig.span() => &self }
         } else {
-            quote! { &mut self }
+            quote_spanned! {fn_sig.span() => &mut self }
         };
         // `#[view]` methods do not require explicit method context
         let method_context_arg = (!matches!(self.method_type, MethodType::View)).then(|| {
-            quote! {
+            quote_spanned! {fn_sig.span() =>
                 method_context: ::ab_contracts_macros::__private::MethodContext,
             }
         });
@@ -1652,7 +1652,8 @@ impl MethodDetails {
         let method_signature = if matches!(self.method_type, MethodType::Init)
             || self.return_type.unit_return_type()
         {
-            quote! {
+            quote_spanned! {fn_sig.span() =>
+                #[allow(dead_code, reason = "Macro-generated")]
                 fn #ext_method_name(
                     #env_self,
                     #method_context_arg
@@ -1662,23 +1663,24 @@ impl MethodDetails {
         } else {
             let return_type = self.return_type.return_type();
 
-            preparation.push(quote! {
+            preparation.push(quote_spanned! {fn_sig.span() =>
                 let mut ok_result = ::core::mem::MaybeUninit::uninit();
                 // While this will not change for `TrivialType`, the pointer will be written to and
                 // as such, the value needs to be given
                 let mut ok_result_size =
                     <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE;
             });
-            external_args_args.push(quote! {
+            external_args_args.push(quote_spanned! {fn_sig.span() =>
                 &mut ok_result,
                 &mut ok_result_size
             });
-            result_processing.push(quote! {
+            result_processing.push(quote_spanned! {fn_sig.span() =>
                 // This is fine for `TrivialType` types
                 ok_result.assume_init()
             });
 
-            quote! {
+            quote_spanned! {fn_sig.span() =>
+                #[allow(dead_code, reason = "Macro-generated")]
                 fn #ext_method_name(
                     #env_self,
                     #method_context_arg
@@ -1703,7 +1705,7 @@ impl MethodDetails {
                 false
             }
         });
-        let definitions = quote! {
+        let definition = quote_spanned! {fn_sig.span() =>
             #[allow(
                 clippy::too_many_arguments,
                 reason = "Generated code may have more arguments that source code"
@@ -1716,11 +1718,15 @@ impl MethodDetails {
             derive_external_args_struct_name(self_type, trait_name, original_method_name)?;
         // `#[view]` methods do not require explicit method context
         let method_context_value = if matches!(self.method_type, MethodType::View) {
-            quote! { ::ab_contracts_macros::__private::MethodContext::Reset }
+            quote_spanned! {fn_sig.span() =>
+                ::ab_contracts_macros::__private::MethodContext::Reset
+            }
         } else {
-            quote! { method_context }
+            quote_spanned! {fn_sig.span() =>
+                method_context
+            }
         };
-        let impls = quote! {
+        let r#impl = quote_spanned! {fn_sig.span() =>
             #[inline]
             #method_signature {
                 #( #preparation )*
@@ -1748,7 +1754,7 @@ impl MethodDetails {
             }
         };
 
-        Ok(ExtTraitComponents { definitions, impls })
+        Ok(ExtTraitComponents { definition, r#impl })
     }
 }
 
