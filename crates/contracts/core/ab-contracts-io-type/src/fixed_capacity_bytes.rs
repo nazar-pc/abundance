@@ -174,10 +174,10 @@ unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityBytesU16<CAPACIT
                 capacity <= u16::MAX as usize,
                 "`FixedCapacityBytesU16` capacity must not exceed `u16::MAX`"
             );
-            concat_metadata_sources(&[&[
-                IoTypeMetadataKind::FixedCapacityBytes16b as u8,
-                capacity as u8,
-            ]])
+            concat_metadata_sources(&[
+                &[IoTypeMetadataKind::FixedCapacityBytes16b as u8],
+                &(capacity as u16).to_le_bytes(),
+            ])
         }
         metadata(CAPACITY).0.split_at(metadata(CAPACITY).1).0
     };
