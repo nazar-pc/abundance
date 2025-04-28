@@ -680,10 +680,10 @@ fn generate_extension_trait(
     );
     let definitions = trait_ext_components
         .iter()
-        .map(|components| &components.definitions);
+        .map(|components| &components.definition);
     let impls = trait_ext_components
         .iter()
-        .map(|components| &components.impls);
+        .map(|components| &components.r#impl);
 
     quote! {
         use ffi::*;
