@@ -2,7 +2,7 @@ use crate::PosTable;
 use ab_erasure_coding::ErasureCoding;
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
-use criterion::{black_box, BatchSize, Criterion, Throughput};
+use criterion::{BatchSize, Criterion, Throughput, black_box};
 use parking_lot::Mutex;
 use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
 use std::collections::HashSet;
@@ -111,24 +111,25 @@ pub(crate) fn benchmark(benchmark_args: BenchmarkArgs) -> anyhow::Result<()> {
 }
 
 fn audit(audit_options: AuditOptions) -> anyhow::Result<()> {
-    let single_disk_farm_info =
-        match SingleDiskFarm::collect_summary(audit_options.disk_farm.clone()) {
-            SingleDiskFarmSummary::Found { info, directory: _ } => info,
-            SingleDiskFarmSummary::NotFound { directory } => {
-                return Err(anyhow!(
-                    "No single disk farm info found, make sure {} is a valid path to the farm and \
+    let single_disk_farm_info = match SingleDiskFarm::collect_summary(
+        audit_options.disk_farm.clone(),
+    ) {
+        SingleDiskFarmSummary::Found { info, directory: _ } => info,
+        SingleDiskFarmSummary::NotFound { directory } => {
+            return Err(anyhow!(
+                "No single disk farm info found, make sure {} is a valid path to the farm and \
                 process have permissions to access it",
-                    directory.display()
-                ));
-            }
-            SingleDiskFarmSummary::Error { directory, error } => {
-                return Err(anyhow!(
+                directory.display()
+            ));
+        }
+        SingleDiskFarmSummary::Error { directory, error } => {
+            return Err(anyhow!(
                 "Failed to open single disk farm info, make sure {} is a valid path to the farm \
                 and process have permissions to access it: {error}",
                 directory.display()
             ));
-            }
-        };
+        }
+    };
 
     match single_disk_farm_info {
         SingleDiskFarmInfo::V0 { .. } => {
@@ -274,24 +275,25 @@ where
 }
 
 fn prove(prove_options: ProveOptions) -> anyhow::Result<()> {
-    let single_disk_farm_info =
-        match SingleDiskFarm::collect_summary(prove_options.disk_farm.clone()) {
-            SingleDiskFarmSummary::Found { info, directory: _ } => info,
-            SingleDiskFarmSummary::NotFound { directory } => {
-                return Err(anyhow!(
-                    "No single disk farm info found, make sure {} is a valid path to the farm and \
+    let single_disk_farm_info = match SingleDiskFarm::collect_summary(
+        prove_options.disk_farm.clone(),
+    ) {
+        SingleDiskFarmSummary::Found { info, directory: _ } => info,
+        SingleDiskFarmSummary::NotFound { directory } => {
+            return Err(anyhow!(
+                "No single disk farm info found, make sure {} is a valid path to the farm and \
                 process have permissions to access it",
-                    directory.display()
-                ));
-            }
-            SingleDiskFarmSummary::Error { directory, error } => {
-                return Err(anyhow!(
+                directory.display()
+            ));
+        }
+        SingleDiskFarmSummary::Error { directory, error } => {
+            return Err(anyhow!(
                 "Failed to open single disk farm info, make sure {} is a valid path to the farm \
                 and process have permissions to access it: {error}",
                 directory.display()
             ));
-            }
-        };
+        }
+    };
 
     match single_disk_farm_info {
         SingleDiskFarmInfo::V0 { .. } => {

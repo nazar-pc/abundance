@@ -40,6 +40,7 @@ mod tests;
 use async_trait::async_trait;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
+use libp2p::StreamProtocol;
 use libp2p::core::transport::PortUse;
 use libp2p::core::{Endpoint, Multiaddr};
 use libp2p::identity::PeerId;
@@ -55,10 +56,9 @@ use libp2p::swarm::handler::multi::MultiHandler;
 use libp2p::swarm::{
     ConnectionDenied, ConnectionId, NetworkBehaviour, THandlerInEvent, THandlerOutEvent, ToSwarm,
 };
-use libp2p::StreamProtocol;
 use std::borrow::Cow;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
