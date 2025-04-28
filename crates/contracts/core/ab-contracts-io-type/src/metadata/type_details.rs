@@ -182,9 +182,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
         IoTypeMetadataKind::ArrayU8x1024 => Some((IoTypeDetails::bytes(1024), metadata)),
         IoTypeMetadataKind::ArrayU8x2028 => Some((IoTypeDetails::bytes(2028), metadata)),
         IoTypeMetadataKind::ArrayU8x4096 => Some((IoTypeDetails::bytes(4096), metadata)),
-        IoTypeMetadataKind::VariableBytes8b
-        | IoTypeMetadataKind::FixedCapacityBytes8b
-        | IoTypeMetadataKind::FixedCapacityString8b => {
+        IoTypeMetadataKind::VariableBytes8b => {
             if metadata.is_empty() {
                 return None;
             }
@@ -194,9 +192,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
 
             Some((IoTypeDetails::bytes(num_bytes), metadata))
         }
-        IoTypeMetadataKind::VariableBytes16b
-        | IoTypeMetadataKind::FixedCapacityBytes16b
-        | IoTypeMetadataKind::FixedCapacityString16b => {
+        IoTypeMetadataKind::VariableBytes16b => {
             if metadata.is_empty() {
                 return None;
             }
@@ -245,6 +241,37 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
                 IoTypeDetails {
                     recommended_capacity: 0,
                     alignment: NonZeroU8::new(1).expect("Not zero; qed"),
+                },
+                metadata,
+            ))
+        }
+        IoTypeMetadataKind::FixedCapacityBytes8b | IoTypeMetadataKind::FixedCapacityString8b => {
+            if metadata.is_empty() {
+                return None;
+            }
+
+            let num_bytes = metadata[0] as u32;
+            metadata = forward_option!(skip_n_bytes(metadata, size_of::<u8>()));
+
+            Some((
+                IoTypeDetails::bytes(num_bytes + size_of::<u8>() as u32),
+                metadata,
+            ))
+        }
+        IoTypeMetadataKind::FixedCapacityBytes16b | IoTypeMetadataKind::FixedCapacityString16b => {
+            if metadata.is_empty() {
+                return None;
+            }
+
+            let mut num_bytes = [0; size_of::<u16>()];
+            (metadata, _) =
+                forward_option!(copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>()));
+            let num_bytes = u16::from_le_bytes(num_bytes) as u32;
+
+            Some((
+                IoTypeDetails {
+                    recommended_capacity: num_bytes + size_of::<u16>() as u32,
+                    alignment: NonZeroU8::new(2).expect("Not zero; qed"),
                 },
                 metadata,
             ))

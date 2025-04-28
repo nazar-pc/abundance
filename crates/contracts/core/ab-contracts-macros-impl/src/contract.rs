@@ -360,7 +360,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
     let Some(slot_type) = maybe_slot_type else {
         return Err(Error::new(
             item_impl.span(),
-            "All `#[slot]` arguments must be of the same type",
+            "All `#[slot]` arguments must be of the same type in all methods of a contract",
         ));
     };
 
@@ -374,7 +374,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
     let Some(tmp_type) = maybe_tmp_type else {
         return Err(Error::new(
             item_impl.span(),
-            "All `#[tmp]` arguments must be of the same type",
+            "All `#[tmp]` arguments must be of the same type in all methods of a contract",
         ));
     };
 

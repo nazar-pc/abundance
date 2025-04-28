@@ -104,10 +104,10 @@ unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityStringU16<CAPACI
                 capacity <= u16::MAX as usize,
                 "`FixedCapacityStringU16` capacity must not exceed `u16::MAX`"
             );
-            concat_metadata_sources(&[&[
-                IoTypeMetadataKind::FixedCapacityString16b as u8,
-                capacity as u8,
-            ]])
+            concat_metadata_sources(&[
+                &[IoTypeMetadataKind::FixedCapacityString16b as u8],
+                &(capacity as u16).to_le_bytes(),
+            ])
         }
         metadata(CAPACITY).0.split_at(metadata(CAPACITY).1).0
     };
