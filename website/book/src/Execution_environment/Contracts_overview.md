@@ -173,6 +173,12 @@ outputs.
 Conceptually, all methods look something like this:
 
 ```rust,ignore
+#[derive(Debug, Copy, Clone, TrivialType)]
+#[repr(C)]
+pub struct MyContract {
+    pub value: u32,
+}
+
 #[contract]
 impl MyContract {
     /// Stateless compute
@@ -188,8 +194,8 @@ impl MyContract {
     #[view]
     pub fn add_through_contract_call(
         #[env] env: &Env,
-        #[input] &a: &u32,
-        #[input] &b: &u32,
+        #[input] a: &u32,
+        #[input] b: &u32,
     ) -> Result<u32, ContractError> {
         env.my_contract_add(env.own_address(), a, b)
     }
