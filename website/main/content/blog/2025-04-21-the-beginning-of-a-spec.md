@@ -3,8 +3,8 @@ title: The beginning of a Spec
 date: 2025-04-21
 draft: false
 description: An artifact to foster design discussions and guide the implementation of prototypes.
-tags: [status-update, consensus]
-authors: [adlrocha]
+tags: [ status-update, consensus ]
+authors: [ adlrocha ]
 ---
 
 Over the past weeks, my updates have highlighted many of the ideas emerging from our open design
@@ -52,5 +52,5 @@ This week I hope to start collecting a lot of feedback for the draft specs so I 
 design and add more details and improvements where needed. In parallel, I am already figuring out
 how sharded plotting will work on top of sharded archiving. Fortunately, all the work Nazar has been
 doing to
-[replace KZG by Merkle proofs](https://abundance.build/blog/2025-04-20-very-fast-archiving/) already
-handles (hopefully) a lot of the heavy lifting of what will be needed for plotting.
+[replace KZG by Merkle proofs](../2025-04-20-very-fast-archiving) already handles (hopefully) a lot of the heavy
+lifting of what will be needed for plotting.

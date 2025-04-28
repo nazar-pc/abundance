@@ -79,7 +79,7 @@ beacon chain (see the bottom-right part of the diagram for the high-level steps 
 generation/verification).
 
 <p align="center">
-<img alt="High-level diagram of block proofs" src="mmr-block-proofs.png"></img>
+<img alt="High-level diagram of block proofs" src="mmr-block-proofs.png">
 </p>
 
 ### Segment proofs
@@ -106,7 +106,7 @@ operation described in the previous paragraph. A basic description of how to gen
 also be found in the text box of the bottom-right section of the diagram.
 
 <p align="center">
-<img alt="High-level diagram of segment proofs" src="segment_proofs.png"></img>
+<img alt="High-level diagram of segment proofs" src="segment_proofs.png">
 </p>
 
 ## What's next?

@@ -3,8 +3,8 @@ title: The data availability problem
 date: 2025-04-14
 draft: false
 description: How to ensure that blocks and segments are available in a shard when you need them.
-tags: [status-update, consensus]
-authors: [adlrocha]
+tags: [ status-update, consensus ]
+authors: [ adlrocha ]
 ---
 
 This week has been another good week of progress. I finally have a good idea of how shard archiving
@@ -50,7 +50,7 @@ High-level, this is how the end-to-end of sharded archiving currently looks like
   unified history.
 
 <p align="center">
-<img alt="High-level stages and primitives for sharded archiving" src="2025-04-14-sharded-archiving.png"></img>
+<img alt="High-level stages and primitives for sharded archiving" src="2025-04-14-sharded-archiving.png">
 </p>
 
 ## How many shards can we afford if we are committing every block?
