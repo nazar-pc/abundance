@@ -57,7 +57,7 @@ Let's start with blocks. If you recall from previous updates, shards from the lo
 hierarchy are periodically committing the new blocks they are creating to their parents. This makes
 their history available to the rest of the system before a new segment of shard is created and made
 available in the global history maintained by the beacon chain (which make take some time to be
-available). These commitments would allow nodes to proof (and verify) that a block belongs to the
+available). These commitments would allow nodes to prove (and verify) that a block belongs to the
 history of the shard, and is consistent with the global history of the rest of the shards and the
 global history of the system.
 
@@ -89,7 +89,7 @@ of a segment that is in itself part of the global history of the system committe
 chain. Shards are periodically generating new segments of their local history. Information about new
 segments in a child shard are submitted to their parents that are responsible for forwarding them to
 the beacon chain. When new segments are committed in the beacon chain (coming from any shard in the
-lower-levels, or even from local segments from the beacon chian), they are added to the global
+lower-levels, or even from local segments from the beacon chain), they are added to the global
 history of the system kept in the beacon chain. Thus, child shard segments leave their shards with a
 local index that determines the sequence in which they were generated in the shard, but as soon as
 they are committed to the beacon chain, a global history index is assigned to them that determines
