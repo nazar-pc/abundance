@@ -58,6 +58,26 @@ unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityStringU8<CAPACIT
     };
 }
 
+impl<const CAPACITY: usize> FixedCapacityStringU8<CAPACITY> {
+    /// Try to create an instance from provided string.
+    ///
+    /// Returns `None` if provided string does not fit into the capacity.
+    #[inline(always)]
+    pub fn try_from_str(s: &str) -> Option<Self> {
+        Self::try_from_bytes(s.as_bytes())
+    }
+
+    /// Try to create an instance from provided bytes.
+    ///
+    /// Returns `None` if provided bytes do not fit into the capacity.
+    #[inline(always)]
+    pub fn try_from_bytes(bytes: &[u8]) -> Option<Self> {
+        Some(Self {
+            bytes: FixedCapacityBytesU8::try_from_bytes(bytes)?,
+        })
+    }
+}
+
 /// Container for storing a UTF-8 string limited by the specified fixed bytes capacity as `u16`.
 ///
 /// This is a string only by convention, there is no runtime verification done, contents is
@@ -111,4 +131,24 @@ unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityStringU16<CAPACI
         }
         metadata(CAPACITY).0.split_at(metadata(CAPACITY).1).0
     };
+}
+
+impl<const CAPACITY: usize> FixedCapacityStringU16<CAPACITY> {
+    /// Try to create an instance from provided string.
+    ///
+    /// Returns `None` if provided string does not fit into the capacity.
+    #[inline(always)]
+    pub fn try_from_str(s: &str) -> Option<Self> {
+        Self::try_from_bytes(s.as_bytes())
+    }
+
+    /// Try to create an instance from provided bytes.
+    ///
+    /// Returns `None` if provided bytes do not fit into the capacity.
+    #[inline(always)]
+    pub fn try_from_bytes(bytes: &[u8]) -> Option<Self> {
+        Some(Self {
+            bytes: FixedCapacityBytesU16::try_from_bytes(bytes)?,
+        })
+    }
 }
