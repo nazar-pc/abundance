@@ -22,7 +22,7 @@ pub struct BalancedHashedMerkleTree<'a, const N: usize>
 where
     [(); N - 1]:,
 {
-    leaf_hashes: &'a [[u8; OUT_LEN]],
+    leaves: &'a [[u8; OUT_LEN]],
     // This tree doesn't include leaves because we know the size
     tree: [[u8; OUT_LEN]; N - 1],
 }
@@ -37,13 +37,13 @@ where
     ///
     /// The data structure is statically allocated and might be too large to fit on the stack!
     /// If that is the case, use `new_boxed()` method.
-    pub fn new(leaf_hashes: &'a [[u8; OUT_LEN]; N]) -> Self {
+    pub fn new(leaves: &'a [[u8; OUT_LEN]; N]) -> Self {
         let mut tree = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); _];
 
-        Self::init_internal(leaf_hashes, &mut tree);
+        Self::init_internal(leaves, &mut tree);
 
         Self {
-            leaf_hashes,
+            leaves,
             // SAFETY: Statically guaranteed for all elements to be initialized
             tree: unsafe { tree.transpose().assume_init() },
         }
@@ -52,12 +52,12 @@ where
     /// Like [`Self::new()`], but used pre-allocated memory for instantiation
     pub fn new_in<'b>(
         instance: &'b mut MaybeUninit<Self>,
-        leaf_hashes: &'a [[u8; OUT_LEN]; N],
+        leaves: &'a [[u8; OUT_LEN]; N],
     ) -> &'b mut Self {
         let instance_ptr = instance.as_mut_ptr();
         // SAFETY: Valid and correctly aligned non-null pointer
         unsafe {
-            (&raw mut (*instance_ptr).leaf_hashes).write(leaf_hashes);
+            (&raw mut (*instance_ptr).leaves).write(leaves);
         }
         let tree = {
             // SAFETY: Valid and correctly aligned non-null pointer
@@ -70,7 +70,7 @@ where
             }
         };
 
-        Self::init_internal(leaf_hashes, tree);
+        Self::init_internal(leaves, tree);
 
         // SAFETY: Initialized field by field above
         unsafe { instance.assume_init_mut() }
@@ -79,21 +79,18 @@ where
     /// Like [`Self::new()`], but creates heap-allocated instance, avoiding excessive stack usage
     /// for large trees
     #[cfg(feature = "alloc")]
-    pub fn new_boxed(leaf_hashes: &'a [[u8; OUT_LEN]; N]) -> Box<Self> {
+    pub fn new_boxed(leaves: &'a [[u8; OUT_LEN]; N]) -> Box<Self> {
         let mut instance = Box::<Self>::new_uninit();
 
-        Self::new_in(&mut instance, leaf_hashes);
+        Self::new_in(&mut instance, leaves);
 
         // SAFETY: Initialized by constructor above
         unsafe { instance.assume_init() }
     }
 
-    fn init_internal(
-        leaf_hashes: &[[u8; OUT_LEN]; N],
-        tree: &mut [MaybeUninit<[u8; OUT_LEN]>; N - 1],
-    ) {
+    fn init_internal(leaves: &[[u8; OUT_LEN]; N], tree: &mut [MaybeUninit<[u8; OUT_LEN]>; N - 1]) {
         let mut tree_hashes = tree.as_mut_slice();
-        let mut level_hashes = leaf_hashes.as_slice();
+        let mut level_hashes = leaves.as_slice();
 
         let mut pair = [0u8; OUT_LEN * 2];
         while level_hashes.len() > 1 {
@@ -128,12 +125,12 @@ where
     /// This is functionally equivalent to creating an instance first and calling [`Self::root()`]
     /// method, but is faster and avoids heap allocation when root is the only thing that is needed.
     #[inline]
-    pub fn compute_root_only(leaf_hashes: &[[u8; OUT_LEN]; N]) -> [u8; OUT_LEN]
+    pub fn compute_root_only(leaves: &[[u8; OUT_LEN]; N]) -> [u8; OUT_LEN]
     where
         [(); N.ilog2() as usize + 1]:,
     {
-        if leaf_hashes.len() == 1 {
-            return leaf_hashes[0];
+        if leaves.len() == 1 {
+            return leaves[0];
         }
 
         // Stack of intermediate nodes per tree level
@@ -142,7 +139,7 @@ where
         let mut active_levels = 0_u32;
 
         let mut pair = [0u8; OUT_LEN * 2];
-        for &hash in leaf_hashes {
+        for &hash in leaves {
             let mut current = hash;
             let mut level = 0;
 
@@ -177,7 +174,7 @@ where
         *self
             .tree
             .last()
-            .or(self.leaf_hashes.last())
+            .or(self.leaves.last())
             .expect("There is always at least one leaf hash; qed")
     }
 
@@ -188,7 +185,7 @@ where
     where
         [(); N.ilog2() as usize]:,
     {
-        let iter = self.leaf_hashes.array_chunks().enumerate().flat_map(
+        let iter = self.leaves.array_chunks().enumerate().flat_map(
             |(pair_index, &[left_hash, right_hash])| {
                 let mut left_proof = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); N.ilog2() as usize];
                 left_proof[0].write(right_hash);
@@ -236,7 +233,7 @@ where
         root: &[u8; OUT_LEN],
         proof: &[[u8; OUT_LEN]; N.ilog2() as usize],
         leaf_index: usize,
-        leaf_hash: [u8; OUT_LEN],
+        leaf: [u8; OUT_LEN],
     ) -> bool
     where
         [(); N.ilog2() as usize]:,
@@ -245,7 +242,7 @@ where
             return false;
         }
 
-        let mut computed_root = leaf_hash;
+        let mut computed_root = leaf;
 
         let mut position = leaf_index;
         let mut pair = [0u8; OUT_LEN * 2];

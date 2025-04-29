@@ -44,26 +44,20 @@ where
 {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
-    let leaf_hashes = {
-        let mut leaf_hashes = [[0u8; OUT_LEN]; N];
-        for hash in &mut leaf_hashes {
+    let leaves = {
+        let mut leaves = [[0u8; OUT_LEN]; N];
+        for hash in &mut leaves {
             rng.fill_bytes(hash);
         }
-        leaf_hashes
+        leaves
     };
 
-    let tree = BalancedHashedMerkleTree::new(&leaf_hashes);
+    let tree = BalancedHashedMerkleTree::new(&leaves);
     let root = tree.root();
     #[cfg(feature = "alloc")]
-    assert_eq!(
-        BalancedHashedMerkleTree::new_boxed(&leaf_hashes).root(),
-        root
-    );
+    assert_eq!(BalancedHashedMerkleTree::new_boxed(&leaves).root(), root);
 
-    assert_eq!(
-        BalancedHashedMerkleTree::compute_root_only(&leaf_hashes),
-        root
-    );
+    assert_eq!(BalancedHashedMerkleTree::compute_root_only(&leaves), root);
 
     let random_hash = {
         let mut hash = [0u8; OUT_LEN];
@@ -77,17 +71,17 @@ where
         }
         proof
     };
-    for (leaf_index, (proof, leaf_hash)) in tree.all_proofs().zip(leaf_hashes).enumerate() {
+    for (leaf_index, (proof, leaf)) in tree.all_proofs().zip(leaves).enumerate() {
         assert!(
-            BalancedHashedMerkleTree::verify(&root, &proof, leaf_index, leaf_hash),
+            BalancedHashedMerkleTree::verify(&root, &proof, leaf_index, leaf),
             "N {N} leaf_index {leaf_index}"
         );
         assert!(
-            !BalancedHashedMerkleTree::verify(&root, &random_proof, leaf_index, leaf_hash),
+            !BalancedHashedMerkleTree::verify(&root, &random_proof, leaf_index, leaf),
             "N {N} leaf_index {leaf_index}"
         );
         assert!(
-            !BalancedHashedMerkleTree::verify(&root, &proof, leaf_index + 1, leaf_hash),
+            !BalancedHashedMerkleTree::verify(&root, &proof, leaf_index + 1, leaf),
             "N {N} leaf_index {leaf_index}"
         );
         assert!(
