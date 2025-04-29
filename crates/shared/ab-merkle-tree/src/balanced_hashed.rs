@@ -1,6 +1,7 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+use crate::INNER_NODE_DOMAIN_SEPARATOR;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use blake3::OUT_LEN;
@@ -27,11 +28,8 @@ where
     tree: [[u8; OUT_LEN]; N - 1],
 }
 
-// TODO: Replace hashing individual records with blake3 and building tree manually with building the
-//  tree using blake3 itself, such that the root is the same as hashing data with blake3, see
-//  https://github.com/BLAKE3-team/BLAKE3/issues/470 for details. Two options are:
-//  expand values to 1024 bytes or modify blake3 to use 32-byte chunk size (at which point it'll
-//  unfortunately stop being blake3)
+// TODO: Optimize by implementing SIMD-accelerated hashing of multiple values:
+//  https://github.com/BLAKE3-team/BLAKE3/issues/478
 impl<'a, const N: usize> BalancedHashedMerkleTree<'a, N>
 where
     [(); N - 1]:,
@@ -117,7 +115,8 @@ where
                 pair[..OUT_LEN].copy_from_slice(left_hash);
                 pair[OUT_LEN..].copy_from_slice(right_hash);
 
-                parent_hash.write(*blake3::hash(&pair).as_bytes());
+                parent_hash
+                    .write(*blake3::keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair).as_bytes());
             }
 
             // SAFETY: Just initialized
@@ -129,6 +128,7 @@ where
     ///
     /// This is functionally equivalent to creating an instance first and calling [`Self::root()`]
     /// method, but is faster and avoids heap allocation when root is the only thing that is needed.
+    #[inline]
     pub fn compute_root_only(leaf_hashes: &[[u8; OUT_LEN]; N]) -> [u8; OUT_LEN]
     where
         [(); N.ilog2() as usize + 1]:,
@@ -153,14 +153,15 @@ where
                     pair[..OUT_LEN].copy_from_slice(&stack[level]);
                     pair[OUT_LEN..].copy_from_slice(&current);
 
-                    *blake3::hash(&pair).as_bytes()
+                    *blake3::keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair).as_bytes()
                 };
 
-                // Clear bit for level
+                // Clear the current level
                 active_levels &= !(1 << level);
                 level += 1;
             }
 
+            // Place the current hash at the first inactive level
             stack[level] = current;
             // Set bit for level
             active_levels |= 1 << level;
@@ -274,7 +275,7 @@ where
             }
 
             position /= 2;
-            computed_root = *blake3::hash(&pair).as_bytes();
+            computed_root = *blake3::keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair).as_bytes();
         }
 
         root == &computed_root
