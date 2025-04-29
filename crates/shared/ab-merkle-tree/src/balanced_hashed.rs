@@ -1,6 +1,3 @@
-#[cfg(feature = "alloc")]
-extern crate alloc;
-
 use crate::hash_pair;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
@@ -11,6 +8,14 @@ use core::mem::MaybeUninit;
 
 /// Merkle Tree variant that has hash-sized leaves and is fully balanced according to configured
 /// generic parameter.
+///
+/// This can be considered a general case of [`UnbalancedHashedMerkleTree`]. The root and proofs are
+/// identical for both in case the number of leaves is a power of two. For the number of leaves that
+/// is a power of two [`UnbalancedHashedMerkleTree`] is useful when a single proof needs to be
+/// generated and the number of leaves is very large (it can generate proofs with very little RAM
+/// usage compared to this version).
+///
+/// [`UnbalancedHashedMerkleTree`]: crate::unbalanced_hashed::UnbalancedHashedMerkleTree
 ///
 /// This Merkle Tree implementation is best suited for use cases when proofs for all (or most) of
 /// the elements need to be generated and the whole tree easily fits into memory. It can also be

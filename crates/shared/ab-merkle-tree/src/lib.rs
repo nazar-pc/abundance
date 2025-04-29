@@ -1,3 +1,14 @@
+//! Merkle Tree implementations.
+//!
+//! This crate contains several Merkle Tree implementations that are a subset of each other.
+//!
+//! Currently [`BalancedHashedMerkleTree`] and [`UnbalancedHashedMerkleTree`] are available, with
+//! [`BalancedHashedMerkleTree`] being an optimized special case of [`UnbalancedHashedMerkleTree`]
+//! and both return the same results for identical inputs.
+//!
+//! [`BalancedHashedMerkleTree`]: balanced_hashed::BalancedHashedMerkleTree
+//! [`UnbalancedHashedMerkleTree`]: unbalanced_hashed::UnbalancedHashedMerkleTree
+
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
     array_chunks,
@@ -11,6 +22,10 @@
 #![no_std]
 
 pub mod balanced_hashed;
+pub mod unbalanced_hashed;
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 use blake3::{KEY_LEN, OUT_LEN};
 
