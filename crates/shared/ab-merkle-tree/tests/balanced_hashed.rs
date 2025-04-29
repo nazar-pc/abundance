@@ -39,8 +39,8 @@ fn basic_32() {
 fn test_basic<const N: usize>()
 where
     [(); N - 1]:,
+    [(); N.ilog2() as usize]:,
     [(); N.ilog2() as usize + 1]:,
-    [(); OUT_LEN * N.ilog2() as usize]:,
 {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
@@ -71,11 +71,13 @@ where
         hash
     };
     let random_proof = {
-        let mut proof = [0u8; OUT_LEN * N.ilog2() as usize];
-        rng.fill_bytes(&mut proof);
+        let mut proof = [[0u8; OUT_LEN]; N.ilog2() as usize];
+        for hash in &mut proof {
+            rng.fill_bytes(hash);
+        }
         proof
     };
-    for (leaf_index, (proof, leaf_hash)) in tree.all_proofs().zip(leaf_hashes).enumerate().skip(2) {
+    for (leaf_index, (proof, leaf_hash)) in tree.all_proofs().zip(leaf_hashes).enumerate() {
         assert!(
             BalancedHashedMerkleTree::verify(&root, &proof, leaf_index, leaf_hash),
             "N {N} leaf_index {leaf_index}"

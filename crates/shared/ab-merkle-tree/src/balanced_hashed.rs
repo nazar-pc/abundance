@@ -6,7 +6,6 @@ use crate::INNER_NODE_DOMAIN_SEPARATOR;
 use alloc::boxed::Box;
 use blake3::OUT_LEN;
 use core::iter::TrustedLen;
-use core::mem;
 use core::mem::MaybeUninit;
 
 /// Merkle Tree variant that has hash-sized leaves and is fully balanced according to configured
@@ -185,9 +184,9 @@ where
     /// Iterator over proofs in the same order as provided leaf hashes
     pub fn all_proofs(
         &self,
-    ) -> impl ExactSizeIterator<Item = [u8; OUT_LEN * N.ilog2() as usize]> + TrustedLen
+    ) -> impl ExactSizeIterator<Item = [[u8; OUT_LEN]; N.ilog2() as usize]> + TrustedLen
     where
-        [(); OUT_LEN * N.ilog2() as usize]:,
+        [(); N.ilog2() as usize]:,
     {
         let iter = self.leaf_hashes.array_chunks().enumerate().flat_map(
             |(pair_index, &[left_hash, right_hash])| {
@@ -224,21 +223,6 @@ where
                 let mut right_proof = left_proof;
                 right_proof[0] = left_hash;
 
-                // TODO: Should have been just `transmute`, but compiler has a bug:
-                //  https://github.com/rust-lang/rust/issues/61956
-                // SAFETY: From and to have the same size and alignment
-                let left_proof = unsafe {
-                    mem::transmute_copy::<
-                        [[u8; OUT_LEN]; N.ilog2() as usize],
-                        [u8; OUT_LEN * N.ilog2() as usize],
-                    >(&left_proof)
-                };
-                let right_proof = unsafe {
-                    mem::transmute_copy::<
-                        [[u8; OUT_LEN]; N.ilog2() as usize],
-                        [u8; OUT_LEN * N.ilog2() as usize],
-                    >(&right_proof)
-                };
                 [left_proof, right_proof]
             },
         );
@@ -250,12 +234,12 @@ where
     #[inline]
     pub fn verify(
         root: &[u8; OUT_LEN],
-        proof: &[u8; OUT_LEN * N.ilog2() as usize],
+        proof: &[[u8; OUT_LEN]; N.ilog2() as usize],
         leaf_index: usize,
         leaf_hash: [u8; OUT_LEN],
     ) -> bool
     where
-        [(); OUT_LEN * N.ilog2() as usize]:,
+        [(); N.ilog2() as usize]:,
     {
         if leaf_index >= N {
             return false;
@@ -265,7 +249,7 @@ where
 
         let mut position = leaf_index;
         let mut pair = [0u8; OUT_LEN * 2];
-        for hash in proof.array_chunks::<OUT_LEN>() {
+        for hash in proof {
             if position % 2 == 0 {
                 pair[..OUT_LEN].copy_from_slice(&computed_root);
                 pair[OUT_LEN..].copy_from_slice(hash);

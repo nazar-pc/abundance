@@ -789,13 +789,18 @@ impl RecordChunksRoot {
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
-pub struct RecordProof([u8; RecordProof::SIZE]);
+pub struct RecordProof([[u8; OUT_LEN]; RecordProof::NUM_HASHES]);
 
 impl fmt::Debug for RecordProof {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02x}")?;
+        write!(f, "[")?;
+        for hash in self.0 {
+            for byte in hash {
+                write!(f, "{byte:02x}")?;
+            }
+            write!(f, ", ")?;
         }
+        write!(f, "]")?;
         Ok(())
     }
 }
@@ -803,12 +808,17 @@ impl fmt::Debug for RecordProof {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct RecordProofBinary(#[serde(with = "BigArray")] [u8; RecordProof::SIZE]);
+struct RecordProofBinary([[u8; OUT_LEN]; RecordProof::NUM_HASHES]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct RecordProofHex(#[serde(with = "hex")] [u8; RecordProof::SIZE]);
+struct RecordProofHexHash(#[serde(with = "hex")] [u8; OUT_LEN]);
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct RecordProofHex([RecordProofHexHash; RecordProof::NUM_HASHES]);
 
 #[cfg(feature = "serde")]
 impl Serialize for RecordProof {
@@ -818,7 +828,15 @@ impl Serialize for RecordProof {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            RecordProofHex(self.0).serialize(serializer)
+            // SAFETY: `RecordProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
+            // same memory layout
+            RecordProofHex(unsafe {
+                mem::transmute::<
+                    [[u8; OUT_LEN]; RecordProof::NUM_HASHES],
+                    [RecordProofHexHash; RecordProof::NUM_HASHES],
+                >(self.0)
+            })
+            .serialize(serializer)
         } else {
             RecordProofBinary(self.0).serialize(serializer)
         }
@@ -833,7 +851,14 @@ impl<'de> Deserialize<'de> for RecordProof {
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            RecordProofHex::deserialize(deserializer)?.0
+            // SAFETY: `RecordProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
+            // same memory layout
+            unsafe {
+                mem::transmute::<
+                    [RecordProofHexHash; RecordProof::NUM_HASHES],
+                    [[u8; OUT_LEN]; RecordProof::NUM_HASHES],
+                >(RecordProofHex::deserialize(deserializer)?.0)
+            }
         } else {
             RecordProofBinary::deserialize(deserializer)?.0
         }))
@@ -843,30 +868,21 @@ impl<'de> Deserialize<'de> for RecordProof {
 impl Default for RecordProof {
     #[inline]
     fn default() -> Self {
-        Self([0; Self::SIZE])
-    }
-}
-
-impl TryFrom<&[u8]> for RecordProof {
-    type Error = TryFromSliceError;
-
-    #[inline]
-    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
-        <[u8; Self::SIZE]>::try_from(slice).map(Self)
+        Self([[0; OUT_LEN]; RecordProof::NUM_HASHES])
     }
 }
 
 impl AsRef<[u8]> for RecordProof {
     #[inline]
     fn as_ref(&self) -> &[u8] {
-        &self.0
+        self.0.as_flattened()
     }
 }
 
 impl AsMut<[u8]> for RecordProof {
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.0
+        self.0.as_flattened_mut()
     }
 }
 
