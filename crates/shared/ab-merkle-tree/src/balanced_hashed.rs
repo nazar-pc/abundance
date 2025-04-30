@@ -5,6 +5,7 @@ use crate::hash_pair;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use blake3::OUT_LEN;
+use core::iter;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;
 
@@ -178,8 +179,11 @@ where
     where
         [(); N.ilog2() as usize]:,
     {
-        let iter = self.leaves.array_chunks().enumerate().flat_map(
-            |(pair_index, &[left_hash, right_hash])| {
+        let iter = self
+            .leaves
+            .array_chunks()
+            .enumerate()
+            .flat_map(|(pair_index, &[left_hash, right_hash])| {
                 let mut left_proof = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); N.ilog2() as usize];
                 left_proof[0].write(right_hash);
 
@@ -214,8 +218,21 @@ where
                 right_proof[0] = left_hash;
 
                 [left_proof, right_proof]
-            },
-        );
+            })
+            // Special case for a single leaf tree to make sure proof is returned, even if it is
+            // empty
+            .chain({
+                let mut returned = false;
+
+                iter::from_fn(move || {
+                    if N == 1 && !returned {
+                        returned = true;
+                        Some([[0; OUT_LEN]; N.ilog2() as usize])
+                    } else {
+                        None
+                    }
+                })
+            });
 
         ProofsIterator { iter, len: N }
     }
@@ -265,7 +282,9 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+        let item = self.iter.next();
+        self.len = self.len.saturating_sub(1);
+        item
     }
 
     #[inline(always)]

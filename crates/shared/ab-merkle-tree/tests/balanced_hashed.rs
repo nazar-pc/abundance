@@ -71,15 +71,27 @@ where
         }
         proof
     };
+
+    // Ensure the number of proofs (declared and actual) is what it is expected to be
+    assert_eq!(tree.all_proofs().len(), N);
+    assert_eq!(tree.all_proofs().count(), N);
+    assert_eq!(
+        tree.all_proofs().fold(0_usize, |acc, _proof| { acc + 1 }),
+        N
+    );
+
     for (leaf_index, (proof, leaf)) in tree.all_proofs().zip(leaves).enumerate() {
         assert!(
             BalancedHashedMerkleTree::verify(&root, &proof, leaf_index, leaf),
             "N {N} leaf_index {leaf_index}"
         );
-        assert!(
-            !BalancedHashedMerkleTree::verify(&root, &random_proof, leaf_index, leaf),
-            "N {N} leaf_index {leaf_index}"
-        );
+        // Proof is empty for a single leaf and will never fail
+        if N > 1 {
+            assert!(
+                !BalancedHashedMerkleTree::verify(&root, &random_proof, leaf_index, leaf),
+                "N {N} leaf_index {leaf_index}"
+            );
+        }
         assert!(
             !BalancedHashedMerkleTree::verify(&root, &proof, leaf_index + 1, leaf),
             "N {N} leaf_index {leaf_index}"
