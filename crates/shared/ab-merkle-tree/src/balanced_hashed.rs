@@ -1,7 +1,7 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-use crate::INNER_NODE_DOMAIN_SEPARATOR;
+use crate::hash_pair;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use blake3::OUT_LEN;
@@ -111,8 +111,7 @@ where
                 pair[..OUT_LEN].copy_from_slice(left_hash);
                 pair[OUT_LEN..].copy_from_slice(right_hash);
 
-                parent_hash
-                    .write(*blake3::keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair).as_bytes());
+                parent_hash.write(hash_pair(left_hash, right_hash));
             }
 
             // SAFETY: Just initialized
@@ -138,19 +137,13 @@ where
         // Bitmask: bit `i = 1` if level `i` is active
         let mut active_levels = 0_u32;
 
-        let mut pair = [0u8; OUT_LEN * 2];
         for &hash in leaves {
             let mut current = hash;
             let mut level = 0;
 
             // Check if level is active by testing bit (active_levels & (1 << level))
-            while (active_levels & (1 << level)) != 0 {
-                current = {
-                    pair[..OUT_LEN].copy_from_slice(&stack[level]);
-                    pair[OUT_LEN..].copy_from_slice(&current);
-
-                    *blake3::keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair).as_bytes()
-                };
+            while active_levels & (1 << level) != 0 {
+                current = hash_pair(&stack[level], &current);
 
                 // Clear the current level
                 active_levels &= !(1 << level);
@@ -245,18 +238,14 @@ where
         let mut computed_root = leaf;
 
         let mut position = leaf_index;
-        let mut pair = [0u8; OUT_LEN * 2];
         for hash in proof {
-            if position % 2 == 0 {
-                pair[..OUT_LEN].copy_from_slice(&computed_root);
-                pair[OUT_LEN..].copy_from_slice(hash);
+            computed_root = if position % 2 == 0 {
+                hash_pair(&computed_root, hash)
             } else {
-                pair[..OUT_LEN].copy_from_slice(hash);
-                pair[OUT_LEN..].copy_from_slice(&computed_root);
-            }
+                hash_pair(hash, &computed_root)
+            };
 
             position /= 2;
-            computed_root = *blake3::keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair).as_bytes();
         }
 
         root == &computed_root
