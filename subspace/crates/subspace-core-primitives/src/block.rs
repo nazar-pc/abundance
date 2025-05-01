@@ -36,6 +36,7 @@ use scale_info::TypeInfo;
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(C)]
 pub struct BlockNumber(u64);
 
