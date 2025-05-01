@@ -1,6 +1,6 @@
+use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_erasure_coding::ErasureCoding;
 use subspace_archiving::piece_reconstructor::{PiecesReconstructor, ReconstructorError};
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_data_retrieval::segment_downloading::{
     SegmentDownloadingError, download_segment_pieces,

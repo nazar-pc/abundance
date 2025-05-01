@@ -13,6 +13,10 @@
 //! This is a significant tradeoff in the protocol: having a smaller header vs being able to verify
 //! a lot of things stateless and in parallel.
 
+use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pot::SlotNumber;
+use ab_core_primitives::solutions::{SolutionVerifyError, SolutionVerifyParams};
 use futures::lock::Mutex;
 use rand::prelude::*;
 use rayon::prelude::*;
@@ -38,10 +42,6 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::available_parallelism;
-use subspace_core_primitives::block::BlockNumber;
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pot::SlotNumber;
-use subspace_core_primitives::solutions::{SolutionVerifyError, SolutionVerifyParams};
 use subspace_proof_of_space::Table;
 use subspace_verification::check_reward_signature;
 use tokio::runtime::Handle;

@@ -1,3 +1,9 @@
+use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::pieces::{FlatPieces, Piece};
+use ab_core_primitives::segments::{
+    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
+    SegmentIndex,
+};
 use ab_erasure_coding::ErasureCoding;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -6,12 +12,6 @@ use std::iter;
 use subspace_archiving::archiver::Archiver;
 use subspace_archiving::objects::BlockObjectMapping;
 use subspace_archiving::reconstructor::{Reconstructor, ReconstructorError};
-use subspace_core_primitives::block::BlockNumber;
-use subspace_core_primitives::pieces::{FlatPieces, Piece};
-use subspace_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentIndex,
-};
 
 fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
     pieces.pieces().map(Some).collect()

@@ -1,11 +1,11 @@
 use crate::farm::{FarmError, PlottedSectors};
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pieces::PieceOffset;
+use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use async_lock::RwLock as AsyncRwLock;
 use async_trait::async_trait;
 use futures::{Stream, stream};
 use std::sync::Arc;
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pieces::PieceOffset;
-use subspace_core_primitives::sectors::{SectorId, SectorIndex};
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_farmer_components::sector::SectorMetadataChecksummed;

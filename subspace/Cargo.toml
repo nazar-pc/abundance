@@ -6,6 +6,7 @@ members = [
 ]
 
 [workspace.dependencies]
+ab-core-primitives = { version = "0.1.0", path = "../crates/shared/ab-core-primitives", default-features = false }
 ab-erasure-coding = { path = "../crates/shared/ab-erasure-coding", default-features = false }
 ab-merkle-tree = { path = "../crates/shared/ab-merkle-tree", default-features = false }
 actix-web = { version = "4.9.0", default-features = false }
@@ -68,7 +69,9 @@ pallet-transaction-payment = { git = "https://github.com/subspace/polkadot-sdk",
 pallet-transaction-payment-rpc = { git = "https://github.com/subspace/polkadot-sdk", rev = "ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6", default-features = false }
 pallet-utility = { git = "https://github.com/subspace/polkadot-sdk", rev = "ad62cc9ef87e5c004b1432bbc4ad7c3ef2980ec6", default-features = false }
-parity-scale-codec = { version = "3.6.12", default-features = false }
+parity-scale-codec = { version = "=3.6.12", default-features = false }
+# TODO: Remove once https://github.com/paritytech/polkadot-sdk/pull/7466 is backported
+parity-scale-codec-derive = { version = "=3.6.12", default-features = false }
 parking_lot = "0.12.2"
 pin-project = "1.1.5"
 prometheus = { version = "0.13.0", default-features = false }
@@ -131,7 +134,6 @@ sppark = { version = "0.1.8", git = "https://github.com/autonomys/sppark", rev =
 ss58-registry = "1.51.0"
 static_assertions = "1.1.0"
 subspace-archiving = { version = "0.1.0", path = "crates/subspace-archiving", default-features = false }
-subspace-core-primitives = { version = "0.1.0", path = "crates/subspace-core-primitives", default-features = false }
 subspace-data-retrieval = { version = "0.1.0", path = "shared/subspace-data-retrieval" }
 subspace-farmer-components = { version = "0.1.0", path = "crates/subspace-farmer-components" }
 subspace-logging = { version = "0.0.1", path = "shared/subspace-logging" }
@@ -170,6 +172,7 @@ zeroize = "1.8.1"
 #
 # This list is ordered alphabetically.
 [profile.dev.package]
+ab-core-primitives = { opt-level = 3 }
 ab-merkle-tree = { opt-level = 3 }
 bitvec = { opt-level = 3 }
 blake2 = { opt-level = 3 }
@@ -211,7 +214,6 @@ sha3 = { opt-level = 3 }
 smallvec = { opt-level = 3 }
 snow = { opt-level = 3 }
 subspace-archiving = { opt-level = 3 }
-subspace-core-primitives = { opt-level = 3 }
 subspace-farmer-components = { opt-level = 3 }
 subspace-proof-of-space = { opt-level = 3 }
 subspace-proof-of-time = { opt-level = 3 }

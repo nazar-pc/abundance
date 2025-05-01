@@ -1,9 +1,9 @@
+use ab_core_primitives::block::BlockNumber;
 use futures::StreamExt;
 use sc_client_api::BlockchainEvents;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::traits::{Block as BlockT, Header};
-use subspace_core_primitives::block::BlockNumber;
 use tracing::{debug, trace};
 
 pub async fn wait_for_block_import<Block, Client>(

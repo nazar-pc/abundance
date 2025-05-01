@@ -9,6 +9,7 @@ use crate::protocols::request_response::handlers::piece_by_index::{
 };
 use crate::utils::multihash::ToMultihash;
 use crate::{Multihash, Node};
+use ab_core_primitives::pieces::{Piece, PieceIndex};
 use async_lock::{Semaphore, SemaphoreGuard};
 use async_trait::async_trait;
 use futures::channel::mpsc;
@@ -26,7 +27,6 @@ use std::fmt;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use tokio_stream::StreamMap;
 use tracing::{Instrument, debug, trace, warn};
 

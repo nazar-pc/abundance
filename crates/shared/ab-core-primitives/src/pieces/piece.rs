@@ -13,7 +13,7 @@ use scale_info::{Path, Type, TypeInfo};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// A piece of archival history in Subspace Network.
+/// A piece of archival history.
 ///
 /// This version is allocated on the heap, for stack-allocated piece see [`PieceArray`].
 ///
@@ -76,7 +76,7 @@ impl TypeInfo for Piece {
     fn type_info() -> Type {
         Type::builder()
             .path(Path::new("Piece", module_path!()))
-            .docs(&["A piece of archival history in Subspace Network"])
+            .docs(&["A piece of archival history"])
             .composite(
                 Fields::unnamed().field(|f| f.ty::<[u8; Piece::SIZE]>().type_name("PieceArray")),
             )

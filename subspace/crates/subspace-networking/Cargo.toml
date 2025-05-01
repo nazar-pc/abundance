@@ -16,6 +16,7 @@ include = [
 ]
 
 [dependencies]
+ab-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 backoff = { workspace = true, features = ["futures", "tokio"] }
@@ -38,7 +39,6 @@ rand = { workspace = true }
 schnellru = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 subspace-logging = { workspace = true }
 subspace-metrics = { workspace = true }
 thiserror = { workspace = true }

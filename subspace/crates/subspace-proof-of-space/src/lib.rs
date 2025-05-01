@@ -14,10 +14,10 @@ pub mod chia;
 pub mod chiapos;
 pub mod shim;
 
+use ab_core_primitives::pos::{PosProof, PosSeed};
+use ab_core_primitives::solutions::SolutionPotVerifier;
 #[cfg(feature = "alloc")]
 use core::fmt;
-use subspace_core_primitives::pos::{PosProof, PosSeed};
-use subspace_core_primitives::solutions::SolutionPotVerifier;
 
 /// Proof of space table type
 #[derive(Debug, Clone, Copy)]

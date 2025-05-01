@@ -1,10 +1,10 @@
+use ab_core_primitives::pot::SlotNumber;
 use sc_consensus_slots::SlotInfo;
 use sp_consensus::SelectChain;
 use sp_consensus_slots::Slot;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, Header};
 use std::time::Duration;
-use subspace_core_primitives::pot::SlotNumber;
 use tracing::error;
 
 pub(super) struct SlotInfoProducer<Block, SC, IDP> {

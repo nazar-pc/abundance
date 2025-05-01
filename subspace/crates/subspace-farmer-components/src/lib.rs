@@ -29,13 +29,13 @@ pub mod sector;
 mod segment_reconstruction;
 
 use crate::file_ext::FileExt;
+use ab_core_primitives::segments::HistorySize;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use static_assertions::const_assert;
 use std::fs::File;
 use std::future::Future;
 use std::io;
-use subspace_core_primitives::segments::HistorySize;
 
 /// Enum to encapsulate the selection between [`ReadAtSync`] and [`ReadAtAsync]` variants
 #[derive(Debug, Copy, Clone)]

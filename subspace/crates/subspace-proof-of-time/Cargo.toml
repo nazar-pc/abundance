@@ -15,8 +15,8 @@ include = [
 bench = false
 
 [dependencies]
+ab-core-primitives = { workspace = true }
 aes = { workspace = true }
-subspace-core-primitives = { workspace = true }
 thiserror = { workspace = true }
 
 # This is required to for benchmark dependency features to work correctly

@@ -1,9 +1,9 @@
 //! Schema for Subspace block weight in the aux-db.
 
+use ab_core_primitives::block::BlockWeight;
 use parity_scale_codec::{Decode, Encode};
 use sc_client_api::backend::AuxStore;
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
-use subspace_core_primitives::block::BlockWeight;
 
 fn load_decode<B, T>(backend: &B, key: &[u8]) -> ClientResult<Option<T>>
 where

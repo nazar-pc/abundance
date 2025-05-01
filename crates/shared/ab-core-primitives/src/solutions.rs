@@ -9,11 +9,9 @@ use crate::sectors::{SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use blake3::OUT_LEN;
+use core::fmt;
 use core::simd::Simd;
-use core::{fmt, mem};
-use derive_more::{
-    Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, From, Into, Sub, SubAssign,
-};
+use derive_more::{Add, AddAssign, Deref, DerefMut, Display, From, Into, Sub, SubAssign};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "scale-codec")]
@@ -278,7 +276,7 @@ impl Serialize for ChunkProof {
             // SAFETY: `ChunkProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             ChunkProofHex(unsafe {
-                mem::transmute::<
+                core::mem::transmute::<
                     [[u8; OUT_LEN]; ChunkProof::NUM_HASHES],
                     [ChunkProofHexHash; ChunkProof::NUM_HASHES],
                 >(self.0)
@@ -301,7 +299,7 @@ impl<'de> Deserialize<'de> for ChunkProof {
             // SAFETY: `ChunkProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
             // same memory layout
             unsafe {
-                mem::transmute::<
+                core::mem::transmute::<
                     [ChunkProofHexHash; ChunkProof::NUM_HASHES],
                     [[u8; OUT_LEN]; ChunkProof::NUM_HASHES],
                 >(ChunkProofHex::deserialize(deserializer)?.0)

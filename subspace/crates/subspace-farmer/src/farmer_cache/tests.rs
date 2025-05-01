@@ -1,6 +1,9 @@
 use crate::disk_piece_cache::DiskPieceCache;
 use crate::farmer_cache::{FarmerCache, decode_piece_index_from_record_key};
 use crate::node_client::NodeClient;
+use ab_core_primitives::block::{BlockHash, BlockNumber};
+use ab_core_primitives::pieces::{Piece, PieceIndex};
+use ab_core_primitives::segments::{HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex};
 use async_trait::async_trait;
 use futures::channel::{mpsc, oneshot};
 use futures::stream::FuturesUnordered;
@@ -13,11 +16,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use subspace_core_primitives::block::{BlockHash, BlockNumber};
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
-use subspace_core_primitives::segments::{
-    HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex,
-};
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::libp2p::identity;

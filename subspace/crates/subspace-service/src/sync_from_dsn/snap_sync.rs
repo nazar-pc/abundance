@@ -1,6 +1,8 @@
 use crate::sync_from_dsn::PieceGetter;
 use crate::sync_from_dsn::segment_header_downloader::SegmentHeaderDownloader;
 use crate::utils::wait_for_block_import;
+use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::segments::SegmentIndex;
 use ab_erasure_coding::ErasureCoding;
 use sc_client_api::{AuxStore, BlockchainEvents, ProofProvider};
 use sc_consensus::import_queue::ImportQueueService;
@@ -21,8 +23,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use subspace_archiving::reconstructor::Reconstructor;
-use subspace_core_primitives::block::BlockNumber;
-use subspace_core_primitives::segments::SegmentIndex;
 use subspace_data_retrieval::segment_downloading::download_segment_pieces;
 use subspace_networking::Node;
 use tokio::task;

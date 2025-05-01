@@ -14,6 +14,15 @@
 use crate::archiver::SegmentHeadersStore;
 use crate::verifier::VerificationError;
 use crate::{SubspaceLink, aux_schema, slot_worker};
+use ab_core_primitives::block::{BlockNumber, BlockWeight};
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pot::SlotNumber;
+use ab_core_primitives::sectors::SectorId;
+use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
+use ab_core_primitives::solutions::{
+    SolutionDistance, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
+    SolutionVerifyPieceCheckParams,
+};
 use futures::StreamExt;
 use futures::channel::mpsc;
 use sc_client_api::BlockBackend;
@@ -35,15 +44,6 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, One};
 use sp_runtime::{Justifications, SaturatedConversion};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use subspace_core_primitives::block::{BlockNumber, BlockWeight};
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pot::SlotNumber;
-use subspace_core_primitives::sectors::SectorId;
-use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
-use subspace_core_primitives::solutions::{
-    SolutionDistance, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
-    SolutionVerifyPieceCheckParams,
-};
 use subspace_proof_of_space::Table;
 use subspace_verification::calculate_block_weight;
 use tracing::warn;

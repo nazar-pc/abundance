@@ -1,6 +1,6 @@
+use ab_core_primitives::pot::PotCheckpoints;
 use core::arch::x86_64::*;
 use core::mem;
-use subspace_core_primitives::pot::PotCheckpoints;
 
 /// Create PoT proof with checkpoints
 #[target_feature(enable = "aes")]

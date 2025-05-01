@@ -17,12 +17,12 @@ include = [
 bench = false
 
 [dependencies]
+ab-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 ab-erasure-coding = { workspace = true }
 ab-merkle-tree = { workspace = true, features = ["alloc"] }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 rayon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
-subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 thiserror = { workspace = true }
 
 [dev-dependencies]
@@ -32,12 +32,12 @@ rand_chacha = { workspace = true }
 
 [features]
 parallel = [
+    "ab-core-primitives/parallel",
     "dep:rayon",
-    "subspace-core-primitives/parallel",
 ]
 serde = [
+    "ab-core-primitives/serde",
     "dep:serde",
-    "subspace-core-primitives/serde",
 ]
 
 [[bench]]

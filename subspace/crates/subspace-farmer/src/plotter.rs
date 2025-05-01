@@ -10,6 +10,7 @@ pub mod cpu;
 pub mod gpu;
 pub mod pool;
 
+use ab_core_primitives::sectors::SectorIndex;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::Stream;
@@ -18,7 +19,6 @@ use std::fmt;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_core_primitives::sectors::SectorIndex;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_verification::sr25519::PublicKey;

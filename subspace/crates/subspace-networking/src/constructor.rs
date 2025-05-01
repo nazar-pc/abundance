@@ -13,6 +13,8 @@ use crate::protocols::reserved_peers::Config as ReservedPeersConfig;
 use crate::shared::Shared;
 use crate::utils::rate_limiter::RateLimiter;
 use crate::utils::{SubspaceMetrics, strip_peer_id};
+use ab_core_primitives::hashes;
+use ab_core_primitives::pieces::Piece;
 use backoff::{ExponentialBackoff, SystemClock};
 use futures::channel::mpsc;
 use libp2p::autonat::Config as AutonatConfig;
@@ -38,8 +40,6 @@ use std::iter::Empty;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fmt, io, iter};
-use subspace_core_primitives::hashes;
-use subspace_core_primitives::pieces::Piece;
 use thiserror::Error;
 use tracing::{debug, error, info};
 

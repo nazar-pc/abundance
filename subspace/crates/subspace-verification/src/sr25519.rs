@@ -1,5 +1,6 @@
 //! Primitives related to Sr25519
 
+use ab_core_primitives::hashes::{Blake3Hash, blake3_hash};
 use core::fmt;
 use derive_more::{Deref, From, Into};
 #[cfg(feature = "scale-codec")]
@@ -10,7 +11,6 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
-use subspace_core_primitives::hashes::{Blake3Hash, blake3_hash};
 
 /// Signing context used for creating reward signatures by farmers.
 pub const REWARD_SIGNING_CONTEXT: &[u8] = b"subspace_reward";

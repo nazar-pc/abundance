@@ -1,3 +1,10 @@
+use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pieces::{Piece, Record};
+use ab_core_primitives::segments::{
+    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
+    SegmentHeader, SegmentIndex, SegmentRoot,
+};
 use ab_erasure_coding::ErasureCoding;
 use parity_scale_codec::{Compact, CompactLen, Decode, Encode};
 use rand_chacha::ChaCha8Rng;
@@ -9,13 +16,6 @@ use std::io::Write;
 use std::iter;
 use subspace_archiving::archiver::{Archiver, ArchiverInstantiationError, SegmentItem};
 use subspace_archiving::objects::{BlockObject, BlockObjectMapping, GlobalObject};
-use subspace_core_primitives::block::BlockNumber;
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pieces::{Piece, Record};
-use subspace_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentHeader, SegmentIndex, SegmentRoot,
-};
 
 fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
     let offset: u32 = offset.into();

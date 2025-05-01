@@ -11,6 +11,7 @@ use crate::plotter::gpu::gpu_encoders_manager::GpuRecordsEncoderManager;
 use crate::plotter::gpu::metrics::GpuPlotterMetrics;
 use crate::plotter::{Plotter, SectorPlottingProgress};
 use crate::utils::AsyncJoinOnDrop;
+use ab_core_primitives::sectors::SectorIndex;
 use ab_erasure_coding::ErasureCoding;
 use async_lock::{Mutex as AsyncMutex, Semaphore, SemaphoreGuardArc};
 use async_trait::async_trait;
@@ -29,7 +30,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::Poll;
 use std::time::Instant;
-use subspace_core_primitives::sectors::SectorIndex;
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_farmer_components::plotting::{

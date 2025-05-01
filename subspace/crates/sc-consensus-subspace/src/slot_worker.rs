@@ -17,6 +17,14 @@
 
 use crate::SubspaceLink;
 use crate::archiver::SegmentHeadersStore;
+use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pot::{PotCheckpoints, PotOutput, SlotNumber};
+use ab_core_primitives::sectors::SectorId;
+use ab_core_primitives::solutions::{
+    Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
+    SolutionVerifyPieceCheckParams,
+};
 use futures::channel::mpsc;
 use futures::{StreamExt, TryFutureExt};
 use sc_client_api::AuxStore;
@@ -47,14 +55,6 @@ use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use subspace_core_primitives::block::BlockNumber;
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, SlotNumber};
-use subspace_core_primitives::sectors::SectorId;
-use subspace_core_primitives::solutions::{
-    Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
-    SolutionVerifyPieceCheckParams,
-};
 use subspace_proof_of_space::Table;
 use subspace_verification::check_reward_signature;
 use subspace_verification::sr25519::{REWARD_SIGNING_CONTEXT, RewardSignature};

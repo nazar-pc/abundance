@@ -3,11 +3,11 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
+use ab_core_primitives::segments::SegmentHeader;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use parity_scale_codec::{Decode, Encode};
 use sp_inherents::{Error, InherentData, InherentIdentifier, IsFatalError};
-use subspace_core_primitives::segments::SegmentHeader;
 
 /// The Subspace inherent identifier.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"subspace";

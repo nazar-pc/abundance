@@ -1,14 +1,14 @@
 //! Subspace chain configurations.
 
 use crate::chain_spec_utils::{chain_spec_properties, get_account_id_from_seed};
+use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::pot::PotKey;
+use ab_core_primitives::solutions::SolutionRange;
 use sc_chain_spec::GenericChainSpec;
 use sc_service::ChainType;
 use sp_core::crypto::Ss58Codec;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
-use subspace_core_primitives::block::BlockNumber;
-use subspace_core_primitives::pot::PotKey;
-use subspace_core_primitives::solutions::SolutionRange;
 use subspace_runtime::{
     AllowAuthoringBy, BalancesConfig, RuntimeConfigsConfig, RuntimeGenesisConfig, SubspaceConfig,
     SudoConfig, SystemConfig, WASM_BINARY,

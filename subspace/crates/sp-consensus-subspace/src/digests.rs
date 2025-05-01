@@ -1,6 +1,11 @@
 //! Private implementation details of Subspace consensus digests.
 
 use crate::{ConsensusLog, PotParametersChange, SUBSPACE_ENGINE_ID};
+use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pot::{PotOutput, SlotNumber};
+use ab_core_primitives::segments::{SegmentIndex, SegmentRoot};
+use ab_core_primitives::solutions::{Solution, SolutionRange};
 use alloc::collections::btree_map::{BTreeMap, Entry};
 use core::fmt;
 use core::num::NonZeroU32;
@@ -8,11 +13,6 @@ use log::trace;
 use parity_scale_codec::{Decode, Encode};
 use sp_runtime::DigestItem;
 use sp_runtime::traits::{Header as HeaderT, One, Zero};
-use subspace_core_primitives::block::BlockNumber;
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pot::{PotOutput, SlotNumber};
-use subspace_core_primitives::segments::{SegmentIndex, SegmentRoot};
-use subspace_core_primitives::solutions::{Solution, SolutionRange};
 use subspace_verification::sr25519::RewardSignature;
 
 /// A Subspace pre-runtime digest. This contains all data required to validate a block and for the

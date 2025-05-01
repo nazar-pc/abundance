@@ -904,7 +904,7 @@ impl RecordProof {
     const NUM_HASHES: usize = RecordedHistorySegment::NUM_PIECES.ilog2() as usize;
 }
 
-/// A piece of archival history in Subspace Network.
+/// A piece of archival history.
 ///
 /// This version is allocated on the stack, for heap-allocated piece see [`Piece`].
 ///

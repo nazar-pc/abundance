@@ -12,6 +12,11 @@ use crate::sector::{
     SectorMetadataChecksummed, sector_record_chunks_size, sector_size,
 };
 use crate::segment_reconstruction::recover_missing_piece;
+use ab_core_primitives::hashes::{Blake3Hash, blake3_hash, blake3_hash_parallel};
+use ab_core_primitives::pieces::{Piece, PieceIndex, PieceOffset, Record, RecordChunk};
+use ab_core_primitives::pos::PosSeed;
+use ab_core_primitives::sectors::{SBucket, SectorId, SectorIndex};
+use ab_core_primitives::segments::HistorySize;
 use ab_erasure_coding::ErasureCoding;
 use async_lock::{Mutex as AsyncMutex, Semaphore};
 use backoff::future::retry;
@@ -26,11 +31,6 @@ use std::simd::Simd;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use subspace_core_primitives::hashes::{Blake3Hash, blake3_hash, blake3_hash_parallel};
-use subspace_core_primitives::pieces::{Piece, PieceIndex, PieceOffset, Record, RecordChunk};
-use subspace_core_primitives::pos::PosSeed;
-use subspace_core_primitives::sectors::{SBucket, SectorId, SectorIndex};
-use subspace_core_primitives::segments::HistorySize;
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_proof_of_space::{Table, TableGenerator};
 use thiserror::Error;

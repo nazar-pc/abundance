@@ -1,11 +1,11 @@
 use crate::source::state::PotState;
 use crate::verifier::PotVerifier;
+use ab_core_primitives::pot::{PotCheckpoints, PotSeed, SlotNumber};
 use futures::SinkExt;
 use futures::channel::mpsc;
 use futures::executor::block_on;
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use subspace_core_primitives::pot::{PotCheckpoints, PotSeed, SlotNumber};
 use subspace_proof_of_time::PotError;
 use tracing::{debug, trace};
 

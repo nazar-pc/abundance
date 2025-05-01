@@ -13,10 +13,10 @@ include = [
 ]
 
 [dependencies]
+ab-core-primitives = { workspace = true }
 hex = { workspace = true, features = ["serde"] }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }
-subspace-core-primitives = { workspace = true }
 subspace-farmer-components = { workspace = true }
 subspace-networking = { workspace = true }
 subspace-verification = { workspace = true, features = ["alloc", "serde"] }

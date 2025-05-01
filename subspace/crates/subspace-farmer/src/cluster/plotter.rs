@@ -9,6 +9,7 @@
 use crate::cluster::nats_client::{GenericRequest, GenericStreamRequest, NatsClient};
 use crate::plotter::{Plotter, SectorPlottingProgress};
 use crate::utils::AsyncJoinOnDrop;
+use ab_core_primitives::sectors::SectorIndex;
 use anyhow::anyhow;
 use async_nats::RequestErrorKind;
 use async_trait::async_trait;
@@ -29,7 +30,6 @@ use std::pin::pin;
 use std::sync::Arc;
 use std::task::Poll;
 use std::time::{Duration, Instant};
-use subspace_core_primitives::sectors::SectorIndex;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_farmer_components::sector::sector_size;

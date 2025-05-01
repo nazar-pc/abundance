@@ -3,12 +3,12 @@
 #[cfg(test)]
 mod tests;
 
+use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed, SlotNumber};
 use parking_lot::Mutex;
 use schnellru::{ByLength, LruMap};
 use sp_consensus_subspace::{PotNextSlotInput, PotParametersChange};
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed, SlotNumber};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 struct CacheKey {

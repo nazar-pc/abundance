@@ -2,6 +2,11 @@
 
 #![feature(try_blocks)]
 
+use ab_core_primitives::block::BlockHash;
+use ab_core_primitives::pieces::{Piece, PieceIndex};
+use ab_core_primitives::pot::SlotNumber;
+use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
+use ab_core_primitives::solutions::Solution;
 use ab_erasure_coding::ErasureCoding;
 use futures::channel::mpsc;
 use futures::{FutureExt, StreamExt, future};
@@ -36,11 +41,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use subspace_archiving::archiver::NewArchivedSegment;
-use subspace_core_primitives::block::BlockHash;
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
-use subspace_core_primitives::pot::SlotNumber;
-use subspace_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
-use subspace_core_primitives::solutions::Solution;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_rpc_primitives::{

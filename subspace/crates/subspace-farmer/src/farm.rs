@@ -7,6 +7,9 @@
 //! way). This crate provides a few of such implementations, but more can be created externally as
 //! well if needed without modifying the library itself.
 
+use ab_core_primitives::pieces::{Piece, PieceIndex, PieceOffset};
+use ab_core_primitives::sectors::SectorIndex;
+use ab_core_primitives::segments::SegmentIndex;
 use async_trait::async_trait;
 use derive_more::{Display, From};
 use futures::Stream;
@@ -17,9 +20,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{fmt, io};
-use subspace_core_primitives::pieces::{Piece, PieceIndex, PieceOffset};
-use subspace_core_primitives::sectors::SectorIndex;
-use subspace_core_primitives::segments::SegmentIndex;
 use subspace_farmer_components::auditing::AuditingError;
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_farmer_components::proving::ProvingError;
