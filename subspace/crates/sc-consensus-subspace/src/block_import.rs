@@ -35,7 +35,7 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, One};
 use sp_runtime::{Justifications, SaturatedConversion};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use subspace_core_primitives::block::BlockNumber;
+use subspace_core_primitives::block::{BlockNumber, BlockWeight};
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::sectors::SectorId;
@@ -591,7 +591,7 @@ where
         }
 
         let parent_weight = if block_number == BlockNumber::ONE {
-            0
+            BlockWeight::ZERO
         } else {
             // Parent block weight might be missing in special sync modes where block is imported in
             // the middle of the blockchain history directly

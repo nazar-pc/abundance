@@ -154,8 +154,52 @@ impl BlockHash {
     }
 }
 
-// TODO: New type
 /// BlockWeight type for fork choice rule.
 ///
 /// The smaller the solution range is, the heavier is the block.
-pub type BlockWeight = u128;
+#[derive(
+    Debug,
+    Display,
+    Default,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    From,
+    Into,
+    Add,
+    AddAssign,
+    Sub,
+    SubAssign,
+)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[repr(C)]
+pub struct BlockWeight(u128);
+
+impl BlockWeight {
+    /// Size in bytes
+    pub const SIZE: usize = size_of::<u128>();
+    /// Zero block weight
+    pub const ZERO: BlockWeight = BlockWeight(0);
+    /// Max block wright
+    pub const MAX: BlockWeight = BlockWeight(u128::MAX);
+
+    /// Create new instance
+    #[inline]
+    pub const fn new(n: u128) -> Self {
+        Self(n)
+    }
+
+    /// Get internal representation
+    #[inline(always)]
+    pub const fn as_u128(self) -> u128 {
+        self.0
+    }
+}
