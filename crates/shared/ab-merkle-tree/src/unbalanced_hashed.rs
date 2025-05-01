@@ -164,8 +164,7 @@ where
     where
         Iter: Iterator<Item = &'a [u8; OUT_LEN]> + 'a,
     {
-        let mut proof = proof.as_mut_slice();
-        let original_proof_len = proof.len();
+        let mut proof_length = 0;
         let mut active_levels = 0_u64;
 
         let mut current_target_level = None;
@@ -180,8 +179,8 @@ where
                 while (active_levels & (1 << level)) != 0 {
                     // If at the target leaf index, need to collect the proof
                     // SAFETY: Method signature guarantees upper bound of the proof length
-                    unsafe { proof.get_unchecked_mut(0) }.write(stack[level]);
-                    proof = &mut proof[1..];
+                    unsafe { proof.get_unchecked_mut(proof_length) }.write(stack[level]);
+                    proof_length += 1;
 
                     current = hash_pair(&stack[level], &current);
 
@@ -204,12 +203,14 @@ where
                 while (active_levels & (1 << level)) != 0 {
                     if current_target_level == Some(level) {
                         // SAFETY: Method signature guarantees upper bound of the proof length
-                        unsafe { proof.get_unchecked_mut(0) }.write(if position % 2 == 0 {
-                            current
-                        } else {
-                            stack[level]
-                        });
-                        proof = &mut proof[1..];
+                        unsafe { proof.get_unchecked_mut(proof_length) }.write(
+                            if position % 2 == 0 {
+                                current
+                            } else {
+                                stack[level]
+                            },
+                        );
+                        proof_length += 1;
 
                         current_target_level = Some(level + 1);
 
@@ -269,13 +270,13 @@ where
                     && !merged_peaks)
             {
                 // SAFETY: Method signature guarantees upper bound of the proof length
-                unsafe { proof.get_unchecked_mut(0) }.write(stack[lowest_active_level]);
-                proof = &mut proof[1..];
+                unsafe { proof.get_unchecked_mut(proof_length) }.write(stack[lowest_active_level]);
+                proof_length += 1;
                 merged_peaks = false;
             } else if lowest_active_level == current_target_level {
                 // SAFETY: Method signature guarantees upper bound of the proof length
-                unsafe { proof.get_unchecked_mut(0) }.write(stack[0]);
-                proof = &mut proof[1..];
+                unsafe { proof.get_unchecked_mut(proof_length) }.write(stack[0]);
+                proof_length += 1;
                 merged_peaks = false;
             } else {
                 // Not collecting proof because of the need to merge peaks of an unbalanced tree
@@ -288,7 +289,7 @@ where
             position /= 2;
         }
 
-        Some((stack[0], original_proof_len - proof.len()))
+        Some((stack[0], proof_length))
     }
 
     /// Verify a Merkle proof for a leaf at the given index
