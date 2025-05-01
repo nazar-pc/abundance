@@ -16,7 +16,7 @@ use subspace_core_primitives::segments::{
 };
 
 const INITIAL_LAST_ARCHIVED_BLOCK: LastArchivedBlock = LastArchivedBlock {
-    number: 0,
+    number: BlockNumber::ZERO,
     // Special case for the genesis block.
     //
     // When we start archiving process with pre-genesis objects, we do not yet have any blocks
@@ -443,7 +443,7 @@ impl Archiver {
                     if last_archived_block != INITIAL_LAST_ARCHIVED_BLOCK {
                         // Increase archived block number and assume the whole block was
                         // archived
-                        last_archived_block.number += 1;
+                        last_archived_block.number += BlockNumber::ONE;
                     }
                     last_archived_block.set_complete();
                 }

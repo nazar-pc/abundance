@@ -9,6 +9,7 @@ use std::io::Write;
 use std::iter;
 use subspace_archiving::archiver::{Archiver, ArchiverInstantiationError, SegmentItem};
 use subspace_archiving::objects::{BlockObject, BlockObjectMapping, GlobalObject};
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::{Piece, Record};
 use subspace_core_primitives::segments::{
@@ -142,7 +143,7 @@ fn archiver() {
     );
     {
         let last_archived_block = first_archived_segment.segment_header.last_archived_block();
-        assert_eq!(last_archived_block.number, 1);
+        assert_eq!(last_archived_block.number, BlockNumber::ONE);
         assert_eq!(last_archived_block.partial_archived(), Some(67108853));
     }
 
@@ -260,13 +261,13 @@ fn archiver() {
     {
         let archived_segment = archived_segments.first().unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block();
-        assert_eq!(last_archived_block.number, 2);
+        assert_eq!(last_archived_block.number, BlockNumber::new(2));
         assert_eq!(last_archived_block.partial_archived(), Some(111847999));
     }
     {
         let archived_segment = archived_segments.get(1).unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block();
-        assert_eq!(last_archived_block.number, 2);
+        assert_eq!(last_archived_block.number, BlockNumber::new(2));
         assert_eq!(last_archived_block.partial_archived(), Some(246065634));
     }
 
@@ -356,7 +357,7 @@ fn archiver() {
     {
         let archived_segment = archived_segments.first().unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block();
-        assert_eq!(last_archived_block.number, 3);
+        assert_eq!(last_archived_block.number, BlockNumber::new(3));
         assert_eq!(last_archived_block.partial_archived(), None);
 
         #[cfg(not(feature = "parallel"))]
@@ -391,7 +392,7 @@ fn invalid_usage() {
                 segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
-                    number: 0,
+                    number: BlockNumber::ZERO,
                     archived_progress: ArchivedBlockProgress::Partial(10),
                 },
             },
@@ -417,7 +418,7 @@ fn invalid_usage() {
                 segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
-                    number: 0,
+                    number: BlockNumber::ZERO,
                     archived_progress: ArchivedBlockProgress::Partial(10),
                 },
             },
@@ -564,7 +565,7 @@ fn object_on_the_edge_of_segment() {
                 segment_root: Default::default(),
                 prev_segment_header_hash: Default::default(),
                 last_archived_block: LastArchivedBlock {
-                    number: 0,
+                    number: BlockNumber::ZERO,
                     // Bytes will not fit all into the first segment, so it will be archived
                     // partially, but exact value doesn't matter here as encoding length of
                     // `ArchivedBlockProgress` enum variant will be the same either way

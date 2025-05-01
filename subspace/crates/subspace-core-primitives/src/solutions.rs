@@ -26,7 +26,9 @@ use serde::{Deserializer, Serializer};
 use serde_big_array::BigArray;
 
 /// Solution distance
-#[derive(Debug, Display, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(
+    Debug, Display, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, From, Into,
+)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
@@ -34,20 +36,6 @@ use serde_big_array::BigArray;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 pub struct SolutionDistance(u64);
-
-impl From<u64> for SolutionDistance {
-    #[inline]
-    fn from(original: u64) -> Self {
-        Self(original)
-    }
-}
-
-impl From<SolutionDistance> for u64 {
-    #[inline]
-    fn from(original: SolutionDistance) -> Self {
-        original.0
-    }
-}
 
 impl SolutionDistance {
     /// Maximum value
@@ -104,6 +92,8 @@ impl SolutionDistance {
     Eq,
     PartialEq,
     Hash,
+    From,
+    Into,
     Add,
     AddAssign,
     Sub,
@@ -116,20 +106,6 @@ impl SolutionDistance {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 pub struct SolutionRange(u64);
-
-impl From<u64> for SolutionRange {
-    #[inline]
-    fn from(original: u64) -> Self {
-        Self(original)
-    }
-}
-
-impl From<SolutionRange> for u64 {
-    #[inline]
-    fn from(original: SolutionRange) -> Self {
-        original.0
-    }
-}
 
 impl SolutionRange {
     /// Size in bytes
@@ -235,7 +211,7 @@ impl SolutionRange {
             u128::from(current_solution_range)
                 .saturating_mul(u128::from(era_slot_count))
                 .saturating_mul(u128::from(slot_probability.0))
-                / u128::from(era_duration)
+                / u128::from(u64::from(era_duration))
                 / u128::from(slot_probability.1),
         );
 

@@ -552,7 +552,7 @@ where
         mut block: BlockImportParams<Block>,
     ) -> Result<ImportResult, Self::Error> {
         let block_hash = block.post_hash();
-        let block_number = (*block.header.number()).saturated_into::<BlockNumber>();
+        let block_number = BlockNumber::new((*block.header.number()).saturated_into());
 
         // Early exit if block already in chain
         match self.client.status(block_hash)? {
@@ -590,7 +590,7 @@ where
             .await?;
         }
 
-        let parent_weight = if block_number.is_one() {
+        let parent_weight = if block_number == BlockNumber::ONE {
             0
         } else {
             // Parent block weight might be missing in special sync modes where block is imported in

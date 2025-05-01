@@ -8,6 +8,7 @@ use log::trace;
 use parity_scale_codec::{Decode, Encode};
 use sp_runtime::DigestItem;
 use sp_runtime::traits::{Header as HeaderT, One, Zero};
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::{PotOutput, SlotNumber};
 use subspace_core_primitives::segments::{SegmentIndex, SegmentRoot};
@@ -646,9 +647,10 @@ pub fn derive_next_solution_range<Header: HeaderT>(
             era_start_slot,
             current_slot,
             slot_probability,
-            era_duration
-                .try_into()
-                .unwrap_or_else(|_| panic!("Era duration is always within u64; qed")),
+            BlockNumber::new(
+                <Header::Number as TryInto<u64>>::try_into(era_duration)
+                    .unwrap_or_else(|_| panic!("Era duration is always within u64; qed")),
+            ),
         )
     };
 

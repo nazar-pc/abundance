@@ -10,6 +10,7 @@ use sp_runtime::BuildStorage;
 use sp_runtime::testing::{Digest, DigestItem, TestXt};
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pieces::PieceOffset;
 use subspace_core_primitives::pot::SlotNumber;
@@ -160,7 +161,7 @@ pub fn create_segment_header(segment_index: SegmentIndex) -> SegmentHeader {
         segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),
         last_archived_block: LastArchivedBlock {
-            number: 0,
+            number: BlockNumber::ZERO,
             archived_progress: ArchivedBlockProgress::Complete,
         },
     }

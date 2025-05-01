@@ -39,7 +39,7 @@ pub fn min_segment_header_encoded_size() -> usize {
         segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),
         last_archived_block: LastArchivedBlock {
-            number: 0,
+            number: BlockNumber::ZERO,
             archived_progress: ArchivedBlockProgress::Complete,
         },
     };
@@ -55,7 +55,7 @@ pub fn max_segment_header_encoded_size() -> usize {
         segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),
         last_archived_block: LastArchivedBlock {
-            number: BlockNumber::MAX,
+            number: BlockNumber::ZERO,
             archived_progress: ArchivedBlockProgress::Partial(u32::MAX),
         },
     };

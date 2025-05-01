@@ -683,7 +683,7 @@ impl AllocatedSpaceDistribution {
         } else {
             0
         };
-        let target_sector_count = match SectorIndex::try_from(target_sector_count) {
+        let target_sector_count = match u16::try_from(target_sector_count).map(SectorIndex::from) {
             Ok(target_sector_count) if target_sector_count < SectorIndex::MAX => {
                 u16::from(target_sector_count)
             }

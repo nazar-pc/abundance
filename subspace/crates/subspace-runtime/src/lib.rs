@@ -86,7 +86,7 @@ const SLOT_DURATION: SlotDuration = SlotDuration::from_millis(1000);
 const BLOCK_AUTHORING_DELAY: SlotNumber = SlotNumber::new(4);
 
 /// Interval, in blocks, between blockchain entropy injection into proof of time chain.
-const POT_ENTROPY_INJECTION_INTERVAL: BlockNumber = 50;
+const POT_ENTROPY_INJECTION_INTERVAL: BlockNumber = BlockNumber::new(50);
 
 /// Interval, in entropy injection intervals, where to take entropy for injection from.
 const POT_ENTROPY_INJECTION_LOOKBACK_DEPTH: u8 = 2;
@@ -96,14 +96,14 @@ const POT_ENTROPY_INJECTION_DELAY: SlotNumber = SlotNumber::new(15);
 
 // Entropy injection interval must be bigger than injection delay or else we may end up in a
 // situation where we'll need to do more than one injection at the same slot
-const_assert!(POT_ENTROPY_INJECTION_INTERVAL > POT_ENTROPY_INJECTION_DELAY.as_u64());
+const_assert!(POT_ENTROPY_INJECTION_INTERVAL.as_u64() > POT_ENTROPY_INJECTION_DELAY.as_u64());
 // Entropy injection delay must be bigger than block authoring delay or else we may include
 // invalid future proofs in parent block, +1 ensures we do not have unnecessary reorgs that will
 // inevitably happen otherwise
 const_assert!(POT_ENTROPY_INJECTION_DELAY.as_u64() > BLOCK_AUTHORING_DELAY.as_u64() + 1);
 
 /// Era duration in blocks.
-const ERA_DURATION_IN_BLOCKS: BlockNumber = 2016;
+const ERA_DURATION_IN_BLOCKS: BlockNumber = BlockNumber::new(2016);
 
 /// Number of latest archived segments that are considered "recent history".
 const RECENT_SEGMENTS: HistorySize = HistorySize::new(NonZeroU64::new(5).expect("Not zero; qed"));
@@ -118,7 +118,7 @@ const MIN_SECTOR_LIFETIME: HistorySize =
 
 parameter_types! {
     pub const Version: RuntimeVersion = VERSION;
-    pub const BlockHashCount: BlockNumber = 250;
+    pub const BlockHashCount: u64 = 250;
     /// We allow for 2 seconds of compute with a 6 second average block time.
     pub SubspaceBlockWeights: BlockWeights = BlockWeights::with_sensible_defaults(BLOCK_WEIGHT_FOR_2_SEC, NORMAL_DISPATCH_RATIO);
     /// We allow for 3.75 MiB for `Normal` extrinsic with 5 MiB maximum block length.
@@ -189,11 +189,11 @@ impl frame_system::Config for Runtime {
 }
 
 parameter_types! {
-    pub const RuntimeConsensusConstants: ConsensusConstants<BlockNumber> = ConsensusConstants {
-        pot_entropy_injection_interval: POT_ENTROPY_INJECTION_INTERVAL,
+    pub const RuntimeConsensusConstants: ConsensusConstants<u64> = ConsensusConstants {
+        pot_entropy_injection_interval: POT_ENTROPY_INJECTION_INTERVAL.as_u64(),
         pot_entropy_injection_lookback_depth: POT_ENTROPY_INJECTION_LOOKBACK_DEPTH,
         pot_entropy_injection_delay: POT_ENTROPY_INJECTION_DELAY,
-        era_duration: ERA_DURATION_IN_BLOCKS,
+        era_duration: ERA_DURATION_IN_BLOCKS.as_u64(),
         slot_probability: SLOT_PROBABILITY,
     };
 }
@@ -370,7 +370,7 @@ construct_runtime!(
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 /// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+pub type Header = generic::Header<u64, BlakeTwo256>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
@@ -563,7 +563,7 @@ impl_runtime_apis! {
 
         fn chain_constants() -> ChainConstants {
             ChainConstants::V0 {
-                confirmation_depth_k: pallet_runtime_configs::ConfirmationDepthK::<Runtime>::get(),
+                confirmation_depth_k: BlockNumber::new(pallet_runtime_configs::ConfirmationDepthK::<Runtime>::get()),
                 block_authoring_delay: BLOCK_AUTHORING_DELAY,
                 era_duration: ERA_DURATION_IN_BLOCKS,
                 slot_probability: SLOT_PROBABILITY,

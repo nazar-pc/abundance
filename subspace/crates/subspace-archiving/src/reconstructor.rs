@@ -138,7 +138,7 @@ impl Reconstructor {
         let items = self.reconstruct_segment(segment_pieces)?.into_items();
 
         let mut reconstructed_contents = ReconstructedContents::default();
-        let mut next_block_number = 0;
+        let mut next_block_number = BlockNumber::ZERO;
         let mut partial_block = self.partial_block.take().unwrap_or_default();
 
         for segment_item in items {
@@ -152,14 +152,14 @@ impl Reconstructor {
                             .blocks
                             .push((next_block_number, mem::take(&mut partial_block)));
 
-                        next_block_number += 1;
+                        next_block_number += BlockNumber::ONE;
                     }
 
                     reconstructed_contents
                         .blocks
                         .push((next_block_number, bytes));
 
-                    next_block_number += 1;
+                    next_block_number += BlockNumber::ONE;
                 }
                 SegmentItem::BlockStart { bytes, .. } => {
                     if !partial_block.is_empty() {
@@ -167,7 +167,7 @@ impl Reconstructor {
                             .blocks
                             .push((next_block_number, mem::take(&mut partial_block)));
 
-                        next_block_number += 1;
+                        next_block_number += BlockNumber::ONE;
                     }
 
                     partial_block = bytes;
@@ -211,14 +211,14 @@ impl Reconstructor {
                                 .blocks
                                 .push((next_block_number, mem::take(&mut partial_block)));
 
-                            next_block_number = number + 1;
+                            next_block_number = number + BlockNumber::ONE;
                         }
                         ArchivedBlockProgress::Partial(_bytes) => {
                             next_block_number = number;
 
                             if partial_block.is_empty() {
                                 // Will not be able to recover full block, bump right away.
-                                next_block_number += 1;
+                                next_block_number += BlockNumber::ONE;
                             }
                         }
                     }

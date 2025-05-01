@@ -8,8 +8,8 @@ use core::num::NonZeroU8;
 use core::str::FromStr;
 use core::time::Duration;
 use derive_more::{
-    Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, Div, DivAssign, From, Mul, MulAssign,
-    Sub, SubAssign,
+    Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, Div, DivAssign, From, Into, Mul,
+    MulAssign, Sub, SubAssign,
 };
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -21,7 +21,9 @@ use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
 
 /// Slot duration
-#[derive(Debug, Display, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(
+    Debug, Display, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, From, Into,
+)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
@@ -29,20 +31,6 @@ use serde::{Deserializer, Serializer};
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 pub struct SlotDuration(u16);
-
-impl From<u16> for SlotDuration {
-    #[inline(always)]
-    fn from(original: u16) -> Self {
-        Self(original)
-    }
-}
-
-impl From<SlotDuration> for u16 {
-    #[inline(always)]
-    fn from(original: SlotDuration) -> Self {
-        original.0
-    }
-}
 
 impl SlotDuration {
     /// Size in bytes
@@ -79,6 +67,8 @@ impl SlotDuration {
     Eq,
     PartialEq,
     Hash,
+    From,
+    Into,
     Add,
     AddAssign,
     Sub,
@@ -110,20 +100,6 @@ impl Step for SlotNumber {
     #[inline(always)]
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
         u64::backward_checked(start.0, count).map(Self)
-    }
-}
-
-impl From<u64> for SlotNumber {
-    #[inline(always)]
-    fn from(original: u64) -> Self {
-        Self(original)
-    }
-}
-
-impl From<SlotNumber> for u64 {
-    #[inline(always)]
-    fn from(original: SlotNumber) -> Self {
-        original.0
     }
 }
 
@@ -182,7 +158,7 @@ impl SlotNumber {
 }
 
 /// Proof of time key(input to the encryption).
-#[derive(Default, Copy, Clone, Eq, PartialEq, From, AsRef, AsMut, Deref, DerefMut)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, From, Into, AsRef, AsMut, Deref, DerefMut)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
@@ -260,12 +236,12 @@ impl FromStr for PotKey {
 }
 
 impl PotKey {
-    /// Size of proof of time key in bytes
+    /// Size in bytes
     pub const SIZE: usize = 16;
 }
 
 /// Proof of time seed
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, From, AsRef, AsMut, Deref, DerefMut)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, From, Into, AsRef, AsMut, Deref, DerefMut)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
@@ -331,7 +307,7 @@ impl fmt::Display for PotSeed {
 }
 
 impl PotSeed {
-    /// Size of proof of time seed in bytes
+    /// Size in bytes
     pub const SIZE: usize = 16;
 
     /// Derive initial PoT seed from genesis block hash
@@ -353,7 +329,7 @@ impl PotSeed {
 }
 
 /// Proof of time output, can be intermediate checkpoint or final slot output
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, From, AsRef, AsMut, Deref, DerefMut)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, From, Into, AsRef, AsMut, Deref, DerefMut)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
@@ -419,7 +395,7 @@ impl fmt::Display for PotOutput {
 }
 
 impl PotOutput {
-    /// Size of proof of time proof in bytes
+    /// Size in bytes
     pub const SIZE: usize = 16;
 
     /// Derives the global challenge from the output and slot

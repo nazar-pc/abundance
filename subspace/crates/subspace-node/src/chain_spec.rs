@@ -67,7 +67,7 @@ pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
                 pot_slot_iterations: NonZeroU32::new(206_557_520).expect("Not zero; qed"),
                 enable_dynamic_cost_of_storage: false,
                 // TODO: Proper value here
-                confirmation_depth_k: 100,
+                confirmation_depth_k: BlockNumber::new(100),
             },
         )?)
         .map_err(|error| format!("Failed to serialize genesis config: {error}"))?
@@ -106,7 +106,7 @@ pub fn devnet_config_compiled() -> Result<GenericChainSpec, String> {
                 pot_slot_iterations: NonZeroU32::new(150_000_000).expect("Not zero; qed"),
                 enable_dynamic_cost_of_storage: false,
                 // TODO: Proper value here
-                confirmation_depth_k: 100,
+                confirmation_depth_k: BlockNumber::new(100),
             },
         )?)
         .map_err(|error| format!("Failed to serialize genesis config: {error}"))?
@@ -145,7 +145,7 @@ pub fn dev_config() -> Result<GenericChainSpec, String> {
                     allow_authoring_by: AllowAuthoringBy::Anyone,
                     pot_slot_iterations: NonZeroU32::new(100_000_000).expect("Not zero; qed"),
                     enable_dynamic_cost_of_storage: false,
-                    confirmation_depth_k: 5,
+                    confirmation_depth_k: BlockNumber::new(5),
                 },
             )?)
             .map_err(|error| format!("Failed to serialize genesis config: {error}"))?,
@@ -182,7 +182,7 @@ fn subspace_genesis_config(
         },
         runtime_configs: RuntimeConfigsConfig {
             enable_dynamic_cost_of_storage,
-            confirmation_depth_k,
+            confirmation_depth_k: confirmation_depth_k.as_u64(),
         },
     })
 }

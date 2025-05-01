@@ -5,6 +5,7 @@ use crate::object_fetcher::partial_object::PADDING_BYTE_VALUE;
 use parity_scale_codec::{Compact, CompactLen, Encode};
 use rand::{RngCore, thread_rng};
 use std::iter;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::hashes::blake3_hash;
 use subspace_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, SegmentHeader, SegmentRoot,
@@ -89,7 +90,7 @@ fn write_segment_header(mut piece: &mut Piece, remaining_len: usize) -> Vec<u8> 
             segment_root: SegmentRoot::default(),
             prev_segment_header_hash: Blake3Hash::default(),
             last_archived_block: LastArchivedBlock {
-                number: u64::MAX,
+                number: BlockNumber::MAX,
                 archived_progress: ArchivedBlockProgress::Partial(u32::MAX),
             },
         }

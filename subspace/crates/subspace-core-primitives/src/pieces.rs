@@ -51,6 +51,8 @@ use serde_big_array::BigArray;
     Eq,
     PartialEq,
     Hash,
+    From,
+    Into,
     Add,
     AddAssign,
     Sub,
@@ -82,20 +84,6 @@ impl Step for PieceIndex {
     #[inline]
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
         u64::backward_checked(start.0, count).map(Self)
-    }
-}
-
-impl From<u64> for PieceIndex {
-    #[inline]
-    fn from(original: u64) -> Self {
-        Self(original)
-    }
-}
-
-impl From<PieceIndex> for u64 {
-    #[inline]
-    fn from(original: PieceIndex) -> Self {
-        original.0
     }
 }
 
@@ -170,6 +158,8 @@ impl PieceIndex {
     Eq,
     PartialEq,
     Hash,
+    From,
+    Into,
     Add,
     AddAssign,
     Sub,
@@ -201,20 +191,6 @@ impl Step for PieceOffset {
     #[inline]
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
         u16::backward_checked(start.0, count).map(Self)
-    }
-}
-
-impl From<u16> for PieceOffset {
-    #[inline]
-    fn from(original: u16) -> Self {
-        Self(original)
-    }
-}
-
-impl From<PieceOffset> for u16 {
-    #[inline]
-    fn from(original: PieceOffset) -> Self {
-        original.0
     }
 }
 
