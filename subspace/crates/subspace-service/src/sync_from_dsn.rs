@@ -305,7 +305,7 @@ where
     let mut last_processed_segment_index = SegmentIndex::ZERO;
     // TODO: We'll be able to just take finalized block once we are able to decouple pruning from
     //  finality: https://github.com/paritytech/polkadot-sdk/issues/1570
-    let mut last_processed_block_number = info.best_number.saturated_into::<BlockNumber>();
+    let mut last_processed_block_number = BlockNumber::new(info.best_number.saturated_into());
     let segment_header_downloader = SegmentHeaderDownloader::new(node);
 
     while let Some(reason) = notifications.next().await {
@@ -328,12 +328,13 @@ where
                 tokio::time::sleep(CHECK_ALMOST_SYNCED_INTERVAL).await;
 
                 let info = client.info();
-                let target_block_number = sync_target_block_number.load(Ordering::Relaxed);
+                let target_block_number =
+                    BlockNumber::new(sync_target_block_number.load(Ordering::Relaxed));
 
                 // If less blocks than confirmation depth to the tip of the chain, no need to worry about DSN sync
                 // anymore, it will not be helpful anyway
                 if target_block_number
-                    .checked_sub(info.best_number.saturated_into::<BlockNumber>())
+                    .checked_sub(BlockNumber::new(info.best_number.saturated_into()))
                     .map(|diff| diff < chain_constants.confirmation_depth_k())
                     .unwrap_or_default()
                 {

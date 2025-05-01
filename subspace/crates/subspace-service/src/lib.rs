@@ -75,6 +75,7 @@ use static_assertions::const_assert;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::pot::PotSeed;
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::utils::piece_provider::PieceProvider;
@@ -290,12 +291,12 @@ where
                         .header(parent_hash)?
                         .expect("Parent header must always exist when block is created; qed");
 
-                    let parent_block_number = parent_header.number;
+                    let parent_block_number = BlockNumber::new(parent_header.number);
 
                     let subspace_inherents =
                         sp_consensus_subspace::inherents::InherentDataProvider::new(
                             segment_headers_store
-                                .segment_headers_for_block(parent_block_number + 1),
+                                .segment_headers_for_block(parent_block_number + BlockNumber::ONE),
                         );
 
                     Ok((timestamp, subspace_inherents))
@@ -823,12 +824,12 @@ where
                         .header(parent_hash)?
                         .expect("Parent header must always exist when block is created; qed");
 
-                    let parent_block_number = parent_header.number;
+                    let parent_block_number = BlockNumber::new(parent_header.number);
 
                     let subspace_inherents =
                         sp_consensus_subspace::inherents::InherentDataProvider::new(
                             segment_headers_store
-                                .segment_headers_for_block(parent_block_number + 1),
+                                .segment_headers_for_block(parent_block_number + BlockNumber::ONE),
                         );
 
                     Ok((timestamp, subspace_inherents))

@@ -10,6 +10,7 @@ pub type Multihash = libp2p::multihash::Multihash<64>;
 /// https://github.com/multiformats/multicodec/blob/master/table.csv
 const SUBSPACE_MULTICODEC_NAMESPACE_START: u64 = 0xb39910;
 
+// TODO: Think about how to get rid of it
 /// Subspace Network multihash codes.
 #[derive(Debug, Clone, PartialEq)]
 #[repr(u64)]

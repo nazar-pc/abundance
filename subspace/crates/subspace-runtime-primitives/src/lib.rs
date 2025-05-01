@@ -91,10 +91,9 @@ pub mod opaque {
     pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
     use sp_runtime::generic;
     use sp_runtime::traits::BlakeTwo256;
-    use subspace_core_primitives::block::BlockNumber;
 
     /// Opaque block header type.
-    pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+    pub type Header = generic::Header<u64, BlakeTwo256>;
     /// Opaque block type.
     pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 }

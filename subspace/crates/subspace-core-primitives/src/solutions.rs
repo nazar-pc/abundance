@@ -211,7 +211,7 @@ impl SolutionRange {
             u128::from(current_solution_range)
                 .saturating_mul(u128::from(era_slot_count))
                 .saturating_mul(u128::from(slot_probability.0))
-                / u128::from(era_duration)
+                / u128::from(u64::from(era_duration))
                 / u128::from(slot_probability.1),
         );
 

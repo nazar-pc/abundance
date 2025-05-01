@@ -21,7 +21,7 @@ use tokio::task;
 
 /// How many blocks to queue before pausing and waiting for blocks to be imported, this is
 /// essentially used to ensure we use a bounded amount of RAM during sync process.
-const QUEUED_BLOCKS_LIMIT: BlockNumber = 500;
+const QUEUED_BLOCKS_LIMIT: BlockNumber = BlockNumber::new(500);
 /// Time to wait for blocks to import if import is too slow
 const WAIT_FOR_BLOCKS_TO_IMPORT: Duration = Duration::from_secs(1);
 
@@ -92,7 +92,7 @@ where
 
         trace!(
             %segment_index,
-            last_archived_block_number,
+            %last_archived_block_number,
             last_archived_block_partial,
             "Checking segment header"
         );
@@ -107,7 +107,7 @@ where
         }
         // Just one partial unprocessed block and this was the last segment available, so nothing to
         // import
-        if last_archived_block_number == *last_processed_block_number + 1
+        if last_archived_block_number == *last_processed_block_number + BlockNumber::ONE
             && last_archived_block_partial
             && segment_indices_iter.peek().is_none()
         {
@@ -137,15 +137,15 @@ where
             .blocks;
         trace!(%segment_index, "Segment reconstructed successfully");
 
-        let mut blocks_to_import = Vec::with_capacity(QUEUED_BLOCKS_LIMIT as usize);
+        let mut blocks_to_import = Vec::with_capacity(QUEUED_BLOCKS_LIMIT.as_u64() as usize);
 
-        let mut best_block_number = info.best_number.saturated_into::<BlockNumber>();
+        let mut best_block_number = BlockNumber::new(info.best_number.saturated_into());
         for (block_number, block_bytes) in blocks {
-            if block_number == 0 {
+            if block_number == BlockNumber::ZERO {
                 let signed_block = client
                     .block(
                         client
-                            .hash(NumberFor::<Block>::saturated_from(block_number))?
+                            .hash(NumberFor::<Block>::saturated_from(block_number.as_u64()))?
                             .expect("Block before best block number must always be found; qed"),
                     )?
                     .expect("Block before best block number must always be found; qed");
@@ -175,7 +175,7 @@ where
                     "Number of importing blocks reached queue limit, waiting before retrying"
                 );
                 tokio::time::sleep(WAIT_FOR_BLOCKS_TO_IMPORT).await;
-                best_block_number = client.info().best_number.saturated_into::<BlockNumber>();
+                best_block_number = BlockNumber::new(client.info().best_number.saturated_into());
             }
 
             let signed_block =

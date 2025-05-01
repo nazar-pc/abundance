@@ -33,6 +33,7 @@ use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
     TransactionValidityError, ValidTransaction,
 };
+use subspace_core_primitives::block::BlockNumber;
 use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::segments::{
     ArchivedHistorySegment, HistorySize, SegmentHeader, SegmentIndex,
@@ -588,9 +589,12 @@ impl<T: Config> Pallet<T> {
                         EraStartSlot::<T>::get().unwrap_or_default(),
                         current_slot,
                         slot_probability,
-                        era_duration
-                            .try_into()
-                            .unwrap_or_else(|_| panic!("Era duration is always within u64; qed")),
+                        BlockNumber::new(
+                            <BlockNumberFor<T> as TryInto<u64>>::try_into(era_duration)
+                                .unwrap_or_else(|_| {
+                                    panic!("Era duration is always within u64; qed")
+                                }),
+                        ),
                     );
                 };
                 solution_ranges.next.replace(next_solution_range);

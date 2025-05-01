@@ -166,11 +166,12 @@ where
 
     /// Determine if full proof of time verification is needed for this block number
     fn full_pot_verification(&self, block_number: BlockNumber) -> bool {
-        let sync_target_block_number: BlockNumber =
-            self.sync_target_block_number.load(Ordering::Relaxed);
+        let sync_target_block_number =
+            BlockNumber::new(self.sync_target_block_number.load(Ordering::Relaxed));
         let Some(diff) = sync_target_block_number.checked_sub(block_number) else {
             return true;
         };
+        let diff = diff.as_u64();
 
         let sample_size = match diff {
             ..=1_581 => {
@@ -408,12 +409,8 @@ where
             "Verifying",
         );
 
-        let block_number = (*block.header.number()).saturated_into::<BlockNumber>();
-        let best_number = self
-            .client
-            .info()
-            .best_number
-            .saturated_into::<BlockNumber>();
+        let block_number = BlockNumber::new((*block.header.number()).saturated_into());
+        let best_number = BlockNumber::new(self.client.info().best_number.saturated_into());
         // Reject block below archiving point, but only if we received it from the network
         if block_number + self.chain_constants.confirmation_depth_k() < best_number
             && matches!(block.origin, BlockOrigin::NetworkBroadcast)
@@ -472,13 +469,12 @@ where
         let slot = pre_digest.slot();
         // Estimate what the "current" slot is according to sync target since we don't have other
         // way to know it
-        let diff_in_blocks = self
-            .sync_target_block_number
-            .load(Ordering::Relaxed)
-            .saturating_sub(block_number);
-        let slot_now = if diff_in_blocks > 0 {
+        let diff_in_blocks =
+            BlockNumber::new(self.sync_target_block_number.load(Ordering::Relaxed))
+                .saturating_sub(block_number);
+        let slot_now = if diff_in_blocks > BlockNumber::ZERO {
             slot + SlotNumber::new(
-                diff_in_blocks * self.chain_constants.slot_probability().1
+                diff_in_blocks.as_u64() * self.chain_constants.slot_probability().1
                     / self.chain_constants.slot_probability().0,
             )
         } else {
