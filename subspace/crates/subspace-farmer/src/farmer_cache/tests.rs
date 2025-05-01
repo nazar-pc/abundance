@@ -13,7 +13,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use subspace_core_primitives::block::BlockNumber;
+use subspace_core_primitives::block::{BlockHash, BlockNumber};
 use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_core_primitives::segments::{
     HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex,
@@ -42,7 +42,7 @@ impl NodeClient for MockNodeClient {
     async fn farmer_app_info(&self) -> anyhow::Result<FarmerAppInfo> {
         // Most of these values make no sense, but they are not used by piece cache anyway
         Ok(FarmerAppInfo {
-            genesis_hash: [0; 32],
+            genesis_hash: BlockHash::default(),
             dsn_bootstrap_nodes: Vec::new(),
             syncing: false,
             farming_timeout: Duration::default(),
