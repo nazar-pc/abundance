@@ -1,3 +1,7 @@
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::sectors::{SectorId, SectorIndex};
+use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
+use ab_core_primitives::solutions::SolutionRange;
 use ab_erasure_coding::ErasureCoding;
 use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use futures::executor::block_on;
@@ -8,10 +12,6 @@ use std::io::Write;
 use std::num::NonZeroU64;
 use std::{env, fs, slice};
 use subspace_archiving::archiver::Archiver;
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::sectors::{SectorId, SectorIndex};
-use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment};
-use subspace_core_primitives::solutions::SolutionRange;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_farmer_components::auditing::audit_plot_sync;
 use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};

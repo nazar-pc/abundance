@@ -3,6 +3,7 @@
 use crate::farm::plotted_pieces::PlottedPieces;
 use crate::farmer_cache::FarmerCaches;
 use crate::node_client::NodeClient;
+use ab_core_primitives::pieces::{Piece, PieceIndex};
 use async_lock::RwLock as AsyncRwLock;
 use async_trait::async_trait;
 use backoff::ExponentialBackoff;
@@ -18,7 +19,6 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Weak};
 use std::task::{Context, Poll};
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_networking::utils::multihash::ToMultihash;
 use subspace_networking::utils::piece_provider::{PieceProvider, PieceValidator};

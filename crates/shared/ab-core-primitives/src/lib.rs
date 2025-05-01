@@ -1,4 +1,4 @@
-//! Core primitives for Subspace Network.
+//! Core primitives for the protocol
 
 #![no_std]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]

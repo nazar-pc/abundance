@@ -343,7 +343,7 @@ impl LastArchivedBlock {
 ///
 /// Each segment will have corresponding [`SegmentHeader`] included as the first item in the next
 /// segment. Each `SegmentHeader` includes hash of the previous one and all together form a chain of
-/// segment headers that is used for quick and efficient verification that some [`Piece`]
+/// segment headers that is used for quick and efficient verification that some `Piece`
 /// corresponds to the actual archival history of the blockchain.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
@@ -463,7 +463,7 @@ impl RecordedHistorySegment {
     ///
     /// It includes half of the records (just source records) that will later be erasure coded and
     /// together with corresponding roots and proofs will result in
-    /// [`Self::NUM_PIECES`] [`Piece`]s of archival history.
+    /// [`Self::NUM_PIECES`] `Piece`s of archival history.
     pub const SIZE: usize = Record::SIZE * Self::NUM_RAW_RECORDS;
 
     /// Create boxed value without hitting stack overflow

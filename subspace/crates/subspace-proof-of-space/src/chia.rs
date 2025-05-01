@@ -5,8 +5,8 @@ use crate::chiapos::Tables;
 #[cfg(feature = "alloc")]
 use crate::chiapos::TablesCache;
 use crate::{PosTableType, Table};
+use ab_core_primitives::pos::{PosProof, PosSeed};
 use core::mem;
-use subspace_core_primitives::pos::{PosProof, PosSeed};
 
 const K: u8 = PosProof::K;
 
@@ -44,7 +44,7 @@ pub struct ChiaTable {
     tables: Tables<K>,
 }
 
-impl subspace_core_primitives::solutions::SolutionPotVerifier for ChiaTable {
+impl ab_core_primitives::solutions::SolutionPotVerifier for ChiaTable {
     fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
         let mut challenge = [0; 32];
         challenge[..mem::size_of::<u32>()].copy_from_slice(&challenge_index.to_le_bytes());
@@ -83,7 +83,7 @@ impl Table for ChiaTable {
     }
 
     fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
-        <Self as subspace_core_primitives::solutions::SolutionPotVerifier>::is_proof_valid(
+        <Self as ab_core_primitives::solutions::SolutionPotVerifier>::is_proof_valid(
             seed,
             challenge_index,
             proof,

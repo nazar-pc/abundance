@@ -13,6 +13,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-core-primitives"
+version = "0.1.0"
+dependencies = [
+ "ab-merkle-tree",
+ "blake3",
+ "bytes",
+ "derive_more 2.0.1",
+ "hex",
+ "parity-scale-codec",
+ "rayon",
+ "scale-info",
+ "serde",
+ "serde-big-array",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "ab-erasure-coding"
 version = "0.1.0"
 dependencies = [
@@ -1797,6 +1814,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "convert_case"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb402b8d4c85569410425650ce3eddc7d698ed96d39a73f941b08fb63082f1e7"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2485,7 +2511,16 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a9b99b9cbbe49445b21764dc0625032a89b145a2642e67603e1c936f5458d05"
 dependencies = [
- "derive_more-impl",
+ "derive_more-impl 1.0.0",
+]
+
+[[package]]
+name = "derive_more"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "093242cf7570c207c83073cf82f79706fe7b8317e98620a47d5be7c3d8497678"
+dependencies = [
+ "derive_more-impl 2.0.1",
 ]
 
 [[package]]
@@ -2495,6 +2530,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
 dependencies = [
  "convert_case 0.6.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.98",
+ "unicode-xid",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bda628edc44c4bb645fbe0f758797143e4e07926f7ebf4e9bdfbd3d2ce621df3"
+dependencies = [
+ "convert_case 0.7.1",
  "proc-macro2",
  "quote",
  "syn 2.0.98",
@@ -6771,6 +6819,7 @@ dependencies = [
 name = "pallet-subspace"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "frame-support",
  "frame-system",
  "log",
@@ -6783,7 +6832,6 @@ dependencies = [
  "sp-consensus-subspace",
  "sp-io",
  "sp-runtime",
- "subspace-core-primitives",
  "subspace-runtime-primitives",
  "subspace-verification",
 ]
@@ -8889,6 +8937,7 @@ dependencies = [
 name = "sc-consensus-subspace"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "ab-erasure-coding",
  "async-trait",
  "futures",
@@ -8914,7 +8963,6 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "subspace-archiving",
- "subspace-core-primitives",
  "subspace-proof-of-space",
  "subspace-verification",
  "thiserror 2.0.12",
@@ -8926,6 +8974,7 @@ dependencies = [
 name = "sc-consensus-subspace-rpc"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "ab-erasure-coding",
  "async-oneshot",
  "futures",
@@ -8946,7 +8995,6 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "subspace-archiving",
- "subspace-core-primitives",
  "subspace-farmer-components",
  "subspace-networking",
  "subspace-rpc-primitives",
@@ -9264,6 +9312,7 @@ dependencies = [
 name = "sc-proof-of-time"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "core_affinity",
  "derive_more 1.0.0",
  "futures",
@@ -9282,7 +9331,6 @@ dependencies = [
  "sp-consensus-subspace",
  "sp-inherents",
  "sp-runtime",
- "subspace-core-primitives",
  "subspace-proof-of-time",
  "thread-priority",
  "tokio",
@@ -9977,9 +10025,9 @@ checksum = "a3f0bf26fd526d2a95683cd0f87bf103b8539e2ca1ef48ce002d67aad59aa0b4"
 
 [[package]]
 name = "serde"
-version = "1.0.216"
+version = "1.0.219"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b9781016e935a97e8beecf0c933758c97a5520d32930e460142b4cd80c6338e"
+checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
 dependencies = [
  "serde_derive",
 ]
@@ -10004,9 +10052,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.216"
+version = "1.0.219"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46f859dbbf73865c6627ed570e78961cd3ac92407a2d117204c49232485da55e"
+checksum = "5b0276cf7f2c73365f7157c8123c21cd9a50fbbd844757af28ca1f5925fc2a00"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -10608,6 +10656,7 @@ dependencies = [
 name = "sp-consensus-subspace"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "async-trait",
  "log",
  "parity-scale-codec",
@@ -10615,7 +10664,6 @@ dependencies = [
  "sp-api",
  "sp-inherents",
  "sp-runtime",
- "subspace-core-primitives",
  "subspace-verification",
  "thiserror 2.0.12",
 ]
@@ -11311,6 +11359,7 @@ dependencies = [
 name = "subspace-archiving"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "ab-erasure-coding",
  "ab-merkle-tree",
  "criterion",
@@ -11319,26 +11368,6 @@ dependencies = [
  "rand_core 0.6.4",
  "rayon",
  "serde",
- "subspace-core-primitives",
- "thiserror 2.0.12",
-]
-
-[[package]]
-name = "subspace-core-primitives"
-version = "0.1.0"
-dependencies = [
- "ab-merkle-tree",
- "blake3",
- "bytes",
- "derive_more 1.0.0",
- "hex",
- "parity-scale-codec",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "rayon",
- "scale-info",
- "serde",
- "serde-big-array",
  "thiserror 2.0.12",
 ]
 
@@ -11346,6 +11375,7 @@ dependencies = [
 name = "subspace-data-retrieval"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "ab-erasure-coding",
  "anyhow",
  "async-trait",
@@ -11354,7 +11384,6 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
  "subspace-archiving",
- "subspace-core-primitives",
  "subspace-logging",
  "thiserror 2.0.12",
  "tokio",
@@ -11365,6 +11394,7 @@ dependencies = [
 name = "subspace-farmer"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "ab-erasure-coding",
  "anyhow",
  "async-lock 3.4.0",
@@ -11401,7 +11431,6 @@ dependencies = [
  "serde_json",
  "ss58-registry",
  "static_assertions",
- "subspace-core-primitives",
  "subspace-data-retrieval",
  "subspace-farmer-components",
  "subspace-logging",
@@ -11426,6 +11455,7 @@ dependencies = [
 name = "subspace-farmer-components"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "ab-erasure-coding",
  "ab-merkle-tree",
  "anyhow",
@@ -11445,7 +11475,6 @@ dependencies = [
  "serde",
  "static_assertions",
  "subspace-archiving",
- "subspace-core-primitives",
  "subspace-data-retrieval",
  "subspace-proof-of-space",
  "subspace-verification",
@@ -11478,6 +11507,7 @@ dependencies = [
 name = "subspace-networking"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "async-lock 3.4.0",
  "async-trait",
  "backoff",
@@ -11502,7 +11532,6 @@ dependencies = [
  "schnellru",
  "serde",
  "serde_json",
- "subspace-core-primitives",
  "subspace-logging",
  "subspace-metrics",
  "thiserror 2.0.12",
@@ -11517,6 +11546,7 @@ dependencies = [
 name = "subspace-node"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "clap",
  "fdlimit",
  "frame-benchmarking",
@@ -11536,7 +11566,6 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
- "subspace-core-primitives",
  "subspace-logging",
  "subspace-metrics",
  "subspace-networking",
@@ -11557,6 +11586,7 @@ dependencies = [
 name = "subspace-proof-of-space"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "bitvec",
  "chacha20",
  "criterion",
@@ -11567,19 +11597,18 @@ dependencies = [
  "sha2 0.10.8",
  "spin 0.9.8",
  "static_assertions",
- "subspace-core-primitives",
 ]
 
 [[package]]
 name = "subspace-proof-of-space-gpu"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "ab-erasure-coding",
  "blst",
  "cc",
  "rust-kzg-blst",
  "sppark",
- "subspace-core-primitives",
  "subspace-farmer-components",
  "subspace-proof-of-space",
 ]
@@ -11588,11 +11617,11 @@ dependencies = [
 name = "subspace-proof-of-time"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "aes 0.9.0-pre.2",
  "core_affinity",
  "criterion",
  "rand 0.8.5",
- "subspace-core-primitives",
  "thiserror 2.0.12",
 ]
 
@@ -11600,10 +11629,10 @@ dependencies = [
 name = "subspace-rpc-primitives"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "hex",
  "parity-scale-codec",
  "serde",
- "subspace-core-primitives",
  "subspace-farmer-components",
  "subspace-networking",
  "subspace-verification",
@@ -11613,6 +11642,7 @@ dependencies = [
 name = "subspace-runtime"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -11629,6 +11659,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
  "parity-scale-codec",
+ "parity-scale-codec-derive",
  "scale-info",
  "sp-api",
  "sp-block-builder",
@@ -11642,7 +11673,6 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "static_assertions",
- "subspace-core-primitives",
  "subspace-runtime-primitives",
  "substrate-wasm-builder",
 ]
@@ -11651,6 +11681,7 @@ dependencies = [
 name = "subspace-runtime-primitives"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "frame-support",
  "frame-system",
  "pallet-transaction-payment",
@@ -11661,13 +11692,13 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "subspace-core-primitives",
 ]
 
 [[package]]
 name = "subspace-service"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "ab-erasure-coding",
  "anyhow",
  "async-lock 3.4.0",
@@ -11714,7 +11745,6 @@ dependencies = [
  "sp-transaction-pool",
  "static_assertions",
  "subspace-archiving",
- "subspace-core-primitives",
  "subspace-data-retrieval",
  "subspace-networking",
  "subspace-proof-of-space",
@@ -11730,6 +11760,7 @@ dependencies = [
 name = "subspace-verification"
 version = "0.1.0"
 dependencies = [
+ "ab-core-primitives",
  "derive_more 1.0.0",
  "hex",
  "parity-scale-codec",
@@ -11737,7 +11768,6 @@ dependencies = [
  "schnorrkel",
  "serde",
  "serde-big-array",
- "subspace-core-primitives",
 ]
 
 [[package]]

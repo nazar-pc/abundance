@@ -13,13 +13,13 @@ include = [
 ]
 
 [dependencies]
+ab-core-primitives = { workspace = true, optional = true }
 blst = { workspace = true, optional = true }
 # TODO: Erasure coding algorithm is incorrect here and should be fixed, then `rust-kzg-blst` and `blst` crates can be
 #  removed
 rust-kzg-blst = { workspace = true, optional = true }
 # TODO: Fork with ROCm support, switch to upstream once `rocm` branch from `https://github.com/dot-asm/sppark` + https://github.com/dot-asm/sppark/pull/2 are upstreamed
 sppark = { workspace = true, optional = true }
-subspace-core-primitives = { workspace = true, optional = true }
 
 [dev-dependencies]
 ab-erasure-coding = { workspace = true }
@@ -39,5 +39,5 @@ rocm = ["_gpu", "sppark/rocm"]
 _gpu = [
     "dep:blst",
     "dep:rust-kzg-blst",
-    "dep:subspace-core-primitives",
+    "dep:ab-core-primitives",
 ]

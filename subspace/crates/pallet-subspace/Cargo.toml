@@ -13,6 +13,7 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+ab-core-primitives = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -21,7 +22,6 @@ scale-info = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["alloc", "derive"], optional = true }
 sp-consensus-subspace = { workspace = true }
 sp-runtime = { workspace = true }
-subspace-core-primitives = { workspace = true }
 subspace-runtime-primitives = { workspace = true }
 
 [dev-dependencies]
@@ -34,8 +34,8 @@ subspace-verification = { workspace = true }
 [features]
 default = ["std"]
 serde = [
+    "ab-core-primitives/serde",
     "dep:serde",
-    "subspace-core-primitives/serde",
 ]
 std = [
     "parity-scale-codec/std",

@@ -9,6 +9,7 @@ use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT, PARAM_M};
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::utils::EvaluatableUsize;
+use ab_core_primitives::hashes::{blake3_hash, blake3_hash_list};
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 #[cfg(not(feature = "std"))]
@@ -26,7 +27,6 @@ use seq_macro::seq;
 #[cfg(all(not(feature = "std"), any(feature = "parallel", test)))]
 use spin::Mutex;
 use static_assertions::const_assert;
-use subspace_core_primitives::hashes::{blake3_hash, blake3_hash_list};
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
 pub(super) const FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR: usize = 8;

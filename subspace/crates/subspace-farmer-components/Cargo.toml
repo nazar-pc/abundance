@@ -32,6 +32,7 @@ name = "proving"
 harness = false
 
 [dependencies]
+ab-core-primitives = { workspace = true, features = ["parallel"] }
 ab-erasure-coding = { workspace = true }
 ab-merkle-tree = { workspace = true, features = ["alloc"] }
 anyhow = { workspace = true }
@@ -49,7 +50,6 @@ rayon = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 static_assertions = { workspace = true }
 subspace-archiving = { workspace = true, features = ["parallel"] }
-subspace-core-primitives = { workspace = true, features = ["parallel"] }
 subspace-data-retrieval = { workspace = true }
 subspace-proof-of-space = { workspace = true, features = ["parallel"] }
 thiserror = { workspace = true }

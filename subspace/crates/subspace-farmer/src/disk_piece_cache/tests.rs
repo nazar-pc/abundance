@@ -1,8 +1,8 @@
 use crate::disk_piece_cache::{DiskPieceCache, DiskPieceCacheError, PieceCacheOffset};
+use ab_core_primitives::pieces::{Piece, PieceIndex};
 use rand::prelude::*;
 use std::assert_matches::assert_matches;
 use std::num::NonZeroU32;
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use tempfile::tempdir;
 
 #[test]

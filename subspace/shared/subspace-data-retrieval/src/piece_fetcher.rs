@@ -2,9 +2,9 @@
 
 use crate::object_fetcher::Error;
 use crate::piece_getter::PieceGetter;
+use ab_core_primitives::pieces::{Piece, PieceIndex};
 use futures::StreamExt;
 use std::sync::Arc;
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use tracing::{debug, trace};
 
 /// Concurrently downloads the exact pieces in `piece_indexes`, returning them in that order.

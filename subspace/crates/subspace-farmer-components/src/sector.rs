@@ -6,19 +6,17 @@
 //! It is typically not needed to construct these data structures explicitly outside of this crate,
 //! instead they will be returned as a result of certain operations (like plotting).
 
+use ab_core_primitives::checksum::Blake3Checksummed;
+use ab_core_primitives::hashes::{Blake3Hash, blake3_hash};
+use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunksRoot, RecordProof, RecordRoot};
+use ab_core_primitives::sectors::{SBucket, SectorIndex};
+use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use bitvec::prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use rayon::prelude::*;
 use std::mem::ManuallyDrop;
 use std::ops::{Deref, DerefMut};
 use std::{mem, slice};
-use subspace_core_primitives::checksum::Blake3Checksummed;
-use subspace_core_primitives::hashes::{Blake3Hash, blake3_hash};
-use subspace_core_primitives::pieces::{
-    PieceOffset, Record, RecordChunksRoot, RecordProof, RecordRoot,
-};
-use subspace_core_primitives::sectors::{SBucket, SectorIndex};
-use subspace_core_primitives::segments::{HistorySize, SegmentIndex};
 use thiserror::Error;
 use tracing::debug;
 

@@ -4,12 +4,12 @@
 //! * for objects within a block
 //! * for global objects in the global history of the blockchain (inside a piece)
 
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pieces::PieceIndex;
 use alloc::vec::Vec;
 use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pieces::PieceIndex;
 
 /// Object stored inside the block
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode)]

@@ -1,3 +1,4 @@
+use ab_core_primitives::pieces::PieceIndex;
 use clap::Parser;
 use futures::StreamExt;
 use futures::channel::oneshot;
@@ -9,7 +10,6 @@ use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use subspace_core_primitives::pieces::PieceIndex;
 use subspace_logging::init_logger;
 use subspace_networking::protocols::request_response::handlers::piece_by_index::{
     PieceByIndexRequest, PieceByIndexRequestHandler, PieceByIndexResponse,

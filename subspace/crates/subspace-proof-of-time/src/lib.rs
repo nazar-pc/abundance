@@ -3,8 +3,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 mod aes;
 
+use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed};
 use core::num::NonZeroU32;
-use subspace_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed};
 
 /// Proof of time error
 #[derive(Debug, thiserror::Error)]

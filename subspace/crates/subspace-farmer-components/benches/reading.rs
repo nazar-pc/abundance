@@ -1,3 +1,6 @@
+use ab_core_primitives::pieces::PieceOffset;
+use ab_core_primitives::sectors::{SectorId, SectorIndex};
+use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use ab_erasure_coding::ErasureCoding;
 use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use futures::FutureExt;
@@ -9,9 +12,6 @@ use std::io::Write;
 use std::num::NonZeroU64;
 use std::{env, fs, slice};
 use subspace_archiving::archiver::Archiver;
-use subspace_core_primitives::pieces::PieceOffset;
-use subspace_core_primitives::sectors::{SectorId, SectorIndex};
-use subspace_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use subspace_farmer_components::plotting::{
     CpuRecordsEncoder, PlotSectorOptions, PlottedSector, plot_sector,

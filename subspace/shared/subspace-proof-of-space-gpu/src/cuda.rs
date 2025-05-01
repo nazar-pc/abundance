@@ -3,11 +3,11 @@
 #[cfg(test)]
 mod tests;
 
+use ab_core_primitives::RecordChunk;
+use ab_core_primitives::pieces::Record;
+use ab_core_primitives::pos::{PosProof, PosSeed};
 use rust_kzg_blst::types::fr::FsFr;
 use std::ops::DerefMut;
-use subspace_core_primitives::RecordChunk;
-use subspace_core_primitives::pieces::Record;
-use subspace_core_primitives::pos::{PosProof, PosSeed};
 
 extern "C" {
     /// # Returns

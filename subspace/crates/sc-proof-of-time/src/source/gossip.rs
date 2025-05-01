@@ -2,6 +2,7 @@
 
 use crate::source::state::PotState;
 use crate::verifier::PotVerifier;
+use ab_core_primitives::pot::{PotCheckpoints, PotSeed, SlotNumber};
 use futures::channel::mpsc;
 use futures::{FutureExt, SinkExt, StreamExt};
 use parity_scale_codec::{Decode, Encode};
@@ -22,7 +23,6 @@ use std::future::poll_fn;
 use std::num::NonZeroU32;
 use std::pin::pin;
 use std::sync::Arc;
-use subspace_core_primitives::pot::{PotCheckpoints, PotSeed, SlotNumber};
 use tracing::{debug, error, trace, warn};
 
 /// How many slots can proof be before it is too far

@@ -8,6 +8,7 @@ mod tests;
 use crate::protocols::request_response::handlers::generic_request_handler::{
     GenericRequest, GenericRequestHandler,
 };
+use ab_core_primitives::pieces::{Piece, PieceIndex};
 use derive_more::{Deref, DerefMut, From, Into};
 use libp2p::kad::K_VALUE;
 use libp2p::multiaddr::Protocol;
@@ -15,7 +16,6 @@ use libp2p::{Multiaddr, PeerId};
 use multihash::Multihash;
 use parity_scale_codec::{Compact, CompactLen, Decode, Encode, EncodeLike, Input, Output};
 use std::sync::Arc;
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
 
 /// Cached-piece-by-index request.
 ///

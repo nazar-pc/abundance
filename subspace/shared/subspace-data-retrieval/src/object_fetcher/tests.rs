@@ -2,14 +2,14 @@
 
 use super::*;
 use crate::object_fetcher::partial_object::PADDING_BYTE_VALUE;
+use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::hashes::blake3_hash;
+use ab_core_primitives::segments::{
+    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, SegmentHeader, SegmentRoot,
+};
 use parity_scale_codec::{Compact, CompactLen, Encode};
 use rand::{RngCore, thread_rng};
 use std::iter;
-use subspace_core_primitives::block::BlockNumber;
-use subspace_core_primitives::hashes::blake3_hash;
-use subspace_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, SegmentHeader, SegmentRoot,
-};
 use subspace_logging::init_logger;
 
 /// Returns a piece filled with random data.

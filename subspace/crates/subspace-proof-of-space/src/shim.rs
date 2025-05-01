@@ -4,9 +4,9 @@
 #[cfg(feature = "alloc")]
 use crate::TableGenerator;
 use crate::{PosTableType, Table};
+use ab_core_primitives::hashes::blake3_hash;
+use ab_core_primitives::pos::{PosProof, PosSeed};
 use core::iter;
-use subspace_core_primitives::hashes::blake3_hash;
-use subspace_core_primitives::pos::{PosProof, PosSeed};
 
 /// Subspace proof of space table generator.
 ///
@@ -31,7 +31,7 @@ pub struct ShimTable {
     seed: PosSeed,
 }
 
-impl subspace_core_primitives::solutions::SolutionPotVerifier for ShimTable {
+impl ab_core_primitives::solutions::SolutionPotVerifier for ShimTable {
     fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
         let Some(correct_proof) = find_proof(seed, challenge_index) else {
             return false;
@@ -57,7 +57,7 @@ impl Table for ShimTable {
     }
 
     fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
-        <Self as subspace_core_primitives::solutions::SolutionPotVerifier>::is_proof_valid(
+        <Self as ab_core_primitives::solutions::SolutionPotVerifier>::is_proof_valid(
             seed,
             challenge_index,
             proof,

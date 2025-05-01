@@ -1,12 +1,12 @@
 //! Getting object pieces from the Subspace Distributed Storage Network, or various caches.
 
+use ab_core_primitives::pieces::{Piece, PieceIndex};
 use async_trait::async_trait;
 use futures::{Stream, StreamExt, stream};
 use std::fmt;
 use std::future::Future;
 use std::sync::Arc;
 use subspace_archiving::archiver::NewArchivedSegment;
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
 
 /// Trait representing a way to get pieces
 #[async_trait]

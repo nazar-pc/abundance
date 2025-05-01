@@ -16,6 +16,7 @@ include = [
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+ab-core-primitives = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -26,7 +27,6 @@ serde = { workspace = true, features = ["alloc", "derive"] }
 sp-core = { workspace = true }
 sp-io = { workspace = true, optional = true }
 sp-runtime = { workspace = true }
-subspace-core-primitives = { workspace = true }
 
 [features]
 default = ["std"]

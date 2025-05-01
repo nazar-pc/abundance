@@ -12,6 +12,7 @@ use crate::cluster::nats_client::{
     GenericBroadcast, GenericRequest, GenericStreamRequest, NatsClient,
 };
 use crate::farm::{FarmError, PieceCache, PieceCacheId, PieceCacheOffset};
+use ab_core_primitives::pieces::{Piece, PieceIndex};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use derive_more::{Display, From};
@@ -22,7 +23,6 @@ use std::collections::BTreeSet;
 use std::pin::Pin;
 use std::task::Poll;
 use std::time::{Duration, Instant};
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
 use tokio::time::MissedTickBehavior;
 use tracing::{Instrument, debug, error, info, info_span, trace, warn};
 use ulid::Ulid;

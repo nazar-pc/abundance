@@ -1,12 +1,12 @@
 //! Primitives for Subspace RPC.
 
+use ab_core_primitives::block::BlockHash;
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pot::SlotNumber;
+use ab_core_primitives::solutions::{Solution, SolutionRange};
 use parity_scale_codec::{Decode, Encode, EncodeLike, Input, Output};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use subspace_core_primitives::block::BlockHash;
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pot::SlotNumber;
-use subspace_core_primitives::solutions::{Solution, SolutionRange};
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_verification::sr25519::RewardSignature;

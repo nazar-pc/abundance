@@ -4,9 +4,9 @@
 //! `RequestResponsesBehaviour` with generic [`GenericRequestHandler`].
 
 use super::generic_request_handler::{GenericRequest, GenericRequestHandler};
+use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use parity_scale_codec::{Decode, Encode};
 use std::sync::Arc;
-use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
 
 /// Segment header by segment indexes protocol request.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]

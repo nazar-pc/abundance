@@ -17,6 +17,7 @@ ab-contracts-test-utils = { version = "0.0.1", path = "crates/contracts/core/ab-
 ab-contracts-trivial-type-derive = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-trivial-type-derive" }
 ab-executor-native = { version = "0.0.1", path = "crates/execution/ab-executor-native" }
 ab-executor-slots = { version = "0.0.1", path = "crates/execution/ab-executor-slots" }
+ab-merkle-tree = { version = "0.0.1", path = "crates/shared/ab-merkle-tree" }
 ab-system-contract-address-allocator = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-address-allocator" }
 ab-system-contract-block = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-block" }
 ab-system-contract-code = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-code" }
@@ -25,19 +26,29 @@ ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/cont
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
 ab-transaction = { version = "0.0.1", path = "crates/shared/ab-transaction" }
 blake3 = { version = "1.8.2", default-features = false }
+bytes = { version = "1.10.1", default-features = false }
 const-sha1 = { version = "0.3.0", default-features = false }
 const_format = "0.2.34"
 criterion = { version = "0.5.1", default-features = false }
 derive_more = { version = "2.0.1", default-features = false }
 halfbrown = "0.3.0"
+hex = { version = "0.4.3", default-features = false }
 ident_case = "1.0.1"
 no-panic = "0.1.35"
+# TODO: Update once https://github.com/paritytech/polkadot-sdk/pull/7466 in backported
+parity-scale-codec = { version = "=3.6.12", default-features = false }
+# TODO: Remove once https://github.com/paritytech/polkadot-sdk/pull/7466 is backported
+parity-scale-codec-derive = { version = "=3.6.12", default-features = false }
 proc-macro2 = "1.0.95"
 quote = "1.0.40"
 rand_core = { version = "0.9.3", default-features = false }
 rand_chacha = { version = "0.9.0", default-features = false }
+rayon = "1.10.0"
 reed-solomon-simd = { version = "3.0.1", default-features = false }
+scale-info = { version = "2.11.6", default-features = false }
 schnorrkel = { version = "0.11.4", default-features = false }
+serde = { version = "1.0.219", default-features = false }
+serde-big-array = "0.5.1"
 smallvec = "1.15.0"
 syn = "2.0.100"
 take_mut = "0.2.2"
@@ -53,6 +64,7 @@ tracing-subscriber = "0.3.19"
 #
 # This list is ordered alphabetically.
 [profile.dev.package]
+ab-merkle-tree = { opt-level = 3 }
 blake3 = { opt-level = 3 }
 curve25519-dalek = { opt-level = 3 }
 reed-solomon-simd = { opt-level = 3 }

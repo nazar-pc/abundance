@@ -12,6 +12,7 @@ include = [
 ]
 
 [dependencies]
+ab-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 ab-erasure-coding = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -19,7 +20,6 @@ futures = { workspace = true }
 hex = { workspace = true, features = ["std"] }
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 subspace-archiving = { workspace = true, features = ["parallel"] }
-subspace-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "rt"] }
 tracing = { workspace = true, features = ["std"] }

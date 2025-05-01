@@ -16,8 +16,7 @@ use core::iter::Step;
 use core::num::{NonZeroU64, TryFromIntError};
 use core::simd::Simd;
 use derive_more::{
-    Add, AddAssign, AsRef, Deref, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub,
-    SubAssign,
+    Add, AddAssign, Deref, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub, SubAssign,
 };
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};

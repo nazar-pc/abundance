@@ -1,6 +1,7 @@
 //! Pool plotter
 
 use crate::plotter::{Plotter, SectorPlottingProgress};
+use ab_core_primitives::sectors::SectorIndex;
 use async_trait::async_trait;
 use event_listener::Event;
 use futures::channel::mpsc;
@@ -8,7 +9,6 @@ use futures::future;
 use std::any::type_name_of_val;
 use std::pin::pin;
 use std::time::Duration;
-use subspace_core_primitives::sectors::SectorIndex;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_verification::sr25519::PublicKey;
 use tracing::{error, trace};

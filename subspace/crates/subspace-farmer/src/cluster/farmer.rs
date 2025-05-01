@@ -16,6 +16,8 @@ use crate::farm::{
     PlottedSectors, SectorUpdate,
 };
 use crate::utils::AsyncJoinOnDrop;
+use ab_core_primitives::pieces::{Piece, PieceOffset};
+use ab_core_primitives::sectors::SectorIndex;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use derive_more::{Display, From};
@@ -28,8 +30,6 @@ use std::future::Future;
 use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use subspace_core_primitives::pieces::{Piece, PieceOffset};
-use subspace_core_primitives::sectors::SectorIndex;
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_rpc_primitives::SolutionResponse;
 use tokio::time::MissedTickBehavior;

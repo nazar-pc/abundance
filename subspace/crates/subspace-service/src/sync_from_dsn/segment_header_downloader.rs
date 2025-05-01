@@ -1,10 +1,10 @@
+use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use std::collections::{BTreeSet, HashMap};
 use std::error::Error;
 use std::pin::pin;
 use std::sync::Arc;
-use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use subspace_networking::Node;
 use subspace_networking::libp2p::PeerId;
 use subspace_networking::protocols::request_response::handlers::segment_header::{

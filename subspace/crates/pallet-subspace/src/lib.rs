@@ -14,6 +14,12 @@ pub mod extensions;
 pub mod weights;
 
 use crate::extensions::weights::WeightInfo as ExtensionWeightInfo;
+use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::pot::SlotNumber;
+use ab_core_primitives::segments::{
+    ArchivedHistorySegment, HistorySize, SegmentHeader, SegmentIndex,
+};
+use ab_core_primitives::solutions::SolutionRange;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::num::NonZeroU64;
@@ -33,12 +39,6 @@ use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
     TransactionValidityError, ValidTransaction,
 };
-use subspace_core_primitives::block::BlockNumber;
-use subspace_core_primitives::pot::SlotNumber;
-use subspace_core_primitives::segments::{
-    ArchivedHistorySegment, HistorySize, SegmentHeader, SegmentIndex,
-};
-use subspace_core_primitives::solutions::SolutionRange;
 
 /// Custom origin for validated unsigned extrinsics.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -87,6 +87,10 @@ pub struct ConsensusConstants<BlockNumber> {
 pub mod pallet {
     use crate::weights::WeightInfo;
     use crate::{ConsensusConstants, ExtensionWeightInfo, RawOrigin};
+    use ab_core_primitives::hashes::Blake3Hash;
+    use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
+    use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+    use ab_core_primitives::solutions::SolutionRange;
     use alloc::collections::btree_map::BTreeMap;
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
@@ -96,10 +100,6 @@ pub mod pallet {
     use sp_consensus_subspace::digests::CompatibleDigestItem;
     use sp_consensus_subspace::inherents::{INHERENT_IDENTIFIER, InherentError, InherentType};
     use sp_runtime::DigestItem;
-    use subspace_core_primitives::hashes::Blake3Hash;
-    use subspace_core_primitives::pot::{PotCheckpoints, SlotNumber};
-    use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
-    use subspace_core_primitives::solutions::SolutionRange;
 
     /// Override for next solution range adjustment
     #[derive(Debug, Encode, Decode, TypeInfo)]
@@ -275,12 +275,8 @@ pub mod pallet {
     /// Mapping from segment index to corresponding segment root of contained records.
     #[pallet::storage]
     #[pallet::getter(fn segment_root)]
-    pub(super) type SegmentRoot<T> = CountedStorageMap<
-        _,
-        Twox64Concat,
-        SegmentIndex,
-        subspace_core_primitives::segments::SegmentRoot,
-    >;
+    pub(super) type SegmentRoot<T> =
+        CountedStorageMap<_, Twox64Concat, SegmentIndex, ab_core_primitives::segments::SegmentRoot>;
 
     /// Whether the segment headers inherent has been processed in this block (temporary value).
     ///

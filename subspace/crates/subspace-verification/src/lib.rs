@@ -5,12 +5,12 @@
 
 pub mod sr25519;
 
+use ab_core_primitives::block::BlockWeight;
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::solutions::SolutionRange;
 use schnorrkel::SignatureError;
 use schnorrkel::context::SigningContext;
 use sr25519::RewardSignature;
-use subspace_core_primitives::block::BlockWeight;
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::solutions::SolutionRange;
 
 /// Check the reward signature validity.
 pub fn check_reward_signature(

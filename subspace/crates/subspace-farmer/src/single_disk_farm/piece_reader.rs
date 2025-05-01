@@ -2,6 +2,9 @@
 
 use crate::farm::{FarmError, PieceReader};
 use crate::single_disk_farm::direct_io_file::DirectIoFile;
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pieces::{Piece, PieceOffset};
+use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_erasure_coding::ErasureCoding;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use async_trait::async_trait;
@@ -10,9 +13,6 @@ use futures::{SinkExt, StreamExt};
 use std::collections::HashSet;
 use std::future::Future;
 use std::sync::Arc;
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pieces::{Piece, PieceOffset};
-use subspace_core_primitives::sectors::{SectorId, SectorIndex};
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{SectorMetadataChecksummed, sector_size};
 use subspace_farmer_components::{ReadAt, ReadAtAsync, ReadAtSync, reading};

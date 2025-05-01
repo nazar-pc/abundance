@@ -7,13 +7,13 @@
 use crate::proving::SolutionCandidates;
 use crate::sector::{SectorContentsMap, SectorMetadataChecksummed, sector_size};
 use crate::{ReadAtOffset, ReadAtSync};
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pieces::RecordChunk;
+use ab_core_primitives::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
+use ab_core_primitives::solutions::{SolutionDistance, SolutionRange};
 use rayon::prelude::*;
 use std::collections::HashSet;
 use std::io;
-use subspace_core_primitives::hashes::Blake3Hash;
-use subspace_core_primitives::pieces::RecordChunk;
-use subspace_core_primitives::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
-use subspace_core_primitives::solutions::{SolutionDistance, SolutionRange};
 use thiserror::Error;
 
 /// Errors that happen during proving

@@ -7,6 +7,7 @@ pub mod utility;
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
+pub use ab_core_primitives::block::BlockNumber;
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::tokens;
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
@@ -18,7 +19,6 @@ use scale_info::TypeInfo;
 use sp_core::parameter_types;
 use sp_runtime::traits::{Bounded, IdentifyAccount, Verify};
 use sp_runtime::{FixedPointNumber, MultiSignature, Perbill, Perquintill};
-pub use subspace_core_primitives::block::BlockNumber;
 
 /// Minimum desired number of replicas of the blockchain to be stored by the network,
 /// impacts storage fees.

@@ -1,6 +1,8 @@
 //! Node client implementation that connects to node via RPC (WebSockets)
 
 use crate::node_client::{NodeClient, NodeClientExt};
+use ab_core_primitives::pieces::{Piece, PieceIndex};
+use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use async_lock::Semaphore;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
@@ -9,8 +11,6 @@ use jsonrpsee::rpc_params;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use std::pin::Pin;
 use std::sync::Arc;
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
-use subspace_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use subspace_rpc_primitives::{
     FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
 };

@@ -5,9 +5,9 @@
 use crate::protocols::request_response::handlers::generic_request_handler::{
     GenericRequest, GenericRequestHandler,
 };
+use ab_core_primitives::pieces::{Piece, PieceIndex};
 use parity_scale_codec::{Decode, Encode};
 use std::sync::Arc;
-use subspace_core_primitives::pieces::{Piece, PieceIndex};
 
 /// Piece-by-index request
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]

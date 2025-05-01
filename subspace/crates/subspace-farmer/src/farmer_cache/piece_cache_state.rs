@@ -1,7 +1,7 @@
 use crate::farmer_cache::{CacheBackend, CacheIndex, FarmerCacheOffset};
+use ab_core_primitives::pieces::PieceIndex;
 use std::collections::btree_map::Values;
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use subspace_core_primitives::pieces::PieceIndex;
 use subspace_networking::KeyWithDistance;
 use subspace_networking::libp2p::PeerId;
 use subspace_networking::utils::multihash::ToMultihash;
