@@ -38,6 +38,8 @@ use serde::{Deserialize, Serialize};
     Eq,
     PartialEq,
     Hash,
+    From,
+    Into,
     Add,
     AddAssign,
     Sub,
@@ -69,29 +71,6 @@ impl Step for SectorIndex {
     #[inline(always)]
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
         u16::backward_checked(start.0, count).map(Self)
-    }
-}
-
-impl From<u16> for SectorIndex {
-    #[inline(always)]
-    fn from(original: u16) -> Self {
-        Self(original)
-    }
-}
-
-impl TryFrom<u64> for SectorIndex {
-    type Error = TryFromIntError;
-
-    #[inline]
-    fn try_from(value: u64) -> Result<Self, Self::Error> {
-        Ok(Self(u16::try_from(value)?))
-    }
-}
-
-impl From<SectorIndex> for u16 {
-    #[inline(always)]
-    fn from(original: SectorIndex) -> Self {
-        original.0
     }
 }
 
@@ -291,6 +270,8 @@ impl SectorId {
     Eq,
     PartialEq,
     Hash,
+    From,
+    Into,
     Add,
     AddAssign,
     Sub,
@@ -331,20 +312,6 @@ impl TryFrom<usize> for SBucket {
     #[inline]
     fn try_from(value: usize) -> Result<Self, Self::Error> {
         Ok(Self(u16::try_from(value)?))
-    }
-}
-
-impl From<u16> for SBucket {
-    #[inline]
-    fn from(original: u16) -> Self {
-        Self(original)
-    }
-}
-
-impl From<SBucket> for u16 {
-    #[inline]
-    fn from(original: SBucket) -> Self {
-        original.0
     }
 }
 
