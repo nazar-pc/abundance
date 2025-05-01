@@ -1,5 +1,6 @@
 //! Hashes-related data structures and functions.
 
+use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::fmt;
 use derive_more::{AsMut, AsRef, Deref, DerefMut, From, Into};
@@ -124,8 +125,13 @@ impl TryFrom<&[u8]> for Blake3Hash {
 }
 
 impl Blake3Hash {
-    /// Size of BLAKE3 hash output (in bytes).
-    pub const SIZE: usize = 32;
+    /// Size in bytes
+    pub const SIZE: usize = OUT_LEN;
+
+    /// Create new instance
+    pub const fn new(hash: [u8; OUT_LEN]) -> Self {
+        Self(hash)
+    }
 }
 
 /// BLAKE3 hashing of a single value.

@@ -3,6 +3,7 @@
 use parity_scale_codec::{Decode, Encode, EncodeLike, Input, Output};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use subspace_core_primitives::block::BlockHash;
 use subspace_core_primitives::hashes::Blake3Hash;
 use subspace_core_primitives::pot::SlotNumber;
 use subspace_core_primitives::solutions::{Solution, SolutionRange};
@@ -18,8 +19,7 @@ pub const MAX_SEGMENT_HEADERS_PER_REQUEST: usize = 1000;
 #[serde(rename_all = "camelCase")]
 pub struct FarmerAppInfo {
     /// Genesis hash of the chain
-    #[serde(with = "hex")]
-    pub genesis_hash: [u8; 32],
+    pub genesis_hash: BlockHash,
     /// Bootstrap nodes for DSN
     pub dsn_bootstrap_nodes: Vec<Multiaddr>,
     /// Whether node is syncing right now
@@ -67,7 +67,7 @@ impl EncodeLike for FarmerAppInfo {}
 impl Decode for FarmerAppInfo {
     fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
         Ok(FarmerAppInfo {
-            genesis_hash: <[u8; 32]>::decode(input)
+            genesis_hash: BlockHash::decode(input)
                 .map_err(|error| error.chain("Could not decode `FarmerAppInfo::genesis_hash`"))?,
             dsn_bootstrap_nodes: Vec::<Vec<u8>>::decode(input)
                 .map_err(|error| {

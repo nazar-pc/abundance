@@ -29,5 +29,5 @@ pub fn check_reward_signature(
 
 /// Calculate weight derived from provided solution range
 pub fn calculate_block_weight(solution_range: SolutionRange) -> BlockWeight {
-    BlockWeight::from(u64::from(SolutionRange::MAX - solution_range))
+    BlockWeight::new(u128::from(u64::from(SolutionRange::MAX - solution_range)))
 }

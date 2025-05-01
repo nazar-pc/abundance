@@ -66,6 +66,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use std::{fmt, fs, io, mem};
+use subspace_core_primitives::block::BlockHash;
 use subspace_core_primitives::hashes::{Blake3Hash, blake3_hash};
 use subspace_core_primitives::pieces::Record;
 use subspace_core_primitives::sectors::SectorIndex;
@@ -111,8 +112,7 @@ pub enum SingleDiskFarmInfo {
         /// ID of the farm
         id: FarmId,
         /// Genesis hash of the chain used for farm creation
-        #[serde(with = "hex")]
-        genesis_hash: [u8; 32],
+        genesis_hash: BlockHash,
         /// Public key of identity used for farm creation
         public_key: PublicKey,
         /// How many pieces does one sector contain.
@@ -128,7 +128,7 @@ impl SingleDiskFarmInfo {
     /// Create new instance
     pub fn new(
         id: FarmId,
-        genesis_hash: [u8; 32],
+        genesis_hash: BlockHash,
         public_key: PublicKey,
         pieces_in_sector: u16,
         allocated_space: u64,
@@ -199,7 +199,7 @@ impl SingleDiskFarmInfo {
     }
 
     /// Genesis hash of the chain used for farm creation
-    pub fn genesis_hash(&self) -> &[u8; 32] {
+    pub fn genesis_hash(&self) -> &BlockHash {
         let Self::V0 { genesis_hash, .. } = self;
         genesis_hash
     }
