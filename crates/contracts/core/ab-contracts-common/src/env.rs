@@ -7,9 +7,6 @@ use core::ffi::c_void;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 
-// TODO: New type
-pub type Blake3Hash = [u8; 32];
-
 /// Context for method call.
 ///
 /// The correct mental model for context is "user of the child process," where "process" is a method

@@ -1,26 +1,17 @@
-use crate::env::Blake3Hash;
 use crate::metadata::ContractMetadataKind;
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_io_type::trivial_type::TrivialType;
 use const_sha1::sha1;
-use core::fmt;
+use derive_more::Display;
 
 /// Hash of method's compact metadata, which uniquely represents method signature.
 ///
 /// While nothing can be said about method implementation, matching method fingerprint means method
 /// name, inputs and outputs are what they are expected to be (struct and field names are ignored as
 /// explained in [`ContractMetadataKind::compact`].
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, TrivialType)]
+#[derive(Debug, Display, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, TrivialType)]
 #[repr(C)]
 pub struct MethodFingerprint(Blake3Hash);
-
-impl fmt::Display for MethodFingerprint {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02x}")?;
-        }
-        Ok(())
-    }
-}
 
 impl MethodFingerprint {
     /// Create a new method fingerprint from its metadata.
@@ -40,11 +31,11 @@ impl MethodFingerprint {
 
         let hash = sha1(compact_metadata).as_bytes();
 
-        Some(Self([
+        Some(Self(Blake3Hash::new([
             hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7], hash[8],
             hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15], hash[16],
             hash[17], hash[18], hash[19], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]))
+        ])))
     }
 
     #[inline(always)]
