@@ -3,8 +3,8 @@
 use ab_contracts_common::block::{BlockHash, BlockNumber};
 use ab_contracts_common::env::Env;
 use ab_contracts_common::{Address, ContractError};
-use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
+use ab_io_type::trivial_type::TrivialType;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]

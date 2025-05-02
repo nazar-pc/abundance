@@ -1,6 +1,6 @@
 use crate::ShardIndex;
-use ab_contracts_io_type::metadata::IoTypeMetadataKind;
-use ab_contracts_io_type::trivial_type::TrivialType;
+use ab_io_type::metadata::IoTypeMetadataKind;
+use ab_io_type::trivial_type::TrivialType;
 use core::cmp::Ordering;
 use core::mem::MaybeUninit;
 use core::{fmt, ptr};
@@ -16,7 +16,7 @@ unsafe impl TrivialType for Address {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Address as u8];
 }
 
-// Ensure this never mismatches with code in `ab-contracts-io-type` despite being in different crate
+// Ensure this never mismatches with code in `ab-io-type` despite being in different crate
 const _: () = {
     let (type_details, _metadata) = IoTypeMetadataKind::type_details(Address::METADATA)
         .expect("Statically correct metadata; qed");

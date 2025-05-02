@@ -5,8 +5,8 @@ use crate::{EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER
 use ab_contracts_common::Address;
 use ab_contracts_common::env::{MethodContext, PreparedMethod};
 use ab_contracts_common::method::ExternalArgs;
-use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
+use ab_io_type::trivial_type::TrivialType;
 use core::mem::MaybeUninit;
 use core::ptr;
 

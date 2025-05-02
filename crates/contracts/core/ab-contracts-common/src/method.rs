@@ -1,6 +1,6 @@
 use crate::env::Blake3Hash;
 use crate::metadata::ContractMetadataKind;
-use ab_contracts_io_type::trivial_type::TrivialType;
+use ab_io_type::trivial_type::TrivialType;
 use const_sha1::sha1;
 use core::fmt;
 

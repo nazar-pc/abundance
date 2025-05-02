@@ -4,7 +4,7 @@ pub mod decode;
 mod tests;
 
 use crate::metadata::compact::compact_metadata;
-use ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY;
+use ab_io_type::metadata::MAX_METADATA_CAPACITY;
 
 /// Metadata for smart contact methods.
 ///
@@ -31,7 +31,7 @@ pub enum ContractMetadataKind {
     ///   * [`Self::ViewStateless`]
     ///   * [`Self::ViewStateful`]
     ///
-    /// [`IoTypeMetadataKind`]: ab_contracts_io_type::metadata::IoTypeMetadataKind
+    /// [`IoTypeMetadataKind`]: ab_io_type::metadata::IoTypeMetadataKind
     Contract,
     /// Trait metadata.
     ///
@@ -69,7 +69,7 @@ pub enum ContractMetadataKind {
     ///   * For last [`Self::Output`] this is skipped if method is [`Self::Init`] (since it is
     ///     statically known to be `Self`) and present otherwise
     ///
-    /// [`IoTypeMetadataKind`]: ab_contracts_io_type::metadata::IoTypeMetadataKind
+    /// [`IoTypeMetadataKind`]: ab_io_type::metadata::IoTypeMetadataKind
     ///
     /// NOTE: [`Self::Output`], regardless of whether it is a return type or explicit `#[output]`
     /// argument is encoded as a separate argument and counts towards number of arguments. At the

@@ -6,7 +6,7 @@ version = 4
 name = "ab-aligned-buffer"
 version = "0.0.1"
 dependencies = [
- "ab-contracts-io-type",
+ "ab-io-type",
 ]
 
 [[package]]
@@ -14,11 +14,11 @@ name = "ab-contract-playground"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
  "ab-contracts-test-utils",
  "ab-executor-native",
+ "ab-io-type",
  "ab-system-contract-code",
  "tracing-subscriber",
 ]
@@ -27,7 +27,7 @@ dependencies = [
 name = "ab-contracts-common"
 version = "0.0.1"
 dependencies = [
- "ab-contracts-io-type",
+ "ab-io-type",
  "const-sha1",
  "derive_more 2.0.1",
  "no-panic",
@@ -35,19 +35,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "ab-contracts-io-type"
-version = "0.0.1"
-dependencies = [
- "ab-contracts-trivial-type-derive",
-]
-
-[[package]]
 name = "ab-contracts-macros"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros-impl",
+ "ab-io-type",
  "const_format",
 ]
 
@@ -66,8 +59,8 @@ name = "ab-contracts-standards"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
+ "ab-io-type",
  "ab-transaction",
 ]
 
@@ -76,20 +69,11 @@ name = "ab-contracts-test-utils"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
+ "ab-io-type",
  "ab-system-contract-simple-wallet-base",
  "ab-transaction",
-]
-
-[[package]]
-name = "ab-contracts-trivial-type-derive"
-version = "0.0.1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.100",
 ]
 
 [[package]]
@@ -127,9 +111,9 @@ name = "ab-example-contract-flipper"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-executor-native",
+ "ab-io-type",
  "ab-system-contract-code",
  "criterion",
 ]
@@ -139,11 +123,11 @@ name = "ab-example-contract-ft"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
  "ab-contracts-test-utils",
  "ab-executor-native",
+ "ab-io-type",
  "ab-system-contract-code",
 ]
 
@@ -152,10 +136,10 @@ name = "ab-example-contract-wallet"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
  "ab-executor-native",
+ "ab-io-type",
  "ab-system-contract-code",
  "ab-system-contract-simple-wallet-base",
  "ab-transaction",
@@ -169,9 +153,9 @@ version = "0.0.1"
 dependencies = [
  "ab-aligned-buffer",
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-standards",
  "ab-executor-slots",
+ "ab-io-type",
  "ab-system-contract-address-allocator",
  "ab-system-contract-block",
  "ab-system-contract-code",
@@ -196,6 +180,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-io-type"
+version = "0.0.1"
+dependencies = [
+ "ab-trivial-type-derive",
+]
+
+[[package]]
 name = "ab-merkle-tree"
 version = "0.0.1"
 dependencies = [
@@ -209,8 +200,8 @@ name = "ab-system-contract-address-allocator"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
+ "ab-io-type",
 ]
 
 [[package]]
@@ -218,8 +209,8 @@ name = "ab-system-contract-block"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
+ "ab-io-type",
 ]
 
 [[package]]
@@ -227,8 +218,8 @@ name = "ab-system-contract-code"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
+ "ab-io-type",
  "ab-system-contract-address-allocator",
 ]
 
@@ -237,11 +228,11 @@ name = "ab-system-contract-native-token"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
  "ab-contracts-test-utils",
  "ab-executor-native",
+ "ab-io-type",
  "ab-system-contract-code",
 ]
 
@@ -250,9 +241,9 @@ name = "ab-system-contract-simple-wallet-base"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
  "ab-contracts-standards",
+ "ab-io-type",
  "ab-system-contract-state",
  "ab-transaction",
  "blake3",
@@ -266,8 +257,8 @@ name = "ab-system-contract-state"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-contracts-io-type",
  "ab-contracts-macros",
+ "ab-io-type",
 ]
 
 [[package]]
@@ -276,7 +267,7 @@ version = "0.0.1"
 dependencies = [
  "ab-aligned-buffer",
  "ab-contracts-common",
- "ab-contracts-io-type",
+ "ab-io-type",
  "blake3",
  "thiserror",
 ]
@@ -288,6 +279,15 @@ dependencies = [
  "ab-contracts-common",
  "ab-transaction",
  "thiserror",
+]
+
+[[package]]
+name = "ab-trivial-type-derive"
+version = "0.0.1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
 ]
 
 [[package]]

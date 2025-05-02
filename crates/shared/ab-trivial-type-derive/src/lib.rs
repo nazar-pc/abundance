@@ -91,8 +91,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
                     // Ensure capacity and alignment are correctly decoded from metadata
                     let (type_details, _metadata) =
-                        ::ab_contracts_io_type::metadata::IoTypeMetadataKind::type_details(
-                            <#type_name as ::ab_contracts_io_type::trivial_type::TrivialType>::METADATA,
+                        ::ab_io_type::metadata::IoTypeMetadataKind::type_details(
+                            <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA,
                         )
                             .expect("Statically correct metadata; qed");
                     assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
@@ -100,9 +100,9 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 };
 
                 #[automatically_derived]
-                unsafe impl ::ab_contracts_io_type::trivial_type::TrivialType for #type_name
+                unsafe impl ::ab_io_type::trivial_type::TrivialType for #type_name
                 where
-                    #( #field_types: ::ab_contracts_io_type::trivial_type::TrivialType, )*
+                    #( #field_types: ::ab_io_type::trivial_type::TrivialType, )*
                 {
                     const METADATA: &[::core::primitive::u8] = #struct_metadata;
                 }
@@ -163,8 +163,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
                     // Ensure capacity and alignment are correctly decoded from metadata
                     let (type_details, _metadata) =
-                        ::ab_contracts_io_type::metadata::IoTypeMetadataKind::type_details(
-                            <#type_name as ::ab_contracts_io_type::trivial_type::TrivialType>::METADATA,
+                        ::ab_io_type::metadata::IoTypeMetadataKind::type_details(
+                            <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA,
                         )
                             .expect("Statically correct metadata; qed");
                     assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
@@ -174,9 +174,9 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 };
 
                 #[automatically_derived]
-                unsafe impl ::ab_contracts_io_type::trivial_type::TrivialType for #type_name
+                unsafe impl ::ab_io_type::trivial_type::TrivialType for #type_name
                 where
-                    #( #field_types: ::ab_contracts_io_type::trivial_type::TrivialType, )*
+                    #( #field_types: ::ab_io_type::trivial_type::TrivialType, )*
                 {
                     const METADATA: &[::core::primitive::u8] = #enum_metadata;
                 }
@@ -300,12 +300,12 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
     Ok(quote! {{
         #[inline(always)]
         const fn metadata() -> (
-            [::core::primitive::u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY],
+            [::core::primitive::u8; ::ab_io_type::metadata::MAX_METADATA_CAPACITY],
             usize,
         )
         {
-            ::ab_contracts_io_type::metadata::concat_metadata_sources(&[
-                &[::ab_contracts_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as ::core::primitive::u8],
+            ::ab_io_type::metadata::concat_metadata_sources(&[
+                &[::ab_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as ::core::primitive::u8],
                 #( #inner_struct_metadata )*
             ])
         }
@@ -369,7 +369,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
 
         quote! {
             &[
-                ::ab_contracts_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as ::core::primitive::u8,
+                ::ab_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as ::core::primitive::u8,
                 #( #enum_metadata_header, )*
             ]
         }
@@ -405,11 +405,11 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
     Ok(quote! {{
         #[inline(always)]
         const fn metadata() -> (
-            [::core::primitive::u8; ::ab_contracts_io_type::metadata::MAX_METADATA_CAPACITY],
+            [::core::primitive::u8; ::ab_io_type::metadata::MAX_METADATA_CAPACITY],
             usize,
         )
         {
-            ::ab_contracts_io_type::metadata::concat_metadata_sources(&[
+            ::ab_io_type::metadata::concat_metadata_sources(&[
                 #enum_metadata_header,
                 #( #inner )*
             ])
@@ -511,7 +511,7 @@ fn generate_fields_metadata(
 
         Ok(quote! {
             &[ #field_metadata ],
-            <#field_type as ::ab_contracts_io_type::trivial_type::TrivialType>::METADATA,
+            <#field_type as ::ab_io_type::trivial_type::TrivialType>::METADATA,
         })
     })
 }

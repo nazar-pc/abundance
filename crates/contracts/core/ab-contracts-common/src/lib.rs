@@ -10,9 +10,9 @@ pub mod metadata;
 pub mod method;
 
 use crate::method::MethodFingerprint;
-use ab_contracts_io_type::IoType;
-use ab_contracts_io_type::trivial_type::TrivialType;
-use ab_contracts_io_type::variable_bytes::VariableBytes;
+use ab_io_type::IoType;
+use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::variable_bytes::VariableBytes;
 pub use address::Address;
 pub use balance::Balance;
 use core::ffi::c_void;

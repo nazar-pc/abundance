@@ -1,8 +1,8 @@
 #![no_std]
 
-use ab_contracts_io_type::bool::Bool;
-use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
+use ab_io_type::bool::Bool;
+use ab_io_type::trivial_type::TrivialType;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]

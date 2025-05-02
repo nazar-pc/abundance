@@ -16,8 +16,8 @@ all-features = true
 [dependencies]
 ab-aligned-buffer = { workspace = true }
 ab-contracts-common = { workspace = true, features = ["executor"] }
-ab-contracts-io-type = { workspace = true }
 ab-contracts-standards = { workspace = true }
+ab-io-type = { workspace = true }
 ab-executor-slots = { workspace = true }
 ab-system-contract-address-allocator = { workspace = true }
 ab-system-contract-block = { workspace = true }

@@ -3,7 +3,7 @@ mod builder_buffer;
 use crate::owned::builder_buffer::BuilderBuffer;
 use crate::{Transaction, TransactionHeader, TransactionSlot};
 use ab_aligned_buffer::SharedAlignedBuffer;
-use ab_contracts_io_type::trivial_type::TrivialType;
+use ab_io_type::trivial_type::TrivialType;
 use core::slice;
 
 #[derive(Debug, Default, Copy, Clone, TrivialType)]

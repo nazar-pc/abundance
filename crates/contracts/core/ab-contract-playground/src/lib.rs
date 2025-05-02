@@ -2,11 +2,11 @@
 
 use ab_contracts_common::env::{Env, MethodContext};
 use ab_contracts_common::{Address, Balance, ContractError};
-use ab_contracts_io_type::maybe_data::MaybeData;
-use ab_contracts_io_type::trivial_type::TrivialType;
-use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract;
 use ab_contracts_standards::fungible::Fungible;
+use ab_io_type::maybe_data::MaybeData;
+use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::variable_bytes::VariableBytes;
 use core::cmp::Ordering;
 
 #[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq, TrivialType)]

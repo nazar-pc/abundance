@@ -2,9 +2,9 @@
 
 use ab_contracts_common::env::{Env, MethodContext};
 use ab_contracts_common::{Address, ContractError, MAX_CODE_SIZE};
-use ab_contracts_io_type::trivial_type::TrivialType;
-use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract;
+use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::variable_bytes::VariableBytes;
 use ab_system_contract_address_allocator::AddressAllocatorExt;
 
 #[derive(Debug, Copy, Clone, TrivialType)]

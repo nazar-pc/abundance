@@ -1,5 +1,5 @@
 use crate::{OwnedAlignedBuffer, SharedAlignedBuffer};
-use ab_contracts_io_type::MAX_ALIGNMENT;
+use ab_io_type::MAX_ALIGNMENT;
 use alloc::vec;
 
 const EXPECTED_ALIGNMENT: usize = MAX_ALIGNMENT as usize;

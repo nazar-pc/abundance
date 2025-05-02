@@ -7,7 +7,7 @@ pub mod owned;
 use ab_contracts_common::Address;
 use ab_contracts_common::block::BlockHash;
 use ab_contracts_common::env::Blake3Hash;
-use ab_contracts_io_type::trivial_type::TrivialType;
+use ab_io_type::trivial_type::TrivialType;
 use blake3::Hasher;
 use core::slice;
 

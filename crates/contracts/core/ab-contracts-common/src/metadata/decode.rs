@@ -1,5 +1,5 @@
 use crate::metadata::ContractMetadataKind;
-use ab_contracts_io_type::metadata::{IoTypeDetails, IoTypeMetadataKind};
+use ab_io_type::metadata::{IoTypeDetails, IoTypeMetadataKind};
 
 /// Metadata decoding error
 #[derive(Debug, thiserror::Error)]

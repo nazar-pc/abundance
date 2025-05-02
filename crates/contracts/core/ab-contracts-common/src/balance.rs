@@ -1,5 +1,5 @@
-use ab_contracts_io_type::metadata::IoTypeMetadataKind;
-use ab_contracts_io_type::trivial_type::TrivialType;
+use ab_io_type::metadata::IoTypeMetadataKind;
+use ab_io_type::trivial_type::TrivialType;
 use core::cmp::Ordering;
 use core::mem::MaybeUninit;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
@@ -16,7 +16,7 @@ unsafe impl TrivialType for Balance {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Balance as u8];
 }
 
-// Ensure this never mismatches with code in `ab-contracts-io-type` despite being in different crate
+// Ensure this never mismatches with code in `ab-io-type` despite being in different crate
 const _: () = {
     let (type_details, _metadata) = IoTypeMetadataKind::type_details(Balance::METADATA)
         .expect("Statically correct metadata; qed");

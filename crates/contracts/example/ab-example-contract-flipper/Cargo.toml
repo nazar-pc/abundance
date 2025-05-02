@@ -22,8 +22,8 @@ name = "flip"
 harness = false
 
 [dependencies]
-ab-contracts-io-type = { workspace = true }
 ab-contracts-macros = { workspace = true }
+ab-io-type = { workspace = true }
 
 [dev-dependencies]
 ab-contracts-common = { workspace = true }

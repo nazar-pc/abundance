@@ -16,7 +16,7 @@ all-features = true
 [dependencies]
 ab-aligned-buffer = { workspace = true, optional = true }
 ab-contracts-common = { workspace = true }
-ab-contracts-io-type = { workspace = true }
+ab-io-type = { workspace = true }
 blake3 = { workspace = true }
 thiserror = { workspace = true, optional = true }
 

@@ -1,6 +1,6 @@
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::{DerefWrapper, IoType};
-pub use ab_contracts_trivial_type_derive::TrivialType;
+pub use ab_trivial_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::{ptr, slice};
