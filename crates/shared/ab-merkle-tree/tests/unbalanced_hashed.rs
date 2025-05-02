@@ -7,6 +7,7 @@ use ab_merkle_tree::unbalanced_hashed::UnbalancedHashedMerkleTree;
 use blake3::OUT_LEN;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
+use std::mem;
 use std::mem::MaybeUninit;
 
 const MAX_N: usize = 100;
@@ -20,7 +21,7 @@ impl SimpleUnbalancedMerkleTree {
     where
         Iter: Iterator<Item = &'a [u8; OUT_LEN]> + 'a,
     {
-        let mut nodes: Vec<[u8; OUT_LEN]> = leaves.cloned().collect();
+        let mut nodes = leaves.cloned().collect::<Vec<[u8; OUT_LEN]>>();
         if nodes.is_empty() {
             return None;
         }
@@ -29,8 +30,8 @@ impl SimpleUnbalancedMerkleTree {
         }
 
         // Build the tree level by level
+        let mut next_level = Vec::with_capacity(nodes.len().div_ceil(2));
         while nodes.len() > 1 {
-            let mut next_level = Vec::new();
             for i in (0..nodes.len()).step_by(2) {
                 if i + 1 < nodes.len() {
                     // Hash two nodes together
@@ -40,7 +41,8 @@ impl SimpleUnbalancedMerkleTree {
                     next_level.push(nodes[i]);
                 }
             }
-            nodes = next_level;
+            mem::swap(&mut nodes, &mut next_level);
+            next_level.clear();
         }
         Some(nodes[0])
     }
@@ -53,7 +55,7 @@ impl SimpleUnbalancedMerkleTree {
     where
         Iter: Iterator<Item = &'a [u8; OUT_LEN]> + 'a,
     {
-        let mut nodes: Vec<[u8; OUT_LEN]> = leaves.cloned().collect();
+        let mut nodes = leaves.cloned().collect::<Vec<[u8; OUT_LEN]>>();
         if nodes.is_empty() || target_index >= nodes.len() {
             return None;
         }
@@ -62,8 +64,8 @@ impl SimpleUnbalancedMerkleTree {
         let mut current_index = target_index;
 
         // Build the tree and collect proof
+        let mut next_level = Vec::with_capacity(nodes.len().div_ceil(2));
         while nodes.len() > 1 {
-            let mut next_level = Vec::new();
             for i in (0..nodes.len()).step_by(2) {
                 if i + 1 < nodes.len() {
                     // Hash two nodes
@@ -85,7 +87,8 @@ impl SimpleUnbalancedMerkleTree {
             }
             // Update index for the next level
             current_index /= 2;
-            nodes = next_level;
+            mem::swap(&mut nodes, &mut next_level);
+            next_level.clear();
         }
         Some((nodes[0], proof))
     }
