@@ -85,6 +85,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     let header = TransactionHeader {
+        version: 0,
         block_hash: BlockHash::default(),
         gas_limit: Default::default(),
         contract: wallet_address,

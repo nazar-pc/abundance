@@ -21,7 +21,7 @@ pub struct OwnedTransactionLengths {
     /// Seal length
     pub seal: u32,
     /// Not used and must be set to `0`
-    pub padding: [u8; 12],
+    pub padding: [u8; 4],
 }
 
 /// Errors for [`OwnedTransaction`]

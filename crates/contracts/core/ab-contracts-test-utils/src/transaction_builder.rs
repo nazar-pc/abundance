@@ -75,6 +75,7 @@ impl TransactionBuilder {
     ) -> OwnedTransaction {
         OwnedTransaction {
             header: TransactionHeader {
+                version: 0,
                 block_hash: BlockHash::default(),
                 gas_limit: Gas::default(),
                 contract: self.contract,

@@ -24,12 +24,20 @@ pub struct TransactionHash(Blake3Hash);
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct TransactionHeader {
+    // TODO: Some more complex field?
+    /// Transaction version
+    pub version: u64,
     /// Block hash at which transaction was created
     pub block_hash: BlockHash,
     /// Gas limit
     pub gas_limit: Gas,
     /// Contract implementing `TxHandler` trait to use for transaction verification and execution
     pub contract: Address,
+}
+
+impl TransactionHeader {
+    /// The only supported transaction version right now
+    pub const TRANSACTION_VERSION: u64 = 0;
 }
 
 /// Transaction slot
