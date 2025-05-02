@@ -135,6 +135,11 @@ impl Blake3Hash {
     pub const fn new(hash: [u8; OUT_LEN]) -> Self {
         Self(hash)
     }
+
+    /// Get internal representation
+    pub const fn as_bytes(&self) -> &[u8; Self::SIZE] {
+        &self.0
+    }
 }
 
 /// BLAKE3 hashing of a single value.

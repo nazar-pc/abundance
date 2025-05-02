@@ -39,8 +39,8 @@ impl MethodFingerprint {
     }
 
     #[inline(always)]
-    pub const fn to_bytes(&self) -> &Blake3Hash {
-        &self.0
+    pub const fn to_bytes(&self) -> &[u8; Blake3Hash::SIZE] {
+        self.0.as_bytes()
     }
 }
 
