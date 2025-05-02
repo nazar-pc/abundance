@@ -22,6 +22,7 @@ dependencies = [
  "derive_more 2.0.1",
  "hex",
  "parity-scale-codec",
+ "parity-scale-codec-derive",
  "rayon",
  "scale-info",
  "serde",
