@@ -3,8 +3,8 @@
 #[cfg(feature = "alloc")]
 pub mod owned;
 
+use crate::block::BlockHash;
 use ab_contracts_common::Address;
-use ab_contracts_common::block::BlockHash;
 use ab_contracts_common::env::Blake3Hash;
 use ab_io_type::trivial_type::TrivialType;
 use blake3::Hasher;

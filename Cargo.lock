@@ -213,6 +213,7 @@ version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
  "ab-contracts-macros",
+ "ab-core-primitives",
  "ab-io-type",
 ]
 
@@ -268,7 +269,6 @@ dependencies = [
 name = "ab-transaction-pool"
 version = "0.0.1"
 dependencies = [
- "ab-contracts-common",
  "ab-core-primitives",
  "thiserror",
 ]

@@ -2,10 +2,11 @@
 #![cfg(not(feature = "guest"))]
 
 use crate::ffi::flip::FlipperFlipArgs;
-use ab_contracts_common::env::{Blake3Hash, MethodContext};
+use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::TxHandler;
+use ab_core_primitives::block::BlockHash;
 use ab_core_primitives::transaction::{Transaction, TransactionHeader, TransactionSlot};
 use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_executor_native::NativeExecutor;
@@ -85,7 +86,7 @@ fn flip() {
     });
 
     let header = TransactionHeader {
-        block_hash: Blake3Hash::default(),
+        block_hash: BlockHash::default(),
         gas_limit: Default::default(),
         contract: wallet_address,
     };

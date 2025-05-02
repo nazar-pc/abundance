@@ -1,5 +1,6 @@
 //! Hashes-related data structures and functions.
 
+use ab_io_type::trivial_type::TrivialType;
 use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::fmt;
@@ -29,11 +30,13 @@ use serde::{Deserializer, Serializer};
     AsMut,
     Deref,
     DerefMut,
+    TrivialType,
 )]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
+#[repr(C)]
 pub struct Blake3Hash([u8; Blake3Hash::SIZE]);
 
 impl fmt::Display for Blake3Hash {

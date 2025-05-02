@@ -3,6 +3,7 @@
 use crate::hashes::Blake3Hash;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
+use ab_io_type::trivial_type::TrivialType;
 use core::iter::Step;
 use derive_more::{
     Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, From, Into, Sub, SubAssign,
@@ -30,6 +31,7 @@ use scale_info::TypeInfo;
     AddAssign,
     Sub,
     SubAssign,
+    TrivialType,
 )]
 #[cfg_attr(
     feature = "scale-codec",
@@ -123,6 +125,7 @@ impl BlockNumber {
     AsMut,
     Deref,
     DerefMut,
+    TrivialType,
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
