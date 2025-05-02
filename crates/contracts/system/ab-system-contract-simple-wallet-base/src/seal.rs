@@ -3,8 +3,8 @@
 use crate::{SIGNING_CONTEXT, Seal};
 use ab_contracts_common::ContractError;
 use ab_contracts_common::env::Blake3Hash;
+use ab_core_primitives::transaction::{TransactionHeader, TransactionSlot};
 use ab_io_type::trivial_type::TrivialType;
-use ab_transaction::{TransactionHeader, TransactionSlot};
 use core::slice;
 use schnorrkel::context::SigningContext;
 use schnorrkel::{Keypair, PublicKey, Signature};

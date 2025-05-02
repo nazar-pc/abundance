@@ -17,9 +17,9 @@ all-features = true
 ab-contracts-common = { workspace = true }
 ab-contracts-macros = { workspace = true }
 ab-contracts-standards = { workspace = true }
+ab-core-primitives = { workspace = true }
 ab-io-type = { workspace = true }
 ab-system-contract-state = { workspace = true }
-ab-transaction = { workspace = true }
 blake3 = { workspace = true }
 no-panic = { workspace = true, optional = true }
 schnorrkel = { workspace = true }

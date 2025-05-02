@@ -14,6 +14,10 @@ include = [
 all-features = true
 
 [dependencies]
+ab-aligned-buffer = { workspace = true, optional = true }
+# TODO: Invert dependency
+ab-contracts-common = { workspace = true }
+ab-io-type = { workspace = true }
 ab-merkle-tree = { workspace = true }
 blake3 = { workspace = true }
 bytes = { workspace = true, optional = true }
@@ -34,6 +38,7 @@ rand_chacha = { workspace = true }
 
 [features]
 alloc = [
+    "dep:ab-aligned-buffer",
     "dep:bytes",
     "hex/alloc",
     "serde/alloc",

@@ -1,17 +1,24 @@
+//! Data structures related to the owned version of [`Transaction`]
+
 mod builder_buffer;
 
-use crate::owned::builder_buffer::BuilderBuffer;
-use crate::{Transaction, TransactionHeader, TransactionSlot};
+use crate::transaction::owned::builder_buffer::BuilderBuffer;
+use crate::transaction::{Transaction, TransactionHeader, TransactionSlot};
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_io_type::trivial_type::TrivialType;
 use core::slice;
 
+/// Lengths of various components inside [`OwnedTransaction`]
 #[derive(Debug, Default, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct OwnedTransactionLengths {
+    /// Number of read-only slots
     pub read_slots: u16,
+    /// Number of read-write slots
     pub write_slots: u16,
+    /// Payload length
     pub payload: u32,
+    /// Seal length
     pub seal: u32,
     /// Not used and must be set to `0`
     pub padding: [u8; 12],
@@ -28,7 +35,12 @@ pub enum OwnedTransactionError {
     PayloadIsNotMultipleOfU128,
     /// Expected number of bytes
     #[error("Expected number of bytes: {actual} != {expected}")]
-    UnexpectedNumberOfBytes { actual: u32, expected: u32 },
+    UnexpectedNumberOfBytes {
+        /// Actual number of bytes
+        actual: u32,
+        /// Expected number of bytes
+        expected: u32,
+    },
 }
 
 /// An owned version of [`Transaction`].
@@ -50,6 +62,7 @@ pub struct OwnedTransaction {
 }
 
 impl OwnedTransaction {
+    /// Create transaction builder with provided transaction header
     pub fn build(header: &TransactionHeader) -> OwnedTransactionBuilder {
         OwnedTransactionBuilder {
             buffer: BuilderBuffer::new(header),
@@ -111,6 +124,7 @@ impl OwnedTransaction {
         &self.buffer
     }
 
+    /// Get [`Transaction`] out of owned transaction
     pub fn transaction(&self) -> Transaction<'_> {
         // SAFETY: All constructors ensure there are enough bytes and they are correctly aligned
         let lengths = unsafe {
@@ -221,32 +235,36 @@ pub enum OwnedTransactionBuilderError {
     TransactionTooLarge,
 }
 
+/// Builder for [`OwnedTransaction`]
 #[derive(Debug, Clone)]
 pub struct OwnedTransactionBuilder {
     buffer: BuilderBuffer,
 }
 
 impl OwnedTransactionBuilder {
+    /// Add read-only slot to the transaction
     pub fn with_read_slot(
         mut self,
         slot: &TransactionSlot,
-    ) -> Result<OwnedTransactionBuilderWithReadSlot, OwnedTransactionBuilderError> {
+    ) -> Result<OwnedTransactionBuilder, OwnedTransactionBuilderError> {
         self.buffer.append_read_slots(slice::from_ref(slot))?;
-        Ok(OwnedTransactionBuilderWithReadSlot {
+        Ok(OwnedTransactionBuilder {
             buffer: self.buffer,
         })
     }
 
+    /// Add many read-only slots to the transaction
     pub fn with_read_slots(
         mut self,
         slots: &[TransactionSlot],
-    ) -> Result<OwnedTransactionBuilderWithReadSlot, OwnedTransactionBuilderError> {
+    ) -> Result<OwnedTransactionBuilder, OwnedTransactionBuilderError> {
         self.buffer.append_read_slots(slots)?;
-        Ok(OwnedTransactionBuilderWithReadSlot {
+        Ok(OwnedTransactionBuilder {
             buffer: self.buffer,
         })
     }
 
+    /// Add read-write slot to the transaction
     pub fn with_write_slot(
         mut self,
         slot: &TransactionSlot,
@@ -257,6 +275,7 @@ impl OwnedTransactionBuilder {
         })
     }
 
+    /// Add many read-write slots to the transaction
     pub fn with_write_slots(
         mut self,
         slots: &[TransactionSlot],
@@ -267,6 +286,7 @@ impl OwnedTransactionBuilder {
         })
     }
 
+    /// Add transaction payload
     pub fn with_payload(
         mut self,
         payload: &[u8],
@@ -277,6 +297,7 @@ impl OwnedTransactionBuilder {
         })
     }
 
+    /// Add transaction seal
     pub fn with_seal(
         mut self,
         seal: &[u8],
@@ -285,88 +306,21 @@ impl OwnedTransactionBuilder {
         self.finish()
     }
 
+    /// Get owned transaction
     pub fn finish(self) -> Result<OwnedTransaction, OwnedTransactionBuilderError> {
         let buffer = self.buffer.finish()?.into_shared();
         Ok(OwnedTransaction { buffer })
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct OwnedTransactionBuilderWithReadSlot {
-    buffer: BuilderBuffer,
-}
-
-impl OwnedTransactionBuilderWithReadSlot {
-    pub fn with_read_slot(
-        mut self,
-        slot: &TransactionSlot,
-    ) -> Result<Self, OwnedTransactionBuilderError> {
-        self.buffer.append_read_slots(slice::from_ref(slot))?;
-        Ok(Self {
-            buffer: self.buffer,
-        })
-    }
-
-    pub fn with_read_slots(
-        mut self,
-        slots: &[TransactionSlot],
-    ) -> Result<Self, OwnedTransactionBuilderError> {
-        self.buffer.append_read_slots(slots)?;
-        Ok(Self {
-            buffer: self.buffer,
-        })
-    }
-
-    pub fn with_write_slot(
-        mut self,
-        slot: &TransactionSlot,
-    ) -> Result<OwnedTransactionBuilderWithWriteSlot, OwnedTransactionBuilderError> {
-        self.buffer.append_write_slots(slice::from_ref(slot))?;
-        Ok(OwnedTransactionBuilderWithWriteSlot {
-            buffer: self.buffer,
-        })
-    }
-
-    pub fn with_write_slots(
-        mut self,
-        slots: &[TransactionSlot],
-    ) -> Result<OwnedTransactionBuilderWithWriteSlot, OwnedTransactionBuilderError> {
-        self.buffer.append_write_slots(slots)?;
-        Ok(OwnedTransactionBuilderWithWriteSlot {
-            buffer: self.buffer,
-        })
-    }
-
-    pub fn with_payload(
-        mut self,
-        payload: &[u8],
-    ) -> Result<OwnedTransactionBuilderWithPayload, OwnedTransactionBuilderError> {
-        self.buffer.append_payload(payload)?;
-        Ok(OwnedTransactionBuilderWithPayload {
-            buffer: self.buffer,
-        })
-    }
-
-    pub fn with_seal(
-        mut self,
-        seal: &[u8],
-    ) -> Result<OwnedTransaction, OwnedTransactionBuilderError> {
-        self.buffer.append_seal(seal)?;
-        self.finish()
-    }
-
-    pub fn finish(self) -> Result<OwnedTransaction, OwnedTransactionBuilderError> {
-        let buffer = self.buffer.finish()?.into_shared();
-        Ok(OwnedTransaction { buffer })
-    }
-}
-
+/// Builder for [`OwnedTransaction`] with at least one read-write slot
 #[derive(Debug, Clone)]
 pub struct OwnedTransactionBuilderWithWriteSlot {
     buffer: BuilderBuffer,
 }
 
 impl OwnedTransactionBuilderWithWriteSlot {
+    /// Add read-write slot to the transaction
     pub fn with_write_slot(
         mut self,
         slot: &TransactionSlot,
@@ -377,6 +331,7 @@ impl OwnedTransactionBuilderWithWriteSlot {
         })
     }
 
+    /// Add many read-write slots to the transaction
     pub fn with_write_slots(
         mut self,
         slots: &[TransactionSlot],
@@ -387,6 +342,7 @@ impl OwnedTransactionBuilderWithWriteSlot {
         })
     }
 
+    /// Add transaction payload
     pub fn with_payload(
         mut self,
         payload: &[u8],
@@ -397,6 +353,7 @@ impl OwnedTransactionBuilderWithWriteSlot {
         })
     }
 
+    /// Add transaction seal
     pub fn with_seal(
         mut self,
         seal: &[u8],
@@ -405,18 +362,21 @@ impl OwnedTransactionBuilderWithWriteSlot {
         self.finish()
     }
 
+    /// Get owned transaction
     pub fn finish(self) -> Result<OwnedTransaction, OwnedTransactionBuilderError> {
         let buffer = self.buffer.finish()?.into_shared();
         Ok(OwnedTransaction { buffer })
     }
 }
 
+/// Builder for [`OwnedTransaction`] with payload
 #[derive(Debug, Clone)]
 pub struct OwnedTransactionBuilderWithPayload {
     buffer: BuilderBuffer,
 }
 
 impl OwnedTransactionBuilderWithPayload {
+    /// Add transaction payload
     pub fn with_payload(mut self, payload: &[u8]) -> Result<Self, OwnedTransactionBuilderError> {
         self.buffer.append_payload(payload)?;
         Ok(Self {
@@ -424,6 +384,7 @@ impl OwnedTransactionBuilderWithPayload {
         })
     }
 
+    /// Add transaction seal
     pub fn with_seal(
         mut self,
         seal: &[u8],
@@ -432,6 +393,7 @@ impl OwnedTransactionBuilderWithPayload {
         self.finish()
     }
 
+    /// Get owned transaction
     pub fn finish(self) -> Result<OwnedTransaction, OwnedTransactionBuilderError> {
         let buffer = self.buffer.finish()?.into_shared();
         Ok(OwnedTransaction { buffer })

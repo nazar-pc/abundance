@@ -1,8 +1,8 @@
 #![feature(vec_deque_pop_if)]
 
 use ab_contracts_common::block::{BlockHash, BlockNumber};
-use ab_transaction::TransactionHash;
-use ab_transaction::owned::OwnedTransaction;
+use ab_core_primitives::transaction::TransactionHash;
+use ab_core_primitives::transaction::owned::OwnedTransaction;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::num::{NonZeroU8, NonZeroU64, NonZeroUsize};
 

@@ -16,8 +16,8 @@ all-features = true
 [dependencies]
 ab-contracts-common = { workspace = true }
 ab-contracts-macros = { workspace = true }
+ab-core-primitives = { workspace = true }
 ab-io-type = { workspace = true }
-ab-transaction = { workspace = true }
 
 [features]
 guest = [

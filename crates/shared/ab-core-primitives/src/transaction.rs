@@ -1,5 +1,4 @@
-#![feature(ptr_as_ref_unchecked)]
-#![no_std]
+//! Transaction-related primitives
 
 #[cfg(feature = "alloc")]
 pub mod owned;
@@ -16,24 +15,30 @@ use core::slice;
 #[repr(C)]
 pub struct Gas(u64);
 
+/// Transaction hash
 #[derive(Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, TrivialType)]
 #[repr(C)]
 pub struct TransactionHash(Blake3Hash);
 
+/// Transaction header
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct TransactionHeader {
     /// Block hash at which transaction was created
     pub block_hash: BlockHash,
+    /// Gas limit
     pub gas_limit: Gas,
     /// Contract implementing `TxHandler` trait to use for transaction verification and execution
     pub contract: Address,
 }
 
+/// Transaction slot
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, TrivialType)]
 #[repr(C)]
 pub struct TransactionSlot {
+    /// Slot owner
     pub owner: Address,
+    /// Contract that manages the slot
     pub contract: Address,
 }
 
@@ -42,6 +47,7 @@ pub struct TransactionSlot {
 /// Can be created with `Transaction::as_ref()` call.
 #[derive(Debug, Copy, Clone)]
 pub struct Transaction<'a> {
+    /// Transaction header
     pub header: &'a TransactionHeader,
     /// Slots in the form of [`TransactionSlot`] that may be read during transaction processing.
     ///
@@ -53,7 +59,9 @@ pub struct Transaction<'a> {
     pub read_slots: &'a [TransactionSlot],
     /// Slots in the form of [`TransactionSlot`] that may be written during transaction processing
     pub write_slots: &'a [TransactionSlot],
+    /// Transaction payload
     pub payload: &'a [u128],
+    /// Transaction seal
     pub seal: &'a [u8],
 }
 

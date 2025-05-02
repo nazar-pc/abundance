@@ -6,6 +6,7 @@ use ab_contracts_common::env::{Blake3Hash, MethodContext};
 use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::TxHandler;
+use ab_core_primitives::transaction::{Transaction, TransactionHeader, TransactionSlot};
 use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_executor_native::NativeExecutor;
 use ab_io_type::bool::Bool;
@@ -14,7 +15,6 @@ use ab_system_contract_code::CodeExt;
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
 use ab_system_contract_simple_wallet_base::payload::builder::TransactionPayloadBuilder;
 use ab_system_contract_simple_wallet_base::seal::hash_and_sign;
-use ab_transaction::{Transaction, TransactionHeader, TransactionSlot};
 use schnorrkel::Keypair;
 
 #[derive(Debug, Copy, Clone, TrivialType)]

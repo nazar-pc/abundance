@@ -60,8 +60,8 @@ version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
  "ab-contracts-macros",
+ "ab-core-primitives",
  "ab-io-type",
- "ab-transaction",
 ]
 
 [[package]]
@@ -71,15 +71,18 @@ dependencies = [
  "ab-contracts-common",
  "ab-contracts-macros",
  "ab-contracts-standards",
+ "ab-core-primitives",
  "ab-io-type",
  "ab-system-contract-simple-wallet-base",
- "ab-transaction",
 ]
 
 [[package]]
 name = "ab-core-primitives"
 version = "0.1.0"
 dependencies = [
+ "ab-aligned-buffer",
+ "ab-contracts-common",
+ "ab-io-type",
  "ab-merkle-tree",
  "blake3",
  "bytes",
@@ -138,11 +141,11 @@ dependencies = [
  "ab-contracts-common",
  "ab-contracts-macros",
  "ab-contracts-standards",
+ "ab-core-primitives",
  "ab-executor-native",
  "ab-io-type",
  "ab-system-contract-code",
  "ab-system-contract-simple-wallet-base",
- "ab-transaction",
  "criterion",
  "schnorrkel",
 ]
@@ -154,6 +157,7 @@ dependencies = [
  "ab-aligned-buffer",
  "ab-contracts-common",
  "ab-contracts-standards",
+ "ab-core-primitives",
  "ab-executor-slots",
  "ab-io-type",
  "ab-system-contract-address-allocator",
@@ -162,7 +166,6 @@ dependencies = [
  "ab-system-contract-native-token",
  "ab-system-contract-simple-wallet-base",
  "ab-system-contract-state",
- "ab-transaction",
  "halfbrown",
  "thiserror",
  "tracing",
@@ -243,9 +246,9 @@ dependencies = [
  "ab-contracts-common",
  "ab-contracts-macros",
  "ab-contracts-standards",
+ "ab-core-primitives",
  "ab-io-type",
  "ab-system-contract-state",
- "ab-transaction",
  "blake3",
  "no-panic",
  "schnorrkel",
@@ -262,22 +265,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "ab-transaction"
-version = "0.0.1"
-dependencies = [
- "ab-aligned-buffer",
- "ab-contracts-common",
- "ab-io-type",
- "blake3",
- "thiserror",
-]
-
-[[package]]
 name = "ab-transaction-pool"
 version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
- "ab-transaction",
+ "ab-core-primitives",
  "thiserror",
 ]
 

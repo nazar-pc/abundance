@@ -2,7 +2,14 @@
 
 #![no_std]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
-#![feature(array_chunks, const_trait_impl, const_try, portable_simd, step_trait)]
+#![feature(
+    array_chunks,
+    const_trait_impl,
+    const_try,
+    portable_simd,
+    ptr_as_ref_unchecked,
+    step_trait
+)]
 #![cfg_attr(feature = "alloc", feature(new_zeroed_alloc))]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
@@ -19,6 +26,7 @@ pub mod pot;
 pub mod sectors;
 pub mod segments;
 pub mod solutions;
+pub mod transaction;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;

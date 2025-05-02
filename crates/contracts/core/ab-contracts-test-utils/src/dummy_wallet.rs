@@ -9,9 +9,9 @@ use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::{
     TxHandler, TxHandlerPayload, TxHandlerSeal, TxHandlerSlots,
 };
+use ab_core_primitives::transaction::TransactionHeader;
 use ab_io_type::trivial_type::TrivialType;
 use ab_system_contract_simple_wallet_base::SimpleWalletBaseExt;
-use ab_transaction::TransactionHeader;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]

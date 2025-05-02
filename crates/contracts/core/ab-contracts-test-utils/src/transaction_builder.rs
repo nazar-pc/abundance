@@ -1,11 +1,11 @@
 use ab_contracts_common::Address;
 use ab_contracts_common::env::Blake3Hash;
 use ab_contracts_common::method::ExternalArgs;
+use ab_core_primitives::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
 use ab_system_contract_simple_wallet_base::payload::builder::{
     TransactionPayloadBuilder, TransactionPayloadBuilderError,
 };
-use ab_transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
 use alloc::vec::Vec;
 
 #[derive(Debug, Clone)]

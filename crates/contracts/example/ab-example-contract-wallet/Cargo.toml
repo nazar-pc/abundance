@@ -25,9 +25,9 @@ harness = false
 ab-contracts-common = { workspace = true }
 ab-contracts-macros = { workspace = true }
 ab-contracts-standards = { workspace = true }
+ab-core-primitives = { workspace = true }
 ab-io-type = { workspace = true }
 ab-system-contract-simple-wallet-base = { workspace = true }
-ab-transaction = { workspace = true }
 
 [dev-dependencies]
 ab-executor-native = { workspace = true }
