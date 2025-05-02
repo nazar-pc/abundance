@@ -119,7 +119,7 @@ where
         // Ensure unbalanced implementation produces the same proofs and can verify them
         // successfully
         let (unbalanced_root, unbalanced_proof) =
-            UnbalancedHashedMerkleTree::<N>::compute_root_and_proof_in(
+            UnbalancedHashedMerkleTree::compute_root_and_proof_in::<N, _>(
                 leaves.iter(),
                 leaf_index,
                 proof_buffer,
@@ -134,8 +134,11 @@ where
         #[cfg(feature = "alloc")]
         {
             let (unbalanced_root, unbalanced_proof) =
-                UnbalancedHashedMerkleTree::<N>::compute_root_and_proof(leaves.iter(), leaf_index)
-                    .unwrap();
+                UnbalancedHashedMerkleTree::compute_root_and_proof::<N, _>(
+                    leaves.iter(),
+                    leaf_index,
+                )
+                .unwrap();
             assert_eq!(unbalanced_root, root, "N {N} leaf_index {leaf_index}");
             assert_eq!(
                 proof.as_slice(),
@@ -144,28 +147,28 @@ where
             );
         }
         assert!(
-            UnbalancedHashedMerkleTree::<N>::verify(&root, &proof, leaf_index, leaf, N),
+            UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index, leaf, N),
             "N {N} leaf_index {leaf_index}"
         );
         // Proof is empty for a single leaf and will never fail
         if N > 1 {
             assert!(
-                !UnbalancedHashedMerkleTree::<N>::verify(&root, &random_proof, leaf_index, leaf, N),
+                !UnbalancedHashedMerkleTree::verify(&root, &random_proof, leaf_index, leaf, N),
                 "N {N} leaf_index {leaf_index}"
             );
         }
         if let Some(bad_leaf_index) = leaf_index.checked_sub(1) {
             assert!(
-                !UnbalancedHashedMerkleTree::<N>::verify(&root, &proof, bad_leaf_index, leaf, N),
+                !UnbalancedHashedMerkleTree::verify(&root, &proof, bad_leaf_index, leaf, N),
                 "N {N} leaf_index {leaf_index}"
             );
         }
         assert!(
-            !UnbalancedHashedMerkleTree::<N>::verify(&root, &proof, leaf_index + 1, leaf, N),
+            !UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index + 1, leaf, N),
             "N {N} leaf_index {leaf_index}"
         );
         assert!(
-            !UnbalancedHashedMerkleTree::<N>::verify(&root, &proof, leaf_index, random_hash, N),
+            !UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index, random_hash, N),
             "N {N} leaf_index {leaf_index}"
         );
     }

@@ -14,9 +14,6 @@ use core::mem::MaybeUninit;
 ///
 /// [`BalancedHashedMerkleTree`]: crate::balanced_hashed::BalancedHashedMerkleTree
 ///
-/// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
-/// usage.
-///
 /// The unbalanced tree is not padded, it is created the same way Merkle Mountain Range would be:
 /// ```ignore
 ///               Root
@@ -28,21 +25,22 @@ use core::mem::MaybeUninit;
 /// L0  L1   L2  L3   L4  L5    L6
 /// ```
 #[derive(Debug)]
-pub struct UnbalancedHashedMerkleTree<const MAX_N: usize>;
+pub struct UnbalancedHashedMerkleTree;
 
 // TODO: Optimize by implementing SIMD-accelerated hashing of multiple values:
 //  https://github.com/BLAKE3-team/BLAKE3/issues/478
 // TODO: Experiment with replacing a single pass with splitting the whole data set with a sequence
 //  of power-of-two elements that can be processed in parallel and do it recursively until a single
 //  element is left. This can be done for both root creation and proof generation.
-impl<const N: usize> UnbalancedHashedMerkleTree<N>
-where
-    [(); N.ilog2() as usize + 1]:,
-{
-    /// Compute Merkle Tree Root
+impl UnbalancedHashedMerkleTree {
+    /// Compute Merkle Tree Root.
+    ///
+    /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
+    /// usage.
     #[inline]
-    pub fn compute_root_only<'a, Iter>(leaves: Iter) -> Option<[u8; OUT_LEN]>
+    pub fn compute_root_only<'a, const N: usize, Iter>(leaves: Iter) -> Option<[u8; OUT_LEN]>
     where
+        [(); N.ilog2() as usize + 1]:,
         Iter: Iterator<Item = &'a [u8; OUT_LEN]> + 'a,
     {
         // Stack of intermediate nodes per tree level
@@ -102,13 +100,17 @@ where
     /// Compute Merkle Tree root and generate a proof for the `leaf` at `target_index`.
     ///
     /// Returns `Some(root, proof)` on success, `None` if index is outside of list of leaves.
+    ///
+    /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
+    /// usage.
     #[inline]
     #[cfg(feature = "alloc")]
-    pub fn compute_root_and_proof<'a, Iter>(
+    pub fn compute_root_and_proof<'a, const N: usize, Iter>(
         leaves: Iter,
         target_index: usize,
     ) -> Option<([u8; OUT_LEN], Vec<[u8; OUT_LEN]>)>
     where
+        [(); N.ilog2() as usize + 1]:,
         Iter: Iterator<Item = &'a [u8; OUT_LEN]> + 'a,
     {
         // Stack of intermediate nodes per tree level
@@ -135,13 +137,17 @@ where
     /// Compute Merkle Tree root and generate a proof for the `leaf` at `target_index`.
     ///
     /// Returns `Some(root, proof)` on success, `None` if index is outside of list of leaves.
+    ///
+    /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
+    /// usage.
     #[inline]
-    pub fn compute_root_and_proof_in<'a, 'proof, Iter>(
+    pub fn compute_root_and_proof_in<'a, 'proof, const N: usize, Iter>(
         leaves: Iter,
         target_index: usize,
         proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; N.ilog2() as usize + 1],
     ) -> Option<([u8; OUT_LEN], &'proof mut [[u8; OUT_LEN]])>
     where
+        [(); N.ilog2() as usize + 1]:,
         Iter: Iterator<Item = &'a [u8; OUT_LEN]> + 'a,
     {
         // Stack of intermediate nodes per tree level
@@ -155,13 +161,14 @@ where
         Some((root, proof))
     }
 
-    fn compute_root_and_proof_inner<'a, Iter>(
+    fn compute_root_and_proof_inner<'a, const N: usize, Iter>(
         leaves: Iter,
         target_index: usize,
         stack: &mut [[u8; OUT_LEN]; N.ilog2() as usize + 1],
         proof: &mut [MaybeUninit<[u8; OUT_LEN]>; N.ilog2() as usize + 1],
     ) -> Option<([u8; OUT_LEN], usize)>
     where
+        [(); N.ilog2() as usize + 1]:,
         Iter: Iterator<Item = &'a [u8; OUT_LEN]> + 'a,
     {
         let mut proof_length = 0;

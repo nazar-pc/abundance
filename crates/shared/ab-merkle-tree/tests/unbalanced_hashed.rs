@@ -226,7 +226,7 @@ fn test_basic(number_of_leaves: usize) {
 
     let root = SimpleUnbalancedMerkleTree::compute_root_only(leaves.iter()).unwrap();
     let computed_root =
-        UnbalancedHashedMerkleTree::<MAX_N>::compute_root_only(leaves.iter()).unwrap();
+        UnbalancedHashedMerkleTree::compute_root_only::<'_, MAX_N, _>(leaves.iter()).unwrap();
 
     assert_eq!(root, computed_root, "number_of_leaves {number_of_leaves}");
 
@@ -254,7 +254,7 @@ fn test_basic(number_of_leaves: usize) {
         );
 
         let (computed_root, computed_proof) =
-            UnbalancedHashedMerkleTree::<MAX_N>::compute_root_and_proof_in(
+            UnbalancedHashedMerkleTree::compute_root_and_proof_in::<MAX_N, _>(
                 leaves.iter(),
                 leaf_index,
                 proof_buffer,
@@ -271,7 +271,7 @@ fn test_basic(number_of_leaves: usize) {
         #[cfg(feature = "alloc")]
         {
             let (computed_root, computed_proof) =
-                UnbalancedHashedMerkleTree::<MAX_N>::compute_root_and_proof(
+                UnbalancedHashedMerkleTree::compute_root_and_proof::<MAX_N, _>(
                     leaves.iter(),
                     leaf_index,
                 )
@@ -291,13 +291,7 @@ fn test_basic(number_of_leaves: usize) {
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
         assert!(
-            UnbalancedHashedMerkleTree::<MAX_N>::verify(
-                &root,
-                &proof,
-                leaf_index,
-                leaf,
-                leaves.len()
-            ),
+            UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index, leaf, leaves.len()),
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
 
@@ -312,7 +306,7 @@ fn test_basic(number_of_leaves: usize) {
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
         assert!(
-            !UnbalancedHashedMerkleTree::<MAX_N>::verify(
+            !UnbalancedHashedMerkleTree::verify(
                 &root,
                 &random_proof,
                 leaf_index,
@@ -334,7 +328,7 @@ fn test_basic(number_of_leaves: usize) {
                 "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
             );
             assert!(
-                !UnbalancedHashedMerkleTree::<MAX_N>::verify(
+                !UnbalancedHashedMerkleTree::verify(
                     &root,
                     &proof,
                     bad_leaf_index,
@@ -350,13 +344,7 @@ fn test_basic(number_of_leaves: usize) {
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
         assert!(
-            !UnbalancedHashedMerkleTree::<MAX_N>::verify(
-                &root,
-                &proof,
-                leaf_index + 1,
-                leaf,
-                leaves.len()
-            ),
+            !UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index + 1, leaf, leaves.len()),
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
 
@@ -371,7 +359,7 @@ fn test_basic(number_of_leaves: usize) {
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
         assert!(
-            !UnbalancedHashedMerkleTree::<MAX_N>::verify(
+            !UnbalancedHashedMerkleTree::verify(
                 &root,
                 &proof,
                 leaf_index,
@@ -383,7 +371,7 @@ fn test_basic(number_of_leaves: usize) {
     }
 
     assert!(
-        UnbalancedHashedMerkleTree::<MAX_N>::compute_root_and_proof_in(
+        UnbalancedHashedMerkleTree::compute_root_and_proof_in::<MAX_N, _>(
             leaves.iter(),
             leaves.len(),
             proof_buffer
@@ -392,7 +380,10 @@ fn test_basic(number_of_leaves: usize) {
     );
     #[cfg(feature = "alloc")]
     assert!(
-        UnbalancedHashedMerkleTree::<MAX_N>::compute_root_and_proof(leaves.iter(), leaves.len(),)
-            .is_none()
+        UnbalancedHashedMerkleTree::compute_root_and_proof::<MAX_N, _>(
+            leaves.iter(),
+            leaves.len(),
+        )
+        .is_none()
     );
 }
