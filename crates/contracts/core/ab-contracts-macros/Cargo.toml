@@ -16,6 +16,7 @@ all-features = true
 [dependencies]
 ab-contracts-common = { workspace = true }
 ab-contracts-macros-impl = { workspace = true }
+ab-core-primitives = { workspace = true }
 ab-io-type = { workspace = true }
 const_format = { workspace = true }
 

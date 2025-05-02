@@ -1,5 +1,7 @@
+use crate::ContractError;
 use crate::method::{ExternalArgs, MethodFingerprint};
-use crate::{Address, ContractError, ShardIndex};
+use ab_core_primitives::address::Address;
+use ab_core_primitives::shard::ShardIndex;
 use ab_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
 use core::marker::PhantomData;

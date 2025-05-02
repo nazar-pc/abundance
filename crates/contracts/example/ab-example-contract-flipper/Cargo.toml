@@ -23,6 +23,7 @@ harness = false
 
 [dependencies]
 ab-contracts-macros = { workspace = true }
+ab-core-primitives = { workspace = true }
 ab-io-type = { workspace = true }
 
 [dev-dependencies]

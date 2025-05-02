@@ -16,6 +16,8 @@
 //  https://github.com/rust-lang/rust/issues/133199
 #![feature(generic_const_exprs)]
 
+pub mod address;
+pub mod balance;
 pub mod block;
 #[cfg(feature = "scale-codec")]
 pub mod checksum;
@@ -25,6 +27,7 @@ pub mod pos;
 pub mod pot;
 pub mod sectors;
 pub mod segments;
+pub mod shard;
 pub mod solutions;
 pub mod transaction;
 

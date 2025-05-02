@@ -10,9 +10,10 @@
 #[cfg(feature = "payload-builder")]
 pub mod builder;
 
+use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_contracts_common::env::{MethodContext, PreparedMethod};
 use ab_contracts_common::method::MethodFingerprint;
-use ab_contracts_common::{Address, MAX_TOTAL_METHOD_ARGS};
+use ab_core_primitives::address::Address;
 use ab_io_type::MAX_ALIGNMENT;
 use ab_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;

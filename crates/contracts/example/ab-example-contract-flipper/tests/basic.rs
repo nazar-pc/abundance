@@ -1,5 +1,7 @@
+use ab_contracts_common::Contract;
 use ab_contracts_common::env::MethodContext;
-use ab_contracts_common::{Address, Contract, ShardIndex};
+use ab_core_primitives::address::Address;
+use ab_core_primitives::shard::ShardIndex;
 use ab_example_contract_flipper::{Flipper, FlipperExt};
 use ab_executor_native::NativeExecutor;
 use ab_io_type::bool::Bool;
@@ -7,7 +9,7 @@ use ab_system_contract_code::CodeExt;
 
 #[test]
 fn basic() {
-    let shard_index = ShardIndex::from_u32(1).unwrap();
+    let shard_index = ShardIndex::new(1).unwrap();
     let executor = NativeExecutor::builder(shard_index)
         .with_contract::<Flipper>()
         .build()

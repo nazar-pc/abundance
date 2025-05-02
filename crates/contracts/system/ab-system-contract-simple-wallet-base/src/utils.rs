@@ -1,7 +1,8 @@
 use crate::{SimpleWalletBaseExt, WalletState};
+use ab_contracts_common::ContractError;
 use ab_contracts_common::env::{Env, MethodContext};
-use ab_contracts_common::{Address, ContractError};
 use ab_contracts_standards::tx_handler::{TxHandlerPayload, TxHandlerSeal, TxHandlerSlots};
+use ab_core_primitives::address::Address;
 use ab_core_primitives::transaction::TransactionHeader;
 use ab_io_type::IoType;
 use ab_io_type::trivial_type::TrivialType;

@@ -20,21 +20,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "ab-contracts-common"
-version = "0.0.1"
-dependencies = [
- "ab-io-type",
- "const-sha1",
- "derive_more 2.0.1",
- "thiserror 2.0.12",
-]
-
-[[package]]
 name = "ab-core-primitives"
 version = "0.1.0"
 dependencies = [
  "ab-aligned-buffer",
- "ab-contracts-common",
  "ab-io-type",
  "ab-merkle-tree",
  "blake3",
@@ -1816,12 +1805,6 @@ dependencies = [
  "once_cell",
  "tiny-keccak",
 ]
-
-[[package]]
-name = "const-sha1"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d8a42181e0652c2997ae4d217f25b63c5337a52fd2279736e97b832fa0a3cff"
 
 [[package]]
 name = "constant_time_eq"

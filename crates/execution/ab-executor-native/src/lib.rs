@@ -13,11 +13,14 @@ use ab_contracts_common::env::{Env, EnvState, MethodContext};
 use ab_contracts_common::metadata::decode::{MetadataDecoder, MetadataDecodingError, MetadataItem};
 use ab_contracts_common::method::MethodFingerprint;
 use ab_contracts_common::{
-    Address, Balance, Contract, ContractError, ContractTrait, ContractTraitDefinition,
-    MAX_CODE_SIZE, NativeExecutorContactMethod, ShardIndex,
+    Contract, ContractError, ContractTrait, ContractTraitDefinition, MAX_CODE_SIZE,
+    NativeExecutorContactMethod,
 };
 use ab_contracts_standards::fungible::Fungible;
 use ab_contracts_standards::tx_handler::TxHandlerExt;
+use ab_core_primitives::address::Address;
+use ab_core_primitives::balance::Balance;
+use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::transaction::{Transaction, TransactionSlot};
 use ab_executor_slots::{Slot, SlotKey, Slots};
 use ab_io_type::variable_bytes::VariableBytes;

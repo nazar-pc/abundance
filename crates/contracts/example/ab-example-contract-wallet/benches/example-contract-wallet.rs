@@ -1,9 +1,11 @@
 use crate::ffi::flip::FlipperFlipArgs;
+use ab_contracts_common::Contract;
 use ab_contracts_common::env::MethodContext;
-use ab_contracts_common::{Address, Contract, ShardIndex};
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::TxHandler;
+use ab_core_primitives::address::Address;
 use ab_core_primitives::block::BlockHash;
+use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::transaction::{Transaction, TransactionHeader, TransactionSlot};
 use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_executor_native::NativeExecutor;
@@ -36,7 +38,7 @@ impl Flipper {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let shard_index = ShardIndex::from_u32(1).unwrap();
+    let shard_index = ShardIndex::new(1).unwrap();
     let executor = NativeExecutor::builder(shard_index)
         .with_contract::<ExampleWallet>()
         .with_contract_trait::<ExampleWallet, dyn TxHandler>()

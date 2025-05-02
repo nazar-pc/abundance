@@ -3,9 +3,9 @@
 #[cfg(feature = "alloc")]
 pub mod owned;
 
+use crate::address::Address;
 use crate::block::BlockHash;
-use ab_contracts_common::Address;
-use ab_contracts_common::env::Blake3Hash;
+use crate::hashes::Blake3Hash;
 use ab_io_type::trivial_type::TrivialType;
 use blake3::Hasher;
 use core::slice;
@@ -97,7 +97,7 @@ impl Transaction<'_> {
         });
         hasher.update(self.seal);
 
-        TransactionHash(*hasher.finalize().as_bytes())
+        TransactionHash(Blake3Hash::new(*hasher.finalize().as_bytes()))
     }
 
     /// Read slots touched by the transaction.

@@ -15,8 +15,6 @@ all-features = true
 
 [dependencies]
 ab-aligned-buffer = { workspace = true, optional = true }
-# TODO: Invert dependency
-ab-contracts-common = { workspace = true }
 ab-io-type = { workspace = true }
 ab-merkle-tree = { workspace = true }
 blake3 = { workspace = true }
