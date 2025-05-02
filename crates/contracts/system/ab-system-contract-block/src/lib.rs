@@ -1,10 +1,11 @@
 #![no_std]
 
-use ab_contracts_common::block::{BlockHash, BlockNumber};
+use ab_contracts_common::ContractError;
 use ab_contracts_common::env::Env;
-use ab_contracts_common::{Address, ContractError};
-use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
+use ab_core_primitives::address::Address;
+use ab_core_primitives::block::{BlockHash, BlockNumber};
+use ab_io_type::trivial_type::TrivialType;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -20,7 +21,7 @@ impl Block {
     #[init]
     pub fn genesis() -> Self {
         Self {
-            number: 0,
+            number: BlockNumber::ZERO,
             parent_hash: BlockHash::default(),
         }
     }
@@ -38,7 +39,7 @@ impl Block {
         }
 
         *self = Self {
-            number: self.number + 1,
+            number: self.number + BlockNumber::ONE,
             parent_hash,
         };
 

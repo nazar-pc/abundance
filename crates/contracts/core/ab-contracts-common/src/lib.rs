@@ -1,25 +1,17 @@
 #![feature(non_null_from_ref)]
 #![no_std]
 
-mod address;
-mod balance;
-pub mod block;
 pub mod env;
 mod error;
 pub mod metadata;
 pub mod method;
 
 use crate::method::MethodFingerprint;
-use ab_contracts_io_type::IoType;
-use ab_contracts_io_type::trivial_type::TrivialType;
-use ab_contracts_io_type::variable_bytes::VariableBytes;
-pub use address::Address;
-pub use balance::Balance;
+use ab_io_type::IoType;
+use ab_io_type::variable_bytes::VariableBytes;
 use core::ffi::c_void;
-use core::num::{NonZeroU32, NonZeroU128};
 use core::ops::Deref;
 use core::ptr::NonNull;
-use derive_more::Display;
 pub use error::{ContractError, CustomContractErrorCode, ExitCode};
 
 /// Max allowed size of the contract code
@@ -130,44 +122,4 @@ pub trait ContractTraitDefinition {
     ///
     /// [`ContractMetadataKind`]: crate::metadata::ContractMetadataKind
     const METADATA: &[::core::primitive::u8];
-}
-
-/// Shard index
-#[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
-#[repr(transparent)]
-pub struct ShardIndex(u32);
-
-impl ShardIndex {
-    /// Max possible shard index
-    pub const MAX_SHARD_INDEX: u32 = Self::MAX_SHARDS.get() - 1;
-    /// Max possible number of shards
-    pub const MAX_SHARDS: NonZeroU32 = NonZeroU32::new(2u32.pow(20)).expect("Not zero; qed");
-    /// Max possible number of addresses per shard
-    pub const MAX_ADDRESSES_PER_SHARD: NonZeroU128 =
-        NonZeroU128::new((u128::MAX / 2 + 1) / (Self::MAX_SHARDS.get() as u128 / 2))
-            .expect("Not zero; qed");
-
-    // TODO: Remove once traits work in const environment and `From` could be used
-    /// Convert shard index to `u32`.
-    ///
-    /// This is typically only necessary for low-level code.
-    #[inline(always)]
-    pub const fn to_u32(self) -> u32 {
-        self.0
-    }
-
-    // TODO: Remove once traits work in const environment and `From` could be used
-    /// Create shard index from `u32`.
-    ///
-    /// Returns `None` if `shard_index > ShardIndex::MAX_SHARD_INDEX`
-    ///
-    /// This is typically only necessary for low-level code.
-    #[inline(always)]
-    pub const fn from_u32(shard_index: u32) -> Option<Self> {
-        if shard_index > Self::MAX_SHARD_INDEX {
-            return None;
-        }
-
-        Some(Self(shard_index))
-    }
 }

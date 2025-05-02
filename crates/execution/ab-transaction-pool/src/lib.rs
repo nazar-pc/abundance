@@ -1,8 +1,8 @@
 #![feature(vec_deque_pop_if)]
 
-use ab_contracts_common::block::{BlockHash, BlockNumber};
-use ab_transaction::TransactionHash;
-use ab_transaction::owned::OwnedTransaction;
+use ab_core_primitives::block::{BlockHash, BlockNumber};
+use ab_core_primitives::transaction::TransactionHash;
+use ab_core_primitives::transaction::owned::OwnedTransaction;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::num::{NonZeroU8, NonZeroU64, NonZeroUsize};
 
@@ -223,7 +223,8 @@ impl TransactionPool {
     /// This allows accepting transactions created at specified block hash.
     pub fn add_best_block(&mut self, block_number: BlockNumber, block_hash: BlockHash) {
         // Clean up old blocks or blocks that are at the same or higher block number
-        let allowed_blocks = block_number.saturating_sub(self.pruning_depth.get())..block_number;
+        let allowed_blocks =
+            block_number.saturating_sub(BlockNumber::new(self.pruning_depth.get()))..block_number;
         self.by_block_number
             .retain(|existing_block_number, existing_block_hash| {
                 if allowed_blocks.contains(existing_block_number) {

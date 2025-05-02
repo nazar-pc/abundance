@@ -3,15 +3,16 @@
     reason = "Intentionally not adding `guest` feature, this is a test utility not to be deployed"
 )]
 
+use ab_contracts_common::ContractError;
 use ab_contracts_common::env::{Env, MethodContext};
-use ab_contracts_common::{Address, ContractError};
-use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::{
     TxHandler, TxHandlerPayload, TxHandlerSeal, TxHandlerSlots,
 };
+use ab_core_primitives::address::Address;
+use ab_core_primitives::transaction::TransactionHeader;
+use ab_io_type::trivial_type::TrivialType;
 use ab_system_contract_simple_wallet_base::SimpleWalletBaseExt;
-use ab_transaction::TransactionHeader;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]

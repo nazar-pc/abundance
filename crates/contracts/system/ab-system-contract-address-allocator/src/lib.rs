@@ -1,9 +1,11 @@
 #![no_std]
 
+use ab_contracts_common::ContractError;
 use ab_contracts_common::env::Env;
-use ab_contracts_common::{Address, ContractError, ShardIndex};
-use ab_contracts_io_type::trivial_type::TrivialType;
 use ab_contracts_macros::contract;
+use ab_core_primitives::address::Address;
+use ab_core_primitives::shard::ShardIndex;
+use ab_io_type::trivial_type::TrivialType;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -22,7 +24,7 @@ impl AddressAllocator {
         let shard_index = env.shard_index();
 
         let expected_self_address =
-            u128::from(shard_index.to_u32()) * ShardIndex::MAX_ADDRESSES_PER_SHARD.get();
+            u128::from(shard_index.as_u32()) * ShardIndex::MAX_ADDRESSES_PER_SHARD.get();
         debug_assert_eq!(
             env.own_address(),
             Address::from(expected_self_address),

@@ -1,5 +1,5 @@
 [package]
-name = "ab-contracts-trivial-type-derive"
+name = "ab-trivial-type-derive"
 description = "Implements derive for `TrivialType` on custom data structures"
 license = "0BSD"
 version = "0.0.1"

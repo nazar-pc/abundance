@@ -1,6 +1,8 @@
-use crate::ShardIndex;
-use ab_contracts_io_type::metadata::IoTypeMetadataKind;
-use ab_contracts_io_type::trivial_type::TrivialType;
+//! Address-related primitives
+
+use crate::shard::ShardIndex;
+use ab_io_type::metadata::IoTypeMetadataKind;
+use ab_io_type::trivial_type::TrivialType;
 use core::cmp::Ordering;
 use core::mem::MaybeUninit;
 use core::{fmt, ptr};
@@ -16,7 +18,7 @@ unsafe impl TrivialType for Address {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Address as u8];
 }
 
-// Ensure this never mismatches with code in `ab-contracts-io-type` despite being in different crate
+// Ensure this never mismatches with code in `ab-io-type` despite being in different crate
 const _: () = {
     let (type_details, _metadata) = IoTypeMetadataKind::type_details(Address::METADATA)
         .expect("Statically correct metadata; qed");
@@ -26,14 +28,14 @@ const _: () = {
 
 impl fmt::Debug for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Address").field(&self.into_u128()).finish()
+        f.debug_tuple("Address").field(&self.as_u128()).finish()
     }
 }
 
 impl fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO: Human-readable formatting rather than a huge number
-        self.into_u128().fmt(f)
+        self.as_u128().fmt(f)
     }
 }
 
@@ -54,7 +56,7 @@ impl PartialEq<Address> for &Address {
 impl Ord for Address {
     #[inline(always)]
     fn cmp(&self, other: &Address) -> Ordering {
-        self.into_u128().cmp(&other.into_u128())
+        self.as_u128().cmp(&other.as_u128())
     }
 }
 
@@ -68,14 +70,14 @@ impl PartialOrd for Address {
 impl From<u128> for Address {
     #[inline(always)]
     fn from(value: u128) -> Self {
-        Self::from_u128(value)
+        Self::new(value)
     }
 }
 
 impl From<Address> for u128 {
     #[inline(always)]
     fn from(value: Address) -> Self {
-        value.into_u128()
+        value.as_u128()
     }
 }
 
@@ -84,28 +86,21 @@ impl From<Address> for u128 {
 impl Address {
     // TODO: Various system contracts
     /// Sentinel contract address, inaccessible and not owned by anyone
-    pub const NULL: Self = Self::from_u128(0);
+    pub const NULL: Self = Self::new(0);
     /// System contract for managing code of other contracts
-    pub const SYSTEM_CODE: Self = Self::from_u128(1);
+    pub const SYSTEM_CODE: Self = Self::new(1);
     /// System contract for managing block state
-    pub const SYSTEM_BLOCK: Self = Self::from_u128(2);
+    pub const SYSTEM_BLOCK: Self = Self::new(2);
     /// System contract for managing state of other contracts
-    pub const SYSTEM_STATE: Self = Self::from_u128(3);
+    pub const SYSTEM_STATE: Self = Self::new(3);
     /// System contract for native token
-    pub const SYSTEM_NATIVE_TOKEN: Self = Self::from_u128(4);
+    pub const SYSTEM_NATIVE_TOKEN: Self = Self::new(4);
     /// System simple wallet base contract that can be used by end user wallets
-    pub const SYSTEM_SIMPLE_WALLET_BASE: Self = Self::from_u128(10);
-
-    /// Turn value into `u128`
-    #[inline(always)]
-    const fn into_u128(self) -> u128 {
-        // SAFETY: correct size, valid pointer, and all bits are valid
-        unsafe { ptr::from_ref(&self).cast::<u128>().read_unaligned() }
-    }
+    pub const SYSTEM_SIMPLE_WALLET_BASE: Self = Self::new(10);
 
     /// Create a value from `u128`
     #[inline(always)]
-    const fn from_u128(n: u128) -> Self {
+    const fn new(n: u128) -> Self {
         let mut result = MaybeUninit::<Self>::uninit();
         // SAFETY: correct size, valid pointer, and all bits are valid
         unsafe {
@@ -114,12 +109,19 @@ impl Address {
         }
     }
 
+    /// Turn value into `u128`
+    #[inline(always)]
+    const fn as_u128(self) -> u128 {
+        // SAFETY: correct size, valid pointer, and all bits are valid
+        unsafe { ptr::from_ref(&self).cast::<u128>().read_unaligned() }
+    }
+
     /// System contract for address allocation on a particular shard index
     #[inline(always)]
     pub const fn system_address_allocator(shard_index: ShardIndex) -> Self {
         // Shard `0` doesn't have its own allocator because there are no user-deployable contracts
         // there, so address `0` is `NULL`, the rest up to `ShardIndex::MAX_SHARD_INDEX` correspond
         // to address allocators of respective shards
-        Self::from_u128(shard_index.to_u32() as u128 * ShardIndex::MAX_ADDRESSES_PER_SHARD.get())
+        Self::new(shard_index.as_u32() as u128 * ShardIndex::MAX_ADDRESSES_PER_SHARD.get())
     }
 }

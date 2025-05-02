@@ -1,7 +1,7 @@
-use crate::owned::{OwnedTransactionBuilderError, OwnedTransactionLengths};
-use crate::{TransactionHeader, TransactionSlot};
+use crate::transaction::owned::{OwnedTransactionBuilderError, OwnedTransactionLengths};
+use crate::transaction::{TransactionHeader, TransactionSlot};
 use ab_aligned_buffer::OwnedAlignedBuffer;
-use ab_contracts_io_type::trivial_type::TrivialType;
+use ab_io_type::trivial_type::TrivialType;
 use core::slice;
 
 #[derive(Debug, Clone)]

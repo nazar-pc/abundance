@@ -575,8 +575,8 @@ pub mod __private;
 /// understand everything about contract's interfaces, auto-generate UI, etc.
 ///
 /// [`Contract`]: ab_contracts_common::Contract
-/// [`TrivialType`]: ab_contracts_io_type::trivial_type::TrivialType
-/// [`IoType`]: ab_contracts_io_type::IoType
+/// [`TrivialType`]: ab_io_type::trivial_type::TrivialType
+/// [`IoType`]: ab_io_type::IoType
 /// [`ExternalArgs`]: ab_contracts_common::method::ExternalArgs
 /// [`Env`]: ab_contracts_common::env::Env
 /// [`Env::call()`]: ab_contracts_common::env::Env::call()

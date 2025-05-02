@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
-use ab_contracts_common::Address;
+use ab_core_primitives::address::Address;
 use alloc::boxed::Box;
 use smallvec::SmallVec;
 use tracing::debug;

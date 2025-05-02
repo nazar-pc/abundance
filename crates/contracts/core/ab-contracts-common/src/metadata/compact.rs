@@ -1,5 +1,5 @@
 use crate::metadata::ContractMetadataKind;
-use ab_contracts_io_type::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY};
+use ab_io_type::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY};
 
 #[inline(always)]
 pub(super) const fn compact_metadata(

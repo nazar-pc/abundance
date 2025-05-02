@@ -1,5 +1,7 @@
-use ab_contracts_io_type::metadata::IoTypeMetadataKind;
-use ab_contracts_io_type::trivial_type::TrivialType;
+//! Balance-related primitives
+
+use ab_io_type::metadata::IoTypeMetadataKind;
+use ab_io_type::trivial_type::TrivialType;
 use core::cmp::Ordering;
 use core::mem::MaybeUninit;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
@@ -16,7 +18,7 @@ unsafe impl TrivialType for Balance {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Balance as u8];
 }
 
-// Ensure this never mismatches with code in `ab-contracts-io-type` despite being in different crate
+// Ensure this never mismatches with code in `ab-io-type` despite being in different crate
 const _: () = {
     let (type_details, _metadata) = IoTypeMetadataKind::type_details(Balance::METADATA)
         .expect("Statically correct metadata; qed");
@@ -26,20 +28,20 @@ const _: () = {
 
 impl fmt::Debug for Balance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Balance").field(&self.into_u128()).finish()
+        f.debug_tuple("Balance").field(&self.as_u128()).finish()
     }
 }
 
 impl fmt::Display for Balance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.into_u128().fmt(f)
+        self.as_u128().fmt(f)
     }
 }
 
 impl Ord for Balance {
     #[inline(always)]
     fn cmp(&self, other: &Balance) -> Ordering {
-        self.into_u128().cmp(&other.into_u128())
+        self.as_u128().cmp(&other.as_u128())
     }
 }
 
@@ -56,7 +58,7 @@ impl Add for Balance {
     #[inline(always)]
     #[track_caller]
     fn add(self, rhs: Balance) -> Balance {
-        Self::from_u128(self.into_u128().add(rhs.into_u128()))
+        Self::new(self.as_u128().add(rhs.as_u128()))
     }
 }
 
@@ -74,7 +76,7 @@ impl Sub for Balance {
     #[inline(always)]
     #[track_caller]
     fn sub(self, rhs: Balance) -> Balance {
-        Self::from_u128(self.into_u128().sub(rhs.into_u128()))
+        Self::new(self.as_u128().sub(rhs.as_u128()))
     }
 }
 
@@ -95,7 +97,7 @@ where
     #[inline(always)]
     #[track_caller]
     fn mul(self, rhs: Rhs) -> Balance {
-        Self::from_u128(<u128 as Mul<Rhs>>::mul(self.into_u128(), rhs))
+        Self::new(<u128 as Mul<Rhs>>::mul(self.as_u128(), rhs))
     }
 }
 
@@ -119,7 +121,7 @@ where
     #[inline(always)]
     #[track_caller]
     fn div(self, rhs: Rhs) -> Balance {
-        Self::from_u128(<u128 as Div<Rhs>>::div(self.into_u128(), rhs))
+        Self::new(<u128 as Div<Rhs>>::div(self.as_u128(), rhs))
     }
 }
 
@@ -137,36 +139,38 @@ where
 impl From<u128> for Balance {
     #[inline(always)]
     fn from(value: u128) -> Self {
-        Self::from_u128(value)
+        Self::new(value)
     }
 }
 
 impl From<Balance> for u128 {
     #[inline(always)]
     fn from(value: Balance) -> Self {
-        value.into_u128()
+        value.as_u128()
     }
 }
 
 impl Balance {
-    pub const MIN: Self = Self::from_u128(0);
-    pub const MAX: Self = Self::from_u128(u128::MAX);
-
-    /// Turn value into `u128`
-    #[inline(always)]
-    pub const fn into_u128(self) -> u128 {
-        // SAFETY: correct size, valid pointer, and all bits are valid
-        unsafe { ptr::from_ref(&self).cast::<u128>().read_unaligned() }
-    }
+    /// Minimum balance
+    pub const MIN: Self = Self::new(0);
+    /// Maximum balance
+    pub const MAX: Self = Self::new(u128::MAX);
 
     /// Create a value from `u128`
     #[inline(always)]
-    pub const fn from_u128(n: u128) -> Self {
+    pub const fn new(n: u128) -> Self {
         let mut result = MaybeUninit::<Self>::uninit();
         // SAFETY: correct size, valid pointer, and all bits are valid
         unsafe {
             result.as_mut_ptr().cast::<u128>().write_unaligned(n);
             result.assume_init()
         }
+    }
+
+    /// Turn value into `u128`
+    #[inline(always)]
+    pub const fn as_u128(self) -> u128 {
+        // SAFETY: correct size, valid pointer, and all bits are valid
+        unsafe { ptr::from_ref(&self).cast::<u128>().read_unaligned() }
     }
 }

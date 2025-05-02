@@ -16,8 +16,9 @@ all-features = true
 [dependencies]
 ab-aligned-buffer = { workspace = true }
 ab-contracts-common = { workspace = true, features = ["executor"] }
-ab-contracts-io-type = { workspace = true }
 ab-contracts-standards = { workspace = true }
+ab-core-primitives = { workspace = true }
+ab-io-type = { workspace = true }
 ab-executor-slots = { workspace = true }
 ab-system-contract-address-allocator = { workspace = true }
 ab-system-contract-block = { workspace = true }
@@ -25,7 +26,6 @@ ab-system-contract-code = { workspace = true }
 ab-system-contract-native-token = { workspace = true }
 ab-system-contract-simple-wallet-base = { workspace = true }
 ab-system-contract-state = { workspace = true }
-ab-transaction = { workspace = true }
 halfbrown = { workspace = true, features = ["arraybackend", "fxhash"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }

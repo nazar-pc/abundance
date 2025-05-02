@@ -1,14 +1,17 @@
 use ab_contracts_common::env::MethodContext;
-use ab_contracts_common::{Address, Balance, Contract, ContractError, ShardIndex};
+use ab_contracts_common::{Contract, ContractError};
 use ab_contracts_standards::fungible::{Fungible, FungibleExt};
 use ab_contracts_test_utils::dummy_wallet::DummyWallet;
+use ab_core_primitives::address::Address;
+use ab_core_primitives::balance::Balance;
+use ab_core_primitives::shard::ShardIndex;
 use ab_example_contract_ft::{ExampleFt, ExampleFtExt};
 use ab_executor_native::NativeExecutor;
 use ab_system_contract_code::CodeExt;
 
 #[test]
 fn basic() {
-    let shard_index = ShardIndex::from_u32(1).unwrap();
+    let shard_index = ShardIndex::new(1).unwrap();
     let executor = NativeExecutor::builder(shard_index)
         .with_contract::<DummyWallet>()
         .with_contract::<ExampleFt>()

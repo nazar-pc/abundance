@@ -14,7 +14,7 @@ include = [
 all-features = true
 
 [dependencies]
-ab-contracts-io-type = { workspace = true }
+ab-io-type = { workspace = true }
 
 [lints]
 workspace = true

@@ -1,6 +1,6 @@
 [package]
-name = "ab-contracts-io-type"
-description = "I/O type used for crossing host/guest boundary"
+name = "ab-io-type"
+description = "Infrastructure for zero-cost no-copy serialization/deserialization"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
@@ -11,7 +11,7 @@ include = [
 ]
 
 [dependencies]
-ab-contracts-trivial-type-derive = { workspace = true }
+ab-trivial-type-derive = { workspace = true }
 
 [lints]
 workspace = true

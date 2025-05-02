@@ -11,7 +11,7 @@ mod tests;
 
 extern crate alloc;
 
-use ab_contracts_io_type::MAX_ALIGNMENT;
+use ab_io_type::MAX_ALIGNMENT;
 use alloc::boxed::Box;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;

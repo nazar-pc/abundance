@@ -1,11 +1,12 @@
 #![no_std]
 
+use ab_contracts_common::ContractError;
 use ab_contracts_common::env::Env;
-use ab_contracts_common::{Address, ContractError};
-use ab_contracts_io_type::bool::Bool;
-use ab_contracts_io_type::trivial_type::TrivialType;
-use ab_contracts_io_type::variable_bytes::VariableBytes;
 use ab_contracts_macros::contract;
+use ab_core_primitives::address::Address;
+use ab_io_type::bool::Bool;
+use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::variable_bytes::VariableBytes;
 use core::mem::MaybeUninit;
 
 // TODO: How/where should this limit be defined?

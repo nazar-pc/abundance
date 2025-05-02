@@ -14,7 +14,8 @@ include = [
 all-features = true
 
 [dependencies]
-ab-contracts-io-type = { workspace = true }
+ab-core-primitives = { workspace = true }
+ab-io-type = { workspace = true }
 # TODO: Switch to blake3 once https://github.com/BLAKE3-team/BLAKE3/pull/439 is upstreamed and const hashing version is
 #  exposed
 const-sha1 = { workspace = true }

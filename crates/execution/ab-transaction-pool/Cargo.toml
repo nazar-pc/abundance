@@ -14,8 +14,7 @@ include = [
 all-features = true
 
 [dependencies]
-ab-contracts-common = { workspace = true }
-ab-transaction = { workspace = true, features = ["alloc"] }
+ab-core-primitives = { workspace = true, features = ["alloc"] }
 thiserror = { workspace = true }
 
 [lints]

@@ -9,12 +9,12 @@ members = [
 [workspace.dependencies]
 ab-aligned-buffer = { version = "0.0.1", path = "crates/shared/ab-aligned-buffer" }
 ab-contracts-common = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-common" }
-ab-contracts-io-type = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-io-type" }
 ab-contracts-macros = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros" }
 ab-contracts-macros-impl = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros-impl" }
 ab-contracts-standards = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-standards" }
 ab-contracts-test-utils = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-test-utils" }
-ab-contracts-trivial-type-derive = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-trivial-type-derive" }
+ab-core-primitives = { version = "0.1.0", path = "crates/shared/ab-core-primitives" }
+ab-io-type = { version = "0.0.1", path = "crates/shared/ab-io-type" }
 ab-executor-native = { version = "0.0.1", path = "crates/execution/ab-executor-native" }
 ab-executor-slots = { version = "0.0.1", path = "crates/execution/ab-executor-slots" }
 ab-merkle-tree = { version = "0.0.1", path = "crates/shared/ab-merkle-tree" }
@@ -24,7 +24,7 @@ ab-system-contract-code = { version = "0.0.1", path = "crates/contracts/system/a
 ab-system-contract-native-token = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-native-token" }
 ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-simple-wallet-base" }
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
-ab-transaction = { version = "0.0.1", path = "crates/shared/ab-transaction" }
+ab-trivial-type-derive = { version = "0.0.1", path = "crates/shared/ab-trivial-type-derive" }
 blake3 = { version = "1.8.2", default-features = false }
 bytes = { version = "1.10.1", default-features = false }
 const-sha1 = { version = "0.3.0", default-features = false }

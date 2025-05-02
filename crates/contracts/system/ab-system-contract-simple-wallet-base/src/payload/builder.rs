@@ -6,15 +6,16 @@ mod tests;
 extern crate alloc;
 
 use crate::payload::{TransactionInput, TransactionMethodContext, TransactionSlot};
+use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, MetadataDecodingError, MethodMetadataDecoder, MethodMetadataItem,
     MethodsContainerKind,
 };
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
-use ab_contracts_common::{Address, MAX_TOTAL_METHOD_ARGS};
-use ab_contracts_io_type::MAX_ALIGNMENT;
-use ab_contracts_io_type::metadata::IoTypeDetails;
-use ab_contracts_io_type::trivial_type::TrivialType;
+use ab_core_primitives::address::Address;
+use ab_io_type::MAX_ALIGNMENT;
+use ab_io_type::metadata::IoTypeDetails;
+use ab_io_type::trivial_type::TrivialType;
 use alloc::vec::Vec;
 use core::ffi::c_void;
 use core::mem::MaybeUninit;
