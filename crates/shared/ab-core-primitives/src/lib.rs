@@ -6,6 +6,7 @@
     array_chunks,
     const_trait_impl,
     const_try,
+    generic_arg_infer,
     portable_simd,
     ptr_as_ref_unchecked,
     step_trait

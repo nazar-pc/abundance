@@ -21,7 +21,7 @@ pub struct OwnedTransactionLengths {
     /// Seal length
     pub seal: u32,
     /// Not used and must be set to `0`
-    pub padding: [u8; 12],
+    pub padding: [u8; 4],
 }
 
 /// Errors for [`OwnedTransaction`]
@@ -30,6 +30,9 @@ pub enum OwnedTransactionError {
     /// Not enough bytes
     #[error("Not enough bytes")]
     NotEnoughBytes,
+    /// Invalid padding
+    #[error("Invalid padding")]
+    InvalidPadding,
     /// Payload is not a multiple of `u128`
     #[error("Payload is not a multiple of `u128`")]
     PayloadIsNotMultipleOfU128,
@@ -90,8 +93,12 @@ impl OwnedTransaction {
             write_slots,
             payload,
             seal,
-            padding: _,
+            padding,
         } = lengths;
+
+        if padding != [0; _] {
+            return Err(OwnedTransactionError::InvalidPadding);
+        }
 
         if payload % u128::SIZE != 0 {
             return Err(OwnedTransactionError::PayloadIsNotMultipleOfU128);
