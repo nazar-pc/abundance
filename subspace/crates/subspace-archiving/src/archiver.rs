@@ -15,17 +15,6 @@ use parity_scale_codec::{Compact, CompactLen, Decode, Encode, Input, Output};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-const INITIAL_LAST_ARCHIVED_BLOCK: LastArchivedBlock = LastArchivedBlock {
-    number: BlockNumber::ZERO,
-    // Special case for the genesis block.
-    //
-    // When we start archiving process with pre-genesis objects, we do not yet have any blocks
-    // archived, but `LastArchivedBlock` is required for `SegmentHeader`s to be produced, so
-    // `ArchivedBlockProgress::Partial(0)` indicates that we have archived 0 bytes of block `0` (see
-    // field above), meaning we did not in fact archive actual blocks yet.
-    archived_progress: ArchivedBlockProgress::Partial(0),
-};
-
 struct ArchivedHistorySegmentOutput<'a> {
     segment: &'a mut ArchivedHistorySegment,
     offset: usize,
@@ -252,7 +241,7 @@ pub struct Archiver {
     /// Hash of the segment header of the previous segment
     prev_segment_header_hash: Blake3Hash,
     /// Last archived block
-    last_archived_block: LastArchivedBlock,
+    last_archived_block: Option<LastArchivedBlock>,
 }
 
 impl Archiver {
@@ -263,7 +252,7 @@ impl Archiver {
             erasure_coding,
             segment_index: SegmentIndex::ZERO,
             prev_segment_header_hash: Blake3Hash::default(),
-            last_archived_block: INITIAL_LAST_ARCHIVED_BLOCK,
+            last_archived_block: None,
         }
     }
 
@@ -280,14 +269,18 @@ impl Archiver {
 
         archiver.segment_index = segment_header.segment_index() + SegmentIndex::ONE;
         archiver.prev_segment_header_hash = segment_header.hash();
-        archiver.last_archived_block = segment_header.last_archived_block();
+        archiver.last_archived_block = Some(segment_header.last_archived_block());
 
         // The first thing in the buffer should be segment header
         archiver
             .buffer
             .push_back(SegmentItem::ParentSegmentHeader(segment_header));
 
-        if let Some(archived_block_bytes) = archiver.last_archived_block.partial_archived() {
+        if let Some(archived_block_bytes) = archiver
+            .last_archived_block
+            .expect("Just inserted; qed")
+            .partial_archived()
+        {
             let encoded_block_bytes = u32::try_from(encoded_block.len())
                 .expect("Blocks length is never bigger than u32; qed");
 
@@ -329,11 +322,8 @@ impl Archiver {
 
     /// Get last archived block if there was any
     pub fn last_archived_block_number(&self) -> Option<BlockNumber> {
-        if self.last_archived_block != INITIAL_LAST_ARCHIVED_BLOCK {
-            Some(self.last_archived_block.number)
-        } else {
-            None
-        }
+        self.last_archived_block
+            .map(|last_archived_block| last_archived_block.number)
     }
 
     /// Adds new block to internal buffer, potentially producing pieces, segment headers, and
@@ -440,23 +430,33 @@ impl Archiver {
                 }
                 SegmentItem::Block { .. } => {
                     // Skip block number increase in case of the very first block
-                    if last_archived_block != INITIAL_LAST_ARCHIVED_BLOCK {
-                        // Increase archived block number and assume the whole block was
+                    if let Some(last_archived_block) = &mut last_archived_block {
+                        // Increase the archived block number and assume the whole block was
                         // archived
                         last_archived_block.number += BlockNumber::ONE;
+                        last_archived_block.set_complete();
+                    } else {
+                        // Genesis block
+                        last_archived_block.replace(LastArchivedBlock {
+                            number: BlockNumber::ZERO,
+                            archived_progress: ArchivedBlockProgress::Complete,
+                        });
                     }
-                    last_archived_block.set_complete();
                 }
                 SegmentItem::BlockStart { .. } => {
                     unreachable!("Buffer never contains SegmentItem::BlockStart; qed");
                 }
                 SegmentItem::BlockContinuation { bytes, .. } => {
+                    let last_archived_block = last_archived_block.as_mut().expect(
+                        "Block continuation implies that there are some bytes archived \
+                        already; qed",
+                    );
                     // Same block, but assume for now that the whole block was archived, but
                     // also store the number of bytes as opposed to `None`, we'll transform
                     // it into `None` if needed later
                     let archived_bytes = last_archived_block.partial_archived().expect(
-                        "Block continuation implies that there are some bytes \
-                            archived already; qed",
+                        "Block continuation implies that there are some bytes archived \
+                        already; qed",
                     );
                     last_archived_block.set_partial_archived(
                         archived_bytes
@@ -471,6 +471,9 @@ impl Archiver {
 
             segment.push_item(segment_item);
         }
+
+        let mut last_archived_block =
+            last_archived_block.expect("Genesis block is always initialized at this point; qed");
 
         // Check if there is an excess of data that should be spilled over into the next segment
         let spill_over = segment_size
@@ -592,7 +595,7 @@ impl Archiver {
             last_archived_block.set_complete();
         }
 
-        self.last_archived_block = last_archived_block;
+        self.last_archived_block = Some(last_archived_block);
 
         Some(segment)
     }
@@ -760,7 +763,9 @@ impl Archiver {
             segment_index: self.segment_index,
             segment_root,
             prev_segment_header_hash: self.prev_segment_header_hash,
-            last_archived_block: self.last_archived_block,
+            last_archived_block: self
+                .last_archived_block
+                .expect("Never empty by the time segment is produced; qed"),
         };
 
         // Update state
