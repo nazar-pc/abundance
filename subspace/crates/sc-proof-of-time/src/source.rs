@@ -106,17 +106,17 @@ where
         };
 
         let pot_parameters = runtime_api.pot_parameters(best_hash)?;
-        let maybe_next_parameters_change = pot_parameters.next_parameters_change();
+        let maybe_next_parameters_change = pot_parameters.next_change;
 
         let pot_input = if best_header.number().is_zero() {
             PotNextSlotInput {
                 slot: parent_slot + SlotNumber::ONE,
-                slot_iterations: pot_parameters.slot_iterations(),
+                slot_iterations: pot_parameters.slot_iterations,
                 seed: pot_verifier.genesis_seed(),
             }
         } else {
             PotNextSlotInput::derive(
-                pot_parameters.slot_iterations(),
+                pot_parameters.slot_iterations,
                 parent_slot,
                 best_pre_digest.pot_info.future_proof_of_time,
                 &maybe_next_parameters_change,

@@ -840,7 +840,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        PotParameters::V0 {
+        PotParameters {
             slot_iterations: pot_slot_iterations.slot_iterations,
             next_change,
         }

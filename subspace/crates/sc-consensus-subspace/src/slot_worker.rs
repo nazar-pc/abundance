@@ -398,15 +398,15 @@ where
             let pot_input = if parent_header.number().is_zero() {
                 PotNextSlotInput {
                     slot: parent_slot + SlotNumber::ONE,
-                    slot_iterations: parent_pot_parameters.slot_iterations(),
+                    slot_iterations: parent_pot_parameters.slot_iterations,
                     seed: self.pot_verifier.genesis_seed(),
                 }
             } else {
                 PotNextSlotInput::derive(
-                    parent_pot_parameters.slot_iterations(),
+                    parent_pot_parameters.slot_iterations,
                     parent_slot,
                     parent_pre_digest.pot_info.proof_of_time,
-                    &parent_pot_parameters.next_parameters_change(),
+                    &parent_pot_parameters.next_change,
                 )
             };
 
@@ -415,7 +415,7 @@ where
                 pot_input,
                 slot - parent_slot,
                 proof_of_time,
-                parent_pot_parameters.next_parameters_change(),
+                parent_pot_parameters.next_change,
             ) {
                 warn!(
                     %slot,
@@ -429,15 +429,15 @@ where
             let mut checkpoints_pot_input = if parent_header.number().is_zero() {
                 PotNextSlotInput {
                     slot: parent_slot + SlotNumber::ONE,
-                    slot_iterations: parent_pot_parameters.slot_iterations(),
+                    slot_iterations: parent_pot_parameters.slot_iterations,
                     seed: self.pot_verifier.genesis_seed(),
                 }
             } else {
                 PotNextSlotInput::derive(
-                    parent_pot_parameters.slot_iterations(),
+                    parent_pot_parameters.slot_iterations,
                     parent_future_slot,
                     parent_pre_digest.pot_info.future_proof_of_time,
-                    &parent_pot_parameters.next_parameters_change(),
+                    &parent_pot_parameters.next_change,
                 )
             };
             let seed = checkpoints_pot_input.seed;
@@ -461,7 +461,7 @@ where
                     checkpoints_pot_input.slot_iterations,
                     slot,
                     slot_checkpoints.output(),
-                    &parent_pot_parameters.next_parameters_change(),
+                    &parent_pot_parameters.next_change,
                 );
             }
 
