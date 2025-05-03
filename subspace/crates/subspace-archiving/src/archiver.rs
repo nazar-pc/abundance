@@ -40,100 +40,62 @@ impl Output for ArchivedHistorySegmentOutput<'_> {
 
 /// Segment represents a collection of items stored in archival history of the Subspace blockchain
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Segment {
-    // V0 of the segment data structure
-    V0 {
-        /// Segment items
-        items: Vec<SegmentItem>,
-    },
+pub struct Segment {
+    /// Segment items
+    pub items: Vec<SegmentItem>,
 }
 
 impl Default for Segment {
+    #[inline(always)]
     fn default() -> Self {
-        Segment::V0 { items: Vec::new() }
+        Segment { items: Vec::new() }
     }
 }
 
 impl Encode for Segment {
+    #[inline(always)]
     fn size_hint(&self) -> usize {
         RecordedHistorySegment::SIZE
     }
 
+    #[inline]
     fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
-        match self {
-            Segment::V0 { items } => {
-                dest.push_byte(0);
-                for item in items {
-                    item.encode_to(dest);
-                }
-            }
+        for item in &self.items {
+            item.encode_to(dest);
         }
     }
 }
 
 impl Decode for Segment {
+    #[inline]
     fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
-        let variant = input
-            .read_byte()
-            .map_err(|e| e.chain("Could not decode `Segment`, failed to read variant byte"))?;
-        match variant {
-            0 => {
-                let mut items = Vec::new();
-                loop {
-                    match input.remaining_len()? {
-                        Some(0) => {
-                            break;
-                        }
-                        Some(_) => {
-                            // Processing continues below
-                        }
-                        None => {
-                            return Err(
-                                "Source doesn't report remaining length, decoding not possible"
-                                    .into(),
-                            );
-                        }
-                    }
-
-                    match SegmentItem::decode(input) {
-                        Ok(item) => {
-                            items.push(item);
-                        }
-                        Err(error) => {
-                            return Err(error.chain("Could not decode `Segment::V0::items`"));
-                        }
-                    }
+        let mut items = Vec::new();
+        loop {
+            match input.remaining_len()? {
+                Some(0) => {
+                    break;
                 }
-
-                Ok(Segment::V0 { items })
+                Some(_) => {
+                    // Processing continues below
+                }
+                None => {
+                    return Err(
+                        "Source doesn't report remaining length, decoding not possible".into(),
+                    );
+                }
             }
-            _ => Err("Could not decode `Segment`, variant doesn't exist".into()),
-        }
-    }
-}
 
-impl Segment {
-    fn push_item(&mut self, segment_item: SegmentItem) {
-        let Self::V0 { items } = self;
-        items.push(segment_item);
-    }
-
-    pub fn items(&self) -> &[SegmentItem] {
-        match self {
-            Segment::V0 { items } => items,
+            match SegmentItem::decode(input) {
+                Ok(item) => {
+                    items.push(item);
+                }
+                Err(error) => {
+                    return Err(error.chain("Could not decode `Segment::items`"));
+                }
+            }
         }
-    }
 
-    pub(crate) fn items_mut(&mut self) -> &mut Vec<SegmentItem> {
-        match self {
-            Segment::V0 { items } => items,
-        }
-    }
-
-    pub fn into_items(self) -> Vec<SegmentItem> {
-        match self {
-            Segment::V0 { items } => items,
-        }
+        Ok(Self { items })
     }
 }
 
@@ -355,7 +317,7 @@ impl Archiver {
             // Produce any segment mappings that haven't already been produced.
             object_mapping.extend(Self::produce_object_mappings(
                 self.segment_index,
-                segment.items_mut().iter_mut(),
+                segment.items.iter_mut(),
             ));
             archived_segments.push(self.produce_archived_segment(segment));
         }
@@ -372,7 +334,7 @@ impl Archiver {
     /// Try to slice buffer contents into segments if there is enough data, producing one segment at
     /// a time
     fn produce_segment(&mut self) -> Option<Segment> {
-        let mut segment = Segment::V0 {
+        let mut segment = Segment {
             items: Vec::with_capacity(self.buffer.len()),
         };
 
@@ -387,7 +349,7 @@ impl Archiver {
                 Some(segment_item) => segment_item,
                 None => {
                     // Push all of the items back into the buffer, we don't have enough data yet
-                    for segment_item in segment.into_items().into_iter().rev() {
+                    for segment_item in segment.items.into_iter().rev() {
                         self.buffer.push_front(segment_item);
                     }
 
@@ -482,7 +444,7 @@ impl Archiver {
                 }
             }
 
-            segment.push_item(segment_item);
+            segment.items.push(segment_item);
         }
 
         let mut last_archived_block =
@@ -494,8 +456,8 @@ impl Archiver {
             .unwrap_or_default();
 
         if spill_over > 0 {
-            let items = segment.items_mut();
-            let segment_item = items
+            let segment_item = segment
+                .items
                 .pop()
                 .expect("Segment over segment size always has at least one item; qed");
 
@@ -611,7 +573,7 @@ impl Archiver {
             };
 
             // Push back shortened segment item
-            items.push(segment_item);
+            segment.items.push(segment_item);
         } else {
             // Above code added bytes length even though it was assumed that all continuation bytes
             // fit into the segment, now we need to tweak that

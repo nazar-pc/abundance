@@ -151,7 +151,7 @@ fn archiver() {
         assert_eq!(last_archived_block.number, BlockNumber::ONE);
         assert_eq!(
             last_archived_block.partial_archived(),
-            Some(NonZeroU32::new(67108853).unwrap())
+            Some(NonZeroU32::new(67108854).unwrap())
         );
     }
 
@@ -275,7 +275,7 @@ fn archiver() {
         assert_eq!(last_archived_block.number, BlockNumber::new(2));
         assert_eq!(
             last_archived_block.partial_archived(),
-            Some(NonZeroU32::new(111848001).unwrap())
+            Some(NonZeroU32::new(111848003).unwrap())
         );
     }
     {
@@ -284,7 +284,7 @@ fn archiver() {
         assert_eq!(last_archived_block.number, BlockNumber::new(2));
         assert_eq!(
             last_archived_block.partial_archived(),
-            Some(NonZeroU32::new(246065638).unwrap())
+            Some(NonZeroU32::new(246065641).unwrap())
         );
     }
 
@@ -331,7 +331,7 @@ fn archiver() {
 
     // Add a block such that it fits in the next segment exactly
     let block_3 = {
-        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369916];
+        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369912];
         rng.fill_bytes(block.as_mut_slice());
         block
     };
@@ -487,8 +487,6 @@ fn one_byte_smaller_segment() {
     // vector length encoding will take 2 bytes to encode, thus it will be impossible to slice
     // internal bytes of the segment item anyway
     let block_size = RecordedHistorySegment::SIZE
-        // Segment enum variant
-        - 1
         - 1
         // This is a rough number (a bit fewer bytes will be included in practice), but it is
         // close enough and practically will always result in the same compact length.
@@ -597,8 +595,6 @@ fn object_on_the_edge_of_segment() {
         hash: Blake3Hash::default(),
         // Offset is designed to fall exactly on the edge of the segment
         offset: RecordedHistorySegment::SIZE as u32
-            // Segment enum variant
-            - 1
             // Segment header segment item
             - SegmentItem::ParentSegmentHeader(SegmentHeader {
                 segment_index: SegmentIndex::ZERO,

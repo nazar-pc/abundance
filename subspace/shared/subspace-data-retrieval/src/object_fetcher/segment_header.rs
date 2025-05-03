@@ -25,9 +25,6 @@ pub const MAX_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
 /// <https://docs.substrate.io/reference/scale-codec/#fn-1>
 pub const MAX_SEGMENT_PADDING: usize = 3;
 
-/// The segment version this code knows how to parse.
-const SEGMENT_VERSION_VARIANT: u8 = 0;
-
 /// The variant for block continuations.
 const BLOCK_CONTINUATION_VARIANT: u8 = 3;
 
@@ -66,24 +63,7 @@ pub fn strip_segment_header(
     let mut piece_data = IoReader(Cursor::new(piece_data));
 
     // Decode::decode() wants to read the entire segment here, so we have to decode it manually.
-    // In SCALE encoding, variants are always one byte.
-    let segment_variant = piece_data
-        .read_byte()
-        .map_err(|source| Error::SegmentDecoding {
-            source,
-            segment_index,
-            mapping,
-        })?;
-    // We only know how to decode variant 0.
-    if segment_variant != SEGMENT_VERSION_VARIANT {
-        return Err(Error::UnknownSegmentVariant {
-            segment_variant,
-            segment_index,
-            mapping,
-        });
-    }
-
-    // Variant 0 consists of a list of items, with no length prefix.
+    // Segment consists of a list of items, with no length prefix.
     let segment_item =
         SegmentItem::decode(&mut piece_data).map_err(|source| Error::SegmentDecoding {
             source,
@@ -141,7 +121,6 @@ pub fn strip_segment_header(
 mod test {
     use super::*;
     use parity_scale_codec::{Compact, CompactLen};
-    use subspace_archiving::archiver::Segment;
 
     #[test]
     fn max_segment_padding_constant() {
@@ -149,14 +128,6 @@ mod test {
             MAX_SEGMENT_PADDING,
             Compact::compact_len(&MAX_BLOCK_LENGTH) - Compact::<u32>::compact_len(&1)
         );
-    }
-
-    #[test]
-    fn segment_version_variant_constant() {
-        let segment = Segment::V0 { items: Vec::new() };
-        let segment = segment.encode();
-
-        assert_eq!(segment[0], SEGMENT_VERSION_VARIANT);
     }
 
     #[test]

@@ -121,7 +121,7 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(1),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(67108853).unwrap()
+                    NonZeroU32::new(67108854).unwrap()
                 )
             }
         );
@@ -143,7 +143,7 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(1),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(67108853).unwrap()
+                    NonZeroU32::new(67108854).unwrap()
                 )
             }
         );
@@ -166,7 +166,7 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(33554320).unwrap()
+                    NonZeroU32::new(33554322).unwrap()
                 )
             }
         );
@@ -188,7 +188,7 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(33554320).unwrap()
+                    NonZeroU32::new(33554322).unwrap()
                 )
             }
         );
@@ -211,7 +211,7 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(167771957).unwrap()
+                    NonZeroU32::new(167771960).unwrap()
                 )
             }
         );
@@ -235,7 +235,7 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(167771957).unwrap()
+                    NonZeroU32::new(167771960).unwrap()
                 )
             }
         );
@@ -258,7 +258,7 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(301989594).unwrap()
+                    NonZeroU32::new(301989598).unwrap()
                 )
             }
         );
@@ -282,7 +282,7 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(301989594).unwrap()
+                    NonZeroU32::new(301989598).unwrap()
                 )
             }
         );

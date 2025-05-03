@@ -134,13 +134,13 @@ impl Reconstructor {
         &mut self,
         segment_pieces: &[Option<Piece>],
     ) -> Result<ReconstructedContents, ReconstructorError> {
-        let items = self.reconstruct_segment(segment_pieces)?.into_items();
+        let segment = self.reconstruct_segment(segment_pieces)?;
 
         let mut reconstructed_contents = ReconstructedContents::default();
         let mut next_block_number = BlockNumber::ZERO;
         let mut partial_block = self.partial_block.take().unwrap_or_default();
 
-        for segment_item in items {
+        for segment_item in segment.items {
             match segment_item {
                 SegmentItem::Padding => {
                     // Doesn't contain anything
