@@ -86,7 +86,7 @@ fn write_segment_header(mut piece: &mut Piece, remaining_len: usize) -> Vec<u8> 
         // Segment::V0 and SegmentItem::ParentSegmentHeader(_) variants
         let segment_variants = [0_u8, 4_u8];
         // SegmentHeader
-        let segment_header = SegmentHeader::V0 {
+        let segment_header = SegmentHeader {
             segment_index: u64::MAX.into(),
             segment_root: SegmentRoot::default(),
             prev_segment_header_hash: Blake3Hash::default(),

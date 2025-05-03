@@ -156,7 +156,7 @@ pub fn new_test_ext() -> TestExternalities {
 }
 
 pub fn create_segment_header(segment_index: SegmentIndex) -> SegmentHeader {
-    SegmentHeader::V0 {
+    SegmentHeader {
         segment_index,
         segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),

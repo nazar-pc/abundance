@@ -289,7 +289,7 @@ async fn basic() {
         // side effects, but acknowledgement will indicate that keep-up after initial sync has
         // finished
         {
-            let segment_header = SegmentHeader::V0 {
+            let segment_header = SegmentHeader {
                 segment_index: SegmentIndex::ONE,
                 segment_root: Default::default(),
                 prev_segment_header_hash: [0; 32].into(),
@@ -349,7 +349,7 @@ async fn basic() {
         // Send two more segment headers (one is not enough because for above peer ID there are no
         // pieces for it to store)
         for segment_index in [2, 3] {
-            let segment_header = SegmentHeader::V0 {
+            let segment_header = SegmentHeader {
                 segment_index: SegmentIndex::from(segment_index),
                 segment_root: Default::default(),
                 prev_segment_header_hash: [0; 32].into(),

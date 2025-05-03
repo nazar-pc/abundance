@@ -179,7 +179,7 @@ where
         // Check all input segment headers to see which ones are not stored yet and verifying that segment indices are
         // monotonically increasing
         for segment_header in segment_headers {
-            let segment_index = segment_header.segment_index();
+            let segment_index = segment_header.segment_index;
             match maybe_last_segment_index {
                 Some(last_segment_index) => {
                     if segment_index <= last_segment_index {
@@ -276,19 +276,18 @@ where
                 .expect("Segment headers are stored in monotonically increasing order; qed");
 
             // The block immediately after the archived segment adding the confirmation depth
-            let target_block_number = current_segment_header.last_archived_block().number
+            let target_block_number = current_segment_header.last_archived_block.number
                 + BlockNumber::ONE
                 + self.confirmation_depth_k;
             if target_block_number == block_number {
                 let mut headers_for_block = vec![current_segment_header];
 
                 // Check block spanning multiple segments
-                let last_archived_block_number =
-                    current_segment_header.last_archived_block().number;
+                let last_archived_block_number = current_segment_header.last_archived_block.number;
                 let mut segment_index = current_segment_index - SegmentIndex::ONE;
 
                 while let Some(segment_header) = self.get_segment_header(segment_index) {
-                    if segment_header.last_archived_block().number == last_archived_block_number {
+                    if segment_header.last_archived_block.number == last_archived_block_number {
                         headers_for_block.insert(0, segment_header);
                         segment_index -= SegmentIndex::ONE;
                     } else {
@@ -419,7 +418,7 @@ where
         .rev()
         .filter_map(|segment_index| segment_headers_store.get_segment_header(segment_index))
     {
-        let last_archived_block_number = segment_header.last_archived_block().number;
+        let last_archived_block_number = segment_header.last_archived_block.number;
 
         if last_archived_block_number > best_block_to_archive {
             // Last archived block in segment header is too high for current state of the chain
@@ -680,7 +679,7 @@ where
             maybe_last_archived_block
         {
             // Continuing from existing initial state
-            let last_archived_block_number = last_segment_header.last_archived_block().number;
+            let last_archived_block_number = last_segment_header.last_archived_block.number;
             info!(
                 %last_archived_block_number,
                 "Resuming archiver from last archived block",
@@ -968,7 +967,7 @@ where
             let last_archived_block_number = segment_headers_store
                 .last_segment_header()
                 .expect("Exists after archiver initialization; qed")
-                .last_archived_block()
+                .last_archived_block
                 .number;
             let create_mappings =
                 create_object_mappings.is_enabled_for_block(last_archived_block_number);
@@ -1064,7 +1063,7 @@ where
                     .and_then(|segment_index| {
                         segment_headers_store.get_segment_header(segment_index)
                     })
-                    .map(|segment_header| segment_header.last_archived_block().number)
+                    .map(|segment_header| segment_header.last_archived_block.number)
                     // Make sure not to finalize block number that does not yet exist (segment
                     // headers store may contain future blocks during initial sync)
                     .map(|block_number| block_number_to_archive.min(block_number))
@@ -1225,7 +1224,7 @@ async fn send_archived_segment_notification(
     archived_segment_notification_sender: &SubspaceNotificationSender<ArchivedSegmentNotification>,
     archived_segment: NewArchivedSegment,
 ) {
-    let segment_index = archived_segment.segment_header.segment_index();
+    let segment_index = archived_segment.segment_header.segment_index;
     let (acknowledgement_sender, mut acknowledgement_receiver) =
         tracing_unbounded::<()>("subspace_acknowledgement", 1000);
     // Keep `archived_segment` around until all acknowledgements are received since some receivers

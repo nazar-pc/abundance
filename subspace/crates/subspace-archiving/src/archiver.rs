@@ -268,9 +268,9 @@ impl Archiver {
     ) -> Result<Self, ArchiverInstantiationError> {
         let mut archiver = Self::new(erasure_coding);
 
-        archiver.segment_index = segment_header.segment_index() + SegmentIndex::ONE;
+        archiver.segment_index = segment_header.segment_index + SegmentIndex::ONE;
         archiver.prev_segment_header_hash = segment_header.hash();
-        archiver.last_archived_block = Some(segment_header.last_archived_block());
+        archiver.last_archived_block = Some(segment_header.last_archived_block);
 
         // The first thing in the buffer should be segment header
         archiver
@@ -782,7 +782,7 @@ impl Archiver {
             });
 
         // Now produce segment header
-        let segment_header = SegmentHeader::V0 {
+        let segment_header = SegmentHeader {
             segment_index: self.segment_index,
             segment_root,
             prev_segment_header_hash: self.prev_segment_header_hash,

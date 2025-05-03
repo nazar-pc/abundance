@@ -688,7 +688,7 @@ where
     ) where
         PG: PieceGetter,
     {
-        let segment_index = segment_header.segment_index();
+        let segment_index = segment_header.segment_index;
         debug!(%segment_index, "Starting to process newly archived segment");
 
         if *last_segment_index_internal < segment_index {

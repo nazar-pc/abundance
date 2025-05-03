@@ -447,7 +447,7 @@ where
         let segment_root = self
             .segment_headers_store
             .get_segment_header(segment_index)
-            .map(|segment_header| segment_header.segment_root())
+            .map(|segment_header| segment_header.segment_root)
             .ok_or(Error::SegmentRootNotFound(segment_index))?;
 
         let sector_expiration_check_segment_root = self
@@ -461,7 +461,7 @@ where
                     .ok_or(Error::InvalidHistorySize)?
                     .segment_index(),
             )
-            .map(|segment_header| segment_header.segment_root());
+            .map(|segment_header| segment_header.segment_root);
 
         // Piece is not checked during initial block verification because it requires access to
         // segment header and runtime, check it now.
@@ -613,7 +613,7 @@ where
                 .segment_headers_store
                 .get_segment_header(segment_index)
                 .ok_or_else(|| Error::SegmentHeaderNotFound(segment_index))?
-                .segment_root();
+                .segment_root;
 
             if &found_segment_root != segment_root {
                 warn!(

@@ -34,7 +34,7 @@ const BLOCK_CONTINUATION_VARIANT: u8 = 3;
 /// The size of a segment header.
 #[inline]
 pub fn segment_header_encoded_size() -> usize {
-    let min_segment_header = SegmentHeader::V0 {
+    let min_segment_header = SegmentHeader {
         segment_index: 0.into(),
         segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),

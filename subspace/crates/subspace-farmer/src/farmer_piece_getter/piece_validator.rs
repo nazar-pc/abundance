@@ -57,7 +57,7 @@ where
         };
 
         let segment_root = match segment_headers.into_iter().next().flatten() {
-            Some(segment_header) => segment_header.segment_root(),
+            Some(segment_header) => segment_header.segment_root,
             None => {
                 error!(
                     %piece_index,

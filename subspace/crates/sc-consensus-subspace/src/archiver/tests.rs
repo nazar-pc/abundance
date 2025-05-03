@@ -56,7 +56,7 @@ fn segment_headers_store_block_number_queries_work() {
 
     // Several starting segments from gemini-3h
 
-    let segment_header0 = SegmentHeader::V0 {
+    let segment_header0 = SegmentHeader {
         segment_index: SegmentIndex::ZERO,
         segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
@@ -66,7 +66,7 @@ fn segment_headers_store_block_number_queries_work() {
         },
     };
 
-    let segment_header1 = SegmentHeader::V0 {
+    let segment_header1 = SegmentHeader {
         segment_index: SegmentIndex::ONE,
         segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
@@ -76,7 +76,7 @@ fn segment_headers_store_block_number_queries_work() {
         },
     };
 
-    let segment_header2 = SegmentHeader::V0 {
+    let segment_header2 = SegmentHeader {
         segment_index: SegmentIndex::from(2),
         segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
@@ -86,7 +86,7 @@ fn segment_headers_store_block_number_queries_work() {
         },
     };
 
-    let segment_header3 = SegmentHeader::V0 {
+    let segment_header3 = SegmentHeader {
         segment_index: SegmentIndex::from(3),
         segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
@@ -96,7 +96,7 @@ fn segment_headers_store_block_number_queries_work() {
         },
     };
 
-    let segment_header4 = SegmentHeader::V0 {
+    let segment_header4 = SegmentHeader {
         segment_index: SegmentIndex::from(4),
         segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),

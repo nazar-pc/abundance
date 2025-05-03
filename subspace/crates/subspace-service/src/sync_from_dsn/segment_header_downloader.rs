@@ -32,7 +32,7 @@ impl<'a> SegmentHeaderDownloader<'a> {
         &self,
         last_known_segment_header: &SegmentHeader,
     ) -> Result<Vec<SegmentHeader>, Box<dyn Error>> {
-        let last_known_segment_index = last_known_segment_header.segment_index();
+        let last_known_segment_index = last_known_segment_header.segment_index;
         trace!(
             %last_known_segment_index,
             "Searching for latest segment header"
@@ -42,10 +42,10 @@ impl<'a> SegmentHeaderDownloader<'a> {
             return Ok(Vec::new());
         };
 
-        if last_segment_header.segment_index() <= last_known_segment_index {
+        if last_segment_header.segment_index <= last_known_segment_index {
             debug!(
                 %last_known_segment_index,
-                last_found_segment_index = %last_segment_header.segment_index(),
+                last_found_segment_index = %last_segment_header.segment_index,
                 "No new segment headers found, nothing to download"
             );
 
@@ -54,12 +54,12 @@ impl<'a> SegmentHeaderDownloader<'a> {
 
         debug!(
             %last_known_segment_index,
-            last_segment_index = %last_segment_header.segment_index(),
+            last_segment_index = %last_segment_header.segment_index,
             "Downloading segment headers"
         );
 
         let Some(new_segment_headers_count) = last_segment_header
-            .segment_index()
+            .segment_index
             .checked_sub(last_known_segment_index)
         else {
             return Ok(Vec::new());
@@ -69,10 +69,9 @@ impl<'a> SegmentHeaderDownloader<'a> {
         new_segment_headers.push(last_segment_header);
 
         let mut segment_to_download_to = last_segment_header;
-        while segment_to_download_to.segment_index() - last_known_segment_index > SegmentIndex::ONE
-        {
+        while segment_to_download_to.segment_index - last_known_segment_index > SegmentIndex::ONE {
             let segment_indexes = (last_known_segment_index + SegmentIndex::ONE
-                ..segment_to_download_to.segment_index())
+                ..segment_to_download_to.segment_index)
                 .rev()
                 .take(SEGMENT_HEADER_NUMBER_PER_REQUEST as usize)
                 .collect();
@@ -82,12 +81,12 @@ impl<'a> SegmentHeaderDownloader<'a> {
                 .await?;
 
             for segment_header in segment_headers {
-                if segment_header.hash() != segment_to_download_to.prev_segment_header_hash() {
+                if segment_header.hash() != segment_to_download_to.prev_segment_header_hash {
                     error!(
                         %peer_id,
-                        segment_index=%segment_to_download_to.segment_index() - SegmentIndex::ONE,
+                        segment_index=%segment_to_download_to.segment_index - SegmentIndex::ONE,
                         actual_hash=?segment_header.hash(),
-                        expected_hash=?segment_to_download_to.prev_segment_header_hash(),
+                        expected_hash=?segment_to_download_to.prev_segment_header_hash,
                         "Segment header hash doesn't match expected hash from the last block"
                     );
 
@@ -107,7 +106,7 @@ impl<'a> SegmentHeaderDownloader<'a> {
         if new_segment_headers
             .first()
             .expect("Not empty; qed")
-            .prev_segment_header_hash()
+            .prev_segment_header_hash
             != last_known_segment_header.hash()
         {
             return Err(
@@ -275,7 +274,7 @@ impl<'a> SegmentHeaderDownloader<'a> {
             for (segment_header, peers) in segment_header_peers_iter {
                 if peers.len() > most_peers.len()
                     || (peers.len() == most_peers.len()
-                        && segment_header.segment_index() > best_segment_header.segment_index())
+                        && segment_header.segment_index > best_segment_header.segment_index)
                 {
                     best_segment_header = segment_header;
                     most_peers = peers;
@@ -303,16 +302,17 @@ impl<'a> SegmentHeaderDownloader<'a> {
         }
 
         let returned_segment_indexes =
-            BTreeSet::from_iter(segment_headers.iter().map(|rb| rb.segment_index()));
+            BTreeSet::from_iter(segment_headers.iter().map(|rb| rb.segment_index));
         if returned_segment_indexes.len() != segment_headers.len() {
             warn!(%peer_id, "Peer banned: it returned collection with duplicated segment headers");
 
             return false;
         }
 
-        let indexes_match = segment_indexes.iter().zip(segment_headers.iter()).all(
-            |(segment_index, segment_header)| *segment_index == segment_header.segment_index(),
-        );
+        let indexes_match = segment_indexes
+            .iter()
+            .zip(segment_headers.iter())
+            .all(|(segment_index, segment_header)| *segment_index == segment_header.segment_index);
 
         if !indexes_match {
             warn!(%peer_id, "Segment header collection doesn't match segment indexes");
@@ -334,7 +334,7 @@ impl<'a> SegmentHeaderDownloader<'a> {
                 return false;
             }
             Some(last_segment_header) => {
-                let last_segment_index = last_segment_header.segment_index();
+                let last_segment_index = last_segment_header.segment_index;
 
                 let mut segment_indices = (SegmentIndex::ZERO..=last_segment_index)
                     .rev()

@@ -351,20 +351,15 @@ impl LastArchivedBlock {
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub enum SegmentHeader {
-    /// V0 of the segment header data structure
-    #[cfg_attr(feature = "scale-codec", codec(index = 0))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-    V0 {
-        /// Segment index
-        segment_index: SegmentIndex,
-        /// Root of roots of all records in a segment.
-        segment_root: SegmentRoot,
-        /// Hash of the segment header of the previous segment
-        prev_segment_header_hash: Blake3Hash,
-        /// Last archived block
-        last_archived_block: LastArchivedBlock,
-    },
+pub struct SegmentHeader {
+    /// Segment index
+    pub segment_index: SegmentIndex,
+    /// Root of roots of all records in a segment.
+    pub segment_root: SegmentRoot,
+    /// Hash of the segment header of the previous segment
+    pub prev_segment_header_hash: Blake3Hash,
+    /// Last archived block
+    pub last_archived_block: LastArchivedBlock,
 }
 
 impl SegmentHeader {
@@ -374,44 +369,6 @@ impl SegmentHeader {
     #[inline(always)]
     pub fn hash(&self) -> Blake3Hash {
         blake3_hash(&self.encode())
-    }
-
-    /// Segment index
-    #[inline(always)]
-    pub fn segment_index(&self) -> SegmentIndex {
-        match self {
-            Self::V0 { segment_index, .. } => *segment_index,
-        }
-    }
-
-    /// Segment root of the records in a segment.
-    #[inline(always)]
-    pub fn segment_root(&self) -> SegmentRoot {
-        match self {
-            Self::V0 { segment_root, .. } => *segment_root,
-        }
-    }
-
-    /// Hash of the segment header of the previous segment
-    #[inline(always)]
-    pub fn prev_segment_header_hash(&self) -> Blake3Hash {
-        match self {
-            Self::V0 {
-                prev_segment_header_hash,
-                ..
-            } => *prev_segment_header_hash,
-        }
-    }
-
-    /// Last archived block
-    #[inline(always)]
-    pub fn last_archived_block(&self) -> LastArchivedBlock {
-        match self {
-            Self::V0 {
-                last_archived_block,
-                ..
-            } => *last_archived_block,
-        }
     }
 }
 

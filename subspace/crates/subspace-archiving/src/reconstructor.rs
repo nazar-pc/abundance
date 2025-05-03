@@ -181,7 +181,7 @@ impl Reconstructor {
                     partial_block.extend_from_slice(&bytes);
                 }
                 SegmentItem::ParentSegmentHeader(segment_header) => {
-                    let segment_index = segment_header.segment_index();
+                    let segment_index = segment_header.segment_index;
 
                     if let Some(last_segment_index) = self.last_segment_index {
                         if last_segment_index != segment_index {
@@ -198,7 +198,7 @@ impl Reconstructor {
                     let LastArchivedBlock {
                         number,
                         archived_progress,
-                    } = segment_header.last_archived_block();
+                    } = segment_header.last_archived_block;
 
                     reconstructed_contents
                         .segment_header

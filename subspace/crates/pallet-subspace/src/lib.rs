@@ -751,14 +751,11 @@ impl<T: Config> Pallet<T> {
         );
 
         for segment_header in segment_headers {
-            SegmentRoot::<T>::insert(
-                segment_header.segment_index(),
-                segment_header.segment_root(),
-            );
+            SegmentRoot::<T>::insert(segment_header.segment_index, segment_header.segment_root);
             // Deposit global randomness data such that light client can validate blocks later.
             frame_system::Pallet::<T>::deposit_log(DigestItem::segment_root(
-                segment_header.segment_index(),
-                segment_header.segment_root(),
+                segment_header.segment_index,
+                segment_header.segment_root,
             ));
             Self::deposit_event(Event::SegmentHeaderStored { segment_header });
         }
@@ -913,21 +910,21 @@ fn check_segment_headers<T: Config>(
     };
 
     // Segment in segment headers should monotonically increase
-    if first_segment_header.segment_index() > SegmentIndex::ZERO
-        && !SegmentRoot::<T>::contains_key(first_segment_header.segment_index() - SegmentIndex::ONE)
+    if first_segment_header.segment_index > SegmentIndex::ZERO
+        && !SegmentRoot::<T>::contains_key(first_segment_header.segment_index - SegmentIndex::ONE)
     {
         return Err(InvalidTransaction::BadMandatory.into());
     }
 
     // Segment headers should never repeat
-    if SegmentRoot::<T>::contains_key(first_segment_header.segment_index()) {
+    if SegmentRoot::<T>::contains_key(first_segment_header.segment_index) {
         return Err(InvalidTransaction::BadMandatory.into());
     }
 
-    let mut last_segment_index = first_segment_header.segment_index();
+    let mut last_segment_index = first_segment_header.segment_index;
 
     for segment_header in segment_headers_iter {
-        let segment_index = segment_header.segment_index();
+        let segment_index = segment_header.segment_index;
 
         // Segment in segment headers should monotonically increase
         if segment_index != last_segment_index + SegmentIndex::ONE {
