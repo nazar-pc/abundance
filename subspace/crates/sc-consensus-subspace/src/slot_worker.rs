@@ -355,7 +355,7 @@ where
                 return None;
             }
         };
-        let parent_slot = parent_pre_digest.slot();
+        let parent_slot = parent_pre_digest.slot;
 
         if slot <= parent_slot {
             debug!(
@@ -405,7 +405,7 @@ where
                 PotNextSlotInput::derive(
                     parent_pot_parameters.slot_iterations(),
                     parent_slot,
-                    parent_pre_digest.pot_info().proof_of_time(),
+                    parent_pre_digest.pot_info.proof_of_time(),
                     &parent_pot_parameters.next_parameters_change(),
                 )
             };
@@ -433,12 +433,10 @@ where
                     seed: self.pot_verifier.genesis_seed(),
                 }
             } else {
-                let parent_pot_info = parent_pre_digest.pot_info();
-
                 PotNextSlotInput::derive(
                     parent_pot_parameters.slot_iterations(),
                     parent_future_slot,
-                    parent_pot_info.future_proof_of_time(),
+                    parent_pre_digest.pot_info.future_proof_of_time(),
                     &parent_pot_parameters.next_parameters_change(),
                 )
             };
@@ -567,7 +565,7 @@ where
                 Ok(()) => {
                     if maybe_pre_digest.is_none() {
                         info!(%slot, "🚜 Claimed block at slot");
-                        maybe_pre_digest.replace(PreDigest::V0 {
+                        maybe_pre_digest.replace(PreDigest {
                             slot,
                             solution,
                             pot_info: PreDigestPotInfo::V0 {
@@ -638,7 +636,7 @@ where
         let signature = self
             .sign_reward(
                 H256::from_slice(header_hash.as_ref()),
-                pre_digest.solution().public_key_hash,
+                pre_digest.solution.public_key_hash,
             )
             .await?;
 
@@ -662,7 +660,7 @@ where
 
     fn should_backoff(&self, slot: Slot, chain_head: &Block::Header) -> bool {
         if let Some(strategy) = &self.backoff_authoring_blocks
-            && let Ok(chain_head_slot) = extract_pre_digest(chain_head).map(|digest| digest.slot())
+            && let Ok(chain_head_slot) = extract_pre_digest(chain_head).map(|digest| digest.slot)
         {
             return strategy.should_backoff(
                 *chain_head.number(),
@@ -698,7 +696,7 @@ where
     fn proposing_remaining_duration(&self, slot_info: &SlotInfo<Block>) -> std::time::Duration {
         let parent_slot = extract_pre_digest(&slot_info.chain_head)
             .ok()
-            .map(|d| d.slot());
+            .map(|d| d.slot);
 
         sc_consensus_slots::proposing_remaining_duration(
             parent_slot.map(|parent_slot| Slot::from(parent_slot.as_u64())),

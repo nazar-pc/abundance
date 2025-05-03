@@ -102,7 +102,7 @@ where
             SlotNumber::ZERO
         } else {
             // The best one seen
-            best_pre_digest.slot() + chain_constants.block_authoring_delay()
+            best_pre_digest.slot + chain_constants.block_authoring_delay()
         };
 
         let pot_parameters = runtime_api.pot_parameters(best_hash)?;
@@ -118,7 +118,7 @@ where
             PotNextSlotInput::derive(
                 pot_parameters.slot_iterations(),
                 parent_slot,
-                best_pre_digest.pot_info().future_proof_of_time(),
+                best_pre_digest.pot_info.future_proof_of_time(),
                 &maybe_next_parameters_change,
             )
         };
@@ -352,10 +352,10 @@ where
         };
 
         let best_slot =
-            subspace_digest_items.pre_digest.slot() + self.chain_constants.block_authoring_delay();
+            subspace_digest_items.pre_digest.slot + self.chain_constants.block_authoring_delay();
         let best_proof = subspace_digest_items
             .pre_digest
-            .pot_info()
+            .pot_info
             .future_proof_of_time();
 
         // This will do one of 3 things depending on circumstances:

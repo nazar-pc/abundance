@@ -499,13 +499,13 @@ impl<T: Config> Pallet<T> {
             .iter()
             .find_map(|s| s.as_subspace_pre_digest())
             .expect("Block must always have pre-digest");
-        let current_slot = pre_digest.slot();
+        let current_slot = pre_digest.slot;
 
         // The slot number of the current block being initialized.
-        CurrentSlot::<T>::put(pre_digest.slot());
+        CurrentSlot::<T>::put(pre_digest.slot);
 
         {
-            let farmer_public_key_hash = pre_digest.solution().public_key_hash;
+            let farmer_public_key_hash = pre_digest.solution.public_key_hash;
 
             // Optional restriction for block authoring to the root user
             if !AllowAuthoringByAnyone::<T>::get() {
@@ -644,9 +644,9 @@ impl<T: Config> Pallet<T> {
 
         if (block_number % pot_entropy_injection_interval).is_zero() {
             let current_block_entropy = pre_digest
-                .pot_info()
+                .pot_info
                 .proof_of_time()
-                .derive_pot_entropy(&pre_digest.solution().chunk);
+                .derive_pot_entropy(&pre_digest.solution.chunk);
             // Collect entropy every `pot_entropy_injection_interval` blocks
             entropy.insert(
                 block_number,
@@ -661,7 +661,7 @@ impl<T: Config> Pallet<T> {
                 && let Some(entropy_value) = entropy.get_mut(&entropy_source_block_number)
             {
                 let target_slot = pre_digest
-                    .slot()
+                    .slot
                     .checked_add(pot_entropy_injection_delay)
                     .unwrap_or(SlotNumber::MAX);
                 debug!(
