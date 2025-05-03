@@ -2,8 +2,7 @@ use crate::archiver::{Segment, SegmentItem};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::pieces::Piece;
 use ab_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentHeader, SegmentIndex,
+    ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment, SegmentHeader, SegmentIndex,
 };
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use alloc::vec::Vec;
@@ -135,13 +134,13 @@ impl Reconstructor {
         &mut self,
         segment_pieces: &[Option<Piece>],
     ) -> Result<ReconstructedContents, ReconstructorError> {
-        let items = self.reconstruct_segment(segment_pieces)?.into_items();
+        let segment = self.reconstruct_segment(segment_pieces)?;
 
         let mut reconstructed_contents = ReconstructedContents::default();
         let mut next_block_number = BlockNumber::ZERO;
         let mut partial_block = self.partial_block.take().unwrap_or_default();
 
-        for segment_item in items {
+        for segment_item in segment.items {
             match segment_item {
                 SegmentItem::Padding => {
                     // Doesn't contain anything
@@ -182,7 +181,7 @@ impl Reconstructor {
                     partial_block.extend_from_slice(&bytes);
                 }
                 SegmentItem::ParentSegmentHeader(segment_header) => {
-                    let segment_index = segment_header.segment_index();
+                    let segment_index = segment_header.segment_index;
 
                     if let Some(last_segment_index) = self.last_segment_index {
                         if last_segment_index != segment_index {
@@ -199,21 +198,21 @@ impl Reconstructor {
                     let LastArchivedBlock {
                         number,
                         archived_progress,
-                    } = segment_header.last_archived_block();
+                    } = segment_header.last_archived_block;
 
                     reconstructed_contents
                         .segment_header
                         .replace(segment_header);
 
-                    match archived_progress {
-                        ArchivedBlockProgress::Complete => {
+                    match archived_progress.partial() {
+                        None => {
                             reconstructed_contents
                                 .blocks
                                 .push((next_block_number, mem::take(&mut partial_block)));
 
                             next_block_number = number + BlockNumber::ONE;
                         }
-                        ArchivedBlockProgress::Partial(_bytes) => {
+                        Some(_bytes) => {
                             next_block_number = number;
 
                             if partial_block.is_empty() {

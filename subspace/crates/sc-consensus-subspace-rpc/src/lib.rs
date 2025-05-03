@@ -545,7 +545,7 @@ where
                     acknowledgement_sender,
                 } = archived_segment_notification;
 
-                let segment_index = archived_segment.segment_header.segment_index();
+                let segment_index = archived_segment.segment_header.segment_index;
 
                 // Store acknowledgment sender so that we can retrieve it when acknowledgement
                 // comes from the farmer, but only if unsafe APIs are allowed
@@ -701,8 +701,7 @@ where
             }
         };
 
-        if requested_piece_index.segment_index() == archived_segment.segment_header.segment_index()
-        {
+        if requested_piece_index.segment_index() == archived_segment.segment_header.segment_index {
             return Ok(archived_segment
                 .pieces
                 .pieces()

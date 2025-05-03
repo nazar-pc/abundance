@@ -62,7 +62,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::Duration;
 use subspace_archiving::archiver::{Archiver, NewArchivedSegment};
-use subspace_archiving::objects::{BlockObjectMapping, GlobalObject};
+use subspace_archiving::objects::{BlockObject, GlobalObject};
 use tracing::{debug, info, trace, warn};
 
 /// Number of WASM instances is 8, this is a bit lower to avoid warnings exceeding number of
@@ -179,7 +179,7 @@ where
         // Check all input segment headers to see which ones are not stored yet and verifying that segment indices are
         // monotonically increasing
         for segment_header in segment_headers {
-            let segment_index = segment_header.segment_index();
+            let segment_index = segment_header.segment_index;
             match maybe_last_segment_index {
                 Some(last_segment_index) => {
                     if segment_index <= last_segment_index {
@@ -276,19 +276,18 @@ where
                 .expect("Segment headers are stored in monotonically increasing order; qed");
 
             // The block immediately after the archived segment adding the confirmation depth
-            let target_block_number = current_segment_header.last_archived_block().number
+            let target_block_number = current_segment_header.last_archived_block.number
                 + BlockNumber::ONE
                 + self.confirmation_depth_k;
             if target_block_number == block_number {
                 let mut headers_for_block = vec![current_segment_header];
 
                 // Check block spanning multiple segments
-                let last_archived_block_number =
-                    current_segment_header.last_archived_block().number;
+                let last_archived_block_number = current_segment_header.last_archived_block.number;
                 let mut segment_index = current_segment_index - SegmentIndex::ONE;
 
                 while let Some(segment_header) = self.get_segment_header(segment_index) {
-                    if segment_header.last_archived_block().number == last_archived_block_number {
+                    if segment_header.last_archived_block.number == last_archived_block_number {
                         headers_for_block.insert(0, segment_header);
                         segment_index -= SegmentIndex::ONE;
                     } else {
@@ -394,17 +393,18 @@ impl CreateObjectMappings {
     }
 }
 
+#[expect(clippy::type_complexity, reason = "Return type")]
 fn find_last_archived_block<Block, Client, AS, COM>(
     client: &Client,
     segment_headers_store: &SegmentHeadersStore<AS>,
     best_block_to_archive: BlockNumber,
     create_object_mappings: Option<COM>,
-) -> sp_blockchain::Result<Option<(SegmentHeader, SignedBlock<Block>, BlockObjectMapping)>>
+) -> sp_blockchain::Result<Option<(SegmentHeader, SignedBlock<Block>, Vec<BlockObject>)>>
 where
     Block: BlockT,
     Client: BlockBackend<Block> + HeaderBackend<Block>,
     AS: AuxStore,
-    COM: Fn(Block) -> BlockObjectMapping,
+    COM: Fn(Block) -> Vec<BlockObject>,
 {
     let Some(max_segment_index) = segment_headers_store.max_segment_index() else {
         return Ok(None);
@@ -419,7 +419,7 @@ where
         .rev()
         .filter_map(|segment_index| segment_headers_store.get_segment_header(segment_index))
     {
-        let last_archived_block_number = segment_header.last_archived_block().number;
+        let last_archived_block_number = segment_header.last_archived_block.number;
 
         if last_archived_block_number > best_block_to_archive {
             // Last archived block in segment header is too high for current state of the chain
@@ -445,7 +445,7 @@ where
         let block_object_mappings = if let Some(create_object_mappings) = create_object_mappings {
             create_object_mappings(last_archived_block.block.clone())
         } else {
-            BlockObjectMapping::default()
+            Vec::new()
         };
 
         return Ok(Some((
@@ -475,8 +475,9 @@ where
     let encoded_block = encode_block(signed_block);
 
     // There are no mappings in the genesis block, so they can be ignored
-    let block_outcome =
-        Archiver::new(erasure_coding).add_block(encoded_block, BlockObjectMapping::default());
+    let block_outcome = Archiver::new(erasure_coding)
+        .add_block(encoded_block, Vec::new())
+        .expect("Block is never empty and doesn't exceed u32; qed");
     let new_archived_segment = block_outcome
         .archived_segments
         .into_iter()
@@ -667,7 +668,7 @@ where
                 //     .runtime_api()
                 //     .extract_block_object_mapping(parent_hash, block)
                 //     .unwrap_or_default()
-                BlockObjectMapping::default()
+                Vec::new()
             }),
     )?;
 
@@ -679,7 +680,7 @@ where
             maybe_last_archived_block
         {
             // Continuing from existing initial state
-            let last_archived_block_number = last_segment_header.last_archived_block().number;
+            let last_archived_block_number = last_segment_header.last_archived_block.number;
             info!(
                 %last_archived_block_number,
                 "Resuming archiver from last archived block",
@@ -767,9 +768,9 @@ where
                             //         block.block.clone(),
                             //     )
                             //     .unwrap_or_default()
-                            BlockObjectMapping::default()
+                            Vec::new()
                         } else {
-                            BlockObjectMapping::default()
+                            Vec::new()
                         };
 
                         Ok((block, block_object_mappings))
@@ -798,10 +799,12 @@ where
                     encoded_block.len() as f32 / 1024.0
                 );
 
-                let block_outcome = archiver.add_block(encoded_block, block_object_mappings);
+                let block_outcome = archiver
+                    .add_block(encoded_block, block_object_mappings)
+                    .expect("Block is never empty and doesn't exceed u32; qed");
                 send_object_mapping_notification(
                     &subspace_link.object_mapping_notification_sender,
-                    block_outcome.object_mapping,
+                    block_outcome.global_objects,
                     block_number_to_archive,
                 );
                 let new_segment_headers: Vec<SegmentHeader> = block_outcome
@@ -965,7 +968,7 @@ where
             let last_archived_block_number = segment_headers_store
                 .last_segment_header()
                 .expect("Exists after archiver initialization; qed")
-                .last_archived_block()
+                .last_archived_block
                 .number;
             let create_mappings =
                 create_object_mappings.is_enabled_for_block(last_archived_block_number);
@@ -1061,7 +1064,7 @@ where
                     .and_then(|segment_index| {
                         segment_headers_store.get_segment_header(segment_index)
                     })
-                    .map(|segment_header| segment_header.last_archived_block().number)
+                    .map(|segment_header| segment_header.last_archived_block.number)
                     // Make sure not to finalize block number that does not yet exist (segment
                     // headers store may contain future blocks during initial sync)
                     .map(|block_number| block_number_to_archive.min(block_number))
@@ -1169,9 +1172,9 @@ where
         //             format!("Failed to retrieve block object mappings: {error}").into(),
         //         )
         //     })?
-        BlockObjectMapping::default()
+        Vec::new()
     } else {
-        BlockObjectMapping::default()
+        Vec::new()
     };
 
     let encoded_block = encode_block(block);
@@ -1181,10 +1184,12 @@ where
         encoded_block.len() as f32 / 1024.0
     );
 
-    let block_outcome = archiver.add_block(encoded_block, block_object_mappings);
+    let block_outcome = archiver
+        .add_block(encoded_block, block_object_mappings)
+        .expect("Block is never empty and doesn't exceed u32; qed");
     send_object_mapping_notification(
         &object_mapping_notification_sender,
-        block_outcome.object_mapping,
+        block_outcome.global_objects,
         block_number_to_archive,
     );
     for archived_segment in block_outcome.archived_segments {
@@ -1220,7 +1225,7 @@ async fn send_archived_segment_notification(
     archived_segment_notification_sender: &SubspaceNotificationSender<ArchivedSegmentNotification>,
     archived_segment: NewArchivedSegment,
 ) {
-    let segment_index = archived_segment.segment_header.segment_index();
+    let segment_index = archived_segment.segment_header.segment_index;
     let (acknowledgement_sender, mut acknowledgement_receiver) =
         tracing_unbounded::<()>("subspace_acknowledgement", 1000);
     // Keep `archived_segment` around until all acknowledgements are received since some receivers

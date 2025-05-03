@@ -520,7 +520,7 @@ where
             let maybe_segment_root = self
                 .segment_headers_store
                 .get_segment_header(segment_index)
-                .map(|segment_header| segment_header.segment_root());
+                .map(|segment_header| segment_header.segment_root);
 
             let segment_root = match maybe_segment_root {
                 Some(segment_root) => segment_root,

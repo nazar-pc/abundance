@@ -166,7 +166,7 @@ where
                 .ok_or_else(|| {
                     format!("Failed to get segment index {segment_index} during snap sync")
                 })?;
-            let last_archived_block = segment_header.last_archived_block();
+            let last_archived_block = segment_header.last_archived_block;
 
             // If older segment header ends with fully archived block then no additional
             // information is necessary

@@ -6,6 +6,7 @@ use ab_core_primitives::segments::{
 use parking_lot::RwLock;
 use sc_client_api::AuxStore;
 use std::collections::HashMap;
+use std::num::NonZeroU32;
 use std::sync::Arc;
 
 struct MemAuxStore {
@@ -55,53 +56,53 @@ fn segment_headers_store_block_number_queries_work() {
 
     // Several starting segments from gemini-3h
 
-    let segment_header0 = SegmentHeader::V0 {
+    let segment_header0 = SegmentHeader {
         segment_index: SegmentIndex::ZERO,
         segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::new(0),
-            archived_progress: ArchivedBlockProgress::Partial(5),
+            archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::new(5).unwrap()),
         },
     };
 
-    let segment_header1 = SegmentHeader::V0 {
+    let segment_header1 = SegmentHeader {
         segment_index: SegmentIndex::ONE,
         segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::new(652),
-            archived_progress: ArchivedBlockProgress::Partial(5),
+            archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::new(5).unwrap()),
         },
     };
 
-    let segment_header2 = SegmentHeader::V0 {
+    let segment_header2 = SegmentHeader {
         segment_index: SegmentIndex::from(2),
         segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::new(752),
-            archived_progress: ArchivedBlockProgress::Partial(5),
+            archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::new(5).unwrap()),
         },
     };
 
-    let segment_header3 = SegmentHeader::V0 {
+    let segment_header3 = SegmentHeader {
         segment_index: SegmentIndex::from(3),
         segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::new(806),
-            archived_progress: ArchivedBlockProgress::Partial(5),
+            archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::new(5).unwrap()),
         },
     };
 
-    let segment_header4 = SegmentHeader::V0 {
+    let segment_header4 = SegmentHeader {
         segment_index: SegmentIndex::from(4),
         segment_root: Default::default(),
         prev_segment_header_hash: Default::default(),
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::new(806),
-            archived_progress: ArchivedBlockProgress::Partial(5),
+            archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::new(5).unwrap()),
         },
     };
 

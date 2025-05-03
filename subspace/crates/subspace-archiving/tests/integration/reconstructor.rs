@@ -9,8 +9,8 @@ use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::assert_matches::assert_matches;
 use std::iter;
+use std::num::NonZeroU32;
 use subspace_archiving::archiver::Archiver;
-use subspace_archiving::objects::BlockObjectMapping;
 use subspace_archiving::reconstructor::{Reconstructor, ReconstructorError};
 
 fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
@@ -53,27 +53,32 @@ fn basic() {
         block
     };
     let archived_segments = archiver
-        .add_block(block_0.clone(), BlockObjectMapping::default())
+        .add_block(block_0.clone(), Vec::new())
+        .unwrap()
         .archived_segments
         .into_iter()
         .chain(
             archiver
-                .add_block(block_1.clone(), BlockObjectMapping::default())
+                .add_block(block_1.clone(), Vec::new())
+                .unwrap()
                 .archived_segments,
         )
         .chain(
             archiver
-                .add_block(block_2.clone(), BlockObjectMapping::default())
+                .add_block(block_2.clone(), Vec::new())
+                .unwrap()
                 .archived_segments,
         )
         .chain(
             archiver
-                .add_block(block_3.clone(), BlockObjectMapping::default())
+                .add_block(block_3.clone(), Vec::new())
+                .unwrap()
                 .archived_segments,
         )
         .chain(
             archiver
-                .add_block(block_4, BlockObjectMapping::default())
+                .add_block(block_4, Vec::new())
+                .unwrap()
                 .archived_segments,
         )
         .collect::<Vec<_>>();
@@ -107,14 +112,16 @@ fn basic() {
         );
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
+            contents.segment_header.unwrap().segment_index,
             SegmentIndex::ZERO
         );
         assert_eq!(
-            contents.segment_header.unwrap().last_archived_block(),
+            contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
                 number: BlockNumber::new(1),
-                archived_progress: ArchivedBlockProgress::Partial(67108853)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(67108854).unwrap()
+                )
             }
         );
 
@@ -127,14 +134,16 @@ fn basic() {
         assert_eq!(contents.blocks, vec![(BlockNumber::new(2), block_2)]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
+            contents.segment_header.unwrap().segment_index,
             SegmentIndex::ZERO
         );
         assert_eq!(
-            contents.segment_header.unwrap().last_archived_block(),
+            contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
                 number: BlockNumber::new(1),
-                archived_progress: ArchivedBlockProgress::Partial(67108853)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(67108854).unwrap()
+                )
             }
         );
     }
@@ -148,14 +157,16 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
+            contents.segment_header.unwrap().segment_index,
             SegmentIndex::ONE
         );
         assert_eq!(
-            contents.segment_header.unwrap().last_archived_block(),
+            contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(33554318)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(33554322).unwrap()
+                )
             }
         );
 
@@ -168,14 +179,16 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
+            contents.segment_header.unwrap().segment_index,
             SegmentIndex::ONE
         );
         assert_eq!(
-            contents.segment_header.unwrap().last_archived_block(),
+            contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(33554318)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(33554322).unwrap()
+                )
             }
         );
     }
@@ -189,14 +202,16 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
+            contents.segment_header.unwrap().segment_index,
             SegmentIndex::from(2)
         );
         assert_eq!(
-            contents.segment_header.unwrap().last_archived_block(),
+            contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(167771953)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(167771960).unwrap()
+                )
             }
         );
     }
@@ -211,14 +226,16 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
+            contents.segment_header.unwrap().segment_index,
             SegmentIndex::from(2)
         );
         assert_eq!(
-            contents.segment_header.unwrap().last_archived_block(),
+            contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(167771953)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(167771960).unwrap()
+                )
             }
         );
     }
@@ -232,14 +249,16 @@ fn basic() {
         assert_eq!(contents.blocks, vec![(BlockNumber::new(3), block_3)]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
+            contents.segment_header.unwrap().segment_index,
             SegmentIndex::from(3)
         );
         assert_eq!(
-            contents.segment_header.unwrap().last_archived_block(),
+            contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(301989588)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(301989598).unwrap()
+                )
             }
         );
     }
@@ -254,14 +273,16 @@ fn basic() {
         assert_eq!(contents.blocks, vec![]);
         assert!(contents.segment_header.is_some());
         assert_eq!(
-            contents.segment_header.unwrap().segment_index(),
+            contents.segment_header.unwrap().segment_index,
             SegmentIndex::from(3)
         );
         assert_eq!(
-            contents.segment_header.unwrap().last_archived_block(),
+            contents.segment_header.unwrap().last_archived_block,
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(301989588)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(301989598).unwrap()
+                )
             }
         );
     }
@@ -285,12 +306,14 @@ fn partial_data() {
         block
     };
     let archived_segments = archiver
-        .add_block(block_0.clone(), BlockObjectMapping::default())
+        .add_block(block_0.clone(), Vec::new())
+        .unwrap()
         .archived_segments
         .into_iter()
         .chain(
             archiver
-                .add_block(block_1, BlockObjectMapping::default())
+                .add_block(block_1, Vec::new())
+                .unwrap()
                 .archived_segments,
         )
         .collect::<Vec<_>>();
@@ -366,7 +389,8 @@ fn invalid_usage() {
     };
 
     let archived_segments = archiver
-        .add_block(block_0, BlockObjectMapping::default())
+        .add_block(block_0, Vec::new())
+        .unwrap()
         .archived_segments;
 
     assert_eq!(archived_segments.len(), 4);

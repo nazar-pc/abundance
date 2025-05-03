@@ -14,8 +14,9 @@ use rayon::prelude::*;
 use std::assert_matches::assert_matches;
 use std::io::Write;
 use std::iter;
+use std::num::NonZeroU32;
 use subspace_archiving::archiver::{Archiver, ArchiverInstantiationError, SegmentItem};
-use subspace_archiving::objects::{BlockObject, BlockObjectMapping, GlobalObject};
+use subspace_archiving::objects::{BlockObject, GlobalObject};
 
 fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
     let offset: u32 = offset.into();
@@ -51,7 +52,7 @@ fn archiver() {
     let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
 
-    let (block_0, block_0_object_mapping) = {
+    let (block_0, block_0_block_objects) = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 2];
         rng.fill_bytes(block.as_mut_slice());
 
@@ -63,30 +64,30 @@ fn archiver() {
             .as_mut()
             .write_all(&Compact(128_u64).encode())
             .unwrap();
-        let object_mapping = BlockObjectMapping::V0 {
-            objects: vec![
-                BlockObject {
-                    hash: Blake3Hash::default(),
-                    offset: 0u32,
-                },
-                BlockObject {
-                    hash: Blake3Hash::default(),
-                    offset: RecordedHistorySegment::SIZE as u32 / 3,
-                },
-            ],
-        };
+        let block_objects = vec![
+            BlockObject {
+                hash: Blake3Hash::default(),
+                offset: 0u32,
+            },
+            BlockObject {
+                hash: Blake3Hash::default(),
+                offset: RecordedHistorySegment::SIZE as u32 / 3,
+            },
+        ];
 
-        (block, object_mapping)
+        (block, block_objects)
     };
-    let block_0_outcome = archiver.add_block(block_0.clone(), block_0_object_mapping.clone());
+    let block_0_outcome = archiver
+        .add_block(block_0.clone(), block_0_block_objects.clone())
+        .unwrap();
     let archived_segments = block_0_outcome.archived_segments;
-    let object_mapping = block_0_outcome.object_mapping.clone();
+    let object_mapping = block_0_outcome.global_objects.clone();
     // There is not enough data to produce archived segment yet
     assert!(archived_segments.is_empty());
     // All block mappings must appear in the global object mapping
-    assert_eq!(object_mapping.len(), block_0_object_mapping.objects().len());
+    assert_eq!(object_mapping.len(), block_0_block_objects.len());
 
-    let (block_1, block_1_object_mapping) = {
+    let (block_1, block_1_block_objects) = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 3 * 2];
         rng.fill_bytes(block.as_mut_slice());
 
@@ -102,28 +103,28 @@ fn archiver() {
             .as_mut()
             .write_all(&Compact(100_u64).encode())
             .unwrap();
-        let object_mapping = BlockObjectMapping::V0 {
-            objects: vec![
-                BlockObject {
-                    hash: Blake3Hash::default(),
-                    offset: RecordedHistorySegment::SIZE as u32 / 6,
-                },
-                BlockObject {
-                    hash: Blake3Hash::default(),
-                    offset: RecordedHistorySegment::SIZE as u32 / 5,
-                },
-                BlockObject {
-                    hash: Blake3Hash::default(),
-                    offset: RecordedHistorySegment::SIZE as u32 / 3 * 2 - 200,
-                },
-            ],
-        };
-        (block, object_mapping)
+        let block_objects = vec![
+            BlockObject {
+                hash: Blake3Hash::default(),
+                offset: RecordedHistorySegment::SIZE as u32 / 6,
+            },
+            BlockObject {
+                hash: Blake3Hash::default(),
+                offset: RecordedHistorySegment::SIZE as u32 / 5,
+            },
+            BlockObject {
+                hash: Blake3Hash::default(),
+                offset: RecordedHistorySegment::SIZE as u32 / 3 * 2 - 200,
+            },
+        ];
+        (block, block_objects)
     };
     // This should produce 1 archived segment
-    let block_1_outcome = archiver.add_block(block_1.clone(), block_1_object_mapping.clone());
+    let block_1_outcome = archiver
+        .add_block(block_1.clone(), block_1_block_objects.clone())
+        .unwrap();
     let archived_segments = block_1_outcome.archived_segments;
-    let object_mapping = block_1_outcome.object_mapping.clone();
+    let object_mapping = block_1_outcome.global_objects.clone();
     assert_eq!(archived_segments.len(), 1);
 
     let first_archived_segment = archived_segments.first().cloned().unwrap();
@@ -132,31 +133,34 @@ fn archiver() {
         ArchivedHistorySegment::NUM_PIECES
     );
     assert_eq!(
-        first_archived_segment.segment_header.segment_index(),
+        first_archived_segment.segment_header.segment_index,
         SegmentIndex::ZERO
     );
     assert_eq!(
         first_archived_segment
             .segment_header
-            .prev_segment_header_hash(),
+            .prev_segment_header_hash,
         Blake3Hash::default(),
     );
     {
-        let last_archived_block = first_archived_segment.segment_header.last_archived_block();
+        let last_archived_block = first_archived_segment.segment_header.last_archived_block;
         assert_eq!(last_archived_block.number, BlockNumber::ONE);
-        assert_eq!(last_archived_block.partial_archived(), Some(67108853));
+        assert_eq!(
+            last_archived_block.partial_archived(),
+            Some(NonZeroU32::new(67108854).unwrap())
+        );
     }
 
     // All block mappings must appear in the global object mapping
-    assert_eq!(object_mapping.len(), block_1_object_mapping.objects().len());
+    assert_eq!(object_mapping.len(), block_1_block_objects.len());
     {
         // 4 objects fit into the first segment, 2 from block 0 and 2 from block 1
         let block_objects = iter::repeat(block_0.as_ref())
-            .zip(block_0_object_mapping.objects())
-            .chain(iter::repeat(block_1.as_ref()).zip(block_1_object_mapping.objects()))
+            .zip(&block_0_block_objects)
+            .chain(iter::repeat(block_1.as_ref()).zip(&block_1_block_objects))
             .take(4);
         let global_objects = block_0_outcome
-            .object_mapping
+            .global_objects
             .into_iter()
             .chain(object_mapping)
             .take(4)
@@ -182,7 +186,7 @@ fn archiver() {
             (
                 position,
                 piece.is_valid(
-                    &first_archived_segment.segment_header.segment_root(),
+                    &first_archived_segment.segment_header.segment_root,
                     position as u32,
                 ),
             )
@@ -198,9 +202,9 @@ fn archiver() {
         block
     };
     // This should be big enough to produce two archived segments in one go
-    let block_2_outcome = archiver.add_block(block_2.clone(), BlockObjectMapping::default());
+    let block_2_outcome = archiver.add_block(block_2.clone(), Vec::new()).unwrap();
     let archived_segments = block_2_outcome.archived_segments.clone();
-    let object_mapping = block_2_outcome.object_mapping.clone();
+    let object_mapping = block_2_outcome.global_objects.clone();
     assert_eq!(archived_segments.len(), 2);
 
     // Check that initializing archiver with initial state before last block results in the same
@@ -210,12 +214,13 @@ fn archiver() {
             erasure_coding.clone(),
             first_archived_segment.segment_header,
             &block_1,
-            block_1_object_mapping.clone(),
+            block_1_block_objects.clone(),
         )
         .unwrap();
 
-        let initial_block_2_outcome =
-            archiver_with_initial_state.add_block(block_2.clone(), BlockObjectMapping::default());
+        let initial_block_2_outcome = archiver_with_initial_state
+            .add_block(block_2.clone(), Vec::new())
+            .unwrap();
 
         // The rest of block 1 doesn't create any segments by itself
         assert_eq!(
@@ -225,10 +230,10 @@ fn archiver() {
 
         // The rest of block 1 doesn't create any segments, but it does have the final block 1
         // object mapping. And there are no mappings in block 2.
-        assert_eq!(initial_block_2_outcome.object_mapping.len(), 1);
+        assert_eq!(initial_block_2_outcome.global_objects.len(), 1);
         assert_eq!(
-            initial_block_2_outcome.object_mapping[0],
-            block_1_outcome.object_mapping[2]
+            initial_block_2_outcome.global_objects[0],
+            block_1_outcome.global_objects[2]
         );
     }
 
@@ -237,14 +242,14 @@ fn archiver() {
     // 1 object fits into the second segment
     // There are no objects left for the third segment
     assert_eq!(
-        block_1_outcome.object_mapping[2]
+        block_1_outcome.global_objects[2]
             .piece_index
             .segment_index(),
-        archived_segments[0].segment_header.segment_index(),
+        archived_segments[0].segment_header.segment_index,
     );
     {
         let block_objects =
-            iter::repeat(block_1.as_ref()).zip(block_1_object_mapping.objects().iter().skip(2));
+            iter::repeat(block_1.as_ref()).zip(block_1_block_objects.iter().skip(2));
         let global_objects = object_mapping.into_iter().map(|object_mapping| {
             (
                 Piece::from(
@@ -260,15 +265,21 @@ fn archiver() {
     // Check archived bytes for block with index `2` in each archived segment
     {
         let archived_segment = archived_segments.first().unwrap();
-        let last_archived_block = archived_segment.segment_header.last_archived_block();
+        let last_archived_block = archived_segment.segment_header.last_archived_block;
         assert_eq!(last_archived_block.number, BlockNumber::new(2));
-        assert_eq!(last_archived_block.partial_archived(), Some(111847999));
+        assert_eq!(
+            last_archived_block.partial_archived(),
+            Some(NonZeroU32::new(111848003).unwrap())
+        );
     }
     {
         let archived_segment = archived_segments.get(1).unwrap();
-        let last_archived_block = archived_segment.segment_header.last_archived_block();
+        let last_archived_block = archived_segment.segment_header.last_archived_block;
         assert_eq!(last_archived_block.number, BlockNumber::new(2));
-        assert_eq!(last_archived_block.partial_archived(), Some(246065634));
+        assert_eq!(
+            last_archived_block.partial_archived(),
+            Some(NonZeroU32::new(246065641).unwrap())
+        );
     }
 
     // Check that both archived segments have expected content and valid pieces in them
@@ -281,11 +292,11 @@ fn archiver() {
             ArchivedHistorySegment::NUM_PIECES
         );
         assert_eq!(
-            archived_segment.segment_header.segment_index(),
+            archived_segment.segment_header.segment_index,
             expected_segment_index
         );
         assert_eq!(
-            archived_segment.segment_header.prev_segment_header_hash(),
+            archived_segment.segment_header.prev_segment_header_hash,
             previous_segment_header_hash
         );
 
@@ -298,7 +309,7 @@ fn archiver() {
                 (
                     position,
                     piece.is_valid(
-                        &archived_segment.segment_header.segment_root(),
+                        &archived_segment.segment_header.segment_root,
                         position as u32,
                     ),
                 )
@@ -314,13 +325,13 @@ fn archiver() {
 
     // Add a block such that it fits in the next segment exactly
     let block_3 = {
-        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369920];
+        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369912];
         rng.fill_bytes(block.as_mut_slice());
         block
     };
-    let block_3_outcome = archiver.add_block(block_3.clone(), BlockObjectMapping::default());
+    let block_3_outcome = archiver.add_block(block_3.clone(), Vec::new()).unwrap();
     let archived_segments = block_3_outcome.archived_segments.clone();
-    let object_mapping = block_3_outcome.object_mapping.clone();
+    let object_mapping = block_3_outcome.global_objects.clone();
     assert_eq!(archived_segments.len(), 1);
 
     // There are no objects left for the fourth segment
@@ -329,16 +340,13 @@ fn archiver() {
     // Check that initializing archiver with initial state before last block results in the same
     // archived segments and mappings once last block is added
     {
-        let mut archiver_with_initial_state = Archiver::with_initial_state(
-            erasure_coding,
-            last_segment_header,
-            &block_2,
-            BlockObjectMapping::default(),
-        )
-        .unwrap();
+        let mut archiver_with_initial_state =
+            Archiver::with_initial_state(erasure_coding, last_segment_header, &block_2, Vec::new())
+                .unwrap();
 
-        let initial_block_3_outcome =
-            archiver_with_initial_state.add_block(block_3, BlockObjectMapping::default());
+        let initial_block_3_outcome = archiver_with_initial_state
+            .add_block(block_3, Vec::new())
+            .unwrap();
 
         // The rest of block 2 doesn't create any segments by itself
         assert_eq!(
@@ -348,15 +356,15 @@ fn archiver() {
 
         // The rest of block 2 doesn't have any mappings
         assert_eq!(
-            initial_block_3_outcome.object_mapping,
-            block_3_outcome.object_mapping
+            initial_block_3_outcome.global_objects,
+            block_3_outcome.global_objects
         );
     }
 
     // Block should fit exactly into the last archived segment (rare case)
     {
         let archived_segment = archived_segments.first().unwrap();
-        let last_archived_block = archived_segment.segment_header.last_archived_block();
+        let last_archived_block = archived_segment.segment_header.last_archived_block;
         assert_eq!(last_archived_block.number, BlockNumber::new(3));
         assert_eq!(last_archived_block.partial_archived(), None);
 
@@ -369,7 +377,7 @@ fn archiver() {
                 (
                     position,
                     piece.is_valid(
-                        &archived_segment.segment_header.segment_root(),
+                        &archived_segment.segment_header.segment_root,
                         position as u32,
                     ),
                 )
@@ -385,19 +393,29 @@ fn archiver() {
 fn invalid_usage() {
     let erasure_coding = ErasureCoding::new();
     {
+        assert!(
+            Archiver::new(erasure_coding.clone())
+                .add_block(Vec::new(), Vec::new())
+                .is_none(),
+            "Empty block is not allowed"
+        );
+    }
+    {
         let result = Archiver::with_initial_state(
             erasure_coding.clone(),
-            SegmentHeader::V0 {
+            SegmentHeader {
                 segment_index: SegmentIndex::ZERO,
                 segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
                     number: BlockNumber::ZERO,
-                    archived_progress: ArchivedBlockProgress::Partial(10),
+                    archived_progress: ArchivedBlockProgress::new_partial(
+                        NonZeroU32::new(10).unwrap(),
+                    ),
                 },
             },
             &[0u8; 10],
-            BlockObjectMapping::default(),
+            Vec::new(),
         );
 
         assert_matches!(
@@ -413,17 +431,19 @@ fn invalid_usage() {
     {
         let result = Archiver::with_initial_state(
             erasure_coding.clone(),
-            SegmentHeader::V0 {
+            SegmentHeader {
                 segment_index: SegmentIndex::ZERO,
                 segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
                     number: BlockNumber::ZERO,
-                    archived_progress: ArchivedBlockProgress::Partial(10),
+                    archived_progress: ArchivedBlockProgress::new_partial(
+                        NonZeroU32::new(10).unwrap(),
+                    ),
                 },
             },
             &[0u8; 6],
-            BlockObjectMapping::default(),
+            Vec::new(),
         );
 
         assert_matches!(
@@ -455,8 +475,6 @@ fn one_byte_smaller_segment() {
     // vector length encoding will take 2 bytes to encode, thus it will be impossible to slice
     // internal bytes of the segment item anyway
     let block_size = RecordedHistorySegment::SIZE
-        // Segment enum variant
-        - 1
         - 1
         // This is a rough number (a bit fewer bytes will be included in practice), but it is
         // close enough and practically will always result in the same compact length.
@@ -465,7 +483,8 @@ fn one_byte_smaller_segment() {
         - 2;
     assert_eq!(
         Archiver::new(erasure_coding.clone())
-            .add_block(vec![0u8; block_size], BlockObjectMapping::default())
+            .add_block(vec![0u8; block_size], Vec::new())
+            .unwrap()
             .archived_segments
             .len(),
         1
@@ -474,7 +493,8 @@ fn one_byte_smaller_segment() {
     // against code regressions
     assert!(
         Archiver::new(erasure_coding)
-            .add_block(vec![0u8; block_size - 1], BlockObjectMapping::default())
+            .add_block(vec![0u8; block_size - 1], Vec::new())
+            .unwrap()
             .archived_segments
             .is_empty()
     );
@@ -501,7 +521,8 @@ fn spill_over_edge_case() {
         - 3;
     assert!(
         archiver
-            .add_block(vec![0u8; block_size], BlockObjectMapping::default())
+            .add_block(vec![0u8; block_size], Vec::new())
+            .unwrap()
             .archived_segments
             .is_empty()
     );
@@ -510,24 +531,24 @@ fn spill_over_edge_case() {
     // encoding + one more for enum variant, this should result in new segment being created, but
     // the very first segment item will not include newly added block because it would result in
     // subtracting with overflow when trying to slice internal bytes of the segment item
-    let block_outcome = archiver.add_block(
-        vec![0u8; RecordedHistorySegment::SIZE],
-        BlockObjectMapping::V0 {
-            objects: vec![BlockObject {
+    let block_outcome = archiver
+        .add_block(
+            vec![0u8; RecordedHistorySegment::SIZE],
+            vec![BlockObject {
                 hash: Blake3Hash::default(),
                 offset: 0,
             }],
-        },
-    );
+        )
+        .unwrap();
     let archived_segments = block_outcome.archived_segments;
-    let object_mapping = block_outcome.object_mapping;
+    let object_mapping = block_outcome.global_objects;
     assert_eq!(archived_segments.len(), 2);
 
     // If spill over actually happened, we'll not find object mapping in the first segment
     assert_eq!(object_mapping.len(), 1);
     assert_eq!(
         object_mapping[0].piece_index.segment_index(),
-        archived_segments[1].segment_header.segment_index(),
+        archived_segments[1].segment_header.segment_index,
     );
 }
 
@@ -537,9 +558,9 @@ fn object_on_the_edge_of_segment() {
     let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding);
     let first_block = vec![0u8; RecordedHistorySegment::SIZE];
-    let block_1_outcome = archiver.add_block(first_block.clone(), BlockObjectMapping::default());
+    let block_1_outcome = archiver.add_block(first_block.clone(), Vec::new()).unwrap();
     let archived_segments = block_1_outcome.archived_segments;
-    let object_mapping = block_1_outcome.object_mapping;
+    let object_mapping = block_1_outcome.global_objects;
     assert_eq!(archived_segments.len(), 1);
     assert_eq!(object_mapping.len(), 0);
 
@@ -547,29 +568,25 @@ fn object_on_the_edge_of_segment() {
     let left_unarchived_from_first_block = first_block.len() as u32
         - archived_segment
             .segment_header
-            .last_archived_block()
+            .last_archived_block
             .archived_progress
             .partial()
-            .unwrap();
+            .unwrap()
+            .get();
 
     let mut second_block = vec![0u8; RecordedHistorySegment::SIZE * 2];
     let object_mapping = BlockObject {
         hash: Blake3Hash::default(),
         // Offset is designed to fall exactly on the edge of the segment
         offset: RecordedHistorySegment::SIZE as u32
-            // Segment enum variant
-            - 1
             // Segment header segment item
-            - SegmentItem::ParentSegmentHeader(SegmentHeader::V0 {
+            - SegmentItem::ParentSegmentHeader(SegmentHeader {
                 segment_index: SegmentIndex::ZERO,
                 segment_root: Default::default(),
                 prev_segment_header_hash: Default::default(),
                 last_archived_block: LastArchivedBlock {
                     number: BlockNumber::ZERO,
-                    // Bytes will not fit all into the first segment, so it will be archived
-                    // partially, but exact value doesn't matter here as encoding length of
-                    // `ArchivedBlockProgress` enum variant will be the same either way
-                    archived_progress: ArchivedBlockProgress::Partial(0),
+                    archived_progress: ArchivedBlockProgress::new_complete(),
                 },
             })
                 .encoded_size() as u32
@@ -596,41 +613,39 @@ fn object_on_the_edge_of_segment() {
     // First ensure that any smaller offset will get translated into the first archived segment,
     // this is a protection against code regressions
     {
-        let block_2_outcome = archiver.clone().add_block(
-            second_block.clone(),
-            BlockObjectMapping::V0 {
-                objects: vec![BlockObject {
+        let block_2_outcome = archiver
+            .clone()
+            .add_block(
+                second_block.clone(),
+                vec![BlockObject {
                     hash: object_mapping.hash,
                     offset: object_mapping.offset - 1,
                 }],
-            },
-        );
+            )
+            .unwrap();
         let archived_segments = block_2_outcome.archived_segments;
-        let object_mapping = block_2_outcome.object_mapping;
+        let object_mapping = block_2_outcome.global_objects;
 
         assert_eq!(archived_segments.len(), 2);
         assert_eq!(object_mapping.len(), 1);
         assert_eq!(
             object_mapping[0].piece_index.segment_index(),
-            archived_segments[0].segment_header.segment_index(),
+            archived_segments[0].segment_header.segment_index,
         );
     }
 
-    let block_2_outcome = archiver.add_block(
-        second_block,
-        BlockObjectMapping::V0 {
-            objects: vec![object_mapping],
-        },
-    );
+    let block_2_outcome = archiver
+        .add_block(second_block, vec![object_mapping])
+        .unwrap();
     let archived_segments = block_2_outcome.archived_segments;
-    let object_mapping = block_2_outcome.object_mapping;
+    let object_mapping = block_2_outcome.global_objects;
 
     assert_eq!(archived_segments.len(), 2);
     // Object should fall in the next archived segment
     assert_eq!(object_mapping.len(), 1);
     assert_eq!(
         object_mapping[0].piece_index.segment_index(),
-        archived_segments[1].segment_header.segment_index(),
+        archived_segments[1].segment_header.segment_index,
     );
 
     // Ensure bytes are mapped correctly

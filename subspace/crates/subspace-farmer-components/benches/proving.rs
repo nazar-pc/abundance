@@ -65,6 +65,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             AsRef::<[u8]>::as_ref(input.as_ref()).to_vec(),
             Default::default(),
         )
+        .unwrap()
         .archived_segments
         .into_iter()
         .next()

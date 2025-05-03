@@ -15,7 +15,7 @@ use alloc::boxed::Box;
 use core::array::TryFromSliceError;
 use core::fmt;
 use core::iter::Step;
-use core::num::NonZeroU64;
+use core::num::{NonZeroU32, NonZeroU64};
 use derive_more::{
     Add, AddAssign, Deref, DerefMut, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub,
     SubAssign,
@@ -273,37 +273,39 @@ impl HistorySize {
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub enum ArchivedBlockProgress {
-    /// The block has been fully archived.
-    Complete,
-
-    /// Number of partially archived bytes of a block.
-    Partial(u32),
+pub struct ArchivedBlockProgress {
+    /// Number of partially archived bytes of a block, `0` for full block
+    bytes: u32,
 }
 
 impl Default for ArchivedBlockProgress {
     /// We assume a block can always fit into the segment initially, but it is definitely possible
     /// to be transitioned into the partial state after some overflow checking.
-    #[inline]
+    #[inline(always)]
     fn default() -> Self {
-        Self::Complete
+        Self { bytes: 0 }
     }
 }
 
 impl ArchivedBlockProgress {
-    /// Return the number of partially archived bytes if the progress is not complete.
+    /// Block is archived fully
     #[inline(always)]
-    pub fn partial(&self) -> Option<u32> {
-        match self {
-            Self::Complete => None,
-            Self::Partial(number) => Some(*number),
+    pub const fn new_complete() -> Self {
+        Self { bytes: 0 }
+    }
+
+    /// Block is partially archived with provided number of bytes
+    #[inline(always)]
+    pub const fn new_partial(new_partial: NonZeroU32) -> Self {
+        Self {
+            bytes: new_partial.get(),
         }
     }
 
-    /// Sets new number of partially archived bytes.
+    /// Return the number of partially archived bytes if the progress is not complete
     #[inline(always)]
-    pub fn set_partial(&mut self, new_partial: u32) {
-        *self = Self::Partial(new_partial);
+    pub const fn partial(&self) -> Option<NonZeroU32> {
+        NonZeroU32::new(self.bytes)
     }
 }
 
@@ -322,20 +324,20 @@ pub struct LastArchivedBlock {
 impl LastArchivedBlock {
     /// Returns the number of partially archived bytes for a block.
     #[inline(always)]
-    pub fn partial_archived(&self) -> Option<u32> {
+    pub fn partial_archived(&self) -> Option<NonZeroU32> {
         self.archived_progress.partial()
     }
 
-    /// Sets new number of partially archived bytes.
+    /// Sets the number of partially archived bytes if block progress was archived partially
     #[inline(always)]
-    pub fn set_partial_archived(&mut self, new_partial: u32) {
-        self.archived_progress.set_partial(new_partial);
+    pub fn set_partial_archived(&mut self, new_partial: NonZeroU32) {
+        self.archived_progress = ArchivedBlockProgress::new_partial(new_partial);
     }
 
-    /// Sets the archived state of this block to [`ArchivedBlockProgress::Complete`].
+    /// Indicate last archived block was archived fully
     #[inline(always)]
     pub fn set_complete(&mut self) {
-        self.archived_progress = ArchivedBlockProgress::Complete;
+        self.archived_progress = ArchivedBlockProgress::new_complete();
     }
 }
 
@@ -349,20 +351,15 @@ impl LastArchivedBlock {
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub enum SegmentHeader {
-    /// V0 of the segment header data structure
-    #[cfg_attr(feature = "scale-codec", codec(index = 0))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-    V0 {
-        /// Segment index
-        segment_index: SegmentIndex,
-        /// Root of roots of all records in a segment.
-        segment_root: SegmentRoot,
-        /// Hash of the segment header of the previous segment
-        prev_segment_header_hash: Blake3Hash,
-        /// Last archived block
-        last_archived_block: LastArchivedBlock,
-    },
+pub struct SegmentHeader {
+    /// Segment index
+    pub segment_index: SegmentIndex,
+    /// Root of roots of all records in a segment.
+    pub segment_root: SegmentRoot,
+    /// Hash of the segment header of the previous segment
+    pub prev_segment_header_hash: Blake3Hash,
+    /// Last archived block
+    pub last_archived_block: LastArchivedBlock,
 }
 
 impl SegmentHeader {
@@ -372,44 +369,6 @@ impl SegmentHeader {
     #[inline(always)]
     pub fn hash(&self) -> Blake3Hash {
         blake3_hash(&self.encode())
-    }
-
-    /// Segment index
-    #[inline(always)]
-    pub fn segment_index(&self) -> SegmentIndex {
-        match self {
-            Self::V0 { segment_index, .. } => *segment_index,
-        }
-    }
-
-    /// Segment root of the records in a segment.
-    #[inline(always)]
-    pub fn segment_root(&self) -> SegmentRoot {
-        match self {
-            Self::V0 { segment_root, .. } => *segment_root,
-        }
-    }
-
-    /// Hash of the segment header of the previous segment
-    #[inline(always)]
-    pub fn prev_segment_header_hash(&self) -> Blake3Hash {
-        match self {
-            Self::V0 {
-                prev_segment_header_hash,
-                ..
-            } => *prev_segment_header_hash,
-        }
-    }
-
-    /// Last archived block
-    #[inline(always)]
-    pub fn last_archived_block(&self) -> LastArchivedBlock {
-        match self {
-            Self::V0 {
-                last_archived_block,
-                ..
-            } => *last_archived_block,
-        }
     }
 }
 

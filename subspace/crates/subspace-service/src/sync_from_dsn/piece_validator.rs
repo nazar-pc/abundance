@@ -44,7 +44,7 @@ where
 
         let maybe_segment_header = self.segment_headers_store.get_segment_header(segment_index);
         let segment_root = match maybe_segment_header {
-            Some(segment_header) => segment_header.segment_root(),
+            Some(segment_header) => segment_header.segment_root,
             None => {
                 error!(%segment_index, "No segment root in the cache.");
 
