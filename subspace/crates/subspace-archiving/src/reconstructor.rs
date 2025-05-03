@@ -198,6 +198,7 @@ impl Reconstructor {
                     let LastArchivedBlock {
                         number,
                         archived_progress,
+                        padding: _,
                     } = segment_header.last_archived_block;
 
                     reconstructed_contents

@@ -408,6 +408,7 @@ impl Archiver {
                         last_archived_block.replace(LastArchivedBlock {
                             number: BlockNumber::ZERO,
                             archived_progress: ArchivedBlockProgress::new_complete(),
+                            padding: [0; _],
                         });
                     }
                 }

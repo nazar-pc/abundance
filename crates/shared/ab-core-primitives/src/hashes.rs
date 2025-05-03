@@ -145,7 +145,7 @@ impl Blake3Hash {
 /// BLAKE3 hashing of a single value.
 #[inline(always)]
 pub fn blake3_hash(data: &[u8]) -> Blake3Hash {
-    blake3::hash(data).as_bytes().into()
+    Blake3Hash(*blake3::hash(data).as_bytes())
 }
 
 /// BLAKE3 hashing of a single value in parallel (only useful for large values well above 128kiB).

@@ -4,12 +4,11 @@
 mod archival_history_segment;
 
 use crate::block::BlockNumber;
-use crate::hashes::Blake3Hash;
-#[cfg(feature = "scale-codec")]
-use crate::hashes::blake3_hash;
+use crate::hashes::{Blake3Hash, blake3_hash};
 use crate::pieces::{PieceIndex, Record};
 #[cfg(feature = "alloc")]
 pub use crate::segments::archival_history_segment::ArchivedHistorySegment;
+use ab_io_type::trivial_type::TrivialType;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::array::TryFromSliceError;
@@ -53,13 +52,14 @@ use serde_big_array::BigArray;
     MulAssign,
     Div,
     DivAssign,
+    TrivialType,
 )]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
+#[repr(C)]
 pub struct SegmentIndex(u64);
 
 impl Step for SegmentIndex {
@@ -124,12 +124,12 @@ impl SegmentIndex {
 }
 
 /// Segment root contained within segment header.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
-#[repr(transparent)]
+#[repr(C)]
 pub struct SegmentRoot([u8; SegmentRoot::SIZE]);
 
 impl fmt::Debug for SegmentRoot {
@@ -269,10 +269,11 @@ impl HistorySize {
 }
 
 /// Progress of an archived block.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[repr(C)]
 pub struct ArchivedBlockProgress {
     /// Number of partially archived bytes of a block, `0` for full block
     bytes: u32,
@@ -310,15 +311,19 @@ impl ArchivedBlockProgress {
 }
 
 /// Last archived block
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[repr(C)]
 pub struct LastArchivedBlock {
     /// Block number
     pub number: BlockNumber,
     /// Progress of an archived block.
     pub archived_progress: ArchivedBlockProgress,
+    // TODO: Figure out a way to avoid this padding
+    /// Not used and must be set to `0`
+    pub padding: [u8; 4],
 }
 
 impl LastArchivedBlock {
@@ -347,10 +352,11 @@ impl LastArchivedBlock {
 /// segment. Each `SegmentHeader` includes hash of the previous one and all together form a chain of
 /// segment headers that is used for quick and efficient verification that some `Piece`
 /// corresponds to the actual archival history of the blockchain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[repr(C)]
 pub struct SegmentHeader {
     /// Segment index
     pub segment_index: SegmentIndex,
@@ -364,11 +370,9 @@ pub struct SegmentHeader {
 
 impl SegmentHeader {
     /// Hash of the whole segment header
-    // TODO: This should not depend on scale codec eventually (ideally)
-    #[cfg(feature = "scale-codec")]
     #[inline(always)]
     pub fn hash(&self) -> Blake3Hash {
-        blake3_hash(&self.encode())
+        blake3_hash(self.as_bytes())
     }
 }
 

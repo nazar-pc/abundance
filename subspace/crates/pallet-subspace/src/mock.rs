@@ -163,6 +163,7 @@ pub fn create_segment_header(segment_index: SegmentIndex) -> SegmentHeader {
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::ZERO,
             archived_progress: ArchivedBlockProgress::new_complete(),
+            padding: [0; _],
         },
     }
 }

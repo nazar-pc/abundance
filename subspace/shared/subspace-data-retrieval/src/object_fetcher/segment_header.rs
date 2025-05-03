@@ -38,6 +38,7 @@ pub fn segment_header_encoded_size() -> usize {
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::ZERO,
             archived_progress: ArchivedBlockProgress::new_complete(),
+            padding: [0; _],
         },
     };
 

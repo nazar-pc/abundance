@@ -93,6 +93,7 @@ fn write_segment_header(mut piece: &mut Piece, remaining_len: usize) -> Vec<u8> 
             last_archived_block: LastArchivedBlock {
                 number: BlockNumber::MAX,
                 archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::MAX),
+                padding: [0; _],
             },
         }
         .encode();

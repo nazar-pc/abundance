@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(array_chunks, assert_matches, portable_simd)]
+#![feature(array_chunks, assert_matches, generic_arg_infer)]
 #![warn(unused_must_use, unsafe_code, unused_variables)]
 
 extern crate alloc;
