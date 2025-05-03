@@ -62,7 +62,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::Duration;
 use subspace_archiving::archiver::{Archiver, NewArchivedSegment};
-use subspace_archiving::objects::{BlockObjectMapping, GlobalObject};
+use subspace_archiving::objects::{BlockObject, GlobalObject};
 use tracing::{debug, info, trace, warn};
 
 /// Number of WASM instances is 8, this is a bit lower to avoid warnings exceeding number of
@@ -393,17 +393,18 @@ impl CreateObjectMappings {
     }
 }
 
+#[expect(clippy::type_complexity, reason = "Return type")]
 fn find_last_archived_block<Block, Client, AS, COM>(
     client: &Client,
     segment_headers_store: &SegmentHeadersStore<AS>,
     best_block_to_archive: BlockNumber,
     create_object_mappings: Option<COM>,
-) -> sp_blockchain::Result<Option<(SegmentHeader, SignedBlock<Block>, BlockObjectMapping)>>
+) -> sp_blockchain::Result<Option<(SegmentHeader, SignedBlock<Block>, Vec<BlockObject>)>>
 where
     Block: BlockT,
     Client: BlockBackend<Block> + HeaderBackend<Block>,
     AS: AuxStore,
-    COM: Fn(Block) -> BlockObjectMapping,
+    COM: Fn(Block) -> Vec<BlockObject>,
 {
     let Some(max_segment_index) = segment_headers_store.max_segment_index() else {
         return Ok(None);
@@ -444,7 +445,7 @@ where
         let block_object_mappings = if let Some(create_object_mappings) = create_object_mappings {
             create_object_mappings(last_archived_block.block.clone())
         } else {
-            BlockObjectMapping::default()
+            Vec::new()
         };
 
         return Ok(Some((
@@ -475,7 +476,7 @@ where
 
     // There are no mappings in the genesis block, so they can be ignored
     let block_outcome = Archiver::new(erasure_coding)
-        .add_block(encoded_block, BlockObjectMapping::default())
+        .add_block(encoded_block, Vec::new())
         .expect("Block is never empty and doesn't exceed u32; qed");
     let new_archived_segment = block_outcome
         .archived_segments
@@ -667,7 +668,7 @@ where
                 //     .runtime_api()
                 //     .extract_block_object_mapping(parent_hash, block)
                 //     .unwrap_or_default()
-                BlockObjectMapping::default()
+                Vec::new()
             }),
     )?;
 
@@ -767,9 +768,9 @@ where
                             //         block.block.clone(),
                             //     )
                             //     .unwrap_or_default()
-                            BlockObjectMapping::default()
+                            Vec::new()
                         } else {
-                            BlockObjectMapping::default()
+                            Vec::new()
                         };
 
                         Ok((block, block_object_mappings))
@@ -803,7 +804,7 @@ where
                     .expect("Block is never empty and doesn't exceed u32; qed");
                 send_object_mapping_notification(
                     &subspace_link.object_mapping_notification_sender,
-                    block_outcome.object_mapping,
+                    block_outcome.global_objects,
                     block_number_to_archive,
                 );
                 let new_segment_headers: Vec<SegmentHeader> = block_outcome
@@ -1171,9 +1172,9 @@ where
         //             format!("Failed to retrieve block object mappings: {error}").into(),
         //         )
         //     })?
-        BlockObjectMapping::default()
+        Vec::new()
     } else {
-        BlockObjectMapping::default()
+        Vec::new()
     };
 
     let encoded_block = encode_block(block);
@@ -1188,7 +1189,7 @@ where
         .expect("Block is never empty and doesn't exceed u32; qed");
     send_object_mapping_notification(
         &object_mapping_notification_sender,
-        block_outcome.object_mapping,
+        block_outcome.global_objects,
         block_number_to_archive,
     );
     for archived_segment in block_outcome.archived_segments {

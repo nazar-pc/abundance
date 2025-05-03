@@ -10,7 +10,7 @@ use ab_core_primitives::segments::{RecordedHistorySegment, SegmentIndex};
 use parity_scale_codec::{Compact, CompactLen, Decode};
 use std::sync::Arc;
 use subspace_archiving::archiver::SegmentItem;
-use subspace_archiving::objects::{GlobalObject, GlobalObjectMapping};
+use subspace_archiving::objects::GlobalObject;
 use tracing::{debug, trace, warn};
 
 mod partial_object;
@@ -239,14 +239,14 @@ where
     /// Checks the objects' hashes to make sure the correct bytes are returned.
     pub async fn fetch_objects(
         &self,
-        mappings: GlobalObjectMapping,
+        global_objects: Vec<GlobalObject>,
     ) -> Result<Vec<Vec<u8>>, Error> {
-        let mut objects = Vec::with_capacity(mappings.objects.len());
+        let mut objects = Vec::with_capacity(global_objects.len());
 
         // TODO:
         // - keep the last downloaded piece until it's no longer needed
         // - document sorting mappings in piece index order
-        for mapping in mappings.objects {
+        for mapping in global_objects {
             let GlobalObject {
                 piece_index,
                 offset,

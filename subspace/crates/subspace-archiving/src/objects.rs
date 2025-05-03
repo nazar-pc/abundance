@@ -6,7 +6,6 @@
 
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::PieceIndex;
-use alloc::vec::Vec;
 use parity_scale_codec::{Decode, Encode};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -22,16 +21,6 @@ pub struct BlockObject {
     pub offset: u32,
 }
 
-/// Mapping of objects stored inside the block
-#[derive(Debug, Default, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(feature = "serde", serde(rename_all_fields = "camelCase"))]
-pub struct BlockObjectMapping {
-    /// Objects stored inside the block
-    pub objects: Vec<BlockObject>,
-}
-
 /// Object stored in the history of the blockchain
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -45,14 +34,4 @@ pub struct GlobalObject {
     pub piece_index: PieceIndex,
     /// Raw record offset of the object in that piece, for use with `Record::to_raw_record_bytes`
     pub offset: u32,
-}
-
-/// Mapping of objects stored in the history of the blockchain
-#[derive(Debug, Default, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Encode, Decode)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(feature = "serde", serde(rename_all_fields = "camelCase"))]
-pub struct GlobalObjectMapping {
-    /// Objects stored in the history of the blockchain
-    pub objects: Vec<GlobalObject>,
 }

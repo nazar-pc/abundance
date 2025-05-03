@@ -6,7 +6,6 @@ use rand_core::{RngCore, SeedableRng};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use subspace_archiving::archiver::Archiver;
-use subspace_archiving::objects::BlockObjectMapping;
 use subspace_archiving::piece_reconstructor::{PiecesReconstructor, ReconstructorError};
 
 fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
@@ -29,7 +28,7 @@ fn segment_reconstruction_works() {
     let block = get_random_block(&mut rng);
 
     let archived_segments = archiver
-        .add_block(block, BlockObjectMapping::default())
+        .add_block(block, Vec::new())
         .unwrap()
         .archived_segments;
 
@@ -78,7 +77,7 @@ fn piece_reconstruction_works() {
     let block = get_random_block(&mut rng);
 
     let archived_segments = archiver
-        .add_block(block, BlockObjectMapping::default())
+        .add_block(block, Vec::new())
         .unwrap()
         .archived_segments;
 
@@ -141,7 +140,7 @@ fn segment_reconstruction_fails() {
     let block = get_random_block(&mut rng);
 
     let archived_segments = archiver
-        .add_block(block, BlockObjectMapping::default())
+        .add_block(block, Vec::new())
         .unwrap()
         .archived_segments;
 
@@ -181,7 +180,7 @@ fn piece_reconstruction_fails() {
     let block = get_random_block(&mut rng);
 
     let archived_segments = archiver
-        .add_block(block, BlockObjectMapping::default())
+        .add_block(block, Vec::new())
         .unwrap()
         .archived_segments;
 

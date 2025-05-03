@@ -134,7 +134,7 @@ mod test {
     fn block_continuation_variant_constant() {
         let block_continuation = SegmentItem::BlockContinuation {
             bytes: Vec::new(),
-            object_mapping: Default::default(),
+            block_objects: Default::default(),
         };
         let block_continuation = block_continuation.encode();
 

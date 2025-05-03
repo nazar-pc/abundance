@@ -11,7 +11,6 @@ use std::assert_matches::assert_matches;
 use std::iter;
 use std::num::NonZeroU32;
 use subspace_archiving::archiver::Archiver;
-use subspace_archiving::objects::BlockObjectMapping;
 use subspace_archiving::reconstructor::{Reconstructor, ReconstructorError};
 
 fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
@@ -54,31 +53,31 @@ fn basic() {
         block
     };
     let archived_segments = archiver
-        .add_block(block_0.clone(), BlockObjectMapping::default())
+        .add_block(block_0.clone(), Vec::new())
         .unwrap()
         .archived_segments
         .into_iter()
         .chain(
             archiver
-                .add_block(block_1.clone(), BlockObjectMapping::default())
+                .add_block(block_1.clone(), Vec::new())
                 .unwrap()
                 .archived_segments,
         )
         .chain(
             archiver
-                .add_block(block_2.clone(), BlockObjectMapping::default())
+                .add_block(block_2.clone(), Vec::new())
                 .unwrap()
                 .archived_segments,
         )
         .chain(
             archiver
-                .add_block(block_3.clone(), BlockObjectMapping::default())
+                .add_block(block_3.clone(), Vec::new())
                 .unwrap()
                 .archived_segments,
         )
         .chain(
             archiver
-                .add_block(block_4, BlockObjectMapping::default())
+                .add_block(block_4, Vec::new())
                 .unwrap()
                 .archived_segments,
         )
@@ -307,13 +306,13 @@ fn partial_data() {
         block
     };
     let archived_segments = archiver
-        .add_block(block_0.clone(), BlockObjectMapping::default())
+        .add_block(block_0.clone(), Vec::new())
         .unwrap()
         .archived_segments
         .into_iter()
         .chain(
             archiver
-                .add_block(block_1, BlockObjectMapping::default())
+                .add_block(block_1, Vec::new())
                 .unwrap()
                 .archived_segments,
         )
@@ -390,7 +389,7 @@ fn invalid_usage() {
     };
 
     let archived_segments = archiver
-        .add_block(block_0, BlockObjectMapping::default())
+        .add_block(block_0, Vec::new())
         .unwrap()
         .archived_segments;
 
