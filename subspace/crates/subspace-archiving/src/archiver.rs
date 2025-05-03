@@ -11,6 +11,7 @@ use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
+use core::num::NonZeroU32;
 use parity_scale_codec::{Compact, CompactLen, Decode, Encode, Input, Output};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -281,6 +282,7 @@ impl Archiver {
             .expect("Just inserted; qed")
             .partial_archived()
         {
+            let archived_block_bytes = archived_block_bytes.get();
             let encoded_block_bytes = u32::try_from(encoded_block.len())
                 .expect("Blocks length is never bigger than u32; qed");
 
@@ -327,12 +329,18 @@ impl Archiver {
     }
 
     /// Adds new block to internal buffer, potentially producing pieces, segment headers, and
-    /// object mappings
+    /// object mappings.
+    ///
+    /// Returns `None` if block is empty or larger than `u32::MAX`.
     pub fn add_block(
         &mut self,
         bytes: Vec<u8>,
         object_mapping: BlockObjectMapping,
-    ) -> ArchiveBlockOutcome {
+    ) -> Option<ArchiveBlockOutcome> {
+        if !(1..u32::MAX as usize).contains(&bytes.len()) {
+            return None;
+        }
+
         // Append new block to the buffer
         self.buffer.push_back(SegmentItem::Block {
             bytes,
@@ -355,10 +363,10 @@ impl Archiver {
         // Produce any next segment buffer mappings that haven't already been produced.
         object_mapping.extend(self.produce_next_segment_mappings());
 
-        ArchiveBlockOutcome {
+        Some(ArchiveBlockOutcome {
             archived_segments,
             object_mapping,
-        }
+        })
     }
 
     /// Try to slice buffer contents into segments if there is enough data, producing one segment at
@@ -439,7 +447,7 @@ impl Archiver {
                         // Genesis block
                         last_archived_block.replace(LastArchivedBlock {
                             number: BlockNumber::ZERO,
-                            archived_progress: ArchivedBlockProgress::Complete,
+                            archived_progress: ArchivedBlockProgress::new_complete(),
                         });
                     }
                 }
@@ -459,9 +467,14 @@ impl Archiver {
                         already; qed",
                     );
                     last_archived_block.set_partial_archived(
-                        archived_bytes
-                            + u32::try_from(bytes.len())
-                                .expect("Blocks length is never bigger than u32; qed"),
+                        NonZeroU32::new(
+                            archived_bytes.get()
+                                + u32::try_from(bytes.len()).expect(
+                                    "`::add_block()` method ensures block doesn't exceed \
+                                    `u32::MAX`; qed",
+                                ),
+                        )
+                        .expect("Not zero; qed"),
                     );
                 }
                 SegmentItem::ParentSegmentHeader(_) => {
@@ -516,7 +529,12 @@ impl Archiver {
                     // Update last archived block to include partial archiving info
                     last_archived_block.set_partial_archived(
                         u32::try_from(bytes.len())
-                            .expect("Blocks length is never bigger than u32; qed"),
+                            .ok()
+                            .and_then(NonZeroU32::new)
+                            .expect(
+                                "`::add_block()` method ensures block is not empty and doesn't \
+                                exceed `u32::MAX`; qed",
+                            ),
                     );
 
                     // Push continuation element back into the buffer where removed segment item was
@@ -563,9 +581,14 @@ impl Archiver {
                         already; qed",
                     );
                     last_archived_block.set_partial_archived(
-                        archived_bytes
-                            - u32::try_from(spill_over)
-                                .expect("Blocks length is never bigger than u32; qed"),
+                        NonZeroU32::new(
+                            archived_bytes.get()
+                                - u32::try_from(spill_over).expect(
+                                    "`::add_block()` method ensures block length doesn't \
+                                    exceed `u32::MAX`; qed",
+                                ),
+                        )
+                        .expect("Spillover means non-zero length of the block was archived; qed"),
                     );
 
                     // Push continuation element back into the buffer where removed segment item was

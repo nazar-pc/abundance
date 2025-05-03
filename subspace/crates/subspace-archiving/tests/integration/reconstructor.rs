@@ -9,6 +9,7 @@ use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::assert_matches::assert_matches;
 use std::iter;
+use std::num::NonZeroU32;
 use subspace_archiving::archiver::Archiver;
 use subspace_archiving::objects::BlockObjectMapping;
 use subspace_archiving::reconstructor::{Reconstructor, ReconstructorError};
@@ -54,26 +55,31 @@ fn basic() {
     };
     let archived_segments = archiver
         .add_block(block_0.clone(), BlockObjectMapping::default())
+        .unwrap()
         .archived_segments
         .into_iter()
         .chain(
             archiver
                 .add_block(block_1.clone(), BlockObjectMapping::default())
+                .unwrap()
                 .archived_segments,
         )
         .chain(
             archiver
                 .add_block(block_2.clone(), BlockObjectMapping::default())
+                .unwrap()
                 .archived_segments,
         )
         .chain(
             archiver
                 .add_block(block_3.clone(), BlockObjectMapping::default())
+                .unwrap()
                 .archived_segments,
         )
         .chain(
             archiver
                 .add_block(block_4, BlockObjectMapping::default())
+                .unwrap()
                 .archived_segments,
         )
         .collect::<Vec<_>>();
@@ -114,7 +120,9 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: BlockNumber::new(1),
-                archived_progress: ArchivedBlockProgress::Partial(67108853)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(67108853).unwrap()
+                )
             }
         );
 
@@ -134,7 +142,9 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: BlockNumber::new(1),
-                archived_progress: ArchivedBlockProgress::Partial(67108853)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(67108853).unwrap()
+                )
             }
         );
     }
@@ -155,7 +165,9 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(33554318)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(33554319).unwrap()
+                )
             }
         );
 
@@ -175,7 +187,9 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(33554318)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(33554319).unwrap()
+                )
             }
         );
     }
@@ -196,7 +210,9 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(167771953)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(167771955).unwrap()
+                )
             }
         );
     }
@@ -218,7 +234,9 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(167771953)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(167771955).unwrap()
+                )
             }
         );
     }
@@ -239,7 +257,9 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(301989588)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(301989591).unwrap()
+                )
             }
         );
     }
@@ -261,7 +281,9 @@ fn basic() {
             contents.segment_header.unwrap().last_archived_block(),
             LastArchivedBlock {
                 number: BlockNumber::new(3),
-                archived_progress: ArchivedBlockProgress::Partial(301989588)
+                archived_progress: ArchivedBlockProgress::new_partial(
+                    NonZeroU32::new(301989591).unwrap()
+                )
             }
         );
     }
@@ -286,11 +308,13 @@ fn partial_data() {
     };
     let archived_segments = archiver
         .add_block(block_0.clone(), BlockObjectMapping::default())
+        .unwrap()
         .archived_segments
         .into_iter()
         .chain(
             archiver
                 .add_block(block_1, BlockObjectMapping::default())
+                .unwrap()
                 .archived_segments,
         )
         .collect::<Vec<_>>();
@@ -367,6 +391,7 @@ fn invalid_usage() {
 
     let archived_segments = archiver
         .add_block(block_0, BlockObjectMapping::default())
+        .unwrap()
         .archived_segments;
 
     assert_eq!(archived_segments.len(), 4);

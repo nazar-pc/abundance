@@ -2,8 +2,7 @@ use crate::archiver::{Segment, SegmentItem};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::pieces::Piece;
 use ab_core_primitives::segments::{
-    ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment,
-    SegmentHeader, SegmentIndex,
+    ArchivedHistorySegment, LastArchivedBlock, RecordedHistorySegment, SegmentHeader, SegmentIndex,
 };
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
 use alloc::vec::Vec;
@@ -205,15 +204,15 @@ impl Reconstructor {
                         .segment_header
                         .replace(segment_header);
 
-                    match archived_progress {
-                        ArchivedBlockProgress::Complete => {
+                    match archived_progress.partial() {
+                        None => {
                             reconstructed_contents
                                 .blocks
                                 .push((next_block_number, mem::take(&mut partial_block)));
 
                             next_block_number = number + BlockNumber::ONE;
                         }
-                        ArchivedBlockProgress::Partial(_bytes) => {
+                        Some(_bytes) => {
                             next_block_number = number;
 
                             if partial_block.is_empty() {

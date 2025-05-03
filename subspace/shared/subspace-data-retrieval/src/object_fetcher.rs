@@ -1,9 +1,7 @@
 //! Fetching objects stored in the archived history of Subspace Network.
 
 use crate::object_fetcher::partial_object::{PartialObject, RawPieceData};
-use crate::object_fetcher::segment_header::{
-    MAX_SEGMENT_PADDING, max_segment_header_encoded_size, min_segment_header_encoded_size,
-};
+use crate::object_fetcher::segment_header::{MAX_SEGMENT_PADDING, segment_header_encoded_size};
 use crate::piece_fetcher::download_pieces;
 use crate::piece_getter::PieceGetter;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -44,7 +42,7 @@ pub fn max_supported_object_length() -> usize {
         - MAX_SEGMENT_PADDING
         - 1
         - 1
-        - max_segment_header_encoded_size()
+        - segment_header_encoded_size()
         - 1
         - MAX_ENCODED_LENGTH_SIZE * 2
 }
@@ -116,7 +114,7 @@ pub enum Error {
     #[error(
         "Piece offset is inside the segment header, min size of segment header: {}, object: \
         {mapping:?}",
-        min_segment_header_encoded_size()
+        segment_header_encoded_size()
     )]
     PieceOffsetInSegmentHeader { mapping: GlobalObject },
 
@@ -269,10 +267,10 @@ where
 
             // We could parse each segment header to do this check perfectly, but it's an edge
             // case, so we just do a best-effort check
-            if piece_index.position() == 0 && offset < min_segment_header_encoded_size() as u32 {
+            if piece_index.position() == 0 && offset < segment_header_encoded_size() as u32 {
                 debug!(
                     ?mapping,
-                    min_segment_header_encoded_size = ?min_segment_header_encoded_size(),
+                    min_segment_header_encoded_size = ?segment_header_encoded_size(),
                     "Invalid offset for object: must not be inside the segment header",
                 );
 

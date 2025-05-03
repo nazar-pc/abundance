@@ -475,8 +475,9 @@ where
     let encoded_block = encode_block(signed_block);
 
     // There are no mappings in the genesis block, so they can be ignored
-    let block_outcome =
-        Archiver::new(erasure_coding).add_block(encoded_block, BlockObjectMapping::default());
+    let block_outcome = Archiver::new(erasure_coding)
+        .add_block(encoded_block, BlockObjectMapping::default())
+        .expect("Block is never empty and doesn't exceed u32; qed");
     let new_archived_segment = block_outcome
         .archived_segments
         .into_iter()
@@ -798,7 +799,9 @@ where
                     encoded_block.len() as f32 / 1024.0
                 );
 
-                let block_outcome = archiver.add_block(encoded_block, block_object_mappings);
+                let block_outcome = archiver
+                    .add_block(encoded_block, block_object_mappings)
+                    .expect("Block is never empty and doesn't exceed u32; qed");
                 send_object_mapping_notification(
                     &subspace_link.object_mapping_notification_sender,
                     block_outcome.object_mapping,
@@ -1181,7 +1184,9 @@ where
         encoded_block.len() as f32 / 1024.0
     );
 
-    let block_outcome = archiver.add_block(encoded_block, block_object_mappings);
+    let block_outcome = archiver
+        .add_block(encoded_block, block_object_mappings)
+        .expect("Block is never empty and doesn't exceed u32; qed");
     send_object_mapping_notification(
         &object_mapping_notification_sender,
         block_outcome.object_mapping,

@@ -15,7 +15,7 @@ use alloc::boxed::Box;
 use core::array::TryFromSliceError;
 use core::fmt;
 use core::iter::Step;
-use core::num::NonZeroU64;
+use core::num::{NonZeroU32, NonZeroU64};
 use derive_more::{
     Add, AddAssign, Deref, DerefMut, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub,
     SubAssign,
@@ -273,37 +273,39 @@ impl HistorySize {
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub enum ArchivedBlockProgress {
-    /// The block has been fully archived.
-    Complete,
-
-    /// Number of partially archived bytes of a block.
-    Partial(u32),
+pub struct ArchivedBlockProgress {
+    /// Number of partially archived bytes of a block, `0` for full block
+    bytes: u32,
 }
 
 impl Default for ArchivedBlockProgress {
     /// We assume a block can always fit into the segment initially, but it is definitely possible
     /// to be transitioned into the partial state after some overflow checking.
-    #[inline]
+    #[inline(always)]
     fn default() -> Self {
-        Self::Complete
+        Self { bytes: 0 }
     }
 }
 
 impl ArchivedBlockProgress {
-    /// Return the number of partially archived bytes if the progress is not complete.
+    /// Block is archived fully
     #[inline(always)]
-    pub fn partial(&self) -> Option<u32> {
-        match self {
-            Self::Complete => None,
-            Self::Partial(number) => Some(*number),
+    pub const fn new_complete() -> Self {
+        Self { bytes: 0 }
+    }
+
+    /// Block is partially archived with provided number of bytes
+    #[inline(always)]
+    pub const fn new_partial(new_partial: NonZeroU32) -> Self {
+        Self {
+            bytes: new_partial.get(),
         }
     }
 
-    /// Sets new number of partially archived bytes.
+    /// Return the number of partially archived bytes if the progress is not complete
     #[inline(always)]
-    pub fn set_partial(&mut self, new_partial: u32) {
-        *self = Self::Partial(new_partial);
+    pub const fn partial(&self) -> Option<NonZeroU32> {
+        NonZeroU32::new(self.bytes)
     }
 }
 
@@ -322,20 +324,20 @@ pub struct LastArchivedBlock {
 impl LastArchivedBlock {
     /// Returns the number of partially archived bytes for a block.
     #[inline(always)]
-    pub fn partial_archived(&self) -> Option<u32> {
+    pub fn partial_archived(&self) -> Option<NonZeroU32> {
         self.archived_progress.partial()
     }
 
-    /// Sets new number of partially archived bytes.
+    /// Sets the number of partially archived bytes if block progress was archived partially
     #[inline(always)]
-    pub fn set_partial_archived(&mut self, new_partial: u32) {
-        self.archived_progress.set_partial(new_partial);
+    pub fn set_partial_archived(&mut self, new_partial: NonZeroU32) {
+        self.archived_progress = ArchivedBlockProgress::new_partial(new_partial);
     }
 
-    /// Sets the archived state of this block to [`ArchivedBlockProgress::Complete`].
+    /// Indicate last archived block was archived fully
     #[inline(always)]
     pub fn set_complete(&mut self) {
-        self.archived_progress = ArchivedBlockProgress::Complete;
+        self.archived_progress = ArchivedBlockProgress::new_complete();
     }
 }
 

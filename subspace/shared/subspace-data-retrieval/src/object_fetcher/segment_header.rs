@@ -31,36 +31,20 @@ const SEGMENT_VERSION_VARIANT: u8 = 0;
 /// The variant for block continuations.
 const BLOCK_CONTINUATION_VARIANT: u8 = 3;
 
-/// The minimum size of a segment header.
+/// The size of a segment header.
 #[inline]
-pub fn min_segment_header_encoded_size() -> usize {
+pub fn segment_header_encoded_size() -> usize {
     let min_segment_header = SegmentHeader::V0 {
         segment_index: 0.into(),
         segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::ZERO,
-            archived_progress: ArchivedBlockProgress::Complete,
+            archived_progress: ArchivedBlockProgress::new_complete(),
         },
     };
 
     min_segment_header.encoded_size()
-}
-
-/// The maximum size of the segment header.
-#[inline]
-pub fn max_segment_header_encoded_size() -> usize {
-    let max_segment_header = SegmentHeader::V0 {
-        segment_index: u64::MAX.into(),
-        segment_root: SegmentRoot::default(),
-        prev_segment_header_hash: Blake3Hash::default(),
-        last_archived_block: LastArchivedBlock {
-            number: BlockNumber::ZERO,
-            archived_progress: ArchivedBlockProgress::Partial(u32::MAX),
-        },
-    };
-
-    max_segment_header.encoded_size()
 }
 
 /// Removes the segment header from the start of a piece, and returns the remaining data.
@@ -164,16 +148,6 @@ mod test {
         assert_eq!(
             MAX_SEGMENT_PADDING,
             Compact::compact_len(&MAX_BLOCK_LENGTH) - Compact::<u32>::compact_len(&1)
-        );
-    }
-
-    #[test]
-    fn segment_header_length_constants() {
-        assert!(
-            min_segment_header_encoded_size() < max_segment_header_encoded_size(),
-            "min_segment_header_encoded_size: {} must be less than max_segment_header_encoded_size: {}",
-            min_segment_header_encoded_size(),
-            max_segment_header_encoded_size()
         );
     }
 
