@@ -64,7 +64,7 @@ fn archiver() {
             .as_mut()
             .write_all(&Compact(128_u64).encode())
             .unwrap();
-        let object_mapping = BlockObjectMapping::V0 {
+        let object_mapping = BlockObjectMapping {
             objects: vec![
                 BlockObject {
                     hash: Blake3Hash::default(),
@@ -87,7 +87,7 @@ fn archiver() {
     // There is not enough data to produce archived segment yet
     assert!(archived_segments.is_empty());
     // All block mappings must appear in the global object mapping
-    assert_eq!(object_mapping.len(), block_0_object_mapping.objects().len());
+    assert_eq!(object_mapping.len(), block_0_object_mapping.objects.len());
 
     let (block_1, block_1_object_mapping) = {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 3 * 2];
@@ -105,7 +105,7 @@ fn archiver() {
             .as_mut()
             .write_all(&Compact(100_u64).encode())
             .unwrap();
-        let object_mapping = BlockObjectMapping::V0 {
+        let object_mapping = BlockObjectMapping {
             objects: vec![
                 BlockObject {
                     hash: Blake3Hash::default(),
@@ -156,12 +156,12 @@ fn archiver() {
     }
 
     // All block mappings must appear in the global object mapping
-    assert_eq!(object_mapping.len(), block_1_object_mapping.objects().len());
+    assert_eq!(object_mapping.len(), block_1_object_mapping.objects.len());
     {
         // 4 objects fit into the first segment, 2 from block 0 and 2 from block 1
         let block_objects = iter::repeat(block_0.as_ref())
-            .zip(block_0_object_mapping.objects())
-            .chain(iter::repeat(block_1.as_ref()).zip(block_1_object_mapping.objects()))
+            .zip(&block_0_object_mapping.objects)
+            .chain(iter::repeat(block_1.as_ref()).zip(&block_1_object_mapping.objects))
             .take(4);
         let global_objects = block_0_outcome
             .object_mapping
@@ -255,7 +255,7 @@ fn archiver() {
     );
     {
         let block_objects =
-            iter::repeat(block_1.as_ref()).zip(block_1_object_mapping.objects().iter().skip(2));
+            iter::repeat(block_1.as_ref()).zip(block_1_object_mapping.objects.iter().skip(2));
         let global_objects = object_mapping.into_iter().map(|object_mapping| {
             (
                 Piece::from(
@@ -546,7 +546,7 @@ fn spill_over_edge_case() {
     let block_outcome = archiver
         .add_block(
             vec![0u8; RecordedHistorySegment::SIZE],
-            BlockObjectMapping::V0 {
+            BlockObjectMapping {
                 objects: vec![BlockObject {
                     hash: Blake3Hash::default(),
                     offset: 0,
@@ -633,7 +633,7 @@ fn object_on_the_edge_of_segment() {
             .clone()
             .add_block(
                 second_block.clone(),
-                BlockObjectMapping::V0 {
+                BlockObjectMapping {
                     objects: vec![BlockObject {
                         hash: object_mapping.hash,
                         offset: object_mapping.offset - 1,
@@ -655,7 +655,7 @@ fn object_on_the_edge_of_segment() {
     let block_2_outcome = archiver
         .add_block(
             second_block,
-            BlockObjectMapping::V0 {
+            BlockObjectMapping {
                 objects: vec![object_mapping],
             },
         )

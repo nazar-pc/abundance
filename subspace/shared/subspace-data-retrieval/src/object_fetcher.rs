@@ -241,12 +241,12 @@ where
         &self,
         mappings: GlobalObjectMapping,
     ) -> Result<Vec<Vec<u8>>, Error> {
-        let mut objects = Vec::with_capacity(mappings.objects().len());
+        let mut objects = Vec::with_capacity(mappings.objects.len());
 
         // TODO:
         // - keep the last downloaded piece until it's no longer needed
         // - document sorting mappings in piece index order
-        for &mapping in mappings.objects() {
+        for mapping in mappings.objects {
             let GlobalObject {
                 piece_index,
                 offset,

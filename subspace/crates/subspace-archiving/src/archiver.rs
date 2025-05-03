@@ -264,7 +264,7 @@ impl Archiver {
                     // Take part of the encoded block that wasn't archived yet and push to the
                     // buffer as a block continuation
                     object_mapping
-                        .objects_mut()
+                        .objects
                         .retain_mut(|block_object: &mut BlockObject| {
                             if block_object.offset >= archived_block_bytes {
                                 block_object.offset -= archived_block_bytes;
@@ -474,9 +474,9 @@ impl Archiver {
 
                     bytes.truncate(split_point);
 
-                    let continuation_object_mapping = BlockObjectMapping::V0 {
+                    let continuation_object_mapping = BlockObjectMapping {
                         objects: object_mapping
-                            .objects_mut()
+                            .objects
                             .extract_if(.., |block_object: &mut BlockObject| {
                                 if block_object.offset >= split_point as u32 {
                                     block_object.offset -= split_point as u32;
@@ -522,9 +522,9 @@ impl Archiver {
 
                     bytes.truncate(split_point);
 
-                    let continuation_object_mapping = BlockObjectMapping::V0 {
+                    let continuation_object_mapping = BlockObjectMapping {
                         objects: object_mapping
-                            .objects_mut()
+                            .objects
                             .extract_if(.., |block_object: &mut BlockObject| {
                                 if block_object.offset >= split_point as u32 {
                                     block_object.offset -= split_point as u32;
@@ -626,7 +626,7 @@ impl Archiver {
                     bytes,
                     object_mapping,
                 } => {
-                    for block_object in object_mapping.objects_mut().drain(..) {
+                    for block_object in object_mapping.objects.drain(..) {
                         // `+1` corresponds to `SegmentItem::X {}` enum variant encoding
                         let offset_in_segment = base_offset_in_segment
                             + 1
