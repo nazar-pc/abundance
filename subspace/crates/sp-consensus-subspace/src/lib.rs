@@ -264,34 +264,12 @@ impl ChainConstants {
 
 /// Proof of time parameters
 #[derive(Debug, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
-pub enum PotParameters {
-    /// Initial version of the parameters
-    V0 {
-        /// Number of iterations for proof of time per slot, corresponds to slot that directly
-        /// follows parent block's slot and can change before slot for which block is produced
-        slot_iterations: NonZeroU32,
-        /// Optional next scheduled change of parameters
-        next_change: Option<PotParametersChange>,
-    },
-}
-
-impl PotParameters {
-    /// Number of iterations for proof of time per slot, corresponds to slot that directly follows
-    /// parent block's slot and can change before slot for which block is produced
-    pub fn slot_iterations(&self) -> NonZeroU32 {
-        let Self::V0 {
-            slot_iterations, ..
-        } = self;
-
-        *slot_iterations
-    }
-
-    /// Get next proof of time parameters change if any
-    pub fn next_parameters_change(&self) -> Option<PotParametersChange> {
-        let Self::V0 { next_change, .. } = self;
-
-        *next_change
-    }
+pub struct PotParameters {
+    /// Number of iterations for proof of time per slot, corresponds to slot that directly
+    /// follows parent block's slot and can change before slot for which block is produced
+    pub slot_iterations: NonZeroU32,
+    /// Optional next scheduled change of parameters
+    pub next_change: Option<PotParametersChange>,
 }
 
 sp_api::decl_runtime_apis! {

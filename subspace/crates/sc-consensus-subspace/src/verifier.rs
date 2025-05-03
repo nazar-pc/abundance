@@ -212,7 +212,7 @@ where
         } = params;
 
         let pre_digest = subspace_digest_items.pre_digest;
-        let slot = pre_digest.slot();
+        let slot = pre_digest.slot;
 
         let seal = header
             .digest_mut()
@@ -249,7 +249,7 @@ where
             // Last checkpoint must be our future proof of time, this is how we anchor the rest of
             // checks together
             if checkpoints.last().map(|checkpoints| checkpoints.output())
-                != Some(pre_digest.pot_info().future_proof_of_time())
+                != Some(pre_digest.pot_info.future_proof_of_time)
             {
                 return Err(VerificationError::InvalidSubspaceJustificationContents);
             }
@@ -327,7 +327,7 @@ where
         if check_reward_signature(
             pre_hash.as_ref(),
             &signature,
-            &pre_digest.solution().public_key_hash,
+            &pre_digest.solution.public_key_hash,
             &self.reward_signing_context,
         )
         .is_err()
@@ -337,7 +337,7 @@ where
 
         // Verify that solution is valid
         pre_digest
-            .solution()
+            .solution
             .verify::<PosTable>(slot, verify_solution_params)
             .map_err(|error| VerificationError::VerificationError(slot, error))?;
 
@@ -449,7 +449,7 @@ where
                 VerificationParams {
                     header: block.header.clone(),
                     verify_solution_params: &SolutionVerifyParams {
-                        proof_of_time: subspace_digest_items.pre_digest.pot_info().proof_of_time(),
+                        proof_of_time: subspace_digest_items.pre_digest.pot_info.proof_of_time,
                         solution_range: subspace_digest_items.solution_range,
                         piece_check_params: None,
                     },
@@ -466,7 +466,7 @@ where
             seal,
         } = checked_header;
 
-        let slot = pre_digest.slot();
+        let slot = pre_digest.slot;
         // Estimate what the "current" slot is according to sync target since we don't have other
         // way to know it
         let diff_in_blocks =
@@ -489,7 +489,7 @@ where
                 slot_now,
                 slot,
                 &block.header,
-                &pre_digest.solution().public_key_hash,
+                &pre_digest.solution.public_key_hash,
                 &block.origin,
             )
             .await

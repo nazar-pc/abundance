@@ -127,10 +127,10 @@ pub fn progress_to_block(keypair: &Keypair, n: u64) {
 }
 
 pub fn make_pre_digest(slot: SlotNumber, solution: Solution) -> Digest {
-    let log = DigestItem::subspace_pre_digest(&PreDigest::V0 {
+    let log = DigestItem::subspace_pre_digest(&PreDigest {
         slot,
         solution,
-        pot_info: PreDigestPotInfo::V0 {
+        pot_info: PreDigestPotInfo {
             proof_of_time: Default::default(),
             future_proof_of_time: Default::default(),
         },

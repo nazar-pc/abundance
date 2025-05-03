@@ -18,72 +18,22 @@ use subspace_verification::sr25519::RewardSignature;
 /// A Subspace pre-runtime digest. This contains all data required to validate a block and for the
 /// Subspace runtime module.
 #[derive(Debug, Clone, Encode, Decode)]
-pub enum PreDigest {
-    /// Initial version of the pre-digest
-    #[codec(index = 0)]
-    V0 {
-        /// Slot number
-        slot: SlotNumber,
-        /// Solution (includes PoR)
-        solution: Solution,
-        /// Proof of time information
-        pot_info: PreDigestPotInfo,
-    },
-}
-
-impl PreDigest {
-    /// Slot
-    #[inline]
-    pub fn slot(&self) -> SlotNumber {
-        let Self::V0 { slot, .. } = self;
-        *slot
-    }
-
-    /// Solution (includes PoR)
-    #[inline]
-    pub fn solution(&self) -> &Solution {
-        let Self::V0 { solution, .. } = self;
-        solution
-    }
-
+pub struct PreDigest {
+    /// Slot number
+    pub slot: SlotNumber,
+    /// Solution
+    pub solution: Solution,
     /// Proof of time information
-    #[inline]
-    pub fn pot_info(&self) -> &PreDigestPotInfo {
-        let Self::V0 { pot_info, .. } = self;
-        pot_info
-    }
+    pub pot_info: PreDigestPotInfo,
 }
 
 /// Proof of time information in pre-digest
 #[derive(Debug, Clone, Encode, Decode)]
-pub enum PreDigestPotInfo {
-    /// Initial version of proof of time information
-    #[codec(index = 0)]
-    V0 {
-        /// Proof of time for this slot
-        proof_of_time: PotOutput,
-        /// Future proof of time
-        future_proof_of_time: PotOutput,
-    },
-}
-
-impl PreDigestPotInfo {
+pub struct PreDigestPotInfo {
     /// Proof of time for this slot
-    #[inline]
-    pub fn proof_of_time(&self) -> PotOutput {
-        let Self::V0 { proof_of_time, .. } = self;
-        *proof_of_time
-    }
-
+    pub proof_of_time: PotOutput,
     /// Future proof of time
-    #[inline]
-    pub fn future_proof_of_time(&self) -> PotOutput {
-        let Self::V0 {
-            future_proof_of_time,
-            ..
-        } = self;
-        *future_proof_of_time
-    }
+    pub future_proof_of_time: PotOutput,
 }
 
 /// A digest item which is usable with Subspace consensus.
@@ -573,10 +523,10 @@ where
     // genesis block doesn't contain a pre digest so let's generate a
     // dummy one to not break any invariants in the rest of the code
     if header.number().is_zero() {
-        return Ok(PreDigest::V0 {
+        return Ok(PreDigest {
             slot: SlotNumber::ZERO,
             solution: Solution::genesis_solution(),
-            pot_info: PreDigestPotInfo::V0 {
+            pot_info: PreDigestPotInfo {
                 proof_of_time: Default::default(),
                 future_proof_of_time: Default::default(),
             },
@@ -720,7 +670,7 @@ pub fn verify_next_digests<Header: HeaderT>(
             number,
             era_duration,
             slot_probability,
-            current_slot: header_digests.pre_digest.slot(),
+            current_slot: header_digests.pre_digest.slot,
             current_solution_range: header_digests.solution_range,
             era_start_slot,
             should_adjust_solution_range: *should_adjust_solution_range,
@@ -743,7 +693,7 @@ pub fn verify_next_digests<Header: HeaderT>(
             Some(updated_root_plot_public_key_hash) => {
                 if number.is_one()
                     && root_plot_public_key_hash.is_none()
-                    && header_digests.pre_digest.solution().public_key_hash
+                    && header_digests.pre_digest.solution.public_key_hash
                         == updated_root_plot_public_key_hash
                 {
                     root_plot_public_key_hash.replace(updated_root_plot_public_key_hash);

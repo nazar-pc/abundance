@@ -323,7 +323,7 @@ where
 
         let pre_digest = &subspace_digest_items.pre_digest;
         if let Some(root_plot_public_key) = root_plot_public_key_hash
-            && &pre_digest.solution().public_key_hash != root_plot_public_key
+            && &pre_digest.solution.public_key_hash != root_plot_public_key
         {
             // Only root plot public key is allowed.
             return Err(Error::OnlyRootPlotPublicKeyAllowed);
@@ -334,11 +334,11 @@ where
             .header(parent_hash)?
             .ok_or(Error::ParentUnavailable(parent_hash, block_hash))?;
 
-        let parent_slot = extract_pre_digest(&parent_header).map(|d| d.slot())?;
+        let parent_slot = extract_pre_digest(&parent_header).map(|d| d.slot)?;
 
         // Make sure that slot number is strictly increasing
-        if pre_digest.slot() <= parent_slot {
-            return Err(Error::SlotMustIncrease(parent_slot, pre_digest.slot()));
+        if pre_digest.slot <= parent_slot {
+            return Err(Error::SlotMustIncrease(parent_slot, pre_digest.slot));
         }
 
         let parent_subspace_digest_items = if block_number.is_one() {
@@ -385,7 +385,7 @@ where
             let SubspaceJustification::PotCheckpoints { seed, checkpoints } =
                 subspace_justification;
 
-            let future_slot = pre_digest.slot() + chain_constants.block_authoring_delay();
+            let future_slot = pre_digest.slot + chain_constants.block_authoring_delay();
 
             if block_number.is_one() {
                 // In case of first block seed must match genesis seed
@@ -409,8 +409,8 @@ where
                     parent_future_slot,
                     parent_subspace_digest_items
                         .pre_digest
-                        .pot_info()
-                        .future_proof_of_time(),
+                        .pot_info
+                        .future_proof_of_time,
                     &subspace_digest_items.pot_parameters_change,
                 );
 
@@ -426,9 +426,9 @@ where
         }
 
         let sector_id = SectorId::new(
-            &pre_digest.solution().public_key_hash,
-            pre_digest.solution().sector_index,
-            pre_digest.solution().history_size,
+            &pre_digest.solution.public_key_hash,
+            pre_digest.solution.sector_index,
+            pre_digest.solution.history_size,
         );
 
         let max_pieces_in_sector = self
@@ -436,8 +436,8 @@ where
             .runtime_api()
             .max_pieces_in_sector(parent_hash)?;
         let piece_index = sector_id.derive_piece_index(
-            pre_digest.solution().piece_offset,
-            pre_digest.solution().history_size,
+            pre_digest.solution.piece_offset,
+            pre_digest.solution.history_size,
             max_pieces_in_sector,
             chain_constants.recent_segments(),
             chain_constants.recent_history_fraction(),
@@ -455,7 +455,7 @@ where
             .get_segment_header(
                 subspace_digest_items
                     .pre_digest
-                    .solution()
+                    .solution
                     .history_size
                     .sector_expiration_check(chain_constants.min_sector_lifetime())
                     .ok_or(Error::InvalidHistorySize)?
@@ -466,12 +466,12 @@ where
         // Piece is not checked during initial block verification because it requires access to
         // segment header and runtime, check it now.
         pre_digest
-            .solution()
+            .solution
             .verify::<PosTable>(
                 // Slot was already checked during initial block verification
-                pre_digest.slot(),
+                pre_digest.slot,
                 &SolutionVerifyParams {
-                    proof_of_time: subspace_digest_items.pre_digest.pot_info().proof_of_time(),
+                    proof_of_time: subspace_digest_items.pre_digest.pot_info.proof_of_time,
                     solution_range: subspace_digest_items.solution_range,
                     piece_check_params: Some(SolutionVerifyPieceCheckParams {
                         max_pieces_in_sector,
@@ -487,7 +487,7 @@ where
                     }),
                 },
             )
-            .map_err(|error| VerificationError::VerificationError(pre_digest.slot(), error))?;
+            .map_err(|error| VerificationError::VerificationError(pre_digest.slot, error))?;
 
         // If the body is passed through, we need to use the runtime to check that the
         // internally-set timestamp in the inherents actually matches the slot set in the seal
