@@ -405,7 +405,7 @@ where
                 PotNextSlotInput::derive(
                     parent_pot_parameters.slot_iterations(),
                     parent_slot,
-                    parent_pre_digest.pot_info.proof_of_time(),
+                    parent_pre_digest.pot_info.proof_of_time,
                     &parent_pot_parameters.next_parameters_change(),
                 )
             };
@@ -436,7 +436,7 @@ where
                 PotNextSlotInput::derive(
                     parent_pot_parameters.slot_iterations(),
                     parent_future_slot,
-                    parent_pre_digest.pot_info.future_proof_of_time(),
+                    parent_pre_digest.pot_info.future_proof_of_time,
                     &parent_pot_parameters.next_parameters_change(),
                 )
             };
@@ -568,7 +568,7 @@ where
                         maybe_pre_digest.replace(PreDigest {
                             slot,
                             solution,
-                            pot_info: PreDigestPotInfo::V0 {
+                            pot_info: PreDigestPotInfo {
                                 proof_of_time,
                                 future_proof_of_time,
                             },

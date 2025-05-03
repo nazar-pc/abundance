@@ -29,34 +29,11 @@ pub struct PreDigest {
 
 /// Proof of time information in pre-digest
 #[derive(Debug, Clone, Encode, Decode)]
-pub enum PreDigestPotInfo {
-    /// Initial version of proof of time information
-    #[codec(index = 0)]
-    V0 {
-        /// Proof of time for this slot
-        proof_of_time: PotOutput,
-        /// Future proof of time
-        future_proof_of_time: PotOutput,
-    },
-}
-
-impl PreDigestPotInfo {
+pub struct PreDigestPotInfo {
     /// Proof of time for this slot
-    #[inline]
-    pub fn proof_of_time(&self) -> PotOutput {
-        let Self::V0 { proof_of_time, .. } = self;
-        *proof_of_time
-    }
-
+    pub proof_of_time: PotOutput,
     /// Future proof of time
-    #[inline]
-    pub fn future_proof_of_time(&self) -> PotOutput {
-        let Self::V0 {
-            future_proof_of_time,
-            ..
-        } = self;
-        *future_proof_of_time
-    }
+    pub future_proof_of_time: PotOutput,
 }
 
 /// A digest item which is usable with Subspace consensus.
@@ -549,7 +526,7 @@ where
         return Ok(PreDigest {
             slot: SlotNumber::ZERO,
             solution: Solution::genesis_solution(),
-            pot_info: PreDigestPotInfo::V0 {
+            pot_info: PreDigestPotInfo {
                 proof_of_time: Default::default(),
                 future_proof_of_time: Default::default(),
             },

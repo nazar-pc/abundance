@@ -645,7 +645,7 @@ impl<T: Config> Pallet<T> {
         if (block_number % pot_entropy_injection_interval).is_zero() {
             let current_block_entropy = pre_digest
                 .pot_info
-                .proof_of_time()
+                .proof_of_time
                 .derive_pot_entropy(&pre_digest.solution.chunk);
             // Collect entropy every `pot_entropy_injection_interval` blocks
             entropy.insert(

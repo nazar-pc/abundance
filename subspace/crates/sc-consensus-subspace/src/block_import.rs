@@ -410,7 +410,7 @@ where
                     parent_subspace_digest_items
                         .pre_digest
                         .pot_info
-                        .future_proof_of_time(),
+                        .future_proof_of_time,
                     &subspace_digest_items.pot_parameters_change,
                 );
 
@@ -471,7 +471,7 @@ where
                 // Slot was already checked during initial block verification
                 pre_digest.slot,
                 &SolutionVerifyParams {
-                    proof_of_time: subspace_digest_items.pre_digest.pot_info.proof_of_time(),
+                    proof_of_time: subspace_digest_items.pre_digest.pot_info.proof_of_time,
                     solution_range: subspace_digest_items.solution_range,
                     piece_check_params: Some(SolutionVerifyPieceCheckParams {
                         max_pieces_in_sector,

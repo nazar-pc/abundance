@@ -118,7 +118,7 @@ where
             PotNextSlotInput::derive(
                 pot_parameters.slot_iterations(),
                 parent_slot,
-                best_pre_digest.pot_info.future_proof_of_time(),
+                best_pre_digest.pot_info.future_proof_of_time,
                 &maybe_next_parameters_change,
             )
         };
@@ -356,7 +356,7 @@ where
         let best_proof = subspace_digest_items
             .pre_digest
             .pot_info
-            .future_proof_of_time();
+            .future_proof_of_time;
 
         // This will do one of 3 things depending on circumstances:
         // * if block import is ahead of timekeeper and gossip, it will update next slot input

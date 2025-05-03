@@ -249,7 +249,7 @@ where
             // Last checkpoint must be our future proof of time, this is how we anchor the rest of
             // checks together
             if checkpoints.last().map(|checkpoints| checkpoints.output())
-                != Some(pre_digest.pot_info.future_proof_of_time())
+                != Some(pre_digest.pot_info.future_proof_of_time)
             {
                 return Err(VerificationError::InvalidSubspaceJustificationContents);
             }
@@ -449,7 +449,7 @@ where
                 VerificationParams {
                     header: block.header.clone(),
                     verify_solution_params: &SolutionVerifyParams {
-                        proof_of_time: subspace_digest_items.pre_digest.pot_info.proof_of_time(),
+                        proof_of_time: subspace_digest_items.pre_digest.pot_info.proof_of_time,
                         solution_range: subspace_digest_items.solution_range,
                         piece_check_params: None,
                     },
