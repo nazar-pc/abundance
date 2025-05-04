@@ -193,6 +193,8 @@ pub enum Error {
     },
 }
 
+// TODO: This no longer corresponds to the latest simplified archiving mechanism and needs to be
+//  rewritten
 /// Object fetcher for the Subspace DSN.
 pub struct ObjectFetcher<PG>
 where

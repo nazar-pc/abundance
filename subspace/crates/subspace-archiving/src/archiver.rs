@@ -12,7 +12,8 @@ use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::num::NonZeroU32;
-use parity_scale_codec::{Compact, CompactLen, Decode, Encode, Input, Output};
+use core::ops::Deref;
+use parity_scale_codec::{Decode, Encode, Input, Output};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -39,17 +40,10 @@ impl Output for ArchivedHistorySegmentOutput<'_> {
 }
 
 /// Segment represents a collection of items stored in archival history of the Subspace blockchain
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Segment {
     /// Segment items
     pub items: Vec<SegmentItem>,
-}
-
-impl Default for Segment {
-    #[inline(always)]
-    fn default() -> Self {
-        Segment { items: Vec::new() }
-    }
 }
 
 impl Encode for Segment {
@@ -99,6 +93,62 @@ impl Decode for Segment {
     }
 }
 
+/// Similar to `Vec<u8>`, but when encoded with SCALE codec uses fixed size length encoding (as
+/// little-endian `u32`)
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct BlockBytes(Vec<u8>);
+
+impl Deref for BlockBytes {
+    type Target = [u8];
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<BlockBytes> for Vec<u8> {
+    #[inline(always)]
+    fn from(value: BlockBytes) -> Self {
+        value.0
+    }
+}
+
+impl Encode for BlockBytes {
+    #[inline(always)]
+    fn size_hint(&self) -> usize {
+        size_of::<u32>() + self.0.len()
+    }
+
+    #[inline]
+    fn encode_to<O: Output + ?Sized>(&self, dest: &mut O) {
+        let length = u32::try_from(self.0.len())
+            .expect("All constructors guarantee the size doesn't exceed `u32`; qed");
+
+        length.encode_to(dest);
+        dest.write(&self.0);
+    }
+}
+
+impl Decode for BlockBytes {
+    #[inline]
+    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+        let length = u32::decode(input)?;
+        if length as usize > (RecordedHistorySegment::SIZE - size_of::<u32>()) {
+            return Err("Segment item size is impossibly large".into());
+        }
+        let bytes = parity_scale_codec::decode_vec_with_len(input, length as usize)?;
+        Ok(Self(bytes))
+    }
+}
+
+impl BlockBytes {
+    #[inline(always)]
+    fn truncate(&mut self, size: usize) {
+        self.0.truncate(size)
+    }
+}
+
 /// Kinds of items that are contained within a segment
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
 pub enum SegmentItem {
@@ -109,7 +159,7 @@ pub enum SegmentItem {
     #[codec(index = 1)]
     Block {
         /// Block bytes
-        bytes: Vec<u8>,
+        bytes: BlockBytes,
         /// This is a convenience implementation detail and will not be available on decoding
         #[doc(hidden)]
         #[codec(skip)]
@@ -119,7 +169,7 @@ pub enum SegmentItem {
     #[codec(index = 2)]
     BlockStart {
         /// Block bytes
-        bytes: Vec<u8>,
+        bytes: BlockBytes,
         /// This is a convenience implementation detail and will not be available on decoding
         #[doc(hidden)]
         #[codec(skip)]
@@ -129,7 +179,7 @@ pub enum SegmentItem {
     #[codec(index = 3)]
     BlockContinuation {
         /// Block bytes
-        bytes: Vec<u8>,
+        bytes: BlockBytes,
         /// This is a convenience implementation detail and will not be available on decoding
         #[doc(hidden)]
         #[codec(skip)]
@@ -272,7 +322,9 @@ impl Archiver {
                         }
                     });
                     archiver.buffer.push_back(SegmentItem::BlockContinuation {
-                        bytes: encoded_block[(archived_block_bytes as usize)..].to_vec(),
+                        bytes: BlockBytes(
+                            encoded_block[(archived_block_bytes as usize)..].to_vec(),
+                        ),
                         block_objects,
                     });
                 }
@@ -303,7 +355,7 @@ impl Archiver {
 
         // Append new block to the buffer
         self.buffer.push_back(SegmentItem::Block {
-            bytes,
+            bytes: BlockBytes(bytes),
             block_objects,
         });
 
@@ -340,9 +392,9 @@ impl Archiver {
 
         let mut segment_size = segment.encoded_size();
 
-        // `-2` because even the smallest segment item will take 2 bytes to encode, so it makes
-        // sense to stop earlier here
-        while segment_size < (RecordedHistorySegment::SIZE - 2) {
+        // 6 bytes is just large enough to encode a segment item (1 byte for enum variant, 4 bytes
+        // for length and 1 for the actual data, while segment header item is never the last one)
+        while RecordedHistorySegment::SIZE.saturating_sub(segment_size) >= 6 {
             let segment_item = match self.buffer.pop_front() {
                 Some(segment_item) => segment_item,
                 None => {
@@ -357,40 +409,6 @@ impl Archiver {
 
             let segment_item_encoded_size = segment_item.encoded_size();
             segment_size += segment_item_encoded_size;
-
-            // Check if there would be enough data collected with above segment item inserted
-            if segment_size >= RecordedHistorySegment::SIZE {
-                // Check if there is an excess of data that should be spilled over into the next
-                // segment
-                let spill_over = segment_size - RecordedHistorySegment::SIZE;
-
-                // Due to compact vector length encoding in scale codec, spill over might happen to
-                // be the same or even bigger than the inserted segment item bytes, in which case
-                // last segment item insertion needs to be skipped to avoid out of range panic when
-                // trying to cut segment item internal bytes.
-                let inner_bytes_size = match &segment_item {
-                    SegmentItem::Padding => {
-                        unreachable!("Buffer never contains SegmentItem::Padding; qed");
-                    }
-                    SegmentItem::Block { bytes, .. } => bytes.len(),
-                    SegmentItem::BlockStart { .. } => {
-                        unreachable!("Buffer never contains SegmentItem::BlockStart; qed");
-                    }
-                    SegmentItem::BlockContinuation { bytes, .. } => bytes.len(),
-                    SegmentItem::ParentSegmentHeader(_) => {
-                        unreachable!(
-                            "SegmentItem::SegmentHeader is always the first element in the buffer \
-                            and fits into the segment; qed",
-                        );
-                    }
-                };
-
-                if spill_over > inner_bytes_size {
-                    self.buffer.push_front(segment_item);
-                    segment_size -= segment_item_encoded_size;
-                    break;
-                }
-            }
 
             match &segment_item {
                 SegmentItem::Padding => {
@@ -486,7 +504,7 @@ impl Archiver {
 
                     // Push continuation element back into the buffer where removed segment item was
                     self.buffer.push_front(SegmentItem::BlockContinuation {
-                        bytes: continuation_bytes,
+                        bytes: BlockBytes(continuation_bytes),
                         block_objects: block_objects
                             .extract_if(.., |block_object: &mut BlockObject| {
                                 if block_object.offset >= split_point as u32 {
@@ -535,7 +553,7 @@ impl Archiver {
 
                     // Push continuation element back into the buffer where removed segment item was
                     self.buffer.push_front(SegmentItem::BlockContinuation {
-                        bytes: continuation_bytes,
+                        bytes: BlockBytes(continuation_bytes),
                         block_objects: block_objects
                             .extract_if(.., |block_object: &mut BlockObject| {
                                 if block_object.offset >= split_point as u32 {
@@ -604,22 +622,22 @@ impl Archiver {
                     );
                 }
                 SegmentItem::Block {
-                    bytes,
+                    bytes: _,
                     block_objects,
                 }
                 | SegmentItem::BlockStart {
-                    bytes,
+                    bytes: _,
                     block_objects,
                 }
                 | SegmentItem::BlockContinuation {
-                    bytes,
+                    bytes: _,
                     block_objects,
                 } => {
                     for block_object in block_objects.drain(..) {
                         // `+1` corresponds to `SegmentItem::X {}` enum variant encoding
                         let offset_in_segment = base_offset_in_segment
                             + 1
-                            + Compact::compact_len(&(bytes.len() as u32))
+                            + u32::encoded_fixed_size().expect("Fixed size; qed")
                             + block_object.offset as usize;
                         let raw_piece_offset = (offset_in_segment % Record::SIZE)
                             .try_into()
