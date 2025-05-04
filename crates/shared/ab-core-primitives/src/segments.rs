@@ -284,7 +284,7 @@ impl Default for ArchivedBlockProgress {
     /// to be transitioned into the partial state after some overflow checking.
     #[inline(always)]
     fn default() -> Self {
-        Self { bytes: 0 }
+        Self::new_complete()
     }
 }
 
