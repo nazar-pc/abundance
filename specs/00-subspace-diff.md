@@ -48,6 +48,15 @@ before even though technically record doesn't contain parity chunks. To aid effi
 parity chunks are first committed to separately before combining into record root, with parity chunks root also
 included in the piece alongside record root.
 
+`Segment` data structure is no longer an enum (it is unlikely to need to be changed and even if it does, `SegmentItem`
+is already an enum and can support that. `ArchivedBlockProgress` is simplified to a single `u32` (where `0` means block
+is complete), resulting in `SegmentHeader` being constant size. `SegmentHeader` was also updated to a data structure
+that doesn't have padding bytes in memory, and its in-memory representation is what is being used to derive segment
+header hash. All byte lengths in various segment items have changed their encoding from variable-length SCALE encoding
+to little-endian `u32` as well, making them fixed size too. As a result, the whole segment construction is now
+predictable and deterministic, allowing for efficient piece retrieval, the implementation is simpler and without tricky
+edge-cases around variable length encoding.
+
 ## Erasure coding
 
 Erasure coding is no longer based on BLS12-381 (related to KZG), instead [reed-solomon-simd] library is used. Not only

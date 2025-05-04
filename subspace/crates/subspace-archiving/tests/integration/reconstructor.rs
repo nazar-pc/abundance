@@ -121,7 +121,8 @@ fn basic() {
                 number: BlockNumber::new(1),
                 archived_progress: ArchivedBlockProgress::new_partial(
                     NonZeroU32::new(67108854).unwrap()
-                )
+                ),
+                padding: [0; _],
             }
         );
 
@@ -143,7 +144,8 @@ fn basic() {
                 number: BlockNumber::new(1),
                 archived_progress: ArchivedBlockProgress::new_partial(
                     NonZeroU32::new(67108854).unwrap()
-                )
+                ),
+                padding: [0; _],
             }
         );
     }
@@ -165,8 +167,9 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(33554322).unwrap()
-                )
+                    NonZeroU32::new(33554318).unwrap()
+                ),
+                padding: [0; _],
             }
         );
 
@@ -187,8 +190,9 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(33554322).unwrap()
-                )
+                    NonZeroU32::new(33554318).unwrap()
+                ),
+                padding: [0; _],
             }
         );
     }
@@ -210,8 +214,9 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(167771960).unwrap()
-                )
+                    NonZeroU32::new(167771952).unwrap()
+                ),
+                padding: [0; _],
             }
         );
     }
@@ -234,8 +239,9 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(167771960).unwrap()
-                )
+                    NonZeroU32::new(167771952).unwrap()
+                ),
+                padding: [0; _],
             }
         );
     }
@@ -257,8 +263,9 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(301989598).unwrap()
-                )
+                    NonZeroU32::new(301989586).unwrap()
+                ),
+                padding: [0; _],
             }
         );
     }
@@ -281,8 +288,9 @@ fn basic() {
             LastArchivedBlock {
                 number: BlockNumber::new(3),
                 archived_progress: ArchivedBlockProgress::new_partial(
-                    NonZeroU32::new(301989598).unwrap()
-                )
+                    NonZeroU32::new(301989586).unwrap()
+                ),
+                padding: [0; _],
             }
         );
     }

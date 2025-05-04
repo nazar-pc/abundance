@@ -56,17 +56,10 @@ thiserror = { version = "2.0.12", default-features = false }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 
-# The list of dependencies below (which can be both direct and indirect dependencies) are crates that are suspected to
-# be CPU-intensive. They are unlikely to require debugging (as some of their debug info might be missing) or to require
-# to be frequently recompiled. We compile these dependencies with `opt-level=3` even in "dev" mode to make "dev" mode
-# more usable.
-# The majority of these crates are cryptographic libraries.
-#
-# This list is ordered alphabetically.
+# Following libraries have a major impact on developement experience and need to be compiled with optimizations even in
+# debug builds
 [profile.dev.package]
-ab-merkle-tree = { opt-level = 3 }
 blake3 = { opt-level = 3 }
-curve25519-dalek = { opt-level = 3 }
 reed-solomon-simd = { opt-level = 3 }
 
 [workspace.lints.rust]

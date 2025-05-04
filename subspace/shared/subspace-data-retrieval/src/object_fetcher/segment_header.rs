@@ -38,6 +38,7 @@ pub fn segment_header_encoded_size() -> usize {
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::ZERO,
             archived_progress: ArchivedBlockProgress::new_complete(),
+            padding: [0; _],
         },
     };
 
@@ -120,7 +121,7 @@ pub fn strip_segment_header(
 #[cfg(test)]
 mod test {
     use super::*;
-    use parity_scale_codec::{Compact, CompactLen};
+    use parity_scale_codec::{Compact, CompactLen, DecodeAll};
 
     #[test]
     fn max_segment_padding_constant() {
@@ -132,12 +133,14 @@ mod test {
 
     #[test]
     fn block_continuation_variant_constant() {
-        let block_continuation = SegmentItem::BlockContinuation {
-            bytes: Vec::new(),
-            block_objects: Default::default(),
-        };
-        let block_continuation = block_continuation.encode();
+        let segment_item =
+            SegmentItem::decode_all(&mut [BLOCK_CONTINUATION_VARIANT, 1, 0, 0, 0, 42].as_slice())
+                .unwrap();
 
-        assert_eq!(block_continuation[0], BLOCK_CONTINUATION_VARIANT);
+        if let SegmentItem::BlockContinuation { bytes, .. } = segment_item {
+            assert_eq!(Vec::from(bytes).as_slice(), &[42]);
+        } else {
+            panic!("Wrong `BLOCK_CONTINUATION_VARIANT` constant");
+        }
     }
 }

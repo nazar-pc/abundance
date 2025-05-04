@@ -6,7 +6,7 @@ use ab_core_primitives::segments::{
     SegmentHeader, SegmentIndex, SegmentRoot,
 };
 use ab_erasure_coding::ErasureCoding;
-use parity_scale_codec::{Compact, CompactLen, Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 #[cfg(feature = "parallel")]
@@ -20,15 +20,14 @@ use subspace_archiving::objects::{BlockObject, GlobalObject};
 
 fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
     let offset: u32 = offset.into();
-    let Compact(size) = Compact::<u32>::decode(&mut &data[offset as usize..]).unwrap();
-    &data[offset as usize + Compact::compact_len(&size)..][..size as usize]
+    let size = u32::decode(&mut &data[offset as usize..]).unwrap();
+    &data[offset as usize + u32::encoded_fixed_size().unwrap()..][..size as usize]
 }
 
 fn extract_data_from_source_record<O: Into<u32>>(record: &Record, offset: O) -> &[u8] {
     let offset: u32 = offset.into();
-    let Compact(size) =
-        Compact::<u32>::decode(&mut &record.as_flattened()[offset as usize..]).unwrap();
-    &record.as_flattened()[offset as usize + Compact::compact_len(&size)..][..size as usize]
+    let size = u32::decode(&mut &record.as_flattened()[offset as usize..]).unwrap();
+    &record.as_flattened()[offset as usize + u32::encoded_fixed_size().unwrap()..][..size as usize]
 }
 
 #[track_caller]
@@ -56,13 +55,10 @@ fn archiver() {
         let mut block = vec![0u8; RecordedHistorySegment::SIZE / 2];
         rng.fill_bytes(block.as_mut_slice());
 
-        block[0..]
-            .as_mut()
-            .write_all(&Compact(100_u64).encode())
-            .unwrap();
+        block[0..].as_mut().write_all(&100_u32.encode()).unwrap();
         block[RecordedHistorySegment::SIZE / 3..]
             .as_mut()
-            .write_all(&Compact(128_u64).encode())
+            .write_all(&128_u32.encode())
             .unwrap();
         let block_objects = vec![
             BlockObject {
@@ -93,15 +89,15 @@ fn archiver() {
 
         block[RecordedHistorySegment::SIZE / 6..]
             .as_mut()
-            .write_all(&Compact(100_u64).encode())
+            .write_all(&100_u32.encode())
             .unwrap();
         block[RecordedHistorySegment::SIZE / 5..]
             .as_mut()
-            .write_all(&Compact(2048_u64).encode())
+            .write_all(&2048_u32.encode())
             .unwrap();
         block[RecordedHistorySegment::SIZE / 3 * 2 - 200..]
             .as_mut()
-            .write_all(&Compact(100_u64).encode())
+            .write_all(&100_u32.encode())
             .unwrap();
         let block_objects = vec![
             BlockObject {
@@ -269,7 +265,7 @@ fn archiver() {
         assert_eq!(last_archived_block.number, BlockNumber::new(2));
         assert_eq!(
             last_archived_block.partial_archived(),
-            Some(NonZeroU32::new(111848003).unwrap())
+            Some(NonZeroU32::new(111847999).unwrap())
         );
     }
     {
@@ -278,7 +274,7 @@ fn archiver() {
         assert_eq!(last_archived_block.number, BlockNumber::new(2));
         assert_eq!(
             last_archived_block.partial_archived(),
-            Some(NonZeroU32::new(246065641).unwrap())
+            Some(NonZeroU32::new(246065633).unwrap())
         );
     }
 
@@ -325,7 +321,7 @@ fn archiver() {
 
     // Add a block such that it fits in the next segment exactly
     let block_3 = {
-        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369912];
+        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369924];
         rng.fill_bytes(block.as_mut_slice());
         block
     };
@@ -412,6 +408,7 @@ fn invalid_usage() {
                     archived_progress: ArchivedBlockProgress::new_partial(
                         NonZeroU32::new(10).unwrap(),
                     ),
+                    padding: [0; _],
                 },
             },
             &[0u8; 10],
@@ -440,6 +437,7 @@ fn invalid_usage() {
                     archived_progress: ArchivedBlockProgress::new_partial(
                         NonZeroU32::new(10).unwrap(),
                     ),
+                    padding: [0; _],
                 },
             },
             &[0u8; 6],
@@ -462,25 +460,20 @@ fn invalid_usage() {
     }
 }
 
-// Please check commits where this tests are introduced for the edge cases they are testing (filling
-// encoded segment) and ensure they still test those edge cases in case you have to decrease piece
-// size in the future.
-
 #[test]
-fn one_byte_smaller_segment() {
+fn early_segment_creation() {
     let erasure_coding = ErasureCoding::new();
 
-    // Carefully compute the block size such that there is just 2 bytes left to fill the segment,
-    // but this should already produce archived segment since just enum variant and smallest compact
-    // vector length encoding will take 2 bytes to encode, thus it will be impossible to slice
-    // internal bytes of the segment item anyway
+    // Carefully compute the block size such that there is just 5 bytes left to fill the segment,
+    // but this should already produce an archived segment because just enum variant and the
+    // smallest segment item encoding will take 6 bytes to encode
     let block_size = RecordedHistorySegment::SIZE
-        - 1
-        // This is a rough number (a bit fewer bytes will be included in practice), but it is
-        // close enough and practically will always result in the same compact length.
-        - Compact::compact_len(&(RecordedHistorySegment::SIZE as u32))
-        // We leave two bytes at the end intentionally
-        - 2;
+        - 2 * (
+            // Enum variant
+            1
+            // Byte length encoding
+            + u32::encoded_fixed_size().unwrap()
+        );
     assert_eq!(
         Archiver::new(erasure_coding.clone())
             .add_block(vec![0u8; block_size], Vec::new())
@@ -489,66 +482,15 @@ fn one_byte_smaller_segment() {
             .len(),
         1
     );
-    // Cutting just one byte more is not sufficient to produce a segment, this is a protection
-    // against code regressions
+
+    // Cutting just one byte and block length is no longer large enough to produce a segment because
+    // 6 bytes is enough for one more segment item
     assert!(
         Archiver::new(erasure_coding)
             .add_block(vec![0u8; block_size - 1], Vec::new())
             .unwrap()
             .archived_segments
             .is_empty()
-    );
-}
-
-#[test]
-fn spill_over_edge_case() {
-    let erasure_coding = ErasureCoding::new();
-    let mut archiver = Archiver::new(erasure_coding);
-
-    // Carefully compute the block size such that there is just 2 bytes left to fill the segment,
-    // but this should already produce archived segment since just enum variant and smallest compact
-    // vector length encoding will take 2 bytes to encode, thus it will be impossible to slice
-    // internal bytes of the segment item anyway
-    let block_size = RecordedHistorySegment::SIZE
-        // Segment enum variant
-        - 1
-        // Block continuation segment item enum variant
-        - 1
-        // This is a rough number (a bit fewer bytes will be included in practice), but it is
-        // close enough and practically will always result in the same compact length.
-        - Compact::compact_len(&(RecordedHistorySegment::SIZE as u32))
-        // We leave three bytes at the end intentionally
-        - 3;
-    assert!(
-        archiver
-            .add_block(vec![0u8; block_size], Vec::new())
-            .unwrap()
-            .archived_segments
-            .is_empty()
-    );
-
-    // Here we add one more block with internal length that takes 4 bytes in compact length
-    // encoding + one more for enum variant, this should result in new segment being created, but
-    // the very first segment item will not include newly added block because it would result in
-    // subtracting with overflow when trying to slice internal bytes of the segment item
-    let block_outcome = archiver
-        .add_block(
-            vec![0u8; RecordedHistorySegment::SIZE],
-            vec![BlockObject {
-                hash: Blake3Hash::default(),
-                offset: 0,
-            }],
-        )
-        .unwrap();
-    let archived_segments = block_outcome.archived_segments;
-    let object_mapping = block_outcome.global_objects;
-    assert_eq!(archived_segments.len(), 2);
-
-    // If spill over actually happened, we'll not find object mapping in the first segment
-    assert_eq!(object_mapping.len(), 1);
-    assert_eq!(
-        object_mapping[0].piece_index.segment_index(),
-        archived_segments[1].segment_header.segment_index,
     );
 }
 
@@ -587,21 +529,20 @@ fn object_on_the_edge_of_segment() {
                 last_archived_block: LastArchivedBlock {
                     number: BlockNumber::ZERO,
                     archived_progress: ArchivedBlockProgress::new_complete(),
+                    padding: [0; _],
                 },
             })
                 .encoded_size() as u32
             // Block continuation segment item enum variant
             - 1
-            // Compact length of block continuation segment item bytes length.
-            - Compact::compact_len(&left_unarchived_from_first_block) as u32
+            // Block continuation segment item bytes length
+            - u32::encoded_fixed_size().unwrap() as u32
             // Block continuation segment item bytes (that didn't fit into the very first segment)
             - left_unarchived_from_first_block
             // One byte for block start segment item enum variant
             - 1
-            // Compact encoding of bytes length.
-            // This is a rough number (a bit fewer bytes will be included in practice), but it is
-            // close enough and practically will always result in the same compact length.
-            - Compact::compact_len(&(RecordedHistorySegment::SIZE as u32)) as u32,
+            // Bytes length
+            - u32::encoded_fixed_size().unwrap() as u32,
     };
     let mut mapped_bytes = [0u8; 32];
     rng.fill_bytes(&mut mapped_bytes);

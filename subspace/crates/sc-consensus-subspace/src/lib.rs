@@ -6,7 +6,7 @@
 //!
 //! All of the modules here are crucial for consensus, open each module for specific details.
 
-#![feature(try_blocks, duration_constructors)]
+#![feature(generic_arg_infer, try_blocks, duration_constructors)]
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 

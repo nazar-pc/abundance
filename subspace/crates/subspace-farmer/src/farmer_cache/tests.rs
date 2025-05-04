@@ -296,6 +296,7 @@ async fn basic() {
                 last_archived_block: LastArchivedBlock {
                     number: BlockNumber::ZERO,
                     archived_progress: Default::default(),
+                    padding: [0; _],
                 },
             };
 
@@ -356,6 +357,7 @@ async fn basic() {
                 last_archived_block: LastArchivedBlock {
                     number: BlockNumber::ZERO,
                     archived_progress: Default::default(),
+                    padding: [0; _],
                 },
             };
 

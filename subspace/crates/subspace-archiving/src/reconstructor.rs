@@ -21,6 +21,9 @@ pub enum ReconstructorError {
     /// Segment size is not bigger than record size
     #[error("Error during segment decoding: {0}")]
     SegmentDecoding(parity_scale_codec::Error),
+    /// Invalid padding
+    #[error("Invalid padding")]
+    InvalidPadding,
     /// Incorrect segment order, each next segment must have monotonically increasing segment index
     #[error(
         "Incorrect segment order, expected index {expected_segment_index}, actual \
@@ -156,7 +159,7 @@ impl Reconstructor {
 
                     reconstructed_contents
                         .blocks
-                        .push((next_block_number, bytes));
+                        .push((next_block_number, Vec::from(bytes)));
 
                     next_block_number += BlockNumber::ONE;
                 }
@@ -169,7 +172,7 @@ impl Reconstructor {
                         next_block_number += BlockNumber::ONE;
                     }
 
-                    partial_block = bytes;
+                    partial_block = Vec::from(bytes);
                 }
                 SegmentItem::BlockContinuation { bytes, .. } => {
                     if partial_block.is_empty() {
@@ -198,7 +201,12 @@ impl Reconstructor {
                     let LastArchivedBlock {
                         number,
                         archived_progress,
+                        padding,
                     } = segment_header.last_archived_block;
+
+                    if padding != [0; _] {
+                        return Err(ReconstructorError::InvalidPadding);
+                    }
 
                     reconstructed_contents
                         .segment_header

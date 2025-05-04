@@ -63,6 +63,7 @@ fn segment_headers_store_block_number_queries_work() {
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::new(0),
             archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::new(5).unwrap()),
+            padding: [0; _],
         },
     };
 
@@ -73,6 +74,7 @@ fn segment_headers_store_block_number_queries_work() {
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::new(652),
             archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::new(5).unwrap()),
+            padding: [0; _],
         },
     };
 
@@ -83,6 +85,7 @@ fn segment_headers_store_block_number_queries_work() {
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::new(752),
             archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::new(5).unwrap()),
+            padding: [0; _],
         },
     };
 
@@ -93,6 +96,7 @@ fn segment_headers_store_block_number_queries_work() {
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::new(806),
             archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::new(5).unwrap()),
+            padding: [0; _],
         },
     };
 
@@ -103,6 +107,7 @@ fn segment_headers_store_block_number_queries_work() {
         last_archived_block: LastArchivedBlock {
             number: BlockNumber::new(806),
             archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::new(5).unwrap()),
+            padding: [0; _],
         },
     };
 
