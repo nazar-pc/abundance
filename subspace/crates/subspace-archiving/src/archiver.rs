@@ -392,6 +392,8 @@ impl Archiver {
 
         let mut segment_size = segment.encoded_size();
 
+        // TODO: It is possible to simplify this whole loop to `if` in case "in progress" segment
+        //  with precomputed size is stored somewhere already
         // 6 bytes is just large enough to encode a segment item (1 byte for enum variant, 4 bytes
         // for length and 1 for the actual data, while segment header item is never the last one)
         while RecordedHistorySegment::SIZE.saturating_sub(segment_size) >= 6 {
