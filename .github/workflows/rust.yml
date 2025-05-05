@@ -77,7 +77,20 @@ jobs:
 
       - name: cargo clippy (various features)
         run: |
+          for feature in alloc parallel scale-codec serde; do
+            echo "Check clippy with feature: $feature"
+            for crate_path in crates/{execution,shared}/*; do
+              # Not all crates have this feature
+              if ! grep --no-messages --quiet "^$feature =" "$crate_path/Cargo.toml"; then
+                continue
+              fi
+              crate="$(basename -- $crate_path)"
+              cargo -Zgitoxide -Zgit clippy --all-targets --package $crate --features $crate/$feature -- -D warnings
+            done
+          done
+
           # Ensure `clippy` is happy with `guest` feature
+          echo "Checking `guest` in contracts"
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
             cargo -Zgitoxide -Zgit clippy --all-targets --package $contract --features $contract/guest -- -D warnings
@@ -133,17 +146,20 @@ jobs:
 
       - name: cargo test (various features)
         run: |
-          # Ensure tests pass with `alloc` feature
-          for crate_path in crates/{execution,shared}/*; do
-            # Not all crates have this feature
-            if ! grep --no-messages --quiet '^alloc =' "$crate_path/Cargo.toml"; then
-              continue
-            fi
-            crate="$(basename -- $crate_path)"
-            cargo -Zgitoxide -Zgit nextest run --no-tests pass --package $crate --features alloc
+          for feature in alloc parallel scale-codec serde; do
+            echo "Testing with feature: $feature"
+            for crate_path in crates/{execution,shared}/*; do
+              # Not all crates have this feature
+              if ! grep --no-messages --quiet "^$feature =" "$crate_path/Cargo.toml"; then
+                continue
+              fi
+              crate="$(basename -- $crate_path)"
+              cargo -Zgitoxide -Zgit nextest run --no-tests pass --package $crate --features $crate/$feature
+            done
           done
 
           # Ensure tests pass with `guest` feature
+          echo "Testing `guest` in contracts"
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
             cargo -Zgitoxide -Zgit nextest run --no-tests pass --package $contract --features $contract/guest
@@ -191,16 +207,19 @@ jobs:
 
       - name: cargo miri nextest run (various features)
         run: |
-          # Ensure no issues with `alloc` feature
-          for crate_path in crates/{execution,shared}/*; do
-            # Not all crates have this feature
-            if ! grep --no-messages --quiet '^alloc =' "$crate_path/Cargo.toml"; then
-              continue
-            fi
-            crate="$(basename -- $crate_path)"
-            cargo -Zgitoxide -Zgit miri nextest run --no-tests pass --package $crate --features alloc
+          for feature in alloc parallel scale-codec serde; do
+            echo "Testing with feature: $feature"
+            for crate_path in crates/{execution,shared}/*; do
+              # Not all crates have this feature
+              if ! grep --no-messages --quiet "^$feature =" "$crate_path/Cargo.toml"; then
+                continue
+              fi
+              crate="$(basename -- $crate_path)"
+              cargo -Zgitoxide -Zgit miri nextest run --no-tests pass --package $crate --features $crate/$feature
+            done
           done
 
+          echo "Testing the rest"
           cargo -Zgitoxide -Zgit miri nextest run --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
         if: runner.os == 'Linux'
 
@@ -246,6 +265,7 @@ jobs:
           RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=1500
         run: |
           # Ensure no panics with `guest` feature
+          echo "Checking `no-panic` in contracts"
           for contract_path in crates/contracts/{example,system}/*; do
             # Not all contracts have this feature yet
             if ! grep --no-messages --quiet '^no-panic =' "$contract_path/Cargo.toml"; then
@@ -256,17 +276,18 @@ jobs:
           done
 
           # Ensure no panics with `alloc` feature
+          echo "Checking `no-panic` with `alloc`"
           for crate_path in crates/{execution,shared}/*; do
             # Not all contracts have this feature yet
-            if ! grep --no-messages --quiet '^no-panic =' "$crate_path/Cargo.toml"; then
-              continue
-            fi
-            if ! grep --no-messages --quiet '^alloc =' "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet '^no-panic =' "$crate_path/Cargo.toml" || \
+               ! grep --no-messages --quiet '^alloc =' "$crate_path/Cargo.toml"; then
               continue
             fi
             crate="$(basename -- $crate_path)"
             cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $crate --features $crate/alloc
           done
+
+          echo "Checking `no-panic` with others"
 
           # TODO: Would be nice to have these as job matrix later
           # TODO: Unlock commented-out crates once they have the feature

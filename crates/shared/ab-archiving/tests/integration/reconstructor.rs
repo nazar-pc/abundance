@@ -1,3 +1,5 @@
+use ab_archiving::archiver::Archiver;
+use ab_archiving::reconstructor::{Reconstructor, ReconstructorError};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::pieces::{FlatPieces, Piece};
 use ab_core_primitives::segments::{
@@ -10,14 +12,13 @@ use rand_core::{RngCore, SeedableRng};
 use std::assert_matches::assert_matches;
 use std::iter;
 use std::num::NonZeroU32;
-use subspace_archiving::archiver::Archiver;
-use subspace_archiving::reconstructor::{Reconstructor, ReconstructorError};
 
 fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
     pieces.pieces().map(Some).collect()
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn basic() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
@@ -297,6 +298,7 @@ fn basic() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn partial_data() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
@@ -385,6 +387,7 @@ fn partial_data() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn invalid_usage() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();

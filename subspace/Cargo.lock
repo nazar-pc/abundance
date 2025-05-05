@@ -20,6 +20,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-archiving"
+version = "0.1.0"
+dependencies = [
+ "ab-core-primitives",
+ "ab-erasure-coding",
+ "ab-merkle-tree",
+ "parity-scale-codec",
+ "rayon",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "ab-core-primitives"
 version = "0.1.0"
 dependencies = [
@@ -8963,6 +8975,7 @@ dependencies = [
 name = "sc-consensus-subspace"
 version = "0.1.0"
 dependencies = [
+ "ab-archiving",
  "ab-core-primitives",
  "ab-erasure-coding",
  "async-trait",
@@ -8988,7 +9001,6 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-runtime",
- "subspace-archiving",
  "subspace-proof-of-space",
  "subspace-verification",
  "thiserror 2.0.12",
@@ -9000,6 +9012,7 @@ dependencies = [
 name = "sc-consensus-subspace-rpc"
 version = "0.1.0"
 dependencies = [
+ "ab-archiving",
  "ab-core-primitives",
  "ab-erasure-coding",
  "async-oneshot",
@@ -9020,7 +9033,6 @@ dependencies = [
  "sp-consensus-subspace",
  "sp-core",
  "sp-runtime",
- "subspace-archiving",
  "subspace-farmer-components",
  "subspace-networking",
  "subspace-rpc-primitives",
@@ -11382,25 +11394,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "subspace-archiving"
-version = "0.1.0"
-dependencies = [
- "ab-core-primitives",
- "ab-erasure-coding",
- "ab-merkle-tree",
- "criterion",
- "parity-scale-codec",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "rayon",
- "serde",
- "thiserror 2.0.12",
-]
-
-[[package]]
 name = "subspace-data-retrieval"
 version = "0.1.0"
 dependencies = [
+ "ab-archiving",
  "ab-core-primitives",
  "ab-erasure-coding",
  "anyhow",
@@ -11409,7 +11406,6 @@ dependencies = [
  "hex",
  "parity-scale-codec",
  "rand 0.8.5",
- "subspace-archiving",
  "subspace-logging",
  "thiserror 2.0.12",
  "tokio",
@@ -11481,6 +11477,7 @@ dependencies = [
 name = "subspace-farmer-components"
 version = "0.1.0"
 dependencies = [
+ "ab-archiving",
  "ab-core-primitives",
  "ab-erasure-coding",
  "ab-merkle-tree",
@@ -11500,7 +11497,6 @@ dependencies = [
  "schnorrkel",
  "serde",
  "static_assertions",
- "subspace-archiving",
  "subspace-data-retrieval",
  "subspace-proof-of-space",
  "subspace-verification",
@@ -11724,6 +11720,7 @@ dependencies = [
 name = "subspace-service"
 version = "0.1.0"
 dependencies = [
+ "ab-archiving",
  "ab-core-primitives",
  "ab-erasure-coding",
  "anyhow",
@@ -11770,7 +11767,6 @@ dependencies = [
  "sp-timestamp",
  "sp-transaction-pool",
  "static_assertions",
- "subspace-archiving",
  "subspace-data-retrieval",
  "subspace-networking",
  "subspace-proof-of-space",

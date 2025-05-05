@@ -1,5 +1,6 @@
 use crate::sync_from_dsn::PieceGetter;
 use crate::sync_from_dsn::segment_header_downloader::SegmentHeaderDownloader;
+use ab_archiving::reconstructor::Reconstructor;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::segments::SegmentIndex;
 use ab_erasure_coding::ErasureCoding;
@@ -15,7 +16,6 @@ use sp_runtime::generic::SignedBlock;
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use subspace_archiving::reconstructor::Reconstructor;
 use subspace_data_retrieval::segment_downloading::download_segment_pieces;
 use tokio::task;
 

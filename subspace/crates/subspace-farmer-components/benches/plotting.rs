@@ -1,3 +1,4 @@
+use ab_archiving::archiver::Archiver;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use ab_erasure_coding::ErasureCoding;
@@ -6,7 +7,6 @@ use futures::executor::block_on;
 use rand::prelude::*;
 use std::env;
 use std::num::NonZeroU64;
-use subspace_archiving::archiver::Archiver;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_farmer_components::plotting::{CpuRecordsEncoder, PlotSectorOptions, plot_sector};
 use subspace_farmer_components::sector::sector_size;

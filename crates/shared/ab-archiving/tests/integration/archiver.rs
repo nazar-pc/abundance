@@ -1,3 +1,5 @@
+use ab_archiving::archiver::{Archiver, ArchiverInstantiationError, SegmentItem};
+use ab_archiving::objects::{BlockObject, GlobalObject};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, Record};
@@ -15,8 +17,6 @@ use std::assert_matches::assert_matches;
 use std::io::Write;
 use std::iter;
 use std::num::NonZeroU32;
-use subspace_archiving::archiver::{Archiver, ArchiverInstantiationError, SegmentItem};
-use subspace_archiving::objects::{BlockObject, GlobalObject};
 
 fn extract_data<O: Into<u32>>(data: &[u8], offset: O) -> &[u8] {
     let offset: u32 = offset.into();
@@ -46,6 +46,7 @@ fn compare_block_objects_to_global_objects<'a>(
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn archiver() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
@@ -461,6 +462,7 @@ fn invalid_usage() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn early_segment_creation() {
     let erasure_coding = ErasureCoding::new();
 
@@ -495,6 +497,7 @@ fn early_segment_creation() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn object_on_the_edge_of_segment() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();

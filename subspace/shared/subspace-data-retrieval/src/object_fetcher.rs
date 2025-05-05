@@ -4,13 +4,13 @@ use crate::object_fetcher::partial_object::{PartialObject, RawPieceData};
 use crate::object_fetcher::segment_header::{MAX_SEGMENT_PADDING, segment_header_encoded_size};
 use crate::piece_fetcher::download_pieces;
 use crate::piece_getter::PieceGetter;
+use ab_archiving::archiver::SegmentItem;
+use ab_archiving::objects::GlobalObject;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex, Record};
 use ab_core_primitives::segments::{RecordedHistorySegment, SegmentIndex};
 use parity_scale_codec::{Compact, CompactLen, Decode};
 use std::sync::Arc;
-use subspace_archiving::archiver::SegmentItem;
-use subspace_archiving::objects::GlobalObject;
 use tracing::{debug, trace, warn};
 
 mod partial_object;

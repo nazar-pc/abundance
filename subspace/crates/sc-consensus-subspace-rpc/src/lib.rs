@@ -2,6 +2,7 @@
 
 #![feature(try_blocks)]
 
+use ab_archiving::archiver::NewArchivedSegment;
 use ab_core_primitives::block::BlockHash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::pot::SlotNumber;
@@ -40,7 +41,6 @@ use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
-use subspace_archiving::archiver::NewArchivedSegment;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::libp2p::Multiaddr;
 use subspace_rpc_primitives::{

@@ -1,6 +1,6 @@
 [package]
-name = "subspace-archiving"
-description = "Collection of modules used for dealing with archived state of Subspace Network"
+name = "ab-archiving"
+description = "Collection of modules used for dealing with archival history"
 license = "0BSD"
 version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
@@ -9,12 +9,15 @@ include = [
     "/benches",
     "/src",
     "/Cargo.toml",
-    "/README.md",
 ]
 
 [lib]
 # Necessary for CLI options to work on benches
 bench = false
+
+[[bench]]
+name = "archiving"
+harness = false
 
 [dependencies]
 ab-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
@@ -40,6 +43,5 @@ serde = [
     "dep:serde",
 ]
 
-[[bench]]
-name = "archiving"
-harness = false
+[lints]
+workspace = true
