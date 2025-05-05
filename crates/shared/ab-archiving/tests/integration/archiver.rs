@@ -46,6 +46,7 @@ fn compare_block_objects_to_global_objects<'a>(
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn archiver() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
@@ -461,6 +462,7 @@ fn invalid_usage() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn early_segment_creation() {
     let erasure_coding = ErasureCoding::new();
 
@@ -495,6 +497,7 @@ fn early_segment_creation() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn object_on_the_edge_of_segment() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();

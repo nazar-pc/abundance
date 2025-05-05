@@ -20,6 +20,7 @@ fn get_random_block(rng: &mut ChaCha8Rng) -> Vec<u8> {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn segment_reconstruction_works() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
@@ -69,6 +70,7 @@ fn segment_reconstruction_works() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn piece_reconstruction_works() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
@@ -118,6 +120,7 @@ fn piece_reconstruction_works() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn segment_reconstruction_fails() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
@@ -158,6 +161,7 @@ fn segment_reconstruction_fails() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn piece_reconstruction_fails() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
