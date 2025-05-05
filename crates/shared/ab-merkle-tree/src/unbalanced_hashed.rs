@@ -15,7 +15,7 @@ use core::mem::MaybeUninit;
 /// [`BalancedHashedMerkleTree`]: crate::balanced_hashed::BalancedHashedMerkleTree
 ///
 /// The unbalanced tree is not padded, it is created the same way Merkle Mountain Range would be:
-/// ```ignore
+/// ```text
 ///               Root
 ///         /--------------\
 ///        H3              H4
