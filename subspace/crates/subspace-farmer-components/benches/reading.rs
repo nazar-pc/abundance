@@ -1,3 +1,4 @@
+use ab_archiving::archiver::Archiver;
 use ab_core_primitives::pieces::PieceOffset;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
@@ -11,7 +12,6 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::num::NonZeroU64;
 use std::{env, fs, slice};
-use subspace_archiving::archiver::Archiver;
 use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use subspace_farmer_components::plotting::{
     CpuRecordsEncoder, PlotSectorOptions, PlottedSector, plot_sector,

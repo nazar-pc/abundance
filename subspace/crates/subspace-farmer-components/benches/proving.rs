@@ -1,5 +1,6 @@
 #![feature(exact_size_is_empty)]
 
+use ab_archiving::archiver::Archiver;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
@@ -16,7 +17,6 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::num::NonZeroU64;
 use std::{env, fs, slice};
-use subspace_archiving::archiver::Archiver;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_farmer_components::auditing::audit_plot_sync;
 use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};
