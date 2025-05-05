@@ -14,11 +14,14 @@ this will become part of the implementation and/or the final spec._
      this block.
    - The root hash of all the blocks and segments from the child shard being submitted to the upper
      layers in this block (more about this in the sections below).
+   - The root hash of the state of the child shard after applying the transactions in this block.
+   - Raw consensus information that needs to be included in a block to submitted to the upper layers
+     (e.g. `SegmentDescription`)
    - The root hash of the Mountain Merkle Tree (MMR) of the history of the shard after appending the
      parent block.
 
 ```rust
-struct BlockHeader{
+struct BlockHeader<T: SegmentDescription>
 	/// Block number
 	number: BlockNumber
 	/// State root (can be considered redundant if tx_root is included)
@@ -33,6 +36,9 @@ struct BlockHeader{
 	// plain transactions in the block, but as their raw data structures (mainly block
 	// and segment information from the child shard).
 	consensus_info_root: Hash
+	/// List of segments and consensus objects that need to be submitted to the upper
+	/// layers of the chain.
+	consensus_info: Vec<T>
 	/// Hash of the parent block.
 	parent_hash: Hash
 	/// Pointer to the MMR root of the history of the shard after appending the parent block.
