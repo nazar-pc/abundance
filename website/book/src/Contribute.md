@@ -28,6 +28,39 @@ We need a RISC-V VM. The basic requirements are as follows:
 [PolkaVM](https://github.com/paritytech/polkavm) satisfies some requirements above, but not all and doesn't 100% align
 in its design goals, but there might be an opportunity for collaboration.
 
+## State database
+
+We need a special state database. Since consensus nodes do not store the state itself (it is not mandatory), but rather
+store hashes, one per account, we have quite unique database requirements, and it must be possible to exploit them for
+better performance.
+
+Here are the key requirements:
+
+* Key-value database
+* All keys are monotonically increasing 128-bit unsigned integers
+* It is extremely likely that many keys will be close to each other (most will be exactly next to each other)
+* All values are tiny, constant size, less than 100 bytes
+* Verifiable (likely using a Sparse Merkle Tree or similar data structure)
+* Efficiently updatable (including update of the Merkle Root or similar)
+* Reasonably efficiently provable
+* Optimized for modern NVMe SSDs (concurrent random reads, sequential batch writes)
+* Should use low to moderate amount of RAM
+* Nice if supports versioning, but not mandatory
+* Very, very fast
+
+By very fast, I mean that it should ideally support hundreds of thousands of operations on modern SSDs, productively
+leveraging IOPS available.
+
+Specifically, note that we don't need variable sized keys, values are constant size as well. Keys are not uniformly and
+randomly distributed throughout the key space, instead a lot (most) of them will be right next to each other.
+
+Also, most blockchains support state versioning at various depths, here we just need 100 blocks max. I suspect we can
+store the diff in RAM or apply directly, while keeping separate "rollback details" rather than supporting proper
+versions of the whole tree be readily available at any time.
+
+With such constraints, I think there should be something really simple and efficient out there either implemented (less
+likely) or at least designed in a paper or something (more likely).
+
 ## P2P networking stack
 
 We need a P2P networking stack. There is a prototype already, but it'll need to be expanded significantly with sharding
