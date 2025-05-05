@@ -11,7 +11,7 @@ We keep iterating on the best way to discuss and make progress on the design of 
 issues for discussions have shown less efficient than originally expected. The inability to make
 in-line threads, and having to quote every single detail of the spec that we want to discuss about
 was really cumbersome. I started the
-[shard block submission issue](https://github.com/nazar-pc/abundance/issues/215) as an attempt to`
+[shard block submission issue](https://github.com/nazar-pc/abundance/issues/215) as an attempt to
 start iterating the low-level details of specific protocol mechanisms in a way that is narrow enough
 and easy to track, but it didn't fulfill all our needs. The solution? Creating discussion PRs that I
 don't expect to get merged, but gives us all that we need to have low-level discussions about
