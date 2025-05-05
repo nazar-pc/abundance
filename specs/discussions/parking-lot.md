@@ -10,7 +10,7 @@
 - Use the data availability layer to probabilistically inspect random chunks of pieces in a child
   shard segment so we can validate that the segments submitted to the global history of the system
   are available and they have been generated successfully and has not been forged by a malicious
-  node in a compromise shard (or, otherwise, to flag that there is an issue with the segment).
+  node in a compromised shard (or, otherwise, to flag that there is an issue with the segment).
 - The data availability layer relies on nodes periodically sampling segments from the global
   history, which requires random nodes to request segments from farmers and notify when one is not
   valid. Challenging a segment as unavailable or incorrect should have some price or be limited in
