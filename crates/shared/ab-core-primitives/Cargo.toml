@@ -22,8 +22,6 @@ bytes = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["full"] }
 hex = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
-# TODO: Remove once https://github.com/paritytech/polkadot-sdk/pull/7466 is backported
-parity-scale-codec-derive = { workspace = true }
 rayon = { workspace = true, optional = true }
 scale-info = { workspace = true, features = ["derive"], optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }

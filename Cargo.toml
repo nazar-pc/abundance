@@ -36,10 +36,7 @@ halfbrown = "0.3.0"
 hex = { version = "0.4.3", default-features = false }
 ident_case = "1.0.1"
 no-panic = "0.1.35"
-# TODO: Update once https://github.com/paritytech/polkadot-sdk/pull/7466 in backported
-parity-scale-codec = { version = "=3.6.12", default-features = false }
-# TODO: Remove once https://github.com/paritytech/polkadot-sdk/pull/7466 is backported
-parity-scale-codec-derive = { version = "=3.6.12", default-features = false }
+parity-scale-codec = { version = "3.7.4", default-features = false }
 proc-macro2 = "1.0.95"
 quote = "1.0.40"
 rand_core = { version = "0.9.3", default-features = false }
