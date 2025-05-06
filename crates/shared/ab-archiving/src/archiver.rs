@@ -9,6 +9,7 @@ use ab_core_primitives::segments::{
 use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use alloc::collections::VecDeque;
+use alloc::vec;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::num::NonZeroU32;
@@ -137,7 +138,11 @@ impl Decode for BlockBytes {
         if length as usize > (RecordedHistorySegment::SIZE - size_of::<u32>()) {
             return Err("Segment item size is impossibly large".into());
         }
-        let bytes = parity_scale_codec::decode_vec_with_len(input, length as usize)?;
+        // TODO: It is inefficient to zero it, but there is no API for it right now and actually
+        //  implementation in `parity-scale-codec` itself is unsound:
+        //  https://github.com/paritytech/parity-scale-codec/pull/605#discussion_r2076151291
+        let mut bytes = vec![0; length as usize];
+        input.read(&mut bytes)?;
         Ok(Self(bytes))
     }
 }

@@ -18,8 +18,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 ab-core-primitives = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
-# TODO: Remove once https://github.com/paritytech/polkadot-sdk/pull/7466 is backported
-parity-scale-codec-derive = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 frame-executive = { workspace = true }
 frame-support = { workspace = true }

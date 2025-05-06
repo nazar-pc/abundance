@@ -27,9 +27,10 @@ type Balance = u128;
 
 frame_support::construct_runtime!(
     pub struct Test {
-        System: frame_system,
-        Balances: pallet_balances,
-        Subspace: pallet_subspace,
+        System: frame_system = 0,
+        Balances: pallet_balances = 1,
+        // TODO: Should have been 3, but runtime thinks "2" is already occupied by `Void` 🤷
+        Subspace: pallet_subspace = 3,
     }
 );
 

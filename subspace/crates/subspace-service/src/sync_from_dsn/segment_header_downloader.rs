@@ -373,7 +373,14 @@ impl<'a> SegmentHeaderDownloader<'a> {
 
             match request_result {
                 Ok(SegmentHeaderResponse { segment_headers }) => {
-                    trace!(%peer_id, ?segment_indexes, "Segment header request succeeded");
+                    trace!(
+                        %peer_id,
+                        ?segment_indexes,
+                        segment_indexes_count = %segment_indexes.len(),
+                        first_segment_index = ?segment_indexes.first(),
+                        last_segment_index = ?segment_indexes.last(),
+                        "Segment header request succeeded"
+                    );
 
                     if !self.is_segment_headers_response_valid(
                         peer_id,
@@ -388,7 +395,15 @@ impl<'a> SegmentHeaderDownloader<'a> {
                     return Ok((peer_id, segment_headers));
                 }
                 Err(error) => {
-                    debug!(%peer_id, ?segment_indexes, ?error, "Segment header request failed");
+                    debug!(
+                        %peer_id,
+                        ?segment_indexes,
+                        ?error,
+                        segment_indexes_count = %segment_indexes.len(),
+                        first_segment_index = ?segment_indexes.first(),
+                        last_segment_index = ?segment_indexes.last(),
+                        "Segment header request failed"
+                    );
                 }
             };
         }
