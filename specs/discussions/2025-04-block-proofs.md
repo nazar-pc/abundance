@@ -154,8 +154,7 @@ let shardBlocksMap = HashMap<ShardId, HashMap<BlockNumber, Hash>>
    their segments to be included in the global history in the beacon chain.
 
 6. The protocol is recursive, so immediate children from the beacon chain are also submitting their
-   blocks to the beacon chain, and the beacon chain itself keeps a view of the state (the history
-   MMR of the shard) for each of its child shards.
+   blocks to the beacon chain, and the beacon chain itself keeps a view of its child shards.
 
 ### Generating block proofs.
 
@@ -167,7 +166,7 @@ recursive proof structure.
 #### Recursive Data Structure Visualization
 
 1. **Beacon Chain**: The root of the hierarchy, containing references to its child shards inside its
-   `shardBlockMap`.
+   `shardBlocksMap`.
 2. **Shard Levels**: Each shard contains its own blocks, which are referenced by their parent
    shard's blocks, and keep pointers to its own children, forming a recursive structure.
 
