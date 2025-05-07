@@ -432,12 +432,6 @@ pub trait SolutionPotVerifier {
 pub struct Solution {
     /// Public key of the farmer that created the solution
     pub public_key_hash: Blake3Hash,
-    /// Index of the sector where the solution was found
-    pub sector_index: SectorIndex,
-    /// Size of the blockchain history at the time of sector creation
-    pub history_size: Unaligned<HistorySize>,
-    /// Pieces offset within sector
-    pub piece_offset: PieceOffset,
     /// Record root that can use used to verify that piece was included in blockchain history
     pub record_root: RecordRoot,
     /// Proof for above record root
@@ -448,6 +442,12 @@ pub struct Solution {
     pub chunk_proof: ChunkProof,
     /// Proof of space for piece offset
     pub proof_of_space: PosProof,
+    /// Size of the blockchain history at the time of sector creation
+    pub history_size: Unaligned<HistorySize>,
+    /// Index of the sector where the solution was found
+    pub sector_index: SectorIndex,
+    /// Pieces offset within sector
+    pub piece_offset: PieceOffset,
 }
 
 impl Solution {
@@ -455,14 +455,14 @@ impl Solution {
     pub fn genesis_solution() -> Self {
         Self {
             public_key_hash: Blake3Hash::default(),
-            sector_index: SectorIndex::ZERO,
-            history_size: HistorySize::from(SegmentIndex::ZERO).into(),
-            piece_offset: PieceOffset::default(),
             record_root: RecordRoot::default(),
             record_proof: RecordProof::default(),
             chunk: RecordChunk::default(),
             chunk_proof: ChunkProof::default(),
             proof_of_space: PosProof::default(),
+            history_size: HistorySize::from(SegmentIndex::ZERO).into(),
+            sector_index: SectorIndex::ZERO,
+            piece_offset: PieceOffset::default(),
         }
     }
 

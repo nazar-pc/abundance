@@ -101,14 +101,14 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: SlotNumber) {
         slot,
         Solution {
             public_key_hash: PublicKey::from(keypair.public.to_bytes()).hash(),
-            sector_index: SectorIndex::ZERO,
-            history_size: HistorySize::from(SegmentIndex::ZERO).into(),
-            piece_offset: PieceOffset::default(),
             record_root: Default::default(),
             record_proof: Default::default(),
             chunk,
             chunk_proof: Default::default(),
             proof_of_space: Default::default(),
+            history_size: HistorySize::from(SegmentIndex::ZERO).into(),
+            sector_index: SectorIndex::ZERO,
+            piece_offset: PieceOffset::default(),
         },
     );
 
