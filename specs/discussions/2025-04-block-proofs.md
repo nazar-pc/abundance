@@ -8,22 +8,27 @@ this will become part of the implementation and/or the final spec._
 
 ### Submitting blocks to the parent
 
-1. Assume the following information (at least) in the `BlockHeader` of a shard block. The fields
-   included from the canonical block structure from any other blockchain are:
-   - A reference to the latest final block seen by the farmer in the beacon chain when proposing
-     this block.
+1. Assume the following information (at least) in the `BlockHeader` of a shard block. It includes
+   common fields included in other blockchains along with a few additional protocol-specific fields,
+   mainly:
+   - A reference to the latest block seen by the farmer in the beacon chain when proposing this
+     block. The latest beacon chain included should be stable enough to ensure that other nodes in
+     the system have already seen it and won't reject it or need to delay their verification because
+     they haven't seen it yet. This is why there reference implementation will include a as beacon
+     chan reference the block at `beacon_chain_head - STABILITY_DELAY` where e.g.
+     `STABILITY_DELAY = 5`.
    - The root hash of all the blocks and segments from the child shard being submitted to the upper
      layers in this block (more about this in the sections below).
    - The root hash of the state of the child shard after applying the transactions in this block.
-   - Raw consensus information that needs to be included in a block to submitted to the upper layers
-     (e.g. `SegmentDescription`)
-   - The root hash of the Mountain Merkle Tree (MMR) of the history of the shard after appending the
-     parent block.
+   - Raw consensus information about the child shard that needs to be included in a block to
+     submitted to the upper layers (e.g. child shard's `SegmentDescription`, `BlockHeader`).
 
 ```rust
 struct BlockHeader<T: SegmentDescription>
 	/// Block number
 	number: BlockNumber
+	/// Hash of the parent block.
+	parent_hash: Hash
 	/// State root (can be considered redundant if tx_root is included)
 	state_root: Hash
 	/// Root of the Merkle tree of transactions included in the block.
@@ -32,15 +37,9 @@ struct BlockHeader<T: SegmentDescription>
 	solution: Proof
 	/// Block number and hash of the beacon block referenced by this hash block.
 	beacon_chain_ref: (BlockNumber, Hash)
-	// The commitment of consensus information for a shard is not stored as
-	// plain transactions in the block, but as their raw data structures (mainly block
-	// and segment information from the child shard).
-	consensus_info_root: Hash
 	/// List of segments and consensus objects that need to be submitted to the upper
-	/// layers of the chain.
+	/// layers of the chain (mainly blocks and segments for now), and to verify the correctness of the child shard.
 	consensus_info: Vec<T>
-	/// Hash of the parent block.
-	parent_hash: Hash
 	/// Pointer to the MMR root of the history of the shard after appending the parent block.
 	/// This interconnects the root of the history for the child shard after every block,
 	/// allowing to easily generate proofs for the history of the shard.
@@ -62,23 +61,23 @@ struct BlockHeader<T: SegmentDescription>
 > should consider using trees for headers.
 
 3. Farmers submit in a transaction the `BlockHeader` for new blocks to the parent chain. Blocks are
-   only accepted if:
-
-   - References a valid beacon chain block.
-   - The solution is within the right solution range.
+   only accepted if the follow the consensus rules for block validation (i.e. the parent chain
+   behaves as a light client of its own child shard). A few things that nodes in the parent need to
+   considering when performing this validation are:
+   - The block header references a valid beacon chain block. This is important to ensure that the
+     block being submitted is part of the global history and can be verified by the parent chain.
    - It has an increasing block number (unless a fork has happened and can be clearly identified).
      If the block number of the block being submitted is not the next immediate one and is lower
      than the latest committed in the parent, it means that a reorg has happened, and the parent
-     chain needs to also reorg its own view of the child shard's history.
-   - It points to the right parent block, meaning the latest committed block in the parent chain
-     points to the most recently submitted block in the child shard (and with the block number
-     immediately below).
+     chain needs to also reorg its own view of the child shard's history. To prevent from re-org
+     potentially DoS'ing the parent shard, nodes wait for `STABILITY_DELAY = 12` slots before
+     appending a valid block into the child shard history or triggering a detected reorg. This delay
+     allows for the chain to be able to stabilise and prevent unnecessary reorgs.
    - The result of the validation notifies the parent chain if the validated block can be appended
      to the child shard history or if a reorg is required, and its view of the child shard history
      needs to be adjusted accordingly.
 
-```rust
-
+````rust
 /// Enum to represent the validation result of a block submission.
 enum ValidationResult {
 	Valid,
@@ -87,21 +86,27 @@ enum ValidationResult {
 
 /// Validates the submitted block header against the following conditions and determines
 /// whether the block can be appended to the child shard history or if a reorg is required.
-fn validate_block_submission(block_header: &BlockHeader, parent_chain: &ParentChain) -> Result<ValidationResult, Error> {
+fn validate_block_submission<T: SegmentDescription>(
+	block_header: &BlockHeader<T>,
+	parent_chain: &ParentChain,
+	beacon_chain: &BeaconChain,
+	stability_delay: u64, // Explicitly include STABILITY_DELAY
+) -> Result<ValidationResult, Error> {
 	// 1. Check if the block references a valid beacon chain block.
-	if !beacon_chain.is_valid_block(block_header.beacon_chain_ref) {
+	let (beacon_block_number, _) = block_header.beacon_chain_ref;
+	if beacon_block_number + stability_delay > beacon_chain.get_latest_block_number() {
 		return Err(Error::InvalidBeaconChainReference);
 	}
 
 	// 2. Verify that the solution is within the acceptable range.
-	if !is_solution_in_range(block_header.solution) {
+	if !is_solution_in_range(&block_header.solution) {
 		return Err(Error::InvalidSolutionRange);
 	}
 
 	// 3. Ensure the block number is increasing or handle reorg scenarios.
 	let latest_committed_block = parent_chain.get_latest_committed_block(block_header.shard_id);
 	if block_header.number <= latest_committed_block.number {
-		if is_reorg_valid(block_header, latest_committed_block) {
+		if is_reorg_valid(block_header, &latest_committed_block, parent_chain, stability_delay) {
 			return Ok(ValidationResult::ReOrg);
 		} else {
 			return Err(Error::InvalidBlockNumberOrReorg);
@@ -111,24 +116,35 @@ fn validate_block_submission(block_header: &BlockHeader, parent_chain: &ParentCh
 	}
 
 	// 4. Verify that the block points to the correct parent block.
-	let expected_parent_hash = latest_committed_block.hash;
+	let expected_parent_hash = latest_committed_block.parent_hash;
 	if block_header.parent_hash != expected_parent_hash {
-		if is_reorg_valid(block_header, latest_committed_block) {
+		if is_reorg_valid(block_header, &latest_committed_block, parent_chain, stability_delay) {
 			return Ok(ValidationResult::ReOrg);
 		} else {
 			return Err(Error::InvalidParentBlockReference);
 		}
 	}
 
+	// 5. Validate the consensus information included in the block header.
+	if !validate_consensus_info(&block_header.consensus_info, parent_chain) {
+		return Err(Error::InvalidConsensusInfo);
+	}
+
 	Ok(ValidationResult::Valid)
 }
 
 /// Helper function to check if a reorg is valid.
-fn is_reorg_valid(block_header: &BlockHeader, latest_committed_block: &BlockHeader) -> bool {
+fn is_reorg_valid<T: SegmentDescription>(
+	block_header: &BlockHeader<T>,
+	latest_committed_block: &BlockHeader<T>,
+	parent_chain: &ParentChain,
+	stability_delay: u64, // Explicitly include STABILITY_DELAY
+) -> bool {
 	// Check if the block number is lower than the latest committed block
 	// and if the parent chain's view of the child shard's history aligns with the reorg.
 	let parent_view = parent_chain.get_child_shard_history(block_header.shard_id);
-	parent_view.is_consistent_with_reorg(block_header)
+	let reorg_delay = latest_committed_block.number + stability_delay;
+	block_header.number <= reorg_delay && parent_view.is_consistent_with_reorg(block_header)
 }
 
 /// Helper function to check if the solution is within the valid range.
@@ -137,7 +153,16 @@ fn is_solution_in_range(solution: &Proof) -> bool {
 	// NOTE: (it may change slightly in the future once we define better how sharded farming will work)
 	true
 }
-```
+
+/// Helper function to validate the consensus information included in the block header.
+fn validate_consensus_info<T: SegmentDescription>(
+	consensus_info: &Vec<T>,
+	parent_chain: &ParentChain,
+) -> bool {
+	// Validate that the consensus information aligns with the parent chain's expectations.
+	// This includes verifying the correctness of the segments and blocks submitted.
+	true
+}
 
 4. If the verification is successful, the following information is stored in the parent shard for
    each shard. This information can be used to generate inclusion proofs for the blocks in the child
@@ -146,7 +171,7 @@ fn is_solution_in_range(solution: &Proof) -> bool {
 ```rust
 /// Data structure that is kept on-chain with the hash of the block submitted from the child shard.
 let shardBlocksMap = HashMap<ShardId, HashMap<BlockNumber, Hash>>
-```
+````
 
 5. Full nodes in child shards represent their own history as Mountain Merkle Roots (MMRs) whose root
    is included as a field in every block, allowing them to include in every block a view of their
@@ -316,3 +341,7 @@ fn verify_recursive_proof(
 
 The following diagram illustrates the recursive proof structure:
 ![Proof Structure](./images/block_proof_structure.png)
+
+### Beacon Chain Reorgs
+
+> TODO: Describe how the protocol is impacted if a re-org happens in the beacon chain.
