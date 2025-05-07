@@ -301,8 +301,6 @@ impl UnbalancedHashedMerkleTree {
 
     /// Verify a Merkle proof for a leaf at the given index
     #[inline]
-    // TODO: Make `num_leaves` optional in case the leaf is trusted (like just hashed from another
-    //  value and guaranteed not to use the same keyed hash as used here)
     pub fn verify(
         root: &[u8; OUT_LEN],
         proof: &[[u8; OUT_LEN]],
