@@ -275,7 +275,7 @@ pub(super) const fn compact_metadata<'i, 'o>(
         | IoTypeMetadataKind::VariableBytes262144
         | IoTypeMetadataKind::VariableBytes524288
         | IoTypeMetadataKind::VariableBytes1048576 => copy_n_bytes(input, output, 1),
-        IoTypeMetadataKind::VariableElements0 => {
+        IoTypeMetadataKind::VariableElements0 | IoTypeMetadataKind::Unaligned => {
             (input, output) = forward_option!(copy_n_bytes(input, output, 1));
             compact_metadata(input, output)
         }

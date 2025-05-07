@@ -9,6 +9,7 @@ use crate::pieces::{PieceIndex, Record};
 #[cfg(feature = "alloc")]
 pub use crate::segments::archival_history_segment::ArchivedHistorySegment;
 use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::array::TryFromSliceError;
@@ -24,9 +25,7 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
-use serde::{Deserializer, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
 
@@ -89,6 +88,12 @@ impl SegmentIndex {
     #[inline]
     pub const fn new(n: u64) -> Self {
         Self(n)
+    }
+
+    /// Get internal representation
+    #[inline(always)]
+    pub const fn as_u64(self) -> u64 {
+        self.0
     }
 
     /// Get the first piece index in this segment.
@@ -218,45 +223,66 @@ impl SegmentRoot {
 
 /// Size of blockchain history in segments.
 #[derive(
-    Debug, Display, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, From, Into, Deref, DerefMut,
+    Debug,
+    Display,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    From,
+    Into,
+    Deref,
+    DerefMut,
+    TrivialType,
 )]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
-pub struct HistorySize(NonZeroU64);
-
-impl From<SegmentIndex> for HistorySize {
-    #[inline]
-    fn from(value: SegmentIndex) -> Self {
-        Self(NonZeroU64::new(value.0 + 1).expect("Not zero; qed"))
-    }
-}
+#[repr(C)]
+// Storing `SegmentIndex` to make all invariants valid
+pub struct HistorySize(SegmentIndex);
 
 impl HistorySize {
     /// History size of one
-    pub const ONE: Self = Self(NonZeroU64::new(1).expect("Not zero; qed"));
+    pub const ONE: Self = Self(SegmentIndex::ZERO);
 
-    /// Create new instance.
+    /// Create new instance
     #[inline(always)]
     pub const fn new(value: NonZeroU64) -> Self {
-        Self(value)
+        Self(SegmentIndex::new(value.get() - 1))
+    }
+
+    /// Get internal representation
+    pub const fn as_segment_index(&self) -> SegmentIndex {
+        self.0
+    }
+
+    /// Get internal representation
+    pub const fn as_non_zero_u64(&self) -> NonZeroU64 {
+        NonZeroU64::new(self.0.as_u64().saturating_add(1)).expect("Not zero; qed")
     }
 
     /// Size of blockchain history in pieces.
     #[inline(always)]
     pub const fn in_pieces(&self) -> NonZeroU64 {
-        self.0.saturating_mul(
-            NonZeroU64::new(RecordedHistorySegment::NUM_PIECES as u64).expect("Not zero; qed"),
+        NonZeroU64::new(
+            self.0
+                .as_u64()
+                .saturating_add(1)
+                .saturating_mul(RecordedHistorySegment::NUM_PIECES as u64),
         )
+        .expect("Not zero; qed")
     }
 
     /// Segment index that corresponds to this history size.
     #[inline(always)]
     pub fn segment_index(&self) -> SegmentIndex {
-        SegmentIndex::from(self.0.get() - 1)
+        self.0
     }
 
     /// History size at which expiration check for sector happens.
@@ -264,7 +290,9 @@ impl HistorySize {
     /// Returns `None` on overflow.
     #[inline(always)]
     pub fn sector_expiration_check(&self, min_sector_lifetime: Self) -> Option<Self> {
-        self.0.checked_add(min_sector_lifetime.0.get()).map(Self)
+        self.as_non_zero_u64()
+            .checked_add(min_sector_lifetime.as_non_zero_u64().get())
+            .map(Self::new)
     }
 }
 
@@ -318,12 +346,9 @@ impl ArchivedBlockProgress {
 #[repr(C)]
 pub struct LastArchivedBlock {
     /// Block number
-    pub number: BlockNumber,
+    pub number: Unaligned<BlockNumber>,
     /// Progress of an archived block.
     pub archived_progress: ArchivedBlockProgress,
-    // TODO: Figure out a way to avoid this padding
-    /// Not used and must be set to `0`
-    pub padding: [u8; 4],
 }
 
 impl LastArchivedBlock {
@@ -344,6 +369,11 @@ impl LastArchivedBlock {
     pub fn set_complete(&mut self) {
         self.archived_progress = ArchivedBlockProgress::new_complete();
     }
+
+    /// Get block number (unwrap `Unaligned`)
+    pub const fn number(&self) -> BlockNumber {
+        self.number.as_inner()
+    }
 }
 
 /// Segment header for a specific segment.
@@ -359,7 +389,7 @@ impl LastArchivedBlock {
 #[repr(C)]
 pub struct SegmentHeader {
     /// Segment index
-    pub segment_index: SegmentIndex,
+    pub segment_index: Unaligned<SegmentIndex>,
     /// Root of roots of all records in a segment.
     pub segment_root: SegmentRoot,
     /// Hash of the segment header of the previous segment
@@ -374,13 +404,18 @@ impl SegmentHeader {
     pub fn hash(&self) -> Blake3Hash {
         blake3_hash(self.as_bytes())
     }
+
+    /// Get segment index (unwrap `Unaligned`)
+    pub const fn segment_index(&self) -> SegmentIndex {
+        self.segment_index.as_inner()
+    }
 }
 
 /// Recorded history segment before archiving is applied.
 ///
 /// NOTE: This is a stack-allocated data structure and can cause stack overflow!
 #[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut)]
-#[repr(transparent)]
+#[repr(C)]
 pub struct RecordedHistorySegment([Record; Self::NUM_RAW_RECORDS]);
 
 impl fmt::Debug for RecordedHistorySegment {

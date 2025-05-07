@@ -140,7 +140,7 @@ where
     //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
-    pub const fn from_buffer(data: Option<&'_ Data>) -> impl Deref<Target = Self> + '_ {
+    pub const fn from_ref(data: Option<&'_ Data>) -> impl Deref<Target = Self> + '_ {
         let (data, size) = if let Some(data) = data {
             (NonNull::from_ref(data), &Data::SIZE)
         } else {
@@ -164,7 +164,7 @@ where
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
     #[track_caller]
-    pub fn from_buffer_mut<'a>(
+    pub fn from_mut<'a>(
         buffer: &'a mut Data,
         size: &'a mut u32,
     ) -> impl DerefMut<Target = Self> + 'a {

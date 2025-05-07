@@ -130,6 +130,7 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
         IoTypeMetadataKind::FixedCapacityString8b | IoTypeMetadataKind::FixedCapacityString16b => {
             b"FixedCapacityString"
         }
+        IoTypeMetadataKind::Unaligned => b"Unaligned",
         IoTypeMetadataKind::Address => b"Address",
         IoTypeMetadataKind::Balance => b"Balance",
     })

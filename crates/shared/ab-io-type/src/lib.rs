@@ -7,6 +7,7 @@ pub mod fixed_capacity_string;
 pub mod maybe_data;
 pub mod metadata;
 pub mod trivial_type;
+pub mod unaligned;
 pub mod variable_bytes;
 pub mod variable_elements;
 

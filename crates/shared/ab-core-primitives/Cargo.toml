@@ -42,6 +42,7 @@ alloc = [
 scale-codec = [
     "dep:parity-scale-codec",
     "dep:scale-info",
+    "ab-io-type/scale-codec",
     "alloc",
 ]
 # Enables some APIs
@@ -50,8 +51,9 @@ parallel = [
     "dep:rayon",
 ]
 serde = [
-    "alloc",
     "dep:serde",
+    "ab-io-type/serde",
+    "alloc",
     "bytes/serde",
     "hex/serde",
 ]

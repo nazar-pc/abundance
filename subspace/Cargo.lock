@@ -63,6 +63,9 @@ name = "ab-io-type"
 version = "0.0.1"
 dependencies = [
  "ab-trivial-type-derive",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
 ]
 
 [[package]]

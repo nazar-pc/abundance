@@ -101,14 +101,14 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: SlotNumber) {
         slot,
         Solution {
             public_key_hash: PublicKey::from(keypair.public.to_bytes()).hash(),
-            sector_index: SectorIndex::ZERO,
-            history_size: HistorySize::from(SegmentIndex::ZERO),
-            piece_offset: PieceOffset::default(),
             record_root: Default::default(),
             record_proof: Default::default(),
             chunk,
             chunk_proof: Default::default(),
             proof_of_space: Default::default(),
+            history_size: HistorySize::from(SegmentIndex::ZERO).into(),
+            sector_index: SectorIndex::ZERO,
+            piece_offset: PieceOffset::default(),
         },
     );
 
@@ -158,13 +158,12 @@ pub fn new_test_ext() -> TestExternalities {
 
 pub fn create_segment_header(segment_index: SegmentIndex) -> SegmentHeader {
     SegmentHeader {
-        segment_index,
+        segment_index: segment_index.into(),
         segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),
         last_archived_block: LastArchivedBlock {
-            number: BlockNumber::ZERO,
+            number: BlockNumber::ZERO.into(),
             archived_progress: ArchivedBlockProgress::new_complete(),
-            padding: [0; _],
         },
     }
 }

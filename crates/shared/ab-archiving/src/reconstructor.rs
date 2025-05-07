@@ -21,9 +21,6 @@ pub enum ReconstructorError {
     /// Segment size is not bigger than record size
     #[error("Error during segment decoding: {0}")]
     SegmentDecoding(parity_scale_codec::Error),
-    /// Invalid padding
-    #[error("Invalid padding")]
-    InvalidPadding,
     /// Incorrect segment order, each next segment must have monotonically increasing segment index
     #[error(
         "Incorrect segment order, expected index {expected_segment_index}, actual \
@@ -184,7 +181,7 @@ impl Reconstructor {
                     partial_block.extend_from_slice(&bytes);
                 }
                 SegmentItem::ParentSegmentHeader(segment_header) => {
-                    let segment_index = segment_header.segment_index;
+                    let segment_index = segment_header.segment_index();
 
                     if let Some(last_segment_index) = self.last_segment_index {
                         if last_segment_index != segment_index {
@@ -201,12 +198,7 @@ impl Reconstructor {
                     let LastArchivedBlock {
                         number,
                         archived_progress,
-                        padding,
                     } = segment_header.last_archived_block;
-
-                    if padding != [0; _] {
-                        return Err(ReconstructorError::InvalidPadding);
-                    }
 
                     reconstructed_contents
                         .segment_header
@@ -218,10 +210,10 @@ impl Reconstructor {
                                 .blocks
                                 .push((next_block_number, mem::take(&mut partial_block)));
 
-                            next_block_number = number + BlockNumber::ONE;
+                            next_block_number = number.as_inner() + BlockNumber::ONE;
                         }
                         Some(_bytes) => {
-                            next_block_number = number;
+                            next_block_number = number.as_inner();
 
                             if partial_block.is_empty() {
                                 // Will not be able to recover full block, bump right away.

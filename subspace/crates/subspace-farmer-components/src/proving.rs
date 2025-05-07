@@ -278,14 +278,14 @@ where
 
             Solution {
                 public_key_hash: *self.public_key_hash,
-                sector_index: self.sector_metadata.sector_index,
-                history_size: self.sector_metadata.history_size,
-                piece_offset,
                 record_root: record_metadata.root,
                 record_proof: record_metadata.proof,
                 chunk,
                 chunk_proof: ChunkProof::from(chunk_proof),
                 proof_of_space,
+                history_size: self.sector_metadata.history_size.into(),
+                sector_index: self.sector_metadata.sector_index,
+                piece_offset,
             }
         };
 

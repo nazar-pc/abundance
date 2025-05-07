@@ -276,6 +276,19 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
                 metadata,
             ))
         }
+        IoTypeMetadataKind::Unaligned => {
+            if metadata.is_empty() {
+                return None;
+            }
+
+            let type_details;
+            (type_details, metadata) = forward_option!(decode_type_details(metadata));
+
+            Some((
+                IoTypeDetails::bytes(type_details.recommended_capacity),
+                metadata,
+            ))
+        }
         IoTypeMetadataKind::Address | IoTypeMetadataKind::Balance => Some((
             IoTypeDetails {
                 recommended_capacity: 16,

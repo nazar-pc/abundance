@@ -87,13 +87,12 @@ fn write_segment_header(mut piece: &mut Piece, remaining_len: usize) -> Vec<u8> 
         let segment_variants = [4_u8];
         // SegmentHeader
         let segment_header = SegmentHeader {
-            segment_index: u64::MAX.into(),
+            segment_index: SegmentIndex::new(u64::MAX).into(),
             segment_root: SegmentRoot::default(),
             prev_segment_header_hash: Blake3Hash::default(),
             last_archived_block: LastArchivedBlock {
-                number: BlockNumber::MAX,
+                number: BlockNumber::MAX.into(),
                 archived_progress: ArchivedBlockProgress::new_partial(NonZeroU32::MAX),
-                padding: [0; _],
             },
         }
         .encode();
