@@ -51,10 +51,10 @@ impl NodeClient for MockNodeClient {
                 max_pieces_in_sector: 0,
                 recent_segments: HistorySize::from(SegmentIndex::ZERO),
                 recent_history_fraction: (
-                    HistorySize::from(NonZeroU64::new(1).unwrap()),
-                    HistorySize::from(NonZeroU64::new(10).unwrap()),
+                    HistorySize::new(NonZeroU64::new(1).unwrap()),
+                    HistorySize::new(NonZeroU64::new(10).unwrap()),
                 ),
-                min_sector_lifetime: HistorySize::from(NonZeroU64::new(4).unwrap()),
+                min_sector_lifetime: HistorySize::new(NonZeroU64::new(4).unwrap()),
             },
         })
     }

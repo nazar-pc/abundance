@@ -90,6 +90,12 @@ impl SegmentIndex {
         Self(n)
     }
 
+    /// Get internal representation
+    #[inline(always)]
+    pub const fn as_u64(self) -> u64 {
+        self.0
+    }
+
     /// Get the first piece index in this segment.
     #[inline]
     pub const fn first_piece_index(&self) -> PieceIndex {
@@ -217,45 +223,66 @@ impl SegmentRoot {
 
 /// Size of blockchain history in segments.
 #[derive(
-    Debug, Display, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, From, Into, Deref, DerefMut,
+    Debug,
+    Display,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    From,
+    Into,
+    Deref,
+    DerefMut,
+    TrivialType,
 )]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
-pub struct HistorySize(NonZeroU64);
-
-impl From<SegmentIndex> for HistorySize {
-    #[inline]
-    fn from(value: SegmentIndex) -> Self {
-        Self(NonZeroU64::new(value.0 + 1).expect("Not zero; qed"))
-    }
-}
+#[repr(C)]
+// Storing `SegmentIndex` to make all invariants valid
+pub struct HistorySize(SegmentIndex);
 
 impl HistorySize {
     /// History size of one
-    pub const ONE: Self = Self(NonZeroU64::new(1).expect("Not zero; qed"));
+    pub const ONE: Self = Self(SegmentIndex::ZERO);
 
-    /// Create new instance.
+    /// Create new instance
     #[inline(always)]
     pub const fn new(value: NonZeroU64) -> Self {
-        Self(value)
+        Self(SegmentIndex::new(value.get() - 1))
+    }
+
+    /// Get internal representation
+    pub const fn as_segment_index(&self) -> SegmentIndex {
+        self.0
+    }
+
+    /// Get internal representation
+    pub const fn as_non_zero_u64(&self) -> NonZeroU64 {
+        NonZeroU64::new(self.0.as_u64().saturating_add(1)).expect("Not zero; qed")
     }
 
     /// Size of blockchain history in pieces.
     #[inline(always)]
     pub const fn in_pieces(&self) -> NonZeroU64 {
-        self.0.saturating_mul(
-            NonZeroU64::new(RecordedHistorySegment::NUM_PIECES as u64).expect("Not zero; qed"),
+        NonZeroU64::new(
+            self.0
+                .as_u64()
+                .saturating_add(1)
+                .saturating_mul(RecordedHistorySegment::NUM_PIECES as u64),
         )
+        .expect("Not zero; qed")
     }
 
     /// Segment index that corresponds to this history size.
     #[inline(always)]
     pub fn segment_index(&self) -> SegmentIndex {
-        SegmentIndex::from(self.0.get() - 1)
+        self.0
     }
 
     /// History size at which expiration check for sector happens.
@@ -263,7 +290,9 @@ impl HistorySize {
     /// Returns `None` on overflow.
     #[inline(always)]
     pub fn sector_expiration_check(&self, min_sector_lifetime: Self) -> Option<Self> {
-        self.0.checked_add(min_sector_lifetime.0.get()).map(Self)
+        self.as_non_zero_u64()
+            .checked_add(min_sector_lifetime.as_non_zero_u64().get())
+            .map(Self::new)
     }
 }
 
@@ -386,7 +415,7 @@ impl SegmentHeader {
 ///
 /// NOTE: This is a stack-allocated data structure and can cause stack overflow!
 #[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut)]
-#[repr(transparent)]
+#[repr(C)]
 pub struct RecordedHistorySegment([Record; Self::NUM_RAW_RECORDS]);
 
 impl fmt::Debug for RecordedHistorySegment {

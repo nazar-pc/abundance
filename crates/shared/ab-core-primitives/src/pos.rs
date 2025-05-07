@@ -1,6 +1,7 @@
 //! Proof of space-related data structures.
 
 use crate::hashes::{Blake3Hash, blake3_hash};
+use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use derive_more::{Deref, DerefMut, From, Into};
 #[cfg(feature = "scale-codec")]
@@ -33,11 +34,12 @@ impl PosSeed {
 }
 
 /// Proof of space proof bytes.
-#[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut, From, Into)]
+#[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
+#[repr(C)]
 pub struct PosProof([u8; PosProof::SIZE]);
 
 impl fmt::Debug for PosProof {

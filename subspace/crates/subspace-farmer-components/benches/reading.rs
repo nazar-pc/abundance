@@ -64,14 +64,14 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         .unwrap();
 
     let farmer_protocol_info = FarmerProtocolInfo {
-        history_size: HistorySize::from(NonZeroU64::new(1).unwrap()),
+        history_size: HistorySize::new(NonZeroU64::new(1).unwrap()),
         max_pieces_in_sector: pieces_in_sector,
-        recent_segments: HistorySize::from(NonZeroU64::new(5).unwrap()),
+        recent_segments: HistorySize::new(NonZeroU64::new(5).unwrap()),
         recent_history_fraction: (
-            HistorySize::from(NonZeroU64::new(1).unwrap()),
-            HistorySize::from(NonZeroU64::new(10).unwrap()),
+            HistorySize::new(NonZeroU64::new(1).unwrap()),
+            HistorySize::new(NonZeroU64::new(10).unwrap()),
         ),
-        min_sector_lifetime: HistorySize::from(NonZeroU64::new(4).unwrap()),
+        min_sector_lifetime: HistorySize::new(NonZeroU64::new(4).unwrap()),
     };
 
     let sector_size = sector_size(pieces_in_sector);

@@ -102,7 +102,7 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: SlotNumber) {
         Solution {
             public_key_hash: PublicKey::from(keypair.public.to_bytes()).hash(),
             sector_index: SectorIndex::ZERO,
-            history_size: HistorySize::from(SegmentIndex::ZERO),
+            history_size: HistorySize::from(SegmentIndex::ZERO).into(),
             piece_offset: PieceOffset::default(),
             record_root: Default::default(),
             record_proof: Default::default(),

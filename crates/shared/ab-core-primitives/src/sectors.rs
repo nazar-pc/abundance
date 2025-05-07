@@ -11,6 +11,7 @@ use crate::pieces::{PieceIndex, PieceOffset, Record};
 use crate::pos::PosSeed;
 use crate::sectors::nano_u256::NanoU256;
 use crate::segments::{HistorySize, SegmentRoot};
+use ab_io_type::trivial_type::TrivialType;
 use core::hash::Hash;
 use core::iter::Step;
 use core::num::{NonZeroU64, TryFromIntError};
@@ -47,13 +48,14 @@ use serde::{Deserialize, Serialize};
     MulAssign,
     Div,
     DivAssign,
+    TrivialType,
 )]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
+#[repr(C)]
 pub struct SectorIndex(u16);
 
 impl Step for SectorIndex {
@@ -161,7 +163,10 @@ impl SectorId {
     ) -> Self {
         Self(blake3_hash_list_with_key(
             public_key_hash,
-            &[&sector_index.to_bytes(), &history_size.get().to_le_bytes()],
+            &[
+                &sector_index.to_bytes(),
+                &history_size.as_non_zero_u64().get().to_le_bytes(),
+            ],
         ))
     }
 
@@ -234,16 +239,18 @@ impl SectorId {
         sector_expiration_check_segment_root: &SegmentRoot,
         min_sector_lifetime: HistorySize,
     ) -> Option<HistorySize> {
-        let sector_expiration_check_history_size =
-            history_size.sector_expiration_check(min_sector_lifetime)?;
+        let sector_expiration_check_history_size = history_size
+            .sector_expiration_check(min_sector_lifetime)?
+            .as_non_zero_u64();
 
         let input_hash = NanoU256::from_le_bytes(*blake3_hash_list(&[
             self.as_ref(),
             sector_expiration_check_segment_root.as_ref(),
         ]));
 
-        let last_possible_expiration =
-            min_sector_lifetime.checked_add(history_size.get().checked_mul(4u64)?)?;
+        let last_possible_expiration = min_sector_lifetime
+            .as_non_zero_u64()
+            .checked_add(history_size.as_non_zero_u64().get().checked_mul(4u64)?)?;
         let expires_in = input_hash
             % last_possible_expiration
                 .get()
@@ -253,7 +260,7 @@ impl SectorId {
         let expiration_history_size = NonZeroU64::try_from(expiration_history_size).expect(
             "History size is not zero, so result is not zero even if expires immediately; qed",
         );
-        Some(HistorySize::from(expiration_history_size))
+        Some(HistorySize::new(expiration_history_size))
     }
 }
 
@@ -285,7 +292,7 @@ impl SectorId {
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
+#[repr(C)]
 pub struct SBucket(u16);
 
 impl Step for SBucket {

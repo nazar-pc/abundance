@@ -7,6 +7,8 @@ use crate::pos::{PosProof, PosSeed};
 use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
+use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use blake3::OUT_LEN;
 use core::fmt;
@@ -32,7 +34,7 @@ use serde_big_array::BigArray;
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
+#[repr(C)]
 pub struct SolutionDistance(u64);
 
 impl SolutionDistance {
@@ -102,7 +104,7 @@ impl SolutionDistance {
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
+#[repr(C)]
 pub struct SolutionRange(u64);
 
 impl SolutionRange {
@@ -228,12 +230,12 @@ const _: () = {
 };
 
 /// Proof for chunk contained within a record.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
-#[repr(transparent)]
+#[repr(C)]
 pub struct ChunkProof([[u8; OUT_LEN]; ChunkProof::NUM_HASHES]);
 
 impl fmt::Debug for ChunkProof {
@@ -273,7 +275,7 @@ impl Serialize for ChunkProof {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            // SAFETY: `ChunkProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
+            // SAFETY: `ChunkProofHexHash` is `#[repr(C)]` and guaranteed to have the
             // same memory layout
             ChunkProofHex(unsafe {
                 core::mem::transmute::<
@@ -296,7 +298,7 @@ impl<'de> Deserialize<'de> for ChunkProof {
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            // SAFETY: `ChunkProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
+            // SAFETY: `ChunkProofHexHash` is `#[repr(C)]` and guaranteed to have the
             // same memory layout
             unsafe {
                 core::mem::transmute::<
@@ -422,17 +424,18 @@ pub trait SolutionPotVerifier {
 }
 
 /// Farmer solution for slot challenge.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, TrivialType)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[repr(C)]
 pub struct Solution {
     /// Public key of the farmer that created the solution
     pub public_key_hash: Blake3Hash,
     /// Index of the sector where the solution was found
     pub sector_index: SectorIndex,
     /// Size of the blockchain history at the time of sector creation
-    pub history_size: HistorySize,
+    pub history_size: Unaligned<HistorySize>,
     /// Pieces offset within sector
     pub piece_offset: PieceOffset,
     /// Record root that can use used to verify that piece was included in blockchain history
@@ -453,7 +456,7 @@ impl Solution {
         Self {
             public_key_hash: Blake3Hash::default(),
             sector_index: SectorIndex::ZERO,
-            history_size: HistorySize::from(SegmentIndex::ZERO),
+            history_size: HistorySize::from(SegmentIndex::ZERO).into(),
             piece_offset: PieceOffset::default(),
             record_root: RecordRoot::default(),
             record_proof: RecordProof::default(),
@@ -461,6 +464,11 @@ impl Solution {
             chunk_proof: ChunkProof::default(),
             proof_of_space: PosProof::default(),
         }
+    }
+
+    /// Get history size (unwrap `Unaligned`)
+    pub fn history_size(&self) -> HistorySize {
+        self.history_size.as_inner()
     }
 
     /// Check solution validity
@@ -477,8 +485,9 @@ impl Solution {
             solution_range,
             piece_check_params,
         } = params;
+        let history_size = self.history_size.as_inner();
 
-        let sector_id = SectorId::new(&self.public_key_hash, self.sector_index, self.history_size);
+        let sector_id = SectorId::new(&self.public_key_hash, self.sector_index, history_size);
 
         let global_challenge = proof_of_time.derive_global_challenge(slot);
         let sector_slot_challenge = sector_id.derive_sector_slot_challenge(&global_challenge);
@@ -541,7 +550,7 @@ impl Solution {
             if let Some(sector_expiration_check_segment_root) = sector_expiration_check_segment_root
             {
                 let expiration_history_size = match sector_id.derive_expiration_history_size(
-                    self.history_size,
+                    history_size,
                     sector_expiration_check_segment_root,
                     *min_sector_lifetime,
                 ) {
@@ -562,7 +571,7 @@ impl Solution {
             let position = sector_id
                 .derive_piece_index(
                     self.piece_offset,
-                    self.history_size,
+                    history_size,
                     *max_pieces_in_sector,
                     *recent_segments,
                     *recent_history_fraction,

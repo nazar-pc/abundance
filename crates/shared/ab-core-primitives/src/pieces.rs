@@ -14,6 +14,7 @@ pub use crate::pieces::piece::Piece;
 use crate::segments::{RecordedHistorySegment, SegmentIndex, SegmentRoot};
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
+use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
@@ -65,7 +66,7 @@ use serde_big_array::BigArray;
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
+#[repr(C)]
 pub struct PieceIndex(u64);
 
 impl Step for PieceIndex {
@@ -166,13 +167,14 @@ impl PieceIndex {
     MulAssign,
     Div,
     DivAssign,
+    TrivialType,
 )]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, MaxEncodedLen, TypeInfo)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
+#[repr(C)]
 pub struct PieceOffset(u16);
 
 impl Step for PieceOffset {
@@ -242,6 +244,7 @@ impl PieceOffset {
     AsMut,
     Deref,
     DerefMut,
+    TrivialType,
 )]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -297,7 +300,7 @@ impl RecordChunk {
 ///
 /// NOTE: This is a stack-allocated data structure and can cause stack overflow!
 #[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut)]
-#[repr(transparent)]
+#[repr(C)]
 pub struct Record([[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]);
 
 impl fmt::Debug for Record {
@@ -333,7 +336,7 @@ impl AsMut<[u8]> for Record {
 impl From<&Record> for &[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
     #[inline]
     fn from(value: &Record) -> Self {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 }
@@ -341,7 +344,7 @@ impl From<&Record> for &[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
 impl From<&[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &Record {
     #[inline]
     fn from(value: &[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]) -> Self {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 }
@@ -349,7 +352,7 @@ impl From<&[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &Record {
 impl From<&mut Record> for &mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
     #[inline]
     fn from(value: &mut Record) -> Self {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 }
@@ -357,7 +360,7 @@ impl From<&mut Record> for &mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS] {
 impl From<&mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &mut Record {
     #[inline]
     fn from(value: &mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]) -> Self {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 }
@@ -365,7 +368,7 @@ impl From<&mut [[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]> for &mut Record {
 impl From<&Record> for &[u8; Record::SIZE] {
     #[inline]
     fn from(value: &Record) -> Self {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         // as inner array, while array of byte arrays has the same alignment as a single byte
         unsafe { mem::transmute(value) }
     }
@@ -374,7 +377,7 @@ impl From<&Record> for &[u8; Record::SIZE] {
 impl From<&[u8; Record::SIZE]> for &Record {
     #[inline]
     fn from(value: &[u8; Record::SIZE]) -> Self {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         // as inner array, while array of byte arrays has the same alignment as a single byte
         unsafe { mem::transmute(value) }
     }
@@ -383,7 +386,7 @@ impl From<&[u8; Record::SIZE]> for &Record {
 impl From<&mut Record> for &mut [u8; Record::SIZE] {
     #[inline]
     fn from(value: &mut Record) -> Self {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         // as inner array, while array of byte arrays has the same alignment as a single byte
         unsafe { mem::transmute(value) }
     }
@@ -392,7 +395,7 @@ impl From<&mut Record> for &mut [u8; Record::SIZE] {
 impl From<&mut [u8; Record::SIZE]> for &mut Record {
     #[inline]
     fn from(value: &mut [u8; Record::SIZE]) -> Self {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         // as inner array, while array of byte arrays has the same alignment as a single byte
         unsafe { mem::transmute(value) }
     }
@@ -427,7 +430,7 @@ impl Record {
         let mut records = Vec::with_capacity(length);
         {
             let slice = records.spare_capacity_mut();
-            // SAFETY: Same memory layout due to `#[repr(transparent)]` on `Record` and
+            // SAFETY: Same memory layout due to `#[repr(C)]` on `Record` and
             // `MaybeUninit<[[T; M]; N]>` is guaranteed to have the same layout as
             // `[[MaybeUninit<T>; M]; N]`
             let slice = unsafe {
@@ -453,7 +456,7 @@ impl Record {
     /// purposes.
     #[inline]
     pub fn slice_to_repr(value: &[Self]) -> &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 
@@ -461,7 +464,7 @@ impl Record {
     /// purposes.
     #[inline]
     pub fn slice_from_repr(value: &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]]) -> &[Self] {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 
@@ -471,7 +474,7 @@ impl Record {
     pub fn slice_mut_to_repr(
         value: &mut [Self],
     ) -> &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 
@@ -481,17 +484,18 @@ impl Record {
     pub fn slice_mut_from_repr(
         value: &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]],
     ) -> &mut [Self] {
-        // SAFETY: `Record` is `#[repr(transparent)]` and guaranteed to have the same memory layout
+        // SAFETY: `Record` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 }
 
 /// Record root contained within a piece.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
+#[repr(C)]
 pub struct RecordRoot([u8; RecordRoot::SIZE]);
 
 impl fmt::Debug for RecordRoot {
@@ -576,7 +580,7 @@ impl AsMut<[u8]> for RecordRoot {
 impl From<&RecordRoot> for &[u8; RecordRoot::SIZE] {
     #[inline]
     fn from(value: &RecordRoot) -> Self {
-        // SAFETY: `RecordRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -585,7 +589,7 @@ impl From<&RecordRoot> for &[u8; RecordRoot::SIZE] {
 impl From<&[u8; RecordRoot::SIZE]> for &RecordRoot {
     #[inline]
     fn from(value: &[u8; RecordRoot::SIZE]) -> Self {
-        // SAFETY: `RecordRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -594,7 +598,7 @@ impl From<&[u8; RecordRoot::SIZE]> for &RecordRoot {
 impl From<&mut RecordRoot> for &mut [u8; RecordRoot::SIZE] {
     #[inline]
     fn from(value: &mut RecordRoot) -> Self {
-        // SAFETY: `RecordRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -603,7 +607,7 @@ impl From<&mut RecordRoot> for &mut [u8; RecordRoot::SIZE] {
 impl From<&mut [u8; RecordRoot::SIZE]> for &mut RecordRoot {
     #[inline]
     fn from(value: &mut [u8; RecordRoot::SIZE]) -> Self {
-        // SAFETY: `RecordRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -719,7 +723,7 @@ impl AsMut<[u8]> for RecordChunksRoot {
 impl From<&RecordChunksRoot> for &[u8; RecordChunksRoot::SIZE] {
     #[inline]
     fn from(value: &RecordChunksRoot) -> Self {
-        // SAFETY: `RecordChunksRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -728,7 +732,7 @@ impl From<&RecordChunksRoot> for &[u8; RecordChunksRoot::SIZE] {
 impl From<&[u8; RecordChunksRoot::SIZE]> for &RecordChunksRoot {
     #[inline]
     fn from(value: &[u8; RecordChunksRoot::SIZE]) -> Self {
-        // SAFETY: `RecordChunksRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -737,7 +741,7 @@ impl From<&[u8; RecordChunksRoot::SIZE]> for &RecordChunksRoot {
 impl From<&mut RecordChunksRoot> for &mut [u8; RecordChunksRoot::SIZE] {
     #[inline]
     fn from(value: &mut RecordChunksRoot) -> Self {
-        // SAFETY: `RecordChunksRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -746,7 +750,7 @@ impl From<&mut RecordChunksRoot> for &mut [u8; RecordChunksRoot::SIZE] {
 impl From<&mut [u8; RecordChunksRoot::SIZE]> for &mut RecordChunksRoot {
     #[inline]
     fn from(value: &mut [u8; RecordChunksRoot::SIZE]) -> Self {
-        // SAFETY: `RecordChunksRoot` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordChunksRoot` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -758,11 +762,12 @@ impl RecordChunksRoot {
 }
 
 /// Record proof contained within a piece.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
+#[repr(C)]
 pub struct RecordProof([[u8; OUT_LEN]; RecordProof::NUM_HASHES]);
 
 impl fmt::Debug for RecordProof {
@@ -802,7 +807,7 @@ impl Serialize for RecordProof {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            // SAFETY: `RecordProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
+            // SAFETY: `RecordProofHexHash` is `#[repr(C)]` and guaranteed to have the
             // same memory layout
             RecordProofHex(unsafe {
                 mem::transmute::<
@@ -825,7 +830,7 @@ impl<'de> Deserialize<'de> for RecordProof {
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            // SAFETY: `RecordProofHexHash` is `#[repr(transparent)]` and guaranteed to have the
+            // SAFETY: `RecordProofHexHash` is `#[repr(C)]` and guaranteed to have the
             // same memory layout
             unsafe {
                 mem::transmute::<
@@ -863,7 +868,7 @@ impl AsMut<[u8]> for RecordProof {
 impl From<&RecordProof> for &[u8; RecordProof::SIZE] {
     #[inline]
     fn from(value: &RecordProof) -> Self {
-        // SAFETY: `RecordProof` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -872,7 +877,7 @@ impl From<&RecordProof> for &[u8; RecordProof::SIZE] {
 impl From<&[u8; RecordProof::SIZE]> for &RecordProof {
     #[inline]
     fn from(value: &[u8; RecordProof::SIZE]) -> Self {
-        // SAFETY: `RecordProof` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -881,7 +886,7 @@ impl From<&[u8; RecordProof::SIZE]> for &RecordProof {
 impl From<&mut RecordProof> for &mut [u8; RecordProof::SIZE] {
     #[inline]
     fn from(value: &mut RecordProof) -> Self {
-        // SAFETY: `RecordProof` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -890,7 +895,7 @@ impl From<&mut RecordProof> for &mut [u8; RecordProof::SIZE] {
 impl From<&mut [u8; RecordProof::SIZE]> for &mut RecordProof {
     #[inline]
     fn from(value: &mut [u8; RecordProof::SIZE]) -> Self {
-        // SAFETY: `RecordProof` is `#[repr(transparent)]` and guaranteed to have the same
+        // SAFETY: `RecordProof` is `#[repr(C)]` and guaranteed to have the same
         // memory layout
         unsafe { mem::transmute(value) }
     }
@@ -910,7 +915,7 @@ impl RecordProof {
 /// root and a proof proving this piece belongs to can be used to verify that a piece belongs to
 /// the actual archival history of the blockchain.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deref, DerefMut, AsRef, AsMut)]
-#[repr(transparent)]
+#[repr(C)]
 pub struct PieceArray([u8; PieceArray::SIZE]);
 
 impl fmt::Debug for PieceArray {
@@ -946,7 +951,7 @@ impl AsMut<[u8]> for PieceArray {
 impl From<&PieceArray> for &[u8; PieceArray::SIZE] {
     #[inline]
     fn from(value: &PieceArray) -> Self {
-        // SAFETY: `PieceArray` is `#[repr(transparent)]` and guaranteed to have the same memory
+        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }
@@ -955,7 +960,7 @@ impl From<&PieceArray> for &[u8; PieceArray::SIZE] {
 impl From<&[u8; PieceArray::SIZE]> for &PieceArray {
     #[inline]
     fn from(value: &[u8; PieceArray::SIZE]) -> Self {
-        // SAFETY: `PieceArray` is `#[repr(transparent)]` and guaranteed to have the same memory
+        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }
@@ -964,7 +969,7 @@ impl From<&[u8; PieceArray::SIZE]> for &PieceArray {
 impl From<&mut PieceArray> for &mut [u8; PieceArray::SIZE] {
     #[inline]
     fn from(value: &mut PieceArray) -> Self {
-        // SAFETY: `PieceArray` is `#[repr(transparent)]` and guaranteed to have the same memory
+        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }
@@ -973,7 +978,7 @@ impl From<&mut PieceArray> for &mut [u8; PieceArray::SIZE] {
 impl From<&mut [u8; PieceArray::SIZE]> for &mut PieceArray {
     #[inline]
     fn from(value: &mut [u8; PieceArray::SIZE]) -> Self {
-        // SAFETY: `PieceArray` is `#[repr(transparent)]` and guaranteed to have the same memory
+        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }
@@ -1117,7 +1122,7 @@ impl PieceArray {
     /// purposes.
     #[inline]
     pub fn slice_to_repr(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `PieceArray` is `#[repr(transparent)]` and guaranteed to have the same memory
+        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }
@@ -1126,7 +1131,7 @@ impl PieceArray {
     /// purposes.
     #[inline]
     pub fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        // SAFETY: `PieceArray` is `#[repr(transparent)]` and guaranteed to have the same memory
+        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }
@@ -1135,7 +1140,7 @@ impl PieceArray {
     /// efficiency purposes.
     #[inline]
     pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; Self::SIZE]] {
-        // SAFETY: `PieceArray` is `#[repr(transparent)]` and guaranteed to have the same memory
+        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }
@@ -1144,7 +1149,7 @@ impl PieceArray {
     /// efficiency purposes.
     #[inline]
     pub fn slice_mut_from_repr(value: &mut [[u8; Self::SIZE]]) -> &mut [Self] {
-        // SAFETY: `PieceArray` is `#[repr(transparent)]` and guaranteed to have the same memory
+        // SAFETY: `PieceArray` is `#[repr(C)]` and guaranteed to have the same memory
         // layout
         unsafe { mem::transmute(value) }
     }

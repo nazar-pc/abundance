@@ -279,7 +279,7 @@ where
             Solution {
                 public_key_hash: *self.public_key_hash,
                 sector_index: self.sector_metadata.sector_index,
-                history_size: self.sector_metadata.history_size,
+                history_size: self.sector_metadata.history_size.into(),
                 piece_offset,
                 record_root: record_metadata.root,
                 record_proof: record_metadata.proof,

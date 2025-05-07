@@ -490,7 +490,7 @@ impl<T: Config> Pallet<T> {
     pub fn history_size() -> HistorySize {
         // Chain starts with one segment plotted, even if it is not recorded in the runtime yet
         let number_of_segments = u64::from(SegmentRoot::<T>::count()).max(1);
-        HistorySize::from(NonZeroU64::new(number_of_segments).expect("Not zero; qed"))
+        HistorySize::new(NonZeroU64::new(number_of_segments).expect("Not zero; qed"))
     }
 
     fn do_initialize(block_number: BlockNumberFor<T>) {
