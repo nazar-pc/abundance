@@ -262,19 +262,19 @@ pub enum IoTypeMetadataKind {
     ///
     /// Encoded as follows:
     /// * 1 byte number of elements
-    /// * Recursive metadata of contained type
+    /// * Recursive metadata of a contained type
     Array8b,
     /// Array `[T; N]` with up to 2^16 elements.
     ///
     /// Encoded as follows:
     /// * 2 bytes number of elements (little-endian)
-    /// * Recursive metadata of contained type
+    /// * Recursive metadata of a contained type
     Array16b,
     /// Array `[T; N]` with up to 2^32 elements.
     ///
     /// Encoded as follows:
     /// * 4 bytes number of elements (little-endian)
-    /// * Recursive metadata of contained type
+    /// * Recursive metadata of a contained type
     Array32b,
     /// Compact alias for `[u8; 8]`
     ArrayU8x8,
@@ -341,18 +341,24 @@ pub enum IoTypeMetadataKind {
     ///
     /// Encoded as follows:
     /// * 1 byte recommended allocation in bytes
+    /// * Recursive metadata of a contained type
     VariableElements8b,
     /// Variable elements with up to 2^16 elements recommended allocation.
     ///
     /// Encoded as follows:
     /// * 2 bytes recommended allocation in elements (little-endian)
+    /// * Recursive metadata of a contained type
     VariableElements16b,
     /// Variable elements with up to 2^32 elements recommended allocation.
     ///
     /// Encoded as follows:
     /// * 4 bytes recommended allocation in elements (little-endian)
+    /// * Recursive metadata of a contained type
     VariableElements32b,
     /// Compact alias [`VariableElements<0, T>`](crate::variable_elements::VariableElements)
+    ///
+    /// Encoded as follows:
+    /// * Recursive metadata of a contained type
     VariableElements0,
     /// Fixed capacity bytes with up to 2^8 bytes capacity.
     ///
@@ -380,6 +386,13 @@ pub enum IoTypeMetadataKind {
     /// Encoded as follows:
     /// * 2 bytes capacity (little-endian)
     FixedCapacityString16b,
+    /// Unaligned wrapper over another [`TrivialType`].
+    ///
+    /// [`TrivialType`]: crate::trivial_type::TrivialType
+    ///
+    /// Encoded as follows:
+    /// * Recursive metadata of a contained type
+    Unaligned,
     /// Address of a contract.
     ///
     /// Internally `u128` with `8` byte alignment
@@ -490,6 +503,7 @@ impl IoTypeMetadataKind {
             91 => Self::FixedCapacityBytes16b,
             92 => Self::FixedCapacityString8b,
             93 => Self::FixedCapacityString16b,
+            94 => Self::Unaligned,
             128 => Self::Address,
             129 => Self::Balance,
             _ => {

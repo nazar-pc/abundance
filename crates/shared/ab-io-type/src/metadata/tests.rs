@@ -97,6 +97,7 @@ fn check_repr() {
         (IoTypeMetadataKind::FixedCapacityBytes16b, 91),
         (IoTypeMetadataKind::FixedCapacityString8b, 92),
         (IoTypeMetadataKind::FixedCapacityString16b, 93),
+        (IoTypeMetadataKind::Unaligned, 94),
         (IoTypeMetadataKind::Address, 128),
         (IoTypeMetadataKind::Balance, 129),
     ];
