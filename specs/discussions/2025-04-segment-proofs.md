@@ -87,7 +87,7 @@ enum IndexStatus {
 /// The global history of the system is represented as a map where for each block of the beacon chain
 /// that includes a super segment, the corresponding super segment with information about the list of
 /// segments committed is made available on-chain.
-let global_history = HashMap<BlockNumber, SuperSegment>
+type GlobalHistory = HashMap<BlockNumber, SuperSegment>;
 
 struct SuperSegment {
 	// The root of the super segment.
