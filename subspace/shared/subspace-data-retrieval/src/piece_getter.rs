@@ -54,7 +54,7 @@ where
 #[async_trait]
 impl PieceGetter for NewArchivedSegment {
     async fn get_piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>> {
-        if piece_index.segment_index() == self.segment_header.segment_index {
+        if piece_index.segment_index() == self.segment_header.segment_index() {
             return Ok(Some(
                 self.pieces
                     .pieces()

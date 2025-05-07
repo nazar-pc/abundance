@@ -9,6 +9,7 @@ use crate::pieces::{PieceIndex, Record};
 #[cfg(feature = "alloc")]
 pub use crate::segments::archival_history_segment::ArchivedHistorySegment;
 use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::array::TryFromSliceError;
@@ -24,9 +25,7 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
-use serde::{Deserializer, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
 
@@ -318,12 +317,9 @@ impl ArchivedBlockProgress {
 #[repr(C)]
 pub struct LastArchivedBlock {
     /// Block number
-    pub number: BlockNumber,
+    pub number: Unaligned<BlockNumber>,
     /// Progress of an archived block.
     pub archived_progress: ArchivedBlockProgress,
-    // TODO: Figure out a way to avoid this padding
-    /// Not used and must be set to `0`
-    pub padding: [u8; 4],
 }
 
 impl LastArchivedBlock {
@@ -344,6 +340,11 @@ impl LastArchivedBlock {
     pub fn set_complete(&mut self) {
         self.archived_progress = ArchivedBlockProgress::new_complete();
     }
+
+    /// Get block number (unwrap `Unaligned`)
+    pub const fn number(&self) -> BlockNumber {
+        self.number.as_inner()
+    }
 }
 
 /// Segment header for a specific segment.
@@ -359,7 +360,7 @@ impl LastArchivedBlock {
 #[repr(C)]
 pub struct SegmentHeader {
     /// Segment index
-    pub segment_index: SegmentIndex,
+    pub segment_index: Unaligned<SegmentIndex>,
     /// Root of roots of all records in a segment.
     pub segment_root: SegmentRoot,
     /// Hash of the segment header of the previous segment
@@ -373,6 +374,11 @@ impl SegmentHeader {
     #[inline(always)]
     pub fn hash(&self) -> Blake3Hash {
         blake3_hash(self.as_bytes())
+    }
+
+    /// Get segment index (unwrap `Unaligned`)
+    pub const fn segment_index(&self) -> SegmentIndex {
+        self.segment_index.as_inner()
     }
 }
 

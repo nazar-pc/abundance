@@ -130,7 +130,7 @@ fn archiver() {
         ArchivedHistorySegment::NUM_PIECES
     );
     assert_eq!(
-        first_archived_segment.segment_header.segment_index,
+        first_archived_segment.segment_header.segment_index(),
         SegmentIndex::ZERO
     );
     assert_eq!(
@@ -141,7 +141,7 @@ fn archiver() {
     );
     {
         let last_archived_block = first_archived_segment.segment_header.last_archived_block;
-        assert_eq!(last_archived_block.number, BlockNumber::ONE);
+        assert_eq!(last_archived_block.number(), BlockNumber::ONE);
         assert_eq!(
             last_archived_block.partial_archived(),
             Some(NonZeroU32::new(67108854).unwrap())
@@ -242,7 +242,7 @@ fn archiver() {
         block_1_outcome.global_objects[2]
             .piece_index
             .segment_index(),
-        archived_segments[0].segment_header.segment_index,
+        archived_segments[0].segment_header.segment_index(),
     );
     {
         let block_objects =
@@ -263,19 +263,19 @@ fn archiver() {
     {
         let archived_segment = archived_segments.first().unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block;
-        assert_eq!(last_archived_block.number, BlockNumber::new(2));
+        assert_eq!(last_archived_block.number(), BlockNumber::new(2));
         assert_eq!(
             last_archived_block.partial_archived(),
-            Some(NonZeroU32::new(111847999).unwrap())
+            Some(NonZeroU32::new(111848003).unwrap())
         );
     }
     {
         let archived_segment = archived_segments.get(1).unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block;
-        assert_eq!(last_archived_block.number, BlockNumber::new(2));
+        assert_eq!(last_archived_block.number(), BlockNumber::new(2));
         assert_eq!(
             last_archived_block.partial_archived(),
-            Some(NonZeroU32::new(246065633).unwrap())
+            Some(NonZeroU32::new(246065641).unwrap())
         );
     }
 
@@ -289,7 +289,7 @@ fn archiver() {
             ArchivedHistorySegment::NUM_PIECES
         );
         assert_eq!(
-            archived_segment.segment_header.segment_index,
+            archived_segment.segment_header.segment_index(),
             expected_segment_index
         );
         assert_eq!(
@@ -322,7 +322,7 @@ fn archiver() {
 
     // Add a block such that it fits in the next segment exactly
     let block_3 = {
-        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369924];
+        let mut block = vec![0u8; RecordedHistorySegment::SIZE - 22369914];
         rng.fill_bytes(block.as_mut_slice());
         block
     };
@@ -362,7 +362,7 @@ fn archiver() {
     {
         let archived_segment = archived_segments.first().unwrap();
         let last_archived_block = archived_segment.segment_header.last_archived_block;
-        assert_eq!(last_archived_block.number, BlockNumber::new(3));
+        assert_eq!(last_archived_block.number(), BlockNumber::new(3));
         assert_eq!(last_archived_block.partial_archived(), None);
 
         #[cfg(not(feature = "parallel"))]
@@ -401,15 +401,14 @@ fn invalid_usage() {
         let result = Archiver::with_initial_state(
             erasure_coding.clone(),
             SegmentHeader {
-                segment_index: SegmentIndex::ZERO,
+                segment_index: SegmentIndex::ZERO.into(),
                 segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
-                    number: BlockNumber::ZERO,
+                    number: BlockNumber::ZERO.into(),
                     archived_progress: ArchivedBlockProgress::new_partial(
                         NonZeroU32::new(10).unwrap(),
                     ),
-                    padding: [0; _],
                 },
             },
             &[0u8; 10],
@@ -430,15 +429,14 @@ fn invalid_usage() {
         let result = Archiver::with_initial_state(
             erasure_coding.clone(),
             SegmentHeader {
-                segment_index: SegmentIndex::ZERO,
+                segment_index: SegmentIndex::ZERO.into(),
                 segment_root: SegmentRoot::default(),
                 prev_segment_header_hash: Blake3Hash::default(),
                 last_archived_block: LastArchivedBlock {
-                    number: BlockNumber::ZERO,
+                    number: BlockNumber::ZERO.into(),
                     archived_progress: ArchivedBlockProgress::new_partial(
                         NonZeroU32::new(10).unwrap(),
                     ),
-                    padding: [0; _],
                 },
             },
             &[0u8; 6],
@@ -526,13 +524,12 @@ fn object_on_the_edge_of_segment() {
         offset: RecordedHistorySegment::SIZE as u32
             // Segment header segment item
             - SegmentItem::ParentSegmentHeader(SegmentHeader {
-                segment_index: SegmentIndex::ZERO,
+                segment_index: SegmentIndex::ZERO.into(),
                 segment_root: Default::default(),
                 prev_segment_header_hash: Default::default(),
                 last_archived_block: LastArchivedBlock {
-                    number: BlockNumber::ZERO,
+                    number: BlockNumber::ZERO.into(),
                     archived_progress: ArchivedBlockProgress::new_complete(),
-                    padding: [0; _],
                 },
             })
                 .encoded_size() as u32
@@ -574,7 +571,7 @@ fn object_on_the_edge_of_segment() {
         assert_eq!(object_mapping.len(), 1);
         assert_eq!(
             object_mapping[0].piece_index.segment_index(),
-            archived_segments[0].segment_header.segment_index,
+            archived_segments[0].segment_header.segment_index(),
         );
     }
 
@@ -589,7 +586,7 @@ fn object_on_the_edge_of_segment() {
     assert_eq!(object_mapping.len(), 1);
     assert_eq!(
         object_mapping[0].piece_index.segment_index(),
-        archived_segments[1].segment_header.segment_index,
+        archived_segments[1].segment_header.segment_index(),
     );
 
     // Ensure bytes are mapped correctly

@@ -557,7 +557,7 @@ impl NodeClient for ClusterNodeClient {
 
                 move |broadcast| {
                     let archived_segment_header = broadcast.archived_segment_header;
-                    let segment_index = archived_segment_header.segment_index;
+                    let segment_index = archived_segment_header.segment_index();
 
                     let maybe_archived_segment_header = if let Some(last_archived_segment_index) =
                         last_archived_segment_index
@@ -772,7 +772,7 @@ where
         );
 
         node_client
-            .acknowledge_archived_segment_header(archived_segment_header.segment_index)
+            .acknowledge_archived_segment_header(archived_segment_header.segment_index())
             .await
             .map_err(|error| anyhow!("Failed to acknowledge archived segment header: {error}"))?;
 

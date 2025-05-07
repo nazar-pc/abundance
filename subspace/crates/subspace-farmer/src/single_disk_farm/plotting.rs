@@ -792,7 +792,7 @@ where
     while let Some(segment_header) = archived_segments_notifications.next().await {
         debug!(?segment_header, "New archived segment");
         if let Err(error) = node_client
-            .acknowledge_archived_segment_header(segment_header.segment_index)
+            .acknowledge_archived_segment_header(segment_header.segment_index())
             .await
         {
             debug!(%error, "Failed to acknowledge segment header");
@@ -859,7 +859,9 @@ where
     let mut sectors_to_replot = Vec::with_capacity(usize::from(target_sector_count) / 10);
 
     loop {
-        let segment_index = archived_segments_receiver.borrow_and_update().segment_index;
+        let segment_index = archived_segments_receiver
+            .borrow_and_update()
+            .segment_index();
         trace!(%segment_index, "New archived segment received");
 
         let sectors_metadata = sectors_metadata.read().await;

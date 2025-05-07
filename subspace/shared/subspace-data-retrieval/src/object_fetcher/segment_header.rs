@@ -32,13 +32,12 @@ const BLOCK_CONTINUATION_VARIANT: u8 = 3;
 #[inline]
 pub fn segment_header_encoded_size() -> usize {
     let min_segment_header = SegmentHeader {
-        segment_index: 0.into(),
+        segment_index: SegmentIndex::ZERO.into(),
         segment_root: SegmentRoot::default(),
         prev_segment_header_hash: Blake3Hash::default(),
         last_archived_block: LastArchivedBlock {
-            number: BlockNumber::ZERO,
+            number: BlockNumber::ZERO.into(),
             archived_progress: ArchivedBlockProgress::new_complete(),
-            padding: [0; _],
         },
     };
 

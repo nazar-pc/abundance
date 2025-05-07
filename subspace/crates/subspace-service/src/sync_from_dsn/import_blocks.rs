@@ -84,7 +84,7 @@ where
             .get_segment_header(segment_index)
             .expect("Statically guaranteed to exist, see checks above; qed");
 
-        let last_archived_maybe_partial_block_number = segment_header.last_archived_block.number;
+        let last_archived_maybe_partial_block_number = segment_header.last_archived_block.number();
         let last_archived_block_partial = segment_header
             .last_archived_block
             .archived_progress

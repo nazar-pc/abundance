@@ -285,7 +285,7 @@ impl Archiver {
     ) -> Result<Self, ArchiverInstantiationError> {
         let mut archiver = Self::new(erasure_coding);
 
-        archiver.segment_index = segment_header.segment_index + SegmentIndex::ONE;
+        archiver.segment_index = segment_header.segment_index() + SegmentIndex::ONE;
         archiver.prev_segment_header_hash = segment_header.hash();
         archiver.last_archived_block = Some(segment_header.last_archived_block);
 
@@ -342,7 +342,7 @@ impl Archiver {
     /// Get last archived block if there was any
     pub fn last_archived_block_number(&self) -> Option<BlockNumber> {
         self.last_archived_block
-            .map(|last_archived_block| last_archived_block.number)
+            .map(|last_archived_block| last_archived_block.number())
     }
 
     /// Adds new block to internal buffer, potentially producing pieces, segment headers, and
@@ -434,15 +434,16 @@ impl Archiver {
                         if let Some(last_archived_block) = &mut last_archived_block {
                             // Increase the archived block number and assume the whole block was
                             // archived (spill over checked below)
-                            last_archived_block.number += BlockNumber::ONE;
+                            last_archived_block
+                                .number
+                                .replace(last_archived_block.number() + BlockNumber::ONE);
                             last_archived_block.set_complete();
                             last_archived_block
                         } else {
                             // Genesis block
                             last_archived_block.insert(LastArchivedBlock {
-                                number: BlockNumber::ZERO,
+                                number: BlockNumber::ZERO.into(),
                                 archived_progress: ArchivedBlockProgress::new_complete(),
-                                padding: [0; _],
                             })
                         };
 
@@ -731,7 +732,7 @@ impl Archiver {
 
         // Now produce segment header
         let segment_header = SegmentHeader {
-            segment_index: self.segment_index,
+            segment_index: self.segment_index.into(),
             segment_root,
             prev_segment_header_hash: self.prev_segment_header_hash,
             last_archived_block: self

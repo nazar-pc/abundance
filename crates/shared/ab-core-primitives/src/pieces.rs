@@ -13,9 +13,7 @@ pub use crate::pieces::flat_pieces::FlatPieces;
 pub use crate::pieces::piece::Piece;
 use crate::segments::{RecordedHistorySegment, SegmentIndex, SegmentRoot};
 #[cfg(feature = "serde")]
-use ::serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
-use ::serde::{Deserializer, Serializer};
+use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;

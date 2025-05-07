@@ -30,7 +30,8 @@ struct SegmentHeaders {
 
 impl SegmentHeaders {
     fn push(&mut self, archived_segment_header: SegmentHeader) {
-        if self.segment_headers.len() == u64::from(archived_segment_header.segment_index) as usize {
+        if self.segment_headers.len() == u64::from(archived_segment_header.segment_index()) as usize
+        {
             self.segment_headers.push(archived_segment_header);
         }
     }
@@ -167,7 +168,7 @@ where
                 while let Some(archived_segment_header) =
                     archived_segments_notifications.next().await
                 {
-                    let segment_index = archived_segment_header.segment_index;
+                    let segment_index = archived_segment_header.segment_index();
                     trace!(
                         ?archived_segment_header,
                         "New archived archived segment header notification"

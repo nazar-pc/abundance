@@ -290,13 +290,12 @@ async fn basic() {
         // finished
         {
             let segment_header = SegmentHeader {
-                segment_index: SegmentIndex::ONE,
+                segment_index: SegmentIndex::ONE.into(),
                 segment_root: Default::default(),
                 prev_segment_header_hash: [0; 32].into(),
                 last_archived_block: LastArchivedBlock {
-                    number: BlockNumber::ZERO,
+                    number: BlockNumber::ZERO.into(),
                     archived_progress: Default::default(),
-                    padding: [0; _],
                 },
             };
 
@@ -351,13 +350,12 @@ async fn basic() {
         // pieces for it to store)
         for segment_index in [2, 3] {
             let segment_header = SegmentHeader {
-                segment_index: SegmentIndex::from(segment_index),
+                segment_index: SegmentIndex::from(segment_index).into(),
                 segment_root: Default::default(),
                 prev_segment_header_hash: [0; 32].into(),
                 last_archived_block: LastArchivedBlock {
-                    number: BlockNumber::ZERO,
+                    number: BlockNumber::ZERO.into(),
                     archived_progress: Default::default(),
-                    padding: [0; _],
                 },
             };
 
