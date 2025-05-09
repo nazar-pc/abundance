@@ -14,17 +14,23 @@ this will become part of the implementation and/or the final spec._
    - A reference to the latest block seen by the farmer in the beacon chain when proposing this
      block. The latest beacon chain included should be stable enough to ensure that other nodes in
      the system have already seen it and won't reject it or need to delay their verification because
-     they haven't seen it yet. This is why there reference implementation will include a as beacon
-     chan reference the block at `beacon_chain_head - STABILITY_DELAY` where e.g.
-     `STABILITY_DELAY = 5`.
+     they haven't seen it yet. This is why there client implementations will try to propose a as
+     beacon chain reference in the new block that can be consider stable like
+     `beacon_chain_head - STABILITY_DELAY` with e.g. `STABILITY_DELAY = 12` instead of the most
+     recent one they see. The verification performed by nodes to accept the block is that the beacon
+     chain block referenced is part of the history of the beacon chain, i.e. it follows of all the
+     consensus rules for the beacon chain, and it was proposed in a slot that happened after the one
+     from the block referenced by the beacon chain reference of the parent block, and consequently
+     of the current shard's block parent block (as long no reorgs in the beacon chain or the shard
+     have happened).
    - The root hash of all the blocks and segments from the child shard being submitted to the upper
      layers in this block (more about this in the sections below).
    - The root hash of the state of the child shard after applying the transactions in this block.
    - Raw consensus information about the child shard that needs to be included in a block to
-     submitted to the upper layers (e.g. child shard's `SegmentDescription`, `BlockHeader`).
+     submitted to the upper layers (mainly, child shard's `SegmentDescription` for now).
 
 ```rust
-struct BlockHeader<T: SegmentDescription>
+struct BlockHeader {
 	/// Block number
 	number: BlockNumber
 	/// Hash of the parent block.
@@ -38,8 +44,9 @@ struct BlockHeader<T: SegmentDescription>
 	/// Block number and hash of the beacon block referenced by this hash block.
 	beacon_chain_ref: (BlockNumber, Hash)
 	/// List of segments and consensus objects that need to be submitted to the upper
-	/// layers of the chain (mainly blocks and segments for now), and to verify the correctness of the child shard.
-	consensus_info: Vec<T>
+	/// layers of the chain (mainly blocks and segments for now), and to verify the correctness of the child shard. They are included as `Digest` that can be deserialised
+	/// into the right type for processing.
+	consensus_info: Vec<DigestItem>
 	/// Pointer to the MMR root of the history of the shard after appending the parent block.
 	/// This interconnects the root of the history for the child shard after every block,
 	/// allowing to easily generate proofs for the history of the shard.
@@ -64,13 +71,20 @@ struct BlockHeader<T: SegmentDescription>
    only accepted if the follow the consensus rules for block validation (i.e. the parent chain
    behaves as a light client of its own child shard). A few things that nodes in the parent need to
    considering when performing this validation are:
+
    - The block header references a valid beacon chain block. This is important to ensure that the
      block being submitted is part of the global history and can be verified by the parent chain.
+     The beacon chain block referenced is valid if it is part of the history of the beacon chain
+     according to the view of the checking node, i.e. it follows of all the consensus rules for the
+     beacon chain, and it was proposed in a slot that happened after the one from the block
+     referenced by the beacon chain reference of the parent block, and consequently of the current
+     shard's block parent block (as long no reorgs in the beacon chain or the shard have happened).
+
    - It has an increasing block number (unless a fork has happened and can be clearly identified).
-     If the block number of the block being submitted is not the next immediate one and is lower
-     than the latest committed in the parent, it means that a reorg has happened, and the parent
-     chain needs to also reorg its own view of the child shard's history. To prevent from re-org
-     potentially DoS'ing the parent shard, nodes wait for `STABILITY_DELAY = 12` slots before
+     If the block number of the block being submitted is not the next immediate one and is lower or
+     equal than the latest committed in the parent, it means that a reorg has happened, and the
+     parent chain needs to also reorg its own view of the child shard's history. To prevent from
+     re-org potentially DoS'ing the parent shard, nodes wait for `STABILITY_DELAY = 12` slots before
      appending a valid block into the child shard history or triggering a detected reorg. This delay
      allows for the chain to be able to stabilise and prevent unnecessary reorgs.
    - The result of the validation notifies the parent chain if the validated block can be appended
@@ -175,9 +189,8 @@ let shardBlocksMap = HashMap<ShardId, HashMap<BlockNumber, Hash>>
 
 5. Full nodes in child shards represent their own history as Mountain Merkle Roots (MMRs) whose root
    is included as a field in every block, allowing them to include in every block a view of their
-   history that would allow for the generation of proofs of their history without having to wait for
-   their segments to be included in the global history in the beacon chain.
-
+   history that would allow for the generation of proofs of their history that can be tracked back
+   to the history of the beacon chain.
 6. The protocol is recursive, so immediate children from the beacon chain are also submitting their
    blocks to the beacon chain, and the beacon chain itself keeps a view of its child shards.
 
