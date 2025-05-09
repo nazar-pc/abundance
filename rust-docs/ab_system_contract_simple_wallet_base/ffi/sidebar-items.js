@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["authorize","change_public_key","execute","increase_nonce","initialize"]};
