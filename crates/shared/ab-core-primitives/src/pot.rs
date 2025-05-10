@@ -4,7 +4,7 @@ use crate::hashes::{Blake3Hash, blake3_hash, blake3_hash_list};
 use crate::pieces::RecordChunk;
 use core::fmt;
 use core::iter::Step;
-use core::num::NonZeroU8;
+use core::num::{NonZeroU8, NonZeroU32};
 use core::str::FromStr;
 use core::time::Duration;
 use derive_more::{
@@ -443,4 +443,21 @@ impl PotCheckpoints {
     pub fn output(&self) -> PotOutput {
         self.0[Self::NUM_CHECKPOINTS.get() as usize - 1]
     }
+}
+
+/// Change of parameters to apply to the proof of time chain
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+pub struct PotParametersChange {
+    // TODO: Reduce this to `u16` or even `u8` since it is always an offset relatively to current
+    //  block's slot number
+    /// At which slot change of parameters takes effect
+    pub slot: SlotNumber,
+    /// New number of slot iterations
+    pub slot_iterations: NonZeroU32,
+    /// Entropy that should be injected at this time
+    pub entropy: Blake3Hash,
 }

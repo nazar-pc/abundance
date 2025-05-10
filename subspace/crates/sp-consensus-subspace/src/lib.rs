@@ -10,7 +10,9 @@ pub mod inherents;
 
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed, SlotDuration, SlotNumber};
+use ab_core_primitives::pot::{
+    PotCheckpoints, PotOutput, PotParametersChange, PotSeed, SlotDuration, SlotNumber,
+};
 use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
 use ab_core_primitives::solutions::SolutionRange;
 #[cfg(not(feature = "std"))]
@@ -112,17 +114,6 @@ impl PotNextSlotInput {
             seed,
         }
     }
-}
-
-/// Change of parameters to apply to PoT chain
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Decode, Encode, TypeInfo, MaxEncodedLen)]
-pub struct PotParametersChange {
-    /// At which slot change of parameters takes effect
-    pub slot: SlotNumber,
-    /// New number of slot iterations
-    pub slot_iterations: NonZeroU32,
-    /// Entropy that should be injected at this time
-    pub entropy: Blake3Hash,
 }
 
 /// An consensus log item for Subspace.
