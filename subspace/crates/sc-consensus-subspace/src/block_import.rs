@@ -428,7 +428,7 @@ where
         let sector_id = SectorId::new(
             &pre_digest.solution.public_key_hash,
             pre_digest.solution.sector_index,
-            pre_digest.solution.history_size(),
+            pre_digest.solution.history_size,
         );
 
         let max_pieces_in_sector = self
@@ -437,7 +437,7 @@ where
             .max_pieces_in_sector(parent_hash)?;
         let piece_index = sector_id.derive_piece_index(
             pre_digest.solution.piece_offset,
-            pre_digest.solution.history_size(),
+            pre_digest.solution.history_size,
             max_pieces_in_sector,
             chain_constants.recent_segments(),
             chain_constants.recent_history_fraction(),
@@ -456,7 +456,7 @@ where
                 subspace_digest_items
                     .pre_digest
                     .solution
-                    .history_size()
+                    .history_size
                     .sector_expiration_check(chain_constants.min_sector_lifetime())
                     .ok_or(Error::InvalidHistorySize)?
                     .segment_index(),

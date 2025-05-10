@@ -7,8 +7,8 @@ use crate::pos::{PosProof, PosSeed};
 use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
+use crate::shard::ShardIndex;
 use ab_io_type::trivial_type::TrivialType;
-use ab_io_type::unaligned::Unaligned;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use blake3::OUT_LEN;
 use core::fmt;
@@ -443,7 +443,9 @@ pub struct Solution {
     /// Proof of space for piece offset
     pub proof_of_space: PosProof,
     /// Size of the blockchain history at the time of sector creation
-    pub history_size: Unaligned<HistorySize>,
+    pub history_size: HistorySize,
+    /// Index of a shard for which sector was created
+    pub shard_index: ShardIndex,
     /// Index of the sector where the solution was found
     pub sector_index: SectorIndex,
     /// Pieces offset within sector
@@ -460,15 +462,11 @@ impl Solution {
             chunk: RecordChunk::default(),
             chunk_proof: ChunkProof::default(),
             proof_of_space: PosProof::default(),
-            history_size: HistorySize::from(SegmentIndex::ZERO).into(),
+            shard_index: ShardIndex::BEACON_CHAIN,
+            history_size: HistorySize::from(SegmentIndex::ZERO),
             sector_index: SectorIndex::ZERO,
             piece_offset: PieceOffset::default(),
         }
-    }
-
-    /// Get history size (unwrap `Unaligned`)
-    pub fn history_size(&self) -> HistorySize {
-        self.history_size.as_inner()
     }
 
     /// Check solution validity
@@ -485,9 +483,8 @@ impl Solution {
             solution_range,
             piece_check_params,
         } = params;
-        let history_size = self.history_size.as_inner();
 
-        let sector_id = SectorId::new(&self.public_key_hash, self.sector_index, history_size);
+        let sector_id = SectorId::new(&self.public_key_hash, self.sector_index, self.history_size);
 
         let global_challenge = proof_of_time.derive_global_challenge(slot);
         let sector_slot_challenge = sector_id.derive_sector_slot_challenge(&global_challenge);
@@ -550,7 +547,7 @@ impl Solution {
             if let Some(sector_expiration_check_segment_root) = sector_expiration_check_segment_root
             {
                 let expiration_history_size = match sector_id.derive_expiration_history_size(
-                    history_size,
+                    self.history_size,
                     sector_expiration_check_segment_root,
                     *min_sector_lifetime,
                 ) {
@@ -571,7 +568,7 @@ impl Solution {
             let position = sector_id
                 .derive_piece_index(
                     self.piece_offset,
-                    history_size,
+                    self.history_size,
                     *max_pieces_in_sector,
                     *recent_segments,
                     *recent_history_fraction,

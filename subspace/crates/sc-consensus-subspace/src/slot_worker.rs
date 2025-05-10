@@ -500,7 +500,7 @@ where
             let sector_id = SectorId::new(
                 &solution.public_key_hash,
                 solution.sector_index,
-                solution.history_size(),
+                solution.history_size,
             );
 
             let history_size = runtime_api.history_size(parent_hash).ok()?;
@@ -509,7 +509,7 @@ where
             let segment_index = sector_id
                 .derive_piece_index(
                     solution.piece_offset,
-                    solution.history_size(),
+                    solution.history_size,
                     max_pieces_in_sector,
                     chain_constants.recent_segments(),
                     chain_constants.recent_history_fraction(),
@@ -532,7 +532,7 @@ where
                 }
             };
             let sector_expiration_check_segment_index = match solution
-                .history_size()
+                .history_size
                 .sector_expiration_check(chain_constants.min_sector_lifetime())
             {
                 Some(sector_expiration_check) => sector_expiration_check.segment_index(),
