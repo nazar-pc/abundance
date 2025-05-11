@@ -17,6 +17,7 @@ all-features = true
 ab-aligned-buffer = { workspace = true, optional = true }
 ab-io-type = { workspace = true }
 ab-merkle-tree = { workspace = true }
+bech32 = { workspace = true }
 blake3 = { workspace = true }
 bytes = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["full"] }

@@ -16,8 +16,7 @@ impl ShardIndex {
     pub const MAX_SHARDS: NonZeroU32 = NonZeroU32::new(2u32.pow(20)).expect("Not zero; qed");
     /// Max possible number of addresses per shard
     pub const MAX_ADDRESSES_PER_SHARD: NonZeroU128 =
-        NonZeroU128::new((u128::MAX / 2 + 1) / (Self::MAX_SHARDS.get() as u128 / 2))
-            .expect("Not zero; qed");
+        NonZeroU128::new(2u128.pow(108)).expect("Not zero; qed");
 
     // TODO: Remove once traits work in const environment and `From` could be used
     /// Create shard index from `u32`.

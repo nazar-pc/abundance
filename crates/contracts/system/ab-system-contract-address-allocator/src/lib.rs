@@ -23,8 +23,7 @@ impl AddressAllocator {
     pub fn new(#[env] env: &Env<'_>) -> Self {
         let shard_index = env.shard_index();
 
-        let expected_self_address =
-            u128::from(shard_index.as_u32()) * ShardIndex::MAX_ADDRESSES_PER_SHARD.get();
+        let expected_self_address = u128::from(Address::system_address_allocator(shard_index));
         debug_assert_eq!(
             env.own_address(),
             Address::from(expected_self_address),
@@ -33,7 +32,7 @@ impl AddressAllocator {
 
         Self {
             next_address: expected_self_address + 1,
-            max_address: expected_self_address + ShardIndex::MAX_ADDRESSES_PER_SHARD.get() - 1,
+            max_address: expected_self_address + (ShardIndex::MAX_ADDRESSES_PER_SHARD.get() - 1),
         }
     }
 

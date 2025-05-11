@@ -178,7 +178,7 @@ impl Slots {
         let new_contracts = &mut self.0.new_contracts;
 
         if new_contracts.contains(&owner) {
-            debug!(%owner, "Not adding new contract duplicate");
+            debug!(?owner, "Not adding new contract duplicate");
             return false;
         }
 
@@ -388,14 +388,14 @@ impl<'a> NestedSlots<'a> {
     #[inline(always)]
     pub fn add_new_contract(&mut self, owner: Address) -> bool {
         let Some(inner) = self.inner_rw() else {
-            debug!(%owner, "`add_new_contract` access violation");
+            debug!(?owner, "`add_new_contract` access violation");
             return false;
         };
 
         let new_contracts = &mut inner.new_contracts;
 
         if new_contracts.contains(&owner) {
-            debug!(%owner, "Not adding new contract duplicate");
+            debug!(?owner, "Not adding new contract duplicate");
             return false;
         }
 
@@ -414,7 +414,7 @@ impl<'a> NestedSlots<'a> {
         let result = self.get_code_internal(owner);
 
         if result.is_none() {
-            debug!(%owner, "`get_code` access violation");
+            debug!(?owner, "`get_code` access violation");
         }
 
         result
