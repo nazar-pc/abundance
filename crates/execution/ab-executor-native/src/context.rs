@@ -66,7 +66,7 @@ impl<'a> ExecutorContext for NativeExecutorContext<'a> {
             caller: previous_env_state.own_address,
         };
 
-        let span = info_span!("NativeExecutorContext", %contract);
+        let span = info_span!("NativeExecutorContext", ?contract);
         let _span_guard = span.enter();
 
         let method_details = {
