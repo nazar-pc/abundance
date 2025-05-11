@@ -9,7 +9,12 @@ use core::{fmt, ptr};
 
 /// Logically the same as `u128`, but aligned to `8` bytes instead of `16`.
 ///
-/// Byte layout is the same as `u128`, just alignment is different
+/// Byte layout is the same as `u128`, just alignment is different.
+///
+/// The first 20 bits correspond to the shard index (big endian), and the remaining 108 bits
+/// (little endian) are an address allocated within that shard. This way an address will have a
+/// bunch of zeroes in the middle that is shrinking as more shards are added and more addresses are
+/// allocated.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(C)]
 pub struct Address(u64, u64);
@@ -122,6 +127,6 @@ impl Address {
         // Shard `0` doesn't have its own allocator because there are no user-deployable contracts
         // there, so address `0` is `NULL`, the rest up to `ShardIndex::MAX_SHARD_INDEX` correspond
         // to address allocators of respective shards
-        Self::new(shard_index.as_u32() as u128 * ShardIndex::MAX_ADDRESSES_PER_SHARD.get())
+        Self::new((shard_index.as_u32() as u128).reverse_bits())
     }
 }
