@@ -3,13 +3,26 @@
 use ab_io_type::trivial_type::TrivialType;
 use core::num::{NonZeroU32, NonZeroU128};
 use derive_more::Display;
+#[cfg(feature = "scale-codec")]
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+#[cfg(feature = "scale-codec")]
+use scale_info::TypeInfo;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 /// Shard index
 #[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
-#[repr(transparent)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[repr(C)]
 pub struct ShardIndex(u32);
 
 impl ShardIndex {
+    /// Beacon chain
+    pub const BEACON_CHAIN: Self = Self(0);
     /// Max possible shard index
     pub const MAX_SHARD_INDEX: u32 = Self::MAX_SHARDS.get() - 1;
     /// Max possible number of shards

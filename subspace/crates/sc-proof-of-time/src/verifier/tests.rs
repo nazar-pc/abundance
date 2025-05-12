@@ -1,7 +1,7 @@
 use crate::verifier::PotVerifier;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pot::{PotSeed, SlotNumber};
-use sp_consensus_subspace::{PotNextSlotInput, PotParametersChange};
+use ab_core_primitives::pot::{PotParametersChange, PotSeed, SlotNumber};
+use sp_consensus_subspace::PotNextSlotInput;
 use std::num::NonZeroU32;
 
 const SEED: [u8; 16] = [

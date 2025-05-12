@@ -80,9 +80,9 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                             ::core::mem::size_of::<#type_name>()
                             #(- ::core::mem::size_of::<#field_types>() )*
                         ),
-                        "Struct must not have implicit padding. Add `padding: [u8; N]` field where \
-                        necessary or use `Unaligned<T>` wrapper for types with larger alignment to \
-                        reduce it to one byte."
+                        "Struct must not have implicit padding. Consider reordering fields, adding \
+                        `padding: [u8; N]` field where necessary or use `Unaligned<T>` wrapper for \
+                        types with larger alignment to reduce it to one byte."
                     );
 
                     // Assert that type doesn't exceed 32-bit size limit
@@ -143,9 +143,9 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                             - ::core::mem::size_of::<::core::primitive::#repr_numeric>()
                             #(- ::core::mem::size_of::<#field_types>() )*
                         ),
-                        "Enum must not have implicit padding. Add `padding: [u8; N]` field where \
-                        necessary or use `Unaligned<T>` wrapper for types with larger alignment to \
-                        reduce it to one byte."
+                        "Enum must not have implicit padding. Consider reordering fields, adding \
+                        `padding: [u8; N]` field where necessary or use `Unaligned<T>` wrapper for \
+                        types with larger alignment to reduce it to one byte."
                     );
                 }
             });

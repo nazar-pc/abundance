@@ -15,7 +15,7 @@ pub mod weights;
 
 use crate::extensions::weights::WeightInfo as ExtensionWeightInfo;
 use ab_core_primitives::block::BlockNumber;
-use ab_core_primitives::pot::SlotNumber;
+use ab_core_primitives::pot::{PotParametersChange, SlotNumber};
 use ab_core_primitives::segments::{
     ArchivedHistorySegment, HistorySize, SegmentHeader, SegmentIndex,
 };
@@ -31,8 +31,8 @@ use log::{debug, warn};
 pub use pallet::*;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use sp_consensus_subspace::PotParameters;
 use sp_consensus_subspace::digests::{CompatibleDigestItem, PreDigest};
-use sp_consensus_subspace::{PotParameters, PotParametersChange};
 use sp_runtime::generic::DigestItem;
 use sp_runtime::traits::{CheckedSub, Zero};
 use sp_runtime::transaction_validity::{

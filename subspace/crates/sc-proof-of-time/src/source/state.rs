@@ -1,7 +1,7 @@
 use crate::verifier::PotVerifier;
-use ab_core_primitives::pot::{PotOutput, SlotNumber};
+use ab_core_primitives::pot::{PotOutput, PotParametersChange, SlotNumber};
 use parking_lot::Mutex;
-use sp_consensus_subspace::{PotNextSlotInput, PotParametersChange};
+use sp_consensus_subspace::PotNextSlotInput;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct InnerState {

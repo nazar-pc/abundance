@@ -16,6 +16,7 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunk};
 use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SBucket, SectorId};
+use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::solutions::{ChunkProof, Solution, SolutionDistance};
 use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
@@ -283,7 +284,9 @@ where
                 chunk,
                 chunk_proof: ChunkProof::from(chunk_proof),
                 proof_of_space,
-                history_size: self.sector_metadata.history_size.into(),
+                history_size: self.sector_metadata.history_size,
+                // TODO: Set correct value
+                shard_index: ShardIndex::BEACON_CHAIN,
                 sector_index: self.sector_metadata.sector_index,
                 piece_offset,
             }
