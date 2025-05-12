@@ -83,8 +83,8 @@ impl ShortHrp {
 ///
 /// Byte layout is the same as `u128`, just alignment is different.
 ///
-/// The first 20 bits correspond to the shard index (big endian), and the remaining 108 bits
-/// (little endian) are an address allocated within that shard. This way an address will have a
+/// The first 20 bits correspond to the shard index (little endian), and the remaining 108 bits
+/// (big endian) are an address allocated within that shard. This way an address will have a
 /// bunch of zeroes in the middle that is shrinking as more shards are added and more addresses are
 /// allocated.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
@@ -355,7 +355,7 @@ impl Address {
         formatted_address
     }
 
-    /// Turn value into `u128`
+    /// Get inner `u128` representation
     #[inline(always)]
     const fn as_u128(self) -> u128 {
         // SAFETY: correct size, valid pointer, and all bits are valid
