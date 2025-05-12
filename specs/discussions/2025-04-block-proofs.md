@@ -72,30 +72,68 @@ struct BlockHeader {
    behaves as a light client of its own child shard). A few things that nodes in the parent need to
    considering when performing this validation are:
 
-   - The block header references a valid beacon chain block. This is important to ensure that the
-     block being submitted is part of the global history and can be verified by the parent chain.
-     The beacon chain block referenced is valid if it is part of the history of the beacon chain
-     according to the view of the checking node, i.e. it follows of all the consensus rules for the
-     beacon chain, and it was proposed in a slot that happened after the one from the block
-     referenced by the beacon chain reference of the parent block, and consequently of the current
-     shard's block parent block (as long no reorgs in the beacon chain or the shard have happened).
+   - (a) The block header references a valid beacon chain block. This is important to ensure that
+     the block being submitted is part of the global history and can be verified by the parent
+     chain. The beacon chain block referenced is valid if:
 
-   - It has an increasing block number (unless a fork has happened and can be clearly identified).
-     If the block number of the block being submitted is not the next immediate one and is lower or
-     equal than the latest committed in the parent, it means that a reorg has happened, and the
-     parent chain needs to also reorg its own view of the child shard's history. To prevent from
-     re-org potentially DoS'ing the parent shard, nodes wait for `STABILITY_DELAY = 12` slots before
-     appending a valid block into the child shard history or triggering a detected reorg. This delay
-     allows for the chain to be able to stabilise and prevent unnecessary reorgs.
-   - The result of the validation notifies the parent chain if the validated block can be appended
-     to the child shard history or if a reorg is required, and its view of the child shard history
-     needs to be adjusted accordingly.
+     - (i) it correctly extends last referenced beacon chain block according to the view of the
+       checking node.
+     - (ii) Assuming that the child block, `i` is being proposed for PoT slot `N` and that its
+       parent block, `i-1`, was created in slot `N-x`, the beacon chain block referenced in the
+       child block header `i` is valid only if it belongs to the window of slots `N-x+1` to `N`
+       (i.e. child blocks can't reference blocks from the future, or that are behind a block already
+       referenced by an older block of the child's history). This, of course, assumes that no
+       re-orgs have happened in the block. More information about how to handle potential re-orgs
+       will be shared in the sections below.
 
-````rust
+   - (b) It has an increasing block number (unless a fork has happened and can be clearly
+     identified). If the block number of the block being submitted is not the next immediate one and
+     is lower or equal than the latest committed in the parent, it means that a reorg has happened,
+     and the parent chain needs to also reorg its own view of the child shard's history. A
+     `STABILITY_DELAY = 12` is used before appending blocks to prevent triggering unnecessary reorgs
+     (the specifics of this is shared in the sections below).
+   - (c) The result of the validation notifies the parent chain if the validated block can be
+     appended to the child shard history or if a reorg is required, and its view of the child shard
+     history needs to be adjusted accordingly.
+
+```rust
 /// Enum to represent the validation result of a block submission.
 enum ValidationResult {
 	Valid,
 	ReOrg,
+}
+
+/// Validates that the block references a valid beacon chain block.
+fn validate_beacon_chain_reference(
+	block_header: &BlockHeader,
+	beacon_chain_header: &BlockHeader,
+	parent_header: &BlockHeader,
+	stability_delay: u64,
+) -> Result<(), Error> {
+	// Extract the beacon chain reference from the block header.
+	let (beacon_block_number, beacon_block_hash) = block_header.beacon_chain_ref;
+
+	// (i) Verify that the beacon block correctly extends the last referenced beacon chain block.
+	if beacon_chain_header.number != beacon_block_number
+		|| beacon_chain_header.parent_hash != parent_header.hash
+	{
+		return Err(Error::InvalidBeaconChainReference);
+	}
+
+	// (ii) Ensure the beacon block belongs to the valid slot window.
+	let parent_block_slot = parent_header.number;
+	let current_block_slot = block_header.number;
+
+	if beacon_block_number < parent_block_slot + 1 || beacon_block_number > current_block_slot {
+		return Err(Error::InvalidBeaconChainReference);
+	}
+
+	// Ensure the beacon block is not referencing a block from the future.
+	if beacon_block_number + stability_delay > beacon_chain_header.number {
+		return Err(Error::InvalidBeaconChainReference);
+	}
+
+	Ok(())
 }
 
 /// Validates the submitted block header against the following conditions and determines
@@ -106,10 +144,10 @@ fn validate_block_submission<T: SegmentDescription>(
 	beacon_chain: &BeaconChain,
 	stability_delay: u64, // Explicitly include STABILITY_DELAY
 ) -> Result<ValidationResult, Error> {
-	// 1. Check if the block references a valid beacon chain block.
-	let (beacon_block_number, _) = block_header.beacon_chain_ref;
-	if beacon_block_number + stability_delay > beacon_chain.get_latest_block_number() {
-		return Err(Error::InvalidBeaconChainReference);
+
+	// 1. Validate the beacon chain reference.
+	if let Err(e) = validate_beacon_chain_reference(block_header, beacon_chain, parent_chain, stability_delay) {
+		return Err(e);
 	}
 
 	// 2. Verify that the solution is within the acceptable range.
@@ -142,6 +180,11 @@ fn validate_block_submission<T: SegmentDescription>(
 	// 5. Validate the consensus information included in the block header.
 	if !validate_consensus_info(&block_header.consensus_info, parent_chain) {
 		return Err(Error::InvalidConsensusInfo);
+	}
+
+	// 6. Verify the Merkle proofs for the block header fields.
+	if !verify_merkle_proofs(&block_header) {
+		return Err(Error::InvalidMerkleProofs);
 	}
 
 	Ok(ValidationResult::Valid)
@@ -178,6 +221,14 @@ fn validate_consensus_info<T: SegmentDescription>(
 	true
 }
 
+/// Helper function to verify Merkle proofs for the block header fields.
+fn verify_merkle_proofs<T: SegmentDescription>(block_header: &BlockHeader<T>) -> bool {
+	// Verify that the Merkle proofs for fields like `tx_root`, `state_root`, and
+	// `parent_mmr_history_root` are consistent with the block header hash.
+	true
+}
+```
+
 4. If the verification is successful, the following information is stored in the parent shard for
    each shard. This information can be used to generate inclusion proofs for the blocks in the child
    shard and compare the with the information submitted in the parent chain.
@@ -185,7 +236,7 @@ fn validate_consensus_info<T: SegmentDescription>(
 ```rust
 /// Data structure that is kept on-chain with the hash of the block submitted from the child shard.
 let shardBlocksMap = HashMap<ShardId, HashMap<BlockNumber, Hash>>
-````
+```
 
 5. Full nodes in child shards represent their own history as Mountain Merkle Roots (MMRs) whose root
    is included as a field in every block, allowing them to include in every block a view of their
@@ -317,34 +368,34 @@ global history. To verify the proof, we need to perform the following steps:
 
 ```rust
 /// Verifies a recursive proof that a block is part of the global history.
-fn verify_recursive_proof(
-	block: Block,
+pub fn verify_recursive_proof(
+	block: Hash,
+	shard_index: ShardId,
+	beacon_chain_block: Hash,
 	proof: BlockInclusionProof,
-	recent_beacon_hashes: &[Hash], // Access to the history of the beacon chain.
 ) -> Result<(), Error> {
-	let mut current_block = block;
+	// Step 1: Verify the recursive proof for the block_hash in the shard hierarchy.
+	let mut current_block_hash = block_hash;
 
 	for level in proof.recursive_proofs.iter() {
-		// Verify that the shard proof is consistent with the block header hash.
-		if !verify_merkle_proof(&level.shard_proof, &current_block.header.hash()) {
+		// Verify that the shard proof is consistent with the current block hash.
+		if !verify_merkle_proof(&level.shard_proof, &current_block_hash) {
 			return Err(Error::InvalidShardProof);
 		}
 
 		// Verify that the child block proof is consistent with the consensus_info_root of the parent block.
 		if let Some(child_block_proof) = &level.child_block_proof {
-			let parent_block = get_block_by_number(level.parent_block_number)?;
-			if !verify_merkle_proof(child_block_proof, &parent_block.header.consensus_info_root) {
+			if !verify_merkle_proof(child_block_proof, &level.consensus_info_root) {
 				return Err(Error::InvalidChildBlockProof);
 			}
-			current_block = parent_block;
-		} else {
-			// If no child block proof exists, move to the parent block.
-			current_block = get_block_by_number(level.parent_block_number)?;
 		}
+
+		// Move to the parent block hash for the next iteration.
+		current_block_hash = level.parent_block_hash;
 	}
 
-	// Verify that the final parent block is part of the beacon chain.
-	if !recent_beacon_hashes.contains(&current_block.header.hash()) {
+	// Step 2: Ensure the final parent block hash matches the beacon_chain_block_hash.
+	if current_block_hash != beacon_chain_block_hash {
 		return Err(Error::InvalidBeaconChainReference);
 	}
 
