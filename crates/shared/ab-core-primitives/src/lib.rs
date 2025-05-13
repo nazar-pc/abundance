@@ -9,7 +9,8 @@
     generic_arg_infer,
     portable_simd,
     ptr_as_ref_unchecked,
-    step_trait
+    step_trait,
+    trusted_len
 )]
 #![cfg_attr(feature = "alloc", feature(new_zeroed_alloc))]
 #![expect(incomplete_features, reason = "generic_const_exprs")]

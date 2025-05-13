@@ -1,4 +1,4 @@
-use crate::transaction::owned::{OwnedTransactionBuilderError, OwnedTransactionLengths};
+use crate::transaction::owned::{OwnedTransactionBuilderError, SerializedTransactionLengths};
 use crate::transaction::{TransactionHeader, TransactionSlot};
 use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_io_type::trivial_type::TrivialType;
@@ -13,24 +13,26 @@ impl BuilderBuffer {
     pub(super) fn new(header: &TransactionHeader) -> Self {
         const _: () = {
             // Writing `OwnedTransactionLengths` after `TransactionHeader` must be aligned
-            assert!(size_of::<TransactionHeader>() % align_of::<OwnedTransactionLengths>() == 0);
+            assert!(
+                size_of::<TransactionHeader>() % align_of::<SerializedTransactionLengths>() == 0
+            );
         };
         let mut buffer = OwnedAlignedBuffer::with_capacity(
-            TransactionHeader::SIZE + OwnedTransactionLengths::SIZE,
+            TransactionHeader::SIZE + SerializedTransactionLengths::SIZE,
         );
         // Always fits into `u32`
         let _: bool = buffer.append(header.as_bytes());
         // Always fits into `u32`
-        let _: bool = buffer.append(OwnedTransactionLengths::default().as_bytes());
+        let _: bool = buffer.append(SerializedTransactionLengths::default().as_bytes());
         Self { buffer }
     }
 
-    fn get_lengths(&mut self) -> &mut OwnedTransactionLengths {
+    fn get_lengths(&mut self) -> &mut SerializedTransactionLengths {
         unsafe {
             self.buffer
                 .as_mut_ptr()
                 .add(size_of::<TransactionHeader>())
-                .cast::<OwnedTransactionLengths>()
+                .cast::<SerializedTransactionLengths>()
                 .as_mut_unchecked()
         }
     }
@@ -55,7 +57,7 @@ impl BuilderBuffer {
             // Writing `TransactionSlot` after `OwnedTransactionLengths` and `TransactionHeader`
             // must be aligned
             assert!(
-                (size_of::<TransactionHeader>() + size_of::<OwnedTransactionLengths>())
+                (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
                     % align_of::<TransactionSlot>()
                     == 0
             );
@@ -91,7 +93,7 @@ impl BuilderBuffer {
             // Writing `TransactionSlot` after `OwnedTransactionLengths` and `TransactionHeader`
             // must be aligned
             assert!(
-                (size_of::<TransactionHeader>() + size_of::<OwnedTransactionLengths>())
+                (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
                     % align_of::<TransactionSlot>()
                     == 0
             );
@@ -127,13 +129,13 @@ impl BuilderBuffer {
             // Writing after `OwnedTransactionLengths`, `TransactionHeader` and (optionally)
             // `TransactionSlot` must be aligned to `u128`
             assert!(
-                (size_of::<TransactionHeader>() + size_of::<OwnedTransactionLengths>())
+                (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
                     % align_of::<u128>()
                     == 0
             );
             assert!(
                 (size_of::<TransactionHeader>()
-                    + size_of::<OwnedTransactionLengths>()
+                    + size_of::<SerializedTransactionLengths>()
                     + size_of::<TransactionSlot>())
                     % align_of::<u128>()
                     == 0
@@ -166,13 +168,13 @@ impl BuilderBuffer {
             // Writing after `OwnedTransactionLengths`, `TransactionHeader` and (optionally)
             // `TransactionSlot` must be aligned to `u128`
             assert!(
-                (size_of::<TransactionHeader>() + size_of::<OwnedTransactionLengths>())
+                (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
                     % align_of::<u128>()
                     == 0
             );
             assert!(
                 (size_of::<TransactionHeader>()
-                    + size_of::<OwnedTransactionLengths>()
+                    + size_of::<SerializedTransactionLengths>()
                     + size_of::<TransactionSlot>())
                     % align_of::<u128>()
                     == 0
