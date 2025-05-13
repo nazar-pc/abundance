@@ -83,7 +83,7 @@ One thing that impacts the length of the address is the amount of data stored in
 Solana 32 bytes, Cardano clearly stores even more data there. As [mentioned previously], I decided to go with just 16
 bytes in a form of `u128` for an address, which is an artifact of the smart contract design.
 
-[mentioned previously]: ./2025-02-21-5-million-flips
+[mentioned previously]: ../2025-02-21-5-million-flips
 
 Since Bech32m looks like one of the best options features-wise, let's use it as an example and format a random 128-bit
 unsigned integer with `abc` prefix (human-readable part, Bitcoin mainnet uses `bc` for example):
