@@ -147,6 +147,7 @@ impl<const K: u8, const TABLE_NUMBER: u8> From<Metadata<K, TABLE_NUMBER>> for u1
 where
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
 {
+    #[inline(always)]
     fn from(value: Metadata<K, TABLE_NUMBER>) -> Self {
         // `*_be_bytes()` is used such that `Ord`/`PartialOrd` impl works as expected
         let mut output = 0u128.to_be_bytes();
@@ -162,6 +163,7 @@ where
 {
     /// If used incorrectly, will truncate information, it is up to implementation to ensure `u128`
     /// only contains data in lower bits and fits into internal byte array of `Metadata`
+    #[inline(always)]
     fn from(value: u128) -> Self {
         Self(
             value.to_be_bytes()[size_of::<u128>() - metadata_size_bytes(K, TABLE_NUMBER)..]
