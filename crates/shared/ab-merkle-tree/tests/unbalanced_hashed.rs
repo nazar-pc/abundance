@@ -386,4 +386,18 @@ fn test_basic(number_of_leaves: usize) {
         )
         .is_none()
     );
+
+    let empty: [[u8; 32]; 0] = [];
+    assert!(
+        UnbalancedHashedMerkleTree::compute_root_and_proof_in::<MAX_N, _>(
+            empty.iter(),
+            0,
+            proof_buffer
+        )
+        .is_none()
+    );
+    #[cfg(feature = "alloc")]
+    assert!(
+        UnbalancedHashedMerkleTree::compute_root_and_proof::<MAX_N, _>(empty.iter(), 0,).is_none()
+    );
 }

@@ -46,5 +46,5 @@ pub fn hash_pair(left: &[u8; OUT_LEN], right: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
     pair[..OUT_LEN].copy_from_slice(left);
     pair[OUT_LEN..].copy_from_slice(right);
 
-    *blake3::keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair).as_bytes()
+    blake3::keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair).into()
 }

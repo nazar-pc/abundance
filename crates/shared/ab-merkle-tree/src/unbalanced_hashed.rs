@@ -37,6 +37,8 @@ impl UnbalancedHashedMerkleTree {
     ///
     /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
     /// usage.
+    ///
+    /// Returns `None` for an empty list of leaves.
     #[inline]
     pub fn compute_root_only<'a, const N: usize, Iter>(leaves: Iter) -> Option<[u8; OUT_LEN]>
     where
