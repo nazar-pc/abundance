@@ -62,7 +62,7 @@ where
 
     assert_eq!(BalancedHashedMerkleTree::compute_root_only(&leaves), root);
     assert_eq!(
-        UnbalancedHashedMerkleTree::compute_root_only(leaves.iter()).unwrap(),
+        UnbalancedHashedMerkleTree::compute_root_only(leaves.iter().copied()).unwrap(),
         root
     );
 
@@ -119,8 +119,8 @@ where
         // Ensure unbalanced implementation produces the same proofs and can verify them
         // successfully
         let (unbalanced_root, unbalanced_proof) =
-            UnbalancedHashedMerkleTree::compute_root_and_proof_in::<N, _>(
-                leaves.iter(),
+            UnbalancedHashedMerkleTree::compute_root_and_proof_in::<N, _, _>(
+                leaves.iter().copied(),
                 leaf_index,
                 proof_buffer,
             )
@@ -134,8 +134,8 @@ where
         #[cfg(feature = "alloc")]
         {
             let (unbalanced_root, unbalanced_proof) =
-                UnbalancedHashedMerkleTree::compute_root_and_proof::<N, _>(
-                    leaves.iter(),
+                UnbalancedHashedMerkleTree::compute_root_and_proof::<N, _, _>(
+                    leaves.iter().copied(),
                     leaf_index,
                 )
                 .unwrap();
