@@ -48,14 +48,15 @@ impl SimpleUnbalancedMerkleTree {
     }
 
     /// Compute Merkle Tree Root and generate a proof for the leaf at target_index
-    fn compute_root_and_proof<'a, Iter>(
+    fn compute_root_and_proof<'a, Item, Iter>(
         leaves: Iter,
         target_index: usize,
     ) -> Option<([u8; OUT_LEN], Vec<[u8; OUT_LEN]>)>
     where
-        Iter: Iterator<Item = &'a [u8; OUT_LEN]> + 'a,
+        Item: Into<[u8; OUT_LEN]>,
+        Iter: IntoIterator<Item = Item> + 'a,
     {
-        let mut nodes = leaves.cloned().collect::<Vec<[u8; OUT_LEN]>>();
+        let mut nodes = leaves.into_iter().map(Into::into).collect::<Vec<_>>();
         if nodes.is_empty() || target_index >= nodes.len() {
             return None;
         }
@@ -226,7 +227,8 @@ fn test_basic(number_of_leaves: usize) {
 
     let root = SimpleUnbalancedMerkleTree::compute_root_only(leaves.iter()).unwrap();
     let computed_root =
-        UnbalancedHashedMerkleTree::compute_root_only::<'_, MAX_N, _>(leaves.iter()).unwrap();
+        UnbalancedHashedMerkleTree::compute_root_only::<'_, MAX_N, _, _>(leaves.iter().copied())
+            .unwrap();
 
     assert_eq!(root, computed_root, "number_of_leaves {number_of_leaves}");
 
@@ -247,15 +249,16 @@ fn test_basic(number_of_leaves: usize) {
 
     for (leaf_index, leaf) in leaves.iter().copied().enumerate() {
         let (computed_root, proof) =
-            SimpleUnbalancedMerkleTree::compute_root_and_proof(leaves.iter(), leaf_index).unwrap();
+            SimpleUnbalancedMerkleTree::compute_root_and_proof(leaves.iter().copied(), leaf_index)
+                .unwrap();
         assert_eq!(
             computed_root, root,
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
 
         let (computed_root, computed_proof) =
-            UnbalancedHashedMerkleTree::compute_root_and_proof_in::<MAX_N, _>(
-                leaves.iter(),
+            UnbalancedHashedMerkleTree::compute_root_and_proof_in::<MAX_N, _, _>(
+                leaves.iter().copied(),
                 leaf_index,
                 proof_buffer,
             )
@@ -271,8 +274,8 @@ fn test_basic(number_of_leaves: usize) {
         #[cfg(feature = "alloc")]
         {
             let (computed_root, computed_proof) =
-                UnbalancedHashedMerkleTree::compute_root_and_proof::<MAX_N, _>(
-                    leaves.iter(),
+                UnbalancedHashedMerkleTree::compute_root_and_proof::<MAX_N, _, _>(
+                    leaves.iter().copied(),
                     leaf_index,
                 )
                 .unwrap();
@@ -371,8 +374,8 @@ fn test_basic(number_of_leaves: usize) {
     }
 
     assert!(
-        UnbalancedHashedMerkleTree::compute_root_and_proof_in::<MAX_N, _>(
-            leaves.iter(),
+        UnbalancedHashedMerkleTree::compute_root_and_proof_in::<MAX_N, _, _>(
+            leaves.iter().copied(),
             leaves.len(),
             proof_buffer
         )
@@ -380,10 +383,22 @@ fn test_basic(number_of_leaves: usize) {
     );
     #[cfg(feature = "alloc")]
     assert!(
-        UnbalancedHashedMerkleTree::compute_root_and_proof::<MAX_N, _>(
-            leaves.iter(),
+        UnbalancedHashedMerkleTree::compute_root_and_proof::<MAX_N, _, _>(
+            leaves.iter().copied(),
             leaves.len(),
         )
         .is_none()
     );
+
+    let empty: [[u8; 32]; 0] = [];
+    assert!(
+        UnbalancedHashedMerkleTree::compute_root_and_proof_in::<MAX_N, _, _>(
+            empty,
+            0,
+            proof_buffer
+        )
+        .is_none()
+    );
+    #[cfg(feature = "alloc")]
+    assert!(UnbalancedHashedMerkleTree::compute_root_and_proof::<MAX_N, _, _>(empty, 0,).is_none());
 }
