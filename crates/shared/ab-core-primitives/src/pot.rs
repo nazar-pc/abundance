@@ -2,6 +2,7 @@
 
 use crate::hashes::{Blake3Hash, blake3_hash, blake3_hash_list};
 use crate::pieces::RecordChunk;
+use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use core::iter::Step;
 use core::num::{NonZeroU8, NonZeroU32};
@@ -29,7 +30,7 @@ use serde::{Deserializer, Serializer};
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
+#[repr(C)]
 pub struct SlotDuration(u16);
 
 impl SlotDuration {
@@ -77,13 +78,14 @@ impl SlotDuration {
     MulAssign,
     Div,
     DivAssign,
+    TrivialType,
 )]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
+#[repr(C)]
 pub struct SlotNumber(u64);
 
 impl Step for SlotNumber {
@@ -329,11 +331,26 @@ impl PotSeed {
 }
 
 /// Proof of time output, can be intermediate checkpoint or final slot output
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, From, Into, AsRef, AsMut, Deref, DerefMut)]
+#[derive(
+    Default,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    From,
+    Into,
+    AsRef,
+    AsMut,
+    Deref,
+    DerefMut,
+    TrivialType,
+)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
+#[repr(C)]
 pub struct PotOutput([u8; PotOutput::SIZE]);
 
 impl fmt::Debug for PotOutput {
@@ -451,6 +468,8 @@ impl PotCheckpoints {
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct PotParametersChange {
     // TODO: Reduce this to `u16` or even `u8` since it is always an offset relatively to current
     //  block's slot number

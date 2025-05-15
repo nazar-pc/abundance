@@ -79,6 +79,7 @@ impl Transaction<'_> {
     /// Note: this computes transaction hash on every call, so worth caching if it is expected to be
     /// called often.
     pub fn hash(&self) -> TransactionHash {
+        // TODO: Keyed hash
         let mut hasher = Hasher::new();
 
         hasher.update(self.header.as_bytes());
@@ -105,7 +106,7 @@ impl Transaction<'_> {
         });
         hasher.update(self.seal);
 
-        TransactionHash(Blake3Hash::new(*hasher.finalize().as_bytes()))
+        TransactionHash(Blake3Hash::from(hasher.finalize()))
     }
 
     /// Read slots touched by the transaction.

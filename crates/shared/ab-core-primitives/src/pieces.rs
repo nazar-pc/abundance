@@ -246,7 +246,10 @@ impl PieceOffset {
     DerefMut,
     TrivialType,
 )]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(C)]

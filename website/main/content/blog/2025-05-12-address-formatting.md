@@ -98,8 +98,8 @@ of that 128-bit unsigned integer that the address is.
 
 The address logically has two parts:
 
-* 20 bits at the beginning correspond to shard index (little-endian)
-* the remaining 108 bits correspond to an address allocated on that shard index (big-endian)
+* 20 bits at the beginning correspond to shard index (the least significant bits first)
+* the remaining 108 bits correspond to an address allocated on that shard index (the most significant bits first)
 
 While address can be used on any shard, it can only be allocated (when contract is deployed) on a shard that corresponds
 to shard index.
