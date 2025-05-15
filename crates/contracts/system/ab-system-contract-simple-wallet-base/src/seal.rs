@@ -32,7 +32,7 @@ pub fn hash_transaction(
         unsafe { slice::from_raw_parts(payload.as_ptr().cast::<u8>(), size_of_val(payload)) };
     hasher.update(payload_bytes);
     hasher.update(&nonce.to_le_bytes());
-    *hasher.finalize().as_bytes()
+    hasher.finalize().into()
 }
 
 /// Sign transaction hash created with [`hash_transaction()`].

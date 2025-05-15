@@ -1,7 +1,7 @@
 //! Hashes-related data structures and functions.
 
 use ab_io_type::trivial_type::TrivialType;
-use blake3::OUT_LEN;
+use blake3::{Hash, OUT_LEN};
 use core::array::TryFromSliceError;
 use core::fmt;
 use derive_more::{AsMut, AsRef, Deref, DerefMut, From, Into};
@@ -96,21 +96,21 @@ impl fmt::Debug for Blake3Hash {
 }
 
 impl AsRef<[u8]> for Blake3Hash {
-    #[inline]
+    #[inline(always)]
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
 
 impl AsMut<[u8]> for Blake3Hash {
-    #[inline]
+    #[inline(always)]
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }
 }
 
 impl From<&[u8; Self::SIZE]> for Blake3Hash {
-    #[inline]
+    #[inline(always)]
     fn from(value: &[u8; Self::SIZE]) -> Self {
         Self(*value)
     }
@@ -119,9 +119,16 @@ impl From<&[u8; Self::SIZE]> for Blake3Hash {
 impl TryFrom<&[u8]> for Blake3Hash {
     type Error = TryFromSliceError;
 
-    #[inline]
+    #[inline(always)]
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         Ok(Self(value.try_into()?))
+    }
+}
+
+impl From<Hash> for Blake3Hash {
+    #[inline(always)]
+    fn from(value: Hash) -> Self {
+        Self(value.into())
     }
 }
 
@@ -130,11 +137,13 @@ impl Blake3Hash {
     pub const SIZE: usize = OUT_LEN;
 
     /// Create new instance
+    #[inline(always)]
     pub const fn new(hash: [u8; OUT_LEN]) -> Self {
         Self(hash)
     }
 
     /// Get internal representation
+    #[inline(always)]
     pub const fn as_bytes(&self) -> &[u8; Self::SIZE] {
         &self.0
     }
@@ -152,13 +161,13 @@ pub fn blake3_hash(data: &[u8]) -> Blake3Hash {
 pub fn blake3_hash_parallel(data: &[u8]) -> Blake3Hash {
     let mut state = blake3::Hasher::new();
     state.update_rayon(data);
-    state.finalize().as_bytes().into()
+    Blake3Hash::from(state.finalize())
 }
 
 /// BLAKE3 keyed hashing of a single value.
 #[inline(always)]
 pub fn blake3_hash_with_key(key: &[u8; 32], data: &[u8]) -> Blake3Hash {
-    blake3::keyed_hash(key, data).as_bytes().into()
+    Blake3Hash::from(blake3::keyed_hash(key, data))
 }
 
 /// BLAKE3 keyed hashing of a list of values.
@@ -168,7 +177,7 @@ pub fn blake3_hash_list_with_key(key: &[u8; 32], data: &[&[u8]]) -> Blake3Hash {
     for d in data {
         state.update(d);
     }
-    state.finalize().as_bytes().into()
+    Blake3Hash::from(state.finalize())
 }
 
 /// BLAKE3 hashing of a list of values.
@@ -178,5 +187,5 @@ pub fn blake3_hash_list(data: &[&[u8]]) -> Blake3Hash {
     for d in data {
         state.update(d);
     }
-    state.finalize().as_bytes().into()
+    Blake3Hash::from(state.finalize())
 }

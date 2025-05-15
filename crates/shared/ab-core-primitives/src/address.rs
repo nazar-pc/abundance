@@ -69,7 +69,7 @@ impl ShortHrp {
     /// Create a new instance.
     ///
     /// Returns `None` if length of human-readable part is longer than [`Self::MAX_HRP_LENGTH`].
-    // TODO: `const fn` once https://github.com/rust-bitcoin/rust-bech32/issues/216 is resolved
+    // TODO: `const fn` once `bech32 > 0.11.0` is released
     pub fn new(hrp: Hrp) -> Option<Self> {
         if hrp.len() > Self::MAX_HRP_LENGTH {
             return None;
@@ -83,10 +83,10 @@ impl ShortHrp {
 ///
 /// Byte layout is the same as `u128`, just alignment is different.
 ///
-/// The first 20 bits correspond to the shard index (little endian), and the remaining 108 bits
-/// (big endian) are an address allocated within that shard. This way an address will have a
-/// bunch of zeroes in the middle that is shrinking as more shards are added and more addresses are
-/// allocated.
+/// The first 20 bits correspond to the shard index (the least significant bits first), and the
+/// remaining 108 bits (the most significant bits first) are an address allocated within that shard.
+/// This way, an address will have a bunch of zeroes in the middle that is shrinking as more shards
+/// are added and more addresses are allocated.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(C)]
 pub struct Address(u64, u64);

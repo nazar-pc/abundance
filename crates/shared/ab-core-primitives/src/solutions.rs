@@ -98,6 +98,7 @@ impl SolutionDistance {
     AddAssign,
     Sub,
     SubAssign,
+    TrivialType,
 )]
 #[cfg_attr(
     feature = "scale-codec",
@@ -425,7 +426,10 @@ pub trait SolutionPotVerifier {
 
 /// Farmer solution for slot challenge.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, TrivialType)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
@@ -444,6 +448,7 @@ pub struct Solution {
     pub proof_of_space: PosProof,
     /// Size of the blockchain history at the time of sector creation
     pub history_size: HistorySize,
+    // TODO: This might be the wrong type/field
     /// Index of a shard for which sector was created
     pub shard_index: ShardIndex,
     /// Index of the sector where the solution was found
