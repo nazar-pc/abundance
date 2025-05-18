@@ -12,6 +12,7 @@ use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::unbalanced_hashed::UnbalancedHashedMerkleTree;
 use core::num::NonZeroU32;
 use core::ops::Deref;
+use core::slice;
 use derive_more::{Deref, From};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -365,47 +366,29 @@ impl<'a> BlockHeaderBeaconChainParameters<'a> {
     }
 }
 
-/// Information about child shard block
-#[derive(Debug, Copy, Clone, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[repr(C)]
-pub struct BlockHeaderChildShardBlock {
-    /// Shard index
-    pub shard_index: ShardIndex,
-    // TODO: Is block number also needed?
-    /// Block hash
-    pub block_hash: BlockHash,
-}
-
 /// Information about child shard blocks
 #[derive(Debug, Copy, Clone, Deref)]
 pub struct BlockHeaderChildShardBlocks<'a> {
     /// Child shards blocks
-    pub child_shard_blocks: &'a [BlockHeaderChildShardBlock],
+    pub child_shard_blocks: &'a [BlockHash],
 }
 
 impl<'a> BlockHeaderChildShardBlocks<'a> {
     /// Create an instance from provided correctly aligned bytes.
     ///
-    /// `bytes` should be 4-bytes aligned.
+    /// `bytes` should be 2-bytes aligned.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         // Layout here is as follows:
         // * number of blocks: u16 as aligned little-endian bytes
-        // * padding: [0u8; 2]
         // * for each block:
-        //   * child shard block: BlockHeaderChildShardBlock
+        //   * child shard block: BlockHash
 
         let length = bytes.split_off(..size_of::<u16>())?;
         // SAFETY: All bit patterns are valid
-        let length = *unsafe { <u16 as TrivialType>::from_bytes(length) }?;
+        let num_blocks = usize::from(*unsafe { <u16 as TrivialType>::from_bytes(length) }?);
 
         let padding = bytes.split_off(..size_of::<[u8; 2]>())?;
 
@@ -414,21 +397,15 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
             return None;
         }
 
-        let child_shard_blocks = bytes.split_off(
-            ..usize::from(length).saturating_mul(BlockHeaderBeaconChainInfo::SIZE as usize),
-        )?;
-
-        // SAFETY: All bit patterns are valid for this data structure
-        let (before, child_shard_blocks, after) =
-            unsafe { child_shard_blocks.align_to::<BlockHeaderChildShardBlock>() };
-        let is_valid = before.is_empty()
-            && after.is_empty()
-            && child_shard_blocks
-                .iter()
-                .all(|item| item.shard_index.as_u32() <= ShardIndex::MAX_SHARD_INDEX);
-        if !is_valid {
-            return None;
-        }
+        let child_shard_blocks = bytes.split_off(..num_blocks * BlockHash::SIZE)?;
+        // SAFETY: Valid pointer and size, no alignment requirements
+        let child_shard_blocks = unsafe {
+            slice::from_raw_parts(
+                child_shard_blocks.as_ptr().cast::<[u8; BlockHash::SIZE]>(),
+                num_blocks,
+            )
+        };
+        let child_shard_blocks = BlockHash::slice_from_repr(child_shard_blocks);
 
         Some((Self { child_shard_blocks }, bytes))
     }
@@ -439,9 +416,13 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
     pub fn root(&self) -> Option<Blake3Hash> {
         let root = UnbalancedHashedMerkleTree::compute_root_only::<'_, { u32::MAX as usize }, _, _>(
             // TODO: Keyed hash
-            self.child_shard_blocks
-                .iter()
-                .map(|child_shard_block| blake3::hash(child_shard_block.as_bytes())),
+            self.child_shard_blocks.iter().map(|child_shard_block| {
+                // Hash the hash again so we can prove it, otherwise headers root is
+                // indistinguishable from individual block hashes and can be used to confuse
+                // verifier
+
+                blake3::hash(child_shard_block.as_ref())
+            }),
         )?;
         Some(Blake3Hash::new(root))
     }
@@ -652,7 +633,6 @@ impl<'a> BeaconChainBlockHeader<'a> {
     /// [`GenericBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
-    // TODO: Cache hash internally
     #[inline]
     pub fn hash(&self) -> BlockHash {
         let Self {
@@ -756,7 +736,6 @@ impl<'a> IntermediateShardBlockHeader<'a> {
     /// [`GenericBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
-    // TODO: Cache hash internally
     #[inline]
     pub fn hash(&self) -> BlockHash {
         let Self {
@@ -853,7 +832,6 @@ impl<'a> LeafShardBlockHeader<'a> {
     /// [`GenericBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
-    // TODO: Cache hash internally
     #[inline]
     pub fn hash(&self) -> BlockHash {
         let Self {
@@ -951,7 +929,10 @@ impl<'a> BlockHeader<'a> {
         // SAFETY: All bit patterns are valid
         let prefix = unsafe { BlockHeaderPrefix::from_bytes(prefix) }?;
 
-        if prefix.version != BlockHeaderPrefix::BLOCK_VERSION || prefix.padding != [0; _] {
+        if !(prefix.version == BlockHeaderPrefix::BLOCK_VERSION
+            && prefix.padding == [0; _]
+            && prefix.shard_index.as_u32() <= ShardIndex::MAX_SHARD_INDEX)
+        {
             return None;
         }
 

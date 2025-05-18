@@ -3,7 +3,7 @@
 use ab_io_type::trivial_type::TrivialType;
 use blake3::{Hash, OUT_LEN};
 use core::array::TryFromSliceError;
-use core::fmt;
+use core::{fmt, mem};
 use derive_more::{AsMut, AsRef, Deref, DerefMut, From, Into};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -146,6 +146,20 @@ impl Blake3Hash {
     #[inline(always)]
     pub const fn as_bytes(&self) -> &[u8; Self::SIZE] {
         &self.0
+    }
+
+    /// Convenient conversion from slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
+        // SAFETY: `Blake3Hash` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion to slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+        // SAFETY: `Blake3Hash` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
     }
 }
 
