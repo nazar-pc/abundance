@@ -15,7 +15,6 @@
 #![feature(
     maybe_uninit_as_bytes,
     maybe_uninit_slice,
-    non_null_from_ref,
     ptr_as_ref_unchecked,
     slice_as_array,
     try_blocks,

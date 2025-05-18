@@ -670,21 +670,20 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
                     None => continue,
                 };
 
-                if let Ok(payload) = result {
-                    if let Some((protocol, _)) = self.protocols.get_mut(&*protocol_name) {
-                        if protocol.send_response(inner_channel, Ok(payload)).is_err() {
-                            // Note: Failure is handled further below when receiving
-                            // `InboundFailure` event from `RequestResponse` behaviour.
-                            debug!(
-                                target: LOG_TARGET,
-                                %request_id,
-                                "Failed to send response for request on protocol {} due to a \
-                                timeout or due to the connection to the peer being closed. \
-                                Dropping response",
-                                protocol_name,
-                            );
-                        }
-                    }
+                if let Ok(payload) = result
+                    && let Some((protocol, _)) = self.protocols.get_mut(&*protocol_name)
+                    && protocol.send_response(inner_channel, Ok(payload)).is_err()
+                {
+                    // Note: Failure is handled further below when receiving
+                    // `InboundFailure` event from `RequestResponse` behaviour.
+                    debug!(
+                        target: LOG_TARGET,
+                        %request_id,
+                        "Failed to send response for request on protocol {} due to a \
+                        timeout or due to the connection to the peer being closed. \
+                        Dropping response",
+                        protocol_name,
+                    );
                 }
             }
 
