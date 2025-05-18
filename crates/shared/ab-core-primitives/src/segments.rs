@@ -12,10 +12,9 @@ use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-use core::array::TryFromSliceError;
-use core::fmt;
 use core::iter::Step;
 use core::num::{NonZeroU32, NonZeroU64};
+use core::{fmt, mem};
 use derive_more::{
     Add, AddAssign, Deref, DerefMut, Display, Div, DivAssign, From, Into, Mul, MulAssign, Sub,
     SubAssign,
@@ -28,6 +27,90 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
+
+/// Super segment root contained within beacon chain block
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[repr(C)]
+pub struct SuperSegmentRoot([u8; SuperSegmentRoot::SIZE]);
+
+impl fmt::Debug for SuperSegmentRoot {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct SuperSegmentRootBinary(#[serde(with = "BigArray")] [u8; SuperSegmentRoot::SIZE]);
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct SuperSegmentRootHex(#[serde(with = "hex")] [u8; SuperSegmentRoot::SIZE]);
+
+#[cfg(feature = "serde")]
+impl Serialize for SuperSegmentRoot {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if serializer.is_human_readable() {
+            SuperSegmentRootHex(self.0).serialize(serializer)
+        } else {
+            SuperSegmentRootBinary(self.0).serialize(serializer)
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for SuperSegmentRoot {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self(if deserializer.is_human_readable() {
+            SuperSegmentRootHex::deserialize(deserializer)?.0
+        } else {
+            SuperSegmentRootBinary::deserialize(deserializer)?.0
+        }))
+    }
+}
+
+impl Default for SuperSegmentRoot {
+    #[inline]
+    fn default() -> Self {
+        Self([0; Self::SIZE])
+    }
+}
+
+impl AsRef<[u8]> for SuperSegmentRoot {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl AsMut<[u8]> for SuperSegmentRoot {
+    #[inline]
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+impl SuperSegmentRoot {
+    /// Size in bytes
+    pub const SIZE: usize = 32;
+}
 
 /// Segment index type.
 #[derive(
@@ -187,38 +270,43 @@ impl<'de> Deserialize<'de> for SegmentRoot {
 }
 
 impl Default for SegmentRoot {
-    #[inline]
+    #[inline(always)]
     fn default() -> Self {
         Self([0; Self::SIZE])
     }
 }
 
-impl TryFrom<&[u8]> for SegmentRoot {
-    type Error = TryFromSliceError;
-
-    #[inline]
-    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
-        <[u8; Self::SIZE]>::try_from(slice).map(Self)
-    }
-}
-
 impl AsRef<[u8]> for SegmentRoot {
-    #[inline]
+    #[inline(always)]
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
 
 impl AsMut<[u8]> for SegmentRoot {
-    #[inline]
+    #[inline(always)]
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }
 }
 
 impl SegmentRoot {
-    /// Size of segment root in bytes.
+    /// Size in bytes
     pub const SIZE: usize = 32;
+
+    /// Convenient conversion from slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
+        // SAFETY: `SegmentRoot` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion to slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+        // SAFETY: `SegmentRoot` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
 }
 
 /// Size of blockchain history in segments.
@@ -406,6 +494,7 @@ impl SegmentHeader {
     }
 
     /// Get segment index (unwrap `Unaligned`)
+    #[inline(always)]
     pub const fn segment_index(&self) -> SegmentIndex {
         self.segment_index.as_inner()
     }
