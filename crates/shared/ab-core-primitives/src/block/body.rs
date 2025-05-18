@@ -249,6 +249,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     pub fn headers_root(&self) -> Blake3Hash {
         let root =
             UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as usize + 1 }, _, _>(
+                // TODO: Keyed hash
                 self.iter().map(|shard_block_info| {
                     // Hash the hash again so we can prove it, otherwise headers root is
                     // indistinguishable from individual block hashes and can be used to confuse
@@ -624,6 +625,18 @@ impl<'a> Transactions<'a> {
 
             transaction
         })
+    }
+
+    /// Number of transactions
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.num_transactions
+    }
+
+    /// Returns `true` if there are no transactions
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
+        self.num_transactions == 0
     }
 
     /// Compute the root of the leaf shard blocks info.

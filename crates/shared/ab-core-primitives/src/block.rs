@@ -15,6 +15,7 @@ use crate::shard::ShardKind;
 use ::serde::{Deserialize, Serialize};
 use ab_io_type::trivial_type::TrivialType;
 use core::iter::Step;
+use core::mem;
 use derive_more::{
     Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, From, Into, Sub, SubAssign,
 };
@@ -171,6 +172,22 @@ impl BlockHash {
     pub const fn new(hash: Blake3Hash) -> Self {
         Self(hash)
     }
+
+    /// Convenient conversion from slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
+        let value = Blake3Hash::slice_from_repr(value);
+        // SAFETY: `BlockHash` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion to slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+        // SAFETY: `BlockHash` is `#[repr(C)]` and guaranteed to have the same memory layout
+        let value = unsafe { mem::transmute::<&[Self], &[Blake3Hash]>(value) };
+        Blake3Hash::repr_from_slice(value)
+    }
 }
 
 /// Block that corresponds to the beacon chain
@@ -216,10 +233,8 @@ impl<'a> BeaconChainBlock<'a> {
                 .child_shard_blocks
                 .iter()
                 .zip(self.body.intermediate_shard_blocks.iter())
-                .all(|(child_shard_block, intermediate_shard_block)| {
-                    child_shard_block.shard_index
-                        == intermediate_shard_block.header.prefix.shard_index
-                        && child_shard_block.block_hash == intermediate_shard_block.header.hash()
+                .all(|(child_shard_block_hash, intermediate_shard_block)| {
+                    child_shard_block_hash == &intermediate_shard_block.header.hash()
                         && intermediate_shard_block
                             .header
                             .prefix
@@ -283,9 +298,8 @@ impl<'a> IntermediateShardBlock<'a> {
                 .child_shard_blocks
                 .iter()
                 .zip(self.body.leaf_shard_blocks.iter())
-                .all(|(child_shard_block, leaf_shard_block)| {
-                    child_shard_block.shard_index == leaf_shard_block.header.prefix.shard_index
-                        && child_shard_block.block_hash == leaf_shard_block.header.hash()
+                .all(|(child_shard_block_hash, leaf_shard_block)| {
+                    child_shard_block_hash == &leaf_shard_block.header.hash()
                         && leaf_shard_block
                             .header
                             .prefix
