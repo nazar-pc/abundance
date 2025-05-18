@@ -3,26 +3,12 @@
 mod builder_buffer;
 
 use crate::transaction::owned::builder_buffer::BuilderBuffer;
-use crate::transaction::{Transaction, TransactionHeader, TransactionSlot};
+use crate::transaction::{
+    SerializedTransactionLengths, Transaction, TransactionHeader, TransactionSlot,
+};
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_io_type::trivial_type::TrivialType;
 use core::slice;
-
-/// Lengths of various components inside [`OwnedTransaction`]
-#[derive(Debug, Default, Copy, Clone, TrivialType)]
-#[repr(C)]
-pub struct OwnedTransactionLengths {
-    /// Number of read-only slots
-    pub read_slots: u16,
-    /// Number of read-write slots
-    pub write_slots: u16,
-    /// Payload length
-    pub payload: u32,
-    /// Seal length
-    pub seal: u32,
-    /// Not used and must be set to `0`
-    pub padding: [u8; 4],
-}
 
 /// Errors for [`OwnedTransaction`]
 #[derive(Debug, thiserror::Error)]
@@ -50,15 +36,6 @@ pub enum OwnedTransactionError {
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
-///
-/// The internal layout of the owned transaction is following data structures concatenated as bytes
-/// (they are carefully picked to ensure alignment):
-/// * [`TransactionHeader`]
-/// * [`OwnedTransactionLengths`] (with values set to correspond to below contents
-/// * All read [`TransactionSlot`]
-/// * All write [`TransactionSlot`]
-/// * Payload as `u128`s
-/// * Seal as `u8`s
 #[derive(Debug, Clone)]
 pub struct OwnedTransaction {
     buffer: SharedAlignedBuffer,
@@ -75,7 +52,7 @@ impl OwnedTransaction {
     /// Create an owned transaction from a buffer
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, OwnedTransactionError> {
         if (buffer.len() as usize)
-            < size_of::<TransactionHeader>() + size_of::<OwnedTransactionLengths>()
+            < size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>()
         {
             return Err(OwnedTransactionError::NotEnoughBytes);
         }
@@ -85,10 +62,10 @@ impl OwnedTransaction {
             buffer
                 .as_ptr()
                 .add(size_of::<TransactionHeader>())
-                .cast::<OwnedTransactionLengths>()
+                .cast::<SerializedTransactionLengths>()
                 .read()
         };
-        let OwnedTransactionLengths {
+        let SerializedTransactionLengths {
             read_slots,
             write_slots,
             payload,
@@ -105,7 +82,7 @@ impl OwnedTransaction {
         }
 
         let expected = (size_of::<TransactionHeader>() as u32
-            + size_of::<OwnedTransactionLengths>() as u32)
+            + size_of::<SerializedTransactionLengths>() as u32)
             .saturating_add(u32::from(read_slots))
             .saturating_add(u32::from(write_slots))
             .saturating_add(payload)
@@ -133,89 +110,8 @@ impl OwnedTransaction {
 
     /// Get [`Transaction`] out of owned transaction
     pub fn transaction(&self) -> Transaction<'_> {
-        // SAFETY: All constructors ensure there are enough bytes and they are correctly aligned
-        let lengths = unsafe {
-            self.buffer
-                .as_ptr()
-                .add(size_of::<TransactionHeader>())
-                .cast::<OwnedTransactionLengths>()
-                .read()
-        };
-        let OwnedTransactionLengths {
-            read_slots,
-            write_slots,
-            payload,
-            seal,
-            padding: _,
-        } = lengths;
-
-        Transaction {
-            // SAFETY: Any bytes are valid for `TransactionHeader` and all constructors ensure there
-            // are enough bytes for header in the buffer
-            header: unsafe {
-                self.buffer
-                    .as_ptr()
-                    .cast::<TransactionHeader>()
-                    .as_ref_unchecked()
-            },
-            // SAFETY: Any bytes are valid for `TransactionSlot` and all constructors ensure there
-            // are enough bytes for read slots in the buffer
-            read_slots: unsafe {
-                slice::from_raw_parts(
-                    self.buffer
-                        .as_ptr()
-                        .add(size_of::<TransactionHeader>())
-                        .add(size_of::<OwnedTransactionLengths>())
-                        .cast::<TransactionSlot>(),
-                    usize::from(read_slots),
-                )
-            },
-            // SAFETY: Any bytes are valid for `TransactionSlot` and all constructors ensure there
-            // are enough bytes for write slots in the buffer
-            write_slots: unsafe {
-                slice::from_raw_parts(
-                    self.buffer
-                        .as_ptr()
-                        .add(size_of::<TransactionHeader>())
-                        .add(size_of::<OwnedTransactionLengths>())
-                        .cast::<TransactionSlot>()
-                        .add(usize::from(read_slots)),
-                    usize::from(write_slots),
-                )
-            },
-            // SAFETY: Any bytes are valid for `payload` and all constructors ensure there are
-            // enough bytes for payload in the buffer
-            payload: unsafe {
-                slice::from_raw_parts(
-                    self.buffer
-                        .as_ptr()
-                        .add(size_of::<TransactionHeader>())
-                        .add(size_of::<OwnedTransactionLengths>())
-                        .add(
-                            size_of::<TransactionSlot>()
-                                * (usize::from(read_slots) + usize::from(write_slots)),
-                        )
-                        .cast::<u128>(),
-                    payload as usize,
-                )
-            },
-            // SAFETY: Any bytes are valid for `seal` and all constructors ensure there are
-            // enough bytes for seal in the buffer
-            seal: unsafe {
-                slice::from_raw_parts(
-                    self.buffer
-                        .as_ptr()
-                        .add(size_of::<TransactionHeader>())
-                        .add(size_of::<OwnedTransactionLengths>())
-                        .add(
-                            size_of::<TransactionSlot>()
-                                * (usize::from(read_slots) + usize::from(write_slots))
-                                + payload as usize,
-                        ),
-                    seal as usize,
-                )
-            },
-        }
+        // SAFETY: Size and alignment checked in constructor
+        unsafe { Transaction::from_bytes_unchecked(self.buffer.as_slice()) }
     }
 }
 
