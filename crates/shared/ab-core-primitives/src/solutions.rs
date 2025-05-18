@@ -7,7 +7,6 @@ use crate::pos::{PosProof, PosSeed};
 use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
-use crate::shard::ShardIndex;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use blake3::OUT_LEN;
@@ -448,13 +447,12 @@ pub struct Solution {
     pub proof_of_space: PosProof,
     /// Size of the blockchain history at the time of sector creation
     pub history_size: HistorySize,
-    // TODO: This might be the wrong type/field
-    /// Index of a shard for which sector was created
-    pub shard_index: ShardIndex,
     /// Index of the sector where the solution was found
     pub sector_index: SectorIndex,
     /// Pieces offset within sector
     pub piece_offset: PieceOffset,
+    /// Padding for data structure alignment
+    pub padding: [u8; 4],
 }
 
 impl Solution {
@@ -467,10 +465,10 @@ impl Solution {
             chunk: RecordChunk::default(),
             chunk_proof: ChunkProof::default(),
             proof_of_space: PosProof::default(),
-            shard_index: ShardIndex::BEACON_CHAIN,
             history_size: HistorySize::from(SegmentIndex::ZERO),
             sector_index: SectorIndex::ZERO,
             piece_offset: PieceOffset::default(),
+            padding: [0; _],
         }
     }
 

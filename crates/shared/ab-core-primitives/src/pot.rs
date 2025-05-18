@@ -3,11 +3,11 @@
 use crate::hashes::{Blake3Hash, blake3_hash, blake3_hash_list};
 use crate::pieces::RecordChunk;
 use ab_io_type::trivial_type::TrivialType;
-use core::fmt;
 use core::iter::Step;
 use core::num::{NonZeroU8, NonZeroU32};
 use core::str::FromStr;
 use core::time::Duration;
+use core::{fmt, mem};
 use derive_more::{
     Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, Div, DivAssign, From, Into, Mul,
     MulAssign, Sub, SubAssign,
@@ -444,14 +444,17 @@ impl PotOutput {
 }
 
 /// Proof of time checkpoints, result of proving
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, TrivialType)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
 )]
+#[repr(C)]
 pub struct PotCheckpoints([PotOutput; PotCheckpoints::NUM_CHECKPOINTS.get() as usize]);
 
 impl PotCheckpoints {
+    /// Size in bytes
+    pub const SIZE: usize = PotOutput::SIZE * Self::NUM_CHECKPOINTS.get() as usize;
     /// Number of PoT checkpoints produced (used to optimize verification)
     pub const NUM_CHECKPOINTS: NonZeroU8 = NonZeroU8::new(8).expect("Not zero; qed");
 
@@ -459,6 +462,22 @@ impl PotCheckpoints {
     #[inline]
     pub fn output(&self) -> PotOutput {
         self.0[Self::NUM_CHECKPOINTS.get() as usize - 1]
+    }
+
+    /// Convenient conversion from slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn slice_from_bytes(value: &[[u8; Self::SIZE]]) -> &[Self] {
+        // SAFETY: `PotOutput` and `PotCheckpoints` are `#[repr(C)]` and guaranteed to have the same
+        // memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion to slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn bytes_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+        // SAFETY: `PotOutput` and `PotCheckpoints` are `#[repr(C)]` and guaranteed to have the same
+        // memory layout
+        unsafe { mem::transmute(value) }
     }
 }
 

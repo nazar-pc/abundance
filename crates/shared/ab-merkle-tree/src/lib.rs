@@ -21,6 +21,8 @@
 )]
 #![no_std]
 
+// TODO: Consider domains-specific internal node separator and inclusion of tree size into hashing
+//  key
 pub mod balanced_hashed;
 pub mod unbalanced_hashed;
 

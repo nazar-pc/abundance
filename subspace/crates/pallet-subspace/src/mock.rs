@@ -9,7 +9,6 @@ use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex, SegmentRoot,
 };
-use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::solutions::{Solution, SolutionRange};
 use frame_support::traits::{ConstU128, OnInitialize};
 use frame_support::{derive_impl, parameter_types};
@@ -108,9 +107,9 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: SlotNumber) {
             chunk_proof: Default::default(),
             proof_of_space: Default::default(),
             history_size: HistorySize::from(SegmentIndex::ZERO),
-            shard_index: ShardIndex::BEACON_CHAIN,
             sector_index: SectorIndex::ZERO,
             piece_offset: PieceOffset::default(),
+            padding: [0; _],
         },
     );
 
