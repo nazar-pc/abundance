@@ -125,7 +125,7 @@ where
         }
     }
 
-    /// Compute Merkle Tree Root.
+    /// Compute Merkle Tree root.
     ///
     /// This is functionally equivalent to creating an instance first and calling [`Self::root()`]
     /// method, but is faster and avoids heap allocation when root is the only thing that is needed.
