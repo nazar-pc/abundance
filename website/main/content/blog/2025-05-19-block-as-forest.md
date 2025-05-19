@@ -113,7 +113,7 @@ actively researched, and Nazar already found pointers to interesting and
 [relevant work](https://abundance.zulipchat.com/#narrow/channel/495788-research/topic/ZODA.3A.20Zero-Overhead.20Data.20Availability/with/518435332).
 While not immediately applicable, the concept introduced by the ZODA (Zero-Overhead Data
 Availability) paper of the "Accidental Computer" may allow us to embed different types of proofs
-within the data availability layer. In our case, we not only want to proof that a block (or a
+within the data availability layer. In our case, we not only want to prove that a block (or a
 segment) is available in the system, but also that its encoding is correct, that the information
 included in them is valid. Reading through this work and thinking a little bit about this problem
 has also occupied a bit of my week.
