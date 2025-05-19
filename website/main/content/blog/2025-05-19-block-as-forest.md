@@ -23,8 +23,7 @@ to its parent, and how this information is implicitly propagated up and can be u
 proofs about the history of a shard. Unfortunately, we were missing one piece to this puzzle that
 was dragging progress: making a decision of what would be the block structure, as this would
 influence the design of other mechanics in the system. After a few back-and-forths, it looks like
-Nazar has cracked it down on the PRs referenced by
-[this discussion](https://abundance.zulipchat.com/#narrow/channel/495788-research/topic/Mechanics.20of.20child.20block.20submission.20to.20parent.20chain/near/518994821).
+Nazar has cracked it down on the PRs referenced by [this discussion][block-discussion-link].
 
 The key _"innovation"_ that this design for blocks has is that all the block information (including
 the header) is structured as trees. This has a lot of interesting properties, as it allows not only
@@ -44,11 +43,10 @@ is going on under the hood):
 
 ## Everything is a tree!
 
-Nazar already alluded to this in his post
-[Everything is a tree!](https://abundance.build/blog/2025-04-14-trees-everywhere/), but now it has
-become even clearer. By leveraging tree-based data structures are able to logically organise the
-information scattered in different shards as if they were part of the same network. These trees will
-become _"the verifiable glue"_ of the system.
+Nazar already alluded to this in his post [Everything is a tree!](../2025-04-14-trees-everywhere),
+but now it has become even clearer. By leveraging tree-based data structures are able to logically
+organise the information scattered in different shards as if they were part of the same network.
+These trees will become _"the verifiable glue"_ of the system.
 
 Let me try to back my claim with an example: in order for a shard block to be valid, it needs to
 reference a valid block in the beacon chain that is in the past but builds upon the last beacon
@@ -78,18 +76,15 @@ What this block definition has enabled for me is:
 - The ability to start thinking about system re-orgs, forks, and syncing shards from scratch. After
   some thinking and a brief discussions with Nazar, it turns out that we may leverage many of the
   mechanics that Subspace currently has in place and leverage them almost unchanged for our case.
-  Some notes about this can already be found in
-  [this meeting notes](https://abundance.zulipchat.com/#narrow/channel/502084-meeting-notes/topic/2025-05-14/with/518061033).
-  I will, however, try to get a few sections written about how I am imagining this to work on
+  Some notes about this can already be found in [this meeting notes][meeting-notes-1]. I will,
+  however, try to get a few sections written about how I am imagining this to work on
   [this discussion](https://github.com/nazar-pc/abundance/pull/220)
 - While discussing about the different fields that the header would include, we surfaced interesting
   questions about how the difficulty adjustment for the different shards, along with block rewards,
   can be leveraged to assign rational farmers to shards in a way that load balances the system and
   improve the security of weak networks (trying to address the problem of power dilution). More
-  context about these can be found in this
-  [meeting notes](https://abundance.zulipchat.com/#narrow/channel/502084-meeting-notes/topic/2025-05-16/with/518513313)
-  and this
-  [Zulip discussion](https://abundance.zulipchat.com/#narrow/channel/495788-research/topic/Shards.20dynamic.20difficulty.20adjustment/with/518889341).
+  context about these can be found in this [meeting notes][meeting-notes-2] and this [Zulip
+  discussion][dynamic-difficulty-link].
 - Finally (and this is what I want my focus to be next week), with the basic structure designed, we
   can start defining how will the information about shard segments be propagated to the beacon chain
   to commit them in the global history and into super segments, and the basic information that super
@@ -106,11 +101,12 @@ to work. Ideally, this data availability layer won't be an orthogonal system lik
 other L1 and L2 projects, where they either leverage systems like Celestia or Avail to handle data
 availability, or build their own independent data availability system, like Espresso.
 
-In our case, data availability will be implemented and integrated into the consensus protocol
-itself, to prevent as much as possible the need of fraud proofs and the implementation of special
-logic to cover corner cases. Fortunately, data availability is a field that it is still being
-actively researched, and Nazar already found pointers to interesting and
-[relevant work](https://abundance.zulipchat.com/#narrow/channel/495788-research/topic/ZODA.3A.20Zero-Overhead.20Data.20Availability/with/518435332).
+In our case, data availability will be implemented and integrated into meeting-notes-1the consensus
+protocol itself, to prevent as much as possible the need of fraud proofs and the implementation of
+special logic to cover corner cases. Fortunately, data availability is a field that it is still
+being actively researched, and Nazar already found pointers to interesting and [relevant
+work][zoda-link].
+
 While not immediately applicable, the concept introduced by the ZODA (Zero-Overhead Data
 Availability) paper of the "Accidental Computer" may allow us to embed different types of proofs
 within the data availability layer. In our case, we not only want to prove that a block (or a
@@ -131,3 +127,14 @@ week's work:
 
 And as always, any feedback, suggestions, or comments, please let me know so I can improve my work.
 Cheers!
+
+[zoda-link]:
+  https://abundance.zulipchat.com/#narrow/channel/495788-research/topic/ZODA.3A.20Zero-Overhead.20Data.20Availability/with/518435332
+[meeting-notes-1]:
+  https://abundance.zulipchat.com/#narrow/channel/502084-meeting-notes/topic/2025-05-14/with/518061033
+[meeting-notes-2]:
+  https://abundance.zulipchat.com/#narrow/channel/502084-meeting-notes/topic/2025-05-16/with/518513313
+[dynamic-difficulty-link]:
+  https://abundance.zulipchat.com/#narrow/channel/495788-research/topic/Shards.20dynamic.20difficulty.20adjustment/with/518889341
+[block-discussion-link]:
+  https://abundance.zulipchat.com/#narrow/channel/495788-research/topic/Mechanics.20of.20child.20block.20submission.20to.20parent.20chain/near/518994821).
