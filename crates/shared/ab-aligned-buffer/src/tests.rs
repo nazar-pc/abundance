@@ -118,7 +118,6 @@ fn basic() {
             assert!(!owned.as_slice().is_empty(), "Capacity {capacity}");
             assert!(!owned.as_mut_slice().is_empty(), "Capacity {capacity}");
             assert_eq!(owned.as_ptr(), owned.as_mut_ptr(), "Capacity {capacity}");
-            assert_ne!(owned.as_ptr(), ptr_before, "Capacity {capacity}");
             assert!(
                 owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
                 "Capacity {capacity}"
@@ -168,4 +167,23 @@ fn basic() {
         assert_eq!(shared.as_ptr(), shared2.as_ptr(), "Capacity {capacity}");
         assert_eq!(shared.as_slice(), shared2.as_slice(), "Capacity {capacity}");
     }
+}
+
+#[test]
+fn realloc() {
+    let mut owned = OwnedAlignedBuffer::with_capacity(10);
+    assert!(owned.append(b"abc"));
+
+    let original_capacity = owned.capacity();
+    assert!(original_capacity >= 10);
+
+    owned.ensure_capacity(1000);
+    assert_ne!(original_capacity, owned.capacity());
+    assert!(owned.capacity() >= 1000);
+    assert_eq!(owned.as_slice(), b"abc");
+
+    let ptr_before_append = owned.as_ptr();
+    assert!(owned.append(&[1; 1000 - 3]));
+    // Ensure it didn't reallocate
+    assert_eq!(ptr_before_append, owned.as_ptr());
 }
