@@ -1,5 +1,6 @@
 //! Proof of time-related data structures.
 
+use crate::block::BlockRoot;
 use crate::hashes::{Blake3Hash, blake3_hash, blake3_hash_list};
 use crate::pieces::RecordChunk;
 use ab_io_type::trivial_type::TrivialType;
@@ -312,10 +313,10 @@ impl PotSeed {
     /// Size in bytes
     pub const SIZE: usize = 16;
 
-    /// Derive initial PoT seed from genesis block hash
+    /// Derive initial PoT seed from genesis block root
     #[inline]
-    pub fn from_genesis(genesis_block_hash: &[u8], external_entropy: &[u8]) -> Self {
-        let hash = blake3_hash_list(&[genesis_block_hash, external_entropy]);
+    pub fn from_genesis(genesis_block_root: &BlockRoot, external_entropy: &[u8]) -> Self {
+        let hash = blake3_hash_list(&[genesis_block_root.as_ref(), external_entropy]);
         let mut seed = Self::default();
         seed.copy_from_slice(&hash[..Self::SIZE]);
         seed

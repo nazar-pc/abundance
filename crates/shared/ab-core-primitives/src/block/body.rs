@@ -59,7 +59,7 @@ impl IntermediateShardBlockInfo<'_> {
         // TODO: Keyed hash
         const MAX_N: usize = 3;
         let leaves: [_; MAX_N] = [
-            **self.header.hash(),
+            **self.header.root(),
             *compute_segments_root(self.own_segment_roots),
             *compute_segments_root(self.child_segment_roots),
         ];
@@ -251,11 +251,11 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as usize + 1 }, _, _>(
                 // TODO: Keyed hash
                 self.iter().map(|shard_block_info| {
-                    // Hash the hash again so we can prove it, otherwise headers root is
-                    // indistinguishable from individual block hashes and can be used to confuse
+                    // Hash the root again so we can prove it, otherwise headers root is
+                    // indistinguishable from individual block roots and can be used to confuse
                     // verifier
 
-                    blake3::hash(shard_block_info.header.hash().as_ref())
+                    blake3::hash(shard_block_info.header.root().as_ref())
                 }),
             )
             .unwrap_or_default();
@@ -550,11 +550,11 @@ impl<'a> LeafShardBlocksInfo<'a> {
         let root =
             UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as usize + 1 }, _, _>(
                 self.iter().map(|shard_block_info| {
-                    // Hash the hash again so we can prove it, otherwise headers root is
-                    // indistinguishable from individual block hashes and can be used to confuse
+                    // Hash the root again so we can prove it, otherwise headers root is
+                    // indistinguishable from individual block roots and can be used to confuse
                     // verifier
 
-                    blake3::hash(shard_block_info.header.hash().as_ref())
+                    blake3::hash(shard_block_info.header.root().as_ref())
                 }),
             )
             .unwrap_or_default();

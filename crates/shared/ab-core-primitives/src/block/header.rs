@@ -1,6 +1,6 @@
 //! Block header primitives
 
-use crate::block::{BlockHash, BlockNumber};
+use crate::block::{BlockNumber, BlockRoot};
 use crate::hashes::Blake3Hash;
 use crate::pot::{PotOutput, PotParametersChange, SlotNumber};
 use crate::segments::SuperSegmentRoot;
@@ -44,9 +44,9 @@ pub struct BlockHeaderPrefix {
     /// Unix timestamp in ms
     // TODO: New type?
     pub timestamp: u64,
-    /// Hash of the parent block
-    pub parent_hash: BlockHash,
-    /// MMR root of all block hashes, including `parent_hash`
+    /// Root of the parent block
+    pub parent_root: BlockRoot,
+    /// MMR root of all block roots, including `parent_root`
     // TODO: New type?
     pub mmr_root: Blake3Hash,
 }
@@ -55,7 +55,7 @@ impl BlockHeaderPrefix {
     /// The only supported block version right now
     pub const BLOCK_VERSION: u64 = 0;
 
-    /// Hash of the block header prefix, part of the eventual block hash
+    /// Hash of the block header prefix, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
         // TODO: Keyed hash
         Blake3Hash::from(blake3::hash(self.as_bytes()))
@@ -83,7 +83,7 @@ pub struct BlockHeaderConsensusInfo {
 }
 
 impl BlockHeaderConsensusInfo {
-    /// Hash of the consensus info, part of the eventual block hash
+    /// Hash of the consensus info, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
         // TODO: Keyed hash
         Blake3Hash::from(blake3::hash(self.as_bytes()))
@@ -102,12 +102,12 @@ impl BlockHeaderConsensusInfo {
 pub struct BlockHeaderBeaconChainInfo {
     /// Beacon chain block number
     pub number: BlockNumber,
-    /// Beacon chain block hash
-    pub hash: BlockHash,
+    /// Beacon chain block root
+    pub root: BlockRoot,
 }
 
 impl BlockHeaderBeaconChainInfo {
-    /// Hash of the beacon chain info, part of the eventual block hash
+    /// Hash of the beacon chain info, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
         // TODO: Keyed hash
         Blake3Hash::from(blake3::hash(self.as_bytes()))
@@ -327,7 +327,7 @@ impl<'a> BlockHeaderBeaconChainParameters<'a> {
         ))
     }
 
-    /// Hash of the block consensus parameters, part of the eventual block hash
+    /// Hash of the block consensus parameters, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
         let Self {
             super_segment_root,
@@ -370,7 +370,7 @@ impl<'a> BlockHeaderBeaconChainParameters<'a> {
 #[derive(Debug, Copy, Clone, Deref)]
 pub struct BlockHeaderChildShardBlocks<'a> {
     /// Child shards blocks
-    pub child_shard_blocks: &'a [BlockHash],
+    pub child_shard_blocks: &'a [BlockRoot],
 }
 
 impl<'a> BlockHeaderChildShardBlocks<'a> {
@@ -397,32 +397,34 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
             return None;
         }
 
-        let child_shard_blocks = bytes.split_off(..num_blocks * BlockHash::SIZE)?;
+        let child_shard_blocks = bytes.split_off(..num_blocks * BlockRoot::SIZE)?;
         // SAFETY: Valid pointer and size, no alignment requirements
         let child_shard_blocks = unsafe {
             slice::from_raw_parts(
-                child_shard_blocks.as_ptr().cast::<[u8; BlockHash::SIZE]>(),
+                child_shard_blocks.as_ptr().cast::<[u8; BlockRoot::SIZE]>(),
                 num_blocks,
             )
         };
-        let child_shard_blocks = BlockHash::slice_from_repr(child_shard_blocks);
+        let child_shard_blocks = BlockRoot::slice_from_repr(child_shard_blocks);
 
         Some((Self { child_shard_blocks }, bytes))
     }
 
-    /// Compute Merkle Tree with child shard blocks, part of the eventual block hash.
+    /// Compute Merkle Tree with child shard blocks, part of the eventual block root.
     ///
     /// `None` is returned if there are no child shard blocks.
     pub fn root(&self) -> Option<Blake3Hash> {
         let root = UnbalancedHashedMerkleTree::compute_root_only::<'_, { u32::MAX as usize }, _, _>(
             // TODO: Keyed hash
-            self.child_shard_blocks.iter().map(|child_shard_block| {
-                // Hash the hash again so we can prove it, otherwise headers root is
-                // indistinguishable from individual block hashes and can be used to confuse
-                // verifier
+            self.child_shard_blocks
+                .iter()
+                .map(|child_shard_block_root| {
+                    // Hash the root again so we can prove it, otherwise headers root is
+                    // indistinguishable from individual block roots and can be used to confuse
+                    // verifier
 
-                blake3::hash(child_shard_block.as_ref())
-            }),
+                    blake3::hash(child_shard_block_root.as_ref())
+                }),
         )?;
         Some(Blake3Hash::new(root))
     }
@@ -449,7 +451,7 @@ pub struct BlockHeaderResult {
 }
 
 impl BlockHeaderResult {
-    /// Hash of the block header result, part of the eventual block hash
+    /// Hash of the block header result, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
         // TODO: Keyed hash
         Blake3Hash::from(blake3::hash(self.as_bytes()))
@@ -534,7 +536,7 @@ impl<'a> BlockHeaderSeal<'a> {
         }
     }
 
-    /// Hash of the block header seal, part of the eventual block hash
+    /// Hash of the block header seal, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
         match self {
             BlockHeaderSeal::Sr25519(seal) => {
@@ -627,14 +629,14 @@ impl<'a> BeaconChainBlockHeader<'a> {
         ))
     }
 
-    /// Compute block hash out of this header.
+    /// Compute block root out of this header.
     ///
-    /// Block hash is actually a Merkle Tree Root. The leaves are derived from individual fields in
+    /// Block root is a Merkle Tree Root. The leaves are derived from individual fields in
     /// [`GenericBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
     #[inline]
-    pub fn hash(&self) -> BlockHash {
+    pub fn root(&self) -> BlockRoot {
         let Self {
             generic,
             child_shard_blocks,
@@ -656,10 +658,10 @@ impl<'a> BeaconChainBlockHeader<'a> {
             child_shard_blocks.root().unwrap_or_default(),
             consensus_parameters.hash(),
         ];
-        let block_hash = UnbalancedHashedMerkleTree::compute_root_only::<MAX_N, _, _>(leaves)
+        let block_root = UnbalancedHashedMerkleTree::compute_root_only::<MAX_N, _, _>(leaves)
             .expect("The list is not empty; qed");
 
-        BlockHash::new(Blake3Hash::new(block_hash))
+        BlockRoot::new(Blake3Hash::new(block_root))
     }
 }
 
@@ -730,14 +732,14 @@ impl<'a> IntermediateShardBlockHeader<'a> {
         ))
     }
 
-    /// Compute block hash out of this header.
+    /// Compute block root out of this header.
     ///
-    /// Block hash is actually a Merkle Tree Root. The leaves are derived from individual fields in
+    /// Block root is a Merkle Tree Root. The leaves are derived from individual fields in
     /// [`GenericBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
     #[inline]
-    pub fn hash(&self) -> BlockHash {
+    pub fn root(&self) -> BlockRoot {
         let Self {
             generic,
             beacon_chain_info,
@@ -759,10 +761,10 @@ impl<'a> IntermediateShardBlockHeader<'a> {
             beacon_chain_info.hash(),
             child_shard_blocks.root().unwrap_or_default(),
         ];
-        let block_hash = UnbalancedHashedMerkleTree::compute_root_only::<MAX_N, _, _>(leaves)
+        let block_root = UnbalancedHashedMerkleTree::compute_root_only::<MAX_N, _, _>(leaves)
             .expect("The list is not empty; qed");
 
-        BlockHash::new(Blake3Hash::new(block_hash))
+        BlockRoot::new(Blake3Hash::new(block_root))
     }
 }
 
@@ -826,14 +828,14 @@ impl<'a> LeafShardBlockHeader<'a> {
         ))
     }
 
-    /// Compute block hash out of this header.
+    /// Compute block root out of this header.
     ///
-    /// Block hash is actually a Merkle Tree Root. The leaves are derived from individual fields in
+    /// Block root is a Merkle Tree Root. The leaves are derived from individual fields in
     /// [`GenericBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
     #[inline]
-    pub fn hash(&self) -> BlockHash {
+    pub fn root(&self) -> BlockRoot {
         let Self {
             generic,
             beacon_chain_info,
@@ -853,10 +855,10 @@ impl<'a> LeafShardBlockHeader<'a> {
             seal.hash(),
             beacon_chain_info.hash(),
         ];
-        let block_hash = UnbalancedHashedMerkleTree::compute_root_only::<MAX_N, _, _>(leaves)
+        let block_root = UnbalancedHashedMerkleTree::compute_root_only::<MAX_N, _, _>(leaves)
             .expect("The list is not empty; qed");
 
-        BlockHash::new(Blake3Hash::new(block_hash))
+        BlockRoot::new(Blake3Hash::new(block_root))
     }
 }
 
@@ -951,19 +953,19 @@ impl<'a> BlockHeader<'a> {
         Some((prefix, consensus_info, result, bytes))
     }
 
-    /// Compute block hash out of this header.
+    /// Compute block root out of this header.
     ///
-    /// Block hash is actually a Merkle Tree Root. The leaves are derived from individual fields in
+    /// Block root is a Merkle Tree Root. The leaves are derived from individual fields in
     /// [`GenericBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
     #[inline]
-    pub fn hash(&self) -> BlockHash {
+    pub fn root(&self) -> BlockRoot {
         // TODO: Should unique keyed hash be used for different kinds of shards?
         match self {
-            Self::BeaconChain(header) => header.hash(),
-            Self::IntermediateShard(header) => header.hash(),
-            Self::LeafShard(header) => header.hash(),
+            Self::BeaconChain(header) => header.root(),
+            Self::IntermediateShard(header) => header.root(),
+            Self::LeafShard(header) => header.root(),
         }
     }
 }

@@ -121,7 +121,10 @@ impl BlockNumber {
     }
 }
 
-/// Block hash
+/// Block root.
+///
+/// This is typically called block hash in other blockchains, but here it represents Merkle Tree
+/// root of the header rather than a single hash of its contents.
 #[derive(
     Debug,
     Default,
@@ -147,23 +150,23 @@ impl BlockNumber {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(C)]
-pub struct BlockHash(Blake3Hash);
+pub struct BlockRoot(Blake3Hash);
 
-impl AsRef<[u8]> for BlockHash {
+impl AsRef<[u8]> for BlockRoot {
     #[inline(always)]
     fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
     }
 }
 
-impl AsMut<[u8]> for BlockHash {
+impl AsMut<[u8]> for BlockRoot {
     #[inline(always)]
     fn as_mut(&mut self) -> &mut [u8] {
         self.0.as_mut()
     }
 }
 
-impl BlockHash {
+impl BlockRoot {
     /// Size in bytes
     pub const SIZE: usize = Blake3Hash::SIZE;
 
@@ -233,8 +236,8 @@ impl<'a> BeaconChainBlock<'a> {
                 .child_shard_blocks
                 .iter()
                 .zip(self.body.intermediate_shard_blocks.iter())
-                .all(|(child_shard_block_hash, intermediate_shard_block)| {
-                    child_shard_block_hash == &intermediate_shard_block.header.hash()
+                .all(|(child_shard_block_root, intermediate_shard_block)| {
+                    child_shard_block_root == &intermediate_shard_block.header.root()
                         && intermediate_shard_block
                             .header
                             .prefix
@@ -298,8 +301,8 @@ impl<'a> IntermediateShardBlock<'a> {
                 .child_shard_blocks
                 .iter()
                 .zip(self.body.leaf_shard_blocks.iter())
-                .all(|(child_shard_block_hash, leaf_shard_block)| {
-                    child_shard_block_hash == &leaf_shard_block.header.hash()
+                .all(|(child_shard_block_root, leaf_shard_block)| {
+                    child_shard_block_root == &leaf_shard_block.header.root()
                         && leaf_shard_block
                             .header
                             .prefix

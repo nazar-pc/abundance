@@ -22,7 +22,7 @@ use crate::sync_from_dsn::DsnPieceGetter;
 use crate::sync_from_dsn::piece_validator::SegmentRootPieceValidator;
 use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::task_spawner::SpawnTasksParams;
-use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::pot::PotSeed;
 use ab_erasure_coding::ErasureCoding;
 use async_lock::Semaphore;
@@ -258,7 +258,16 @@ where
         .map_err(|error| ServiceError::Application(error.into()))?;
 
     let pot_verifier = PotVerifier::new(
-        PotSeed::from_genesis(client_info.genesis_hash.as_ref(), pot_external_entropy),
+        PotSeed::from_genesis(
+            &BlockRoot::new(
+                client_info
+                    .genesis_hash
+                    .as_ref()
+                    .try_into()
+                    .expect("Genesis root must always be convertible into BlockRoot; qed"),
+            ),
+            pot_external_entropy,
+        ),
         POT_VERIFIER_CACHE_SIZE,
     );
 

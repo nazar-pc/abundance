@@ -4,7 +4,7 @@ use ab_contracts_common::env::MethodContext;
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::TxHandler;
 use ab_core_primitives::address::Address;
-use ab_core_primitives::block::BlockHash;
+use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::transaction::{Transaction, TransactionHeader, TransactionSlot};
 use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
@@ -86,7 +86,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let header = TransactionHeader {
         version: 0,
-        block_hash: BlockHash::default(),
+        block_root: BlockRoot::default(),
         gas_limit: Default::default(),
         contract: wallet_address,
     };

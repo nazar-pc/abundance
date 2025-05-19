@@ -149,7 +149,7 @@ pub(super) fn print_disk_farm_info(directory: PathBuf, farm_index: usize) {
     match SingleDiskFarm::collect_summary(directory) {
         SingleDiskFarmSummary::Found { info, directory } => {
             println!("  ID: {}", info.id());
-            println!("  Genesis hash: 0x{}", hex::encode(info.genesis_hash()));
+            println!("  Genesis hash: 0x{}", hex::encode(info.genesis_root()));
             println!("  Public key: 0x{}", hex::encode(info.public_key()));
             println!(
                 "  Allocated space: {} ({})",

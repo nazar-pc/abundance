@@ -1,6 +1,6 @@
 #![feature(vec_deque_pop_if)]
 
-use ab_core_primitives::block::{BlockHash, BlockNumber};
+use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::transaction::TransactionHash;
 use ab_core_primitives::transaction::owned::OwnedTransaction;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -19,8 +19,8 @@ pub struct TransactionPoolLimits {
 pub struct TransactionAuthorizedDetails {
     /// Block number at which transaction was authorized
     pub block_number: BlockNumber,
-    /// Block hash at which transaction was authorized
-    pub block_hash: BlockHash,
+    /// Block root at which transaction was authorized
+    pub block_root: BlockRoot,
 }
 
 #[derive(Debug)]
@@ -57,7 +57,7 @@ pub enum TransactionAddError {
 }
 
 #[derive(Debug)]
-struct BlockHashDetails {
+struct BlockRootDetails {
     txs: HashSet<TransactionHash>,
 }
 
@@ -71,10 +71,10 @@ struct BlockHashDetails {
 pub struct TransactionPool {
     transactions: HashMap<TransactionHash, PoolTransaction>,
     total_size: usize,
-    /// Map from block hash at which transactions were created to a set of transaction hashes
-    by_block_hash: HashMap<BlockHash, BlockHashDetails>,
+    /// Map from block root at which transactions were created to a set of transaction hashes
+    by_block_root: HashMap<BlockRoot, BlockRootDetails>,
     // TODO: Optimize with an oldest block + `Vec<BlockHash>` instead
-    by_block_number: HashMap<BlockNumber, BlockHash>,
+    by_block_number: HashMap<BlockNumber, BlockRoot>,
     pruning_depth: NonZeroU64,
     authorization_history_depth: NonZeroU8,
     limits: TransactionPoolLimits,
@@ -98,7 +98,7 @@ impl TransactionPool {
         Self {
             transactions: HashMap::default(),
             total_size: 0,
-            by_block_hash: HashMap::default(),
+            by_block_root: HashMap::default(),
             by_block_number: HashMap::default(),
             pruning_depth,
             authorization_history_depth,
@@ -116,8 +116,8 @@ impl TransactionPool {
             return Err(TransactionAddError::AlreadyExists);
         }
 
-        let block_hash = tx.transaction().header.block_hash;
-        let Some(block_txs) = self.by_block_hash.get_mut(&block_hash) else {
+        let block_root = tx.transaction().header.block_root;
+        let Some(block_txs) = self.by_block_root.get_mut(&block_root) else {
             return Err(TransactionAddError::BlockNotFound);
         };
 
@@ -150,7 +150,7 @@ impl TransactionPool {
         &mut self,
         tx_hash: &TransactionHash,
         block_number: BlockNumber,
-        block_hash: BlockHash,
+        block_root: BlockRoot,
     ) -> bool {
         let Some(tx) = self.transactions.get_mut(tx_hash) else {
             return false;
@@ -158,7 +158,7 @@ impl TransactionPool {
 
         let authorized_details = TransactionAuthorizedDetails {
             block_number,
-            block_hash,
+            block_root,
         };
 
         match &mut tx.state {
@@ -204,11 +204,11 @@ impl TransactionPool {
         if let Some(tx) = self.transactions.remove(tx_hash) {
             self.total_size -= tx.tx.buffer().len() as usize;
 
-            let block_hash = &tx.tx.transaction().header.block_hash;
-            if let Some(set) = self.by_block_hash.get_mut(block_hash) {
+            let block_root = &tx.tx.transaction().header.block_root;
+            if let Some(set) = self.by_block_root.get_mut(block_root) {
                 set.txs.remove(tx_hash);
                 if set.txs.is_empty() {
-                    self.by_block_hash.remove(block_hash);
+                    self.by_block_root.remove(block_root);
                 }
             }
         }
@@ -220,18 +220,18 @@ impl TransactionPool {
     /// removed alongside all transactions. Blocks older than configured pruning depth will be
     /// removed automatically as well.
     ///
-    /// This allows accepting transactions created at specified block hash.
-    pub fn add_best_block(&mut self, block_number: BlockNumber, block_hash: BlockHash) {
+    /// This allows accepting transactions created at specified block root.
+    pub fn add_best_block(&mut self, block_number: BlockNumber, block_root: BlockRoot) {
         // Clean up old blocks or blocks that are at the same or higher block number
         let allowed_blocks =
             block_number.saturating_sub(BlockNumber::new(self.pruning_depth.get()))..block_number;
         self.by_block_number
-            .retain(|existing_block_number, existing_block_hash| {
+            .retain(|existing_block_number, existing_block_root| {
                 if allowed_blocks.contains(existing_block_number) {
                     return true;
                 }
 
-                if let Some(tx_hashes) = self.by_block_hash.remove(existing_block_hash) {
+                if let Some(tx_hashes) = self.by_block_root.remove(existing_block_root) {
                     for tx_hash in tx_hashes.txs {
                         if let Some(tx) = self.transactions.remove(&tx_hash) {
                             self.total_size -= tx.tx.buffer().len() as usize;
@@ -251,10 +251,10 @@ impl TransactionPool {
             }
         }
 
-        self.by_block_number.insert(block_number, block_hash);
-        self.by_block_hash.insert(
-            block_hash,
-            BlockHashDetails {
+        self.by_block_number.insert(block_number, block_root);
+        self.by_block_root.insert(
+            block_root,
+            BlockRootDetails {
                 txs: HashSet::new(),
             },
         );

@@ -1,6 +1,6 @@
 use ab_contracts_common::method::ExternalArgs;
 use ab_core_primitives::address::Address;
-use ab_core_primitives::block::BlockHash;
+use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
 use ab_system_contract_simple_wallet_base::payload::builder::{
@@ -76,7 +76,7 @@ impl TransactionBuilder {
         OwnedTransaction {
             header: TransactionHeader {
                 version: 0,
-                block_hash: BlockHash::default(),
+                block_root: BlockRoot::default(),
                 gas_limit: Gas::default(),
                 contract: self.contract,
             },
