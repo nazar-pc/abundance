@@ -596,10 +596,9 @@ impl<'a> NestedSlots<'a> {
             // Ensure that slot is not currently being written to
             if let Some(read_write) = slot_access.iter().find_map(|slot_access| {
                 (slot_access.slot_index == slot_index).then_some(slot_access.read_write)
-            }) {
-                if read_write {
-                    return None;
-                }
+            }) && read_write
+            {
+                return None;
             }
 
             let slot = &slots

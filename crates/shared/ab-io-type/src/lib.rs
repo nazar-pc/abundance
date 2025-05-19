@@ -1,4 +1,4 @@
-#![feature(maybe_uninit_slice, non_null_from_ref, ptr_as_uninit)]
+#![feature(maybe_uninit_slice, ptr_as_uninit)]
 #![no_std]
 
 pub mod bool;

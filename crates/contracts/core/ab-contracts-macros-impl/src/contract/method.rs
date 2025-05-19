@@ -1216,8 +1216,7 @@ impl MethodDetails {
                 #arg_name: &::ab_contracts_macros::__private::Address,
             });
             method_args_fields.push(quote! {
-                // TODO: Use `NonNull::from_ref()` once stable
-                #ptr_field: ::core::ptr::NonNull::from(#arg_name),
+                #ptr_field: ::core::ptr::NonNull::from_ref(#arg_name),
             });
         }
 
@@ -1338,8 +1337,7 @@ impl MethodDetails {
                 },
                 ok_result_size: ::core::ptr::from_mut(ok_result_size),
                 // This is for `TrivialType` and will never be modified
-                // TODO: Use `NonNull::from_ref()` once stable
-                ok_result_capacity: ::core::ptr::NonNull::from(
+                ok_result_capacity: ::core::ptr::NonNull::from_ref(
                     &<#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                 ),
             });

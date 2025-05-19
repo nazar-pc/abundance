@@ -609,15 +609,15 @@ pub(super) fn create_consensus_chain_configuration(
 
     let node_name = name.unwrap_or_else(generate_node_name);
 
-    if let StatePruningMode::Number(number) = pruning_params.state_pruning {
-        if number < MIN_STATE_PRUNING {
-            // Do not return error because some users may in fact use lower values and we don't want
-            // to break their setups, at least for now
-            error!(
-                "Do not set state pruning number below {MIN_STATE_PRUNING} for safety reasons, \
-                node can break any time!"
-            );
-        }
+    if let StatePruningMode::Number(number) = pruning_params.state_pruning
+        && number < MIN_STATE_PRUNING
+    {
+        // Do not return error because some users may in fact use lower values and we don't want
+        // to break their setups, at least for now
+        error!(
+            "Do not set state pruning number below {MIN_STATE_PRUNING} for safety reasons, \
+            node can break any time!"
+        );
     }
 
     let consensus_chain_config = SubstrateConfiguration {

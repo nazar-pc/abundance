@@ -1,9 +1,4 @@
-#![feature(
-    generic_arg_infer,
-    non_null_from_ref,
-    ptr_as_ref_unchecked,
-    unsafe_cell_access
-)]
+#![feature(generic_arg_infer, ptr_as_ref_unchecked, unsafe_cell_access)]
 
 mod context;
 

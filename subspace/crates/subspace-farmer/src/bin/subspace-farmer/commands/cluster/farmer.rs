@@ -188,14 +188,14 @@ where
         }
 
         for farm in &disk_farms {
-            if !farm.directory.exists() {
-                if let Err(error) = fs::create_dir(&farm.directory) {
-                    return Err(anyhow!(
-                        "Directory {} doesn't exist and can't be created: {}",
-                        farm.directory.display(),
-                        error
-                    ));
-                }
+            if !farm.directory.exists()
+                && let Err(error) = fs::create_dir(&farm.directory)
+            {
+                return Err(anyhow!(
+                    "Directory {} doesn't exist and can't be created: {}",
+                    farm.directory.display(),
+                    error
+                ));
             }
         }
         None
