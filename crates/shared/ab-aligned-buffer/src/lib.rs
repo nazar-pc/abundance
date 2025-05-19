@@ -7,7 +7,9 @@ mod tests;
 extern crate alloc;
 
 use ab_io_type::MAX_ALIGNMENT;
+use alloc::alloc::realloc;
 use alloc::boxed::Box;
+use core::alloc::Layout;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 use core::slice;
@@ -117,6 +119,32 @@ impl InnerBuffer {
             capacity,
             len: 0,
         }
+    }
+
+    #[inline(always)]
+    fn realloc(&mut self, capacity: u32) {
+        // SAFETY: Non-null correctly aligned pointer, correct size
+        let layout = Layout::for_value(unsafe {
+            slice::from_raw_parts(
+                self.buffer.as_ptr(),
+                1 + (self.capacity as usize).div_ceil(size_of::<u128>()),
+            )
+        });
+
+        // `size_of::<u128>()` is added because the first bytes are allocated for `strong_count`
+        let new_size = size_of::<u128>() + (capacity as usize).next_multiple_of(layout.align());
+
+        // SAFETY: Allocated with global allocator, correct layout, non-zero size that is a
+        // multiple of alignment
+        let new_ptr = unsafe {
+            realloc(self.buffer.as_ptr().cast::<u8>(), layout, new_size).cast::<MaybeUninit<u128>>()
+        };
+        let Some(new_ptr) = NonNull::new(new_ptr) else {
+            panic!("Realloc from {} to {new_size} have failed", self.capacity());
+        };
+
+        self.buffer = new_ptr;
+        self.capacity = capacity;
     }
 
     #[inline(always)]
@@ -242,11 +270,8 @@ impl OwnedAlignedBuffer {
     /// Will re-allocate if necessary.
     #[inline(always)]
     pub fn ensure_capacity(&mut self, capacity: u32) {
-        // TODO: Try to `realloc()` if possible
         if capacity > self.capacity() {
-            let mut new_buffer = Self::with_capacity(capacity);
-            new_buffer.copy_from_slice(self.as_slice());
-            *self = new_buffer;
+            self.inner.realloc(capacity)
         }
     }
 
@@ -260,10 +285,8 @@ impl OwnedAlignedBuffer {
             panic!("Too many bytes {}", bytes.len());
         };
 
-        // TODO: Try to `realloc()` if possible
         if len > self.capacity() {
-            // Allocate new buffer
-            self.inner = InnerBuffer::allocate(len);
+            self.ensure_capacity(len.max(self.capacity().saturating_mul(2)));
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
@@ -290,10 +313,8 @@ impl OwnedAlignedBuffer {
             return false;
         };
 
-        // TODO: Try to `realloc()` if possible
         if new_len > self.capacity() {
-            // Allocate new buffer
-            self.inner = InnerBuffer::allocate(new_len.max(self.capacity() * 2));
+            self.ensure_capacity(new_len.max(self.capacity().saturating_mul(2)));
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
@@ -333,7 +354,7 @@ impl OwnedAlignedBuffer {
     /// If `bytes.len()` doesn't fit into `u32`
     #[inline(always)]
     pub unsafe fn set_len(&mut self, new_len: u32) {
-        assert!(
+        debug_assert!(
             new_len <= self.capacity(),
             "Too many bytes {} > {}",
             new_len,
