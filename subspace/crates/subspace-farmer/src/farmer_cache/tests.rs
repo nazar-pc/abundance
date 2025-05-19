@@ -1,7 +1,7 @@
 use crate::disk_piece_cache::DiskPieceCache;
 use crate::farmer_cache::{FarmerCache, decode_piece_index_from_record_key};
 use crate::node_client::NodeClient;
-use ab_core_primitives::block::{BlockHash, BlockNumber};
+use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex};
 use async_trait::async_trait;
@@ -40,7 +40,7 @@ impl NodeClient for MockNodeClient {
     async fn farmer_app_info(&self) -> anyhow::Result<FarmerAppInfo> {
         // Most of these values make no sense, but they are not used by piece cache anyway
         Ok(FarmerAppInfo {
-            genesis_hash: BlockHash::default(),
+            genesis_root: BlockRoot::default(),
             dsn_bootstrap_nodes: Vec::new(),
             syncing: false,
             farming_timeout: Duration::default(),

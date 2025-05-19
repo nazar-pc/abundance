@@ -439,7 +439,7 @@ where
         }
 
         configure_network(
-            hex::encode(farmer_app_info.genesis_hash),
+            hex::encode(farmer_app_info.genesis_root),
             first_farm_directory,
             keypair,
             network_args,
@@ -638,7 +638,7 @@ where
                         let info = farm.info();
                         info!("Farm {farm_index}:");
                         info!("  ID: {}", info.id());
-                        info!("  Genesis hash: 0x{}", hex::encode(info.genesis_hash()));
+                        info!("  Genesis hash: 0x{}", hex::encode(info.genesis_root()));
                         info!("  Public key: 0x{}", hex::encode(info.public_key()));
                         info!(
                             "  Allocated space: {} ({})",

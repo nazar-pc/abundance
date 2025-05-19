@@ -4,7 +4,7 @@
 pub mod owned;
 
 use crate::address::Address;
-use crate::block::BlockHash;
+use crate::block::BlockRoot;
 use crate::hashes::Blake3Hash;
 use ab_io_type::trivial_type::TrivialType;
 use blake3::Hasher;
@@ -57,8 +57,8 @@ pub struct TransactionHeader {
     // TODO: Some more complex field?
     /// Transaction version
     pub version: u64,
-    /// Block hash at which transaction was created
-    pub block_hash: BlockHash,
+    /// Block root at which transaction was created
+    pub block_root: BlockRoot,
     /// Gas limit
     pub gas_limit: Gas,
     /// Contract implementing `TxHandler` trait to use for transaction verification and execution

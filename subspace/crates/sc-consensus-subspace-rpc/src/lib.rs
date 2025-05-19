@@ -3,7 +3,7 @@
 #![feature(try_blocks)]
 
 use ab_archiving::archiver::NewArchivedSegment;
-use ab_core_primitives::block::BlockHash;
+use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
@@ -218,7 +218,7 @@ where
         Arc<Mutex<ArchivedSegmentHeaderAcknowledgementSenders>>,
     next_subscription_id: AtomicU64,
     sync_oracle: SubspaceSyncOracle<SO>,
-    genesis_hash: BlockHash,
+    genesis_root: BlockRoot,
     chain_constants: ChainConstants,
     max_pieces_in_sector: u16,
     erasure_coding: ErasureCoding,
@@ -244,11 +244,11 @@ where
     pub fn new(config: SubspaceRpcConfig<Client, SO, AS>) -> Result<Self, ApiError> {
         let info = config.client.info();
         let best_hash = info.best_hash;
-        let genesis_hash = BlockHash::new(
+        let genesis_hash = BlockRoot::new(
             info.genesis_hash
                 .as_ref()
                 .try_into()
-                .expect("Genesis hash must always be convertible into BlockHash; qed"),
+                .expect("Genesis root must always be convertible into BlockRoot; qed"),
         );
         let runtime_api = config.client.runtime_api();
         let chain_constants = runtime_api.chain_constants(best_hash)?;
@@ -278,7 +278,7 @@ where
             archived_segment_acknowledgement_senders: Arc::default(),
             next_subscription_id: AtomicU64::default(),
             sync_oracle: config.sync_oracle,
-            genesis_hash,
+            genesis_root: genesis_hash,
             chain_constants,
             max_pieces_in_sector,
             erasure_coding: config.erasure_coding,
@@ -312,7 +312,7 @@ where
             };
 
             FarmerAppInfo {
-                genesis_hash: self.genesis_hash,
+                genesis_root: self.genesis_root,
                 dsn_bootstrap_nodes: self.dsn_bootstrap_nodes.clone(),
                 syncing: self.sync_oracle.is_major_syncing(),
                 farming_timeout: chain_constants

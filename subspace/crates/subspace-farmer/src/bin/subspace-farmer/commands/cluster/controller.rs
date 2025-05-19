@@ -150,7 +150,7 @@ pub(super) async fn controller(
         }
 
         configure_network(
-            hex::encode(farmer_app_info.genesis_hash),
+            hex::encode(farmer_app_info.genesis_root),
             &base_path,
             keypair,
             network_args,

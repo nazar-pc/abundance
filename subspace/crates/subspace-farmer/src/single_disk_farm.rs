@@ -40,7 +40,7 @@ use crate::single_disk_farm::plotting::{
 use crate::single_disk_farm::reward_signing::reward_signing;
 use crate::utils::{AsyncJoinOnDrop, tokio_rayon_spawn_handler};
 use crate::{KNOWN_PEERS_CACHE_SIZE, farm};
-use ab_core_primitives::block::BlockHash;
+use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::hashes::{Blake3Hash, blake3_hash};
 use ab_core_primitives::pieces::Record;
 use ab_core_primitives::sectors::SectorIndex;
@@ -111,8 +111,8 @@ pub enum SingleDiskFarmInfo {
     V0 {
         /// ID of the farm
         id: FarmId,
-        /// Genesis hash of the chain used for farm creation
-        genesis_hash: BlockHash,
+        /// Genesis root of the beacon chain used for farm creation
+        genesis_root: BlockRoot,
         /// Public key of identity used for farm creation
         public_key: PublicKey,
         /// How many pieces does one sector contain.
@@ -128,14 +128,14 @@ impl SingleDiskFarmInfo {
     /// Create new instance
     pub fn new(
         id: FarmId,
-        genesis_hash: BlockHash,
+        genesis_root: BlockRoot,
         public_key: PublicKey,
         pieces_in_sector: u16,
         allocated_space: u64,
     ) -> Self {
         Self::V0 {
             id,
-            genesis_hash,
+            genesis_root,
             public_key,
             pieces_in_sector,
             allocated_space,
@@ -199,9 +199,9 @@ impl SingleDiskFarmInfo {
     }
 
     /// Genesis hash of the chain used for farm creation
-    pub fn genesis_hash(&self) -> &BlockHash {
-        let Self::V0 { genesis_hash, .. } = self;
-        genesis_hash
+    pub fn genesis_root(&self) -> &BlockRoot {
+        let Self::V0 { genesis_root, .. } = self;
+        genesis_root
     }
 
     /// Public key of identity used for farm creation
@@ -1247,11 +1247,11 @@ impl SingleDiskFarm {
         let (single_disk_farm_info, single_disk_farm_info_lock) =
             match SingleDiskFarmInfo::load_from(directory)? {
                 Some(mut single_disk_farm_info) => {
-                    if &farmer_app_info.genesis_hash != single_disk_farm_info.genesis_hash() {
+                    if &farmer_app_info.genesis_root != single_disk_farm_info.genesis_root() {
                         return Err(SingleDiskFarmError::WrongChain {
                             id: *single_disk_farm_info.id(),
-                            correct_chain: hex::encode(single_disk_farm_info.genesis_hash()),
-                            wrong_chain: hex::encode(farmer_app_info.genesis_hash),
+                            correct_chain: hex::encode(single_disk_farm_info.genesis_root()),
+                            wrong_chain: hex::encode(farmer_app_info.genesis_root),
                         });
                     }
 
@@ -1314,7 +1314,7 @@ impl SingleDiskFarm {
                 None => {
                     let single_disk_farm_info = SingleDiskFarmInfo::new(
                         FarmId::new(),
-                        farmer_app_info.genesis_hash,
+                        farmer_app_info.genesis_root,
                         public_key,
                         max_pieces_in_sector,
                         allocated_space,

@@ -1,6 +1,6 @@
 //! Primitives for Subspace RPC.
 
-use ab_core_primitives::block::BlockHash;
+use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::solutions::{Solution, SolutionRange};
@@ -18,8 +18,8 @@ pub const MAX_SEGMENT_HEADERS_PER_REQUEST: usize = 1000;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FarmerAppInfo {
-    /// Genesis hash of the chain
-    pub genesis_hash: BlockHash,
+    /// Genesis root of the beacon chain
+    pub genesis_root: BlockRoot,
     /// Bootstrap nodes for DSN
     pub dsn_bootstrap_nodes: Vec<Multiaddr>,
     /// Whether node is syncing right now
@@ -33,7 +33,7 @@ pub struct FarmerAppInfo {
 impl Encode for FarmerAppInfo {
     fn size_hint(&self) -> usize {
         0_usize
-            .saturating_add(Encode::size_hint(&self.genesis_hash))
+            .saturating_add(Encode::size_hint(&self.genesis_root))
             .saturating_add(Encode::size_hint(
                 &self
                     .dsn_bootstrap_nodes
@@ -47,7 +47,7 @@ impl Encode for FarmerAppInfo {
     }
 
     fn encode_to<O: Output + ?Sized>(&self, output: &mut O) {
-        Encode::encode_to(&self.genesis_hash, output);
+        Encode::encode_to(&self.genesis_root, output);
         Encode::encode_to(
             &self
                 .dsn_bootstrap_nodes
@@ -67,8 +67,8 @@ impl EncodeLike for FarmerAppInfo {}
 impl Decode for FarmerAppInfo {
     fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
         Ok(FarmerAppInfo {
-            genesis_hash: BlockHash::decode(input)
-                .map_err(|error| error.chain("Could not decode `FarmerAppInfo::genesis_hash`"))?,
+            genesis_root: BlockRoot::decode(input)
+                .map_err(|error| error.chain("Could not decode `FarmerAppInfo::genesis_root`"))?,
             dsn_bootstrap_nodes: Vec::<Vec<u8>>::decode(input)
                 .map_err(|error| {
                     error.chain("Could not decode `FarmerAppInfo::dsn_bootstrap_nodes`")
