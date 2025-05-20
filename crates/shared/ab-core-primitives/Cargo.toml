@@ -21,6 +21,8 @@ bech32 = { workspace = true }
 blake3 = { workspace = true }
 bytes = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["full"] }
+# TODO: Make non-optional once https://github.com/ZcashFoundation/ed25519-zebra/issues/160 is resolved
+ed25519-zebra = { workspace = true, optional = true }
 hex = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
 rayon = { workspace = true, optional = true }
@@ -39,6 +41,11 @@ alloc = [
     "dep:bytes",
     "hex/alloc",
     "serde/alloc",
+]
+# TODO: Remove once https://github.com/ZcashFoundation/ed25519-zebra/issues/160 is resolved
+ed25519-verify = [
+    "alloc",
+    "dep:ed25519-zebra",
 ]
 scale-codec = [
     "dep:parity-scale-codec",

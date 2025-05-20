@@ -75,7 +75,7 @@ impl SolutionDistance {
 
     /// Check if solution distance is within the provided solution range
     pub const fn is_within(self, solution_range: SolutionRange) -> bool {
-        self.0 <= solution_range.to_u64() / 2
+        self.0 <= solution_range.as_u64() / 2
     }
 }
 
@@ -118,14 +118,14 @@ impl SolutionRange {
     // TODO: Remove once `From` is stable
     /// Create new instance
     #[inline(always)]
-    pub const fn from_u64(n: u64) -> Self {
+    pub const fn new(n: u64) -> Self {
         Self(n)
     }
 
     // TODO: Remove once `From` is stable
     /// Get internal representation
     #[inline(always)]
-    pub const fn to_u64(self) -> u64 {
+    pub const fn as_u64(self) -> u64 {
         self.0
     }
 

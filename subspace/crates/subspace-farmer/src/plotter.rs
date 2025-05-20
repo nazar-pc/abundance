@@ -10,6 +10,7 @@ pub mod cpu;
 pub mod gpu;
 pub mod pool;
 
+use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -21,7 +22,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_farmer_components::plotting::PlottedSector;
-use subspace_verification::ed25519::Ed25519PublicKey;
 
 /// Sector plotting progress
 pub enum SectorPlottingProgress {

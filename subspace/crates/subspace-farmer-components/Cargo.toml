@@ -63,4 +63,3 @@ winapi = "0.3.9"
 criterion = { workspace = true }
 futures = { workspace = true }
 subspace-proof-of-space = { workspace = true }
-subspace-verification = { workspace = true }

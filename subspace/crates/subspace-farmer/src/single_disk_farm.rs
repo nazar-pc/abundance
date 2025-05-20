@@ -41,6 +41,7 @@ use crate::single_disk_farm::reward_signing::reward_signing;
 use crate::utils::{AsyncJoinOnDrop, tokio_rayon_spawn_handler};
 use crate::{KNOWN_PEERS_CACHE_SIZE, farm};
 use ab_core_primitives::block::BlockRoot;
+use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::hashes::{Blake3Hash, blake3_hash};
 use ab_core_primitives::pieces::Record;
 use ab_core_primitives::sectors::SectorIndex;
@@ -78,7 +79,6 @@ use subspace_farmer_components::sector::{SectorMetadata, SectorMetadataChecksumm
 use subspace_networking::KnownPeersManager;
 use subspace_proof_of_space::Table;
 use subspace_rpc_primitives::{FarmerAppInfo, SolutionResponse};
-use subspace_verification::ed25519::Ed25519PublicKey;
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;

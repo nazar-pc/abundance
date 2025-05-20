@@ -2,6 +2,7 @@
 
 use crate::{self as pallet_subspace, AllowAuthoringBy, Config, ConsensusConstants};
 use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::PieceOffset;
 use ab_core_primitives::pot::SlotNumber;
@@ -20,7 +21,6 @@ use sp_runtime::testing::{Digest, DigestItem, TestXt};
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use subspace_runtime_primitives::ConsensusEventSegmentSize;
-use subspace_verification::ed25519::Ed25519PublicKey;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type Balance = u128;

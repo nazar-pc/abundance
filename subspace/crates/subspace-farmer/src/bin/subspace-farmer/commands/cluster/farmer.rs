@@ -1,6 +1,7 @@
 //! Metrics specific for single disk farm
 
 use crate::commands::shared::DiskFarm;
+use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_erasure_coding::ErasureCoding;
 use anyhow::anyhow;
 use async_lock::Mutex as AsyncMutex;
@@ -33,7 +34,6 @@ use subspace_farmer::utils::{
 };
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_proof_of_space::Table;
-use subspace_verification::ed25519::Ed25519PublicKey;
 use tracing::{Instrument, error, info, info_span, warn};
 
 const FARM_ERROR_PRINT_INTERVAL: Duration = Duration::from_secs(30);

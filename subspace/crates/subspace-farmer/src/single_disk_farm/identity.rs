@@ -1,12 +1,12 @@
 //! Farm identity
 
+use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_core_primitives::hashes::Blake3Hash;
 use ed25519_zebra::{SigningKey, VerificationKey};
 use parity_scale_codec::{Decode, Encode};
 use rand::rngs::OsRng;
 use std::path::Path;
 use std::{fmt, fs, io};
-use subspace_verification::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use thiserror::Error;
 use tracing::debug;
 use zeroize::{Zeroize, Zeroizing};
@@ -101,7 +101,7 @@ impl Identity {
 
     /// Returns the public key of the identity.
     pub fn public_key(&self) -> Ed25519PublicKey {
-        Ed25519PublicKey::from(<[u8; 32]>::from(VerificationKey::from(&self.signing_key)))
+        Ed25519PublicKey::from(VerificationKey::from(&self.signing_key))
     }
 
     /// Returns the secret key of the identity.
@@ -112,6 +112,6 @@ impl Identity {
     // TODO: Rename reward hash to `pre_seal_hash`
     /// Sign reward hash.
     pub fn sign_reward_hash(&self, header_hash: &Blake3Hash) -> Ed25519Signature {
-        Ed25519Signature::from(self.signing_key.sign(header_hash.as_ref()).to_bytes())
+        Ed25519Signature::from(self.signing_key.sign(header_hash.as_ref()))
     }
 }

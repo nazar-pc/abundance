@@ -92,7 +92,7 @@ fn can_override_solution_range_update() {
         };
         assert_eq!(Subspace::solution_ranges(), initial_solution_ranges);
         // enable solution range adjustment
-        let random_solution_range = SolutionRange::from_u64(rand::random());
+        let random_solution_range = SolutionRange::new(rand::random());
         assert_ok!(Subspace::enable_solution_range_adjustment(
             RuntimeOrigin::root(),
             Some(random_solution_range),

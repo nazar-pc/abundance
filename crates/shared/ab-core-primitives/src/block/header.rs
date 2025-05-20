@@ -1,13 +1,12 @@
 //! Block header primitives
 
 use crate::block::{BlockNumber, BlockRoot};
+use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use crate::hashes::Blake3Hash;
 use crate::pot::{PotOutput, PotParametersChange, SlotNumber};
 use crate::segments::SuperSegmentRoot;
 use crate::shard::{ShardIndex, ShardKind};
 use crate::solutions::{Solution, SolutionRange};
-#[cfg(feature = "serde")]
-use ::serde::{Deserialize, Serialize};
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::unbalanced_hashed::UnbalancedHashedMerkleTree;
 use core::num::NonZeroU32;
@@ -19,7 +18,7 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
-use serde_big_array::BigArray;
+use serde::{Deserialize, Serialize};
 
 /// Block header prefix.
 ///
@@ -468,24 +467,24 @@ impl BlockHeaderResult {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(u8)]
 pub enum BlockHeaderSealType {
-    /// Sr25519 signature
+    /// Ed25519 signature
     #[cfg_attr(feature = "scale-codec", codec(index = 0))]
-    Sr25519 = 0,
+    Ed25519 = 0,
 }
 
 impl BlockHeaderSealType {
     /// Create an instance from bytes if valid
     #[inline(always)]
     pub const fn try_from_byte(byte: u8) -> Option<Self> {
-        if byte == Self::Sr25519 as u8 {
-            Some(Self::Sr25519)
+        if byte == Self::Ed25519 as u8 {
+            Some(Self::Ed25519)
         } else {
             None
         }
     }
 }
 
-/// Sr25519 seal
+/// Ed25519 seal
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
 #[cfg_attr(
     feature = "scale-codec",
@@ -494,21 +493,18 @@ impl BlockHeaderSealType {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
-pub struct BlockHeaderSr25519Seal {
-    /// Sr25519 public key
-    /// TODO: Probably use constant from `schnorrkel`
-    pub public_key: [u8; 32],
-    /// Sr25519 signature
-    /// TODO: Probably use constant from `schnorrkel`
-    #[cfg_attr(feature = "serde", serde(with = "BigArray"))]
-    pub signature: [u8; 64],
+pub struct BlockHeaderEd25519Seal {
+    /// Ed25519 public key
+    pub public_key: Ed25519PublicKey,
+    /// Ed25519 signature
+    pub signature: Ed25519Signature,
 }
 
 /// Block header seal
 #[derive(Debug, Copy, Clone)]
 pub enum BlockHeaderSeal<'a> {
-    /// Sr25519 seal
-    Sr25519(&'a BlockHeaderSr25519Seal),
+    /// Ed25519 seal
+    Ed25519(&'a BlockHeaderEd25519Seal),
 }
 
 impl<'a> BlockHeaderSeal<'a> {
@@ -521,28 +517,39 @@ impl<'a> BlockHeaderSeal<'a> {
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         // The layout here is as follows:
         // * seal type: u8
-        // * seal (depends on a seal type): BlockHeaderSr25519Seal
+        // * seal (depends on a seal type): BlockHeaderEd25519Seal
 
         let seal_type = bytes.split_off(..size_of::<u8>())?;
         let seal_type = BlockHeaderSealType::try_from_byte(seal_type[0])?;
 
         match seal_type {
-            BlockHeaderSealType::Sr25519 => {
-                let seal = bytes.split_off(..size_of::<BlockHeaderSr25519Seal>())?;
+            BlockHeaderSealType::Ed25519 => {
+                let seal = bytes.split_off(..size_of::<BlockHeaderEd25519Seal>())?;
                 // SAFETY: All bit patterns are valid
-                let seal = unsafe { BlockHeaderSr25519Seal::from_bytes(seal) }?;
-                Some((Self::Sr25519(seal), bytes))
+                let seal = unsafe { BlockHeaderEd25519Seal::from_bytes(seal) }?;
+                Some((Self::Ed25519(seal), bytes))
             }
+        }
+    }
+
+    /// Verify seal against [`BlockHeader::pre_seal_hash()`]
+    #[cfg(feature = "ed25519-verify")]
+    pub fn is_seal_valid(&self, pre_seal_hash: &Blake3Hash) -> bool {
+        match self {
+            BlockHeaderSeal::Ed25519(seal) => seal
+                .public_key
+                .verify(&seal.signature, pre_seal_hash.as_bytes())
+                .is_ok(),
         }
     }
 
     /// Hash of the block header seal, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
         match self {
-            BlockHeaderSeal::Sr25519(seal) => {
+            BlockHeaderSeal::Ed25519(seal) => {
                 // TODO: Keyed hash
                 let mut hasher = blake3::Hasher::new();
-                hasher.update(&[BlockHeaderSealType::Sr25519 as u8]);
+                hasher.update(&[BlockHeaderSealType::Ed25519 as u8]);
                 hasher.update(seal.as_bytes());
 
                 Blake3Hash::from(hasher.finalize())
@@ -637,8 +644,15 @@ impl<'a> BeaconChainBlockHeader<'a> {
     /// Hash of the block before seal is applied to it
     #[inline]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
-        // TODO: Keyed hash
+        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
+    }
+
+    /// Verify seal against [`BeaconChainBlockHeader::pre_seal_hash()`]
+    #[inline]
+    #[cfg(feature = "ed25519-verify")]
+    pub fn is_seal_valid(&self) -> bool {
+        self.seal.is_seal_valid(&self.pre_seal_hash())
     }
 
     /// Compute block root out of this header.
@@ -753,8 +767,15 @@ impl<'a> IntermediateShardBlockHeader<'a> {
     /// Hash of the block before seal is applied to it
     #[inline]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
-        // TODO: Keyed hash
+        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
+    }
+
+    /// Verify seal against [`IntermediateShardBlockHeader::pre_seal_hash()`]
+    #[inline]
+    #[cfg(feature = "ed25519-verify")]
+    pub fn is_seal_valid(&self) -> bool {
+        self.seal.is_seal_valid(&self.pre_seal_hash())
     }
 
     /// Compute block root out of this header.
@@ -862,8 +883,15 @@ impl<'a> LeafShardBlockHeader<'a> {
     /// Hash of the block before seal is applied to it
     #[inline]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
-        // TODO: Keyed hash
+        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
+    }
+
+    /// Verify seal against [`LeafShardBlockHeader::pre_seal_hash()`]
+    #[inline]
+    #[cfg(feature = "ed25519-verify")]
+    pub fn is_seal_valid(&self) -> bool {
+        self.seal.is_seal_valid(&self.pre_seal_hash())
     }
 
     /// Compute block root out of this header.
@@ -1000,6 +1028,13 @@ impl<'a> BlockHeader<'a> {
             Self::IntermediateShard(header) => header.pre_seal_hash(),
             Self::LeafShard(header) => header.pre_seal_hash(),
         }
+    }
+
+    /// Verify seal against [`BlockHeader::pre_seal_hash()`]
+    #[inline]
+    #[cfg(feature = "ed25519-verify")]
+    pub fn is_seal_valid(&self) -> bool {
+        self.seal.is_seal_valid(&self.pre_seal_hash())
     }
 
     /// Compute block root out of this header.

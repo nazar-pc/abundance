@@ -33,6 +33,9 @@ const-sha1 = { version = "0.3.0", default-features = false }
 const_format = "0.2.34"
 criterion = { version = "0.5.1", default-features = false }
 derive_more = { version = "2.0.1", default-features = false }
+# TODO: Switch to ed25519-dalek with RFC8032 / NIST validation criteria instead once
+#  https://github.com/dalek-cryptography/curve25519-dalek/issues/626 is resolved
+ed25519-zebra = { version = "4.0.3", default-features = false }
 halfbrown = "0.3.0"
 hex = { version = "0.4.3", default-features = false }
 ident_case = "1.0.1"

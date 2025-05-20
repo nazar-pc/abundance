@@ -1,12 +1,12 @@
 //! Modified version of SS58 parser extracted from Substrate in order to not pull the whole
 //! `sp-core` into farmer application
 
+use ab_core_primitives::ed25519::Ed25519PublicKey;
 use base58::FromBase58;
 use blake2::digest::FixedOutput;
 use blake2::digest::typenum::U64;
 use blake2::{Blake2b, Digest};
 use ss58_registry::Ss58AddressFormat;
-use subspace_verification::ed25519::Ed25519PublicKey;
 use thiserror::Error;
 
 const PREFIX: &[u8] = b"SS58PRE";

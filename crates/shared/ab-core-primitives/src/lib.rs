@@ -23,6 +23,7 @@ pub mod balance;
 pub mod block;
 #[cfg(feature = "scale-codec")]
 pub mod checksum;
+pub mod ed25519;
 pub mod hashes;
 pub mod pieces;
 pub mod pos;
