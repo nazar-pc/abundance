@@ -1,5 +1,14 @@
 //! Block header primitives
 
+#[cfg(feature = "alloc")]
+pub mod owned;
+
+#[cfg(feature = "alloc")]
+use crate::block::header::owned::{
+    OwnedBeaconChainBlockHeader, OwnedBeaconChainBlockHeaderError, OwnedBlockHeader,
+    OwnedBlockHeaderError, OwnedIntermediateShardBlockHeader,
+    OwnedIntermediateShardBlockHeaderError, OwnedLeafShardBlockHeader,
+};
 use crate::block::{BlockNumber, BlockRoot};
 use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use crate::hashes::Blake3Hash;
@@ -249,6 +258,12 @@ pub struct BlockHeaderBeaconChainParameters<'a> {
 }
 
 impl<'a> BlockHeaderBeaconChainParameters<'a> {
+    /// Max size of the allocation necessary for this data structure
+    pub const MAX_SIZE: u32 = size_of::<BlockHeaderFixedConsensusParameters>() as u32
+        + u8::SIZE
+        + <SuperSegmentRoot as TrivialType>::SIZE
+        + <SolutionRange as TrivialType>::SIZE
+        + size_of::<BlockHeaderPotParametersChange>() as u32;
     /// Bitmask for presence of `super_segment_root` field
     pub const SUPER_SEGMENT_ROOT_MASK: u8 = 0b_0000_0001;
     /// Bitmask for presence of `next_solution_range` field
@@ -508,6 +523,8 @@ pub enum BlockHeaderSeal<'a> {
 }
 
 impl<'a> BlockHeaderSeal<'a> {
+    /// Max size of the allocation necessary for this data structure
+    pub const MAX_SIZE: u32 = 1 + BlockHeaderEd25519Seal::SIZE;
     /// Create an instance from provided bytes.
     ///
     /// `bytes` do not need to be aligned.
@@ -645,6 +662,13 @@ impl<'a> BeaconChainBlockHeader<'a> {
         ))
     }
 
+    /// Create an owned version of this header
+    #[inline(always)]
+    #[cfg(feature = "alloc")]
+    pub fn to_owned(self) -> Result<OwnedBeaconChainBlockHeader, OwnedBeaconChainBlockHeaderError> {
+        OwnedBeaconChainBlockHeader::from_header(self)
+    }
+
     /// Hash of the block before seal is applied to it
     #[inline]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
@@ -772,6 +796,15 @@ impl<'a> IntermediateShardBlockHeader<'a> {
         ))
     }
 
+    /// Create an owned version of this header
+    #[inline(always)]
+    #[cfg(feature = "alloc")]
+    pub fn to_owned(
+        self,
+    ) -> Result<OwnedIntermediateShardBlockHeader, OwnedIntermediateShardBlockHeaderError> {
+        OwnedIntermediateShardBlockHeader::from_header(self)
+    }
+
     /// Hash of the block before seal is applied to it
     #[inline]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
@@ -890,6 +923,13 @@ impl<'a> LeafShardBlockHeader<'a> {
             },
             remainder,
         ))
+    }
+
+    /// Create an owned version of this header
+    #[inline(always)]
+    #[cfg(feature = "alloc")]
+    pub fn to_owned(self) -> OwnedLeafShardBlockHeader {
+        OwnedLeafShardBlockHeader::from_header(self)
     }
 
     /// Hash of the block before seal is applied to it
@@ -1030,6 +1070,13 @@ impl<'a> BlockHeader<'a> {
         }
 
         Some((prefix, consensus_info, result, bytes))
+    }
+
+    /// Create an owned version of this header
+    #[inline(always)]
+    #[cfg(feature = "alloc")]
+    pub fn to_owned(self) -> Result<OwnedBlockHeader, OwnedBlockHeaderError> {
+        OwnedBlockHeader::from_header(self)
     }
 
     /// Hash of the block before seal is applied to it
