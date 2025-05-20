@@ -29,7 +29,6 @@ pallet-balances = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["min_const_gen"] }
 schnorrkel = { workspace = true }
 sp-io = { workspace = true }
-subspace-verification = { workspace = true }
 
 [features]
 default = ["std"]

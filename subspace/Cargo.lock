@@ -6901,7 +6901,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "subspace-runtime-primitives",
- "subspace-verification",
 ]
 
 [[package]]
@@ -11526,7 +11525,6 @@ dependencies = [
  "static_assertions",
  "subspace-data-retrieval",
  "subspace-proof-of-space",
- "subspace-verification",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
@@ -11622,7 +11620,6 @@ dependencies = [
  "subspace-runtime",
  "subspace-runtime-primitives",
  "subspace-service",
- "subspace-verification",
  "substrate-build-script-utils",
  "substrate-prometheus-endpoint",
  "tempfile",
@@ -11679,7 +11676,6 @@ name = "subspace-rpc-primitives"
 version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
- "hex",
  "parity-scale-codec",
  "serde",
  "subspace-farmer-components",
@@ -11807,13 +11803,10 @@ name = "subspace-verification"
 version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
- "derive_more 1.0.0",
  "ed25519-zebra",
- "hex",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "serde-big-array",
 ]
 
 [[package]]

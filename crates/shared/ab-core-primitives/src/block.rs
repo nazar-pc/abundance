@@ -11,6 +11,7 @@ use crate::block::header::{
 };
 use crate::hashes::Blake3Hash;
 use crate::shard::ShardKind;
+use crate::solutions::SolutionRange;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
 use ab_io_type::trivial_type::TrivialType;
@@ -516,6 +517,11 @@ impl BlockWeight {
     #[inline(always)]
     pub const fn new(n: u128) -> Self {
         Self(n)
+    }
+
+    /// Derive block weight from provided solution range
+    pub const fn from_solution_range(solution_range: SolutionRange) -> Self {
+        Self::new((SolutionRange::MAX.as_u64() - solution_range.as_u64()) as u128)
     }
 
     /// Get internal representation

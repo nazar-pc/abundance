@@ -2,6 +2,7 @@
 
 use crate::chain_spec_utils::{chain_spec_properties, get_account_id_from_seed};
 use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::pot::PotKey;
 use ab_core_primitives::solutions::SolutionRange;
 use sc_chain_spec::GenericChainSpec;
@@ -14,7 +15,6 @@ use subspace_runtime::{
     SudoConfig, SystemConfig, WASM_BINARY,
 };
 use subspace_runtime_primitives::{AccountId, Balance, SLOT_PROBABILITY, SSC};
-use subspace_verification::ed25519::Ed25519PublicKey;
 
 // We assume initial plot size starts with a single sector.
 const INITIAL_SOLUTION_RANGE: SolutionRange = SolutionRange::from_pieces(1000, SLOT_PROBABILITY);

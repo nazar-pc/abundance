@@ -11,6 +11,7 @@ use crate::farm::{
 use crate::node_client::NodeClient;
 use crate::single_disk_farm::Handlers;
 use crate::single_disk_farm::metrics::SingleDiskFarmMetrics;
+use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::Record;
 use ab_core_primitives::pos::PosSeed;
@@ -33,7 +34,6 @@ use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed};
 use subspace_proof_of_space::{Table, TableGenerator};
 use subspace_rpc_primitives::{SlotInfo, SolutionResponse};
-use subspace_verification::ed25519::Ed25519PublicKey;
 use tracing::{Span, debug, error, info, trace, warn};
 
 /// How many non-fatal errors should happen in a row before farm is considered non-operational

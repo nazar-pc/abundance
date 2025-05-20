@@ -1,4 +1,5 @@
 use ab_archiving::archiver::Archiver;
+use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use ab_erasure_coding::ErasureCoding;
@@ -12,7 +13,6 @@ use subspace_farmer_components::plotting::{CpuRecordsEncoder, PlotSectorOptions,
 use subspace_farmer_components::sector::sector_size;
 use subspace_proof_of_space::Table;
 use subspace_proof_of_space::chia::ChiaTable;
-use subspace_verification::ed25519::Ed25519PublicKey;
 
 type PosTable = ChiaTable;
 

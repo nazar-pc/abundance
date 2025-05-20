@@ -5,11 +5,9 @@
 
 pub mod ed25519;
 
-use ab_core_primitives::block::BlockWeight;
+use crate::ed25519::RewardSignature;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::solutions::SolutionRange;
-use ed25519::RewardSignature;
-use ed25519_zebra::{Error, Signature, VerificationKey};
+use ed25519_zebra::Error;
 
 /// Check the reward signature validity.
 pub fn check_reward_signature(
@@ -21,11 +19,7 @@ pub fn check_reward_signature(
         return Err(Error::MalformedPublicKey);
     }
 
-    VerificationKey::try_from(*signature.public_key)?
-        .verify(&Signature::from_bytes(&signature.signature), hash.as_ref())
-}
-
-/// Calculate weight derived from provided solution range
-pub fn calculate_block_weight(solution_range: SolutionRange) -> BlockWeight {
-    BlockWeight::new(u128::from(u64::from(SolutionRange::MAX - solution_range)))
+    signature
+        .public_key
+        .verify(&signature.signature, hash.as_ref())
 }

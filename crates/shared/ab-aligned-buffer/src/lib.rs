@@ -122,7 +122,7 @@ impl InnerBuffer {
     }
 
     #[inline(always)]
-    fn realloc(&mut self, capacity: u32) {
+    fn resize(&mut self, capacity: u32) {
         // SAFETY: Non-null correctly aligned pointer, correct size
         let layout = Layout::for_value(unsafe {
             slice::from_raw_parts(
@@ -271,7 +271,7 @@ impl OwnedAlignedBuffer {
     #[inline(always)]
     pub fn ensure_capacity(&mut self, capacity: u32) {
         if capacity > self.capacity() {
-            self.inner.realloc(capacity)
+            self.inner.resize(capacity)
         }
     }
 
@@ -286,7 +286,8 @@ impl OwnedAlignedBuffer {
         };
 
         if len > self.capacity() {
-            self.ensure_capacity(len.max(self.capacity().saturating_mul(2)));
+            self.inner
+                .resize(len.max(self.capacity().saturating_mul(2)));
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
@@ -314,7 +315,8 @@ impl OwnedAlignedBuffer {
         };
 
         if new_len > self.capacity() {
-            self.ensure_capacity(new_len.max(self.capacity().saturating_mul(2)));
+            self.inner
+                .resize(new_len.max(self.capacity().saturating_mul(2)));
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input

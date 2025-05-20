@@ -21,7 +21,7 @@ scale-info = { workspace = true, features = ["derive"] }
 sp-api = { workspace = true }
 sp-inherents = { workspace = true }
 sp-runtime = { workspace = true }
-subspace-verification = { workspace = true, features = ["alloc", "scale-codec"] }
+subspace-verification = { workspace = true, features = ["scale-codec"] }
 thiserror = { workspace = true }
 
 [features]

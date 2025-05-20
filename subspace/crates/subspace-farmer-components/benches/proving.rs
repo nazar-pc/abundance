@@ -1,6 +1,7 @@
 #![feature(exact_size_is_empty)]
 
 use ab_archiving::archiver::Archiver;
+use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
@@ -28,7 +29,6 @@ use subspace_farmer_components::sector::{
 };
 use subspace_proof_of_space::chia::ChiaTable;
 use subspace_proof_of_space::{Table, TableGenerator};
-use subspace_verification::ed25519::Ed25519PublicKey;
 
 type PosTable = ChiaTable;
 

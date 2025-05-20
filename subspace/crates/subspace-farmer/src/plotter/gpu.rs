@@ -11,6 +11,7 @@ use crate::plotter::gpu::gpu_encoders_manager::GpuRecordsEncoderManager;
 use crate::plotter::gpu::metrics::GpuPlotterMetrics;
 use crate::plotter::{Plotter, SectorPlottingProgress};
 use crate::utils::AsyncJoinOnDrop;
+use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_erasure_coding::ErasureCoding;
 use async_lock::{Mutex as AsyncMutex, Semaphore, SemaphoreGuardArc};
@@ -36,7 +37,6 @@ use subspace_farmer_components::plotting::{
     DownloadSectorOptions, EncodeSectorOptions, PlottingError, RecordsEncoder, download_sector,
     encode_sector, write_sector,
 };
-use subspace_verification::ed25519::Ed25519PublicKey;
 use tokio::task::yield_now;
 use tracing::{Instrument, warn};
 

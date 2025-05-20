@@ -45,7 +45,6 @@ use sp_runtime::{Justifications, SaturatedConversion};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use subspace_proof_of_space::Table;
-use subspace_verification::calculate_block_weight;
 use tracing::warn;
 
 /// Notification with number of the block that is about to be imported and acknowledgement sender
@@ -599,7 +598,7 @@ where
                 .unwrap_or_default()
         };
 
-        let added_weight = calculate_block_weight(subspace_digest_items.solution_range);
+        let added_weight = BlockWeight::from_solution_range(subspace_digest_items.solution_range);
         let total_weight = parent_weight + added_weight;
 
         aux_schema::write_block_weight(block_hash, total_weight, |values| {

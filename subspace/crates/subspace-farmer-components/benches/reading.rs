@@ -1,4 +1,5 @@
 use ab_archiving::archiver::Archiver;
+use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::pieces::PieceOffset;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
@@ -23,7 +24,6 @@ use subspace_farmer_components::sector::{
 use subspace_farmer_components::{FarmerProtocolInfo, ReadAt, ReadAtSync};
 use subspace_proof_of_space::Table;
 use subspace_proof_of_space::chia::ChiaTable;
-use subspace_verification::ed25519::Ed25519PublicKey;
 
 type PosTable = ChiaTable;
 
