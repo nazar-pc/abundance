@@ -14,8 +14,7 @@ include = [
 ]
 
 [dependencies]
-ab-core-primitives = { workspace = true }
-ed25519-zebra = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["ed25519-verify"] }
 parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
 scale-info = { workspace = true, features = ["derive"], optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }

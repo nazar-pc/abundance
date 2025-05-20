@@ -42,7 +42,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::available_parallelism;
 use subspace_proof_of_space::Table;
-use subspace_verification::check_reward_signature;
+use subspace_verification::is_reward_signature_valid;
 use tokio::runtime::Handle;
 use tracing::{debug, info, trace, warn};
 
@@ -318,7 +318,7 @@ where
         }
 
         // Verify that block is signed properly
-        if check_reward_signature(
+        if !is_reward_signature_valid(
             &Blake3Hash::new(
                 pre_hash
                     .as_ref()
@@ -327,9 +327,7 @@ where
             ),
             &signature,
             &pre_digest.solution.public_key_hash,
-        )
-        .is_err()
-        {
+        ) {
             return Err(VerificationError::BadRewardSignature(pre_hash));
         }
 

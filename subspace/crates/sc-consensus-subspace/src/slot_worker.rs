@@ -54,8 +54,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use subspace_proof_of_space::Table;
-use subspace_verification::check_reward_signature;
 use subspace_verification::ed25519::RewardSignature;
+use subspace_verification::is_reward_signature_valid;
 use tracing::{debug, error, info, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
@@ -784,7 +784,7 @@ where
             });
 
         while let Some(signature) = signature_receiver.next().await {
-            if check_reward_signature(&hash, &signature, &public_key_hash).is_err() {
+            if !is_reward_signature_valid(&hash, &signature, &public_key_hash) {
                 warn!(
                     %hash,
                     "Received invalid signature for reward"
