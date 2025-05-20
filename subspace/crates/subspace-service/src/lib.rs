@@ -82,7 +82,6 @@ use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_proof_of_space::Table;
 use subspace_runtime_primitives::opaque::Block;
 use subspace_runtime_primitives::{AccountId, Balance, Nonce};
-use subspace_verification::sr25519::REWARD_SIGNING_CONTEXT;
 use tokio::sync::broadcast;
 use tracing::{Instrument, debug, error, info};
 pub use utils::wait_for_block_import;
@@ -331,7 +330,6 @@ where
     let verifier = SubspaceVerifier::<PosTable, _, _>::new(SubspaceVerifierOptions {
         client: client.clone(),
         chain_constants,
-        reward_signing_context: schnorrkel::context::signing_context(REWARD_SIGNING_CONTEXT),
         sync_target_block_number: Arc::clone(&sync_target_block_number),
         is_authoring_blocks: config.role.is_authority(),
         pot_verifier: pot_verifier.clone(),

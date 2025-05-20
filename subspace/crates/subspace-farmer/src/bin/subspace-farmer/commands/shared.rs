@@ -5,11 +5,11 @@ use clap::Parser;
 use std::fmt;
 use std::path::PathBuf;
 use std::str::FromStr;
+use subspace_farmer::single_disk_farm::identity::Identity;
 use subspace_farmer::single_disk_farm::{SingleDiskFarm, SingleDiskFarmSummary};
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_networking::libp2p::identity::{Keypair, ed25519};
 use thread_priority::ThreadPriority;
-use zeroize::Zeroizing;
 
 /// Plotting thread priority
 #[derive(Debug, Parser, Copy, Clone)]
@@ -133,11 +133,9 @@ impl FromStr for DiskFarm {
     }
 }
 
-pub(in super::super) fn derive_libp2p_keypair(schnorrkel_sk: &schnorrkel::SecretKey) -> Keypair {
-    let mut secret_bytes = Zeroizing::new(schnorrkel_sk.to_ed25519_bytes());
-
+pub(in super::super) fn derive_libp2p_keypair(identity: &Identity) -> Keypair {
     let keypair = ed25519::Keypair::from(
-        ed25519::SecretKey::try_from_bytes(&mut secret_bytes.as_mut()[..32])
+        ed25519::SecretKey::try_from_bytes(&mut identity.secret_key())
             .expect("Secret key is exactly 32 bytes in size; qed"),
     );
 

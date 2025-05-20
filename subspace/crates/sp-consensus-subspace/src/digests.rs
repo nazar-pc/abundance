@@ -13,7 +13,7 @@ use log::trace;
 use parity_scale_codec::{Decode, Encode};
 use sp_runtime::DigestItem;
 use sp_runtime::traits::{Header as HeaderT, One, Zero};
-use subspace_verification::sr25519::RewardSignature;
+use subspace_verification::ed25519::RewardSignature;
 
 /// A Subspace pre-runtime digest. This contains all data required to validate a block and for the
 /// Subspace runtime module.

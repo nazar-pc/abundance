@@ -11,7 +11,6 @@ use criterion::{BatchSize, Criterion, Throughput, black_box, criterion_group, cr
 use futures::executor::block_on;
 use parking_lot::Mutex;
 use rand::prelude::*;
-use schnorrkel::Keypair;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -29,7 +28,7 @@ use subspace_farmer_components::sector::{
 };
 use subspace_proof_of_space::chia::ChiaTable;
 use subspace_proof_of_space::{Table, TableGenerator};
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 
 type PosTable = ChiaTable;
 
@@ -50,8 +49,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         .map(|sectors_count| sectors_count.parse().unwrap())
         .unwrap_or(10);
 
-    let keypair = Keypair::from_bytes(&[0; 96]).unwrap();
-    let public_key = &PublicKey::from(keypair.public.to_bytes());
+    let public_key = &Ed25519PublicKey::default();
     let public_key_hash = &public_key.hash();
     let sector_index = SectorIndex::ZERO;
     let mut input = RecordedHistorySegment::new_boxed();

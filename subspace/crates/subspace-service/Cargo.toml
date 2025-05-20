@@ -47,7 +47,6 @@ sc-service = { workspace = true }
 sc-tracing = { workspace = true }
 sc-transaction-pool = { workspace = true }
 sc-transaction-pool-api = { workspace = true }
-schnorrkel = { workspace = true }
 sp-api = { workspace = true }
 sp-blockchain = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -64,7 +63,6 @@ subspace-data-retrieval = { workspace = true }
 subspace-networking = { workspace = true }
 subspace-proof-of-space = { workspace = true }
 subspace-runtime-primitives = { workspace = true }
-subspace-verification = { workspace = true }
 sc-subspace-sync-common = { workspace = true }
 substrate-prometheus-endpoint = { workspace = true }
 thiserror = { workspace = true }

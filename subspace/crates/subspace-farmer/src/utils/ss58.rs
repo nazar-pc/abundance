@@ -6,7 +6,7 @@ use blake2::digest::FixedOutput;
 use blake2::digest::typenum::U64;
 use blake2::{Blake2b, Digest};
 use ss58_registry::Ss58AddressFormat;
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 use thiserror::Error;
 
 const PREFIX: &[u8] = b"SS58PRE";
@@ -33,7 +33,7 @@ pub enum Ss58ParsingError {
 }
 
 /// Some if the string is a properly encoded SS58Check address.
-pub fn parse_ss58_reward_address(s: &str) -> Result<PublicKey, Ss58ParsingError> {
+pub fn parse_ss58_reward_address(s: &str) -> Result<Ed25519PublicKey, Ss58ParsingError> {
     let data = s.from_base58().map_err(|_| Ss58ParsingError::BadBase58)?;
     if data.len() < 2 {
         return Err(Ss58ParsingError::BadLength);
@@ -52,7 +52,7 @@ pub fn parse_ss58_reward_address(s: &str) -> Result<PublicKey, Ss58ParsingError>
         }
         _ => return Err(Ss58ParsingError::InvalidPrefix),
     };
-    if data.len() != prefix_len + PublicKey::SIZE + CHECKSUM_LEN {
+    if data.len() != prefix_len + Ed25519PublicKey::SIZE + CHECKSUM_LEN {
         return Err(Ss58ParsingError::BadLength);
     }
     let format: Ss58AddressFormat = ident.into();
@@ -60,19 +60,20 @@ pub fn parse_ss58_reward_address(s: &str) -> Result<PublicKey, Ss58ParsingError>
         return Err(Ss58ParsingError::FormatNotAllowed);
     }
 
-    let hash = ss58hash(&data[0..PublicKey::SIZE + prefix_len]);
+    let hash = ss58hash(&data[0..Ed25519PublicKey::SIZE + prefix_len]);
     let checksum = &hash[0..CHECKSUM_LEN];
-    if data[PublicKey::SIZE + prefix_len..PublicKey::SIZE + prefix_len + CHECKSUM_LEN] != *checksum
+    if data[Ed25519PublicKey::SIZE + prefix_len..Ed25519PublicKey::SIZE + prefix_len + CHECKSUM_LEN]
+        != *checksum
     {
         // Invalid checksum.
         return Err(Ss58ParsingError::InvalidChecksum);
     }
 
-    let bytes: [u8; PublicKey::SIZE] = data[prefix_len..][..PublicKey::SIZE]
+    let bytes: [u8; Ed25519PublicKey::SIZE] = data[prefix_len..][..Ed25519PublicKey::SIZE]
         .try_into()
         .map_err(|_| Ss58ParsingError::BadLength)?;
 
-    Ok(PublicKey::from(bytes))
+    Ok(Ed25519PublicKey::from(bytes))
 }
 
 fn ss58hash(data: &[u8]) -> [u8; 64] {

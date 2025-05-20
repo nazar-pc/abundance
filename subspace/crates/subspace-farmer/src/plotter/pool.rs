@@ -10,7 +10,7 @@ use std::any::type_name_of_val;
 use std::pin::pin;
 use std::time::Duration;
 use subspace_farmer_components::FarmerProtocolInfo;
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 use tracing::{error, trace};
 
 /// Pool plotter.
@@ -50,7 +50,7 @@ impl Plotter for PoolPlotter {
 
     async fn plot_sector(
         &self,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -89,7 +89,7 @@ impl Plotter for PoolPlotter {
 
     async fn try_plot_sector(
         &self,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,

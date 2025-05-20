@@ -27,7 +27,7 @@ use std::time::{Duration, Instant};
 use subspace_farmer_components::file_ext::FileExt;
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_farmer_components::sector::SectorMetadataChecksummed;
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 use thiserror::Error;
 use tokio::sync::watch;
 use tokio::task;
@@ -84,7 +84,7 @@ pub enum PlottingError {
 }
 
 pub(super) struct SectorPlottingOptions<'a, NC> {
-    pub(super) public_key: PublicKey,
+    pub(super) public_key: Ed25519PublicKey,
     pub(super) node_client: &'a NC,
     pub(super) pieces_in_sector: u16,
     pub(super) sector_size: usize,

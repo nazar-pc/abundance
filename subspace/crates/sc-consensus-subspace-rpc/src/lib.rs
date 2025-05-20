@@ -4,6 +4,7 @@
 
 use ab_archiving::archiver::NewArchivedSegment;
 use ab_core_primitives::block::BlockRoot;
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
@@ -33,7 +34,6 @@ use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_consensus_subspace::{ChainConstants, SubspaceApi};
-use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -146,7 +146,7 @@ struct ArchivedSegmentHeaderAcknowledgementSenders {
 
 #[derive(Default)]
 struct BlockSignatureSenders {
-    current_hash: H256,
+    current_hash: Blake3Hash,
     senders: Vec<async_oneshot::Sender<RewardSignatureResponse>>,
 }
 
@@ -487,7 +487,7 @@ where
 
                 // This will be sent to the farmer
                 RewardSigningInfo {
-                    hash: hash.into(),
+                    hash,
                     public_key_hash,
                 }
             },
@@ -515,7 +515,7 @@ where
         //  multiple (https://github.com/paritytech/jsonrpsee/issues/452)
         let mut reward_signature_senders = reward_signature_senders.lock();
 
-        if reward_signature_senders.current_hash == reward_signature.hash.into()
+        if reward_signature_senders.current_hash == reward_signature.hash
             && let Some(mut sender) = reward_signature_senders.senders.pop()
         {
             let _ = sender.send(reward_signature);
