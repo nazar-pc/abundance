@@ -573,6 +573,8 @@ pub struct BeaconChainBlockHeader<'a> {
     pub child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
     /// Consensus parameters (on the beacon chain)
     pub consensus_parameters: BlockHeaderBeaconChainParameters<'a>,
+    /// All bytes of the header except the seal
+    pub pre_seal_bytes: &'a [u8],
 }
 
 impl<'a> Deref for BeaconChainBlockHeader<'a> {
@@ -610,6 +612,8 @@ impl<'a> BeaconChainBlockHeader<'a> {
         let (consensus_parameters, remainder) =
             BlockHeaderBeaconChainParameters::try_from_bytes(remainder)?;
 
+        let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
+
         let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
 
         let generic = GenericBlockHeader {
@@ -624,9 +628,17 @@ impl<'a> BeaconChainBlockHeader<'a> {
                 generic,
                 child_shard_blocks,
                 consensus_parameters,
+                pre_seal_bytes,
             },
             remainder,
         ))
+    }
+
+    /// Hash of the block before seal is applied to it
+    #[inline]
+    pub fn pre_seal_hash(&self) -> Blake3Hash {
+        // TODO: Keyed hash
+        Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
     /// Compute block root out of this header.
@@ -641,6 +653,7 @@ impl<'a> BeaconChainBlockHeader<'a> {
             generic,
             child_shard_blocks,
             consensus_parameters,
+            pre_seal_bytes: _,
         } = self;
         let GenericBlockHeader {
             prefix,
@@ -674,6 +687,8 @@ pub struct IntermediateShardBlockHeader<'a> {
     pub beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
     /// Information about child shard blocks
     pub child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
+    /// All bytes of the header except the seal
+    pub pre_seal_bytes: &'a [u8],
 }
 
 impl<'a> Deref for IntermediateShardBlockHeader<'a> {
@@ -713,6 +728,8 @@ impl<'a> IntermediateShardBlockHeader<'a> {
         let (child_shard_blocks, remainder) =
             BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
 
+        let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
+
         let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
 
         let generic = GenericBlockHeader {
@@ -727,9 +744,17 @@ impl<'a> IntermediateShardBlockHeader<'a> {
                 generic,
                 beacon_chain_info,
                 child_shard_blocks,
+                pre_seal_bytes,
             },
             remainder,
         ))
+    }
+
+    /// Hash of the block before seal is applied to it
+    #[inline]
+    pub fn pre_seal_hash(&self) -> Blake3Hash {
+        // TODO: Keyed hash
+        Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
     /// Compute block root out of this header.
@@ -744,6 +769,7 @@ impl<'a> IntermediateShardBlockHeader<'a> {
             generic,
             beacon_chain_info,
             child_shard_blocks,
+            pre_seal_bytes: _,
         } = self;
         let GenericBlockHeader {
             prefix,
@@ -775,6 +801,8 @@ pub struct LeafShardBlockHeader<'a> {
     pub generic: GenericBlockHeader<'a>,
     /// Beacon chain info
     pub beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
+    /// All bytes of the header except the seal
+    pub pre_seal_bytes: &'a [u8],
 }
 
 impl<'a> Deref for LeafShardBlockHeader<'a> {
@@ -810,6 +838,8 @@ impl<'a> LeafShardBlockHeader<'a> {
         let beacon_chain_info =
             unsafe { BlockHeaderBeaconChainInfo::from_bytes(beacon_chain_info) }?;
 
+        let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
+
         let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
 
         let generic = GenericBlockHeader {
@@ -823,9 +853,17 @@ impl<'a> LeafShardBlockHeader<'a> {
             Self {
                 generic,
                 beacon_chain_info,
+                pre_seal_bytes,
             },
             remainder,
         ))
+    }
+
+    /// Hash of the block before seal is applied to it
+    #[inline]
+    pub fn pre_seal_hash(&self) -> Blake3Hash {
+        // TODO: Keyed hash
+        Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
     /// Compute block root out of this header.
@@ -839,6 +877,7 @@ impl<'a> LeafShardBlockHeader<'a> {
         let Self {
             generic,
             beacon_chain_info,
+            pre_seal_bytes: _,
         } = self;
         let GenericBlockHeader {
             prefix,
@@ -951,6 +990,16 @@ impl<'a> BlockHeader<'a> {
         }
 
         Some((prefix, consensus_info, result, bytes))
+    }
+
+    /// Hash of the block before seal is applied to it
+    #[inline]
+    pub fn pre_seal_hash(&self) -> Blake3Hash {
+        match self {
+            Self::BeaconChain(header) => header.pre_seal_hash(),
+            Self::IntermediateShard(header) => header.pre_seal_hash(),
+            Self::LeafShard(header) => header.pre_seal_hash(),
+        }
     }
 
     /// Compute block root out of this header.
