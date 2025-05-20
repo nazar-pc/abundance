@@ -3,28 +3,26 @@
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![no_std]
 
-pub mod sr25519;
+pub mod ed25519;
 
 use ab_core_primitives::block::BlockWeight;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::solutions::SolutionRange;
-use schnorrkel::SignatureError;
-use schnorrkel::context::SigningContext;
-use sr25519::RewardSignature;
+use ed25519::RewardSignature;
+use ed25519_zebra::{Error, Signature, VerificationKey};
 
 /// Check the reward signature validity.
 pub fn check_reward_signature(
-    hash: &[u8],
+    hash: &Blake3Hash,
     signature: &RewardSignature,
     public_key_hash: &Blake3Hash,
-    reward_signing_context: &SigningContext,
-) -> Result<(), SignatureError> {
+) -> Result<(), Error> {
     if public_key_hash != &signature.public_key.hash() {
-        return Err(SignatureError::InvalidKey);
+        return Err(Error::MalformedPublicKey);
     }
-    let public_key = schnorrkel::PublicKey::from_bytes(signature.public_key.as_ref())?;
-    let signature = schnorrkel::Signature::from_bytes(signature.signature.as_ref())?;
-    public_key.verify(reward_signing_context.bytes(hash), &signature)
+
+    VerificationKey::try_from(*signature.public_key)?
+        .verify(&Signature::from_bytes(&signature.signature), hash.as_ref())
 }
 
 /// Calculate weight derived from provided solution range

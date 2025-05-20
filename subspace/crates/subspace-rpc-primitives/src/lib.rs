@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_networking::libp2p::Multiaddr;
-use subspace_verification::sr25519::RewardSignature;
+use subspace_verification::ed25519::RewardSignature;
 
 /// Defines a limit for number of segments that can be requested over RPC
 pub const MAX_SEGMENT_HEADERS_PER_REQUEST: usize = 1000;
@@ -122,8 +122,7 @@ pub struct SolutionResponse {
 #[serde(rename_all = "camelCase")]
 pub struct RewardSigningInfo {
     /// Hash to be signed.
-    #[serde(with = "hex")]
-    pub hash: [u8; 32],
+    pub hash: Blake3Hash,
     /// Public key hash of the plot identity that should create signature.
     pub public_key_hash: Blake3Hash,
 }
@@ -133,8 +132,7 @@ pub struct RewardSigningInfo {
 #[serde(rename_all = "camelCase")]
 pub struct RewardSignatureResponse {
     /// Hash that was signed.
-    #[serde(with = "hex")]
-    pub hash: [u8; 32],
+    pub hash: Blake3Hash,
     /// Pre-header or vote hash signature.
     pub signature: Option<RewardSignature>,
 }

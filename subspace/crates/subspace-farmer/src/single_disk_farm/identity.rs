@@ -1,29 +1,19 @@
 //! Farm identity
 
+use ab_core_primitives::hashes::Blake3Hash;
+use ed25519_zebra::{SigningKey, VerificationKey};
 use parity_scale_codec::{Decode, Encode};
-use schnorrkel::context::SigningContext;
-use schnorrkel::{ExpansionMode, Keypair, PublicKey, SecretKey, Signature};
-use std::ops::Deref;
+use rand::rngs::OsRng;
 use std::path::Path;
 use std::{fmt, fs, io};
-use subspace_verification::sr25519::REWARD_SIGNING_CONTEXT;
-use substrate_bip39::mini_secret_from_entropy;
+use subspace_verification::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use thiserror::Error;
 use tracing::debug;
-use zeroize::Zeroizing;
+use zeroize::{Zeroize, Zeroizing};
 
-/// Entropy used for identity generation.
-const ENTROPY_LENGTH: usize = 32;
-
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Zeroize)]
 struct IdentityFileContents {
-    entropy: Vec<u8>,
-}
-
-fn keypair_from_entropy(entropy: &[u8]) -> Keypair {
-    mini_secret_from_entropy(entropy, "")
-        .expect("32 bytes can always build a key; qed")
-        .expand_to_keypair(ExpansionMode::Ed25519)
+    secret_key: [u8; 32],
 }
 
 /// Errors happening when trying to create/open single disk farm
@@ -32,9 +22,6 @@ pub enum IdentityError {
     /// I/O error occurred
     #[error("Identity I/O error: {0}")]
     Io(#[from] io::Error),
-    /// Invalid contents
-    #[error("Invalid contents")]
-    InvalidContents,
     /// Decoding error
     #[error("Decoding error: {0}")]
     Decoding(#[from] parity_scale_codec::Error),
@@ -46,26 +33,15 @@ pub enum IdentityError {
 /// and a context that will be used for signing.
 #[derive(Clone)]
 pub struct Identity {
-    keypair: Zeroizing<Keypair>,
-    entropy: Zeroizing<Vec<u8>>,
-    substrate_ctx: SigningContext,
+    signing_key: SigningKey,
 }
 
 impl fmt::Debug for Identity {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Identity")
-            .field("keypair", &self.keypair)
+            .field("keypair", &self.signing_key)
             .finish_non_exhaustive()
-    }
-}
-
-impl Deref for Identity {
-    type Target = Keypair;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.keypair
     }
 }
 
@@ -74,10 +50,7 @@ impl Identity {
 
     /// Size of the identity file on disk
     pub fn file_size() -> usize {
-        IdentityFileContents {
-            entropy: vec![0; ENTROPY_LENGTH],
-        }
-        .encoded_size()
+        IdentityFileContents { secret_key: [0; _] }.encoded_size()
     }
 
     /// Opens the existing identity, or creates a new one.
@@ -95,18 +68,12 @@ impl Identity {
         if identity_file.exists() {
             debug!("Opening existing keypair");
             let bytes = Zeroizing::new(fs::read(identity_file)?);
-            let IdentityFileContents { entropy } =
+            let IdentityFileContents { secret_key } =
                 IdentityFileContents::decode(&mut bytes.as_ref())?;
 
-            if entropy.len() != ENTROPY_LENGTH {
-                return Err(IdentityError::InvalidContents);
-            }
+            let signing_key = SigningKey::from(secret_key);
 
-            Ok(Some(Self {
-                keypair: Zeroizing::new(keypair_from_entropy(&entropy)),
-                entropy: Zeroizing::new(entropy),
-                substrate_ctx: schnorrkel::context::signing_context(REWARD_SIGNING_CONTEXT),
-            }))
+            Ok(Some(Self { signing_key }))
         } else {
             debug!("Existing keypair not found");
             Ok(None)
@@ -117,37 +84,34 @@ impl Identity {
     pub fn create<B: AsRef<Path>>(base_directory: B) -> Result<Self, IdentityError> {
         let identity_file = base_directory.as_ref().join(Self::FILE_NAME);
         debug!("Generating new keypair");
-        let entropy = rand::random::<[u8; ENTROPY_LENGTH]>().to_vec();
 
-        let identity_file_contents = IdentityFileContents { entropy };
-        fs::write(identity_file, identity_file_contents.encode())?;
+        let signing_key = SigningKey::new(OsRng);
 
-        let IdentityFileContents { entropy } = identity_file_contents;
+        let identity_file_contents = Zeroizing::new(IdentityFileContents {
+            secret_key: signing_key.into(),
+        });
 
-        Ok(Self {
-            keypair: Zeroizing::new(keypair_from_entropy(&entropy)),
-            entropy: Zeroizing::new(entropy),
-            substrate_ctx: schnorrkel::context::signing_context(REWARD_SIGNING_CONTEXT),
-        })
+        fs::write(
+            identity_file,
+            Zeroizing::new(identity_file_contents.encode()),
+        )?;
+
+        Ok(Self { signing_key })
     }
 
     /// Returns the public key of the identity.
-    pub fn public_key(&self) -> &PublicKey {
-        &self.keypair.public
+    pub fn public_key(&self) -> Ed25519PublicKey {
+        Ed25519PublicKey::from(<[u8; 32]>::from(VerificationKey::from(&self.signing_key)))
     }
 
     /// Returns the secret key of the identity.
-    pub fn secret_key(&self) -> &SecretKey {
-        &self.keypair.secret
+    pub fn secret_key(&self) -> [u8; 32] {
+        self.signing_key.into()
     }
 
-    /// Returns entropy used to generate keypair.
-    pub fn entropy(&self) -> &[u8] {
-        &self.entropy
-    }
-
+    // TODO: Rename reward hash to `pre_seal_hash`
     /// Sign reward hash.
-    pub fn sign_reward_hash(&self, header_hash: &[u8]) -> Signature {
-        self.keypair.sign(self.substrate_ctx.bytes(header_hash))
+    pub fn sign_reward_hash(&self, header_hash: &Blake3Hash) -> Ed25519Signature {
+        Ed25519Signature::from(self.signing_key.sign(header_hash.as_ref()).to_bytes())
     }
 }

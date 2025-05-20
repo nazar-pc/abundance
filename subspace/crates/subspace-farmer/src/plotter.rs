@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_farmer_components::plotting::PlottedSector;
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 
 /// Sector plotting progress
 pub enum SectorPlottingProgress {
@@ -90,7 +90,7 @@ pub trait Plotter: fmt::Debug {
     /// Future returns once plotting is successfully scheduled (for backpressure purposes).
     async fn plot_sector(
         &self,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -104,7 +104,7 @@ pub trait Plotter: fmt::Debug {
     /// plotting immediately.
     async fn try_plot_sector(
         &self,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -126,7 +126,7 @@ where
     #[inline]
     async fn plot_sector(
         &self,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -148,7 +148,7 @@ where
     #[inline]
     async fn try_plot_sector(
         &self,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,

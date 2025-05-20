@@ -20,7 +20,7 @@ use sp_runtime::testing::{Digest, DigestItem, TestXt};
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use subspace_runtime_primitives::ConsensusEventSegmentSize;
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type Balance = u128;
@@ -100,7 +100,7 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: SlotNumber) {
     let pre_digest = make_pre_digest(
         slot,
         Solution {
-            public_key_hash: PublicKey::from(keypair.public.to_bytes()).hash(),
+            public_key_hash: Ed25519PublicKey::from(keypair.public.to_bytes()).hash(),
             record_root: Default::default(),
             record_proof: Default::default(),
             chunk,

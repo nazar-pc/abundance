@@ -33,7 +33,7 @@ use std::time::{Duration, Instant};
 use subspace_farmer_components::FarmerProtocolInfo;
 use subspace_farmer_components::plotting::PlottedSector;
 use subspace_farmer_components::sector::sector_size;
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::time::MissedTickBehavior;
 use tracing::{Instrument, debug, info, info_span, trace, warn};
@@ -107,7 +107,7 @@ enum ClusterSectorPlottingProgress {
 /// Request to plot sector from plotter
 #[derive(Debug, Clone, Encode, Decode)]
 struct ClusterPlotterPlotSectorRequest {
-    public_key: PublicKey,
+    public_key: Ed25519PublicKey,
     sector_index: SectorIndex,
     farmer_protocol_info: FarmerProtocolInfo,
     pieces_in_sector: u16,
@@ -120,7 +120,7 @@ impl GenericStreamRequest for ClusterPlotterPlotSectorRequest {
 
 #[derive(Default, Debug)]
 struct Handlers {
-    plotting_progress: Handler3<PublicKey, SectorIndex, SectorPlottingProgress>,
+    plotting_progress: Handler3<Ed25519PublicKey, SectorIndex, SectorPlottingProgress>,
 }
 
 /// Cluster plotter
@@ -155,7 +155,7 @@ impl Plotter for ClusterPlotter {
 
     async fn plot_sector(
         &self,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -207,7 +207,7 @@ impl Plotter for ClusterPlotter {
 
     async fn try_plot_sector(
         &self,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -287,7 +287,7 @@ impl ClusterPlotter {
     /// Subscribe to plotting progress notifications
     pub fn on_plotting_progress(
         &self,
-        callback: HandlerFn3<PublicKey, SectorIndex, SectorPlottingProgress>,
+        callback: HandlerFn3<Ed25519PublicKey, SectorIndex, SectorPlottingProgress>,
     ) -> HandlerId {
         self.handlers.plotting_progress.add(callback)
     }
@@ -297,7 +297,7 @@ impl ClusterPlotter {
         &self,
         start: Instant,
         sector_encoding_permit: OwnedSemaphorePermit,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -686,7 +686,7 @@ where
 }
 
 struct ProgressUpdater {
-    public_key: PublicKey,
+    public_key: Ed25519PublicKey,
     sector_index: SectorIndex,
     handlers: Arc<Handlers>,
 }

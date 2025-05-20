@@ -23,7 +23,7 @@ use subspace_farmer_components::sector::{
 use subspace_farmer_components::{FarmerProtocolInfo, ReadAt, ReadAtSync};
 use subspace_proof_of_space::Table;
 use subspace_proof_of_space::chia::ChiaTable;
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 
 type PosTable = ChiaTable;
 
@@ -44,7 +44,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         .map(|sectors_count| sectors_count.parse().unwrap())
         .unwrap_or(10);
 
-    let public_key = PublicKey::default();
+    let public_key = Ed25519PublicKey::default();
     let public_key_hash = &public_key.hash();
     let sector_index = SectorIndex::ZERO;
     let mut input = RecordedHistorySegment::new_boxed();

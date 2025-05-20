@@ -32,6 +32,7 @@ clap = "4.5.18"
 core_affinity = "0.8.1"
 criterion = { version = "0.5.1", default-features = false }
 derive_more = { version = "1.0.0", default-features = false }
+ed25519-zebra = { version = "4.0.3", default-features = false }
 event-listener = "5.3.1"
 event-listener-primitives = "2.0.1"
 fdlimit = "0.3.0"
@@ -144,7 +145,6 @@ subspace-runtime = { version = "0.1.0", path = "crates/subspace-runtime" }
 subspace-runtime-primitives = { version = "0.1.0", path = "crates/subspace-runtime-primitives", default-features = false }
 subspace-service = { version = "0.1.0", path = "crates/subspace-service" }
 subspace-verification = { version = "0.1.0", path = "crates/subspace-verification", default-features = false }
-substrate-bip39 = "0.6.0"
 substrate-build-script-utils = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35" }
 substrate-prometheus-endpoint = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35" }
 substrate-wasm-builder = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35" }
@@ -225,10 +225,6 @@ panic = "unwind"
 [profile.production]
 inherits = "release"
 lto = "fat"
-
-[patch."https://github.com/subspace/polkadot-sdk.git"]
-# De-duplicate extra copy that comes from Substrate repo
-substrate-bip39 = "0.6.0"
 
 [patch.crates-io]
 # TODO: Remove once https://github.com/KokaKiwi/rust-hex/pull/58 is released (0.4.4+)

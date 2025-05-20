@@ -37,7 +37,6 @@ use sc_proof_of_time::PotSlotWorker;
 use sc_proof_of_time::verifier::PotVerifier;
 use sc_telemetry::TelemetryHandle;
 use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
-use schnorrkel::context::SigningContext;
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SyncOracle};
@@ -46,7 +45,6 @@ use sp_consensus_subspace::digests::{
     CompatibleDigestItem, PreDigest, PreDigestPotInfo, extract_pre_digest,
 };
 use sp_consensus_subspace::{PotNextSlotInput, SubspaceApi, SubspaceJustification};
-use sp_core::H256;
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor, Zero};
 use sp_runtime::{DigestItem, Justification, Justifications};
 use std::collections::BTreeMap;
@@ -57,7 +55,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use subspace_proof_of_space::Table;
 use subspace_verification::check_reward_signature;
-use subspace_verification::sr25519::{REWARD_SIGNING_CONTEXT, RewardSignature};
+use subspace_verification::ed25519::RewardSignature;
 use tracing::{debug, error, info, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
@@ -138,7 +136,7 @@ pub struct NewSlotNotification {
 #[derive(Debug, Clone)]
 pub struct RewardSigningNotification {
     /// Hash to be signed.
-    pub hash: H256,
+    pub hash: Blake3Hash,
     /// Public key hash of the plot identity that should create signature.
     pub public_key_hash: Blake3Hash,
     /// Sender that can be used to send signature for the header.
@@ -198,7 +196,6 @@ where
     force_authoring: bool,
     backoff_authoring_blocks: Option<BS>,
     subspace_link: SubspaceLink,
-    reward_signing_context: SigningContext,
     block_proposal_slot_portion: SlotProportion,
     max_block_proposal_slot_portion: Option<SlotProportion>,
     segment_headers_store: SegmentHeadersStore<AS>,
@@ -635,7 +632,12 @@ where
     ) -> Result<BlockImportParams<Block>, ConsensusError> {
         let signature = self
             .sign_reward(
-                H256::from_slice(header_hash.as_ref()),
+                Blake3Hash::new(
+                    header_hash
+                        .as_ref()
+                        .try_into()
+                        .expect("Block hash is exactly 32 bytes; qed"),
+                ),
                 pre_digest.solution.public_key_hash,
             )
             .await?;
@@ -755,7 +757,6 @@ where
             force_authoring,
             backoff_authoring_blocks,
             subspace_link,
-            reward_signing_context: schnorrkel::context::signing_context(REWARD_SIGNING_CONTEXT),
             block_proposal_slot_portion,
             max_block_proposal_slot_portion,
             segment_headers_store,
@@ -768,7 +769,7 @@ where
 
     async fn sign_reward(
         &self,
-        hash: H256,
+        hash: Blake3Hash,
         public_key_hash: Blake3Hash,
     ) -> Result<RewardSignature, ConsensusError> {
         let (signature_sender, mut signature_receiver) =
@@ -783,14 +784,7 @@ where
             });
 
         while let Some(signature) = signature_receiver.next().await {
-            if check_reward_signature(
-                hash.as_ref(),
-                &signature,
-                &public_key_hash,
-                &self.reward_signing_context,
-            )
-            .is_err()
-            {
+            if check_reward_signature(&hash, &signature, &public_key_hash).is_err() {
                 warn!(
                     %hash,
                     "Received invalid signature for reward"

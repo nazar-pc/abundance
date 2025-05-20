@@ -25,7 +25,6 @@ use sc_consensus::block_import::BlockImportParams;
 use sc_consensus::import_queue::Verifier;
 use sc_consensus_slots::check_equivocation;
 use sc_proof_of_time::verifier::PotVerifier;
-use schnorrkel::context::SigningContext;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
@@ -106,8 +105,6 @@ pub struct SubspaceVerifierOptions<Client> {
     pub client: Arc<Client>,
     /// Subspace chain constants
     pub chain_constants: ChainConstants,
-    /// Context for reward signing
-    pub reward_signing_context: SigningContext,
     /// Approximate target block number for syncing purposes
     pub sync_target_block_number: Arc<AtomicU64>,
     /// Whether this node is authoring blocks
@@ -123,7 +120,6 @@ where
 {
     client: Arc<Client>,
     chain_constants: ChainConstants,
-    reward_signing_context: SigningContext,
     sync_target_block_number: Arc<AtomicU64>,
     is_authoring_blocks: bool,
     pot_verifier: PotVerifier,
@@ -145,7 +141,6 @@ where
         let SubspaceVerifierOptions {
             client,
             chain_constants,
-            reward_signing_context,
             sync_target_block_number,
             is_authoring_blocks,
             pot_verifier,
@@ -154,7 +149,6 @@ where
         Self {
             client,
             chain_constants,
-            reward_signing_context,
             sync_target_block_number,
             is_authoring_blocks,
             pot_verifier,
@@ -325,10 +319,14 @@ where
 
         // Verify that block is signed properly
         if check_reward_signature(
-            pre_hash.as_ref(),
+            &Blake3Hash::new(
+                pre_hash
+                    .as_ref()
+                    .try_into()
+                    .expect("Block hash is exactly 32 bytes; qed"),
+            ),
             &signature,
             &pre_digest.solution.public_key_hash,
-            &self.reward_signing_context,
         )
         .is_err()
         {

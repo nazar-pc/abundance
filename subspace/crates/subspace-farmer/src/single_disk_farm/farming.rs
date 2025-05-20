@@ -33,7 +33,7 @@ use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed};
 use subspace_proof_of_space::{Table, TableGenerator};
 use subspace_rpc_primitives::{SlotInfo, SolutionResponse};
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 use tracing::{Span, debug, error, info, trace, warn};
 
 /// How many non-fatal errors should happen in a row before farm is considered non-operational
@@ -197,7 +197,7 @@ pub(super) struct FarmingOptions<NC, PlotAudit> {
         dead_code,
         reason = "Reward address was removed from `Solution` and will need to be re-introduced later"
     )]
-    pub(super) reward_address: PublicKey,
+    pub(super) reward_address: Ed25519PublicKey,
     pub(super) node_client: NC,
     pub(super) plot_audit: PlotAudit,
     pub(super) sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,

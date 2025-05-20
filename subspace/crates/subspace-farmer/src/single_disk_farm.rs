@@ -78,7 +78,7 @@ use subspace_farmer_components::sector::{SectorMetadata, SectorMetadataChecksumm
 use subspace_networking::KnownPeersManager;
 use subspace_proof_of_space::Table;
 use subspace_rpc_primitives::{FarmerAppInfo, SolutionResponse};
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
@@ -114,7 +114,7 @@ pub enum SingleDiskFarmInfo {
         /// Genesis root of the beacon chain used for farm creation
         genesis_root: BlockRoot,
         /// Public key of identity used for farm creation
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         /// How many pieces does one sector contain.
         pieces_in_sector: u16,
         /// How much space in bytes is allocated for this farm
@@ -129,7 +129,7 @@ impl SingleDiskFarmInfo {
     pub fn new(
         id: FarmId,
         genesis_root: BlockRoot,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         pieces_in_sector: u16,
         allocated_space: u64,
     ) -> Self {
@@ -205,7 +205,7 @@ impl SingleDiskFarmInfo {
     }
 
     /// Public key of identity used for farm creation
-    pub fn public_key(&self) -> &PublicKey {
+    pub fn public_key(&self) -> &Ed25519PublicKey {
         let Self::V0 { public_key, .. } = self;
         public_key
     }
@@ -288,7 +288,7 @@ where
     /// RPC client connected to Subspace node
     pub node_client: NC,
     /// Address where farming rewards should go
-    pub reward_address: PublicKey,
+    pub reward_address: Ed25519PublicKey,
     /// Plotter
     pub plotter: Arc<dyn Plotter + Send + Sync>,
     /// Erasure coding instance to use.
@@ -364,9 +364,9 @@ pub enum SingleDiskFarmError {
         /// Farm ID
         id: FarmId,
         /// Public key used during farm creation
-        correct_public_key: PublicKey,
+        correct_public_key: Ed25519PublicKey,
         /// Current public key
-        wrong_public_key: PublicKey,
+        wrong_public_key: Ed25519PublicKey,
     },
     /// Invalid number pieces in sector
     #[error(
@@ -490,9 +490,9 @@ pub enum SingleDiskFarmScrubError {
     #[error("Identity public key {identity} doesn't match public key in the disk farm info {info}")]
     PublicKeyMismatch {
         /// Identity public key
-        identity: PublicKey,
+        identity: Ed25519PublicKey,
         /// Disk farm info public key
-        info: PublicKey,
+        info: Ed25519PublicKey,
     },
     /// Metadata file does not exist
     #[error("Metadata file does not exist at {file}")]
@@ -1242,7 +1242,7 @@ impl SingleDiskFarm {
                 ))
             })?
         };
-        let public_key = identity.public_key().to_bytes().into();
+        let public_key = identity.public_key();
 
         let (single_disk_farm_info, single_disk_farm_info_lock) =
             match SingleDiskFarmInfo::load_from(directory)? {
@@ -1791,9 +1791,9 @@ impl SingleDiskFarm {
                 }
             };
 
-            if PublicKey::from(identity.public.to_bytes()) != *info.public_key() {
+            if &identity.public_key() != info.public_key() {
                 return Err(SingleDiskFarmScrubError::PublicKeyMismatch {
-                    identity: PublicKey::from(identity.public.to_bytes()),
+                    identity: identity.public_key(),
                     info: *info.public_key(),
                 });
             }

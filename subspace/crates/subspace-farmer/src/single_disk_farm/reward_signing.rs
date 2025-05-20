@@ -3,7 +3,7 @@ use crate::single_disk_farm::identity::Identity;
 use futures::StreamExt;
 use std::future::Future;
 use subspace_rpc_primitives::{RewardSignatureResponse, RewardSigningInfo};
-use subspace_verification::sr25519::{PublicKey, RewardSignature, Signature};
+use subspace_verification::ed25519::RewardSignature;
 use tracing::{info, warn};
 
 pub(super) async fn reward_signing<NC>(
@@ -16,7 +16,7 @@ where
     info!("Subscribing to reward signing notifications");
 
     let mut reward_signing_info_notifications = node_client.subscribe_reward_signing().await?;
-    let own_public_key_hash = PublicKey::from(identity.public_key().to_bytes()).hash();
+    let own_public_key_hash = identity.public_key().hash();
 
     let reward_signing_fut = async move {
         while let Some(RewardSigningInfo {
@@ -29,14 +29,12 @@ where
                 continue;
             }
 
-            let signature = identity.sign_reward_hash(&hash);
-
             match node_client
                 .submit_reward_signature(RewardSignatureResponse {
                     hash,
                     signature: Some(RewardSignature {
-                        public_key: PublicKey::from(identity.public_key().to_bytes()),
-                        signature: Signature::from(signature.to_bytes()),
+                        public_key: identity.public_key(),
+                        signature: identity.sign_reward_hash(&hash),
                     }),
                 })
                 .await

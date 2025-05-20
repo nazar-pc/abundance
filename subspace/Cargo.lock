@@ -42,6 +42,7 @@ dependencies = [
  "blake3",
  "bytes",
  "derive_more 2.0.1",
+ "ed25519-zebra",
  "hex",
  "parity-scale-codec",
  "rayon",
@@ -9022,14 +9023,12 @@ dependencies = [
  "sc-proof-of-time",
  "sc-telemetry",
  "sc-utils",
- "schnorrkel",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-slots",
  "sp-consensus-subspace",
- "sp-core",
  "sp-inherents",
  "sp-runtime",
  "subspace-proof-of-space",
@@ -9062,7 +9061,6 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-subspace",
- "sp-core",
  "sp-runtime",
  "subspace-farmer-components",
  "subspace-networking",
@@ -11462,6 +11460,7 @@ dependencies = [
  "clap",
  "criterion",
  "derive_more 1.0.0",
+ "ed25519-zebra",
  "event-listener 5.3.1",
  "event-listener-primitives",
  "fdlimit",
@@ -11479,7 +11478,6 @@ dependencies = [
  "prometheus-client",
  "rand 0.8.5",
  "rayon",
- "schnorrkel",
  "serde",
  "serde_json",
  "ss58-registry",
@@ -11493,7 +11491,6 @@ dependencies = [
  "subspace-proof-of-space-gpu",
  "subspace-rpc-primitives",
  "subspace-verification",
- "substrate-bip39",
  "tempfile",
  "thiserror 2.0.12",
  "thread-priority",
@@ -11525,7 +11522,6 @@ dependencies = [
  "parking_lot 0.12.3",
  "rand 0.8.5",
  "rayon",
- "schnorrkel",
  "serde",
  "static_assertions",
  "subspace-data-retrieval",
@@ -11784,7 +11780,6 @@ dependencies = [
  "sc-tracing",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
- "schnorrkel",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
@@ -11801,7 +11796,6 @@ dependencies = [
  "subspace-networking",
  "subspace-proof-of-space",
  "subspace-runtime-primitives",
- "subspace-verification",
  "substrate-prometheus-endpoint",
  "thiserror 2.0.12",
  "tokio",
@@ -11814,10 +11808,10 @@ version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
  "derive_more 1.0.0",
+ "ed25519-zebra",
  "hex",
  "parity-scale-codec",
  "scale-info",
- "schnorrkel",
  "serde",
  "serde-big-array",
 ]
@@ -11825,8 +11819,7 @@ dependencies = [
 [[package]]
 name = "substrate-bip39"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca58ffd742f693dc13d69bdbb2e642ae239e0053f6aab3b104252892f856700a"
+source = "git+https://github.com/subspace/polkadot-sdk?rev=d7b75f3d002f5f9bcd04da31cc8197d3a733de35#d7b75f3d002f5f9bcd04da31cc8197d3a733de35"
 dependencies = [
  "hmac 0.12.1",
  "pbkdf2",

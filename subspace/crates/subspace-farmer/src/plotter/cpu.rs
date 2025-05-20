@@ -34,7 +34,7 @@ use subspace_farmer_components::plotting::{
     encode_sector, write_sector,
 };
 use subspace_proof_of_space::Table;
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 use tokio::task::yield_now;
 use tracing::{Instrument, warn};
 
@@ -44,7 +44,7 @@ type Handler3<A, B, C> = Bag<HandlerFn3<A, B, C>, A, B, C>;
 
 #[derive(Default, Debug)]
 struct Handlers {
-    plotting_progress: Handler3<PublicKey, SectorIndex, SectorPlottingProgress>,
+    plotting_progress: Handler3<Ed25519PublicKey, SectorIndex, SectorPlottingProgress>,
 }
 
 /// CPU plotter
@@ -90,7 +90,7 @@ where
 
     async fn plot_sector(
         &self,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -118,7 +118,7 @@ where
 
     async fn try_plot_sector(
         &self,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -219,7 +219,7 @@ where
     /// Subscribe to plotting progress notifications
     pub fn on_plotting_progress(
         &self,
-        callback: HandlerFn3<PublicKey, SectorIndex, SectorPlottingProgress>,
+        callback: HandlerFn3<Ed25519PublicKey, SectorIndex, SectorPlottingProgress>,
     ) -> HandlerId {
         self.handlers.plotting_progress.add(callback)
     }
@@ -229,7 +229,7 @@ where
         &self,
         start: Instant,
         downloading_permit: SemaphoreGuardArc,
-        public_key: PublicKey,
+        public_key: Ed25519PublicKey,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -459,7 +459,7 @@ where
 }
 
 struct ProgressUpdater {
-    public_key: PublicKey,
+    public_key: Ed25519PublicKey,
     sector_index: SectorIndex,
     handlers: Arc<Handlers>,
     metrics: Option<Arc<CpuPlotterMetrics>>,

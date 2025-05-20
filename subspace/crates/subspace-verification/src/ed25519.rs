@@ -12,15 +12,12 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
 
-/// Signing context used for creating reward signatures by farmers.
-pub const REWARD_SIGNING_CONTEXT: &[u8] = b"subspace_reward";
-
-/// A Ristretto Schnorr public key as bytes produced by `schnorrkel` crate.
+/// Ed25519 public key
 #[derive(Default, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Deref, From, Into)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
-pub struct PublicKey([u8; PublicKey::SIZE]);
+pub struct Ed25519PublicKey([u8; Ed25519PublicKey::SIZE]);
 
-impl fmt::Debug for PublicKey {
+impl fmt::Debug for Ed25519PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for byte in self.0 {
             write!(f, "{byte:02x}")?;
@@ -32,44 +29,44 @@ impl fmt::Debug for PublicKey {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PublicKeyBinary([u8; PublicKey::SIZE]);
+struct Ed25519PublicKeyBinary([u8; Ed25519PublicKey::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct PublicKeyHex(#[serde(with = "hex")] [u8; PublicKey::SIZE]);
+struct Ed25519PublicKeyHex(#[serde(with = "hex")] [u8; Ed25519PublicKey::SIZE]);
 
 #[cfg(feature = "serde")]
-impl Serialize for PublicKey {
+impl Serialize for Ed25519PublicKey {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            PublicKeyHex(self.0).serialize(serializer)
+            Ed25519PublicKeyHex(self.0).serialize(serializer)
         } else {
-            PublicKeyBinary(self.0).serialize(serializer)
+            Ed25519PublicKeyBinary(self.0).serialize(serializer)
         }
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for PublicKey {
+impl<'de> Deserialize<'de> for Ed25519PublicKey {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            PublicKeyHex::deserialize(deserializer)?.0
+            Ed25519PublicKeyHex::deserialize(deserializer)?.0
         } else {
-            PublicKeyBinary::deserialize(deserializer)?.0
+            Ed25519PublicKeyBinary::deserialize(deserializer)?.0
         }))
     }
 }
 
-impl fmt::Display for PublicKey {
+impl fmt::Display for Ed25519PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for byte in self.0 {
             write!(f, "{byte:02x}")?;
@@ -78,14 +75,14 @@ impl fmt::Display for PublicKey {
     }
 }
 
-impl AsRef<[u8]> for PublicKey {
+impl AsRef<[u8]> for Ed25519PublicKey {
     #[inline]
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
 
-impl PublicKey {
+impl Ed25519PublicKey {
     /// Public key size in bytes
     pub const SIZE: usize = 32;
 
@@ -95,18 +92,18 @@ impl PublicKey {
     }
 }
 
-/// A Ristretto Schnorr signature as bytes produced by `schnorrkel` crate.
+/// Ed25519 signature
 #[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Deref, From, Into)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
-pub struct Signature([u8; Signature::SIZE]);
+pub struct Ed25519Signature([u8; Ed25519Signature::SIZE]);
 
-impl Default for Signature {
+impl Default for Ed25519Signature {
     fn default() -> Self {
         Self([0; Self::SIZE])
     }
 }
 
-impl fmt::Debug for Signature {
+impl fmt::Debug for Ed25519Signature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for byte in self.0 {
             write!(f, "{byte:02x}")?;
@@ -118,44 +115,44 @@ impl fmt::Debug for Signature {
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct SignatureBinary(#[serde(with = "BigArray")] [u8; Signature::SIZE]);
+struct Ed25519SignatureBinary(#[serde(with = "BigArray")] [u8; Ed25519Signature::SIZE]);
 
 #[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-struct SignatureHex(#[serde(with = "hex")] [u8; Signature::SIZE]);
+struct Ed25519SignatureHex(#[serde(with = "hex")] [u8; Ed25519Signature::SIZE]);
 
 #[cfg(feature = "serde")]
-impl Serialize for Signature {
+impl Serialize for Ed25519Signature {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            SignatureHex(self.0).serialize(serializer)
+            Ed25519SignatureHex(self.0).serialize(serializer)
         } else {
-            SignatureBinary(self.0).serialize(serializer)
+            Ed25519SignatureBinary(self.0).serialize(serializer)
         }
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Signature {
+impl<'de> Deserialize<'de> for Ed25519Signature {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         Ok(Self(if deserializer.is_human_readable() {
-            SignatureHex::deserialize(deserializer)?.0
+            Ed25519SignatureHex::deserialize(deserializer)?.0
         } else {
-            SignatureBinary::deserialize(deserializer)?.0
+            Ed25519SignatureBinary::deserialize(deserializer)?.0
         }))
     }
 }
 
-impl fmt::Display for Signature {
+impl fmt::Display for Ed25519Signature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for byte in self.0 {
             write!(f, "{byte:02x}")?;
@@ -164,14 +161,14 @@ impl fmt::Display for Signature {
     }
 }
 
-impl AsRef<[u8]> for Signature {
+impl AsRef<[u8]> for Ed25519Signature {
     #[inline]
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
 
-impl Signature {
+impl Ed25519Signature {
     /// Signature size in bytes
     pub const SIZE: usize = 64;
 }
@@ -183,12 +180,12 @@ impl Signature {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RewardSignature {
     /// Public key that signature corresponds to
-    pub public_key: PublicKey,
+    pub public_key: Ed25519PublicKey,
     /// Signature itself
-    pub signature: Signature,
+    pub signature: Ed25519Signature,
 }
 
 impl RewardSignature {
     /// Reward signature size in bytes
-    pub const SIZE: usize = PublicKey::SIZE + Signature::SIZE;
+    pub const SIZE: usize = Ed25519PublicKey::SIZE + Ed25519Signature::SIZE;
 }

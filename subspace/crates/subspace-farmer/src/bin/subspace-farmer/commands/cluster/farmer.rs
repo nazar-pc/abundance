@@ -33,7 +33,7 @@ use subspace_farmer::utils::{
 };
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_proof_of_space::Table;
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 use tracing::{Instrument, error, info, info_span, warn};
 
 const FARM_ERROR_PRINT_INTERVAL: Duration = Duration::from_secs(30);
@@ -60,7 +60,7 @@ pub(super) struct FarmerArgs {
     disk_farms: Vec<DiskFarm>,
     /// Address for farming rewards
     #[arg(long, value_parser = parse_ss58_reward_address)]
-    reward_address: Option<PublicKey>,
+    reward_address: Option<Ed25519PublicKey>,
     /// Sets some flags that are convenient during development, currently `--reward-address` (if
     /// not specified explicitly)
     #[arg(long)]
@@ -158,7 +158,7 @@ where
         None => {
             if dev {
                 // `//Alice`
-                PublicKey::from([
+                Ed25519PublicKey::from([
                     0xd4, 0x35, 0x93, 0xc7, 0x15, 0xfd, 0xd3, 0x1c, 0x61, 0x14, 0x1a, 0xbd, 0x04,
                     0xa9, 0x9f, 0xd6, 0x82, 0x2c, 0x85, 0x58, 0x85, 0x4c, 0xcd, 0xe3, 0x9a, 0x56,
                     0x84, 0xe7, 0xa5, 0x6d, 0xa2, 0x7d,

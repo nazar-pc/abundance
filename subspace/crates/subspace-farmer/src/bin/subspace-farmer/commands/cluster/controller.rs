@@ -125,7 +125,7 @@ pub(super) async fn controller(
 
     let identity = Identity::open_or_create(&base_path)
         .map_err(|error| anyhow!("Failed to open or create identity: {error}"))?;
-    let keypair = derive_libp2p_keypair(identity.secret_key());
+    let keypair = derive_libp2p_keypair(&identity);
     let peer_id = keypair.public().to_peer_id();
     let instance = peer_id.to_string();
 

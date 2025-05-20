@@ -14,7 +14,7 @@ use subspace_runtime::{
     SudoConfig, SystemConfig, WASM_BINARY,
 };
 use subspace_runtime_primitives::{AccountId, Balance, SLOT_PROBABILITY, SSC};
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 
 // We assume initial plot size starts with a single sector.
 const INITIAL_SOLUTION_RANGE: SolutionRange = SolutionRange::from_pieces(1000, SLOT_PROBABILITY);
@@ -57,7 +57,7 @@ pub fn mainnet_compiled() -> Result<GenericChainSpec, String> {
             balances,
             GenesisParams {
                 allow_authoring_by: AllowAuthoringBy::RootFarmer(
-                    PublicKey::from(hex_literal::hex!(
+                    Ed25519PublicKey::from(hex_literal::hex!(
                         "e6a489dab63b650cf475431fc46649f4256167443fea241fca0bb3f86b29837a"
                     ))
                     .hash(),

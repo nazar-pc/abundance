@@ -12,7 +12,7 @@ use subspace_farmer_components::plotting::{CpuRecordsEncoder, PlotSectorOptions,
 use subspace_farmer_components::sector::sector_size;
 use subspace_proof_of_space::Table;
 use subspace_proof_of_space::chia::ChiaTable;
-use subspace_verification::sr25519::PublicKey;
+use subspace_verification::ed25519::Ed25519PublicKey;
 
 type PosTable = ChiaTable;
 
@@ -24,7 +24,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         .map(|base_path| base_path.parse().unwrap())
         .unwrap_or_else(|_error| MAX_PIECES_IN_SECTOR);
 
-    let public_key = PublicKey::default();
+    let public_key = Ed25519PublicKey::default();
     let public_key_hash = &public_key.hash();
     let sector_index = SectorIndex::ZERO;
     let mut input = RecordedHistorySegment::new_boxed();
