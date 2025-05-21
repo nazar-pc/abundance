@@ -1,6 +1,15 @@
 //! Block body primitives
 
+#[cfg(feature = "alloc")]
+pub mod owned;
+
 use crate::block::align_to_and_ensure_zero_padding;
+#[cfg(feature = "alloc")]
+use crate::block::body::owned::{
+    OwnedBeaconChainBlockBody, OwnedBeaconChainBlockBodyError, OwnedBlockBody, OwnedBlockBodyError,
+    OwnedIntermediateShardBlockBody, OwnedIntermediateShardBlockBodyError, OwnedLeafShardBlockBody,
+    OwnedLeafShardBlockBodyError,
+};
 use crate::block::header::{IntermediateShardBlockHeader, LeafShardBlockHeader};
 use crate::hashes::Blake3Hash;
 use crate::pot::PotCheckpoints;
@@ -139,7 +148,8 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     #[inline]
     pub fn iter(
         &self,
-    ) -> impl ExactSizeIterator<Item = IntermediateShardBlockInfo<'a>> + TrustedLen + 'a {
+    ) -> impl ExactSizeIterator<Item = IntermediateShardBlockInfo<'a>> + TrustedLen + Clone + 'a
+    {
         // SAFETY: Checked in constructor
         let (mut counts, mut remainder) = unsafe {
             self.bytes
@@ -375,6 +385,13 @@ impl<'a> BeaconChainBlockBody<'a> {
             })
     }
 
+    /// Create an owned version of this body
+    #[inline(always)]
+    #[cfg(feature = "alloc")]
+    pub fn to_owned(self) -> Result<OwnedBeaconChainBlockBody, OwnedBeaconChainBlockBodyError> {
+        OwnedBeaconChainBlockBody::from_body(self)
+    }
+
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
@@ -463,7 +480,9 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
     /// Iterator over leaf shard blocks in a collection
     #[inline]
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = LeafShardBlockInfo<'a>> + TrustedLen + 'a {
+    pub fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = LeafShardBlockInfo<'a>> + TrustedLen + Clone + 'a {
         // SAFETY: Checked in constructor
         let (mut counts, mut remainder) = unsafe {
             self.bytes
@@ -612,7 +631,7 @@ impl<'a> Transactions<'a> {
 
     /// Iterator over transactions in a collection
     #[inline]
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = Transaction<'a>> + TrustedLen + 'a {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = Transaction<'a>> + TrustedLen + Clone + 'a {
         let mut remainder = self.bytes;
 
         (0..self.num_transactions).map(move |_| {
@@ -739,6 +758,15 @@ impl<'a> IntermediateShardBlockBody<'a> {
         ])
     }
 
+    /// Create an owned version of this body
+    #[inline(always)]
+    #[cfg(feature = "alloc")]
+    pub fn to_owned(
+        self,
+    ) -> Result<OwnedIntermediateShardBlockBody, OwnedIntermediateShardBlockBodyError> {
+        OwnedIntermediateShardBlockBody::from_body(self)
+    }
+
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
@@ -812,6 +840,13 @@ impl<'a> LeafShardBlockBody<'a> {
         *self.transactions.root()
     }
 
+    /// Create an owned version of this body
+    #[inline(always)]
+    #[cfg(feature = "alloc")]
+    pub fn to_owned(self) -> Result<OwnedLeafShardBlockBody, OwnedLeafShardBlockBodyError> {
+        OwnedLeafShardBlockBody::from_body(self)
+    }
+
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
@@ -877,12 +912,19 @@ impl<'a> BlockBody<'a> {
         }
     }
 
-    /// Compute block body hash.
+    /// Create an owned version of this body
+    #[inline(always)]
+    #[cfg(feature = "alloc")]
+    pub fn to_owned(self) -> Result<OwnedBlockBody, OwnedBlockBodyError> {
+        OwnedBlockBody::from_body(self)
+    }
+
+    /// Compute block body root.
     ///
     /// Block body hash is actually a Merkle Tree Root. The leaves are derived from individual
     /// fields this enum in the declaration order.
     #[inline]
-    pub fn hash(&self) -> Blake3Hash {
+    pub fn root(&self) -> Blake3Hash {
         match self {
             Self::BeaconChain(body) => body.root(),
             Self::IntermediateShard(body) => body.root(),
