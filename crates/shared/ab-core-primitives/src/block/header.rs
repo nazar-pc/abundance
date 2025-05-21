@@ -613,6 +613,10 @@ impl<'a> BeaconChainBlockHeader<'a> {
         let (prefix, consensus_info, result, remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
 
+        if prefix.shard_index.shard_kind() != ShardKind::BeaconChain {
+            return None;
+        }
+
         let (child_shard_blocks, remainder) =
             BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
 
@@ -734,6 +738,10 @@ impl<'a> IntermediateShardBlockHeader<'a> {
         let (prefix, consensus_info, result, mut remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
 
+        if prefix.shard_index.shard_kind() != ShardKind::IntermediateShard {
+            return None;
+        }
+
         let beacon_chain_info = remainder.split_off(..size_of::<BlockHeaderBeaconChainInfo>())?;
         // SAFETY: All bit patterns are valid
         let beacon_chain_info =
@@ -853,6 +861,10 @@ impl<'a> LeafShardBlockHeader<'a> {
 
         let (prefix, consensus_info, result, mut remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
+
+        if prefix.shard_index.shard_kind() != ShardKind::LeafShard {
+            return None;
+        }
 
         let beacon_chain_info = remainder.split_off(..size_of::<BlockHeaderBeaconChainInfo>())?;
         // SAFETY: All bit patterns are valid
