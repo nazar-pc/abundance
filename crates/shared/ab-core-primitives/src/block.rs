@@ -2,6 +2,8 @@
 
 pub mod body;
 pub mod header;
+#[cfg(feature = "alloc")]
+pub mod owned;
 
 use crate::block::body::{
     BeaconChainBlockBody, BlockBody, IntermediateShardBlockBody, LeafShardBlockBody,
