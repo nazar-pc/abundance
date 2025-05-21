@@ -222,6 +222,7 @@ pub enum TransactionPayloadDecoderError {
 pub struct TransactionPayloadDecoder<'a> {
     payload: &'a [u8],
     external_args_buffer: &'a mut [*mut c_void],
+    // TODO: Cast `output_buffer` into `&'a mut [MaybeUninit<u8>]` and remove `output_buffer_cursor`
     output_buffer: &'a mut [MaybeUninit<u128>],
     output_buffer_cursor: usize,
     output_buffer_offsets: &'a mut [MaybeUninit<(u32, u32)>],
@@ -533,7 +534,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
     where
         T: TrivialType,
     {
-        self.ensure_alignment(NonZeroUsize::new(align_of::<T>()).expect("Not zero; qed"));
+        self.ensure_alignment(NonZeroUsize::new(align_of::<T>()).expect("Not zero; qed"))?;
 
         let bytes;
         if VERIFY {
@@ -559,7 +560,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
         size: u32,
         alignment: NonZeroUsize,
     ) -> Result<&'decoder [u8], TransactionPayloadDecoderError> {
-        self.ensure_alignment(alignment);
+        self.ensure_alignment(alignment)?;
 
         let bytes;
         if VERIFY {
@@ -594,19 +595,30 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    fn ensure_alignment(&mut self, alignment: NonZeroUsize) {
-        debug_assert!(alignment.get() <= usize::from(MAX_ALIGNMENT));
+    fn ensure_alignment(
+        &mut self,
+        alignment: NonZeroUsize,
+    ) -> Result<(), TransactionPayloadDecoderError> {
+        let alignment = alignment.get();
+        debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
 
         // Optimized version of the following that expects `alignment` to be a power of 2:
-        // let unaligned_by = self.payload.len() % alignment;
-        let unaligned_by = {
-            let mask = alignment
-                .get()
-                .checked_sub(1)
-                .expect("Left side is not zero; qed");
-            self.payload.len() & mask
-        };
-        self.payload = &self.payload[unaligned_by..];
+        // let unaligned_by = self.payload.as_ptr().addr() % alignment;
+        let unaligned_by = self.payload.as_ptr().addr() & (alignment - 1);
+        if unaligned_by > 0 {
+            // SAFETY: Subtracted value is always smaller than alignment
+            let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
+            if VERIFY {
+                self.payload = self
+                    .payload
+                    .split_off(padding_bytes..)
+                    .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
+            } else {
+                // SAFETY: Subtracted value is always smaller than alignment
+                (_, self.payload) = unsafe { self.payload.split_at_unchecked(padding_bytes) };
+            }
+        }
+        Ok(())
     }
 
     #[inline(always)]
@@ -651,22 +663,19 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
         alignment: NonZeroUsize,
         size: usize,
     ) -> Option<(usize, NonNull<T>)> {
-        debug_assert!(alignment.get() <= usize::from(MAX_ALIGNMENT));
+        let alignment = alignment.get();
+        debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
 
         // Optimized version of the following that expects `alignment` to be a power of 2:
         // let unaligned_by = self.output_buffer_cursor % alignment;
-        let unaligned_by = {
-            let mask = alignment
-                .get()
-                .checked_sub(1)
-                .expect("Left side is not zero; qed");
-            self.output_buffer_cursor & mask
-        };
+        let unaligned_by = self.output_buffer_cursor & (alignment - 1);
+        // SAFETY: Subtracted value is always smaller than alignment
+        let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
 
         let new_output_buffer_cursor = if VERIFY {
             let new_output_buffer_cursor = self
                 .output_buffer_cursor
-                .checked_add(unaligned_by)?
+                .checked_add(padding_bytes)?
                 .checked_add(size)?;
 
             if new_output_buffer_cursor > size_of_val(self.output_buffer) {
@@ -678,14 +687,14 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
             // SAFETY: The unverified version, see struct description
             unsafe {
                 self.output_buffer_cursor
-                    .unchecked_add(unaligned_by)
+                    .unchecked_add(padding_bytes)
                     .unchecked_add(size)
             }
         };
 
         // SAFETY: Bounds and alignment checks are done above
         let (offset, buffer_ptr) = unsafe {
-            let offset = self.output_buffer_cursor.unchecked_add(unaligned_by);
+            let offset = self.output_buffer_cursor.unchecked_add(padding_bytes);
             let buffer_ptr = NonNull::new_unchecked(
                 self.output_buffer.as_mut_ptr().byte_add(offset).cast::<T>(),
             );
