@@ -346,8 +346,9 @@ impl TransactionPayloadBuilder {
         // let unaligned_by = self.payload.len() % alignment;
         let unaligned_by = self.payload.len() & (alignment - 1);
         if unaligned_by > 0 {
-            self.payload
-                .resize(self.payload.len() + (alignment - unaligned_by), 0);
+            // SAFETY: Subtracted value is always smaller than alignment
+            let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
+            self.payload.resize(self.payload.len() + padding_bytes, 0);
         }
     }
 

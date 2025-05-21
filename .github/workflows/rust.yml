@@ -255,14 +255,14 @@ jobs:
       - name: Ensure no panics in annotated code
         env:
           # Increase inlining threshold to make sure the compiler can see that some functions do not panic
-          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=1500
+          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=2000
         run: |
           cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic
 
       - name: Ensure no panics in annotated code (various features)
         env:
           # Increase inlining threshold to make sure the compiler can see that some functions do not panic
-          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=1500
+          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=2000
         run: |
           # Ensure no panics with `guest` feature
           echo "Checking `no-panic` in contracts"

@@ -7,19 +7,19 @@ pub mod ed25519;
 
 use crate::ed25519::RewardSignature;
 use ab_core_primitives::hashes::Blake3Hash;
-use ed25519_zebra::Error;
 
 /// Check the reward signature validity.
-pub fn check_reward_signature(
+pub fn is_reward_signature_valid(
     hash: &Blake3Hash,
     signature: &RewardSignature,
     public_key_hash: &Blake3Hash,
-) -> Result<(), Error> {
+) -> bool {
     if public_key_hash != &signature.public_key.hash() {
-        return Err(Error::MalformedPublicKey);
+        return false;
     }
 
     signature
         .public_key
         .verify(&signature.signature, hash.as_ref())
+        .is_ok()
 }

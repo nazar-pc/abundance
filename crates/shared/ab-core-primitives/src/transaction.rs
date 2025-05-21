@@ -6,6 +6,8 @@ pub mod owned;
 use crate::address::Address;
 use crate::block::BlockRoot;
 use crate::hashes::Blake3Hash;
+#[cfg(feature = "alloc")]
+use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use ab_io_type::trivial_type::TrivialType;
 use blake3::Hasher;
 use core::slice;
@@ -276,6 +278,13 @@ impl<'a> Transaction<'a> {
                 )
             },
         }
+    }
+
+    /// Create an owned version of this transaction
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    pub fn to_owned(self) -> Result<OwnedTransaction, OwnedTransactionError> {
+        OwnedTransaction::from_transaction(self)
     }
 
     /// Size of the encoded transaction in bytes

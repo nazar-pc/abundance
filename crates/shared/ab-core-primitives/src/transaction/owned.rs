@@ -1,27 +1,39 @@
 //! Data structures related to the owned version of [`Transaction`]
 
-mod builder_buffer;
-
-use crate::transaction::owned::builder_buffer::BuilderBuffer;
 use crate::transaction::{
     SerializedTransactionLengths, Transaction, TransactionHeader, TransactionSlot,
 };
-use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use core::slice;
 
 /// Errors for [`OwnedTransaction`]
 #[derive(Debug, thiserror::Error)]
 pub enum OwnedTransactionError {
+    /// Too many read slots
+    #[error("Too many read slots")]
+    TooManyReadSlots,
+    /// Too many write slots
+    #[error("Too many write slots")]
+    TooManyWriteSlots,
+    /// Payload too large
+    #[error("The payload is too large")]
+    PayloadTooLarge,
+    /// Payload is not a multiple of `u128`
+    #[error("The payload is not a multiple of `u128`")]
+    PayloadIsNotMultipleOfU128,
+    /// Seal too large
+    #[error("The leal too large")]
+    SealTooLarge,
+    /// Transaction too large
+    #[error("The transaction is too large")]
+    TransactionTooLarge,
     /// Not enough bytes
     #[error("Not enough bytes")]
     NotEnoughBytes,
     /// Invalid padding
     #[error("Invalid padding")]
     InvalidPadding,
-    /// Payload is not a multiple of `u128`
-    #[error("Payload is not a multiple of `u128`")]
-    PayloadIsNotMultipleOfU128,
     /// Expected number of bytes
     #[error("Expected number of bytes: {actual} != {expected}")]
     UnexpectedNumberOfBytes {
@@ -42,14 +54,162 @@ pub struct OwnedTransaction {
 }
 
 impl OwnedTransaction {
-    /// Create transaction builder with provided transaction header
-    pub fn build(header: &TransactionHeader) -> OwnedTransactionBuilder {
-        OwnedTransactionBuilder {
-            buffer: BuilderBuffer::new(header),
-        }
+    /// Create owned transaction from its parts
+    pub fn from_parts(
+        header: &TransactionHeader,
+        read_slots: &[TransactionSlot],
+        write_slots: &[TransactionSlot],
+        payload: &[u128],
+        seal: &[u8],
+    ) -> Result<Self, OwnedTransactionError> {
+        let mut buffer = OwnedAlignedBuffer::with_capacity(
+            (TransactionHeader::SIZE + SerializedTransactionLengths::SIZE)
+                .saturating_add(size_of_val(read_slots) as u32)
+                .saturating_add(size_of_val(write_slots) as u32)
+                .saturating_add(size_of_val(payload) as u32)
+                .saturating_add(size_of_val(seal) as u32),
+        );
+
+        Self::from_parts_into(header, read_slots, write_slots, payload, seal, &mut buffer)?;
+
+        Ok(Self {
+            buffer: buffer.into_shared(),
+        })
     }
 
-    /// Create an owned transaction from a buffer
+    /// Create owned transaction from its parts and write it into provided buffer
+    pub fn from_parts_into(
+        header: &TransactionHeader,
+        read_slots: &[TransactionSlot],
+        write_slots: &[TransactionSlot],
+        payload: &[u128],
+        seal: &[u8],
+        buffer: &mut OwnedAlignedBuffer,
+    ) -> Result<(), OwnedTransactionError> {
+        const _: () = {
+            // Writing `OwnedTransactionLengths` after `TransactionHeader` must be aligned
+            assert!(
+                size_of::<TransactionHeader>() % align_of::<SerializedTransactionLengths>() == 0
+            );
+        };
+
+        let transaction_lengths = SerializedTransactionLengths {
+            read_slots: read_slots
+                .len()
+                .try_into()
+                .map_err(|_error| OwnedTransactionError::TooManyReadSlots)?,
+            write_slots: read_slots
+                .len()
+                .try_into()
+                .map_err(|_error| OwnedTransactionError::TooManyWriteSlots)?,
+            payload: size_of_val(payload)
+                .try_into()
+                .map_err(|_error| OwnedTransactionError::PayloadTooLarge)?,
+            seal: seal
+                .len()
+                .try_into()
+                .map_err(|_error| OwnedTransactionError::SealTooLarge)?,
+            padding: [0; _],
+        };
+
+        let true = buffer.append(header.as_bytes()) else {
+            unreachable!("Always fits into `u32`");
+        };
+        let true = buffer.append(transaction_lengths.as_bytes()) else {
+            unreachable!("Always fits into `u32`");
+        };
+
+        const _: () = {
+            // Writing `TransactionSlot` after `OwnedTransactionLengths` and `TransactionHeader`
+            // must be aligned
+            assert!(
+                (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
+                    % align_of::<TransactionSlot>()
+                    == 0
+            );
+        };
+        if transaction_lengths.read_slots > 0 {
+            // SAFETY: `TransactionSlot` implements `TrivialType` and is safe to copy as bytes
+            if !buffer.append(unsafe {
+                slice::from_raw_parts(read_slots.as_ptr().cast::<u8>(), size_of_val(read_slots))
+            }) {
+                return Err(OwnedTransactionError::TransactionTooLarge);
+            }
+        }
+        if transaction_lengths.write_slots > 0 {
+            // SAFETY: `TransactionSlot` implements `TrivialType` and is safe to copy as bytes
+            if !buffer.append(unsafe {
+                slice::from_raw_parts(write_slots.as_ptr().cast::<u8>(), size_of_val(write_slots))
+            }) {
+                return Err(OwnedTransactionError::TransactionTooLarge);
+            }
+        }
+
+        const _: () = {
+            // Writing after `OwnedTransactionLengths`, `TransactionHeader` and (optionally)
+            // `TransactionSlot` must be aligned to `u128`
+            assert!(
+                (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
+                    % align_of::<u128>()
+                    == 0
+            );
+            assert!(
+                (size_of::<TransactionHeader>()
+                    + size_of::<SerializedTransactionLengths>()
+                    + size_of::<TransactionSlot>())
+                    % align_of::<u128>()
+                    == 0
+            );
+        };
+        if transaction_lengths.payload > 0 {
+            if transaction_lengths.payload % u128::SIZE != 0 {
+                return Err(OwnedTransactionError::PayloadIsNotMultipleOfU128);
+            }
+
+            // SAFETY: `u128` is safe to copy as bytes
+            if !buffer.append(unsafe {
+                slice::from_raw_parts(payload.as_ptr().cast::<u8>(), size_of_val(payload))
+            }) {
+                return Err(OwnedTransactionError::TransactionTooLarge);
+            }
+        }
+
+        const _: () = {
+            // Writing after `OwnedTransactionLengths`, `TransactionHeader` and (optionally)
+            // `TransactionSlot` must be aligned to `u128`
+            assert!(
+                (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
+                    % align_of::<u128>()
+                    == 0
+            );
+            assert!(
+                (size_of::<TransactionHeader>()
+                    + size_of::<SerializedTransactionLengths>()
+                    + size_of::<TransactionSlot>())
+                    % align_of::<u128>()
+                    == 0
+            );
+        };
+        if transaction_lengths.seal > 0 && !buffer.append(seal) {
+            return Err(OwnedTransactionError::TransactionTooLarge);
+        }
+
+        Ok(())
+    }
+
+    /// Create owned transaction from a reference
+    #[inline(always)]
+    pub fn from_transaction(transaction: Transaction<'_>) -> Result<Self, OwnedTransactionError> {
+        Self::from_parts(
+            transaction.header,
+            transaction.read_slots,
+            transaction.write_slots,
+            transaction.payload,
+            transaction.seal,
+        )
+    }
+
+    /// Create owned transaction from a buffer
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, OwnedTransactionError> {
         if (buffer.len() as usize)
             < size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>()
@@ -98,11 +258,6 @@ impl OwnedTransaction {
         Ok(Self { buffer })
     }
 
-    // TODO: Implement
-    // pub fn from_transaction(transaction: Transaction<'_>) -> Result<Self, OwnedTransactionError> {
-    //     todo!()
-    // }
-
     /// Inner buffer with owned transaction contents
     pub fn buffer(&self) -> &SharedAlignedBuffer {
         &self.buffer
@@ -112,193 +267,5 @@ impl OwnedTransaction {
     pub fn transaction(&self) -> Transaction<'_> {
         // SAFETY: Size and alignment checked in constructor
         unsafe { Transaction::from_bytes_unchecked(self.buffer.as_slice()) }
-    }
-}
-
-/// Errors for [`OwnedTransactionBuilder`]
-#[derive(Debug, thiserror::Error)]
-pub enum OwnedTransactionBuilderError {
-    /// Too many read slots
-    #[error("Too many read slots")]
-    TooManyReadSlots,
-    /// Too many write slots
-    #[error("Too many write slots")]
-    TooManyWriteSlots,
-    /// Payload too large
-    #[error("Payload too large")]
-    PayloadTooLarge,
-    /// Payload is not a multiple of `u128`
-    #[error("Payload is not a multiple of `u128`")]
-    PayloadIsNotMultipleOfU128,
-    /// Seal too large
-    #[error("Seal too large")]
-    SealTooLarge,
-    /// Transaction too large
-    #[error("Transaction too large")]
-    TransactionTooLarge,
-}
-
-/// Builder for [`OwnedTransaction`]
-#[derive(Debug, Clone)]
-pub struct OwnedTransactionBuilder {
-    buffer: BuilderBuffer,
-}
-
-impl OwnedTransactionBuilder {
-    /// Add read-only slot to the transaction
-    pub fn with_read_slot(
-        mut self,
-        slot: &TransactionSlot,
-    ) -> Result<OwnedTransactionBuilder, OwnedTransactionBuilderError> {
-        self.buffer.append_read_slots(slice::from_ref(slot))?;
-        Ok(OwnedTransactionBuilder {
-            buffer: self.buffer,
-        })
-    }
-
-    /// Add many read-only slots to the transaction
-    pub fn with_read_slots(
-        mut self,
-        slots: &[TransactionSlot],
-    ) -> Result<OwnedTransactionBuilder, OwnedTransactionBuilderError> {
-        self.buffer.append_read_slots(slots)?;
-        Ok(OwnedTransactionBuilder {
-            buffer: self.buffer,
-        })
-    }
-
-    /// Add read-write slot to the transaction
-    pub fn with_write_slot(
-        mut self,
-        slot: &TransactionSlot,
-    ) -> Result<OwnedTransactionBuilderWithWriteSlot, OwnedTransactionBuilderError> {
-        self.buffer.append_write_slots(slice::from_ref(slot))?;
-        Ok(OwnedTransactionBuilderWithWriteSlot {
-            buffer: self.buffer,
-        })
-    }
-
-    /// Add many read-write slots to the transaction
-    pub fn with_write_slots(
-        mut self,
-        slots: &[TransactionSlot],
-    ) -> Result<OwnedTransactionBuilderWithWriteSlot, OwnedTransactionBuilderError> {
-        self.buffer.append_write_slots(slots)?;
-        Ok(OwnedTransactionBuilderWithWriteSlot {
-            buffer: self.buffer,
-        })
-    }
-
-    /// Add transaction payload
-    pub fn with_payload(
-        mut self,
-        payload: &[u8],
-    ) -> Result<OwnedTransactionBuilderWithPayload, OwnedTransactionBuilderError> {
-        self.buffer.append_payload(payload)?;
-        Ok(OwnedTransactionBuilderWithPayload {
-            buffer: self.buffer,
-        })
-    }
-
-    /// Add transaction seal
-    pub fn with_seal(
-        mut self,
-        seal: &[u8],
-    ) -> Result<OwnedTransaction, OwnedTransactionBuilderError> {
-        self.buffer.append_seal(seal)?;
-        self.finish()
-    }
-
-    /// Get owned transaction
-    pub fn finish(self) -> Result<OwnedTransaction, OwnedTransactionBuilderError> {
-        let buffer = self.buffer.finish()?.into_shared();
-        Ok(OwnedTransaction { buffer })
-    }
-}
-
-/// Builder for [`OwnedTransaction`] with at least one read-write slot
-#[derive(Debug, Clone)]
-pub struct OwnedTransactionBuilderWithWriteSlot {
-    buffer: BuilderBuffer,
-}
-
-impl OwnedTransactionBuilderWithWriteSlot {
-    /// Add read-write slot to the transaction
-    pub fn with_write_slot(
-        mut self,
-        slot: &TransactionSlot,
-    ) -> Result<Self, OwnedTransactionBuilderError> {
-        self.buffer.append_write_slots(slice::from_ref(slot))?;
-        Ok(Self {
-            buffer: self.buffer,
-        })
-    }
-
-    /// Add many read-write slots to the transaction
-    pub fn with_write_slots(
-        mut self,
-        slots: &[TransactionSlot],
-    ) -> Result<Self, OwnedTransactionBuilderError> {
-        self.buffer.append_write_slots(slots)?;
-        Ok(Self {
-            buffer: self.buffer,
-        })
-    }
-
-    /// Add transaction payload
-    pub fn with_payload(
-        mut self,
-        payload: &[u8],
-    ) -> Result<OwnedTransactionBuilderWithPayload, OwnedTransactionBuilderError> {
-        self.buffer.append_payload(payload)?;
-        Ok(OwnedTransactionBuilderWithPayload {
-            buffer: self.buffer,
-        })
-    }
-
-    /// Add transaction seal
-    pub fn with_seal(
-        mut self,
-        seal: &[u8],
-    ) -> Result<OwnedTransaction, OwnedTransactionBuilderError> {
-        self.buffer.append_seal(seal)?;
-        self.finish()
-    }
-
-    /// Get owned transaction
-    pub fn finish(self) -> Result<OwnedTransaction, OwnedTransactionBuilderError> {
-        let buffer = self.buffer.finish()?.into_shared();
-        Ok(OwnedTransaction { buffer })
-    }
-}
-
-/// Builder for [`OwnedTransaction`] with payload
-#[derive(Debug, Clone)]
-pub struct OwnedTransactionBuilderWithPayload {
-    buffer: BuilderBuffer,
-}
-
-impl OwnedTransactionBuilderWithPayload {
-    /// Add transaction payload
-    pub fn with_payload(mut self, payload: &[u8]) -> Result<Self, OwnedTransactionBuilderError> {
-        self.buffer.append_payload(payload)?;
-        Ok(Self {
-            buffer: self.buffer,
-        })
-    }
-
-    /// Add transaction seal
-    pub fn with_seal(
-        mut self,
-        seal: &[u8],
-    ) -> Result<OwnedTransaction, OwnedTransactionBuilderError> {
-        self.buffer.append_seal(seal)?;
-        self.finish()
-    }
-
-    /// Get owned transaction
-    pub fn finish(self) -> Result<OwnedTransaction, OwnedTransactionBuilderError> {
-        let buffer = self.buffer.finish()?.into_shared();
-        Ok(OwnedTransaction { buffer })
     }
 }
