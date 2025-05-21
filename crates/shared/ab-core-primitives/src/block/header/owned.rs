@@ -231,8 +231,7 @@ impl OwnedBeaconChainBlockHeader {
 
     /// Get [`BeaconChainBlockHeader`] out of [`OwnedBeaconChainBlockHeader`]
     pub fn header(&self) -> BeaconChainBlockHeader<'_> {
-        // TODO: Could be more efficient with unchecked method
-        BeaconChainBlockHeader::try_from_bytes(self.buffer.as_slice())
+        BeaconChainBlockHeader::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }
@@ -405,8 +404,7 @@ impl OwnedIntermediateShardBlockHeader {
 
     /// Get [`IntermediateShardBlockHeader`] out of [`OwnedIntermediateShardBlockHeader`]
     pub fn header(&self) -> IntermediateShardBlockHeader<'_> {
-        // TODO: Could be more efficient with unchecked method
-        IntermediateShardBlockHeader::try_from_bytes(self.buffer.as_slice())
+        IntermediateShardBlockHeader::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }
@@ -530,8 +528,7 @@ impl OwnedLeafShardBlockHeader {
 
     /// Get [`LeafShardBlockHeader`] out of [`OwnedLeafShardBlockHeader`]
     pub fn header(&self) -> LeafShardBlockHeader<'_> {
-        // TODO: Could be more efficient with unchecked method
-        LeafShardBlockHeader::try_from_bytes(self.buffer.as_slice())
+        LeafShardBlockHeader::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }
