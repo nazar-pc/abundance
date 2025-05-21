@@ -352,14 +352,17 @@ impl<'a> BeaconChainBlockBody<'a> {
         };
         let pot_checkpoints = PotCheckpoints::slice_from_bytes(pot_checkpoints);
 
-        Some((
-            Self {
-                pot_checkpoints,
-                own_segment_roots,
-                intermediate_shard_blocks,
-            },
-            remainder,
-        ))
+        let body = Self {
+            pot_checkpoints,
+            own_segment_roots,
+            intermediate_shard_blocks,
+        };
+
+        if !body.is_internally_consistent() {
+            return None;
+        }
+
+        Some((body, remainder))
     }
 
     /// Check block body's internal consistency
@@ -383,6 +386,64 @@ impl<'a> BeaconChainBlockBody<'a> {
                     ]),
                 )
             })
+    }
+
+    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
+    /// checks
+    #[inline]
+    pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        // The layout here is as follows:
+        // * number of PoT checkpoints: u32 as aligned little-endian bytes
+        // * number of own segment roots: u8
+        // * concatenated own segment roots
+        // * intermediate shard blocks: IntermediateShardBlocksInfo
+        // * concatenated PoT checkpoints
+
+        let num_pot_checkpoints = bytes.split_off(..size_of::<u16>())?;
+        // SAFETY: All bit patterns are valid
+        let num_pot_checkpoints =
+            *unsafe { <u32 as TrivialType>::from_bytes(num_pot_checkpoints) }? as usize;
+
+        if num_pot_checkpoints == 0 {
+            return None;
+        }
+
+        let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
+        let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
+
+        let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
+        // SAFETY: Valid pointer and size, no alignment requirements
+        let own_segment_roots = unsafe {
+            slice::from_raw_parts(
+                own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
+                num_own_segment_roots,
+            )
+        };
+        let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
+
+        let (intermediate_shard_blocks, remainder) =
+            IntermediateShardBlocksInfo::try_from_bytes(bytes)?;
+
+        let pot_checkpoints = bytes.split_off(..num_pot_checkpoints * PotCheckpoints::SIZE)?;
+        // SAFETY: Valid pointer and size, no alignment requirements
+        let pot_checkpoints = unsafe {
+            slice::from_raw_parts(
+                pot_checkpoints
+                    .as_ptr()
+                    .cast::<[u8; PotCheckpoints::SIZE]>(),
+                num_pot_checkpoints,
+            )
+        };
+        let pot_checkpoints = PotCheckpoints::slice_from_bytes(pot_checkpoints);
+
+        Some((
+            Self {
+                pot_checkpoints,
+                own_segment_roots,
+                intermediate_shard_blocks,
+            },
+            remainder,
+        ))
     }
 
     /// Create an owned version of this body
@@ -720,14 +781,17 @@ impl<'a> IntermediateShardBlockBody<'a> {
 
         let (transactions, remainder) = Transactions::try_from_bytes(remainder)?;
 
-        Some((
-            Self {
-                own_segment_roots,
-                leaf_shard_blocks,
-                transactions,
-            },
-            remainder,
-        ))
+        let body = Self {
+            own_segment_roots,
+            leaf_shard_blocks,
+            transactions,
+        };
+
+        if !body.is_internally_consistent() {
+            return None;
+        }
+
+        Some((body, remainder))
     }
 
     /// Check block body's internal consistency
@@ -745,6 +809,43 @@ impl<'a> IntermediateShardBlockBody<'a> {
                 *compute_segments_root(leaf_shard_block.own_segment_roots),
             )
         })
+    }
+
+    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
+    /// checks
+    #[inline]
+    pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        // The layout here is as follows:
+        // * number of own segment roots: u8
+        // * concatenated own segment roots
+        // * leaf shard blocks: LeafShardBlocksInfo
+        // * transactions: Transactions
+
+        let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
+        let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
+
+        let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
+        // SAFETY: Valid pointer and size, no alignment requirements
+        let own_segment_roots = unsafe {
+            slice::from_raw_parts(
+                own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
+                num_own_segment_roots,
+            )
+        };
+        let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
+
+        let (leaf_shard_blocks, remainder) = LeafShardBlocksInfo::try_from_bytes(bytes)?;
+
+        let (transactions, remainder) = Transactions::try_from_bytes(remainder)?;
+
+        Some((
+            Self {
+                own_segment_roots,
+                leaf_shard_blocks,
+                transactions,
+            },
+            remainder,
+        ))
     }
 
     /// Proof for segment roots included in the body
@@ -818,13 +919,16 @@ impl<'a> LeafShardBlockBody<'a> {
 
         let (transactions, remainder) = Transactions::try_from_bytes(bytes)?;
 
-        Some((
-            Self {
-                own_segment_roots,
-                transactions,
-            },
-            remainder,
-        ))
+        let body = Self {
+            own_segment_roots,
+            transactions,
+        };
+
+        if !body.is_internally_consistent() {
+            return None;
+        }
+
+        Some((body, remainder))
     }
 
     /// Check block body's internal consistency
@@ -832,6 +936,39 @@ impl<'a> LeafShardBlockBody<'a> {
     pub fn is_internally_consistent(&self) -> bool {
         // Nothing to check here
         true
+    }
+
+    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
+    /// checks
+    #[inline]
+    pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        // The layout here is as follows:
+        // * number of own segment roots: u8
+        // * concatenated own segment roots
+        // * transactions: Transactions
+
+        let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
+        let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
+
+        let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
+        // SAFETY: Valid pointer and size, no alignment requirements
+        let own_segment_roots = unsafe {
+            slice::from_raw_parts(
+                own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
+                num_own_segment_roots,
+            )
+        };
+        let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
+
+        let (transactions, remainder) = Transactions::try_from_bytes(bytes)?;
+
+        Some((
+            Self {
+                own_segment_roots,
+                transactions,
+            },
+            remainder,
+        ))
     }
 
     /// Proof for segment roots included in the body
@@ -909,6 +1046,34 @@ impl<'a> BlockBody<'a> {
             Self::BeaconChain(body) => body.is_internally_consistent(),
             Self::IntermediateShard(body) => body.is_internally_consistent(),
             Self::LeafShard(body) => body.is_internally_consistent(),
+        }
+    }
+
+    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
+    /// checks
+    #[inline]
+    pub fn try_from_bytes_unchecked(
+        bytes: &'a [u8],
+        shard_kind: ShardKind,
+    ) -> Option<(Self, &'a [u8])> {
+        match shard_kind {
+            ShardKind::BeaconChain => {
+                let (body, remainder) = BeaconChainBlockBody::try_from_bytes_unchecked(bytes)?;
+                Some((Self::BeaconChain(body), remainder))
+            }
+            ShardKind::IntermediateShard => {
+                let (body, remainder) =
+                    IntermediateShardBlockBody::try_from_bytes_unchecked(bytes)?;
+                Some((Self::IntermediateShard(body), remainder))
+            }
+            ShardKind::LeafShard => {
+                let (body, remainder) = LeafShardBlockBody::try_from_bytes_unchecked(bytes)?;
+                Some((Self::LeafShard(body), remainder))
+            }
+            ShardKind::Phantom | ShardKind::Invalid => {
+                // Blocks for such shards do not exist
+                None
+            }
         }
     }
 

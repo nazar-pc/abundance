@@ -210,6 +210,9 @@ impl<'a> BeaconChainBlock<'a> {
     ///
     /// `bytes` should be 8-bytes aligned.
     ///
+    /// Checks internal consistency of header, body, and block. For unchecked version use
+    /// [`Self::try_from_bytes_unchecked()`].
+    ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
@@ -228,11 +231,13 @@ impl<'a> BeaconChainBlock<'a> {
         Some((block, remainder))
     }
 
-    /// Check block's internal consistency
+    /// Check block's internal consistency.
+    ///
+    /// NOTE: This only checks block-level internal consistency, header and block level internal
+    /// consistency is checked separately.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
-        self.body.is_internally_consistent()
-            && self.body.root() == self.header.result.body_root
+        self.body.root() == self.header.result.body_root
             && self.header.child_shard_blocks.len() == self.body.intermediate_shard_blocks.len()
             && self
                 .header
@@ -253,9 +258,9 @@ impl<'a> BeaconChainBlock<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        let (header, remainder) = BeaconChainBlockHeader::try_from_bytes(bytes)?;
+        let (header, remainder) = BeaconChainBlockHeader::try_from_bytes_unchecked(bytes)?;
         let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
-        let (body, remainder) = BeaconChainBlockBody::try_from_bytes(remainder)?;
+        let (body, remainder) = BeaconChainBlockBody::try_from_bytes_unchecked(remainder)?;
 
         Some((Self { header, body }, remainder))
     }
@@ -275,6 +280,9 @@ impl<'a> IntermediateShardBlock<'a> {
     ///
     /// `bytes` should be 8-bytes aligned.
     ///
+    /// Checks internal consistency of header, body, and block. For unchecked version use
+    /// [`Self::try_from_bytes_unchecked()`].
+    ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
@@ -293,11 +301,13 @@ impl<'a> IntermediateShardBlock<'a> {
         Some((block, remainder))
     }
 
-    /// Check block's internal consistency
+    /// Check block's internal consistency.
+    ///
+    /// NOTE: This only checks block-level internal consistency, header and block level internal
+    /// consistency is checked separately.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
-        self.body.is_internally_consistent()
-            && self.body.root() == self.header.result.body_root
+        self.body.root() == self.header.result.body_root
             && self.header.child_shard_blocks.len() == self.body.leaf_shard_blocks.len()
             && self
                 .header
@@ -318,9 +328,9 @@ impl<'a> IntermediateShardBlock<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        let (header, remainder) = IntermediateShardBlockHeader::try_from_bytes(bytes)?;
+        let (header, remainder) = IntermediateShardBlockHeader::try_from_bytes_unchecked(bytes)?;
         let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
-        let (body, remainder) = IntermediateShardBlockBody::try_from_bytes(remainder)?;
+        let (body, remainder) = IntermediateShardBlockBody::try_from_bytes_unchecked(remainder)?;
 
         Some((Self { header, body }, remainder))
     }
@@ -340,6 +350,9 @@ impl<'a> LeafShardBlock<'a> {
     ///
     /// `bytes` should be 8-bytes aligned.
     ///
+    /// Checks internal consistency of header, body, and block. For unchecked version use
+    /// [`Self::try_from_bytes_unchecked()`].
+    ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
@@ -358,19 +371,22 @@ impl<'a> LeafShardBlock<'a> {
         Some((block, remainder))
     }
 
-    /// Check block's internal consistency
+    /// Check block's internal consistency.
+    ///
+    /// NOTE: This only checks block-level internal consistency, header and block level internal
+    /// consistency is checked separately.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
-        self.body.is_internally_consistent() && self.body.root() == self.header.result.body_root
+        self.body.root() == self.header.result.body_root
     }
 
     /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        let (header, remainder) = LeafShardBlockHeader::try_from_bytes(bytes)?;
+        let (header, remainder) = LeafShardBlockHeader::try_from_bytes_unchecked(bytes)?;
         let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
-        let (body, remainder) = LeafShardBlockBody::try_from_bytes(remainder)?;
+        let (body, remainder) = LeafShardBlockBody::try_from_bytes_unchecked(remainder)?;
 
         Some((Self { header, body }, remainder))
     }
@@ -419,7 +435,10 @@ impl<'a> Block<'a> {
         }
     }
 
-    /// Check block's internal consistency
+    /// Check block's internal consistency.
+    ///
+    /// NOTE: This only checks block-level internal consistency, header and block level internal
+    /// consistency is checked separately.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         match self {

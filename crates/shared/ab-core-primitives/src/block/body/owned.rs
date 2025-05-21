@@ -375,8 +375,7 @@ impl OwnedBeaconChainBlockBody {
 
     /// Get [`BeaconChainBlockBody`] out of [`OwnedBeaconChainBlockBody`]
     pub fn body(&self) -> BeaconChainBlockBody<'_> {
-        // TODO: Could be more efficient with unchecked method
-        BeaconChainBlockBody::try_from_bytes(self.buffer.as_slice())
+        BeaconChainBlockBody::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }
@@ -574,8 +573,7 @@ impl OwnedIntermediateShardBlockBody {
 
     /// Get [`IntermediateShardBlockBody`] out of [`OwnedIntermediateShardBlockBody`]
     pub fn body(&self) -> IntermediateShardBlockBody<'_> {
-        // TODO: Could be more efficient with unchecked method
-        IntermediateShardBlockBody::try_from_bytes(self.buffer.as_slice())
+        IntermediateShardBlockBody::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }
@@ -723,8 +721,7 @@ impl OwnedLeafShardBlockBody {
 
     /// Get [`LeafShardBlockBody`] out of [`OwnedLeafShardBlockBody`]
     pub fn body(&self) -> LeafShardBlockBody<'_> {
-        // TODO: Could be more efficient with unchecked method
-        LeafShardBlockBody::try_from_bytes(self.buffer.as_slice())
+        LeafShardBlockBody::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }

@@ -651,6 +651,65 @@ impl<'a> BeaconChainBlockHeader<'a> {
             seal,
         };
 
+        let header = Self {
+            generic,
+            child_shard_blocks,
+            consensus_parameters,
+            pre_seal_bytes,
+        };
+
+        if !header.is_internally_consistent() {
+            return None;
+        }
+
+        Some((header, remainder))
+    }
+
+    /// Check block header's internal consistency
+    #[inline]
+    pub fn is_internally_consistent(&self) -> bool {
+        let public_key_hash = match self.seal {
+            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
+        };
+        public_key_hash == self.generic.consensus_info.solution.public_key_hash
+    }
+
+    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
+    /// checks
+    #[inline]
+    pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        // The layout here is as follows:
+        // * block header prefix: BlockHeaderPrefix
+        // * block header result: BlockHeaderResult
+        // * consensus info: BlockHeaderConsensusInfo
+        // * child shard blocks: BlockHeaderChildShardBlocks
+        // * beacon chain parameters: BlockHeaderBeaconChainParameters
+        // * block header seal: BlockHeaderSeal
+
+        let (prefix, consensus_info, result, remainder) =
+            BlockHeader::try_from_bytes_shared(bytes)?;
+
+        if prefix.shard_index.shard_kind() != ShardKind::BeaconChain {
+            return None;
+        }
+
+        let (child_shard_blocks, remainder) =
+            BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
+
+        let (consensus_parameters, remainder) =
+            BlockHeaderBeaconChainParameters::try_from_bytes(remainder)?;
+
+        let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
+
+        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+
+        let generic = GenericBlockHeader {
+            prefix,
+            result,
+            consensus_info,
+            seal,
+        };
+
         Some((
             Self {
                 generic,
@@ -751,6 +810,67 @@ impl<'a> IntermediateShardBlockHeader<'a> {
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        // The layout here is as follows:
+        // * block header prefix: BlockHeaderPrefix
+        // * block header result: BlockHeaderResult
+        // * consensus info: BlockHeaderConsensusInfo
+        // * beacon chain: BlockHeaderBeaconChainInfo
+        // * child shard blocks: BlockHeaderBeaconChainInfo
+        // * block header seal: BlockHeaderSeal
+
+        let (prefix, consensus_info, result, mut remainder) =
+            BlockHeader::try_from_bytes_shared(bytes)?;
+
+        if prefix.shard_index.shard_kind() != ShardKind::IntermediateShard {
+            return None;
+        }
+
+        let beacon_chain_info = remainder.split_off(..size_of::<BlockHeaderBeaconChainInfo>())?;
+        // SAFETY: All bit patterns are valid
+        let beacon_chain_info =
+            unsafe { BlockHeaderBeaconChainInfo::from_bytes(beacon_chain_info) }?;
+
+        let (child_shard_blocks, remainder) =
+            BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
+
+        let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
+
+        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+
+        let generic = GenericBlockHeader {
+            prefix,
+            result,
+            consensus_info,
+            seal,
+        };
+
+        let header = Self {
+            generic,
+            beacon_chain_info,
+            child_shard_blocks,
+            pre_seal_bytes,
+        };
+
+        if !header.is_internally_consistent() {
+            return None;
+        }
+
+        Some((header, remainder))
+    }
+
+    /// Check block header's internal consistency
+    #[inline]
+    pub fn is_internally_consistent(&self) -> bool {
+        let public_key_hash = match self.seal {
+            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
+        };
+        public_key_hash == self.generic.consensus_info.solution.public_key_hash
+    }
+
+    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
+    /// checks
+    #[inline]
+    pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         // The layout here is as follows:
         // * block header prefix: BlockHeaderPrefix
         // * block header result: BlockHeaderResult
@@ -915,6 +1035,62 @@ impl<'a> LeafShardBlockHeader<'a> {
             seal,
         };
 
+        let header = Self {
+            generic,
+            beacon_chain_info,
+            pre_seal_bytes,
+        };
+
+        if !header.is_internally_consistent() {
+            return None;
+        }
+
+        Some((header, remainder))
+    }
+
+    /// Check block header's internal consistency
+    #[inline]
+    pub fn is_internally_consistent(&self) -> bool {
+        let public_key_hash = match self.seal {
+            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
+        };
+        public_key_hash == self.generic.consensus_info.solution.public_key_hash
+    }
+
+    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
+    /// checks
+    #[inline]
+    pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        // The layout here is as follows:
+        // * block header result: BlockHeaderResult
+        // * block header prefix: BlockHeaderPrefix
+        // * consensus info: BlockHeaderConsensusInfo
+        // * beacon chain: BlockHeaderBeaconChainInfo
+        // * block header seal: BlockHeaderSeal
+
+        let (prefix, consensus_info, result, mut remainder) =
+            BlockHeader::try_from_bytes_shared(bytes)?;
+
+        if prefix.shard_index.shard_kind() != ShardKind::LeafShard {
+            return None;
+        }
+
+        let beacon_chain_info = remainder.split_off(..size_of::<BlockHeaderBeaconChainInfo>())?;
+        // SAFETY: All bit patterns are valid
+        let beacon_chain_info =
+            unsafe { BlockHeaderBeaconChainInfo::from_bytes(beacon_chain_info) }?;
+
+        let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
+
+        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+
+        let generic = GenericBlockHeader {
+            prefix,
+            result,
+            consensus_info,
+            seal,
+        };
+
         Some((
             Self {
                 generic,
@@ -1028,6 +1204,44 @@ impl<'a> BlockHeader<'a> {
             }
             ShardKind::LeafShard => {
                 let (header, remainder) = LeafShardBlockHeader::try_from_bytes(bytes)?;
+                Some((Self::LeafShard(header), remainder))
+            }
+            ShardKind::Phantom | ShardKind::Invalid => {
+                // Blocks for such shards do not exist
+                None
+            }
+        }
+    }
+
+    /// Check block header's internal consistency
+    #[inline]
+    pub fn is_internally_consistent(&self) -> bool {
+        match self {
+            Self::BeaconChain(header) => header.is_internally_consistent(),
+            Self::IntermediateShard(header) => header.is_internally_consistent(),
+            Self::LeafShard(header) => header.is_internally_consistent(),
+        }
+    }
+
+    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
+    /// checks
+    #[inline]
+    pub fn try_from_bytes_unchecked(
+        bytes: &'a [u8],
+        shard_kind: ShardKind,
+    ) -> Option<(Self, &'a [u8])> {
+        match shard_kind {
+            ShardKind::BeaconChain => {
+                let (header, remainder) = BeaconChainBlockHeader::try_from_bytes_unchecked(bytes)?;
+                Some((Self::BeaconChain(header), remainder))
+            }
+            ShardKind::IntermediateShard => {
+                let (header, remainder) =
+                    IntermediateShardBlockHeader::try_from_bytes_unchecked(bytes)?;
+                Some((Self::IntermediateShard(header), remainder))
+            }
+            ShardKind::LeafShard => {
+                let (header, remainder) = LeafShardBlockHeader::try_from_bytes_unchecked(bytes)?;
                 Some((Self::LeafShard(header), remainder))
             }
             ShardKind::Phantom | ShardKind::Invalid => {
