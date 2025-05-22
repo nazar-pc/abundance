@@ -82,6 +82,7 @@ name = "ab-proof-of-space"
 version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
+ "blake3",
  "chacha20",
  "derive_more 2.0.1",
  "rayon",

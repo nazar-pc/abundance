@@ -9,7 +9,6 @@ use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT, PARAM_M};
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::utils::EvaluatableUsize;
-use ab_core_primitives::hashes::{blake3_hash, blake3_hash_list};
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 #[cfg(not(feature = "std"))]
@@ -257,7 +256,7 @@ pub(super) fn compute_f1_simd<const K: u8>(
     // Combine all of the bits together:
     // [padding zero bits][`K` bits rom `partial_y`][`PARAM_EXT` bits from `x`]
     // NOTE: `pre_exts_mask` is unnecessary here and makes no difference, but it allows compiler to
-    // generate faster code 🤷‍
+    // generate faster code 🤷
     let ys = (pre_ys.cast() & pre_ys_mask) | (pre_exts & pre_exts_mask);
 
     // SAFETY: `Y` is `#[repr(transparent)]` and guaranteed to have the same memory layout as `u32`
@@ -433,25 +432,22 @@ where
             // Collect bits of `right_metadata` that will spill over into `input_b`
             let input_b = right_metadata << (u128::BITS as usize - right_bits_pushed_into_input_b);
 
-            blake3_hash_list(&[
-                &input_a.to_be_bytes(),
-                &input_b.to_be_bytes()
-                    [..right_bits_pushed_into_input_b.div_ceil(u8::BITS as usize)],
-            ])
+            let input = [input_a.to_be_bytes(), input_b.to_be_bytes()];
+            let input_len =
+                size_of::<u128>() + right_bits_pushed_into_input_b.div_ceil(u8::BITS as usize);
+            blake3::hash(&input.as_flattened()[..input_len])
         } else {
             let right_bits_a = right_metadata << (right_bits_start_offset - y_and_left_bits);
             let input_a = y_bits | left_metadata_bits | right_bits_a;
 
-            blake3_hash(&input_a.to_be_bytes()[..num_bytes_with_data])
+            blake3::hash(&input_a.to_be_bytes()[..num_bytes_with_data])
         }
     };
+    let hash = <[u8; 32]>::from(hash);
 
     let y_output = Y::from(
-        u32::from_be_bytes(
-            hash[..size_of::<u32>()]
-                .try_into()
-                .expect("Hash if statically guaranteed to have enough bytes; qed"),
-        ) >> (u32::BITS as usize - y_size_bits(K)),
+        u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]])
+            >> (u32::BITS as usize - y_size_bits(K)),
     );
 
     let metadata_size_bits = metadata_size_bits(K, TABLE_NUMBER);

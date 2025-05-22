@@ -228,6 +228,7 @@ version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
  "bitvec",
+ "blake3",
  "chacha20",
  "criterion",
  "derive_more 2.0.1",

@@ -4,7 +4,6 @@
 #[cfg(feature = "alloc")]
 use crate::TableGenerator;
 use crate::{PosTableType, Table};
-use ab_core_primitives::hashes::blake3_hash;
 use ab_core_primitives::pos::{PosProof, PosSeed};
 use core::iter;
 
@@ -66,7 +65,7 @@ impl Table for ShimTable {
 }
 
 fn find_proof(seed: &PosSeed, challenge_index: u32) -> Option<PosProof> {
-    let quality = blake3_hash(&challenge_index.to_le_bytes());
+    let quality = *blake3::hash(&challenge_index.to_le_bytes()).as_bytes();
     if quality[0] % 3 > 0 {
         let mut proof = PosProof::default();
         proof

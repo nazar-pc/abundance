@@ -19,6 +19,7 @@ bench = false
 
 [dependencies]
 ab-core-primitives = { workspace = true }
+blake3 = { workspace = true }
 chacha20 = { workspace = true }
 derive_more = { workspace = true, features = ["full"] }
 parking_lot = { workspace = true, optional = true }
