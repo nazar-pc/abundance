@@ -8,6 +8,8 @@ use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use ab_core_primitives::solutions::SolutionRange;
 use ab_erasure_coding::ErasureCoding;
+use ab_proof_of_space::chia::ChiaTable;
+use ab_proof_of_space::{Table, TableGenerator};
 use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
 use futures::executor::block_on;
 use parking_lot::Mutex;
@@ -28,8 +30,6 @@ use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{
     SectorContentsMap, SectorMetadata, SectorMetadataChecksummed, sector_size,
 };
-use subspace_proof_of_space::chia::ChiaTable;
-use subspace_proof_of_space::{Table, TableGenerator};
 
 type PosTable = ChiaTable;
 

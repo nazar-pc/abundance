@@ -2,7 +2,6 @@ use crate::chiapos::constants::PARAM_EXT;
 use crate::chiapos::table::metadata_size_bytes;
 use crate::chiapos::utils::EvaluatableUsize;
 use core::iter::Step;
-use core::mem;
 use core::ops::Range;
 use derive_more::{Add, AddAssign, From, Into};
 
@@ -142,7 +141,7 @@ where
     fn from(value: Metadata<K, TABLE_NUMBER>) -> Self {
         // `*_be_bytes()` is used such that `Ord`/`PartialOrd` impl works as expected
         let mut output = 0u128.to_be_bytes();
-        output[mem::size_of::<u128>() - value.0.len()..].copy_from_slice(&value.0);
+        output[size_of::<u128>() - value.0.len()..].copy_from_slice(&value.0);
 
         Self::from_be_bytes(output)
     }
@@ -156,7 +155,7 @@ where
     /// only contains data in lower bits and fits into internal byte array of `Metadata`
     fn from(value: u128) -> Self {
         Self(
-            value.to_be_bytes()[mem::size_of::<u128>() - metadata_size_bytes(K, TABLE_NUMBER)..]
+            value.to_be_bytes()[size_of::<u128>() - metadata_size_bytes(K, TABLE_NUMBER)..]
                 .try_into()
                 .expect("Size of internal byte array is always smaller or equal to u128; qed"),
         )

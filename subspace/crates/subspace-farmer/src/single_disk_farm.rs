@@ -42,11 +42,12 @@ use crate::utils::{AsyncJoinOnDrop, tokio_rayon_spawn_handler};
 use crate::{KNOWN_PEERS_CACHE_SIZE, farm};
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
-use ab_core_primitives::hashes::{Blake3Hash, blake3_hash};
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::Record;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_erasure_coding::ErasureCoding;
+use ab_proof_of_space::Table;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use async_trait::async_trait;
 use event_listener_primitives::{Bag, HandlerId};
@@ -77,7 +78,6 @@ use subspace_farmer_components::file_ext::FileExt;
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed, sector_size};
 use subspace_networking::KnownPeersManager;
-use subspace_proof_of_space::Table;
 use subspace_rpc_primitives::{FarmerAppInfo, SolutionResponse};
 use thiserror::Error;
 use tokio::runtime::Handle;
@@ -2289,8 +2289,8 @@ impl SingleDiskFarm {
 
                 let (index_and_piece_bytes, expected_checksum) =
                     element.split_at(element_size as usize - Blake3Hash::SIZE);
-                let actual_checksum = blake3_hash(index_and_piece_bytes);
-                if *actual_checksum != *expected_checksum && element != &dummy_element {
+                let actual_checksum = *blake3::hash(index_and_piece_bytes).as_bytes();
+                if actual_checksum != expected_checksum && element != &dummy_element {
                     warn!(
                         %cache_offset,
                         actual_checksum = %hex::encode(actual_checksum),

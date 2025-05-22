@@ -3,7 +3,6 @@
 use super::*;
 use crate::object_fetcher::partial_object::PADDING_BYTE_VALUE;
 use ab_core_primitives::block::BlockNumber;
-use ab_core_primitives::hashes::blake3_hash;
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, SegmentHeader, SegmentRoot,
 };
@@ -321,7 +320,7 @@ fn create_mapping(
         GlobalObject {
             piece_index: PieceIndex::from(start_piece_index as u64),
             offset: offset as u32,
-            hash: blake3_hash(&object_data),
+            hash: blake3::hash(&object_data).into(),
         },
         object_data,
     )

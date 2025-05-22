@@ -1,15 +1,17 @@
 [package]
-name = "subspace-proof-of-space"
+name = "ab-proof-of-space"
 description = "Subspace proof of space implementation based on Chia"
 license = "0BSD"
 version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
-    "/benches",
     "/src",
     "/Cargo.toml",
 ]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 # Necessary for CLI options to work on benches
@@ -17,6 +19,7 @@ bench = false
 
 [dependencies]
 ab-core-primitives = { workspace = true }
+blake3 = { workspace = true }
 chacha20 = { workspace = true }
 derive_more = { workspace = true, features = ["full"] }
 parking_lot = { workspace = true, optional = true }
@@ -24,9 +27,9 @@ rayon = { workspace = true, optional = true }
 seq-macro = { workspace = true }
 sha2 = { workspace = true, optional = true }
 spin = { workspace = true }
-static_assertions = { workspace = true }
 
 [dev-dependencies]
+# TODO: Remove this dependency
 bitvec = { workspace = true }
 criterion = { workspace = true }
 rayon = { workspace = true }
@@ -37,9 +40,7 @@ name = "pos"
 harness = false
 
 [features]
-default = ["std"]
-# TODO: `alloc` feature is not fully implemented, it will fail to compile without global allocator, but it should be
-#  relatively easy to make it work for verification purposes
+default = []
 alloc = []
 std = [
     "alloc",
@@ -54,5 +55,9 @@ full-chiapos = [
     "dep:sha2",
 ]
 parallel = [
+    "alloc",
     "dep:rayon",
 ]
+
+[lints]
+workspace = true

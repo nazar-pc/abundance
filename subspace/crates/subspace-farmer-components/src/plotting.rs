@@ -12,12 +12,13 @@ use crate::sector::{
     SectorMetadataChecksummed, sector_record_chunks_size, sector_size,
 };
 use crate::segment_reconstruction::recover_missing_piece;
-use ab_core_primitives::hashes::{Blake3Hash, blake3_hash, blake3_hash_parallel};
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex, PieceOffset, Record, RecordChunk};
 use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SBucket, SectorId, SectorIndex};
 use ab_core_primitives::segments::HistorySize;
 use ab_erasure_coding::ErasureCoding;
+use ab_proof_of_space::{Table, TableGenerator};
 use async_lock::{Mutex as AsyncMutex, Semaphore};
 use backoff::future::retry;
 use backoff::{Error as BackoffError, ExponentialBackoff};
@@ -32,7 +33,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use subspace_data_retrieval::piece_getter::PieceGetter;
-use subspace_proof_of_space::{Table, TableGenerator};
 use thiserror::Error;
 use tracing::{debug, trace, warn};
 
@@ -585,7 +585,14 @@ pub fn write_sector(
         // significantly more convoluted and most likely not worth it
         let (sector_contents, sector_checksum) =
             sector_output.split_at_mut(sector_size - Blake3Hash::SIZE);
-        sector_checksum.copy_from_slice(blake3_hash_parallel(sector_contents).as_ref());
+        sector_checksum.copy_from_slice(
+            {
+                let mut hasher = blake3::Hasher::new();
+                hasher.update_rayon(sector_contents);
+                hasher.finalize()
+            }
+            .as_bytes(),
+        );
     }
 
     Ok(())
@@ -809,7 +816,7 @@ fn process_piece(
             root: *piece.root(),
             parity_chunks_root: *piece.parity_chunks_root(),
             proof: *piece.proof(),
-            piece_checksum: blake3_hash(piece.as_ref()),
+            piece_checksum: blake3::hash(piece.as_ref()).into(),
         };
     }
 }

@@ -1,9 +1,10 @@
 //! Proof of time implementation.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
 mod aes;
 
-use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotSeed};
+use ab_core_primitives::pot::{PotCheckpoints, PotSeed};
 use core::num::NonZeroU32;
 
 /// Proof of time error
@@ -46,7 +47,7 @@ pub fn prove(seed: PotSeed, iterations: NonZeroU32) -> Result<PotCheckpoints, Po
 pub fn verify(
     seed: PotSeed,
     iterations: NonZeroU32,
-    checkpoints: &[PotOutput],
+    checkpoints: &PotCheckpoints,
 ) -> Result<bool, PotError> {
     let num_checkpoints = checkpoints.len() as u32;
     if iterations.get() % (num_checkpoints * 2) != 0 {

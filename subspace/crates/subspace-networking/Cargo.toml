@@ -20,6 +20,7 @@ ab-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 backoff = { workspace = true, features = ["futures", "tokio"] }
+blake3 = { workspace = true }
 bytes = { workspace = true }
 clap = { workspace = true, features = ["color", "derive"] }
 derive_more = { workspace = true, features = ["full"] }

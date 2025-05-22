@@ -1,6 +1,8 @@
 //! Tests translated into Rust from
 //! https://github.com/Chia-Network/chiapos/blob/a2049c5367fe60930533a995f7ffded538f04dc4/tests/test.cpp
 
+extern crate alloc;
+
 use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT};
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
@@ -9,10 +11,12 @@ use crate::chiapos::table::{
     find_matches, metadata_size_bytes, partial_y,
 };
 use crate::chiapos::utils::EvaluatableUsize;
+use alloc::collections::BTreeMap;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use bitvec::prelude::*;
-use std::collections::BTreeMap;
 
-/// Chia does this for some reason 🤷‍
+/// Chia does this for some reason 🤷
 fn to_chia_seed(seed: &Seed) -> Seed {
     let mut chia_seed = [1u8; 32];
     chia_seed[1..].copy_from_slice(&seed[..31]);
@@ -100,6 +104,7 @@ fn check_match(yl: usize, yr: usize) -> bool {
 // TODO: This test should be rewritten into something more readable, currently it is more or less
 //  direct translation from C++
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_matches() {
     const K: u8 = 12;
     let seed = to_chia_seed(&[

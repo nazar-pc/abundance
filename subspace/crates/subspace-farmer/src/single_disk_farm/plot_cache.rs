@@ -6,7 +6,7 @@ mod tests;
 use crate::farm::{FarmError, MaybePieceStoredResult, PlotCache};
 use crate::single_disk_farm::direct_io_file::DirectIoFile;
 use crate::utils::AsyncJoinOnDrop;
-use ab_core_primitives::hashes::{Blake3Hash, blake3_hash_list};
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use async_lock::RwLock as AsyncRwLock;
 use async_trait::async_trait;
@@ -227,7 +227,13 @@ impl DiskPlotCache {
             bytes.extend_from_slice(&piece_index_bytes);
             bytes.extend_from_slice(piece.as_ref());
             bytes.extend_from_slice(
-                blake3_hash_list(&[&piece_index_bytes, piece.as_ref()]).as_ref(),
+                {
+                    let mut hasher = blake3::Hasher::new();
+                    hasher.update(&piece_index_bytes);
+                    hasher.update(piece.as_ref());
+                    hasher.finalize()
+                }
+                .as_bytes(),
             );
 
             move || file.write_all_at(&bytes, element_offset)
@@ -311,8 +317,13 @@ impl DiskPlotCache {
         let (piece_bytes, expected_checksum) = remaining_bytes.split_at(Piece::SIZE);
 
         // Verify checksum
-        let actual_checksum = blake3_hash_list(&[piece_index_bytes, piece_bytes]);
-        if *actual_checksum != *expected_checksum {
+        let actual_checksum = {
+            let mut hasher = blake3::Hasher::new();
+            hasher.update(piece_index_bytes);
+            hasher.update(piece_bytes);
+            *hasher.finalize().as_bytes()
+        };
+        if actual_checksum != expected_checksum {
             if element.iter().all(|&byte| byte == 0) {
                 return Ok(None);
             }

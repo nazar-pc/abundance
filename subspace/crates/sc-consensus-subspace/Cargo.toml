@@ -16,6 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 ab-archiving = { workspace = true, features = ["parallel"] }
 ab-core-primitives = { workspace = true }
 ab-erasure-coding = { workspace = true }
+ab-proof-of-space = { workspace = true }
 async-trait = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 futures = { workspace = true }
@@ -37,7 +38,6 @@ sp-consensus-subspace = { workspace = true, features = ["std"] }
 sp-consensus-slots = { workspace = true }
 sp-inherents = { workspace = true }
 sp-runtime = { workspace = true }
-subspace-proof-of-space = { workspace = true }
 subspace-verification = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time"] }

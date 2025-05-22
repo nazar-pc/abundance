@@ -23,6 +23,7 @@ use ab_core_primitives::solutions::{
     SolutionDistance, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
     SolutionVerifyPieceCheckParams,
 };
+use ab_proof_of_space::Table;
 use futures::StreamExt;
 use futures::channel::mpsc;
 use sc_client_api::BlockBackend;
@@ -44,7 +45,6 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, One};
 use sp_runtime::{Justifications, SaturatedConversion};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use subspace_proof_of_space::Table;
 use tracing::warn;
 
 /// Notification with number of the block that is about to be imported and acknowledgement sender

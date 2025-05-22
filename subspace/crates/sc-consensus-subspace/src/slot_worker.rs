@@ -25,6 +25,7 @@ use ab_core_primitives::solutions::{
     Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
     SolutionVerifyPieceCheckParams,
 };
+use ab_proof_of_space::Table;
 use futures::channel::mpsc;
 use futures::{StreamExt, TryFutureExt};
 use sc_client_api::AuxStore;
@@ -53,7 +54,6 @@ use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use subspace_proof_of_space::Table;
 use subspace_verification::ed25519::RewardSignature;
 use subspace_verification::is_reward_signature_valid;
 use tracing::{debug, error, info, warn};

@@ -4,9 +4,7 @@ mod nano_u256;
 #[cfg(test)]
 mod tests;
 
-use crate::hashes::{
-    Blake3Hash, blake3_hash_list, blake3_hash_list_with_key, blake3_hash_with_key,
-};
+use crate::hashes::Blake3Hash;
 use crate::pieces::{PieceIndex, PieceOffset, Record};
 use crate::pos::PosSeed;
 use crate::sectors::nano_u256::NanoU256;
@@ -154,6 +152,9 @@ impl AsRef<[u8]> for SectorId {
 }
 
 impl SectorId {
+    /// Size in bytes
+    const SIZE: usize = Blake3Hash::SIZE;
+
     /// Create a new sector ID by deriving it from public key and sector index
     #[inline]
     pub fn new(
@@ -161,13 +162,12 @@ impl SectorId {
         sector_index: SectorIndex,
         history_size: HistorySize,
     ) -> Self {
-        Self(blake3_hash_list_with_key(
-            public_key_hash,
-            &[
-                &sector_index.to_bytes(),
-                &history_size.as_non_zero_u64().get().to_le_bytes(),
-            ],
-        ))
+        let mut bytes_to_hash = [0; SectorIndex::SIZE + HistorySize::SIZE as usize];
+        bytes_to_hash[..SectorIndex::SIZE].copy_from_slice(&sector_index.to_bytes());
+        bytes_to_hash[SectorIndex::SIZE..]
+            .copy_from_slice(&history_size.as_non_zero_u64().get().to_le_bytes());
+        // TODO: Is keyed hash really needed here?
+        Self(blake3::keyed_hash(public_key_hash, &bytes_to_hash).into())
     }
 
     /// Derive piece index that should be stored in sector at `piece_offset` for specified size of
@@ -190,7 +190,8 @@ impl SectorId {
             let piece_offset_bytes = piece_offset.to_bytes();
             let mut key = [0; 32];
             key[..piece_offset_bytes.len()].copy_from_slice(&piece_offset_bytes);
-            NanoU256::from_le_bytes(*blake3_hash_with_key(&key, self.as_ref()))
+            // TODO: Is keyed hash really needed here?
+            NanoU256::from_le_bytes(*blake3::keyed_hash(&key, self.as_ref()).as_bytes())
         };
         let history_size_in_pieces = history_size.in_pieces().get();
         let num_interleaved_pieces = 1.max(
@@ -225,9 +226,12 @@ impl SectorId {
 
     /// Derive evaluation seed
     pub fn derive_evaluation_seed(&self, piece_offset: PieceOffset) -> PosSeed {
-        let evaluation_seed = blake3_hash_list(&[self.as_ref(), &piece_offset.to_bytes()]);
+        let mut bytes_to_hash = [0; Self::SIZE + PieceOffset::SIZE];
+        bytes_to_hash[..Self::SIZE].copy_from_slice(self.as_ref());
+        bytes_to_hash[Self::SIZE..].copy_from_slice(&piece_offset.to_bytes());
+        let evaluation_seed = blake3::hash(&bytes_to_hash);
 
-        PosSeed::from(*evaluation_seed)
+        PosSeed::from(*evaluation_seed.as_bytes())
     }
 
     /// Derive history size when sector created at `history_size` expires.
@@ -243,10 +247,10 @@ impl SectorId {
             .sector_expiration_check(min_sector_lifetime)?
             .as_non_zero_u64();
 
-        let input_hash = NanoU256::from_le_bytes(*blake3_hash_list(&[
-            self.as_ref(),
-            sector_expiration_check_segment_root.as_ref(),
-        ]));
+        let input_hash = NanoU256::from_le_bytes(
+            *blake3::hash([*self.0, **sector_expiration_check_segment_root].as_flattened())
+                .as_bytes(),
+        );
 
         let last_possible_expiration = min_sector_lifetime
             .as_non_zero_u64()

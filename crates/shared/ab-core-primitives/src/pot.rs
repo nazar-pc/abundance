@@ -1,7 +1,7 @@
 //! Proof of time-related data structures.
 
 use crate::block::BlockRoot;
-use crate::hashes::{Blake3Hash, blake3_hash, blake3_hash_list};
+use crate::hashes::Blake3Hash;
 use crate::pieces::RecordChunk;
 use ab_io_type::trivial_type::TrivialType;
 use core::iter::Step;
@@ -316,9 +316,12 @@ impl PotSeed {
     /// Derive initial PoT seed from genesis block root
     #[inline]
     pub fn from_genesis(genesis_block_root: &BlockRoot, external_entropy: &[u8]) -> Self {
-        let hash = blake3_hash_list(&[genesis_block_root.as_ref(), external_entropy]);
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(genesis_block_root.as_ref());
+        hasher.update(external_entropy);
+        let hash = hasher.finalize();
         let mut seed = Self::default();
-        seed.copy_from_slice(&hash[..Self::SIZE]);
+        seed.copy_from_slice(&hash.as_bytes()[..Self::SIZE]);
         seed
     }
 
@@ -326,7 +329,7 @@ impl PotSeed {
     #[inline]
     pub fn key(&self) -> PotKey {
         let mut key = PotKey::default();
-        key.copy_from_slice(&blake3_hash(&self.0)[..Self::SIZE]);
+        key.copy_from_slice(&blake3::hash(&self.0).as_bytes()[..Self::SIZE]);
         key
     }
 }
@@ -419,7 +422,10 @@ impl PotOutput {
     /// Derives the global challenge from the output and slot
     #[inline]
     pub fn derive_global_challenge(&self, slot: SlotNumber) -> Blake3Hash {
-        blake3_hash_list(&[&self.0, &slot.to_bytes()])
+        let mut bytes_to_hash = [0; Self::SIZE + SlotNumber::SIZE];
+        bytes_to_hash[..Self::SIZE].copy_from_slice(&self.0);
+        bytes_to_hash[Self::SIZE..].copy_from_slice(&slot.to_bytes());
+        blake3::hash(&bytes_to_hash).into()
     }
 
     /// Derive seed from proof of time in case entropy injection is not needed
@@ -431,16 +437,36 @@ impl PotOutput {
     /// Derive seed from proof of time with entropy injection
     #[inline]
     pub fn seed_with_entropy(&self, entropy: &Blake3Hash) -> PotSeed {
-        let hash = blake3_hash_list(&[entropy.as_ref(), &self.0]);
+        let mut bytes_to_hash = [0; Blake3Hash::SIZE + Self::SIZE];
+        bytes_to_hash[..Blake3Hash::SIZE].copy_from_slice(entropy.as_ref());
+        bytes_to_hash[Blake3Hash::SIZE..].copy_from_slice(&self.0);
+        let hash = blake3::hash(&bytes_to_hash);
         let mut seed = PotSeed::default();
-        seed.copy_from_slice(&hash[..Self::SIZE]);
+        seed.copy_from_slice(&hash.as_bytes()[..Self::SIZE]);
         seed
     }
 
     /// Derive proof of time entropy from chunk and proof of time for injection purposes
     #[inline]
     pub fn derive_pot_entropy(&self, solution_chunk: &RecordChunk) -> Blake3Hash {
-        blake3_hash_list(&[solution_chunk.as_ref(), &self.0])
+        let mut bytes_to_hash = [0; RecordChunk::SIZE + Self::SIZE];
+        bytes_to_hash[..RecordChunk::SIZE].copy_from_slice(solution_chunk.as_ref());
+        bytes_to_hash[RecordChunk::SIZE..].copy_from_slice(&self.0);
+        blake3::hash(&bytes_to_hash).into()
+    }
+
+    /// Convenient conversion from slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
+        // SAFETY: `PotOutput` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion to slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+        // SAFETY: `PotOutput` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
     }
 }
 

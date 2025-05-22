@@ -3,6 +3,7 @@
 use crate::commands::shared::DiskFarm;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_erasure_coding::ErasureCoding;
+use ab_proof_of_space::Table;
 use anyhow::anyhow;
 use async_lock::Mutex as AsyncMutex;
 use backoff::ExponentialBackoff;
@@ -33,7 +34,6 @@ use subspace_farmer::utils::{
     AsyncJoinOnDrop, recommended_number_of_farming_threads, run_future_in_dedicated_thread,
 };
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
-use subspace_proof_of_space::Table;
 use tracing::{Instrument, error, info, info_span, warn};
 
 const FARM_ERROR_PRINT_INTERVAL: Duration = Duration::from_secs(30);

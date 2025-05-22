@@ -8,6 +8,7 @@ mod cli;
 
 use crate::cli::{Cli, SubspaceCliPlaceholder};
 use crate::commands::set_exit_on_panic;
+use ab_proof_of_space::chia::ChiaTable;
 use clap::Parser;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking_cli::BenchmarkCmd;
@@ -18,7 +19,6 @@ use serde_json::Value;
 use sp_core::crypto::Ss58AddressFormat;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
-use subspace_proof_of_space::chia::ChiaTable;
 use subspace_runtime::{Block, RuntimeApi};
 #[cfg(feature = "runtime-benchmarks")]
 use subspace_service::HostFunctions;

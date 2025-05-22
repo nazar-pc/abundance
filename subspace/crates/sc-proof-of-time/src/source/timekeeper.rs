@@ -1,12 +1,12 @@
 use crate::source::state::PotState;
 use crate::verifier::PotVerifier;
 use ab_core_primitives::pot::{PotCheckpoints, PotSeed, SlotNumber};
+use ab_proof_of_time::PotError;
 use futures::SinkExt;
 use futures::channel::mpsc;
 use futures::executor::block_on;
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use subspace_proof_of_time::PotError;
 use tracing::{debug, trace};
 
 /// Proof of time slot information
@@ -35,7 +35,7 @@ pub(super) fn run_timekeeper(
             next_slot_input.slot, next_slot_input.slot_iterations
         );
         let checkpoints =
-            subspace_proof_of_time::prove(next_slot_input.seed, next_slot_input.slot_iterations)?;
+            ab_proof_of_time::prove(next_slot_input.seed, next_slot_input.slot_iterations)?;
 
         let proof = TimekeeperProof {
             seed: next_slot_input.seed,

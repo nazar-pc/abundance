@@ -59,11 +59,10 @@ impl Rem<u64> for NanoU256 {
 #[cfg(test)]
 mod tests {
     use super::NanoU256;
-    use crate::hashes::blake3_hash;
 
     #[test]
     fn basic() {
-        let input = NanoU256::from_le_bytes(*blake3_hash(&[1, 2, 3]));
+        let input = NanoU256::from_le_bytes(blake3::hash(&[1, 2, 3]).into());
         let vectors = [
             (749265838, 96295755),
             (4294967296, 468481969),
@@ -88,7 +87,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn no_division_by_zero() {
-        let input = NanoU256::from_le_bytes(*blake3_hash(&[1, 2, 3]));
+        let input = NanoU256::from_le_bytes(blake3::hash(&[1, 2, 3]).into());
         let _ = input % 0;
     }
 }

@@ -19,10 +19,10 @@ use ab_core_primitives::sectors::{SBucket, SectorId};
 use ab_core_primitives::solutions::{ChunkProof, Solution, SolutionDistance};
 use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
+use ab_proof_of_space::Table;
 use futures::FutureExt;
 use std::collections::VecDeque;
 use std::io;
-use subspace_proof_of_space::Table;
 use thiserror::Error;
 
 /// Solutions that can be proven if necessary.

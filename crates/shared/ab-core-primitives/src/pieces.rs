@@ -220,6 +220,8 @@ impl PieceOffset {
     pub const ZERO: PieceOffset = PieceOffset(0);
     /// Piece index 1.
     pub const ONE: PieceOffset = PieceOffset(1);
+    /// Size in bytes
+    pub const SIZE: usize = size_of::<u16>();
 
     /// Convert piece offset to bytes.
     #[inline]

@@ -14,7 +14,6 @@ use crate::chiapos::utils::EvaluatableUsize;
 use crate::chiapos::{Challenge, Quality, Seed};
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use core::mem;
 #[cfg(any(feature = "full-chiapos", test))]
 use sha2::{Digest, Sha256};
 
@@ -123,7 +122,7 @@ where
         // We take advantage of the fact that entries are sorted by `y` (as big-endian numbers) to
         // quickly seek to desired offset
         let first_k_challenge_bits = u32::from_be_bytes(
-            challenge[..mem::size_of::<u32>()]
+            challenge[..size_of::<u32>()]
                 .try_into()
                 .expect("Challenge is known to statically have enough bytes; qed"),
         ) >> (u32::BITS as usize - usize::from(K));
@@ -206,7 +205,7 @@ where
         // We take advantage of the fact that entries are sorted by `y` (as big-endian numbers) to
         // quickly seek to desired offset
         let first_k_challenge_bits = u32::from_be_bytes(
-            challenge[..mem::size_of::<u32>()]
+            challenge[..size_of::<u32>()]
                 .try_into()
                 .expect("Challenge is known to statically have enough bytes; qed"),
         ) >> (u32::BITS as usize - usize::from(K));
@@ -310,7 +309,7 @@ where
         EvaluatableUsize<{ (K as usize * 2).div_ceil(u8::BITS as usize) }>: Sized,
     {
         let first_k_challenge_bits = u32::from_be_bytes(
-            challenge[..mem::size_of::<u32>()]
+            challenge[..size_of::<u32>()]
                 .try_into()
                 .expect("Challenge is known to statically have enough bytes; qed"),
         ) >> (u32::BITS as usize - usize::from(K));

@@ -13,7 +13,6 @@ use crate::protocols::reserved_peers::Config as ReservedPeersConfig;
 use crate::shared::Shared;
 use crate::utils::rate_limiter::RateLimiter;
 use crate::utils::{SubspaceMetrics, strip_peer_id};
-use ab_core_primitives::hashes;
 use ab_core_primitives::pieces::Piece;
 use backoff::{ExponentialBackoff, SystemClock};
 use futures::channel::mpsc;
@@ -289,7 +288,7 @@ impl Config {
                 .validation_mode(ValidationMode::None)
                 // To content-address message, we can take the hash of message and use it as an ID.
                 .message_id_fn(|message: &GossipsubMessage| {
-                    MessageId::from(*hashes::blake3_hash(&message.data))
+                    MessageId::from(blake3::hash(&message.data).as_bytes())
                 })
                 .max_transmit_size(2 * 1024 * 1024) // 2MB
                 .build()

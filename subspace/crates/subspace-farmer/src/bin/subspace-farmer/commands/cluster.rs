@@ -8,6 +8,7 @@ use crate::commands::cluster::controller::{ControllerArgs, controller};
 use crate::commands::cluster::farmer::{FarmerArgs, farmer};
 use crate::commands::cluster::plotter::{PlotterArgs, plotter};
 use crate::utils::shutdown_signal;
+use ab_proof_of_space::Table;
 use anyhow::anyhow;
 use async_nats::ServerAddr;
 use backoff::ExponentialBackoff;
@@ -22,7 +23,6 @@ use std::time::Duration;
 use subspace_farmer::cluster::nats_client::NatsClient;
 use subspace_farmer::utils::AsyncJoinOnDrop;
 use subspace_metrics::{RegistryAdapter, start_prometheus_metrics_server};
-use subspace_proof_of_space::Table;
 
 const REQUEST_RETRY_MAX_ELAPSED_TIME: Duration = Duration::from_mins(1);
 

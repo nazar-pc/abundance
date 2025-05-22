@@ -1,5 +1,11 @@
+#![cfg(not(miri))]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
 use crate::chiapos::{Tables, TablesCache};
-use std::mem;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 const K: u8 = 17;
 
@@ -11,7 +17,7 @@ fn self_verification() {
 
     for challenge_index in 0..1000_u32 {
         let mut challenge = [0; 32];
-        challenge[..mem::size_of::<u32>()].copy_from_slice(&challenge_index.to_le_bytes());
+        challenge[..size_of::<u32>()].copy_from_slice(&challenge_index.to_le_bytes());
         let qualities = tables.find_quality(&challenge).collect::<Vec<_>>();
         assert_eq!(
             qualities,
@@ -32,8 +38,7 @@ fn self_verification() {
                 "challenge index {challenge_index}"
             );
             let mut bad_challenge = [0; 32];
-            bad_challenge[..mem::size_of::<u32>()]
-                .copy_from_slice(&(challenge_index + 1).to_le_bytes());
+            bad_challenge[..size_of::<u32>()].copy_from_slice(&(challenge_index + 1).to_le_bytes());
             assert!(
                 Tables::<K>::verify(seed, &bad_challenge, proof).is_none(),
                 "challenge index {challenge_index}"
