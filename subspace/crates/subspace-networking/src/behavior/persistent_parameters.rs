@@ -1,5 +1,5 @@
 use crate::utils::{AsyncJoinOnDrop, Handler, HandlerFn};
-use ab_core_primitives::hashes::{Blake3Hash, blake3_hash};
+use ab_core_primitives::hashes::Blake3Hash;
 use async_trait::async_trait;
 use event_listener_primitives::HandlerId;
 use fs2::FileExt;
@@ -176,7 +176,7 @@ impl KnownPeersSlots {
         encoded_bytes.copy_from_slice(&known_peers_bytes);
         // Write checksum
         remaining_bytes[..Blake3Hash::SIZE]
-            .copy_from_slice(blake3_hash(&known_peers_bytes).as_ref());
+            .copy_from_slice(blake3::hash(&known_peers_bytes).as_bytes());
         if let Err(error) = self.a.flush() {
             warn!(%error, "Failed to flush known peers to disk");
         }
@@ -370,9 +370,9 @@ impl KnownPeersManager {
                     }
 
                     // Verify checksum
-                    let actual_checksum = blake3_hash(encoded_bytes);
+                    let actual_checksum = *blake3::hash(encoded_bytes).as_bytes();
                     let expected_checksum = &remaining_bytes[..Blake3Hash::SIZE];
-                    if *actual_checksum != *expected_checksum {
+                    if actual_checksum != expected_checksum {
                         debug!(
                             encoded_bytes_len = %encoded_bytes.len(),
                             actual_checksum = %hex::encode(actual_checksum),

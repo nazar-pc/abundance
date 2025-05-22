@@ -1,6 +1,6 @@
 //! Proof of space-related data structures.
 
-use crate::hashes::{Blake3Hash, blake3_hash};
+use crate::hashes::Blake3Hash;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use derive_more::{Deref, DerefMut, From, Into};
@@ -106,6 +106,6 @@ impl PosProof {
 
     /// Proof hash.
     pub fn hash(&self) -> Blake3Hash {
-        blake3_hash(&self.0)
+        blake3::hash(&self.0).into()
     }
 }

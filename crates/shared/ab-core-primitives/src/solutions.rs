@@ -1,7 +1,7 @@
 //! Solutions-related data structures and functions.
 
 use crate::block::BlockNumber;
-use crate::hashes::{Blake3Hash, blake3_hash_with_key};
+use crate::hashes::Blake3Hash;
 use crate::pieces::{PieceOffset, Record, RecordChunk, RecordProof, RecordRoot};
 use crate::pos::{PosProof, PosSeed};
 use crate::pot::{PotOutput, SlotNumber};
@@ -56,13 +56,18 @@ impl SolutionDistance {
         chunk: &[u8; 32],
         sector_slot_challenge: &SectorSlotChallenge,
     ) -> Self {
-        let audit_chunk = blake3_hash_with_key(sector_slot_challenge, chunk);
-        let audit_chunk_as_solution_range: SolutionRange = SolutionRange::from_bytes(
-            *audit_chunk
-                .array_chunks::<{ SolutionRange::SIZE }>()
-                .next()
-                .expect("Solution range is smaller in size than global challenge; qed"),
-        );
+        // TODO: Is keyed hash really needed here?
+        let audit_chunk = *blake3::keyed_hash(sector_slot_challenge, chunk).as_bytes();
+        let audit_chunk_as_solution_range: SolutionRange = SolutionRange::from_bytes([
+            audit_chunk[0],
+            audit_chunk[1],
+            audit_chunk[2],
+            audit_chunk[3],
+            audit_chunk[4],
+            audit_chunk[5],
+            audit_chunk[6],
+            audit_chunk[7],
+        ]);
         let global_challenge_as_solution_range: SolutionRange = SolutionRange::from_bytes(
             *global_challenge
                 .array_chunks::<{ SolutionRange::SIZE }>()

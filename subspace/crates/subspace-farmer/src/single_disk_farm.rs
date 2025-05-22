@@ -42,7 +42,7 @@ use crate::utils::{AsyncJoinOnDrop, tokio_rayon_spawn_handler};
 use crate::{KNOWN_PEERS_CACHE_SIZE, farm};
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
-use ab_core_primitives::hashes::{Blake3Hash, blake3_hash};
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::Record;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
@@ -2289,8 +2289,8 @@ impl SingleDiskFarm {
 
                 let (index_and_piece_bytes, expected_checksum) =
                     element.split_at(element_size as usize - Blake3Hash::SIZE);
-                let actual_checksum = blake3_hash(index_and_piece_bytes);
-                if *actual_checksum != *expected_checksum && element != &dummy_element {
+                let actual_checksum = *blake3::hash(index_and_piece_bytes).as_bytes();
+                if actual_checksum != expected_checksum && element != &dummy_element {
                     warn!(
                         %cache_offset,
                         actual_checksum = %hex::encode(actual_checksum),

@@ -4,7 +4,7 @@
 mod archival_history_segment;
 
 use crate::block::BlockNumber;
-use crate::hashes::{Blake3Hash, blake3_hash};
+use crate::hashes::Blake3Hash;
 use crate::pieces::{PieceIndex, Record};
 #[cfg(feature = "alloc")]
 pub use crate::segments::archival_history_segment::ArchivedHistorySegment;
@@ -490,7 +490,7 @@ impl SegmentHeader {
     /// Hash of the whole segment header
     #[inline(always)]
     pub fn hash(&self) -> Blake3Hash {
-        blake3_hash(self.as_bytes())
+        blake3::hash(self.as_bytes()).into()
     }
 
     /// Get segment index (unwrap `Unaligned`)

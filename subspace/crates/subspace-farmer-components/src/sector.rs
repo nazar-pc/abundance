@@ -7,7 +7,7 @@
 //! instead they will be returned as a result of certain operations (like plotting).
 
 use ab_core_primitives::checksum::Blake3Checksummed;
-use ab_core_primitives::hashes::{Blake3Hash, blake3_hash};
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunksRoot, RecordProof, RecordRoot};
 use ab_core_primitives::sectors::{SBucket, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
@@ -315,8 +315,8 @@ impl SectorContentsMap {
         let (single_records_bit_arrays, expected_checksum) =
             bytes.split_at(bytes.len() - Blake3Hash::SIZE);
         // Verify checksum
-        let actual_checksum = blake3_hash(single_records_bit_arrays);
-        if *actual_checksum != *expected_checksum {
+        let actual_checksum = *blake3::hash(single_records_bit_arrays).as_bytes();
+        if actual_checksum != expected_checksum {
             debug!(
                 actual_checksum = %hex::encode(actual_checksum),
                 expected_checksum = %hex::encode(expected_checksum),
@@ -381,7 +381,7 @@ impl SectorContentsMap {
 
         // Write data and checksum
         output[..slice.len()].copy_from_slice(slice);
-        output[slice.len()..].copy_from_slice(blake3_hash(slice).as_ref());
+        output[slice.len()..].copy_from_slice(blake3::hash(slice).as_bytes());
 
         Ok(())
     }

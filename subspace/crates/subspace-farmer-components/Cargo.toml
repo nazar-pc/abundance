@@ -41,6 +41,7 @@ anyhow = { workspace = true }
 async-lock = { workspace = true }
 backoff = { workspace = true, features = ["futures", "tokio"] }
 bitvec = { workspace = true }
+blake3 = { workspace = true, features = ["rayon"] }
 fs2 = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }

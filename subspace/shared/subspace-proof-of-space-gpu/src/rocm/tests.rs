@@ -1,5 +1,4 @@
 use crate::rocm::rocm_devices;
-use ab_core_primitives::hashes::blake3_hash;
 use ab_core_primitives::pieces::{PieceOffset, Record};
 use ab_core_primitives::sectors::SectorId;
 use ab_core_primitives::segments::HistorySize;
@@ -30,12 +29,11 @@ fn basic() {
     );
 
     let history_size = HistorySize::ONE;
-    let sector_id = SectorId::new(blake3_hash(b"hello"), 500, history_size);
+    let sector_id = SectorId::new(blake3::hash(b"hello").into(), 500, history_size);
     let mut record = Record::new_boxed();
-    record
-        .iter_mut()
-        .enumerate()
-        .for_each(|(index, chunk)| *chunk = *blake3_hash(&index.to_le_bytes()));
+    record.iter_mut().enumerate().for_each(|(index, chunk)| {
+        chunk.copy_from_slice(blake3::hash(&index.to_le_bytes()).as_bytes())
+    });
 
     let mut cpu_encoded_records = Record::new_zero_vec(2);
     for cpu_encoded_record in &mut cpu_encoded_records {

@@ -9,7 +9,6 @@ use crate::sector::{
     sector_record_chunks_size,
 };
 use crate::{ReadAt, ReadAtAsync, ReadAtSync};
-use ab_core_primitives::hashes::blake3_hash;
 use ab_core_primitives::pieces::{Piece, PieceOffset, Record, RecordChunk};
 use ab_core_primitives::sectors::{SBucket, SectorId};
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
@@ -490,8 +489,8 @@ where
     *piece.proof_mut() = record_metadata.proof;
 
     // Verify checksum
-    let actual_checksum = blake3_hash(piece.as_ref());
-    if actual_checksum != record_metadata.piece_checksum {
+    let actual_checksum = *blake3::hash(piece.as_ref()).as_bytes();
+    if &actual_checksum != record_metadata.piece_checksum.as_bytes() {
         debug!(
             ?sector_id,
             %piece_offset,
