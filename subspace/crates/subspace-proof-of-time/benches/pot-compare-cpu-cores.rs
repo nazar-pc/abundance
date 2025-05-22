@@ -1,7 +1,8 @@
 use ab_core_primitives::pot::PotSeed;
 use core::num::NonZeroU32;
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use rand::{Rng, thread_rng};
+use std::hint::black_box;
 use subspace_proof_of_time::prove;
 
 fn criterion_benchmark(c: &mut Criterion) {

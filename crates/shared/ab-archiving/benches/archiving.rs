@@ -1,9 +1,10 @@
 use ab_archiving::archiver::Archiver;
 use ab_core_primitives::segments::RecordedHistorySegment;
 use ab_erasure_coding::ErasureCoding;
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
+use std::hint::black_box;
 
 const AMOUNT_OF_DATA: usize = RecordedHistorySegment::SIZE;
 const SMALL_BLOCK_SIZE: usize = 500;

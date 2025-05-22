@@ -5,11 +5,12 @@ use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use ab_core_primitives::solutions::SolutionRange;
 use ab_erasure_coding::ErasureCoding;
-use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use futures::executor::block_on;
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
+use std::hint::black_box;
 use std::io::Write;
 use std::num::NonZeroU64;
 use std::{env, fs, slice};
@@ -152,7 +153,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("auditing");
     group.throughput(Throughput::Elements(1));
     group.bench_function("memory/sync", |b| {
-        b.iter(|| async {
+        b.iter(|| {
             black_box(
                 audit_plot_sync(
                     black_box(public_key_hash),

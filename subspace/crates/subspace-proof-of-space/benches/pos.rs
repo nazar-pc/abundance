@@ -1,9 +1,10 @@
 #![feature(const_trait_impl)]
 
 use ab_core_primitives::pos::PosSeed;
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 #[cfg(feature = "parallel")]
 use rayon::ThreadPoolBuilder;
+use std::hint::black_box;
 use subspace_proof_of_space::{Table, TableGenerator};
 
 fn pos_bench<PosTable>(
