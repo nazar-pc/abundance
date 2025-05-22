@@ -15,8 +15,9 @@ use ab_system_contract_code::CodeExt;
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
 use ab_system_contract_simple_wallet_base::payload::builder::TransactionPayloadBuilder;
 use ab_system_contract_simple_wallet_base::seal::hash_and_sign;
-use criterion::{BatchSize, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
 use schnorrkel::Keypair;
+use std::hint::black_box;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]

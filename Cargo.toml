@@ -31,7 +31,7 @@ blake3 = { version = "1.8.2", default-features = false }
 bytes = { version = "1.10.1", default-features = false }
 const-sha1 = { version = "0.3.0", default-features = false }
 const_format = "0.2.34"
-criterion = { version = "0.5.1", default-features = false }
+criterion = { version = "0.6.0", default-features = false }
 derive_more = { version = "2.0.1", default-features = false }
 # TODO: Switch to ed25519-dalek with RFC8032 / NIST validation criteria instead once
 #  https://github.com/dalek-cryptography/curve25519-dalek/issues/626 is resolved
@@ -40,7 +40,7 @@ halfbrown = "0.3.0"
 hex = { version = "0.4.3", default-features = false }
 ident_case = "1.0.1"
 no-panic = "0.1.35"
-parity-scale-codec = { version = "3.7.4", default-features = false }
+parity-scale-codec = { version = "3.7.5", default-features = false }
 proc-macro2 = "1.0.95"
 quote = "1.0.40"
 rand_core = { version = "0.9.3", default-features = false }
@@ -52,7 +52,7 @@ schnorrkel = { version = "0.11.4", default-features = false }
 serde = { version = "1.0.219", default-features = false }
 serde-big-array = "0.5.1"
 smallvec = "1.15.0"
-syn = "2.0.100"
+syn = "2.0.101"
 take_mut = "0.2.2"
 thiserror = { version = "2.0.12", default-features = false }
 tracing = "0.1.41"
