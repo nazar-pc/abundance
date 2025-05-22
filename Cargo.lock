@@ -246,6 +246,7 @@ dependencies = [
  "ab-core-primitives",
  "aes",
  "core_affinity",
+ "cpufeatures",
  "criterion",
  "rand_chacha",
  "rand_core 0.9.3",

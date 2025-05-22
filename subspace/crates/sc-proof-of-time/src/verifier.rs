@@ -273,8 +273,7 @@ impl PotVerifier {
             drop(cache);
 
             let verified_successfully =
-                ab_proof_of_time::verify(seed, slot_iterations, checkpoints.as_slice())
-                    .unwrap_or_default();
+                ab_proof_of_time::verify(seed, slot_iterations, checkpoints).unwrap_or_default();
 
             if !verified_successfully {
                 // Avoid deadlock when taking a lock below

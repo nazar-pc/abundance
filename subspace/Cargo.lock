@@ -96,6 +96,7 @@ version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
  "aes 0.9.0-pre.3",
+ "cpufeatures",
  "thiserror 2.0.12",
 ]
 
@@ -1960,9 +1961,9 @@ dependencies = [
 
 [[package]]
 name = "cpufeatures"
-version = "0.2.14"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "608697df725056feaccfa42cffdaeeec3fccc4ffc38358ecd19b243e716a78e0"
+checksum = "59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280"
 dependencies = [
  "libc",
 ]

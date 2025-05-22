@@ -26,7 +26,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             black_box(verify(
                 black_box(seed),
                 black_box(pot_iterations),
-                black_box(&*checkpoints),
+                black_box(&checkpoints),
             ))
             .unwrap();
         })

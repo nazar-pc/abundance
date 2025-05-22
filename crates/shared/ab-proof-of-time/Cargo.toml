@@ -22,6 +22,9 @@ ab-core-primitives = { workspace = true }
 aes = { workspace = true }
 thiserror = { workspace = true }
 
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+cpufeatures = { workspace = true }
+
 [dev-dependencies]
 core_affinity = { workspace = true }
 criterion = { workspace = true }
@@ -35,12 +38,6 @@ harness = false
 [[bench]]
 name = "pot-compare-cpu-cores"
 harness = false
-
-[features]
-default = ["std"]
-std = [
-    "thiserror/std",
-]
 
 [lints]
 workspace = true
