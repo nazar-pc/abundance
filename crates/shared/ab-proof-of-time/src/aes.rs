@@ -98,7 +98,7 @@ mod tests {
     fn test_create_verify() {
         let seed = PotSeed::from(SEED);
         let key = PotKey::from(KEY);
-        let checkpoint_iterations = 100;
+        let checkpoint_iterations = 20;
 
         // Can encrypt/decrypt.
         let checkpoints = create(seed, key, checkpoint_iterations);

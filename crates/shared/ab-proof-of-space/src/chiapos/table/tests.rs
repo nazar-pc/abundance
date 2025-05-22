@@ -104,6 +104,7 @@ fn check_match(yl: usize, yr: usize) -> bool {
 // TODO: This test should be rewritten into something more readable, currently it is more or less
 //  direct translation from C++
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_matches() {
     const K: u8 = 12;
     let seed = to_chia_seed(&[

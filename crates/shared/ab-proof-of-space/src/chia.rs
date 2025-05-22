@@ -91,6 +91,7 @@ impl Table for ChiaTable {
 }
 
 #[cfg(all(feature = "alloc", test))]
+#[cfg(not(miri))]
 mod tests {
     use super::*;
 

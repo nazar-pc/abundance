@@ -1,3 +1,5 @@
+#![cfg(not(miri))]
+
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 

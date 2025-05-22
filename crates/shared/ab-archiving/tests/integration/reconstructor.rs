@@ -18,7 +18,6 @@ fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn basic() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
@@ -290,7 +289,6 @@ fn basic() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn partial_data() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
@@ -379,7 +377,6 @@ fn partial_data() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
 fn invalid_usage() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let erasure_coding = ErasureCoding::new();
