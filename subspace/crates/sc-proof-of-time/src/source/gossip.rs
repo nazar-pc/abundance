@@ -465,10 +465,8 @@ where
             ) {
                 Some(*proof)
             } else {
-                match subspace_proof_of_time::prove(
-                    next_slot_input.seed,
-                    next_slot_input.slot_iterations,
-                ) {
+                match ab_proof_of_time::prove(next_slot_input.seed, next_slot_input.slot_iterations)
+                {
                     Ok(checkpoints) => Some(GossipProof {
                         slot: next_slot_input.slot,
                         seed: next_slot_input.seed,

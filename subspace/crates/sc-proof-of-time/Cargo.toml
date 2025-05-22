@@ -12,6 +12,7 @@ include = [
 
 [dependencies]
 ab-core-primitives = { workspace = true }
+ab-proof-of-time = { workspace = true }
 core_affinity = { workspace = true }
 derive_more = { workspace = true, features = ["full"] }
 futures = { workspace = true }
@@ -30,7 +31,6 @@ sp-consensus-slots = { workspace = true, features = ["std"] }
 sp-consensus-subspace = { workspace = true, features = ["std"] }
 sp-inherents = { workspace = true, features = ["std"] }
 sp-runtime = { workspace = true, features = ["std"] }
-subspace-proof-of-time = { workspace = true }
 thread-priority = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true, features = ["std"] }

@@ -91,6 +91,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-proof-of-time"
+version = "0.1.0"
+dependencies = [
+ "ab-core-primitives",
+ "aes 0.9.0-pre.3",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "ab-trivial-type-derive"
 version = "0.0.1"
 dependencies = [
@@ -322,12 +331,12 @@ dependencies = [
 
 [[package]]
 name = "aes"
-version = "0.9.0-pre.2"
+version = "0.9.0-pre.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7856582c758ade85d71daf27ec6bcea6c1c73913692b07b8dffea2dc03531c9"
+checksum = "38e4da00d9978020ddaa556c1747cfcafc3f375cfadb109acfe8b752cfc373bf"
 dependencies = [
  "cfg-if",
- "cipher 0.5.0-pre.7",
+ "cipher 0.5.0-pre.8",
  "cpufeatures",
 ]
 
@@ -1673,12 +1682,12 @@ dependencies = [
 
 [[package]]
 name = "cipher"
-version = "0.5.0-pre.7"
+version = "0.5.0-pre.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b1425e6ce000f05a73096556cabcfb6a10a3ffe3bb4d75416ca8f00819c0b6a"
+checksum = "276974d2acb7cf592603150941fc1ff6442acdeb1dc653ac2825928f4703c131"
 dependencies = [
- "crypto-common 0.2.0-rc.1",
- "inout 0.2.0-rc.1",
+ "crypto-common 0.2.0-rc.2",
+ "inout 0.2.0-rc.4",
 ]
 
 [[package]]
@@ -2168,9 +2177,9 @@ dependencies = [
 
 [[package]]
 name = "crypto-common"
-version = "0.2.0-rc.1"
+version = "0.2.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0b8ce8218c97789f16356e7896b3714f26c2ee1079b79c0b7ae7064bb9089fa"
+checksum = "170d71b5b14dec99db7739f6fc7d6ec2db80b78c3acb77db48392ccc3d8a9ea0"
 dependencies = [
  "hybrid-array",
 ]
@@ -4259,9 +4268,9 @@ dependencies = [
 
 [[package]]
 name = "hybrid-array"
-version = "0.2.0-rc.11"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5a41e5b0754cae5aaf7915f1df1147ba8d316fc6e019cfcc00fbaba96d5e030"
+checksum = "891d15931895091dea5c47afa5b3c9a01ba634b311919fd4d41388fa0e3d76af"
 dependencies = [
  "typenum",
 ]
@@ -4686,9 +4695,9 @@ dependencies = [
 
 [[package]]
 name = "inout"
-version = "0.2.0-rc.1"
+version = "0.2.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "161ac07241f4d11c21b6d82f1fef1c05aec030c0bf568b35281efe453ea450a7"
+checksum = "ac5e145e8ade9f74c0a5efc60ccb4e714b0144f7e2220b7ca64254feee71c57f"
 dependencies = [
  "hybrid-array",
 ]
@@ -9387,6 +9396,7 @@ name = "sc-proof-of-time"
 version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
+ "ab-proof-of-time",
  "core_affinity",
  "derive_more 1.0.0",
  "futures",
@@ -9405,7 +9415,6 @@ dependencies = [
  "sp-consensus-subspace",
  "sp-inherents",
  "sp-runtime",
- "subspace-proof-of-time",
  "thread-priority",
  "tokio",
  "tracing",
@@ -11658,18 +11667,6 @@ dependencies = [
  "rust-kzg-blst",
  "sppark",
  "subspace-farmer-components",
-]
-
-[[package]]
-name = "subspace-proof-of-time"
-version = "0.1.0"
-dependencies = [
- "ab-core-primitives",
- "aes 0.9.0-pre.2",
- "core_affinity",
- "criterion",
- "rand 0.8.5",
- "thiserror 2.0.12",
 ]
 
 [[package]]

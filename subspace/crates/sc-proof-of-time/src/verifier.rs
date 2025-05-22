@@ -201,7 +201,7 @@ impl PotVerifier {
             // Cache lock is no longer necessary, other callers should be able to access cache too
             drop(cache);
 
-            let proving_result = subspace_proof_of_time::prove(seed, slot_iterations);
+            let proving_result = ab_proof_of_time::prove(seed, slot_iterations);
 
             let Ok(generated_checkpoints) = proving_result else {
                 // Avoid deadlock when taking a lock below
@@ -273,7 +273,7 @@ impl PotVerifier {
             drop(cache);
 
             let verified_successfully =
-                subspace_proof_of_time::verify(seed, slot_iterations, checkpoints.as_slice())
+                ab_proof_of_time::verify(seed, slot_iterations, checkpoints.as_slice())
                     .unwrap_or_default();
 
             if !verified_successfully {
