@@ -1,12 +1,36 @@
 #![feature(const_trait_impl)]
 
+#[cfg(feature = "alloc")]
 use ab_core_primitives::pos::PosSeed;
-use ab_proof_of_space::{Table, TableGenerator};
+use ab_proof_of_space::Table;
+#[cfg(feature = "alloc")]
+use ab_proof_of_space::TableGenerator;
 use criterion::{Criterion, criterion_group, criterion_main};
 #[cfg(feature = "parallel")]
 use rayon::ThreadPoolBuilder;
+#[cfg(feature = "alloc")]
 use std::hint::black_box;
 
+#[cfg(not(feature = "alloc"))]
+#[expect(
+    clippy::extra_unused_type_parameters,
+    reason = "Needs to match the normal version of the function"
+)]
+fn pos_bench<PosTable>(
+    _c: &mut Criterion,
+    _name: &'static str,
+    _challenge_index_without_solution: u32,
+    _challenge_index_with_solution: u32,
+) where
+    PosTable: Table,
+{
+    panic!(
+        "`alloc` feature needs to be enabled to run benchmarks (`parallel` for benchmarking \
+        parallel version)"
+    )
+}
+
+#[cfg(feature = "alloc")]
 fn pos_bench<PosTable>(
     c: &mut Criterion,
     name: &'static str,

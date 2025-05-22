@@ -40,8 +40,6 @@ harness = false
 
 [features]
 default = []
-# TODO: `alloc` feature is not fully implemented, it will fail to compile without global allocator, but it should be
-#  relatively easy to make it work for verification purposes
 alloc = []
 std = [
     "alloc",
@@ -56,6 +54,7 @@ full-chiapos = [
     "dep:sha2",
 ]
 parallel = [
+    "alloc",
     "dep:rayon",
 ]
 

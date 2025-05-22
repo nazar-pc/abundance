@@ -448,7 +448,7 @@ where
 
     let y_output = Y::from(
         u32::from_be_bytes(
-            hash[..mem::size_of::<u32>()]
+            hash[..size_of::<u32>()]
                 .try_into()
                 .expect("Hash if statically guaranteed to have enough bytes; qed"),
         ) >> (u32::BITS as usize - y_size_bits(K)),
@@ -463,7 +463,7 @@ where
         // We collect bytes necessary, potentially with extra bits at the start and end of the bytes
         // that will be taken care of later.
         let metadata = u128::from_be_bytes(
-            hash[y_size_bits(K) / u8::BITS as usize..][..mem::size_of::<u128>()]
+            hash[y_size_bits(K) / u8::BITS as usize..][..size_of::<u128>()]
                 .try_into()
                 .expect("Always enough bits for any K; qed"),
         );

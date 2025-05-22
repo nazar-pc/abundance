@@ -1,6 +1,8 @@
 //! Tests translated into Rust from
 //! https://github.com/Chia-Network/chiapos/blob/a2049c5367fe60930533a995f7ffded538f04dc4/tests/test.cpp
 
+extern crate alloc;
+
 use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT};
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
@@ -9,8 +11,10 @@ use crate::chiapos::table::{
     find_matches, metadata_size_bytes, partial_y,
 };
 use crate::chiapos::utils::EvaluatableUsize;
+use alloc::collections::BTreeMap;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use bitvec::prelude::*;
-use std::collections::BTreeMap;
 
 /// Chia does this for some reason 🤷
 fn to_chia_seed(seed: &Seed) -> Seed {
