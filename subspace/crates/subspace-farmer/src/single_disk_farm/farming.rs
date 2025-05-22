@@ -19,6 +19,7 @@ use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_core_primitives::solutions::{Solution, SolutionDistance};
 use ab_erasure_coding::ErasureCoding;
+use ab_proof_of_space::{Table, TableGenerator};
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use futures::StreamExt;
 use futures::channel::mpsc;
@@ -32,7 +33,6 @@ use subspace_farmer_components::auditing::{AuditingError, audit_plot_sync};
 use subspace_farmer_components::proving::{ProvableSolutions, ProvingError};
 use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed};
-use subspace_proof_of_space::{Table, TableGenerator};
 use subspace_rpc_primitives::{SlotInfo, SolutionResponse};
 use tracing::{Span, debug, error, info, trace, warn};
 

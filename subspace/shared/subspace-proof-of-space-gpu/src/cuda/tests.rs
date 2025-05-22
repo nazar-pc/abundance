@@ -4,12 +4,12 @@ use ab_core_primitives::pieces::{PieceOffset, Record};
 use ab_core_primitives::sectors::SectorId;
 use ab_core_primitives::segments::HistorySize;
 use ab_erasure_coding::ErasureCoding;
+use ab_proof_of_space::Table;
+use ab_proof_of_space::chia::ChiaTable;
 use std::num::NonZeroUsize;
 use std::slice;
 use subspace_farmer_components::plotting::{CpuRecordsEncoder, RecordsEncoder};
 use subspace_farmer_components::sector::SectorContentsMap;
-use subspace_proof_of_space::Table;
-use subspace_proof_of_space::chia::ChiaTable;
 
 type PosTable = ChiaTable;
 

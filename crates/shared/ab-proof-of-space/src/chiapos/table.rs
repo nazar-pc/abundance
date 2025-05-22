@@ -26,7 +26,6 @@ use rayon::prelude::*;
 use seq_macro::seq;
 #[cfg(all(not(feature = "std"), any(feature = "parallel", test)))]
 use spin::Mutex;
-use static_assertions::const_assert;
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
 pub(super) const FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR: usize = 8;
@@ -330,7 +329,9 @@ fn find_matches<T, Map>(
             .nth(r)
             .expect("r is valid");
 
-        const_assert!(PARAM_M as usize % FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR == 0);
+        const _: () = {
+            assert!(PARAM_M as usize % FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR == 0);
+        };
 
         for r_targets in left_targets_r
             .array_chunks::<{ FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR }>()
@@ -366,7 +367,9 @@ pub(super) fn has_match(left_y: Y, right_y: Y) -> bool {
     let parity = (u32::from(left_y) / u32::from(PARAM_BC)) % 2;
     let left_r = u32::from(left_y) % u32::from(PARAM_BC);
 
-    const_assert!(PARAM_M as usize % HAS_MATCH_UNROLL_FACTOR == 0);
+    const _: () = {
+        assert!(PARAM_M as usize % HAS_MATCH_UNROLL_FACTOR == 0);
+    };
 
     for m in 0..u32::from(PARAM_M) / HAS_MATCH_UNROLL_FACTOR as u32 {
         let _: [(); HAS_MATCH_UNROLL_FACTOR] = seq!(N in 0..8 {

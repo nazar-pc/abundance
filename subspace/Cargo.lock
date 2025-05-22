@@ -78,6 +78,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-proof-of-space"
+version = "0.1.0"
+dependencies = [
+ "ab-core-primitives",
+ "chacha20",
+ "derive_more 2.0.1",
+ "rayon",
+ "seq-macro",
+ "spin 0.10.0",
+]
+
+[[package]]
 name = "ab-trivial-type-derive"
 version = "0.0.1"
 dependencies = [
@@ -1322,15 +1334,6 @@ name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
-dependencies = [
- "generic-array 0.14.7",
-]
-
-[[package]]
-name = "block-padding"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8894febbff9f758034a5b8e12d87918f56dfc64a8e1fe757d65e29041538d93"
 dependencies = [
  "generic-array 0.14.7",
 ]
@@ -4677,7 +4680,6 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0c10553d664a4d0bcff9f4215d0aac67a639cc68ef660840afe309b807bc9f5"
 dependencies = [
- "block-padding",
  "generic-array 0.14.7",
 ]
 
@@ -9014,6 +9016,7 @@ dependencies = [
  "ab-archiving",
  "ab-core-primitives",
  "ab-erasure-coding",
+ "ab-proof-of-space",
  "async-trait",
  "futures",
  "parity-scale-codec",
@@ -9035,7 +9038,6 @@ dependencies = [
  "sp-consensus-subspace",
  "sp-inherents",
  "sp-runtime",
- "subspace-proof-of-space",
  "subspace-verification",
  "thiserror 2.0.12",
  "tokio",
@@ -10090,9 +10092,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "seq-macro"
-version = "0.3.5"
+version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3f0bf26fd526d2a95683cd0f87bf103b8539e2ca1ef48ce002d67aad59aa0b4"
+checksum = "1bc711410fbe7399f390ca1c3b60ad0f53f80e95c5eb935e52268a0e2cd49acc"
 
 [[package]]
 name = "serde"
@@ -11265,6 +11267,12 @@ name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+
+[[package]]
+name = "spin"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5fe4ccb98d9c292d56fec89a5e07da7fc4cf0dc11e156b41793132775d3e591"
 dependencies = [
  "lock_api",
 ]
@@ -11451,6 +11459,7 @@ version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
  "ab-erasure-coding",
+ "ab-proof-of-space",
  "anyhow",
  "async-lock 3.4.0",
  "async-nats",
@@ -11491,7 +11500,6 @@ dependencies = [
  "subspace-logging",
  "subspace-metrics",
  "subspace-networking",
- "subspace-proof-of-space",
  "subspace-proof-of-space-gpu",
  "subspace-rpc-primitives",
  "subspace-verification",
@@ -11513,6 +11521,7 @@ dependencies = [
  "ab-core-primitives",
  "ab-erasure-coding",
  "ab-merkle-tree",
+ "ab-proof-of-space",
  "anyhow",
  "async-lock 3.4.0",
  "backoff",
@@ -11529,7 +11538,6 @@ dependencies = [
  "serde",
  "static_assertions",
  "subspace-data-retrieval",
- "subspace-proof-of-space",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
@@ -11599,6 +11607,7 @@ name = "subspace-node"
 version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
+ "ab-proof-of-space",
  "clap",
  "fdlimit",
  "frame-benchmarking",
@@ -11621,7 +11630,6 @@ dependencies = [
  "subspace-logging",
  "subspace-metrics",
  "subspace-networking",
- "subspace-proof-of-space",
  "subspace-runtime",
  "subspace-runtime-primitives",
  "subspace-service",
@@ -11634,34 +11642,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "subspace-proof-of-space"
-version = "0.1.0"
-dependencies = [
- "ab-core-primitives",
- "bitvec",
- "chacha20",
- "criterion",
- "derive_more 1.0.0",
- "parking_lot 0.12.3",
- "rayon",
- "seq-macro",
- "sha2 0.10.8",
- "spin 0.9.8",
- "static_assertions",
-]
-
-[[package]]
 name = "subspace-proof-of-space-gpu"
 version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
  "ab-erasure-coding",
+ "ab-proof-of-space",
  "blst",
  "cc",
  "rust-kzg-blst",
  "sppark",
  "subspace-farmer-components",
- "subspace-proof-of-space",
 ]
 
 [[package]]
@@ -11750,6 +11741,7 @@ dependencies = [
  "ab-archiving",
  "ab-core-primitives",
  "ab-erasure-coding",
+ "ab-proof-of-space",
  "anyhow",
  "async-lock 3.4.0",
  "async-trait",
@@ -11795,7 +11787,6 @@ dependencies = [
  "static_assertions",
  "subspace-data-retrieval",
  "subspace-networking",
- "subspace-proof-of-space",
  "subspace-runtime-primitives",
  "substrate-prometheus-endpoint",
  "thiserror 2.0.12",

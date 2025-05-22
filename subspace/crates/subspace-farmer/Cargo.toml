@@ -18,6 +18,7 @@ required-features = ["binary"]
 [dependencies]
 ab-core-primitives = { workspace = true }
 ab-erasure-coding = { workspace = true }
+ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
 async-lock = { workspace = true }
 async-nats = { workspace = true, optional = true }
@@ -58,7 +59,6 @@ subspace-farmer-components = { workspace = true }
 subspace-logging = { workspace = true, optional = true }
 subspace-metrics = { workspace = true, optional = true }
 subspace-networking = { workspace = true }
-subspace-proof-of-space = { workspace = true }
 subspace-proof-of-space-gpu = { workspace = true, optional = true }
 subspace-rpc-primitives = { workspace = true }
 subspace-verification = { workspace = true }

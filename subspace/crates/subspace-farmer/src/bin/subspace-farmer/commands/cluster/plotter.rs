@@ -1,5 +1,6 @@
 use crate::commands::shared::PlottingThreadPriority;
 use ab_erasure_coding::ErasureCoding;
+use ab_proof_of_space::Table;
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, Semaphore};
 use clap::Parser;
@@ -25,7 +26,6 @@ use subspace_farmer::plotter::pool::PoolPlotter;
 use subspace_farmer::utils::{
     create_plotting_thread_pool_manager, parse_cpu_cores_sets, thread_pool_core_indices,
 };
-use subspace_proof_of_space::Table;
 use tracing::info;
 
 const PLOTTING_RETRY_INTERVAL: Duration = Duration::from_secs(5);

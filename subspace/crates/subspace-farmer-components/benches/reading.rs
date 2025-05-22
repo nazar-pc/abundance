@@ -4,6 +4,8 @@ use ab_core_primitives::pieces::PieceOffset;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use ab_erasure_coding::ErasureCoding;
+use ab_proof_of_space::Table;
+use ab_proof_of_space::chia::ChiaTable;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use futures::FutureExt;
 use futures::executor::block_on;
@@ -23,8 +25,6 @@ use subspace_farmer_components::sector::{
     SectorContentsMap, SectorMetadata, SectorMetadataChecksummed, sector_size,
 };
 use subspace_farmer_components::{FarmerProtocolInfo, ReadAt, ReadAtSync};
-use subspace_proof_of_space::Table;
-use subspace_proof_of_space::chia::ChiaTable;
 
 type PosTable = ChiaTable;
 

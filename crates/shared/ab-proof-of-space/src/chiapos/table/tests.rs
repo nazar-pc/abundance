@@ -12,7 +12,7 @@ use crate::chiapos::utils::EvaluatableUsize;
 use bitvec::prelude::*;
 use std::collections::BTreeMap;
 
-/// Chia does this for some reason 🤷‍
+/// Chia does this for some reason 🤷
 fn to_chia_seed(seed: &Seed) -> Seed {
     let mut chia_seed = [1u8; 32];
     chia_seed[1..].copy_from_slice(&seed[..31]);

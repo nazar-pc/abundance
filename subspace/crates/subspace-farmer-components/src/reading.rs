@@ -13,6 +13,7 @@ use ab_core_primitives::hashes::blake3_hash;
 use ab_core_primitives::pieces::{Piece, PieceOffset, Record, RecordChunk};
 use ab_core_primitives::sectors::{SBucket, SectorId};
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
+use ab_proof_of_space::{Table, TableGenerator};
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use parity_scale_codec::Decode;
@@ -21,7 +22,6 @@ use std::mem::ManuallyDrop;
 use std::simd::Simd;
 use std::str::FromStr;
 use std::{fmt, io};
-use subspace_proof_of_space::{Table, TableGenerator};
 use thiserror::Error;
 use tracing::debug;
 
