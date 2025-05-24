@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OwnedBeaconChainBlockHeaderError","OwnedBlockHeader","OwnedBlockHeaderError","OwnedIntermediateShardBlockHeaderError"],"struct":["OwnedBeaconChainBlockHeader","OwnedBeaconChainBlockHeaderUnsealed","OwnedIntermediateShardBlockHeader","OwnedIntermediateShardBlockHeaderUnsealed","OwnedLeafShardBlockHeader","OwnedLeafShardBlockHeaderUnsealed"]};
