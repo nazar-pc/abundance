@@ -2,7 +2,7 @@
 #![feature(const_trait_impl, variant_count)]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
-//  https://github.com/rust-lang/rust/issues/133199
+//  https://github.com/rust-lang/rust/issues/141492
 #![feature(generic_const_exprs)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]

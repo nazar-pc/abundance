@@ -431,7 +431,8 @@ impl Record {
     #[inline]
     #[cfg(feature = "alloc")]
     pub fn new_zero_vec(length: usize) -> Vec<Self> {
-        // TODO: Should have been just `::new()`, but https://github.com/rust-lang/rust/issues/53827
+        // TODO: Should have been just `vec![Self::default(); length]`, but
+        //  https://github.com/rust-lang/rust/issues/53827
         let mut records = Vec::with_capacity(length);
         {
             let slice = records.spare_capacity_mut();

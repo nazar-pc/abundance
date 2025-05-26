@@ -17,8 +17,7 @@ pub const MAX_METADATA_CAPACITY: usize = 8192;
 /// Returns both a scratch memory and number of bytes in it that correspond to metadata
 pub const fn concat_metadata_sources(sources: &[&[u8]]) -> ([u8; MAX_METADATA_CAPACITY], usize) {
     let mut metadata_scratch = [0u8; MAX_METADATA_CAPACITY];
-    // TODO: Use `as_mut_slice` once stabilized: https://github.com/rust-lang/rust/issues/133333
-    let mut remainder: &mut [u8] = &mut metadata_scratch;
+    let mut remainder = metadata_scratch.as_mut_slice();
 
     // For loops are not yet usable in const environment
     let mut i = 0;
