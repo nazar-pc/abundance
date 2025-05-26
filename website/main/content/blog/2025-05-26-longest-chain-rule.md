@@ -10,7 +10,11 @@ authors: [adlrocha]
 I started the week thinking about the mechanics of shard segment commitment into the global history
 of the beacon chain. If you recall from previous updates, we already had a pretty good idea of how
 the information about child shard segments flow up to the beacon chain, but there were still a few
-questions that were really bugging me. Mainly:
+questions that were really bugging me.
+
+<!--more-->
+
+Mainly:
 
 - When a segment is committed in the beacon chain, how can we inform the corresponding child shard
   that the segment has been added to the global history and assigned a global piece index?
@@ -30,8 +34,6 @@ availability checks).
 With this, all chains in the hierarchy are able to deterministically reason about the validity of
 the information included in blocks without having to rely on external mechanisms like fraud proofs
 or a dedicated data availability chain (and this is why the design of Bitcoin is so elegant!).
-
-<!--more-->
 
 ## Impact of chain re-organisations in shard block submissions.
 
