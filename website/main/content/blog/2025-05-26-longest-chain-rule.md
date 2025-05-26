@@ -35,7 +35,7 @@ With this, all chains in the hierarchy are able to deterministically reason abou
 the information included in blocks without having to rely on external mechanisms like fraud proofs
 or a dedicated data availability chain (and this is why the design of Bitcoin is so elegant!).
 
-## Impact of chain re-organisations in shard block submissions.
+## Impact of chain re-organisations in shard block submissions
 
 Let's illustrate how this new realisation of leveraging the longest-chain for all core protocol
 mechanics come to play starting with how it affects the shard block submission process, which is
@@ -127,7 +127,7 @@ commitment of a segment `s1` for a leaf segment:
    probability of re-org of all the blocks involved in the submission of the segment, mainly `blk1`,
    `blkA` and `blkX` is over the finality threshold chosen.
 3. The intermediate shard is periodically updating its perceived probability of reorg for the leaf's
-   shard `blk1` and its will notify the beacon chain in the following
+   shard `blk1` and it will notify the beacon chain in the following
    `IntermediateShardBlockInformation` that the finality threshold has been achieved. Similarly, the
    beacon chain keep track of this same threshold for `blkA`. When both are confirmed as final, the
    leaf segment of that block is committed as part of the global history, assigned a global piece
