@@ -19,6 +19,7 @@ futures = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 parking_lot = { workspace = true }
 rayon = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
 schnellru = { workspace = true }
 sc-client-api = { workspace = true }
 sc-consensus-slots = { workspace = true }

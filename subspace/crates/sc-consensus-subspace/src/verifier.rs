@@ -25,6 +25,7 @@ use sc_client_api::backend::AuxStore;
 use sc_consensus::block_import::BlockImportParams;
 use sc_consensus::import_queue::Verifier;
 use sc_consensus_slots::check_equivocation;
+use sc_proof_of_time::PotNextSlotInput;
 use sc_proof_of_time::verifier::PotVerifier;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
@@ -33,7 +34,7 @@ use sp_consensus::BlockOrigin;
 use sp_consensus_subspace::digests::{
     CompatibleDigestItem, PreDigest, SubspaceDigestItems, extract_subspace_digest_items,
 };
-use sp_consensus_subspace::{ChainConstants, PotNextSlotInput, SubspaceApi, SubspaceJustification};
+use sp_consensus_subspace::{ChainConstants, SubspaceApi, SubspaceJustification};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 use sp_runtime::{DigestItem, Justifications, SaturatedConversion};
 use std::iter;

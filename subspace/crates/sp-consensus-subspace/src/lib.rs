@@ -11,7 +11,7 @@ pub mod inherents;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{
-    PotCheckpoints, PotOutput, PotParametersChange, PotSeed, SlotDuration, SlotNumber,
+    PotCheckpoints, PotParametersChange, PotSeed, SlotDuration, SlotNumber,
 };
 use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex, SegmentRoot};
 use ab_core_primitives::solutions::SolutionRange;
@@ -61,57 +61,6 @@ impl SubspaceJustification {
     pub fn must_be_archived(&self) -> bool {
         match self {
             SubspaceJustification::PotCheckpoints { .. } => true,
-        }
-    }
-}
-
-/// Next slot input for proof of time evaluation
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Decode, Encode, TypeInfo, MaxEncodedLen)]
-pub struct PotNextSlotInput {
-    /// Slot number
-    pub slot: SlotNumber,
-    /// Slot iterations for this slot
-    pub slot_iterations: NonZeroU32,
-    /// Seed for this slot
-    pub seed: PotSeed,
-}
-
-impl PotNextSlotInput {
-    /// Derive next slot input while taking parameters change into account.
-    ///
-    /// NOTE: `base_slot_iterations` doesn't have to be parent block, just something that is after
-    /// prior parameters change (if any) took effect, in most cases this value corresponds to parent
-    /// block's slot.
-    pub fn derive(
-        base_slot_iterations: NonZeroU32,
-        parent_slot: SlotNumber,
-        parent_output: PotOutput,
-        pot_parameters_change: &Option<PotParametersChange>,
-    ) -> Self {
-        let next_slot = parent_slot + SlotNumber::ONE;
-        let slot_iterations;
-        let seed;
-
-        // The change to number of iterations might have happened before `next_slot`
-        if let Some(parameters_change) = pot_parameters_change
-            && parameters_change.slot <= next_slot
-        {
-            slot_iterations = parameters_change.slot_iterations;
-            // Only if entropy injection happens exactly on next slot we need to mix it in
-            if parameters_change.slot == next_slot {
-                seed = parent_output.seed_with_entropy(&parameters_change.entropy);
-            } else {
-                seed = parent_output.seed();
-            }
-        } else {
-            slot_iterations = base_slot_iterations;
-            seed = parent_output.seed();
-        }
-
-        PotNextSlotInput {
-            slot: next_slot,
-            slot_iterations,
-            seed,
         }
     }
 }

@@ -3,12 +3,12 @@
 #[cfg(test)]
 mod tests;
 
+use crate::PotNextSlotInput;
 use ab_core_primitives::pot::{
     PotCheckpoints, PotOutput, PotParametersChange, PotSeed, SlotNumber,
 };
 use parking_lot::Mutex;
 use schnellru::{ByLength, LruMap};
-use sp_consensus_subspace::PotNextSlotInput;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 
