@@ -1,4 +1,4 @@
-//! Subspace proof of space implementation based on Chia
+//! Proof of space implementation
 #![cfg_attr(not(feature = "std"), no_std)]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]

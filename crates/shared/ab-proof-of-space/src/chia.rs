@@ -9,7 +9,7 @@ use ab_core_primitives::pos::{PosProof, PosSeed};
 
 const K: u8 = PosProof::K;
 
-/// Subspace proof of space table generator.
+/// Proof of space table generator.
 ///
 /// Chia implementation.
 #[derive(Debug, Default, Clone)]
@@ -34,7 +34,7 @@ impl TableGenerator<ChiaTable> for ChiaTableGenerator {
     }
 }
 
-/// Subspace proof of space table.
+/// Proof of space table.
 ///
 /// Chia implementation.
 #[derive(Debug)]
