@@ -9398,7 +9398,6 @@ version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
  "ab-proof-of-time",
- "core_affinity",
  "derive_more 1.0.0",
  "futures",
  "parity-scale-codec",
@@ -9417,7 +9416,6 @@ dependencies = [
  "sp-consensus-subspace",
  "sp-inherents",
  "sp-runtime",
- "thread-priority",
  "tokio",
  "tracing",
 ]
@@ -11749,6 +11747,7 @@ dependencies = [
  "anyhow",
  "async-lock 3.4.0",
  "async-trait",
+ "core_affinity",
  "frame-benchmarking",
  "frame-system-rpc-runtime-api",
  "futures",
@@ -11794,6 +11793,7 @@ dependencies = [
  "subspace-runtime-primitives",
  "substrate-prometheus-endpoint",
  "thiserror 2.0.12",
+ "thread-priority",
  "tokio",
  "tracing",
 ]

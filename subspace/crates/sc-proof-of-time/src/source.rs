@@ -4,33 +4,86 @@ pub mod state;
 pub mod timekeeper;
 
 use crate::PotNextSlotInput;
-use crate::source::block_import::{BestBlockPotInfo, BestBlockPotSource};
-use crate::source::gossip::{GossipProof, PotGossipWorker, ToGossipMessage};
+use crate::source::block_import::BestBlockPotInfo;
+use crate::source::gossip::{GossipProof, ToGossipMessage};
 use crate::source::state::{PotState, PotStateSetOutcome};
-use crate::source::timekeeper::{Timekeeper, TimekeeperProof};
+use crate::source::timekeeper::TimekeeperProof;
 use crate::verifier::PotVerifier;
 use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
-use core_affinity::CoreId;
 use derive_more::{Deref, DerefMut};
 use futures::channel::mpsc;
 use futures::{FutureExt, StreamExt, select};
 use sc_client_api::BlockchainEvents;
-use sc_network::NotificationService;
-use sc_network_gossip::{Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_consensus::SyncOracle;
 use sp_consensus_subspace::SubspaceApi;
 use sp_consensus_subspace::digests::extract_pre_digest;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Zero};
-use std::collections::HashSet;
+use std::future;
 use std::sync::Arc;
-use std::{future, thread};
-use thread_priority::{ThreadPriority, set_current_thread_priority};
 use tokio::sync::broadcast;
-use tracing::{Span, debug, error, trace, warn};
+use tracing::{debug, trace, warn};
 
 const SLOTS_CHANNEL_CAPACITY: usize = 10;
+
+// TODO: Move somewhere more appropriate, probably rename too
+/// Global chain state
+pub trait ChainState: Clone + Send + Sync + 'static {
+    /// Returns `true` if the chain is currently syncing
+    fn is_syncing(&self) -> bool;
+}
+
+/// Initialize [`PotState`]
+pub fn init_pot_state<Block, Client>(
+    client: Arc<Client>,
+    pot_verifier: PotVerifier,
+) -> Result<PotState, ApiError>
+where
+    Block: BlockT,
+    Client: BlockchainEvents<Block> + HeaderBackend<Block> + ProvideRuntimeApi<Block> + 'static,
+    Client::Api: SubspaceApi<Block>,
+{
+    let best_hash = client.info().best_hash;
+    let runtime_api = client.runtime_api();
+    let chain_constants = runtime_api.chain_constants(best_hash)?;
+
+    let best_header = client
+        .header(best_hash)?
+        .ok_or_else(|| ApiError::UnknownBlock(format!("Parent block {best_hash} not found")))?;
+    let best_pre_digest =
+        extract_pre_digest(&best_header).map_err(|error| ApiError::Application(error.into()))?;
+
+    let parent_slot = if best_header.number().is_zero() {
+        SlotNumber::ZERO
+    } else {
+        // The best one seen
+        best_pre_digest.slot + chain_constants.block_authoring_delay()
+    };
+
+    let pot_parameters = runtime_api.pot_parameters(best_hash)?;
+    let maybe_next_parameters_change = pot_parameters.next_change;
+
+    let pot_input = if best_header.number().is_zero() {
+        PotNextSlotInput {
+            slot: parent_slot + SlotNumber::ONE,
+            slot_iterations: pot_parameters.slot_iterations,
+            seed: pot_verifier.genesis_seed(),
+        }
+    } else {
+        PotNextSlotInput::derive(
+            pot_parameters.slot_iterations,
+            parent_slot,
+            best_pre_digest.pot_info.future_proof_of_time,
+            &maybe_next_parameters_change,
+        )
+    };
+
+    Ok(PotState::new(
+        pot_input,
+        maybe_next_parameters_change,
+        pot_verifier,
+    ))
+}
 
 /// Proof of time slot information
 #[derive(Debug, Copy, Clone)]
@@ -58,148 +111,45 @@ impl Clone for PotSlotInfoStream {
 /// up to day with blockchain reorgs.
 #[derive(Debug)]
 #[must_use = "Proof of time source doesn't do anything unless run() method is called"]
-pub struct PotSourceWorker<SO> {
-    sync_oracle: SO,
+pub struct PotSourceWorker<CS> {
+    chain_state: CS,
     timekeeper_proof_receiver: Option<mpsc::Receiver<TimekeeperProof>>,
     to_gossip_sender: mpsc::Sender<ToGossipMessage>,
     from_gossip_receiver: mpsc::Receiver<GossipProof>,
     best_block_pot_info_receiver: mpsc::Receiver<BestBlockPotInfo>,
     last_slot_sent: SlotNumber,
     slot_sender: broadcast::Sender<PotSlotInfo>,
-    state: Arc<PotState>,
+    pot_state: Arc<PotState>,
 }
 
-impl<SO> PotSourceWorker<SO>
+impl<CS> PotSourceWorker<CS>
 where
-    SO: SyncOracle + Clone + Send + Sync + 'static,
+    CS: ChainState,
 {
-    // TODO: Struct for arguments
-    #[allow(clippy::too_many_arguments)]
-    pub fn new<Block, Client, Network, GossipSync>(
-        is_timekeeper: bool,
-        timekeeper_cpu_cores: HashSet<usize>,
-        client: Arc<Client>,
-        pot_verifier: PotVerifier,
-        network: Network,
-        notification_service: Box<dyn NotificationService>,
-        sync: Arc<GossipSync>,
-        sync_oracle: SO,
-    ) -> Result<(Self, PotGossipWorker<Block>, PotSlotInfoStream), ApiError>
-    where
-        Block: BlockT,
-        Client: BlockchainEvents<Block> + HeaderBackend<Block> + ProvideRuntimeApi<Block> + 'static,
-        Client::Api: SubspaceApi<Block>,
-        Network: GossipNetwork<Block> + Send + Sync + Clone + 'static,
-        GossipSync: GossipSyncing<Block> + 'static,
-    {
-        let best_hash = client.info().best_hash;
-        let runtime_api = client.runtime_api();
-        let chain_constants = runtime_api.chain_constants(best_hash)?;
-
-        let best_header = client
-            .header(best_hash)?
-            .ok_or_else(|| ApiError::UnknownBlock(format!("Parent block {best_hash} not found")))?;
-        let best_pre_digest = extract_pre_digest(&best_header)
-            .map_err(|error| ApiError::Application(error.into()))?;
-
-        let parent_slot = if best_header.number().is_zero() {
-            SlotNumber::ZERO
-        } else {
-            // The best one seen
-            best_pre_digest.slot + chain_constants.block_authoring_delay()
-        };
-
-        let pot_parameters = runtime_api.pot_parameters(best_hash)?;
-        let maybe_next_parameters_change = pot_parameters.next_change;
-
-        let pot_input = if best_header.number().is_zero() {
-            PotNextSlotInput {
-                slot: parent_slot + SlotNumber::ONE,
-                slot_iterations: pot_parameters.slot_iterations,
-                seed: pot_verifier.genesis_seed(),
-            }
-        } else {
-            PotNextSlotInput::derive(
-                pot_parameters.slot_iterations,
-                parent_slot,
-                best_pre_digest.pot_info.future_proof_of_time,
-                &maybe_next_parameters_change,
-            )
-        };
-
-        let state = Arc::new(PotState::new(
-            pot_input,
-            maybe_next_parameters_change,
-            pot_verifier.clone(),
-        ));
-
-        let mut timekeeper_proof_receiver = None;
+    pub fn new(
+        timekeeper_proof_receiver: Option<mpsc::Receiver<TimekeeperProof>>,
+        to_gossip_sender: mpsc::Sender<ToGossipMessage>,
+        from_gossip_receiver: mpsc::Receiver<GossipProof>,
+        best_block_pot_info_receiver: mpsc::Receiver<BestBlockPotInfo>,
+        chain_state: CS,
+        pot_state: Arc<PotState>,
+    ) -> Result<(Self, PotSlotInfoStream), ApiError> {
         let (slot_sender, slot_receiver) = broadcast::channel(SLOTS_CHANNEL_CAPACITY);
-        if is_timekeeper {
-            let span = Span::current();
-            let (timekeeper_source, proof_receiver) =
-                Timekeeper::new(Arc::clone(&state), pot_verifier.clone());
-            timekeeper_proof_receiver.replace(proof_receiver);
-
-            thread::Builder::new()
-                .name("timekeeper".to_string())
-                .spawn(move || {
-                    let _guard = span.enter();
-
-                    if let Some(core) = timekeeper_cpu_cores.into_iter().next()
-                        && !core_affinity::set_for_current(CoreId { id: core })
-                    {
-                        warn!(
-                            %core,
-                            "Failed to set core affinity, timekeeper will run on random CPU \
-                            core",
-                        );
-                    }
-
-                    if let Err(error) = set_current_thread_priority(ThreadPriority::Max) {
-                        warn!(
-                            %error,
-                            "Failed to set thread priority, timekeeper performance may be \
-                            negatively impacted by other software running on this machine",
-                        );
-                    }
-
-                    if let Err(error) = timekeeper_source.run() {
-                        error!(%error, "Timekeeper exited with an error");
-                    }
-                })
-                .expect("Thread creation must not panic");
-        }
-
-        let (gossip_worker, to_gossip_sender, from_gossip_receiver) = PotGossipWorker::new(
-            pot_verifier,
-            Arc::clone(&state),
-            network,
-            notification_service,
-            sync,
-            sync_oracle.clone(),
-        );
-
-        let (best_block_pot_source, best_block_pot_info_receiver) =
-            BestBlockPotSource::new(client)?;
-
-        // TODO: Remove
-        tokio::spawn(best_block_pot_source.run());
 
         let source_worker = Self {
-            sync_oracle,
+            chain_state,
             timekeeper_proof_receiver,
             to_gossip_sender,
             from_gossip_receiver,
             best_block_pot_info_receiver,
             last_slot_sent: SlotNumber::ZERO,
             slot_sender,
-            state,
+            pot_state,
         };
 
         let pot_slot_info_stream = PotSlotInfoStream(slot_receiver);
 
-        Ok((source_worker, gossip_worker, pot_slot_info_stream))
+        Ok((source_worker, pot_slot_info_stream))
     }
 
     /// Run proof of time source
@@ -250,7 +200,7 @@ where
             checkpoints,
         } = proof;
 
-        if self.sync_oracle.is_major_syncing() {
+        if self.chain_state.is_syncing() {
             trace!(
                 ?slot,
                 %seed,
@@ -304,7 +254,7 @@ where
             seed: proof.seed,
         };
 
-        if let Ok(next_slot_input) = self.state.try_extend(
+        if let Ok(next_slot_input) = self.pot_state.try_extend(
             expected_next_slot_input,
             proof.slot,
             proof.checkpoints.output(),
@@ -341,7 +291,7 @@ where
         // * if block import is on a different PoT chain, it will update next slot input to the
         //   correct fork (reorg)
         // * if block import is on the same PoT chain this will essentially do nothing
-        match self.state.set_known_good_output(
+        match self.pot_state.set_known_good_output(
             best_block_pot_info.slot,
             best_block_pot_info.pot_output,
             best_block_pot_info.pot_parameters_change,
