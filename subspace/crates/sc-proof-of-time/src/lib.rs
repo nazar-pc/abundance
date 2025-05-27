@@ -1,19 +1,18 @@
 //! Subspace proof of time implementation.
 
-mod slots;
 pub mod source;
 pub mod verifier;
 
-use crate::slots::SlotInfoProducer;
 use crate::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_core_primitives::pot::{PotCheckpoints, SlotDuration, SlotNumber};
-use sc_consensus_slots::{SimpleSlotWorker, SimpleSlotWorkerToSlotWorker, SlotWorker};
+use sc_consensus_slots::{SimpleSlotWorker, SimpleSlotWorkerToSlotWorker, SlotInfo, SlotWorker};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{SelectChain, SyncOracle};
+use sp_consensus_slots::Slot;
 use sp_consensus_subspace::SubspaceApi;
 use sp_inherents::CreateInherentDataProviders;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{Block as BlockT, Header};
 use std::sync::Arc;
 use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, error, info, trace};
@@ -59,11 +58,7 @@ pub async fn start_slot_worker<Block, Client, SC, Worker, SO, CIDP>(
         }
     };
 
-    let slot_info_producer = SlotInfoProducer::new(
-        slot_duration.as_duration(),
-        create_inherent_data_providers,
-        select_chain,
-    );
+    let slot_duration = slot_duration.as_duration();
 
     let mut worker = SimpleSlotWorkerToSlotWorker(worker);
 
@@ -107,8 +102,41 @@ pub async fn start_slot_worker<Block, Client, SC, Worker, SO, CIDP>(
             continue;
         };
 
-        if let Some(slot_info) = slot_info_producer.produce_slot_info(slot_to_claim).await {
-            let _ = worker.on_slot(slot_info).await;
-        }
+        let best_header = match select_chain.best_chain().await {
+            Ok(best_header) => best_header,
+            Err(error) => {
+                error!(
+                    %error,
+                    "Unable to author block in slot. No best block header.",
+                );
+
+                continue;
+            }
+        };
+
+        let inherent_data_providers = match create_inherent_data_providers
+            .create_inherent_data_providers(best_header.hash(), ())
+            .await
+        {
+            Ok(inherent_data_providers) => inherent_data_providers,
+            Err(error) => {
+                error!(
+                    %error,
+                    "Unable to author block in slot. Failure creating inherent data provider.",
+                );
+
+                continue;
+            }
+        };
+
+        let _ = worker
+            .on_slot(SlotInfo::new(
+                Slot::from(slot_to_claim.as_u64()),
+                Box::new(inherent_data_providers),
+                slot_duration,
+                best_header,
+                None,
+            ))
+            .await;
     }
 }
