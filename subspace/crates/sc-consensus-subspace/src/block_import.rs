@@ -32,6 +32,7 @@ use sc_consensus::StateAction;
 use sc_consensus::block_import::{
     BlockCheckParams, BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult,
 };
+use sc_proof_of_time::PotNextSlotInput;
 use sc_proof_of_time::verifier::PotVerifier;
 use sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
@@ -39,7 +40,7 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus_subspace::digests::{
     SubspaceDigestItems, extract_pre_digest, extract_subspace_digest_items,
 };
-use sp_consensus_subspace::{PotNextSlotInput, SubspaceApi, SubspaceJustification};
+use sp_consensus_subspace::{SubspaceApi, SubspaceJustification};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, One};
 use sp_runtime::{Justifications, SaturatedConversion};

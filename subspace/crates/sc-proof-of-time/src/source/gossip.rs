@@ -1,5 +1,6 @@
 //! PoT gossip functionality.
 
+use crate::PotNextSlotInput;
 use crate::source::state::PotState;
 use crate::verifier::PotVerifier;
 use ab_core_primitives::pot::{PotCheckpoints, PotSeed, SlotNumber};
@@ -15,7 +16,6 @@ use sc_network_gossip::{
 };
 use schnellru::{ByLength, LruMap};
 use sp_consensus::SyncOracle;
-use sp_consensus_subspace::PotNextSlotInput;
 use sp_runtime::traits::{Block as BlockT, Hash as HashT, HashingFor};
 use std::cmp;
 use std::collections::{HashMap, VecDeque};

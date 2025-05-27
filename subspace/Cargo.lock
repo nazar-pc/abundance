@@ -9408,6 +9408,7 @@ dependencies = [
  "sc-consensus-slots",
  "sc-network",
  "sc-network-gossip",
+ "scale-info",
  "schnellru",
  "sp-api",
  "sp-blockchain",

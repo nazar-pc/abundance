@@ -2,6 +2,7 @@ pub mod gossip;
 mod state;
 mod timekeeper;
 
+use crate::PotNextSlotInput;
 use crate::source::gossip::{GossipProof, PotGossipWorker, ToGossipMessage};
 use crate::source::state::{PotState, PotStateUpdateOutcome};
 use crate::source::timekeeper::{TimekeeperProof, run_timekeeper};
@@ -18,7 +19,7 @@ use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_consensus_subspace::digests::{extract_pre_digest, extract_subspace_digest_items};
-use sp_consensus_subspace::{ChainConstants, PotNextSlotInput, SubspaceApi};
+use sp_consensus_subspace::{ChainConstants, SubspaceApi};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Zero};
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -34,7 +35,7 @@ const GOSSIP_OUTGOING_CHANNEL_CAPACITY: usize = 10;
 const GOSSIP_INCOMING_CHANNEL_CAPACITY: usize = 10;
 
 /// Proof of time slot information
-#[derive(Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct PotSlotInfo {
     /// Slot number
     pub slot: SlotNumber,
@@ -45,6 +46,13 @@ pub struct PotSlotInfo {
 /// Stream with proof of time slots
 #[derive(Debug, Deref, DerefMut)]
 pub struct PotSlotInfoStream(broadcast::Receiver<PotSlotInfo>);
+
+impl Clone for PotSlotInfoStream {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self(self.0.resubscribe())
+    }
+}
 
 /// Worker producing proofs of time.
 ///
