@@ -31,6 +31,8 @@ const MAX_SLOTS_IN_THE_FUTURE: SlotNumber = SlotNumber::new(10);
 const EXPECTED_POT_VERIFICATION_SPEEDUP: usize = 7;
 const GOSSIP_CACHE_PEER_COUNT: u32 = 1_000;
 const GOSSIP_CACHE_PER_PEER_SIZE: usize = 20;
+const GOSSIP_OUTGOING_CHANNEL_CAPACITY: usize = 10;
+const GOSSIP_INCOMING_CHANNEL_CAPACITY: usize = 10;
 
 mod rep {
     use sc_network::ReputationChange;
@@ -71,10 +73,7 @@ mod rep {
 const GOSSIP_PROTOCOL: &str = "/subspace/subspace-proof-of-time/1";
 
 /// Returns the network configuration for PoT gossip.
-pub fn pot_gossip_peers_set_config() -> (
-    NonDefaultSetConfig,
-    Box<dyn sc_network::NotificationService>,
-) {
+pub fn pot_gossip_peers_set_config() -> (NonDefaultSetConfig, Box<dyn NotificationService>) {
     let (mut cfg, notification_service) = NonDefaultSetConfig::new(
         GOSSIP_PROTOCOL.into(),
         Vec::new(),
@@ -87,19 +86,19 @@ pub fn pot_gossip_peers_set_config() -> (
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Encode, Decode)]
-pub(super) struct GossipProof {
+pub struct GossipProof {
     /// Slot number
-    pub(super) slot: SlotNumber,
+    pub slot: SlotNumber,
     /// Proof of time seed
-    pub(super) seed: PotSeed,
+    pub seed: PotSeed,
     /// Iterations per slot
-    pub(super) slot_iterations: NonZeroU32,
+    pub slot_iterations: NonZeroU32,
     /// Proof of time checkpoints
-    pub(super) checkpoints: PotCheckpoints,
+    pub checkpoints: PotCheckpoints,
 }
 
 #[derive(Debug)]
-pub(super) enum ToGossipMessage {
+pub enum ToGossipMessage {
     Proof(GossipProof),
     NextSlotInput(PotNextSlotInput),
 }
@@ -117,7 +116,7 @@ where
     pot_verifier: PotVerifier,
     gossip_cache: LruMap<PeerId, VecDeque<GossipProof>>,
     to_gossip_receiver: mpsc::Receiver<ToGossipMessage>,
-    from_gossip_sender: mpsc::Sender<(PeerId, GossipProof)>,
+    from_gossip_sender: mpsc::Sender<GossipProof>,
 }
 
 impl<Block> PotGossipWorker<Block>
@@ -125,24 +124,28 @@ where
     Block: BlockT,
 {
     /// Instantiate gossip worker
-    // TODO: Struct for arguments
-    #[allow(clippy::too_many_arguments)]
-    pub(super) fn new<Network, GossipSync, SO>(
-        to_gossip_receiver: mpsc::Receiver<ToGossipMessage>,
-        from_gossip_sender: mpsc::Sender<(PeerId, GossipProof)>,
+    pub fn new<Network, GossipSync, SO>(
         pot_verifier: PotVerifier,
         state: Arc<PotState>,
         network: Network,
         notification_service: Box<dyn NotificationService>,
         sync: Arc<GossipSync>,
         sync_oracle: SO,
-    ) -> Self
+    ) -> (
+        Self,
+        mpsc::Sender<ToGossipMessage>,
+        mpsc::Receiver<GossipProof>,
+    )
     where
         Network: GossipNetwork<Block> + NetworkPeers + Send + Sync + Clone + 'static,
         GossipSync: GossipSyncing<Block> + 'static,
         SO: SyncOracle + Send + Sync + 'static,
     {
         let topic = HashingFor::<Block>::hash(b"proofs");
+        let (to_gossip_sender, to_gossip_receiver) =
+            mpsc::channel(GOSSIP_OUTGOING_CHANNEL_CAPACITY);
+        let (from_gossip_sender, from_gossip_receiver) =
+            mpsc::channel(GOSSIP_INCOMING_CHANNEL_CAPACITY);
 
         let validator = Arc::new(PotGossipValidator::new(
             Arc::clone(&state),
@@ -159,7 +162,7 @@ where
             None,
         );
 
-        Self {
+        let instance = Self {
             engine: Arc::new(Mutex::new(engine)),
             network: Arc::new(network),
             topic,
@@ -168,7 +171,9 @@ where
             gossip_cache: LruMap::new(ByLength::new(GOSSIP_CACHE_PEER_COUNT)),
             to_gossip_receiver,
             from_gossip_sender,
-        }
+        };
+
+        (instance, to_gossip_sender, from_gossip_receiver)
     }
 
     /// Run gossip engine.
@@ -296,7 +301,7 @@ where
                 .lock()
                 .gossip_message(self.topic, proof.encode(), false);
 
-            if let Err(error) = self.from_gossip_sender.send((sender, proof)).await {
+            if let Err(error) = self.from_gossip_sender.send(proof).await {
                 warn!(%error, "Failed to send incoming message");
             }
         } else {
@@ -418,7 +423,7 @@ where
         engine: Arc<Mutex<GossipEngine<Block>>>,
         network: &dyn NetworkPeers,
         pot_verifier: &PotVerifier,
-        mut from_gossip_sender: mpsc::Sender<(PeerId, GossipProof)>,
+        mut from_gossip_sender: mpsc::Sender<GossipProof>,
         topic: Block::Hash,
     ) {
         if potentially_matching_proofs.is_empty() {
@@ -498,8 +503,7 @@ where
 
                     engine.lock().gossip_message(topic, proof.encode(), false);
 
-                    if let Err(error) =
-                        futures::executor::block_on(from_gossip_sender.send((sender, proof)))
+                    if let Err(error) = futures::executor::block_on(from_gossip_sender.send(proof))
                     {
                         warn!(
                             %error,

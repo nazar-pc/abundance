@@ -13,7 +13,7 @@ use derive_more::{Deref, DerefMut};
 use futures::channel::mpsc;
 use futures::{FutureExt, StreamExt, select};
 use sc_client_api::BlockchainEvents;
-use sc_network::{NotificationService, PeerId};
+use sc_network::NotificationService;
 use sc_network_gossip::{Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
@@ -30,8 +30,6 @@ use tokio::sync::broadcast;
 use tracing::{Span, debug, error, trace, warn};
 
 const SLOTS_CHANNEL_CAPACITY: usize = 10;
-const GOSSIP_OUTGOING_CHANNEL_CAPACITY: usize = 10;
-const GOSSIP_INCOMING_CHANNEL_CAPACITY: usize = 10;
 
 /// Proof of time slot information
 #[derive(Debug, Copy, Clone)]
@@ -65,7 +63,7 @@ pub struct PotSourceWorker<Block, Client, SO> {
     chain_constants: ChainConstants,
     timekeeper_proof_receiver: Option<mpsc::Receiver<TimekeeperProof>>,
     to_gossip_sender: mpsc::Sender<ToGossipMessage>,
-    from_gossip_receiver: mpsc::Receiver<(PeerId, GossipProof)>,
+    from_gossip_receiver: mpsc::Receiver<GossipProof>,
     last_slot_sent: SlotNumber,
     slot_sender: broadcast::Sender<PotSlotInfo>,
     state: Arc<PotState>,
@@ -174,13 +172,7 @@ where
                 .expect("Thread creation must not panic");
         }
 
-        let (to_gossip_sender, to_gossip_receiver) =
-            mpsc::channel(GOSSIP_OUTGOING_CHANNEL_CAPACITY);
-        let (from_gossip_sender, from_gossip_receiver) =
-            mpsc::channel(GOSSIP_INCOMING_CHANNEL_CAPACITY);
-        let gossip_worker = PotGossipWorker::new(
-            to_gossip_receiver,
-            from_gossip_sender,
+        let (gossip_worker, to_gossip_sender, from_gossip_receiver) = PotGossipWorker::new(
             pot_verifier,
             Arc::clone(&state),
             network,
@@ -230,8 +222,8 @@ where
                     }
                 }
                 maybe_gossip_proof = self.from_gossip_receiver.next() => {
-                    if let Some((sender, gossip_proof)) = maybe_gossip_proof {
-                        self.handle_gossip_proof(sender, gossip_proof);
+                    if let Some(gossip_proof) = maybe_gossip_proof {
+                        self.handle_gossip_proof(gossip_proof);
                     } else {
                         debug!("Incoming gossip messages stream ended, exiting");
                         return;
@@ -311,7 +303,7 @@ where
 
     // TODO: Follow both verified and unverified checkpoints to start secondary timekeeper ASAP in
     //  case verification succeeds
-    fn handle_gossip_proof(&mut self, _sender: PeerId, proof: GossipProof) {
+    fn handle_gossip_proof(&mut self, proof: GossipProof) {
         let expected_next_slot_input = PotNextSlotInput {
             slot: proof.slot,
             slot_iterations: proof.slot_iterations,
