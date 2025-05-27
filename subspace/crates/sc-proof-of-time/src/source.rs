@@ -5,7 +5,7 @@ mod timekeeper;
 use crate::PotNextSlotInput;
 use crate::source::gossip::{GossipProof, PotGossipWorker, ToGossipMessage};
 use crate::source::state::{PotState, PotStateUpdateOutcome};
-use crate::source::timekeeper::{TimekeeperProof, run_timekeeper};
+use crate::source::timekeeper::{TimekeeperProof, TimekeeperSource};
 use crate::verifier::PotVerifier;
 use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
 use core_affinity::CoreId;
@@ -167,6 +167,8 @@ where
                             negatively impacted by other software running on this machine",
                         );
                     }
+
+                    let timekeeper_source =
 
                     if let Err(error) =
                         run_timekeeper(state, pot_verifier, timekeeper_proofs_sender)
