@@ -1,17 +1,17 @@
 pub mod gossip;
-mod state;
-mod timekeeper;
+pub mod state;
+pub mod timekeeper;
 
 use crate::PotNextSlotInput;
 use crate::source::gossip::{GossipProof, PotGossipWorker, ToGossipMessage};
-use crate::source::state::{PotState, PotStateUpdateOutcome};
-use crate::source::timekeeper::{TimekeeperProof, run_timekeeper};
+use crate::source::state::{PotState, PotStateSetOutcome};
+use crate::source::timekeeper::{Timekeeper, TimekeeperProof};
 use crate::verifier::PotVerifier;
 use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
 use core_affinity::CoreId;
 use derive_more::{Deref, DerefMut};
 use futures::channel::mpsc;
-use futures::{StreamExt, select};
+use futures::{FutureExt, StreamExt, select};
 use sc_client_api::BlockchainEvents;
 use sc_network::{NotificationService, PeerId};
 use sc_network_gossip::{Network as GossipNetwork, Syncing as GossipSyncing};
@@ -24,12 +24,11 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Zero};
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::thread;
+use std::{future, thread};
 use thread_priority::{ThreadPriority, set_current_thread_priority};
 use tokio::sync::broadcast;
 use tracing::{Span, debug, error, trace, warn};
 
-const LOCAL_PROOFS_CHANNEL_CAPACITY: usize = 10;
 const SLOTS_CHANNEL_CAPACITY: usize = 10;
 const GOSSIP_OUTGOING_CHANNEL_CAPACITY: usize = 10;
 const GOSSIP_INCOMING_CHANNEL_CAPACITY: usize = 10;
@@ -64,7 +63,7 @@ pub struct PotSourceWorker<Block, Client, SO> {
     client: Arc<Client>,
     sync_oracle: SO,
     chain_constants: ChainConstants,
-    timekeeper_proofs_receiver: mpsc::Receiver<TimekeeperProof>,
+    timekeeper_proof_receiver: Option<mpsc::Receiver<TimekeeperProof>>,
     to_gossip_sender: mpsc::Sender<ToGossipMessage>,
     from_gossip_receiver: mpsc::Receiver<(PeerId, GossipProof)>,
     last_slot_sent: SlotNumber,
@@ -137,13 +136,13 @@ where
             pot_verifier.clone(),
         ));
 
-        let (timekeeper_proofs_sender, timekeeper_proofs_receiver) =
-            mpsc::channel(LOCAL_PROOFS_CHANNEL_CAPACITY);
+        let mut timekeeper_proof_receiver = None;
         let (slot_sender, slot_receiver) = broadcast::channel(SLOTS_CHANNEL_CAPACITY);
         if is_timekeeper {
-            let state = Arc::clone(&state);
-            let pot_verifier = pot_verifier.clone();
             let span = Span::current();
+            let (timekeeper_source, proof_receiver) =
+                Timekeeper::new(Arc::clone(&state), pot_verifier.clone());
+            timekeeper_proof_receiver.replace(proof_receiver);
 
             thread::Builder::new()
                 .name("timekeeper".to_string())
@@ -168,9 +167,7 @@ where
                         );
                     }
 
-                    if let Err(error) =
-                        run_timekeeper(state, pot_verifier, timekeeper_proofs_sender)
-                    {
+                    if let Err(error) = timekeeper_source.run() {
                         error!(%error, "Timekeeper exited with an error");
                     }
                 })
@@ -196,7 +193,7 @@ where
             client,
             sync_oracle,
             chain_constants,
-            timekeeper_proofs_receiver,
+            timekeeper_proof_receiver,
             to_gossip_sender,
             from_gossip_receiver,
             last_slot_sent: SlotNumber::ZERO,
@@ -215,12 +212,23 @@ where
         let mut import_notification_stream = self.client.import_notification_stream();
 
         loop {
-            select! {
-                // List of blocks that the client has finalized.
-                timekeeper_proof = self.timekeeper_proofs_receiver.select_next_some() => {
-                    self.handle_timekeeper_proof(timekeeper_proof);
+            let timekeeper_proof = async {
+                if let Some(timekeeper_proof_receiver) = &mut self.timekeeper_proof_receiver {
+                    timekeeper_proof_receiver.next().await
+                } else {
+                    future::pending().await
                 }
-                // List of blocks that the client has finalized.
+            };
+
+            select! {
+                maybe_timekeeper_proof = timekeeper_proof.fuse() => {
+                    if let Some(timekeeper_proof) = maybe_timekeeper_proof {
+                        self.handle_timekeeper_proof(timekeeper_proof);
+                    } else {
+                        debug!("Timekeeper proof stream ended, exiting");
+                        return;
+                    }
+                }
                 maybe_gossip_proof = self.from_gossip_receiver.next() => {
                     if let Some((sender, gossip_proof)) = maybe_gossip_proof {
                         self.handle_gossip_proof(sender, gossip_proof);
@@ -376,13 +384,13 @@ where
             best_proof,
             Some(subspace_digest_items.pot_parameters_change),
         ) {
-            PotStateUpdateOutcome::NoChange => {
+            PotStateSetOutcome::NoChange => {
                 trace!(
                     %best_slot,
                     "Block import didn't result in proof of time chain changes",
                 );
             }
-            PotStateUpdateOutcome::Extension { from, to } => {
+            PotStateSetOutcome::Extension { from, to } => {
                 warn!(
                     from_next_slot = %from.slot,
                     to_next_slot = %to.slot,
@@ -400,7 +408,7 @@ where
                     );
                 }
             }
-            PotStateUpdateOutcome::Reorg { from, to } => {
+            PotStateSetOutcome::Reorg { from, to } => {
                 warn!(
                     from_next_slot = %from.slot,
                     to_next_slot = %to.slot,

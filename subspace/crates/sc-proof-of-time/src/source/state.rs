@@ -10,10 +10,10 @@ struct InnerState {
 }
 
 impl InnerState {
-    pub(super) fn update(
+    fn update(
         mut self,
-        mut best_slot: SlotNumber,
-        mut best_output: PotOutput,
+        mut slot: SlotNumber,
+        mut output: PotOutput,
         maybe_updated_parameters_change: Option<Option<PotParametersChange>>,
         pot_verifier: &PotVerifier,
     ) -> Self {
@@ -24,8 +24,8 @@ impl InnerState {
         loop {
             self.next_slot_input = PotNextSlotInput::derive(
                 self.next_slot_input.slot_iterations,
-                best_slot,
-                best_output,
+                slot,
+                output,
                 &self.parameters_change,
             );
 
@@ -34,8 +34,8 @@ impl InnerState {
                 self.next_slot_input.slot_iterations,
                 self.next_slot_input.seed,
             ) {
-                best_slot = self.next_slot_input.slot;
-                best_output = checkpoints.output();
+                slot = self.next_slot_input.slot;
+                output = checkpoints.output();
             } else {
                 break;
             }
@@ -45,13 +45,17 @@ impl InnerState {
     }
 }
 
+/// Result of [`PotState::set_known_good_output()`] call
 #[derive(Debug)]
-pub(super) enum PotStateUpdateOutcome {
+pub enum PotStateSetOutcome {
+    /// Nothing has changed
     NoChange,
+    /// PoT chain extension
     Extension {
         from: PotNextSlotInput,
         to: PotNextSlotInput,
     },
+    /// PoT chain reorg
     Reorg {
         from: PotNextSlotInput,
         to: PotNextSlotInput,
@@ -62,14 +66,14 @@ pub(super) enum PotStateUpdateOutcome {
 ///
 /// Maintains the accurate information about PoT state and current tip.
 #[derive(Debug)]
-pub(super) struct PotState {
+pub struct PotState {
     inner_state: Mutex<InnerState>,
     verifier: PotVerifier,
 }
 
 impl PotState {
     /// Create a new PoT state
-    pub(super) fn new(
+    pub fn new(
         next_slot_input: PotNextSlotInput,
         parameters_change: Option<PotParametersChange>,
         verifier: PotVerifier,
@@ -86,7 +90,7 @@ impl PotState {
     }
 
     /// PoT input for the next slot
-    pub(super) fn next_slot_input(&self) -> PotNextSlotInput {
+    pub fn next_slot_input(&self) -> PotNextSlotInput {
         self.inner_state.lock().next_slot_input
     }
 
@@ -94,7 +98,7 @@ impl PotState {
     ///
     /// Returns `Ok(new_next_slot_input)` if PoT chain was extended successfully and
     /// `Err(existing_next_slot_input)` in case the state was changed in the meantime.
-    pub(super) fn try_extend(
+    pub fn try_extend(
         &self,
         expected_existing_next_slot_input: PotNextSlotInput,
         best_slot: SlotNumber,
@@ -116,17 +120,17 @@ impl PotState {
         Ok(existing_inner_state.next_slot_input)
     }
 
-    /// Set known goo output for time slot, overriding PoT chain if it doesn't match the provided
+    /// Set known good output for time slot, overriding PoT chain if it doesn't match the provided
     /// output.
     ///
     /// This is typically called with information obtained from received block. It typically lags
     /// behind PoT tip and is used as a correction mechanism in case PoT reorg is needed.
-    pub(super) fn set_known_good_output(
+    pub fn set_known_good_output(
         &self,
         slot: SlotNumber,
         output: PotOutput,
         maybe_updated_parameters_change: Option<Option<PotParametersChange>>,
-    ) -> PotStateUpdateOutcome {
+    ) -> PotStateSetOutcome {
         let previous_best_state;
         let new_best_state;
         {
@@ -142,7 +146,7 @@ impl PotState {
         }
 
         if previous_best_state.next_slot_input == new_best_state.next_slot_input {
-            return PotStateUpdateOutcome::NoChange;
+            return PotStateSetOutcome::NoChange;
         }
 
         if previous_best_state.next_slot_input.slot < new_best_state.next_slot_input.slot {
@@ -174,7 +178,7 @@ impl PotState {
                     && slot_iterations == new_best_state.next_slot_input.slot_iterations
                     && seed == new_best_state.next_slot_input.seed
                 {
-                    return PotStateUpdateOutcome::Extension {
+                    return PotStateSetOutcome::Extension {
                         from: previous_best_state.next_slot_input,
                         to: new_best_state.next_slot_input,
                     };
@@ -182,7 +186,7 @@ impl PotState {
             }
         }
 
-        PotStateUpdateOutcome::Reorg {
+        PotStateSetOutcome::Reorg {
             from: previous_best_state.next_slot_input,
             to: new_best_state.next_slot_input,
         }
