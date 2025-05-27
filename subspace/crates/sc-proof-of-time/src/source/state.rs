@@ -58,6 +58,9 @@ pub(super) enum PotStateUpdateOutcome {
     },
 }
 
+/// Global PoT state.
+///
+/// Maintains the accurate information about PoT state and current tip.
 #[derive(Debug)]
 pub(super) struct PotState {
     inner_state: Mutex<InnerState>,
@@ -65,6 +68,7 @@ pub(super) struct PotState {
 }
 
 impl PotState {
+    /// Create a new PoT state
     pub(super) fn new(
         next_slot_input: PotNextSlotInput,
         parameters_change: Option<PotParametersChange>,
@@ -81,14 +85,15 @@ impl PotState {
         }
     }
 
+    /// PoT input for the next slot
     pub(super) fn next_slot_input(&self) -> PotNextSlotInput {
         self.inner_state.lock().next_slot_input
     }
 
-    /// Extend state if it matches provided expected next slot input.
+    /// Extend PoT chain if it matches provided expected next slot input.
     ///
-    /// Returns `Ok(new_next_slot_input)` if state was extended successfully and
-    /// `Err(existing_next_slot_input)` in case state was changed in the meantime.
+    /// Returns `Ok(new_next_slot_input)` if PoT chain was extended successfully and
+    /// `Err(existing_next_slot_input)` in case the state was changed in the meantime.
     pub(super) fn try_extend(
         &self,
         expected_existing_next_slot_input: PotNextSlotInput,
@@ -111,13 +116,15 @@ impl PotState {
         Ok(existing_inner_state.next_slot_input)
     }
 
-    /// Update state, overriding PoT chain if it doesn't match provided values.
+    /// Set known goo output for time slot, overriding PoT chain if it doesn't match the provided
+    /// output.
     ///
-    /// Returns `Some(next_slot_input)` if reorg happened.
-    pub(super) fn update(
+    /// This is typically called with information obtained from received block. It typically lags
+    /// behind PoT tip and is used as a correction mechanism in case PoT reorg is needed.
+    pub(super) fn set_known_good_output(
         &self,
-        best_slot: SlotNumber,
-        best_output: PotOutput,
+        slot: SlotNumber,
+        output: PotOutput,
         maybe_updated_parameters_change: Option<Option<PotParametersChange>>,
     ) -> PotStateUpdateOutcome {
         let previous_best_state;
@@ -126,8 +133,8 @@ impl PotState {
             let mut inner_state = self.inner_state.lock();
             previous_best_state = *inner_state;
             new_best_state = previous_best_state.update(
-                best_slot,
-                best_output,
+                slot,
+                output,
                 maybe_updated_parameters_change,
                 &self.verifier,
             );
