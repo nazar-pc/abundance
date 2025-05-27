@@ -58,8 +58,7 @@ tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-threa
 tracing = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-winapi = "0.3.9"
+winapi = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
-futures = { workspace = true }
