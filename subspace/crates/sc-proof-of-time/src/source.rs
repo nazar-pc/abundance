@@ -412,9 +412,4 @@ where
             }
         }
     }
-
-    /// Subscribe to pot slot notifications.
-    pub fn subscribe_pot_slot_info_stream(&self) -> broadcast::Receiver<PotSlotInfo> {
-        self.slot_sender.subscribe()
-    }
 }
