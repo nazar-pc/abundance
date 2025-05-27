@@ -363,7 +363,7 @@ where
         // * if block import is on a different PoT chain, it will update next slot input to the
         //   correct fork (reorg)
         // * if block import is on the same PoT chain this will essentially do nothing
-        match self.state.update(
+        match self.state.set_known_good_output(
             best_slot,
             best_proof,
             Some(subspace_digest_items.pot_parameters_change),
