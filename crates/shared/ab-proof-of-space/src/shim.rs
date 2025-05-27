@@ -7,7 +7,7 @@ use crate::{PosTableType, Table};
 use ab_core_primitives::pos::{PosProof, PosSeed};
 use core::iter;
 
-/// Subspace proof of space table generator.
+/// Proof of space table generator.
 ///
 /// Shim implementation.
 #[derive(Debug, Default, Clone)]
@@ -21,7 +21,7 @@ impl TableGenerator<ShimTable> for ShimTableGenerator {
     }
 }
 
-/// Subspace proof of space table.
+/// Proof of space table.
 ///
 /// Shim implementation.
 #[derive(Debug)]
