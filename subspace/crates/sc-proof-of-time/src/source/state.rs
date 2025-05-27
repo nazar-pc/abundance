@@ -129,7 +129,7 @@ impl PotState {
         &self,
         slot: SlotNumber,
         output: PotOutput,
-        maybe_updated_parameters_change: Option<Option<PotParametersChange>>,
+        updated_parameters_change: Option<PotParametersChange>,
     ) -> PotStateSetOutcome {
         let previous_best_state;
         let new_best_state;
@@ -139,7 +139,7 @@ impl PotState {
             new_best_state = previous_best_state.update(
                 slot,
                 output,
-                maybe_updated_parameters_change,
+                Some(updated_parameters_change),
                 &self.verifier,
             );
             *inner_state = new_best_state;
@@ -165,7 +165,7 @@ impl PotState {
                     slot_iterations,
                     slot,
                     checkpoints.output(),
-                    &maybe_updated_parameters_change.flatten(),
+                    &updated_parameters_change,
                 );
 
                 // TODO: Consider carrying of the whole `PotNextSlotInput` rather than individual

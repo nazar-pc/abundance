@@ -1,8 +1,10 @@
+pub mod block_import;
 pub mod gossip;
 pub mod state;
 pub mod timekeeper;
 
 use crate::PotNextSlotInput;
+use crate::source::block_import::{BestBlockPotInfo, BestBlockPotSource};
 use crate::source::gossip::{GossipProof, PotGossipWorker, ToGossipMessage};
 use crate::source::state::{PotState, PotStateSetOutcome};
 use crate::source::timekeeper::{Timekeeper, TimekeeperProof};
@@ -18,11 +20,10 @@ use sc_network_gossip::{Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
-use sp_consensus_subspace::digests::{extract_pre_digest, extract_subspace_digest_items};
-use sp_consensus_subspace::{ChainConstants, SubspaceApi};
+use sp_consensus_subspace::SubspaceApi;
+use sp_consensus_subspace::digests::extract_pre_digest;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Zero};
 use std::collections::HashSet;
-use std::marker::PhantomData;
 use std::sync::Arc;
 use std::{future, thread};
 use thread_priority::{ThreadPriority, set_current_thread_priority};
@@ -57,29 +58,24 @@ impl Clone for PotSlotInfoStream {
 /// up to day with blockchain reorgs.
 #[derive(Debug)]
 #[must_use = "Proof of time source doesn't do anything unless run() method is called"]
-pub struct PotSourceWorker<Block, Client, SO> {
-    client: Arc<Client>,
+pub struct PotSourceWorker<SO> {
     sync_oracle: SO,
-    chain_constants: ChainConstants,
     timekeeper_proof_receiver: Option<mpsc::Receiver<TimekeeperProof>>,
     to_gossip_sender: mpsc::Sender<ToGossipMessage>,
     from_gossip_receiver: mpsc::Receiver<GossipProof>,
+    best_block_pot_info_receiver: mpsc::Receiver<BestBlockPotInfo>,
     last_slot_sent: SlotNumber,
     slot_sender: broadcast::Sender<PotSlotInfo>,
     state: Arc<PotState>,
-    _block: PhantomData<Block>,
 }
 
-impl<Block, Client, SO> PotSourceWorker<Block, Client, SO>
+impl<SO> PotSourceWorker<SO>
 where
-    Block: BlockT,
-    Client: BlockchainEvents<Block> + HeaderBackend<Block> + ProvideRuntimeApi<Block>,
-    Client::Api: SubspaceApi<Block>,
     SO: SyncOracle + Clone + Send + Sync + 'static,
 {
     // TODO: Struct for arguments
     #[allow(clippy::too_many_arguments)]
-    pub fn new<Network, GossipSync>(
+    pub fn new<Block, Client, Network, GossipSync>(
         is_timekeeper: bool,
         timekeeper_cpu_cores: HashSet<usize>,
         client: Arc<Client>,
@@ -90,6 +86,9 @@ where
         sync_oracle: SO,
     ) -> Result<(Self, PotGossipWorker<Block>, PotSlotInfoStream), ApiError>
     where
+        Block: BlockT,
+        Client: BlockchainEvents<Block> + HeaderBackend<Block> + ProvideRuntimeApi<Block> + 'static,
+        Client::Api: SubspaceApi<Block>,
         Network: GossipNetwork<Block> + Send + Sync + Clone + 'static,
         GossipSync: GossipSyncing<Block> + 'static,
     {
@@ -181,17 +180,21 @@ where
             sync_oracle.clone(),
         );
 
+        let (best_block_pot_source, best_block_pot_info_receiver) =
+            BestBlockPotSource::new(client)?;
+
+        // TODO: Remove
+        tokio::spawn(best_block_pot_source.run());
+
         let source_worker = Self {
-            client,
             sync_oracle,
-            chain_constants,
             timekeeper_proof_receiver,
             to_gossip_sender,
             from_gossip_receiver,
+            best_block_pot_info_receiver,
             last_slot_sent: SlotNumber::ZERO,
             slot_sender,
             state,
-            _block: PhantomData,
         };
 
         let pot_slot_info_stream = PotSlotInfoStream(slot_receiver);
@@ -201,8 +204,6 @@ where
 
     /// Run proof of time source
     pub async fn run(mut self) {
-        let mut import_notification_stream = self.client.import_notification_stream();
-
         loop {
             let timekeeper_proof = async {
                 if let Some(timekeeper_proof_receiver) = &mut self.timekeeper_proof_receiver {
@@ -229,16 +230,9 @@ where
                         return;
                     }
                 }
-                maybe_import_notification = import_notification_stream.next() => {
-                    if let Some(import_notification) = maybe_import_notification {
-                        if !import_notification.is_new_best {
-                            // Ignore blocks that don't extend the chain
-                            continue;
-                        }
-                        self.handle_block_import_notification(
-                            import_notification.hash,
-                            &import_notification.header,
-                        );
+                maybe_best_block_pot_info = self.best_block_pot_info_receiver.next() => {
+                    if let Some(best_block_pot_info) = maybe_best_block_pot_info {
+                        self.handle_best_block_pot_info(best_block_pot_info);
                     } else {
                         debug!("Import notifications stream ended, exiting");
                         return;
@@ -341,44 +335,20 @@ where
         }
     }
 
-    fn handle_block_import_notification(
-        &mut self,
-        block_hash: Block::Hash,
-        header: &Block::Header,
-    ) {
-        let subspace_digest_items = match extract_subspace_digest_items::<Block::Header>(header) {
-            Ok(pre_digest) => pre_digest,
-            Err(error) => {
-                error!(
-                    %error,
-                    block_number = %header.number(),
-                    %block_hash,
-                    "Failed to extract Subspace digest items from header"
-                );
-                return;
-            }
-        };
-
-        let best_slot =
-            subspace_digest_items.pre_digest.slot + self.chain_constants.block_authoring_delay();
-        let best_proof = subspace_digest_items
-            .pre_digest
-            .pot_info
-            .future_proof_of_time;
-
+    fn handle_best_block_pot_info(&mut self, best_block_pot_info: BestBlockPotInfo) {
         // This will do one of 3 things depending on circumstances:
         // * if block import is ahead of timekeeper and gossip, it will update next slot input
         // * if block import is on a different PoT chain, it will update next slot input to the
         //   correct fork (reorg)
         // * if block import is on the same PoT chain this will essentially do nothing
         match self.state.set_known_good_output(
-            best_slot,
-            best_proof,
-            Some(subspace_digest_items.pot_parameters_change),
+            best_block_pot_info.slot,
+            best_block_pot_info.pot_output,
+            best_block_pot_info.pot_parameters_change,
         ) {
             PotStateSetOutcome::NoChange => {
                 trace!(
-                    %best_slot,
+                    slot = %best_block_pot_info.slot,
                     "Block import didn't result in proof of time chain changes",
                 );
             }
