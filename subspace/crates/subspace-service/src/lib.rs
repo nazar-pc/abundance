@@ -56,8 +56,8 @@ use sc_network::service::traits::NetworkService;
 use sc_network::{NetworkWorker, NotificationMetrics, Roles};
 use sc_network_sync::engine::SyncingEngine;
 use sc_network_sync::service::network::NetworkServiceProvider;
+use sc_proof_of_time::source::PotSourceWorker;
 use sc_proof_of_time::source::gossip::pot_gossip_peers_set_config;
-use sc_proof_of_time::source::{PotSlotInfo, PotSourceWorker};
 use sc_proof_of_time::verifier::PotVerifier;
 use sc_service::error::Error as ServiceError;
 use sc_service::{
@@ -82,7 +82,6 @@ use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_runtime_primitives::opaque::Block;
 use subspace_runtime_primitives::{AccountId, Balance, Nonce};
-use tokio::sync::broadcast;
 use tracing::{Instrument, debug, error, info};
 pub use utils::wait_for_block_import;
 
@@ -387,8 +386,6 @@ where
     pub sync_service: Arc<sc_network_sync::SyncingService<Block>>,
     /// Full client backend.
     pub backend: Arc<FullBackend>,
-    /// Pot slot info stream.
-    pub pot_slot_info_stream: broadcast::Receiver<PotSlotInfo>,
     /// New slot stream.
     /// Note: this is currently used to send solutions from the farmer during tests.
     pub new_slot_notification_stream: SubspaceNotificationStream<NewSlotNotification>,
@@ -782,8 +779,6 @@ where
     )
     .map_err(|error| Error::Other(error.into()))?;
 
-    let additional_pot_slot_info_stream = pot_source_worker.subscribe_pot_slot_info_stream();
-
     task_manager
         .spawn_essential_handle()
         .spawn("pot-source", Some("pot"), pot_source_worker.run());
@@ -844,7 +839,7 @@ where
             }
         };
 
-        info!(target: "subspace", "🧑‍🌾 Starting Subspace Authorship worker");
+        info!(target: "subspace", "🧑🌾 Starting Subspace Authorship worker");
         let slot_worker_task = sc_proof_of_time::start_slot_worker(
             subspace_link.chain_constants().slot_duration(),
             client.clone(),
@@ -909,7 +904,6 @@ where
         network_service,
         sync_service,
         backend,
-        pot_slot_info_stream: additional_pot_slot_info_stream,
         new_slot_notification_stream,
         reward_signing_notification_stream,
         block_importing_notification_stream,
