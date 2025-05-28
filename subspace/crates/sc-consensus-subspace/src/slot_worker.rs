@@ -209,75 +209,28 @@ where
     _pos_table: PhantomData<PosTable>,
 }
 
-impl<PosTable, Block, Client, E, SO, L, BS, AS> PotSlotWorker<Block>
+impl<PosTable, Block, Client, E, Error, SO, L, BS, AS> PotSlotWorker<Block>
     for SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, BS, AS>
 where
+    PosTable: Table,
     Block: BlockT,
-    Client: HeaderBackend<Block> + ProvideRuntimeApi<Block>,
+    Client: ProvideRuntimeApi<Block>
+        + HeaderBackend<Block>
+        + HeaderMetadata<Block, Error = ClientError>
+        + AuxStore
+        + 'static,
     Client::Api: SubspaceApi<Block>,
+    E: Environment<Block, Error = Error> + Send + Sync,
+    E::Proposer: Proposer<Block, Error = Error>,
     SO: SyncOracle + Send + Sync,
+    L: JustificationSyncLink<Block>,
+    BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + Sync,
+    Error: std::error::Error + Send + From<ConsensusError> + 'static,
+    AS: AuxStore + Send + Sync + 'static,
+    BlockNumber: From<<Block::Header as Header>::Number>,
 {
     fn on_proof(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints) {
-        // Remove checkpoints from future slots, if present they are out of date anyway
-        self.pot_checkpoints
-            .retain(|&stored_slot, _checkpoints| stored_slot < slot);
-
-        self.pot_checkpoints.insert(slot, checkpoints);
-
-        if self.sync_oracle.is_major_syncing() {
-            debug!("Skipping farming slot {slot} due to sync");
-            return;
-        }
-
-        let maybe_root_plot_public_key_hash = self
-            .client
-            .runtime_api()
-            .root_plot_public_key_hash(self.client.info().best_hash)
-            .ok()
-            .flatten();
-        if maybe_root_plot_public_key_hash.is_some() && !self.force_authoring {
-            debug!(
-                "Skipping farming slot {slot} due to root public key present and force authoring \
-                not enabled"
-            );
-            return;
-        }
-
-        let proof_of_time = checkpoints.output();
-
-        // NOTE: Best hash is not necessarily going to be the parent of corresponding block, but
-        // solution range shouldn't be too far off
-        let best_hash = self.client.info().best_hash;
-        let solution_range = match extract_solution_range_for_block(self.client.as_ref(), best_hash)
-        {
-            Ok(solution_range) => solution_range,
-            Err(error) => {
-                warn!(
-                    %slot,
-                    %best_hash,
-                    %error,
-                    "Failed to extract solution ranges for block"
-                );
-                return;
-            }
-        };
-
-        let new_slot_info = NewSlotInfo {
-            slot,
-            proof_of_time,
-            solution_range,
-        };
-        let (solution_sender, solution_receiver) =
-            mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);
-
-        self.subspace_link
-            .new_slot_notification_sender
-            .notify(|| NewSlotNotification {
-                new_slot_info,
-                solution_sender,
-            });
-
-        self.pending_solutions.insert(slot, solution_receiver);
+        self.on_pot(slot, checkpoints)
     }
 }
 
@@ -766,6 +719,69 @@ where
             pot_verifier,
             _pos_table: PhantomData::<PosTable>,
         }
+    }
+
+    fn on_pot(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints) {
+        // Remove checkpoints from future slots, if present they are out of date anyway
+        self.pot_checkpoints
+            .retain(|&stored_slot, _checkpoints| stored_slot < slot);
+
+        self.pot_checkpoints.insert(slot, checkpoints);
+
+        if self.sync_oracle.is_major_syncing() {
+            debug!("Skipping farming slot {slot} due to sync");
+            return;
+        }
+
+        let maybe_root_plot_public_key_hash = self
+            .client
+            .runtime_api()
+            .root_plot_public_key_hash(self.client.info().best_hash)
+            .ok()
+            .flatten();
+        if maybe_root_plot_public_key_hash.is_some() && !self.force_authoring {
+            debug!(
+                "Skipping farming slot {slot} due to root public key present and force authoring \
+                not enabled"
+            );
+            return;
+        }
+
+        let proof_of_time = checkpoints.output();
+
+        // NOTE: Best hash is not necessarily going to be the parent of corresponding block, but
+        // solution range shouldn't be too far off
+        let best_hash = self.client.info().best_hash;
+        let solution_range = match extract_solution_range_for_block(self.client.as_ref(), best_hash)
+        {
+            Ok(solution_range) => solution_range,
+            Err(error) => {
+                warn!(
+                    %slot,
+                    %best_hash,
+                    %error,
+                    "Failed to extract solution ranges for block"
+                );
+                return;
+            }
+        };
+
+        let new_slot_info = NewSlotInfo {
+            slot,
+            proof_of_time,
+            solution_range,
+        };
+        let (solution_sender, solution_receiver) =
+            mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);
+
+        self.subspace_link
+            .new_slot_notification_sender
+            .notify(|| NewSlotNotification {
+                new_slot_info,
+                solution_sender,
+            });
+
+        self.pending_solutions.insert(slot, solution_receiver);
     }
 
     async fn sign_reward(
