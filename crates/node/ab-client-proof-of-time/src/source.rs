@@ -20,8 +20,8 @@ use tracing::{debug, trace, warn};
 const SLOTS_CHANNEL_CAPACITY: usize = 10;
 
 // TODO: Move somewhere more appropriate, probably rename too
-/// Global chain state
-pub trait ChainState: Clone + Send + Sync + 'static {
+/// Global chain info
+pub trait ChainInfo: Clone + Send + Sync + 'static {
     /// Returns `true` if the chain is currently syncing
     fn is_syncing(&self) -> bool;
 }
@@ -53,7 +53,7 @@ impl Clone for PotSlotInfoStream {
 #[derive(Debug)]
 #[must_use = "Proof of time source doesn't do anything unless run() method is called"]
 pub struct PotSourceWorker<CS> {
-    chain_state: CS,
+    chain_info: CS,
     timekeeper_proof_receiver: Option<mpsc::Receiver<TimekeeperProof>>,
     to_gossip_sender: mpsc::Sender<ToGossipMessage>,
     from_gossip_receiver: mpsc::Receiver<GossipProof>,
@@ -63,22 +63,22 @@ pub struct PotSourceWorker<CS> {
     pot_state: Arc<PotState>,
 }
 
-impl<CS> PotSourceWorker<CS>
+impl<CI> PotSourceWorker<CI>
 where
-    CS: ChainState,
+    CI: ChainInfo,
 {
     pub fn new(
         timekeeper_proof_receiver: Option<mpsc::Receiver<TimekeeperProof>>,
         to_gossip_sender: mpsc::Sender<ToGossipMessage>,
         from_gossip_receiver: mpsc::Receiver<GossipProof>,
         best_block_pot_info_receiver: mpsc::Receiver<BestBlockPotInfo>,
-        chain_state: CS,
+        chain_info: CI,
         pot_state: Arc<PotState>,
     ) -> (Self, PotSlotInfoStream) {
         let (slot_sender, slot_receiver) = broadcast::channel(SLOTS_CHANNEL_CAPACITY);
 
         let source_worker = Self {
-            chain_state,
+            chain_info,
             timekeeper_proof_receiver,
             to_gossip_sender,
             from_gossip_receiver,
@@ -141,7 +141,7 @@ where
             checkpoints,
         } = proof;
 
-        if self.chain_state.is_syncing() {
+        if self.chain_info.is_syncing() {
             trace!(
                 ?slot,
                 %seed,

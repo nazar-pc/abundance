@@ -5,7 +5,6 @@ use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::source::state::PotState;
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::pot::SlotNumber;
-use sc_client_api::BlockchainEvents;
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus_subspace::SubspaceApi;
@@ -20,7 +19,7 @@ pub fn init_pot_state<Block, Client>(
 ) -> Result<PotState, ApiError>
 where
     Block: BlockT,
-    Client: BlockchainEvents<Block> + HeaderBackend<Block> + ProvideRuntimeApi<Block> + 'static,
+    Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + 'static,
     Client::Api: SubspaceApi<Block>,
 {
     let best_hash = client.info().best_hash;

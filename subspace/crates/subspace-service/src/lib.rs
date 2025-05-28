@@ -23,7 +23,7 @@ use crate::sync_from_dsn::piece_validator::SegmentRootPieceValidator;
 use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::task_spawner::SpawnTasksParams;
 use ab_client_proof_of_time::source::timekeeper::Timekeeper;
-use ab_client_proof_of_time::source::{ChainState, PotSourceWorker};
+use ab_client_proof_of_time::source::{ChainInfo, PotSourceWorker};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::pot::PotSeed;
@@ -413,18 +413,18 @@ where
 type FullNode<RuntimeApi> = NewFull<FullClient<RuntimeApi>>;
 
 #[derive(Clone)]
-struct SubstrateChainState {
+struct SubstrateChainInfo {
     sync_oracle: SubspaceSyncOracle<Arc<SyncingService<Block>>>,
 }
 
-impl ChainState for SubstrateChainState {
+impl ChainInfo for SubstrateChainInfo {
     #[inline(always)]
     fn is_syncing(&self) -> bool {
         self.sync_oracle.is_major_syncing()
     }
 }
 
-impl SubstrateChainState {
+impl SubstrateChainInfo {
     fn new(sync_oracle: SubspaceSyncOracle<Arc<SyncingService<Block>>>) -> Self {
         Self { sync_oracle }
     }
@@ -690,7 +690,7 @@ where
         sync_service.clone(),
     );
 
-    let chain_state = SubstrateChainState::new(sync_oracle.clone());
+    let chain_info = SubstrateChainInfo::new(sync_oracle.clone());
 
     let subspace_archiver = tokio::task::block_in_place(|| {
         create_subspace_archiver(
@@ -852,7 +852,7 @@ where
         to_gossip_sender,
         from_gossip_receiver,
         best_block_pot_info_receiver,
-        chain_state,
+        chain_info,
         pot_state,
     );
 
