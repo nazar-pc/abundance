@@ -9421,18 +9421,14 @@ dependencies = [
  "parking_lot 0.12.3",
  "rayon",
  "sc-client-api",
- "sc-consensus-slots",
  "sc-network",
  "sc-network-gossip",
  "schnellru",
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-slots",
  "sp-consensus-subspace",
- "sp-inherents",
  "sp-runtime",
- "tokio",
  "tracing",
 ]
 

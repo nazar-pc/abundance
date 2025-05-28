@@ -18,6 +18,7 @@
 use crate::SubspaceLink;
 use crate::archiver::SegmentHeadersStore;
 use ab_client_proof_of_time::PotNextSlotInput;
+use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -34,19 +35,22 @@ use sc_client_api::AuxStore;
 use sc_consensus::block_import::{BlockImportParams, StateAction};
 use sc_consensus::{BoxBlockImport, JustificationSyncLink, StorageChanges};
 use sc_consensus_slots::{
-    BackoffAuthoringBlocksStrategy, SimpleSlotWorker, SlotInfo, SlotLenienceType, SlotProportion,
+    BackoffAuthoringBlocksStrategy, SimpleSlotWorker, SimpleSlotWorkerToSlotWorker, SlotInfo,
+    SlotLenienceType, SlotProportion, SlotWorker,
 };
-use sc_proof_of_time::PotSlotWorker;
 use sc_telemetry::TelemetryHandle;
 use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
-use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SyncOracle};
+use sp_consensus::{
+    BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain, SyncOracle,
+};
 use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::{
     CompatibleDigestItem, PreDigest, PreDigestPotInfo, extract_pre_digest,
 };
 use sp_consensus_subspace::{SubspaceApi, SubspaceJustification};
+use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor, Zero};
 use sp_runtime::{DigestItem, Justification, Justifications};
 use std::collections::BTreeMap;
@@ -57,7 +61,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use subspace_verification::ed25519::RewardSignature;
 use subspace_verification::is_reward_signature_valid;
-use tracing::{debug, error, info, warn};
+use tokio::sync::broadcast;
+use tracing::{debug, error, info, trace, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
 const PENDING_SOLUTIONS_CHANNEL_CAPACITY: usize = 10;
@@ -207,31 +212,6 @@ where
     pot_checkpoints: BTreeMap<SlotNumber, PotCheckpoints>,
     pot_verifier: PotVerifier,
     _pos_table: PhantomData<PosTable>,
-}
-
-impl<PosTable, Block, Client, E, Error, SO, L, BS, AS> PotSlotWorker<Block>
-    for SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, BS, AS>
-where
-    PosTable: Table,
-    Block: BlockT,
-    Client: ProvideRuntimeApi<Block>
-        + HeaderBackend<Block>
-        + HeaderMetadata<Block, Error = ClientError>
-        + AuxStore
-        + 'static,
-    Client::Api: SubspaceApi<Block>,
-    E: Environment<Block, Error = Error> + Send + Sync,
-    E::Proposer: Proposer<Block, Error = Error>,
-    SO: SyncOracle + Send + Sync,
-    L: JustificationSyncLink<Block>,
-    BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + Sync,
-    Error: std::error::Error + Send + From<ConsensusError> + 'static,
-    AS: AuxStore + Send + Sync + 'static,
-    BlockNumber: From<<Block::Header as Header>::Number>,
-{
-    fn on_proof(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints) {
-        self.on_pot(slot, checkpoints)
-    }
 }
 
 #[async_trait::async_trait]
@@ -703,7 +683,7 @@ where
         }: SubspaceSlotWorkerOptions<Block, Client, E, SO, L, BS, AS>,
     ) -> Self {
         Self {
-            client: client.clone(),
+            client,
             block_import,
             env,
             sync_oracle,
@@ -714,10 +694,117 @@ where
             block_proposal_slot_portion,
             max_block_proposal_slot_portion,
             segment_headers_store,
-            pending_solutions: Default::default(),
-            pot_checkpoints: Default::default(),
+            pending_solutions: BTreeMap::new(),
+            pot_checkpoints: BTreeMap::new(),
             pot_verifier,
-            _pos_table: PhantomData::<PosTable>,
+            _pos_table: PhantomData,
+        }
+    }
+
+    /// Run slot worker
+    pub async fn run<SC, CIDP>(
+        self,
+        select_chain: SC,
+        create_inherent_data_providers: CIDP,
+        mut slot_info_stream: PotSlotInfoStream,
+    ) where
+        SC: SelectChain<Block>,
+        CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
+    {
+        let best_hash = self.client.info().best_hash;
+        let runtime_api = self.client.runtime_api();
+        let block_authoring_delay = match runtime_api.chain_constants(best_hash) {
+            Ok(chain_constants) => chain_constants.block_authoring_delay(),
+            Err(error) => {
+                error!(%error, "Failed to retrieve chain constants from runtime API");
+                return;
+            }
+        };
+
+        let slot_duration = self
+            .subspace_link
+            .chain_constants
+            .slot_duration()
+            .as_duration();
+
+        let mut worker = SimpleSlotWorkerToSlotWorker(self);
+
+        let mut maybe_last_proven_slot = None;
+
+        loop {
+            let PotSlotInfo { slot, checkpoints } = match slot_info_stream.recv().await {
+                Ok(slot_info) => slot_info,
+                Err(err) => match err {
+                    broadcast::error::RecvError::Closed => {
+                        info!("No Slot info senders available. Exiting slot worker.");
+                        return;
+                    }
+                    broadcast::error::RecvError::Lagged(skipped_notifications) => {
+                        debug!(
+                            "Slot worker is lagging. Skipped {} slot notification(s)",
+                            skipped_notifications
+                        );
+                        continue;
+                    }
+                },
+            };
+            if let Some(last_proven_slot) = maybe_last_proven_slot
+                && last_proven_slot >= slot
+            {
+                // Already processed
+                continue;
+            }
+            maybe_last_proven_slot.replace(slot);
+
+            worker.0.on_pot(slot, checkpoints);
+
+            if worker.0.sync_oracle.is_major_syncing() {
+                debug!(%slot, "Skipping proposal slot due to sync");
+                continue;
+            }
+
+            // Slots that we claim must be `block_authoring_delay` behind the best slot we know of
+            let Some(slot_to_claim) = slot.checked_sub(block_authoring_delay) else {
+                trace!("Skipping very early slot during chain start");
+                continue;
+            };
+
+            let best_header = match select_chain.best_chain().await {
+                Ok(best_header) => best_header,
+                Err(error) => {
+                    error!(
+                        %error,
+                        "Unable to author block in slot. No best block header.",
+                    );
+
+                    continue;
+                }
+            };
+
+            let inherent_data_providers = match create_inherent_data_providers
+                .create_inherent_data_providers(best_header.hash(), ())
+                .await
+            {
+                Ok(inherent_data_providers) => inherent_data_providers,
+                Err(error) => {
+                    error!(
+                        %error,
+                        "Unable to author block in slot. Failure creating inherent data provider.",
+                    );
+
+                    continue;
+                }
+            };
+
+            let _ = worker
+                .on_slot(SlotInfo::new(
+                    Slot::from(slot_to_claim.as_u64()),
+                    Box::new(inherent_data_providers),
+                    slot_duration,
+                    best_header,
+                    None,
+                ))
+                .await;
         }
     }
 
