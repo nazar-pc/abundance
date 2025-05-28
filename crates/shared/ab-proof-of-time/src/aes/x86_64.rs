@@ -2,6 +2,8 @@ use ab_core_primitives::pot::{PotCheckpoints, PotOutput};
 use core::arch::x86_64::*;
 use core::{array, mem};
 
+const NUM_ROUND_KEYS: usize = 11;
+
 /// Create PoT proof with checkpoints
 #[target_feature(enable = "aes")]
 #[inline]
@@ -61,9 +63,10 @@ pub(super) unsafe fn verify_sequential_avx512f(
             inv_keys[i] = _mm_aesimc_si128(keys_reg[10 - i]);
         }
 
-        let keys_512 = array::from_fn::<_, NUM_ROUNDS, _>(|i| _mm512_broadcast_i32x4(keys_reg[i]));
+        let keys_512 =
+            array::from_fn::<_, NUM_ROUND_KEYS, _>(|i| _mm512_broadcast_i32x4(keys_reg[i]));
         let inv_keys_512 =
-            array::from_fn::<_, NUM_ROUNDS, _>(|i| _mm512_broadcast_i32x4(inv_keys[i]));
+            array::from_fn::<_, NUM_ROUND_KEYS, _>(|i| _mm512_broadcast_i32x4(inv_keys[i]));
 
         let mut input_0 = [[0u8; 16]; 4];
         input_0[0] = *seed;
@@ -120,9 +123,8 @@ pub(super) unsafe fn verify_sequential_avx512f(
 // Pavlov:
 // https://github.com/RustCrypto/block-ciphers/blob/9413fcadd28d53854954498c0589b747d8e4ade2/aes/src/ni/aes128.rs
 
-const NUM_ROUNDS: usize = 11;
 /// AES-128 round keys
-type RoundKeys = [__m128i; NUM_ROUNDS];
+type RoundKeys = [__m128i; NUM_ROUND_KEYS];
 
 macro_rules! expand_round {
     ($keys:expr, $pos:expr, $round:expr) => {
