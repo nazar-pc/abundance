@@ -3,11 +3,13 @@ resolver = "3"
 members = [
     "crates/contracts/*/*",
     "crates/execution/*",
+    "crates/node/*",
     "crates/shared/*",
 ]
 
 [workspace.dependencies]
 ab-aligned-buffer = { version = "0.0.1", path = "crates/shared/ab-aligned-buffer" }
+ab-client-proof-of-time = { version = "0.0.1", path = "crates/node/ab-client-proof-of-time" }
 ab-contracts-common = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-common" }
 ab-contracts-macros = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros" }
 ab-contracts-macros-impl = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros-impl" }
@@ -43,6 +45,7 @@ derive_more = { version = "2.0.1", default-features = false }
 # TODO: Switch to ed25519-dalek with RFC8032 / NIST validation criteria instead once
 #  https://github.com/dalek-cryptography/curve25519-dalek/issues/626 is resolved
 ed25519-zebra = { version = "4.0.3", default-features = false }
+futures = { version = "0.3.31", default-features = false }
 halfbrown = "0.3.0"
 hex = { version = "0.4.3", default-features = false }
 ident_case = "1.0.1"
@@ -56,6 +59,7 @@ rand_core = { version = "0.9.3", default-features = false }
 rayon = "1.10.0"
 reed-solomon-simd = { version = "3.0.1", default-features = false }
 scale-info = { version = "2.11.6", default-features = false }
+schnellru = "0.2.4"
 schnorrkel = { version = "0.11.4", default-features = false }
 seq-macro = "0.3.6"
 serde = { version = "1.0.219", default-features = false }
@@ -66,6 +70,7 @@ spin = "0.10.0"
 syn = "2.0.101"
 take_mut = "0.2.2"
 thiserror = { version = "2.0.12", default-features = false }
+tokio = "1.45.1"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 

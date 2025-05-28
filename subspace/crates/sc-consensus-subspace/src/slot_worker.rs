@@ -17,6 +17,8 @@
 
 use crate::SubspaceLink;
 use crate::archiver::SegmentHeadersStore;
+use ab_client_proof_of_time::PotNextSlotInput;
+use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, SlotNumber};
@@ -34,8 +36,7 @@ use sc_consensus::{BoxBlockImport, JustificationSyncLink, StorageChanges};
 use sc_consensus_slots::{
     BackoffAuthoringBlocksStrategy, SimpleSlotWorker, SlotInfo, SlotLenienceType, SlotProportion,
 };
-use sc_proof_of_time::verifier::PotVerifier;
-use sc_proof_of_time::{PotNextSlotInput, PotSlotWorker};
+use sc_proof_of_time::PotSlotWorker;
 use sc_telemetry::TelemetryHandle;
 use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
 use sp_api::{ApiError, ProvideRuntimeApi};

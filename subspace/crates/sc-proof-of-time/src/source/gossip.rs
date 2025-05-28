@@ -1,9 +1,10 @@
 //! PoT gossip functionality.
 
-use crate::PotNextSlotInput;
-use crate::source::state::PotState;
-use crate::verifier::PotVerifier;
-use ab_core_primitives::pot::{PotCheckpoints, PotSeed, SlotNumber};
+use ab_client_proof_of_time::PotNextSlotInput;
+use ab_client_proof_of_time::source::gossip::{GossipProof, ToGossipMessage};
+use ab_client_proof_of_time::source::state::PotState;
+use ab_client_proof_of_time::verifier::PotVerifier;
+use ab_core_primitives::pot::SlotNumber;
 use futures::channel::mpsc;
 use futures::{FutureExt, SinkExt, StreamExt};
 use parity_scale_codec::{Decode, Encode};
@@ -20,7 +21,6 @@ use sp_runtime::traits::{Block as BlockT, Hash as HashT, HashingFor};
 use std::cmp;
 use std::collections::{HashMap, VecDeque};
 use std::future::poll_fn;
-use std::num::NonZeroU32;
 use std::pin::pin;
 use std::sync::Arc;
 use tracing::{debug, error, trace, warn};
@@ -83,24 +83,6 @@ pub fn pot_gossip_peers_set_config() -> (NonDefaultSetConfig, Box<dyn Notificati
     );
     cfg.allow_non_reserved(25, 25);
     (cfg, notification_service)
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Encode, Decode)]
-pub struct GossipProof {
-    /// Slot number
-    pub slot: SlotNumber,
-    /// Proof of time seed
-    pub seed: PotSeed,
-    /// Iterations per slot
-    pub slot_iterations: NonZeroU32,
-    /// Proof of time checkpoints
-    pub checkpoints: PotCheckpoints,
-}
-
-#[derive(Debug)]
-pub enum ToGossipMessage {
-    Proof(GossipProof),
-    NextSlotInput(PotNextSlotInput),
 }
 
 /// PoT gossip worker

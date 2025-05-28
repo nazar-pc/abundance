@@ -22,6 +22,9 @@ use crate::sync_from_dsn::DsnPieceGetter;
 use crate::sync_from_dsn::piece_validator::SegmentRootPieceValidator;
 use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::task_spawner::SpawnTasksParams;
+use ab_client_proof_of_time::source::timekeeper::Timekeeper;
+use ab_client_proof_of_time::source::{ChainState, PotSourceWorker};
+use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::pot::PotSeed;
 use ab_erasure_coding::ErasureCoding;
@@ -60,9 +63,7 @@ use sc_network_sync::engine::SyncingEngine;
 use sc_network_sync::service::network::NetworkServiceProvider;
 use sc_proof_of_time::source::block_import::BestBlockPotSource;
 use sc_proof_of_time::source::gossip::{PotGossipWorker, pot_gossip_peers_set_config};
-use sc_proof_of_time::source::timekeeper::Timekeeper;
-use sc_proof_of_time::source::{ChainState, PotSourceWorker, init_pot_state};
-use sc_proof_of_time::verifier::PotVerifier;
+use sc_proof_of_time::source::init_pot_state;
 use sc_service::error::Error as ServiceError;
 use sc_service::{
     BuildNetworkAdvancedParams, Configuration, NetworkStarter, TaskManager,
@@ -853,8 +854,7 @@ where
         best_block_pot_info_receiver,
         chain_state,
         pot_state,
-    )
-    .map_err(|error| Error::Other(error.into()))?;
+    );
 
     task_manager
         .spawn_essential_handle()

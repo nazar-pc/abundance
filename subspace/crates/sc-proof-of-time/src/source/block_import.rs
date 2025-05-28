@@ -1,4 +1,5 @@
-use ab_core_primitives::pot::{PotOutput, PotParametersChange, SlotNumber};
+use ab_client_proof_of_time::source::block_import::BestBlockPotInfo;
+use ab_core_primitives::pot::SlotNumber;
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use sc_client_api::BlockchainEvents;
@@ -10,17 +11,6 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tracing::{debug, error};
-
-/// PoT information of the best block
-#[derive(Debug, Copy, Clone)]
-pub struct BestBlockPotInfo {
-    /// Slot for which PoT output was generated
-    pub slot: SlotNumber,
-    /// PoT output itself
-    pub pot_output: PotOutput,
-    /// Change of parameters to apply to PoT chain
-    pub pot_parameters_change: Option<PotParametersChange>,
-}
 
 /// PoT source using the best imported block
 #[derive(Debug)]

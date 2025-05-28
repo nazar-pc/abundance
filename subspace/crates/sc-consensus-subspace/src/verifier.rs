@@ -13,6 +13,8 @@
 //! This is a significant tradeoff in the protocol: having a smaller header vs being able to verify
 //! a lot of things stateless and in parallel.
 
+use ab_client_proof_of_time::PotNextSlotInput;
+use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
@@ -25,8 +27,6 @@ use sc_client_api::backend::AuxStore;
 use sc_consensus::block_import::BlockImportParams;
 use sc_consensus::import_queue::Verifier;
 use sc_consensus_slots::check_equivocation;
-use sc_proof_of_time::PotNextSlotInput;
-use sc_proof_of_time::verifier::PotVerifier;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;

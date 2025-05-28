@@ -11,14 +11,13 @@ include = [
 ]
 
 [dependencies]
+ab-client-proof-of-time = { workspace = true }
 ab-core-primitives = { workspace = true }
 ab-proof-of-time = { workspace = true }
-derive_more = { workspace = true, features = ["full"] }
 futures = { workspace = true }
-parity-scale-codec = { workspace = true, features = ["derive"] }
+parity-scale-codec = { workspace = true }
 parking_lot = { workspace = true }
 rayon = { workspace = true }
-scale-info = { workspace = true, features = ["derive"] }
 schnellru = { workspace = true }
 sc-client-api = { workspace = true }
 sc-consensus-slots = { workspace = true }

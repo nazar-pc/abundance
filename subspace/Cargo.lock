@@ -32,6 +32,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-client-proof-of-time"
+version = "0.0.1"
+dependencies = [
+ "ab-core-primitives",
+ "ab-proof-of-time",
+ "derive_more 2.0.1",
+ "futures",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "scale-info",
+ "schnellru",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ab-core-primitives"
 version = "0.1.0"
 dependencies = [
@@ -9025,6 +9041,7 @@ name = "sc-consensus-subspace"
 version = "0.1.0"
 dependencies = [
  "ab-archiving",
+ "ab-client-proof-of-time",
  "ab-core-primitives",
  "ab-erasure-coding",
  "ab-proof-of-space",
@@ -9396,9 +9413,9 @@ dependencies = [
 name = "sc-proof-of-time"
 version = "0.1.0"
 dependencies = [
+ "ab-client-proof-of-time",
  "ab-core-primitives",
  "ab-proof-of-time",
- "derive_more 1.0.0",
  "futures",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -9407,7 +9424,6 @@ dependencies = [
  "sc-consensus-slots",
  "sc-network",
  "sc-network-gossip",
- "scale-info",
  "schnellru",
  "sp-api",
  "sp-blockchain",
@@ -11741,6 +11757,7 @@ name = "subspace-service"
 version = "0.1.0"
 dependencies = [
  "ab-archiving",
+ "ab-client-proof-of-time",
  "ab-core-primitives",
  "ab-erasure-coding",
  "ab-proof-of-space",
@@ -12338,9 +12355,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.43.0"
+version = "1.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d61fa4ffa3de412bfea335c6ecff681de2b609ba3c77ef3e00e521813a9ed9e"
+checksum = "75ef51a33ef1da925cea3e4eb122833cb377c61439ca401b770f54902b806779"
 dependencies = [
  "backtrace",
  "bytes",
@@ -12527,9 +12544,9 @@ checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 
 [[package]]
 name = "tracing"
-version = "0.1.40"
+version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3523ab5a71916ccf420eebdf5521fcef02141234bbc0b8a49f2fdc4544364ef"
+checksum = "784e0ac535deb450455cbfa28a6f0df145ea1bb7ae51b821cf5e7927fdcfbdd0"
 dependencies = [
  "log",
  "pin-project-lite",
@@ -12539,9 +12556,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.27"
+version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
+checksum = "395ae124c09f9e6918a2310af6038fba074bcf474ac352496d5910dd59a2226d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -12550,9 +12567,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.32"
+version = "0.1.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
+checksum = "e672c95779cf947c5311f83787af4fa8fffd12fb27e4993211a84bdfd9610f9c"
 dependencies = [
  "once_cell",
  "valuable",
