@@ -1,6 +1,6 @@
 [package]
 name = "ab-proof-of-space"
-description = "Subspace proof of space implementation based on Chia"
+description = "Proof of space implementation based"
 license = "0BSD"
 version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]

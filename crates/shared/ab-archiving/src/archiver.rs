@@ -40,7 +40,7 @@ impl Output for ArchivedHistorySegmentOutput<'_> {
     }
 }
 
-/// Segment represents a collection of items stored in archival history of the Subspace blockchain
+/// The segment represents a collection of items stored in archival history
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Segment {
     /// Segment items
@@ -237,7 +237,7 @@ pub enum ArchiverInstantiationError {
     },
 }
 
-/// Block archiver for Subspace blockchain.
+/// Block archiver.
 ///
 /// It takes new confirmed (at `K` depth) blocks and concatenates them into a buffer, buffer is
 /// sliced into segments of [`RecordedHistorySegment::SIZE`] size, segments are sliced into source

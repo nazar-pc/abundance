@@ -17,12 +17,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 ab-archiving = { workspace = true, features = ["parallel"] }
+ab-client-proof-of-time = { workspace = true }
 ab-core-primitives = { workspace = true }
 ab-erasure-coding = { workspace = true }
 ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
+core_affinity = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 futures = { workspace = true }
 hex = { workspace = true }
@@ -66,6 +68,7 @@ subspace-runtime-primitives = { workspace = true }
 sc-subspace-sync-common = { workspace = true }
 substrate-prometheus-endpoint = { workspace = true }
 thiserror = { workspace = true }
+thread-priority = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }

@@ -1,7 +1,7 @@
+use crate::PotNextSlotInput;
 use crate::verifier::PotVerifier;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotParametersChange, PotSeed, SlotNumber};
-use sp_consensus_subspace::PotNextSlotInput;
 use std::num::NonZeroU32;
 
 const SEED: [u8; 16] = [
@@ -11,7 +11,7 @@ const SEED: [u8; 16] = [
 #[test]
 fn test_basic() {
     let genesis_seed = PotSeed::from(SEED);
-    let slot_iterations = NonZeroU32::new(512).unwrap();
+    let slot_iterations = NonZeroU32::new(16).unwrap();
     let checkpoints_1 = ab_proof_of_time::prove(genesis_seed, slot_iterations).unwrap();
 
     let verifier = PotVerifier::new(genesis_seed, 1000);
@@ -130,7 +130,7 @@ fn test_basic() {
 #[test]
 fn parameters_change() {
     let genesis_seed = PotSeed::from(SEED);
-    let slot_iterations_1 = NonZeroU32::new(512).unwrap();
+    let slot_iterations_1 = NonZeroU32::new(16).unwrap();
     let entropy = Blake3Hash::from([1; Blake3Hash::SIZE]);
     let checkpoints_1 = ab_proof_of_time::prove(genesis_seed, slot_iterations_1).unwrap();
     let slot_iterations_2 = slot_iterations_1.saturating_mul(NonZeroU32::new(2).unwrap());

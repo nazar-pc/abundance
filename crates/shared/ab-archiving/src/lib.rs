@@ -1,4 +1,4 @@
-//! Collection of modules used for dealing with archived state of Subspace Network.
+//! Collection of modules used for dealing with archival history.
 #![feature(array_chunks, generic_arg_infer, iter_array_chunks, iter_collect_into)]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for

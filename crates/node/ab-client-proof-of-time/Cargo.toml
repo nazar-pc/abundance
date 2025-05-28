@@ -1,0 +1,23 @@
+[package]
+name = "ab-client-proof-of-time"
+description = "Client-side proof of time implementation"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[dependencies]
+ab-core-primitives = { workspace = true }
+ab-proof-of-time = { workspace = true }
+derive_more = { workspace = true, features = ["deref", "deref_mut"] }
+futures = { workspace = true, features = ["alloc", "async-await", "executor"] }
+parity-scale-codec = { workspace = true, features = ["derive"] }
+parking_lot = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
+schnellru = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true, features = ["std"] }

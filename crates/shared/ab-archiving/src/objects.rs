@@ -1,4 +1,4 @@
-//! Data structures related to objects (useful data) stored on Subspace Network.
+//! Data structures related to objects (useful data) contained in archived history.
 //!
 //! There are two kinds of mappings:
 //! * for objects within a block
