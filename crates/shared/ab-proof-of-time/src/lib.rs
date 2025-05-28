@@ -1,5 +1,6 @@
 //! Proof of time implementation.
 
+#![cfg_attr(target_arch = "x86_64", feature(stdarch_x86_avx512))]
 #![no_std]
 
 mod aes;
@@ -34,6 +35,7 @@ pub fn prove(seed: PotSeed, iterations: NonZeroU32) -> Result<PotCheckpoints, Po
         });
     }
 
+    // TODO: Is there a point in having both values derived from the same source?
     Ok(aes::create(
         seed,
         seed.key(),
