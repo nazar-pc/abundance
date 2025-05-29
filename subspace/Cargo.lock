@@ -9014,29 +9014,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sc-consensus-slots"
-version = "0.47.0"
-source = "git+https://github.com/subspace/polkadot-sdk?rev=d7b75f3d002f5f9bcd04da31cc8197d3a733de35#d7b75f3d002f5f9bcd04da31cc8197d3a733de35"
-dependencies = [
- "async-trait",
- "futures",
- "futures-timer",
- "log",
- "parity-scale-codec",
- "sc-client-api",
- "sc-consensus",
- "sc-telemetry",
- "sp-arithmetic",
- "sp-blockchain",
- "sp-consensus",
- "sp-consensus-slots",
- "sp-core",
- "sp-inherents",
- "sp-runtime",
- "sp-state-machine",
-]
-
-[[package]]
 name = "sc-consensus-subspace"
 version = "0.1.0"
 dependencies = [
@@ -9047,6 +9024,7 @@ dependencies = [
  "ab-proof-of-space",
  "async-trait",
  "futures",
+ "futures-timer",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "rand 0.8.5",
@@ -9054,18 +9032,16 @@ dependencies = [
  "rayon",
  "sc-client-api",
  "sc-consensus",
- "sc-consensus-slots",
  "sc-proof-of-time",
- "sc-telemetry",
  "sc-utils",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-slots",
  "sp-consensus-subspace",
  "sp-inherents",
  "sp-runtime",
+ "sp-state-machine",
  "subspace-verification",
  "thiserror 2.0.12",
  "tokio",
@@ -9421,18 +9397,14 @@ dependencies = [
  "parking_lot 0.12.3",
  "rayon",
  "sc-client-api",
- "sc-consensus-slots",
  "sc-network",
  "sc-network-gossip",
  "schnellru",
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-slots",
  "sp-consensus-subspace",
- "sp-inherents",
  "sp-runtime",
- "tokio",
  "tracing",
 ]
 
@@ -11648,7 +11620,6 @@ dependencies = [
  "prometheus-client",
  "sc-chain-spec",
  "sc-cli",
- "sc-consensus-slots",
  "sc-consensus-subspace",
  "sc-network",
  "sc-service",
@@ -11778,7 +11749,6 @@ dependencies = [
  "sc-chain-spec",
  "sc-client-api",
  "sc-consensus",
- "sc-consensus-slots",
  "sc-consensus-subspace",
  "sc-consensus-subspace-rpc",
  "sc-executor",

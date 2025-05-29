@@ -23,7 +23,7 @@ use crate::sync_from_dsn::piece_validator::SegmentRootPieceValidator;
 use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::task_spawner::SpawnTasksParams;
 use ab_client_proof_of_time::source::timekeeper::Timekeeper;
-use ab_client_proof_of_time::source::{ChainState, PotSourceWorker};
+use ab_client_proof_of_time::source::{ChainInfo, PotSourceWorker};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::pot::PotSeed;
@@ -44,7 +44,6 @@ use sc_consensus::{
     BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport,
     DefaultImportQueue, ImportQueue, ImportResult,
 };
-use sc_consensus_slots::SlotProportion;
 use sc_consensus_subspace::SubspaceLink;
 use sc_consensus_subspace::archiver::{
     ArchivedSegmentNotification, SegmentHeadersStore, create_subspace_archiver,
@@ -338,7 +337,6 @@ where
         client: client.clone(),
         chain_constants,
         sync_target_block_number: Arc::clone(&sync_target_block_number),
-        is_authoring_blocks: config.role.is_authority(),
         pot_verifier: pot_verifier.clone(),
     });
 
@@ -413,18 +411,18 @@ where
 type FullNode<RuntimeApi> = NewFull<FullClient<RuntimeApi>>;
 
 #[derive(Clone)]
-struct SubstrateChainState {
+struct SubstrateChainInfo {
     sync_oracle: SubspaceSyncOracle<Arc<SyncingService<Block>>>,
 }
 
-impl ChainState for SubstrateChainState {
+impl ChainInfo for SubstrateChainInfo {
     #[inline(always)]
     fn is_syncing(&self) -> bool {
         self.sync_oracle.is_major_syncing()
     }
 }
 
-impl SubstrateChainState {
+impl SubstrateChainInfo {
     fn new(sync_oracle: SubspaceSyncOracle<Arc<SyncingService<Block>>>) -> Self {
         Self { sync_oracle }
     }
@@ -436,7 +434,6 @@ pub async fn new_full<PosTable, RuntimeApi>(
     partial_components: PartialComponents<RuntimeApi>,
     prometheus_registry: Option<&mut Registry>,
     enable_rpc_extensions: bool,
-    block_proposal_slot_portion: SlotProportion,
 ) -> Result<FullNode<RuntimeApi>, Error>
 where
     PosTable: Table,
@@ -690,7 +687,7 @@ where
         sync_service.clone(),
     );
 
-    let chain_state = SubstrateChainState::new(sync_oracle.clone());
+    let chain_info = SubstrateChainInfo::new(sync_oracle.clone());
 
     let subspace_archiver = tokio::task::block_in_place(|| {
         create_subspace_archiver(
@@ -788,8 +785,6 @@ where
         }
     }
 
-    let backoff_authoring_blocks: Option<()> = None;
-
     let new_slot_notification_stream = subspace_link.new_slot_notification_stream();
     let reward_signing_notification_stream = subspace_link.reward_signing_notification_stream();
     let block_importing_notification_stream = subspace_link.block_importing_notification_stream();
@@ -852,7 +847,7 @@ where
         to_gossip_sender,
         from_gossip_receiver,
         best_block_pot_info_receiver,
-        chain_state,
+        chain_info,
         pot_state,
     );
 
@@ -878,18 +873,15 @@ where
         );
 
         let subspace_slot_worker =
-            SubspaceSlotWorker::<PosTable, _, _, _, _, _, _, _>::new(SubspaceSlotWorkerOptions {
+            SubspaceSlotWorker::<PosTable, _, _, _, _, _, _>::new(SubspaceSlotWorkerOptions {
                 client: client.clone(),
                 env: proposer_factory,
                 block_import,
                 sync_oracle: sync_oracle.clone(),
                 justification_sync_link: sync_service.clone(),
                 force_authoring: config.base.force_authoring,
-                backoff_authoring_blocks,
                 subspace_link: subspace_link.clone(),
                 segment_headers_store: segment_headers_store.clone(),
-                block_proposal_slot_portion,
-                max_block_proposal_slot_portion: None,
                 pot_verifier,
             });
 
@@ -922,12 +914,8 @@ where
         };
 
         info!(target: "subspace", "🧑🌾 Starting Subspace Authorship worker");
-        let slot_worker_task = sc_proof_of_time::start_slot_worker(
-            subspace_link.chain_constants().slot_duration(),
-            client.clone(),
+        let slot_worker_task = subspace_slot_worker.run(
             select_chain.clone(),
-            subspace_slot_worker,
-            sync_oracle.clone(),
             create_inherent_data_providers,
             pot_slot_info_stream,
         );

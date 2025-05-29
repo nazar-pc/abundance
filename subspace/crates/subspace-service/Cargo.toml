@@ -38,7 +38,6 @@ sc-client-api = { workspace = true }
 sc-consensus = { workspace = true }
 sc-consensus-subspace = { workspace = true }
 sc-consensus-subspace-rpc = { workspace = true }
-sc-consensus-slots = { workspace = true }
 sc-executor = { workspace = true }
 sc-informant = { workspace = true }
 sc-network = { workspace = true }

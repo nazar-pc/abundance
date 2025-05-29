@@ -20,19 +20,17 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::solutions::{SolutionVerifyError, SolutionVerifyParams};
 use ab_proof_of_space::Table;
-use futures::lock::Mutex;
 use rand::prelude::*;
 use rayon::prelude::*;
 use sc_client_api::backend::AuxStore;
 use sc_consensus::block_import::BlockImportParams;
 use sc_consensus::import_queue::Verifier;
-use sc_consensus_slots::check_equivocation;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_consensus_subspace::digests::{
-    CompatibleDigestItem, PreDigest, SubspaceDigestItems, extract_subspace_digest_items,
+    CompatibleDigestItem, SubspaceDigestItems, extract_subspace_digest_items,
 };
 use sp_consensus_subspace::{ChainConstants, SubspaceApi, SubspaceJustification};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
@@ -45,7 +43,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::available_parallelism;
 use subspace_verification::is_reward_signature_valid;
 use tokio::runtime::Handle;
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, trace};
 
 /// Errors encountered by the Subspace verification task.
 #[derive(Debug, Eq, PartialEq, thiserror::Error)]
@@ -83,8 +81,6 @@ struct CheckedHeader<H> {
     ///
     /// Includes the digest item that encoded the seal.
     pre_header: H,
-    /// Pre-digest
-    pre_digest: PreDigest,
     /// Seal (signature)
     seal: DigestItem,
 }
@@ -108,8 +104,6 @@ pub struct SubspaceVerifierOptions<Client> {
     pub chain_constants: ChainConstants,
     /// Approximate target block number for syncing purposes
     pub sync_target_block_number: Arc<AtomicU64>,
-    /// Whether this node is authoring blocks
-    pub is_authoring_blocks: bool,
     /// Proof of time verifier
     pub pot_verifier: PotVerifier,
 }
@@ -122,9 +116,7 @@ where
     client: Arc<Client>,
     chain_constants: ChainConstants,
     sync_target_block_number: Arc<AtomicU64>,
-    is_authoring_blocks: bool,
     pot_verifier: PotVerifier,
-    equivocation_mutex: Mutex<()>,
     _pos_table: PhantomData<PosTable>,
     _block: PhantomData<Block>,
 }
@@ -143,7 +135,6 @@ where
             client,
             chain_constants,
             sync_target_block_number,
-            is_authoring_blocks,
             pot_verifier,
         } = options;
 
@@ -151,9 +142,7 @@ where
             client,
             chain_constants,
             sync_target_block_number,
-            is_authoring_blocks,
             pot_verifier,
-            equivocation_mutex: Mutex::default(),
             _pos_table: Default::default(),
             _block: Default::default(),
         }
@@ -340,59 +329,58 @@ where
 
         Ok(CheckedHeader {
             pre_header: header,
-            pre_digest,
             seal,
         })
     }
 
-    async fn check_and_report_equivocation(
-        &self,
-        slot_now: SlotNumber,
-        slot: SlotNumber,
-        header: &Block::Header,
-        public_key_hash: &Blake3Hash,
-        origin: &BlockOrigin,
-    ) -> Result<(), String> {
-        // don't report any equivocations during initial sync
-        // as they are most likely stale.
-        if *origin == BlockOrigin::NetworkInitialSync {
-            return Ok(());
-        }
-
-        // Equivocation verification uses `AuxStore` in a way that is not safe from concurrency,
-        // this lock ensures that we process one header at a time
-        let _guard = self.equivocation_mutex.lock().await;
-
-        // check if authorship of this header is an equivocation and return a proof if so.
-        let equivocation_proof = match check_equivocation(
-            &*self.client,
-            slot_now.as_u64().into(),
-            slot.as_u64().into(),
-            header,
-            public_key_hash,
-        )
-        .map_err(|error| error.to_string())?
-        {
-            Some(proof) => proof,
-            None => return Ok(()),
-        };
-
-        info!(
-            "Slot author {:?} is equivocating at slot {} with headers {:?} and {:?}",
-            public_key_hash,
-            slot,
-            equivocation_proof.first_header.hash(),
-            equivocation_proof.second_header.hash(),
-        );
-
-        if self.is_authoring_blocks {
-            // TODO: Handle equivocation
-        } else {
-            info!("Not submitting equivocation report because node is not authoring blocks");
-        }
-
-        Ok(())
-    }
+    // async fn check_and_report_equivocation(
+    //     &self,
+    //     slot_now: SlotNumber,
+    //     slot: SlotNumber,
+    //     header: &Block::Header,
+    //     public_key_hash: &Blake3Hash,
+    //     origin: &BlockOrigin,
+    // ) -> Result<(), String> {
+    //     // don't report any equivocations during initial sync
+    //     // as they are most likely stale.
+    //     if *origin == BlockOrigin::NetworkInitialSync {
+    //         return Ok(());
+    //     }
+    //
+    //     // Equivocation verification uses `AuxStore` in a way that is not safe from concurrency,
+    //     // this lock ensures that we process one header at a time
+    //     let _guard = self.equivocation_mutex.lock().await;
+    //
+    //     // check if authorship of this header is an equivocation and return a proof if so.
+    //     let equivocation_proof = match check_equivocation(
+    //         &*self.client,
+    //         slot_now.as_u64().into(),
+    //         slot.as_u64().into(),
+    //         header,
+    //         public_key_hash,
+    //     )
+    //     .map_err(|error| error.to_string())?
+    //     {
+    //         Some(proof) => proof,
+    //         None => return Ok(()),
+    //     };
+    //
+    //     info!(
+    //         "Slot author {:?} is equivocating at slot {} with headers {:?} and {:?}",
+    //         public_key_hash,
+    //         slot,
+    //         equivocation_proof.first_header.hash(),
+    //         equivocation_proof.second_header.hash(),
+    //     );
+    //
+    //     if self.is_authoring_blocks {
+    //         // TODO: Handle equivocation
+    //     } else {
+    //         info!("Not submitting equivocation report because node is not authoring blocks");
+    //     }
+    //
+    //     Ok(())
+    // }
 
     async fn verify(
         &self,
@@ -457,45 +445,42 @@ where
             )
             .map_err(|error| error.to_string())?;
 
-        let CheckedHeader {
-            pre_header,
-            pre_digest,
-            seal,
-        } = checked_header;
+        let CheckedHeader { pre_header, seal } = checked_header;
 
-        let slot = pre_digest.slot;
-        // Estimate what the "current" slot is according to sync target since we don't have other
-        // way to know it
-        let diff_in_blocks =
-            BlockNumber::new(self.sync_target_block_number.load(Ordering::Relaxed))
-                .saturating_sub(block_number);
-        let slot_now = if diff_in_blocks > BlockNumber::ZERO {
-            slot + SlotNumber::new(
-                diff_in_blocks.as_u64() * self.chain_constants.slot_probability().1
-                    / self.chain_constants.slot_probability().0,
-            )
-        } else {
-            slot
-        };
-
-        // the header is valid but let's check if there was something else already proposed at the
-        // same slot by the given author. if there was, we will report the equivocation to the
-        // runtime.
-        if let Err(error) = self
-            .check_and_report_equivocation(
-                slot_now,
-                slot,
-                &block.header,
-                &pre_digest.solution.public_key_hash,
-                &block.origin,
-            )
-            .await
-        {
-            warn!(
-                %error,
-                "Error checking/reporting Subspace equivocation"
-            );
-        }
+        // TODO: Do something about equivocation?
+        // let slot = pre_digest.slot;
+        // // Estimate what the "current" slot is according to sync target since we don't have other
+        // // way to know it
+        // let diff_in_blocks =
+        //     BlockNumber::new(self.sync_target_block_number.load(Ordering::Relaxed))
+        //         .saturating_sub(block_number);
+        // let slot_now = if diff_in_blocks > BlockNumber::ZERO {
+        //     slot + SlotNumber::new(
+        //         diff_in_blocks.as_u64() * self.chain_constants.slot_probability().1
+        //             / self.chain_constants.slot_probability().0,
+        //     )
+        // } else {
+        //     slot
+        // };
+        //
+        // // the header is valid but let's check if there was something else already proposed at the
+        // // same slot by the given author. if there was, we will report the equivocation to the
+        // // runtime.
+        // if let Err(error) = self
+        //     .check_and_report_equivocation(
+        //         slot_now,
+        //         slot,
+        //         &block.header,
+        //         &pre_digest.solution.public_key_hash,
+        //         &block.origin,
+        //     )
+        //     .await
+        // {
+        //     warn!(
+        //         %error,
+        //         "Error checking/reporting Subspace equivocation"
+        //     );
+        // }
 
         trace!(?pre_header, "Checked header; importing");
 
