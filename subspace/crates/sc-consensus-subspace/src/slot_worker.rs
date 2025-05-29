@@ -41,7 +41,6 @@ use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{
     BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain, SyncOracle,
 };
-use sp_consensus_slots::Slot;
 use sp_consensus_subspace::digests::{
     CompatibleDigestItem, PreDigest, PreDigestPotInfo, extract_pre_digest,
 };
@@ -231,10 +230,8 @@ where
     async fn claim_slot(
         &mut self,
         parent_header: &Block::Header,
-        slot: Slot,
+        slot: SlotNumber,
     ) -> Option<Self::Claim> {
-        let slot = SlotNumber::new(<u64 as From<Slot>>::from(slot));
-
         let parent_pre_digest = match extract_pre_digest(parent_header) {
             Ok(pre_digest) => pre_digest,
             Err(error) => {
@@ -509,7 +506,7 @@ where
 
     fn pre_digest_data(
         &self,
-        _slot: Slot,
+        _slot: SlotNumber,
         (pre_digest, _justification): &Self::Claim,
     ) -> Vec<DigestItem> {
         vec![DigestItem::subspace_pre_digest(pre_digest)]
@@ -717,7 +714,7 @@ where
             };
 
             self.on_slot(SlotInfo::new(
-                Slot::from(slot_to_claim.as_u64()),
+                slot_to_claim,
                 Box::new(inherent_data_providers),
                 slot_duration,
                 best_header,

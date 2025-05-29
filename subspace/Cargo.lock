@@ -9038,7 +9038,6 @@ dependencies = [
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-slots",
  "sp-consensus-subspace",
  "sp-inherents",
  "sp-runtime",

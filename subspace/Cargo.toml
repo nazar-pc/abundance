@@ -113,7 +113,6 @@ sp-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f
 sp-block-builder = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }
 sp-blockchain = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }
 sp-consensus = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35" }
-sp-consensus-slots = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }
 sp-consensus-subspace = { version = "0.1.0", path = "crates/sp-consensus-subspace", default-features = false }
 sp-core = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }
 sp-genesis-builder = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }

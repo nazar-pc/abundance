@@ -27,13 +27,13 @@
 
 mod slots;
 
+use ab_core_primitives::pot::SlotNumber;
 use futures::future::Either;
 use futures::{Future, TryFutureExt};
 use futures_timer::Delay;
 use sc_consensus::{BlockImport, JustificationSyncLink};
 pub use slots::SlotInfo;
 use sp_consensus::{Proposal, Proposer, SyncOracle};
-use sp_consensus_slots::Slot;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
@@ -74,10 +74,11 @@ pub trait SimpleSlotWorker<B: BlockT> {
     fn block_import(&mut self) -> &mut Self::BlockImport;
 
     /// Tries to claim the given slot, returning an object with claim data if successful.
-    async fn claim_slot(&mut self, header: &B::Header, slot: Slot) -> Option<Self::Claim>;
+    async fn claim_slot(&mut self, header: &B::Header, slot: SlotNumber) -> Option<Self::Claim>;
 
     /// Return the pre digest data to include in a block authored with the given claim.
-    fn pre_digest_data(&self, slot: Slot, claim: &Self::Claim) -> Vec<sp_runtime::DigestItem>;
+    fn pre_digest_data(&self, slot: SlotNumber, claim: &Self::Claim)
+    -> Vec<sp_runtime::DigestItem>;
 
     /// Returns a function which produces a `BlockImportParams`.
     async fn block_import_params(

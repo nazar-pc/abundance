@@ -20,7 +20,7 @@
 //!
 //! This is used instead of `futures_timer::Interval` because it was unreliable.
 
-use sp_consensus_slots::Slot;
+use ab_core_primitives::pot::SlotNumber;
 use sp_inherents::InherentDataProvider;
 use sp_runtime::traits::Block as BlockT;
 use std::time::Duration;
@@ -28,7 +28,7 @@ use std::time::Duration;
 /// Information about a slot.
 pub struct SlotInfo<B: BlockT> {
     /// The slot number as found in the inherent data.
-    pub slot: Slot,
+    pub slot: SlotNumber,
     /// The inherent data provider.
     pub create_inherent_data: Box<dyn InherentDataProvider>,
     /// Slot duration.
@@ -46,7 +46,7 @@ impl<B: BlockT> SlotInfo<B> {
     ///
     /// `ends_at` is calculated using `timestamp` and `duration`.
     pub fn new(
-        slot: Slot,
+        slot: SlotNumber,
         create_inherent_data: Box<dyn InherentDataProvider>,
         duration: Duration,
         chain_head: B::Header,

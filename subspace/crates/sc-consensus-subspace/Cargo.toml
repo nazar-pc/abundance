@@ -35,7 +35,6 @@ sp-blockchain = { workspace = true }
 sp-block-builder = { workspace = true, features = ["std"] }
 sp-consensus = { workspace = true }
 sp-consensus-subspace = { workspace = true, features = ["std"] }
-sp-consensus-slots = { workspace = true }
 sp-inherents = { workspace = true }
 sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true }
