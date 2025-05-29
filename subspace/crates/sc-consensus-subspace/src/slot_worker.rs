@@ -34,10 +34,7 @@ use futures::{StreamExt, TryFutureExt};
 use sc_client_api::AuxStore;
 use sc_consensus::block_import::{BlockImportParams, StateAction};
 use sc_consensus::{BoxBlockImport, JustificationSyncLink, StorageChanges};
-use sc_consensus_slots::{
-    SimpleSlotWorker, SimpleSlotWorkerToSlotWorker, SlotInfo, SlotLenienceType, SlotProportion,
-    SlotWorker,
-};
+use sc_consensus_slots::{SimpleSlotWorker, SimpleSlotWorkerToSlotWorker, SlotInfo, SlotWorker};
 use sc_telemetry::TelemetryHandle;
 use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
 use sp_api::{ApiError, ProvideRuntimeApi};
@@ -600,18 +597,7 @@ where
     }
 
     fn proposing_remaining_duration(&self, slot_info: &SlotInfo<Block>) -> std::time::Duration {
-        let parent_slot = extract_pre_digest(&slot_info.chain_head)
-            .ok()
-            .map(|d| d.slot);
-
-        sc_consensus_slots::proposing_remaining_duration(
-            parent_slot.map(|parent_slot| Slot::from(parent_slot.as_u64())),
-            slot_info,
-            &SlotProportion::new(1.0),
-            None,
-            SlotLenienceType::Exponential,
-            self.logging_target(),
-        )
+        slot_info.duration
     }
 }
 
