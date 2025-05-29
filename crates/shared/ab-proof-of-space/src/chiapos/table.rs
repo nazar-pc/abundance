@@ -575,7 +575,9 @@ where
             t_1.extend(ys.into_iter().zip(xs));
         }
 
-        t_1.sort_unstable();
+        radsort::sort_by_key(&mut t_1, |&(y, x)| u32::from(y));
+        // t_1.sort_unstable();
+        // t_1.sort_unstable_by_key(|&(y, x)| y);
 
         let (ys, xs) = t_1.into_iter().unzip();
 
@@ -731,7 +733,10 @@ where
                 );
             });
 
-        t_n.sort_unstable();
+        radsort::sort_by_key(&mut t_n, |&(y, positions, metadata)| u32::from(y));
+        // voracious_radix_sort::american_flag_sort(&mut t_n);
+        // t_n.sort_unstable();
+        // t_n.sort_unstable_by_key(|&(y, positions, metadata)| y);
 
         let mut ys = Vec::with_capacity(t_n.len());
         let mut positions = Vec::with_capacity(t_n.len());
