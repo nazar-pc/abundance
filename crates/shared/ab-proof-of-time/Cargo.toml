@@ -17,9 +17,18 @@ all-features = true
 # Necessary for CLI options to work on benches
 bench = false
 
+[[bench]]
+name = "pot"
+harness = false
+
+[[bench]]
+name = "pot-compare-cpu-cores"
+harness = false
+
 [dependencies]
 ab-core-primitives = { workspace = true }
 aes = { workspace = true }
+no-panic = { workspace = true, optional = true }
 thiserror = { workspace = true }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
@@ -31,13 +40,11 @@ criterion = { workspace = true }
 rand_core = { workspace = true }
 rand_chacha = { workspace = true }
 
-[[bench]]
-name = "pot"
-harness = false
-
-[[bench]]
-name = "pot-compare-cpu-cores"
-harness = false
+[features]
+# Check that code can't panic under any conditions
+no-panic = [
+    "dep:no-panic",
+]
 
 [lints]
 workspace = true

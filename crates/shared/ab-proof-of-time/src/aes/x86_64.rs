@@ -8,6 +8,7 @@ const NUM_ROUND_KEYS: usize = 11;
 /// Create PoT proof with checkpoints
 #[target_feature(enable = "aes")]
 #[inline]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(super) fn create(
     seed: &[u8; 16],
     key: &[u8; 16],
@@ -43,6 +44,7 @@ pub(super) fn create(
 /// Verification mimics `create` function, but also has decryption half for better performance
 #[target_feature(enable = "avx512f,vaes")]
 #[inline]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(super) fn verify_sequential_avx512f(
     seed: &[u8; 16],
     key: &[u8; 16],
@@ -125,6 +127,7 @@ pub(super) fn verify_sequential_avx512f(
 // https://github.com/RustCrypto/block-ciphers/blob/fbb68f40b122909d92e40ee8a50112b6e5d0af8f/aes/src/ni/expand.rs
 
 #[target_feature(enable = "aes")]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 fn expand_key(key: &[u8; 16]) -> [__m128i; NUM_ROUND_KEYS] {
     #[target_feature(enable = "aes")]
     fn expand_round<const RK: i32>(keys: &mut [__m128i; NUM_ROUND_KEYS], pos: usize) {
