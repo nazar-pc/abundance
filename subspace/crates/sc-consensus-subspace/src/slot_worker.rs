@@ -17,6 +17,7 @@
 
 use crate::SubspaceLink;
 use crate::archiver::SegmentHeadersStore;
+use crate::sc_consensus_slots::{SimpleSlotWorker, SlotInfo};
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
@@ -34,8 +35,6 @@ use futures::{StreamExt, TryFutureExt};
 use sc_client_api::AuxStore;
 use sc_consensus::block_import::{BlockImportParams, StateAction};
 use sc_consensus::{BoxBlockImport, JustificationSyncLink, StorageChanges};
-use sc_consensus_slots::{SimpleSlotWorker, SimpleSlotWorkerToSlotWorker, SlotInfo, SlotWorker};
-use sc_telemetry::TelemetryHandle;
 use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
@@ -48,7 +47,7 @@ use sp_consensus_subspace::digests::{
 };
 use sp_consensus_subspace::{SubspaceApi, SubspaceJustification};
 use sp_inherents::CreateInherentDataProviders;
-use sp_runtime::traits::{Block as BlockT, Header, Zero};
+use sp_runtime::traits::{Block as BlockT, HashingFor, Header, Zero};
 use sp_runtime::{DigestItem, Justification, Justifications};
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -224,36 +223,15 @@ where
         Pin<Box<dyn Future<Output = Result<E::Proposer, ConsensusError>> + Send + 'static>>;
     type Proposer = E::Proposer;
     type Claim = (PreDigest, SubspaceJustification);
-    type AuxData = ();
-
-    fn logging_target(&self) -> &'static str {
-        "subspace"
-    }
 
     fn block_import(&mut self) -> &mut Self::BlockImport {
         &mut self.block_import
-    }
-
-    fn aux_data(
-        &self,
-        _parent: &Block::Header,
-        _slot: Slot,
-    ) -> Result<Self::AuxData, ConsensusError> {
-        Ok(())
-    }
-
-    fn authorities_len(&self, _epoch_data: &Self::AuxData) -> Option<usize> {
-        // This function is used in `sc-consensus-slots` in order to determine whether it is
-        // possible to skip block production under certain circumstances, returning `None` or any
-        // number smaller or equal to `1` disables that functionality and we don't want that.
-        Some(2)
     }
 
     async fn claim_slot(
         &mut self,
         parent_header: &Block::Header,
         slot: Slot,
-        _aux_data: &Self::AuxData,
     ) -> Option<Self::Claim> {
         let slot = SlotNumber::new(<u64 as From<Slot>>::from(slot));
 
@@ -542,9 +520,8 @@ where
         header: Block::Header,
         header_hash: &Block::Hash,
         body: Vec<Block::Extrinsic>,
-        storage_changes: sc_consensus_slots::StorageChanges<Block>,
+        storage_changes: sp_state_machine::StorageChanges<HashingFor<Block>>,
         (pre_digest, justification): Self::Claim,
-        _aux_data: Self::AuxData,
     ) -> Result<BlockImportParams<Block>, ConsensusError> {
         let signature = self
             .sign_reward(
@@ -590,10 +567,6 @@ where
                 .init(block)
                 .map_err(|e| ConsensusError::ClientImport(e.to_string())),
         )
-    }
-
-    fn telemetry(&self) -> Option<TelemetryHandle> {
-        None
     }
 
     fn proposing_remaining_duration(&self, slot_info: &SlotInfo<Block>) -> std::time::Duration {
@@ -652,7 +625,7 @@ where
 
     /// Run slot worker
     pub async fn run<SC, CIDP>(
-        self,
+        mut self,
         select_chain: SC,
         create_inherent_data_providers: CIDP,
         mut slot_info_stream: PotSlotInfoStream,
@@ -675,8 +648,6 @@ where
             .chain_constants
             .slot_duration()
             .as_duration();
-
-        let mut worker = SimpleSlotWorkerToSlotWorker(self);
 
         let mut maybe_last_proven_slot = None;
 
@@ -705,9 +676,9 @@ where
             }
             maybe_last_proven_slot.replace(slot);
 
-            worker.0.on_pot(slot, checkpoints);
+            self.on_pot(slot, checkpoints);
 
-            if worker.0.sync_oracle.is_major_syncing() {
+            if self.sync_oracle.is_major_syncing() {
                 debug!(%slot, "Skipping proposal slot due to sync");
                 continue;
             }
@@ -745,15 +716,14 @@ where
                 }
             };
 
-            let _ = worker
-                .on_slot(SlotInfo::new(
-                    Slot::from(slot_to_claim.as_u64()),
-                    Box::new(inherent_data_providers),
-                    slot_duration,
-                    best_header,
-                    None,
-                ))
-                .await;
+            self.on_slot(SlotInfo::new(
+                Slot::from(slot_to_claim.as_u64()),
+                Box::new(inherent_data_providers),
+                slot_duration,
+                best_header,
+                None,
+            ))
+            .await;
         }
     }
 

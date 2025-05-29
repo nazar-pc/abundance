@@ -21,15 +21,14 @@ ab-proof-of-space = { workspace = true }
 async-trait = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 futures = { workspace = true }
+futures-timer = { workspace = true }
 parking_lot = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 rayon = { workspace = true }
 sc-client-api = { workspace = true }
 sc-consensus = { workspace = true }
-sc-consensus-slots = { workspace = true }
 sc-proof-of-time = { workspace = true }
-sc-telemetry = { workspace = true }
 sc-utils = { workspace = true }
 sp-api = { workspace = true }
 sp-blockchain = { workspace = true }
@@ -39,6 +38,7 @@ sp-consensus-subspace = { workspace = true, features = ["std"] }
 sp-consensus-slots = { workspace = true }
 sp-inherents = { workspace = true }
 sp-runtime = { workspace = true }
+sp-state-machine = { workspace = true }
 subspace-verification = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time"] }
