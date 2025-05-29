@@ -173,15 +173,6 @@ where
     pub subspace_link: SubspaceLink,
     /// Persistent storage of segment headers
     pub segment_headers_store: SegmentHeadersStore<AS>,
-    /// The proportion of the slot dedicated to proposing.
-    ///
-    /// The block proposing will be limited to this proportion of the slot from the starting of the
-    /// slot. However, the proposing can still take longer when there is some lenience factor applied,
-    /// because there were no blocks produced for some slots.
-    pub block_proposal_slot_portion: SlotProportion,
-    /// The maximum proportion of the slot dedicated to proposing with any lenience factor applied
-    /// due to no blocks being produced.
-    pub max_block_proposal_slot_portion: Option<SlotProportion>,
     /// Proof of time verifier
     pub pot_verifier: PotVerifier,
 }
@@ -199,8 +190,6 @@ where
     justification_sync_link: L,
     force_authoring: bool,
     subspace_link: SubspaceLink,
-    block_proposal_slot_portion: SlotProportion,
-    max_block_proposal_slot_portion: Option<SlotProportion>,
     segment_headers_store: SegmentHeadersStore<AS>,
     /// Solution receivers for challenges that were sent to farmers and expected to be received
     /// eventually
@@ -618,8 +607,8 @@ where
         sc_consensus_slots::proposing_remaining_duration(
             parent_slot.map(|parent_slot| Slot::from(parent_slot.as_u64())),
             slot_info,
-            &self.block_proposal_slot_portion,
-            self.max_block_proposal_slot_portion.as_ref(),
+            &SlotProportion::new(1.0),
+            None,
             SlotLenienceType::Exponential,
             self.logging_target(),
         )
@@ -656,8 +645,6 @@ where
             force_authoring,
             subspace_link,
             segment_headers_store,
-            block_proposal_slot_portion,
-            max_block_proposal_slot_portion,
             pot_verifier,
         }: SubspaceSlotWorkerOptions<Block, Client, E, SO, L, AS>,
     ) -> Self {
@@ -669,8 +656,6 @@ where
             justification_sync_link,
             force_authoring,
             subspace_link,
-            block_proposal_slot_portion,
-            max_block_proposal_slot_portion,
             segment_headers_store,
             pending_solutions: BTreeMap::new(),
             pot_checkpoints: BTreeMap::new(),

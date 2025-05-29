@@ -44,7 +44,6 @@ use sc_consensus::{
     BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport,
     DefaultImportQueue, ImportQueue, ImportResult,
 };
-use sc_consensus_slots::SlotProportion;
 use sc_consensus_subspace::SubspaceLink;
 use sc_consensus_subspace::archiver::{
     ArchivedSegmentNotification, SegmentHeadersStore, create_subspace_archiver,
@@ -436,7 +435,6 @@ pub async fn new_full<PosTable, RuntimeApi>(
     partial_components: PartialComponents<RuntimeApi>,
     prometheus_registry: Option<&mut Registry>,
     enable_rpc_extensions: bool,
-    block_proposal_slot_portion: SlotProportion,
 ) -> Result<FullNode<RuntimeApi>, Error>
 where
     PosTable: Table,
@@ -885,8 +883,6 @@ where
                 force_authoring: config.base.force_authoring,
                 subspace_link: subspace_link.clone(),
                 segment_headers_store: segment_headers_store.clone(),
-                block_proposal_slot_portion,
-                max_block_proposal_slot_portion: None,
                 pot_verifier,
             });
 

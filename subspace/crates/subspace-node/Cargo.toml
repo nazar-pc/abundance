@@ -32,7 +32,6 @@ mimalloc = { workspace = true }
 prometheus-client = { workspace = true }
 sc-chain-spec = { workspace = true }
 sc-cli = { workspace = true }
-sc-consensus-slots = { workspace = true }
 sc-consensus-subspace = { workspace = true }
 sc-network = { workspace = true }
 sc-service = { workspace = true }
