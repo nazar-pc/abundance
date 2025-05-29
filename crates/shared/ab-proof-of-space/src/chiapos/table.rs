@@ -15,9 +15,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 use chacha20::cipher::{KeyIvInit, StreamCipher, StreamCipherSeek};
 use chacha20::{ChaCha8, Key, Nonce};
-use core::mem;
 use core::simd::Simd;
 use core::simd::num::SimdUint;
+use core::{array, mem};
 #[cfg(all(feature = "std", any(feature = "parallel", test)))]
 use parking_lot::Mutex;
 #[cfg(any(feature = "parallel", test))]
@@ -199,7 +199,7 @@ pub(super) fn compute_f1<const K: u8>(x: X, partial_y: &[u8], partial_y_offset: 
 }
 
 pub(super) fn compute_f1_simd<const K: u8>(
-    xs: [X; COMPUTE_F1_SIMD_FACTOR],
+    xs: [u32; COMPUTE_F1_SIMD_FACTOR],
     partial_ys: &[u8; K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize],
 ) -> [Y; COMPUTE_F1_SIMD_FACTOR] {
     // Each element contains `K` desired bits of `partial_ys` in the final offset of eventual `ys`
@@ -243,9 +243,6 @@ pub(super) fn compute_f1_simd<const K: u8>(
             & (u32::MAX >> (u32::BITS as usize - usize::from(K + PARAM_EXT))),
     );
 
-    // SAFETY: `X` is `#[repr(transparent)]` and guaranteed to have the same memory layout as `u32`
-    let xs =
-        unsafe { mem::transmute::<[X; COMPUTE_F1_SIMD_FACTOR], [u32; COMPUTE_F1_SIMD_FACTOR]>(xs) };
     // Extract `PARAM_EXT` most significant bits from `xs` and store in the final offset of
     // eventual `ys` with the rest of bits being in undefined state.
     let pre_exts = Simd::from(xs) >> Simd::splat(u32::from(K - PARAM_EXT));
@@ -555,24 +552,16 @@ where
         let partial_ys = partial_ys::<K>(seed);
 
         let mut t_1 = Vec::with_capacity(1_usize << K);
-        for (x_start, partial_ys) in X::all::<K>().step_by(COMPUTE_F1_SIMD_FACTOR).zip(
-            partial_ys
-                .array_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
-                .copied(),
-        ) {
-            let xs: [_; COMPUTE_F1_SIMD_FACTOR] = seq!(N in 0..8 {
-                [
-                #(
-                #[allow(clippy::erasing_op, clippy::identity_op)]
-                {
-                    x_start + X::from(N)
-                },
-                )*
-                ]
+        for (x_batch, partial_ys) in partial_ys
+            .array_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
+            .copied()
+            .enumerate()
+        {
+            let xs = array::from_fn::<_, COMPUTE_F1_SIMD_FACTOR, _>(|i| {
+                (x_batch * COMPUTE_F1_SIMD_FACTOR + i) as u32
             });
-
             let ys = compute_f1_simd::<K>(xs, &partial_ys);
-            t_1.extend(ys.into_iter().zip(xs));
+            t_1.extend(ys.into_iter().zip(X::array_from_repr(xs)));
         }
 
         t_1.sort_unstable();
@@ -591,24 +580,16 @@ where
         let partial_ys = partial_ys::<K>(seed);
 
         let mut t_1 = Vec::with_capacity(1_usize << K);
-        for (x_start, partial_ys) in X::all::<K>().step_by(COMPUTE_F1_SIMD_FACTOR).zip(
-            partial_ys
-                .array_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
-                .copied(),
-        ) {
-            let xs: [_; COMPUTE_F1_SIMD_FACTOR] = seq!(N in 0..8 {
-                [
-                #(
-                #[allow(clippy::erasing_op, clippy::identity_op)]
-                {
-                    x_start + X::from(N)
-                },
-                )*
-                ]
+        for (x_batch, partial_ys) in partial_ys
+            .array_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
+            .copied()
+            .enumerate()
+        {
+            let xs = array::from_fn::<_, COMPUTE_F1_SIMD_FACTOR, _>(|i| {
+                (x_batch * COMPUTE_F1_SIMD_FACTOR + i) as u32
             });
-
             let ys = compute_f1_simd::<K>(xs, &partial_ys);
-            t_1.extend(ys.into_iter().zip(xs));
+            t_1.extend(ys.into_iter().zip(X::array_from_repr(xs)));
         }
 
         t_1.par_sort_unstable();

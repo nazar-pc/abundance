@@ -44,7 +44,7 @@ fn test_compute_f1_k25() {
         let mut partial_ys = [0; K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize];
         partial_ys.view_bits_mut::<Msb0>()[..usize::from(K)]
             .copy_from_bitslice(&partial_y.view_bits()[partial_y_offset..][..usize::from(K)]);
-        let y = compute_f1_simd::<K>([x; COMPUTE_F1_SIMD_FACTOR], &partial_ys);
+        let y = compute_f1_simd::<K>([x.into(); COMPUTE_F1_SIMD_FACTOR], &partial_ys);
         assert_eq!(y[0], Y::from(expected_y));
     }
 }
@@ -70,7 +70,7 @@ fn test_compute_f1_k22() {
         let mut partial_ys = [0; K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize];
         partial_ys.view_bits_mut::<Msb0>()[..usize::from(K)]
             .copy_from_bitslice(&partial_y.view_bits()[partial_y_offset..][..usize::from(K)]);
-        let y = compute_f1_simd::<K>([x; COMPUTE_F1_SIMD_FACTOR], &partial_ys);
+        let y = compute_f1_simd::<K>([x.into(); COMPUTE_F1_SIMD_FACTOR], &partial_ys);
         assert_eq!(y[0], Y::from(expected_y));
     }
 }
