@@ -1,13 +1,15 @@
 use crate::chiapos::constants::PARAM_EXT;
 use crate::chiapos::table::metadata_size_bytes;
 use crate::chiapos::utils::EvaluatableUsize;
+use core::cmp::Ordering;
 use core::iter::Step;
 use core::ops::Range;
 use derive_more::{Add, AddAssign, From, Into};
+use voracious_radix_sort::Radixable;
 
 /// Stores data in lower bits
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into, Add, AddAssign)]
-#[repr(transparent)]
+#[repr(C)]
 pub(in super::super) struct X(u32);
 
 impl Step for X {
@@ -57,7 +59,7 @@ impl X {
 
 /// Stores data in lower bits
 #[derive(Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into)]
-#[repr(transparent)]
+#[repr(C)]
 pub(in super::super) struct Y(u32);
 
 impl From<Y> for u128 {
@@ -83,7 +85,7 @@ impl Y {
 #[derive(
     Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into, Add, AddAssign,
 )]
-#[repr(transparent)]
+#[repr(C)]
 pub(in super::super) struct Position(u32);
 
 impl Step for Position {
@@ -117,7 +119,7 @@ impl Position {
 
 /// Stores data in lower bits
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-#[repr(transparent)]
+#[repr(C)]
 pub(in super::super) struct Metadata<const K: u8, const TABLE_NUMBER: u8>(
     [u8; metadata_size_bytes(K, TABLE_NUMBER)],
 )
@@ -169,5 +171,79 @@ where
     #[inline(always)]
     fn from(value: X) -> Self {
         Self::from(u128::from(value))
+    }
+}
+
+/// A tuple of `Y` and `X`.
+///
+/// Useful for sorting purposes.
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub(super) struct YXTuple {
+    pub(super) y: Y,
+    pub(super) x: X,
+}
+
+impl PartialOrd for YXTuple {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.y.partial_cmp(&other.y)
+    }
+}
+impl PartialEq for YXTuple {
+    fn eq(&self, other: &Self) -> bool {
+        self.y == other.y
+    }
+}
+
+impl Radixable<u32> for YXTuple {
+    type Key = u32;
+
+    #[inline]
+    fn key(&self) -> Self::Key {
+        u32::from(self.y)
+    }
+}
+
+/// A tuple of `Y` and `[Position; 2]` and `Metadata`.
+///
+/// Useful for sorting purposes.
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub(super) struct YPositionsMetadataTuple<const K: u8, const TABLE_NUMBER: u8>
+where
+    EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+{
+    pub(super) y: Y,
+    pub(super) positions: [Position; 2],
+    pub(super) metadata: Metadata<K, TABLE_NUMBER>,
+}
+
+impl<const K: u8, const TABLE_NUMBER: u8> PartialOrd for YPositionsMetadataTuple<K, TABLE_NUMBER>
+where
+    EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.y.partial_cmp(&other.y)
+    }
+}
+impl<const K: u8, const TABLE_NUMBER: u8> PartialEq for YPositionsMetadataTuple<K, TABLE_NUMBER>
+where
+    EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.y == other.y
+    }
+}
+
+impl<const K: u8, const TABLE_NUMBER: u8> Radixable<u32>
+    for YPositionsMetadataTuple<K, TABLE_NUMBER>
+where
+    EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+{
+    type Key = u32;
+
+    #[inline]
+    fn key(&self) -> Self::Key {
+        u32::from(self.y)
     }
 }

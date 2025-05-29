@@ -7,7 +7,7 @@ extern crate alloc;
 
 use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT, PARAM_M};
-use crate::chiapos::table::types::{Metadata, Position, X, Y};
+use crate::chiapos::table::types::{Metadata, Position, X, Y, YPositionsMetadataTuple, YXTuple};
 use crate::chiapos::utils::EvaluatableUsize;
 #[cfg(not(feature = "std"))]
 use alloc::vec;
@@ -25,6 +25,7 @@ use rayon::prelude::*;
 use seq_macro::seq;
 #[cfg(all(not(feature = "std"), any(feature = "parallel", test)))]
 use spin::Mutex;
+use voracious_radix_sort::RadixSort;
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
 pub(super) const FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR: usize = 8;
@@ -477,7 +478,7 @@ where
 fn match_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     last_table: &Table<K, PARENT_TABLE_NUMBER>,
     m: Match,
-) -> (Y, [Position; 2], Metadata<K, TABLE_NUMBER>)
+) -> YPositionsMetadataTuple<K, TABLE_NUMBER>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
@@ -492,7 +493,11 @@ where
     let (y, metadata) =
         compute_fn::<K, TABLE_NUMBER, PARENT_TABLE_NUMBER>(m.left_y, left_metadata, right_metadata);
 
-    (y, [m.left_position, m.right_position], metadata)
+    YPositionsMetadataTuple {
+        y,
+        positions: [m.left_position, m.right_position],
+        metadata,
+    }
 }
 
 fn match_and_compute_fn<'a, const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
@@ -501,7 +506,7 @@ fn match_and_compute_fn<'a, const K: u8, const TABLE_NUMBER: u8, const PARENT_TA
     right_bucket: Bucket,
     rmap_scratch: &'a mut Vec<RmapItem>,
     left_targets: &'a LeftTargets,
-    results_table: &mut Vec<(Y, [Position; 2], Metadata<K, TABLE_NUMBER>)>,
+    results_table: &mut Vec<YPositionsMetadataTuple<K, TABLE_NUMBER>>,
 ) where
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
@@ -572,14 +577,17 @@ where
             });
 
             let ys = compute_f1_simd::<K>(xs, &partial_ys);
-            t_1.extend(ys.into_iter().zip(xs));
+            t_1.extend(ys.into_iter().zip(xs).map(|(y, x)| YXTuple { y, x }));
         }
 
-        radsort::sort_by_key(&mut t_1, |&(y, x)| u32::from(y));
+        // radsort::sort_by_key(&mut t_1, |&(y, x)| u32::from(y));
+        use voracious_radix_sort::RadixSort;
+        // t_1.voracious_stable_sort();
+        voracious_radix_sort::lsd_stable_radixsort(&mut t_1, 8);
         // t_1.sort_unstable();
         // t_1.sort_unstable_by_key(|&(y, x)| y);
 
-        let (ys, xs) = t_1.into_iter().unzip();
+        let (ys, xs) = t_1.into_iter().map(|YXTuple { y, x }| (y, x)).unzip();
 
         Self::First { ys, xs }
     }
@@ -610,12 +618,14 @@ where
             });
 
             let ys = compute_f1_simd::<K>(xs, &partial_ys);
-            t_1.extend(ys.into_iter().zip(xs));
+            t_1.extend(ys.into_iter().zip(xs).map(|(y, x)| YXTuple { y, x }));
         }
 
-        t_1.par_sort_unstable();
+        // t_1.par_sort_unstable();
+        voracious_radix_sort::lsd_stable_radixsort(&mut t_1, 8);
+        // t_1.voracious_mt_sort(rayon::current_num_threads());
 
-        let (ys, xs) = t_1.into_iter().unzip();
+        let (ys, xs) = t_1.into_iter().map(|YXTuple { y, x }| (y, x)).unzip();
 
         Self::First { ys, xs }
     }
@@ -733,16 +743,23 @@ where
                 );
             });
 
-        radsort::sort_by_key(&mut t_n, |&(y, positions, metadata)| u32::from(y));
-        // voracious_radix_sort::american_flag_sort(&mut t_n);
+        // radsort::sort_by_key(&mut t_n, |&(y, positions, metadata)| u32::from(y));
+        use voracious_radix_sort::RadixSort;
+        // t_n.voracious_stable_sort();
+        // voracious_radix_sort::lsd_stable_radixsort(&mut t_n, 8);
         // t_n.sort_unstable();
-        // t_n.sort_unstable_by_key(|&(y, positions, metadata)| y);
+        t_n.sort_unstable_by_key(|a| y);
 
         let mut ys = Vec::with_capacity(t_n.len());
         let mut positions = Vec::with_capacity(t_n.len());
         let mut metadatas = Vec::with_capacity(t_n.len());
 
-        for (y, [left_position, right_position], metadata) in t_n {
+        for YPositionsMetadataTuple {
+            y,
+            positions: [left_position, right_position],
+            metadata,
+        } in t_n
+        {
             ys.push(y);
             positions.push([left_position, right_position]);
             // Last table doesn't have metadata
@@ -845,13 +862,21 @@ where
         });
 
         let mut t_n = t_n.into_iter().flatten().collect::<Vec<_>>();
-        t_n.par_sort_unstable();
+        // t_n.par_sort_unstable();
+        t_n.par_sort_unstable_by_key(|tuple| (tuple.y, tuple.positions, tuple.metadata));
+        // t_n.voracious_mt_sort(rayon::current_num_threads());
+        // voracious_radix_sort::lsd_stable_radixsort(&mut t_n, 8);
 
         let mut ys = Vec::with_capacity(t_n.len());
         let mut positions = Vec::with_capacity(t_n.len());
         let mut metadatas = Vec::with_capacity(t_n.len());
 
-        for (y, [left_position, right_position], metadata) in t_n.drain(..) {
+        for YPositionsMetadataTuple {
+            y,
+            positions: [left_position, right_position],
+            metadata,
+        } in t_n.drain(..)
+        {
             ys.push(y);
             positions.push([left_position, right_position]);
             // Last table doesn't have metadata

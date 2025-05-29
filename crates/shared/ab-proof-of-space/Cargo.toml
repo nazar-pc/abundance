@@ -28,6 +28,7 @@ rayon = { workspace = true, optional = true }
 seq-macro = { workspace = true }
 sha2 = { workspace = true, optional = true }
 spin = { workspace = true }
+voracious_radix_sort = { version = "1.2.0", features = ["voracious_multithread"] }
 
 [dev-dependencies]
 # TODO: Remove this dependency
