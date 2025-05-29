@@ -337,7 +337,6 @@ where
         client: client.clone(),
         chain_constants,
         sync_target_block_number: Arc::clone(&sync_target_block_number),
-        is_authoring_blocks: config.role.is_authority(),
         pot_verifier: pot_verifier.clone(),
     });
 
