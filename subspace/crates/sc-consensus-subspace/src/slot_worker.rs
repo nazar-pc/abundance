@@ -689,9 +689,9 @@ where
         SC: SelectChain<Block>,
         CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
     {
-        let best_hash = self.client.info().best_hash;
         let runtime_api = self.client.runtime_api();
-        let block_authoring_delay = match runtime_api.chain_constants(best_hash) {
+        let block_authoring_delay = match runtime_api.chain_constants(self.client.info().best_hash)
+        {
             Ok(chain_constants) => chain_constants.block_authoring_delay(),
             Err(error) => {
                 error!(%error, "Failed to retrieve chain constants from runtime API");
@@ -798,10 +798,11 @@ where
             return;
         }
 
+        let best_hash = self.client.info().best_hash;
         let maybe_root_plot_public_key_hash = self
             .client
             .runtime_api()
-            .root_plot_public_key_hash(self.client.info().best_hash)
+            .root_plot_public_key_hash(best_hash)
             .ok()
             .flatten();
         if maybe_root_plot_public_key_hash.is_some() && !self.force_authoring {
@@ -816,7 +817,6 @@ where
 
         // NOTE: Best hash is not necessarily going to be the parent of corresponding block, but
         // solution range shouldn't be too far off
-        let best_hash = self.client.info().best_hash;
         let solution_range = match extract_solution_range_for_block(self.client.as_ref(), best_hash)
         {
             Ok(solution_range) => solution_range,
