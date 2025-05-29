@@ -10,6 +10,8 @@ use aes::cipher::{BlockCipherDecrypt, BlockCipherEncrypt, KeyInit};
 
 /// Creates the AES based proof.
 #[inline(always)]
+// TODO: un-comment once https://github.com/RustCrypto/block-ciphers/issues/481 is resolved
+// #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(crate) fn create(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> PotCheckpoints {
     #[cfg(target_arch = "x86_64")]
     {
@@ -23,6 +25,8 @@ pub(crate) fn create(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> 
     create_generic(seed, key, checkpoint_iterations)
 }
 
+// TODO: un-comment once https://github.com/RustCrypto/block-ciphers/issues/481 is resolved
+// #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 fn create_generic(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> PotCheckpoints {
     let key = Array::from(*key);
     let cipher = Aes128::new(&key);
@@ -44,6 +48,8 @@ fn create_generic(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> Pot
 ///
 /// Panics if `checkpoint_iterations` is not a multiple of `2`.
 #[inline(always)]
+// TODO: un-comment once https://github.com/RustCrypto/block-ciphers/issues/481 is resolved
+// #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(crate) fn verify_sequential(
     seed: PotSeed,
     key: PotKey,
@@ -66,6 +72,8 @@ pub(crate) fn verify_sequential(
     verify_sequential_generic(seed, key, checkpoints, checkpoint_iterations)
 }
 
+// TODO: un-comment once https://github.com/RustCrypto/block-ciphers/issues/481 is resolved
+// #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 fn verify_sequential_generic(
     seed: PotSeed,
     key: PotKey,

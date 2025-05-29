@@ -264,6 +264,7 @@ dependencies = [
  "core_affinity",
  "cpufeatures",
  "criterion",
+ "no-panic",
  "rand_chacha",
  "rand_core 0.9.3",
  "thiserror",
