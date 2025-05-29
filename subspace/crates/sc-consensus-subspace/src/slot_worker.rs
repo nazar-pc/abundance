@@ -35,8 +35,8 @@ use sc_client_api::AuxStore;
 use sc_consensus::block_import::{BlockImportParams, StateAction};
 use sc_consensus::{BoxBlockImport, JustificationSyncLink, StorageChanges};
 use sc_consensus_slots::{
-    BackoffAuthoringBlocksStrategy, SimpleSlotWorker, SimpleSlotWorkerToSlotWorker, SlotInfo,
-    SlotLenienceType, SlotProportion, SlotWorker,
+    SimpleSlotWorker, SimpleSlotWorkerToSlotWorker, SlotInfo, SlotLenienceType, SlotProportion,
+    SlotWorker,
 };
 use sc_telemetry::TelemetryHandle;
 use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
@@ -51,7 +51,7 @@ use sp_consensus_subspace::digests::{
 };
 use sp_consensus_subspace::{SubspaceApi, SubspaceJustification};
 use sp_inherents::CreateInherentDataProviders;
-use sp_runtime::traits::{Block as BlockT, Header, NumberFor, Zero};
+use sp_runtime::traits::{Block as BlockT, Header, Zero};
 use sp_runtime::{DigestItem, Justification, Justifications};
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -150,7 +150,7 @@ pub struct RewardSigningNotification {
 }
 
 /// Parameters for [`SubspaceSlotWorker`]
-pub struct SubspaceSlotWorkerOptions<Block, Client, E, SO, L, BS, AS>
+pub struct SubspaceSlotWorkerOptions<Block, Client, E, SO, L, AS>
 where
     Block: BlockT,
     SO: SyncOracle + Send + Sync,
@@ -169,8 +169,6 @@ where
     pub justification_sync_link: L,
     /// Force authoring of blocks even if we are offline
     pub force_authoring: bool,
-    /// Strategy and parameters for backing off block production.
-    pub backoff_authoring_blocks: Option<BS>,
     /// The source of timestamps for relative slots
     pub subspace_link: SubspaceLink,
     /// Persistent storage of segment headers
@@ -189,7 +187,7 @@ where
 }
 
 /// Subspace slot worker responsible for block and vote production
-pub struct SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, BS, AS>
+pub struct SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS>
 where
     Block: BlockT,
     SO: SyncOracle + Send + Sync,
@@ -200,7 +198,6 @@ where
     sync_oracle: SubspaceSyncOracle<SO>,
     justification_sync_link: L,
     force_authoring: bool,
-    backoff_authoring_blocks: Option<BS>,
     subspace_link: SubspaceLink,
     block_proposal_slot_portion: SlotProportion,
     max_block_proposal_slot_portion: Option<SlotProportion>,
@@ -215,8 +212,8 @@ where
 }
 
 #[async_trait::async_trait]
-impl<PosTable, Block, Client, E, Error, SO, L, BS, AS> SimpleSlotWorker<Block>
-    for SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, BS, AS>
+impl<PosTable, Block, Client, E, Error, SO, L, AS> SimpleSlotWorker<Block>
+    for SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS>
 where
     PosTable: Table,
     Block: BlockT,
@@ -230,7 +227,6 @@ where
     E::Proposer: Proposer<Block, Error = Error>,
     SO: SyncOracle + Send + Sync,
     L: JustificationSyncLink<Block>,
-    BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + Sync,
     Error: std::error::Error + Send + From<ConsensusError> + 'static,
     AS: AuxStore + Send + Sync + 'static,
     BlockNumber: From<<Block::Header as Header>::Number>,
@@ -594,21 +590,6 @@ where
         self.force_authoring
     }
 
-    fn should_backoff(&self, slot: Slot, chain_head: &Block::Header) -> bool {
-        if let Some(strategy) = &self.backoff_authoring_blocks
-            && let Ok(chain_head_slot) = extract_pre_digest(chain_head).map(|digest| digest.slot)
-        {
-            return strategy.should_backoff(
-                *chain_head.number(),
-                Slot::from(chain_head_slot.as_u64()),
-                self.client.info().finalized_number,
-                slot,
-                self.logging_target(),
-            );
-        }
-        false
-    }
-
     fn sync_oracle(&mut self) -> &mut Self::SyncOracle {
         &mut self.sync_oracle
     }
@@ -645,8 +626,8 @@ where
     }
 }
 
-impl<PosTable, Block, Client, E, Error, SO, L, BS, AS>
-    SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, BS, AS>
+impl<PosTable, Block, Client, E, Error, SO, L, AS>
+    SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS>
 where
     PosTable: Table,
     Block: BlockT,
@@ -660,7 +641,6 @@ where
     E::Proposer: Proposer<Block, Error = Error>,
     SO: SyncOracle + Send + Sync,
     L: JustificationSyncLink<Block>,
-    BS: BackoffAuthoringBlocksStrategy<NumberFor<Block>> + Send + Sync,
     Error: std::error::Error + Send + From<ConsensusError> + 'static,
     AS: AuxStore + Send + Sync + 'static,
     BlockNumber: From<<Block::Header as Header>::Number>,
@@ -674,13 +654,12 @@ where
             sync_oracle,
             justification_sync_link,
             force_authoring,
-            backoff_authoring_blocks,
             subspace_link,
             segment_headers_store,
             block_proposal_slot_portion,
             max_block_proposal_slot_portion,
             pot_verifier,
-        }: SubspaceSlotWorkerOptions<Block, Client, E, SO, L, BS, AS>,
+        }: SubspaceSlotWorkerOptions<Block, Client, E, SO, L, AS>,
     ) -> Self {
         Self {
             client,
@@ -689,7 +668,6 @@ where
             sync_oracle,
             justification_sync_link,
             force_authoring,
-            backoff_authoring_blocks,
             subspace_link,
             block_proposal_slot_portion,
             max_block_proposal_slot_portion,

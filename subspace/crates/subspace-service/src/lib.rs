@@ -788,8 +788,6 @@ where
         }
     }
 
-    let backoff_authoring_blocks: Option<()> = None;
-
     let new_slot_notification_stream = subspace_link.new_slot_notification_stream();
     let reward_signing_notification_stream = subspace_link.reward_signing_notification_stream();
     let block_importing_notification_stream = subspace_link.block_importing_notification_stream();
@@ -878,14 +876,13 @@ where
         );
 
         let subspace_slot_worker =
-            SubspaceSlotWorker::<PosTable, _, _, _, _, _, _, _>::new(SubspaceSlotWorkerOptions {
+            SubspaceSlotWorker::<PosTable, _, _, _, _, _, _>::new(SubspaceSlotWorkerOptions {
                 client: client.clone(),
                 env: proposer_factory,
                 block_import,
                 sync_oracle: sync_oracle.clone(),
                 justification_sync_link: sync_service.clone(),
                 force_authoring: config.base.force_authoring,
-                backoff_authoring_blocks,
                 subspace_link: subspace_link.clone(),
                 segment_headers_store: segment_headers_store.clone(),
                 block_proposal_slot_portion,
