@@ -14,7 +14,6 @@ pub mod archiver;
 pub mod aux_schema;
 pub mod block_import;
 pub mod notification;
-mod sc_consensus_slots;
 pub mod slot_worker;
 pub mod verifier;
 

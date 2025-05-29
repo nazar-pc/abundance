@@ -17,7 +17,6 @@
 
 use crate::SubspaceLink;
 use crate::archiver::SegmentHeadersStore;
-use crate::sc_consensus_slots::{SimpleSlotWorker, SlotInfo};
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
@@ -31,7 +30,9 @@ use ab_core_primitives::solutions::{
 };
 use ab_proof_of_space::Table;
 use futures::channel::mpsc;
+use futures::future::Either;
 use futures::{StreamExt, TryFutureExt};
+use futures_timer::Delay;
 use sc_client_api::AuxStore;
 use sc_consensus::block_import::{BlockImportParams, StateAction};
 use sc_consensus::{BoxBlockImport, JustificationSyncLink, StorageChanges};
@@ -39,21 +40,20 @@ use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{
-    BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain, SyncOracle,
+    BlockOrigin, Environment, Error as ConsensusError, Proposal, Proposer, SelectChain, SyncOracle,
 };
 use sp_consensus_subspace::digests::{
     CompatibleDigestItem, PreDigest, PreDigestPotInfo, extract_pre_digest,
 };
 use sp_consensus_subspace::{SubspaceApi, SubspaceJustification};
-use sp_inherents::CreateInherentDataProviders;
+use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header, Zero};
 use sp_runtime::{DigestItem, Justification, Justifications};
 use std::collections::BTreeMap;
-use std::future::Future;
 use std::marker::PhantomData;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 use subspace_verification::ed25519::RewardSignature;
 use subspace_verification::is_reward_signature_valid;
 use tokio::sync::broadcast;
@@ -61,6 +61,37 @@ use tracing::{debug, error, info, trace, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
 const PENDING_SOLUTIONS_CHANNEL_CAPACITY: usize = 10;
+
+/// Information about a slot.
+struct SlotInfo<B: BlockT> {
+    /// The slot number as found in the inherent data.
+    pub slot: SlotNumber,
+    /// The inherent data provider.
+    pub create_inherent_data: Box<dyn InherentDataProvider>,
+    /// Slot duration.
+    pub duration: Duration,
+    /// The chain header this slot is based on.
+    pub chain_head: B::Header,
+}
+
+impl<B: BlockT> SlotInfo<B> {
+    /// Create a new [`SlotInfo`].
+    ///
+    /// `ends_at` is calculated using `timestamp` and `duration`.
+    fn new(
+        slot: SlotNumber,
+        create_inherent_data: Box<dyn InherentDataProvider>,
+        duration: Duration,
+        chain_head: B::Header,
+    ) -> Self {
+        Self {
+            slot,
+            create_inherent_data,
+            duration,
+            chain_head,
+        }
+    }
+}
 
 /// Subspace sync oracle.
 ///
@@ -195,9 +226,8 @@ where
     _pos_table: PhantomData<PosTable>,
 }
 
-#[async_trait::async_trait]
-impl<PosTable, Block, Client, E, Error, SO, L, AS> SimpleSlotWorker<Block>
-    for SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS>
+impl<PosTable, Block, Client, E, Error, SO, L, AS>
+    SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS>
 where
     PosTable: Table,
     Block: BlockT,
@@ -215,23 +245,11 @@ where
     AS: AuxStore + Send + Sync + 'static,
     BlockNumber: From<<Block::Header as Header>::Number>,
 {
-    type BlockImport = BoxBlockImport<Block>;
-    type SyncOracle = SubspaceSyncOracle<SO>;
-    type JustificationSyncLink = L;
-    type CreateProposer =
-        Pin<Box<dyn Future<Output = Result<E::Proposer, ConsensusError>> + Send + 'static>>;
-    type Proposer = E::Proposer;
-    type Claim = (PreDigest, SubspaceJustification);
-
-    fn block_import(&mut self) -> &mut Self::BlockImport {
-        &mut self.block_import
-    }
-
     async fn claim_slot(
         &mut self,
         parent_header: &Block::Header,
         slot: SlotNumber,
-    ) -> Option<Self::Claim> {
+    ) -> Option<(PreDigest, SubspaceJustification)> {
         let parent_pre_digest = match extract_pre_digest(parent_header) {
             Ok(pre_digest) => pre_digest,
             Err(error) => {
@@ -504,21 +522,13 @@ where
         maybe_pre_digest.map(|pre_digest| (pre_digest, pot_justification))
     }
 
-    fn pre_digest_data(
-        &self,
-        _slot: SlotNumber,
-        (pre_digest, _justification): &Self::Claim,
-    ) -> Vec<DigestItem> {
-        vec![DigestItem::subspace_pre_digest(pre_digest)]
-    }
-
     async fn block_import_params(
         &self,
         header: Block::Header,
         header_hash: &Block::Hash,
         body: Vec<Block::Extrinsic>,
         storage_changes: sp_state_machine::StorageChanges<HashingFor<Block>>,
-        (pre_digest, justification): Self::Claim,
+        (pre_digest, justification): (PreDigest, SubspaceJustification),
     ) -> Result<BlockImportParams<Block>, ConsensusError> {
         let signature = self
             .sign_reward(
@@ -546,50 +556,6 @@ where
         Ok(import_block)
     }
 
-    fn force_authoring(&self) -> bool {
-        self.force_authoring
-    }
-
-    fn sync_oracle(&mut self) -> &mut Self::SyncOracle {
-        &mut self.sync_oracle
-    }
-
-    fn justification_sync_link(&mut self) -> &mut Self::JustificationSyncLink {
-        &mut self.justification_sync_link
-    }
-
-    fn proposer(&mut self, block: &Block::Header) -> Self::CreateProposer {
-        Box::pin(
-            self.env
-                .init(block)
-                .map_err(|e| ConsensusError::ClientImport(e.to_string())),
-        )
-    }
-
-    fn proposing_remaining_duration(&self, slot_info: &SlotInfo<Block>) -> std::time::Duration {
-        slot_info.duration
-    }
-}
-
-impl<PosTable, Block, Client, E, Error, SO, L, AS>
-    SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS>
-where
-    PosTable: Table,
-    Block: BlockT,
-    Client: ProvideRuntimeApi<Block>
-        + HeaderBackend<Block>
-        + HeaderMetadata<Block, Error = ClientError>
-        + AuxStore
-        + 'static,
-    Client::Api: SubspaceApi<Block>,
-    E: Environment<Block, Error = Error> + Send + Sync,
-    E::Proposer: Proposer<Block, Error = Error>,
-    SO: SyncOracle + Send + Sync,
-    L: JustificationSyncLink<Block>,
-    Error: std::error::Error + Send + From<ConsensusError> + 'static,
-    AS: AuxStore + Send + Sync + 'static,
-    BlockNumber: From<<Block::Header as Header>::Number>,
-{
     /// Create new Subspace slot worker
     pub fn new(
         SubspaceSlotWorkerOptions {
@@ -718,7 +684,6 @@ where
                 Box::new(inherent_data_providers),
                 slot_duration,
                 best_header,
-                None,
             ))
             .await;
         }
@@ -785,6 +750,175 @@ where
             });
 
         self.pending_solutions.insert(slot, solution_receiver);
+    }
+
+    /// Propose a block by `Proposer`.
+    async fn propose(
+        &mut self,
+        proposer: E::Proposer,
+        pre_digest: &PreDigest,
+        slot_info: SlotInfo<Block>,
+        end_proposing_at: Instant,
+    ) -> Option<Proposal<Block, <E::Proposer as Proposer<Block>>::Proof>> {
+        let slot = slot_info.slot;
+
+        let inherent_data = Self::create_inherent_data(&slot_info, end_proposing_at).await?;
+
+        let proposing_remaining_duration =
+            end_proposing_at.saturating_duration_since(Instant::now());
+        let logs = vec![DigestItem::subspace_pre_digest(pre_digest)];
+
+        // deadline our production to 98% of the total time left for proposing. As we deadline
+        // the proposing below to the same total time left, the 2% margin should be enough for
+        // the result to be returned.
+        let proposing = proposer
+            .propose(
+                inherent_data,
+                sp_runtime::generic::Digest { logs },
+                proposing_remaining_duration.mul_f32(0.98),
+                None,
+            )
+            .map_err(|e| sp_consensus::Error::ClientImport(e.to_string()));
+
+        let proposal = match futures::future::select(
+            proposing,
+            Delay::new(proposing_remaining_duration),
+        )
+        .await
+        {
+            Either::Left((Ok(p), _)) => p,
+            Either::Left((Err(err), _)) => {
+                warn!("Proposing failed: {}", err);
+
+                return None;
+            }
+            Either::Right(_) => {
+                info!(
+                    "⌛️ Discarding proposal for slot {:?}; block production took too long",
+                    slot,
+                );
+
+                return None;
+            }
+        };
+
+        Some(proposal)
+    }
+
+    /// Calls `create_inherent_data` and handles errors.
+    async fn create_inherent_data(
+        slot_info: &SlotInfo<Block>,
+        end_proposing_at: Instant,
+    ) -> Option<sp_inherents::InherentData> {
+        let remaining_duration = end_proposing_at.saturating_duration_since(Instant::now());
+        let delay = Delay::new(remaining_duration);
+        let cid = slot_info.create_inherent_data.create_inherent_data();
+        let inherent_data = match futures::future::select(delay, cid).await {
+            Either::Right((Ok(data), _)) => data,
+            Either::Right((Err(err), _)) => {
+                warn!(
+                    "Unable to create inherent data for block {:?}: {}",
+                    slot_info.chain_head.hash(),
+                    err,
+                );
+
+                return None;
+            }
+            Either::Left(_) => {
+                warn!(
+                    "Creating inherent data took more time than we had left for slot {:?} for block {:?}.",
+                    slot_info.slot,
+                    slot_info.chain_head.hash(),
+                );
+
+                return None;
+            }
+        };
+
+        Some(inherent_data)
+    }
+
+    /// Implements [`SlotWorker::on_slot`].
+    async fn on_slot(&mut self, slot_info: SlotInfo<Block>) -> Option<()>
+    where
+        Self: Sync,
+    {
+        let slot = slot_info.slot;
+        let end_proposing_at = Instant::now() + slot_info.duration;
+
+        if !self.force_authoring && self.sync_oracle.is_offline() {
+            debug!("Skipping proposal slot. Waiting for the network.");
+
+            return None;
+        }
+
+        let (pre_digest, justification) = self.claim_slot(&slot_info.chain_head, slot).await?;
+
+        debug!("Starting authorship at slot: {slot:?}");
+
+        let proposer = match self
+            .env
+            .init(&slot_info.chain_head)
+            .map_err(|e| ConsensusError::ClientImport(e.to_string()))
+            .await
+        {
+            Ok(p) => p,
+            Err(err) => {
+                warn!("Unable to author block in slot {slot:?}: {err}");
+
+                return None;
+            }
+        };
+
+        let proposal = self
+            .propose(proposer, &pre_digest, slot_info, end_proposing_at)
+            .await?;
+
+        let (header, body) = proposal.block.deconstruct();
+        let header_num = *header.number();
+        let header_hash = header.hash();
+        let parent_hash = *header.parent_hash();
+
+        let block_import_params = match self
+            .block_import_params(
+                header,
+                &header_hash,
+                body.clone(),
+                proposal.storage_changes,
+                (pre_digest, justification),
+            )
+            .await
+        {
+            Ok(bi) => bi,
+            Err(err) => {
+                warn!("Failed to create block import params: {}", err);
+
+                return None;
+            }
+        };
+
+        info!(
+            "🔖 Pre-sealed block for proposal at {}. Hash now {:?}, previously {:?}.",
+            header_num,
+            block_import_params.post_hash(),
+            header_hash,
+        );
+
+        let header = block_import_params.post_header();
+        match self.block_import.import_block(block_import_params).await {
+            Ok(res) => {
+                res.handle_justification(
+                    &header.hash(),
+                    *header.number(),
+                    &self.justification_sync_link,
+                );
+            }
+            Err(err) => {
+                warn!("Error with block built on {:?}: {}", parent_hash, err,);
+            }
+        }
+
+        Some(())
     }
 
     async fn sign_reward(
