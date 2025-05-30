@@ -80,6 +80,13 @@ impl Y {
     pub(in super::super) const fn first_k_bits<const K: u8>(self) -> u32 {
         self.0 >> PARAM_EXT as usize
     }
+
+    #[inline(always)]
+    pub(super) const fn array_from_repr<const N: usize>(array: [u32; N]) -> [Self; N] {
+        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/61956
+        // SAFETY: `T` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute_copy(&array) }
+    }
 }
 
 #[derive(

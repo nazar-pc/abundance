@@ -15,9 +15,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 use chacha20::cipher::{KeyIvInit, StreamCipher, StreamCipherSeek};
 use chacha20::{ChaCha8, Key, Nonce};
+use core::array;
 use core::simd::Simd;
 use core::simd::num::SimdUint;
-use core::{array, mem};
 #[cfg(all(feature = "std", any(feature = "parallel", test)))]
 use parking_lot::Mutex;
 #[cfg(any(feature = "parallel", test))]
@@ -204,38 +204,22 @@ pub(super) fn compute_f1_simd<const K: u8>(
 ) -> [Y; COMPUTE_F1_SIMD_FACTOR] {
     // Each element contains `K` desired bits of `partial_ys` in the final offset of eventual `ys`
     // with the rest of bits being in undefined state
-    let pre_ys_bytes: Simd<_, COMPUTE_F1_SIMD_FACTOR> = Simd::from(seq!(N in 0..8 {
-        [
-        #(
-        {
-            #[allow(clippy::erasing_op, clippy::identity_op)]
-            let partial_y_offset = N * usize::from(K);
-            let partial_y_length =
-                (partial_y_offset % u8::BITS as usize + usize::from(K)).div_ceil(u8::BITS as usize);
-            let mut pre_y_bytes = 0u64.to_be_bytes();
-            pre_y_bytes[..partial_y_length].copy_from_slice(
-                &partial_ys[partial_y_offset / u8::BITS as usize..][..partial_y_length],
-            );
+    let pre_ys_bytes = array::from_fn(|i| {
+        let partial_y_offset = i * usize::from(K);
+        let partial_y_length =
+            (partial_y_offset % u8::BITS as usize + usize::from(K)).div_ceil(u8::BITS as usize);
+        let mut pre_y_bytes = 0u64.to_be_bytes();
+        pre_y_bytes[..partial_y_length].copy_from_slice(
+            &partial_ys[partial_y_offset / u8::BITS as usize..][..partial_y_length],
+        );
 
-            u64::from_be_bytes(pre_y_bytes)
-        },
-        )*
-        ]
-    }));
-    let pre_ys_right_offset: Simd<_, COMPUTE_F1_SIMD_FACTOR> = Simd::from(seq!(N in 0..8 {
-        [
-        #(
-        {
-            #[allow(clippy::erasing_op, clippy::identity_op)]
-            let partial_y_offset = N * u32::from(K);
-            u64::from(u64::BITS - u32::from(K + PARAM_EXT) - partial_y_offset % u8::BITS)
-        },
-        )*
-        ]
-    }));
-    // TODO: both this and above operations are most likely possible on x86-64 with a special
-    //  intrinsic in a more efficient way
-    let pre_ys = pre_ys_bytes >> pre_ys_right_offset;
+        u64::from_be_bytes(pre_y_bytes)
+    });
+    let pre_ys_right_offset = array::from_fn(|i| {
+        let partial_y_offset = i as u32 * u32::from(K);
+        u64::from(u64::BITS - u32::from(K + PARAM_EXT) - partial_y_offset % u8::BITS)
+    });
+    let pre_ys = Simd::from_array(pre_ys_bytes) >> Simd::from_array(pre_ys_right_offset);
 
     // Mask for clearing the rest of bits of `pre_ys`.
     let pre_ys_mask = Simd::splat(
@@ -245,19 +229,13 @@ pub(super) fn compute_f1_simd<const K: u8>(
 
     // Extract `PARAM_EXT` most significant bits from `xs` and store in the final offset of
     // eventual `ys` with the rest of bits being in undefined state.
-    let pre_exts = Simd::from(xs) >> Simd::splat(u32::from(K - PARAM_EXT));
-
-    // Mask for clearing the rest of bits of `pre_exts`.
-    let pre_exts_mask = Simd::splat(u32::MAX >> (u32::BITS as usize - usize::from(PARAM_EXT)));
+    let pre_exts = Simd::from_array(xs) >> Simd::splat(u32::from(K - PARAM_EXT));
 
     // Combine all of the bits together:
     // [padding zero bits][`K` bits rom `partial_y`][`PARAM_EXT` bits from `x`]
-    // NOTE: `pre_exts_mask` is unnecessary here and makes no difference, but it allows compiler to
-    // generate faster code 🤷
-    let ys = (pre_ys.cast() & pre_ys_mask) | (pre_exts & pre_exts_mask);
+    let ys = (pre_ys.cast() & pre_ys_mask) | pre_exts;
 
-    // SAFETY: `Y` is `#[repr(transparent)]` and guaranteed to have the same memory layout as `u32`
-    unsafe { mem::transmute(ys.to_array()) }
+    Y::array_from_repr(ys.to_array())
 }
 
 /// `rmap_scratch` is just an optimization to reuse allocations between calls.
