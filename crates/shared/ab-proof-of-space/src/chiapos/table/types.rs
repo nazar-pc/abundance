@@ -2,12 +2,12 @@ use crate::chiapos::constants::PARAM_EXT;
 use crate::chiapos::table::metadata_size_bytes;
 use crate::chiapos::utils::EvaluatableUsize;
 use core::iter::Step;
-use core::ops::Range;
+use core::mem;
 use derive_more::{Add, AddAssign, From, Into};
 
 /// Stores data in lower bits
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into, Add, AddAssign)]
-#[repr(transparent)]
+#[repr(C)]
 pub(in super::super) struct X(u32);
 
 impl Step for X {
@@ -49,15 +49,17 @@ impl From<X> for usize {
 }
 
 impl X {
-    /// All possible values of `x` for given `K`
-    pub(in super::super) const fn all<const K: u8>() -> Range<Self> {
-        Self(0)..Self(1 << K)
+    #[inline(always)]
+    pub(super) const fn array_from_repr<const N: usize>(array: [u32; N]) -> [Self; N] {
+        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/61956
+        // SAFETY: `X` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute_copy(&array) }
     }
 }
 
 /// Stores data in lower bits
 #[derive(Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into)]
-#[repr(transparent)]
+#[repr(C)]
 pub(in super::super) struct Y(u32);
 
 impl From<Y> for u128 {
@@ -78,12 +80,19 @@ impl Y {
     pub(in super::super) const fn first_k_bits<const K: u8>(self) -> u32 {
         self.0 >> PARAM_EXT as usize
     }
+
+    #[inline(always)]
+    pub(super) const fn array_from_repr<const N: usize>(array: [u32; N]) -> [Self; N] {
+        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/61956
+        // SAFETY: `T` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute_copy(&array) }
+    }
 }
 
 #[derive(
     Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into, Add, AddAssign,
 )]
-#[repr(transparent)]
+#[repr(C)]
 pub(in super::super) struct Position(u32);
 
 impl Step for Position {
@@ -117,7 +126,7 @@ impl Position {
 
 /// Stores data in lower bits
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-#[repr(transparent)]
+#[repr(C)]
 pub(in super::super) struct Metadata<const K: u8, const TABLE_NUMBER: u8>(
     [u8; metadata_size_bytes(K, TABLE_NUMBER)],
 )
