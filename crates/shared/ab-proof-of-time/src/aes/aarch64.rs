@@ -44,8 +44,7 @@ pub(super) fn create(
 /// Verification mimics `create` function, but also has decryption half for better performance
 #[target_feature(enable = "aes")]
 #[inline]
-// TODO: Enable on all platforms once it works
-#[cfg_attr(all(feature = "no-panic", target_os = "linux"), no_panic::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(super) fn verify_sequential_aes(
     seed: &[u8; 16],
     key: &[u8; 16],

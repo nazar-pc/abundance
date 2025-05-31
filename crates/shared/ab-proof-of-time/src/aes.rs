@@ -12,8 +12,7 @@ use aes::cipher::{BlockCipherDecrypt, BlockCipherEncrypt, KeyInit};
 
 /// Creates the AES based proof.
 #[inline(always)]
-// TODO: un-comment once https://github.com/RustCrypto/block-ciphers/issues/481 is resolved
-// #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(crate) fn create(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> PotCheckpoints {
     #[cfg(target_arch = "x86_64")]
     {
@@ -35,8 +34,7 @@ pub(crate) fn create(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> 
     create_generic(seed, key, checkpoint_iterations)
 }
 
-// TODO: un-comment once https://github.com/RustCrypto/block-ciphers/issues/481 is resolved
-// #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 fn create_generic(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> PotCheckpoints {
     let key = Array::from(*key);
     let cipher = Aes128::new(&key);
@@ -58,8 +56,11 @@ fn create_generic(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> Pot
 ///
 /// Panics if `checkpoint_iterations` is not a multiple of `2`.
 #[inline(always)]
-// TODO: un-comment once https://github.com/RustCrypto/block-ciphers/issues/481 is resolved
-// #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+// TODO: Figure out what is wrong with macOS here
+#[cfg_attr(
+    all(feature = "no-panic", not(target_os = "macos")),
+    no_panic::no_panic
+)]
 pub(crate) fn verify_sequential(
     seed: PotSeed,
     key: PotKey,
@@ -70,25 +71,34 @@ pub(crate) fn verify_sequential(
 
     #[cfg(target_arch = "x86_64")]
     {
-        cpufeatures::new!(has_avx512f_vaes, "avx512f", "vaes");
-        if has_avx512f_vaes::get() {
-            // SAFETY: Checked `avx512f` and `vaes` features
-            return unsafe {
-                x86_64::verify_sequential_avx512f_vaes(
-                    &seed,
-                    &key,
-                    checkpoints,
-                    checkpoint_iterations,
-                )
-            };
-        }
+        // TODO: Remove this guard once this no longer causes problems for compiler
+        #[cfg(not(feature = "no-panic"))]
+        {
+            cpufeatures::new!(has_avx512f_vaes, "avx512f", "vaes");
+            if has_avx512f_vaes::get() {
+                // SAFETY: Checked `avx512f` and `vaes` features
+                return unsafe {
+                    x86_64::verify_sequential_avx512f_vaes(
+                        &seed,
+                        &key,
+                        checkpoints,
+                        checkpoint_iterations,
+                    )
+                };
+            }
 
-        cpufeatures::new!(has_avx2_vaes, "avx2", "vaes");
-        if has_avx2_vaes::get() {
-            // SAFETY: Checked `avx2` and `vaes` features
-            return unsafe {
-                x86_64::verify_sequential_avx2_vaes(&seed, &key, checkpoints, checkpoint_iterations)
-            };
+            cpufeatures::new!(has_avx2_vaes, "avx2", "vaes");
+            if has_avx2_vaes::get() {
+                // SAFETY: Checked `avx2` and `vaes` features
+                return unsafe {
+                    x86_64::verify_sequential_avx2_vaes(
+                        &seed,
+                        &key,
+                        checkpoints,
+                        checkpoint_iterations,
+                    )
+                };
+            }
         }
 
         cpufeatures::new!(has_aes_sse41, "aes", "sse4.1");
@@ -113,8 +123,11 @@ pub(crate) fn verify_sequential(
     verify_sequential_generic(seed, key, checkpoints, checkpoint_iterations)
 }
 
-// TODO: un-comment once https://github.com/RustCrypto/block-ciphers/issues/481 is resolved
-// #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+// TODO: Figure out what is wrong with macOS here
+#[cfg_attr(
+    all(feature = "no-panic", not(target_os = "macos")),
+    no_panic::no_panic
+)]
 fn verify_sequential_generic(
     seed: PotSeed,
     key: PotKey,

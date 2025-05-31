@@ -29,8 +29,7 @@ pub enum PotError {
 /// Run PoT proving and produce checkpoints.
 ///
 /// Returns error if `iterations` is not a multiple of checkpoints times two.
-// TODO: un-comment once https://github.com/RustCrypto/block-ciphers/issues/481 is resolved
-// #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn prove(seed: PotSeed, iterations: NonZeroU32) -> Result<PotCheckpoints, PotError> {
     if iterations.get() % u32::from(PotCheckpoints::NUM_CHECKPOINTS.get() * 2) != 0 {
         return Err(PotError::NotMultipleOfCheckpoints {
@@ -50,8 +49,11 @@ pub fn prove(seed: PotSeed, iterations: NonZeroU32) -> Result<PotCheckpoints, Po
 /// Verify checkpoint, number of iterations is set across uniformly distributed checkpoints.
 ///
 /// Returns error if `iterations` is not a multiple of checkpoints times two.
-// TODO: un-comment once https://github.com/RustCrypto/block-ciphers/issues/481 is resolved
-// #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+// TODO: Figure out what is wrong with macOS here
+#[cfg_attr(
+    all(feature = "no-panic", not(target_os = "macos")),
+    no_panic::no_panic
+)]
 pub fn verify(
     seed: PotSeed,
     iterations: NonZeroU32,

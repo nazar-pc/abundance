@@ -85,25 +85,32 @@ jobs:
                 continue
               fi
               crate="$(basename -- $crate_path)"
+              echo "Checking \`$feature\` in \`$crate\`"
               cargo -Zgitoxide -Zgit clippy --all-targets --package $crate --features $crate/$feature -- -D warnings
             done
           done
 
           # Ensure `clippy` is happy with `guest` feature
-          echo "Checking `guest` in contracts"
+          echo "Checking \`guest\` in contracts"
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
+            echo "Checking \`guest\` in \`$contract\`"
             cargo -Zgitoxide -Zgit clippy --all-targets --package $contract --features $contract/guest -- -D warnings
           done
+          for crate_path in crates/contracts/core/*; do
+            # Not all crates have this feature
+            if ! grep --no-messages --quiet "^guest =" "$crate_path/Cargo.toml"; then
+              continue
+            fi
+            crate="$(basename -- $crate_path)"
+            echo "Checking \`guest\` in \`$crate\`"
+            cargo -Zgitoxide -Zgit clippy --all-targets --package $crate --features $crate/guest -- -D warnings
+          done
 
-          # TODO: Would be nice to have these as job matrix later
-          cargo -Zgitoxide -Zgit clippy --all-targets --package ab-contracts-common --features ab-contracts-common/guest -- -D warnings
+          echo "Checking \`executor\` in \`ab-contracts-common\`"
           cargo -Zgitoxide -Zgit clippy --all-targets --package ab-contracts-common --features ab-contracts-common/executor -- -D warnings
 
-          cargo -Zgitoxide -Zgit clippy --all-targets --package ab-contracts-macros --features ab-contracts-macros/guest -- -D warnings
-
-          cargo -Zgitoxide -Zgit clippy --all-targets --package ab-contracts-standards --features ab-contracts-standards/guest -- -D warnings
-
+          echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`"
           cargo -Zgitoxide -Zgit clippy --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings
         if: runner.os == 'Linux'
 
@@ -145,29 +152,47 @@ jobs:
           cargo -Zgitoxide -Zgit nextest run --locked
 
       - name: cargo test (various features)
+        shell: bash
         run: |
           for feature in alloc parallel scale-codec serde; do
-            echo "Testing with feature: $feature"
             for crate_path in crates/{execution,node,shared}/*; do
               # Not all crates have this feature
               if ! grep --no-messages --quiet "^$feature =" "$crate_path/Cargo.toml"; then
                 continue
               fi
               crate="$(basename -- $crate_path)"
+              echo "Testing \`$feature\` in \`$crate\`"
               cargo -Zgitoxide -Zgit nextest run --no-tests pass --package $crate --features $crate/$feature
             done
           done
 
+          echo "Checking \`executor\` in \`ab-contracts-common\`"
+          cargo -Zgitoxide -Zgit nextest run --package ab-contracts-common --features ab-contracts-common/executor
+
+          echo "Testing \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`"
+          cargo -Zgitoxide -Zgit nextest run --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+
+      - name: cargo nextest run (guest feature)
+        shell: bash
+        run: |
           # Ensure tests pass with `guest` feature
-          echo "Testing `guest` in contracts"
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
+            echo "Testing \`guest\` in \`$contract\`"
             cargo -Zgitoxide -Zgit nextest run --no-tests pass --package $contract --features $contract/guest
           done
-
-          cargo -Zgitoxide -Zgit nextest run --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+          for create_path in crates/contracts/core/*; do
+            # Not all crates have this feature
+            if ! grep --no-messages --quiet "^guest =" "$crate_path/Cargo.toml"; then
+              continue
+            fi
+            crate="$(basename -- $create_path)"
+            echo "Testing \`guest\` in \`$crate\`"
+            cargo -Zgitoxide -Zgit nextest run --no-tests pass --package $crate --features $crate/guest
+          done
         if: runner.os == 'Linux'
 
+  # TODO: All these miri commands are otherwise identical to regular testing, think about de-duplicating them
   cargo-miri-test:
     strategy:
       matrix:
@@ -206,21 +231,44 @@ jobs:
           cargo -Zgitoxide -Zgit miri nextest run
 
       - name: cargo miri nextest run (various features)
+        shell: bash
         run: |
           for feature in alloc parallel scale-codec serde; do
-            echo "Testing with feature: $feature"
             for crate_path in crates/{execution,node,shared}/*; do
               # Not all crates have this feature
               if ! grep --no-messages --quiet "^$feature =" "$crate_path/Cargo.toml"; then
                 continue
               fi
               crate="$(basename -- $crate_path)"
+              echo "Testing \`$feature\` in \`$crate\`"
               cargo -Zgitoxide -Zgit miri nextest run --no-tests pass --package $crate --features $crate/$feature
             done
           done
 
-          echo "Testing the rest"
+          echo "Checking \`executor\` in \`ab-contracts-common\`"
+          cargo -Zgitoxide -Zgit miri nextest run --package ab-contracts-common --features ab-contracts-common/executor
+
+          echo "Testing \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`"
           cargo -Zgitoxide -Zgit miri nextest run --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+
+      - name: cargo miri nextest run (guest feature)
+        shell: bash
+        run: |
+          # Ensure tests pass with `guest` feature
+          for contract_path in crates/contracts/{example,system}/*; do
+            contract="$(basename -- $contract_path)"
+            echo "Testing \`guest\` in \`$contract\`"
+            cargo -Zgitoxide -Zgit miri nextest run --no-tests pass --package $contract --features $contract/guest
+          done
+          for create_path in crates/contracts/core/*; do
+            # Not all crates have this feature
+            if ! grep --no-messages --quiet "^guest =" "$crate_path/Cargo.toml"; then
+              continue
+            fi
+            crate="$(basename -- $create_path)"
+            echo "Testing \`guest\` in \`$crate\`"
+            cargo -Zgitoxide -Zgit miri nextest run --no-tests pass --package $crate --features $crate/guest
+          done
         if: runner.os == 'Linux'
 
   no-panic:
@@ -230,8 +278,7 @@ jobs:
           - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-15
-          # TODO: Windows is pain, add it at some point if possible, but generally other platforms should be sufficient
-          # - windows-2025
+          - windows-2025
 
     runs-on: ${{ matrix.os }}
 
@@ -256,29 +303,32 @@ jobs:
         env:
           # Increase inlining threshold to make sure the compiler can see that some functions do not panic
           # Native CPU and LTO to allow compiler to apply more optimizations and prove lack of panics in more cases
-          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=3000 -C embed-bitcode -C lto=fat -Z dylib-lto -C target-cpu=native
+          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=5000 -C embed-bitcode -C lto -Z dylib-lto -C target-cpu=native
+        shell: bash
         run: |
-          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic
+          # TODO: This doesn't seem to work for now: https://users.rust-lang.org/t/compiler-optimizations-are-different-for-crate-itself-vs-dependency/130187?u=nazar-pc
+          # So we end up building individual crates instead, which is unfortunate
+          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic
+
+          # Ensure no panics in various crates
+          for crate_path in crates/{contracts/{core,example,system},execution,node,shared}/*; do
+            # Not all crates have this feature yet
+            if ! grep --no-messages --quiet '^no-panic =' "$crate_path/Cargo.toml"; then
+              continue
+            fi
+            crate="$(basename -- $crate_path)"
+            echo "Checking \`$crate\`"
+            cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $crate
+          done
 
       - name: Ensure no panics in annotated code (various features)
         env:
           # Increase inlining threshold to make sure the compiler can see that some functions do not panic
           # Native CPU and LTO to allow compiler to apply more optimizations and prove lack of panics in more cases
-          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=3000 -C embed-bitcode -C lto=fat -Z dylib-lto -C target-cpu=native
+          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=5000 -C embed-bitcode -C lto -Z dylib-lto -C target-cpu=native
+        shell: bash
         run: |
-          # Ensure no panics with `guest` feature
-          echo "Checking `no-panic` in contracts"
-          for contract_path in crates/contracts/{example,system}/*; do
-            # Not all contracts have this feature yet
-            if ! grep --no-messages --quiet '^no-panic =' "$contract_path/Cargo.toml"; then
-              continue
-            fi
-            contract="$(basename -- $contract_path)"
-            cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $contract --features $contract/guest
-          done
-
           # Ensure no panics with `alloc` feature
-          echo "Checking `no-panic` with `alloc`"
           for crate_path in crates/{execution,node,shared}/*; do
             # Not all crates have this feature yet
             if ! grep --no-messages --quiet '^no-panic =' "$crate_path/Cargo.toml" || \
@@ -286,21 +336,37 @@ jobs:
               continue
             fi
             crate="$(basename -- $crate_path)"
+            echo "Checking \`alloc\` in \`$crate\`"
             cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $crate --features $crate/alloc
           done
 
-          echo "Checking `no-panic` with others"
-
-          # TODO: Would be nice to have these as job matrix later
-          # TODO: Unlock commented-out crates once they have the feature
-          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-contracts-common --features ab-contracts-common/guest
+          echo "Checking \`executor\` in \`ab-contracts-common\`"
           cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-contracts-common --features ab-contracts-common/executor
 
-          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-contracts-macros --features ab-contracts-macros/guest
-
-          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-contracts-standards --features ab-contracts-standards/guest
-
+          echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`"
           cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+      - name: Ensure no panics in annotated code (guest feature)
+        run: |
+          # Ensure no panics with `guest` feature
+          for contract_path in crates/contracts/{example,system}/*; do
+            # Not all contracts have this feature yet
+            if ! grep --no-messages --quiet '^no-panic =' "$contract_path/Cargo.toml"; then
+              continue
+            fi
+            contract="$(basename -- $contract_path)"
+            echo "Checking \`guest\` in \`$contract\`"
+            cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $contract --features $contract/guest
+          done
+          for contract_path in crates/contracts/core/*; do
+            # Not all contracts have this feature yet
+            if ! grep --no-messages --quiet '^no-panic =' "$crate_path/Cargo.toml" || \
+               ! grep --no-messages --quiet '^guest =' "$crate_path/Cargo.toml"; then
+              continue
+            fi
+            contract="$(basename -- $contract_path)"
+            echo "Checking \`guest\` in \`$contract\`"
+            cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $contract --features $contract/guest
+          done
         if: runner.os == 'Linux'
 
   contracts:
@@ -319,15 +385,12 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-        # Cache on Windows is so slow, it is faster without it, see many reports like
-        # https://github.com/actions/runner-images/issues/7320
-        if: runner.os != 'Windows'
 
       - name: Ensure contracts compile for a custom target
         run: |
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
+            echo "Checking \`$contract\`"
             # TODO: This uses x86-64-based target, but will have to change to riscv64e-based target eventually
             cargo -Zgitoxide -Zgit rustc -Z build-std=core --crate-type cdylib --profile contract --target crates/contracts/x86_64-unknown-none-abundance.json --package $contract --features $contract/guest
           done
-        if: runner.os == 'Linux'
