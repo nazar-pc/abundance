@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BlockBody"],"fn":["compute_segments_root"],"mod":["owned"],"struct":["BeaconChainBlockBody","IntermediateShardBlockBody","IntermediateShardBlockInfo","IntermediateShardBlocksInfo","LeafShardBlockBody","LeafShardBlockInfo","LeafShardBlocksInfo","Transactions"]};
