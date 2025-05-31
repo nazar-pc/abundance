@@ -104,6 +104,7 @@ pub struct SimpleWalletBase;
 impl SimpleWalletBase {
     /// Returns initial state with a provided public key
     #[view]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn initialize(#[input] &public_key: &[u8; 32]) -> Result<WalletState, ContractError> {
         // TODO: Storing some lower-level representation of the public key might reduce the cost of
         //  verification in `Self::authorize()` method
@@ -118,6 +119,7 @@ impl SimpleWalletBase {
 
     /// Reads state of `owner` and returns `Ok(())` if authorization succeeds
     #[view]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn authorize(
         #[input] state: &WalletState,
         #[input] header: &TransactionHeader,
@@ -160,6 +162,7 @@ impl SimpleWalletBase {
     ///
     /// The caller must set themselves as a context or else error will be returned.
     #[update]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn execute(
         #[env] env: &mut Env<'_>,
         #[input] header: &TransactionHeader,
@@ -205,6 +208,7 @@ impl SimpleWalletBase {
 
     /// Returns state with increased nonce
     #[view]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn increase_nonce(#[input] state: &WalletState) -> Result<WalletState, ContractError> {
         let nonce = state.nonce.checked_add(1).ok_or(ContractError::Forbidden)?;
 
@@ -216,6 +220,7 @@ impl SimpleWalletBase {
 
     /// Returns a new state with a changed public key
     #[view]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn change_public_key(
         #[input] state: &WalletState,
         #[input] &public_key: &[u8; 32],

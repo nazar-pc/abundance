@@ -58,6 +58,7 @@ pub struct TransactionPayloadBuilder {
 }
 
 impl Default for TransactionPayloadBuilder {
+    #[inline]
     fn default() -> Self {
         Self {
             payload: Vec::with_capacity(1024),
@@ -73,6 +74,7 @@ impl TransactionPayloadBuilder {
     /// `slot_output_index` and `input_output_index` are used for referencing earlier outputs as
     /// slots or inputs of this method, its values are optional, see [`TransactionInput`] for more
     /// details.
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn with_method_call<Args>(
         &mut self,
         contract: &Address,
@@ -110,6 +112,7 @@ impl TransactionPayloadBuilder {
         clippy::too_many_arguments,
         reason = "Only exceeds the limit due to being untyped, while above typed version is not"
     )]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub unsafe fn with_method_call_untyped<'a>(
         &mut self,
         contract: &Address,
@@ -311,6 +314,7 @@ impl TransactionPayloadBuilder {
     ///
     /// [`TransactionSlotType::Address`]: crate::payload::TransactionSlotType::Address
     /// [`TransactionInputType::Value`]: crate::payload::TransactionInputType::Value
+    // TODO: Figure out how sand make it possible to apply `no-panic` here
     pub fn into_aligned_bytes(mut self) -> Vec<u128> {
         // Fill bytes to make it multiple of `u128` before creating `u128`-based vector
         self.ensure_alignment(usize::from(MAX_ALIGNMENT));
@@ -333,12 +337,14 @@ impl TransactionPayloadBuilder {
         output
     }
 
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn extend_payload_with_alignment(&mut self, bytes: &[u8], alignment: usize) {
         self.ensure_alignment(alignment);
 
         self.payload.extend_from_slice(bytes);
     }
 
+    // TODO: Figure out how sand make it possible to apply `no-panic` here
     fn ensure_alignment(&mut self, alignment: usize) {
         debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
 
@@ -352,6 +358,7 @@ impl TransactionPayloadBuilder {
         }
     }
 
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn push_payload_byte(&mut self, byte: u8) {
         self.payload.push(byte);
     }

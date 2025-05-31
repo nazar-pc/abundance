@@ -12,20 +12,25 @@ use core::mem::MaybeUninit;
 
 /// Utility function to initialize the state of the wallet in a typical setup
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn initialize_state(env: &mut Env<'_>, public_key: &[u8; 32]) -> Result<(), ContractError> {
-    let state =
-        env.simple_wallet_base_initialize(Address::SYSTEM_SIMPLE_WALLET_BASE, public_key)?;
+    // TODO: Remove extra `{}` once https://github.com/dtolnay/no-panic/issues/74 is resolved
+    {
+        let state =
+            env.simple_wallet_base_initialize(Address::SYSTEM_SIMPLE_WALLET_BASE, public_key)?;
 
-    env.state_initialize(
-        MethodContext::Reset,
-        Address::SYSTEM_STATE,
-        &env.own_address(),
-        &VariableBytes::from_buffer(state.as_bytes(), &state.size()),
-    )
+        env.state_initialize(
+            MethodContext::Reset,
+            Address::SYSTEM_STATE,
+            &env.own_address(),
+            &VariableBytes::from_buffer(state.as_bytes(), &state.size()),
+        )
+    }
 }
 
 /// Utility function to authorize transaction with the wallet in a typical setup
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn authorize(
     env: &Env<'_>,
     header: &TransactionHeader,
@@ -50,6 +55,7 @@ pub fn authorize(
 /// Utility function to execute transaction with the wallet in a typical setup and increase nonce
 /// afterward
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn execute(
     env: &mut Env<'_>,
     header: &TransactionHeader,
@@ -96,31 +102,38 @@ pub fn execute(
 
 /// Utility function to change public key of the wallet in a typical setup
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn change_public_key(env: &mut Env<'_>, public_key: &[u8; 32]) -> Result<(), ContractError> {
-    // Only the system simple wallet base contract under the context of this contract is allowed
-    // to change public key
-    if !(env.context() == env.own_address() && env.caller() == Address::SYSTEM_SIMPLE_WALLET_BASE) {
-        return Err(ContractError::Forbidden);
-    }
+    // TODO: Remove extra `{}` once https://github.com/dtolnay/no-panic/issues/74 is resolved
+    {
+        // Only the system simple wallet base contract under the context of this contract is allowed
+        // to change public key
+        if !(env.context() == env.own_address()
+            && env.caller() == Address::SYSTEM_SIMPLE_WALLET_BASE)
+        {
+            return Err(ContractError::Forbidden);
+        }
 
-    // Read existing state
-    let old_state = load_current_state(env)?;
-    // Fill `new_state` with updated `old_state` containing new public key
-    let new_state = env.simple_wallet_base_change_public_key(
-        Address::SYSTEM_SIMPLE_WALLET_BASE,
-        &old_state,
-        public_key,
-    )?;
-    // Write new state of the contract, this can only be done by the direct owner
-    env.state_write(
-        MethodContext::Reset,
-        Address::SYSTEM_STATE,
-        &env.own_address(),
-        &VariableBytes::from_buffer(new_state.as_bytes(), &new_state.size()),
-    )
+        // Read existing state
+        let old_state = load_current_state(env)?;
+        // Fill `new_state` with updated `old_state` containing new public key
+        let new_state = env.simple_wallet_base_change_public_key(
+            Address::SYSTEM_SIMPLE_WALLET_BASE,
+            &old_state,
+            public_key,
+        )?;
+        // Write new state of the contract, this can only be done by the direct owner
+        env.state_write(
+            MethodContext::Reset,
+            Address::SYSTEM_STATE,
+            &env.own_address(),
+            &VariableBytes::from_buffer(new_state.as_bytes(), &new_state.size()),
+        )
+    }
 }
 
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 fn load_current_state(env: &Env<'_>) -> Result<WalletState, ContractError> {
     let current_state = {
         let mut current_state = MaybeUninit::<WalletState>::uninit();
@@ -133,7 +146,7 @@ fn load_current_state(env: &Env<'_>) -> Result<WalletState, ContractError> {
         if current_state_size != WalletState::SIZE {
             return Err(ContractError::BadOutput);
         }
-        // Just initialized
+        // SAFETY: Just initialized
         unsafe { current_state.assume_init() }
     };
 

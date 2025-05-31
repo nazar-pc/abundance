@@ -12,6 +12,7 @@ use schnorrkel::{Keypair, PublicKey, Signature};
 /// Create transaction hash used for signing with [`sign()`].
 ///
 /// [`hash_and_sign()`] helper function exists that combines this method with [`sign()`].
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn hash_transaction(
     header: &TransactionHeader,
     read_slots: &[TransactionSlot],
@@ -39,12 +40,14 @@ pub fn hash_transaction(
 ///
 /// [`hash_and_sign()`] helper function exists that combines this method with
 /// [`hash_transaction()`].
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn sign(keypair: &Keypair, tx_hash: &[u8; OUT_LEN]) -> Signature {
     let signing_context = SigningContext::new(SIGNING_CONTEXT);
     keypair.sign(signing_context.bytes(tx_hash))
 }
 
 /// Combines [`hash_transaction()`] and [`sign()`] and returns [`Seal`]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn hash_and_sign(
     keypair: &Keypair,
     header: &TransactionHeader,
@@ -81,8 +84,8 @@ pub fn verify(
         .map_err(|_error| ContractError::Forbidden)
 }
 
-// TODO: Add guarantees that this does not panic
 /// Combines [`hash_transaction()`] and [`verify()`]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn hash_and_verify(
     public_key: &PublicKey,
     expected_nonce: u64,
