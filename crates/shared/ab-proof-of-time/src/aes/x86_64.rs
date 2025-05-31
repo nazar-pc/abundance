@@ -42,6 +42,74 @@ pub(super) fn create(
 }
 
 /// Verification mimics `create` function, but also has decryption half for better performance
+#[target_feature(enable = "aes,sse4.1")]
+#[inline]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+pub(super) fn verify_sequential_aes_sse41(
+    seed: &[u8; 16],
+    key: &[u8; 16],
+    checkpoints: &PotCheckpoints,
+    checkpoint_iterations: u32,
+) -> bool {
+    let checkpoints = PotOutput::repr_from_slice(checkpoints.as_slice());
+
+    let keys = expand_key(key);
+    let xor_key = _mm_xor_si128(keys[10], keys[0]);
+
+    // Invert keys for decryption, the first and last element is not used below, hence they are
+    // copied as is from encryption keys (otherwise the first and last element would need to be
+    // swapped)
+    let mut inv_keys = keys;
+    for i in 1..10 {
+        inv_keys[i] = _mm_aesimc_si128(keys[10 - i]);
+    }
+
+    let mut inputs: [__m128i; 8] = [
+        __m128i::from(u8x16::from(*seed)),
+        __m128i::from(u8x16::from(checkpoints[0])),
+        __m128i::from(u8x16::from(checkpoints[1])),
+        __m128i::from(u8x16::from(checkpoints[2])),
+        __m128i::from(u8x16::from(checkpoints[3])),
+        __m128i::from(u8x16::from(checkpoints[4])),
+        __m128i::from(u8x16::from(checkpoints[5])),
+        __m128i::from(u8x16::from(checkpoints[6])),
+    ];
+
+    let mut outputs: [__m128i; 8] = [
+        __m128i::from(u8x16::from(checkpoints[0])),
+        __m128i::from(u8x16::from(checkpoints[1])),
+        __m128i::from(u8x16::from(checkpoints[2])),
+        __m128i::from(u8x16::from(checkpoints[3])),
+        __m128i::from(u8x16::from(checkpoints[4])),
+        __m128i::from(u8x16::from(checkpoints[5])),
+        __m128i::from(u8x16::from(checkpoints[6])),
+        __m128i::from(u8x16::from(checkpoints[7])),
+    ];
+
+    inputs = inputs.map(|input| _mm_xor_si128(input, keys[0]));
+    outputs = outputs.map(|output| _mm_xor_si128(output, keys[10]));
+
+    for _ in 0..checkpoint_iterations / 2 {
+        for i in 1..10 {
+            inputs = inputs.map(|input| _mm_aesenc_si128(input, keys[i]));
+            outputs = outputs.map(|output| _mm_aesdec_si128(output, inv_keys[i]));
+        }
+
+        inputs = inputs.map(|input| _mm_aesenclast_si128(input, xor_key));
+        outputs = outputs.map(|output| _mm_aesdeclast_si128(output, xor_key));
+    }
+
+    // All bits set
+    let all_ones = _mm_set1_epi8(-1);
+
+    inputs.into_iter().zip(outputs).all(|(input, output)| {
+        let diff = _mm_xor_si128(input, output);
+        let cmp = _mm_xor_si128(diff, xor_key);
+        _mm_test_all_zeros(cmp, all_ones) == 1
+    })
+}
+
+/// Verification mimics `create` function, but also has decryption half for better performance
 #[target_feature(enable = "avx2,vaes")]
 #[inline]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]

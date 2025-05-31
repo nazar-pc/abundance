@@ -80,6 +80,14 @@ pub(crate) fn verify_sequential(
                 x86_64::verify_sequential_avx2_vaes(&seed, &key, checkpoints, checkpoint_iterations)
             };
         }
+
+        cpufeatures::new!(has_aes_sse41, "aes", "sse4.1");
+        if has_aes_sse41::get() {
+            // SAFETY: Checked `aes` and `sse4.1` features
+            return unsafe {
+                x86_64::verify_sequential_aes_sse41(&seed, &key, checkpoints, checkpoint_iterations)
+            };
+        }
     }
 
     verify_sequential_generic(seed, key, checkpoints, checkpoint_iterations)
@@ -175,6 +183,20 @@ mod tests {
                     )
                 };
                 assert_eq!(sequential, avx2_vaes);
+            }
+
+            cpufeatures::new!(has_aes_sse41, "aes", "sse4.1");
+            if has_aes_sse41::get() {
+                // SAFETY: Checked `aes` and `sse4.1` features
+                let aes = unsafe {
+                    x86_64::verify_sequential_aes_sse41(
+                        &seed,
+                        &key,
+                        checkpoints,
+                        checkpoint_iterations,
+                    )
+                };
+                assert_eq!(sequential, aes);
             }
         }
 
