@@ -31,7 +31,7 @@ aes = { workspace = true }
 no-panic = { workspace = true, optional = true }
 thiserror = { workspace = true }
 
-[target.'cfg(target_arch = "x86_64")'.dependencies]
+[target.'cfg(any(target_arch = "aarch64", target_arch = "x86_64"))'.dependencies]
 cpufeatures = { workspace = true }
 
 [dev-dependencies]
