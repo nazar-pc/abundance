@@ -117,7 +117,6 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
 /// Caches that can be used to optimize the creation of multiple [`Tables`](super::Tables).
 #[derive(Debug, Clone)]
 pub struct TablesCache<const K: u8> {
-    buckets: Vec<Bucket>,
     rmap_scratch: Box<[RmapItem; PARAM_BC as usize]>,
     matches: Vec<Match>,
     left_targets: Box<LeftTargets>,
@@ -127,7 +126,6 @@ impl<const K: u8> Default for TablesCache<K> {
     /// Create a new instance
     fn default() -> Self {
         Self {
-            buckets: Vec::new(),
             // SAFETY: Zeroed value is a valid invariant for `RmapItem`
             rmap_scratch: unsafe { Box::new_zeroed().assume_init() },
             matches: Vec::new(),
@@ -564,7 +562,7 @@ where
             t_1.extend(ys.into_iter().zip(X::array_from_repr(xs)));
         }
 
-        t_1.sort_unstable();
+        t_1.sort_by_key(|(y, _x)| *y);
 
         let (ys, xs) = t_1.into_iter().unzip();
 
@@ -661,67 +659,73 @@ where
     where
         EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     {
-        let buckets = &mut cache.buckets;
         let rmap_scratch = &mut cache.rmap_scratch;
         let matches = &mut cache.matches;
         let left_targets = &cache.left_targets;
 
-        let mut bucket = Bucket {
+        let mut left_bucket = Bucket {
             bucket_index: 0,
             start_position: Position::ZERO,
             size: Position::ZERO,
         };
+        let mut right_bucket = Bucket {
+            bucket_index: 0,
+            start_position: Position::ZERO,
+            size: Position::ZERO,
+        };
+        for (&y, position) in last_table.ys().iter().zip(Position::ZERO..) {
+            let bucket_index = u32::from(y) / u32::from(PARAM_BC);
 
-        let last_y = *last_table
-            .ys()
-            .last()
-            .expect("List of y values is never empty; qed");
-        buckets.clear();
-        buckets.reserve(1 + usize::from(last_y) / usize::from(PARAM_BC));
-        last_table
-            .ys()
-            .iter()
-            .zip(Position::ZERO..)
-            .for_each(|(&y, position)| {
-                let bucket_index = u32::from(y) / u32::from(PARAM_BC);
+            if bucket_index == right_bucket.bucket_index {
+                right_bucket.size += Position::ONE;
+                continue;
+            }
 
-                if bucket_index == bucket.bucket_index {
-                    bucket.size += Position::ONE;
-                    return;
+            if right_bucket.size > Position::ZERO {
+                if left_bucket.size > Position::ZERO {
+                    find_matches(
+                        &last_table.ys()[usize::from(left_bucket.start_position)..]
+                            [..usize::from(left_bucket.size)],
+                        left_bucket.start_position,
+                        &last_table.ys()[usize::from(right_bucket.start_position)..]
+                            [..usize::from(right_bucket.size)],
+                        right_bucket.start_position,
+                        rmap_scratch,
+                        matches,
+                        left_targets,
+                    );
                 }
 
-                buckets.push(bucket);
+                left_bucket = right_bucket;
+            }
 
-                bucket = Bucket {
-                    bucket_index,
-                    start_position: position,
-                    size: Position::ONE,
-                };
-            });
-        // Iteration stopped, but we did not store the last bucket yet
-        buckets.push(bucket);
+            right_bucket = Bucket {
+                bucket_index,
+                start_position: position,
+                size: Position::ONE,
+            };
+        }
+
+        // Iteration stopped, but we did not process the last pair of buckets yet
+        if left_bucket.size > Position::ZERO && right_bucket.size > Position::ZERO {
+            find_matches(
+                &last_table.ys()[usize::from(left_bucket.start_position)..]
+                    [..usize::from(left_bucket.size)],
+                left_bucket.start_position,
+                &last_table.ys()[usize::from(right_bucket.start_position)..]
+                    [..usize::from(right_bucket.size)],
+                right_bucket.start_position,
+                rmap_scratch,
+                matches,
+                left_targets,
+            );
+        }
 
         let num_values = 1 << K;
-        buckets
-            .array_windows::<2>()
-            .for_each(|&[left_bucket, right_bucket]| {
-                find_matches(
-                    &last_table.ys()[usize::from(left_bucket.start_position)..]
-                        [..usize::from(left_bucket.size)],
-                    left_bucket.start_position,
-                    &last_table.ys()[usize::from(right_bucket.start_position)..]
-                        [..usize::from(right_bucket.size)],
-                    right_bucket.start_position,
-                    rmap_scratch,
-                    matches,
-                    left_targets,
-                );
-            });
-
         let mut t_n = Vec::with_capacity(num_values);
         matches_to_result(last_table, matches, &mut t_n);
         matches.clear();
-        t_n.sort_unstable();
+        t_n.sort_by_key(|(y, _positions, _metadata)| *y);
 
         let mut ys = Vec::with_capacity(num_values);
         let mut positions = Vec::with_capacity(num_values);
