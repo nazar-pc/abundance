@@ -91,7 +91,7 @@ drafted in more detail the next few days:
 - This new membership doesn't come to effect immediately, there is a
   `NEW_MEMBERSHIP_WARMUP_INTERVAL` also specified in number of slots that is the interval that
   farmers have to prepare for their new allocation (by syncing with the shard, verifying the most
-  recent segments, and and any other operation that may be required).
+  recent segments, and any other operation that may be required).
 - All this protocol parameters will be determined by the security robustness of the protocol against
   the potential attacks described above, and the technical limitations in terms of warmup
   requirements and overhead of frequent re-shuffles. I already have a sketch for the mathematical
