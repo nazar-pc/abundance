@@ -919,7 +919,7 @@ where
             });
 
         info!(target: "subspace", "🧑🌾 Starting Subspace Authorship worker");
-        let slot_worker_task = subspace_slot_worker.run(select_chain.clone(), pot_slot_info_stream);
+        let slot_worker_task = subspace_slot_worker.run(pot_slot_info_stream);
 
         // Subspace authoring task is considered essential, i.e. if it fails we take down the
         // service with it.

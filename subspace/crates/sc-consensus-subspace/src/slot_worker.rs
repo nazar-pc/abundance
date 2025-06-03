@@ -40,7 +40,7 @@ use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{
-    BlockOrigin, Environment, Error as ConsensusError, Proposal, Proposer, SelectChain, SyncOracle,
+    BlockOrigin, Environment, Error as ConsensusError, Proposal, Proposer, SyncOracle,
 };
 use sp_consensus_subspace::digests::{
     CompatibleDigestItem, PreDigest, PreDigestPotInfo, extract_pre_digest,
@@ -554,10 +554,7 @@ where
     }
 
     /// Run slot worker
-    pub async fn run<SC>(mut self, select_chain: SC, mut slot_info_stream: PotSlotInfoStream)
-    where
-        SC: SelectChain<Block>,
-    {
+    pub async fn run(mut self, mut slot_info_stream: PotSlotInfoStream) {
         let runtime_api = self.client.runtime_api();
         let block_authoring_delay = match runtime_api.chain_constants(self.client.info().best_hash)
         {
@@ -608,19 +605,7 @@ where
                 continue;
             };
 
-            let best_header = match select_chain.best_chain().await {
-                Ok(best_header) => best_header,
-                Err(error) => {
-                    error!(
-                        %error,
-                        "Unable to author block in slot. No best block header.",
-                    );
-
-                    continue;
-                }
-            };
-
-            self.on_slot(slot_to_claim, best_header).await;
+            self.on_slot(slot_to_claim).await;
         }
     }
 
@@ -765,7 +750,7 @@ where
     }
 
     /// Implements [`SlotWorker::on_slot`].
-    async fn on_slot(&mut self, slot: SlotNumber, best_header: Block::Header) -> Option<()> {
+    async fn on_slot(&mut self, slot: SlotNumber) -> Option<()> {
         let end_proposing_at = Instant::now()
             + self
                 .subspace_link
@@ -778,6 +763,24 @@ where
 
             return None;
         }
+
+        let best_hash = self.client.info().best_hash;
+        let best_header = match self.client.header(best_hash) {
+            Ok(Some(best_header)) => best_header,
+            Ok(None) => {
+                error!(%best_hash, "Unable to author block in slot, best block header missing in the database");
+
+                return None;
+            }
+            Err(error) => {
+                error!(
+                    %error,
+                    "Unable to author block in slot. No best block header.",
+                );
+
+                return None;
+            }
+        };
 
         let (pre_digest, justification) = self.claim_slot(&best_header, slot).await?;
 
