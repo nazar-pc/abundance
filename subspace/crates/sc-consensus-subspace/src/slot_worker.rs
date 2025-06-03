@@ -157,7 +157,7 @@ where
     /// This must be a `SubspaceBlockImport` or a wrapper of it, otherwise
     /// critical consensus logic will be omitted.
     pub block_import: BoxBlockImport<Block>,
-    /// A sync oracle
+    /// Global chain info
     pub chain_info: CI,
     /// Create inherent data provider
     pub create_inherent_data_providers: CIDP,

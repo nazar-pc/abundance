@@ -9053,6 +9053,7 @@ name = "sc-consensus-subspace-rpc"
 version = "0.1.0"
 dependencies = [
  "ab-archiving",
+ "ab-client-proof-of-time",
  "ab-core-primitives",
  "ab-erasure-coding",
  "async-oneshot",
@@ -9069,7 +9070,6 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-blockchain",
- "sp-consensus",
  "sp-consensus-subspace",
  "sp-runtime",
  "subspace-farmer-components",

@@ -910,7 +910,7 @@ where
                 client: client.clone(),
                 env: proposer_factory,
                 block_import,
-                chain_info,
+                chain_info: chain_info.clone(),
                 create_inherent_data_providers,
                 force_authoring: config.base.force_authoring,
                 subspace_link: subspace_link.clone(),
@@ -954,7 +954,7 @@ where
                         .clone(),
                     dsn_bootstrap_nodes: dsn_bootstrap_nodes.clone(),
                     segment_headers_store: segment_headers_store.clone(),
-                    sync_oracle: sync_oracle.clone(),
+                    chain_info: chain_info.clone(),
                     erasure_coding: subspace_link.erasure_coding().clone(),
                 };
 
