@@ -420,6 +420,11 @@ impl ChainInfo for SubstrateChainInfo {
     fn is_syncing(&self) -> bool {
         self.sync_oracle.is_major_syncing()
     }
+
+    #[inline(always)]
+    fn is_offline(&self) -> bool {
+        self.sync_oracle.is_offline()
+    }
 }
 
 impl SubstrateChainInfo {
@@ -847,7 +852,7 @@ where
         to_gossip_sender,
         from_gossip_receiver,
         best_block_pot_info_receiver,
-        chain_info,
+        chain_info.clone(),
         pot_state,
     );
 
@@ -905,7 +910,7 @@ where
                 client: client.clone(),
                 env: proposer_factory,
                 block_import,
-                sync_oracle: sync_oracle.clone(),
+                chain_info,
                 create_inherent_data_providers,
                 force_authoring: config.base.force_authoring,
                 subspace_link: subspace_link.clone(),

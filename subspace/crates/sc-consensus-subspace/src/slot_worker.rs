@@ -18,7 +18,7 @@
 use crate::SubspaceLink;
 use crate::archiver::SegmentHeadersStore;
 use ab_client_proof_of_time::PotNextSlotInput;
-use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
+use ab_client_proof_of_time::source::{ChainInfo, PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -145,10 +145,9 @@ pub struct RewardSigningNotification {
 }
 
 /// Parameters for [`SubspaceSlotWorker`]
-pub struct SubspaceSlotWorkerOptions<Block, Client, E, SO, AS, CIDP>
+pub struct SubspaceSlotWorkerOptions<Block, Client, E, CI, AS, CIDP>
 where
     Block: BlockT,
-    SO: SyncOracle + Send + Sync,
 {
     /// The client to use
     pub client: Arc<Client>,
@@ -159,7 +158,7 @@ where
     /// critical consensus logic will be omitted.
     pub block_import: BoxBlockImport<Block>,
     /// A sync oracle
-    pub sync_oracle: SubspaceSyncOracle<SO>,
+    pub chain_info: CI,
     /// Create inherent data provider
     pub create_inherent_data_providers: CIDP,
     /// Force authoring of blocks even if we are offline
@@ -173,15 +172,14 @@ where
 }
 
 /// Subspace slot worker responsible for block and vote production
-pub struct SubspaceSlotWorker<PosTable, Block, Client, E, SO, AS, CIDP>
+pub struct SubspaceSlotWorker<PosTable, Block, Client, E, CI, AS, CIDP>
 where
     Block: BlockT,
-    SO: SyncOracle + Send + Sync,
 {
     client: Arc<Client>,
     block_import: BoxBlockImport<Block>,
     env: E,
-    sync_oracle: SubspaceSyncOracle<SO>,
+    chain_info: CI,
     create_inherent_data_providers: CIDP,
     force_authoring: bool,
     subspace_link: SubspaceLink,
@@ -195,8 +193,8 @@ where
     _pos_table: PhantomData<PosTable>,
 }
 
-impl<PosTable, Block, Client, E, Error, SO, AS, CIDP>
-    SubspaceSlotWorker<PosTable, Block, Client, E, SO, AS, CIDP>
+impl<PosTable, Block, Client, E, Error, CI, AS, CIDP>
+    SubspaceSlotWorker<PosTable, Block, Client, E, CI, AS, CIDP>
 where
     PosTable: Table,
     Block: BlockT,
@@ -208,7 +206,7 @@ where
     Client::Api: SubspaceApi<Block>,
     E: Environment<Block, Error = Error> + Send + Sync,
     E::Proposer: Proposer<Block, Error = Error>,
-    SO: SyncOracle + Send + Sync,
+    CI: ChainInfo,
     Error: std::error::Error + Send + From<ConsensusError> + 'static,
     AS: AuxStore + Send + Sync + 'static,
     BlockNumber: From<<Block::Header as Header>::Number>,
@@ -531,19 +529,19 @@ where
             client,
             env,
             block_import,
-            sync_oracle,
+            chain_info,
             create_inherent_data_providers,
             force_authoring,
             subspace_link,
             segment_headers_store,
             pot_verifier,
-        }: SubspaceSlotWorkerOptions<Block, Client, E, SO, AS, CIDP>,
+        }: SubspaceSlotWorkerOptions<Block, Client, E, CI, AS, CIDP>,
     ) -> Self {
         Self {
             client,
             block_import,
             env,
-            sync_oracle,
+            chain_info,
             create_inherent_data_providers,
             force_authoring,
             subspace_link,
@@ -599,7 +597,7 @@ where
 
             self.on_pot(slot, checkpoints);
 
-            if self.sync_oracle.is_major_syncing() {
+            if self.chain_info.is_syncing() {
                 debug!(%slot, "Skipping proposal slot due to sync");
                 continue;
             }
@@ -633,7 +631,7 @@ where
 
         self.pot_checkpoints.insert(slot, checkpoints);
 
-        if self.sync_oracle.is_major_syncing() {
+        if self.chain_info.is_syncing() {
             debug!("Skipping farming slot {slot} due to sync");
             return;
         }
@@ -775,7 +773,7 @@ where
                 .slot_duration()
                 .as_duration();
 
-        if !self.force_authoring && self.sync_oracle.is_offline() {
+        if !self.force_authoring && self.chain_info.is_offline() {
             debug!("Skipping proposal slot. Waiting for the network.");
 
             return None;
