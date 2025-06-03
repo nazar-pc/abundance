@@ -872,19 +872,6 @@ where
             None,
         );
 
-        let subspace_slot_worker =
-            SubspaceSlotWorker::<PosTable, _, _, _, _, _, _>::new(SubspaceSlotWorkerOptions {
-                client: client.clone(),
-                env: proposer_factory,
-                block_import,
-                sync_oracle: sync_oracle.clone(),
-                justification_sync_link: sync_service.clone(),
-                force_authoring: config.base.force_authoring,
-                subspace_link: subspace_link.clone(),
-                segment_headers_store: segment_headers_store.clone(),
-                pot_verifier,
-            });
-
         let create_inherent_data_providers = {
             let client = client.clone();
             let segment_headers_store = segment_headers_store.clone();
@@ -913,12 +900,22 @@ where
             }
         };
 
+        let subspace_slot_worker =
+            SubspaceSlotWorker::<PosTable, _, _, _, _, _, _, _>::new(SubspaceSlotWorkerOptions {
+                client: client.clone(),
+                env: proposer_factory,
+                block_import,
+                sync_oracle: sync_oracle.clone(),
+                justification_sync_link: sync_service.clone(),
+                create_inherent_data_providers,
+                force_authoring: config.base.force_authoring,
+                subspace_link: subspace_link.clone(),
+                segment_headers_store: segment_headers_store.clone(),
+                pot_verifier,
+            });
+
         info!(target: "subspace", "🧑🌾 Starting Subspace Authorship worker");
-        let slot_worker_task = subspace_slot_worker.run(
-            select_chain.clone(),
-            create_inherent_data_providers,
-            pot_slot_info_stream,
-        );
+        let slot_worker_task = subspace_slot_worker.run(select_chain.clone(), pot_slot_info_stream);
 
         // Subspace authoring task is considered essential, i.e. if it fails we take down the
         // service with it.
