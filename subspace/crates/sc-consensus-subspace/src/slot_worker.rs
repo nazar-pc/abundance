@@ -18,7 +18,7 @@
 use crate::SubspaceLink;
 use crate::archiver::SegmentHeadersStore;
 use ab_client_proof_of_time::PotNextSlotInput;
-use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
+use ab_client_proof_of_time::source::{ChainInfo, PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -35,12 +35,12 @@ use futures::{StreamExt, TryFutureExt};
 use futures_timer::Delay;
 use sc_client_api::AuxStore;
 use sc_consensus::block_import::{BlockImportParams, StateAction};
-use sc_consensus::{BoxBlockImport, JustificationSyncLink, StorageChanges};
+use sc_consensus::{BoxBlockImport, StorageChanges};
 use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{
-    BlockOrigin, Environment, Error as ConsensusError, Proposal, Proposer, SelectChain, SyncOracle,
+    BlockOrigin, Environment, Error as ConsensusError, Proposal, Proposer, SyncOracle,
 };
 use sp_consensus_subspace::digests::{
     CompatibleDigestItem, PreDigest, PreDigestPotInfo, extract_pre_digest,
@@ -53,7 +53,7 @@ use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use subspace_verification::ed25519::RewardSignature;
 use subspace_verification::is_reward_signature_valid;
 use tokio::sync::broadcast;
@@ -61,37 +61,6 @@ use tracing::{debug, error, info, trace, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
 const PENDING_SOLUTIONS_CHANNEL_CAPACITY: usize = 10;
-
-/// Information about a slot.
-struct SlotInfo<B: BlockT> {
-    /// The slot number as found in the inherent data.
-    pub slot: SlotNumber,
-    /// The inherent data provider.
-    pub create_inherent_data: Box<dyn InherentDataProvider>,
-    /// Slot duration.
-    pub duration: Duration,
-    /// The chain header this slot is based on.
-    pub chain_head: B::Header,
-}
-
-impl<B: BlockT> SlotInfo<B> {
-    /// Create a new [`SlotInfo`].
-    ///
-    /// `ends_at` is calculated using `timestamp` and `duration`.
-    fn new(
-        slot: SlotNumber,
-        create_inherent_data: Box<dyn InherentDataProvider>,
-        duration: Duration,
-        chain_head: B::Header,
-    ) -> Self {
-        Self {
-            slot,
-            create_inherent_data,
-            duration,
-            chain_head,
-        }
-    }
-}
 
 /// Subspace sync oracle.
 ///
@@ -176,10 +145,9 @@ pub struct RewardSigningNotification {
 }
 
 /// Parameters for [`SubspaceSlotWorker`]
-pub struct SubspaceSlotWorkerOptions<Block, Client, E, SO, L, AS>
+pub struct SubspaceSlotWorkerOptions<Block, Client, E, CI, AS, CIDP>
 where
     Block: BlockT,
-    SO: SyncOracle + Send + Sync,
 {
     /// The client to use
     pub client: Arc<Client>,
@@ -189,10 +157,10 @@ where
     /// This must be a `SubspaceBlockImport` or a wrapper of it, otherwise
     /// critical consensus logic will be omitted.
     pub block_import: BoxBlockImport<Block>,
-    /// A sync oracle
-    pub sync_oracle: SubspaceSyncOracle<SO>,
-    /// Hook into the sync module to control the justification sync process.
-    pub justification_sync_link: L,
+    /// Global chain info
+    pub chain_info: CI,
+    /// Create inherent data provider
+    pub create_inherent_data_providers: CIDP,
     /// Force authoring of blocks even if we are offline
     pub force_authoring: bool,
     /// The source of timestamps for relative slots
@@ -204,16 +172,15 @@ where
 }
 
 /// Subspace slot worker responsible for block and vote production
-pub struct SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS>
+pub struct SubspaceSlotWorker<PosTable, Block, Client, E, CI, AS, CIDP>
 where
     Block: BlockT,
-    SO: SyncOracle + Send + Sync,
 {
     client: Arc<Client>,
     block_import: BoxBlockImport<Block>,
     env: E,
-    sync_oracle: SubspaceSyncOracle<SO>,
-    justification_sync_link: L,
+    chain_info: CI,
+    create_inherent_data_providers: CIDP,
     force_authoring: bool,
     subspace_link: SubspaceLink,
     segment_headers_store: SegmentHeadersStore<AS>,
@@ -226,8 +193,8 @@ where
     _pos_table: PhantomData<PosTable>,
 }
 
-impl<PosTable, Block, Client, E, Error, SO, L, AS>
-    SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS>
+impl<PosTable, Block, Client, E, Error, CI, AS, CIDP>
+    SubspaceSlotWorker<PosTable, Block, Client, E, CI, AS, CIDP>
 where
     PosTable: Table,
     Block: BlockT,
@@ -239,11 +206,11 @@ where
     Client::Api: SubspaceApi<Block>,
     E: Environment<Block, Error = Error> + Send + Sync,
     E::Proposer: Proposer<Block, Error = Error>,
-    SO: SyncOracle + Send + Sync,
-    L: JustificationSyncLink<Block>,
+    CI: ChainInfo,
     Error: std::error::Error + Send + From<ConsensusError> + 'static,
     AS: AuxStore + Send + Sync + 'static,
     BlockNumber: From<<Block::Header as Header>::Number>,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 {
     async fn claim_slot(
         &mut self,
@@ -562,20 +529,20 @@ where
             client,
             env,
             block_import,
-            sync_oracle,
-            justification_sync_link,
+            chain_info,
+            create_inherent_data_providers,
             force_authoring,
             subspace_link,
             segment_headers_store,
             pot_verifier,
-        }: SubspaceSlotWorkerOptions<Block, Client, E, SO, L, AS>,
+        }: SubspaceSlotWorkerOptions<Block, Client, E, CI, AS, CIDP>,
     ) -> Self {
         Self {
             client,
             block_import,
             env,
-            sync_oracle,
-            justification_sync_link,
+            chain_info,
+            create_inherent_data_providers,
             force_authoring,
             subspace_link,
             segment_headers_store,
@@ -587,15 +554,7 @@ where
     }
 
     /// Run slot worker
-    pub async fn run<SC, CIDP>(
-        mut self,
-        select_chain: SC,
-        create_inherent_data_providers: CIDP,
-        mut slot_info_stream: PotSlotInfoStream,
-    ) where
-        SC: SelectChain<Block>,
-        CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
-    {
+    pub async fn run(mut self, mut slot_info_stream: PotSlotInfoStream) {
         let runtime_api = self.client.runtime_api();
         let block_authoring_delay = match runtime_api.chain_constants(self.client.info().best_hash)
         {
@@ -605,12 +564,6 @@ where
                 return;
             }
         };
-
-        let slot_duration = self
-            .subspace_link
-            .chain_constants
-            .slot_duration()
-            .as_duration();
 
         let mut maybe_last_proven_slot = None;
 
@@ -641,7 +594,7 @@ where
 
             self.on_pot(slot, checkpoints);
 
-            if self.sync_oracle.is_major_syncing() {
+            if self.chain_info.is_syncing() {
                 debug!(%slot, "Skipping proposal slot due to sync");
                 continue;
             }
@@ -652,40 +605,7 @@ where
                 continue;
             };
 
-            let best_header = match select_chain.best_chain().await {
-                Ok(best_header) => best_header,
-                Err(error) => {
-                    error!(
-                        %error,
-                        "Unable to author block in slot. No best block header.",
-                    );
-
-                    continue;
-                }
-            };
-
-            let inherent_data_providers = match create_inherent_data_providers
-                .create_inherent_data_providers(best_header.hash(), ())
-                .await
-            {
-                Ok(inherent_data_providers) => inherent_data_providers,
-                Err(error) => {
-                    error!(
-                        %error,
-                        "Unable to author block in slot. Failure creating inherent data provider.",
-                    );
-
-                    continue;
-                }
-            };
-
-            self.on_slot(SlotInfo::new(
-                slot_to_claim,
-                Box::new(inherent_data_providers),
-                slot_duration,
-                best_header,
-            ))
-            .await;
+            self.on_slot(slot_to_claim).await;
         }
     }
 
@@ -696,7 +616,7 @@ where
 
         self.pot_checkpoints.insert(slot, checkpoints);
 
-        if self.sync_oracle.is_major_syncing() {
+        if self.chain_info.is_syncing() {
             debug!("Skipping farming slot {slot} due to sync");
             return;
         }
@@ -757,12 +677,36 @@ where
         &mut self,
         proposer: E::Proposer,
         pre_digest: &PreDigest,
-        slot_info: SlotInfo<Block>,
+        slot: SlotNumber,
+        best_header_hash: Block::Hash,
         end_proposing_at: Instant,
     ) -> Option<Proposal<Block, <E::Proposer as Proposer<Block>>::Proof>> {
-        let slot = slot_info.slot;
+        let inherent_data_providers = match self
+            .create_inherent_data_providers
+            .create_inherent_data_providers(best_header_hash, ())
+            .await
+        {
+            Ok(inherent_data_providers) => inherent_data_providers,
+            Err(error) => {
+                error!(
+                    %error,
+                    "Unable to author block in slot. Failure creating inherent data provider.",
+                );
 
-        let inherent_data = Self::create_inherent_data(&slot_info, end_proposing_at).await?;
+                return None;
+            }
+        };
+        let inherent_data = match inherent_data_providers.create_inherent_data().await {
+            Ok(data) => data,
+            Err(err) => {
+                warn!(
+                    "Unable to create inherent data for block {:?}: {}",
+                    best_header_hash, err,
+                );
+
+                return None;
+            }
+        };
 
         let proposing_remaining_duration =
             end_proposing_at.saturating_duration_since(Instant::now());
@@ -805,60 +749,46 @@ where
         Some(proposal)
     }
 
-    /// Calls `create_inherent_data` and handles errors.
-    async fn create_inherent_data(
-        slot_info: &SlotInfo<Block>,
-        end_proposing_at: Instant,
-    ) -> Option<sp_inherents::InherentData> {
-        let remaining_duration = end_proposing_at.saturating_duration_since(Instant::now());
-        let delay = Delay::new(remaining_duration);
-        let cid = slot_info.create_inherent_data.create_inherent_data();
-        let inherent_data = match futures::future::select(delay, cid).await {
-            Either::Right((Ok(data), _)) => data,
-            Either::Right((Err(err), _)) => {
-                warn!(
-                    "Unable to create inherent data for block {:?}: {}",
-                    slot_info.chain_head.hash(),
-                    err,
-                );
+    /// Implements [`SlotWorker::on_slot`].
+    async fn on_slot(&mut self, slot: SlotNumber) -> Option<()> {
+        let end_proposing_at = Instant::now()
+            + self
+                .subspace_link
+                .chain_constants
+                .slot_duration()
+                .as_duration();
+
+        if !self.force_authoring && self.chain_info.is_offline() {
+            debug!("Skipping proposal slot. Waiting for the network.");
+
+            return None;
+        }
+
+        let best_hash = self.client.info().best_hash;
+        let best_header = match self.client.header(best_hash) {
+            Ok(Some(best_header)) => best_header,
+            Ok(None) => {
+                error!(%best_hash, "Unable to author block in slot, best block header missing in the database");
 
                 return None;
             }
-            Either::Left(_) => {
-                warn!(
-                    "Creating inherent data took more time than we had left for slot {:?} for block {:?}.",
-                    slot_info.slot,
-                    slot_info.chain_head.hash(),
+            Err(error) => {
+                error!(
+                    %error,
+                    "Unable to author block in slot. No best block header.",
                 );
 
                 return None;
             }
         };
 
-        Some(inherent_data)
-    }
-
-    /// Implements [`SlotWorker::on_slot`].
-    async fn on_slot(&mut self, slot_info: SlotInfo<Block>) -> Option<()>
-    where
-        Self: Sync,
-    {
-        let slot = slot_info.slot;
-        let end_proposing_at = Instant::now() + slot_info.duration;
-
-        if !self.force_authoring && self.sync_oracle.is_offline() {
-            debug!("Skipping proposal slot. Waiting for the network.");
-
-            return None;
-        }
-
-        let (pre_digest, justification) = self.claim_slot(&slot_info.chain_head, slot).await?;
+        let (pre_digest, justification) = self.claim_slot(&best_header, slot).await?;
 
         debug!("Starting authorship at slot: {slot:?}");
 
         let proposer = match self
             .env
-            .init(&slot_info.chain_head)
+            .init(&best_header)
             .map_err(|e| ConsensusError::ClientImport(e.to_string()))
             .await
         {
@@ -871,7 +801,13 @@ where
         };
 
         let proposal = self
-            .propose(proposer, &pre_digest, slot_info, end_proposing_at)
+            .propose(
+                proposer,
+                &pre_digest,
+                slot,
+                best_header.hash(),
+                end_proposing_at,
+            )
             .await?;
 
         let (header, body) = proposal.block.deconstruct();
@@ -904,14 +840,9 @@ where
             header_hash,
         );
 
-        let header = block_import_params.post_header();
         match self.block_import.import_block(block_import_params).await {
-            Ok(res) => {
-                res.handle_justification(
-                    &header.hash(),
-                    *header.number(),
-                    &self.justification_sync_link,
-                );
+            Ok(_res) => {
+                // Nothing else to do
             }
             Err(err) => {
                 warn!("Error with block built on {:?}: {}", parent_hash, err,);

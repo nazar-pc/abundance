@@ -3,6 +3,7 @@
 #![feature(try_blocks)]
 
 use ab_archiving::archiver::NewArchivedSegment;
+use ab_client_proof_of_time::source::ChainInfo;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
@@ -22,9 +23,7 @@ use sc_consensus_subspace::archiver::{
     ArchivedSegmentNotification, SegmentHeadersStore, recreate_genesis_segment,
 };
 use sc_consensus_subspace::notification::SubspaceNotificationStream;
-use sc_consensus_subspace::slot_worker::{
-    NewSlotNotification, RewardSigningNotification, SubspaceSyncOracle,
-};
+use sc_consensus_subspace::slot_worker::{NewSlotNotification, RewardSigningNotification};
 use sc_rpc::SubscriptionTaskExecutor;
 use sc_rpc::utils::{BoundedVecDeque, PendingSubscription};
 use sc_rpc_api::{UnsafeRpcError, check_if_safe};
@@ -32,7 +31,6 @@ use sc_utils::mpsc::TracingUnboundedSender;
 use schnellru::{ByLength, LruMap};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_consensus::SyncOracle;
 use sp_consensus_subspace::{ChainConstants, SubspaceApi};
 use sp_runtime::traits::Block as BlockT;
 use std::collections::HashMap;
@@ -171,9 +169,8 @@ impl CachedArchivedSegment {
 }
 
 /// Subspace RPC configuration
-pub struct SubspaceRpcConfig<Client, SO, AS>
+pub struct SubspaceRpcConfig<Client, CI, AS>
 where
-    SO: SyncOracle + Send + Sync + Clone + 'static,
     AS: AuxStore + Send + Sync + 'static,
 {
     /// Substrate client
@@ -191,24 +188,23 @@ where
     pub dsn_bootstrap_nodes: Vec<Multiaddr>,
     /// Segment headers store
     pub segment_headers_store: SegmentHeadersStore<AS>,
-    /// Subspace sync oracle
-    pub sync_oracle: SubspaceSyncOracle<SO>,
+    /// Global chain info
+    pub chain_info: CI,
     /// Erasure coding instance
     pub erasure_coding: ErasureCoding,
 }
 
 /// Implements the [`SubspaceRpcApiServer`] trait for interacting with Subspace.
-pub struct SubspaceRpc<Block, Client, SO, AS>
+pub struct SubspaceRpc<Block, Client, CI, AS>
 where
     Block: BlockT,
-    SO: SyncOracle + Send + Sync + Clone + 'static,
+    CI: ChainInfo,
 {
     client: Arc<Client>,
     subscription_executor: SubscriptionTaskExecutor,
     new_slot_notification_stream: SubspaceNotificationStream<NewSlotNotification>,
     reward_signing_notification_stream: SubspaceNotificationStream<RewardSigningNotification>,
     archived_segment_notification_stream: SubspaceNotificationStream<ArchivedSegmentNotification>,
-    #[allow(clippy::type_complexity)]
     solution_response_senders: Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution>>>>,
     reward_signature_senders: Arc<Mutex<BlockSignatureSenders>>,
     dsn_bootstrap_nodes: Vec<Multiaddr>,
@@ -217,7 +213,7 @@ where
     archived_segment_acknowledgement_senders:
         Arc<Mutex<ArchivedSegmentHeaderAcknowledgementSenders>>,
     next_subscription_id: AtomicU64,
-    sync_oracle: SubspaceSyncOracle<SO>,
+    chain_info: CI,
     genesis_root: BlockRoot,
     chain_constants: ChainConstants,
     max_pieces_in_sector: u16,
@@ -232,16 +228,16 @@ where
 /// every subscriber, after which RPC server waits for the same number of
 /// `subspace_submitSolutionResponse` requests with `SolutionResponse` in them or until
 /// timeout is exceeded. The first valid solution for a particular slot wins, others are ignored.
-impl<Block, Client, SO, AS> SubspaceRpc<Block, Client, SO, AS>
+impl<Block, Client, CI, AS> SubspaceRpc<Block, Client, CI, AS>
 where
     Block: BlockT,
     Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
     Client::Api: SubspaceApi<Block>,
-    SO: SyncOracle + Send + Sync + Clone + 'static,
+    CI: ChainInfo,
     AS: AuxStore + Send + Sync + 'static,
 {
     /// Creates a new instance of the `SubspaceRpc` handler.
-    pub fn new(config: SubspaceRpcConfig<Client, SO, AS>) -> Result<Self, ApiError> {
+    pub fn new(config: SubspaceRpcConfig<Client, CI, AS>) -> Result<Self, ApiError> {
         let info = config.client.info();
         let best_hash = info.best_hash;
         let genesis_hash = BlockRoot::new(
@@ -277,7 +273,7 @@ where
             cached_archived_segment: Arc::default(),
             archived_segment_acknowledgement_senders: Arc::default(),
             next_subscription_id: AtomicU64::default(),
-            sync_oracle: config.sync_oracle,
+            chain_info: config.chain_info,
             genesis_root: genesis_hash,
             chain_constants,
             max_pieces_in_sector,
@@ -288,11 +284,11 @@ where
 }
 
 #[async_trait]
-impl<Block, Client, SO, AS> SubspaceRpcApiServer for SubspaceRpc<Block, Client, SO, AS>
+impl<Block, Client, CI, AS> SubspaceRpcApiServer for SubspaceRpc<Block, Client, CI, AS>
 where
     Block: BlockT,
     Client: HeaderBackend<Block> + BlockBackend<Block> + Send + Sync + 'static,
-    SO: SyncOracle + Send + Sync + Clone + 'static,
+    CI: ChainInfo,
     AS: AuxStore + Send + Sync + 'static,
 {
     fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
@@ -314,7 +310,7 @@ where
             FarmerAppInfo {
                 genesis_root: self.genesis_root,
                 dsn_bootstrap_nodes: self.dsn_bootstrap_nodes.clone(),
-                syncing: self.sync_oracle.is_major_syncing(),
+                syncing: self.chain_info.is_syncing(),
                 farming_timeout: chain_constants
                     .slot_duration()
                     .as_duration()
