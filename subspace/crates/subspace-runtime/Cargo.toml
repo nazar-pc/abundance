@@ -18,11 +18,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 ab-core-primitives = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
-frame-benchmarking = { workspace = true, optional = true }
 frame-executive = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-frame-system-benchmarking = { workspace = true, optional = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-runtime-configs = { workspace = true }
@@ -58,11 +56,9 @@ subspace-runtime-primitives = { workspace = true, features = ["testing"] }
 default = ["std"]
 std = [
     "parity-scale-codec/std",
-    "frame-benchmarking?/std",
     "frame-executive/std",
     "frame-support/std",
     "frame-system/std",
-    "frame-system-benchmarking?/std",
     "frame-system-rpc-runtime-api/std",
     "pallet-balances/std",
     "pallet-runtime-configs/std",
@@ -87,18 +83,4 @@ std = [
     "sp-version/std",
     "subspace-runtime-primitives/std",
     "substrate-wasm-builder",
-]
-runtime-benchmarks = [
-    "frame-benchmarking",
-    "frame-benchmarking/runtime-benchmarks",
-    "frame-support/runtime-benchmarks",
-    "frame-system/runtime-benchmarks",
-    "frame-system-benchmarking",
-    "frame-system-benchmarking/runtime-benchmarks",
-    "pallet-balances/runtime-benchmarks",
-    "pallet-runtime-configs/runtime-benchmarks",
-    "pallet-subspace/runtime-benchmarks",
-    "pallet-timestamp/runtime-benchmarks",
-    "pallet-utility/runtime-benchmarks",
-    "sp-runtime/runtime-benchmarks",
 ]

@@ -49,4 +49,3 @@ std = [
     "sp-runtime/std",
     "subspace-runtime-primitives/std",
 ]
-runtime-benchmarks = []

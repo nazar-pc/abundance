@@ -25,7 +25,6 @@ anyhow = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 core_affinity = { workspace = true }
-frame-benchmarking = { workspace = true, optional = true }
 futures = { workspace = true }
 hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server-core"] }
@@ -74,6 +73,3 @@ frame-system-rpc-runtime-api = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 
 [features]
-runtime-benchmarks = [
-    "dep:frame-benchmarking",
-]

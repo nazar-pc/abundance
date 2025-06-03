@@ -56,11 +56,6 @@ impl<O: Into<Result<RawOrigin, O>> + From<RawOrigin>> EnsureOrigin<O> for Ensure
             RawOrigin::ValidatedUnsigned => (),
         })
     }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn try_successful_origin() -> Result<O, ()> {
-        Ok(O::from(RawOrigin::ValidatedUnsigned))
-    }
 }
 
 #[derive(Debug, Encode, Decode, TypeInfo)]

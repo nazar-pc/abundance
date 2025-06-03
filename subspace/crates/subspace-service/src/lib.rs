@@ -167,15 +167,7 @@ where
 }
 
 /// Host functions required for Subspace
-#[cfg(not(feature = "runtime-benchmarks"))]
 pub type HostFunctions = (sp_io::SubstrateHostFunctions,);
-
-/// Host functions required for Subspace
-#[cfg(feature = "runtime-benchmarks")]
-pub type HostFunctions = (
-    sp_io::SubstrateHostFunctions,
-    frame_benchmarking::benchmarking::HostFunctions,
-);
 
 /// Runtime executor for Subspace
 pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;

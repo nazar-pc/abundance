@@ -10,18 +10,12 @@ use crate::cli::{Cli, SubspaceCliPlaceholder};
 use crate::commands::set_exit_on_panic;
 use ab_proof_of_space::chia::ChiaTable;
 use clap::Parser;
-#[cfg(feature = "runtime-benchmarks")]
-use frame_benchmarking_cli::BenchmarkCmd;
 use futures::future::TryFutureExt;
 use sc_cli::{ChainSpec, SubstrateCli};
 use sc_service::{Configuration, PartialComponents};
 use serde_json::Value;
 use sp_core::crypto::Ss58AddressFormat;
-#[cfg(feature = "runtime-benchmarks")]
-use sp_runtime::traits::HashingFor;
 use subspace_runtime::{Block, RuntimeApi};
-#[cfg(feature = "runtime-benchmarks")]
-use subspace_service::HostFunctions;
 use tracing::warn;
 
 #[global_allocator]
@@ -229,73 +223,6 @@ fn main() -> Result<(), Error> {
         Cli::ChainInfo(cmd) => {
             let runner = SubspaceCliPlaceholder.create_runner(&cmd)?;
             runner.sync_run(|config| cmd.run::<Block>(&config))?;
-        }
-        #[cfg(feature = "runtime-benchmarks")]
-        Cli::Benchmark(cmd) => {
-            let runner = SubspaceCliPlaceholder.create_runner(&cmd)?;
-
-            runner.sync_run(|config| {
-                // This switch needs to be in the client, since the client decides
-                // which sub-commands it wants to support.
-                match cmd {
-                    BenchmarkCmd::Pallet(cmd) => cmd
-                        .run_with_spec::<HashingFor<Block>, HostFunctions>(Some(config.chain_spec)),
-                    BenchmarkCmd::Block(cmd) => {
-                        let PartialComponents { client, .. } =
-                            subspace_service::new_partial::<PosTable, RuntimeApi>(
-                                &config,
-                                false,
-                                &derive_pot_external_entropy(&config, None)?,
-                            )?;
-
-                        cmd.run(client)
-                    }
-                    BenchmarkCmd::Storage(cmd) => {
-                        let PartialComponents {
-                            client, backend, ..
-                        } = subspace_service::new_partial::<PosTable, RuntimeApi>(
-                            &config,
-                            false,
-                            &derive_pot_external_entropy(&config, None)?,
-                        )?;
-                        let db = backend.expose_db();
-                        let storage = backend.expose_storage();
-
-                        cmd.run(config, client, db, storage)
-                    }
-                    BenchmarkCmd::Overhead(_cmd) => {
-                        todo!("Not implemented")
-                        // let ext_builder = BenchmarkExtrinsicBuilder::new(client.clone());
-                        //
-                        // cmd.run(
-                        //     config,
-                        //     client,
-                        //     command_helper::inherent_benchmark_data()?,
-                        //     Arc::new(ext_builder),
-                        // )
-                    }
-                    BenchmarkCmd::Machine(cmd) => cmd.run(
-                        &config,
-                        frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.clone(),
-                    ),
-                    BenchmarkCmd::Extrinsic(_cmd) => {
-                        todo!("Not implemented")
-                        // let PartialComponents { client, .. } =
-                        //     subspace_service::new_partial(&config)?;
-                        // // Register the *Remark* and *TKA* builders.
-                        // let ext_factory = ExtrinsicFactory(vec![
-                        //     Box::new(RemarkBuilder::new(client.clone())),
-                        //     Box::new(TransferKeepAliveBuilder::new(
-                        //         client.clone(),
-                        //         Sr25519Keyring::Alice.to_account_id(),
-                        //         ExistentialDeposit: get(),
-                        //     )),
-                        // ]);
-                        //
-                        // cmd.run(client, inherent_benchmark_data()?, &ext_factory)
-                    }
-                }
-            })?;
         }
     }
 
