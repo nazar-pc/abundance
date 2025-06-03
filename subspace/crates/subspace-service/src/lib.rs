@@ -420,6 +420,11 @@ impl ChainInfo for SubstrateChainInfo {
     fn is_syncing(&self) -> bool {
         self.sync_oracle.is_major_syncing()
     }
+
+    #[inline(always)]
+    fn is_offline(&self) -> bool {
+        self.sync_oracle.
+    }
 }
 
 impl SubstrateChainInfo {
