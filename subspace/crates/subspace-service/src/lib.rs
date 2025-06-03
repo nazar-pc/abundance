@@ -901,12 +901,11 @@ where
         };
 
         let subspace_slot_worker =
-            SubspaceSlotWorker::<PosTable, _, _, _, _, _, _, _>::new(SubspaceSlotWorkerOptions {
+            SubspaceSlotWorker::<PosTable, _, _, _, _, _, _>::new(SubspaceSlotWorkerOptions {
                 client: client.clone(),
                 env: proposer_factory,
                 block_import,
                 sync_oracle: sync_oracle.clone(),
-                justification_sync_link: sync_service.clone(),
                 create_inherent_data_providers,
                 force_authoring: config.base.force_authoring,
                 subspace_link: subspace_link.clone(),

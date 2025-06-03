@@ -35,7 +35,7 @@ use futures::{StreamExt, TryFutureExt};
 use futures_timer::Delay;
 use sc_client_api::AuxStore;
 use sc_consensus::block_import::{BlockImportParams, StateAction};
-use sc_consensus::{BoxBlockImport, JustificationSyncLink, StorageChanges};
+use sc_consensus::{BoxBlockImport, StorageChanges};
 use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
 use sp_api::{ApiError, ProvideRuntimeApi};
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
@@ -145,7 +145,7 @@ pub struct RewardSigningNotification {
 }
 
 /// Parameters for [`SubspaceSlotWorker`]
-pub struct SubspaceSlotWorkerOptions<Block, Client, E, SO, L, AS, CIDP>
+pub struct SubspaceSlotWorkerOptions<Block, Client, E, SO, AS, CIDP>
 where
     Block: BlockT,
     SO: SyncOracle + Send + Sync,
@@ -160,8 +160,6 @@ where
     pub block_import: BoxBlockImport<Block>,
     /// A sync oracle
     pub sync_oracle: SubspaceSyncOracle<SO>,
-    /// Hook into the sync module to control the justification sync process.
-    pub justification_sync_link: L,
     /// Create inherent data provider
     pub create_inherent_data_providers: CIDP,
     /// Force authoring of blocks even if we are offline
@@ -175,7 +173,7 @@ where
 }
 
 /// Subspace slot worker responsible for block and vote production
-pub struct SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS, CIDP>
+pub struct SubspaceSlotWorker<PosTable, Block, Client, E, SO, AS, CIDP>
 where
     Block: BlockT,
     SO: SyncOracle + Send + Sync,
@@ -184,7 +182,6 @@ where
     block_import: BoxBlockImport<Block>,
     env: E,
     sync_oracle: SubspaceSyncOracle<SO>,
-    justification_sync_link: L,
     create_inherent_data_providers: CIDP,
     force_authoring: bool,
     subspace_link: SubspaceLink,
@@ -198,8 +195,8 @@ where
     _pos_table: PhantomData<PosTable>,
 }
 
-impl<PosTable, Block, Client, E, Error, SO, L, AS, CIDP>
-    SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS, CIDP>
+impl<PosTable, Block, Client, E, Error, SO, AS, CIDP>
+    SubspaceSlotWorker<PosTable, Block, Client, E, SO, AS, CIDP>
 where
     PosTable: Table,
     Block: BlockT,
@@ -212,7 +209,6 @@ where
     E: Environment<Block, Error = Error> + Send + Sync,
     E::Proposer: Proposer<Block, Error = Error>,
     SO: SyncOracle + Send + Sync,
-    L: JustificationSyncLink<Block>,
     Error: std::error::Error + Send + From<ConsensusError> + 'static,
     AS: AuxStore + Send + Sync + 'static,
     BlockNumber: From<<Block::Header as Header>::Number>,
@@ -536,20 +532,18 @@ where
             env,
             block_import,
             sync_oracle,
-            justification_sync_link,
             create_inherent_data_providers,
             force_authoring,
             subspace_link,
             segment_headers_store,
             pot_verifier,
-        }: SubspaceSlotWorkerOptions<Block, Client, E, SO, L, AS, CIDP>,
+        }: SubspaceSlotWorkerOptions<Block, Client, E, SO, AS, CIDP>,
     ) -> Self {
         Self {
             client,
             block_import,
             env,
             sync_oracle,
-            justification_sync_link,
             create_inherent_data_providers,
             force_authoring,
             subspace_link,
@@ -845,14 +839,9 @@ where
             header_hash,
         );
 
-        let header = block_import_params.post_header();
         match self.block_import.import_block(block_import_params).await {
-            Ok(res) => {
-                res.handle_justification(
-                    &header.hash(),
-                    *header.number(),
-                    &self.justification_sync_link,
-                );
+            Ok(_res) => {
+                // Nothing else to do
             }
             Err(err) => {
                 warn!("Error with block built on {:?}: {}", parent_hash, err,);
