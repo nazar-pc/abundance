@@ -176,7 +176,7 @@ pub struct RewardSigningNotification {
 }
 
 /// Parameters for [`SubspaceSlotWorker`]
-pub struct SubspaceSlotWorkerOptions<Block, Client, E, SO, L, AS>
+pub struct SubspaceSlotWorkerOptions<Block, Client, E, SO, L, AS, CIDP>
 where
     Block: BlockT,
     SO: SyncOracle + Send + Sync,
@@ -193,6 +193,7 @@ where
     pub sync_oracle: SubspaceSyncOracle<SO>,
     /// Hook into the sync module to control the justification sync process.
     pub justification_sync_link: L,
+    pub create_inherent_data_providers: CIDP,
     /// Force authoring of blocks even if we are offline
     pub force_authoring: bool,
     /// The source of timestamps for relative slots
@@ -204,7 +205,7 @@ where
 }
 
 /// Subspace slot worker responsible for block and vote production
-pub struct SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS>
+pub struct SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS, CIDP>
 where
     Block: BlockT,
     SO: SyncOracle + Send + Sync,
@@ -214,6 +215,7 @@ where
     env: E,
     sync_oracle: SubspaceSyncOracle<SO>,
     justification_sync_link: L,
+    create_inherent_data_providers: CIDP,
     force_authoring: bool,
     subspace_link: SubspaceLink,
     segment_headers_store: SegmentHeadersStore<AS>,
@@ -226,8 +228,8 @@ where
     _pos_table: PhantomData<PosTable>,
 }
 
-impl<PosTable, Block, Client, E, Error, SO, L, AS>
-    SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS>
+impl<PosTable, Block, Client, E, Error, SO, L, AS, CIDP>
+    SubspaceSlotWorker<PosTable, Block, Client, E, SO, L, AS, CIDP>
 where
     PosTable: Table,
     Block: BlockT,
@@ -244,6 +246,7 @@ where
     Error: std::error::Error + Send + From<ConsensusError> + 'static,
     AS: AuxStore + Send + Sync + 'static,
     BlockNumber: From<<Block::Header as Header>::Number>,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 {
     async fn claim_slot(
         &mut self,
@@ -564,11 +567,12 @@ where
             block_import,
             sync_oracle,
             justification_sync_link,
+            create_inherent_data_providers,
             force_authoring,
             subspace_link,
             segment_headers_store,
             pot_verifier,
-        }: SubspaceSlotWorkerOptions<Block, Client, E, SO, L, AS>,
+        }: SubspaceSlotWorkerOptions<Block, Client, E, SO, L, AS, CIDP>,
     ) -> Self {
         Self {
             client,
@@ -762,7 +766,18 @@ where
     ) -> Option<Proposal<Block, <E::Proposer as Proposer<Block>>::Proof>> {
         let slot = slot_info.slot;
 
-        let inherent_data = Self::create_inherent_data(&slot_info, end_proposing_at).await?;
+        let inherent_data = match slot_info.create_inherent_data.create_inherent_data().await {
+            Ok(data) => data,
+            Err(err) => {
+                warn!(
+                    "Unable to create inherent data for block {:?}: {}",
+                    slot_info.chain_head.hash(),
+                    err,
+                );
+
+                return None;
+            }
+        };
 
         let proposing_remaining_duration =
             end_proposing_at.saturating_duration_since(Instant::now());
@@ -803,39 +818,6 @@ where
         };
 
         Some(proposal)
-    }
-
-    /// Calls `create_inherent_data` and handles errors.
-    async fn create_inherent_data(
-        slot_info: &SlotInfo<Block>,
-        end_proposing_at: Instant,
-    ) -> Option<sp_inherents::InherentData> {
-        let remaining_duration = end_proposing_at.saturating_duration_since(Instant::now());
-        let delay = Delay::new(remaining_duration);
-        let cid = slot_info.create_inherent_data.create_inherent_data();
-        let inherent_data = match futures::future::select(delay, cid).await {
-            Either::Right((Ok(data), _)) => data,
-            Either::Right((Err(err), _)) => {
-                warn!(
-                    "Unable to create inherent data for block {:?}: {}",
-                    slot_info.chain_head.hash(),
-                    err,
-                );
-
-                return None;
-            }
-            Either::Left(_) => {
-                warn!(
-                    "Creating inherent data took more time than we had left for slot {:?} for block {:?}.",
-                    slot_info.slot,
-                    slot_info.chain_head.hash(),
-                );
-
-                return None;
-            }
-        };
-
-        Some(inherent_data)
     }
 
     /// Implements [`SlotWorker::on_slot`].
