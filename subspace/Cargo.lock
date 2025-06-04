@@ -32,9 +32,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-client-api"
+version = "0.0.1"
+
+[[package]]
 name = "ab-client-proof-of-time"
 version = "0.0.1"
 dependencies = [
+ "ab-client-api",
  "ab-core-primitives",
  "ab-proof-of-time",
  "derive_more 2.0.1",
@@ -7812,6 +7817,7 @@ name = "sc-consensus-subspace"
 version = "0.1.0"
 dependencies = [
  "ab-archiving",
+ "ab-client-api",
  "ab-client-proof-of-time",
  "ab-core-primitives",
  "ab-erasure-coding",
@@ -7847,7 +7853,7 @@ name = "sc-consensus-subspace-rpc"
 version = "0.1.0"
 dependencies = [
  "ab-archiving",
- "ab-client-proof-of-time",
+ "ab-client-api",
  "ab-core-primitives",
  "ab-erasure-coding",
  "async-oneshot",
@@ -10165,6 +10171,7 @@ name = "subspace-service"
 version = "0.1.0"
 dependencies = [
  "ab-archiving",
+ "ab-client-api",
  "ab-client-proof-of-time",
  "ab-core-primitives",
  "ab-erasure-coding",

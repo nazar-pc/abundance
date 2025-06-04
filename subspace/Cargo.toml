@@ -7,6 +7,7 @@ members = [
 
 [workspace.dependencies]
 ab-archiving = { version = "0.1.0", path = "../crates/shared/ab-archiving", default-features = false }
+ab-client-api = { version = "0.0.1", path = "../crates/node/ab-client-api" }
 ab-client-proof-of-time = { version = "0.0.1", path = "../crates/node/ab-client-proof-of-time" }
 ab-core-primitives = { version = "0.1.0", path = "../crates/shared/ab-core-primitives", default-features = false }
 ab-erasure-coding = { path = "../crates/shared/ab-erasure-coding", default-features = false }

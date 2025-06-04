@@ -6,7 +6,7 @@
 
 #![warn(missing_docs)]
 
-use ab_client_proof_of_time::source::ChainInfo;
+use ab_client_api::ChainInfo;
 use ab_erasure_coding::ErasureCoding;
 use jsonrpsee::RpcModule;
 use sc_client_api::{AuxStore, BlockBackend};

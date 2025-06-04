@@ -17,8 +17,9 @@
 
 use crate::SubspaceLink;
 use crate::archiver::SegmentHeadersStore;
+use ab_client_api::ChainInfo;
 use ab_client_proof_of_time::PotNextSlotInput;
-use ab_client_proof_of_time::source::{ChainInfo, PotSlotInfo, PotSlotInfoStream};
+use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;

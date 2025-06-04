@@ -8,6 +8,7 @@ use crate::source::block_import::BestBlockPotInfo;
 use crate::source::gossip::{GossipProof, ToGossipMessage};
 use crate::source::state::{PotState, PotStateSetOutcome};
 use crate::source::timekeeper::TimekeeperProof;
+use ab_client_api::ChainInfo;
 use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
 use derive_more::{Deref, DerefMut};
 use futures::channel::mpsc;
@@ -18,16 +19,6 @@ use tokio::sync::broadcast;
 use tracing::{debug, trace, warn};
 
 const SLOTS_CHANNEL_CAPACITY: usize = 10;
-
-// TODO: Move somewhere more appropriate, probably rename too
-/// Global chain info
-pub trait ChainInfo: Clone + Send + Sync + 'static {
-    /// Returns `true` if the chain is currently syncing
-    fn is_syncing(&self) -> bool;
-
-    /// Returns `true` if the node is currently offline
-    fn is_offline(&self) -> bool;
-}
 
 /// Proof of time slot information
 #[derive(Debug, Copy, Clone)]
