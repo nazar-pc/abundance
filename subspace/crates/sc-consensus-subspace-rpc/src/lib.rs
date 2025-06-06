@@ -3,7 +3,7 @@
 #![feature(try_blocks)]
 
 use ab_archiving::archiver::NewArchivedSegment;
-use ab_client_proof_of_time::source::ChainInfo;
+use ab_client_api::ChainInfo;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};

@@ -23,8 +23,6 @@ ab-core-primitives = { workspace = true }
 ab-proof-of-space = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 fdlimit = { workspace = true }
-frame-benchmarking = { workspace = true, optional = true }
-frame-benchmarking-cli = { workspace = true, optional = true }
 frame-support = { workspace = true }
 futures = { workspace = true }
 hex-literal = { workspace = true }
@@ -53,12 +51,3 @@ subspace-logging = { workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }
-
-[features]
-default = []
-runtime-benchmarks = [
-    "frame-benchmarking-cli/runtime-benchmarks",
-    "frame-benchmarking/runtime-benchmarks",
-    "subspace-runtime/runtime-benchmarks",
-    "subspace-service/runtime-benchmarks",
-]

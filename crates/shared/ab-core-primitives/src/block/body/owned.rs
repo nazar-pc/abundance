@@ -1,12 +1,11 @@
 //! Data structures related to the owned version of [`BlockBody`]
 
 use crate::block::body::{
-    BeaconChainBlockBody, BlockBody, IntermediateShardBlockBody, IntermediateShardBlockInfo,
-    LeafShardBlockBody, LeafShardBlockInfo,
+    BeaconChainBody, BlockBody, IntermediateShardBlockInfo, IntermediateShardBody,
+    LeafShardBlockInfo, LeafShardBody,
 };
 use crate::block::header::owned::{
-    OwnedIntermediateShardBlockHeader, OwnedIntermediateShardBlockHeaderError,
-    OwnedLeafShardBlockHeader,
+    OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
 };
 use crate::pot::PotCheckpoints;
 use crate::segments::SegmentRoot;
@@ -155,9 +154,9 @@ impl TransactionBuilder {
     }
 }
 
-/// Errors for [`OwnedBeaconChainBlockBody`]
+/// Errors for [`OwnedBeaconChainBody`]
 #[derive(Debug, thiserror::Error)]
-pub enum OwnedBeaconChainBlockBodyError {
+pub enum OwnedBeaconChainBodyError {
     /// Too many PoT checkpoints
     #[error("Too many PoT checkpoints: {actual}")]
     TooManyPotCheckpoints {
@@ -193,47 +192,47 @@ pub enum OwnedBeaconChainBlockBodyError {
     FailedToAddTransaction {
         /// Inner error
         #[from]
-        error: OwnedIntermediateShardBlockHeaderError,
+        error: OwnedIntermediateShardHeaderError,
     },
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
 }
 
-/// An owned version of [`BeaconChainBlockBody`].
+/// An owned version of [`BeaconChainBody`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
-pub struct OwnedBeaconChainBlockBody {
+pub struct OwnedBeaconChainBody {
     buffer: SharedAlignedBuffer,
 }
 
-impl OwnedBeaconChainBlockBody {
-    /// Initialize building of [`OwnedBeaconChainBlockBody`]
+impl OwnedBeaconChainBody {
+    /// Initialize building of [`OwnedBeaconChainBody`]
     pub fn init<'a, ISB>(
         own_segment_roots: &[SegmentRoot],
         intermediate_shard_blocks: ISB,
         pot_checkpoints: &[PotCheckpoints],
-    ) -> Result<Self, OwnedBeaconChainBlockBodyError>
+    ) -> Result<Self, OwnedBeaconChainBodyError>
     where
         ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + Clone + 'a,
     {
         let num_pot_checkpoints = pot_checkpoints.len();
         let num_pot_checkpoints = u32::try_from(num_pot_checkpoints).map_err(|_error| {
-            OwnedBeaconChainBlockBodyError::TooManyPotCheckpoints {
+            OwnedBeaconChainBodyError::TooManyPotCheckpoints {
                 actual: num_pot_checkpoints,
             }
         })?;
         let num_own_segment_roots = own_segment_roots.len();
         let num_own_segment_roots = u8::try_from(num_own_segment_roots).map_err(|_error| {
-            OwnedBeaconChainBlockBodyError::TooManyOwnSegmentRoots {
+            OwnedBeaconChainBodyError::TooManyOwnSegmentRoots {
                 actual: num_own_segment_roots,
             }
         })?;
         let num_blocks = intermediate_shard_blocks.size_hint().0;
         let num_blocks = u8::try_from(num_blocks).map_err(|_error| {
-            OwnedBeaconChainBlockBodyError::TooManyIntermediateShardBlocks { actual: num_blocks }
+            OwnedBeaconChainBodyError::TooManyIntermediateShardBlocks { actual: num_blocks }
         })?;
 
         let mut buffer = OwnedAlignedBuffer::with_capacity(
@@ -241,7 +240,7 @@ impl OwnedBeaconChainBlockBody {
                 + size_of_val(own_segment_roots) as u32
                 // This is only an estimate to get in the ballpark where reallocation should not be
                 // necessary in many cases
-                + u32::from(num_blocks) * OwnedIntermediateShardBlockHeader::max_allocation_for(&[]) * 2,
+                + u32::from(num_blocks) * OwnedIntermediateShardHeader::max_allocation_for(&[]) * 2,
         );
 
         let true = buffer.append(&num_pot_checkpoints.to_le_bytes()) else {
@@ -276,7 +275,7 @@ impl OwnedBeaconChainBlockBody {
                     let num_own_segment_roots = intermediate_shard_block.own_segment_roots.len();
                     let num_own_segment_roots =
                         u8::try_from(num_own_segment_roots).map_err(|_error| {
-                            OwnedBeaconChainBlockBodyError::TooManyIntermediateShardOwnSegmentRoots {
+                            OwnedBeaconChainBodyError::TooManyIntermediateShardOwnSegmentRoots {
                                 actual: num_own_segment_roots,
                             }
                         })?;
@@ -284,7 +283,7 @@ impl OwnedBeaconChainBlockBody {
                         intermediate_shard_block.child_segment_roots.len();
                     let num_child_segment_roots =
                         u16::try_from(num_child_segment_roots).map_err(|_error| {
-                            OwnedBeaconChainBlockBodyError::TooManyIntermediateShardChildSegmentRoots {
+                            OwnedBeaconChainBodyError::TooManyIntermediateShardChildSegmentRoots {
                                 actual: num_child_segment_roots,
                             }
                         })?;
@@ -297,7 +296,7 @@ impl OwnedBeaconChainBlockBody {
                 }
                 segments_roots_num_cursor += 3;
 
-                OwnedIntermediateShardBlockHeader::from_parts_into(
+                OwnedIntermediateShardHeader::from_parts_into(
                     intermediate_shard_block.header.prefix,
                     intermediate_shard_block.header.result,
                     intermediate_shard_block.header.consensus_info,
@@ -306,12 +305,12 @@ impl OwnedBeaconChainBlockBody {
                     &mut buffer,
                 )?;
                 if !align_to_8_with_padding(&mut buffer) {
-                    return Err(OwnedBeaconChainBlockBodyError::BlockBodyIsTooLarge);
+                    return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                 }
                 if let Some(segment_roots_proof) = intermediate_shard_block.segment_roots_proof
                     && !buffer.append(segment_roots_proof)
                 {
-                    return Err(OwnedBeaconChainBlockBodyError::BlockBodyIsTooLarge);
+                    return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                 }
                 if !intermediate_shard_block.own_segment_roots.is_empty()
                     && !buffer.append(
@@ -319,7 +318,7 @@ impl OwnedBeaconChainBlockBody {
                             .as_flattened(),
                     )
                 {
-                    return Err(OwnedBeaconChainBlockBodyError::BlockBodyIsTooLarge);
+                    return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                 }
                 if !intermediate_shard_block.child_segment_roots.is_empty()
                     && !buffer.append(
@@ -327,14 +326,14 @@ impl OwnedBeaconChainBlockBody {
                             .as_flattened(),
                     )
                 {
-                    return Err(OwnedBeaconChainBlockBodyError::BlockBodyIsTooLarge);
+                    return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                 }
             }
         }
 
         let true = buffer.append(PotCheckpoints::bytes_from_slice(pot_checkpoints).as_flattened())
         else {
-            return Err(OwnedBeaconChainBlockBodyError::BlockBodyIsTooLarge);
+            return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
         };
 
         Ok(Self {
@@ -344,9 +343,7 @@ impl OwnedBeaconChainBlockBody {
 
     /// Create owned block body from a reference
     #[inline]
-    pub fn from_body(
-        body: BeaconChainBlockBody<'_>,
-    ) -> Result<Self, OwnedBeaconChainBlockBodyError> {
+    pub fn from_body(body: BeaconChainBody<'_>) -> Result<Self, OwnedBeaconChainBodyError> {
         Self::init(
             body.own_segment_roots,
             body.intermediate_shard_blocks.iter(),
@@ -357,8 +354,7 @@ impl OwnedBeaconChainBlockBody {
     /// Create owned body from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_body, extra_bytes)) = BeaconChainBlockBody::try_from_bytes(buffer.as_slice())
-        else {
+        let Some((_body, extra_bytes)) = BeaconChainBody::try_from_bytes(buffer.as_slice()) else {
             return Err(buffer);
         };
         if !extra_bytes.is_empty() {
@@ -373,17 +369,17 @@ impl OwnedBeaconChainBlockBody {
         &self.buffer
     }
 
-    /// Get [`BeaconChainBlockBody`] out of [`OwnedBeaconChainBlockBody`]
-    pub fn body(&self) -> BeaconChainBlockBody<'_> {
-        BeaconChainBlockBody::try_from_bytes_unchecked(self.buffer.as_slice())
+    /// Get [`BeaconChainBody`] out of [`OwnedBeaconChainBody`]
+    pub fn body(&self) -> BeaconChainBody<'_> {
+        BeaconChainBody::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }
 }
 
-/// Errors for [`OwnedIntermediateShardBlockBody`]
+/// Errors for [`OwnedIntermediateShardBody`]
 #[derive(Debug, thiserror::Error)]
-pub enum OwnedIntermediateShardBlockBodyError {
+pub enum OwnedIntermediateShardBodyError {
     /// Too many own segment roots
     #[error("Too many own segment roots: {actual}")]
     TooManyOwnSegmentRoots {
@@ -416,49 +412,49 @@ pub enum OwnedIntermediateShardBlockBodyError {
     },
 }
 
-impl From<AddTransactionError> for OwnedIntermediateShardBlockBodyError {
+impl From<AddTransactionError> for OwnedIntermediateShardBodyError {
     fn from(value: AddTransactionError) -> Self {
         match value {
             AddTransactionError::BlockBodyIsTooLarge => {
-                OwnedIntermediateShardBlockBodyError::BlockBodyIsTooLarge
+                OwnedIntermediateShardBodyError::BlockBodyIsTooLarge
             }
             AddTransactionError::TooManyTransactions => {
-                OwnedIntermediateShardBlockBodyError::TooManyTransactions
+                OwnedIntermediateShardBodyError::TooManyTransactions
             }
             AddTransactionError::FailedToAddTransaction { error } => {
-                OwnedIntermediateShardBlockBodyError::FailedToAddTransaction { error }
+                OwnedIntermediateShardBodyError::FailedToAddTransaction { error }
             }
         }
     }
 }
 
-/// An owned version of [`IntermediateShardBlockBody`].
+/// An owned version of [`IntermediateShardBody`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
-pub struct OwnedIntermediateShardBlockBody {
+pub struct OwnedIntermediateShardBody {
     buffer: SharedAlignedBuffer,
 }
 
-impl OwnedIntermediateShardBlockBody {
-    /// Initialize building of [`OwnedIntermediateShardBlockBody`]
+impl OwnedIntermediateShardBody {
+    /// Initialize building of [`OwnedIntermediateShardBody`]
     pub fn init<'a, LSB>(
         own_segment_roots: &[SegmentRoot],
         leaf_shard_blocks: LSB,
-    ) -> Result<OwnedIntermediateShardBlockBodyBuilder, OwnedIntermediateShardBlockBodyError>
+    ) -> Result<OwnedIntermediateShardBlockBodyBuilder, OwnedIntermediateShardBodyError>
     where
         LSB: TrustedLen<Item = LeafShardBlockInfo<'a>> + Clone + 'a,
     {
         let num_own_segment_roots = own_segment_roots.len();
         let num_own_segment_roots = u8::try_from(num_own_segment_roots).map_err(|_error| {
-            OwnedIntermediateShardBlockBodyError::TooManyOwnSegmentRoots {
+            OwnedIntermediateShardBodyError::TooManyOwnSegmentRoots {
                 actual: num_own_segment_roots,
             }
         })?;
         let num_blocks = leaf_shard_blocks.size_hint().0;
         let num_blocks = u8::try_from(num_blocks).map_err(|_error| {
-            OwnedIntermediateShardBlockBodyError::TooManyLeafShardBlocks { actual: num_blocks }
+            OwnedIntermediateShardBodyError::TooManyLeafShardBlocks { actual: num_blocks }
         })?;
 
         let mut buffer = OwnedAlignedBuffer::with_capacity(
@@ -466,7 +462,7 @@ impl OwnedIntermediateShardBlockBody {
                 + size_of_val(own_segment_roots) as u32
                 // This is only an estimate to get in the ballpark where reallocation should not be
                 // necessary if there are no transactions
-                + u32::from(num_blocks) * OwnedLeafShardBlockHeader::MAX_ALLOCATION * 2,
+                + u32::from(num_blocks) * OwnedLeafShardHeader::MAX_ALLOCATION * 2,
         );
 
         let true = buffer.append(&[num_own_segment_roots]) else {
@@ -495,7 +491,7 @@ impl OwnedIntermediateShardBlockBody {
                     let num_own_segment_roots = leaf_shard_block.own_segment_roots.len();
                     let num_own_segment_roots =
                         u8::try_from(num_own_segment_roots).map_err(|_error| {
-                            OwnedIntermediateShardBlockBodyError::TooManyLeafShardOwnSegmentRoots {
+                            OwnedIntermediateShardBodyError::TooManyLeafShardOwnSegmentRoots {
                                 actual: num_own_segment_roots,
                             }
                         })?;
@@ -503,7 +499,7 @@ impl OwnedIntermediateShardBlockBody {
                 }
                 own_segments_roots_num_cursor += 1;
 
-                OwnedLeafShardBlockHeader::from_parts_into(
+                OwnedLeafShardHeader::from_parts_into(
                     leaf_shard_block.header.prefix,
                     leaf_shard_block.header.result,
                     leaf_shard_block.header.consensus_info,
@@ -541,8 +537,8 @@ impl OwnedIntermediateShardBlockBody {
     /// Create owned block body from a reference
     #[inline]
     pub fn from_body(
-        body: IntermediateShardBlockBody<'_>,
-    ) -> Result<Self, OwnedIntermediateShardBlockBodyError> {
+        body: IntermediateShardBody<'_>,
+    ) -> Result<Self, OwnedIntermediateShardBodyError> {
         let mut builder = Self::init(body.own_segment_roots, body.leaf_shard_blocks.iter())?;
         for transaction in body.transactions.iter() {
             builder.add_transaction(transaction)?;
@@ -554,8 +550,7 @@ impl OwnedIntermediateShardBlockBody {
     /// Create owned body from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_body, extra_bytes)) =
-            IntermediateShardBlockBody::try_from_bytes(buffer.as_slice())
+        let Some((_body, extra_bytes)) = IntermediateShardBody::try_from_bytes(buffer.as_slice())
         else {
             return Err(buffer);
         };
@@ -571,15 +566,15 @@ impl OwnedIntermediateShardBlockBody {
         &self.buffer
     }
 
-    /// Get [`IntermediateShardBlockBody`] out of [`OwnedIntermediateShardBlockBody`]
-    pub fn body(&self) -> IntermediateShardBlockBody<'_> {
-        IntermediateShardBlockBody::try_from_bytes_unchecked(self.buffer.as_slice())
+    /// Get [`IntermediateShardBody`] out of [`OwnedIntermediateShardBody`]
+    pub fn body(&self) -> IntermediateShardBody<'_> {
+        IntermediateShardBody::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }
 }
 
-/// Builder for [`OwnedIntermediateShardBlockBody`] that allows to add more transactions
+/// Builder for [`OwnedIntermediateShardBody`] that allows to add more transactions
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardBlockBodyBuilder {
     transaction_builder: TransactionBuilder,
@@ -591,7 +586,7 @@ impl OwnedIntermediateShardBlockBodyBuilder {
     pub fn add_transaction<T>(
         &mut self,
         transaction: T,
-    ) -> Result<(), OwnedIntermediateShardBlockBodyError>
+    ) -> Result<(), OwnedIntermediateShardBodyError>
     where
         T: WritableBodyTransaction,
     {
@@ -601,16 +596,16 @@ impl OwnedIntermediateShardBlockBodyBuilder {
     }
 
     /// Finish building block body
-    pub fn finish(self) -> OwnedIntermediateShardBlockBody {
-        OwnedIntermediateShardBlockBody {
+    pub fn finish(self) -> OwnedIntermediateShardBody {
+        OwnedIntermediateShardBody {
             buffer: self.transaction_builder.finish().into_shared(),
         }
     }
 }
 
-/// Errors for [`OwnedLeafShardBlockBody`]
+/// Errors for [`OwnedLeafShardBody`]
 #[derive(Debug, thiserror::Error)]
-pub enum OwnedLeafShardBlockBodyError {
+pub enum OwnedLeafShardBodyError {
     /// Too many own segment roots
     #[error("Too many own segment roots: {actual}")]
     TooManyOwnSegmentRoots {
@@ -631,39 +626,39 @@ pub enum OwnedLeafShardBlockBodyError {
     },
 }
 
-impl From<AddTransactionError> for OwnedLeafShardBlockBodyError {
+impl From<AddTransactionError> for OwnedLeafShardBodyError {
     fn from(value: AddTransactionError) -> Self {
         match value {
             AddTransactionError::BlockBodyIsTooLarge => {
-                OwnedLeafShardBlockBodyError::BlockBodyIsTooLarge
+                OwnedLeafShardBodyError::BlockBodyIsTooLarge
             }
             AddTransactionError::TooManyTransactions => {
-                OwnedLeafShardBlockBodyError::TooManyTransactions
+                OwnedLeafShardBodyError::TooManyTransactions
             }
             AddTransactionError::FailedToAddTransaction { error } => {
-                OwnedLeafShardBlockBodyError::FailedToAddTransaction { error }
+                OwnedLeafShardBodyError::FailedToAddTransaction { error }
             }
         }
     }
 }
 
-/// An owned version of [`LeafShardBlockBody`].
+/// An owned version of [`LeafShardBody`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
-pub struct OwnedLeafShardBlockBody {
+pub struct OwnedLeafShardBody {
     buffer: SharedAlignedBuffer,
 }
 
-impl OwnedLeafShardBlockBody {
-    /// Initialize building of [`OwnedLeafShardBlockBody`]
+impl OwnedLeafShardBody {
+    /// Initialize building of [`OwnedLeafShardBody`]
     pub fn init(
         own_segment_roots: &[SegmentRoot],
-    ) -> Result<OwnedLeafShardBlockBodyBuilder, OwnedLeafShardBlockBodyError> {
+    ) -> Result<OwnedLeafShardBlockBodyBuilder, OwnedLeafShardBodyError> {
         let num_own_segment_roots = own_segment_roots.len();
         let num_own_segment_roots = u8::try_from(num_own_segment_roots).map_err(|_error| {
-            OwnedLeafShardBlockBodyError::TooManyOwnSegmentRoots {
+            OwnedLeafShardBodyError::TooManyOwnSegmentRoots {
                 actual: num_own_segment_roots,
             }
         })?;
@@ -691,7 +686,7 @@ impl OwnedLeafShardBlockBody {
 
     /// Create owned block body from a reference
     #[inline]
-    pub fn from_body(body: LeafShardBlockBody<'_>) -> Result<Self, OwnedLeafShardBlockBodyError> {
+    pub fn from_body(body: LeafShardBody<'_>) -> Result<Self, OwnedLeafShardBodyError> {
         let mut builder = Self::init(body.own_segment_roots)?;
         for transaction in body.transactions.iter() {
             builder.add_transaction(transaction)?;
@@ -703,8 +698,7 @@ impl OwnedLeafShardBlockBody {
     /// Create owned body from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_body, extra_bytes)) = LeafShardBlockBody::try_from_bytes(buffer.as_slice())
-        else {
+        let Some((_body, extra_bytes)) = LeafShardBody::try_from_bytes(buffer.as_slice()) else {
             return Err(buffer);
         };
         if !extra_bytes.is_empty() {
@@ -719,15 +713,15 @@ impl OwnedLeafShardBlockBody {
         &self.buffer
     }
 
-    /// Get [`LeafShardBlockBody`] out of [`OwnedLeafShardBlockBody`]
-    pub fn body(&self) -> LeafShardBlockBody<'_> {
-        LeafShardBlockBody::try_from_bytes_unchecked(self.buffer.as_slice())
+    /// Get [`LeafShardBody`] out of [`OwnedLeafShardBody`]
+    pub fn body(&self) -> LeafShardBody<'_> {
+        LeafShardBody::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }
 }
 
-/// Builder for [`OwnedLeafShardBlockBody`] that allows to add more transactions
+/// Builder for [`OwnedLeafShardBody`] that allows to add more transactions
 #[derive(Debug, Clone)]
 pub struct OwnedLeafShardBlockBodyBuilder {
     transaction_builder: TransactionBuilder,
@@ -736,7 +730,7 @@ pub struct OwnedLeafShardBlockBodyBuilder {
 impl OwnedLeafShardBlockBodyBuilder {
     /// Add transaction to the body
     #[inline(always)]
-    pub fn add_transaction<T>(&mut self, transaction: T) -> Result<(), OwnedLeafShardBlockBodyError>
+    pub fn add_transaction<T>(&mut self, transaction: T) -> Result<(), OwnedLeafShardBodyError>
     where
         T: WritableBodyTransaction,
     {
@@ -746,8 +740,8 @@ impl OwnedLeafShardBlockBodyBuilder {
     }
 
     /// Finish building block body
-    pub fn finish(self) -> OwnedLeafShardBlockBody {
-        OwnedLeafShardBlockBody {
+    pub fn finish(self) -> OwnedLeafShardBody {
+        OwnedLeafShardBody {
             buffer: self.transaction_builder.finish().into_shared(),
         }
     }
@@ -758,13 +752,13 @@ impl OwnedLeafShardBlockBodyBuilder {
 pub enum OwnedBlockBodyError {
     /// Beacon chain block body error
     #[error("Beacon chain block body error: {0}")]
-    BeaconChain(#[from] OwnedBeaconChainBlockBodyError),
+    BeaconChain(#[from] OwnedBeaconChainBodyError),
     /// Intermediate shard block body error
     #[error("Intermediate shard block body error: {0}")]
-    IntermediateShard(#[from] OwnedIntermediateShardBlockBodyError),
+    IntermediateShard(#[from] OwnedIntermediateShardBodyError),
     /// Leaf shard block body error
     #[error("Leaf shard block body error: {0}")]
-    LeafShard(#[from] OwnedLeafShardBlockBodyError),
+    LeafShard(#[from] OwnedLeafShardBodyError),
 }
 
 /// An owned version of [`BlockBody`].
@@ -774,11 +768,11 @@ pub enum OwnedBlockBodyError {
 #[derive(Debug, Clone, From)]
 pub enum OwnedBlockBody {
     /// Block body corresponds to the beacon chain
-    BeaconChain(OwnedBeaconChainBlockBody),
+    BeaconChain(OwnedBeaconChainBody),
     /// Block body corresponds to an intermediate shard
-    IntermediateShard(OwnedIntermediateShardBlockBody),
+    IntermediateShard(OwnedIntermediateShardBody),
     /// Block body corresponds to a leaf shard
-    LeafShard(OwnedLeafShardBlockBody),
+    LeafShard(OwnedLeafShardBody),
 }
 
 impl OwnedBlockBody {
@@ -787,14 +781,12 @@ impl OwnedBlockBody {
     pub fn from_body(body: BlockBody<'_>) -> Result<Self, OwnedBlockBodyError> {
         Ok(match body {
             BlockBody::BeaconChain(body) => {
-                Self::BeaconChain(OwnedBeaconChainBlockBody::from_body(body)?)
+                Self::BeaconChain(OwnedBeaconChainBody::from_body(body)?)
             }
             BlockBody::IntermediateShard(body) => {
-                Self::IntermediateShard(OwnedIntermediateShardBlockBody::from_body(body)?)
+                Self::IntermediateShard(OwnedIntermediateShardBody::from_body(body)?)
             }
-            BlockBody::LeafShard(body) => {
-                Self::LeafShard(OwnedLeafShardBlockBody::from_body(body)?)
-            }
+            BlockBody::LeafShard(body) => Self::LeafShard(OwnedLeafShardBody::from_body(body)?),
         })
     }
 
@@ -813,11 +805,11 @@ impl OwnedBlockBody {
         }
 
         Ok(match shard_kind {
-            ShardKind::BeaconChain => Self::BeaconChain(OwnedBeaconChainBlockBody { buffer }),
+            ShardKind::BeaconChain => Self::BeaconChain(OwnedBeaconChainBody { buffer }),
             ShardKind::IntermediateShard => {
-                Self::IntermediateShard(OwnedIntermediateShardBlockBody { buffer })
+                Self::IntermediateShard(OwnedIntermediateShardBody { buffer })
             }
-            ShardKind::LeafShard => Self::LeafShard(OwnedLeafShardBlockBody { buffer }),
+            ShardKind::LeafShard => Self::LeafShard(OwnedLeafShardBody { buffer }),
             ShardKind::Phantom | ShardKind::Invalid => {
                 // Blocks for such shards do not exist
                 return Err(buffer);

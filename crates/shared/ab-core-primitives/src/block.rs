@@ -5,11 +5,9 @@ pub mod header;
 #[cfg(feature = "alloc")]
 pub mod owned;
 
-use crate::block::body::{
-    BeaconChainBlockBody, BlockBody, IntermediateShardBlockBody, LeafShardBlockBody,
-};
+use crate::block::body::{BeaconChainBody, BlockBody, IntermediateShardBody, LeafShardBody};
 use crate::block::header::{
-    BeaconChainBlockHeader, BlockHeader, IntermediateShardBlockHeader, LeafShardBlockHeader,
+    BeaconChainHeader, BlockHeader, IntermediateShardHeader, LeafShardHeader,
 };
 use crate::hashes::Blake3Hash;
 use crate::shard::ShardKind;
@@ -130,6 +128,7 @@ impl BlockNumber {
 /// root of the header rather than a single hash of its contents.
 #[derive(
     Debug,
+    Display,
     Default,
     Copy,
     Clone,
@@ -196,13 +195,22 @@ impl BlockRoot {
     }
 }
 
+/// Generic block header
+pub trait GenericBlock {
+    /// Get block header
+    fn header(&self) -> BlockHeader<'_>;
+
+    /// Get block body
+    fn body(&self) -> BlockBody<'_>;
+}
+
 /// Block that corresponds to the beacon chain
 #[derive(Debug, Copy, Clone)]
 pub struct BeaconChainBlock<'a> {
     /// Block header
-    pub header: BeaconChainBlockHeader<'a>,
+    pub header: BeaconChainHeader<'a>,
     /// Block body
-    pub body: BeaconChainBlockBody<'a>,
+    pub body: BeaconChainBody<'a>,
 }
 
 impl<'a> BeaconChainBlock<'a> {
@@ -217,9 +225,9 @@ impl<'a> BeaconChainBlock<'a> {
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        let (header, remainder) = BeaconChainBlockHeader::try_from_bytes(bytes)?;
+        let (header, remainder) = BeaconChainHeader::try_from_bytes(bytes)?;
         let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
-        let (body, remainder) = BeaconChainBlockBody::try_from_bytes(remainder)?;
+        let (body, remainder) = BeaconChainBody::try_from_bytes(remainder)?;
 
         let block = Self { header, body };
 
@@ -258,11 +266,23 @@ impl<'a> BeaconChainBlock<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        let (header, remainder) = BeaconChainBlockHeader::try_from_bytes_unchecked(bytes)?;
+        let (header, remainder) = BeaconChainHeader::try_from_bytes_unchecked(bytes)?;
         let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
-        let (body, remainder) = BeaconChainBlockBody::try_from_bytes_unchecked(remainder)?;
+        let (body, remainder) = BeaconChainBody::try_from_bytes_unchecked(remainder)?;
 
         Some((Self { header, body }, remainder))
+    }
+}
+
+impl<'a> GenericBlock for BeaconChainBlock<'a> {
+    #[inline(always)]
+    fn header(&self) -> BlockHeader<'_> {
+        BlockHeader::BeaconChain(self.header)
+    }
+
+    #[inline(always)]
+    fn body(&self) -> BlockBody<'_> {
+        BlockBody::BeaconChain(self.body)
     }
 }
 
@@ -270,9 +290,9 @@ impl<'a> BeaconChainBlock<'a> {
 #[derive(Debug, Copy, Clone)]
 pub struct IntermediateShardBlock<'a> {
     /// Block header
-    pub header: IntermediateShardBlockHeader<'a>,
+    pub header: IntermediateShardHeader<'a>,
     /// Block body
-    pub body: IntermediateShardBlockBody<'a>,
+    pub body: IntermediateShardBody<'a>,
 }
 
 impl<'a> IntermediateShardBlock<'a> {
@@ -287,9 +307,9 @@ impl<'a> IntermediateShardBlock<'a> {
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        let (header, remainder) = IntermediateShardBlockHeader::try_from_bytes(bytes)?;
+        let (header, remainder) = IntermediateShardHeader::try_from_bytes(bytes)?;
         let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
-        let (body, remainder) = IntermediateShardBlockBody::try_from_bytes(remainder)?;
+        let (body, remainder) = IntermediateShardBody::try_from_bytes(remainder)?;
 
         let block = Self { header, body };
 
@@ -328,11 +348,23 @@ impl<'a> IntermediateShardBlock<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        let (header, remainder) = IntermediateShardBlockHeader::try_from_bytes_unchecked(bytes)?;
+        let (header, remainder) = IntermediateShardHeader::try_from_bytes_unchecked(bytes)?;
         let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
-        let (body, remainder) = IntermediateShardBlockBody::try_from_bytes_unchecked(remainder)?;
+        let (body, remainder) = IntermediateShardBody::try_from_bytes_unchecked(remainder)?;
 
         Some((Self { header, body }, remainder))
+    }
+}
+
+impl<'a> GenericBlock for IntermediateShardBlock<'a> {
+    #[inline(always)]
+    fn header(&self) -> BlockHeader<'_> {
+        BlockHeader::IntermediateShard(self.header)
+    }
+
+    #[inline(always)]
+    fn body(&self) -> BlockBody<'_> {
+        BlockBody::IntermediateShard(self.body)
     }
 }
 
@@ -340,9 +372,9 @@ impl<'a> IntermediateShardBlock<'a> {
 #[derive(Debug, Copy, Clone)]
 pub struct LeafShardBlock<'a> {
     /// Block header
-    pub header: LeafShardBlockHeader<'a>,
+    pub header: LeafShardHeader<'a>,
     /// Block body
-    pub body: LeafShardBlockBody<'a>,
+    pub body: LeafShardBody<'a>,
 }
 
 impl<'a> LeafShardBlock<'a> {
@@ -357,9 +389,9 @@ impl<'a> LeafShardBlock<'a> {
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        let (header, remainder) = LeafShardBlockHeader::try_from_bytes(bytes)?;
+        let (header, remainder) = LeafShardHeader::try_from_bytes(bytes)?;
         let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
-        let (body, remainder) = LeafShardBlockBody::try_from_bytes(remainder)?;
+        let (body, remainder) = LeafShardBody::try_from_bytes(remainder)?;
 
         let block = Self { header, body };
 
@@ -384,11 +416,23 @@ impl<'a> LeafShardBlock<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        let (header, remainder) = LeafShardBlockHeader::try_from_bytes_unchecked(bytes)?;
+        let (header, remainder) = LeafShardHeader::try_from_bytes_unchecked(bytes)?;
         let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
-        let (body, remainder) = LeafShardBlockBody::try_from_bytes_unchecked(remainder)?;
+        let (body, remainder) = LeafShardBody::try_from_bytes_unchecked(remainder)?;
 
         Some((Self { header, body }, remainder))
+    }
+}
+
+impl<'a> GenericBlock for LeafShardBlock<'a> {
+    #[inline(always)]
+    fn header(&self) -> BlockHeader<'_> {
+        BlockHeader::LeafShard(self.header)
+    }
+
+    #[inline(always)]
+    fn body(&self) -> BlockBody<'_> {
+        BlockBody::LeafShard(self.body)
     }
 }
 
@@ -475,24 +519,24 @@ impl<'a> Block<'a> {
             }
         }
     }
+}
 
-    /// Get block header
+impl<'a> GenericBlock for Block<'a> {
     #[inline(always)]
-    pub fn header(&self) -> BlockHeader<'a> {
+    fn header(&self) -> BlockHeader<'_> {
         match self {
-            Self::BeaconChain(block) => BlockHeader::BeaconChain(block.header),
-            Self::IntermediateShard(block) => BlockHeader::IntermediateShard(block.header),
-            Self::LeafShard(block) => BlockHeader::LeafShard(block.header),
+            Self::BeaconChain(block) => block.header(),
+            Self::IntermediateShard(block) => block.header(),
+            Self::LeafShard(block) => block.header(),
         }
     }
 
-    /// Get block body
     #[inline(always)]
-    pub fn body(&self) -> BlockBody<'a> {
+    fn body(&self) -> BlockBody<'_> {
         match self {
-            Self::BeaconChain(block) => BlockBody::BeaconChain(block.body),
-            Self::IntermediateShard(block) => BlockBody::IntermediateShard(block.body),
-            Self::LeafShard(block) => BlockBody::LeafShard(block.body),
+            Self::BeaconChain(block) => block.body(),
+            Self::IntermediateShard(block) => block.body(),
+            Self::LeafShard(block) => block.body(),
         }
     }
 }

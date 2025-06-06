@@ -17,8 +17,9 @@
 
 use crate::SubspaceLink;
 use crate::archiver::SegmentHeadersStore;
+use ab_client_api::ChainInfo;
 use ab_client_proof_of_time::PotNextSlotInput;
-use ab_client_proof_of_time::source::{ChainInfo, PotSlotInfo, PotSlotInfoStream};
+use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -592,7 +593,7 @@ where
             }
             maybe_last_proven_slot.replace(slot);
 
-            self.on_pot(slot, checkpoints);
+            self.on_new_slot(slot, checkpoints);
 
             if self.chain_info.is_syncing() {
                 debug!(%slot, "Skipping proposal slot due to sync");
@@ -605,11 +606,12 @@ where
                 continue;
             };
 
-            self.on_slot(slot_to_claim).await;
+            self.produce_block(slot_to_claim).await;
         }
     }
 
-    fn on_pot(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints) {
+    /// Handle new slot: store checkpoints and generate notification for farmer
+    fn on_new_slot(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints) {
         // Remove checkpoints from future slots, if present they are out of date anyway
         self.pot_checkpoints
             .retain(|&stored_slot, _checkpoints| stored_slot < slot);
@@ -749,8 +751,8 @@ where
         Some(proposal)
     }
 
-    /// Implements [`SlotWorker::on_slot`].
-    async fn on_slot(&mut self, slot: SlotNumber) -> Option<()> {
+    /// Called with slot for which block needs to be produced (if suitable solution was found)
+    async fn produce_block(&mut self, slot: SlotNumber) -> Option<()> {
         let end_proposing_at = Instant::now()
             + self
                 .subspace_link

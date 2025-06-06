@@ -11,7 +11,7 @@ use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use ab_io_type::trivial_type::TrivialType;
 use blake3::Hasher;
 use core::slice;
-use derive_more::{Deref, DerefMut, From, Into};
+use derive_more::{Deref, DerefMut, Display, From, Into};
 
 /// A measure of compute resources, 1 Gas == 1 ns of compute on reference hardware
 #[derive(Debug, Default, Copy, Clone, TrivialType)]
@@ -21,6 +21,7 @@ pub struct Gas(u64);
 /// Transaction hash
 #[derive(
     Debug,
+    Display,
     Default,
     Copy,
     Clone,

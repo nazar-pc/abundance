@@ -36,11 +36,6 @@ pub enum Cli {
 
     /// Db meta columns information.
     ChainInfo(sc_cli::ChainInfoCmd),
-
-    /// Sub-commands concerned with benchmarking.
-    #[cfg(feature = "runtime-benchmarks")]
-    #[clap(subcommand)]
-    Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
 /// Fake Subspace CLI just to satisfy Substrate's API

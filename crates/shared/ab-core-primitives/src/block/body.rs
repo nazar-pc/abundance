@@ -6,11 +6,11 @@ pub mod owned;
 use crate::block::align_to_and_ensure_zero_padding;
 #[cfg(feature = "alloc")]
 use crate::block::body::owned::{
-    OwnedBeaconChainBlockBody, OwnedBeaconChainBlockBodyError, OwnedBlockBody, OwnedBlockBodyError,
-    OwnedIntermediateShardBlockBody, OwnedIntermediateShardBlockBodyError, OwnedLeafShardBlockBody,
-    OwnedLeafShardBlockBodyError,
+    OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedBlockBody, OwnedBlockBodyError,
+    OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBody,
+    OwnedLeafShardBodyError,
 };
-use crate::block::header::{IntermediateShardBlockHeader, LeafShardBlockHeader};
+use crate::block::header::{IntermediateShardHeader, LeafShardHeader};
 use crate::hashes::Blake3Hash;
 use crate::pot::PotCheckpoints;
 use crate::segments::SegmentRoot;
@@ -52,7 +52,7 @@ where
 #[derive(Debug, Copy, Clone)]
 pub struct IntermediateShardBlockInfo<'a> {
     /// Block header that corresponds to an intermediate shard
-    pub header: IntermediateShardBlockHeader<'a>,
+    pub header: IntermediateShardHeader<'a>,
     /// Segment roots proof if there are segment roots in the corresponding block
     pub segment_roots_proof: Option<&'a [u8; 32]>,
     /// Segment roots produced by this shard
@@ -122,7 +122,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             let num_child_segment_roots = usize::from(u16::from_le_bytes([counts[1], counts[2]]));
             counts = &counts[3..];
 
-            (_, remainder) = IntermediateShardBlockHeader::try_from_bytes(remainder)?;
+            (_, remainder) = IntermediateShardHeader::try_from_bytes(remainder)?;
 
             remainder = align_to_and_ensure_zero_padding::<u64>(remainder)?;
 
@@ -163,7 +163,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
             // TODO: Unchecked method would have been helpful here
             let header;
-            (header, remainder) = IntermediateShardBlockHeader::try_from_bytes(remainder)
+            (header, remainder) = IntermediateShardHeader::try_from_bytes(remainder)
                 .expect("Already checked in constructor; qed");
 
             remainder = align_to_and_ensure_zero_padding::<u64>(remainder)
@@ -290,7 +290,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
 /// Block body that corresponds to the beacon chain
 #[derive(Debug, Copy, Clone)]
-pub struct BeaconChainBlockBody<'a> {
+pub struct BeaconChainBody<'a> {
     /// Segment roots produced by this shard
     pub own_segment_roots: &'a [SegmentRoot],
     /// Intermediate shard blocks
@@ -300,7 +300,7 @@ pub struct BeaconChainBlockBody<'a> {
     pub pot_checkpoints: &'a [PotCheckpoints],
 }
 
-impl<'a> BeaconChainBlockBody<'a> {
+impl<'a> BeaconChainBody<'a> {
     /// Create an instance from provided correctly aligned bytes.
     ///
     /// `bytes` should be 4-bytes aligned.
@@ -449,8 +449,8 @@ impl<'a> BeaconChainBlockBody<'a> {
     /// Create an owned version of this body
     #[inline(always)]
     #[cfg(feature = "alloc")]
-    pub fn to_owned(self) -> Result<OwnedBeaconChainBlockBody, OwnedBeaconChainBlockBodyError> {
-        OwnedBeaconChainBlockBody::from_body(self)
+    pub fn to_owned(self) -> Result<OwnedBeaconChainBody, OwnedBeaconChainBodyError> {
+        OwnedBeaconChainBody::from_body(self)
     }
 
     /// Compute block body root
@@ -472,7 +472,7 @@ impl<'a> BeaconChainBlockBody<'a> {
 #[derive(Debug, Copy, Clone)]
 pub struct LeafShardBlockInfo<'a> {
     /// Block header that corresponds to an intermediate shard
-    pub header: LeafShardBlockHeader<'a>,
+    pub header: LeafShardHeader<'a>,
     /// Segment roots proof if there are segment roots in the corresponding block
     pub segment_roots_proof: Option<&'a [u8; 32]>,
     /// Segment roots produced by this shard
@@ -518,7 +518,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
             let num_own_segment_roots = usize::from(counts[0]);
             counts = &counts[1..];
 
-            (_, remainder) = LeafShardBlockHeader::try_from_bytes(remainder)?;
+            (_, remainder) = LeafShardHeader::try_from_bytes(remainder)?;
 
             remainder = align_to_and_ensure_zero_padding::<u64>(remainder)?;
 
@@ -556,7 +556,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
             // TODO: Unchecked method would have been helpful here
             let header;
-            (header, remainder) = LeafShardBlockHeader::try_from_bytes(remainder)
+            (header, remainder) = LeafShardHeader::try_from_bytes(remainder)
                 .expect("Already checked in constructor; qed");
 
             remainder = align_to_and_ensure_zero_padding::<u64>(remainder)
@@ -741,7 +741,7 @@ impl<'a> Transactions<'a> {
 
 /// Block body that corresponds to an intermediate shard
 #[derive(Debug, Copy, Clone)]
-pub struct IntermediateShardBlockBody<'a> {
+pub struct IntermediateShardBody<'a> {
     /// Segment roots produced by this shard
     pub own_segment_roots: &'a [SegmentRoot],
     /// Leaf shard blocks
@@ -750,7 +750,7 @@ pub struct IntermediateShardBlockBody<'a> {
     pub transactions: Transactions<'a>,
 }
 
-impl<'a> IntermediateShardBlockBody<'a> {
+impl<'a> IntermediateShardBody<'a> {
     /// Create an instance from provided bytes.
     ///
     /// `bytes` do not need to be aligned.
@@ -862,10 +862,8 @@ impl<'a> IntermediateShardBlockBody<'a> {
     /// Create an owned version of this body
     #[inline(always)]
     #[cfg(feature = "alloc")]
-    pub fn to_owned(
-        self,
-    ) -> Result<OwnedIntermediateShardBlockBody, OwnedIntermediateShardBlockBodyError> {
-        OwnedIntermediateShardBlockBody::from_body(self)
+    pub fn to_owned(self) -> Result<OwnedIntermediateShardBody, OwnedIntermediateShardBodyError> {
+        OwnedIntermediateShardBody::from_body(self)
     }
 
     /// Compute block body root
@@ -884,14 +882,14 @@ impl<'a> IntermediateShardBlockBody<'a> {
 
 /// Block body that corresponds to a leaf shard
 #[derive(Debug, Copy, Clone)]
-pub struct LeafShardBlockBody<'a> {
+pub struct LeafShardBody<'a> {
     /// Segment roots produced by this shard
     pub own_segment_roots: &'a [SegmentRoot],
     /// User transactions
     pub transactions: Transactions<'a>,
 }
 
-impl<'a> LeafShardBlockBody<'a> {
+impl<'a> LeafShardBody<'a> {
     /// Create an instance from provided bytes.
     ///
     /// `bytes` do not need to be aligned.
@@ -980,8 +978,8 @@ impl<'a> LeafShardBlockBody<'a> {
     /// Create an owned version of this body
     #[inline(always)]
     #[cfg(feature = "alloc")]
-    pub fn to_owned(self) -> Result<OwnedLeafShardBlockBody, OwnedLeafShardBlockBodyError> {
-        OwnedLeafShardBlockBody::from_body(self)
+    pub fn to_owned(self) -> Result<OwnedLeafShardBody, OwnedLeafShardBodyError> {
+        OwnedLeafShardBody::from_body(self)
     }
 
     /// Compute block body root
@@ -1003,11 +1001,11 @@ impl<'a> LeafShardBlockBody<'a> {
 #[derive(Debug, Copy, Clone, From)]
 pub enum BlockBody<'a> {
     /// Block body corresponds to the beacon chain
-    BeaconChain(BeaconChainBlockBody<'a>),
+    BeaconChain(BeaconChainBody<'a>),
     /// Block body corresponds to an intermediate shard
-    IntermediateShard(IntermediateShardBlockBody<'a>),
+    IntermediateShard(IntermediateShardBody<'a>),
     /// Block body corresponds to a leaf shard
-    LeafShard(LeafShardBlockBody<'a>),
+    LeafShard(LeafShardBody<'a>),
 }
 
 impl<'a> BlockBody<'a> {
@@ -1021,15 +1019,15 @@ impl<'a> BlockBody<'a> {
     pub fn try_from_bytes(bytes: &'a [u8], shard_kind: ShardKind) -> Option<(Self, &'a [u8])> {
         match shard_kind {
             ShardKind::BeaconChain => {
-                let (body, remainder) = BeaconChainBlockBody::try_from_bytes(bytes)?;
+                let (body, remainder) = BeaconChainBody::try_from_bytes(bytes)?;
                 Some((Self::BeaconChain(body), remainder))
             }
             ShardKind::IntermediateShard => {
-                let (body, remainder) = IntermediateShardBlockBody::try_from_bytes(bytes)?;
+                let (body, remainder) = IntermediateShardBody::try_from_bytes(bytes)?;
                 Some((Self::IntermediateShard(body), remainder))
             }
             ShardKind::LeafShard => {
-                let (body, remainder) = LeafShardBlockBody::try_from_bytes(bytes)?;
+                let (body, remainder) = LeafShardBody::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(body), remainder))
             }
             ShardKind::Phantom | ShardKind::Invalid => {
@@ -1058,16 +1056,15 @@ impl<'a> BlockBody<'a> {
     ) -> Option<(Self, &'a [u8])> {
         match shard_kind {
             ShardKind::BeaconChain => {
-                let (body, remainder) = BeaconChainBlockBody::try_from_bytes_unchecked(bytes)?;
+                let (body, remainder) = BeaconChainBody::try_from_bytes_unchecked(bytes)?;
                 Some((Self::BeaconChain(body), remainder))
             }
             ShardKind::IntermediateShard => {
-                let (body, remainder) =
-                    IntermediateShardBlockBody::try_from_bytes_unchecked(bytes)?;
+                let (body, remainder) = IntermediateShardBody::try_from_bytes_unchecked(bytes)?;
                 Some((Self::IntermediateShard(body), remainder))
             }
             ShardKind::LeafShard => {
-                let (body, remainder) = LeafShardBlockBody::try_from_bytes_unchecked(bytes)?;
+                let (body, remainder) = LeafShardBody::try_from_bytes_unchecked(bytes)?;
                 Some((Self::LeafShard(body), remainder))
             }
             ShardKind::Phantom | ShardKind::Invalid => {

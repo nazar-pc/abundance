@@ -5,9 +5,8 @@ pub mod owned;
 
 #[cfg(feature = "alloc")]
 use crate::block::header::owned::{
-    OwnedBeaconChainBlockHeader, OwnedBeaconChainBlockHeaderError, OwnedBlockHeader,
-    OwnedBlockHeaderError, OwnedIntermediateShardBlockHeader,
-    OwnedIntermediateShardBlockHeaderError, OwnedLeafShardBlockHeader,
+    OwnedBeaconChainHeader, OwnedBeaconChainHeaderError, OwnedBlockHeader, OwnedBlockHeaderError,
+    OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
 };
 use crate::block::{BlockNumber, BlockRoot};
 use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
@@ -517,12 +516,25 @@ pub struct BlockHeaderEd25519Seal {
 
 /// Block header seal
 #[derive(Debug, Copy, Clone)]
-pub enum BlockHeaderSeal<'a> {
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub enum BlockHeaderSeal {
+    /// Ed25519 seal
+    Ed25519(BlockHeaderEd25519Seal),
+}
+
+/// Block header seal
+#[derive(Debug, Copy, Clone)]
+pub enum BlockHeaderSealRef<'a> {
     /// Ed25519 seal
     Ed25519(&'a BlockHeaderEd25519Seal),
 }
 
-impl<'a> BlockHeaderSeal<'a> {
+impl<'a> BlockHeaderSealRef<'a> {
     /// Max size of the allocation necessary for this data structure
     pub const MAX_SIZE: u32 = 1 + BlockHeaderEd25519Seal::SIZE;
     /// Create an instance from provided bytes.
@@ -553,7 +565,7 @@ impl<'a> BlockHeaderSeal<'a> {
     #[cfg(feature = "ed25519-verify")]
     pub fn is_seal_valid(&self, pre_seal_hash: &Blake3Hash) -> bool {
         match self {
-            BlockHeaderSeal::Ed25519(seal) => seal
+            BlockHeaderSealRef::Ed25519(seal) => seal
                 .public_key
                 .verify(&seal.signature, pre_seal_hash.as_bytes())
                 .is_ok(),
@@ -563,7 +575,7 @@ impl<'a> BlockHeaderSeal<'a> {
     /// Hash of the block header seal, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
         match self {
-            BlockHeaderSeal::Ed25519(seal) => {
+            BlockHeaderSealRef::Ed25519(seal) => {
                 // TODO: Keyed hash
                 let mut hasher = blake3::Hasher::new();
                 hasher.update(&[BlockHeaderSealType::Ed25519 as u8]);
@@ -585,12 +597,12 @@ pub struct GenericBlockHeader<'a> {
     /// Consensus information
     pub consensus_info: &'a BlockHeaderConsensusInfo,
     /// Block header seal
-    pub seal: BlockHeaderSeal<'a>,
+    pub seal: BlockHeaderSealRef<'a>,
 }
 
 /// Block header that corresponds to the beacon chain
 #[derive(Debug, Copy, Clone)]
-pub struct BeaconChainBlockHeader<'a> {
+pub struct BeaconChainHeader<'a> {
     /// Generic block header
     pub generic: GenericBlockHeader<'a>,
     /// Information about child shard blocks
@@ -601,7 +613,7 @@ pub struct BeaconChainBlockHeader<'a> {
     pub pre_seal_bytes: &'a [u8],
 }
 
-impl<'a> Deref for BeaconChainBlockHeader<'a> {
+impl<'a> Deref for BeaconChainHeader<'a> {
     type Target = GenericBlockHeader<'a>;
 
     #[inline(always)]
@@ -610,7 +622,7 @@ impl<'a> Deref for BeaconChainBlockHeader<'a> {
     }
 }
 
-impl<'a> BeaconChainBlockHeader<'a> {
+impl<'a> BeaconChainHeader<'a> {
     /// Try to create a new instance from provided bytes.
     ///
     /// `bytes` should be 8-bytes aligned.
@@ -642,7 +654,7 @@ impl<'a> BeaconChainBlockHeader<'a> {
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
         let generic = GenericBlockHeader {
             prefix,
@@ -669,7 +681,7 @@ impl<'a> BeaconChainBlockHeader<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
-            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
+            BlockHeaderSealRef::Ed25519(seal) => seal.public_key.hash(),
         };
         public_key_hash == self.generic.consensus_info.solution.public_key_hash
     }
@@ -701,7 +713,7 @@ impl<'a> BeaconChainBlockHeader<'a> {
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
         let generic = GenericBlockHeader {
             prefix,
@@ -724,8 +736,8 @@ impl<'a> BeaconChainBlockHeader<'a> {
     /// Create an owned version of this header
     #[inline(always)]
     #[cfg(feature = "alloc")]
-    pub fn to_owned(self) -> Result<OwnedBeaconChainBlockHeader, OwnedBeaconChainBlockHeaderError> {
-        OwnedBeaconChainBlockHeader::from_header(self)
+    pub fn to_owned(self) -> Result<OwnedBeaconChainHeader, OwnedBeaconChainHeaderError> {
+        OwnedBeaconChainHeader::from_header(self)
     }
 
     /// Hash of the block before seal is applied to it
@@ -735,7 +747,7 @@ impl<'a> BeaconChainBlockHeader<'a> {
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
-    /// Verify seal against [`BeaconChainBlockHeader::pre_seal_hash()`]
+    /// Verify seal against [`BeaconChainHeader::pre_seal_hash()`]
     #[inline]
     #[cfg(feature = "ed25519-verify")]
     pub fn is_seal_valid(&self) -> bool {
@@ -781,7 +793,7 @@ impl<'a> BeaconChainBlockHeader<'a> {
 
 /// Block header that corresponds to an intermediate shard
 #[derive(Debug, Copy, Clone)]
-pub struct IntermediateShardBlockHeader<'a> {
+pub struct IntermediateShardHeader<'a> {
     /// Generic block header
     pub generic: GenericBlockHeader<'a>,
     /// Beacon chain info
@@ -792,7 +804,7 @@ pub struct IntermediateShardBlockHeader<'a> {
     pub pre_seal_bytes: &'a [u8],
 }
 
-impl<'a> Deref for IntermediateShardBlockHeader<'a> {
+impl<'a> Deref for IntermediateShardHeader<'a> {
     type Target = GenericBlockHeader<'a>;
 
     #[inline(always)]
@@ -801,7 +813,7 @@ impl<'a> Deref for IntermediateShardBlockHeader<'a> {
     }
 }
 
-impl<'a> IntermediateShardBlockHeader<'a> {
+impl<'a> IntermediateShardHeader<'a> {
     /// Try to create a new instance from provided bytes.
     ///
     /// `bytes` should be 8-bytes aligned.
@@ -835,7 +847,7 @@ impl<'a> IntermediateShardBlockHeader<'a> {
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
         let generic = GenericBlockHeader {
             prefix,
@@ -862,7 +874,7 @@ impl<'a> IntermediateShardBlockHeader<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
-            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
+            BlockHeaderSealRef::Ed25519(seal) => seal.public_key.hash(),
         };
         public_key_hash == self.generic.consensus_info.solution.public_key_hash
     }
@@ -896,7 +908,7 @@ impl<'a> IntermediateShardBlockHeader<'a> {
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
         let generic = GenericBlockHeader {
             prefix,
@@ -921,8 +933,8 @@ impl<'a> IntermediateShardBlockHeader<'a> {
     #[cfg(feature = "alloc")]
     pub fn to_owned(
         self,
-    ) -> Result<OwnedIntermediateShardBlockHeader, OwnedIntermediateShardBlockHeaderError> {
-        OwnedIntermediateShardBlockHeader::from_header(self)
+    ) -> Result<OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError> {
+        OwnedIntermediateShardHeader::from_header(self)
     }
 
     /// Hash of the block before seal is applied to it
@@ -932,7 +944,7 @@ impl<'a> IntermediateShardBlockHeader<'a> {
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
-    /// Verify seal against [`IntermediateShardBlockHeader::pre_seal_hash()`]
+    /// Verify seal against [`IntermediateShardHeader::pre_seal_hash()`]
     #[inline]
     #[cfg(feature = "ed25519-verify")]
     pub fn is_seal_valid(&self) -> bool {
@@ -978,7 +990,7 @@ impl<'a> IntermediateShardBlockHeader<'a> {
 
 /// Block header that corresponds to a leaf shard
 #[derive(Debug, Copy, Clone)]
-pub struct LeafShardBlockHeader<'a> {
+pub struct LeafShardHeader<'a> {
     /// Generic block header
     pub generic: GenericBlockHeader<'a>,
     /// Beacon chain info
@@ -987,7 +999,7 @@ pub struct LeafShardBlockHeader<'a> {
     pub pre_seal_bytes: &'a [u8],
 }
 
-impl<'a> Deref for LeafShardBlockHeader<'a> {
+impl<'a> Deref for LeafShardHeader<'a> {
     type Target = GenericBlockHeader<'a>;
 
     #[inline(always)]
@@ -996,7 +1008,7 @@ impl<'a> Deref for LeafShardBlockHeader<'a> {
     }
 }
 
-impl<'a> LeafShardBlockHeader<'a> {
+impl<'a> LeafShardHeader<'a> {
     /// Try to create a new instance from provided bytes.
     ///
     /// `bytes` should be 8-bytes aligned.
@@ -1026,7 +1038,7 @@ impl<'a> LeafShardBlockHeader<'a> {
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
         let generic = GenericBlockHeader {
             prefix,
@@ -1052,7 +1064,7 @@ impl<'a> LeafShardBlockHeader<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
-            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
+            BlockHeaderSealRef::Ed25519(seal) => seal.public_key.hash(),
         };
         public_key_hash == self.generic.consensus_info.solution.public_key_hash
     }
@@ -1082,7 +1094,7 @@ impl<'a> LeafShardBlockHeader<'a> {
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
         let generic = GenericBlockHeader {
             prefix,
@@ -1104,8 +1116,8 @@ impl<'a> LeafShardBlockHeader<'a> {
     /// Create an owned version of this header
     #[inline(always)]
     #[cfg(feature = "alloc")]
-    pub fn to_owned(self) -> OwnedLeafShardBlockHeader {
-        OwnedLeafShardBlockHeader::from_header(self)
+    pub fn to_owned(self) -> OwnedLeafShardHeader {
+        OwnedLeafShardHeader::from_header(self)
     }
 
     /// Hash of the block before seal is applied to it
@@ -1115,7 +1127,7 @@ impl<'a> LeafShardBlockHeader<'a> {
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
-    /// Verify seal against [`LeafShardBlockHeader::pre_seal_hash()`]
+    /// Verify seal against [`LeafShardHeader::pre_seal_hash()`]
     #[inline]
     #[cfg(feature = "ed25519-verify")]
     pub fn is_seal_valid(&self) -> bool {
@@ -1164,11 +1176,11 @@ impl<'a> LeafShardBlockHeader<'a> {
 #[derive(Debug, Copy, Clone, From)]
 pub enum BlockHeader<'a> {
     /// Block header corresponds to the beacon chain
-    BeaconChain(BeaconChainBlockHeader<'a>),
+    BeaconChain(BeaconChainHeader<'a>),
     /// Block header corresponds to an intermediate shard
-    IntermediateShard(IntermediateShardBlockHeader<'a>),
+    IntermediateShard(IntermediateShardHeader<'a>),
     /// Block header corresponds to a leaf shard
-    LeafShard(LeafShardBlockHeader<'a>),
+    LeafShard(LeafShardHeader<'a>),
 }
 
 impl<'a> Deref for BlockHeader<'a> {
@@ -1195,15 +1207,15 @@ impl<'a> BlockHeader<'a> {
     pub fn try_from_bytes(bytes: &'a [u8], shard_kind: ShardKind) -> Option<(Self, &'a [u8])> {
         match shard_kind {
             ShardKind::BeaconChain => {
-                let (header, remainder) = BeaconChainBlockHeader::try_from_bytes(bytes)?;
+                let (header, remainder) = BeaconChainHeader::try_from_bytes(bytes)?;
                 Some((Self::BeaconChain(header), remainder))
             }
             ShardKind::IntermediateShard => {
-                let (header, remainder) = IntermediateShardBlockHeader::try_from_bytes(bytes)?;
+                let (header, remainder) = IntermediateShardHeader::try_from_bytes(bytes)?;
                 Some((Self::IntermediateShard(header), remainder))
             }
             ShardKind::LeafShard => {
-                let (header, remainder) = LeafShardBlockHeader::try_from_bytes(bytes)?;
+                let (header, remainder) = LeafShardHeader::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(header), remainder))
             }
             ShardKind::Phantom | ShardKind::Invalid => {
@@ -1232,16 +1244,15 @@ impl<'a> BlockHeader<'a> {
     ) -> Option<(Self, &'a [u8])> {
         match shard_kind {
             ShardKind::BeaconChain => {
-                let (header, remainder) = BeaconChainBlockHeader::try_from_bytes_unchecked(bytes)?;
+                let (header, remainder) = BeaconChainHeader::try_from_bytes_unchecked(bytes)?;
                 Some((Self::BeaconChain(header), remainder))
             }
             ShardKind::IntermediateShard => {
-                let (header, remainder) =
-                    IntermediateShardBlockHeader::try_from_bytes_unchecked(bytes)?;
+                let (header, remainder) = IntermediateShardHeader::try_from_bytes_unchecked(bytes)?;
                 Some((Self::IntermediateShard(header), remainder))
             }
             ShardKind::LeafShard => {
-                let (header, remainder) = LeafShardBlockHeader::try_from_bytes_unchecked(bytes)?;
+                let (header, remainder) = LeafShardHeader::try_from_bytes_unchecked(bytes)?;
                 Some((Self::LeafShard(header), remainder))
             }
             ShardKind::Phantom | ShardKind::Invalid => {

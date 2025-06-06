@@ -2,10 +2,9 @@
 
 use crate::block::BlockRoot;
 use crate::block::header::{
-    BeaconChainBlockHeader, BlockHeader, BlockHeaderBeaconChainInfo,
-    BlockHeaderBeaconChainParameters, BlockHeaderConsensusInfo, BlockHeaderPrefix,
-    BlockHeaderResult, BlockHeaderSeal, BlockHeaderSealType, IntermediateShardBlockHeader,
-    LeafShardBlockHeader,
+    BeaconChainHeader, BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderBeaconChainParameters,
+    BlockHeaderConsensusInfo, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSealRef,
+    BlockHeaderSealType, IntermediateShardHeader, LeafShardHeader,
 };
 use crate::hashes::Blake3Hash;
 use crate::shard::ShardKind;
@@ -13,9 +12,9 @@ use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use derive_more::From;
 
-fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSeal<'_>) {
+fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSealRef<'_>) {
     match seal {
-        BlockHeaderSeal::Ed25519(seal) => {
+        BlockHeaderSealRef::Ed25519(seal) => {
             let true = buffer.append(&[BlockHeaderSealType::Ed25519 as u8]) else {
                 unreachable!("Fixed size data structures that are guaranteed to fit; qed");
             };
@@ -26,9 +25,9 @@ fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSeal<'_>) {
     }
 }
 
-/// Errors for [`OwnedBeaconChainBlockHeader`]
+/// Errors for [`OwnedBeaconChainHeader`]
 #[derive(Debug, thiserror::Error)]
-pub enum OwnedBeaconChainBlockHeaderError {
+pub enum OwnedBeaconChainHeaderError {
     /// Too many child shard blocks
     #[error("Too many child shard blocks: {actual}")]
     TooManyChildShardBlocks {
@@ -37,16 +36,16 @@ pub enum OwnedBeaconChainBlockHeaderError {
     },
 }
 
-/// An owned version of [`BeaconChainBlockHeader`].
+/// An owned version of [`BeaconChainHeader`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
-pub struct OwnedBeaconChainBlockHeader {
+pub struct OwnedBeaconChainHeader {
     buffer: SharedAlignedBuffer,
 }
 
-impl OwnedBeaconChainBlockHeader {
+impl OwnedBeaconChainHeader {
     /// Max allocation needed by this header
     #[inline(always)]
     pub const fn max_allocation_for(child_shard_blocks: &[BlockRoot]) -> u32 {
@@ -61,17 +60,17 @@ impl OwnedBeaconChainBlockHeader {
                 + size_of_val(child_shard_blocks) as u32
             )
             + BlockHeaderBeaconChainParameters::MAX_SIZE
-            + BlockHeaderSeal::MAX_SIZE
+            + BlockHeaderSealRef::MAX_SIZE
     }
 
-    /// Create new [`OwnedBeaconChainBlockHeader`] from its parts
+    /// Create new [`OwnedBeaconChainHeader`] from its parts
     pub fn from_parts(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         child_shard_blocks: &[BlockRoot],
         consensus_parameters: BlockHeaderBeaconChainParameters<'_>,
-    ) -> Result<OwnedBeaconChainBlockHeaderUnsealed, OwnedBeaconChainBlockHeaderError> {
+    ) -> Result<OwnedBeaconChainBlockHeaderUnsealed, OwnedBeaconChainHeaderError> {
         let mut buffer =
             OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(child_shard_blocks));
 
@@ -95,10 +94,10 @@ impl OwnedBeaconChainBlockHeader {
         child_shard_blocks: &[BlockRoot],
         consensus_parameters: BlockHeaderBeaconChainParameters<'_>,
         buffer: &mut OwnedAlignedBuffer,
-    ) -> Result<(), OwnedBeaconChainBlockHeaderError> {
+    ) -> Result<(), OwnedBeaconChainHeaderError> {
         let num_blocks = child_shard_blocks.len();
         let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
-            OwnedBeaconChainBlockHeaderError::TooManyChildShardBlocks { actual: num_blocks }
+            OwnedBeaconChainHeaderError::TooManyChildShardBlocks { actual: num_blocks }
         })?;
         let true = buffer.append(prefix.as_bytes()) else {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
@@ -195,9 +194,7 @@ impl OwnedBeaconChainBlockHeader {
 
     /// Create owned block header from a reference
     #[inline]
-    pub fn from_header(
-        header: BeaconChainBlockHeader<'_>,
-    ) -> Result<Self, OwnedBeaconChainBlockHeaderError> {
+    pub fn from_header(header: BeaconChainHeader<'_>) -> Result<Self, OwnedBeaconChainHeaderError> {
         let unsealed = Self::from_parts(
             header.generic.prefix,
             header.generic.result,
@@ -212,8 +209,7 @@ impl OwnedBeaconChainBlockHeader {
     /// Create owned header from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_header, extra_bytes)) =
-            BeaconChainBlockHeader::try_from_bytes(buffer.as_slice())
+        let Some((_header, extra_bytes)) = BeaconChainHeader::try_from_bytes(buffer.as_slice())
         else {
             return Err(buffer);
         };
@@ -229,9 +225,9 @@ impl OwnedBeaconChainBlockHeader {
         &self.buffer
     }
 
-    /// Get [`BeaconChainBlockHeader`] out of [`OwnedBeaconChainBlockHeader`]
-    pub fn header(&self) -> BeaconChainBlockHeader<'_> {
-        BeaconChainBlockHeader::try_from_bytes_unchecked(self.buffer.as_slice())
+    /// Get [`BeaconChainHeader`] out of [`OwnedBeaconChainHeader`]
+    pub fn header(&self) -> BeaconChainHeader<'_> {
+        BeaconChainHeader::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }
@@ -251,20 +247,20 @@ impl OwnedBeaconChainBlockHeaderUnsealed {
         Blake3Hash::from(blake3::hash(self.buffer.as_slice()))
     }
 
-    /// Add seal and return [`OwnedBeaconChainBlockHeader`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedBeaconChainBlockHeader {
+    /// Add seal and return [`OwnedBeaconChainHeader`]
+    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedBeaconChainHeader {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 
-        OwnedBeaconChainBlockHeader {
+        OwnedBeaconChainHeader {
             buffer: buffer.into_shared(),
         }
     }
 }
 
-/// Errors for [`OwnedIntermediateShardBlockHeader`]
+/// Errors for [`OwnedIntermediateShardHeader`]
 #[derive(Debug, thiserror::Error)]
-pub enum OwnedIntermediateShardBlockHeaderError {
+pub enum OwnedIntermediateShardHeaderError {
     /// Too many child shard blocks
     #[error("Too many child shard blocks: {actual}")]
     TooManyChildShardBlocks {
@@ -273,16 +269,16 @@ pub enum OwnedIntermediateShardBlockHeaderError {
     },
 }
 
-/// An owned version of [`IntermediateShardBlockHeader`].
+/// An owned version of [`IntermediateShardHeader`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
-pub struct OwnedIntermediateShardBlockHeader {
+pub struct OwnedIntermediateShardHeader {
     buffer: SharedAlignedBuffer,
 }
 
-impl OwnedIntermediateShardBlockHeader {
+impl OwnedIntermediateShardHeader {
     /// Max allocation needed by this header
     #[inline(always)]
     pub const fn max_allocation_for(child_shard_blocks: &[BlockRoot]) -> u32 {
@@ -297,18 +293,17 @@ impl OwnedIntermediateShardBlockHeader {
                 + <[u8; 2]>::SIZE
                 + size_of_val(child_shard_blocks) as u32
             )
-            + BlockHeaderSeal::MAX_SIZE
+            + BlockHeaderSealRef::MAX_SIZE
     }
 
-    /// Create new [`OwnedIntermediateShardBlockHeader`] from its parts
+    /// Create new [`OwnedIntermediateShardHeader`] from its parts
     pub fn from_parts(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
         child_shard_blocks: &[BlockRoot],
-    ) -> Result<OwnedIntermediateShardBlockHeaderUnsealed, OwnedIntermediateShardBlockHeaderError>
-    {
+    ) -> Result<OwnedIntermediateShardBlockHeaderUnsealed, OwnedIntermediateShardHeaderError> {
         let mut buffer =
             OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(child_shard_blocks));
 
@@ -332,10 +327,10 @@ impl OwnedIntermediateShardBlockHeader {
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
         child_shard_blocks: &[BlockRoot],
         buffer: &mut OwnedAlignedBuffer,
-    ) -> Result<(), OwnedIntermediateShardBlockHeaderError> {
+    ) -> Result<(), OwnedIntermediateShardHeaderError> {
         let num_blocks = child_shard_blocks.len();
         let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
-            OwnedIntermediateShardBlockHeaderError::TooManyChildShardBlocks { actual: num_blocks }
+            OwnedIntermediateShardHeaderError::TooManyChildShardBlocks { actual: num_blocks }
         })?;
         let true = buffer.append(prefix.as_bytes()) else {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
@@ -369,8 +364,8 @@ impl OwnedIntermediateShardBlockHeader {
     /// Create owned block header from a reference
     #[inline]
     pub fn from_header(
-        header: IntermediateShardBlockHeader<'_>,
-    ) -> Result<Self, OwnedIntermediateShardBlockHeaderError> {
+        header: IntermediateShardHeader<'_>,
+    ) -> Result<Self, OwnedIntermediateShardHeaderError> {
         let unsealed = Self::from_parts(
             header.generic.prefix,
             header.generic.result,
@@ -386,7 +381,7 @@ impl OwnedIntermediateShardBlockHeader {
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
         let Some((_header, extra_bytes)) =
-            IntermediateShardBlockHeader::try_from_bytes(buffer.as_slice())
+            IntermediateShardHeader::try_from_bytes(buffer.as_slice())
         else {
             return Err(buffer);
         };
@@ -402,9 +397,9 @@ impl OwnedIntermediateShardBlockHeader {
         &self.buffer
     }
 
-    /// Get [`IntermediateShardBlockHeader`] out of [`OwnedIntermediateShardBlockHeader`]
-    pub fn header(&self) -> IntermediateShardBlockHeader<'_> {
-        IntermediateShardBlockHeader::try_from_bytes_unchecked(self.buffer.as_slice())
+    /// Get [`IntermediateShardHeader`] out of [`OwnedIntermediateShardHeader`]
+    pub fn header(&self) -> IntermediateShardHeader<'_> {
+        IntermediateShardHeader::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }
@@ -424,35 +419,35 @@ impl OwnedIntermediateShardBlockHeaderUnsealed {
         Blake3Hash::from(blake3::hash(self.buffer.as_slice()))
     }
 
-    /// Add seal and return [`OwnedIntermediateShardBlockHeader`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedIntermediateShardBlockHeader {
+    /// Add seal and return [`OwnedIntermediateShardHeader`]
+    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedIntermediateShardHeader {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 
-        OwnedIntermediateShardBlockHeader {
+        OwnedIntermediateShardHeader {
             buffer: buffer.into_shared(),
         }
     }
 }
 
-/// An owned version of [`LeafShardBlockHeader`].
+/// An owned version of [`LeafShardHeader`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
-pub struct OwnedLeafShardBlockHeader {
+pub struct OwnedLeafShardHeader {
     buffer: SharedAlignedBuffer,
 }
 
-impl OwnedLeafShardBlockHeader {
+impl OwnedLeafShardHeader {
     /// Max allocation needed by this header
     pub const MAX_ALLOCATION: u32 = BlockHeaderPrefix::SIZE
         + BlockHeaderResult::SIZE
         + BlockHeaderConsensusInfo::SIZE
         + BlockHeaderBeaconChainInfo::SIZE
-        + BlockHeaderSeal::MAX_SIZE;
+        + BlockHeaderSealRef::MAX_SIZE;
 
-    /// Create new [`OwnedLeafShardBlockHeader`] from its parts
+    /// Create new [`OwnedLeafShardHeader`] from its parts
     pub fn from_parts(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
@@ -496,7 +491,7 @@ impl OwnedLeafShardBlockHeader {
 
     /// Create owned block header from a reference
     #[inline]
-    pub fn from_header(header: LeafShardBlockHeader<'_>) -> Self {
+    pub fn from_header(header: LeafShardHeader<'_>) -> Self {
         let unsealed = Self::from_parts(
             header.generic.prefix,
             header.generic.result,
@@ -510,7 +505,7 @@ impl OwnedLeafShardBlockHeader {
     /// Create owned header from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_header, extra_bytes)) = LeafShardBlockHeader::try_from_bytes(buffer.as_slice())
+        let Some((_header, extra_bytes)) = LeafShardHeader::try_from_bytes(buffer.as_slice())
         else {
             return Err(buffer);
         };
@@ -526,9 +521,9 @@ impl OwnedLeafShardBlockHeader {
         &self.buffer
     }
 
-    /// Get [`LeafShardBlockHeader`] out of [`OwnedLeafShardBlockHeader`]
-    pub fn header(&self) -> LeafShardBlockHeader<'_> {
-        LeafShardBlockHeader::try_from_bytes_unchecked(self.buffer.as_slice())
+    /// Get [`LeafShardHeader`] out of [`OwnedLeafShardHeader`]
+    pub fn header(&self) -> LeafShardHeader<'_> {
+        LeafShardHeader::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
     }
@@ -548,12 +543,12 @@ impl OwnedLeafShardBlockHeaderUnsealed {
         Blake3Hash::from(blake3::hash(self.buffer.as_slice()))
     }
 
-    /// Add seal and return [`OwnedLeafShardBlockHeader`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedLeafShardBlockHeader {
+    /// Add seal and return [`OwnedLeafShardHeader`]
+    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedLeafShardHeader {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 
-        OwnedLeafShardBlockHeader {
+        OwnedLeafShardHeader {
             buffer: buffer.into_shared(),
         }
     }
@@ -564,10 +559,10 @@ impl OwnedLeafShardBlockHeaderUnsealed {
 pub enum OwnedBlockHeaderError {
     /// Beacon chain block header error
     #[error("Beacon chain block header error: {0}")]
-    BeaconChain(#[from] OwnedBeaconChainBlockHeaderError),
+    BeaconChain(#[from] OwnedBeaconChainHeaderError),
     /// Intermediate shard block header error
     #[error("Intermediate shard block header error: {0}")]
-    IntermediateShard(#[from] OwnedIntermediateShardBlockHeaderError),
+    IntermediateShard(#[from] OwnedIntermediateShardHeaderError),
 }
 
 /// An owned version of [`BlockHeader`].
@@ -577,11 +572,11 @@ pub enum OwnedBlockHeaderError {
 #[derive(Debug, Clone, From)]
 pub enum OwnedBlockHeader {
     /// Block header corresponds to the beacon chain
-    BeaconChain(OwnedBeaconChainBlockHeader),
+    BeaconChain(OwnedBeaconChainHeader),
     /// Block header corresponds to an intermediate shard
-    IntermediateShard(OwnedIntermediateShardBlockHeader),
+    IntermediateShard(OwnedIntermediateShardHeader),
     /// Block header corresponds to a leaf shard
-    LeafShard(OwnedLeafShardBlockHeader),
+    LeafShard(OwnedLeafShardHeader),
 }
 
 impl OwnedBlockHeader {
@@ -590,13 +585,13 @@ impl OwnedBlockHeader {
     pub fn from_header(header: BlockHeader<'_>) -> Result<Self, OwnedBlockHeaderError> {
         Ok(match header {
             BlockHeader::BeaconChain(header) => {
-                Self::BeaconChain(OwnedBeaconChainBlockHeader::from_header(header)?)
+                Self::BeaconChain(OwnedBeaconChainHeader::from_header(header)?)
             }
             BlockHeader::IntermediateShard(header) => {
-                Self::IntermediateShard(OwnedIntermediateShardBlockHeader::from_header(header)?)
+                Self::IntermediateShard(OwnedIntermediateShardHeader::from_header(header)?)
             }
             BlockHeader::LeafShard(header) => {
-                Self::LeafShard(OwnedLeafShardBlockHeader::from_header(header))
+                Self::LeafShard(OwnedLeafShardHeader::from_header(header))
             }
         })
     }
@@ -617,11 +612,11 @@ impl OwnedBlockHeader {
         }
 
         Ok(match shard_kind {
-            ShardKind::BeaconChain => Self::BeaconChain(OwnedBeaconChainBlockHeader { buffer }),
+            ShardKind::BeaconChain => Self::BeaconChain(OwnedBeaconChainHeader { buffer }),
             ShardKind::IntermediateShard => {
-                Self::IntermediateShard(OwnedIntermediateShardBlockHeader { buffer })
+                Self::IntermediateShard(OwnedIntermediateShardHeader { buffer })
             }
-            ShardKind::LeafShard => Self::LeafShard(OwnedLeafShardBlockHeader { buffer }),
+            ShardKind::LeafShard => Self::LeafShard(OwnedLeafShardHeader { buffer }),
             ShardKind::Phantom | ShardKind::Invalid => {
                 // Blocks for such shards do not exist
                 return Err(buffer);

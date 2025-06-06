@@ -7,6 +7,7 @@ members = [
 
 [workspace.dependencies]
 ab-archiving = { version = "0.1.0", path = "../crates/shared/ab-archiving", default-features = false }
+ab-client-api = { version = "0.0.1", path = "../crates/node/ab-client-api" }
 ab-client-proof-of-time = { version = "0.0.1", path = "../crates/node/ab-client-proof-of-time" }
 ab-core-primitives = { version = "0.1.0", path = "../crates/shared/ab-core-primitives", default-features = false }
 ab-erasure-coding = { path = "../crates/shared/ab-erasure-coding", default-features = false }
@@ -37,12 +38,9 @@ ed25519-zebra = { version = "4.0.3", default-features = false }
 event-listener = "5.3.1"
 event-listener-primitives = "2.0.1"
 fdlimit = "0.3.0"
-frame-benchmarking = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }
-frame-benchmarking-cli = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }
 frame-executive = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }
 frame-support = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }
 frame-system = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }
-frame-system-benchmarking = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }
 frame-system-rpc-runtime-api = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }
 fs2 = "0.4.3"
 fs4 = "0.9.1"

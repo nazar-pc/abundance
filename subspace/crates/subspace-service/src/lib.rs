@@ -22,8 +22,9 @@ use crate::sync_from_dsn::DsnPieceGetter;
 use crate::sync_from_dsn::piece_validator::SegmentRootPieceValidator;
 use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::task_spawner::SpawnTasksParams;
+use ab_client_api::ChainInfo;
+use ab_client_proof_of_time::source::PotSourceWorker;
 use ab_client_proof_of_time::source::timekeeper::Timekeeper;
-use ab_client_proof_of_time::source::{ChainInfo, PotSourceWorker};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::pot::PotSeed;
@@ -167,15 +168,7 @@ where
 }
 
 /// Host functions required for Subspace
-#[cfg(not(feature = "runtime-benchmarks"))]
 pub type HostFunctions = (sp_io::SubstrateHostFunctions,);
-
-/// Host functions required for Subspace
-#[cfg(feature = "runtime-benchmarks")]
-pub type HostFunctions = (
-    sp_io::SubstrateHostFunctions,
-    frame_benchmarking::benchmarking::HostFunctions,
-);
 
 /// Runtime executor for Subspace
 pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;

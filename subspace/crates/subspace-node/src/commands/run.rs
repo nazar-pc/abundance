@@ -4,7 +4,7 @@ mod shared;
 use crate::commands::run::consensus::{
     ConsensusChainConfiguration, ConsensusChainOptions, create_consensus_chain_configuration,
 };
-use crate::{Error, PosTable, set_default_ss58_version};
+use crate::{Error, PosTable};
 use clap::Parser;
 use futures::FutureExt;
 use sc_cli::Signals;
@@ -62,8 +62,6 @@ pub async fn run(run_options: RunOptions) -> Result<(), Error> {
         storage_monitor,
         mut prometheus_configuration,
     } = create_consensus_chain_configuration(consensus)?;
-
-    set_default_ss58_version(subspace_configuration.chain_spec.as_ref());
 
     let base_path = subspace_configuration.base_path.path().to_path_buf();
 
