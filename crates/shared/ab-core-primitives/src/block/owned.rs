@@ -1,21 +1,19 @@
 //! Data structures related to the owned version of [`Block`]
 
 use crate::block::body::owned::{
-    OwnedBeaconChainBlockBody, OwnedBeaconChainBlockBodyError, OwnedIntermediateShardBlockBody,
-    OwnedIntermediateShardBlockBodyBuilder, OwnedIntermediateShardBlockBodyError,
-    OwnedLeafShardBlockBody, OwnedLeafShardBlockBodyBuilder, OwnedLeafShardBlockBodyError,
-    WritableBodyTransaction,
+    OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedIntermediateShardBlockBodyBuilder,
+    OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBlockBodyBuilder,
+    OwnedLeafShardBody, OwnedLeafShardBodyError, WritableBodyTransaction,
 };
 use crate::block::body::{BlockBody, IntermediateShardBlockInfo, LeafShardBlockInfo};
 use crate::block::header::owned::{
-    OwnedBeaconChainBlockHeader, OwnedBeaconChainBlockHeaderError,
-    OwnedBeaconChainBlockHeaderUnsealed, OwnedIntermediateShardBlockHeader,
-    OwnedIntermediateShardBlockHeaderError, OwnedIntermediateShardBlockHeaderUnsealed,
-    OwnedLeafShardBlockHeader, OwnedLeafShardBlockHeaderUnsealed,
+    OwnedBeaconChainBlockHeaderUnsealed, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
+    OwnedIntermediateShardBlockHeaderUnsealed, OwnedIntermediateShardHeader,
+    OwnedIntermediateShardHeaderError, OwnedLeafShardBlockHeaderUnsealed, OwnedLeafShardHeader,
 };
 use crate::block::header::{
     BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderBeaconChainParameters,
-    BlockHeaderConsensusInfo, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
+    BlockHeaderConsensusInfo, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSealRef,
 };
 use crate::block::{BeaconChainBlock, Block, IntermediateShardBlock, LeafShardBlock};
 use crate::hashes::Blake3Hash;
@@ -32,10 +30,10 @@ use derive_more::From;
 pub enum OwnedBeaconChainBlockError {
     /// Beacon chain block header error
     #[error("Beacon chain block header error: {0}")]
-    Header(#[from] OwnedBeaconChainBlockHeaderError),
+    Header(#[from] OwnedBeaconChainHeaderError),
     /// Beacon chain block body error
     #[error("Beacon chain block body error: {0}")]
-    Body(#[from] OwnedBeaconChainBlockBodyError),
+    Body(#[from] OwnedBeaconChainBodyError),
 }
 
 /// An owned version of [`BeaconChainBlock`].
@@ -45,9 +43,9 @@ pub enum OwnedBeaconChainBlockError {
 #[derive(Debug, Clone)]
 pub struct OwnedBeaconChainBlock {
     /// Block header
-    pub header: OwnedBeaconChainBlockHeader,
+    pub header: OwnedBeaconChainHeader,
     /// Block body
-    pub body: OwnedBeaconChainBlockBody,
+    pub body: OwnedBeaconChainBody,
 }
 
 impl OwnedBeaconChainBlock {
@@ -56,12 +54,12 @@ impl OwnedBeaconChainBlock {
         own_segment_roots: &[SegmentRoot],
         intermediate_shard_blocks: ISB,
         pot_checkpoints: &[PotCheckpoints],
-    ) -> Result<OwnedBeaconChainBlockBuilder, OwnedBeaconChainBlockBodyError>
+    ) -> Result<OwnedBeaconChainBlockBuilder, OwnedBeaconChainBodyError>
     where
         ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + Clone + 'a,
     {
         Ok(OwnedBeaconChainBlockBuilder {
-            body: OwnedBeaconChainBlockBody::init(
+            body: OwnedBeaconChainBody::init(
                 own_segment_roots,
                 intermediate_shard_blocks,
                 pot_checkpoints,
@@ -73,8 +71,8 @@ impl OwnedBeaconChainBlock {
     #[inline]
     pub fn from_block(block: BeaconChainBlock<'_>) -> Result<Self, OwnedBeaconChainBlockError> {
         Ok(Self {
-            header: OwnedBeaconChainBlockHeader::from_header(block.header)?,
-            body: OwnedBeaconChainBlockBody::from_body(block.body)?,
+            header: OwnedBeaconChainHeader::from_header(block.header)?,
+            body: OwnedBeaconChainBody::from_body(block.body)?,
         })
     }
 
@@ -82,8 +80,8 @@ impl OwnedBeaconChainBlock {
     #[inline]
     pub fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
         let block = Self {
-            header: OwnedBeaconChainBlockHeader::from_buffer(header).ok()?,
-            body: OwnedBeaconChainBlockBody::from_buffer(body).ok()?,
+            header: OwnedBeaconChainHeader::from_buffer(header).ok()?,
+            body: OwnedBeaconChainBody::from_buffer(body).ok()?,
         };
 
         // TODO: This duplicates parsing done in above constructors
@@ -106,7 +104,7 @@ impl OwnedBeaconChainBlock {
 /// Builder for [`OwnedBeaconChainBlock`]
 #[derive(Debug, Clone)]
 pub struct OwnedBeaconChainBlockBuilder {
-    body: OwnedBeaconChainBlockBody,
+    body: OwnedBeaconChainBody,
 }
 
 impl OwnedBeaconChainBlockBuilder {
@@ -117,9 +115,9 @@ impl OwnedBeaconChainBlockBuilder {
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         consensus_parameters: BlockHeaderBeaconChainParameters<'_>,
-    ) -> Result<OwnedBeaconChainBlockUnsealed, OwnedBeaconChainBlockHeaderError> {
+    ) -> Result<OwnedBeaconChainBlockUnsealed, OwnedBeaconChainHeaderError> {
         let body = self.body;
-        let header = OwnedBeaconChainBlockHeader::from_parts(
+        let header = OwnedBeaconChainHeader::from_parts(
             prefix,
             &BlockHeaderResult {
                 body_root: body.body().root(),
@@ -142,7 +140,7 @@ impl OwnedBeaconChainBlockBuilder {
 /// Owned beacon chain block header, which is not sealed yet
 #[derive(Debug, Clone)]
 pub struct OwnedBeaconChainBlockUnsealed {
-    body: OwnedBeaconChainBlockBody,
+    body: OwnedBeaconChainBody,
     header: OwnedBeaconChainBlockHeaderUnsealed,
 }
 
@@ -154,7 +152,7 @@ impl OwnedBeaconChainBlockUnsealed {
     }
 
     /// Add seal and return [`OwnedBeaconChainBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedBeaconChainBlock {
+    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedBeaconChainBlock {
         let header = self.header.with_seal(seal);
 
         OwnedBeaconChainBlock {
@@ -169,10 +167,10 @@ impl OwnedBeaconChainBlockUnsealed {
 pub enum OwnedIntermediateShardBlockError {
     /// Intermediate shard block header error
     #[error("Intermediate shard block header error: {0}")]
-    Header(#[from] OwnedIntermediateShardBlockHeaderError),
+    Header(#[from] OwnedIntermediateShardHeaderError),
     /// Intermediate shard block body error
     #[error("Intermediate shard block body error: {0}")]
-    Body(#[from] OwnedIntermediateShardBlockBodyError),
+    Body(#[from] OwnedIntermediateShardBodyError),
 }
 
 /// An owned version of [`IntermediateShardBlock`].
@@ -182,9 +180,9 @@ pub enum OwnedIntermediateShardBlockError {
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardBlock {
     /// Block header
-    pub header: OwnedIntermediateShardBlockHeader,
+    pub header: OwnedIntermediateShardHeader,
     /// Block body
-    pub body: OwnedIntermediateShardBlockBody,
+    pub body: OwnedIntermediateShardBody,
 }
 
 impl OwnedIntermediateShardBlock {
@@ -192,15 +190,12 @@ impl OwnedIntermediateShardBlock {
     pub fn init<'a, LSB>(
         own_segment_roots: &[SegmentRoot],
         leaf_shard_blocks: LSB,
-    ) -> Result<OwnedIntermediateShardBlockBuilder, OwnedIntermediateShardBlockBodyError>
+    ) -> Result<OwnedIntermediateShardBlockBuilder, OwnedIntermediateShardBodyError>
     where
         LSB: TrustedLen<Item = LeafShardBlockInfo<'a>> + Clone + 'a,
     {
         Ok(OwnedIntermediateShardBlockBuilder {
-            body_builder: OwnedIntermediateShardBlockBody::init(
-                own_segment_roots,
-                leaf_shard_blocks,
-            )?,
+            body_builder: OwnedIntermediateShardBody::init(own_segment_roots, leaf_shard_blocks)?,
         })
     }
 
@@ -210,8 +205,8 @@ impl OwnedIntermediateShardBlock {
         block: IntermediateShardBlock<'_>,
     ) -> Result<Self, OwnedIntermediateShardBlockError> {
         Ok(Self {
-            header: OwnedIntermediateShardBlockHeader::from_header(block.header)?,
-            body: OwnedIntermediateShardBlockBody::from_body(block.body)?,
+            header: OwnedIntermediateShardHeader::from_header(block.header)?,
+            body: OwnedIntermediateShardBody::from_body(block.body)?,
         })
     }
 
@@ -219,8 +214,8 @@ impl OwnedIntermediateShardBlock {
     #[inline]
     pub fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
         let block = Self {
-            header: OwnedIntermediateShardBlockHeader::from_buffer(header).ok()?,
-            body: OwnedIntermediateShardBlockBody::from_buffer(body).ok()?,
+            header: OwnedIntermediateShardHeader::from_buffer(header).ok()?,
+            body: OwnedIntermediateShardBody::from_buffer(body).ok()?,
         };
 
         // TODO: This duplicates parsing done in above constructors
@@ -252,7 +247,7 @@ impl OwnedIntermediateShardBlockBuilder {
     pub fn add_transaction<T>(
         &mut self,
         transaction: T,
-    ) -> Result<(), OwnedIntermediateShardBlockBodyError>
+    ) -> Result<(), OwnedIntermediateShardBodyError>
     where
         T: WritableBodyTransaction,
     {
@@ -268,9 +263,9 @@ impl OwnedIntermediateShardBlockBuilder {
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-    ) -> Result<OwnedIntermediateShardBlockUnsealed, OwnedIntermediateShardBlockHeaderError> {
+    ) -> Result<OwnedIntermediateShardBlockUnsealed, OwnedIntermediateShardHeaderError> {
         let body = self.body_builder.finish();
-        let header = OwnedIntermediateShardBlockHeader::from_parts(
+        let header = OwnedIntermediateShardHeader::from_parts(
             prefix,
             &BlockHeaderResult {
                 body_root: body.body().root(),
@@ -293,7 +288,7 @@ impl OwnedIntermediateShardBlockBuilder {
 /// Owned intermediate shard block header, which is not sealed yet
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardBlockUnsealed {
-    body: OwnedIntermediateShardBlockBody,
+    body: OwnedIntermediateShardBody,
     header: OwnedIntermediateShardBlockHeaderUnsealed,
 }
 
@@ -305,7 +300,7 @@ impl OwnedIntermediateShardBlockUnsealed {
     }
 
     /// Add seal and return [`OwnedIntermediateShardBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedIntermediateShardBlock {
+    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedIntermediateShardBlock {
         let header = self.header.with_seal(seal);
 
         OwnedIntermediateShardBlock {
@@ -320,7 +315,7 @@ impl OwnedIntermediateShardBlockUnsealed {
 pub enum OwnedLeafShardBlockError {
     /// Leaf shard block body error
     #[error("Leaf shard block body error: {0}")]
-    Body(#[from] OwnedLeafShardBlockBodyError),
+    Body(#[from] OwnedLeafShardBodyError),
 }
 
 /// An owned version of [`LeafShardBlock`].
@@ -330,18 +325,18 @@ pub enum OwnedLeafShardBlockError {
 #[derive(Debug, Clone)]
 pub struct OwnedLeafShardBlock {
     /// Block header
-    pub header: OwnedLeafShardBlockHeader,
+    pub header: OwnedLeafShardHeader,
     /// Block body
-    pub body: OwnedLeafShardBlockBody,
+    pub body: OwnedLeafShardBody,
 }
 
 impl OwnedLeafShardBlock {
     /// Initialize building of [`OwnedLeafShardBlock`]
     pub fn init(
         own_segment_roots: &[SegmentRoot],
-    ) -> Result<OwnedLeafShardBlockBuilder, OwnedLeafShardBlockBodyError> {
+    ) -> Result<OwnedLeafShardBlockBuilder, OwnedLeafShardBodyError> {
         Ok(OwnedLeafShardBlockBuilder {
-            body_builder: OwnedLeafShardBlockBody::init(own_segment_roots)?,
+            body_builder: OwnedLeafShardBody::init(own_segment_roots)?,
         })
     }
 
@@ -349,8 +344,8 @@ impl OwnedLeafShardBlock {
     #[inline]
     pub fn from_block(block: LeafShardBlock<'_>) -> Result<Self, OwnedLeafShardBlockError> {
         Ok(Self {
-            header: OwnedLeafShardBlockHeader::from_header(block.header),
-            body: OwnedLeafShardBlockBody::from_body(block.body)?,
+            header: OwnedLeafShardHeader::from_header(block.header),
+            body: OwnedLeafShardBody::from_body(block.body)?,
         })
     }
 
@@ -358,8 +353,8 @@ impl OwnedLeafShardBlock {
     #[inline]
     pub fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
         let block = Self {
-            header: OwnedLeafShardBlockHeader::from_buffer(header).ok()?,
-            body: OwnedLeafShardBlockBody::from_buffer(body).ok()?,
+            header: OwnedLeafShardHeader::from_buffer(header).ok()?,
+            body: OwnedLeafShardBody::from_buffer(body).ok()?,
         };
 
         // TODO: This duplicates parsing done in above constructors
@@ -388,7 +383,7 @@ pub struct OwnedLeafShardBlockBuilder {
 impl OwnedLeafShardBlockBuilder {
     /// Add transaction to the body
     #[inline(always)]
-    pub fn add_transaction<T>(&mut self, transaction: T) -> Result<(), OwnedLeafShardBlockBodyError>
+    pub fn add_transaction<T>(&mut self, transaction: T) -> Result<(), OwnedLeafShardBodyError>
     where
         T: WritableBodyTransaction,
     {
@@ -406,7 +401,7 @@ impl OwnedLeafShardBlockBuilder {
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
     ) -> OwnedLeafShardBlockUnsealed {
         let body = self.body_builder.finish();
-        let header = OwnedLeafShardBlockHeader::from_parts(
+        let header = OwnedLeafShardHeader::from_parts(
             prefix,
             &BlockHeaderResult {
                 body_root: body.body().root(),
@@ -422,7 +417,7 @@ impl OwnedLeafShardBlockBuilder {
 /// Owned leaf shard block header, which is not sealed yet
 #[derive(Debug, Clone)]
 pub struct OwnedLeafShardBlockUnsealed {
-    body: OwnedLeafShardBlockBody,
+    body: OwnedLeafShardBody,
     header: OwnedLeafShardBlockHeaderUnsealed,
 }
 
@@ -434,7 +429,7 @@ impl OwnedLeafShardBlockUnsealed {
     }
 
     /// Add seal and return [`OwnedLeafShardBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedLeafShardBlock {
+    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedLeafShardBlock {
         let header = self.header.with_seal(seal);
 
         OwnedLeafShardBlock {
