@@ -22,7 +22,7 @@ use crate::sync_from_dsn::DsnPieceGetter;
 use crate::sync_from_dsn::piece_validator::SegmentRootPieceValidator;
 use crate::sync_from_dsn::snap_sync::snap_sync;
 use crate::task_spawner::SpawnTasksParams;
-use ab_client_api::ChainInfo;
+use ab_client_api::ChainSyncStatus;
 use ab_client_proof_of_time::source::PotSourceWorker;
 use ab_client_proof_of_time::source::timekeeper::Timekeeper;
 use ab_client_proof_of_time::verifier::PotVerifier;
@@ -404,11 +404,11 @@ where
 type FullNode<RuntimeApi> = NewFull<FullClient<RuntimeApi>>;
 
 #[derive(Clone)]
-struct SubstrateChainInfo {
+struct SubstrateChainSyncInfo {
     sync_oracle: SubspaceSyncOracle<Arc<SyncingService<Block>>>,
 }
 
-impl ChainInfo for SubstrateChainInfo {
+impl ChainSyncStatus for SubstrateChainSyncInfo {
     #[inline(always)]
     fn is_syncing(&self) -> bool {
         self.sync_oracle.is_major_syncing()
@@ -420,7 +420,7 @@ impl ChainInfo for SubstrateChainInfo {
     }
 }
 
-impl SubstrateChainInfo {
+impl SubstrateChainSyncInfo {
     fn new(sync_oracle: SubspaceSyncOracle<Arc<SyncingService<Block>>>) -> Self {
         Self { sync_oracle }
     }
@@ -685,7 +685,7 @@ where
         sync_service.clone(),
     );
 
-    let chain_info = SubstrateChainInfo::new(sync_oracle.clone());
+    let chain_sync_status = SubstrateChainSyncInfo::new(sync_oracle.clone());
 
     let subspace_archiver = tokio::task::block_in_place(|| {
         create_subspace_archiver(
@@ -845,7 +845,7 @@ where
         to_gossip_sender,
         from_gossip_receiver,
         best_block_pot_info_receiver,
-        chain_info.clone(),
+        chain_sync_status.clone(),
         pot_state,
     );
 
@@ -903,7 +903,7 @@ where
                 client: client.clone(),
                 env: proposer_factory,
                 block_import,
-                chain_info: chain_info.clone(),
+                chain_sync_status: chain_sync_status.clone(),
                 create_inherent_data_providers,
                 force_authoring: config.base.force_authoring,
                 subspace_link: subspace_link.clone(),
@@ -947,7 +947,7 @@ where
                         .clone(),
                     dsn_bootstrap_nodes: dsn_bootstrap_nodes.clone(),
                     segment_headers_store: segment_headers_store.clone(),
-                    chain_info: chain_info.clone(),
+                    chain_sync_status: chain_sync_status.clone(),
                     erasure_coding: subspace_link.erasure_coding().clone(),
                 };
 

@@ -6,7 +6,7 @@
 
 #![warn(missing_docs)]
 
-use ab_client_api::ChainInfo;
+use ab_client_api::ChainSyncStatus;
 use ab_erasure_coding::ErasureCoding;
 use jsonrpsee::RpcModule;
 use sc_client_api::{AuxStore, BlockBackend};
@@ -23,7 +23,7 @@ use subspace_networking::libp2p::Multiaddr;
 use subspace_runtime_primitives::opaque::Block;
 
 /// Full client dependencies.
-pub struct FullDeps<C, CI, AS> {
+pub struct FullDeps<C, CSS, AS> {
     /// The client instance to use.
     pub client: Arc<C>,
     /// Executor to drive the subscription manager in the Grandpa RPC handler.
@@ -40,15 +40,15 @@ pub struct FullDeps<C, CI, AS> {
     pub dsn_bootstrap_nodes: Vec<Multiaddr>,
     /// Segment header provider.
     pub segment_headers_store: SegmentHeadersStore<AS>,
-    /// Chain info
-    pub chain_info: CI,
+    /// Chain sync status
+    pub chain_sync_status: CSS,
     /// Erasure coding instance.
     pub erasure_coding: ErasureCoding,
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<C, CI, AS>(
-    deps: FullDeps<C, CI, AS>,
+pub fn create_full<C, CSS, AS>(
+    deps: FullDeps<C, CSS, AS>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
     C: ProvideRuntimeApi<Block>
@@ -58,7 +58,7 @@ where
         + Sync
         + 'static,
     C::Api: SubspaceApi<Block>,
-    CI: ChainInfo,
+    CSS: ChainSyncStatus,
     AS: AuxStore + Send + Sync + 'static,
 {
     let FullDeps {
@@ -69,7 +69,7 @@ where
         archived_segment_notification_stream,
         dsn_bootstrap_nodes,
         segment_headers_store,
-        chain_info,
+        chain_sync_status,
         erasure_coding,
     } = deps;
 
@@ -83,7 +83,7 @@ where
             archived_segment_notification_stream,
             dsn_bootstrap_nodes,
             segment_headers_store,
-            chain_info,
+            chain_sync_status,
             erasure_coding,
         })?
         .into_rpc(),
