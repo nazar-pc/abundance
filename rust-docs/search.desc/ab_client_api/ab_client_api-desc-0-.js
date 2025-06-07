@@ -1,0 +1,1 @@
+searchState.loadedDescShard("ab_client_api", 0, "Client API\nChain sync status\nReturns <code>true</code> if the node is currently offline\nReturns <code>true</code> if the chain is currently syncing")
