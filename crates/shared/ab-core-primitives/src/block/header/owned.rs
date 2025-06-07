@@ -196,14 +196,14 @@ impl OwnedBeaconChainHeader {
     #[inline]
     pub fn from_header(header: BeaconChainHeader<'_>) -> Result<Self, OwnedBeaconChainHeaderError> {
         let unsealed = Self::from_parts(
-            header.generic.prefix,
-            header.generic.result,
-            header.generic.consensus_info,
+            header.shared.prefix,
+            header.shared.result,
+            header.shared.consensus_info,
             &header.child_shard_blocks,
             header.consensus_parameters,
         )?;
 
-        Ok(unsealed.with_seal(header.generic.seal))
+        Ok(unsealed.with_seal(header.shared.seal))
     }
 
     /// Create owned header from a buffer
@@ -367,14 +367,14 @@ impl OwnedIntermediateShardHeader {
         header: IntermediateShardHeader<'_>,
     ) -> Result<Self, OwnedIntermediateShardHeaderError> {
         let unsealed = Self::from_parts(
-            header.generic.prefix,
-            header.generic.result,
-            header.generic.consensus_info,
+            header.shared.prefix,
+            header.shared.result,
+            header.shared.consensus_info,
             header.beacon_chain_info,
             &header.child_shard_blocks,
         )?;
 
-        Ok(unsealed.with_seal(header.generic.seal))
+        Ok(unsealed.with_seal(header.shared.seal))
     }
 
     /// Create owned header from a buffer
@@ -493,13 +493,13 @@ impl OwnedLeafShardHeader {
     #[inline]
     pub fn from_header(header: LeafShardHeader<'_>) -> Self {
         let unsealed = Self::from_parts(
-            header.generic.prefix,
-            header.generic.result,
-            header.generic.consensus_info,
+            header.shared.prefix,
+            header.shared.result,
+            header.shared.consensus_info,
             header.beacon_chain_info,
         );
 
-        unsealed.with_seal(header.generic.seal)
+        unsealed.with_seal(header.shared.seal)
     }
 
     /// Create owned header from a buffer

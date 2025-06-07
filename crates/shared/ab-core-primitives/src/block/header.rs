@@ -587,9 +587,9 @@ impl<'a> BlockHeaderSealRef<'a> {
     }
 }
 
-/// Generic block header, shared for different kinds of shards
+/// Part of the block header, shared for different kinds of shards
 #[derive(Debug, Copy, Clone)]
-pub struct GenericBlockHeader<'a> {
+pub struct SharedBlockHeader<'a> {
     /// Block header prefix
     pub prefix: &'a BlockHeaderPrefix,
     /// Block header result
@@ -603,8 +603,8 @@ pub struct GenericBlockHeader<'a> {
 /// Block header that corresponds to the beacon chain
 #[derive(Debug, Copy, Clone)]
 pub struct BeaconChainHeader<'a> {
-    /// Generic block header
-    pub generic: GenericBlockHeader<'a>,
+    /// Shared block header
+    pub shared: SharedBlockHeader<'a>,
     /// Information about child shard blocks
     pub child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
     /// Consensus parameters (on the beacon chain)
@@ -614,11 +614,11 @@ pub struct BeaconChainHeader<'a> {
 }
 
 impl<'a> Deref for BeaconChainHeader<'a> {
-    type Target = GenericBlockHeader<'a>;
+    type Target = SharedBlockHeader<'a>;
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
-        &self.generic
+        &self.shared
     }
 }
 
@@ -656,7 +656,7 @@ impl<'a> BeaconChainHeader<'a> {
 
         let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
-        let generic = GenericBlockHeader {
+        let shared = SharedBlockHeader {
             prefix,
             result,
             consensus_info,
@@ -664,7 +664,7 @@ impl<'a> BeaconChainHeader<'a> {
         };
 
         let header = Self {
-            generic,
+            shared,
             child_shard_blocks,
             consensus_parameters,
             pre_seal_bytes,
@@ -683,7 +683,7 @@ impl<'a> BeaconChainHeader<'a> {
         let public_key_hash = match self.seal {
             BlockHeaderSealRef::Ed25519(seal) => seal.public_key.hash(),
         };
-        public_key_hash == self.generic.consensus_info.solution.public_key_hash
+        public_key_hash == self.shared.consensus_info.solution.public_key_hash
     }
 
     /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
@@ -715,7 +715,7 @@ impl<'a> BeaconChainHeader<'a> {
 
         let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
-        let generic = GenericBlockHeader {
+        let shared = SharedBlockHeader {
             prefix,
             result,
             consensus_info,
@@ -724,7 +724,7 @@ impl<'a> BeaconChainHeader<'a> {
 
         Some((
             Self {
-                generic,
+                shared,
                 child_shard_blocks,
                 consensus_parameters,
                 pre_seal_bytes,
@@ -757,23 +757,23 @@ impl<'a> BeaconChainHeader<'a> {
     /// Compute block root out of this header.
     ///
     /// Block root is a Merkle Tree Root. The leaves are derived from individual fields in
-    /// [`GenericBlockHeader`] and other fields of this enum in the declaration order.
+    /// [`SharedBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
     #[inline]
     pub fn root(&self) -> BlockRoot {
         let Self {
-            generic,
+            shared,
             child_shard_blocks,
             consensus_parameters,
             pre_seal_bytes: _,
         } = self;
-        let GenericBlockHeader {
+        let SharedBlockHeader {
             prefix,
             result,
             consensus_info,
             seal,
-        } = generic;
+        } = shared;
 
         const MAX_N: usize = 6;
         let leaves: [_; MAX_N] = [
@@ -794,8 +794,8 @@ impl<'a> BeaconChainHeader<'a> {
 /// Block header that corresponds to an intermediate shard
 #[derive(Debug, Copy, Clone)]
 pub struct IntermediateShardHeader<'a> {
-    /// Generic block header
-    pub generic: GenericBlockHeader<'a>,
+    /// Shared block header
+    pub shared: SharedBlockHeader<'a>,
     /// Beacon chain info
     pub beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
     /// Information about child shard blocks
@@ -805,11 +805,11 @@ pub struct IntermediateShardHeader<'a> {
 }
 
 impl<'a> Deref for IntermediateShardHeader<'a> {
-    type Target = GenericBlockHeader<'a>;
+    type Target = SharedBlockHeader<'a>;
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
-        &self.generic
+        &self.shared
     }
 }
 
@@ -849,7 +849,7 @@ impl<'a> IntermediateShardHeader<'a> {
 
         let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
-        let generic = GenericBlockHeader {
+        let shared = SharedBlockHeader {
             prefix,
             result,
             consensus_info,
@@ -857,7 +857,7 @@ impl<'a> IntermediateShardHeader<'a> {
         };
 
         let header = Self {
-            generic,
+            shared,
             beacon_chain_info,
             child_shard_blocks,
             pre_seal_bytes,
@@ -876,7 +876,7 @@ impl<'a> IntermediateShardHeader<'a> {
         let public_key_hash = match self.seal {
             BlockHeaderSealRef::Ed25519(seal) => seal.public_key.hash(),
         };
-        public_key_hash == self.generic.consensus_info.solution.public_key_hash
+        public_key_hash == self.shared.consensus_info.solution.public_key_hash
     }
 
     /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
@@ -910,7 +910,7 @@ impl<'a> IntermediateShardHeader<'a> {
 
         let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
-        let generic = GenericBlockHeader {
+        let shared = SharedBlockHeader {
             prefix,
             result,
             consensus_info,
@@ -919,7 +919,7 @@ impl<'a> IntermediateShardHeader<'a> {
 
         Some((
             Self {
-                generic,
+                shared,
                 beacon_chain_info,
                 child_shard_blocks,
                 pre_seal_bytes,
@@ -954,23 +954,23 @@ impl<'a> IntermediateShardHeader<'a> {
     /// Compute block root out of this header.
     ///
     /// Block root is a Merkle Tree Root. The leaves are derived from individual fields in
-    /// [`GenericBlockHeader`] and other fields of this enum in the declaration order.
+    /// [`SharedBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
     #[inline]
     pub fn root(&self) -> BlockRoot {
         let Self {
-            generic,
+            shared,
             beacon_chain_info,
             child_shard_blocks,
             pre_seal_bytes: _,
         } = self;
-        let GenericBlockHeader {
+        let SharedBlockHeader {
             prefix,
             result,
             consensus_info,
             seal,
-        } = generic;
+        } = shared;
 
         const MAX_N: usize = 6;
         let leaves: [_; MAX_N] = [
@@ -991,8 +991,8 @@ impl<'a> IntermediateShardHeader<'a> {
 /// Block header that corresponds to a leaf shard
 #[derive(Debug, Copy, Clone)]
 pub struct LeafShardHeader<'a> {
-    /// Generic block header
-    pub generic: GenericBlockHeader<'a>,
+    /// Shared block header
+    pub shared: SharedBlockHeader<'a>,
     /// Beacon chain info
     pub beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
     /// All bytes of the header except the seal
@@ -1000,11 +1000,11 @@ pub struct LeafShardHeader<'a> {
 }
 
 impl<'a> Deref for LeafShardHeader<'a> {
-    type Target = GenericBlockHeader<'a>;
+    type Target = SharedBlockHeader<'a>;
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
-        &self.generic
+        &self.shared
     }
 }
 
@@ -1040,7 +1040,7 @@ impl<'a> LeafShardHeader<'a> {
 
         let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
-        let generic = GenericBlockHeader {
+        let shared = SharedBlockHeader {
             prefix,
             result,
             consensus_info,
@@ -1048,7 +1048,7 @@ impl<'a> LeafShardHeader<'a> {
         };
 
         let header = Self {
-            generic,
+            shared,
             beacon_chain_info,
             pre_seal_bytes,
         };
@@ -1066,7 +1066,7 @@ impl<'a> LeafShardHeader<'a> {
         let public_key_hash = match self.seal {
             BlockHeaderSealRef::Ed25519(seal) => seal.public_key.hash(),
         };
-        public_key_hash == self.generic.consensus_info.solution.public_key_hash
+        public_key_hash == self.shared.consensus_info.solution.public_key_hash
     }
 
     /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
@@ -1096,7 +1096,7 @@ impl<'a> LeafShardHeader<'a> {
 
         let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
 
-        let generic = GenericBlockHeader {
+        let shared = SharedBlockHeader {
             prefix,
             result,
             consensus_info,
@@ -1105,7 +1105,7 @@ impl<'a> LeafShardHeader<'a> {
 
         Some((
             Self {
-                generic,
+                shared,
                 beacon_chain_info,
                 pre_seal_bytes,
             },
@@ -1137,22 +1137,22 @@ impl<'a> LeafShardHeader<'a> {
     /// Compute block root out of this header.
     ///
     /// Block root is a Merkle Tree Root. The leaves are derived from individual fields in
-    /// [`GenericBlockHeader`] and other fields of this enum in the declaration order.
+    /// [`SharedBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
     #[inline]
     pub fn root(&self) -> BlockRoot {
         let Self {
-            generic,
+            shared,
             beacon_chain_info,
             pre_seal_bytes: _,
         } = self;
-        let GenericBlockHeader {
+        let SharedBlockHeader {
             prefix,
             result,
             consensus_info,
             seal,
-        } = generic;
+        } = shared;
 
         const MAX_N: usize = 5;
         let leaves: [_; MAX_N] = [
@@ -1184,7 +1184,7 @@ pub enum BlockHeader<'a> {
 }
 
 impl<'a> Deref for BlockHeader<'a> {
-    type Target = GenericBlockHeader<'a>;
+    type Target = SharedBlockHeader<'a>;
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
@@ -1324,7 +1324,7 @@ impl<'a> BlockHeader<'a> {
     /// Compute block root out of this header.
     ///
     /// Block root is a Merkle Tree Root. The leaves are derived from individual fields in
-    /// [`GenericBlockHeader`] and other fields of this enum in the declaration order.
+    /// [`SharedBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
     #[inline]
