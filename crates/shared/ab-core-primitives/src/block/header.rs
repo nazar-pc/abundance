@@ -136,7 +136,7 @@ pub struct BlockHeaderFixedConsensusParameters {
     ///
     /// Corresponds to the slot that is right after the parent block's slot.
     /// It can change before the slot of this block (see [`PotParametersChange`]).
-    pub pot_slot_iterations: NonZeroU32,
+    pub slot_iterations: NonZeroU32,
 }
 
 impl BlockHeaderFixedConsensusParameters {
@@ -164,18 +164,18 @@ impl BlockHeaderFixedConsensusParameters {
         ]);
 
         let pot_slot_iterations = bytes.split_off(..size_of::<u32>())?;
-        let pot_slot_iterations = u32::from_le_bytes([
+        let slot_iterations = u32::from_le_bytes([
             pot_slot_iterations[0],
             pot_slot_iterations[1],
             pot_slot_iterations[2],
             pot_slot_iterations[3],
         ]);
-        let pot_slot_iterations = NonZeroU32::new(pot_slot_iterations)?;
+        let slot_iterations = NonZeroU32::new(slot_iterations)?;
 
         Some((
             Self {
                 solution_range,
-                pot_slot_iterations,
+                slot_iterations,
             },
             bytes,
         ))
@@ -350,13 +350,13 @@ impl<'a> BlockHeaderBeaconChainParameters<'a> {
         } = self;
         let BlockHeaderFixedConsensusParameters {
             solution_range,
-            pot_slot_iterations,
+            slot_iterations,
         } = fixed_parameters;
 
         // TODO: Keyed hash
         let mut hasher = blake3::Hasher::new();
         hasher.update(solution_range.as_bytes());
-        hasher.update(&pot_slot_iterations.get().to_le_bytes());
+        hasher.update(&slot_iterations.get().to_le_bytes());
 
         if let Some(super_segment_root) = super_segment_root {
             hasher.update(super_segment_root.as_bytes());

@@ -135,7 +135,7 @@ impl OwnedBeaconChainHeader {
             let true = buffer.append(
                 &consensus_parameters
                     .fixed_parameters
-                    .pot_slot_iterations
+                    .slot_iterations
                     .get()
                     .to_le_bytes(),
             ) else {
