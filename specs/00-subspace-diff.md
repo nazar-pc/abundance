@@ -21,6 +21,11 @@ Votes are removed, increasing reward frequency can instead be achieved with incr
 
 KZG is no longer used and was replaced with Merkle Tree.
 
+## Consensus
+
+Root plot public key hash concept for chain bootstrapping was removed. It should not be necessary with more frequent
+solution range adjustment and better sync implementation.
+
 # Features changed
 
 ## Solution
@@ -73,6 +78,10 @@ all source pieces/chunks go first, followed by all parity pieces/chunks.
 Global challenge in Subspace was derived by hashing global randomness and slot, but global randomness itself was just a
 hash of PoT output. This was changed to instead hash PoT with slot directly, saving one hash and otherwise unnecessary
 randomness abstraction.
+
+## Solution range adjustment
+
+Solution range adjustment is more frequent, 300 blocks instead of 2016 (as in Bitcoin).
 
 ## Terminology
 

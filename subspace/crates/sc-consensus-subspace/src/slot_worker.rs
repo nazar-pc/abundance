@@ -414,9 +414,10 @@ where
                     continue;
                 }
             };
-            let sector_expiration_check_segment_root = runtime_api
-                .segment_root(parent_hash, sector_expiration_check_segment_index)
-                .ok()?;
+            let sector_expiration_check_segment_root = self
+                .segment_headers_store
+                .get_segment_header(sector_expiration_check_segment_index)
+                .map(|segment_header| segment_header.segment_root);
 
             let solution_verification_result = solution.verify::<PosTable>(
                 slot,

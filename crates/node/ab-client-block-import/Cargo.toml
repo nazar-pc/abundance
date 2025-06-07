@@ -1,6 +1,6 @@
 [package]
-name = "ab-client-api"
-description = "Client API"
+name = "ab-client-block-import"
+description = "Block building implementation"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
@@ -14,8 +14,11 @@ include = [
 all-features = true
 
 [dependencies]
-ab-core-primitives = { workspace = true, features = ["alloc"] }
+ab-core-primitives = { workspace = true, features = ["scale-codec"] }
+parity-scale-codec = { workspace = true }
+parking_lot = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 
 [lints]
 workspace = true
