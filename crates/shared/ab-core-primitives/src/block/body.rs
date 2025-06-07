@@ -6,9 +6,9 @@ pub mod owned;
 use crate::block::align_to_and_ensure_zero_padding;
 #[cfg(feature = "alloc")]
 use crate::block::body::owned::{
-    OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedBlockBody, OwnedBlockBodyError,
-    OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBody,
-    OwnedLeafShardBodyError,
+    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedBlockBody,
+    OwnedBlockBodyError, OwnedIntermediateShardBody, OwnedIntermediateShardBodyError,
+    OwnedLeafShardBody, OwnedLeafShardBodyError,
 };
 use crate::block::header::{IntermediateShardHeader, LeafShardHeader};
 use crate::hashes::Blake3Hash;
@@ -20,8 +20,27 @@ use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use ab_merkle_tree::unbalanced_hashed::UnbalancedHashedMerkleTree;
 use core::iter::TrustedLen;
-use core::slice;
+use core::{fmt, slice};
 use derive_more::From;
+
+/// Generic block body
+pub trait GenericBlockBody<'a>
+where
+    Self: Copy + fmt::Debug,
+{
+    /// Owned block body
+    #[cfg(feature = "alloc")]
+    type Owned: GenericOwnedBlockBody<Body<'a> = Self>
+    where
+        Self: 'a;
+
+    /// Turn into owned version
+    #[cfg(feature = "alloc")]
+    fn try_to_owned(self) -> Option<Self::Owned>;
+
+    /// Compute block body root
+    fn root(&self) -> Blake3Hash;
+}
 
 /// Calculates a Merkle Tree root for a provided list of segment roots
 #[inline]
@@ -300,6 +319,22 @@ pub struct BeaconChainBody<'a> {
     pub pot_checkpoints: &'a [PotCheckpoints],
 }
 
+impl<'a> GenericBlockBody<'a> for BeaconChainBody<'a> {
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedBeaconChainBody;
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        self.to_owned().ok()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> Blake3Hash {
+        self.root()
+    }
+}
+
 impl<'a> BeaconChainBody<'a> {
     /// Create an instance from provided correctly aligned bytes.
     ///
@@ -447,8 +482,8 @@ impl<'a> BeaconChainBody<'a> {
     }
 
     /// Create an owned version of this body
-    #[inline(always)]
     #[cfg(feature = "alloc")]
+    #[inline(always)]
     pub fn to_owned(self) -> Result<OwnedBeaconChainBody, OwnedBeaconChainBodyError> {
         OwnedBeaconChainBody::from_body(self)
     }
@@ -750,6 +785,22 @@ pub struct IntermediateShardBody<'a> {
     pub transactions: Transactions<'a>,
 }
 
+impl<'a> GenericBlockBody<'a> for IntermediateShardBody<'a> {
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedIntermediateShardBody;
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        self.to_owned().ok()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> Blake3Hash {
+        self.root()
+    }
+}
+
 impl<'a> IntermediateShardBody<'a> {
     /// Create an instance from provided bytes.
     ///
@@ -860,8 +911,8 @@ impl<'a> IntermediateShardBody<'a> {
     }
 
     /// Create an owned version of this body
-    #[inline(always)]
     #[cfg(feature = "alloc")]
+    #[inline(always)]
     pub fn to_owned(self) -> Result<OwnedIntermediateShardBody, OwnedIntermediateShardBodyError> {
         OwnedIntermediateShardBody::from_body(self)
     }
@@ -887,6 +938,22 @@ pub struct LeafShardBody<'a> {
     pub own_segment_roots: &'a [SegmentRoot],
     /// User transactions
     pub transactions: Transactions<'a>,
+}
+
+impl<'a> GenericBlockBody<'a> for LeafShardBody<'a> {
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedLeafShardBody;
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        self.to_owned().ok()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> Blake3Hash {
+        self.root()
+    }
 }
 
 impl<'a> LeafShardBody<'a> {
@@ -976,8 +1043,8 @@ impl<'a> LeafShardBody<'a> {
     }
 
     /// Create an owned version of this body
-    #[inline(always)]
     #[cfg(feature = "alloc")]
+    #[inline(always)]
     pub fn to_owned(self) -> Result<OwnedLeafShardBody, OwnedLeafShardBodyError> {
         OwnedLeafShardBody::from_body(self)
     }
@@ -1006,6 +1073,22 @@ pub enum BlockBody<'a> {
     IntermediateShard(IntermediateShardBody<'a>),
     /// Block body corresponds to a leaf shard
     LeafShard(LeafShardBody<'a>),
+}
+
+impl<'a> GenericBlockBody<'a> for BlockBody<'a> {
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedBlockBody;
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        self.to_owned().ok()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> Blake3Hash {
+        self.root()
+    }
 }
 
 impl<'a> BlockBody<'a> {
@@ -1075,8 +1158,8 @@ impl<'a> BlockBody<'a> {
     }
 
     /// Create an owned version of this body
-    #[inline(always)]
     #[cfg(feature = "alloc")]
+    #[inline(always)]
     pub fn to_owned(self) -> Result<OwnedBlockBody, OwnedBlockBodyError> {
         OwnedBlockBody::from_body(self)
     }

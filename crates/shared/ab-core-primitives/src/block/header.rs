@@ -5,8 +5,9 @@ pub mod owned;
 
 #[cfg(feature = "alloc")]
 use crate::block::header::owned::{
-    OwnedBeaconChainHeader, OwnedBeaconChainHeaderError, OwnedBlockHeader, OwnedBlockHeaderError,
-    OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
+    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError, OwnedBlockHeader,
+    OwnedBlockHeaderError, OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError,
+    OwnedLeafShardHeader,
 };
 use crate::block::{BlockNumber, BlockRoot};
 use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
@@ -19,7 +20,7 @@ use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::unbalanced_hashed::UnbalancedHashedMerkleTree;
 use core::num::NonZeroU32;
 use core::ops::Deref;
-use core::slice;
+use core::{fmt, slice};
 use derive_more::{Deref, From};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -27,6 +28,30 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+
+/// Generic block header
+pub trait GenericBlockHeader<'a>
+where
+    Self: Copy + fmt::Debug + Deref<Target = SharedBlockHeader<'a>>,
+{
+    /// Owned block header
+    #[cfg(feature = "alloc")]
+    type Owned: GenericOwnedBlockHeader<Header<'a> = Self>
+    where
+        Self: 'a;
+
+    /// Turn into owned version
+    #[cfg(feature = "alloc")]
+    fn try_to_owned(self) -> Option<Self::Owned>;
+
+    /// Compute block root out of this header.
+    ///
+    /// Block root is a Merkle Tree Root. The leaves are derived from individual fields in
+    /// [`SharedBlockHeader`] and other fields of this enum in the declaration order.
+    ///
+    /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
+    fn root(&self) -> BlockRoot;
+}
 
 /// Block header prefix.
 ///
@@ -622,6 +647,22 @@ impl<'a> Deref for BeaconChainHeader<'a> {
     }
 }
 
+impl<'a> GenericBlockHeader<'a> for BeaconChainHeader<'a> {
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedBeaconChainHeader;
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        self.to_owned().ok()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> BlockRoot {
+        self.root()
+    }
+}
+
 impl<'a> BeaconChainHeader<'a> {
     /// Try to create a new instance from provided bytes.
     ///
@@ -734,8 +775,8 @@ impl<'a> BeaconChainHeader<'a> {
     }
 
     /// Create an owned version of this header
-    #[inline(always)]
     #[cfg(feature = "alloc")]
+    #[inline(always)]
     pub fn to_owned(self) -> Result<OwnedBeaconChainHeader, OwnedBeaconChainHeaderError> {
         OwnedBeaconChainHeader::from_header(self)
     }
@@ -748,8 +789,8 @@ impl<'a> BeaconChainHeader<'a> {
     }
 
     /// Verify seal against [`BeaconChainHeader::pre_seal_hash()`]
-    #[inline]
     #[cfg(feature = "ed25519-verify")]
+    #[inline(always)]
     pub fn is_seal_valid(&self) -> bool {
         self.seal.is_seal_valid(&self.pre_seal_hash())
     }
@@ -810,6 +851,22 @@ impl<'a> Deref for IntermediateShardHeader<'a> {
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
         &self.shared
+    }
+}
+
+impl<'a> GenericBlockHeader<'a> for IntermediateShardHeader<'a> {
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedIntermediateShardHeader;
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        self.to_owned().ok()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> BlockRoot {
+        self.root()
     }
 }
 
@@ -929,8 +986,8 @@ impl<'a> IntermediateShardHeader<'a> {
     }
 
     /// Create an owned version of this header
-    #[inline(always)]
     #[cfg(feature = "alloc")]
+    #[inline(always)]
     pub fn to_owned(
         self,
     ) -> Result<OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError> {
@@ -945,8 +1002,8 @@ impl<'a> IntermediateShardHeader<'a> {
     }
 
     /// Verify seal against [`IntermediateShardHeader::pre_seal_hash()`]
-    #[inline]
     #[cfg(feature = "ed25519-verify")]
+    #[inline(always)]
     pub fn is_seal_valid(&self) -> bool {
         self.seal.is_seal_valid(&self.pre_seal_hash())
     }
@@ -1005,6 +1062,22 @@ impl<'a> Deref for LeafShardHeader<'a> {
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
         &self.shared
+    }
+}
+
+impl<'a> GenericBlockHeader<'a> for LeafShardHeader<'a> {
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedLeafShardHeader;
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        Some(self.to_owned())
+    }
+
+    #[inline(always)]
+    fn root(&self) -> BlockRoot {
+        self.root()
     }
 }
 
@@ -1114,8 +1187,8 @@ impl<'a> LeafShardHeader<'a> {
     }
 
     /// Create an owned version of this header
-    #[inline(always)]
     #[cfg(feature = "alloc")]
+    #[inline(always)]
     pub fn to_owned(self) -> OwnedLeafShardHeader {
         OwnedLeafShardHeader::from_header(self)
     }
@@ -1128,8 +1201,8 @@ impl<'a> LeafShardHeader<'a> {
     }
 
     /// Verify seal against [`LeafShardHeader::pre_seal_hash()`]
-    #[inline]
     #[cfg(feature = "ed25519-verify")]
+    #[inline(always)]
     pub fn is_seal_valid(&self) -> bool {
         self.seal.is_seal_valid(&self.pre_seal_hash())
     }
@@ -1193,6 +1266,22 @@ impl<'a> Deref for BlockHeader<'a> {
             Self::IntermediateShard(header) => header,
             Self::LeafShard(header) => header,
         }
+    }
+}
+
+impl<'a> GenericBlockHeader<'a> for BlockHeader<'a> {
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedBlockHeader;
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        self.to_owned().ok()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> BlockRoot {
+        self.root()
     }
 }
 
@@ -1298,8 +1387,8 @@ impl<'a> BlockHeader<'a> {
     }
 
     /// Create an owned version of this header
-    #[inline(always)]
     #[cfg(feature = "alloc")]
+    #[inline(always)]
     pub fn to_owned(self) -> Result<OwnedBlockHeader, OwnedBlockHeaderError> {
         OwnedBlockHeader::from_header(self)
     }
@@ -1315,8 +1404,8 @@ impl<'a> BlockHeader<'a> {
     }
 
     /// Verify seal against [`BlockHeader::pre_seal_hash()`]
-    #[inline]
     #[cfg(feature = "ed25519-verify")]
+    #[inline(always)]
     pub fn is_seal_valid(&self) -> bool {
         self.seal.is_seal_valid(&self.pre_seal_hash())
     }

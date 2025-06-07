@@ -5,9 +5,17 @@ pub mod header;
 #[cfg(feature = "alloc")]
 pub mod owned;
 
-use crate::block::body::{BeaconChainBody, BlockBody, IntermediateShardBody, LeafShardBody};
+use crate::block::body::{
+    BeaconChainBody, BlockBody, GenericBlockBody, IntermediateShardBody, LeafShardBody,
+};
 use crate::block::header::{
-    BeaconChainHeader, BlockHeader, IntermediateShardHeader, LeafShardHeader,
+    BeaconChainHeader, BlockHeader, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
+};
+#[cfg(feature = "alloc")]
+use crate::block::owned::{
+    GenericOwnedBlock, OwnedBeaconChainBlock, OwnedBeaconChainBlockError, OwnedBlock,
+    OwnedBlockError, OwnedIntermediateShardBlock, OwnedIntermediateShardBlockError,
+    OwnedLeafShardBlock, OwnedLeafShardBlockError,
 };
 use crate::hashes::Blake3Hash;
 use crate::shard::ShardKind;
@@ -16,7 +24,7 @@ use crate::solutions::SolutionRange;
 use ::serde::{Deserialize, Serialize};
 use ab_io_type::trivial_type::TrivialType;
 use core::iter::Step;
-use core::mem;
+use core::{fmt, mem};
 use derive_more::{
     Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, From, Into, Sub, SubAssign,
 };
@@ -195,13 +203,30 @@ impl BlockRoot {
     }
 }
 
-/// Generic block header
-pub trait GenericBlock {
+/// Generic block
+pub trait GenericBlock<'a>
+where
+    Self: Copy + fmt::Debug,
+{
+    /// Block header type
+    type Header: GenericBlockHeader<'a>;
+    /// Block body type
+    type Body: GenericBlockBody<'a>;
+    /// Owned block
+    #[cfg(feature = "alloc")]
+    type Owned: GenericOwnedBlock<Block<'a> = Self>
+    where
+        Self: 'a;
+
     /// Get block header
-    fn header(&self) -> BlockHeader<'_>;
+    fn header(&self) -> Self::Header;
 
     /// Get block body
-    fn body(&self) -> BlockBody<'_>;
+    fn body(&self) -> Self::Body;
+
+    /// Turn into owned version
+    #[cfg(feature = "alloc")]
+    fn try_to_owned(self) -> Option<Self::Owned>;
 }
 
 /// Block that corresponds to the beacon chain
@@ -272,17 +297,35 @@ impl<'a> BeaconChainBlock<'a> {
 
         Some((Self { header, body }, remainder))
     }
+
+    /// Create an owned version of this block
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    pub fn to_owned(self) -> Result<OwnedBeaconChainBlock, OwnedBeaconChainBlockError> {
+        OwnedBeaconChainBlock::from_block(self)
+    }
 }
 
-impl<'a> GenericBlock for BeaconChainBlock<'a> {
+impl<'a> GenericBlock<'a> for BeaconChainBlock<'a> {
+    type Header = BeaconChainHeader<'a>;
+    type Body = BeaconChainBody<'a>;
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedBeaconChainBlock;
+
     #[inline(always)]
-    fn header(&self) -> BlockHeader<'_> {
-        BlockHeader::BeaconChain(self.header)
+    fn header(&self) -> Self::Header {
+        self.header
     }
 
     #[inline(always)]
-    fn body(&self) -> BlockBody<'_> {
-        BlockBody::BeaconChain(self.body)
+    fn body(&self) -> Self::Body {
+        self.body
+    }
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        self.to_owned().ok()
     }
 }
 
@@ -354,17 +397,35 @@ impl<'a> IntermediateShardBlock<'a> {
 
         Some((Self { header, body }, remainder))
     }
+
+    /// Create an owned version of this block
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    pub fn to_owned(self) -> Result<OwnedIntermediateShardBlock, OwnedIntermediateShardBlockError> {
+        OwnedIntermediateShardBlock::from_block(self)
+    }
 }
 
-impl<'a> GenericBlock for IntermediateShardBlock<'a> {
+impl<'a> GenericBlock<'a> for IntermediateShardBlock<'a> {
+    type Header = IntermediateShardHeader<'a>;
+    type Body = IntermediateShardBody<'a>;
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedIntermediateShardBlock;
+
     #[inline(always)]
-    fn header(&self) -> BlockHeader<'_> {
-        BlockHeader::IntermediateShard(self.header)
+    fn header(&self) -> Self::Header {
+        self.header
     }
 
     #[inline(always)]
-    fn body(&self) -> BlockBody<'_> {
-        BlockBody::IntermediateShard(self.body)
+    fn body(&self) -> Self::Body {
+        self.body
+    }
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        self.to_owned().ok()
     }
 }
 
@@ -422,17 +483,35 @@ impl<'a> LeafShardBlock<'a> {
 
         Some((Self { header, body }, remainder))
     }
+
+    /// Create an owned version of this block
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    pub fn to_owned(self) -> Result<OwnedLeafShardBlock, OwnedLeafShardBlockError> {
+        OwnedLeafShardBlock::from_block(self)
+    }
 }
 
-impl<'a> GenericBlock for LeafShardBlock<'a> {
+impl<'a> GenericBlock<'a> for LeafShardBlock<'a> {
+    type Header = LeafShardHeader<'a>;
+    type Body = LeafShardBody<'a>;
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedLeafShardBlock;
+
     #[inline(always)]
-    fn header(&self) -> BlockHeader<'_> {
-        BlockHeader::LeafShard(self.header)
+    fn header(&self) -> Self::Header {
+        self.header
     }
 
     #[inline(always)]
-    fn body(&self) -> BlockBody<'_> {
-        BlockBody::LeafShard(self.body)
+    fn body(&self) -> Self::Body {
+        self.body
+    }
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        self.to_owned().ok()
     }
 }
 
@@ -445,6 +524,37 @@ pub enum Block<'a> {
     IntermediateShard(IntermediateShardBlock<'a>),
     /// Block corresponds to a leaf shard
     LeafShard(LeafShardBlock<'a>),
+}
+
+impl<'a> GenericBlock<'a> for Block<'a> {
+    type Header = BlockHeader<'a>;
+    type Body = BlockBody<'a>;
+    #[cfg(feature = "alloc")]
+    type Owned = OwnedBlock;
+
+    #[inline(always)]
+    fn header(&self) -> Self::Header {
+        match self {
+            Self::BeaconChain(block) => BlockHeader::BeaconChain(block.header()),
+            Self::IntermediateShard(block) => BlockHeader::IntermediateShard(block.header()),
+            Self::LeafShard(block) => BlockHeader::LeafShard(block.header()),
+        }
+    }
+
+    #[inline(always)]
+    fn body(&self) -> Self::Body {
+        match self {
+            Self::BeaconChain(block) => BlockBody::BeaconChain(block.body()),
+            Self::IntermediateShard(block) => BlockBody::IntermediateShard(block.body()),
+            Self::LeafShard(block) => BlockBody::LeafShard(block.body()),
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn try_to_owned(self) -> Option<Self::Owned> {
+        self.to_owned().ok()
+    }
 }
 
 impl<'a> Block<'a> {
@@ -519,25 +629,12 @@ impl<'a> Block<'a> {
             }
         }
     }
-}
 
-impl<'a> GenericBlock for Block<'a> {
+    /// Create an owned version of this block
+    #[cfg(feature = "alloc")]
     #[inline(always)]
-    fn header(&self) -> BlockHeader<'_> {
-        match self {
-            Self::BeaconChain(block) => block.header(),
-            Self::IntermediateShard(block) => block.header(),
-            Self::LeafShard(block) => block.header(),
-        }
-    }
-
-    #[inline(always)]
-    fn body(&self) -> BlockBody<'_> {
-        match self {
-            Self::BeaconChain(block) => block.body(),
-            Self::IntermediateShard(block) => block.body(),
-            Self::LeafShard(block) => block.body(),
-        }
+    pub fn to_owned(self) -> Result<OwnedBlock, OwnedBlockError> {
+        OwnedBlock::from_block(self)
     }
 }
 

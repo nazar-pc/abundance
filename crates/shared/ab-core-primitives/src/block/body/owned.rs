@@ -1,8 +1,8 @@
 //! Data structures related to the owned version of [`BlockBody`]
 
 use crate::block::body::{
-    BeaconChainBody, BlockBody, IntermediateShardBlockInfo, IntermediateShardBody,
-    LeafShardBlockInfo, LeafShardBody,
+    BeaconChainBody, BlockBody, GenericBlockBody, IntermediateShardBlockInfo,
+    IntermediateShardBody, LeafShardBlockInfo, LeafShardBody,
 };
 use crate::block::header::owned::{
     OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
@@ -16,6 +16,17 @@ use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use core::iter::TrustedLen;
 use derive_more::From;
+
+/// Generic owned block body
+pub trait GenericOwnedBlockBody {
+    /// Block body
+    type Body<'a>: GenericBlockBody<'a>
+    where
+        Self: 'a;
+
+    /// Get regular block body out of the owned version
+    fn body(&self) -> Self::Body<'_>;
+}
 
 /// Transaction addition error
 #[derive(Debug, thiserror::Error)]
@@ -206,6 +217,15 @@ pub enum OwnedBeaconChainBodyError {
 #[derive(Debug, Clone)]
 pub struct OwnedBeaconChainBody {
     buffer: SharedAlignedBuffer,
+}
+
+impl GenericOwnedBlockBody for OwnedBeaconChainBody {
+    type Body<'a> = BeaconChainBody<'a>;
+
+    #[inline(always)]
+    fn body(&self) -> Self::Body<'_> {
+        self.body()
+    }
 }
 
 impl OwnedBeaconChainBody {
@@ -437,6 +457,15 @@ pub struct OwnedIntermediateShardBody {
     buffer: SharedAlignedBuffer,
 }
 
+impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
+    type Body<'a> = IntermediateShardBody<'a>;
+
+    #[inline(always)]
+    fn body(&self) -> Self::Body<'_> {
+        self.body()
+    }
+}
+
 impl OwnedIntermediateShardBody {
     /// Initialize building of [`OwnedIntermediateShardBody`]
     pub fn init<'a, LSB>(
@@ -651,6 +680,15 @@ pub struct OwnedLeafShardBody {
     buffer: SharedAlignedBuffer,
 }
 
+impl GenericOwnedBlockBody for OwnedLeafShardBody {
+    type Body<'a> = LeafShardBody<'a>;
+
+    #[inline(always)]
+    fn body(&self) -> Self::Body<'_> {
+        self.body()
+    }
+}
+
 impl OwnedLeafShardBody {
     /// Initialize building of [`OwnedLeafShardBody`]
     pub fn init(
@@ -773,6 +811,15 @@ pub enum OwnedBlockBody {
     IntermediateShard(OwnedIntermediateShardBody),
     /// Block body corresponds to a leaf shard
     LeafShard(OwnedLeafShardBody),
+}
+
+impl GenericOwnedBlockBody for OwnedBlockBody {
+    type Body<'a> = BlockBody<'a>;
+
+    #[inline(always)]
+    fn body(&self) -> Self::Body<'_> {
+        self.body()
+    }
 }
 
 impl OwnedBlockBody {
