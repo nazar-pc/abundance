@@ -1,7 +1,7 @@
 //! Client API
 
-/// Global chain info
-pub trait ChainInfo: Clone + Send + Sync + 'static {
+/// Chain sync status
+pub trait ChainSyncStatus: Clone + Send + Sync + 'static {
     /// Returns `true` if the chain is currently syncing
     fn is_syncing(&self) -> bool;
 

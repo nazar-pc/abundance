@@ -3,7 +3,7 @@
 #![feature(try_blocks)]
 
 use ab_archiving::archiver::NewArchivedSegment;
-use ab_client_api::ChainInfo;
+use ab_client_api::ChainSyncStatus;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
@@ -169,7 +169,7 @@ impl CachedArchivedSegment {
 }
 
 /// Subspace RPC configuration
-pub struct SubspaceRpcConfig<Client, CI, AS>
+pub struct SubspaceRpcConfig<Client, CSS, AS>
 where
     AS: AuxStore + Send + Sync + 'static,
 {
@@ -188,17 +188,17 @@ where
     pub dsn_bootstrap_nodes: Vec<Multiaddr>,
     /// Segment headers store
     pub segment_headers_store: SegmentHeadersStore<AS>,
-    /// Global chain info
-    pub chain_info: CI,
+    /// Chain sync status
+    pub chain_sync_status: CSS,
     /// Erasure coding instance
     pub erasure_coding: ErasureCoding,
 }
 
 /// Implements the [`SubspaceRpcApiServer`] trait for interacting with Subspace.
-pub struct SubspaceRpc<Block, Client, CI, AS>
+pub struct SubspaceRpc<Block, Client, CSS, AS>
 where
     Block: BlockT,
-    CI: ChainInfo,
+    CSS: ChainSyncStatus,
 {
     client: Arc<Client>,
     subscription_executor: SubscriptionTaskExecutor,
@@ -213,7 +213,7 @@ where
     archived_segment_acknowledgement_senders:
         Arc<Mutex<ArchivedSegmentHeaderAcknowledgementSenders>>,
     next_subscription_id: AtomicU64,
-    chain_info: CI,
+    chain_sync_status: CSS,
     genesis_root: BlockRoot,
     chain_constants: ChainConstants,
     max_pieces_in_sector: u16,
@@ -228,16 +228,16 @@ where
 /// every subscriber, after which RPC server waits for the same number of
 /// `subspace_submitSolutionResponse` requests with `SolutionResponse` in them or until
 /// timeout is exceeded. The first valid solution for a particular slot wins, others are ignored.
-impl<Block, Client, CI, AS> SubspaceRpc<Block, Client, CI, AS>
+impl<Block, Client, CSS, AS> SubspaceRpc<Block, Client, CSS, AS>
 where
     Block: BlockT,
     Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
     Client::Api: SubspaceApi<Block>,
-    CI: ChainInfo,
+    CSS: ChainSyncStatus,
     AS: AuxStore + Send + Sync + 'static,
 {
     /// Creates a new instance of the `SubspaceRpc` handler.
-    pub fn new(config: SubspaceRpcConfig<Client, CI, AS>) -> Result<Self, ApiError> {
+    pub fn new(config: SubspaceRpcConfig<Client, CSS, AS>) -> Result<Self, ApiError> {
         let info = config.client.info();
         let best_hash = info.best_hash;
         let genesis_hash = BlockRoot::new(
@@ -273,7 +273,7 @@ where
             cached_archived_segment: Arc::default(),
             archived_segment_acknowledgement_senders: Arc::default(),
             next_subscription_id: AtomicU64::default(),
-            chain_info: config.chain_info,
+            chain_sync_status: config.chain_sync_status,
             genesis_root: genesis_hash,
             chain_constants,
             max_pieces_in_sector,
@@ -284,11 +284,11 @@ where
 }
 
 #[async_trait]
-impl<Block, Client, CI, AS> SubspaceRpcApiServer for SubspaceRpc<Block, Client, CI, AS>
+impl<Block, Client, CSS, AS> SubspaceRpcApiServer for SubspaceRpc<Block, Client, CSS, AS>
 where
     Block: BlockT,
     Client: HeaderBackend<Block> + BlockBackend<Block> + Send + Sync + 'static,
-    CI: ChainInfo,
+    CSS: ChainSyncStatus,
     AS: AuxStore + Send + Sync + 'static,
 {
     fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
@@ -310,7 +310,7 @@ where
             FarmerAppInfo {
                 genesis_root: self.genesis_root,
                 dsn_bootstrap_nodes: self.dsn_bootstrap_nodes.clone(),
-                syncing: self.chain_info.is_syncing(),
+                syncing: self.chain_sync_status.is_syncing(),
                 farming_timeout: chain_constants
                     .slot_duration()
                     .as_duration()

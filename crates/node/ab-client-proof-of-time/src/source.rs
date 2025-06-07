@@ -8,7 +8,7 @@ use crate::source::block_import::BestBlockPotInfo;
 use crate::source::gossip::{GossipProof, ToGossipMessage};
 use crate::source::state::{PotState, PotStateSetOutcome};
 use crate::source::timekeeper::TimekeeperProof;
-use ab_client_api::ChainInfo;
+use ab_client_api::ChainSyncStatus;
 use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
 use derive_more::{Deref, DerefMut};
 use futures::channel::mpsc;
@@ -46,8 +46,8 @@ impl Clone for PotSlotInfoStream {
 /// up to day with blockchain reorgs.
 #[derive(Debug)]
 #[must_use = "Proof of time source doesn't do anything unless run() method is called"]
-pub struct PotSourceWorker<CS> {
-    chain_info: CS,
+pub struct PotSourceWorker<CSS> {
+    chain_sync_status: CSS,
     timekeeper_proof_receiver: Option<mpsc::Receiver<TimekeeperProof>>,
     to_gossip_sender: mpsc::Sender<ToGossipMessage>,
     from_gossip_receiver: mpsc::Receiver<GossipProof>,
@@ -57,22 +57,22 @@ pub struct PotSourceWorker<CS> {
     pot_state: Arc<PotState>,
 }
 
-impl<CI> PotSourceWorker<CI>
+impl<CSS> PotSourceWorker<CSS>
 where
-    CI: ChainInfo,
+    CSS: ChainSyncStatus,
 {
     pub fn new(
         timekeeper_proof_receiver: Option<mpsc::Receiver<TimekeeperProof>>,
         to_gossip_sender: mpsc::Sender<ToGossipMessage>,
         from_gossip_receiver: mpsc::Receiver<GossipProof>,
         best_block_pot_info_receiver: mpsc::Receiver<BestBlockPotInfo>,
-        chain_info: CI,
+        chain_sync_status: CSS,
         pot_state: Arc<PotState>,
     ) -> (Self, PotSlotInfoStream) {
         let (slot_sender, slot_receiver) = broadcast::channel(SLOTS_CHANNEL_CAPACITY);
 
         let source_worker = Self {
-            chain_info,
+            chain_sync_status,
             timekeeper_proof_receiver,
             to_gossip_sender,
             from_gossip_receiver,
@@ -135,7 +135,7 @@ where
             checkpoints,
         } = proof;
 
-        if self.chain_info.is_syncing() {
+        if self.chain_sync_status.is_syncing() {
             trace!(
                 ?slot,
                 %seed,

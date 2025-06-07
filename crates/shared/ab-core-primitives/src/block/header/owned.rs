@@ -4,13 +4,24 @@ use crate::block::BlockRoot;
 use crate::block::header::{
     BeaconChainHeader, BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderBeaconChainParameters,
     BlockHeaderConsensusInfo, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSealRef,
-    BlockHeaderSealType, IntermediateShardHeader, LeafShardHeader,
+    BlockHeaderSealType, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
 };
 use crate::hashes::Blake3Hash;
 use crate::shard::ShardKind;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use derive_more::From;
+
+/// Generic owned block header
+pub trait GenericOwnedBlockHeader {
+    /// Block header
+    type Header<'a>: GenericBlockHeader<'a>
+    where
+        Self: 'a;
+
+    /// Get regular block header out of the owned version
+    fn header(&self) -> Self::Header<'_>;
+}
 
 fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSealRef<'_>) {
     match seal {
@@ -43,6 +54,18 @@ pub enum OwnedBeaconChainHeaderError {
 #[derive(Debug, Clone)]
 pub struct OwnedBeaconChainHeader {
     buffer: SharedAlignedBuffer,
+    // TODO: Would be nice to also have a regular header reference stored here (self-referential,
+    //  but points to heap-allocated data and should be fine to implement, then generic types can
+    //  implement `Deref<Target = Header>`). The same for block body and block itself
+}
+
+impl GenericOwnedBlockHeader for OwnedBeaconChainHeader {
+    type Header<'a> = BeaconChainHeader<'a>;
+
+    #[inline(always)]
+    fn header(&self) -> Self::Header<'_> {
+        self.header()
+    }
 }
 
 impl OwnedBeaconChainHeader {
@@ -135,7 +158,7 @@ impl OwnedBeaconChainHeader {
             let true = buffer.append(
                 &consensus_parameters
                     .fixed_parameters
-                    .pot_slot_iterations
+                    .slot_iterations
                     .get()
                     .to_le_bytes(),
             ) else {
@@ -196,14 +219,14 @@ impl OwnedBeaconChainHeader {
     #[inline]
     pub fn from_header(header: BeaconChainHeader<'_>) -> Result<Self, OwnedBeaconChainHeaderError> {
         let unsealed = Self::from_parts(
-            header.generic.prefix,
-            header.generic.result,
-            header.generic.consensus_info,
+            header.shared.prefix,
+            header.shared.result,
+            header.shared.consensus_info,
             &header.child_shard_blocks,
             header.consensus_parameters,
         )?;
 
-        Ok(unsealed.with_seal(header.generic.seal))
+        Ok(unsealed.with_seal(header.shared.seal))
     }
 
     /// Create owned header from a buffer
@@ -276,6 +299,15 @@ pub enum OwnedIntermediateShardHeaderError {
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardHeader {
     buffer: SharedAlignedBuffer,
+}
+
+impl GenericOwnedBlockHeader for OwnedIntermediateShardHeader {
+    type Header<'a> = IntermediateShardHeader<'a>;
+
+    #[inline(always)]
+    fn header(&self) -> Self::Header<'_> {
+        self.header()
+    }
 }
 
 impl OwnedIntermediateShardHeader {
@@ -367,14 +399,14 @@ impl OwnedIntermediateShardHeader {
         header: IntermediateShardHeader<'_>,
     ) -> Result<Self, OwnedIntermediateShardHeaderError> {
         let unsealed = Self::from_parts(
-            header.generic.prefix,
-            header.generic.result,
-            header.generic.consensus_info,
+            header.shared.prefix,
+            header.shared.result,
+            header.shared.consensus_info,
             header.beacon_chain_info,
             &header.child_shard_blocks,
         )?;
 
-        Ok(unsealed.with_seal(header.generic.seal))
+        Ok(unsealed.with_seal(header.shared.seal))
     }
 
     /// Create owned header from a buffer
@@ -439,6 +471,15 @@ pub struct OwnedLeafShardHeader {
     buffer: SharedAlignedBuffer,
 }
 
+impl GenericOwnedBlockHeader for OwnedLeafShardHeader {
+    type Header<'a> = LeafShardHeader<'a>;
+
+    #[inline(always)]
+    fn header(&self) -> Self::Header<'_> {
+        self.header()
+    }
+}
+
 impl OwnedLeafShardHeader {
     /// Max allocation needed by this header
     pub const MAX_ALLOCATION: u32 = BlockHeaderPrefix::SIZE
@@ -493,13 +534,13 @@ impl OwnedLeafShardHeader {
     #[inline]
     pub fn from_header(header: LeafShardHeader<'_>) -> Self {
         let unsealed = Self::from_parts(
-            header.generic.prefix,
-            header.generic.result,
-            header.generic.consensus_info,
+            header.shared.prefix,
+            header.shared.result,
+            header.shared.consensus_info,
             header.beacon_chain_info,
         );
 
-        unsealed.with_seal(header.generic.seal)
+        unsealed.with_seal(header.shared.seal)
     }
 
     /// Create owned header from a buffer
@@ -577,6 +618,15 @@ pub enum OwnedBlockHeader {
     IntermediateShard(OwnedIntermediateShardHeader),
     /// Block header corresponds to a leaf shard
     LeafShard(OwnedLeafShardHeader),
+}
+
+impl GenericOwnedBlockHeader for OwnedBlockHeader {
+    type Header<'a> = BlockHeader<'a>;
+
+    #[inline(always)]
+    fn header(&self) -> Self::Header<'_> {
+        self.header()
+    }
 }
 
 impl OwnedBlockHeader {

@@ -1,21 +1,23 @@
 //! Data structures related to the owned version of [`Block`]
 
 use crate::block::body::owned::{
-    OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedIntermediateShardBlockBodyBuilder,
-    OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBlockBodyBuilder,
-    OwnedLeafShardBody, OwnedLeafShardBodyError, WritableBodyTransaction,
+    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedBlockBody,
+    OwnedIntermediateShardBlockBodyBuilder, OwnedIntermediateShardBody,
+    OwnedIntermediateShardBodyError, OwnedLeafShardBlockBodyBuilder, OwnedLeafShardBody,
+    OwnedLeafShardBodyError, WritableBodyTransaction,
 };
 use crate::block::body::{BlockBody, IntermediateShardBlockInfo, LeafShardBlockInfo};
 use crate::block::header::owned::{
-    OwnedBeaconChainBlockHeaderUnsealed, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
-    OwnedIntermediateShardBlockHeaderUnsealed, OwnedIntermediateShardHeader,
-    OwnedIntermediateShardHeaderError, OwnedLeafShardBlockHeaderUnsealed, OwnedLeafShardHeader,
+    GenericOwnedBlockHeader, OwnedBeaconChainBlockHeaderUnsealed, OwnedBeaconChainHeader,
+    OwnedBeaconChainHeaderError, OwnedBlockHeader, OwnedIntermediateShardBlockHeaderUnsealed,
+    OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError,
+    OwnedLeafShardBlockHeaderUnsealed, OwnedLeafShardHeader,
 };
 use crate::block::header::{
     BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderBeaconChainParameters,
     BlockHeaderConsensusInfo, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSealRef,
 };
-use crate::block::{BeaconChainBlock, Block, IntermediateShardBlock, LeafShardBlock};
+use crate::block::{BeaconChainBlock, Block, GenericBlock, IntermediateShardBlock, LeafShardBlock};
 use crate::hashes::Blake3Hash;
 use crate::pot::PotCheckpoints;
 use crate::segments::SegmentRoot;
@@ -24,6 +26,27 @@ use ab_aligned_buffer::SharedAlignedBuffer;
 use alloc::vec::Vec;
 use core::iter::TrustedLen;
 use derive_more::From;
+
+/// Generic owned block
+pub trait GenericOwnedBlock {
+    /// Block header type
+    type Header: GenericOwnedBlockHeader;
+    /// Block body type
+    type Body: GenericOwnedBlockBody;
+    /// Block
+    type Block<'a>: GenericBlock<'a>
+    where
+        Self: 'a;
+
+    /// Block header
+    fn header(&self) -> Self::Header;
+
+    /// Block body
+    fn body(&self) -> Self::Body;
+
+    /// Get regular block out of the owned version
+    fn block(&self) -> Self::Block<'_>;
+}
 
 /// Errors for [`OwnedBeaconChainBlock`]
 #[derive(Debug, thiserror::Error)]
@@ -46,6 +69,27 @@ pub struct OwnedBeaconChainBlock {
     pub header: OwnedBeaconChainHeader,
     /// Block body
     pub body: OwnedBeaconChainBody,
+}
+
+impl GenericOwnedBlock for OwnedBeaconChainBlock {
+    type Header = OwnedBeaconChainHeader;
+    type Body = OwnedBeaconChainBody;
+    type Block<'a> = BeaconChainBlock<'a>;
+
+    #[inline(always)]
+    fn header(&self) -> Self::Header {
+        self.header.clone()
+    }
+
+    #[inline(always)]
+    fn body(&self) -> Self::Body {
+        self.body.clone()
+    }
+
+    #[inline(always)]
+    fn block(&self) -> Self::Block<'_> {
+        self.block()
+    }
 }
 
 impl OwnedBeaconChainBlock {
@@ -183,6 +227,27 @@ pub struct OwnedIntermediateShardBlock {
     pub header: OwnedIntermediateShardHeader,
     /// Block body
     pub body: OwnedIntermediateShardBody,
+}
+
+impl GenericOwnedBlock for OwnedIntermediateShardBlock {
+    type Header = OwnedIntermediateShardHeader;
+    type Body = OwnedIntermediateShardBody;
+    type Block<'a> = IntermediateShardBlock<'a>;
+
+    #[inline(always)]
+    fn header(&self) -> Self::Header {
+        self.header.clone()
+    }
+
+    #[inline(always)]
+    fn body(&self) -> Self::Body {
+        self.body.clone()
+    }
+
+    #[inline(always)]
+    fn block(&self) -> Self::Block<'_> {
+        self.block()
+    }
 }
 
 impl OwnedIntermediateShardBlock {
@@ -330,6 +395,27 @@ pub struct OwnedLeafShardBlock {
     pub body: OwnedLeafShardBody,
 }
 
+impl GenericOwnedBlock for OwnedLeafShardBlock {
+    type Header = OwnedLeafShardHeader;
+    type Body = OwnedLeafShardBody;
+    type Block<'a> = LeafShardBlock<'a>;
+
+    #[inline(always)]
+    fn header(&self) -> Self::Header {
+        self.header.clone()
+    }
+
+    #[inline(always)]
+    fn body(&self) -> Self::Body {
+        self.body.clone()
+    }
+
+    #[inline(always)]
+    fn block(&self) -> Self::Block<'_> {
+        self.block()
+    }
+}
+
 impl OwnedLeafShardBlock {
     /// Initialize building of [`OwnedLeafShardBlock`]
     pub fn init(
@@ -466,6 +552,37 @@ pub enum OwnedBlock {
     IntermediateShard(OwnedIntermediateShardBlock),
     /// Block corresponds to a leaf shard
     LeafShard(OwnedLeafShardBlock),
+}
+
+impl GenericOwnedBlock for OwnedBlock {
+    type Header = OwnedBlockHeader;
+    type Body = OwnedBlockBody;
+    type Block<'a> = Block<'a>;
+
+    #[inline(always)]
+    fn header(&self) -> Self::Header {
+        match self {
+            Self::BeaconChain(block) => OwnedBlockHeader::BeaconChain(block.header.clone()),
+            Self::IntermediateShard(block) => {
+                OwnedBlockHeader::IntermediateShard(block.header.clone())
+            }
+            Self::LeafShard(block) => OwnedBlockHeader::LeafShard(block.header.clone()),
+        }
+    }
+
+    #[inline(always)]
+    fn body(&self) -> Self::Body {
+        match self {
+            Self::BeaconChain(block) => OwnedBlockBody::BeaconChain(block.body.clone()),
+            Self::IntermediateShard(block) => OwnedBlockBody::IntermediateShard(block.body.clone()),
+            Self::LeafShard(block) => OwnedBlockBody::LeafShard(block.body.clone()),
+        }
+    }
+
+    #[inline(always)]
+    fn block(&self) -> Self::Block<'_> {
+        self.block()
+    }
 }
 
 impl OwnedBlock {
