@@ -12,7 +12,6 @@
     int_roundings,
     iter_collect_into,
     never_type,
-    result_flattening,
     trait_alias,
     try_blocks,
     type_alias_impl_trait,
