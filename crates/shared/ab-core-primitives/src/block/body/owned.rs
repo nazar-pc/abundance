@@ -229,8 +229,8 @@ impl GenericOwnedBlockBody for OwnedBeaconChainBody {
 }
 
 impl OwnedBeaconChainBody {
-    /// Initialize building of [`OwnedBeaconChainBody`]
-    pub fn init<'a, ISB>(
+    /// Create a new instance
+    pub fn new<'a, ISB>(
         own_segment_roots: &[SegmentRoot],
         intermediate_shard_blocks: ISB,
         pot_checkpoints: &[PotCheckpoints],
@@ -364,7 +364,7 @@ impl OwnedBeaconChainBody {
     /// Create owned block body from a reference
     #[inline]
     pub fn from_body(body: BeaconChainBody<'_>) -> Result<Self, OwnedBeaconChainBodyError> {
-        Self::init(
+        Self::new(
             body.own_segment_roots,
             body.intermediate_shard_blocks.iter(),
             body.pot_checkpoints,

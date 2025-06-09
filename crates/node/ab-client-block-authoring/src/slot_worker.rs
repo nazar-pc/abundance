@@ -11,7 +11,7 @@ use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::header::{
-    BeaconChainHeader, BlockHeaderConsensusInfo, BlockHeaderSeal, GenericBlockHeader,
+    BeaconChainHeader, BlockHeaderConsensusInfo, GenericBlockHeader, OwnedBlockHeaderSeal,
     SharedBlockHeader,
 };
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
@@ -65,7 +65,7 @@ pub struct BlockSealNotification {
     /// Public key hash of the plot identity that should create signature
     pub public_key_hash: Blake3Hash,
     /// Sender that can be used to send the seal
-    pub seal_sender: oneshot::Sender<BlockHeaderSeal>,
+    pub seal_sender: oneshot::Sender<OwnedBlockHeaderSeal>,
 }
 
 #[derive(Debug)]
@@ -160,8 +160,6 @@ where
             debug!(%slot, "Attempting to claim slot");
         }
 
-        // let runtime_api = self.client.runtime_api();
-
         let solution_range = parent_beacon_chain_header
             .consensus_parameters
             .next_solution_range
@@ -183,7 +181,7 @@ where
             parent_slot + self.consensus_constants.block_authoring_delay
         };
 
-        let (proof_of_time, future_proof_of_time, seed, checkpoints) = {
+        let (proof_of_time, future_proof_of_time, checkpoints) = {
             // Remove checkpoints from old slots we will not need anymore
             self.pot_checkpoints
                 .retain(|&stored_slot, _checkpoints| stored_slot > parent_slot);
@@ -238,7 +236,6 @@ where
                     &pot_parameters_change,
                 )
             };
-            let seed = checkpoints_pot_input.seed;
 
             let mut checkpoints =
                 Vec::with_capacity((future_slot - parent_future_slot).as_u64() as usize);
@@ -268,7 +265,7 @@ where
                 .expect("Never empty, there is at least one slot between blocks; qed")
                 .output();
 
-            (proof_of_time, future_proof_of_time, seed, checkpoints)
+            (proof_of_time, future_proof_of_time, checkpoints)
         };
 
         let mut solution_receiver = {
@@ -284,6 +281,7 @@ where
 
         let mut maybe_consensus_info = None;
 
+        // TODO: Consider skipping most/all checks here and do them in block import instead
         while let Some(solution) = solution_receiver.next().await {
             let sector_id = SectorId::new(
                 &solution.public_key_hash,
@@ -404,7 +402,6 @@ where
 
         maybe_consensus_info.map(|consensus_info| ClaimedSlot {
             consensus_info,
-            seed,
             checkpoints,
         })
     }
@@ -565,7 +562,7 @@ where
     async fn produce_block(
         &mut self,
         slot: SlotNumber,
-        best_root: &BlockRoot,
+        parent_block_root: &BlockRoot,
         parent_header: &<Block::Header as GenericOwnedBlockHeader>::Header<'_>,
         parent_beacon_chain_header: &BeaconChainHeader<'_>,
     ) -> Option<()> {
@@ -576,7 +573,12 @@ where
         }
 
         let claimed_slot = self
-            .claim_slot(best_root, parent_header, parent_beacon_chain_header, slot)
+            .claim_slot(
+                parent_block_root,
+                parent_header,
+                parent_beacon_chain_header,
+                slot,
+            )
             .await?;
 
         debug!(%slot, "Starting block authorship");
@@ -586,7 +588,7 @@ where
             let public_key_hash = claimed_slot.consensus_info.solution.public_key_hash;
 
             move |pre_seal_hash| async move {
-                let (seal_sender, seal_receiver) = oneshot::channel::<BlockHeaderSeal>();
+                let (seal_sender, seal_receiver) = oneshot::channel::<OwnedBlockHeaderSeal>();
 
                 if let Err(error) =
                     block_sealing_notification_sender.try_send(BlockSealNotification {
@@ -601,16 +603,20 @@ where
                 seal_receiver.await.ok()
             }
         };
-        let block = match self.block_builder.build(
-            best_root,
-            &claimed_slot.consensus_info,
-            &claimed_slot.seed,
-            &claimed_slot.checkpoints,
-            seal_block,
-        ) {
+        let block = match self
+            .block_builder
+            .build(
+                parent_block_root,
+                parent_header,
+                &claimed_slot.consensus_info,
+                &claimed_slot.checkpoints,
+                seal_block,
+            )
+            .await
+        {
             Ok(block) => block,
             Err(error) => {
-                error!(%slot, %best_root, %error, "Failed to build block");
+                error!(%slot, %parent_block_root, %error, "Failed to build block");
                 return None;
             }
         };
@@ -628,7 +634,7 @@ where
                 // Nothing else to do
             }
             Err(error) => {
-                warn!(%best_root, %error, "Failed to import new block");
+                warn!(%parent_block_root, %error, "Failed to import new block");
             }
         }
 

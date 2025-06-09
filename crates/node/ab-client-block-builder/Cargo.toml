@@ -15,6 +15,7 @@ all-features = true
 
 [dependencies]
 ab-core-primitives = { workspace = true, features = ["alloc"] }
+anyhow = { workspace = true }
 thiserror = { workspace = true }
 
 [lints]

@@ -1,11 +1,20 @@
 use ab_core_primitives::block::BlockRoot;
-use ab_core_primitives::block::header::{BlockHeaderConsensusInfo, BlockHeaderSeal};
+use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
+use ab_core_primitives::block::header::{BlockHeaderConsensusInfo, OwnedBlockHeaderSeal};
+use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pot::{PotCheckpoints, PotSeed};
+use ab_core_primitives::pot::PotCheckpoints;
 
 /// Error for [`BlockBuilder`]
 #[derive(Debug, thiserror::Error)]
 pub enum BlockBuilderError {
+    /// Custom builder error
+    #[error("Custom builder error: {error}")]
+    Custom {
+        // Custom block builder error
+        #[from]
+        error: anyhow::Error,
+    },
     /// Failed to seal the block
     #[error("Failed to seal the block")]
     FailedToSeal,
@@ -23,17 +32,20 @@ pub enum BlockBuilderError {
 }
 
 /// Block builder interface
-pub trait BlockBuilder<Block> {
+pub trait BlockBuilder<Block>
+where
+    Block: GenericOwnedBlock,
+{
     /// Build a new block using provided parameters
     fn build<SealBlock, SealBlockFut>(
         &mut self,
         parent_block_root: &BlockRoot,
+        parent_header: &<Block::Header as GenericOwnedBlockHeader>::Header<'_>,
         consensus_info: &BlockHeaderConsensusInfo,
-        seed: &PotSeed,
         checkpoints: &[PotCheckpoints],
         seal_block: SealBlock,
-    ) -> Result<Block, BlockBuilderError>
+    ) -> impl Future<Output = Result<Block, BlockBuilderError>> + Send
     where
-        SealBlock: FnOnce(Blake3Hash) -> SealBlockFut,
-        SealBlockFut: Future<Output = Option<BlockHeaderSeal>>;
+        SealBlock: FnOnce(Blake3Hash) -> SealBlockFut + Send,
+        SealBlockFut: Future<Output = Option<OwnedBlockHeaderSeal>> + Send;
 }

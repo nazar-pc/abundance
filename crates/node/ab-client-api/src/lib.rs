@@ -18,7 +18,7 @@ where
     /// Best block root
     fn best_root(&self) -> BlockRoot;
 
-    /// Bst block header
+    /// Best block header
     fn best_header(&self) -> Block::Header;
 
     /// Block header

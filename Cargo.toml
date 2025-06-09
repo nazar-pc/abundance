@@ -35,6 +35,7 @@ ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/cont
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
 ab-trivial-type-derive = { version = "0.0.1", path = "crates/shared/ab-trivial-type-derive" }
 aes = "0.9.0-pre.3"
+anyhow = { version = "1.0.98", default-features = false }
 bech32 = { version = "0.11.0", default-features = false }
 bitvec = "1.0.1"
 blake3 = { version = "1.8.2", default-features = false }
