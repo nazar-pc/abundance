@@ -1,0 +1,28 @@
+[package]
+name = "ab-client-block-authoring"
+description = "Block authoring implementation"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-client-api = { workspace = true }
+ab-client-block-builder = { workspace = true }
+ab-client-block-import = { workspace = true }
+ab-client-proof-of-time = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["alloc"] }
+ab-proof-of-space = { workspace = true }
+futures = { workspace = true, features = ["alloc", "async-await"] }
+tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

@@ -34,6 +34,10 @@ dependencies = [
 [[package]]
 name = "ab-client-api"
 version = "0.0.1"
+dependencies = [
+ "ab-core-primitives",
+ "thiserror 2.0.12",
+]
 
 [[package]]
 name = "ab-client-proof-of-time"

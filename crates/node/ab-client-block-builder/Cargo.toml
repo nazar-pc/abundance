@@ -1,6 +1,6 @@
 [package]
-name = "ab-client-api"
-description = "Client API"
+name = "ab-client-block-builder"
+description = "Block authoring implementation"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
