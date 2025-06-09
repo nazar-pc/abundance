@@ -52,6 +52,8 @@ dependencies = [
 name = "ab-client-block-builder"
 version = "0.0.1"
 dependencies = [
+ "ab-client-api",
+ "ab-client-block-import",
  "ab-core-primitives",
  "anyhow",
  "thiserror",

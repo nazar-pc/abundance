@@ -147,16 +147,36 @@ impl SlotNumber {
         self.0.to_le_bytes()
     }
 
-    /// Checked integer addition. Computes `self + rhs`, returning `None` if overflow occurred
-    #[inline]
-    pub fn checked_add(self, rhs: Self) -> Option<Self> {
-        self.0.checked_add(rhs.0).map(Self)
+    /// Checked addition, returns `None` on overflow
+    #[inline(always)]
+    pub const fn checked_add(self, rhs: Self) -> Option<Self> {
+        if let Some(n) = self.0.checked_add(rhs.0) {
+            Some(Self(n))
+        } else {
+            None
+        }
     }
 
-    /// Checked integer subtraction. Computes `self - rhs`, returning `None` if overflow occurred
-    #[inline]
-    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
-        self.0.checked_sub(rhs.0).map(Self)
+    /// Saturating addition
+    #[inline(always)]
+    pub const fn saturating_add(self, rhs: Self) -> Self {
+        Self(self.0.saturating_add(rhs.0))
+    }
+
+    /// Checked subtraction, returns `None` on underflow
+    #[inline(always)]
+    pub const fn checked_sub(self, rhs: Self) -> Option<Self> {
+        if let Some(n) = self.0.checked_sub(rhs.0) {
+            Some(Self(n))
+        } else {
+            None
+        }
+    }
+
+    /// Saturating subtraction
+    #[inline(always)]
+    pub const fn saturating_sub(self, rhs: Self) -> Self {
+        Self(self.0.saturating_sub(rhs.0))
     }
 }
 
@@ -508,7 +528,10 @@ impl PotCheckpoints {
     }
 }
 
-/// Change of parameters to apply to the proof of time chain
+/// Change of parameters to apply to the proof of time chain.
+///
+/// Corresponds to scheduled PoT parameters change, which is applied after the slot of this block.
+/// It is carried into the next blocks until it is applied on or before slot of the current block.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "scale-codec",

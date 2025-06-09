@@ -1,9 +1,8 @@
 //! Slot worker drives block and vote production based on slots produced in
 //! [`ab_client_proof_of_time`].
 
-use crate::ConsensusConstants;
 use ab_client_api::{ChainInfo, ChainSyncStatus};
-use ab_client_block_builder::BlockBuilder;
+use ab_client_block_builder::{BlockBuilder, ConsensusConstants};
 use ab_client_block_import::BlockImport;
 use ab_client_block_import::segment_headers_store::SegmentHeadersStore;
 use ab_client_proof_of_time::PotNextSlotInput;
@@ -17,9 +16,7 @@ use ab_core_primitives::block::header::{
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pot::{
-    PotCheckpoints, PotOutput, PotParametersChange, PotSeed, SlotNumber,
-};
+use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
 use ab_core_primitives::sectors::SectorId;
 use ab_core_primitives::segments::HistorySize;
 use ab_core_primitives::solutions::{
@@ -72,8 +69,6 @@ pub struct BlockSealNotification {
 pub struct ClaimedSlot {
     /// Consensus info for block header
     pub consensus_info: BlockHeaderConsensusInfo,
-    /// Proof of time seed, the input for computing checkpoints
-    pub seed: PotSeed,
     /// Proof of time checkpoints from after future proof of parent block to current block's
     /// future proof (inclusive)
     pub checkpoints: Vec<PotCheckpoints>,
@@ -170,8 +165,8 @@ where
                     .solution_range,
             );
 
-        let consensus_parameters = &parent_beacon_chain_header.consensus_parameters;
-        let pot_parameters_change = consensus_parameters
+        let parent_consensus_parameters = &parent_beacon_chain_header.consensus_parameters;
+        let parent_pot_parameters_change = parent_consensus_parameters
             .pot_parameters_change
             .copied()
             .map(PotParametersChange::from);
@@ -194,15 +189,15 @@ where
             let pot_input = if parent_number == BlockNumber::ZERO {
                 PotNextSlotInput {
                     slot: parent_slot + SlotNumber::ONE,
-                    slot_iterations: consensus_parameters.fixed_parameters.slot_iterations,
+                    slot_iterations: parent_consensus_parameters.fixed_parameters.slot_iterations,
                     seed: self.pot_verifier.genesis_seed(),
                 }
             } else {
                 PotNextSlotInput::derive(
-                    consensus_parameters.fixed_parameters.slot_iterations,
+                    parent_consensus_parameters.fixed_parameters.slot_iterations,
                     parent_slot,
                     parent_header.consensus_info.proof_of_time,
-                    &pot_parameters_change,
+                    &parent_pot_parameters_change,
                 )
             };
 
@@ -211,7 +206,7 @@ where
                 pot_input,
                 slot - parent_slot,
                 proof_of_time,
-                pot_parameters_change,
+                parent_pot_parameters_change,
             ) {
                 warn!(
                     %slot,
@@ -225,15 +220,15 @@ where
             let mut checkpoints_pot_input = if parent_number == BlockNumber::ZERO {
                 PotNextSlotInput {
                     slot: parent_slot + SlotNumber::ONE,
-                    slot_iterations: consensus_parameters.fixed_parameters.slot_iterations,
+                    slot_iterations: parent_consensus_parameters.fixed_parameters.slot_iterations,
                     seed: self.pot_verifier.genesis_seed(),
                 }
             } else {
                 PotNextSlotInput::derive(
-                    consensus_parameters.fixed_parameters.slot_iterations,
+                    parent_consensus_parameters.fixed_parameters.slot_iterations,
                     parent_future_slot,
                     parent_header.consensus_info.future_proof_of_time,
-                    &pot_parameters_change,
+                    &parent_pot_parameters_change,
                 )
             };
 
@@ -256,7 +251,7 @@ where
                     checkpoints_pot_input.slot_iterations,
                     slot,
                     slot_checkpoints.output(),
-                    &pot_parameters_change,
+                    &parent_pot_parameters_change,
                 );
             }
 

@@ -240,6 +240,23 @@ impl From<BlockHeaderPotParametersChange> for PotParametersChange {
     }
 }
 
+impl From<PotParametersChange> for BlockHeaderPotParametersChange {
+    #[inline(always)]
+    fn from(value: PotParametersChange) -> Self {
+        let PotParametersChange {
+            slot,
+            slot_iterations,
+            entropy,
+        } = value;
+
+        BlockHeaderPotParametersChange {
+            slot,
+            slot_iterations,
+            entropy,
+        }
+    }
+}
+
 impl BlockHeaderPotParametersChange {
     /// Get instance reference from provided bytes.
     ///

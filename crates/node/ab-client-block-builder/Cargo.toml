@@ -14,6 +14,8 @@ include = [
 all-features = true
 
 [dependencies]
+ab-client-api = { workspace = true }
+ab-client-block-import = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
 anyhow = { workspace = true }
 thiserror = { workspace = true }

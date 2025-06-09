@@ -577,8 +577,7 @@ impl<T: Config> Pallet<T> {
                 } else {
                     next_solution_range = solution_ranges.current.derive_next(
                         // If Era start slot is not found it means we have just finished the first era
-                        EraStartSlot::<T>::get().unwrap_or_default(),
-                        current_slot,
+                        current_slot - EraStartSlot::<T>::get().unwrap_or_default(),
                         slot_probability,
                         BlockNumber::new(
                             <BlockNumberFor<T> as TryInto<u64>>::try_into(era_duration)

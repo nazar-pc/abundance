@@ -83,6 +83,12 @@ randomness abstraction.
 
 Solution range adjustment is more frequent, 300 blocks instead of 2016 (as in Bitcoin).
 
+## PoT iterations adjustment
+
+Number of PoT iterations is adjusted automatically when it is detected that slots are created too frequently on long
+enough timescale (which isn't defined at the moment), in contrast to Subspace, where explicit transaction needs to be
+submitted to enact such change.
+
 ## Terminology
 
 After switching from KZG to Merkle Trees, commitments are renamed to roots, witnesses to proofs. Scalars are also called
