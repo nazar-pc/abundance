@@ -1,9 +1,8 @@
 //! Slot worker drives block and vote production based on slots produced in
 //! [`ab_client_proof_of_time`].
 
-use crate::ConsensusConstants;
 use ab_client_api::{ChainInfo, ChainSyncStatus};
-use ab_client_block_builder::BlockBuilder;
+use ab_client_block_builder::{BlockBuilder, ConsensusConstants};
 use ab_client_block_import::BlockImport;
 use ab_client_block_import::segment_headers_store::SegmentHeadersStore;
 use ab_client_proof_of_time::PotNextSlotInput;
