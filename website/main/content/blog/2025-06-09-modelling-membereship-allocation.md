@@ -18,9 +18,9 @@ we can reason objectively about its design.
 ## Modelling farmer membership selection
 
 I was half-way in the process of writing this update when I realised that I was just paraphrasing a
-lot of the text that was already part of [PRXX](https://github.com/nazar-pc/abundance/pull/XX). This
-PR presents a draft proposal for the membership selection protocol, along with an analysis of the
-security guarantees of the protocol for different kinds of adversary, mainly static and fully
+lot of the text that was already part of [PR277](https://github.com/nazar-pc/abundance/pull/277).
+This PR presents a draft proposal for the membership selection protocol, along with an analysis of
+the security guarantees of the protocol for different kinds of adversary, mainly static and fully
 adaptive adversaries.
 
 This set the groundwork to identify the optimal protocol parameters to ensure the security of the
