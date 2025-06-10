@@ -113,6 +113,22 @@ impl BlockNumber {
         self.0.to_le_bytes()
     }
 
+    /// Checked addition, returns `None` on overflow
+    #[inline(always)]
+    pub const fn checked_add(self, rhs: Self) -> Option<Self> {
+        if let Some(n) = self.0.checked_add(rhs.0) {
+            Some(Self(n))
+        } else {
+            None
+        }
+    }
+
+    /// Saturating addition
+    #[inline(always)]
+    pub const fn saturating_add(self, rhs: Self) -> Self {
+        Self(self.0.saturating_add(rhs.0))
+    }
+
     /// Checked subtraction, returns `None` on underflow
     #[inline(always)]
     pub const fn checked_sub(self, rhs: Self) -> Option<Self> {

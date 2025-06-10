@@ -240,6 +240,23 @@ impl From<BlockHeaderPotParametersChange> for PotParametersChange {
     }
 }
 
+impl From<PotParametersChange> for BlockHeaderPotParametersChange {
+    #[inline(always)]
+    fn from(value: PotParametersChange) -> Self {
+        let PotParametersChange {
+            slot,
+            slot_iterations,
+            entropy,
+        } = value;
+
+        BlockHeaderPotParametersChange {
+            slot,
+            slot_iterations,
+            entropy,
+        }
+    }
+}
+
 impl BlockHeaderPotParametersChange {
     /// Get instance reference from provided bytes.
     ///
@@ -268,9 +285,35 @@ impl BlockHeaderPotParametersChange {
     }
 }
 
+/// Owned version of [`BlockHeaderConsensusParameters`]
+#[derive(Debug, Copy, Clone)]
+pub struct OwnedBlockHeaderConsensusParameters {
+    /// Consensus parameters that are always present
+    pub fixed_parameters: BlockHeaderFixedConsensusParameters,
+    /// Super segment root
+    pub super_segment_root: Option<SuperSegmentRoot>,
+    /// Solution range for the next block/era (if any)
+    pub next_solution_range: Option<SolutionRange>,
+    /// Change of parameters to apply to the proof of time chain (if any)
+    pub pot_parameters_change: Option<BlockHeaderPotParametersChange>,
+}
+
+impl OwnedBlockHeaderConsensusParameters {
+    /// Get a reference out of owned version
+    #[inline]
+    pub fn as_ref(&self) -> BlockHeaderConsensusParameters<'_> {
+        BlockHeaderConsensusParameters {
+            fixed_parameters: self.fixed_parameters,
+            super_segment_root: self.super_segment_root.as_ref(),
+            next_solution_range: self.next_solution_range,
+            pot_parameters_change: self.pot_parameters_change.as_ref(),
+        }
+    }
+}
+
 /// Consensus parameters (on the beacon chain)
 #[derive(Debug, Copy, Clone)]
-pub struct BlockHeaderBeaconChainParameters<'a> {
+pub struct BlockHeaderConsensusParameters<'a> {
     /// Consensus parameters that are always present
     pub fixed_parameters: BlockHeaderFixedConsensusParameters,
     /// Super segment root
@@ -281,7 +324,7 @@ pub struct BlockHeaderBeaconChainParameters<'a> {
     pub pot_parameters_change: Option<&'a BlockHeaderPotParametersChange>,
 }
 
-impl<'a> BlockHeaderBeaconChainParameters<'a> {
+impl<'a> BlockHeaderConsensusParameters<'a> {
     /// Max size of the allocation necessary for this data structure
     pub const MAX_SIZE: u32 = size_of::<BlockHeaderFixedConsensusParameters>() as u32
         + u8::SIZE
@@ -539,7 +582,7 @@ pub struct BlockHeaderEd25519Seal {
     pub signature: Ed25519Signature,
 }
 
-/// Block header seal
+/// Owned version of [`BlockHeaderSeal`]
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(
     feature = "scale-codec",
@@ -547,19 +590,29 @@ pub struct BlockHeaderEd25519Seal {
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub enum BlockHeaderSeal {
+pub enum OwnedBlockHeaderSeal {
     /// Ed25519 seal
     Ed25519(BlockHeaderEd25519Seal),
 }
 
+impl OwnedBlockHeaderSeal {
+    /// Get a reference out of owned version
+    #[inline(always)]
+    pub fn as_ref(&self) -> BlockHeaderSeal<'_> {
+        match self {
+            Self::Ed25519(seal) => BlockHeaderSeal::Ed25519(seal),
+        }
+    }
+}
+
 /// Block header seal
 #[derive(Debug, Copy, Clone)]
-pub enum BlockHeaderSealRef<'a> {
+pub enum BlockHeaderSeal<'a> {
     /// Ed25519 seal
     Ed25519(&'a BlockHeaderEd25519Seal),
 }
 
-impl<'a> BlockHeaderSealRef<'a> {
+impl<'a> BlockHeaderSeal<'a> {
     /// Max size of the allocation necessary for this data structure
     pub const MAX_SIZE: u32 = 1 + BlockHeaderEd25519Seal::SIZE;
     /// Create an instance from provided bytes.
@@ -590,7 +643,7 @@ impl<'a> BlockHeaderSealRef<'a> {
     #[cfg(feature = "ed25519-verify")]
     pub fn is_seal_valid(&self, pre_seal_hash: &Blake3Hash) -> bool {
         match self {
-            BlockHeaderSealRef::Ed25519(seal) => seal
+            BlockHeaderSeal::Ed25519(seal) => seal
                 .public_key
                 .verify(&seal.signature, pre_seal_hash.as_bytes())
                 .is_ok(),
@@ -600,7 +653,7 @@ impl<'a> BlockHeaderSealRef<'a> {
     /// Hash of the block header seal, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
         match self {
-            BlockHeaderSealRef::Ed25519(seal) => {
+            BlockHeaderSeal::Ed25519(seal) => {
                 // TODO: Keyed hash
                 let mut hasher = blake3::Hasher::new();
                 hasher.update(&[BlockHeaderSealType::Ed25519 as u8]);
@@ -622,7 +675,7 @@ pub struct SharedBlockHeader<'a> {
     /// Consensus information
     pub consensus_info: &'a BlockHeaderConsensusInfo,
     /// Block header seal
-    pub seal: BlockHeaderSealRef<'a>,
+    pub seal: BlockHeaderSeal<'a>,
 }
 
 /// Block header that corresponds to the beacon chain
@@ -633,7 +686,7 @@ pub struct BeaconChainHeader<'a> {
     /// Information about child shard blocks
     pub child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
     /// Consensus parameters (on the beacon chain)
-    pub consensus_parameters: BlockHeaderBeaconChainParameters<'a>,
+    pub consensus_parameters: BlockHeaderConsensusParameters<'a>,
     /// All bytes of the header except the seal
     pub pre_seal_bytes: &'a [u8],
 }
@@ -691,11 +744,11 @@ impl<'a> BeaconChainHeader<'a> {
             BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
 
         let (consensus_parameters, remainder) =
-            BlockHeaderBeaconChainParameters::try_from_bytes(remainder)?;
+            BlockHeaderConsensusParameters::try_from_bytes(remainder)?;
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
 
         let shared = SharedBlockHeader {
             prefix,
@@ -722,7 +775,7 @@ impl<'a> BeaconChainHeader<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
-            BlockHeaderSealRef::Ed25519(seal) => seal.public_key.hash(),
+            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
         };
         public_key_hash == self.shared.consensus_info.solution.public_key_hash
     }
@@ -750,11 +803,11 @@ impl<'a> BeaconChainHeader<'a> {
             BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
 
         let (consensus_parameters, remainder) =
-            BlockHeaderBeaconChainParameters::try_from_bytes(remainder)?;
+            BlockHeaderConsensusParameters::try_from_bytes(remainder)?;
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
 
         let shared = SharedBlockHeader {
             prefix,
@@ -904,7 +957,7 @@ impl<'a> IntermediateShardHeader<'a> {
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
 
         let shared = SharedBlockHeader {
             prefix,
@@ -931,7 +984,7 @@ impl<'a> IntermediateShardHeader<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
-            BlockHeaderSealRef::Ed25519(seal) => seal.public_key.hash(),
+            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
         };
         public_key_hash == self.shared.consensus_info.solution.public_key_hash
     }
@@ -965,7 +1018,7 @@ impl<'a> IntermediateShardHeader<'a> {
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
 
         let shared = SharedBlockHeader {
             prefix,
@@ -1111,7 +1164,7 @@ impl<'a> LeafShardHeader<'a> {
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
 
         let shared = SharedBlockHeader {
             prefix,
@@ -1137,7 +1190,7 @@ impl<'a> LeafShardHeader<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
-            BlockHeaderSealRef::Ed25519(seal) => seal.public_key.hash(),
+            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
         };
         public_key_hash == self.shared.consensus_info.solution.public_key_hash
     }
@@ -1167,7 +1220,7 @@ impl<'a> LeafShardHeader<'a> {
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
-        let (seal, remainder) = BlockHeaderSealRef::try_from_bytes(remainder)?;
+        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
 
         let shared = SharedBlockHeader {
             prefix,

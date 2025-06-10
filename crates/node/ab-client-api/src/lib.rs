@@ -1,13 +1,7 @@
 //! Client API
 
-use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
-
-/// Error for [`ChainInfo::header()`]
-#[derive(Debug, thiserror::Error)]
-pub enum ChainInfoHeaderError {
-    // TODO: Error variants
-}
+use ab_core_primitives::block::{BlockNumber, BlockRoot};
 
 // TODO: Split this into different more narrow traits
 /// Chain info
@@ -18,14 +12,27 @@ where
     /// Best block root
     fn best_root(&self) -> BlockRoot;
 
-    /// Bst block header
+    // TODO: Uncomment if/when necessary
+    // /// Find root of ancestor block number for descendant block root
+    // fn ancestor_root(
+    //     &self,
+    //     ancestor_block_number: BlockNumber,
+    //     descendant_block_root: &BlockRoot,
+    // ) -> Option<BlockRoot>;
+
+    /// Best block header
     fn best_header(&self) -> Block::Header;
 
-    /// Block header
-    fn header(
+    /// Get header of ancestor block number for descendant block root
+    fn ancestor_header(
         &self,
-        block_root: &BlockRoot,
-    ) -> impl Future<Output = Result<Option<Block::Header>, ChainInfoHeaderError>> + Send;
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
+    ) -> Option<Block::Header>;
+
+    // TODO: Uncomment if/when necessary
+    // /// Block header
+    // fn header(&self, block_root: &BlockRoot) -> Option<Block::Header>;
 }
 
 /// Chain sync status

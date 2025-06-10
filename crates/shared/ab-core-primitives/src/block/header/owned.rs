@@ -2,8 +2,8 @@
 
 use crate::block::BlockRoot;
 use crate::block::header::{
-    BeaconChainHeader, BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderBeaconChainParameters,
-    BlockHeaderConsensusInfo, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSealRef,
+    BeaconChainHeader, BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
+    BlockHeaderConsensusParameters, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
     BlockHeaderSealType, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
 };
 use crate::hashes::Blake3Hash;
@@ -23,9 +23,9 @@ pub trait GenericOwnedBlockHeader {
     fn header(&self) -> Self::Header<'_>;
 }
 
-fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSealRef<'_>) {
+fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSeal<'_>) {
     match seal {
-        BlockHeaderSealRef::Ed25519(seal) => {
+        BlockHeaderSeal::Ed25519(seal) => {
             let true = buffer.append(&[BlockHeaderSealType::Ed25519 as u8]) else {
                 unreachable!("Fixed size data structures that are guaranteed to fit; qed");
             };
@@ -82,8 +82,8 @@ impl OwnedBeaconChainHeader {
                 + <[u8; 2]>::SIZE
                 + size_of_val(child_shard_blocks) as u32
             )
-            + BlockHeaderBeaconChainParameters::MAX_SIZE
-            + BlockHeaderSealRef::MAX_SIZE
+            + BlockHeaderConsensusParameters::MAX_SIZE
+            + BlockHeaderSeal::MAX_SIZE
     }
 
     /// Create new [`OwnedBeaconChainHeader`] from its parts
@@ -92,8 +92,8 @@ impl OwnedBeaconChainHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         child_shard_blocks: &[BlockRoot],
-        consensus_parameters: BlockHeaderBeaconChainParameters<'_>,
-    ) -> Result<OwnedBeaconChainBlockHeaderUnsealed, OwnedBeaconChainHeaderError> {
+        consensus_parameters: BlockHeaderConsensusParameters<'_>,
+    ) -> Result<OwnedBeaconChainHeaderUnsealed, OwnedBeaconChainHeaderError> {
         let mut buffer =
             OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(child_shard_blocks));
 
@@ -106,7 +106,7 @@ impl OwnedBeaconChainHeader {
             &mut buffer,
         )?;
 
-        Ok(OwnedBeaconChainBlockHeaderUnsealed { buffer })
+        Ok(OwnedBeaconChainHeaderUnsealed { buffer })
     }
 
     /// Create owned header from its parts and write it into provided buffer
@@ -115,7 +115,7 @@ impl OwnedBeaconChainHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         child_shard_blocks: &[BlockRoot],
-        consensus_parameters: BlockHeaderBeaconChainParameters<'_>,
+        consensus_parameters: BlockHeaderConsensusParameters<'_>,
         buffer: &mut OwnedAlignedBuffer,
     ) -> Result<(), OwnedBeaconChainHeaderError> {
         let num_blocks = child_shard_blocks.len();
@@ -169,13 +169,13 @@ impl OwnedBeaconChainHeader {
                 let mut bitflags = 0u8;
 
                 if consensus_parameters.super_segment_root.is_some() {
-                    bitflags |= BlockHeaderBeaconChainParameters::SUPER_SEGMENT_ROOT_MASK;
+                    bitflags |= BlockHeaderConsensusParameters::SUPER_SEGMENT_ROOT_MASK;
                 }
                 if consensus_parameters.next_solution_range.is_some() {
-                    bitflags |= BlockHeaderBeaconChainParameters::NEXT_SOLUTION_RANGE_MASK;
+                    bitflags |= BlockHeaderConsensusParameters::NEXT_SOLUTION_RANGE_MASK;
                 }
                 if consensus_parameters.pot_parameters_change.is_some() {
-                    bitflags |= BlockHeaderBeaconChainParameters::POT_PARAMETERS_CHANGE_MASK;
+                    bitflags |= BlockHeaderConsensusParameters::POT_PARAMETERS_CHANGE_MASK;
                 }
 
                 bitflags
@@ -258,11 +258,11 @@ impl OwnedBeaconChainHeader {
 
 /// Owned beacon chain block header, which is not sealed yet
 #[derive(Debug, Clone)]
-pub struct OwnedBeaconChainBlockHeaderUnsealed {
+pub struct OwnedBeaconChainHeaderUnsealed {
     buffer: OwnedAlignedBuffer,
 }
 
-impl OwnedBeaconChainBlockHeaderUnsealed {
+impl OwnedBeaconChainHeaderUnsealed {
     /// Hash of the block before seal is applied to it
     #[inline(always)]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
@@ -271,7 +271,7 @@ impl OwnedBeaconChainBlockHeaderUnsealed {
     }
 
     /// Add seal and return [`OwnedBeaconChainHeader`]
-    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedBeaconChainHeader {
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedBeaconChainHeader {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 
@@ -325,7 +325,7 @@ impl OwnedIntermediateShardHeader {
                 + <[u8; 2]>::SIZE
                 + size_of_val(child_shard_blocks) as u32
             )
-            + BlockHeaderSealRef::MAX_SIZE
+            + BlockHeaderSeal::MAX_SIZE
     }
 
     /// Create new [`OwnedIntermediateShardHeader`] from its parts
@@ -335,7 +335,7 @@ impl OwnedIntermediateShardHeader {
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
         child_shard_blocks: &[BlockRoot],
-    ) -> Result<OwnedIntermediateShardBlockHeaderUnsealed, OwnedIntermediateShardHeaderError> {
+    ) -> Result<OwnedIntermediateShardHeaderUnsealed, OwnedIntermediateShardHeaderError> {
         let mut buffer =
             OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(child_shard_blocks));
 
@@ -348,7 +348,7 @@ impl OwnedIntermediateShardHeader {
             &mut buffer,
         )?;
 
-        Ok(OwnedIntermediateShardBlockHeaderUnsealed { buffer })
+        Ok(OwnedIntermediateShardHeaderUnsealed { buffer })
     }
 
     /// Create owned header from its parts and write it into provided buffer
@@ -439,11 +439,11 @@ impl OwnedIntermediateShardHeader {
 
 /// Owned intermediate shard block header, which is not sealed yet
 #[derive(Debug, Clone)]
-pub struct OwnedIntermediateShardBlockHeaderUnsealed {
+pub struct OwnedIntermediateShardHeaderUnsealed {
     buffer: OwnedAlignedBuffer,
 }
 
-impl OwnedIntermediateShardBlockHeaderUnsealed {
+impl OwnedIntermediateShardHeaderUnsealed {
     /// Hash of the block before seal is applied to it
     #[inline(always)]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
@@ -452,7 +452,7 @@ impl OwnedIntermediateShardBlockHeaderUnsealed {
     }
 
     /// Add seal and return [`OwnedIntermediateShardHeader`]
-    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedIntermediateShardHeader {
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedIntermediateShardHeader {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 
@@ -486,7 +486,7 @@ impl OwnedLeafShardHeader {
         + BlockHeaderResult::SIZE
         + BlockHeaderConsensusInfo::SIZE
         + BlockHeaderBeaconChainInfo::SIZE
-        + BlockHeaderSealRef::MAX_SIZE;
+        + BlockHeaderSeal::MAX_SIZE;
 
     /// Create new [`OwnedLeafShardHeader`] from its parts
     pub fn from_parts(
@@ -494,7 +494,7 @@ impl OwnedLeafShardHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-    ) -> OwnedLeafShardBlockHeaderUnsealed {
+    ) -> OwnedLeafShardHeaderUnsealed {
         let mut buffer = OwnedAlignedBuffer::with_capacity(Self::MAX_ALLOCATION);
 
         Self::from_parts_into(
@@ -505,7 +505,7 @@ impl OwnedLeafShardHeader {
             &mut buffer,
         );
 
-        OwnedLeafShardBlockHeaderUnsealed { buffer }
+        OwnedLeafShardHeaderUnsealed { buffer }
     }
 
     /// Create owned header from its parts and write it into provided buffer
@@ -572,11 +572,11 @@ impl OwnedLeafShardHeader {
 
 /// Owned leaf shard block header, which is not sealed yet
 #[derive(Debug, Clone)]
-pub struct OwnedLeafShardBlockHeaderUnsealed {
+pub struct OwnedLeafShardHeaderUnsealed {
     buffer: OwnedAlignedBuffer,
 }
 
-impl OwnedLeafShardBlockHeaderUnsealed {
+impl OwnedLeafShardHeaderUnsealed {
     /// Hash of the block before seal is applied to it
     #[inline(always)]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
@@ -585,7 +585,7 @@ impl OwnedLeafShardBlockHeaderUnsealed {
     }
 
     /// Add seal and return [`OwnedLeafShardHeader`]
-    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedLeafShardHeader {
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedLeafShardHeader {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 

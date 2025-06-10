@@ -8,14 +8,14 @@ use crate::block::body::owned::{
 };
 use crate::block::body::{BlockBody, IntermediateShardBlockInfo, LeafShardBlockInfo};
 use crate::block::header::owned::{
-    GenericOwnedBlockHeader, OwnedBeaconChainBlockHeaderUnsealed, OwnedBeaconChainHeader,
-    OwnedBeaconChainHeaderError, OwnedBlockHeader, OwnedIntermediateShardBlockHeaderUnsealed,
-    OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError,
-    OwnedLeafShardBlockHeaderUnsealed, OwnedLeafShardHeader,
+    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
+    OwnedBeaconChainHeaderUnsealed, OwnedBlockHeader, OwnedIntermediateShardHeader,
+    OwnedIntermediateShardHeaderError, OwnedIntermediateShardHeaderUnsealed, OwnedLeafShardHeader,
+    OwnedLeafShardHeaderUnsealed,
 };
 use crate::block::header::{
-    BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderBeaconChainParameters,
-    BlockHeaderConsensusInfo, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSealRef,
+    BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
+    BlockHeaderConsensusParameters, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
 };
 use crate::block::{BeaconChainBlock, Block, GenericBlock, IntermediateShardBlock, LeafShardBlock};
 use crate::hashes::Blake3Hash;
@@ -103,7 +103,7 @@ impl OwnedBeaconChainBlock {
         ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + Clone + 'a,
     {
         Ok(OwnedBeaconChainBlockBuilder {
-            body: OwnedBeaconChainBody::init(
+            body: OwnedBeaconChainBody::new(
                 own_segment_roots,
                 intermediate_shard_blocks,
                 pot_checkpoints,
@@ -158,7 +158,7 @@ impl OwnedBeaconChainBlockBuilder {
         prefix: &BlockHeaderPrefix,
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
-        consensus_parameters: BlockHeaderBeaconChainParameters<'_>,
+        consensus_parameters: BlockHeaderConsensusParameters<'_>,
     ) -> Result<OwnedBeaconChainBlockUnsealed, OwnedBeaconChainHeaderError> {
         let body = self.body;
         let header = OwnedBeaconChainHeader::from_parts(
@@ -185,7 +185,7 @@ impl OwnedBeaconChainBlockBuilder {
 #[derive(Debug, Clone)]
 pub struct OwnedBeaconChainBlockUnsealed {
     body: OwnedBeaconChainBody,
-    header: OwnedBeaconChainBlockHeaderUnsealed,
+    header: OwnedBeaconChainHeaderUnsealed,
 }
 
 impl OwnedBeaconChainBlockUnsealed {
@@ -196,7 +196,7 @@ impl OwnedBeaconChainBlockUnsealed {
     }
 
     /// Add seal and return [`OwnedBeaconChainBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedBeaconChainBlock {
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedBeaconChainBlock {
         let header = self.header.with_seal(seal);
 
         OwnedBeaconChainBlock {
@@ -354,7 +354,7 @@ impl OwnedIntermediateShardBlockBuilder {
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardBlockUnsealed {
     body: OwnedIntermediateShardBody,
-    header: OwnedIntermediateShardBlockHeaderUnsealed,
+    header: OwnedIntermediateShardHeaderUnsealed,
 }
 
 impl OwnedIntermediateShardBlockUnsealed {
@@ -365,7 +365,7 @@ impl OwnedIntermediateShardBlockUnsealed {
     }
 
     /// Add seal and return [`OwnedIntermediateShardBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedIntermediateShardBlock {
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedIntermediateShardBlock {
         let header = self.header.with_seal(seal);
 
         OwnedIntermediateShardBlock {
@@ -504,7 +504,7 @@ impl OwnedLeafShardBlockBuilder {
 #[derive(Debug, Clone)]
 pub struct OwnedLeafShardBlockUnsealed {
     body: OwnedLeafShardBody,
-    header: OwnedLeafShardBlockHeaderUnsealed,
+    header: OwnedLeafShardHeaderUnsealed,
 }
 
 impl OwnedLeafShardBlockUnsealed {
@@ -515,7 +515,7 @@ impl OwnedLeafShardBlockUnsealed {
     }
 
     /// Add seal and return [`OwnedLeafShardBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSealRef<'_>) -> OwnedLeafShardBlock {
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedLeafShardBlock {
         let header = self.header.with_seal(seal);
 
         OwnedLeafShardBlock {
