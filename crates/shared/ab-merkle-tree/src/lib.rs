@@ -43,6 +43,7 @@ pub const INNER_NODE_DOMAIN_SEPARATOR: [u8; KEY_LEN] = [
 /// Helper function to hash two nodes together using [`blake3::keyed_hash()`] and
 /// [`INNER_NODE_DOMAIN_SEPARATOR`]
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn hash_pair(left: &[u8; OUT_LEN], right: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
     let mut pair = [0u8; OUT_LEN * 2];
     pair[..OUT_LEN].copy_from_slice(left);
