@@ -50,56 +50,50 @@ impl UnbalancedHashedMerkleTree {
     {
         // Stack of intermediate nodes per tree level
         let mut stack = [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1];
-        // Bitmask: bit `i = 1` if level `i` is active
-        let mut active_levels = 0_u64;
+        let mut num_leaves = 0_u64;
 
         for hash in leaves {
-            // Active leaves is effectively the number of leaves
-            if active_levels >= MAX_N as u64 {
+            // How many leaves were processed so far
+            if num_leaves >= MAX_N as u64 {
                 return None;
             }
 
             let mut current = hash.into();
-            let mut level = 0;
 
-            // Check if level is active by testing bit (active_levels & (1 << level))
-            while (active_levels & (1 << level)) != 0 {
-                current = hash_pair(&stack[level], &current);
-
-                // Clear the current level
-                active_levels &= !(1 << level);
-                level += 1;
+            // Every bit set to `1` corresponds to an active Merkle Tree level
+            let lowest_active_levels = num_leaves.trailing_ones() as usize;
+            for item in stack.iter().take(lowest_active_levels) {
+                current = hash_pair(item, &current);
             }
 
             // Place the current hash at the first inactive level
-            stack[level] = current;
-            // Set bit for level
-            active_levels |= 1 << level;
+            stack[lowest_active_levels] = current;
+            num_leaves += 1;
         }
 
-        if active_levels == 0 {
+        if num_leaves == 0 {
             // If no leaves were provided
             return None;
         }
 
         {
-            let lowest_active_level = active_levels.trailing_zeros() as usize;
+            let lowest_active_level = num_leaves.trailing_zeros() as usize;
             // Reuse `stack[0]` for resulting value
             stack[0] = stack[lowest_active_level];
             // Clear lowest active level
-            active_levels &= !(1 << lowest_active_level);
+            num_leaves &= !(1 << lowest_active_level);
         }
 
         // Hash remaining peaks (if any) of the potentially unbalanced tree together
         loop {
-            let lowest_active_level = active_levels.trailing_zeros() as usize;
+            let lowest_active_level = num_leaves.trailing_zeros() as usize;
 
             if lowest_active_level == u64::BITS as usize {
                 break;
             }
 
             // Clear lowest active level
-            active_levels &= !(1 << lowest_active_level);
+            num_leaves &= !(1 << lowest_active_level);
 
             stack[0] = hash_pair(&stack[lowest_active_level], &stack[0]);
         }
@@ -186,56 +180,42 @@ impl UnbalancedHashedMerkleTree {
         Iter: IntoIterator<Item = Item> + 'a,
     {
         let mut proof_length = 0;
-        let mut active_levels = 0_u64;
+        let mut num_leaves = 0_u64;
 
         let mut current_target_level = None;
         let mut position = target_index;
 
         for (current_index, hash) in leaves.into_iter().enumerate() {
-            // Active leaves is effectively the number of leaves
-            if active_levels >= MAX_N as u64 {
+            // How many leaves were processed so far
+            if num_leaves >= MAX_N as u64 {
                 return None;
             }
 
             let mut current = hash.into();
-            let mut level = 0;
+
+            // Every bit set to `1` corresponds to an active Merkle Tree level
+            let lowest_active_levels = num_leaves.trailing_ones() as usize;
 
             if current_index == target_index {
-                // Check if level is active by testing bit (active_levels & (1 << level))
-                while (active_levels & (1 << level)) != 0 {
+                for item in stack.iter().take(lowest_active_levels) {
                     // If at the target leaf index, need to collect the proof
                     // SAFETY: Method signature guarantees upper bound of the proof length
-                    unsafe { proof.get_unchecked_mut(proof_length) }.write(stack[level]);
+                    unsafe { proof.get_unchecked_mut(proof_length) }.write(*item);
                     proof_length += 1;
 
-                    current = hash_pair(&stack[level], &current);
-
-                    // Clear the current level
-                    active_levels &= !(1 << level);
-                    level += 1;
+                    current = hash_pair(item, &current);
 
                     // Move up the tree
                     position /= 2;
                 }
 
-                current_target_level = Some(level);
-
-                // Place the current hash at the first inactive level
-                stack[level] = current;
-                // Set bit for level
-                active_levels |= 1 << level;
+                current_target_level = Some(lowest_active_levels);
             } else {
-                // If at the target leaf index, need to collect the proof
-                while (active_levels & (1 << level)) != 0 {
+                for (level, item) in stack.iter().enumerate().take(lowest_active_levels) {
                     if current_target_level == Some(level) {
                         // SAFETY: Method signature guarantees upper bound of the proof length
-                        unsafe { proof.get_unchecked_mut(proof_length) }.write(
-                            if position % 2 == 0 {
-                                current
-                            } else {
-                                stack[level]
-                            },
-                        );
+                        unsafe { proof.get_unchecked_mut(proof_length) }
+                            .write(if position % 2 == 0 { current } else { *item });
                         proof_length += 1;
 
                         current_target_level = Some(level + 1);
@@ -244,22 +224,17 @@ impl UnbalancedHashedMerkleTree {
                         position /= 2;
                     }
 
-                    current = hash_pair(&stack[level], &current);
-
-                    // Clear the current level
-                    active_levels &= !(1 << level);
-                    level += 1;
+                    current = hash_pair(item, &current);
                 }
-
-                // Place the current hash at the first inactive level
-                stack[level] = current;
-                // Set bit for level
-                active_levels |= 1 << level;
             }
+
+            // Place the current hash at the first inactive level
+            stack[lowest_active_levels] = current;
+            num_leaves += 1;
         }
 
         // `active_levels` here contains the number of leaves after above loop
-        if target_index >= active_levels as usize {
+        if target_index >= num_leaves as usize {
             // If no leaves were provided
             return None;
         }
@@ -270,25 +245,25 @@ impl UnbalancedHashedMerkleTree {
         };
 
         {
-            let lowest_active_level = active_levels.trailing_zeros() as usize;
+            let lowest_active_level = num_leaves.trailing_zeros() as usize;
             // Reuse `stack[0]` for resulting value
             stack[0] = stack[lowest_active_level];
             // Clear lowest active level
-            active_levels &= !(1 << lowest_active_level);
+            num_leaves &= !(1 << lowest_active_level);
         }
 
         // Hash remaining peaks (if any) of the potentially unbalanced tree together and collect
         // proof hashes
         let mut merged_peaks = false;
         loop {
-            let lowest_active_level = active_levels.trailing_zeros() as usize;
+            let lowest_active_level = num_leaves.trailing_zeros() as usize;
 
             if lowest_active_level == u64::BITS as usize {
                 break;
             }
 
             // Clear lowest active level
-            active_levels &= !(1 << lowest_active_level);
+            num_leaves &= !(1 << lowest_active_level);
 
             if lowest_active_level > current_target_level
                 || (lowest_active_level == current_target_level
