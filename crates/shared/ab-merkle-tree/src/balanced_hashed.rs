@@ -43,6 +43,7 @@ where
     ///
     /// The data structure is statically allocated and might be too large to fit on the stack!
     /// If that is the case, use `new_boxed()` method.
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn new(leaves: &'a [[u8; OUT_LEN]; N]) -> Self {
         let mut tree = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); _];
 
@@ -56,6 +57,7 @@ where
     }
 
     /// Like [`Self::new()`], but used pre-allocated memory for instantiation
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn new_in<'b>(
         instance: &'b mut MaybeUninit<Self>,
         leaves: &'a [[u8; OUT_LEN]; N],
@@ -94,6 +96,7 @@ where
         unsafe { instance.assume_init() }
     }
 
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn init_internal(leaves: &[[u8; OUT_LEN]; N], tree: &mut [MaybeUninit<[u8; OUT_LEN]>; N - 1]) {
         let mut tree_hashes = tree.as_mut_slice();
         let mut level_hashes = leaves.as_slice();
@@ -130,6 +133,7 @@ where
     /// This is functionally equivalent to creating an instance first and calling [`Self::root()`]
     /// method, but is faster and avoids heap allocation when root is the only thing that is needed.
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn compute_root_only(leaves: &[[u8; OUT_LEN]; N]) -> [u8; OUT_LEN]
     where
         [(); N.ilog2() as usize + 1]:,
@@ -161,6 +165,7 @@ where
     ///
     /// In case a tree contains a single leaf hash, that leaf hash is returned.
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn root(&self) -> [u8; OUT_LEN] {
         *self
             .tree
@@ -170,6 +175,7 @@ where
     }
 
     /// Iterator over proofs in the same order as provided leaf hashes
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn all_proofs(
         &self,
     ) -> impl ExactSizeIterator<Item = [[u8; OUT_LEN]; N.ilog2() as usize]> + TrustedLen
@@ -236,6 +242,7 @@ where
 
     /// Verify previously generated proof
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn verify(
         root: &[u8; OUT_LEN],
         proof: &[[u8; OUT_LEN]; N.ilog2() as usize],
@@ -278,6 +285,7 @@ where
     type Item = Iter::Item;
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn next(&mut self) -> Option<Self::Item> {
         let item = self.iter.next();
         self.len = self.len.saturating_sub(1);

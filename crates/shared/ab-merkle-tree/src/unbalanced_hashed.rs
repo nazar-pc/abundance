@@ -40,6 +40,7 @@ impl UnbalancedHashedMerkleTree {
     ///
     /// Returns `None` for an empty list of leaves.
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn compute_root_only<'a, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
     ) -> Option<[u8; OUT_LEN]>
@@ -79,7 +80,8 @@ impl UnbalancedHashedMerkleTree {
         {
             let lowest_active_level = num_leaves.trailing_zeros() as usize;
             // Reuse `stack[0]` for resulting value
-            stack[0] = stack[lowest_active_level];
+            // SAFETY: Active level must have been set successfully before, hence it exists
+            stack[0] = *unsafe { stack.get_unchecked(lowest_active_level) };
             // Clear lowest active level
             num_leaves &= !(1 << lowest_active_level);
         }
@@ -92,10 +94,13 @@ impl UnbalancedHashedMerkleTree {
                 break;
             }
 
-            // Clear lowest active level
+            // Clear lowest active level for next iteration
             num_leaves &= !(1 << lowest_active_level);
 
-            stack[0] = hash_pair(&stack[lowest_active_level], &stack[0]);
+            // SAFETY: Active level must have been set successfully before, hence it exists
+            let lowest_active_level_item = unsafe { stack.get_unchecked(lowest_active_level) };
+
+            stack[0] = hash_pair(lowest_active_level_item, &stack[0]);
         }
 
         Some(stack[0])
@@ -147,6 +152,7 @@ impl UnbalancedHashedMerkleTree {
     /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
     /// usage.
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn compute_root_and_proof_in<'a, 'proof, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
         target_index: usize,
@@ -163,11 +169,17 @@ impl UnbalancedHashedMerkleTree {
         let (root, proof_length) =
             Self::compute_root_and_proof_inner(leaves, target_index, &mut stack, proof)?;
         // SAFETY: Just correctly initialized `proof_length` elements
-        let proof = unsafe { proof[..proof_length].assume_init_mut() };
+        let proof = unsafe {
+            proof
+                .split_at_mut_unchecked(proof_length)
+                .0
+                .assume_init_mut()
+        };
 
         Some((root, proof))
     }
 
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn compute_root_and_proof_inner<'a, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
         target_index: usize,
@@ -247,7 +259,8 @@ impl UnbalancedHashedMerkleTree {
         {
             let lowest_active_level = num_leaves.trailing_zeros() as usize;
             // Reuse `stack[0]` for resulting value
-            stack[0] = stack[lowest_active_level];
+            // SAFETY: Active level must have been set successfully before, hence it exists
+            stack[0] = *unsafe { stack.get_unchecked(lowest_active_level) };
             // Clear lowest active level
             num_leaves &= !(1 << lowest_active_level);
         }
@@ -262,8 +275,11 @@ impl UnbalancedHashedMerkleTree {
                 break;
             }
 
-            // Clear lowest active level
+            // Clear lowest active level for next iteration
             num_leaves &= !(1 << lowest_active_level);
+
+            // SAFETY: Active level must have been set successfully before, hence it exists
+            let lowest_active_level_item = unsafe { stack.get_unchecked(lowest_active_level) };
 
             if lowest_active_level > current_target_level
                 || (lowest_active_level == current_target_level
@@ -271,7 +287,7 @@ impl UnbalancedHashedMerkleTree {
                     && !merged_peaks)
             {
                 // SAFETY: Method signature guarantees upper bound of the proof length
-                unsafe { proof.get_unchecked_mut(proof_length) }.write(stack[lowest_active_level]);
+                unsafe { proof.get_unchecked_mut(proof_length) }.write(*lowest_active_level_item);
                 proof_length += 1;
                 merged_peaks = false;
             } else if lowest_active_level == current_target_level {
@@ -285,7 +301,7 @@ impl UnbalancedHashedMerkleTree {
             }
 
             // Collect the lowest peak into the proof
-            stack[0] = hash_pair(&stack[lowest_active_level], &stack[0]);
+            stack[0] = hash_pair(lowest_active_level_item, &stack[0]);
 
             position /= 2;
         }
@@ -295,6 +311,7 @@ impl UnbalancedHashedMerkleTree {
 
     /// Verify a Merkle proof for a leaf at the given index
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn verify(
         root: &[u8; OUT_LEN],
         proof: &[[u8; OUT_LEN]],

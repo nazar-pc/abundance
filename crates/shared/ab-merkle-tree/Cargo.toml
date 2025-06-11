@@ -17,6 +17,7 @@ all-features = true
 
 [dependencies]
 blake3 = { workspace = true }
+no-panic = { workspace = true, optional = true }
 
 [dev-dependencies]
 rand_core = { workspace = true }
@@ -24,6 +25,9 @@ rand_chacha = { workspace = true }
 
 [features]
 alloc = []
+no-panic = [
+    "dep:no-panic",
+]
 
 [lints]
 workspace = true
