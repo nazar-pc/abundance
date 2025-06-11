@@ -40,7 +40,7 @@ impl UnbalancedHashedMerkleTree {
     ///
     /// Returns `None` for an empty list of leaves.
     #[inline]
-    pub fn compute_root_only<'a, const MAX_N: usize, Item, Iter>(
+    pub fn compute_root_only<'a, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
     ) -> Option<[u8; OUT_LEN]>
     where
@@ -54,7 +54,7 @@ impl UnbalancedHashedMerkleTree {
 
         for hash in leaves {
             // How many leaves were processed so far
-            if num_leaves >= MAX_N as u64 {
+            if num_leaves >= MAX_N {
                 return None;
             }
 
@@ -109,7 +109,7 @@ impl UnbalancedHashedMerkleTree {
     /// usage.
     #[inline]
     #[cfg(feature = "alloc")]
-    pub fn compute_root_and_proof<'a, const MAX_N: usize, Item, Iter>(
+    pub fn compute_root_and_proof<'a, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
         target_index: usize,
     ) -> Option<([u8; OUT_LEN], Vec<[u8; OUT_LEN]>)>
@@ -147,7 +147,7 @@ impl UnbalancedHashedMerkleTree {
     /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
     /// usage.
     #[inline]
-    pub fn compute_root_and_proof_in<'a, 'proof, const MAX_N: usize, Item, Iter>(
+    pub fn compute_root_and_proof_in<'a, 'proof, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
         target_index: usize,
         proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.ilog2() as usize + 1],
@@ -168,7 +168,7 @@ impl UnbalancedHashedMerkleTree {
         Some((root, proof))
     }
 
-    fn compute_root_and_proof_inner<'a, const MAX_N: usize, Item, Iter>(
+    fn compute_root_and_proof_inner<'a, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
         target_index: usize,
         stack: &mut [[u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
@@ -187,7 +187,7 @@ impl UnbalancedHashedMerkleTree {
 
         for (current_index, hash) in leaves.into_iter().enumerate() {
             // How many leaves were processed so far
-            if num_leaves >= MAX_N as u64 {
+            if num_leaves >= MAX_N {
                 return None;
             }
 
@@ -298,9 +298,9 @@ impl UnbalancedHashedMerkleTree {
     pub fn verify(
         root: &[u8; OUT_LEN],
         proof: &[[u8; OUT_LEN]],
-        leaf_index: usize,
+        leaf_index: u64,
         leaf: [u8; OUT_LEN],
-        num_leaves: usize,
+        num_leaves: u64,
     ) -> bool {
         if leaf_index >= num_leaves {
             return false;

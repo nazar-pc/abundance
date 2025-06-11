@@ -11,40 +11,43 @@ use std::mem::MaybeUninit;
 
 #[test]
 fn mt_balanced_1_leaves() {
-    test_basic::<1>();
+    test_basic::<1, 1>();
 }
 
 #[test]
 fn mt_balanced_2_leaves() {
-    test_basic::<2>();
+    test_basic::<2, 2>();
 }
 
 #[test]
 fn mt_balanced_4_leaves() {
-    test_basic::<4>();
+    test_basic::<4, 4>();
 }
 
 #[test]
 fn mt_balanced_8_leaves() {
-    test_basic::<8>();
+    test_basic::<8, 8>();
 }
 
 #[test]
 fn mt_balanced_16_leaves() {
-    test_basic::<16>();
+    test_basic::<16, 16>();
 }
 
 #[test]
 fn mt_balanced_32_leaves() {
-    test_basic::<32>();
+    test_basic::<32, 32>();
 }
 
-fn test_basic<const N: usize>()
+fn test_basic<const N: usize, const N_U64: u64>()
 where
     [(); N - 1]:,
     [(); N.ilog2() as usize]:,
     [(); N.ilog2() as usize + 1]:,
+    [(); N_U64.ilog2() as usize + 1]:,
 {
+    assert!(N as u64 == N_U64);
+
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
     let leaves = {
@@ -119,7 +122,7 @@ where
         // Ensure unbalanced implementation produces the same proofs and can verify them
         // successfully
         let (unbalanced_root, unbalanced_proof) =
-            UnbalancedHashedMerkleTree::compute_root_and_proof_in::<N, _, _>(
+            UnbalancedHashedMerkleTree::compute_root_and_proof_in::<N_U64, _, _>(
                 leaves.iter().copied(),
                 leaf_index,
                 proof_buffer,
@@ -134,7 +137,7 @@ where
         #[cfg(feature = "alloc")]
         {
             let (unbalanced_root, unbalanced_proof) =
-                UnbalancedHashedMerkleTree::compute_root_and_proof::<N, _, _>(
+                UnbalancedHashedMerkleTree::compute_root_and_proof::<N_U64, _, _>(
                     leaves.iter().copied(),
                     leaf_index,
                 )
@@ -147,28 +150,46 @@ where
             );
         }
         assert!(
-            UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index, leaf, N),
+            UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index as u64, leaf, N_U64),
             "N {N} leaf_index {leaf_index}"
         );
         // Proof is empty for a single leaf and will never fail
         if N > 1 {
             assert!(
-                !UnbalancedHashedMerkleTree::verify(&root, &random_proof, leaf_index, leaf, N),
+                !UnbalancedHashedMerkleTree::verify(
+                    &root,
+                    &random_proof,
+                    leaf_index as u64,
+                    leaf,
+                    N_U64
+                ),
                 "N {N} leaf_index {leaf_index}"
             );
         }
         if let Some(bad_leaf_index) = leaf_index.checked_sub(1) {
             assert!(
-                !UnbalancedHashedMerkleTree::verify(&root, &proof, bad_leaf_index, leaf, N),
+                !UnbalancedHashedMerkleTree::verify(
+                    &root,
+                    &proof,
+                    bad_leaf_index as u64,
+                    leaf,
+                    N_U64
+                ),
                 "N {N} leaf_index {leaf_index}"
             );
         }
         assert!(
-            !UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index + 1, leaf, N),
+            !UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index as u64 + 1, leaf, N_U64),
             "N {N} leaf_index {leaf_index}"
         );
         assert!(
-            !UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index, random_hash, N),
+            !UnbalancedHashedMerkleTree::verify(
+                &root,
+                &proof,
+                leaf_index as u64,
+                random_hash,
+                N_U64
+            ),
             "N {N} leaf_index {leaf_index}"
         );
     }

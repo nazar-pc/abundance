@@ -495,7 +495,7 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
     ///
     /// `None` is returned if there are no child shard blocks.
     pub fn root(&self) -> Option<Blake3Hash> {
-        let root = UnbalancedHashedMerkleTree::compute_root_only::<'_, { u32::MAX as usize }, _, _>(
+        let root = UnbalancedHashedMerkleTree::compute_root_only::<'_, { u32::MAX as u64 }, _, _>(
             // TODO: Keyed hash
             self.child_shard_blocks
                 .iter()
@@ -878,8 +878,9 @@ impl<'a> BeaconChainHeader<'a> {
             child_shard_blocks.root().unwrap_or_default(),
             consensus_parameters.hash(),
         ];
-        let block_root = UnbalancedHashedMerkleTree::compute_root_only::<MAX_N, _, _>(leaves)
-            .expect("The list is not empty; qed");
+        let block_root =
+            UnbalancedHashedMerkleTree::compute_root_only::<{ MAX_N as u64 }, _, _>(leaves)
+                .expect("The list is not empty; qed");
 
         BlockRoot::new(Blake3Hash::new(block_root))
     }
@@ -1091,8 +1092,9 @@ impl<'a> IntermediateShardHeader<'a> {
             beacon_chain_info.hash(),
             child_shard_blocks.root().unwrap_or_default(),
         ];
-        let block_root = UnbalancedHashedMerkleTree::compute_root_only::<MAX_N, _, _>(leaves)
-            .expect("The list is not empty; qed");
+        let block_root =
+            UnbalancedHashedMerkleTree::compute_root_only::<{ MAX_N as u64 }, _, _>(leaves)
+                .expect("The list is not empty; qed");
 
         BlockRoot::new(Blake3Hash::new(block_root))
     }
@@ -1288,8 +1290,9 @@ impl<'a> LeafShardHeader<'a> {
             seal.hash(),
             beacon_chain_info.hash(),
         ];
-        let block_root = UnbalancedHashedMerkleTree::compute_root_only::<MAX_N, _, _>(leaves)
-            .expect("The list is not empty; qed");
+        let block_root =
+            UnbalancedHashedMerkleTree::compute_root_only::<{ MAX_N as u64 }, _, _>(leaves)
+                .expect("The list is not empty; qed");
 
         BlockRoot::new(Blake3Hash::new(block_root))
     }

@@ -10,7 +10,7 @@ use rand_core::{RngCore, SeedableRng};
 use std::mem;
 use std::mem::MaybeUninit;
 
-const MAX_N: usize = 100;
+const MAX_N: u64 = 100;
 
 /// A simplified version that is easier to audit to verify the main optimized version against
 struct SimpleUnbalancedMerkleTree;
@@ -208,11 +208,11 @@ fn mt_unbalanced_15_leaves() {
 
 #[test]
 fn mt_unbalanced_too_many_leaves() {
-    const NUM_LEAVES: usize = 3;
+    const NUM_LEAVES: u64 = 3;
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
     let leaves = {
-        let mut leaves = vec![[0u8; OUT_LEN]; NUM_LEAVES + 1];
+        let mut leaves = vec![[0u8; OUT_LEN]; NUM_LEAVES as usize + 1];
         for hash in &mut leaves {
             rng.fill_bytes(hash);
         }
@@ -250,11 +250,11 @@ fn mt_unbalanced_large_range() {
     }
 }
 
-fn test_basic(number_of_leaves: usize) {
+fn test_basic(number_of_leaves: u64) {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
     let leaves = {
-        let mut leaves = vec![[0u8; OUT_LEN]; number_of_leaves];
+        let mut leaves = vec![[0u8; OUT_LEN]; number_of_leaves as usize];
         for hash in &mut leaves {
             rng.fill_bytes(hash);
         }
@@ -330,7 +330,13 @@ fn test_basic(number_of_leaves: usize) {
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
         assert!(
-            UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index, leaf, leaves.len()),
+            UnbalancedHashedMerkleTree::verify(
+                &root,
+                &proof,
+                leaf_index as u64,
+                leaf,
+                leaves.len() as u64
+            ),
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
 
@@ -348,9 +354,9 @@ fn test_basic(number_of_leaves: usize) {
             !UnbalancedHashedMerkleTree::verify(
                 &root,
                 &random_proof,
-                leaf_index,
+                leaf_index as u64,
                 leaf,
-                leaves.len()
+                leaves.len() as u64
             ),
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
@@ -370,9 +376,9 @@ fn test_basic(number_of_leaves: usize) {
                 !UnbalancedHashedMerkleTree::verify(
                     &root,
                     &proof,
-                    bad_leaf_index,
+                    bad_leaf_index as u64,
                     leaf,
-                    leaves.len()
+                    leaves.len() as u64
                 ),
                 "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
             );
@@ -383,7 +389,13 @@ fn test_basic(number_of_leaves: usize) {
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
         assert!(
-            !UnbalancedHashedMerkleTree::verify(&root, &proof, leaf_index + 1, leaf, leaves.len()),
+            !UnbalancedHashedMerkleTree::verify(
+                &root,
+                &proof,
+                leaf_index as u64 + 1,
+                leaf,
+                leaves.len() as u64
+            ),
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
 
@@ -401,9 +413,9 @@ fn test_basic(number_of_leaves: usize) {
             !UnbalancedHashedMerkleTree::verify(
                 &root,
                 &proof,
-                leaf_index,
+                leaf_index as u64,
                 random_hash,
-                leaves.len()
+                leaves.len() as u64
             ),
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
@@ -436,5 +448,5 @@ fn test_basic(number_of_leaves: usize) {
         .is_none()
     );
     #[cfg(feature = "alloc")]
-    assert!(UnbalancedHashedMerkleTree::compute_root_and_proof::<MAX_N, _, _>(empty, 0,).is_none());
+    assert!(UnbalancedHashedMerkleTree::compute_root_and_proof::<MAX_N, _, _>(empty, 0).is_none());
 }
