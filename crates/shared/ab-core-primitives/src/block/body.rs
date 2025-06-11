@@ -678,102 +678,6 @@ impl<'a> LeafShardBlocksInfo<'a> {
     }
 }
 
-/// Collection of transactions
-#[derive(Debug, Copy, Clone)]
-pub struct Transactions<'a> {
-    num_transactions: usize,
-    bytes: &'a [u8],
-}
-
-impl<'a> Transactions<'a> {
-    /// Create an instance from provided bytes.
-    ///
-    /// `bytes` do not need to be aligned.
-    ///
-    /// Returns an instance and remaining bytes on success.
-    #[inline]
-    pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of transactions: u32 as unaligned little-endian bytes
-        // * padding to 16-bytes boundary (if needed)
-        // * for each transaction
-        //   * transaction: Transaction
-        //   * padding to 16-bytes boundary (if needed)
-
-        let num_transactions = bytes.split_off(..size_of::<u32>())?;
-        let num_transactions = u32::from_le_bytes([
-            num_transactions[0],
-            num_transactions[1],
-            num_transactions[2],
-            num_transactions[3],
-        ]) as usize;
-
-        let mut remainder = align_to_and_ensure_zero_padding::<u128>(bytes)?;
-        let bytes_start = remainder;
-
-        for _ in 0..num_transactions {
-            (_, remainder) = Transaction::try_from_bytes(bytes)?;
-            remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
-        }
-
-        Some((
-            Self {
-                num_transactions,
-                bytes: &bytes_start[..bytes_start.len() - remainder.len()],
-            },
-            remainder,
-        ))
-    }
-
-    /// Iterator over transactions in a collection
-    #[inline]
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = Transaction<'a>> + TrustedLen + Clone + 'a {
-        let mut remainder = self.bytes;
-
-        (0..self.num_transactions).map(move |_| {
-            // SAFETY: Checked in constructor
-            let transaction = unsafe { Transaction::from_bytes_unchecked(remainder) };
-
-            remainder = &remainder[transaction.encoded_size()..];
-            remainder = align_to_and_ensure_zero_padding::<u128>(remainder)
-                .expect("Already checked in constructor; qed");
-
-            transaction
-        })
-    }
-
-    /// Number of transactions
-    #[inline(always)]
-    pub const fn len(&self) -> usize {
-        self.num_transactions
-    }
-
-    /// Returns `true` if there are no transactions
-    #[inline(always)]
-    pub const fn is_empty(&self) -> bool {
-        self.num_transactions == 0
-    }
-
-    /// Compute the root of the leaf shard blocks info.
-    ///
-    /// Returns default value for an empty collection of shard blocks.
-    #[inline]
-    pub fn root(&self) -> Blake3Hash {
-        let root =
-            UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as usize + 1 }, _, _>(
-                self.iter().map(|transaction| {
-                    // Hash the hash again so we can prove it, otherwise transactions root is
-                    // indistinguishable from individual transaction roots and can be used to
-                    // confuse verifier
-                    blake3::hash(transaction.hash().as_ref())
-                }),
-            )
-            .unwrap_or_default();
-
-        Blake3Hash::new(root)
-    }
-}
-
 /// Block body that corresponds to an intermediate shard
 #[derive(Debug, Copy, Clone)]
 pub struct IntermediateShardBody<'a> {
@@ -926,6 +830,102 @@ impl<'a> IntermediateShardBody<'a> {
             *self.leaf_shard_blocks.headers_root(),
             *self.transactions.root(),
         ]);
+
+        Blake3Hash::new(root)
+    }
+}
+
+/// Collection of transactions
+#[derive(Debug, Copy, Clone)]
+pub struct Transactions<'a> {
+    num_transactions: usize,
+    bytes: &'a [u8],
+}
+
+impl<'a> Transactions<'a> {
+    /// Create an instance from provided bytes.
+    ///
+    /// `bytes` do not need to be aligned.
+    ///
+    /// Returns an instance and remaining bytes on success.
+    #[inline]
+    pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        // The layout here is as follows:
+        // * number of transactions: u32 as unaligned little-endian bytes
+        // * padding to 16-bytes boundary (if needed)
+        // * for each transaction
+        //   * transaction: Transaction
+        //   * padding to 16-bytes boundary (if needed)
+
+        let num_transactions = bytes.split_off(..size_of::<u32>())?;
+        let num_transactions = u32::from_le_bytes([
+            num_transactions[0],
+            num_transactions[1],
+            num_transactions[2],
+            num_transactions[3],
+        ]) as usize;
+
+        let mut remainder = align_to_and_ensure_zero_padding::<u128>(bytes)?;
+        let bytes_start = remainder;
+
+        for _ in 0..num_transactions {
+            (_, remainder) = Transaction::try_from_bytes(bytes)?;
+            remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
+        }
+
+        Some((
+            Self {
+                num_transactions,
+                bytes: &bytes_start[..bytes_start.len() - remainder.len()],
+            },
+            remainder,
+        ))
+    }
+
+    /// Iterator over transactions in a collection
+    #[inline]
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = Transaction<'a>> + TrustedLen + Clone + 'a {
+        let mut remainder = self.bytes;
+
+        (0..self.num_transactions).map(move |_| {
+            // SAFETY: Checked in constructor
+            let transaction = unsafe { Transaction::from_bytes_unchecked(remainder) };
+
+            remainder = &remainder[transaction.encoded_size()..];
+            remainder = align_to_and_ensure_zero_padding::<u128>(remainder)
+                .expect("Already checked in constructor; qed");
+
+            transaction
+        })
+    }
+
+    /// Number of transactions
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.num_transactions
+    }
+
+    /// Returns `true` if there are no transactions
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
+        self.num_transactions == 0
+    }
+
+    /// Compute the root of the leaf shard blocks info.
+    ///
+    /// Returns default value for an empty collection of shard blocks.
+    #[inline]
+    pub fn root(&self) -> Blake3Hash {
+        let root =
+            UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as usize + 1 }, _, _>(
+                self.iter().map(|transaction| {
+                    // Hash the hash again so we can prove it, otherwise transactions root is
+                    // indistinguishable from individual transaction roots and can be used to
+                    // confuse verifier
+                    blake3::hash(transaction.hash().as_ref())
+                }),
+            )
+            .unwrap_or_default();
 
         Blake3Hash::new(root)
     }
