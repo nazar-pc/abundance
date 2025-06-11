@@ -2,9 +2,8 @@
 
 use crate::block::body::owned::{
     GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedBlockBody,
-    OwnedIntermediateShardBlockBodyBuilder, OwnedIntermediateShardBody,
-    OwnedIntermediateShardBodyError, OwnedLeafShardBlockBodyBuilder, OwnedLeafShardBody,
-    OwnedLeafShardBodyError, WritableBodyTransaction,
+    OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBlockBodyBuilder,
+    OwnedLeafShardBody, OwnedLeafShardBodyError, WritableBodyTransaction,
 };
 use crate::block::body::{BlockBody, IntermediateShardBlockInfo, LeafShardBlockInfo};
 use crate::block::header::owned::{
@@ -260,7 +259,7 @@ impl OwnedIntermediateShardBlock {
         LSB: TrustedLen<Item = LeafShardBlockInfo<'a>> + Clone + 'a,
     {
         Ok(OwnedIntermediateShardBlockBuilder {
-            body_builder: OwnedIntermediateShardBody::init(own_segment_roots, leaf_shard_blocks)?,
+            body: OwnedIntermediateShardBody::new(own_segment_roots, leaf_shard_blocks)?,
         })
     }
 
@@ -303,24 +302,10 @@ impl OwnedIntermediateShardBlock {
 /// Builder for [`OwnedIntermediateShardBlock`]
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardBlockBuilder {
-    body_builder: OwnedIntermediateShardBlockBodyBuilder,
+    body: OwnedIntermediateShardBody,
 }
 
 impl OwnedIntermediateShardBlockBuilder {
-    /// Add transaction to the body
-    #[inline(always)]
-    pub fn add_transaction<T>(
-        &mut self,
-        transaction: T,
-    ) -> Result<(), OwnedIntermediateShardBodyError>
-    where
-        T: WritableBodyTransaction,
-    {
-        self.body_builder.add_transaction(transaction)?;
-
-        Ok(())
-    }
-
     /// Add header
     pub fn with_header(
         self,
@@ -329,7 +314,7 @@ impl OwnedIntermediateShardBlockBuilder {
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
     ) -> Result<OwnedIntermediateShardBlockUnsealed, OwnedIntermediateShardHeaderError> {
-        let body = self.body_builder.finish();
+        let body = self.body;
         let header = OwnedIntermediateShardHeader::from_parts(
             prefix,
             &BlockHeaderResult {
