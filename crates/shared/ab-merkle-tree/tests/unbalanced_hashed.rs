@@ -207,6 +207,42 @@ fn mt_unbalanced_15_leaves() {
 }
 
 #[test]
+fn mt_unbalanced_too_many_leaves() {
+    const NUM_LEAVES: usize = 3;
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    let leaves = {
+        let mut leaves = vec![[0u8; OUT_LEN]; NUM_LEAVES + 1];
+        for hash in &mut leaves {
+            rng.fill_bytes(hash);
+        }
+        leaves
+    };
+
+    assert!(
+        UnbalancedHashedMerkleTree::compute_root_only::<NUM_LEAVES, _, _>(leaves.iter().copied())
+            .is_none()
+    );
+    let proof_buffer = &mut [MaybeUninit::uninit(); _];
+    assert!(
+        UnbalancedHashedMerkleTree::compute_root_and_proof_in::<NUM_LEAVES, _, _>(
+            leaves.iter().copied(),
+            0,
+            proof_buffer
+        )
+        .is_none()
+    );
+    #[cfg(feature = "alloc")]
+    assert!(
+        UnbalancedHashedMerkleTree::compute_root_and_proof::<NUM_LEAVES, _, _>(
+            leaves.iter().copied(),
+            0
+        )
+        .is_none()
+    );
+}
+
+#[test]
 #[cfg_attr(miri, ignore)]
 fn mt_unbalanced_large_range() {
     for number_of_leaves in 2..MAX_N {

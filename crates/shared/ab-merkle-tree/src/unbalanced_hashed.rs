@@ -40,18 +40,25 @@ impl UnbalancedHashedMerkleTree {
     ///
     /// Returns `None` for an empty list of leaves.
     #[inline]
-    pub fn compute_root_only<'a, const N: usize, Item, Iter>(leaves: Iter) -> Option<[u8; OUT_LEN]>
+    pub fn compute_root_only<'a, const MAX_N: usize, Item, Iter>(
+        leaves: Iter,
+    ) -> Option<[u8; OUT_LEN]>
     where
-        [(); N.ilog2() as usize + 1]:,
+        [(); MAX_N.ilog2() as usize + 1]:,
         Item: Into<[u8; OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; N.ilog2() as usize + 1];
+        let mut stack = [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1];
         // Bitmask: bit `i = 1` if level `i` is active
         let mut active_levels = 0_u64;
 
         for hash in leaves {
+            // Active leaves is effectively the number of leaves
+            if active_levels >= MAX_N as u64 {
+                return None;
+            }
+
             let mut current = hash.into();
             let mut level = 0;
 
@@ -108,20 +115,21 @@ impl UnbalancedHashedMerkleTree {
     /// usage.
     #[inline]
     #[cfg(feature = "alloc")]
-    pub fn compute_root_and_proof<'a, const N: usize, Item, Iter>(
+    pub fn compute_root_and_proof<'a, const MAX_N: usize, Item, Iter>(
         leaves: Iter,
         target_index: usize,
     ) -> Option<([u8; OUT_LEN], Vec<[u8; OUT_LEN]>)>
     where
-        [(); N.ilog2() as usize + 1]:,
+        [(); MAX_N.ilog2() as usize + 1]:,
         Item: Into<[u8; OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; N.ilog2() as usize + 1];
+        let mut stack = [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1];
         // SAFETY: Inner value is `MaybeUninit`
         let mut proof = unsafe {
-            Box::<[MaybeUninit<[u8; OUT_LEN]>; N.ilog2() as usize + 1]>::new_uninit().assume_init()
+            Box::<[MaybeUninit<[u8; OUT_LEN]>; MAX_N.ilog2() as usize + 1]>::new_uninit()
+                .assume_init()
         };
 
         let (root, proof_length) =
@@ -145,18 +153,18 @@ impl UnbalancedHashedMerkleTree {
     /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
     /// usage.
     #[inline]
-    pub fn compute_root_and_proof_in<'a, 'proof, const N: usize, Item, Iter>(
+    pub fn compute_root_and_proof_in<'a, 'proof, const MAX_N: usize, Item, Iter>(
         leaves: Iter,
         target_index: usize,
-        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; N.ilog2() as usize + 1],
+        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.ilog2() as usize + 1],
     ) -> Option<([u8; OUT_LEN], &'proof mut [[u8; OUT_LEN]])>
     where
-        [(); N.ilog2() as usize + 1]:,
+        [(); MAX_N.ilog2() as usize + 1]:,
         Item: Into<[u8; OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; N.ilog2() as usize + 1];
+        let mut stack = [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1];
 
         let (root, proof_length) =
             Self::compute_root_and_proof_inner(leaves, target_index, &mut stack, proof)?;
@@ -166,14 +174,14 @@ impl UnbalancedHashedMerkleTree {
         Some((root, proof))
     }
 
-    fn compute_root_and_proof_inner<'a, const N: usize, Item, Iter>(
+    fn compute_root_and_proof_inner<'a, const MAX_N: usize, Item, Iter>(
         leaves: Iter,
         target_index: usize,
-        stack: &mut [[u8; OUT_LEN]; N.ilog2() as usize + 1],
-        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; N.ilog2() as usize + 1],
+        stack: &mut [[u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
+        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.ilog2() as usize + 1],
     ) -> Option<([u8; OUT_LEN], usize)>
     where
-        [(); N.ilog2() as usize + 1]:,
+        [(); MAX_N.ilog2() as usize + 1]:,
         Item: Into<[u8; OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
@@ -184,6 +192,11 @@ impl UnbalancedHashedMerkleTree {
         let mut position = target_index;
 
         for (current_index, hash) in leaves.into_iter().enumerate() {
+            // Active leaves is effectively the number of leaves
+            if active_levels >= MAX_N as u64 {
+                return None;
+            }
+
             let mut current = hash.into();
             let mut level = 0;
 
