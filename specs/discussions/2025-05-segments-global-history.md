@@ -5,15 +5,12 @@
 The goal of this discussion is to surface the core data structures and mechanics of the process of
 committing segments to the global history in the beacon chain.
 
-1. Child shards create new segments with 128 underlying pieces each with their
-   `record || record_root || parity_record_chunks_root || record_proof`. Each child shard creates
-   `RawSegments` independently (in the same way that is currently implemented). `RawSegments` are
-   assigned and increasing sequence number, `local_index` that determines the order in which they
-   were created in in the shard. These segments that haven't been committed to the global history in
-   the beacon chain are `UnverifiedSegment`s and include their own `UnverifiedSegmentHeader` (which
-   matches the current `Segment` and `SegmentHeader` data structures, respectively).
-
-   > TODO: Link to the code.
+1. Each child shard creates segments independently (in the same way that is currently implemented).
+   Segments are assigned and increasing sequence number, `local_index` that determines the order in
+   which they were created in in the shard. These segments that haven't been committed to the global
+   history in the beacon chain are `UnverifiedSegment`s and include their own
+   `UnverifiedSegmentHeader` (which matches the current `Segment` and `SegmentHeader` data
+   structures, respectively).
 
 ```rust
 pub struct UnverifiedSegmentHeader {
@@ -82,23 +79,23 @@ pub struct LeafShardBlockInfo<'a> {
    `leaf_shard_blocks` and `intermediate_shard_blocks` fields, respectively.
 
 ```rust
-pub struct IntermediateShardBlockBody<'a> {
+pub struct IntermediateShardBlockBody {
     /// Segment info produced by this shard
-    pub own_segment_info: &'a [(SegmentRoot, SegmentIndex)],
+    pub own_segment_info: [(SegmentRoot, SegmentIndex)],
     /// Leaf shard blocks
-    pub leaf_shard_blocks: LeafShardBlocksInfo<'a>,
+    pub leaf_shard_blocks: [LeafShardBlocksInfo],
     /// User transactions
-    pub transactions: Transactions<'a>,
+    pub transactions: Transactions,
 }
 
-pub struct BeaconChainBlockBody<'a> {
+pub struct BeaconChainBlockBody {
     /// Segment roots produced by this shard
-    pub own_segment_info: &'a [(SegmentRoot, SegmentIndex)],
+    pub own_segment_info: [(SegmentRoot, SegmentIndex)],
     /// Intermediate shard blocks
-    pub intermediate_shard_blocks: IntermediateShardBlocksInfo<'a>,
+    pub intermediate_shard_blocks: [IntermediateShardBlocksInfo],
     /// Proof of time checkpoints from after future proof of time of the parent block to current
     /// block's future proof of time (inclusive)
-    pub pot_checkpoints: &'a [PotCheckpoints],
+    pub pot_checkpoints: [PotCheckpoints],
 }
 ```
 
@@ -160,26 +157,28 @@ pub struct BeaconChainBlockBody<'a> {
    `child_segment_info` and `final_child_segments` were submitted, and will follow the same approach
    used in intermediate shards to identify when a block can be considered final. Thus:
 
-   - Leaf shard segments will be included to the global history in the beacon chain if its parent
-     shard (and underlying intermediate shard) has submitted a `segment_info` and a subsequent
-     `final_child_segments` through the two corresponding `IntermediateBlockShardInfo` when the
-     finality has been reached, and once the block of the intermediate shard (parent shard) at which
-     the `final_child_segment` was included has also reached the `FINALITY_PROBABILITY_THRESHOLD` in
-     the beacon chain.
-   - Intermediate shard segments will be included to the global history in the beacon chain when the
-     the block of the intermediate shard where the `own_segment_info` for the shard has reached the
+   - Leaf shard segments will be included to the global history in the beacon chain once its parent
+     shard has submitted a `segment_info` and its subsequent `final_child_segments`. This
+     information is included inside the two corresponding `IntermediateBlockShardInfo`, and they
+     signal that the finality for that segment has been reached from the point of view of the
+     parent. However, before it can be definitely included in the history of the beacon chain, the
+     two blocks from the parent chain with the `IntermediateBlockShardInfo` that included the leaf
+     shard information need to also have reached their corresponding
      `FINALITY_PROBABILITY_THRESHOLD` in the beacon chain.
+   - Intermediate shard segments will be included to the global history in the beacon chain when the
+     the block of the intermediate shard where the `own_segment_info` has reached the
+     `FINALITY_PROBABILITY_THRESHOLD`.
    - Finally, beacon chain segments can be included into the global history and into a super segment
      as soon as they are created (as any re-org in the beacon chain will impact the ordering of the
      global history in any case).
 
 7. Once a new beacon chain block confirms the a set of segments from shards in the lower levels are
-   final, these segments and any beacon chain segments included in the
-   block form a super segment. A Merkle root of these segments is included in the `super_segment_root` field of the
+   final, these segments and any beacon chain segments included in the block form a super segment. A
+   Merkle root of these segments is included in the `super_segment_root` field of the
    `SuperSegmentHeader`.
    - To compute the super segment root, segments are ordered starting from the `own_segments_root`
      of the beacon chain, and then in increasing order according to their shard ID and the
-     underlying block height in which the segments (or their confirmation) where included (e.g.
+     underlying block height in which the segment confirmations were included (e.g.
      `own_segment_info_1`, `own_segment_info_2`, `intermediate_shard_segment_shard1`,
      `child_shard_segment_shard1`, `intermediate_shard_segment_shard2`, etc.).
    - The super segment index is computed is determined by the number of segments aggregated in the
@@ -191,15 +190,6 @@ pub struct BeaconChainBlockBody<'a> {
 
 ```rust
 struct SuperSegmentHeader {
-	// Root hash of the previous super segment that chains all super segments together.
-	prev_super_segment_root: Hash,
-	// The root of the super segment.
-	// It is computed by getting the Merkle root of the tree of segments aggregated in the super segment.
-	super_segment_root: Hash,
-	// Number of segments aggregated in this super segment.
-   // TODO: Num segments not needed because we can look at the block in the beacon height to get the
-   // number of segments, their shards and all the actual information.
-	num_segments: u64
 	// Index of the super segment in the global history of the system
 	// (e.g. if the previous segment had super_segment_index 0, and num_segments 4,
 	// this super segment will have super_segment_index 4).
@@ -207,19 +197,28 @@ struct SuperSegmentHeader {
 	// Beacon height in which the super segment was created. This is useful to inspect the block
 	// for additional information about the transactions with segment creations
 	beacon_height: BlockNumber,
+	// The root of the super segment.
+	// It is computed by getting the Merkle root of the tree of segments aggregated in the super segment.
+	super_segment_root: Hash,
+	// Root hash of the previous super segment that chains all super segments together.
+	prev_super_segment_root: Hash,
+	// Number of segments aggregated in this super segment.
+   // TODO: Num segments not needed because we can look at the block in the beacon height to get the
+   // number of segments, their shards and all the actual information.
+	num_segments: u64
 }
 ```
 
-8. Farmers in lower-level shards are following the beacon chain and periodically checking for new
-   super segment creations. As soon as a new super segment is created, the farmer entitled to create
-   the next block will include a transaction that notifies the chain about the new super segment and
-   the list of segments from the shard that are part of it and can be conveniently sealed into a
-   `VerifiedSegment` as it has been included in the global history. The inclusion of a new
-   `VerifiedSegment` needs to validated as part of the consensus rules performed over the block,
-   which means that all validating blocks need to also have seen this super segment being created in
-   the beacon chain to accept the block. Sealing a segment updates their `UnverifiedSegmentHeader`
-   into a `VerifiedSegmentHeader` and includes the `super_segment_root` of the super segment and its
-   index in the global history.
+8. Farmers in lower-level shards are following the beacon chain and as soon as a new super segment
+   is created, the next block producer includes information about it in the block. As soon as a new
+   super segment is created, the farmer entitled to create the next block will include a transaction
+   that notifies the chain about the new super segment and the list of segments from the shard that
+   are part of it and can be conveniently sealed into a `VerifiedSegment` as it has been included in
+   the global history. The inclusion of a new `VerifiedSegment` needs to validated as part of the
+   consensus rules performed over the block, which means that all validating blocks need to also
+   have seen this super segment being created in the beacon chain to accept the block. Sealing a
+   segment updates their `UnverifiedSegmentHeader` into a `VerifiedSegmentHeader` and includes the
+   `super_segment_root` of the super segment and its index in the global history.
 
 > NOTE: Instead of having to create an ad-hoc transaction to verify a shard segment, in the
 > reference implementation we can minimise the information required to verify segments by leveraging
@@ -255,8 +254,8 @@ pub struct VerifiedSegmentHeader {
 > greatly the operation of shards. Let me know if additional details are needed here and I can
 > elaborate a bit more on it.
 
-- When leaf/intermediate shard proposes a new block `block_A`, it will point to
-  a valid beacon chain block.
+- When leaf/intermediate shard proposes a new block `block_A`, it will point to a valid beacon chain
+  block.
 - `blkA` will be submitted to the intermediate's shard parent, in this case the beacon chain, inside
   an `IntermediateShardBlockInformation` data structure.
 - This process will be repeated for every new block in the shard: `blkB`, `blkC`, etc.
@@ -279,22 +278,25 @@ pub struct VerifiedSegmentHeader {
     newest heaviest chain may change the way (and specific blocks) where the information about the
     child shard is being included into the parent chain and propagated to the further, but this
     shouldn't have any additional impact.
-  - In case of beacon chain reorg, all blocks of the lower level shards that reference stale beacon chain blocks automatically become stale too. Lower-level shard blocks must always point to beacon chain blocks from the canonical branch.
+  - In case of beacon chain reorg, all blocks of the lower level shards that reference stale beacon
+    chain blocks automatically become stale too. Lower-level shard blocks must always point to
+    beacon chain blocks from the canonical branch.
 
 > Note: How is the beacon chain reference required to validate blocks chosen by farmers in
 > lower-level shards?
 >
 > In terms of protocol correctness, any valid beacon chain block reference can be used, as long as
-> it points to a block at a higher height and slot than the previous reference in the shard.
-> However, to avoid referencing blocks that are too recent (and might not be visible to all nodes,
-> increasing the risk of rejection), the reference implementation will use a fixed. Specifically,
-> all nodes will aim to propose the most recent valid block they see in their view of the beacon
-> chain `1 / SLOT_PROBABILITY` in the past (which is currently set to 1/6, i.e. 6 slots which is ~6
-> seconds). With this, farmers in a shard will try to set their blockchain reference to the most
-> recent valid beacon chain block. Failing to include a block reference from the beacon chain that
-> is 6 slots behind would mean that the farmer has fell out of sync. This forces shard farmers to be
-> as up-to-date as possible with the beacon chain, while keeping as recent as possible references in
-> shard block (which will help with the linking and verification of information between shards).
+> it points to a block at a higher or the exact same height and slot than the previous reference in
+> the shard. However, to avoid referencing blocks that are too recent (and might not be visible to
+> all nodes, increasing the risk of rejection), the reference implementation will use a fixed.
+> Specifically, all nodes will aim to propose the most recent valid block they see in their view of
+> the beacon chain `1 / SLOT_PROBABILITY` in the past (which is currently set to 1/6, i.e. 6 slots
+> which is ~6 seconds). With this, farmers in a shard will try to set their blockchain reference to
+> the most recent valid beacon chain block. Failing to include a block reference from the beacon
+> chain that is 6 slots behind would mean that the farmer has fell out of sync. This forces shard
+> farmers to be as up-to-date as possible with the beacon chain, while keeping as recent as possible
+> references in shard block (which will help with the linking and verification of information
+> between shards).
 
 ## Verifying that the segment roots available are valid and available
 
