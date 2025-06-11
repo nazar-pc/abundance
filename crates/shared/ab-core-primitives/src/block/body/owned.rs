@@ -418,34 +418,6 @@ pub enum OwnedIntermediateShardBodyError {
         /// Actual number of own segment roots
         actual: usize,
     },
-    /// Block body is too large
-    #[error("Block body is too large")]
-    BlockBodyIsTooLarge,
-    /// Too many transactions
-    #[error("Too many transactions")]
-    TooManyTransactions,
-    /// Failed to add transaction
-    #[error("Failed to add transaction: {error}")]
-    FailedToAddTransaction {
-        /// Inner error
-        error: OwnedTransactionError,
-    },
-}
-
-impl From<AddTransactionError> for OwnedIntermediateShardBodyError {
-    fn from(value: AddTransactionError) -> Self {
-        match value {
-            AddTransactionError::BlockBodyIsTooLarge => {
-                OwnedIntermediateShardBodyError::BlockBodyIsTooLarge
-            }
-            AddTransactionError::TooManyTransactions => {
-                OwnedIntermediateShardBodyError::TooManyTransactions
-            }
-            AddTransactionError::FailedToAddTransaction { error } => {
-                OwnedIntermediateShardBodyError::FailedToAddTransaction { error }
-            }
-        }
-    }
 }
 
 /// An owned version of [`IntermediateShardBody`].
@@ -467,11 +439,11 @@ impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
 }
 
 impl OwnedIntermediateShardBody {
-    /// Initialize building of [`OwnedIntermediateShardBody`]
-    pub fn init<'a, LSB>(
+    /// Create a new instance
+    pub fn new<'a, LSB>(
         own_segment_roots: &[SegmentRoot],
         leaf_shard_blocks: LSB,
-    ) -> Result<OwnedIntermediateShardBlockBodyBuilder, OwnedIntermediateShardBodyError>
+    ) -> Result<Self, OwnedIntermediateShardBodyError>
     where
         LSB: TrustedLen<Item = LeafShardBlockInfo<'a>> + Clone + 'a,
     {
@@ -490,7 +462,7 @@ impl OwnedIntermediateShardBody {
             u8::SIZE
                 + size_of_val(own_segment_roots) as u32
                 // This is only an estimate to get in the ballpark where reallocation should not be
-                // necessary if there are no transactions
+                // necessary
                 + u32::from(num_blocks) * OwnedLeafShardHeader::MAX_ALLOCATION * 2,
         );
 
@@ -553,13 +525,9 @@ impl OwnedIntermediateShardBody {
                 }
             }
         }
-        let num_transactions_offset = buffer.len() as usize;
-        let true = buffer.append(&0u32.to_le_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
 
-        Ok(OwnedIntermediateShardBlockBodyBuilder {
-            transaction_builder: TransactionBuilder::new(num_transactions_offset, buffer),
+        Ok(Self {
+            buffer: buffer.into_shared(),
         })
     }
 
@@ -568,12 +536,7 @@ impl OwnedIntermediateShardBody {
     pub fn from_body(
         body: IntermediateShardBody<'_>,
     ) -> Result<Self, OwnedIntermediateShardBodyError> {
-        let mut builder = Self::init(body.own_segment_roots, body.leaf_shard_blocks.iter())?;
-        for transaction in body.transactions.iter() {
-            builder.add_transaction(transaction)?;
-        }
-
-        Ok(builder.finish())
+        Self::new(body.own_segment_roots, body.leaf_shard_blocks.iter())
     }
 
     /// Create owned body from a buffer
@@ -600,35 +563,6 @@ impl OwnedIntermediateShardBody {
         IntermediateShardBody::try_from_bytes_unchecked(self.buffer.as_slice())
             .expect("Constructor ensures validity; qed")
             .0
-    }
-}
-
-/// Builder for [`OwnedIntermediateShardBody`] that allows to add more transactions
-#[derive(Debug, Clone)]
-pub struct OwnedIntermediateShardBlockBodyBuilder {
-    transaction_builder: TransactionBuilder,
-}
-
-impl OwnedIntermediateShardBlockBodyBuilder {
-    /// Add transaction to the body
-    #[inline(always)]
-    pub fn add_transaction<T>(
-        &mut self,
-        transaction: T,
-    ) -> Result<(), OwnedIntermediateShardBodyError>
-    where
-        T: WritableBodyTransaction,
-    {
-        self.transaction_builder.add_transaction(transaction)?;
-
-        Ok(())
-    }
-
-    /// Finish building block body
-    pub fn finish(self) -> OwnedIntermediateShardBody {
-        OwnedIntermediateShardBody {
-            buffer: self.transaction_builder.finish().into_shared(),
-        }
     }
 }
 

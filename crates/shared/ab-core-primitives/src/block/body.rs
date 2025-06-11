@@ -685,8 +685,6 @@ pub struct IntermediateShardBody<'a> {
     pub own_segment_roots: &'a [SegmentRoot],
     /// Leaf shard blocks
     pub leaf_shard_blocks: LeafShardBlocksInfo<'a>,
-    /// User transactions
-    pub transactions: Transactions<'a>,
 }
 
 impl<'a> GenericBlockBody<'a> for IntermediateShardBody<'a> {
@@ -717,7 +715,6 @@ impl<'a> IntermediateShardBody<'a> {
         // * number of own segment roots: u8
         // * concatenated own segment roots
         // * leaf shard blocks: LeafShardBlocksInfo
-        // * transactions: Transactions
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
@@ -734,12 +731,9 @@ impl<'a> IntermediateShardBody<'a> {
 
         let (leaf_shard_blocks, remainder) = LeafShardBlocksInfo::try_from_bytes(bytes)?;
 
-        let (transactions, remainder) = Transactions::try_from_bytes(remainder)?;
-
         let body = Self {
             own_segment_roots,
             leaf_shard_blocks,
-            transactions,
         };
 
         if !body.is_internally_consistent() {
@@ -774,7 +768,6 @@ impl<'a> IntermediateShardBody<'a> {
         // * number of own segment roots: u8
         // * concatenated own segment roots
         // * leaf shard blocks: LeafShardBlocksInfo
-        // * transactions: Transactions
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
@@ -791,13 +784,10 @@ impl<'a> IntermediateShardBody<'a> {
 
         let (leaf_shard_blocks, remainder) = LeafShardBlocksInfo::try_from_bytes(bytes)?;
 
-        let (transactions, remainder) = Transactions::try_from_bytes(remainder)?;
-
         Some((
             Self {
                 own_segment_roots,
                 leaf_shard_blocks,
-                transactions,
             },
             remainder,
         ))
@@ -806,12 +796,7 @@ impl<'a> IntermediateShardBody<'a> {
     /// Proof for segment roots included in the body
     #[inline]
     pub fn segment_roots_proof(&self) -> [u8; 32] {
-        // Merkle Tree is recursive. First two leafs (own and leaf shards record roots) are one
-        // subtree, the second subtree is the proof needed to verify them both.
-        BalancedHashedMerkleTree::compute_root_only(&[
-            *self.leaf_shard_blocks.headers_root(),
-            *self.transactions.root(),
-        ])
+        *self.leaf_shard_blocks.headers_root()
     }
 
     /// Create an owned version of this body
@@ -824,12 +809,12 @@ impl<'a> IntermediateShardBody<'a> {
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        let root = BalancedHashedMerkleTree::compute_root_only(&[
+        let root = UnbalancedHashedMerkleTree::compute_root_only::<3, _, _>([
             *compute_segments_root(self.own_segment_roots),
             *self.leaf_shard_blocks.segments_root(),
             *self.leaf_shard_blocks.headers_root(),
-            *self.transactions.root(),
-        ]);
+        ])
+        .expect("List is not empty; qed");
 
         Blake3Hash::new(root)
     }
