@@ -140,26 +140,18 @@ where
 
         // Stack of intermediate nodes per tree level
         let mut stack = [[0u8; OUT_LEN]; N.ilog2() as usize + 1];
-        // Bitmask: bit `i = 1` if level `i` is active
-        let mut active_levels = 0_u32;
 
-        for &hash in leaves {
+        for (num_leaves, &hash) in leaves.iter().enumerate() {
             let mut current = hash;
-            let mut level = 0;
 
-            // Check if level is active by testing bit (active_levels & (1 << level))
-            while active_levels & (1 << level) != 0 {
-                current = hash_pair(&stack[level], &current);
-
-                // Clear the current level
-                active_levels &= !(1 << level);
-                level += 1;
+            // Every bit set to `1` corresponds to an active Merkle Tree level
+            let lowest_active_levels = num_leaves.trailing_ones() as usize;
+            for item in stack.iter().take(lowest_active_levels) {
+                current = hash_pair(item, &current);
             }
 
             // Place the current hash at the first inactive level
-            stack[level] = current;
-            // Set bit for level
-            active_levels |= 1 << level;
+            stack[lowest_active_levels] = current;
         }
 
         stack[N.ilog2() as usize]

@@ -92,7 +92,7 @@ impl IntermediateShardBlockInfo<'_> {
             *compute_segments_root(self.child_segment_roots),
         ];
 
-        let root = UnbalancedHashedMerkleTree::compute_root_only::<MAX_N, _, _>(leaves)
+        let root = UnbalancedHashedMerkleTree::compute_root_only::<{ MAX_N as u64 }, _, _>(leaves)
             .expect("The list is not empty; qed");
 
         Blake3Hash::new(root)
@@ -276,18 +276,17 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     /// Returns default value for an empty collection of shard blocks.
     #[inline]
     pub fn headers_root(&self) -> Blake3Hash {
-        let root =
-            UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as usize + 1 }, _, _>(
-                // TODO: Keyed hash
-                self.iter().map(|shard_block_info| {
-                    // Hash the root again so we can prove it, otherwise headers root is
-                    // indistinguishable from individual block roots and can be used to confuse
-                    // verifier
+        let root = UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as u64 + 1 }, _, _>(
+            // TODO: Keyed hash
+            self.iter().map(|shard_block_info| {
+                // Hash the root again so we can prove it, otherwise headers root is
+                // indistinguishable from individual block roots and can be used to confuse
+                // verifier
 
-                    blake3::hash(shard_block_info.header.root().as_ref())
-                }),
-            )
-            .unwrap_or_default();
+                blake3::hash(shard_block_info.header.root().as_ref())
+            }),
+        )
+        .unwrap_or_default();
 
         Blake3Hash::new(root)
     }
@@ -297,11 +296,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     /// Returns default value for an empty collection of shard blocks.
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        let root =
-            UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as usize + 1 }, _, _>(
-                self.iter().map(|shard_block_info| shard_block_info.root()),
-            )
-            .unwrap_or_default();
+        let root = UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as u64 + 1 }, _, _>(
+            self.iter().map(|shard_block_info| shard_block_info.root()),
+        )
+        .unwrap_or_default();
 
         Blake3Hash::new(root)
     }
@@ -662,17 +660,16 @@ impl<'a> LeafShardBlocksInfo<'a> {
     /// Returns default value for an empty collection of shard blocks.
     #[inline]
     pub fn headers_root(&self) -> Blake3Hash {
-        let root =
-            UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as usize + 1 }, _, _>(
-                self.iter().map(|shard_block_info| {
-                    // Hash the root again so we can prove it, otherwise headers root is
-                    // indistinguishable from individual block roots and can be used to confuse
-                    // verifier
+        let root = UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as u64 + 1 }, _, _>(
+            self.iter().map(|shard_block_info| {
+                // Hash the root again so we can prove it, otherwise headers root is
+                // indistinguishable from individual block roots and can be used to confuse
+                // verifier
 
-                    blake3::hash(shard_block_info.header.root().as_ref())
-                }),
-            )
-            .unwrap_or_default();
+                blake3::hash(shard_block_info.header.root().as_ref())
+            }),
+        )
+        .unwrap_or_default();
 
         Blake3Hash::new(root)
     }
@@ -901,16 +898,15 @@ impl<'a> Transactions<'a> {
     /// Returns default value for an empty collection of shard blocks.
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        let root =
-            UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as usize + 1 }, _, _>(
-                self.iter().map(|transaction| {
-                    // Hash the hash again so we can prove it, otherwise transactions root is
-                    // indistinguishable from individual transaction roots and can be used to
-                    // confuse verifier
-                    blake3::hash(transaction.hash().as_ref())
-                }),
-            )
-            .unwrap_or_default();
+        let root = UnbalancedHashedMerkleTree::compute_root_only::<{ u16::MAX as u64 + 1 }, _, _>(
+            self.iter().map(|transaction| {
+                // Hash the hash again so we can prove it, otherwise transactions root is
+                // indistinguishable from individual transaction roots and can be used to
+                // confuse verifier
+                blake3::hash(transaction.hash().as_ref())
+            }),
+        )
+        .unwrap_or_default();
 
         Blake3Hash::new(root)
     }
