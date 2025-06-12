@@ -16,6 +16,7 @@ use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use core::iter::TrustedLen;
 use derive_more::From;
+use yoke::Yoke;
 
 /// Generic owned block body
 pub trait GenericOwnedBlockBody {
@@ -216,7 +217,7 @@ pub enum OwnedBeaconChainBodyError {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedBeaconChainBody {
-    buffer: SharedAlignedBuffer,
+    inner: Yoke<BeaconChainBody<'static>, SharedAlignedBuffer>,
 }
 
 impl GenericOwnedBlockBody for OwnedBeaconChainBody {
@@ -356,9 +357,8 @@ impl OwnedBeaconChainBody {
             return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
         };
 
-        Ok(Self {
-            buffer: buffer.into_shared(),
-        })
+        // TODO: Avoid extra parsing here or at least go through unchecked version
+        Ok(Self::from_buffer(buffer.into_shared()).expect("Known to be created correctly; qed"))
     }
 
     /// Create owned block body from a reference
@@ -374,26 +374,33 @@ impl OwnedBeaconChainBody {
     /// Create owned body from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_body, extra_bytes)) = BeaconChainBody::try_from_bytes(buffer.as_slice()) else {
-            return Err(buffer);
-        };
-        if !extra_bytes.is_empty() {
-            return Err(buffer);
-        }
+        // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
+        //  https://github.com/unicode-org/icu4x/issues/6665
+        let inner = Yoke::try_attach_to_cart(buffer.clone(), |buffer| {
+            let Some((body, extra_bytes)) = BeaconChainBody::try_from_bytes(buffer) else {
+                return Err(());
+            };
+            if !extra_bytes.is_empty() {
+                return Err(());
+            }
 
-        Ok(Self { buffer })
+            Ok(body)
+        })
+        .map_err(move |()| buffer)?;
+
+        Ok(Self { inner })
     }
 
     /// Inner buffer with block body contents
+    #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
-        &self.buffer
+        self.inner.backing_cart()
     }
 
     /// Get [`BeaconChainBody`] out of [`OwnedBeaconChainBody`]
+    #[inline(always)]
     pub fn body(&self) -> BeaconChainBody<'_> {
-        BeaconChainBody::try_from_bytes_unchecked(self.buffer.as_slice())
-            .expect("Constructor ensures validity; qed")
-            .0
+        *self.inner.get()
     }
 }
 
@@ -426,7 +433,7 @@ pub enum OwnedIntermediateShardBodyError {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardBody {
-    buffer: SharedAlignedBuffer,
+    inner: Yoke<IntermediateShardBody<'static>, SharedAlignedBuffer>,
 }
 
 impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
@@ -526,9 +533,8 @@ impl OwnedIntermediateShardBody {
             }
         }
 
-        Ok(Self {
-            buffer: buffer.into_shared(),
-        })
+        // TODO: Avoid extra parsing here or at least go through unchecked version
+        Ok(Self::from_buffer(buffer.into_shared()).expect("Known to be created correctly; qed"))
     }
 
     /// Create owned block body from a reference
@@ -542,27 +548,33 @@ impl OwnedIntermediateShardBody {
     /// Create owned body from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_body, extra_bytes)) = IntermediateShardBody::try_from_bytes(buffer.as_slice())
-        else {
-            return Err(buffer);
-        };
-        if !extra_bytes.is_empty() {
-            return Err(buffer);
-        }
+        // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
+        //  https://github.com/unicode-org/icu4x/issues/6665
+        let inner = Yoke::try_attach_to_cart(buffer.clone(), |buffer| {
+            let Some((body, extra_bytes)) = IntermediateShardBody::try_from_bytes(buffer) else {
+                return Err(());
+            };
+            if !extra_bytes.is_empty() {
+                return Err(());
+            }
 
-        Ok(Self { buffer })
+            Ok(body)
+        })
+        .map_err(move |()| buffer)?;
+
+        Ok(Self { inner })
     }
 
     /// Inner buffer with block body contents
+    #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
-        &self.buffer
+        self.inner.backing_cart()
     }
 
     /// Get [`IntermediateShardBody`] out of [`OwnedIntermediateShardBody`]
+    #[inline(always)]
     pub fn body(&self) -> IntermediateShardBody<'_> {
-        IntermediateShardBody::try_from_bytes_unchecked(self.buffer.as_slice())
-            .expect("Constructor ensures validity; qed")
-            .0
+        *self.inner.get()
     }
 }
 
@@ -611,7 +623,7 @@ impl From<AddTransactionError> for OwnedLeafShardBodyError {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedLeafShardBody {
-    buffer: SharedAlignedBuffer,
+    inner: Yoke<LeafShardBody<'static>, SharedAlignedBuffer>,
 }
 
 impl GenericOwnedBlockBody for OwnedLeafShardBody {
@@ -670,26 +682,33 @@ impl OwnedLeafShardBody {
     /// Create owned body from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_body, extra_bytes)) = LeafShardBody::try_from_bytes(buffer.as_slice()) else {
-            return Err(buffer);
-        };
-        if !extra_bytes.is_empty() {
-            return Err(buffer);
-        }
+        // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
+        //  https://github.com/unicode-org/icu4x/issues/6665
+        let inner = Yoke::try_attach_to_cart(buffer.clone(), |buffer| {
+            let Some((body, extra_bytes)) = LeafShardBody::try_from_bytes(buffer) else {
+                return Err(());
+            };
+            if !extra_bytes.is_empty() {
+                return Err(());
+            }
 
-        Ok(Self { buffer })
+            Ok(body)
+        })
+        .map_err(move |()| buffer)?;
+
+        Ok(Self { inner })
     }
 
     /// Inner buffer with block body contents
+    #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
-        &self.buffer
+        self.inner.backing_cart()
     }
 
     /// Get [`LeafShardBody`] out of [`OwnedLeafShardBody`]
+    #[inline(always)]
     pub fn body(&self) -> LeafShardBody<'_> {
-        LeafShardBody::try_from_bytes_unchecked(self.buffer.as_slice())
-            .expect("Constructor ensures validity; qed")
-            .0
+        *self.inner.get()
     }
 }
 
@@ -713,9 +732,9 @@ impl OwnedLeafShardBlockBodyBuilder {
 
     /// Finish building block body
     pub fn finish(self) -> OwnedLeafShardBody {
-        OwnedLeafShardBody {
-            buffer: self.transaction_builder.finish().into_shared(),
-        }
+        // TODO: Avoid extra parsing here or at least go through unchecked version
+        OwnedLeafShardBody::from_buffer(self.transaction_builder.finish().into_shared())
+            .expect("Known to be created correctly; qed")
     }
 }
 
@@ -777,20 +796,12 @@ impl OwnedBlockBody {
         buffer: SharedAlignedBuffer,
         shard_kind: ShardKind,
     ) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_body, extra_bytes)) = BlockBody::try_from_bytes(buffer.as_slice(), shard_kind)
-        else {
-            return Err(buffer);
-        };
-        if !extra_bytes.is_empty() {
-            return Err(buffer);
-        }
-
         Ok(match shard_kind {
-            ShardKind::BeaconChain => Self::BeaconChain(OwnedBeaconChainBody { buffer }),
+            ShardKind::BeaconChain => Self::BeaconChain(OwnedBeaconChainBody::from_buffer(buffer)?),
             ShardKind::IntermediateShard => {
-                Self::IntermediateShard(OwnedIntermediateShardBody { buffer })
+                Self::IntermediateShard(OwnedIntermediateShardBody::from_buffer(buffer)?)
             }
-            ShardKind::LeafShard => Self::LeafShard(OwnedLeafShardBody { buffer }),
+            ShardKind::LeafShard => Self::LeafShard(OwnedLeafShardBody::from_buffer(buffer)?),
             ShardKind::Phantom | ShardKind::Invalid => {
                 // Blocks for such shards do not exist
                 return Err(buffer);
@@ -799,6 +810,7 @@ impl OwnedBlockBody {
     }
 
     /// Inner buffer block body contents
+    #[inline]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
         match self {
             Self::BeaconChain(owned_body) => owned_body.buffer(),
@@ -808,6 +820,7 @@ impl OwnedBlockBody {
     }
 
     /// Get [`BlockBody`] out of [`OwnedBlockBody`]
+    #[inline]
     pub fn body(&self) -> BlockBody<'_> {
         match self {
             Self::BeaconChain(owned_body) => BlockBody::BeaconChain(owned_body.body()),

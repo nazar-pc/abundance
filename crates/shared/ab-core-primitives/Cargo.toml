@@ -30,6 +30,7 @@ scale-info = { workspace = true, features = ["derive"], optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 serde-big-array = { workspace = true }
 thiserror = { workspace = true }
+yoke = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 rand_core = { workspace = true }

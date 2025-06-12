@@ -22,6 +22,7 @@ use ab_merkle_tree::unbalanced_hashed::UnbalancedHashedMerkleTree;
 use core::iter::TrustedLen;
 use core::{fmt, slice};
 use derive_more::From;
+use yoke::Yokeable;
 
 /// Generic block body
 pub trait GenericBlockBody<'a>
@@ -306,7 +307,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 }
 
 /// Block body that corresponds to the beacon chain
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Yokeable)]
 pub struct BeaconChainBody<'a> {
     /// Segment roots produced by this shard
     pub own_segment_roots: &'a [SegmentRoot],
@@ -676,7 +677,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
 }
 
 /// Block body that corresponds to an intermediate shard
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Yokeable)]
 pub struct IntermediateShardBody<'a> {
     /// Segment roots produced by this shard
     pub own_segment_roots: &'a [SegmentRoot],
@@ -913,7 +914,7 @@ impl<'a> Transactions<'a> {
 }
 
 /// Block body that corresponds to a leaf shard
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Yokeable)]
 pub struct LeafShardBody<'a> {
     /// Segment roots produced by this shard
     pub own_segment_roots: &'a [SegmentRoot],
