@@ -11,6 +11,7 @@ use crate::shard::ShardKind;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use derive_more::From;
+use yoke::Yoke;
 
 /// Generic owned block header
 pub trait GenericOwnedBlockHeader {
@@ -53,10 +54,7 @@ pub enum OwnedBeaconChainHeaderError {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedBeaconChainHeader {
-    buffer: SharedAlignedBuffer,
-    // TODO: Would be nice to also have a regular header reference stored here (self-referential,
-    //  but points to heap-allocated data and should be fine to implement, then generic types can
-    //  implement `Deref<Target = Header>`). The same for block body and block itself
+    inner: Yoke<BeaconChainHeader<'static>, SharedAlignedBuffer>,
 }
 
 impl GenericOwnedBlockHeader for OwnedBeaconChainHeader {
@@ -232,27 +230,33 @@ impl OwnedBeaconChainHeader {
     /// Create owned header from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_header, extra_bytes)) = BeaconChainHeader::try_from_bytes(buffer.as_slice())
-        else {
-            return Err(buffer);
-        };
-        if !extra_bytes.is_empty() {
-            return Err(buffer);
-        }
+        // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
+        //  https://github.com/unicode-org/icu4x/issues/6665
+        let inner = Yoke::try_attach_to_cart(buffer.clone(), |buffer| {
+            let Some((header, extra_bytes)) = BeaconChainHeader::try_from_bytes(buffer) else {
+                return Err(());
+            };
+            if !extra_bytes.is_empty() {
+                return Err(());
+            }
 
-        Ok(Self { buffer })
+            Ok(header)
+        })
+        .map_err(move |()| buffer)?;
+
+        Ok(Self { inner })
     }
 
     /// Inner buffer with block header contents
+    #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
-        &self.buffer
+        self.inner.backing_cart()
     }
 
     /// Get [`BeaconChainHeader`] out of [`OwnedBeaconChainHeader`]
+    #[inline(always)]
     pub fn header(&self) -> BeaconChainHeader<'_> {
-        BeaconChainHeader::try_from_bytes_unchecked(self.buffer.as_slice())
-            .expect("Constructor ensures validity; qed")
-            .0
+        *self.inner.get()
     }
 }
 
@@ -275,9 +279,10 @@ impl OwnedBeaconChainHeaderUnsealed {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 
-        OwnedBeaconChainHeader {
-            buffer: buffer.into_shared(),
-        }
+        // TODO: Avoid extra parsing here, for this `OwnedBeaconChainHeader::from_parts_into()` must
+        //  return references to parts. Or at least add unchecked version of `from_buffer()`
+        OwnedBeaconChainHeader::from_buffer(buffer.into_shared())
+            .expect("Known to be created correctly; qed")
     }
 }
 
@@ -298,7 +303,7 @@ pub enum OwnedIntermediateShardHeaderError {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardHeader {
-    buffer: SharedAlignedBuffer,
+    inner: Yoke<IntermediateShardHeader<'static>, SharedAlignedBuffer>,
 }
 
 impl GenericOwnedBlockHeader for OwnedIntermediateShardHeader {
@@ -412,28 +417,33 @@ impl OwnedIntermediateShardHeader {
     /// Create owned header from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_header, extra_bytes)) =
-            IntermediateShardHeader::try_from_bytes(buffer.as_slice())
-        else {
-            return Err(buffer);
-        };
-        if !extra_bytes.is_empty() {
-            return Err(buffer);
-        }
+        // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
+        //  https://github.com/unicode-org/icu4x/issues/6665
+        let inner = Yoke::try_attach_to_cart(buffer.clone(), |buffer| {
+            let Some((header, extra_bytes)) = IntermediateShardHeader::try_from_bytes(buffer)
+            else {
+                return Err(());
+            };
+            if !extra_bytes.is_empty() {
+                return Err(());
+            }
 
-        Ok(Self { buffer })
+            Ok(header)
+        })
+        .map_err(move |()| buffer)?;
+
+        Ok(Self { inner })
     }
 
     /// Inner buffer with block header contents
+    #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
-        &self.buffer
+        self.inner.backing_cart()
     }
-
     /// Get [`IntermediateShardHeader`] out of [`OwnedIntermediateShardHeader`]
+    #[inline(always)]
     pub fn header(&self) -> IntermediateShardHeader<'_> {
-        IntermediateShardHeader::try_from_bytes_unchecked(self.buffer.as_slice())
-            .expect("Constructor ensures validity; qed")
-            .0
+        *self.inner.get()
     }
 }
 
@@ -456,9 +466,11 @@ impl OwnedIntermediateShardHeaderUnsealed {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 
-        OwnedIntermediateShardHeader {
-            buffer: buffer.into_shared(),
-        }
+        // TODO: Avoid extra parsing here, for this
+        //  `OwnedIntermediateShardHeader::from_parts_into()` must return references to parts. Or
+        //  at least add unchecked version of `from_buffer()`
+        OwnedIntermediateShardHeader::from_buffer(buffer.into_shared())
+            .expect("Known to be created correctly; qed")
     }
 }
 
@@ -468,7 +480,7 @@ impl OwnedIntermediateShardHeaderUnsealed {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedLeafShardHeader {
-    buffer: SharedAlignedBuffer,
+    inner: Yoke<LeafShardHeader<'static>, SharedAlignedBuffer>,
 }
 
 impl GenericOwnedBlockHeader for OwnedLeafShardHeader {
@@ -546,27 +558,32 @@ impl OwnedLeafShardHeader {
     /// Create owned header from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_header, extra_bytes)) = LeafShardHeader::try_from_bytes(buffer.as_slice())
-        else {
-            return Err(buffer);
-        };
-        if !extra_bytes.is_empty() {
-            return Err(buffer);
-        }
+        // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
+        //  https://github.com/unicode-org/icu4x/issues/6665
+        let inner = Yoke::try_attach_to_cart(buffer.clone(), |buffer| {
+            let Some((header, extra_bytes)) = LeafShardHeader::try_from_bytes(buffer) else {
+                return Err(());
+            };
+            if !extra_bytes.is_empty() {
+                return Err(());
+            }
 
-        Ok(Self { buffer })
+            Ok(header)
+        })
+        .map_err(move |()| buffer)?;
+
+        Ok(Self { inner })
     }
 
     /// Inner buffer with block header contents
+    #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
-        &self.buffer
+        self.inner.backing_cart()
     }
-
     /// Get [`LeafShardHeader`] out of [`OwnedLeafShardHeader`]
+    #[inline(always)]
     pub fn header(&self) -> LeafShardHeader<'_> {
-        LeafShardHeader::try_from_bytes_unchecked(self.buffer.as_slice())
-            .expect("Constructor ensures validity; qed")
-            .0
+        *self.inner.get()
     }
 }
 
@@ -589,9 +606,10 @@ impl OwnedLeafShardHeaderUnsealed {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 
-        OwnedLeafShardHeader {
-            buffer: buffer.into_shared(),
-        }
+        // TODO: Avoid extra parsing here, for this `OwnedLeafShardHeader::from_parts_into()` must
+        //  return references to parts. Or at least add unchecked version of `from_buffer()`
+        OwnedLeafShardHeader::from_buffer(buffer.into_shared())
+            .expect("Known to be created correctly; qed")
     }
 }
 
@@ -652,21 +670,14 @@ impl OwnedBlockHeader {
         buffer: SharedAlignedBuffer,
         shard_kind: ShardKind,
     ) -> Result<Self, SharedAlignedBuffer> {
-        let Some((_header, extra_bytes)) =
-            BlockHeader::try_from_bytes(buffer.as_slice(), shard_kind)
-        else {
-            return Err(buffer);
-        };
-        if !extra_bytes.is_empty() {
-            return Err(buffer);
-        }
-
         Ok(match shard_kind {
-            ShardKind::BeaconChain => Self::BeaconChain(OwnedBeaconChainHeader { buffer }),
-            ShardKind::IntermediateShard => {
-                Self::IntermediateShard(OwnedIntermediateShardHeader { buffer })
+            ShardKind::BeaconChain => {
+                Self::BeaconChain(OwnedBeaconChainHeader::from_buffer(buffer)?)
             }
-            ShardKind::LeafShard => Self::LeafShard(OwnedLeafShardHeader { buffer }),
+            ShardKind::IntermediateShard => {
+                Self::IntermediateShard(OwnedIntermediateShardHeader::from_buffer(buffer)?)
+            }
+            ShardKind::LeafShard => Self::LeafShard(OwnedLeafShardHeader::from_buffer(buffer)?),
             ShardKind::Phantom | ShardKind::Invalid => {
                 // Blocks for such shards do not exist
                 return Err(buffer);
@@ -675,6 +686,7 @@ impl OwnedBlockHeader {
     }
 
     /// Inner buffer block header contents
+    #[inline]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
         match self {
             Self::BeaconChain(owned_header) => owned_header.buffer(),
@@ -684,6 +696,7 @@ impl OwnedBlockHeader {
     }
 
     /// Get [`BlockHeader`] out of [`OwnedBlockHeader`]
+    #[inline]
     pub fn header(&self) -> BlockHeader<'_> {
         match self {
             Self::BeaconChain(owned_header) => BlockHeader::BeaconChain(owned_header.header()),

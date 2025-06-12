@@ -28,6 +28,7 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use yoke::Yokeable;
 
 /// Generic block header
 pub trait GenericBlockHeader<'a>
@@ -679,7 +680,7 @@ pub struct SharedBlockHeader<'a> {
 }
 
 /// Block header that corresponds to the beacon chain
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Yokeable)]
 pub struct BeaconChainHeader<'a> {
     /// Shared block header
     pub shared: SharedBlockHeader<'a>,
@@ -887,7 +888,7 @@ impl<'a> BeaconChainHeader<'a> {
 }
 
 /// Block header that corresponds to an intermediate shard
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Yokeable)]
 pub struct IntermediateShardHeader<'a> {
     /// Shared block header
     pub shared: SharedBlockHeader<'a>,
@@ -1101,7 +1102,7 @@ impl<'a> IntermediateShardHeader<'a> {
 }
 
 /// Block header that corresponds to a leaf shard
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Yokeable)]
 pub struct LeafShardHeader<'a> {
     /// Shared block header
     pub shared: SharedBlockHeader<'a>,
