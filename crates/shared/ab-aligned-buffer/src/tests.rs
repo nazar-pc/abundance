@@ -1,6 +1,7 @@
 use crate::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::MAX_ALIGNMENT;
 use alloc::vec;
+use core::ops::{Deref, DerefMut};
 
 const EXPECTED_ALIGNMENT: usize = MAX_ALIGNMENT as usize;
 
@@ -11,6 +12,12 @@ fn basic() {
         assert_eq!(owned.len(), 0, "Capacity {capacity}");
         assert!(owned.capacity() >= capacity, "Capacity {capacity}");
         assert!(owned.is_empty(), "Capacity {capacity}");
+        assert_eq!(owned.as_slice(), owned.deref(), "Capacity {capacity}");
+        assert_eq!(
+            owned.as_mut_slice().as_mut_ptr(),
+            owned.deref_mut().as_mut_ptr(),
+            "Capacity {capacity}"
+        );
         assert!(owned.as_slice().is_empty(), "Capacity {capacity}");
         assert!(owned.as_mut_slice().is_empty(), "Capacity {capacity}");
         assert_eq!(owned.as_ptr(), owned.as_mut_ptr(), "Capacity {capacity}");
@@ -27,6 +34,12 @@ fn basic() {
             let bytes = vec![1; len as usize];
             owned.copy_from_slice(&bytes);
             assert_eq!(owned.len(), len, "Capacity {capacity}");
+            assert_eq!(owned.as_slice(), owned.deref(), "Capacity {capacity}");
+            assert_eq!(
+                owned.as_mut_slice().as_mut_ptr(),
+                owned.deref_mut().as_mut_ptr(),
+                "Capacity {capacity}"
+            );
             assert_eq!(owned.as_slice().len(), len as usize, "Capacity {capacity}");
             assert_eq!(
                 owned.as_mut_slice().len(),
@@ -34,11 +47,7 @@ fn basic() {
                 "Capacity {capacity}"
             );
             assert!(owned.capacity() >= capacity, "Capacity {capacity}");
-            if len != 0 {
-                assert!(!owned.is_empty(), "Capacity {capacity}");
-                assert!(!owned.as_slice().is_empty(), "Capacity {capacity}");
-                assert!(!owned.as_mut_slice().is_empty(), "Capacity {capacity}");
-            }
+            assert_eq!(owned.is_empty(), len == 0, "Capacity {capacity}");
             assert_eq!(owned.as_ptr(), owned.as_mut_ptr(), "Capacity {capacity}");
             assert_eq!(owned.as_ptr(), ptr_before, "Capacity {capacity}");
             assert!(
@@ -52,6 +61,12 @@ fn basic() {
             assert_eq!(owned.len(), shared.len(), "Capacity {capacity}");
             assert_eq!(owned.is_empty(), owned2.is_empty(), "Capacity {capacity}");
             assert_eq!(owned.is_empty(), shared.is_empty(), "Capacity {capacity}");
+            assert_eq!(owned2.as_slice(), owned2.deref(), "Capacity {capacity}");
+            assert_eq!(
+                owned2.as_mut_slice().as_mut_ptr(),
+                owned2.deref_mut().as_mut_ptr(),
+                "Capacity {capacity}"
+            );
             assert_eq!(owned.as_slice(), owned2.as_slice(), "Capacity {capacity}");
             assert_eq!(owned.as_slice(), shared.as_slice(), "Capacity {capacity}");
             assert_eq!(
@@ -67,6 +82,12 @@ fn basic() {
             let bytes = vec![1; len as usize];
             owned.copy_from_slice(&bytes);
             assert_eq!(owned.len(), len, "Capacity {capacity}");
+            assert_eq!(owned.as_slice(), owned.deref(), "Capacity {capacity}");
+            assert_eq!(
+                owned.as_mut_slice().as_mut_ptr(),
+                owned.deref_mut().as_mut_ptr(),
+                "Capacity {capacity}"
+            );
             assert_eq!(owned.as_slice().len(), len as usize, "Capacity {capacity}");
             assert_eq!(
                 owned.as_mut_slice().len(),
@@ -74,11 +95,7 @@ fn basic() {
                 "Capacity {capacity}"
             );
             assert!(owned.capacity() >= capacity, "Capacity {capacity}");
-            if len != 0 {
-                assert!(!owned.is_empty(), "Capacity {capacity}");
-                assert!(!owned.as_slice().is_empty(), "Capacity {capacity}");
-                assert!(!owned.as_mut_slice().is_empty(), "Capacity {capacity}");
-            }
+            assert_eq!(owned.is_empty(), len == 0, "Capacity {capacity}");
             assert_eq!(owned.as_ptr(), owned.as_mut_ptr(), "Capacity {capacity}");
             assert_eq!(owned.as_ptr(), ptr_before, "Capacity {capacity}");
             assert!(
@@ -92,6 +109,12 @@ fn basic() {
             assert_eq!(owned.len(), shared.len(), "Capacity {capacity}");
             assert_eq!(owned.is_empty(), owned2.is_empty(), "Capacity {capacity}");
             assert_eq!(owned.is_empty(), shared.is_empty(), "Capacity {capacity}");
+            assert_eq!(owned2.as_slice(), owned2.deref(), "Capacity {capacity}");
+            assert_eq!(
+                owned2.as_mut_slice().as_mut_ptr(),
+                owned2.deref_mut().as_mut_ptr(),
+                "Capacity {capacity}"
+            );
             assert_eq!(owned.as_slice(), owned2.as_slice(), "Capacity {capacity}");
             assert_eq!(owned.as_slice(), shared.as_slice(), "Capacity {capacity}");
             assert_eq!(
@@ -107,6 +130,12 @@ fn basic() {
             let bytes = vec![1; len as usize];
             owned.copy_from_slice(&bytes);
             assert_eq!(owned.len(), len, "Capacity {capacity}");
+            assert_eq!(owned.as_slice(), owned.deref(), "Capacity {capacity}");
+            assert_eq!(
+                owned.as_mut_slice().as_mut_ptr(),
+                owned.deref_mut().as_mut_ptr(),
+                "Capacity {capacity}"
+            );
             assert_eq!(owned.as_slice().len(), len as usize, "Capacity {capacity}");
             assert_eq!(
                 owned.as_mut_slice().len(),
@@ -115,8 +144,6 @@ fn basic() {
             );
             assert!(owned.capacity() >= capacity, "Capacity {capacity}");
             assert!(!owned.is_empty(), "Capacity {capacity}");
-            assert!(!owned.as_slice().is_empty(), "Capacity {capacity}");
-            assert!(!owned.as_mut_slice().is_empty(), "Capacity {capacity}");
             assert_eq!(owned.as_ptr(), owned.as_mut_ptr(), "Capacity {capacity}");
             assert!(
                 owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
@@ -129,6 +156,12 @@ fn basic() {
             assert_eq!(owned.len(), shared.len(), "Capacity {capacity}");
             assert_eq!(owned.is_empty(), owned2.is_empty(), "Capacity {capacity}");
             assert_eq!(owned.is_empty(), shared.is_empty(), "Capacity {capacity}");
+            assert_eq!(owned2.as_slice(), owned2.deref(), "Capacity {capacity}");
+            assert_eq!(
+                owned2.as_mut_slice().as_mut_ptr(),
+                owned2.deref_mut().as_mut_ptr(),
+                "Capacity {capacity}"
+            );
             assert_eq!(owned.as_slice(), owned2.as_slice(), "Capacity {capacity}");
             assert_eq!(owned.as_slice(), shared.as_slice(), "Capacity {capacity}");
             assert_eq!(
@@ -145,6 +178,7 @@ fn basic() {
 
         // Create a shared instance
         let shared = owned.into_shared();
+        assert_eq!(shared.as_slice(), shared.deref(), "Capacity {capacity}");
         let ptr_before = shared.as_ptr();
         // Turn back into owned and confirm that it points to the same memory (meaning no additional
         // allocation)
@@ -152,11 +186,13 @@ fn basic() {
         assert_eq!(owned.as_ptr(), ptr_before, "Capacity {capacity}");
 
         let shared = owned.into_shared();
+        assert_eq!(shared.as_slice(), shared.deref(), "Capacity {capacity}");
         // Cloned shared instance will result in new allocation
         let owned = shared.clone().into_owned();
         assert_ne!(owned.as_ptr(), ptr_before, "Capacity {capacity}");
 
         let shared2 = shared.clone();
+        assert_eq!(shared2.as_slice(), shared2.deref(), "Capacity {capacity}");
         assert_eq!(shared.as_slice(), shared2.as_slice(), "Capacity {capacity}");
         assert_eq!(owned.as_slice(), shared.as_slice(), "Capacity {capacity}");
 

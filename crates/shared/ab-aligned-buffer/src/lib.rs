@@ -11,9 +11,12 @@ use alloc::alloc::realloc;
 use alloc::boxed::Box;
 use core::alloc::Layout;
 use core::mem::MaybeUninit;
+use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
 use core::sync::atomic::{AtomicU32, Ordering};
+use stable_deref_trait::{CloneStableDeref, StableDeref};
+use yoke::CloneableCart;
 
 const _: () = {
     assert!(
@@ -209,6 +212,25 @@ pub struct OwnedAlignedBuffer {
     inner: InnerBuffer,
 }
 
+impl Deref for OwnedAlignedBuffer {
+    type Target = [u8];
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+impl DerefMut for OwnedAlignedBuffer {
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut_slice()
+    }
+}
+
+// SAFETY: Heap-allocated data structure, points to the same memory if moved
+unsafe impl StableDeref for OwnedAlignedBuffer {}
+
 impl Clone for OwnedAlignedBuffer {
     #[inline(always)]
     fn clone(&self) -> Self {
@@ -383,10 +405,21 @@ pub struct SharedAlignedBuffer {
     inner: InnerBuffer,
 }
 
-// SAFETY: Heap-allocated memory buffer and atomic can be used from any thread
-unsafe impl Send for SharedAlignedBuffer {}
-// SAFETY: Heap-allocated memory buffer and atomic can be used from any thread
-unsafe impl Sync for SharedAlignedBuffer {}
+impl Deref for SharedAlignedBuffer {
+    type Target = [u8];
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+// SAFETY: Heap-allocated data structure, points to the same memory if moved
+unsafe impl StableDeref for SharedAlignedBuffer {}
+// SAFETY: Inner buffer is exactly the same and points to the same memory after clone
+unsafe impl CloneStableDeref for SharedAlignedBuffer {}
+// SAFETY: Inner buffer is exactly the same and points to the same memory after clone
+unsafe impl CloneableCart for SharedAlignedBuffer {}
 
 impl SharedAlignedBuffer {
     /// Static reference to an empty buffer

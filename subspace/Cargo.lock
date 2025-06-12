@@ -17,6 +17,8 @@ name = "ab-aligned-buffer"
 version = "0.0.1"
 dependencies = [
  "ab-io-type",
+ "stable_deref_trait",
+ "yoke 0.8.0",
 ]
 
 [[package]]
@@ -3830,7 +3832,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db2fa452206ebee18c4b5c2274dbf1de17008e874b4dc4f0aea9d01ca79e4526"
 dependencies = [
  "displaydoc",
- "yoke",
+ "yoke 0.7.5",
  "zerofrom",
  "zerovec",
 ]
@@ -3925,7 +3927,7 @@ dependencies = [
  "stable_deref_trait",
  "tinystr",
  "writeable",
- "yoke",
+ "yoke 0.7.5",
  "zerofrom",
  "zerovec",
 ]
@@ -12021,6 +12023,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "yoke"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f41bb01b8226ef4bfd589436a297c53d118f65921786300e427be8d487695cc"
+dependencies = [
+ "stable_deref_trait",
+]
+
+[[package]]
 name = "yoke-derive"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12120,7 +12131,7 @@ version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa2b893d79df23bfb12d5461018d408ea19dfafe76c2c7ef6d4eba614f8ff079"
 dependencies = [
- "yoke",
+ "yoke 0.7.5",
  "zerofrom",
  "zerovec-derive",
 ]

@@ -7,6 +7,8 @@ name = "ab-aligned-buffer"
 version = "0.0.1"
 dependencies = [
  "ab-io-type",
+ "stable_deref_trait",
+ "yoke",
 ]
 
 [[package]]
@@ -1812,6 +1814,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "stable_deref_trait"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
+
+[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2154,6 +2162,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
 dependencies = [
  "tap",
+]
+
+[[package]]
+name = "yoke"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f41bb01b8226ef4bfd589436a297c53d118f65921786300e427be8d487695cc"
+dependencies = [
+ "stable_deref_trait",
 ]
 
 [[package]]
