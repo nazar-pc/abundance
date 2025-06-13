@@ -1,0 +1,1 @@
+searchState.loadedDescShard("ab_client_api", 0, "Client API\nChain info\nChain sync status\nGet header of ancestor block number for descendant block …\nBest block header\nBest block root\nReturns <code>true</code> if the node is currently offline\nReturns <code>true</code> if the chain is currently syncing")
