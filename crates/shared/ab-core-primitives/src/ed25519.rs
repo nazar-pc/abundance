@@ -4,7 +4,6 @@ use crate::hashes::Blake3Hash;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use derive_more::{Deref, From, Into};
-#[cfg(feature = "ed25519-verify")]
 use ed25519_zebra::{Error, Signature, VerificationKey};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -26,7 +25,6 @@ use serde_big_array::BigArray;
 #[repr(C)]
 pub struct Ed25519PublicKey([u8; Ed25519PublicKey::SIZE]);
 
-#[cfg(feature = "ed25519-verify")]
 impl From<VerificationKey> for Ed25519PublicKey {
     #[inline(always)]
     fn from(verification_key: VerificationKey) -> Self {
@@ -109,7 +107,6 @@ impl Ed25519PublicKey {
     }
 
     /// Verify Ed25519 signature
-    #[cfg(feature = "ed25519-verify")]
     #[inline]
     pub fn verify(&self, signature: &Ed25519Signature, msg: &[u8]) -> Result<(), Error> {
         VerificationKey::try_from(self.0)?.verify(&Signature::from_bytes(signature), msg)
@@ -125,7 +122,6 @@ impl Ed25519PublicKey {
 #[repr(C)]
 pub struct Ed25519Signature([u8; Ed25519Signature::SIZE]);
 
-#[cfg(feature = "ed25519-verify")]
 impl From<Signature> for Ed25519Signature {
     #[inline(always)]
     fn from(signature: Signature) -> Self {
