@@ -69,7 +69,7 @@ dependencies = [
  "blake3",
  "bytes",
  "derive_more 2.0.1",
- "ed25519-zebra",
+ "ed25519-zebra 4.0.3 (git+https://github.com/ZcashFoundation/ed25519-zebra?rev=dbb5610b818a6b54ebd347c27f8c8d3d6af89648)",
  "hex",
  "parity-scale-codec",
  "rayon",
@@ -2526,6 +2526,19 @@ dependencies = [
  "hex",
  "rand_core 0.6.4",
  "sha2 0.10.8",
+ "zeroize",
+]
+
+[[package]]
+name = "ed25519-zebra"
+version = "4.0.3"
+source = "git+https://github.com/ZcashFoundation/ed25519-zebra?rev=dbb5610b818a6b54ebd347c27f8c8d3d6af89648#dbb5610b818a6b54ebd347c27f8c8d3d6af89648"
+dependencies = [
+ "curve25519-dalek",
+ "ed25519",
+ "rand_core 0.6.4",
+ "sha2 0.10.8",
+ "subtle 2.6.1",
  "zeroize",
 ]
 
@@ -9251,7 +9264,7 @@ dependencies = [
  "bounded-collections",
  "bs58",
  "dyn-clonable",
- "ed25519-zebra",
+ "ed25519-zebra 4.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures",
  "hash-db",
  "hash256-std-hasher",
@@ -9926,7 +9939,7 @@ dependencies = [
  "clap",
  "criterion",
  "derive_more 1.0.0",
- "ed25519-zebra",
+ "ed25519-zebra 4.0.3 (git+https://github.com/ZcashFoundation/ed25519-zebra?rev=dbb5610b818a6b54ebd347c27f8c8d3d6af89648)",
  "event-listener 5.3.1",
  "event-listener-primitives",
  "fdlimit",

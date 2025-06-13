@@ -641,7 +641,7 @@ impl<'a> BlockHeaderSeal<'a> {
     }
 
     /// Verify seal against [`BlockHeader::pre_seal_hash()`]
-    #[cfg(feature = "ed25519-verify")]
+    #[inline]
     pub fn is_seal_valid(&self, pre_seal_hash: &Blake3Hash) -> bool {
         match self {
             BlockHeaderSeal::Ed25519(seal) => seal
@@ -651,7 +651,16 @@ impl<'a> BlockHeaderSeal<'a> {
         }
     }
 
+    /// Derive public key hash from this seal
+    #[inline]
+    pub fn public_key_hash(&self) -> Blake3Hash {
+        match self {
+            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
+        }
+    }
+
     /// Hash of the block header seal, part of the eventual block root
+    #[inline]
     pub fn hash(&self) -> Blake3Hash {
         match self {
             BlockHeaderSeal::Ed25519(seal) => {
@@ -842,11 +851,12 @@ impl<'a> BeaconChainHeader<'a> {
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
-    /// Verify seal against [`BeaconChainHeader::pre_seal_hash()`]
-    #[cfg(feature = "ed25519-verify")]
-    #[inline(always)]
-    pub fn is_seal_valid(&self) -> bool {
-        self.seal.is_seal_valid(&self.pre_seal_hash())
+    /// Verify seal against [`BeaconChainHeader::pre_seal_hash()`] and check that its public key
+    /// hash corresponds to the solution
+    #[inline]
+    pub fn is_sealed_correctly(&self) -> bool {
+        self.consensus_info.solution.public_key_hash == self.seal.public_key_hash()
+            && self.seal.is_seal_valid(&self.pre_seal_hash())
     }
 
     /// Compute block root out of this header.
@@ -1056,11 +1066,12 @@ impl<'a> IntermediateShardHeader<'a> {
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
-    /// Verify seal against [`IntermediateShardHeader::pre_seal_hash()`]
-    #[cfg(feature = "ed25519-verify")]
-    #[inline(always)]
-    pub fn is_seal_valid(&self) -> bool {
-        self.seal.is_seal_valid(&self.pre_seal_hash())
+    /// Verify seal against [`IntermediateShardHeader::pre_seal_hash()`] and check that its public
+    /// key hash corresponds to the solution
+    #[inline]
+    pub fn is_sealed_correctly(&self) -> bool {
+        self.consensus_info.solution.public_key_hash == self.seal.public_key_hash()
+            && self.seal.is_seal_valid(&self.pre_seal_hash())
     }
 
     /// Compute block root out of this header.
@@ -1256,11 +1267,12 @@ impl<'a> LeafShardHeader<'a> {
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
-    /// Verify seal against [`LeafShardHeader::pre_seal_hash()`]
-    #[cfg(feature = "ed25519-verify")]
-    #[inline(always)]
-    pub fn is_seal_valid(&self) -> bool {
-        self.seal.is_seal_valid(&self.pre_seal_hash())
+    /// Verify seal against [`LeafShardHeader::pre_seal_hash()`] and check that its public key hash
+    /// corresponds to the solution
+    #[inline]
+    pub fn is_sealed_correctly(&self) -> bool {
+        self.consensus_info.solution.public_key_hash == self.seal.public_key_hash()
+            && self.seal.is_seal_valid(&self.pre_seal_hash())
     }
 
     /// Compute block root out of this header.
@@ -1460,11 +1472,15 @@ impl<'a> BlockHeader<'a> {
         }
     }
 
-    /// Verify seal against [`BlockHeader::pre_seal_hash()`]
-    #[cfg(feature = "ed25519-verify")]
-    #[inline(always)]
-    pub fn is_seal_valid(&self) -> bool {
-        self.seal.is_seal_valid(&self.pre_seal_hash())
+    /// Verify seal against [`BlockHeader::pre_seal_hash()`] and check that its public key hash
+    /// corresponds to the solution
+    #[inline]
+    pub fn is_sealed_correctly(&self) -> bool {
+        match self {
+            Self::BeaconChain(header) => header.is_sealed_correctly(),
+            Self::IntermediateShard(header) => header.is_sealed_correctly(),
+            Self::LeafShard(header) => header.is_sealed_correctly(),
+        }
     }
 
     /// Compute block root out of this header.

@@ -1,7 +1,6 @@
 //! Private implementation details of Subspace consensus digests.
 
 use crate::{ConsensusLog, PotParametersChange, SUBSPACE_ENGINE_ID};
-use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotOutput, SlotNumber};
 use ab_core_primitives::segments::{SegmentIndex, SegmentRoot};
