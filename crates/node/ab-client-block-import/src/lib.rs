@@ -1,5 +1,3 @@
-pub mod segment_headers_store;
-
 /// Error for [`BlockImport`]
 #[derive(Debug, thiserror::Error)]
 pub enum BlockImportError {

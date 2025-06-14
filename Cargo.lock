@@ -36,10 +36,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-client-archiving"
+version = "0.0.1"
+dependencies = [
+ "ab-core-primitives",
+ "parity-scale-codec",
+ "parking_lot",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "ab-client-block-authoring"
 version = "0.0.1"
 dependencies = [
  "ab-client-api",
+ "ab-client-archiving",
  "ab-client-block-builder",
  "ab-client-block-import",
  "ab-client-proof-of-time",
@@ -55,7 +67,7 @@ name = "ab-client-block-builder"
 version = "0.0.1"
 dependencies = [
  "ab-client-api",
- "ab-client-block-import",
+ "ab-client-archiving",
  "ab-core-primitives",
  "anyhow",
  "thiserror",

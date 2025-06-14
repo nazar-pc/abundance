@@ -1,6 +1,6 @@
 use crate::{BlockBuilder, BlockBuilderError, ConsensusConstants};
 use ab_client_api::ChainInfo;
-use ab_client_block_import::segment_headers_store::SegmentHeadersStore;
+use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
 use ab_core_primitives::block::body::owned::{OwnedBeaconChainBody, OwnedBeaconChainBodyError};
 use ab_core_primitives::block::header::owned::{
     GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,

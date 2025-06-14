@@ -1,6 +1,6 @@
 [package]
-name = "ab-client-block-builder"
-description = "Block authoring implementation"
+name = "ab-client-archiving"
+description = "Archiving-related components"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
@@ -14,11 +14,11 @@ include = [
 all-features = true
 
 [dependencies]
-ab-client-api = { workspace = true }
-ab-client-archiving = { workspace = true }
-ab-core-primitives = { workspace = true, features = ["alloc"] }
-anyhow = { workspace = true }
+ab-core-primitives = { workspace = true }
+parity-scale-codec = { workspace = true }
+parking_lot = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 
 [lints]
 workspace = true
