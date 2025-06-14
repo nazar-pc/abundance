@@ -21,7 +21,7 @@ pub trait GenericOwnedBlockHeader {
         Self: 'a;
 
     /// Get regular block header out of the owned version
-    fn header(&self) -> Self::Header<'_>;
+    fn header(&self) -> &Self::Header<'_>;
 }
 
 fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSeal<'_>) {
@@ -61,7 +61,7 @@ impl GenericOwnedBlockHeader for OwnedBeaconChainHeader {
     type Header<'a> = BeaconChainHeader<'a>;
 
     #[inline(always)]
-    fn header(&self) -> Self::Header<'_> {
+    fn header(&self) -> &Self::Header<'_> {
         self.header()
     }
 }
@@ -255,8 +255,8 @@ impl OwnedBeaconChainHeader {
 
     /// Get [`BeaconChainHeader`] out of [`OwnedBeaconChainHeader`]
     #[inline(always)]
-    pub fn header(&self) -> BeaconChainHeader<'_> {
-        *self.inner.get()
+    pub fn header(&self) -> &BeaconChainHeader<'_> {
+        self.inner.get()
     }
 }
 
@@ -310,7 +310,7 @@ impl GenericOwnedBlockHeader for OwnedIntermediateShardHeader {
     type Header<'a> = IntermediateShardHeader<'a>;
 
     #[inline(always)]
-    fn header(&self) -> Self::Header<'_> {
+    fn header(&self) -> &Self::Header<'_> {
         self.header()
     }
 }
@@ -442,8 +442,8 @@ impl OwnedIntermediateShardHeader {
     }
     /// Get [`IntermediateShardHeader`] out of [`OwnedIntermediateShardHeader`]
     #[inline(always)]
-    pub fn header(&self) -> IntermediateShardHeader<'_> {
-        *self.inner.get()
+    pub fn header(&self) -> &IntermediateShardHeader<'_> {
+        self.inner.get()
     }
 }
 
@@ -487,7 +487,7 @@ impl GenericOwnedBlockHeader for OwnedLeafShardHeader {
     type Header<'a> = LeafShardHeader<'a>;
 
     #[inline(always)]
-    fn header(&self) -> Self::Header<'_> {
+    fn header(&self) -> &Self::Header<'_> {
         self.header()
     }
 }
@@ -582,8 +582,8 @@ impl OwnedLeafShardHeader {
     }
     /// Get [`LeafShardHeader`] out of [`OwnedLeafShardHeader`]
     #[inline(always)]
-    pub fn header(&self) -> LeafShardHeader<'_> {
-        *self.inner.get()
+    pub fn header(&self) -> &LeafShardHeader<'_> {
+        self.inner.get()
     }
 }
 
@@ -638,15 +638,6 @@ pub enum OwnedBlockHeader {
     LeafShard(OwnedLeafShardHeader),
 }
 
-impl GenericOwnedBlockHeader for OwnedBlockHeader {
-    type Header<'a> = BlockHeader<'a>;
-
-    #[inline(always)]
-    fn header(&self) -> Self::Header<'_> {
-        self.header()
-    }
-}
-
 impl OwnedBlockHeader {
     /// Create owned block header from a reference
     #[inline]
@@ -699,11 +690,11 @@ impl OwnedBlockHeader {
     #[inline]
     pub fn header(&self) -> BlockHeader<'_> {
         match self {
-            Self::BeaconChain(owned_header) => BlockHeader::BeaconChain(owned_header.header()),
+            Self::BeaconChain(owned_header) => BlockHeader::BeaconChain(*owned_header.header()),
             Self::IntermediateShard(owned_header) => {
-                BlockHeader::IntermediateShard(owned_header.header())
+                BlockHeader::IntermediateShard(*owned_header.header())
             }
-            Self::LeafShard(owned_header) => BlockHeader::LeafShard(owned_header.header()),
+            Self::LeafShard(owned_header) => BlockHeader::LeafShard(*owned_header.header()),
         }
     }
 }

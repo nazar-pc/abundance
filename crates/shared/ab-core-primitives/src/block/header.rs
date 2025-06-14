@@ -1338,22 +1338,6 @@ impl<'a> Deref for BlockHeader<'a> {
     }
 }
 
-impl<'a> GenericBlockHeader<'a> for BlockHeader<'a> {
-    #[cfg(feature = "alloc")]
-    type Owned = OwnedBlockHeader;
-
-    #[cfg(feature = "alloc")]
-    #[inline(always)]
-    fn try_to_owned(self) -> Option<Self::Owned> {
-        self.to_owned().ok()
-    }
-
-    #[inline(always)]
-    fn root(&self) -> BlockRoot {
-        self.root()
-    }
-}
-
 impl<'a> BlockHeader<'a> {
     /// Try to create a new instance from provided bytes for provided shard index.
     ///

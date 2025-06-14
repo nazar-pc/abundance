@@ -26,7 +26,7 @@ pub trait GenericOwnedBlockBody {
         Self: 'a;
 
     /// Get regular block body out of the owned version
-    fn body(&self) -> Self::Body<'_>;
+    fn body(&self) -> &Self::Body<'_>;
 }
 
 /// Transaction addition error
@@ -224,7 +224,7 @@ impl GenericOwnedBlockBody for OwnedBeaconChainBody {
     type Body<'a> = BeaconChainBody<'a>;
 
     #[inline(always)]
-    fn body(&self) -> Self::Body<'_> {
+    fn body(&self) -> &Self::Body<'_> {
         self.body()
     }
 }
@@ -399,8 +399,8 @@ impl OwnedBeaconChainBody {
 
     /// Get [`BeaconChainBody`] out of [`OwnedBeaconChainBody`]
     #[inline(always)]
-    pub fn body(&self) -> BeaconChainBody<'_> {
-        *self.inner.get()
+    pub fn body(&self) -> &BeaconChainBody<'_> {
+        self.inner.get()
     }
 }
 
@@ -440,7 +440,7 @@ impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
     type Body<'a> = IntermediateShardBody<'a>;
 
     #[inline(always)]
-    fn body(&self) -> Self::Body<'_> {
+    fn body(&self) -> &Self::Body<'_> {
         self.body()
     }
 }
@@ -573,8 +573,8 @@ impl OwnedIntermediateShardBody {
 
     /// Get [`IntermediateShardBody`] out of [`OwnedIntermediateShardBody`]
     #[inline(always)]
-    pub fn body(&self) -> IntermediateShardBody<'_> {
-        *self.inner.get()
+    pub fn body(&self) -> &IntermediateShardBody<'_> {
+        self.inner.get()
     }
 }
 
@@ -630,7 +630,7 @@ impl GenericOwnedBlockBody for OwnedLeafShardBody {
     type Body<'a> = LeafShardBody<'a>;
 
     #[inline(always)]
-    fn body(&self) -> Self::Body<'_> {
+    fn body(&self) -> &Self::Body<'_> {
         self.body()
     }
 }
@@ -707,8 +707,8 @@ impl OwnedLeafShardBody {
 
     /// Get [`LeafShardBody`] out of [`OwnedLeafShardBody`]
     #[inline(always)]
-    pub fn body(&self) -> LeafShardBody<'_> {
-        *self.inner.get()
+    pub fn body(&self) -> &LeafShardBody<'_> {
+        self.inner.get()
     }
 }
 
@@ -766,15 +766,6 @@ pub enum OwnedBlockBody {
     LeafShard(OwnedLeafShardBody),
 }
 
-impl GenericOwnedBlockBody for OwnedBlockBody {
-    type Body<'a> = BlockBody<'a>;
-
-    #[inline(always)]
-    fn body(&self) -> Self::Body<'_> {
-        self.body()
-    }
-}
-
 impl OwnedBlockBody {
     /// Create owned block body from a reference
     #[inline]
@@ -823,9 +814,9 @@ impl OwnedBlockBody {
     #[inline]
     pub fn body(&self) -> BlockBody<'_> {
         match self {
-            Self::BeaconChain(owned_body) => BlockBody::BeaconChain(owned_body.body()),
-            Self::IntermediateShard(owned_body) => BlockBody::IntermediateShard(owned_body.body()),
-            Self::LeafShard(owned_body) => BlockBody::LeafShard(owned_body.body()),
+            Self::BeaconChain(owned_body) => BlockBody::BeaconChain(*owned_body.body()),
+            Self::IntermediateShard(owned_body) => BlockBody::IntermediateShard(*owned_body.body()),
+            Self::LeafShard(owned_body) => BlockBody::LeafShard(*owned_body.body()),
         }
     }
 }

@@ -1057,22 +1057,6 @@ pub enum BlockBody<'a> {
     LeafShard(LeafShardBody<'a>),
 }
 
-impl<'a> GenericBlockBody<'a> for BlockBody<'a> {
-    #[cfg(feature = "alloc")]
-    type Owned = OwnedBlockBody;
-
-    #[cfg(feature = "alloc")]
-    #[inline(always)]
-    fn try_to_owned(self) -> Option<Self::Owned> {
-        self.to_owned().ok()
-    }
-
-    #[inline(always)]
-    fn root(&self) -> Blake3Hash {
-        self.root()
-    }
-}
-
 impl<'a> BlockBody<'a> {
     /// Try to create a new instance from provided bytes for provided shard index.
     ///

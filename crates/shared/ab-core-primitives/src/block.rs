@@ -5,11 +5,9 @@ pub mod header;
 #[cfg(feature = "alloc")]
 pub mod owned;
 
-use crate::block::body::{
-    BeaconChainBody, BlockBody, GenericBlockBody, IntermediateShardBody, LeafShardBody,
-};
+use crate::block::body::{BeaconChainBody, GenericBlockBody, IntermediateShardBody, LeafShardBody};
 use crate::block::header::{
-    BeaconChainHeader, BlockHeader, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
+    BeaconChainHeader, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
 };
 #[cfg(feature = "alloc")]
 use crate::block::owned::{
@@ -532,6 +530,9 @@ impl<'a> GenericBlock<'a> for LeafShardBlock<'a> {
 }
 
 /// Block that contains [`BlockHeader`] and [`BlockBody`]
+///
+/// [`BlockHeader`]: crate::block::header::BlockHeader
+/// [`BlockBody`]: crate::block::body::BlockBody
 #[derive(Debug, Copy, Clone, From)]
 pub enum Block<'a> {
     /// Block corresponds to the beacon chain
@@ -540,37 +541,6 @@ pub enum Block<'a> {
     IntermediateShard(IntermediateShardBlock<'a>),
     /// Block corresponds to a leaf shard
     LeafShard(LeafShardBlock<'a>),
-}
-
-impl<'a> GenericBlock<'a> for Block<'a> {
-    type Header = BlockHeader<'a>;
-    type Body = BlockBody<'a>;
-    #[cfg(feature = "alloc")]
-    type Owned = OwnedBlock;
-
-    #[inline(always)]
-    fn header(&self) -> Self::Header {
-        match self {
-            Self::BeaconChain(block) => BlockHeader::BeaconChain(block.header()),
-            Self::IntermediateShard(block) => BlockHeader::IntermediateShard(block.header()),
-            Self::LeafShard(block) => BlockHeader::LeafShard(block.header()),
-        }
-    }
-
-    #[inline(always)]
-    fn body(&self) -> Self::Body {
-        match self {
-            Self::BeaconChain(block) => BlockBody::BeaconChain(block.body()),
-            Self::IntermediateShard(block) => BlockBody::IntermediateShard(block.body()),
-            Self::LeafShard(block) => BlockBody::LeafShard(block.body()),
-        }
-    }
-
-    #[cfg(feature = "alloc")]
-    #[inline(always)]
-    fn try_to_owned(self) -> Option<Self::Owned> {
-        self.to_owned().ok()
-    }
 }
 
 impl<'a> Block<'a> {

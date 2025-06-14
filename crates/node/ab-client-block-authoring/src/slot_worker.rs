@@ -472,7 +472,7 @@ where
             let best_header = best_header.header();
             let best_root = best_header.root();
 
-            self.on_new_slot(slot, checkpoints, &best_root, &best_beacon_chain_header);
+            self.on_new_slot(slot, checkpoints, &best_root, best_beacon_chain_header);
 
             if self.chain_sync_status.is_syncing() {
                 debug!(%slot, "Skipping proposal slot due to sync");
@@ -490,8 +490,8 @@ where
             self.produce_block(
                 slot_to_claim,
                 &best_root,
-                &best_header,
-                &best_beacon_chain_header,
+                best_header,
+                best_beacon_chain_header,
             )
             .await;
         }
