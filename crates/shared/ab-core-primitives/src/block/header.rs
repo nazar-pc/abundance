@@ -548,6 +548,7 @@ impl BlockHeaderResult {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(u8)]
+#[non_exhaustive]
 pub enum BlockHeaderSealType {
     /// Ed25519 signature
     #[cfg_attr(feature = "scale-codec", codec(index = 0))]
@@ -590,6 +591,7 @@ pub struct BlockHeaderEd25519Seal {
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[non_exhaustive]
 pub enum OwnedBlockHeaderSeal {
     /// Ed25519 seal
     Ed25519(BlockHeaderEd25519Seal),
@@ -607,6 +609,7 @@ impl OwnedBlockHeaderSeal {
 
 /// Block header seal
 #[derive(Debug, Copy, Clone)]
+#[non_exhaustive]
 pub enum BlockHeaderSeal<'a> {
     /// Ed25519 seal
     Ed25519(&'a BlockHeaderEd25519Seal),
