@@ -5,9 +5,8 @@ pub mod owned;
 
 #[cfg(feature = "alloc")]
 use crate::block::header::owned::{
-    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError, OwnedBlockHeader,
-    OwnedBlockHeaderError, OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError,
-    OwnedLeafShardHeader,
+    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBlockHeader,
+    OwnedIntermediateShardHeader, OwnedLeafShardHeader,
 };
 use crate::block::{BlockNumber, BlockRoot};
 use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
@@ -43,7 +42,7 @@ where
 
     /// Turn into owned version
     #[cfg(feature = "alloc")]
-    fn try_to_owned(self) -> Option<Self::Owned>;
+    fn to_owned(self) -> Self::Owned;
 
     /// Compute block root out of this header.
     ///
@@ -690,6 +689,8 @@ pub struct SharedBlockHeader<'a> {
 
 /// Block header that corresponds to the beacon chain
 #[derive(Debug, Copy, Clone, Yokeable)]
+// Prevent creation of potentially broken invariants externally
+#[non_exhaustive]
 pub struct BeaconChainHeader<'a> {
     /// Shared block header
     pub shared: SharedBlockHeader<'a>,
@@ -716,8 +717,8 @@ impl<'a> GenericBlockHeader<'a> for BeaconChainHeader<'a> {
 
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    fn try_to_owned(self) -> Option<Self::Owned> {
-        self.to_owned().ok()
+    fn to_owned(self) -> Self::Owned {
+        self.to_owned()
     }
 
     #[inline(always)]
@@ -843,8 +844,17 @@ impl<'a> BeaconChainHeader<'a> {
     /// Create an owned version of this header
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    pub fn to_owned(self) -> Result<OwnedBeaconChainHeader, OwnedBeaconChainHeaderError> {
-        OwnedBeaconChainHeader::from_header(self)
+    pub fn to_owned(self) -> OwnedBeaconChainHeader {
+        let unsealed = OwnedBeaconChainHeader::from_parts(
+            self.shared.prefix,
+            self.shared.result,
+            self.shared.consensus_info,
+            &self.child_shard_blocks,
+            self.consensus_parameters,
+        )
+        .expect("`self` is always a valid invariant; qed");
+
+        unsealed.with_seal(self.shared.seal)
     }
 
     /// Hash of the block before seal is applied to it
@@ -902,6 +912,8 @@ impl<'a> BeaconChainHeader<'a> {
 
 /// Block header that corresponds to an intermediate shard
 #[derive(Debug, Copy, Clone, Yokeable)]
+// Prevent creation of potentially broken invariants externally
+#[non_exhaustive]
 pub struct IntermediateShardHeader<'a> {
     /// Shared block header
     pub shared: SharedBlockHeader<'a>,
@@ -928,8 +940,8 @@ impl<'a> GenericBlockHeader<'a> for IntermediateShardHeader<'a> {
 
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    fn try_to_owned(self) -> Option<Self::Owned> {
-        self.to_owned().ok()
+    fn to_owned(self) -> Self::Owned {
+        self.to_owned()
     }
 
     #[inline(always)]
@@ -1059,10 +1071,17 @@ impl<'a> IntermediateShardHeader<'a> {
     /// Create an owned version of this header
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    pub fn to_owned(
-        self,
-    ) -> Result<OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError> {
-        OwnedIntermediateShardHeader::from_header(self)
+    pub fn to_owned(self) -> OwnedIntermediateShardHeader {
+        let unsealed = OwnedIntermediateShardHeader::from_parts(
+            self.shared.prefix,
+            self.shared.result,
+            self.shared.consensus_info,
+            self.beacon_chain_info,
+            &self.child_shard_blocks,
+        )
+        .expect("`self` is always a valid invariant; qed");
+
+        unsealed.with_seal(self.shared.seal)
     }
 
     /// Hash of the block before seal is applied to it
@@ -1120,6 +1139,8 @@ impl<'a> IntermediateShardHeader<'a> {
 
 /// Block header that corresponds to a leaf shard
 #[derive(Debug, Copy, Clone, Yokeable)]
+// Prevent creation of potentially broken invariants externally
+#[non_exhaustive]
 pub struct LeafShardHeader<'a> {
     /// Shared block header
     pub shared: SharedBlockHeader<'a>,
@@ -1144,8 +1165,8 @@ impl<'a> GenericBlockHeader<'a> for LeafShardHeader<'a> {
 
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    fn try_to_owned(self) -> Option<Self::Owned> {
-        Some(self.to_owned())
+    fn to_owned(self) -> Self::Owned {
+        self.to_owned()
     }
 
     #[inline(always)]
@@ -1266,7 +1287,14 @@ impl<'a> LeafShardHeader<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedLeafShardHeader {
-        OwnedLeafShardHeader::from_header(self)
+        let unsealed = OwnedLeafShardHeader::from_parts(
+            self.shared.prefix,
+            self.shared.result,
+            self.shared.consensus_info,
+            self.beacon_chain_info,
+        );
+
+        unsealed.with_seal(self.shared.seal)
     }
 
     /// Hash of the block before seal is applied to it
@@ -1454,8 +1482,12 @@ impl<'a> BlockHeader<'a> {
     /// Create an owned version of this header
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    pub fn to_owned(self) -> Result<OwnedBlockHeader, OwnedBlockHeaderError> {
-        OwnedBlockHeader::from_header(self)
+    pub fn to_owned(self) -> OwnedBlockHeader {
+        match self {
+            Self::BeaconChain(header) => header.to_owned().into(),
+            Self::IntermediateShard(header) => header.to_owned().into(),
+            Self::LeafShard(header) => header.to_owned().into(),
+        }
     }
 
     /// Hash of the block before seal is applied to it

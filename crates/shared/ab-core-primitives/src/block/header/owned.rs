@@ -213,20 +213,6 @@ impl OwnedBeaconChainHeader {
         Ok(())
     }
 
-    /// Create owned block header from a reference
-    #[inline]
-    pub fn from_header(header: BeaconChainHeader<'_>) -> Result<Self, OwnedBeaconChainHeaderError> {
-        let unsealed = Self::from_parts(
-            header.shared.prefix,
-            header.shared.result,
-            header.shared.consensus_info,
-            &header.child_shard_blocks,
-            header.consensus_parameters,
-        )?;
-
-        Ok(unsealed.with_seal(header.shared.seal))
-    }
-
     /// Create owned header from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
@@ -398,22 +384,6 @@ impl OwnedIntermediateShardHeader {
         Ok(())
     }
 
-    /// Create owned block header from a reference
-    #[inline]
-    pub fn from_header(
-        header: IntermediateShardHeader<'_>,
-    ) -> Result<Self, OwnedIntermediateShardHeaderError> {
-        let unsealed = Self::from_parts(
-            header.shared.prefix,
-            header.shared.result,
-            header.shared.consensus_info,
-            header.beacon_chain_info,
-            &header.child_shard_blocks,
-        )?;
-
-        Ok(unsealed.with_seal(header.shared.seal))
-    }
-
     /// Create owned header from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
@@ -542,19 +512,6 @@ impl OwnedLeafShardHeader {
         };
     }
 
-    /// Create owned block header from a reference
-    #[inline]
-    pub fn from_header(header: LeafShardHeader<'_>) -> Self {
-        let unsealed = Self::from_parts(
-            header.shared.prefix,
-            header.shared.result,
-            header.shared.consensus_info,
-            header.beacon_chain_info,
-        );
-
-        unsealed.with_seal(header.shared.seal)
-    }
-
     /// Create owned header from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
@@ -613,17 +570,6 @@ impl OwnedLeafShardHeaderUnsealed {
     }
 }
 
-/// Errors for [`OwnedBlockHeader`]
-#[derive(Debug, thiserror::Error)]
-pub enum OwnedBlockHeaderError {
-    /// Beacon chain block header error
-    #[error("Beacon chain block header error: {0}")]
-    BeaconChain(#[from] OwnedBeaconChainHeaderError),
-    /// Intermediate shard block header error
-    #[error("Intermediate shard block header error: {0}")]
-    IntermediateShard(#[from] OwnedIntermediateShardHeaderError),
-}
-
 /// An owned version of [`BlockHeader`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
@@ -639,22 +585,6 @@ pub enum OwnedBlockHeader {
 }
 
 impl OwnedBlockHeader {
-    /// Create owned block header from a reference
-    #[inline]
-    pub fn from_header(header: BlockHeader<'_>) -> Result<Self, OwnedBlockHeaderError> {
-        Ok(match header {
-            BlockHeader::BeaconChain(header) => {
-                Self::BeaconChain(OwnedBeaconChainHeader::from_header(header)?)
-            }
-            BlockHeader::IntermediateShard(header) => {
-                Self::IntermediateShard(OwnedIntermediateShardHeader::from_header(header)?)
-            }
-            BlockHeader::LeafShard(header) => {
-                Self::LeafShard(OwnedLeafShardHeader::from_header(header))
-            }
-        })
-    }
-
     /// Create owned header from a buffer
     #[inline]
     pub fn from_buffer(

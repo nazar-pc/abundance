@@ -47,22 +47,13 @@ pub trait GenericOwnedBlock {
     fn block(&self) -> Self::Block<'_>;
 }
 
-/// Errors for [`OwnedBeaconChainBlock`]
-#[derive(Debug, thiserror::Error)]
-pub enum OwnedBeaconChainBlockError {
-    /// Beacon chain block header error
-    #[error("Beacon chain block header error: {0}")]
-    Header(#[from] OwnedBeaconChainHeaderError),
-    /// Beacon chain block body error
-    #[error("Beacon chain block body error: {0}")]
-    Body(#[from] OwnedBeaconChainBodyError),
-}
-
 /// An owned version of [`BeaconChainBlock`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
+// Prevent creation of potentially broken invariants externally
+#[non_exhaustive]
 pub struct OwnedBeaconChainBlock {
     /// Block header
     pub header: OwnedBeaconChainHeader,
@@ -107,15 +98,6 @@ impl OwnedBeaconChainBlock {
                 intermediate_shard_blocks,
                 pot_checkpoints,
             )?,
-        })
-    }
-
-    /// Create owned block from a reference
-    #[inline]
-    pub fn from_block(block: BeaconChainBlock<'_>) -> Result<Self, OwnedBeaconChainBlockError> {
-        Ok(Self {
-            header: OwnedBeaconChainHeader::from_header(block.header)?,
-            body: OwnedBeaconChainBody::from_body(block.body)?,
         })
     }
 
@@ -221,6 +203,8 @@ pub enum OwnedIntermediateShardBlockError {
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
+// Prevent creation of potentially broken invariants externally
+#[non_exhaustive]
 pub struct OwnedIntermediateShardBlock {
     /// Block header
     pub header: OwnedIntermediateShardHeader,
@@ -260,17 +244,6 @@ impl OwnedIntermediateShardBlock {
     {
         Ok(OwnedIntermediateShardBlockBuilder {
             body: OwnedIntermediateShardBody::new(own_segment_roots, leaf_shard_blocks)?,
-        })
-    }
-
-    /// Create owned block from a reference
-    #[inline]
-    pub fn from_block(
-        block: IntermediateShardBlock<'_>,
-    ) -> Result<Self, OwnedIntermediateShardBlockError> {
-        Ok(Self {
-            header: OwnedIntermediateShardHeader::from_header(block.header)?,
-            body: OwnedIntermediateShardBody::from_body(block.body)?,
         })
     }
 
@@ -360,19 +333,13 @@ impl OwnedIntermediateShardBlockUnsealed {
     }
 }
 
-/// Errors for [`OwnedLeafShardBlock`]
-#[derive(Debug, thiserror::Error)]
-pub enum OwnedLeafShardBlockError {
-    /// Leaf shard block body error
-    #[error("Leaf shard block body error: {0}")]
-    Body(#[from] OwnedLeafShardBodyError),
-}
-
 /// An owned version of [`LeafShardBlock`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
+// Prevent creation of potentially broken invariants externally
+#[non_exhaustive]
 pub struct OwnedLeafShardBlock {
     /// Block header
     pub header: OwnedLeafShardHeader,
@@ -408,15 +375,6 @@ impl OwnedLeafShardBlock {
     ) -> Result<OwnedLeafShardBlockBuilder, OwnedLeafShardBodyError> {
         Ok(OwnedLeafShardBlockBuilder {
             body_builder: OwnedLeafShardBody::init(own_segment_roots)?,
-        })
-    }
-
-    /// Create owned block from a reference
-    #[inline]
-    pub fn from_block(block: LeafShardBlock<'_>) -> Result<Self, OwnedLeafShardBlockError> {
-        Ok(Self {
-            header: OwnedLeafShardHeader::from_header(block.header),
-            body: OwnedLeafShardBody::from_body(block.body)?,
         })
     }
 
@@ -510,20 +468,6 @@ impl OwnedLeafShardBlockUnsealed {
     }
 }
 
-/// Errors for [`OwnedBlock`]
-#[derive(Debug, thiserror::Error)]
-pub enum OwnedBlockError {
-    /// Beacon chain block error
-    #[error("Beacon chain block error: {0}")]
-    BeaconChain(#[from] OwnedBeaconChainBlockError),
-    /// Intermediate shard block error
-    #[error("Intermediate shard block error: {0}")]
-    IntermediateShard(#[from] OwnedIntermediateShardBlockError),
-    /// Leaf shard block error
-    #[error("Leaf shard block error: {0}")]
-    LeafShard(#[from] OwnedLeafShardBlockError),
-}
-
 // TODO: A variant that holds both header and body in the same allocation?
 /// An owned version of [`Block`].
 ///
@@ -560,20 +504,6 @@ impl OwnedBlock {
             Self::IntermediateShard(block) => BlockBody::IntermediateShard(*block.body.body()),
             Self::LeafShard(block) => BlockBody::LeafShard(*block.body.body()),
         }
-    }
-
-    /// Create owned block from a reference
-    #[inline]
-    pub fn from_block(block: Block<'_>) -> Result<Self, OwnedBlockError> {
-        Ok(match block {
-            Block::BeaconChain(block) => {
-                Self::BeaconChain(OwnedBeaconChainBlock::from_block(block)?)
-            }
-            Block::IntermediateShard(block) => {
-                Self::IntermediateShard(OwnedIntermediateShardBlock::from_block(block)?)
-            }
-            Block::LeafShard(block) => Self::LeafShard(OwnedLeafShardBlock::from_block(block)?),
-        })
     }
 
     // TODO: Unchecked versions of methods that create instances from buffers (here and in
