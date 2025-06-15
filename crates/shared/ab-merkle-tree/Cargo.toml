@@ -13,13 +13,20 @@ include = [
 [package.metadata.docs.rs]
 all-features = true
 
-# TODO: Benches
+[lib]
+# Necessary for CLI options to work on benches
+bench = false
+
+[[bench]]
+name = "merkle_tree"
+harness = false
 
 [dependencies]
 blake3 = { workspace = true }
 no-panic = { workspace = true, optional = true }
 
 [dev-dependencies]
+criterion = { workspace = true }
 rand_core = { workspace = true }
 rand_chacha = { workspace = true }
 
