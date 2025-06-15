@@ -257,8 +257,8 @@ impl<'a> BeaconChainBlock<'a> {
     ///
     /// `bytes` should be 8-bytes aligned.
     ///
-    /// Checks internal consistency of header, body, and block. For unchecked version use
-    /// [`Self::try_from_bytes_unchecked()`].
+    /// Checks internal consistency of header, body, and block, but no consensus verification is
+    /// done. For unchecked version use [`Self::try_from_bytes_unchecked()`].
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
@@ -279,6 +279,9 @@ impl<'a> BeaconChainBlock<'a> {
     }
 
     /// Check block's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since full internal consistency is
+    /// checked by [`Self::try_from_bytes()`] internally.
     ///
     /// NOTE: This only checks block-level internal consistency, header and block level internal
     /// consistency is checked separately.
@@ -357,8 +360,8 @@ impl<'a> IntermediateShardBlock<'a> {
     ///
     /// `bytes` should be 8-bytes aligned.
     ///
-    /// Checks internal consistency of header, body, and block. For unchecked version use
-    /// [`Self::try_from_bytes_unchecked()`].
+    /// Checks internal consistency of header, body, and block, but no consensus verification is
+    /// done. For unchecked version use [`Self::try_from_bytes_unchecked()`].
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
@@ -379,6 +382,9 @@ impl<'a> IntermediateShardBlock<'a> {
     }
 
     /// Check block's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since full internal consistency is
+    /// checked by [`Self::try_from_bytes()`] internally.
     ///
     /// NOTE: This only checks block-level internal consistency, header and block level internal
     /// consistency is checked separately.
@@ -457,8 +463,8 @@ impl<'a> LeafShardBlock<'a> {
     ///
     /// `bytes` should be 8-bytes aligned.
     ///
-    /// Checks internal consistency of header, body, and block. For unchecked version use
-    /// [`Self::try_from_bytes_unchecked()`].
+    /// Checks internal consistency of header, body, and block, but no consensus verification is
+    /// done. For unchecked version use [`Self::try_from_bytes_unchecked()`].
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
@@ -479,6 +485,9 @@ impl<'a> LeafShardBlock<'a> {
     }
 
     /// Check block's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since full internal consistency is
+    /// checked by [`Self::try_from_bytes()`] internally.
     ///
     /// NOTE: This only checks block-level internal consistency, header and block level internal
     /// consistency is checked separately.
@@ -548,8 +557,8 @@ impl<'a> Block<'a> {
     ///
     /// `bytes` should be 16-byte aligned.
     ///
-    /// Header and body will be checked for basic internal consistencies body and that they match
-    /// each other, but no consensus verification is done.
+    /// Checks internal consistency of header, body, and block, but no consensus verification is
+    /// done. For unchecked version use [`Self::try_from_bytes_unchecked()`].
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
@@ -577,14 +586,17 @@ impl<'a> Block<'a> {
 
     /// Check block's internal consistency.
     ///
+    /// This is usually not necessary to be called explicitly since full internal consistency is
+    /// checked by [`Self::try_from_bytes()`] internally.
+    ///
     /// NOTE: This only checks block-level internal consistency, header and block level internal
     /// consistency is checked separately.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         match self {
-            Self::BeaconChain(body) => body.is_internally_consistent(),
-            Self::IntermediateShard(body) => body.is_internally_consistent(),
-            Self::LeafShard(body) => body.is_internally_consistent(),
+            Self::BeaconChain(block) => block.is_internally_consistent(),
+            Self::IntermediateShard(block) => block.is_internally_consistent(),
+            Self::LeafShard(block) => block.is_internally_consistent(),
         }
     }
 

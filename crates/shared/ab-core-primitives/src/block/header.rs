@@ -781,7 +781,10 @@ impl<'a> BeaconChainHeader<'a> {
         Some((header, remainder))
     }
 
-    /// Check block header's internal consistency
+    /// Check block header's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
@@ -992,7 +995,10 @@ impl<'a> IntermediateShardHeader<'a> {
         Some((header, remainder))
     }
 
-    /// Check block header's internal consistency
+    /// Check block header's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
@@ -1200,7 +1206,10 @@ impl<'a> LeafShardHeader<'a> {
         Some((header, remainder))
     }
 
-    /// Check block header's internal consistency
+    /// Check block header's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
@@ -1367,7 +1376,10 @@ impl<'a> BlockHeader<'a> {
         }
     }
 
-    /// Check block header's internal consistency
+    /// Check block header's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         match self {
