@@ -1,6 +1,6 @@
 [package]
-name = "ab-client-block-builder"
-description = "Block authoring implementation"
+name = "ab-client-block-verification"
+description = "Block verification implementation"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
@@ -17,9 +17,14 @@ all-features = true
 ab-client-api = { workspace = true }
 ab-client-archiving = { workspace = true }
 ab-client-consensus-common = { workspace = true }
-ab-core-primitives = { workspace = true, features = ["alloc"] }
+ab-client-proof-of-time = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["scale-codec"] }
+ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
+rand = { workspace = true, features = ["thread_rng"] }
+rayon = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 
 [lints]
 workspace = true

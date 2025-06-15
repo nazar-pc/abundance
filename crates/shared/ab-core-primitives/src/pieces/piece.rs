@@ -1,5 +1,6 @@
 use crate::pieces::PieceArray;
 use crate::pieces::cow_bytes::CowBytes;
+#[cfg(any(feature = "scale-codec", feature = "serde"))]
 use alloc::format;
 use alloc::vec::Vec;
 use bytes::{Bytes, BytesMut};

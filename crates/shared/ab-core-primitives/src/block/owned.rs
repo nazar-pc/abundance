@@ -1,14 +1,14 @@
 //! Data structures related to the owned version of [`Block`]
 
 use crate::block::body::owned::{
-    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedBlockBody,
+    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError,
     OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBlockBodyBuilder,
     OwnedLeafShardBody, OwnedLeafShardBodyError, WritableBodyTransaction,
 };
 use crate::block::body::{BlockBody, IntermediateShardBlockInfo, LeafShardBlockInfo};
 use crate::block::header::owned::{
     GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
-    OwnedBeaconChainHeaderUnsealed, OwnedBlockHeader, OwnedIntermediateShardHeader,
+    OwnedBeaconChainHeaderUnsealed, OwnedIntermediateShardHeader,
     OwnedIntermediateShardHeaderError, OwnedIntermediateShardHeaderUnsealed, OwnedLeafShardHeader,
     OwnedLeafShardHeaderUnsealed,
 };
@@ -138,8 +138,8 @@ impl OwnedBeaconChainBlock {
     /// Get [`BeaconChainBlock`] out of [`OwnedBeaconChainBlock`]
     pub fn block(&self) -> BeaconChainBlock<'_> {
         BeaconChainBlock {
-            header: self.header.header(),
-            body: self.body.body(),
+            header: *self.header.header(),
+            body: *self.body.body(),
         }
     }
 }
@@ -293,8 +293,8 @@ impl OwnedIntermediateShardBlock {
     /// Get [`IntermediateShardBlock`] out of [`OwnedIntermediateShardBlock`]
     pub fn block(&self) -> IntermediateShardBlock<'_> {
         IntermediateShardBlock {
-            header: self.header.header(),
-            body: self.body.body(),
+            header: *self.header.header(),
+            body: *self.body.body(),
         }
     }
 }
@@ -439,8 +439,8 @@ impl OwnedLeafShardBlock {
     /// Get [`LeafShardBlock`] out of [`OwnedLeafShardBlock`]
     pub fn block(&self) -> LeafShardBlock<'_> {
         LeafShardBlock {
-            header: self.header.header(),
-            body: self.body.body(),
+            header: *self.header.header(),
+            body: *self.body.body(),
         }
     }
 }
@@ -539,45 +539,16 @@ pub enum OwnedBlock {
     LeafShard(OwnedLeafShardBlock),
 }
 
-impl GenericOwnedBlock for OwnedBlock {
-    type Header = OwnedBlockHeader;
-    type Body = OwnedBlockBody;
-    type Block<'a> = Block<'a>;
-
-    #[inline(always)]
-    fn header(&self) -> Self::Header {
-        match self {
-            Self::BeaconChain(block) => OwnedBlockHeader::BeaconChain(block.header.clone()),
-            Self::IntermediateShard(block) => {
-                OwnedBlockHeader::IntermediateShard(block.header.clone())
-            }
-            Self::LeafShard(block) => OwnedBlockHeader::LeafShard(block.header.clone()),
-        }
-    }
-
-    #[inline(always)]
-    fn body(&self) -> Self::Body {
-        match self {
-            Self::BeaconChain(block) => OwnedBlockBody::BeaconChain(block.body.clone()),
-            Self::IntermediateShard(block) => OwnedBlockBody::IntermediateShard(block.body.clone()),
-            Self::LeafShard(block) => OwnedBlockBody::LeafShard(block.body.clone()),
-        }
-    }
-
-    #[inline(always)]
-    fn block(&self) -> Self::Block<'_> {
-        self.block()
-    }
-}
-
 impl OwnedBlock {
     /// Get block header
     #[inline(always)]
     pub fn header(&self) -> BlockHeader<'_> {
         match self {
-            Self::BeaconChain(block) => BlockHeader::BeaconChain(block.header.header()),
-            Self::IntermediateShard(block) => BlockHeader::IntermediateShard(block.header.header()),
-            Self::LeafShard(block) => BlockHeader::LeafShard(block.header.header()),
+            Self::BeaconChain(block) => BlockHeader::BeaconChain(*block.header.header()),
+            Self::IntermediateShard(block) => {
+                BlockHeader::IntermediateShard(*block.header.header())
+            }
+            Self::LeafShard(block) => BlockHeader::LeafShard(*block.header.header()),
         }
     }
 
@@ -585,9 +556,9 @@ impl OwnedBlock {
     #[inline(always)]
     pub fn body(&self) -> BlockBody<'_> {
         match self {
-            Self::BeaconChain(block) => BlockBody::BeaconChain(block.body.body()),
-            Self::IntermediateShard(block) => BlockBody::IntermediateShard(block.body.body()),
-            Self::LeafShard(block) => BlockBody::LeafShard(block.body.body()),
+            Self::BeaconChain(block) => BlockBody::BeaconChain(*block.body.body()),
+            Self::IntermediateShard(block) => BlockBody::IntermediateShard(*block.body.body()),
+            Self::LeafShard(block) => BlockBody::LeafShard(*block.body.body()),
         }
     }
 

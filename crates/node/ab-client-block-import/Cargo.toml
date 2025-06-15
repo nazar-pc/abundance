@@ -14,11 +14,13 @@ include = [
 all-features = true
 
 [dependencies]
-ab-core-primitives = { workspace = true, features = ["scale-codec"] }
-parity-scale-codec = { workspace = true }
-parking_lot = { workspace = true }
+ab-client-api = { workspace = true }
+ab-client-block-verification = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["alloc"] }
+ab-proof-of-space = { workspace = true }
+anyhow = { workspace = true }
+send-future = { workspace = true }
 thiserror = { workspace = true }
-tracing = { workspace = true }
 
 [lints]
 workspace = true

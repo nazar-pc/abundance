@@ -39,8 +39,7 @@ rand_chacha = { workspace = true }
 alloc = [
     "dep:ab-aligned-buffer",
     "dep:bytes",
-    "hex/alloc",
-    "serde/alloc",
+    "serde?/alloc",
 ]
 scale-codec = [
     "dep:parity-scale-codec",
@@ -58,6 +57,8 @@ serde = [
     "ab-io-type/serde",
     "alloc",
     "bytes/serde",
+    # TODO: Ideally wouldn't be necessary, but https://github.com/KokaKiwi/rust-hex/issues/90
+    "hex/alloc",
     "hex/serde",
 ]
 

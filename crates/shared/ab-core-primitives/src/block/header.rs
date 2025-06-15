@@ -148,7 +148,7 @@ impl BlockHeaderBeaconChainInfo {
 }
 
 /// Consensus parameters (on the beacon chain)
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
@@ -211,7 +211,7 @@ impl BlockHeaderFixedConsensusParameters {
 /// A mirror of [`PotParametersChange`] for block header purposes.
 ///
 /// Use [`From`] or [`Into`] for converting into [`PotParametersChange`] before use.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C, packed)]
 pub struct BlockHeaderPotParametersChange {
     // TODO: Reduce this to `u16` or even `u8` since it is always an offset relatively to current
@@ -313,7 +313,7 @@ impl OwnedBlockHeaderConsensusParameters {
 }
 
 /// Consensus parameters (on the beacon chain)
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct BlockHeaderConsensusParameters<'a> {
     /// Consensus parameters that are always present
     pub fixed_parameters: BlockHeaderFixedConsensusParameters,
@@ -781,7 +781,10 @@ impl<'a> BeaconChainHeader<'a> {
         Some((header, remainder))
     }
 
-    /// Check block header's internal consistency
+    /// Check block header's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
@@ -992,7 +995,10 @@ impl<'a> IntermediateShardHeader<'a> {
         Some((header, remainder))
     }
 
-    /// Check block header's internal consistency
+    /// Check block header's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
@@ -1200,7 +1206,10 @@ impl<'a> LeafShardHeader<'a> {
         Some((header, remainder))
     }
 
-    /// Check block header's internal consistency
+    /// Check block header's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         let public_key_hash = match self.seal {
@@ -1338,22 +1347,6 @@ impl<'a> Deref for BlockHeader<'a> {
     }
 }
 
-impl<'a> GenericBlockHeader<'a> for BlockHeader<'a> {
-    #[cfg(feature = "alloc")]
-    type Owned = OwnedBlockHeader;
-
-    #[cfg(feature = "alloc")]
-    #[inline(always)]
-    fn try_to_owned(self) -> Option<Self::Owned> {
-        self.to_owned().ok()
-    }
-
-    #[inline(always)]
-    fn root(&self) -> BlockRoot {
-        self.root()
-    }
-}
-
 impl<'a> BlockHeader<'a> {
     /// Try to create a new instance from provided bytes for provided shard index.
     ///
@@ -1383,7 +1376,10 @@ impl<'a> BlockHeader<'a> {
         }
     }
 
-    /// Check block header's internal consistency
+    /// Check block header's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         match self {

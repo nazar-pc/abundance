@@ -399,7 +399,10 @@ impl<'a> BeaconChainBody<'a> {
         Some((body, remainder))
     }
 
-    /// Check block body's internal consistency
+    /// Check block body's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         self.intermediate_shard_blocks
@@ -741,7 +744,10 @@ impl<'a> IntermediateShardBody<'a> {
         Some((body, remainder))
     }
 
-    /// Check block body's internal consistency
+    /// Check block body's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         self.leaf_shard_blocks.iter().all(|leaf_shard_block| {
@@ -978,7 +984,10 @@ impl<'a> LeafShardBody<'a> {
         Some((body, remainder))
     }
 
-    /// Check block body's internal consistency
+    /// Check block body's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         // Nothing to check here
@@ -1057,22 +1066,6 @@ pub enum BlockBody<'a> {
     LeafShard(LeafShardBody<'a>),
 }
 
-impl<'a> GenericBlockBody<'a> for BlockBody<'a> {
-    #[cfg(feature = "alloc")]
-    type Owned = OwnedBlockBody;
-
-    #[cfg(feature = "alloc")]
-    #[inline(always)]
-    fn try_to_owned(self) -> Option<Self::Owned> {
-        self.to_owned().ok()
-    }
-
-    #[inline(always)]
-    fn root(&self) -> Blake3Hash {
-        self.root()
-    }
-}
-
 impl<'a> BlockBody<'a> {
     /// Try to create a new instance from provided bytes for provided shard index.
     ///
@@ -1102,7 +1095,10 @@ impl<'a> BlockBody<'a> {
         }
     }
 
-    /// Check block body's internal consistency
+    /// Check block body's internal consistency.
+    ///
+    /// This is usually not necessary to be called explicitly since internal consistency is checked
+    /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         match self {

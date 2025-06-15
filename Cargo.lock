@@ -36,12 +36,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-client-archiving"
+version = "0.0.1"
+dependencies = [
+ "ab-core-primitives",
+ "parity-scale-codec",
+ "parking_lot",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "ab-client-block-authoring"
 version = "0.0.1"
 dependencies = [
  "ab-client-api",
+ "ab-client-archiving",
  "ab-client-block-builder",
  "ab-client-block-import",
+ "ab-client-consensus-common",
  "ab-client-proof-of-time",
  "ab-core-primitives",
  "ab-proof-of-space",
@@ -55,7 +68,8 @@ name = "ab-client-block-builder"
 version = "0.0.1"
 dependencies = [
  "ab-client-api",
- "ab-client-block-import",
+ "ab-client-archiving",
+ "ab-client-consensus-common",
  "ab-core-primitives",
  "anyhow",
  "thiserror",
@@ -65,11 +79,39 @@ dependencies = [
 name = "ab-client-block-import"
 version = "0.0.1"
 dependencies = [
+ "ab-client-api",
+ "ab-client-block-verification",
  "ab-core-primitives",
- "parity-scale-codec",
- "parking_lot",
+ "ab-proof-of-space",
+ "anyhow",
+ "send-future",
+ "thiserror",
+]
+
+[[package]]
+name = "ab-client-block-verification"
+version = "0.0.1"
+dependencies = [
+ "ab-client-api",
+ "ab-client-archiving",
+ "ab-client-consensus-common",
+ "ab-client-proof-of-time",
+ "ab-core-primitives",
+ "ab-proof-of-space",
+ "anyhow",
+ "rand",
+ "rayon",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "ab-client-consensus-common"
+version = "0.0.1"
+dependencies = [
+ "ab-client-api",
+ "ab-core-primitives",
+ "thiserror",
 ]
 
 [[package]]
@@ -1494,6 +1536,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
+name = "rand"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fbfd9d094a40bf3ae768db9361049ace4c0e04a4fd6b359518bd7b73a73dd97"
+dependencies = [
+ "rand_chacha",
+ "rand_core 0.9.3",
+]
+
+[[package]]
 name = "rand_chacha"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1517,6 +1569,9 @@ name = "rand_core"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99d9a13982dcf210057a8a78572b2217b667c3beacbf3a0d8b454f6f82837d38"
+dependencies = [
+ "getrandom 0.3.3",
+]
 
 [[package]]
 name = "rayon"
@@ -1698,6 +1753,12 @@ name = "semver"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56e6fa9c48d24d85fb3de5ad847117517440f6beceb7798af16b4a87d616b8d0"
+
+[[package]]
+name = "send-future"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "224e328af6e080cddbab3c770b1cf50f0351ba0577091ef2410c3951d835ff87"
 
 [[package]]
 name = "seq-macro"
