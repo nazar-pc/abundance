@@ -6,9 +6,8 @@ pub mod owned;
 use crate::block::align_to_and_ensure_zero_padding;
 #[cfg(feature = "alloc")]
 use crate::block::body::owned::{
-    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedBlockBody,
-    OwnedBlockBodyError, OwnedIntermediateShardBody, OwnedIntermediateShardBodyError,
-    OwnedLeafShardBody, OwnedLeafShardBodyError,
+    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBlockBody, OwnedIntermediateShardBody,
+    OwnedLeafShardBody,
 };
 use crate::block::header::{IntermediateShardHeader, LeafShardHeader};
 use crate::hashes::Blake3Hash;
@@ -37,7 +36,7 @@ where
 
     /// Turn into owned version
     #[cfg(feature = "alloc")]
-    fn try_to_owned(self) -> Option<Self::Owned>;
+    fn to_owned(self) -> Self::Owned;
 
     /// Compute block body root
     fn root(&self) -> Blake3Hash;
@@ -308,6 +307,8 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
 /// Block body that corresponds to the beacon chain
 #[derive(Debug, Copy, Clone, Yokeable)]
+// Prevent creation of potentially broken invariants externally
+#[non_exhaustive]
 pub struct BeaconChainBody<'a> {
     /// Segment roots produced by this shard
     pub own_segment_roots: &'a [SegmentRoot],
@@ -324,8 +325,8 @@ impl<'a> GenericBlockBody<'a> for BeaconChainBody<'a> {
 
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    fn try_to_owned(self) -> Option<Self::Owned> {
-        self.to_owned().ok()
+    fn to_owned(self) -> Self::Owned {
+        self.to_owned()
     }
 
     #[inline(always)]
@@ -486,8 +487,13 @@ impl<'a> BeaconChainBody<'a> {
     /// Create an owned version of this body
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    pub fn to_owned(self) -> Result<OwnedBeaconChainBody, OwnedBeaconChainBodyError> {
-        OwnedBeaconChainBody::from_body(self)
+    pub fn to_owned(self) -> OwnedBeaconChainBody {
+        OwnedBeaconChainBody::new(
+            self.own_segment_roots,
+            self.intermediate_shard_blocks.iter(),
+            self.pot_checkpoints,
+        )
+        .expect("`self` is always a valid invariant; qed")
     }
 
     /// Compute block body root
@@ -681,6 +687,8 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
 /// Block body that corresponds to an intermediate shard
 #[derive(Debug, Copy, Clone, Yokeable)]
+// Prevent creation of potentially broken invariants externally
+#[non_exhaustive]
 pub struct IntermediateShardBody<'a> {
     /// Segment roots produced by this shard
     pub own_segment_roots: &'a [SegmentRoot],
@@ -694,8 +702,8 @@ impl<'a> GenericBlockBody<'a> for IntermediateShardBody<'a> {
 
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    fn try_to_owned(self) -> Option<Self::Owned> {
-        self.to_owned().ok()
+    fn to_owned(self) -> Self::Owned {
+        self.to_owned()
     }
 
     #[inline(always)]
@@ -806,8 +814,9 @@ impl<'a> IntermediateShardBody<'a> {
     /// Create an owned version of this body
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    pub fn to_owned(self) -> Result<OwnedIntermediateShardBody, OwnedIntermediateShardBodyError> {
-        OwnedIntermediateShardBody::from_body(self)
+    pub fn to_owned(self) -> OwnedIntermediateShardBody {
+        OwnedIntermediateShardBody::new(self.own_segment_roots, self.leaf_shard_blocks.iter())
+            .expect("`self` is always a valid invariant; qed")
     }
 
     /// Compute block body root
@@ -921,6 +930,8 @@ impl<'a> Transactions<'a> {
 
 /// Block body that corresponds to a leaf shard
 #[derive(Debug, Copy, Clone, Yokeable)]
+// Prevent creation of potentially broken invariants externally
+#[non_exhaustive]
 pub struct LeafShardBody<'a> {
     /// Segment roots produced by this shard
     pub own_segment_roots: &'a [SegmentRoot],
@@ -934,8 +945,8 @@ impl<'a> GenericBlockBody<'a> for LeafShardBody<'a> {
 
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    fn try_to_owned(self) -> Option<Self::Owned> {
-        self.to_owned().ok()
+    fn to_owned(self) -> Self::Owned {
+        self.to_owned()
     }
 
     #[inline(always)]
@@ -1036,8 +1047,16 @@ impl<'a> LeafShardBody<'a> {
     /// Create an owned version of this body
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    pub fn to_owned(self) -> Result<OwnedLeafShardBody, OwnedLeafShardBodyError> {
-        OwnedLeafShardBody::from_body(self)
+    pub fn to_owned(self) -> OwnedLeafShardBody {
+        let mut builder = OwnedLeafShardBody::init(self.own_segment_roots)
+            .expect("`self` is always a valid invariant; qed");
+        for transaction in self.transactions.iter() {
+            builder
+                .add_transaction(transaction)
+                .expect("`self` is always a valid invariant; qed");
+        }
+
+        builder.finish()
     }
 
     /// Compute block body root
@@ -1138,8 +1157,12 @@ impl<'a> BlockBody<'a> {
     /// Create an owned version of this body
     #[cfg(feature = "alloc")]
     #[inline(always)]
-    pub fn to_owned(self) -> Result<OwnedBlockBody, OwnedBlockBodyError> {
-        OwnedBlockBody::from_body(self)
+    pub fn to_owned(self) -> OwnedBlockBody {
+        match self {
+            Self::BeaconChain(body) => body.to_owned().into(),
+            Self::IntermediateShard(body) => body.to_owned().into(),
+            Self::LeafShard(body) => body.to_owned().into(),
+        }
     }
 
     /// Compute block body root.

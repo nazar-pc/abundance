@@ -5,14 +5,13 @@ use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
     DeriveConsensusParametersError, derive_consensus_parameters,
 };
-use ab_core_primitives::block::body::owned::{OwnedBeaconChainBody, OwnedBeaconChainBodyError};
+use ab_core_primitives::block::body::owned::OwnedBeaconChainBodyError;
 use ab_core_primitives::block::header::owned::{
     GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
-    OwnedBeaconChainHeaderUnsealed,
 };
 use ab_core_primitives::block::header::{
-    BeaconChainHeader, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters, BlockHeaderPrefix,
-    BlockHeaderResult, OwnedBlockHeaderConsensusParameters, OwnedBlockHeaderSeal,
+    BeaconChainHeader, BlockHeaderConsensusInfo, BlockHeaderPrefix,
+    OwnedBlockHeaderConsensusParameters, OwnedBlockHeaderSeal,
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
@@ -97,23 +96,30 @@ where
 
         let own_segment_roots = self.own_segment_roots(block_number);
 
-        let body = self.create_body(&own_segment_roots, checkpoints)?;
-        let header_unsealed = self.create_header_unsealed(
-            &header_prefix,
-            consensus_info,
-            consensus_parameters.as_ref(),
-            &BlockHeaderResult {
-                body_root: body.body().root(),
+        let block_builder = OwnedBeaconChainBlock::init(
+            &own_segment_roots,
+            // TODO: Real intermediate shard blocks
+            iter::empty(),
+            checkpoints,
+        )
+        .map_err(BeaconChainBlockBuilderError::from)?;
+
+        let block_unsealed = block_builder
+            .with_header(
+                &header_prefix,
                 // TODO: Real state root
-                state_root: Default::default(),
-            },
-        )?;
-        let seal = seal_block(header_unsealed.pre_seal_hash())
+                Default::default(),
+                consensus_info,
+                consensus_parameters.as_ref(),
+            )
+            .map_err(BeaconChainBlockBuilderError::from)?;
+
+        let seal = seal_block(block_unsealed.pre_seal_hash())
             .await
             .ok_or(BlockBuilderError::FailedToSeal)?;
-        let header = header_unsealed.with_seal(seal.as_ref());
+        let block = block_unsealed.with_seal(seal.as_ref());
 
-        Ok(OwnedBeaconChainBlock { header, body })
+        Ok(block)
     }
 }
 
@@ -163,36 +169,6 @@ where
             .into_iter()
             .map(|segment_header| segment_header.segment_root)
             .collect::<Vec<_>>()
-    }
-
-    fn create_body(
-        &mut self,
-        own_segment_roots: &[SegmentRoot],
-        checkpoints: &[PotCheckpoints],
-    ) -> Result<OwnedBeaconChainBody, BeaconChainBlockBuilderError> {
-        Ok(OwnedBeaconChainBody::new(
-            own_segment_roots,
-            // TODO: Real intermediate shard blocks
-            iter::empty(),
-            checkpoints,
-        )?)
-    }
-
-    fn create_header_unsealed(
-        &mut self,
-        prefix: &BlockHeaderPrefix,
-        consensus_info: &BlockHeaderConsensusInfo,
-        consensus_parameters: BlockHeaderConsensusParameters<'_>,
-        result: &BlockHeaderResult,
-    ) -> Result<OwnedBeaconChainHeaderUnsealed, BeaconChainBlockBuilderError> {
-        Ok(OwnedBeaconChainHeader::from_parts(
-            prefix,
-            result,
-            consensus_info,
-            // TODO: Real child shard blocks
-            &[],
-            consensus_parameters,
-        )?)
     }
 
     fn derive_consensus_parameters(

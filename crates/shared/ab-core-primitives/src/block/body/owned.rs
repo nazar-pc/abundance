@@ -201,7 +201,7 @@ pub enum OwnedBeaconChainBodyError {
     },
     /// Failed to intermediate shard header
     #[error("Failed to intermediate shard header: {error}")]
-    FailedToAddTransaction {
+    FailedToAddIntermediateShard {
         /// Inner error
         #[from]
         error: OwnedIntermediateShardHeaderError,
@@ -232,6 +232,7 @@ impl GenericOwnedBlockBody for OwnedBeaconChainBody {
 impl OwnedBeaconChainBody {
     /// Create a new instance
     pub fn new<'a, ISB>(
+        // TODO: Segment roots should probably be an iterator too to avoid extra allocations
         own_segment_roots: &[SegmentRoot],
         intermediate_shard_blocks: ISB,
         pot_checkpoints: &[PotCheckpoints],
@@ -359,16 +360,6 @@ impl OwnedBeaconChainBody {
 
         // TODO: Avoid extra parsing here or at least go through unchecked version
         Ok(Self::from_buffer(buffer.into_shared()).expect("Known to be created correctly; qed"))
-    }
-
-    /// Create owned block body from a reference
-    #[inline]
-    pub fn from_body(body: BeaconChainBody<'_>) -> Result<Self, OwnedBeaconChainBodyError> {
-        Self::new(
-            body.own_segment_roots,
-            body.intermediate_shard_blocks.iter(),
-            body.pot_checkpoints,
-        )
     }
 
     /// Create owned body from a buffer
@@ -537,14 +528,6 @@ impl OwnedIntermediateShardBody {
         Ok(Self::from_buffer(buffer.into_shared()).expect("Known to be created correctly; qed"))
     }
 
-    /// Create owned block body from a reference
-    #[inline]
-    pub fn from_body(
-        body: IntermediateShardBody<'_>,
-    ) -> Result<Self, OwnedIntermediateShardBodyError> {
-        Self::new(body.own_segment_roots, body.leaf_shard_blocks.iter())
-    }
-
     /// Create owned body from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
@@ -668,17 +651,6 @@ impl OwnedLeafShardBody {
         })
     }
 
-    /// Create owned block body from a reference
-    #[inline]
-    pub fn from_body(body: LeafShardBody<'_>) -> Result<Self, OwnedLeafShardBodyError> {
-        let mut builder = Self::init(body.own_segment_roots)?;
-        for transaction in body.transactions.iter() {
-            builder.add_transaction(transaction)?;
-        }
-
-        Ok(builder.finish())
-    }
-
     /// Create owned body from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
@@ -738,20 +710,6 @@ impl OwnedLeafShardBlockBodyBuilder {
     }
 }
 
-/// Errors for [`OwnedBlockBody`]
-#[derive(Debug, thiserror::Error)]
-pub enum OwnedBlockBodyError {
-    /// Beacon chain block body error
-    #[error("Beacon chain block body error: {0}")]
-    BeaconChain(#[from] OwnedBeaconChainBodyError),
-    /// Intermediate shard block body error
-    #[error("Intermediate shard block body error: {0}")]
-    IntermediateShard(#[from] OwnedIntermediateShardBodyError),
-    /// Leaf shard block body error
-    #[error("Leaf shard block body error: {0}")]
-    LeafShard(#[from] OwnedLeafShardBodyError),
-}
-
 /// An owned version of [`BlockBody`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
@@ -767,20 +725,6 @@ pub enum OwnedBlockBody {
 }
 
 impl OwnedBlockBody {
-    /// Create owned block body from a reference
-    #[inline]
-    pub fn from_body(body: BlockBody<'_>) -> Result<Self, OwnedBlockBodyError> {
-        Ok(match body {
-            BlockBody::BeaconChain(body) => {
-                Self::BeaconChain(OwnedBeaconChainBody::from_body(body)?)
-            }
-            BlockBody::IntermediateShard(body) => {
-                Self::IntermediateShard(OwnedIntermediateShardBody::from_body(body)?)
-            }
-            BlockBody::LeafShard(body) => Self::LeafShard(OwnedLeafShardBody::from_body(body)?),
-        })
-    }
-
     /// Create owned body from a buffer
     #[inline]
     pub fn from_buffer(
