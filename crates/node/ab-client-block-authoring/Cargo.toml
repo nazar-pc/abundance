@@ -18,6 +18,7 @@ ab-client-api = { workspace = true }
 ab-client-archiving = { workspace = true }
 ab-client-block-builder = { workspace = true }
 ab-client-block-import = { workspace = true }
+ab-client-consensus-common = { workspace = true }
 ab-client-proof-of-time = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-proof-of-space = { workspace = true }

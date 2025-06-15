@@ -14,6 +14,7 @@ ab-client-archiving = { version = "0.0.1", path = "crates/node/ab-client-archivi
 ab-client-block-authoring = { version = "0.0.1", path = "crates/node/ab-client-block-authoring" }
 ab-client-block-builder = { version = "0.0.1", path = "crates/node/ab-client-block-builder" }
 ab-client-block-import = { version = "0.0.1", path = "crates/node/ab-client-block-import" }
+ab-client-consensus-common = { version = "0.0.1", path = "crates/node/ab-client-consensus-common" }
 ab-client-proof-of-time = { version = "0.0.1", path = "crates/node/ab-client-proof-of-time" }
 ab-contracts-common = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-common" }
 ab-contracts-macros = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros" }

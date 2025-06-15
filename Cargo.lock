@@ -54,6 +54,7 @@ dependencies = [
  "ab-client-archiving",
  "ab-client-block-builder",
  "ab-client-block-import",
+ "ab-client-consensus-common",
  "ab-client-proof-of-time",
  "ab-core-primitives",
  "ab-proof-of-space",
@@ -68,6 +69,7 @@ version = "0.0.1"
 dependencies = [
  "ab-client-api",
  "ab-client-archiving",
+ "ab-client-consensus-common",
  "ab-core-primitives",
  "anyhow",
  "thiserror",
@@ -82,6 +84,15 @@ dependencies = [
  "parking_lot",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "ab-client-consensus-common"
+version = "0.0.1"
+dependencies = [
+ "ab-client-api",
+ "ab-core-primitives",
+ "thiserror",
 ]
 
 [[package]]

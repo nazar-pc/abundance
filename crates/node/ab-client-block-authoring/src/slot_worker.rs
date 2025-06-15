@@ -3,8 +3,9 @@
 
 use ab_client_api::{ChainInfo, ChainSyncStatus};
 use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
-use ab_client_block_builder::{BlockBuilder, ConsensusConstants};
+use ab_client_block_builder::BlockBuilder;
 use ab_client_block_import::BlockImport;
+use ab_client_consensus_common::ConsensusConstants;
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
