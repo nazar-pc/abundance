@@ -1,7 +1,7 @@
 //! Slot worker drives block and vote production based on slots produced in
 //! [`ab_client_proof_of_time`].
 
-use ab_client_api::{ChainInfo, ChainSyncStatus};
+use ab_client_api::{BlockOrigin, ChainInfo, ChainSyncStatus};
 use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
 use ab_client_block_builder::BlockBuilder;
 use ab_client_block_import::BlockImport;
@@ -488,13 +488,34 @@ where
                 continue;
             };
 
-            self.produce_block(
-                slot_to_claim,
-                &best_root,
-                best_header,
-                best_beacon_chain_header,
-            )
-            .await;
+            let Some(block) = self
+                .produce_block(
+                    slot_to_claim,
+                    &best_root,
+                    best_header,
+                    best_beacon_chain_header,
+                )
+                .await
+            else {
+                continue;
+            };
+
+            let block_import_fut = match self.block_import.import(block, BlockOrigin::Local) {
+                Ok(block_import_fut) => block_import_fut,
+                Err(error) => {
+                    error!(%best_root, %error, "Failed to queue newly produced block for import");
+                    continue;
+                }
+            };
+
+            match block_import_fut.await {
+                Ok(()) => {
+                    // Nothing else to do
+                }
+                Err(error) => {
+                    warn!(%best_root, %error, "Failed to import newly produced block");
+                }
+            }
         }
     }
 
@@ -561,7 +582,7 @@ where
         parent_block_root: &BlockRoot,
         parent_header: &<Block::Header as GenericOwnedBlockHeader>::Header<'_>,
         parent_beacon_chain_header: &BeaconChainHeader<'_>,
-    ) -> Option<()> {
+    ) -> Option<Block> {
         if !self.force_authoring && self.chain_sync_status.is_offline() {
             debug!("Skipping slot, waiting for the network");
 
@@ -625,15 +646,6 @@ where
             "🔖 Built new block",
         );
 
-        match self.block_import.import(block) {
-            Ok(()) => {
-                // Nothing else to do
-            }
-            Err(error) => {
-                warn!(%parent_block_root, %error, "Failed to import new block");
-            }
-        }
-
-        Some(())
+        Some(block)
     }
 }

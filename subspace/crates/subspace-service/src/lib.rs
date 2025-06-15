@@ -406,9 +406,15 @@ type FullNode<RuntimeApi> = NewFull<FullClient<RuntimeApi>>;
 #[derive(Clone)]
 struct SubstrateChainSyncInfo {
     sync_oracle: SubspaceSyncOracle<Arc<SyncingService<Block>>>,
+    sync_target_block_number: Arc<AtomicU64>,
 }
 
 impl ChainSyncStatus for SubstrateChainSyncInfo {
+    #[inline(always)]
+    fn target_block_number(&self) -> BlockNumber {
+        BlockNumber::new(self.sync_target_block_number.load(Ordering::Relaxed))
+    }
+
     #[inline(always)]
     fn is_syncing(&self) -> bool {
         self.sync_oracle.is_major_syncing()
@@ -421,8 +427,14 @@ impl ChainSyncStatus for SubstrateChainSyncInfo {
 }
 
 impl SubstrateChainSyncInfo {
-    fn new(sync_oracle: SubspaceSyncOracle<Arc<SyncingService<Block>>>) -> Self {
-        Self { sync_oracle }
+    fn new(
+        sync_oracle: SubspaceSyncOracle<Arc<SyncingService<Block>>>,
+        sync_target_block_number: Arc<AtomicU64>,
+    ) -> Self {
+        Self {
+            sync_oracle,
+            sync_target_block_number,
+        }
     }
 }
 
@@ -685,7 +697,8 @@ where
         sync_service.clone(),
     );
 
-    let chain_sync_status = SubstrateChainSyncInfo::new(sync_oracle.clone());
+    let chain_sync_status =
+        SubstrateChainSyncInfo::new(sync_oracle.clone(), Arc::clone(&sync_target_block_number));
 
     let subspace_archiver = tokio::task::block_in_place(|| {
         create_subspace_archiver(

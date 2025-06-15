@@ -148,7 +148,7 @@ impl BlockHeaderBeaconChainInfo {
 }
 
 /// Consensus parameters (on the beacon chain)
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(
     feature = "scale-codec",
     derive(Encode, Decode, TypeInfo, MaxEncodedLen)
@@ -211,7 +211,7 @@ impl BlockHeaderFixedConsensusParameters {
 /// A mirror of [`PotParametersChange`] for block header purposes.
 ///
 /// Use [`From`] or [`Into`] for converting into [`PotParametersChange`] before use.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C, packed)]
 pub struct BlockHeaderPotParametersChange {
     // TODO: Reduce this to `u16` or even `u8` since it is always an offset relatively to current
@@ -313,7 +313,7 @@ impl OwnedBlockHeaderConsensusParameters {
 }
 
 /// Consensus parameters (on the beacon chain)
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct BlockHeaderConsensusParameters<'a> {
     /// Consensus parameters that are always present
     pub fixed_parameters: BlockHeaderFixedConsensusParameters,
