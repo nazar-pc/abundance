@@ -325,6 +325,7 @@ name = "ab-merkle-tree"
 version = "0.0.1"
 dependencies = [
  "blake3",
+ "criterion",
  "no-panic",
  "rand_chacha",
  "rand_core 0.9.3",

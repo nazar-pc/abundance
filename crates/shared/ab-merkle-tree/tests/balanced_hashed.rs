@@ -42,7 +42,6 @@ fn mt_balanced_32_leaves() {
 fn test_basic<const N: usize, const N_U64: u64>()
 where
     [(); N - 1]:,
-    [(); N.ilog2() as usize]:,
     [(); N.ilog2() as usize + 1]:,
     [(); N_U64.ilog2() as usize + 1]:,
 {
@@ -65,7 +64,8 @@ where
 
     assert_eq!(BalancedHashedMerkleTree::compute_root_only(&leaves), root);
     assert_eq!(
-        UnbalancedHashedMerkleTree::compute_root_only(leaves.iter().copied()).unwrap(),
+        UnbalancedHashedMerkleTree::compute_root_only::<N_U64, _, _>(leaves.iter().copied())
+            .unwrap(),
         root
     );
 

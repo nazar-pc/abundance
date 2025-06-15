@@ -10,6 +10,9 @@ include = [
     "/Cargo.toml",
 ]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [dependencies]
 ab-trivial-type-derive = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
