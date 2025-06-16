@@ -3,8 +3,8 @@ title: Thinking about the overall security of the system
 date: 2025-06-16
 draft: false
 description: Identifying any existential risks to the system and how to mitigate them.
-tags: [ status-update, consensus ]
-authors: [ adlrocha ]
+tags: [status-update, consensus]
+authors: [adlrocha]
 ---
 
 {{< katex >}}
@@ -32,8 +32,9 @@ having 50% or more malicious farmers is very low.
 
 We make the following assumptions to compute this probability:
 
-- Total Malicious Nodes: Let $ p $ be the proportion of malicious nodes in the entire system (i.e.,
-  among all farmers). So, if $ N $ is the total number of farmers, then $ pN $ are malicious.
+- Total Malicious Nodes: Let \\( p \\) be the proportion of malicious nodes in the entire system
+  (i.e., among all farmers). So, if \\( N \\) is the total number of farmers, then \\( pN \\) are
+  malicious.
 - Beacon Chain Security: The beacon chain is secure as long as less than 50% of its participants are
   malicious.
 - Shard Security: A shard is secure if the proportion of malicious farmers within that shard is less
@@ -58,106 +59,106 @@ distribution.
 > much storage as possible into a single plot to reduce the number of shards they need to sync
 > with).
 
-Let's consider a single shard. Suppose there are $ S $ shards in total, and $ N $ total farmers. On
-average, each shard will have $ N/S $ farmers. Let $ n_k $ be the number of farmers in shard $ k $.
-Due to random allocation, $ n_k $ will vary, but for large $ N $ and $ S $, it will be close to $
-N/S $.
+Let's consider a single shard. Suppose there are \\( S \\) shards in total, and \\( N \\) total
+farmers. On average, each shard will have \\( N/S \\) farmers. Let \\( n_k \\) be the number of
+farmers in shard \\( k \\). Due to random allocation, \\( n_k \\) will vary, but for large \\( N \\)
+and \\( S \\), it will be close to \\( N/S \\).
 
-Let $ X_i $ be an indicator random variable for farmer $ i $ being malicious
+Let \\(X_i\\) be an indicator random variable for farmer \\(i\\) being malicious.
 
-For a specific shard $ k $, let $ M_k $ be the number of malicious farmers in that shard. We want $
-M_k / n_k < 0.5 $.
+For a specific shard \\( k \\), let \\( M_k \\) be the number of malicious farmers in that shard. We
+want \\( M_k / n_k < 0.5 \\).
 
 Since farmers are allocated uniformly and randomly, the distribution of malicious farmers within a
 shard can be modeled by a binomial distribution (as discussed in
-[PR277](https://github.com/nazar-pc/abundance/pull/277)). If a shard has $ n $ farmers, the number
-of malicious farmers $ M $ in that shard follows $ B(n, p) $.
+[PR277](https://github.com/nazar-pc/abundance/pull/277)). If a shard has \\( n \\) farmers, the
+number of malicious farmers \\( M \\) in that shard follows \\( B(n, p) \\).
 
-We are interested in the probability that $ M/n \geq 0.5 $. This is $ P(M \geq 0.5n) $.
+We are interested in the probability that \\( M/n \geq 0.5 \\). This is \\( P(M \geq 0.5n) \\).
 
 For a system to be secure, all shards must be secure. This means we want the probability of at least
 one shard being insecure to be very small.
 
-$ P(\text{System Insecure}) = P(\exists k \text{ such that } M_k / n_k \geq 0.5) $
+$$ P(\text{System Insecure}) = P(\exists k \text{ such that } M_k / n_k \geq 0.5)$$
 
 Using the union bound, we can say:
 
-$ P(\text{System Insecure}) \leq \sum\_{k=1}^S P(M_k / n_k \geq 0.5) $
+$$ P(\text{System Insecure}) \leq \sum\_{k=1}^S P(M_k / n_k \geq 0.5) $$
 
-If we assume all shards have approximately $ n = N/S $ farmers, then:
+If we assume all shards have approximately \\( n = N/S \\) farmers, then:
 
-$ P(\text{System Insecure}) \leq S \cdot P(M/n \geq 0.5) $
+$$ P(\text{System Insecure}) \leq S \cdot P(M/n \geq 0.5) $$
 
-Now, we need to bound $ P(M/n \geq 0.5) $. Since $ E[M/n] = p $, and we want $ M/n < 0.5 $, we need
-$
-p $ to be significantly less than 0.5.
+Now, we need to bound \\( P(M/n \geq 0.5) \\). Since \\( E[M/n] = p \\), and we want \\( M/n < 0.5
+\\), we need \\(p\\) to be significantly less than 0.5.
 
-We can use a Chernoff bound. For a sum of independent Bernoulli random variables, if $ X_1, \dots,
-X_n $ are i.i.d. Bernoulli with $ P(X_i = 1) = p $, and $ X = \sum X_i $, then for $ \delta > 0 $:
+We can use a Chernoff bound. For a sum of independent Bernoulli random variables, if \\( X_1, \dots,
+X_n \\) are i.i.d. Bernoulli with \\( P(X_i = 1) = p \\), and \\( X = \sum X_i \\), then for \\(
+\delta > 0 \\):
 
-$ P(X \geq (1+\delta)np) \leq e^{-np\delta^2 / 3} $
+$$ P(X \geq (1+\delta)np) \leq e^{-np\delta^2 / 3} $$
 
-In our case, we are interested in the upper tail, but when $ p < 0.5 $, we are interested in the
-probability that $ M/n $ exceeds its mean. Let's rephrase it. We are looking for the probability
-that the observed proportion of malicious nodes $ (M/n) $ is $ \geq 0.5 $, given the true proportion
-is $ p $.
+In our case, we are interested in the upper tail, but when \\( p < 0.5 \\), we are interested in the
+probability that \\( M/n \\) exceeds its mean. Let's rephrase it. We are looking for the probability
+that the observed proportion of malicious nodes \\( (M/n) \\) is \\( \geq 0.5 \\), given the true
+proportion is \\( p \\).
 
-We set $ (1+\delta)p = 0.5 $, so $ \delta = (0.5/p) - 1 $. This bound is for $ \delta > 0 $, which
-means $ 0.5 > p $. If $ p \geq 0.5 $, the probability of a shard being insecure becomes very high.
+We set \\( (1+\delta)p = 0.5 \\), so \\( \delta = (0.5/p) - 1 \\). This bound is for \\( \delta > 0
+\\), which means \\( 0.5 > p \\). If \\( p \geq 0.5 \\), the probability of a shard being insecure
+becomes very high.
 
-So, $ P(M/n \geq 0.5) \leq e^{-np((0.5/p)-1)^2 / 3} = e^{-n(0.5-p)^2 / (3p)} $
+So, \\( P(M/n \geq 0.5) \leq e^{-np((0.5/p)-1)^2 / 3} = e^{-n(0.5-p)^2 / (3p)} \\)
 
-Let $ \epsilon = 0.5 - p $. This is the "security margin" for each shard.
-$ P(M/n \geq 0.5) \leq
-e^{-n\epsilon^2 / (3p)} $
+Let \\( \epsilon = 0.5 - p \\). This is the "security margin" for each shard. \\( P(M/n \geq 0.5)
+\leq e^{-n\epsilon^2 / (3p)} \\)
 
-Now, we need $ S \cdot e^{-n\epsilon^2 / (3p)} $ to be very small (e.g., $ 10^{-6} $ or $ 10^{-9}
-$).
+Now, we need \\( S \cdot e^{-n\epsilon^2 / (3p)} \\) to be very small (e.g., \\( 10^{-6} \\) or \\(
+10^{-9} \\)).
 
 To provide a general number, we need to define the acceptable probability of an insecure system. Let
-this be $ \alpha $.
+this be \\( \alpha \\).
 
 The condition for system security is roughly:
 
-$ \frac{N}{S} \cdot e^{-n(0.5-p)^2 / (3p)} < \alpha $
+$$ \frac{N}{S} \cdot e^{-n(0.5-p)^2 / (3p)} < \alpha $$
 
 Where:
 
-- $ N $: **Total number of farmers** in the system.
-- $ n $: **Average number of farmers per shard** ($ n=N/S $, where $ S $ is the number of shards).
-- $ p $: **Proportion of malicious farmers** in the entire system.
-- $ \alpha $: **Acceptable probability of the overall system being insecure** (e.g., $ 10^{-6} $ for
-  very high security).
+- \\(N\\): **Total number of farmers** in the system.
+- \\(n\\): **Average number of farmers per shard** (\\( n=N/S \\), where \\( S \\) is the number of
+  shards).
+- \\(p\\): **Proportion of malicious farmers** in the entire system.
+- \\(\alpha\\): **Acceptable probability of the overall system being insecure** (e.g., \\( 10^{-6}
+  \\) for very high security).
 
-You would then solve for $ p $. As shown in the example, this often leads to a quadratic inequality.
+You would then solve for \\(p\\). As shown in the example, this often leads to a quadratic
+inequality.
 
 ## Translating it into numbers
 
-Based on the analysis, the percentage of malicious nodes ($ p $) that the overall system can afford
-will be **significantly less than 50%**. The exact value depends critically on:
+Based on the analysis, the percentage of malicious nodes (\\( p \\)) that the overall system can
+afford will be **significantly less than 50%**. The exact value depends critically on:
 
-- The **total number of farmers** ($ N $) in the system.
-- The **number of shards** ($ S
-  $) you choose, which determines the average number of farmers per shard ($ n $).
-- The **desired probability of the overall system being secure** ($ \alpha $).
+- The **total number of farmers** (\\( N \\)) in the system.
+- The **number of shards** (\\( S \\)) you choose, which determines the average number of farmers
+  per shard (\\( n \\)).
+- The **desired probability of the overall system being secure** (\\( \alpha \\)).
 
-As a rule of thumb, to achieve a high degree of confidence that all shards remain secure, $ p $ will
-likely need to be in the range of **30-45%**, depending on the specific parameters ($ N, S, \alpha
-$). It will always be a value smaller than 50% and decrease as the number of shards increases (for a
-fixed total number of farmers) or as the desired security level increases.
+As a rule of thumb, to achieve a high degree of confidence that all shards remain secure, \\( p \\)
+will likely need to be in the range of **30-45%**, depending on the specific parameters (\\( N, S,
+\alpha \\)). It will always be a value smaller than 50% and decrease as the number of shards
+increases (for a fixed total number of farmers) or as the desired security level increases.
 
-To get the specific bound we need to choose the specific parameters desired ($ N, S, $ and $ \alpha
-$) and then calculate the $ p $ value using the Chernoff bound (or a similar concentration
-inequality) to get a precise answer for your design.
+To get the specific bound we need to choose the specific parameters desired (\\( N, S, \\) and \\(
+\alpha \\)) and then calculate the \\( p \\) value using the Chernoff bound (or a similar
+concentration inequality) to get a precise answer for your design.
 
-If we, for instance, consider total number of farmers $ N = 1000
-$, number of shards $ S = 100 $,
-and an average number of farmers per shard $ n=N/S=10,000 $ with a security level of $ \alpha =
-10^{-2} (1\%)$,
-we get that $ p $ should be approximately less than 46.42%.
+If we, for instance, consider total number of farmers \\( N = 1000 \\), number of shards \\( S = 100
+\\), and an average number of farmers per shard \\( n=N/S=10,000 \\) with a security level of \\(
+\alpha = 10^{-2} (1\%)\\), we get that \\( p \\) should be approximately less than 46.42%.
 
 The trade-off between the number of shards (which improves scalability) and the security threshold
-($ p $) is clear, and it aligns with our intuition so far. More shards mean each shard has fewer
+(\\( p \\)) is clear, and it aligns with our intuition so far. More shards mean each shard has fewer
 farmers (for a fixed total number of farmers), making individual shards more susceptible to higher
 concentrations of malicious nodes.
 
