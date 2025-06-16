@@ -24,8 +24,8 @@ The beacon chain and all shards in the system run a longest chain consensus. All
 dedicating their storage to protect the beacon chain. From this, we can easily derive that as long
 as there's at least 51% of the storage in the system that is honest, the beacon chain will be
 secure. Unfortunately, this is not the real security bound for the protocol, as we want to
-understand what is the minimum amount of honest storage that we need to ens as a whole (from beacon
-chain to shards)ure for all shards to be honest with high probability. The overall security bound,
+understand what is the minimum amount of honest storage that we need as a whole (from beacon
+chain to shards) to ensure for all shards to be honest with high probability. The overall security bound,
 thus, will be determined by the maximum proportion of malicious nodes such that all shards are
 secure with a high probability. This means we need to ensure that the probability of any shard
 having 50% or more malicious farmers is very low.
@@ -79,7 +79,7 @@ We are interested in the probability that \\( M/n \geq 0.5 \\). This is \\( P(M 
 For a system to be secure, all shards must be secure. This means we want the probability of at least
 one shard being insecure to be very small.
 
-$$ P(\text{System Insecure}) = P(\exists k \text{ such that } M_k / n_k \geq 0.5)$$
+$$ P(\text{System Insecure}) = P(\exists k \text{ such that } M_k / n_k \geq 0.5) $$
 
 Using the union bound, we can say:
 
@@ -128,7 +128,7 @@ Where:
 - \\(n\\): **Average number of farmers per shard** (\\( n=N/S \\), where \\( S \\) is the number of
   shards).
 - \\(p\\): **Proportion of malicious farmers** in the entire system.
-- \\(\alpha\\): **Acceptable probability of the overall system being insecure** (e.g., \\( 10^{-6}
+- \\(\alpha\\): **Acceptable probability of the overall system being secure** (e.g., \\( 10^{-6}
   \\) for very high security).
 
 You would then solve for \\(p\\). As shown in the example, this often leads to a quadratic
@@ -174,7 +174,7 @@ to different history sizes so they can keep them around to include them in a plo
 for them to achieve the desired allocation.
 
 To prevent this attack, the idea is to assign a unique identifier to each plot that bounds the plot
-to a specific window of history sizes, and unique assign sectors to plots based on this (i.e.
+to a specific window of history sizes, and uniquely assign sectors to plots based on this (i.e.
 sectors from a plot need to be committed to a specific history size in the range bound by the plot).
 Additionally, the specific size of the history size window allowed for a plot will depend on the
 maximum size that the farmer want to assign to that plot. This way, we limit the surface of the
