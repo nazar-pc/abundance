@@ -322,8 +322,8 @@ impl OwnedBeaconChainBody {
                     intermediate_shard_block.header.prefix,
                     intermediate_shard_block.header.result,
                     intermediate_shard_block.header.consensus_info,
-                    intermediate_shard_block.header.beacon_chain_info,
-                    &intermediate_shard_block.header.child_shard_blocks,
+                    intermediate_shard_block.header.beacon_chain_info(),
+                    intermediate_shard_block.header.child_shard_blocks(),
                     &mut buffer,
                 )?;
                 if !align_to_8_with_padding(&mut buffer) {
@@ -502,7 +502,7 @@ impl OwnedIntermediateShardBody {
                     leaf_shard_block.header.prefix,
                     leaf_shard_block.header.result,
                     leaf_shard_block.header.consensus_info,
-                    leaf_shard_block.header.beacon_chain_info,
+                    leaf_shard_block.header.beacon_chain_info(),
                     &mut buffer,
                 );
                 let true = align_to_8_with_padding(&mut buffer) else {

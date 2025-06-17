@@ -311,12 +311,12 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 #[non_exhaustive]
 pub struct BeaconChainBody<'a> {
     /// Segment roots produced by this shard
-    pub own_segment_roots: &'a [SegmentRoot],
+    own_segment_roots: &'a [SegmentRoot],
     /// Intermediate shard blocks
-    pub intermediate_shard_blocks: IntermediateShardBlocksInfo<'a>,
+    intermediate_shard_blocks: IntermediateShardBlocksInfo<'a>,
     /// Proof of time checkpoints from after future proof of time of the parent block to current
     /// block's future proof of time (inclusive)
-    pub pot_checkpoints: &'a [PotCheckpoints],
+    pot_checkpoints: &'a [PotCheckpoints],
 }
 
 impl<'a> GenericBlockBody<'a> for BeaconChainBody<'a> {
@@ -494,6 +494,25 @@ impl<'a> BeaconChainBody<'a> {
             self.pot_checkpoints,
         )
         .expect("`self` is always a valid invariant; qed")
+    }
+
+    /// Segment roots produced by this shard
+    #[inline(always)]
+    pub fn own_segment_roots(&self) -> &'a [SegmentRoot] {
+        self.own_segment_roots
+    }
+
+    /// Intermediate shard blocks
+    #[inline(always)]
+    pub fn intermediate_shard_blocks(&self) -> &IntermediateShardBlocksInfo<'a> {
+        &self.intermediate_shard_blocks
+    }
+
+    /// Proof of time checkpoints from after future proof of time of the parent block to current
+    /// block's future proof of time (inclusive)
+    #[inline(always)]
+    pub fn pot_checkpoints(&self) -> &'a [PotCheckpoints] {
+        self.pot_checkpoints
     }
 
     /// Compute block body root
@@ -691,9 +710,9 @@ impl<'a> LeafShardBlocksInfo<'a> {
 #[non_exhaustive]
 pub struct IntermediateShardBody<'a> {
     /// Segment roots produced by this shard
-    pub own_segment_roots: &'a [SegmentRoot],
+    own_segment_roots: &'a [SegmentRoot],
     /// Leaf shard blocks
-    pub leaf_shard_blocks: LeafShardBlocksInfo<'a>,
+    leaf_shard_blocks: LeafShardBlocksInfo<'a>,
 }
 
 impl<'a> GenericBlockBody<'a> for IntermediateShardBody<'a> {
@@ -803,6 +822,18 @@ impl<'a> IntermediateShardBody<'a> {
             },
             remainder,
         ))
+    }
+
+    /// Segment roots produced by this shard
+    #[inline(always)]
+    pub fn own_segment_roots(&self) -> &'a [SegmentRoot] {
+        self.own_segment_roots
+    }
+
+    /// Leaf shard blocks
+    #[inline(always)]
+    pub fn leaf_shard_blocks(&self) -> &LeafShardBlocksInfo<'a> {
+        &self.leaf_shard_blocks
     }
 
     /// Proof for segment roots included in the body
@@ -934,9 +965,9 @@ impl<'a> Transactions<'a> {
 #[non_exhaustive]
 pub struct LeafShardBody<'a> {
     /// Segment roots produced by this shard
-    pub own_segment_roots: &'a [SegmentRoot],
+    own_segment_roots: &'a [SegmentRoot],
     /// User transactions
-    pub transactions: Transactions<'a>,
+    transactions: Transactions<'a>,
 }
 
 impl<'a> GenericBlockBody<'a> for LeafShardBody<'a> {
@@ -1036,6 +1067,18 @@ impl<'a> LeafShardBody<'a> {
             },
             remainder,
         ))
+    }
+
+    /// Segment roots produced by this shard
+    #[inline(always)]
+    pub fn own_segment_roots(&self) -> &'a [SegmentRoot] {
+        self.own_segment_roots
+    }
+
+    /// User transactions
+    #[inline(always)]
+    pub fn transactions(&self) -> &Transactions<'a> {
+        &self.transactions
     }
 
     /// Proof for segment roots included in the body

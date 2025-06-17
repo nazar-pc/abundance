@@ -182,7 +182,7 @@ where
             &self.consensus_constants,
             &self.chain_info,
             parent_block_root,
-            &parent_header.consensus_parameters,
+            parent_header.consensus_parameters(),
             parent_header.consensus_info.slot,
             block_number,
             slot,

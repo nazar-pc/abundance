@@ -167,7 +167,7 @@ where
             &self.consensus_constants,
             &self.chain_info,
             parent_block_root,
-            &parent_header.consensus_parameters,
+            parent_header.consensus_parameters(),
             parent_header.consensus_info.slot,
             header.prefix.number,
             header.consensus_info.slot,
@@ -181,7 +181,7 @@ where
             pot_parameters_change: derived_consensus_parameters.pot_parameters_change,
         };
 
-        if header.consensus_parameters != expected_consensus_parameters.as_ref() {
+        if header.consensus_parameters() != &expected_consensus_parameters.as_ref() {
             return Err(BeaconChainBlockVerificationError::InvalidConsensusParameters);
         }
 
@@ -358,7 +358,7 @@ where
         &self,
         block_number: BlockNumber,
         own_segment_roots: &[SegmentRoot],
-        _intermediate_shard_blocks: IntermediateShardBlocksInfo<'_>,
+        _intermediate_shard_blocks: &IntermediateShardBlocksInfo<'_>,
     ) -> Result<(), BlockVerificationError> {
         let expected_segment_roots = self
             .segment_headers_store
@@ -391,7 +391,7 @@ where
 
         let block_number = header.prefix.number;
         let consensus_info = header.consensus_info;
-        let consensus_parameters = header.consensus_parameters;
+        let consensus_parameters = header.consensus_parameters();
         let slot = consensus_info.slot;
 
         let best_header = self.chain_info.best_header();
@@ -437,19 +437,19 @@ where
             parent_header.consensus_info.slot,
             parent_header.consensus_info.proof_of_time,
             parent_header.consensus_info.future_proof_of_time,
-            &parent_header.consensus_parameters,
+            parent_header.consensus_parameters(),
             consensus_info.slot,
             consensus_info.proof_of_time,
             consensus_info.future_proof_of_time,
-            &consensus_parameters,
-            body.pot_checkpoints,
+            consensus_parameters,
+            body.pot_checkpoints(),
             self.full_pot_verification(block_number),
         )?;
 
         self.check_body(
             block_number,
-            body.own_segment_roots,
-            body.intermediate_shard_blocks,
+            body.own_segment_roots(),
+            body.intermediate_shard_blocks(),
         )?;
 
         // TODO: Do something about equivocation?

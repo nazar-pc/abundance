@@ -151,7 +151,7 @@ impl OwnedBeaconChainBlockBuilder {
             consensus_info,
             &body
                 .body()
-                .intermediate_shard_blocks
+                .intermediate_shard_blocks()
                 .iter()
                 .map(|block| block.header.root())
                 .collect::<Vec<_>>(),
@@ -298,7 +298,7 @@ impl OwnedIntermediateShardBlockBuilder {
             beacon_chain_info,
             &body
                 .body()
-                .leaf_shard_blocks
+                .leaf_shard_blocks()
                 .iter()
                 .map(|block| block.header.root())
                 .collect::<Vec<_>>(),
