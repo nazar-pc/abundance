@@ -696,13 +696,13 @@ pub struct SharedBlockHeader<'a> {
 #[non_exhaustive]
 pub struct BeaconChainHeader<'a> {
     /// Shared block header
-    pub shared: SharedBlockHeader<'a>,
+    shared: SharedBlockHeader<'a>,
     /// Information about child shard blocks
-    pub child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
+    child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
     /// Consensus parameters (on the beacon chain)
-    pub consensus_parameters: BlockHeaderConsensusParameters<'a>,
+    consensus_parameters: BlockHeaderConsensusParameters<'a>,
     /// All bytes of the header except the seal
-    pub pre_seal_bytes: &'a [u8],
+    pre_seal_bytes: &'a [u8],
 }
 
 impl<'a> Deref for BeaconChainHeader<'a> {
@@ -860,6 +860,24 @@ impl<'a> BeaconChainHeader<'a> {
         unsealed.with_seal(self.shared.seal)
     }
 
+    /// Shared block header
+    #[inline(always)]
+    pub fn shared(&self) -> &SharedBlockHeader<'a> {
+        &self.shared
+    }
+
+    /// Information about child shard blocks
+    #[inline(always)]
+    pub fn child_shard_blocks(&self) -> &BlockHeaderChildShardBlocks<'a> {
+        &self.child_shard_blocks
+    }
+
+    /// Consensus parameters (on the beacon chain)
+    #[inline(always)]
+    pub fn consensus_parameters(&self) -> &BlockHeaderConsensusParameters<'a> {
+        &self.consensus_parameters
+    }
+
     /// Hash of the block before seal is applied to it
     #[inline]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
@@ -919,13 +937,13 @@ impl<'a> BeaconChainHeader<'a> {
 #[non_exhaustive]
 pub struct IntermediateShardHeader<'a> {
     /// Shared block header
-    pub shared: SharedBlockHeader<'a>,
+    shared: SharedBlockHeader<'a>,
     /// Beacon chain info
-    pub beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
+    beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
     /// Information about child shard blocks
-    pub child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
+    child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
     /// All bytes of the header except the seal
-    pub pre_seal_bytes: &'a [u8],
+    pre_seal_bytes: &'a [u8],
 }
 
 impl<'a> Deref for IntermediateShardHeader<'a> {
@@ -1087,6 +1105,24 @@ impl<'a> IntermediateShardHeader<'a> {
         unsealed.with_seal(self.shared.seal)
     }
 
+    /// Shared block header
+    #[inline(always)]
+    pub fn shared(&self) -> &SharedBlockHeader<'a> {
+        &self.shared
+    }
+
+    /// Beacon chain info
+    #[inline(always)]
+    pub fn beacon_chain_info(&self) -> &'a BlockHeaderBeaconChainInfo {
+        self.beacon_chain_info
+    }
+
+    /// Information about child shard blocks
+    #[inline(always)]
+    pub fn child_shard_blocks(&self) -> &BlockHeaderChildShardBlocks<'a> {
+        &self.child_shard_blocks
+    }
+
     /// Hash of the block before seal is applied to it
     #[inline]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
@@ -1146,11 +1182,11 @@ impl<'a> IntermediateShardHeader<'a> {
 #[non_exhaustive]
 pub struct LeafShardHeader<'a> {
     /// Shared block header
-    pub shared: SharedBlockHeader<'a>,
+    shared: SharedBlockHeader<'a>,
     /// Beacon chain info
-    pub beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
+    beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
     /// All bytes of the header except the seal
-    pub pre_seal_bytes: &'a [u8],
+    pre_seal_bytes: &'a [u8],
 }
 
 impl<'a> Deref for LeafShardHeader<'a> {
@@ -1298,6 +1334,18 @@ impl<'a> LeafShardHeader<'a> {
         );
 
         unsealed.with_seal(self.shared.seal)
+    }
+
+    /// Shared block header
+    #[inline(always)]
+    pub fn shared(&self) -> &SharedBlockHeader<'a> {
+        &self.shared
+    }
+
+    /// Beacon chain info
+    #[inline(always)]
+    pub fn beacon_chain_info(&self) -> &'a BlockHeaderBeaconChainInfo {
+        self.beacon_chain_info
     }
 
     /// Hash of the block before seal is applied to it

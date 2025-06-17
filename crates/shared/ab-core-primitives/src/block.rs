@@ -232,10 +232,10 @@ where
         Self: 'a;
 
     /// Get block header
-    fn header(&self) -> Self::Header;
+    fn header(&self) -> &Self::Header;
 
     /// Get block body
-    fn body(&self) -> Self::Body;
+    fn body(&self) -> &Self::Body;
 
     /// Turn into owned version
     #[cfg(feature = "alloc")]
@@ -248,9 +248,9 @@ where
 #[non_exhaustive]
 pub struct BeaconChainBlock<'a> {
     /// Block header
-    pub header: BeaconChainHeader<'a>,
+    header: BeaconChainHeader<'a>,
     /// Block body
-    pub body: BeaconChainBody<'a>,
+    body: BeaconChainBody<'a>,
 }
 
 impl<'a> BeaconChainBlock<'a> {
@@ -289,12 +289,12 @@ impl<'a> BeaconChainBlock<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         self.body.root() == self.header.result.body_root
-            && self.header.child_shard_blocks.len() == self.body.intermediate_shard_blocks.len()
+            && self.header.child_shard_blocks().len() == self.body.intermediate_shard_blocks().len()
             && self
                 .header
-                .child_shard_blocks
+                .child_shard_blocks()
                 .iter()
-                .zip(self.body.intermediate_shard_blocks.iter())
+                .zip(self.body.intermediate_shard_blocks().iter())
                 .all(|(child_shard_block_root, intermediate_shard_block)| {
                     child_shard_block_root == &intermediate_shard_block.header.root()
                         && intermediate_shard_block
@@ -334,13 +334,13 @@ impl<'a> GenericBlock<'a> for BeaconChainBlock<'a> {
     type Owned = OwnedBeaconChainBlock;
 
     #[inline(always)]
-    fn header(&self) -> Self::Header {
-        self.header
+    fn header(&self) -> &Self::Header {
+        &self.header
     }
 
     #[inline(always)]
-    fn body(&self) -> Self::Body {
-        self.body
+    fn body(&self) -> &Self::Body {
+        &self.body
     }
 
     #[cfg(feature = "alloc")]
@@ -356,9 +356,9 @@ impl<'a> GenericBlock<'a> for BeaconChainBlock<'a> {
 #[non_exhaustive]
 pub struct IntermediateShardBlock<'a> {
     /// Block header
-    pub header: IntermediateShardHeader<'a>,
+    header: IntermediateShardHeader<'a>,
     /// Block body
-    pub body: IntermediateShardBody<'a>,
+    body: IntermediateShardBody<'a>,
 }
 
 impl<'a> IntermediateShardBlock<'a> {
@@ -397,12 +397,12 @@ impl<'a> IntermediateShardBlock<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         self.body.root() == self.header.result.body_root
-            && self.header.child_shard_blocks.len() == self.body.leaf_shard_blocks.len()
+            && self.header.child_shard_blocks().len() == self.body.leaf_shard_blocks().len()
             && self
                 .header
-                .child_shard_blocks
+                .child_shard_blocks()
                 .iter()
-                .zip(self.body.leaf_shard_blocks.iter())
+                .zip(self.body.leaf_shard_blocks().iter())
                 .all(|(child_shard_block_root, leaf_shard_block)| {
                     child_shard_block_root == &leaf_shard_block.header.root()
                         && leaf_shard_block
@@ -442,13 +442,13 @@ impl<'a> GenericBlock<'a> for IntermediateShardBlock<'a> {
     type Owned = OwnedIntermediateShardBlock;
 
     #[inline(always)]
-    fn header(&self) -> Self::Header {
-        self.header
+    fn header(&self) -> &Self::Header {
+        &self.header
     }
 
     #[inline(always)]
-    fn body(&self) -> Self::Body {
-        self.body
+    fn body(&self) -> &Self::Body {
+        &self.body
     }
 
     #[cfg(feature = "alloc")]
@@ -464,9 +464,9 @@ impl<'a> GenericBlock<'a> for IntermediateShardBlock<'a> {
 #[non_exhaustive]
 pub struct LeafShardBlock<'a> {
     /// Block header
-    pub header: LeafShardHeader<'a>,
+    header: LeafShardHeader<'a>,
     /// Block body
-    pub body: LeafShardBody<'a>,
+    body: LeafShardBody<'a>,
 }
 
 impl<'a> LeafShardBlock<'a> {
@@ -536,13 +536,13 @@ impl<'a> GenericBlock<'a> for LeafShardBlock<'a> {
     type Owned = OwnedLeafShardBlock;
 
     #[inline(always)]
-    fn header(&self) -> Self::Header {
-        self.header
+    fn header(&self) -> &Self::Header {
+        &self.header
     }
 
     #[inline(always)]
-    fn body(&self) -> Self::Body {
-        self.body
+    fn body(&self) -> &Self::Body {
+        &self.body
     }
 
     #[cfg(feature = "alloc")]

@@ -156,17 +156,12 @@ where
             debug!(%slot, "Attempting to claim slot");
         }
 
-        let solution_range = parent_beacon_chain_header
-            .consensus_parameters
-            .next_solution_range
-            .unwrap_or(
-                parent_beacon_chain_header
-                    .consensus_parameters
-                    .fixed_parameters
-                    .solution_range,
-            );
+        let parent_consensus_parameters = parent_beacon_chain_header.consensus_parameters();
 
-        let parent_consensus_parameters = &parent_beacon_chain_header.consensus_parameters;
+        let solution_range = parent_consensus_parameters
+            .next_solution_range
+            .unwrap_or(parent_consensus_parameters.fixed_parameters.solution_range);
+
         let parent_pot_parameters_change = parent_consensus_parameters
             .pot_parameters_change
             .copied()
@@ -368,11 +363,7 @@ where
                 Err(error @ SolutionVerifyError::OutsideSolutionRange { .. }) => {
                     // Solution range might have just adjusted, but when farmer was auditing they
                     // didn't know about this, so downgrade warning to debug message
-                    if parent_beacon_chain_header
-                        .consensus_parameters
-                        .next_solution_range
-                        .is_some()
-                    {
+                    if parent_consensus_parameters.next_solution_range.is_some() {
                         debug!(
                             %slot,
                             %error,
@@ -546,11 +537,11 @@ where
         // NOTE: Best hash is not necessarily going to be the parent of corresponding block, but
         // solution range shouldn't be too far off
         let solution_range = best_beacon_chain_header
-            .consensus_parameters
+            .consensus_parameters()
             .next_solution_range
             .unwrap_or(
                 best_beacon_chain_header
-                    .consensus_parameters
+                    .consensus_parameters()
                     .fixed_parameters
                     .solution_range,
             );
