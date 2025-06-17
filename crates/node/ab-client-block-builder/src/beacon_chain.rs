@@ -17,7 +17,6 @@ use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
-use ab_core_primitives::segments::SegmentRoot;
 use ab_core_primitives::shard::ShardIndex;
 use std::iter;
 use std::time::SystemTime;
@@ -94,10 +93,11 @@ where
             consensus_info.slot,
         )?;
 
-        let own_segment_roots = self.own_segment_roots(block_number);
-
         let block_builder = OwnedBeaconChainBlock::init(
-            &own_segment_roots,
+            self.segment_headers_store
+                .segment_headers_for_block(block_number)
+                .into_iter()
+                .map(|segment_header| segment_header.segment_root),
             // TODO: Real intermediate shard blocks
             iter::empty(),
             checkpoints,
@@ -161,14 +161,6 @@ where
             // TODO: Real MMR root
             mmr_root: Default::default(),
         }
-    }
-
-    fn own_segment_roots(&self, block_number: BlockNumber) -> Vec<SegmentRoot> {
-        self.segment_headers_store
-            .segment_headers_for_block(block_number)
-            .into_iter()
-            .map(|segment_header| segment_header.segment_root)
-            .collect::<Vec<_>>()
     }
 
     fn derive_consensus_parameters(

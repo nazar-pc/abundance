@@ -84,12 +84,13 @@ impl GenericOwnedBlock for OwnedBeaconChainBlock {
 
 impl OwnedBeaconChainBlock {
     /// Initialize building of [`OwnedBeaconChainBlock`]
-    pub fn init<'a, ISB>(
-        own_segment_roots: &[SegmentRoot],
+    pub fn init<'a, OSR, ISB>(
+        own_segment_roots: OSR,
         intermediate_shard_blocks: ISB,
         pot_checkpoints: &[PotCheckpoints],
     ) -> Result<OwnedBeaconChainBlockBuilder, OwnedBeaconChainBodyError>
     where
+        OSR: TrustedLen<Item = SegmentRoot>,
         ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + Clone + 'a,
     {
         Ok(OwnedBeaconChainBlockBuilder {
@@ -235,11 +236,12 @@ impl GenericOwnedBlock for OwnedIntermediateShardBlock {
 
 impl OwnedIntermediateShardBlock {
     /// Initialize building of [`OwnedIntermediateShardBlock`]
-    pub fn init<'a, LSB>(
-        own_segment_roots: &[SegmentRoot],
+    pub fn init<'a, OSR, LSB>(
+        own_segment_roots: OSR,
         leaf_shard_blocks: LSB,
     ) -> Result<OwnedIntermediateShardBlockBuilder, OwnedIntermediateShardBodyError>
     where
+        OSR: TrustedLen<Item = SegmentRoot>,
         LSB: TrustedLen<Item = LeafShardBlockInfo<'a>> + Clone + 'a,
     {
         Ok(OwnedIntermediateShardBlockBuilder {
@@ -370,9 +372,12 @@ impl GenericOwnedBlock for OwnedLeafShardBlock {
 
 impl OwnedLeafShardBlock {
     /// Initialize building of [`OwnedLeafShardBlock`]
-    pub fn init(
-        own_segment_roots: &[SegmentRoot],
-    ) -> Result<OwnedLeafShardBlockBuilder, OwnedLeafShardBodyError> {
+    pub fn init<OSR>(
+        own_segment_roots: OSR,
+    ) -> Result<OwnedLeafShardBlockBuilder, OwnedLeafShardBodyError>
+    where
+        OSR: TrustedLen<Item = SegmentRoot>,
+    {
         Ok(OwnedLeafShardBlockBuilder {
             body_builder: OwnedLeafShardBody::init(own_segment_roots)?,
         })

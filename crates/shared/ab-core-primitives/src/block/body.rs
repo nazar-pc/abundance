@@ -489,7 +489,7 @@ impl<'a> BeaconChainBody<'a> {
     #[inline(always)]
     pub fn to_owned(self) -> OwnedBeaconChainBody {
         OwnedBeaconChainBody::new(
-            self.own_segment_roots,
+            self.own_segment_roots.iter().copied(),
             self.intermediate_shard_blocks.iter(),
             self.pot_checkpoints,
         )
@@ -846,8 +846,11 @@ impl<'a> IntermediateShardBody<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedIntermediateShardBody {
-        OwnedIntermediateShardBody::new(self.own_segment_roots, self.leaf_shard_blocks.iter())
-            .expect("`self` is always a valid invariant; qed")
+        OwnedIntermediateShardBody::new(
+            self.own_segment_roots.iter().copied(),
+            self.leaf_shard_blocks.iter(),
+        )
+        .expect("`self` is always a valid invariant; qed")
     }
 
     /// Compute block body root
@@ -1091,7 +1094,7 @@ impl<'a> LeafShardBody<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedLeafShardBody {
-        let mut builder = OwnedLeafShardBody::init(self.own_segment_roots)
+        let mut builder = OwnedLeafShardBody::init(self.own_segment_roots.iter().copied())
             .expect("`self` is always a valid invariant; qed");
         for transaction in self.transactions.iter() {
             builder

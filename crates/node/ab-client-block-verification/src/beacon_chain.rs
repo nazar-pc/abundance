@@ -360,15 +360,19 @@ where
         own_segment_roots: &[SegmentRoot],
         _intermediate_shard_blocks: &IntermediateShardBlocksInfo<'_>,
     ) -> Result<(), BlockVerificationError> {
-        let expected_segment_roots = self
+        let expected_segment_headers = self
             .segment_headers_store
-            .segment_headers_for_block(block_number)
-            .into_iter()
-            .map(|segment_header| segment_header.segment_root)
-            .collect::<Vec<_>>();
-        if own_segment_roots != expected_segment_roots {
+            .segment_headers_for_block(block_number);
+        let correct_segment_roots = expected_segment_headers
+            .iter()
+            .map(|segment_header| &segment_header.segment_root)
+            .eq(own_segment_roots);
+        if !correct_segment_roots {
             return Err(BlockVerificationError::InvalidOwnSegmentRoots {
-                expected: expected_segment_roots,
+                expected: expected_segment_headers
+                    .iter()
+                    .map(|segment_header| segment_header.segment_root)
+                    .collect(),
                 actual: own_segment_roots.to_vec(),
             });
         }
