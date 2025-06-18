@@ -76,7 +76,8 @@ rand = { version = "0.9.1", default-features = false }
 rand_chacha = { version = "0.9.0", default-features = false }
 rand_core = { version = "0.9.3", default-features = false }
 rayon = "1.10.0"
-reed-solomon-simd = { version = "3.0.1", default-features = false }
+# TODO: Switch to upstream 3.0.2+ when released to include https://github.com/AndersTrier/reed-solomon-simd/pull/63
+reed-solomon-simd = { version = "3.0.1", git = "https://github.com/AndersTrier/reed-solomon-simd", rev = "b745c5076109149e5c624d88c995c98ccc11f6bd", default-features = false }
 scale-info = { version = "2.11.6", default-features = false }
 schnellru = "0.2.4"
 schnorrkel = { version = "0.11.4", default-features = false }

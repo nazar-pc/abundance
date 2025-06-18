@@ -16,7 +16,6 @@ all-features = true
 # TODO: Benches
 
 [dependencies]
-# TODO: This is not actually `no_std` compatible yet, see https://github.com/AndersTrier/reed-solomon-simd/pull/63
 reed-solomon-simd = { workspace = true }
 thiserror = { workspace = true, default-features = false }
 

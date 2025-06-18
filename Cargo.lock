@@ -1783,11 +1783,12 @@ dependencies = [
 
 [[package]]
 name = "reed-solomon-simd"
-version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab6badd4f4b9c93832eb3707431e8e7bea282fae96801312f0990d48b030f8c5"
+version = "3.1.0"
+source = "git+https://github.com/AndersTrier/reed-solomon-simd?rev=b745c5076109149e5c624d88c995c98ccc11f6bd#b745c5076109149e5c624d88c995c98ccc11f6bd"
 dependencies = [
+ "cpufeatures",
  "fixedbitset",
+ "once_cell",
  "readme-rustdocifier",
 ]
 
