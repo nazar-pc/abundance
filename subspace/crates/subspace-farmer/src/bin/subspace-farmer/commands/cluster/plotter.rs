@@ -1,4 +1,5 @@
 use crate::commands::shared::PlottingThreadPriority;
+use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_erasure_coding::ErasureCoding;
 use ab_proof_of_space::Table;
 use anyhow::anyhow;
@@ -10,7 +11,6 @@ use std::num::NonZeroUsize;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_farmer::cluster::controller::ClusterPieceGetter;
 use subspace_farmer::cluster::nats_client::NatsClient;
 use subspace_farmer::cluster::plotter::plotter_service;

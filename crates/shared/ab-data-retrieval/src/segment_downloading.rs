@@ -1,4 +1,4 @@
-//! Fetching segments of the archived history of Subspace Network.
+//! Fetching segments of the archived history
 
 use crate::piece_getter::PieceGetter;
 use ab_archiving::archiver::Segment;

@@ -81,6 +81,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-data-retrieval"
+version = "0.1.0"
+dependencies = [
+ "ab-archiving",
+ "ab-core-primitives",
+ "ab-erasure-coding",
+ "anyhow",
+ "async-trait",
+ "futures",
+ "parity-scale-codec",
+ "thiserror 2.0.12",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ab-erasure-coding"
 version = "0.1.0"
 dependencies = [
@@ -489,9 +505,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.89"
+version = "1.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86fdf8605db99b54d3cd748a44c6d04df638eb5dafb219b135d0149bd0db01f6"
+checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
 name = "approx"
@@ -975,9 +991,9 @@ checksum = "8b75356056920673b02621b35afd0f7dda9306d03c79a30f5c56c44cf256e3de"
 
 [[package]]
 name = "async-trait"
-version = "0.1.83"
+version = "0.1.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "721cae7de5c34fbb2acd27e21e6d2cf7b886dce0c27388d46c4e6c47ea4318dd"
+checksum = "e539d3fca749fcee5236ab05e93a52867dd549cc157c8cb7f99595f3cedffdb5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -9900,30 +9916,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "subspace-data-retrieval"
-version = "0.1.0"
-dependencies = [
- "ab-archiving",
- "ab-core-primitives",
- "ab-erasure-coding",
- "anyhow",
- "async-trait",
- "blake3",
- "futures",
- "hex",
- "parity-scale-codec",
- "rand 0.8.5",
- "subspace-logging",
- "thiserror 2.0.12",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "subspace-farmer"
 version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
+ "ab-data-retrieval",
  "ab-erasure-coding",
  "ab-proof-of-space",
  "anyhow",
@@ -9961,7 +9958,6 @@ dependencies = [
  "serde_json",
  "ss58-registry",
  "static_assertions",
- "subspace-data-retrieval",
  "subspace-farmer-components",
  "subspace-logging",
  "subspace-metrics",
@@ -9985,6 +9981,7 @@ version = "0.1.0"
 dependencies = [
  "ab-archiving",
  "ab-core-primitives",
+ "ab-data-retrieval",
  "ab-erasure-coding",
  "ab-merkle-tree",
  "ab-proof-of-space",
@@ -10004,7 +10001,6 @@ dependencies = [
  "rayon",
  "serde",
  "static_assertions",
- "subspace-data-retrieval",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
@@ -10194,6 +10190,7 @@ dependencies = [
  "ab-client-api",
  "ab-client-proof-of-time",
  "ab-core-primitives",
+ "ab-data-retrieval",
  "ab-erasure-coding",
  "ab-proof-of-space",
  "anyhow",
@@ -10238,7 +10235,6 @@ dependencies = [
  "sp-timestamp",
  "sp-transaction-pool",
  "static_assertions",
- "subspace-data-retrieval",
  "subspace-networking",
  "subspace-runtime-primitives",
  "substrate-prometheus-endpoint",

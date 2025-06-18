@@ -1,4 +1,4 @@
-//! Getting object pieces from the Subspace Distributed Storage Network, or various caches.
+//! Getting object pieces from the network or various caches
 
 use ab_archiving::archiver::NewArchivedSegment;
 use ab_core_primitives::pieces::{Piece, PieceIndex};

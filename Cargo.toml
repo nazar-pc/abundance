@@ -9,6 +9,7 @@ members = [
 
 [workspace.dependencies]
 ab-aligned-buffer = { version = "0.0.1", path = "crates/shared/ab-aligned-buffer" }
+ab-archiving = { version = "0.1.0", path = "crates/shared/ab-archiving" }
 ab-client-api = { version = "0.0.1", path = "crates/node/ab-client-api" }
 ab-client-archiving = { version = "0.0.1", path = "crates/node/ab-client-archiving" }
 ab-client-block-authoring = { version = "0.0.1", path = "crates/node/ab-client-block-authoring" }
@@ -23,6 +24,7 @@ ab-contracts-macros-impl = { version = "0.0.1", path = "crates/contracts/core/ab
 ab-contracts-standards = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-standards" }
 ab-contracts-test-utils = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-test-utils" }
 ab-core-primitives = { version = "0.1.0", path = "crates/shared/ab-core-primitives" }
+ab-data-retrieval = { version = "0.1.0", path = "crates/shared/ab-data-retrieval" }
 ab-erasure-coding = { version = "0.1.0", path = "crates/shared/ab-erasure-coding" }
 ab-io-type = { version = "0.0.1", path = "crates/shared/ab-io-type" }
 ab-executor-native = { version = "0.0.1", path = "crates/execution/ab-executor-native" }
@@ -39,6 +41,7 @@ ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/
 ab-trivial-type-derive = { version = "0.0.1", path = "crates/shared/ab-trivial-type-derive" }
 aes = "0.9.0-pre.3"
 anyhow = { version = "1.0.98", default-features = false }
+async-trait = "0.1.88"
 bech32 = { version = "0.11.0", default-features = false }
 bitvec = "1.0.1"
 blake3 = { version = "1.8.2", default-features = false }

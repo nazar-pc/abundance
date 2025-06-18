@@ -226,6 +226,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-data-retrieval"
+version = "0.1.0"
+dependencies = [
+ "ab-archiving",
+ "ab-core-primitives",
+ "ab-erasure-coding",
+ "anyhow",
+ "async-trait",
+ "futures",
+ "parity-scale-codec",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ab-erasure-coding"
 version = "0.1.0"
 dependencies = [
@@ -543,6 +559,17 @@ name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+
+[[package]]
+name = "async-trait"
+version = "0.1.88"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e539d3fca749fcee5236ab05e93a52867dd549cc157c8cb7f99595f3cedffdb5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "autocfg"
@@ -1433,12 +1460,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "799781ae679d79a948e13d4824a40970bfa500058d245760dd857301059810fa"
 dependencies = [
  "arrayvec",
+ "bitvec",
  "byte-slice-cast",
  "bytes",
  "const_format",
  "impl-trait-for-tuples",
  "parity-scale-codec-derive",
  "rustversion",
+ "serde",
 ]
 
 [[package]]

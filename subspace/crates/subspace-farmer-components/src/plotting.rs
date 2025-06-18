@@ -17,6 +17,7 @@ use ab_core_primitives::pieces::{Piece, PieceIndex, PieceOffset, Record, RecordC
 use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SBucket, SectorId, SectorIndex};
 use ab_core_primitives::segments::HistorySize;
+use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_erasure_coding::ErasureCoding;
 use ab_proof_of_space::{Table, TableGenerator};
 use async_lock::{Mutex as AsyncMutex, Semaphore};
@@ -32,7 +33,6 @@ use std::simd::Simd;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use subspace_data_retrieval::piece_getter::PieceGetter;
 use thiserror::Error;
 use tracing::{debug, trace, warn};
 

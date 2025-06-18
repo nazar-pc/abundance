@@ -10,6 +10,7 @@ ab-archiving = { version = "0.1.0", path = "../crates/shared/ab-archiving", defa
 ab-client-api = { version = "0.0.1", path = "../crates/node/ab-client-api" }
 ab-client-proof-of-time = { version = "0.0.1", path = "../crates/node/ab-client-proof-of-time" }
 ab-core-primitives = { version = "0.1.0", path = "../crates/shared/ab-core-primitives", default-features = false }
+ab-data-retrieval = { version = "0.1.0", path = "../crates/shared/ab-data-retrieval", default-features = false }
 ab-erasure-coding = { path = "../crates/shared/ab-erasure-coding", default-features = false }
 ab-merkle-tree = { path = "../crates/shared/ab-merkle-tree", default-features = false }
 ab-proof-of-space = { version = "0.1.0", path = "../crates/shared/ab-proof-of-space", default-features = false }
@@ -126,7 +127,6 @@ sp-version = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d
 sppark = { version = "0.1.8", git = "https://github.com/autonomys/sppark", rev = "b2a181eb99c8200f1a604f04122551ea39fbf63f" }
 ss58-registry = "1.51.0"
 static_assertions = "1.1.0"
-subspace-data-retrieval = { version = "0.1.0", path = "shared/subspace-data-retrieval" }
 subspace-farmer-components = { version = "0.1.0", path = "crates/subspace-farmer-components" }
 subspace-logging = { version = "0.0.1", path = "shared/subspace-logging" }
 subspace-metrics = { version = "0.1.0", path = "shared/subspace-metrics" }
