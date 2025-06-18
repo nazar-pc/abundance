@@ -1,4 +1,5 @@
 use crate::dsn::DsnConfig;
+use ab_data_retrieval::piece_getter::PieceGetter;
 use sc_chain_spec::ChainSpec;
 use sc_consensus_subspace::archiver::CreateObjectMappings;
 use sc_network::config::{
@@ -22,7 +23,6 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_networking::Node;
 use subspace_networking::libp2p::Multiaddr;
 use tokio::runtime::Handle;

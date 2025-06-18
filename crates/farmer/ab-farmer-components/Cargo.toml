@@ -1,6 +1,6 @@
 [package]
-name = "subspace-farmer-components"
-description = "Farmer for the Subspace Network Blockchain"
+name = "ab-farmer-components"
+description = "Components of the reference implementation of the farmer"
 license = "0BSD"
 version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
@@ -10,6 +10,9 @@ include = [
     "/Cargo.toml",
     "/README.md",
 ]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 # Necessary for CLI options to work on benches
@@ -33,32 +36,34 @@ harness = false
 
 [dependencies]
 ab-archiving = { workspace = true, features = ["parallel"] }
-ab-core-primitives = { workspace = true, features = ["parallel"] }
+ab-core-primitives = { workspace = true, features = ["parallel", "scale-codec", "serde"] }
+ab-data-retrieval = { workspace = true }
 ab-erasure-coding = { workspace = true }
+ab-io-type = { workspace = true }
 ab-merkle-tree = { workspace = true, features = ["alloc"] }
 ab-proof-of-space = { workspace = true, features = ["alloc", "parallel"] }
 anyhow = { workspace = true }
-async-lock = { workspace = true }
+async-lock = { workspace = true, features = ["std"] }
 backoff = { workspace = true, features = ["futures", "tokio"] }
 bitvec = { workspace = true }
 blake3 = { workspace = true, features = ["rayon"] }
 fs2 = { workspace = true }
 futures = { workspace = true }
-hex = { workspace = true }
 libc = { workspace = true }
 parity-scale-codec = { workspace = true }
 parking_lot = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-static_assertions = { workspace = true }
-subspace-data-retrieval = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "signal", "sync"] }
 tracing = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-winapi = { workspace = true }
+windows = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
+
+[lints]
+workspace = true

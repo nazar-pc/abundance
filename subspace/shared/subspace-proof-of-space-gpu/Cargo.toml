@@ -24,8 +24,8 @@ sppark = { workspace = true, optional = true }
 
 [dev-dependencies]
 ab-erasure-coding = { workspace = true }
+ab-farmer-components = { workspace = true }
 ab-proof-of-space = { workspace = true }
-subspace-farmer-components = { workspace = true }
 
 [build-dependencies]
 cc = { workspace = true }

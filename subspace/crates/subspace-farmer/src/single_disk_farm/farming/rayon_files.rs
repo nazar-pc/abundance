@@ -1,10 +1,10 @@
 //! Files abstraction that allows reading concurrently using thread pool
 
+use ab_farmer_components::ReadAtSync;
+use ab_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::Path;
-use subspace_farmer_components::ReadAtSync;
-use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 
 /// Wrapper data structure for multiple files to be used with [`rayon`] thread pool, where the same
 /// file is opened multiple times, once for each thread for faster concurrent reads

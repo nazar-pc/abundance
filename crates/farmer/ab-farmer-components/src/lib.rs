@@ -33,7 +33,6 @@ use crate::file_ext::FileExt;
 use ab_core_primitives::segments::HistorySize;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-use static_assertions::const_assert;
 use std::fs::File;
 use std::future::Future;
 use std::io;
@@ -271,7 +270,9 @@ where
 
 // Refuse to compile on non-64-bit platforms, offsets may fail on those when converting from u64 to
 // usize depending on chain parameters
-const_assert!(std::mem::size_of::<usize>() >= std::mem::size_of::<u64>());
+const _: () = {
+    assert!(std::mem::size_of::<usize>() >= std::mem::size_of::<u64>());
+};
 
 /// Information about the protocol necessary for farmer operation
 #[derive(Debug, Copy, Clone, Encode, Decode, Serialize, Deserialize)]

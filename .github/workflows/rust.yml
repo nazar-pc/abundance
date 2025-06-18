@@ -79,9 +79,9 @@ jobs:
         run: |
           for feature in alloc parallel scale-codec serde; do
             echo "Check clippy with feature: $feature"
-            for crate_path in crates/{execution,node,shared}/*; do
+            for crate_path in crates/{execution,farmer,node,shared}/*; do
               # Not all crates have this feature
-              if ! grep --no-messages --quiet "^$feature =" "$crate_path/Cargo.toml"; then
+              if ! grep --no-messages --quiet "^$feature = [" "$crate_path/Cargo.toml"; then
                 continue
               fi
               crate="$(basename -- $crate_path)"
@@ -99,7 +99,7 @@ jobs:
           done
           for crate_path in crates/contracts/core/*; do
             # Not all crates have this feature
-            if ! grep --no-messages --quiet "^guest =" "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet "^guest = [" "$crate_path/Cargo.toml"; then
               continue
             fi
             crate="$(basename -- $crate_path)"
@@ -155,9 +155,9 @@ jobs:
         shell: bash
         run: |
           for feature in alloc parallel scale-codec serde; do
-            for crate_path in crates/{execution,node,shared}/*; do
+            for crate_path in crates/{execution,farmer,node,shared}/*; do
               # Not all crates have this feature
-              if ! grep --no-messages --quiet "^$feature =" "$crate_path/Cargo.toml"; then
+              if ! grep --no-messages --quiet "^$feature = [" "$crate_path/Cargo.toml"; then
                 continue
               fi
               crate="$(basename -- $crate_path)"
@@ -183,7 +183,7 @@ jobs:
           done
           for create_path in crates/contracts/core/*; do
             # Not all crates have this feature
-            if ! grep --no-messages --quiet "^guest =" "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet "^guest = [" "$crate_path/Cargo.toml"; then
               continue
             fi
             crate="$(basename -- $create_path)"
@@ -234,9 +234,9 @@ jobs:
         shell: bash
         run: |
           for feature in alloc parallel scale-codec serde; do
-            for crate_path in crates/{execution,node,shared}/*; do
+            for crate_path in crates/{execution,farmer,node,shared}/*; do
               # Not all crates have this feature
-              if ! grep --no-messages --quiet "^$feature =" "$crate_path/Cargo.toml"; then
+              if ! grep --no-messages --quiet "^$feature = [" "$crate_path/Cargo.toml"; then
                 continue
               fi
               crate="$(basename -- $crate_path)"
@@ -262,7 +262,7 @@ jobs:
           done
           for create_path in crates/contracts/core/*; do
             # Not all crates have this feature
-            if ! grep --no-messages --quiet "^guest =" "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet "^guest = [" "$crate_path/Cargo.toml"; then
               continue
             fi
             crate="$(basename -- $create_path)"
@@ -311,9 +311,9 @@ jobs:
           # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic
 
           # Ensure no panics in various crates
-          for crate_path in crates/{contracts/{core,example,system},execution,node,shared}/*; do
+          for crate_path in crates/{contracts/{core,example,system},execution,farmer,node,shared}/*; do
             # Not all crates have this feature yet
-            if ! grep --no-messages --quiet '^no-panic =' "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet '^no-panic = [' "$crate_path/Cargo.toml"; then
               continue
             fi
             crate="$(basename -- $crate_path)"
@@ -329,10 +329,10 @@ jobs:
         shell: bash
         run: |
           # Ensure no panics with `alloc` feature
-          for crate_path in crates/{execution,node,shared}/*; do
+          for crate_path in crates/{execution,farmer,node,shared}/*; do
             # Not all crates have this feature yet
-            if ! grep --no-messages --quiet '^no-panic =' "$crate_path/Cargo.toml" || \
-               ! grep --no-messages --quiet '^alloc =' "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet '^no-panic = [' "$crate_path/Cargo.toml" || \
+               ! grep --no-messages --quiet '^alloc = [' "$crate_path/Cargo.toml"; then
               continue
             fi
             crate="$(basename -- $crate_path)"
@@ -350,7 +350,7 @@ jobs:
           # Ensure no panics with `guest` feature
           for contract_path in crates/contracts/{example,system}/*; do
             # Not all contracts have this feature yet
-            if ! grep --no-messages --quiet '^no-panic =' "$contract_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet '^no-panic = [' "$contract_path/Cargo.toml"; then
               continue
             fi
             contract="$(basename -- $contract_path)"
@@ -359,8 +359,8 @@ jobs:
           done
           for contract_path in crates/contracts/core/*; do
             # Not all contracts have this feature yet
-            if ! grep --no-messages --quiet '^no-panic =' "$crate_path/Cargo.toml" || \
-               ! grep --no-messages --quiet '^guest =' "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet '^no-panic = [' "$crate_path/Cargo.toml" || \
+               ! grep --no-messages --quiet '^guest = [' "$crate_path/Cargo.toml"; then
               continue
             fi
             contract="$(basename -- $contract_path)"

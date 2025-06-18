@@ -10,8 +10,9 @@ ab-archiving = { version = "0.1.0", path = "../crates/shared/ab-archiving", defa
 ab-client-api = { version = "0.0.1", path = "../crates/node/ab-client-api" }
 ab-client-proof-of-time = { version = "0.0.1", path = "../crates/node/ab-client-proof-of-time" }
 ab-core-primitives = { version = "0.1.0", path = "../crates/shared/ab-core-primitives", default-features = false }
+ab-data-retrieval = { version = "0.1.0", path = "../crates/shared/ab-data-retrieval", default-features = false }
 ab-erasure-coding = { path = "../crates/shared/ab-erasure-coding", default-features = false }
-ab-merkle-tree = { path = "../crates/shared/ab-merkle-tree", default-features = false }
+ab-farmer-components = { version = "0.1.0", path = "../crates/farmer/ab-farmer-components" }
 ab-proof-of-space = { version = "0.1.0", path = "../crates/shared/ab-proof-of-space", default-features = false }
 ab-proof-of-time = { version = "0.1.0", path = "../crates/shared/ab-proof-of-time" }
 actix-web = { version = "4.9.0", default-features = false }
@@ -23,7 +24,6 @@ async-oneshot = "0.5.9"
 async-trait = "0.1.83"
 backoff = "0.4.0"
 base58 = "0.2.0"
-bitvec = "1.0.1"
 blake2 = { version = "0.10.6", default-features = false }
 blake3 = { version = "1.5.4", default-features = false }
 blst = "0.3.13"
@@ -51,7 +51,6 @@ hex = { version = "0.4.3", default-features = false }
 hex-literal = "0.4.1"
 hwlocality = "1.0.0-alpha.6"
 jsonrpsee = "0.24.5"
-libc = "0.2.159"
 libp2p = { version = "0.54.2", git = "https://github.com/autonomys/rust-libp2p", rev = "04c2e649b1f5482b8c3466b0fdbd1815b3126a48", default-features = false }
 libp2p-swarm-test = { version = "0.5.0", git = "https://github.com/autonomys/rust-libp2p", rev = "04c2e649b1f5482b8c3466b0fdbd1815b3126a48" }
 log = { version = "0.4.22", default-features = false }
@@ -126,8 +125,6 @@ sp-version = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d
 sppark = { version = "0.1.8", git = "https://github.com/autonomys/sppark", rev = "b2a181eb99c8200f1a604f04122551ea39fbf63f" }
 ss58-registry = "1.51.0"
 static_assertions = "1.1.0"
-subspace-data-retrieval = { version = "0.1.0", path = "shared/subspace-data-retrieval" }
-subspace-farmer-components = { version = "0.1.0", path = "crates/subspace-farmer-components" }
 subspace-logging = { version = "0.0.1", path = "shared/subspace-logging" }
 subspace-metrics = { version = "0.1.0", path = "shared/subspace-metrics" }
 subspace-networking = { version = "0.1.0", path = "crates/subspace-networking" }
@@ -152,7 +149,6 @@ ulid = "1.1.3"
 unsigned-varint = "0.8.0"
 void = "1.0.2"
 zeroize = "1.8.1"
-winapi = "0.3.9"
 
 # The list of dependencies below (which can be both direct and indirect dependencies) are crates
 # that are suspected to be CPU-intensive, and that are unlikely to require debugging (as some of
@@ -163,6 +159,7 @@ winapi = "0.3.9"
 # This list is ordered alphabetically.
 [profile.dev.package]
 ab-archiving = { opt-level = 3 }
+ab-farmer-components = { opt-level = 3 }
 ab-proof-of-space = { opt-level = 3 }
 ab-proof-of-time = { opt-level = 3 }
 bitvec = { opt-level = 3 }
@@ -204,7 +201,6 @@ sha2 = { opt-level = 3 }
 sha3 = { opt-level = 3 }
 smallvec = { opt-level = 3 }
 snow = { opt-level = 3 }
-subspace-farmer-components = { opt-level = 3 }
 substrate-bip39 = { opt-level = 3 }
 twox-hash = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }

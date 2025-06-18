@@ -1,10 +1,8 @@
 use ab_archiving::piece_reconstructor::{PiecesReconstructor, ReconstructorError};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
+use ab_data_retrieval::piece_getter::PieceGetter;
+use ab_data_retrieval::segment_downloading::{SegmentDownloadingError, download_segment_pieces};
 use ab_erasure_coding::ErasureCoding;
-use subspace_data_retrieval::piece_getter::PieceGetter;
-use subspace_data_retrieval::segment_downloading::{
-    SegmentDownloadingError, download_segment_pieces,
-};
 use thiserror::Error;
 use tokio::task::JoinError;
 use tracing::{error, info};

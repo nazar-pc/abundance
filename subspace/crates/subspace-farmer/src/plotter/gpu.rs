@@ -13,7 +13,13 @@ use crate::plotter::{Plotter, SectorPlottingProgress};
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
+use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_erasure_coding::ErasureCoding;
+use ab_farmer_components::FarmerProtocolInfo;
+use ab_farmer_components::plotting::{
+    DownloadSectorOptions, EncodeSectorOptions, PlottingError, RecordsEncoder, download_sector,
+    encode_sector, write_sector,
+};
 use async_lock::{Mutex as AsyncMutex, Semaphore, SemaphoreGuardArc};
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -31,12 +37,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::Poll;
 use std::time::Instant;
-use subspace_data_retrieval::piece_getter::PieceGetter;
-use subspace_farmer_components::FarmerProtocolInfo;
-use subspace_farmer_components::plotting::{
-    DownloadSectorOptions, EncodeSectorOptions, PlottingError, RecordsEncoder, download_sector,
-    encode_sector, write_sector,
-};
 use tokio::task::yield_now;
 use tracing::{Instrument, warn};
 

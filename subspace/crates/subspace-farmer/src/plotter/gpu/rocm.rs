@@ -3,14 +3,14 @@
 use crate::plotter::gpu::GpuRecordsEncoder;
 use ab_core_primitives::pieces::{PieceOffset, Record};
 use ab_core_primitives::sectors::SectorId;
+use ab_farmer_components::plotting::RecordsEncoder;
+use ab_farmer_components::sector::SectorContentsMap;
 use async_lock::Mutex as AsyncMutex;
 use parking_lot::Mutex;
 use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder, current_thread_index};
 use std::process::exit;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use subspace_farmer_components::plotting::RecordsEncoder;
-use subspace_farmer_components::sector::SectorContentsMap;
 use subspace_proof_of_space_gpu::rocm::RocmDevice;
 
 /// ROCm implementation of [`GpuRecordsEncoder`]

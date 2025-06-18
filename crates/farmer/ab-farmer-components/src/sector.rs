@@ -11,6 +11,7 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunksRoot, RecordProof, RecordRoot};
 use ab_core_primitives::sectors::{SBucket, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
+use ab_io_type::trivial_type::TrivialType;
 use bitvec::prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use rayon::prelude::*;
@@ -314,12 +315,16 @@ impl SectorContentsMap {
 
         let (single_records_bit_arrays, expected_checksum) =
             bytes.split_at(bytes.len() - Blake3Hash::SIZE);
+        // SAFETY: All bit patterns are valid
+        let expected_checksum = unsafe {
+            Blake3Hash::from_bytes(expected_checksum).expect("No alignment requirements; qed")
+        };
         // Verify checksum
-        let actual_checksum = *blake3::hash(single_records_bit_arrays).as_bytes();
-        if actual_checksum != expected_checksum {
+        let actual_checksum = Blake3Hash::from(blake3::hash(single_records_bit_arrays));
+        if &actual_checksum != expected_checksum {
             debug!(
-                actual_checksum = %hex::encode(actual_checksum),
-                expected_checksum = %hex::encode(expected_checksum),
+                %actual_checksum,
+                %expected_checksum,
                 "Hash doesn't match, corrupted bytes"
             );
 

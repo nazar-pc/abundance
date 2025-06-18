@@ -1,30 +1,35 @@
+#![feature(exact_size_is_empty)]
+
 use ab_archiving::archiver::Archiver;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
-use ab_core_primitives::pieces::PieceOffset;
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
+use ab_core_primitives::solutions::SolutionRange;
 use ab_erasure_coding::ErasureCoding;
-use ab_proof_of_space::Table;
+use ab_farmer_components::FarmerProtocolInfo;
+use ab_farmer_components::auditing::audit_plot_sync;
+use ab_farmer_components::file_ext::{FileExt, OpenOptionsExt};
+use ab_farmer_components::plotting::{
+    CpuRecordsEncoder, PlotSectorOptions, PlottedSector, plot_sector,
+};
+use ab_farmer_components::reading::ReadSectorRecordChunksMode;
+use ab_farmer_components::sector::{
+    SectorContentsMap, SectorMetadata, SectorMetadataChecksummed, sector_size,
+};
 use ab_proof_of_space::chia::ChiaTable;
-use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use futures::FutureExt;
+use ab_proof_of_space::{Table, TableGenerator};
+use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
 use futures::executor::block_on;
 use parking_lot::Mutex;
 use rand::prelude::*;
+use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::hint::black_box;
 use std::io::Write;
 use std::num::NonZeroU64;
 use std::{env, fs, slice};
-use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};
-use subspace_farmer_components::plotting::{
-    CpuRecordsEncoder, PlotSectorOptions, PlottedSector, plot_sector,
-};
-use subspace_farmer_components::reading::{ReadSectorRecordChunksMode, read_piece};
-use subspace_farmer_components::sector::{
-    SectorContentsMap, SectorMetadata, SectorMetadataChecksummed, sector_size,
-};
-use subspace_farmer_components::{FarmerProtocolInfo, ReadAt, ReadAtSync};
 
 type PosTable = ChiaTable;
 
@@ -45,12 +50,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         .map(|sectors_count| sectors_count.parse().unwrap())
         .unwrap_or(10);
 
-    let public_key = Ed25519PublicKey::default();
+    let public_key = &Ed25519PublicKey::default();
     let public_key_hash = &public_key.hash();
     let sector_index = SectorIndex::ZERO;
     let mut input = RecordedHistorySegment::new_boxed();
-    StdRng::seed_from_u64(42).fill(AsMut::<[u8]>::as_mut(input.as_mut()));
-    let erasure_coding = ErasureCoding::new();
+    let mut rng = StdRng::seed_from_u64(42);
+    rng.fill(AsMut::<[u8]>::as_mut(input.as_mut()));
+    let erasure_coding = &ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
     let mut table_generator = PosTable::generator();
     let archived_history_segment = archiver
@@ -74,6 +80,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         ),
         min_sector_lifetime: HistorySize::new(NonZeroU64::new(4).unwrap()),
     };
+    let solution_range = SolutionRange::MAX;
 
     let sector_size = sector_size(pieces_in_sector);
 
@@ -121,14 +128,14 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             sector_index,
             piece_getter: &archived_history_segment,
             farmer_protocol_info,
-            erasure_coding: &erasure_coding,
+            erasure_coding,
             pieces_in_sector,
             sector_output: &mut plotted_sector_bytes,
             downloading_semaphore: black_box(None),
             encoding_semaphore: black_box(None),
             records_encoder: &mut CpuRecordsEncoder::<PosTable>::new(
                 slice::from_mut(&mut table_generator),
-                &erasure_coding,
+                erasure_coding,
                 &Default::default(),
             ),
             abort_early: &Default::default(),
@@ -148,28 +155,64 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         fs::write(persisted_sector, &plotted_sector_bytes).unwrap()
     }
 
-    let piece_offset = PieceOffset::ZERO;
+    println!("Searching for solutions");
+    let (global_challenge, solution_candidates) = &loop {
+        let mut global_challenge = Blake3Hash::default();
+        rng.fill_bytes(global_challenge.as_mut());
+
+        let audit_results = audit_plot_sync(
+            public_key_hash,
+            &global_challenge,
+            solution_range,
+            &plotted_sector_bytes,
+            slice::from_ref(&plotted_sector.sector_metadata),
+            &HashSet::default(),
+        )
+        .unwrap();
+
+        let solution_candidates = match audit_results.into_iter().next() {
+            Some(audit_result) => audit_result.solution_candidates,
+            None => {
+                continue;
+            }
+        };
+
+        if !solution_candidates
+            .clone()
+            .into_solutions(
+                erasure_coding,
+                ReadSectorRecordChunksMode::ConcurrentChunks,
+                |seed: &PosSeed| table_generator.generate_parallel(seed),
+            )
+            .unwrap()
+            .is_empty()
+        {
+            break (global_challenge, solution_candidates);
+        }
+    };
 
     let table_generator = &Mutex::new(table_generator);
 
-    let mut group = c.benchmark_group("reading");
-    group.throughput(Throughput::Elements(1));
-    group.bench_function("piece/memory", |b| {
-        b.iter(|| {
-            read_piece::<PosTable, _, _>(
-                black_box(piece_offset),
-                black_box(&plotted_sector.sector_id),
-                black_box(&plotted_sector.sector_metadata),
-                black_box(&ReadAt::from_sync(&plotted_sector_bytes)),
-                black_box(&erasure_coding),
-                black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
-                black_box(&mut *table_generator.lock()),
-            )
-            .now_or_never()
-            .unwrap()
-            .unwrap();
-        })
-    });
+    let mut group = c.benchmark_group("proving");
+    {
+        group.throughput(Throughput::Elements(1));
+        group.bench_function("memory", |b| {
+            b.iter(|| {
+                solution_candidates
+                    .clone()
+                    .into_solutions(
+                        black_box(erasure_coding),
+                        black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
+                        black_box(|seed: &PosSeed| table_generator.lock().generate_parallel(seed)),
+                    )
+                    .unwrap()
+                    // Process just one solution
+                    .next()
+                    .unwrap()
+                    .unwrap();
+            })
+        });
+    }
 
     {
         println!("Writing {sectors_count} sectors to disk...");
@@ -195,26 +238,52 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 .unwrap();
         }
 
-        group.throughput(Throughput::Elements(sectors_count));
-        group.bench_function("piece/disk", |b| {
-            b.iter(|| {
-                for sector_index in 0..sectors_count {
-                    let sector = plot_file.offset(sector_index * sector_size as u64);
-                    read_piece::<PosTable, _, _>(
-                        black_box(piece_offset),
-                        black_box(&plotted_sector.sector_id),
-                        black_box(&plotted_sector.sector_metadata),
-                        black_box(&ReadAt::from_sync(&sector)),
-                        black_box(&erasure_coding),
-                        black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
-                        black_box(&mut *table_generator.lock()),
-                    )
-                    .now_or_never()
-                    .unwrap()
-                    .unwrap();
-                }
+        let sectors_metadata = (0..sectors_count)
+            .map(|_| plotted_sector.sector_metadata.clone())
+            .collect::<Vec<_>>();
+
+        {
+            let plot_file = &plot_file;
+
+            let audit_results = audit_plot_sync(
+                public_key_hash,
+                global_challenge,
+                solution_range,
+                &plot_file,
+                &sectors_metadata,
+                &HashSet::default(),
+            )
+            .unwrap();
+            let solution_candidates = audit_results
+                .into_iter()
+                .map(|audit_result| audit_result.solution_candidates)
+                .collect::<Vec<_>>();
+
+            group.throughput(Throughput::Elements(sectors_count));
+            group.bench_function("disk", |b| {
+                b.iter_batched(
+                    || solution_candidates.clone(),
+                    |solution_candidates| {
+                        for solution_candidates in solution_candidates {
+                            solution_candidates
+                                .into_solutions(
+                                    black_box(erasure_coding),
+                                    black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
+                                    black_box(|seed: &PosSeed| {
+                                        table_generator.lock().generate_parallel(seed)
+                                    }),
+                                )
+                                .unwrap()
+                                // Process just one solution
+                                .next()
+                                .unwrap()
+                                .unwrap();
+                        }
+                    },
+                    BatchSize::LargeInput,
+                );
             });
-        });
+        }
 
         drop(plot_file);
         fs::remove_file(plot_file_path).unwrap();

@@ -3,6 +3,9 @@ use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use ab_erasure_coding::ErasureCoding;
+use ab_farmer_components::FarmerProtocolInfo;
+use ab_farmer_components::plotting::{CpuRecordsEncoder, PlotSectorOptions, plot_sector};
+use ab_farmer_components::sector::sector_size;
 use ab_proof_of_space::Table;
 use ab_proof_of_space::chia::ChiaTable;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
@@ -11,9 +14,6 @@ use rand::prelude::*;
 use std::env;
 use std::hint::black_box;
 use std::num::NonZeroU64;
-use subspace_farmer_components::FarmerProtocolInfo;
-use subspace_farmer_components::plotting::{CpuRecordsEncoder, PlotSectorOptions, plot_sector};
-use subspace_farmer_components::sector::sector_size;
 
 type PosTable = ChiaTable;
 

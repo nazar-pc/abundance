@@ -2,7 +2,9 @@ use crate::commands::shared::network::{NetworkArgs, configure_network};
 use crate::commands::shared::{DiskFarm, PlottingThreadPriority, derive_libp2p_keypair};
 use crate::utils::shutdown_signal;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
+use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_erasure_coding::ErasureCoding;
+use ab_farmer_components::reading::ReadSectorRecordChunksMode;
 use ab_proof_of_space::Table;
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock, Semaphore};
@@ -21,7 +23,6 @@ use std::pin::pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_data_retrieval::piece_getter::PieceGetter;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farm::{PlottedSectors, SectorPlottingDetails, SectorUpdate};
 use subspace_farmer::farmer_cache::{FarmerCache, FarmerCaches};
@@ -49,7 +50,6 @@ use subspace_farmer::utils::{
     recommended_number_of_farming_threads, run_future_in_dedicated_thread,
     thread_pool_core_indices,
 };
-use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
 use subspace_metrics::{RegistryAdapter, start_prometheus_metrics_server};
 use subspace_networking::utils::piece_provider::PieceProvider;
 use tracing::{Instrument, error, info, info_span, warn};

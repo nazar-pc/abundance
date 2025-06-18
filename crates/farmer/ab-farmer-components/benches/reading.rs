@@ -1,30 +1,30 @@
 use ab_archiving::archiver::Archiver;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
-use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pieces::PieceOffset;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
-use ab_core_primitives::solutions::SolutionRange;
 use ab_erasure_coding::ErasureCoding;
+use ab_farmer_components::file_ext::{FileExt, OpenOptionsExt};
+use ab_farmer_components::plotting::{
+    CpuRecordsEncoder, PlotSectorOptions, PlottedSector, plot_sector,
+};
+use ab_farmer_components::reading::{ReadSectorRecordChunksMode, read_piece};
+use ab_farmer_components::sector::{
+    SectorContentsMap, SectorMetadata, SectorMetadataChecksummed, sector_size,
+};
+use ab_farmer_components::{FarmerProtocolInfo, ReadAt, ReadAtSync};
 use ab_proof_of_space::Table;
 use ab_proof_of_space::chia::ChiaTable;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
+use futures::FutureExt;
 use futures::executor::block_on;
+use parking_lot::Mutex;
 use rand::prelude::*;
-use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::hint::black_box;
 use std::io::Write;
 use std::num::NonZeroU64;
 use std::{env, fs, slice};
-use subspace_farmer_components::FarmerProtocolInfo;
-use subspace_farmer_components::auditing::audit_plot_sync;
-use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};
-use subspace_farmer_components::plotting::{
-    CpuRecordsEncoder, PlotSectorOptions, PlottedSector, plot_sector,
-};
-use subspace_farmer_components::sector::{
-    SectorContentsMap, SectorMetadata, SectorMetadataChecksummed, sector_size,
-};
 
 type PosTable = ChiaTable;
 
@@ -45,7 +45,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         .map(|sectors_count| sectors_count.parse().unwrap())
         .unwrap_or(10);
 
-    let public_key = &Ed25519PublicKey::default();
+    let public_key = Ed25519PublicKey::default();
     let public_key_hash = &public_key.hash();
     let sector_index = SectorIndex::ZERO;
     let mut input = RecordedHistorySegment::new_boxed();
@@ -74,8 +74,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         ),
         min_sector_lifetime: HistorySize::new(NonZeroU64::new(4).unwrap()),
     };
-    let global_challenge = &Blake3Hash::default();
-    let solution_range = SolutionRange::MAX;
 
     let sector_size = sector_size(pieces_in_sector);
 
@@ -150,21 +148,26 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         fs::write(persisted_sector, &plotted_sector_bytes).unwrap()
     }
 
-    let mut group = c.benchmark_group("auditing");
+    let piece_offset = PieceOffset::ZERO;
+
+    let table_generator = &Mutex::new(table_generator);
+
+    let mut group = c.benchmark_group("reading");
     group.throughput(Throughput::Elements(1));
-    group.bench_function("memory/sync", |b| {
+    group.bench_function("piece/memory", |b| {
         b.iter(|| {
-            black_box(
-                audit_plot_sync(
-                    black_box(public_key_hash),
-                    black_box(global_challenge),
-                    black_box(solution_range),
-                    black_box(&plotted_sector_bytes),
-                    black_box(slice::from_ref(&plotted_sector.sector_metadata)),
-                    black_box(&HashSet::default()),
-                )
-                .unwrap(),
-            );
+            read_piece::<PosTable, _, _>(
+                black_box(piece_offset),
+                black_box(&plotted_sector.sector_id),
+                black_box(&plotted_sector.sector_metadata),
+                black_box(&ReadAt::from_sync(&plotted_sector_bytes)),
+                black_box(&erasure_coding),
+                black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
+                black_box(&mut *table_generator.lock()),
+            )
+            .now_or_never()
+            .unwrap()
+            .unwrap();
         })
     });
 
@@ -192,24 +195,24 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 .unwrap();
         }
 
-        let sectors_metadata = (0..sectors_count)
-            .map(|_| plotted_sector.sector_metadata.clone())
-            .collect::<Vec<_>>();
-
         group.throughput(Throughput::Elements(sectors_count));
-        group.bench_function("disk/sync", |b| {
+        group.bench_function("piece/disk", |b| {
             b.iter(|| {
-                black_box(
-                    audit_plot_sync(
-                        black_box(public_key_hash),
-                        black_box(global_challenge),
-                        black_box(solution_range),
-                        black_box(&plot_file),
-                        black_box(&sectors_metadata),
-                        black_box(&HashSet::default()),
+                for sector_index in 0..sectors_count {
+                    let sector = plot_file.offset(sector_index * sector_size as u64);
+                    read_piece::<PosTable, _, _>(
+                        black_box(piece_offset),
+                        black_box(&plotted_sector.sector_id),
+                        black_box(&plotted_sector.sector_metadata),
+                        black_box(&ReadAt::from_sync(&sector)),
+                        black_box(&erasure_coding),
+                        black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
+                        black_box(&mut *table_generator.lock()),
                     )
-                    .unwrap(),
-                );
+                    .now_or_never()
+                    .unwrap()
+                    .unwrap();
+                }
             });
         });
 

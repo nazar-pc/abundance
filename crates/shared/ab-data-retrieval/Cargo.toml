@@ -1,0 +1,38 @@
+[package]
+name = "ab-data-retrieval"
+description = "Fetching data from the archived history of the network"
+license = "0BSD"
+version = "0.1.0"
+authors = [
+    "Teor <teor@riseup.net>",
+    "Nazar Mokrynskyi <nazar@mokrynskyi.com>",
+]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-archiving = { workspace = true, features = ["parallel"] }
+ab-core-primitives = { workspace = true, features = ["alloc"] }
+ab-erasure-coding = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+# TODO: Remove `std` feature, only needed due to https://github.com/paritytech/parity-scale-codec/issues/745
+parity-scale-codec = { workspace = true, features = ["std"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt"] }
+tracing = { workspace = true }
+
+[features]
+parallel = [
+    "ab-archiving/parallel",
+]
+
+[lints]
+workspace = true

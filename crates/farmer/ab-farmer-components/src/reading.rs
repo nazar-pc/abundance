@@ -9,6 +9,7 @@ use crate::sector::{
     sector_record_chunks_size,
 };
 use crate::{ReadAt, ReadAtAsync, ReadAtSync};
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceOffset, Record, RecordChunk};
 use ab_core_primitives::sectors::{SBucket, SectorId};
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
@@ -489,13 +490,13 @@ where
     *piece.proof_mut() = record_metadata.proof;
 
     // Verify checksum
-    let actual_checksum = *blake3::hash(piece.as_ref()).as_bytes();
-    if &actual_checksum != record_metadata.piece_checksum.as_bytes() {
+    let actual_checksum = Blake3Hash::from(blake3::hash(piece.as_ref()));
+    if actual_checksum != record_metadata.piece_checksum {
         debug!(
             ?sector_id,
             %piece_offset,
-            actual_checksum = %hex::encode(actual_checksum),
-            expected_checksum = %hex::encode(record_metadata.piece_checksum),
+            %actual_checksum,
+            expected_checksum = %record_metadata.piece_checksum,
             "Hash doesn't match, plotted piece is corrupted"
         );
 

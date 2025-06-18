@@ -3,6 +3,8 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::solutions::SolutionRange;
 use ab_erasure_coding::ErasureCoding;
+use ab_farmer_components::reading::ReadSectorRecordChunksMode;
+use ab_farmer_components::sector::sector_size;
 use ab_proof_of_space::Table;
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
@@ -21,8 +23,6 @@ use subspace_farmer::single_disk_farm::{
     SingleDiskFarm, SingleDiskFarmInfo, SingleDiskFarmSummary,
 };
 use subspace_farmer::utils::{recommended_number_of_farming_threads, tokio_rayon_spawn_handler};
-use subspace_farmer_components::reading::ReadSectorRecordChunksMode;
-use subspace_farmer_components::sector::sector_size;
 use subspace_rpc_primitives::SlotInfo;
 
 #[derive(Debug, Parser)]
