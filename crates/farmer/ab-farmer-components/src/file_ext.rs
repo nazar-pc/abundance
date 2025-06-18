@@ -36,8 +36,8 @@ impl OpenOptionsExt for OpenOptions {
         // overrides previous value, we need to set bitwise OR of two flags rather that two flags
         // separately.
         self.custom_flags(
-            winapi::um::winbase::FILE_FLAG_RANDOM_ACCESS
-                | winapi::um::winbase::FILE_FLAG_WRITE_THROUGH,
+            windows::Win32::Storage::FileSystem::FILE_FLAG_RANDOM_ACCESS.0
+                | windows::Win32::Storage::FileSystem::FILE_FLAG_WRITE_THROUGH.0,
         )
     }
 
@@ -50,15 +50,15 @@ impl OpenOptionsExt for OpenOptions {
     #[cfg(windows)]
     fn advise_sequential_access(&mut self) -> &mut Self {
         use std::os::windows::fs::OpenOptionsExt;
-        self.custom_flags(winapi::um::winbase::FILE_FLAG_SEQUENTIAL_SCAN)
+        self.custom_flags(windows::Win32::Storage::FileSystem::FILE_FLAG_SEQUENTIAL_SCAN.0)
     }
 
     #[cfg(windows)]
     fn use_direct_io(&mut self) -> &mut Self {
         use std::os::windows::fs::OpenOptionsExt;
         self.custom_flags(
-            winapi::um::winbase::FILE_FLAG_WRITE_THROUGH
-                | winapi::um::winbase::FILE_FLAG_NO_BUFFERING,
+            windows::Win32::Storage::FileSystem::FILE_FLAG_WRITE_THROUGH.0
+                | windows::Win32::Storage::FileSystem::FILE_FLAG_NO_BUFFERING.0,
         )
     }
 

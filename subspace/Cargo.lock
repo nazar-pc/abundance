@@ -105,6 +105,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-farmer-components"
+version = "0.1.0"
+dependencies = [
+ "ab-archiving",
+ "ab-core-primitives",
+ "ab-data-retrieval",
+ "ab-erasure-coding",
+ "ab-io-type",
+ "ab-merkle-tree",
+ "ab-proof-of-space",
+ "anyhow",
+ "async-lock 3.4.0",
+ "backoff",
+ "bitvec",
+ "blake3",
+ "fs2",
+ "futures",
+ "libc",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "rand 0.9.1",
+ "rayon",
+ "serde",
+ "thiserror 2.0.12",
+ "tokio",
+ "tracing",
+ "windows 0.61.3",
+]
+
+[[package]]
 name = "ab-io-type"
 version = "0.0.1"
 dependencies = [
@@ -409,7 +439,7 @@ dependencies = [
  "getrandom 0.2.15",
  "once_cell",
  "version_check",
- "zerocopy 0.7.35",
+ "zerocopy",
 ]
 
 [[package]]
@@ -4021,7 +4051,7 @@ dependencies = [
  "smol",
  "system-configuration",
  "tokio",
- "windows",
+ "windows 0.51.1",
 ]
 
 [[package]]
@@ -4515,9 +4545,9 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
-version = "0.2.169"
+version = "0.2.174"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5aba8db14291edd000dfcc4d620c7ebfb122c613afb886ca8803fa4e128a20a"
+checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
 
 [[package]]
 name = "libm"
@@ -6634,7 +6664,7 @@ version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77957b295656769bb8ad2b6a6b09d897d94f05c41b069aede1fcdaa675eaea04"
 dependencies = [
- "zerocopy 0.7.35",
+ "zerocopy",
 ]
 
 [[package]]
@@ -7023,13 +7053,12 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3779b94aeb87e8bd4e834cee3650289ee9e0d5677f976ecdb6d219e5f4f6cd94"
+checksum = "9fbfd9d094a40bf3ae768db9361049ace4c0e04a4fd6b359518bd7b73a73dd97"
 dependencies = [
  "rand_chacha 0.9.0",
  "rand_core 0.9.3",
- "zerocopy 0.8.24",
 ]
 
 [[package]]
@@ -7892,6 +7921,7 @@ dependencies = [
  "ab-client-api",
  "ab-core-primitives",
  "ab-erasure-coding",
+ "ab-farmer-components",
  "async-oneshot",
  "futures",
  "futures-timer",
@@ -7908,7 +7938,6 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus-subspace",
  "sp-runtime",
- "subspace-farmer-components",
  "subspace-networking",
  "subspace-rpc-primitives",
  "thiserror 2.0.12",
@@ -9922,6 +9951,7 @@ dependencies = [
  "ab-core-primitives",
  "ab-data-retrieval",
  "ab-erasure-coding",
+ "ab-farmer-components",
  "ab-proof-of-space",
  "anyhow",
  "async-lock 3.4.0",
@@ -9958,7 +9988,6 @@ dependencies = [
  "serde_json",
  "ss58-registry",
  "static_assertions",
- "subspace-farmer-components",
  "subspace-logging",
  "subspace-metrics",
  "subspace-networking",
@@ -9973,38 +10002,6 @@ dependencies = [
  "tracing",
  "ulid",
  "zeroize",
-]
-
-[[package]]
-name = "subspace-farmer-components"
-version = "0.1.0"
-dependencies = [
- "ab-archiving",
- "ab-core-primitives",
- "ab-data-retrieval",
- "ab-erasure-coding",
- "ab-merkle-tree",
- "ab-proof-of-space",
- "anyhow",
- "async-lock 3.4.0",
- "backoff",
- "bitvec",
- "blake3",
- "criterion",
- "fs2",
- "futures",
- "hex",
- "libc",
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "rand 0.8.5",
- "rayon",
- "serde",
- "static_assertions",
- "thiserror 2.0.12",
- "tokio",
- "tracing",
- "winapi",
 ]
 
 [[package]]
@@ -10108,13 +10105,13 @@ version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
  "ab-erasure-coding",
+ "ab-farmer-components",
  "ab-proof-of-space",
  "blake3",
  "blst",
  "cc",
  "rust-kzg-blst",
  "sppark",
- "subspace-farmer-components",
 ]
 
 [[package]]
@@ -10122,9 +10119,9 @@ name = "subspace-rpc-primitives"
 version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
+ "ab-farmer-components",
  "parity-scale-codec",
  "serde",
- "subspace-farmer-components",
  "subspace-networking",
  "subspace-verification",
 ]
@@ -10899,7 +10896,7 @@ dependencies = [
  "http 1.1.0",
  "httparse",
  "log",
- "rand 0.9.0",
+ "rand 0.9.1",
  "rustls 0.23.18",
  "rustls-pki-types",
  "sha1",
@@ -11622,6 +11619,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "windows"
+version = "0.61.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9babd3a767a4c1aef6900409f85f5d53ce2544ccdfaa86dad48c91782c6d6893"
+dependencies = [
+ "windows-collections",
+ "windows-core 0.61.2",
+ "windows-future",
+ "windows-link",
+ "windows-numerics",
+]
+
+[[package]]
+name = "windows-collections"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3beeceb5e5cfd9eb1d76b381630e82c4241ccd0d27f1a39ed41b2760b255c5e8"
+dependencies = [
+ "windows-core 0.61.2",
+]
+
+[[package]]
 name = "windows-core"
 version = "0.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11637,6 +11656,86 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
 dependencies = [
  "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-core"
+version = "0.61.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0fdd3ddb90610c7638aa2b3a3ab2904fb9e5cdbecc643ddb3647212781c4ae3"
+dependencies = [
+ "windows-implement",
+ "windows-interface",
+ "windows-link",
+ "windows-result",
+ "windows-strings",
+]
+
+[[package]]
+name = "windows-future"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc6a41e98427b19fe4b73c550f060b59fa592d7d686537eebf9385621bfbad8e"
+dependencies = [
+ "windows-core 0.61.2",
+ "windows-link",
+ "windows-threading",
+]
+
+[[package]]
+name = "windows-implement"
+version = "0.60.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a47fddd13af08290e67f4acabf4b459f647552718f683a7b415d290ac744a836"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
+name = "windows-interface"
+version = "0.59.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd9211b69f8dcdfa817bfd14bf1c97c9188afa36f4750130fcdf3f400eca9fa8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
+name = "windows-link"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e6ad25900d524eaabdbbb96d20b4311e1e7ae1699af4fb28c17ae66c80d798a"
+
+[[package]]
+name = "windows-numerics"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9150af68066c4c5c07ddc0ce30421554771e528bde427614c61038bc2c92c2b1"
+dependencies = [
+ "windows-core 0.61.2",
+ "windows-link",
+]
+
+[[package]]
+name = "windows-result"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56f42bd332cc6c8eac5af113fc0c1fd6a8fd2aa08a0119358686e5160d0586c6"
+dependencies = [
+ "windows-link",
+]
+
+[[package]]
+name = "windows-strings"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56e6c93f3a0c3b36176cb1327a4958a0353d5d166c2a35cb268ace15e91d3b57"
+dependencies = [
+ "windows-link",
 ]
 
 [[package]]
@@ -11719,6 +11818,15 @@ dependencies = [
  "windows_x86_64_gnu 0.52.6",
  "windows_x86_64_gnullvm 0.52.6",
  "windows_x86_64_msvc 0.52.6",
+]
+
+[[package]]
+name = "windows-threading"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b66463ad2e0ea3bbf808b7f1d371311c80e115c0b71d60efc142cafbcfb057a6"
+dependencies = [
+ "windows-link",
 ]
 
 [[package]]
@@ -12074,16 +12182,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b9b4fd18abc82b8136838da5d50bae7bdea537c574d8dc1a34ed098d6c166f0"
 dependencies = [
  "byteorder",
- "zerocopy-derive 0.7.35",
-]
-
-[[package]]
-name = "zerocopy"
-version = "0.8.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2586fea28e186957ef732a5f8b3be2da217d65c5969d4b1e17f973ebbe876879"
-dependencies = [
- "zerocopy-derive 0.8.24",
+ "zerocopy-derive",
 ]
 
 [[package]]
@@ -12091,17 +12190,6 @@ name = "zerocopy-derive"
 version = "0.7.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.101",
-]
-
-[[package]]
-name = "zerocopy-derive"
-version = "0.8.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a996a8f63c5c4448cd959ac1bab0aaa3306ccfd060472f85943ee0750f0169be"
 dependencies = [
  "proc-macro2",
  "quote",

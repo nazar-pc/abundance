@@ -3,6 +3,7 @@
 use crate::farm::{FarmError, PieceReader};
 use ab_core_primitives::pieces::{Piece, PieceIndex, PieceOffset};
 use ab_core_primitives::sectors::SectorIndex;
+use ab_farmer_components::plotting::PlottedSector;
 use async_trait::async_trait;
 use rand::prelude::*;
 use rayon::prelude::*;
@@ -12,7 +13,6 @@ use std::fmt;
 use std::future::Future;
 use std::hash::Hash;
 use std::sync::Arc;
-use subspace_farmer_components::plotting::PlottedSector;
 use tracing::{trace, warn};
 
 #[derive(Debug)]

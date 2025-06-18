@@ -1,12 +1,12 @@
 //! Wrapper data structure for direct/unbuffered I/O
 
+use ab_farmer_components::ReadAtSync;
+use ab_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use parking_lot::Mutex;
 use static_assertions::const_assert_eq;
 use std::fs::{File, OpenOptions};
 use std::path::Path;
 use std::{io, mem};
-use subspace_farmer_components::ReadAtSync;
-use subspace_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 
 /// 4096 is as a relatively safe size due to sector size on SSDs commonly being 512 or 4096 bytes
 pub const DISK_SECTOR_SIZE: usize = 4096;
@@ -254,9 +254,9 @@ impl DirectIoFile {
 #[cfg(test)]
 mod tests {
     use crate::single_disk_farm::direct_io_file::{DirectIoFile, MAX_READ_SIZE};
+    use ab_farmer_components::file_ext::FileExt;
     use rand::prelude::*;
     use std::fs;
-    use subspace_farmer_components::file_ext::FileExt;
     use tempfile::tempdir;
 
     #[test]

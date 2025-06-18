@@ -19,6 +19,7 @@ required-features = ["binary"]
 ab-core-primitives = { workspace = true }
 ab-data-retrieval = { workspace = true }
 ab-erasure-coding = { workspace = true }
+ab-farmer-components = { workspace = true }
 ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
 async-lock = { workspace = true }
@@ -55,7 +56,6 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 static_assertions = { workspace = true }
 ss58-registry = { workspace = true }
-subspace-farmer-components = { workspace = true }
 subspace-logging = { workspace = true, optional = true }
 subspace-metrics = { workspace = true, optional = true }
 subspace-networking = { workspace = true }

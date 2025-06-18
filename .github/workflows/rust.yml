@@ -79,7 +79,7 @@ jobs:
         run: |
           for feature in alloc parallel scale-codec serde; do
             echo "Check clippy with feature: $feature"
-            for crate_path in crates/{execution,node,shared}/*; do
+            for crate_path in crates/{execution,farmer,node,shared}/*; do
               # Not all crates have this feature
               if ! grep --no-messages --quiet "^$feature =" "$crate_path/Cargo.toml"; then
                 continue
@@ -155,7 +155,7 @@ jobs:
         shell: bash
         run: |
           for feature in alloc parallel scale-codec serde; do
-            for crate_path in crates/{execution,node,shared}/*; do
+            for crate_path in crates/{execution,farmer,node,shared}/*; do
               # Not all crates have this feature
               if ! grep --no-messages --quiet "^$feature =" "$crate_path/Cargo.toml"; then
                 continue
@@ -234,7 +234,7 @@ jobs:
         shell: bash
         run: |
           for feature in alloc parallel scale-codec serde; do
-            for crate_path in crates/{execution,node,shared}/*; do
+            for crate_path in crates/{execution,farmer,node,shared}/*; do
               # Not all crates have this feature
               if ! grep --no-messages --quiet "^$feature =" "$crate_path/Cargo.toml"; then
                 continue
@@ -311,7 +311,7 @@ jobs:
           # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic
 
           # Ensure no panics in various crates
-          for crate_path in crates/{contracts/{core,example,system},execution,node,shared}/*; do
+          for crate_path in crates/{contracts/{core,example,system},execution,farmer,node,shared}/*; do
             # Not all crates have this feature yet
             if ! grep --no-messages --quiet '^no-panic =' "$crate_path/Cargo.toml"; then
               continue
@@ -329,7 +329,7 @@ jobs:
         shell: bash
         run: |
           # Ensure no panics with `alloc` feature
-          for crate_path in crates/{execution,node,shared}/*; do
+          for crate_path in crates/{execution,farmer,node,shared}/*; do
             # Not all crates have this feature yet
             if ! grep --no-messages --quiet '^no-panic =' "$crate_path/Cargo.toml" || \
                ! grep --no-messages --quiet '^alloc =' "$crate_path/Cargo.toml"; then
