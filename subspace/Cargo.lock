@@ -157,7 +157,7 @@ version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
  "blake3",
- "chacha20",
+ "chacha20 0.10.0-rc.0",
  "derive_more 2.0.1",
  "rayon",
  "seq-macro",
@@ -169,7 +169,7 @@ name = "ab-proof-of-time"
 version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
- "aes 0.9.0-pre.3",
+ "aes 0.9.0-rc.0",
  "cpufeatures",
  "thiserror 2.0.12",
 ]
@@ -406,12 +406,12 @@ dependencies = [
 
 [[package]]
 name = "aes"
-version = "0.9.0-pre.3"
+version = "0.9.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38e4da00d9978020ddaa556c1747cfcafc3f375cfadb109acfe8b752cfc373bf"
+checksum = "cd4838e4ad37bb032dea137f441d5f71c16c26c068af512e64c5bc13a88cdfc7"
 dependencies = [
  "cfg-if",
- "cipher 0.5.0-pre.8",
+ "cipher 0.5.0-rc.0",
  "cpufeatures",
 ]
 
@@ -1530,13 +1530,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "chacha20"
+version = "0.10.0-rc.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e057d7ab0331b90074df7ca698b3361860c20a1d8c8e28f49c01f526e3f3958"
+dependencies = [
+ "cfg-if",
+ "cipher 0.5.0-rc.0",
+ "cpufeatures",
+]
+
+[[package]]
 name = "chacha20poly1305"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10cd79432192d1c0f4e1a0fef9527696cc039165d729fb41b3f4f4f354c2dc35"
 dependencies = [
  "aead",
- "chacha20",
+ "chacha20 0.9.1",
  "cipher 0.4.4",
  "poly1305",
  "zeroize",
@@ -1631,11 +1642,11 @@ dependencies = [
 
 [[package]]
 name = "cipher"
-version = "0.5.0-pre.8"
+version = "0.5.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "276974d2acb7cf592603150941fc1ff6442acdeb1dc653ac2825928f4703c131"
+checksum = "bd4ef774202f1749465fc7cf88d70fc30620e8cacd5429268f4bff7d003bd976"
 dependencies = [
- "crypto-common 0.2.0-rc.2",
+ "crypto-common 0.2.0-rc.3",
  "inout 0.2.0-rc.4",
 ]
 
@@ -2090,9 +2101,9 @@ dependencies = [
 
 [[package]]
 name = "crypto-common"
-version = "0.2.0-rc.2"
+version = "0.2.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "170d71b5b14dec99db7739f6fc7d6ec2db80b78c3acb77db48392ccc3d8a9ea0"
+checksum = "8a23fa214dea9efd4dacee5a5614646b30216ae0f05d4bb51bafb50e9da1c5be"
 dependencies = [
  "hybrid-array",
 ]

@@ -81,7 +81,7 @@ jobs:
             echo "Check clippy with feature: $feature"
             for crate_path in crates/{execution,farmer,node,shared}/*; do
               # Not all crates have this feature
-              if ! grep --no-messages --quiet "^$feature = [" "$crate_path/Cargo.toml"; then
+              if ! grep --no-messages --quiet "^$feature = \[" "$crate_path/Cargo.toml"; then
                 continue
               fi
               crate="$(basename -- $crate_path)"
@@ -99,7 +99,7 @@ jobs:
           done
           for crate_path in crates/contracts/core/*; do
             # Not all crates have this feature
-            if ! grep --no-messages --quiet "^guest = [" "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet "^guest = \[" "$crate_path/Cargo.toml"; then
               continue
             fi
             crate="$(basename -- $crate_path)"
@@ -143,7 +143,7 @@ jobs:
         if: runner.os != 'Windows'
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@be7c31b6745feec79dec5eb79178466c0670bb2d # 2.47.0
+        uses: taiki-e/install-action@d12e869b89167df346dd0ff65da342d1fb1202fb # 2.53.2
         with:
           tool: cargo-nextest
 
@@ -157,7 +157,7 @@ jobs:
           for feature in alloc parallel scale-codec serde; do
             for crate_path in crates/{execution,farmer,node,shared}/*; do
               # Not all crates have this feature
-              if ! grep --no-messages --quiet "^$feature = [" "$crate_path/Cargo.toml"; then
+              if ! grep --no-messages --quiet "^$feature = \[" "$crate_path/Cargo.toml"; then
                 continue
               fi
               crate="$(basename -- $crate_path)"
@@ -183,7 +183,7 @@ jobs:
           done
           for create_path in crates/contracts/core/*; do
             # Not all crates have this feature
-            if ! grep --no-messages --quiet "^guest = [" "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet "^guest = \[" "$crate_path/Cargo.toml"; then
               continue
             fi
             crate="$(basename -- $create_path)"
@@ -222,9 +222,15 @@ jobs:
         if: runner.os != 'Windows'
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@be7c31b6745feec79dec5eb79178466c0670bb2d # 2.47.0
+        uses: taiki-e/install-action@d12e869b89167df346dd0ff65da342d1fb1202fb # 2.53.2
         with:
           tool: cargo-nextest
+
+      # TODO: This is a workaround for https://github.com/RustCrypto/stream-ciphers/issues/426
+      - name: Miri aarch64 workaround
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C target-feature=-neon" >> $GITHUB_ENV
+        if: matrix.os == 'ubuntu-24.04-arm' || matrix.os == 'macos-15'
 
       - name: cargo miri nextest run
         run: |
@@ -236,7 +242,7 @@ jobs:
           for feature in alloc parallel scale-codec serde; do
             for crate_path in crates/{execution,farmer,node,shared}/*; do
               # Not all crates have this feature
-              if ! grep --no-messages --quiet "^$feature = [" "$crate_path/Cargo.toml"; then
+              if ! grep --no-messages --quiet "^$feature = \[" "$crate_path/Cargo.toml"; then
                 continue
               fi
               crate="$(basename -- $crate_path)"
@@ -262,7 +268,7 @@ jobs:
           done
           for create_path in crates/contracts/core/*; do
             # Not all crates have this feature
-            if ! grep --no-messages --quiet "^guest = [" "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet "^guest = \[" "$crate_path/Cargo.toml"; then
               continue
             fi
             crate="$(basename -- $create_path)"
@@ -313,7 +319,7 @@ jobs:
           # Ensure no panics in various crates
           for crate_path in crates/{contracts/{core,example,system},execution,farmer,node,shared}/*; do
             # Not all crates have this feature yet
-            if ! grep --no-messages --quiet '^no-panic = [' "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet '^no-panic = \[' "$crate_path/Cargo.toml"; then
               continue
             fi
             crate="$(basename -- $crate_path)"
@@ -331,8 +337,8 @@ jobs:
           # Ensure no panics with `alloc` feature
           for crate_path in crates/{execution,farmer,node,shared}/*; do
             # Not all crates have this feature yet
-            if ! grep --no-messages --quiet '^no-panic = [' "$crate_path/Cargo.toml" || \
-               ! grep --no-messages --quiet '^alloc = [' "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet '^no-panic = \[' "$crate_path/Cargo.toml" || \
+               ! grep --no-messages --quiet '^alloc = \[' "$crate_path/Cargo.toml"; then
               continue
             fi
             crate="$(basename -- $crate_path)"
@@ -350,7 +356,7 @@ jobs:
           # Ensure no panics with `guest` feature
           for contract_path in crates/contracts/{example,system}/*; do
             # Not all contracts have this feature yet
-            if ! grep --no-messages --quiet '^no-panic = [' "$contract_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet '^no-panic = \[' "$contract_path/Cargo.toml"; then
               continue
             fi
             contract="$(basename -- $contract_path)"
@@ -359,8 +365,8 @@ jobs:
           done
           for contract_path in crates/contracts/core/*; do
             # Not all contracts have this feature yet
-            if ! grep --no-messages --quiet '^no-panic = [' "$crate_path/Cargo.toml" || \
-               ! grep --no-messages --quiet '^guest = [' "$crate_path/Cargo.toml"; then
+            if ! grep --no-messages --quiet '^no-panic = \[' "$crate_path/Cargo.toml" || \
+               ! grep --no-messages --quiet '^guest = \[' "$crate_path/Cargo.toml"; then
               continue
             fi
             contract="$(basename -- $contract_path)"

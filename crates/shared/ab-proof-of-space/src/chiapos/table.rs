@@ -13,8 +13,8 @@ use crate::chiapos::utils::EvaluatableUsize;
 use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use chacha20::cipher::{KeyIvInit, StreamCipher, StreamCipherSeek};
-use chacha20::{ChaCha8, Key, Nonce};
+use chacha20::cipher::{Iv, KeyIvInit, StreamCipher, StreamCipherSeek};
+use chacha20::{ChaCha8, Key};
 use core::array;
 use core::simd::Simd;
 use core::simd::num::SimdUint;
@@ -60,11 +60,11 @@ fn partial_ys<const K: u8>(seed: Seed) -> Vec<u8> {
     let mut output = vec![0; output_len_bits.div_ceil(u8::BITS as usize)];
 
     let key = Key::from(seed);
-    let nonce = Nonce::default();
+    let iv = Iv::<ChaCha8>::default();
 
-    let mut cipher = ChaCha8::new(&key, &nonce);
+    let mut cipher = ChaCha8::new(&key, &iv);
 
-    cipher.apply_keystream(&mut output);
+    cipher.write_keystream(&mut output);
 
     output
 }
@@ -83,12 +83,12 @@ pub(super) fn partial_y<const K: u8>(
     let mut output = [0; (K as usize * 2).div_ceil(u8::BITS as usize)];
 
     let key = Key::from(seed);
-    let nonce = Nonce::default();
+    let iv = Iv::<ChaCha8>::default();
 
-    let mut cipher = ChaCha8::new(&key, &nonce);
+    let mut cipher = ChaCha8::new(&key, &iv);
 
     cipher.seek(skip_bytes);
-    cipher.apply_keystream(&mut output);
+    cipher.write_keystream(&mut output);
 
     (output, skip_bits)
 }

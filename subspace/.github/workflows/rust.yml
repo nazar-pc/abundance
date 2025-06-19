@@ -270,7 +270,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@07a34f8347b1eeb5f5469cdfa451b0a5db2ae4e8 # 2.38.4
+        uses: taiki-e/install-action@d12e869b89167df346dd0ff65da342d1fb1202fb # 2.53.2
         with:
           tool: cargo-nextest
 
