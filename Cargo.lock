@@ -524,12 +524,12 @@ dependencies = [
 
 [[package]]
 name = "aes"
-version = "0.9.0-pre.3"
+version = "0.9.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38e4da00d9978020ddaa556c1747cfcafc3f375cfadb109acfe8b752cfc373bf"
+checksum = "cd4838e4ad37bb032dea137f441d5f71c16c26c068af512e64c5bc13a88cdfc7"
 dependencies = [
  "cfg-if",
- "cipher 0.5.0-pre.8",
+ "cipher",
  "cpufeatures",
 ]
 
@@ -696,15 +696,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "block-padding"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8894febbff9f758034a5b8e12d87918f56dfc64a8e1fe757d65e29041538d93"
-dependencies = [
- "generic-array",
-]
-
-[[package]]
 name = "byte-slice-cast"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -748,12 +739,12 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chacha20"
-version = "0.9.1"
+version = "0.10.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3613f74bd2eac03dad61bd53dbe620703d4371614fe0bc3b9f04dd36fe4e818"
+checksum = "6e057d7ab0331b90074df7ca698b3361860c20a1d8c8e28f49c01f526e3f3958"
 dependencies = [
  "cfg-if",
- "cipher 0.4.4",
+ "cipher",
  "cpufeatures",
 ]
 
@@ -786,22 +777,11 @@ dependencies = [
 
 [[package]]
 name = "cipher"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
+version = "0.5.0-rc.0"
+source = "git+https://github.com/RustCrypto/traits?rev=57aea511ffc6e8122ef4abced5135ea29473ef8d#57aea511ffc6e8122ef4abced5135ea29473ef8d"
 dependencies = [
- "crypto-common 0.1.6",
- "inout 0.1.4",
-]
-
-[[package]]
-name = "cipher"
-version = "0.5.0-pre.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "276974d2acb7cf592603150941fc1ff6442acdeb1dc653ac2825928f4703c131"
-dependencies = [
- "crypto-common 0.2.0-rc.2",
- "inout 0.2.0-rc.4",
+ "crypto-common 0.2.0-rc.3",
+ "inout",
 ]
 
 [[package]]
@@ -974,9 +954,8 @@ dependencies = [
 
 [[package]]
 name = "crypto-common"
-version = "0.2.0-rc.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "170d71b5b14dec99db7739f6fc7d6ec2db80b78c3acb77db48392ccc3d8a9ea0"
+version = "0.2.0-rc.3"
+source = "git+https://github.com/RustCrypto/traits?rev=57aea511ffc6e8122ef4abced5135ea29473ef8d#57aea511ffc6e8122ef4abced5135ea29473ef8d"
 dependencies = [
  "hybrid-array",
 ]
@@ -1373,16 +1352,6 @@ checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.2",
-]
-
-[[package]]
-name = "inout"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
-dependencies = [
- "block-padding",
- "generic-array",
 ]
 
 [[package]]

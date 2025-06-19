@@ -20,7 +20,7 @@ bench = false
 [dependencies]
 ab-core-primitives = { workspace = true }
 blake3 = { workspace = true }
-chacha20 = { workspace = true }
+chacha20 = { workspace = true, features = ["cipher"] }
 derive_more = { workspace = true, features = ["full"] }
 parking_lot = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
@@ -44,7 +44,6 @@ default = []
 alloc = []
 std = [
     "alloc",
-    "chacha20/std",
     "derive_more/std",
     # In no-std environment we use `spin`
     "parking_lot",
