@@ -226,6 +226,12 @@ jobs:
         with:
           tool: cargo-nextest
 
+      # TODO: This is a workaround for https://github.com/RustCrypto/stream-ciphers/issues/426
+      - name: Miri aarch64 workaround
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C target-feature=-neon" >> $GITHUB_ENV
+        if: matrix.os == 'ubuntu-24.04-arm' || matrix.os == 'macos-15'
+
       - name: cargo miri nextest run
         run: |
           cargo -Zgitoxide -Zgit miri nextest run
