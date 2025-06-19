@@ -19,8 +19,12 @@ ab-client-block-verification = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
+async-lock = { workspace = true }
+parking_lot = { workspace = true }
 send-future = { workspace = true }
+stable_deref_trait = { workspace = true }
 thiserror = { workspace = true }
+yoke = { workspace = true, features = ["derive"] }
 
 [lints]
 workspace = true
