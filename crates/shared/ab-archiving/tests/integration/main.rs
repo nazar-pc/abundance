@@ -1,4 +1,4 @@
-#![feature(assert_matches, generic_arg_infer)]
+#![feature(assert_matches)]
 
 #[cfg(not(miri))]
 mod archiver;

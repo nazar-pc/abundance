@@ -1,4 +1,4 @@
-#![feature(generic_arg_infer, ptr_as_ref_unchecked, unsafe_cell_access)]
+#![feature(ptr_as_ref_unchecked, unsafe_cell_access)]
 
 mod context;
 

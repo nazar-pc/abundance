@@ -1,5 +1,3 @@
-#![feature(generic_arg_infer)]
-
 pub mod beacon_chain;
 
 use ab_core_primitives::block::BlockRoot;

@@ -1,6 +1,5 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(generic_const_exprs)]
-#![feature(generic_arg_infer)]
 
 use ab_merkle_tree::hash_pair;
 use ab_merkle_tree::unbalanced_hashed::UnbalancedHashedMerkleTree;
