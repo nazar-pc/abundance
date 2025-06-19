@@ -462,9 +462,9 @@ where
             let best_beacon_chain_header = best_beacon_chain_header.header();
             let best_header = self.chain_info.best_header();
             let best_header = best_header.header();
-            let best_root = best_header.root();
+            let best_root = &*best_header.root();
 
-            self.on_new_slot(slot, checkpoints, &best_root, best_beacon_chain_header);
+            self.on_new_slot(slot, checkpoints, best_root, best_beacon_chain_header);
 
             if self.chain_sync_status.is_syncing() {
                 debug!(%slot, "Skipping proposal slot due to sync");
@@ -482,7 +482,7 @@ where
             let Some(block) = self
                 .produce_block(
                     slot_to_claim,
-                    &best_root,
+                    best_root,
                     best_header,
                     best_beacon_chain_header,
                 )
@@ -629,11 +629,10 @@ where
             }
         };
 
-        let header = block.header();
-        let header = header.header();
+        let header = block.header().header();
         info!(
             number = %header.prefix.number,
-            root = %header.root(),
+            root = %&*header.root(),
             "🔖 Built new block",
         );
 

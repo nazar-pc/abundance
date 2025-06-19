@@ -620,11 +620,13 @@ impl OwnedBlockHeader {
     #[inline]
     pub fn header(&self) -> BlockHeader<'_> {
         match self {
-            Self::BeaconChain(owned_header) => BlockHeader::BeaconChain(*owned_header.header()),
-            Self::IntermediateShard(owned_header) => {
-                BlockHeader::IntermediateShard(*owned_header.header())
+            Self::BeaconChain(owned_header) => {
+                BlockHeader::BeaconChain(owned_header.header().clone())
             }
-            Self::LeafShard(owned_header) => BlockHeader::LeafShard(*owned_header.header()),
+            Self::IntermediateShard(owned_header) => {
+                BlockHeader::IntermediateShard(owned_header.header().clone())
+            }
+            Self::LeafShard(owned_header) => BlockHeader::LeafShard(owned_header.header().clone()),
         }
     }
 }

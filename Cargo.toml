@@ -68,6 +68,7 @@ hex = { version = "0.4.3", default-features = false }
 ident_case = "1.0.1"
 libc = "0.2.174"
 no-panic = "0.1.35"
+once_cell = { version = "1.21.3", default-features = false }
 parity-scale-codec = { version = "3.7.5", default-features = false }
 parking_lot = "0.12.3"
 proc-macro2 = "1.0.95"

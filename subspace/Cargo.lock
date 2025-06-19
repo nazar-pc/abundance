@@ -71,6 +71,7 @@ dependencies = [
  "derive_more 2.0.1",
  "ed25519-zebra 4.0.3 (git+https://github.com/ZcashFoundation/ed25519-zebra?rev=dbb5610b818a6b54ebd347c27f8c8d3d6af89648)",
  "hex",
+ "once_cell",
  "parity-scale-codec",
  "rayon",
  "scale-info",

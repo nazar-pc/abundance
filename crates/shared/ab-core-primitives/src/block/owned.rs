@@ -38,10 +38,10 @@ pub trait GenericOwnedBlock {
         Self: 'a;
 
     /// Block header
-    fn header(&self) -> Self::Header;
+    fn header(&self) -> &Self::Header;
 
     /// Block body
-    fn body(&self) -> Self::Body;
+    fn body(&self) -> &Self::Body;
 
     /// Get regular block out of the owned version
     fn block(&self) -> Self::Block<'_>;
@@ -67,13 +67,13 @@ impl GenericOwnedBlock for OwnedBeaconChainBlock {
     type Block<'a> = BeaconChainBlock<'a>;
 
     #[inline(always)]
-    fn header(&self) -> Self::Header {
-        self.header.clone()
+    fn header(&self) -> &Self::Header {
+        &self.header
     }
 
     #[inline(always)]
-    fn body(&self) -> Self::Body {
-        self.body.clone()
+    fn body(&self) -> &Self::Body {
+        &self.body
     }
 
     #[inline(always)]
@@ -121,7 +121,7 @@ impl OwnedBeaconChainBlock {
     /// Get [`BeaconChainBlock`] out of [`OwnedBeaconChainBlock`]
     pub fn block(&self) -> BeaconChainBlock<'_> {
         BeaconChainBlock {
-            header: *self.header.header(),
+            header: self.header.header().clone(),
             body: *self.body.body(),
         }
     }
@@ -154,7 +154,7 @@ impl OwnedBeaconChainBlockBuilder {
                 .body()
                 .intermediate_shard_blocks()
                 .iter()
-                .map(|block| block.header.root())
+                .map(|block| *block.header.root())
                 .collect::<Vec<_>>(),
             consensus_parameters,
         )?;
@@ -219,13 +219,13 @@ impl GenericOwnedBlock for OwnedIntermediateShardBlock {
     type Block<'a> = IntermediateShardBlock<'a>;
 
     #[inline(always)]
-    fn header(&self) -> Self::Header {
-        self.header.clone()
+    fn header(&self) -> &Self::Header {
+        &self.header
     }
 
     #[inline(always)]
-    fn body(&self) -> Self::Body {
-        self.body.clone()
+    fn body(&self) -> &Self::Body {
+        &self.body
     }
 
     #[inline(always)]
@@ -268,7 +268,7 @@ impl OwnedIntermediateShardBlock {
     /// Get [`IntermediateShardBlock`] out of [`OwnedIntermediateShardBlock`]
     pub fn block(&self) -> IntermediateShardBlock<'_> {
         IntermediateShardBlock {
-            header: *self.header.header(),
+            header: self.header.header().clone(),
             body: *self.body.body(),
         }
     }
@@ -302,7 +302,7 @@ impl OwnedIntermediateShardBlockBuilder {
                 .body()
                 .leaf_shard_blocks()
                 .iter()
-                .map(|block| block.header.root())
+                .map(|block| *block.header.root())
                 .collect::<Vec<_>>(),
         )?;
 
@@ -355,13 +355,13 @@ impl GenericOwnedBlock for OwnedLeafShardBlock {
     type Block<'a> = LeafShardBlock<'a>;
 
     #[inline(always)]
-    fn header(&self) -> Self::Header {
-        self.header.clone()
+    fn header(&self) -> &Self::Header {
+        &self.header
     }
 
     #[inline(always)]
-    fn body(&self) -> Self::Body {
-        self.body.clone()
+    fn body(&self) -> &Self::Body {
+        &self.body
     }
 
     #[inline(always)]
@@ -402,7 +402,7 @@ impl OwnedLeafShardBlock {
     /// Get [`LeafShardBlock`] out of [`OwnedLeafShardBlock`]
     pub fn block(&self) -> LeafShardBlock<'_> {
         LeafShardBlock {
-            header: *self.header.header(),
+            header: self.header.header().clone(),
             body: *self.body.body(),
         }
     }
@@ -493,11 +493,11 @@ impl OwnedBlock {
     #[inline(always)]
     pub fn header(&self) -> BlockHeader<'_> {
         match self {
-            Self::BeaconChain(block) => BlockHeader::BeaconChain(*block.header.header()),
+            Self::BeaconChain(block) => BlockHeader::BeaconChain(block.header.header().clone()),
             Self::IntermediateShard(block) => {
-                BlockHeader::IntermediateShard(*block.header.header())
+                BlockHeader::IntermediateShard(block.header.header().clone())
             }
-            Self::LeafShard(block) => BlockHeader::LeafShard(*block.header.header()),
+            Self::LeafShard(block) => BlockHeader::LeafShard(block.header.header().clone()),
         }
     }
 

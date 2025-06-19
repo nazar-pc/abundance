@@ -68,7 +68,7 @@ where
 }
 
 /// Information about intermediate shard block
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct IntermediateShardBlockInfo<'a> {
     /// Block header that corresponds to an intermediate shard
     pub header: IntermediateShardHeader<'a>,
@@ -87,7 +87,7 @@ impl IntermediateShardBlockInfo<'_> {
         // TODO: Keyed hash
         const MAX_N: usize = 3;
         let leaves: [_; MAX_N] = [
-            **self.header.root(),
+            ***self.header.root(),
             *compute_segments_root(self.own_segment_roots),
             *compute_segments_root(self.child_segment_roots),
         ];
@@ -531,7 +531,7 @@ impl<'a> BeaconChainBody<'a> {
 }
 
 /// Information about leaf shard block
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct LeafShardBlockInfo<'a> {
     /// Block header that corresponds to an intermediate shard
     pub header: LeafShardHeader<'a>,
