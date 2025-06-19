@@ -48,7 +48,7 @@ backoff = { workspace = true, features = ["futures", "tokio"] }
 bitvec = { workspace = true }
 blake3 = { workspace = true, features = ["rayon"] }
 fs2 = { workspace = true }
-futures = { workspace = true, features = ["async-await", "std"] }
+futures = { workspace = true, features = ["std"] }
 libc = { workspace = true }
 parity-scale-codec = { workspace = true }
 parking_lot = { workspace = true }

@@ -62,7 +62,7 @@ derive_more = { version = "2.0.1", default-features = false }
 # TODO: Switch to offical 4.0.4+ is released with https://github.com/ZcashFoundation/ed25519-zebra/pull/174
 ed25519-zebra = { version = "4.0.3", git = "https://github.com/ZcashFoundation/ed25519-zebra", rev = "dbb5610b818a6b54ebd347c27f8c8d3d6af89648", default-features = false }
 fs2 = "0.4.3"
-futures = { version = "0.3.31", default-features = false }
+futures = { version = "0.3.31", default-features = false, features = ["async-await"] }
 halfbrown = "0.3.0"
 hex = { version = "0.4.3", default-features = false }
 ident_case = "1.0.1"
