@@ -1,10 +1,5 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
-#![feature(
-    generic_arg_infer,
-    generic_const_exprs,
-    maybe_uninit_slice,
-    new_zeroed_alloc
-)]
+#![feature(generic_const_exprs, maybe_uninit_slice, new_zeroed_alloc)]
 
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
 use ab_merkle_tree::unbalanced_hashed::UnbalancedHashedMerkleTree;

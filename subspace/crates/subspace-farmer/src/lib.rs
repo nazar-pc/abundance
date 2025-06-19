@@ -7,7 +7,6 @@
     exact_size_is_empty,
     fmt_helpers_for_derive,
     future_join,
-    generic_arg_infer,
     impl_trait_in_assoc_type,
     int_roundings,
     iter_collect_into,

@@ -1,5 +1,3 @@
-#![feature(generic_arg_infer)]
-
 pub mod consensus_parameters;
 
 use ab_core_primitives::block::BlockNumber;

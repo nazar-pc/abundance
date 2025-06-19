@@ -1643,8 +1643,7 @@ dependencies = [
 [[package]]
 name = "cipher"
 version = "0.5.0-rc.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd4ef774202f1749465fc7cf88d70fc30620e8cacd5429268f4bff7d003bd976"
+source = "git+https://github.com/RustCrypto/traits?rev=57aea511ffc6e8122ef4abced5135ea29473ef8d#57aea511ffc6e8122ef4abced5135ea29473ef8d"
 dependencies = [
  "crypto-common 0.2.0-rc.3",
  "inout 0.2.0-rc.4",
@@ -2102,8 +2101,7 @@ dependencies = [
 [[package]]
 name = "crypto-common"
 version = "0.2.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a23fa214dea9efd4dacee5a5614646b30216ae0f05d4bb51bafb50e9da1c5be"
+source = "git+https://github.com/RustCrypto/traits?rev=57aea511ffc6e8122ef4abced5135ea29473ef8d#57aea511ffc6e8122ef4abced5135ea29473ef8d"
 dependencies = [
  "hybrid-array",
 ]
@@ -6057,9 +6055,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.20.1"
+version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82881c4be219ab5faaf2ad5e5e5ecdff8c66bd7402ca3160975c93b24961afd1"
+checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 dependencies = [
  "critical-section",
  "portable-atomic",
@@ -7225,11 +7223,12 @@ dependencies = [
 
 [[package]]
 name = "reed-solomon-simd"
-version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab6badd4f4b9c93832eb3707431e8e7bea282fae96801312f0990d48b030f8c5"
+version = "3.1.0"
+source = "git+https://github.com/AndersTrier/reed-solomon-simd?rev=b745c5076109149e5c624d88c995c98ccc11f6bd#b745c5076109149e5c624d88c995c98ccc11f6bd"
 dependencies = [
+ "cpufeatures",
  "fixedbitset",
+ "once_cell",
  "readme-rustdocifier",
 ]
 
