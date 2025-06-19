@@ -1,6 +1,6 @@
 //! Core primitives for the protocol
 
-#![no_std]
+#![cfg_attr(target_os = "none", no_std)]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![feature(
     array_chunks,
@@ -33,7 +33,7 @@ pub mod shard;
 pub mod solutions;
 pub mod transaction;
 
-#[cfg(feature = "alloc")]
+#[cfg(any(feature = "alloc", not(target_os = "none")))]
 extern crate alloc;
 
 const _: () = {

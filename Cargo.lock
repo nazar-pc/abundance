@@ -214,6 +214,7 @@ dependencies = [
  "derive_more 2.0.1",
  "ed25519-zebra",
  "hex",
+ "once_cell",
  "parity-scale-codec",
  "rand_chacha 0.9.0",
  "rand_core 0.9.3",

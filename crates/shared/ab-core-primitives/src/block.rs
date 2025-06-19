@@ -219,7 +219,7 @@ impl BlockRoot {
 /// Generic block
 pub trait GenericBlock<'a>
 where
-    Self: Copy + fmt::Debug,
+    Self: Clone + fmt::Debug,
 {
     /// Block header type
     type Header: GenericBlockHeader<'a>;
@@ -243,7 +243,7 @@ where
 }
 
 /// Block that corresponds to the beacon chain
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 // Prevent creation of potentially broken invariants externally
 #[non_exhaustive]
 pub struct BeaconChainBlock<'a> {
@@ -296,7 +296,7 @@ impl<'a> BeaconChainBlock<'a> {
                 .iter()
                 .zip(self.body.intermediate_shard_blocks().iter())
                 .all(|(child_shard_block_root, intermediate_shard_block)| {
-                    child_shard_block_root == &intermediate_shard_block.header.root()
+                    child_shard_block_root == &*intermediate_shard_block.header.root()
                         && intermediate_shard_block
                             .header
                             .prefix
@@ -351,7 +351,7 @@ impl<'a> GenericBlock<'a> for BeaconChainBlock<'a> {
 }
 
 /// Block that corresponds to an intermediate shard
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 // Prevent creation of potentially broken invariants externally
 #[non_exhaustive]
 pub struct IntermediateShardBlock<'a> {
@@ -404,7 +404,7 @@ impl<'a> IntermediateShardBlock<'a> {
                 .iter()
                 .zip(self.body.leaf_shard_blocks().iter())
                 .all(|(child_shard_block_root, leaf_shard_block)| {
-                    child_shard_block_root == &leaf_shard_block.header.root()
+                    child_shard_block_root == &*leaf_shard_block.header.root()
                         && leaf_shard_block
                             .header
                             .prefix
@@ -459,7 +459,7 @@ impl<'a> GenericBlock<'a> for IntermediateShardBlock<'a> {
 }
 
 /// Block that corresponds to a leaf shard
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 // Prevent creation of potentially broken invariants externally
 #[non_exhaustive]
 pub struct LeafShardBlock<'a> {
@@ -556,7 +556,7 @@ impl<'a> GenericBlock<'a> for LeafShardBlock<'a> {
 ///
 /// [`BlockHeader`]: crate::block::header::BlockHeader
 /// [`BlockBody`]: crate::block::body::BlockBody
-#[derive(Debug, Copy, Clone, From)]
+#[derive(Debug, Clone, From)]
 pub enum Block<'a> {
     /// Block corresponds to the beacon chain
     BeaconChain(BeaconChainBlock<'a>),
