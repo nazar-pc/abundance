@@ -1,5 +1,5 @@
 use crate::hash_pair;
-use crate::unbalanced_hashed::UnbalancedHashedMerkleTree;
+use crate::unbalanced::UnbalancedMerkleTree;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
@@ -34,10 +34,10 @@ where
 
 /// Merkle Mountain Range variant that has pre-hashed leaves with arbitrary number of elements.
 ///
-/// This can be considered a general case of [`UnbalancedHashedMerkleTree`]. The root and proofs are
-/// identical for both. [`UnbalancedHashedMerkleTree`] is more efficient and should be preferred
-/// when possible, while this data structure is designed for aggregating data incrementally over
-/// long periods of time.
+/// This can be considered a general case of [`UnbalancedMerkleTree`]. The root and proofs are
+/// identical for both. [`UnbalancedMerkleTree`] is more efficient and should be preferred when
+/// possible, while this data structure is designed for aggregating data incrementally over long
+/// periods of time.
 ///
 /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
 /// usage.
@@ -409,6 +409,6 @@ where
         leaf: [u8; OUT_LEN],
         num_leaves: u64,
     ) -> bool {
-        UnbalancedHashedMerkleTree::verify(root, proof, leaf_index, leaf, num_leaves)
+        UnbalancedMerkleTree::verify(root, proof, leaf_index, leaf, num_leaves)
     }
 }

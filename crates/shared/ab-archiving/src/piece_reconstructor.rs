@@ -1,7 +1,7 @@
 use ab_core_primitives::pieces::{Piece, Record};
 use ab_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
-use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
+use ab_merkle_tree::balanced::BalancedMerkleTree;
 use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -104,17 +104,16 @@ impl PiecesReconstructor {
                             .extend(piece.record().iter(), parity_chunks.iter_mut())?;
 
                         let source_chunks_root =
-                            BalancedHashedMerkleTree::compute_root_only(piece.record());
+                            BalancedMerkleTree::compute_root_only(piece.record());
 
                         let parity_chunks_root =
-                            BalancedHashedMerkleTree::compute_root_only(&parity_chunks);
+                            BalancedMerkleTree::compute_root_only(&parity_chunks);
 
                         [source_chunks_root, parity_chunks_root]
                     };
 
                     let record_root =
-                        BalancedHashedMerkleTree::new(&[source_chunks_root, parity_chunks_root])
-                            .root();
+                        BalancedMerkleTree::new(&[source_chunks_root, parity_chunks_root]).root();
 
                     (record_root, parity_chunks_root)
                 };
@@ -130,7 +129,7 @@ impl PiecesReconstructor {
         };
 
         let segment_merkle_tree =
-            BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES }>::new_boxed(
+            BalancedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES }>::new_boxed(
                 record_roots
                     .as_slice()
                     .try_into()

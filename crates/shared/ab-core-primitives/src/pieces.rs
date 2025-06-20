@@ -15,7 +15,7 @@ use crate::segments::{RecordedHistorySegment, SegmentIndex, SegmentRoot};
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use ab_io_type::trivial_type::TrivialType;
-use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
+use ab_merkle_tree::balanced::BalancedMerkleTree;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
@@ -630,7 +630,7 @@ impl RecordRoot {
         record_proof: &RecordProof,
         position: u32,
     ) -> bool {
-        BalancedHashedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
+        BalancedMerkleTree::<{ RecordedHistorySegment::NUM_PIECES }>::verify(
             segment_root,
             record_proof,
             position as usize,
@@ -1008,8 +1008,8 @@ impl PieceArray {
     pub fn is_valid(&self, segment_root: &SegmentRoot, position: u32) -> bool {
         let (record, &record_root, parity_chunks_root, record_proof) = self.split();
 
-        let source_record_merkle_tree_root = BalancedHashedMerkleTree::compute_root_only(record);
-        let record_merkle_tree_root = BalancedHashedMerkleTree::compute_root_only(&[
+        let source_record_merkle_tree_root = BalancedMerkleTree::compute_root_only(record);
+        let record_merkle_tree_root = BalancedMerkleTree::compute_root_only(&[
             source_record_merkle_tree_root,
             **parity_chunks_root,
         ]);

@@ -2,12 +2,12 @@
 //!
 //! This crate contains several Merkle Tree implementations that are a subset of each other.
 //!
-//! Currently [`BalancedHashedMerkleTree`] and [`UnbalancedHashedMerkleTree`] are available, with
-//! [`BalancedHashedMerkleTree`] being an optimized special case of [`UnbalancedHashedMerkleTree`]
-//! and both return the same results for identical inputs.
+//! Currently [`BalancedMerkleTree`] and [`UnbalancedMerkleTree`] are available, with
+//! [`BalancedMerkleTree`] being an optimized special case of [`UnbalancedMerkleTree`] and both
+//! return the same results for identical inputs.
 //!
-//! [`BalancedHashedMerkleTree`]: balanced_hashed::BalancedHashedMerkleTree
-//! [`UnbalancedHashedMerkleTree`]: unbalanced_hashed::UnbalancedHashedMerkleTree
+//! [`BalancedMerkleTree`]: balanced::BalancedMerkleTree
+//! [`UnbalancedMerkleTree`]: unbalanced::UnbalancedMerkleTree
 
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
@@ -22,9 +22,9 @@
 
 // TODO: Consider domains-specific internal node separator and inclusion of tree size into hashing
 //  key
-pub mod balanced_hashed;
+pub mod balanced;
 pub mod mmr;
-pub mod unbalanced_hashed;
+pub mod unbalanced;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;

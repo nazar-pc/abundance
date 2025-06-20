@@ -8,7 +8,7 @@ use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
 use ab_io_type::trivial_type::TrivialType;
-use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
+use ab_merkle_tree::balanced::BalancedMerkleTree;
 use blake3::OUT_LEN;
 use core::fmt;
 use core::simd::Simd;
@@ -530,7 +530,7 @@ impl Solution {
             assert!(Record::NUM_S_BUCKETS == 65536);
         };
         // Check that chunk belongs to the record
-        if !BalancedHashedMerkleTree::<65536>::verify(
+        if !BalancedMerkleTree::<65536>::verify(
             &self.record_root,
             &self.chunk_proof,
             usize::from(s_bucket_audit_index),

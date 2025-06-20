@@ -7,7 +7,7 @@ use ab_core_primitives::segments::{
     SegmentHeader, SegmentIndex, SegmentRoot,
 };
 use ab_erasure_coding::ErasureCoding;
-use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
+use ab_merkle_tree::balanced::BalancedMerkleTree;
 use alloc::collections::VecDeque;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -688,15 +688,13 @@ impl Archiver {
                             input; qed",
                         );
 
-                    let source_chunks_root =
-                        BalancedHashedMerkleTree::compute_root_only(piece.record());
-                    let parity_chunks_root =
-                        BalancedHashedMerkleTree::compute_root_only(&parity_chunks);
+                    let source_chunks_root = BalancedMerkleTree::compute_root_only(piece.record());
+                    let parity_chunks_root = BalancedMerkleTree::compute_root_only(&parity_chunks);
 
                     [source_chunks_root, parity_chunks_root]
                 };
 
-                let record_root = BalancedHashedMerkleTree::compute_root_only(&[
+                let record_root = BalancedMerkleTree::compute_root_only(&[
                     source_chunks_root,
                     parity_chunks_root,
                 ]);
@@ -713,7 +711,7 @@ impl Archiver {
         };
 
         let segment_merkle_tree =
-            BalancedHashedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES }>::new_boxed(
+            BalancedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES }>::new_boxed(
                 record_roots
                     .as_slice()
                     .try_into()

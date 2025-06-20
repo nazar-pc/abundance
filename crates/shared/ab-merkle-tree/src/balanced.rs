@@ -9,13 +9,13 @@ use core::mem::MaybeUninit;
 /// Merkle Tree variant that has hash-sized leaves and is fully balanced according to configured
 /// generic parameter.
 ///
-/// This can be considered a general case of [`UnbalancedHashedMerkleTree`]. The root and proofs are
+/// This can be considered a general case of [`UnbalancedMerkleTree`]. The root and proofs are
 /// identical for both in case the number of leaves is a power of two. For the number of leaves that
-/// is a power of two [`UnbalancedHashedMerkleTree`] is useful when a single proof needs to be
-/// generated and the number of leaves is very large (it can generate proofs with very little RAM
-/// usage compared to this version).
+/// is a power of two [`UnbalancedMerkleTree`] is useful when a single proof needs to be generated
+/// and the number of leaves is very large (it can generate proofs with very little RAM usage
+/// compared to this version).
 ///
-/// [`UnbalancedHashedMerkleTree`]: crate::unbalanced_hashed::UnbalancedHashedMerkleTree
+/// [`UnbalancedMerkleTree`]: crate::unbalanced::UnbalancedMerkleTree
 ///
 /// This Merkle Tree implementation is best suited for use cases when proofs for all (or most) of
 /// the elements need to be generated and the whole tree easily fits into memory. It can also be
@@ -24,7 +24,7 @@ use core::mem::MaybeUninit;
 /// With all parameters of the tree known statically, it results in the most efficient version of
 /// the code being generated for a given set of parameters.
 #[derive(Debug)]
-pub struct BalancedHashedMerkleTree<'a, const N: usize>
+pub struct BalancedMerkleTree<'a, const N: usize>
 where
     [(); N - 1]:,
 {
@@ -35,7 +35,7 @@ where
 
 // TODO: Optimize by implementing SIMD-accelerated hashing of multiple values:
 //  https://github.com/BLAKE3-team/BLAKE3/issues/478
-impl<'a, const N: usize> BalancedHashedMerkleTree<'a, N>
+impl<'a, const N: usize> BalancedMerkleTree<'a, N>
 where
     [(); N - 1]:,
 {

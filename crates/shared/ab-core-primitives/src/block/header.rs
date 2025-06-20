@@ -16,7 +16,7 @@ use crate::segments::SuperSegmentRoot;
 use crate::shard::{ShardIndex, ShardKind};
 use crate::solutions::{Solution, SolutionRange};
 use ab_io_type::trivial_type::TrivialType;
-use ab_merkle_tree::unbalanced_hashed::UnbalancedHashedMerkleTree;
+use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use core::num::NonZeroU32;
 use core::ops::Deref;
 use core::{fmt, slice};
@@ -495,7 +495,7 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
     ///
     /// `None` is returned if there are no child shard blocks.
     pub fn root(&self) -> Option<Blake3Hash> {
-        let root = UnbalancedHashedMerkleTree::compute_root_only::<'_, { u32::MAX as u64 }, _, _>(
+        let root = UnbalancedMerkleTree::compute_root_only::<'_, { u32::MAX as u64 }, _, _>(
             // TODO: Keyed hash
             self.child_shard_blocks
                 .iter()
@@ -940,7 +940,7 @@ impl<'a> BeaconChainHeader<'a> {
                 consensus_parameters.hash(),
             ];
             let block_root =
-                UnbalancedHashedMerkleTree::compute_root_only::<{ MAX_N as u64 }, _, _>(leaves)
+                UnbalancedMerkleTree::compute_root_only::<{ MAX_N as u64 }, _, _>(leaves)
                     .expect("The list is not empty; qed");
 
             BlockRoot::new(Blake3Hash::new(block_root))
@@ -1226,7 +1226,7 @@ impl<'a> IntermediateShardHeader<'a> {
                 child_shard_blocks.root().unwrap_or_default(),
             ];
             let block_root =
-                UnbalancedHashedMerkleTree::compute_root_only::<{ MAX_N as u64 }, _, _>(leaves)
+                UnbalancedMerkleTree::compute_root_only::<{ MAX_N as u64 }, _, _>(leaves)
                     .expect("The list is not empty; qed");
 
             BlockRoot::new(Blake3Hash::new(block_root))
@@ -1490,7 +1490,7 @@ impl<'a> LeafShardHeader<'a> {
                 beacon_chain_info.hash(),
             ];
             let block_root =
-                UnbalancedHashedMerkleTree::compute_root_only::<{ MAX_N as u64 }, _, _>(leaves)
+                UnbalancedMerkleTree::compute_root_only::<{ MAX_N as u64 }, _, _>(leaves)
                     .expect("The list is not empty; qed");
 
             BlockRoot::new(Blake3Hash::new(block_root))

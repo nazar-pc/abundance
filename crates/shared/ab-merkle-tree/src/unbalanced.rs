@@ -8,11 +8,11 @@ use core::mem::MaybeUninit;
 
 /// Merkle Tree variant that has pre-hashed leaves with arbitrary number of elements.
 ///
-/// This can be considered a general case of [`BalancedHashedMerkleTree`]. The root and proofs are
-/// identical for both in case the number of leaves is a power of two. [`BalancedHashedMerkleTree`]
-/// is more efficient and should be preferred when possible.
+/// This can be considered a general case of [`BalancedMerkleTree`]. The root and proofs are
+/// identical for both in case the number of leaves is a power of two. [`BalancedMerkleTree`] is
+/// more efficient and should be preferred when possible.
 ///
-/// [`BalancedHashedMerkleTree`]: crate::balanced_hashed::BalancedHashedMerkleTree
+/// [`BalancedMerkleTree`]: crate::balanced::BalancedMerkleTree
 ///
 /// The unbalanced tree is not padded, it is created the same way Merkle Mountain Range would be:
 /// ```text
@@ -25,14 +25,14 @@ use core::mem::MaybeUninit;
 /// L0  L1   L2  L3   L4  L5    L6
 /// ```
 #[derive(Debug)]
-pub struct UnbalancedHashedMerkleTree;
+pub struct UnbalancedMerkleTree;
 
 // TODO: Optimize by implementing SIMD-accelerated hashing of multiple values:
 //  https://github.com/BLAKE3-team/BLAKE3/issues/478
 // TODO: Experiment with replacing a single pass with splitting the whole data set with a sequence
 //  of power-of-two elements that can be processed in parallel and do it recursively until a single
 //  element is left. This can be done for both root creation and proof generation.
-impl UnbalancedHashedMerkleTree {
+impl UnbalancedMerkleTree {
     /// Compute Merkle Tree Root.
     ///
     /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack

@@ -18,7 +18,7 @@ use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SBucket, SectorId};
 use ab_core_primitives::solutions::{ChunkProof, Solution, SolutionDistance};
 use ab_erasure_coding::ErasureCoding;
-use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
+use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_proof_of_space::Table;
 use futures::FutureExt;
 use std::collections::VecDeque;
@@ -250,7 +250,7 @@ where
             const _: () = {
                 assert!(Record::NUM_S_BUCKETS == 65536);
             };
-            let record_merkle_tree = BalancedHashedMerkleTree::<65536>::new_boxed(
+            let record_merkle_tree = BalancedMerkleTree::<65536>::new_boxed(
                 RecordChunk::slice_to_repr(chunks.as_slice())
                     .try_into()
                     .expect("Statically guaranteed to have correct length; qed"),
