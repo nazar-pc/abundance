@@ -1711,9 +1711,9 @@ impl<'a> BlockHeader<'a> {
             #[inline(always)]
             fn deref(&self) -> &Self::Target {
                 match self {
-                    Wrapper::BeaconChain(root_block) => root_block,
-                    Wrapper::IntermediateShard(root_block) => root_block,
-                    Wrapper::LeafShard(root_block) => root_block,
+                    Wrapper::BeaconChain(block_root) => block_root,
+                    Wrapper::IntermediateShard(block_root) => block_root,
+                    Wrapper::LeafShard(block_root) => block_root,
                 }
             }
         }
