@@ -80,9 +80,9 @@ where
     /// Create a new instance from previously collected peaks.
     ///
     /// Returns `None` if input is invalid.
-    #[inline(always)]
+    #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn from_peaks(peaks: MmrPeaks<MAX_N>) -> Option<Self> {
+    pub fn from_peaks(peaks: &MmrPeaks<MAX_N>) -> Option<Self> {
         let mut result = Self {
             num_leaves: peaks.num_leaves,
             stack: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
