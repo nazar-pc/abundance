@@ -1,12 +1,15 @@
-//! Merkle Tree implementations.
+//! Merkle Tree and related data structures.
 //!
-//! This crate contains several Merkle Tree implementations that are a subset of each other.
+//! This crate contains several Merkle Tree implementations and related data structures, many of
+//! which are a subset of each other.
 //!
-//! Currently [`BalancedMerkleTree`] and [`UnbalancedMerkleTree`] are available, with
-//! [`BalancedMerkleTree`] being an optimized special case of [`UnbalancedMerkleTree`] and both
-//! return the same results for identical inputs.
+//! Currently [`BalancedMerkleTree`], [`UnbalancedMerkleTree`] and [`MerkleMountainRange`] are
+//! available. [`BalancedMerkleTree`] is an optimized special case of [`UnbalancedMerkleTree`],
+//! which is in turn an optimized version of [`MerkleMountainRange`] and all 3 will return the same
+//! results for identical inputs.
 //!
 //! [`BalancedMerkleTree`]: balanced::BalancedMerkleTree
+//! [`MerkleMountainRange`]: mmr::MerkleMountainRange
 //! [`UnbalancedMerkleTree`]: unbalanced::UnbalancedMerkleTree
 
 #![expect(incomplete_features, reason = "generic_const_exprs")]
