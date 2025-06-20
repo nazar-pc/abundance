@@ -1,8 +1,8 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(generic_const_exprs, maybe_uninit_slice, new_zeroed_alloc)]
 
-use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
-use ab_merkle_tree::unbalanced_hashed::UnbalancedHashedMerkleTree;
+use ab_merkle_tree::balanced::BalancedMerkleTree;
+use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use std::mem::MaybeUninit;
@@ -26,6 +26,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     unbalanced::<256, 256>(c);
     unbalanced::<32768, 32768>(c);
     unbalanced::<65536, 65536>(c);
+
+    // TODO: MMR benches
 }
 
 fn balanced<const N: usize>(c: &mut Criterion)
@@ -42,18 +44,16 @@ where
 
     c.bench_function(&format!("{N}/balanced/new"), |b| {
         b.iter(|| {
-            BalancedHashedMerkleTree::new_in(black_box(&mut instance), black_box(&input));
+            BalancedMerkleTree::new_in(black_box(&mut instance), black_box(&input));
         })
     });
     c.bench_function(&format!("{N}/balanced/compute-root-only"), |b| {
         b.iter(|| {
-            black_box(BalancedHashedMerkleTree::compute_root_only(black_box(
-                &input,
-            )));
+            black_box(BalancedMerkleTree::compute_root_only(black_box(&input)));
         })
     });
 
-    let tree = &*BalancedHashedMerkleTree::new_in(black_box(&mut instance), black_box(&input));
+    let tree = &*BalancedMerkleTree::new_in(black_box(&mut instance), black_box(&input));
 
     c.bench_function(&format!("{N}/balanced/all-proofs"), |b| {
         b.iter(|| {
@@ -67,7 +67,7 @@ where
     c.bench_function(&format!("{N}/balanced/verify"), |b| {
         b.iter(|| {
             for (index, proof) in all_proofs.iter().enumerate() {
-                black_box(BalancedHashedMerkleTree::<N>::verify(
+                black_box(BalancedMerkleTree::<N>::verify(
                     black_box(&root),
                     black_box(proof),
                     black_box(index),
@@ -89,7 +89,7 @@ where
 
     c.bench_function(&format!("{MAX_N}/unbalanced/compute-root-only"), |b| {
         b.iter(|| {
-            black_box(UnbalancedHashedMerkleTree::compute_root_only(black_box(
+            black_box(UnbalancedMerkleTree::compute_root_only(black_box(
                 input.iter().copied(),
             )));
         })
@@ -103,7 +103,7 @@ where
                 let mut proof = [MaybeUninit::uninit(); _];
 
                 for &i in &indices {
-                    black_box(UnbalancedHashedMerkleTree::compute_root_and_proof_in(
+                    black_box(UnbalancedMerkleTree::compute_root_and_proof_in(
                         black_box(input.iter().copied()),
                         black_box(i),
                         black_box(&mut proof),
@@ -112,13 +112,13 @@ where
             })
         });
 
-        let root = UnbalancedHashedMerkleTree::compute_root_only(input.iter().copied()).unwrap();
+        let root = UnbalancedMerkleTree::compute_root_only(input.iter().copied()).unwrap();
         let mut proofs = Vec::new();
 
         for &i in &indices {
             let mut proof = Box::new([MaybeUninit::uninit(); _]);
 
-            let proof = UnbalancedHashedMerkleTree::compute_root_and_proof_in(
+            let proof = UnbalancedMerkleTree::compute_root_and_proof_in(
                 input.iter().copied(),
                 i,
                 &mut proof,
@@ -133,7 +133,7 @@ where
         c.bench_function(&format!("{MAX_N}/unbalanced/verify"), |b| {
             b.iter(|| {
                 for (&index, proof) in indices.iter().zip(&proofs) {
-                    black_box(UnbalancedHashedMerkleTree::verify(
+                    black_box(UnbalancedMerkleTree::verify(
                         black_box(&root),
                         black_box(proof),
                         black_box(index as u64),
@@ -153,11 +153,9 @@ where
             &format!("{reduced_n}({MAX_N})/unbalanced/compute-root-only"),
             |b| {
                 b.iter(|| {
-                    black_box(UnbalancedHashedMerkleTree::compute_root_only::<
-                        MAX_N_U64,
-                        _,
-                        _,
-                    >(black_box(input.iter().copied())));
+                    black_box(UnbalancedMerkleTree::compute_root_only::<MAX_N_U64, _, _>(
+                        black_box(input.iter().copied()),
+                    ));
                 })
             },
         );
@@ -169,7 +167,7 @@ where
                     let mut proof = [MaybeUninit::uninit(); _];
 
                     for i in (0..input.len()).step_by(100) {
-                        black_box(UnbalancedHashedMerkleTree::compute_root_and_proof_in(
+                        black_box(UnbalancedMerkleTree::compute_root_and_proof_in(
                             black_box(input.iter().copied()),
                             black_box(i),
                             black_box(&mut proof),

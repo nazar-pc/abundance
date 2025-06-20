@@ -1,6 +1,6 @@
 [package]
 name = "ab-merkle-tree"
-description = ""
+description = "Merkle Tree and related data structures"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
