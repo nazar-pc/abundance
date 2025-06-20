@@ -77,25 +77,27 @@ impl UnbalancedHashedMerkleTree {
             return None;
         }
 
+        let mut stack_bits = num_leaves;
+
         {
-            let lowest_active_level = num_leaves.trailing_zeros() as usize;
+            let lowest_active_level = stack_bits.trailing_zeros() as usize;
             // Reuse `stack[0]` for resulting value
             // SAFETY: Active level must have been set successfully before, hence it exists
             stack[0] = *unsafe { stack.get_unchecked(lowest_active_level) };
             // Clear lowest active level
-            num_leaves &= !(1 << lowest_active_level);
+            stack_bits &= !(1 << lowest_active_level);
         }
 
         // Hash remaining peaks (if any) of the potentially unbalanced tree together
         loop {
-            let lowest_active_level = num_leaves.trailing_zeros() as usize;
+            let lowest_active_level = stack_bits.trailing_zeros() as usize;
 
             if lowest_active_level == u64::BITS as usize {
                 break;
             }
 
             // Clear lowest active level for next iteration
-            num_leaves &= !(1 << lowest_active_level);
+            stack_bits &= !(1 << lowest_active_level);
 
             // SAFETY: Active level must have been set successfully before, hence it exists
             let lowest_active_level_item = unsafe { stack.get_unchecked(lowest_active_level) };
@@ -256,27 +258,29 @@ impl UnbalancedHashedMerkleTree {
             return None;
         };
 
+        let mut stack_bits = num_leaves;
+
         {
-            let lowest_active_level = num_leaves.trailing_zeros() as usize;
+            let lowest_active_level = stack_bits.trailing_zeros() as usize;
             // Reuse `stack[0]` for resulting value
             // SAFETY: Active level must have been set successfully before, hence it exists
             stack[0] = *unsafe { stack.get_unchecked(lowest_active_level) };
             // Clear lowest active level
-            num_leaves &= !(1 << lowest_active_level);
+            stack_bits &= !(1 << lowest_active_level);
         }
 
         // Hash remaining peaks (if any) of the potentially unbalanced tree together and collect
         // proof hashes
         let mut merged_peaks = false;
         loop {
-            let lowest_active_level = num_leaves.trailing_zeros() as usize;
+            let lowest_active_level = stack_bits.trailing_zeros() as usize;
 
             if lowest_active_level == u64::BITS as usize {
                 break;
             }
 
             // Clear lowest active level for next iteration
-            num_leaves &= !(1 << lowest_active_level);
+            stack_bits &= !(1 << lowest_active_level);
 
             // SAFETY: Active level must have been set successfully before, hence it exists
             let lowest_active_level_item = unsafe { stack.get_unchecked(lowest_active_level) };

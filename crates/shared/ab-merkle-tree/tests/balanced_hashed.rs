@@ -2,6 +2,7 @@
 #![feature(generic_const_exprs)]
 
 use ab_merkle_tree::balanced_hashed::BalancedHashedMerkleTree;
+use ab_merkle_tree::mmr::MerkleMountainRange;
 use ab_merkle_tree::unbalanced_hashed::UnbalancedHashedMerkleTree;
 use blake3::OUT_LEN;
 use rand_chacha::ChaCha8Rng;
@@ -38,6 +39,13 @@ fn mt_balanced_32_leaves() {
     test_basic::<32, 32>();
 }
 
+#[test]
+#[cfg(not(feature = "no-panic"))]
+#[cfg_attr(miri, ignore)]
+fn mt_balanced_64_leaves() {
+    test_basic::<64, 64>();
+}
+
 fn test_basic<const N: usize, const N_U64: u64>()
 where
     [(); N - 1]:,
@@ -67,6 +75,11 @@ where
             .unwrap(),
         root
     );
+    {
+        let mut mmr = MerkleMountainRange::<N_U64>::new();
+        assert!(mmr.add_leaves(leaves.iter().copied()));
+        assert_eq!(mmr.root().unwrap(), root);
+    }
 
     let random_hash = {
         let mut hash = [0u8; OUT_LEN];
@@ -89,6 +102,13 @@ where
         N
     );
 
+    let mut mmr = MerkleMountainRange::<N_U64>::new();
+    assert_eq!(
+        mmr.peaks(),
+        MerkleMountainRange::from_peaks(mmr.peaks())
+            .unwrap()
+            .peaks()
+    );
     let proof_buffer = &mut [MaybeUninit::uninit(); _];
 
     for (leaf_index, (proof, leaf)) in tree.all_proofs().zip(leaves).enumerate() {
@@ -191,5 +211,195 @@ where
             ),
             "N {N} leaf_index {leaf_index}"
         );
+
+        // Ensure MMR implementation produces the same proofs and can verify them successfully
+        let mmr_before = mmr;
+
+        // Add leafs individually with proof generation
+        let (expected_mmr_root, expected_mmr_proof) = mmr
+            .add_leaf_and_compute_proof_in(&leaf, proof_buffer)
+            .unwrap();
+        assert_eq!(
+            mmr.peaks(),
+            MerkleMountainRange::from_peaks(mmr.peaks())
+                .unwrap()
+                .peaks(),
+            "N {N} leaf_index {leaf_index}"
+        );
+        assert_eq!(
+            mmr.num_leaves(),
+            leaf_index as u64 + 1,
+            "N {N} leaf_index {leaf_index}"
+        );
+        assert_eq!(
+            mmr.root().unwrap(),
+            expected_mmr_root,
+            "N {N} leaf_index {leaf_index}"
+        );
+        assert!(
+            UnbalancedHashedMerkleTree::verify(
+                &expected_mmr_root,
+                expected_mmr_proof,
+                leaf_index as u64,
+                leaf,
+                leaf_index as u64 + 1
+            ),
+            "N {N} leaf_index {leaf_index}"
+        );
+        assert!(
+            MerkleMountainRange::verify(
+                &expected_mmr_root,
+                expected_mmr_proof,
+                leaf_index as u64,
+                leaf,
+                leaf_index as u64 + 1
+            ),
+            "N {N} leaf_index {leaf_index}"
+        );
+
+        // Add leafs individually without proof generation
+        {
+            let mut mmr = mmr_before;
+            assert!(mmr.add_leaf(&leaf));
+            assert_eq!(
+                mmr.num_leaves(),
+                leaf_index as u64 + 1,
+                "N {N} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                mmr.root().unwrap(),
+                expected_mmr_root,
+                "N {N} leaf_index {leaf_index}"
+            );
+        }
+
+        // Add leafs individually with proof generation and `alloc`
+        #[cfg(feature = "alloc")]
+        {
+            let mut mmr = mmr_before;
+            let (mmr_root, mmr_proof) = mmr.add_leaf_and_compute_proof(&leaf).unwrap();
+            assert_eq!(
+                mmr.num_leaves(),
+                leaf_index as u64 + 1,
+                "N {N} leaf_index {leaf_index}"
+            );
+            assert_eq!(mmr_root, expected_mmr_root, "N {N} leaf_index {leaf_index}");
+            assert_eq!(
+                mmr_proof.as_slice(),
+                expected_mmr_proof,
+                "N {N} leaf_index {leaf_index}"
+            );
+        }
+
+        // Add leaves in bulk without proof generation
+        {
+            let mut mmr = MerkleMountainRange::new();
+            assert!(mmr.add_leaves(leaves.iter().copied().take(leaf_index + 1)));
+            assert_eq!(
+                mmr.num_leaves(),
+                leaf_index as u64 + 1,
+                "N {N} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                mmr.root().unwrap(),
+                expected_mmr_root,
+                "N {N} leaf_index {leaf_index}"
+            );
+        }
+
+        // Add leaves after incremental in bulk without proof generation
+        {
+            // Add all but last incrementally, then the last in bulk
+            {
+                let mut mmr = MerkleMountainRange::new();
+                for leaf in leaves.iter().take(leaf_index) {
+                    assert!(mmr.add_leaf(leaf), "N {N} leaf_index {leaf_index}");
+                }
+                assert!(mmr.add_leaves(leaves.iter().copied().skip(leaf_index).take(1)));
+                assert_eq!(
+                    mmr.num_leaves(),
+                    leaf_index as u64 + 1,
+                    "N {N} leaf_index {leaf_index}"
+                );
+                assert_eq!(
+                    mmr.root().unwrap(),
+                    expected_mmr_root,
+                    "N {N} leaf_index {leaf_index}"
+                );
+            }
+            // Add one incrementally, then the rest in bulk
+            {
+                let mut mmr = MerkleMountainRange::new();
+                for leaf in leaves.iter().take(1) {
+                    assert!(mmr.add_leaf(leaf), "N {N} leaf_index {leaf_index}");
+                }
+                assert!(mmr.add_leaves(leaves.iter().copied().skip(1).take(leaf_index)));
+                assert_eq!(
+                    mmr.num_leaves(),
+                    leaf_index as u64 + 1,
+                    "N {N} leaf_index {leaf_index}"
+                );
+                assert_eq!(
+                    mmr.root().unwrap(),
+                    expected_mmr_root,
+                    "N {N} leaf_index {leaf_index}"
+                );
+            }
+        }
+
+        assert!(
+            MerkleMountainRange::verify(&root, &proof, leaf_index as u64, leaf, N_U64),
+            "N {N} leaf_index {leaf_index}"
+        );
+        // Proof is empty for a single leaf and will never fail
+        if N > 1 {
+            assert!(
+                !MerkleMountainRange::verify(
+                    &root,
+                    &random_proof,
+                    leaf_index as u64,
+                    leaf,
+                    leaf_index as u64 + 1
+                ),
+                "N {N} leaf_index {leaf_index}"
+            );
+        }
+        if let Some(bad_leaf_index) = leaf_index.checked_sub(1) {
+            assert!(
+                !MerkleMountainRange::verify(
+                    &root,
+                    &proof,
+                    bad_leaf_index as u64,
+                    leaf,
+                    leaf_index as u64 + 1
+                ),
+                "N {N} leaf_index {leaf_index}"
+            );
+        }
+        assert!(
+            !MerkleMountainRange::verify(
+                &root,
+                &proof,
+                leaf_index as u64 + 1,
+                leaf,
+                leaf_index as u64 + 1
+            ),
+            "N {N} leaf_index {leaf_index}"
+        );
+        assert!(
+            !MerkleMountainRange::verify(
+                &root,
+                &proof,
+                leaf_index as u64,
+                random_hash,
+                leaf_index as u64 + 1
+            ),
+            "N {N} leaf_index {leaf_index}"
+        );
+
+        if leaf_index == leaves.len() - 1 {
+            assert_eq!(root, expected_mmr_root, "N {N} leaf_index {leaf_index}");
+            assert_eq!(proof, expected_mmr_proof, "N {N} leaf_index {leaf_index}");
+        }
     }
 }

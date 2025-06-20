@@ -26,6 +26,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     unbalanced::<256, 256>(c);
     unbalanced::<32768, 32768>(c);
     unbalanced::<65536, 65536>(c);
+
+    // TODO: MMR benches
 }
 
 fn balanced<const N: usize>(c: &mut Criterion)
