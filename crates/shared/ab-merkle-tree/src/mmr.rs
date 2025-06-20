@@ -13,11 +13,11 @@ pub struct MmrPeaks<const MAX_N: u64>
 where
     [(); MAX_N.ilog2() as usize + 1]:,
 {
+    /// Number of leaves in MMR
+    pub num_leaves: u64,
     /// MMR peaks, first [`Self::num_peaks()`] elements are occupied by values, the rest are ignored
     /// and do not need to be retained.
     pub peaks: [[u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
-    /// Number of leaves in MMR
-    pub num_leaves: u64,
 }
 
 impl<const MAX_N: u64> MmrPeaks<MAX_N>
@@ -46,9 +46,9 @@ pub struct MerkleMountainRange<const MAX_N: u64>
 where
     [(); MAX_N.ilog2() as usize + 1]:,
 {
+    num_leaves: u64,
     // Stack of intermediate nodes per tree level
     stack: [[u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
-    num_leaves: u64,
 }
 
 impl<const MAX_N: u64> Default for MerkleMountainRange<MAX_N>
@@ -72,8 +72,8 @@ where
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn new() -> Self {
         Self {
-            stack: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
             num_leaves: 0,
+            stack: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
         }
     }
 
@@ -84,8 +84,8 @@ where
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn from_peaks(peaks: MmrPeaks<MAX_N>) -> Option<Self> {
         let mut result = Self {
-            stack: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
             num_leaves: peaks.num_leaves,
+            stack: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
         };
 
         // Convert peaks (where all occupied entries are all at the beginning of the list instead)
@@ -160,8 +160,8 @@ where
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn peaks(&self) -> MmrPeaks<MAX_N> {
         let mut result = MmrPeaks {
-            peaks: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
             num_leaves: self.num_leaves,
+            peaks: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
         };
 
         // Convert stack (where occupied entries are at corresponding offsets) to peaks (where all
