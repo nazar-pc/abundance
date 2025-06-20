@@ -23,11 +23,12 @@ use crate::segments::SegmentRoot;
 use crate::shard::ShardKind;
 use ab_aligned_buffer::SharedAlignedBuffer;
 use alloc::vec::Vec;
+use core::fmt;
 use core::iter::TrustedLen;
 use derive_more::From;
 
 /// Generic owned block
-pub trait GenericOwnedBlock {
+pub trait GenericOwnedBlock: Clone + fmt::Debug + 'static {
     /// Block header type
     type Header: GenericOwnedBlockHeader;
     /// Block body type

@@ -84,8 +84,12 @@ dependencies = [
  "ab-core-primitives",
  "ab-proof-of-space",
  "anyhow",
+ "async-lock",
+ "parking_lot",
  "send-future",
+ "stable_deref_trait",
  "thiserror",
+ "yoke",
 ]
 
 [[package]]

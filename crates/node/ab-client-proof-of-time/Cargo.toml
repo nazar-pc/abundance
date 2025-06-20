@@ -18,7 +18,7 @@ ab-core-primitives = { workspace = true }
 ab-client-api = { workspace = true }
 ab-proof-of-time = { workspace = true }
 derive_more = { workspace = true, features = ["deref", "deref_mut"] }
-futures = { workspace = true, features = ["alloc", "async-await", "executor"] }
+futures = { workspace = true, features = ["alloc", "executor"] }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 parking_lot = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }

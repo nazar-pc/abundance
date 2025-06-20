@@ -703,9 +703,9 @@ pub struct BeaconChainHeader<'a> {
     consensus_parameters: BlockHeaderConsensusParameters<'a>,
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
-    #[cfg(all(feature = "alloc", target_os = "none"))]
+    #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
     cached_block_root: alloc::sync::Arc<once_cell::race::OnceBox<BlockRoot>>,
-    #[cfg(not(target_os = "none"))]
+    #[cfg(not(any(target_os = "none", target_os = "unknown")))]
     cached_block_root: alloc::sync::Arc<std::sync::OnceLock<BlockRoot>>,
 }
 
@@ -780,7 +780,7 @@ impl<'a> BeaconChainHeader<'a> {
             child_shard_blocks,
             consensus_parameters,
             pre_seal_bytes,
-            #[cfg(any(feature = "alloc", not(target_os = "none")))]
+            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root: alloc::sync::Arc::default(),
         };
 
@@ -845,7 +845,10 @@ impl<'a> BeaconChainHeader<'a> {
                 child_shard_blocks,
                 consensus_parameters,
                 pre_seal_bytes,
-                #[cfg(any(feature = "alloc", not(target_os = "none")))]
+                #[cfg(any(
+                    feature = "alloc",
+                    not(any(target_os = "none", target_os = "unknown"))
+                ))]
                 cached_block_root: alloc::sync::Arc::default(),
             },
             remainder,
@@ -915,7 +918,7 @@ impl<'a> BeaconChainHeader<'a> {
             child_shard_blocks,
             consensus_parameters,
             pre_seal_bytes: _,
-            #[cfg(any(feature = "alloc", not(target_os = "none")))]
+            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root,
         } = self;
 
@@ -943,15 +946,15 @@ impl<'a> BeaconChainHeader<'a> {
             BlockRoot::new(Blake3Hash::new(block_root))
         };
 
-        #[cfg(not(target_os = "none"))]
+        #[cfg(not(any(target_os = "none", target_os = "unknown")))]
         {
             cached_block_root.get_or_init(compute_root)
         }
-        #[cfg(all(feature = "alloc", target_os = "none"))]
+        #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
         {
-            cached_block_root.get_or_init(|| Box::new(compute_root()))
+            cached_block_root.get_or_init(|| alloc::boxed::Box::new(compute_root()))
         }
-        #[cfg(all(not(feature = "alloc"), target_os = "none"))]
+        #[cfg(all(not(feature = "alloc"), any(target_os = "none", target_os = "unknown")))]
         {
             struct Wrapper(BlockRoot);
 
@@ -982,9 +985,9 @@ pub struct IntermediateShardHeader<'a> {
     child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
-    #[cfg(all(feature = "alloc", target_os = "none"))]
+    #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
     cached_block_root: alloc::sync::Arc<once_cell::race::OnceBox<BlockRoot>>,
-    #[cfg(not(target_os = "none"))]
+    #[cfg(not(any(target_os = "none", target_os = "unknown")))]
     cached_block_root: alloc::sync::Arc<std::sync::OnceLock<BlockRoot>>,
 }
 
@@ -1061,7 +1064,7 @@ impl<'a> IntermediateShardHeader<'a> {
             beacon_chain_info,
             child_shard_blocks,
             pre_seal_bytes,
-            #[cfg(any(feature = "alloc", not(target_os = "none")))]
+            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root: alloc::sync::Arc::default(),
         };
 
@@ -1128,7 +1131,10 @@ impl<'a> IntermediateShardHeader<'a> {
                 beacon_chain_info,
                 child_shard_blocks,
                 pre_seal_bytes,
-                #[cfg(any(feature = "alloc", not(target_os = "none")))]
+                #[cfg(any(
+                    feature = "alloc",
+                    not(any(target_os = "none", target_os = "unknown"))
+                ))]
                 cached_block_root: alloc::sync::Arc::default(),
             },
             remainder,
@@ -1198,7 +1204,7 @@ impl<'a> IntermediateShardHeader<'a> {
             beacon_chain_info,
             child_shard_blocks,
             pre_seal_bytes: _,
-            #[cfg(any(feature = "alloc", not(target_os = "none")))]
+            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root,
         } = self;
 
@@ -1226,15 +1232,15 @@ impl<'a> IntermediateShardHeader<'a> {
             BlockRoot::new(Blake3Hash::new(block_root))
         };
 
-        #[cfg(not(target_os = "none"))]
+        #[cfg(not(any(target_os = "none", target_os = "unknown")))]
         {
             cached_block_root.get_or_init(compute_root)
         }
-        #[cfg(all(feature = "alloc", target_os = "none"))]
+        #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
         {
-            cached_block_root.get_or_init(|| Box::new(compute_root()))
+            cached_block_root.get_or_init(|| alloc::boxed::Box::new(compute_root()))
         }
-        #[cfg(all(not(feature = "alloc"), target_os = "none"))]
+        #[cfg(all(not(feature = "alloc"), any(target_os = "none", target_os = "unknown")))]
         {
             struct Wrapper(BlockRoot);
 
@@ -1263,9 +1269,9 @@ pub struct LeafShardHeader<'a> {
     beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
-    #[cfg(all(feature = "alloc", target_os = "none"))]
+    #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
     cached_block_root: alloc::sync::Arc<once_cell::race::OnceBox<BlockRoot>>,
-    #[cfg(not(target_os = "none"))]
+    #[cfg(not(any(target_os = "none", target_os = "unknown")))]
     cached_block_root: alloc::sync::Arc<std::sync::OnceLock<BlockRoot>>,
 }
 
@@ -1337,7 +1343,7 @@ impl<'a> LeafShardHeader<'a> {
             shared,
             beacon_chain_info,
             pre_seal_bytes,
-            #[cfg(any(feature = "alloc", not(target_os = "none")))]
+            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root: alloc::sync::Arc::default(),
         };
 
@@ -1399,7 +1405,10 @@ impl<'a> LeafShardHeader<'a> {
                 shared,
                 beacon_chain_info,
                 pre_seal_bytes,
-                #[cfg(any(feature = "alloc", not(target_os = "none")))]
+                #[cfg(any(
+                    feature = "alloc",
+                    not(any(target_os = "none", target_os = "unknown"))
+                ))]
                 cached_block_root: alloc::sync::Arc::default(),
             },
             remainder,
@@ -1460,7 +1469,7 @@ impl<'a> LeafShardHeader<'a> {
             shared,
             beacon_chain_info,
             pre_seal_bytes: _,
-            #[cfg(any(feature = "alloc", not(target_os = "none")))]
+            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root,
         } = self;
 
@@ -1487,15 +1496,15 @@ impl<'a> LeafShardHeader<'a> {
             BlockRoot::new(Blake3Hash::new(block_root))
         };
 
-        #[cfg(not(target_os = "none"))]
+        #[cfg(not(any(target_os = "none", target_os = "unknown")))]
         {
             cached_block_root.get_or_init(compute_root)
         }
-        #[cfg(all(feature = "alloc", target_os = "none"))]
+        #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
         {
-            cached_block_root.get_or_init(|| Box::new(compute_root()))
+            cached_block_root.get_or_init(|| alloc::boxed::Box::new(compute_root()))
         }
-        #[cfg(all(not(feature = "alloc"), target_os = "none"))]
+        #[cfg(all(not(feature = "alloc"), any(target_os = "none", target_os = "unknown")))]
         {
             struct Wrapper(BlockRoot);
 

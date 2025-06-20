@@ -22,7 +22,7 @@ ab-client-consensus-common = { workspace = true }
 ab-client-proof-of-time = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-proof-of-space = { workspace = true }
-futures = { workspace = true, features = ["alloc", "async-await"] }
+futures = { workspace = true, features = ["alloc"] }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 

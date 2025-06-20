@@ -10,11 +10,12 @@ use crate::hashes::Blake3Hash;
 use crate::shard::ShardKind;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
+use core::fmt;
 use derive_more::From;
 use yoke::Yoke;
 
 /// Generic owned block header
-pub trait GenericOwnedBlockHeader {
+pub trait GenericOwnedBlockHeader: Clone + fmt::Debug + 'static {
     /// Block header
     type Header<'a>: GenericBlockHeader<'a>
     where

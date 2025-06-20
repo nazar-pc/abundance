@@ -14,12 +14,13 @@ use crate::transaction::Transaction;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
+use core::fmt;
 use core::iter::TrustedLen;
 use derive_more::From;
 use yoke::Yoke;
 
 /// Generic owned block body
-pub trait GenericOwnedBlockBody {
+pub trait GenericOwnedBlockBody: Clone + fmt::Debug + 'static {
     /// Block body
     type Body<'a>: GenericBlockBody<'a>
     where

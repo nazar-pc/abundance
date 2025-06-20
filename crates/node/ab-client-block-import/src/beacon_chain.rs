@@ -1,8 +1,8 @@
+use crate::importing_blocks::{ImportingBlockEntry, ImportingBlockHandle, ImportingBlocks};
 use crate::{BlockImport, BlockImportError};
 use ab_client_api::{BlockOrigin, ChainInfo};
 use ab_client_block_verification::{BlockVerification, BlockVerificationError};
-use ab_core_primitives::block::body::BeaconChainBody;
-use ab_core_primitives::block::header::BeaconChainHeader;
+use ab_core_primitives::block::header::owned::OwnedBeaconChainHeader;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_proof_of_space::Table;
 use send_future::SendFuture;
@@ -33,6 +33,7 @@ impl From<BeaconChainBlockImportError> for BlockImportError {
 pub struct BeaconChainBlockImport<PosTable, CI, BV> {
     chain_info: CI,
     block_verification: BV,
+    importing_blocks: ImportingBlocks<OwnedBeaconChainHeader>,
     _pos_table: PhantomData<PosTable>,
 }
 
@@ -49,26 +50,38 @@ where
         origin: BlockOrigin,
     ) -> Result<impl Future<Output = Result<(), BlockImportError>> + Send, BlockImportError> {
         let parent_root = &block.header.header().prefix.parent_root;
-        // TODO: Check for queued blocks as a fallback for concurrent block import
-        let parent_header =
-            self.chain_info
-                .header(parent_root)
-                .ok_or(BlockImportError::UnknownParentBlock {
+
+        let importing_handle = self
+            .importing_blocks
+            .insert(block.header.clone())
+            .ok_or(BlockImportError::AlreadyImporting)?;
+
+        if self
+            .chain_info
+            .header(&block.header.header().root())
+            .is_some()
+        {
+            return Err(BlockImportError::AlreadyImported);
+        }
+
+        let (parent_header, maybe_parent_importing_entry) =
+            if let Some(parent_header) = self.chain_info.header(parent_root) {
+                (parent_header, None)
+            } else if let Some(importing_entry) = self.importing_blocks.get(parent_root) {
+                (importing_entry.header().clone(), Some(importing_entry))
+            } else {
+                return Err(BlockImportError::UnknownParentBlock {
                     block_root: *parent_root,
-                })?;
+                });
+            };
 
-        // TODO: Store block header in the temporary storage, so the next block can be imported
-        //  concurrently
-
-        Ok(async move {
-            self.import(
-                parent_header.header(),
-                block.header.header(),
-                block.body.body(),
-                origin,
-            )
-            .await
-        })
+        Ok(self.import(
+            parent_header,
+            block,
+            origin,
+            importing_handle,
+            maybe_parent_importing_entry,
+        ))
     }
 }
 
@@ -84,17 +97,23 @@ where
         Self {
             chain_info,
             block_verification,
+            importing_blocks: ImportingBlocks::new(),
             _pos_table: PhantomData,
         }
     }
 
     async fn import(
         &self,
-        parent_header: &BeaconChainHeader<'_>,
-        header: &BeaconChainHeader<'_>,
-        body: &BeaconChainBody<'_>,
+        parent_header: OwnedBeaconChainHeader,
+        block: OwnedBeaconChainBlock,
         origin: BlockOrigin,
+        importing_handle: ImportingBlockHandle<OwnedBeaconChainHeader>,
+        maybe_parent_importing_entry: Option<ImportingBlockEntry<OwnedBeaconChainHeader>>,
     ) -> Result<(), BlockImportError> {
+        let parent_header = parent_header.header();
+        let header = block.header.header();
+        let body = block.body.body();
+
         // TODO: `.send()` is a hack for compiler bug, see:
         //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
         self.block_verification
@@ -103,12 +122,38 @@ where
             .await
             .map_err(BeaconChainBlockImportError::from)?;
 
+        if maybe_parent_importing_entry
+            .as_ref()
+            .map(ImportingBlockEntry::has_failed)
+            .unwrap_or_default()
+        {
+            // Early exit to avoid extra work
+            return Err(BlockImportError::ParentBlockImportFailed);
+        }
+
         // TODO: Execute block
+
+        if maybe_parent_importing_entry
+            .as_ref()
+            .map(ImportingBlockEntry::has_failed)
+            .unwrap_or_default()
+        {
+            // Early exit to avoid extra work
+            return Err(BlockImportError::ParentBlockImportFailed);
+        }
 
         // TODO: Check state root
 
-        // TODO: Store block after successful import, unblock import of subsequent blocks, remove
-        //  header from temporary storage
+        // Wait for parent block to be imported successfully
+        if let Some(parent_importing_entry) = maybe_parent_importing_entry
+            && !parent_importing_entry.wait_success().await
+        {
+            return Err(BlockImportError::ParentBlockImportFailed);
+        }
+
+        // TODO: Store block permanently
+
+        importing_handle.set_success();
 
         Ok(())
     }
