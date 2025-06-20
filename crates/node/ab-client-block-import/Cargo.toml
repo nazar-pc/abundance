@@ -24,7 +24,7 @@ parking_lot = { workspace = true }
 send-future = { workspace = true }
 stable_deref_trait = { workspace = true }
 thiserror = { workspace = true }
-yoke = { workspace = true, features = ["derive"] }
+yoke = { workspace = true }
 
 [lints]
 workspace = true
