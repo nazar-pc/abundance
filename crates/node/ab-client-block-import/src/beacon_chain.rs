@@ -1,12 +1,14 @@
 use crate::importing_blocks::{ImportingBlockEntry, ImportingBlockHandle, ImportingBlocks};
 use crate::{BlockImport, BlockImportError};
-use ab_client_api::{BlockOrigin, ChainInfo};
+use ab_client_api::{BlockOrigin, ChainInfoWrite};
 use ab_client_block_verification::{BlockVerification, BlockVerificationError};
 use ab_core_primitives::block::header::owned::OwnedBeaconChainHeader;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_proof_of_space::Table;
 use send_future::SendFuture;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 /// Errors for [`BeaconChainBlockImport`]
 #[derive(Debug, thiserror::Error)]
@@ -41,7 +43,7 @@ impl<PosTable, CI, BV> BlockImport<OwnedBeaconChainBlock>
     for BeaconChainBlockImport<PosTable, CI, BV>
 where
     PosTable: Table,
-    CI: ChainInfo<OwnedBeaconChainBlock>,
+    CI: ChainInfoWrite<OwnedBeaconChainBlock>,
     BV: BlockVerification<OwnedBeaconChainBlock>,
 {
     fn import(
@@ -51,9 +53,40 @@ where
     ) -> Result<impl Future<Output = Result<(), BlockImportError>> + Send, BlockImportError> {
         let parent_root = &block.header.header().prefix.parent_root;
 
+        let (parent_header, parent_block_mmr, maybe_parent_importing_entry) =
+            if let Some(parent_header) = self.chain_info.header(parent_root) {
+                let parent_block_mmr = self
+                    .chain_info
+                    .mmr_with_block(parent_root)
+                    .ok_or(BlockImportError::ParentBlockMmrMissing)?;
+
+                (parent_header, parent_block_mmr, None)
+            } else if let Some(importing_entry) = self.importing_blocks.get(parent_root) {
+                (
+                    importing_entry.header().clone(),
+                    Arc::clone(importing_entry.mmr()),
+                    Some(importing_entry),
+                )
+            } else {
+                return Err(BlockImportError::UnknownParentBlock {
+                    block_root: *parent_root,
+                });
+            };
+
+        let parent_block_mmr_root = Blake3Hash::from(
+            parent_block_mmr
+                .root()
+                .ok_or(BlockImportError::ParentBlockMmrInvalid)?,
+        );
+        let mut block_mmr = *parent_block_mmr;
+
+        if !block_mmr.add_leaf(&block.header.header().root()) {
+            return Err(BlockImportError::CantExtendMmr);
+        }
+
         let importing_handle = self
             .importing_blocks
-            .insert(block.header.clone())
+            .insert(block.header.clone(), Arc::new(block_mmr))
             .ok_or(BlockImportError::AlreadyImporting)?;
 
         if self
@@ -64,19 +97,9 @@ where
             return Err(BlockImportError::AlreadyImported);
         }
 
-        let (parent_header, maybe_parent_importing_entry) =
-            if let Some(parent_header) = self.chain_info.header(parent_root) {
-                (parent_header, None)
-            } else if let Some(importing_entry) = self.importing_blocks.get(parent_root) {
-                (importing_entry.header().clone(), Some(importing_entry))
-            } else {
-                return Err(BlockImportError::UnknownParentBlock {
-                    block_root: *parent_root,
-                });
-            };
-
         Ok(self.import(
             parent_header,
+            parent_block_mmr_root,
             block,
             origin,
             importing_handle,
@@ -88,7 +111,7 @@ where
 impl<PosTable, CI, BV> BeaconChainBlockImport<PosTable, CI, BV>
 where
     PosTable: Table,
-    CI: ChainInfo<OwnedBeaconChainBlock>,
+    CI: ChainInfoWrite<OwnedBeaconChainBlock>,
     BV: BlockVerification<OwnedBeaconChainBlock>,
 {
     /// Create new instance
@@ -105,6 +128,7 @@ where
     async fn import(
         &self,
         parent_header: OwnedBeaconChainHeader,
+        parent_block_mmr_root: Blake3Hash,
         block: OwnedBeaconChainBlock,
         origin: BlockOrigin,
         importing_handle: ImportingBlockHandle<OwnedBeaconChainHeader>,
@@ -117,7 +141,7 @@ where
         // TODO: `.send()` is a hack for compiler bug, see:
         //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
         self.block_verification
-            .verify(parent_header, header, body, origin)
+            .verify(parent_header, &parent_block_mmr_root, header, body, origin)
             .send()
             .await
             .map_err(BeaconChainBlockImportError::from)?;
@@ -151,7 +175,9 @@ where
             return Err(BlockImportError::ParentBlockImportFailed);
         }
 
-        // TODO: Store block permanently
+        self.chain_info
+            .persist_block(block, Arc::clone(importing_handle.mmr()))
+            .await?;
 
         importing_handle.set_success();
 

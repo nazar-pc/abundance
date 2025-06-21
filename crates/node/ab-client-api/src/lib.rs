@@ -1,7 +1,23 @@
 //! Client API
 
+#![expect(incomplete_features, reason = "generic_const_exprs")]
+// TODO: This feature is not actually used in this crate, but is added as a workaround for
+//  https://github.com/rust-lang/rust/issues/141492
+#![feature(generic_const_exprs)]
+
 use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
+use ab_merkle_tree::mmr::MerkleMountainRange;
+use std::sync::Arc;
+
+// TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows the
+//  code to compile. Constant 4294967295 is hardcoded here and below for compilation to succeed.
+const _: () = {
+    assert!(u32::MAX == 4294967295);
+};
+
+/// Type alias for Merkle Mountain Range with block roots
+pub type BlockMerkleMountainRange = MerkleMountainRange<4294967295>;
 
 // TODO: Probably move it elsewhere
 /// Origin
@@ -13,6 +29,12 @@ pub enum BlockOrigin {
     Sync,
     /// Broadcast on the network during normal operation (not sync)
     Broadcast,
+}
+
+/// Error for [`ChainInfoWrite::persist_block()`]
+#[derive(Debug, thiserror::Error)]
+pub enum PersistBlockError {
+    // TODO
 }
 
 // TODO: Split this into different more narrow traits
@@ -44,6 +66,22 @@ where
 
     /// Block header
     fn header(&self, block_root: &BlockRoot) -> Option<Block::Header>;
+
+    /// Merkle Mountain Range with block
+    fn mmr_with_block(&self, block_root: &BlockRoot) -> Option<Arc<BlockMerkleMountainRange>>;
+}
+
+/// [`ChainInfo`] extension for writing information
+pub trait ChainInfoWrite<Block>: ChainInfo<Block>
+where
+    Block: GenericOwnedBlock,
+{
+    /// Persist newly imported block
+    fn persist_block(
+        &self,
+        block: Block,
+        mmr_with_block: Arc<BlockMerkleMountainRange>,
+    ) -> impl Future<Output = Result<(), PersistBlockError>> + Send;
 }
 
 /// Chain sync status
