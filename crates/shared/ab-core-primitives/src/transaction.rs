@@ -57,6 +57,7 @@ impl AsMut<[u8]> for TransactionHash {
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct TransactionHeader {
+    // TODO: Right now this is primarily used for data alignment, but is it useful in general?
     // TODO: Some more complex field?
     /// Transaction version
     pub version: u64,
