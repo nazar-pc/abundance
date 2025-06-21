@@ -38,6 +38,7 @@ name = "ab-client-api"
 version = "0.0.1"
 dependencies = [
  "ab-core-primitives",
+ "ab-merkle-tree",
  "thiserror 2.0.12",
 ]
 

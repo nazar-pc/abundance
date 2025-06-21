@@ -6,6 +6,7 @@ use ab_client_api::BlockOrigin;
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::segments::SegmentRoot;
 
 type GenericHeader<'a, Block> =
@@ -20,7 +21,7 @@ pub enum BlockVerificationError {
     #[error("Block is below archiving point")]
     BelowArchivingPoint,
     /// Invalid header prefix
-    #[error("Invalid heder prefix")]
+    #[error("Invalid header prefix")]
     InvalidHeaderPrefix,
     /// Invalid seal
     #[error("Invalid seal")]
@@ -67,6 +68,7 @@ where
     fn verify(
         &self,
         parent_header: &GenericHeader<'_, Block>,
+        parent_block_mmr_root: &Blake3Hash,
         header: &GenericHeader<'_, Block>,
         body: &GenericBody<'_, Block>,
         origin: BlockOrigin,

@@ -1,4 +1,5 @@
 use crate::importing_blocks::private::ImportingBlockEntryInner;
+use ab_client_api::BlockMerkleMountainRange;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
@@ -12,14 +13,17 @@ use std::sync::Arc;
 use yoke::{Yoke, Yokeable};
 
 mod private {
+    use ab_client_api::BlockMerkleMountainRange;
     use ab_core_primitives::block::BlockRoot;
     use async_lock::RwLock;
+    use std::sync::Arc;
 
     // Needs to be public to appear in `impl Deref for ImportingBlockEntry`
     #[derive(Debug)]
     pub struct ImportingBlockEntryInner<BlockHeader> {
         pub(super) block_root: BlockRoot,
         pub(super) header: BlockHeader,
+        pub(super) mmr: Arc<BlockMerkleMountainRange>,
         pub(super) success: RwLock<bool>,
     }
 }
@@ -44,27 +48,36 @@ impl<BlockHeader> ImportingBlockEntry<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
 {
-    fn new(header: BlockHeader) -> Self {
+    fn new(header: BlockHeader, mmr: Arc<BlockMerkleMountainRange>) -> Self {
         let block_root = *header.header().root();
 
         Self {
             inner: Arc::new(ImportingBlockEntryInner {
                 block_root,
                 header,
+                mmr,
                 success: RwLock::new(false),
             }),
         }
     }
 
+    #[inline(always)]
     fn block_root(&self) -> &BlockRoot {
         &self.inner.block_root
     }
 
+    #[inline(always)]
     pub(crate) fn header(&self) -> &BlockHeader {
         &self.inner.header
     }
 
+    #[inline(always)]
+    pub(crate) fn mmr(&self) -> &Arc<BlockMerkleMountainRange> {
+        &self.inner.mmr
+    }
+
     /// Check if corresponding block import has failed
+    #[inline(always)]
     pub(crate) fn has_failed(&self) -> bool {
         match self.inner.success.try_read() {
             Some(success) => !*success,
@@ -88,19 +101,23 @@ struct ImportingBlockHandleGuard<'a>(RwLockWriteGuard<'a, bool>);
 unsafe impl<'a> Yokeable<'a> for ImportingBlockHandleGuard<'static> {
     type Output = ImportingBlockHandleGuard<'a>;
 
+    #[inline(always)]
     fn transform(&'a self) -> &'a ImportingBlockHandleGuard<'a> {
         self
     }
 
+    #[inline(always)]
     fn transform_owned(self) -> ImportingBlockHandleGuard<'a> {
         self
     }
 
+    #[inline(always)]
     unsafe fn make(from: ImportingBlockHandleGuard<'a>) -> Self {
         // SAFETY: Implementation is a `transmute`, as per in `Yokeable::make()`'s description
         unsafe { mem::transmute(from) }
     }
 
+    #[inline(always)]
     fn transform_mut<F>(&'a mut self, f: F)
     where
         F: FnOnce(&'a mut Self::Output) + 'static,
@@ -124,10 +141,23 @@ where
     importing_blocks: ImportingBlocks<BlockHeader>,
 }
 
+impl<BlockHeader> Deref for ImportingBlockHandle<BlockHeader>
+where
+    BlockHeader: GenericOwnedBlockHeader,
+{
+    type Target = ImportingBlockEntry<BlockHeader>;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        self.guard.backing_cart()
+    }
+}
+
 impl<BlockHeader> Drop for ImportingBlockHandle<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
 {
+    #[inline]
     fn drop(&mut self) {
         let block_root = self.guard.backing_cart().block_root();
         self.importing_blocks.remove(block_root);
@@ -138,6 +168,7 @@ impl<BlockHeader> ImportingBlockHandle<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
 {
+    #[inline]
     fn new(
         entry: ImportingBlockEntry<BlockHeader>,
         importing_blocks: ImportingBlocks<BlockHeader>,
@@ -151,6 +182,7 @@ where
     }
 
     /// Indicate that the import of the corresponding block has finished successfully
+    #[inline(always)]
     pub(crate) fn set_success(mut self) {
         self.guard.with_mut(|guard| {
             *guard.0 = true;
@@ -167,6 +199,7 @@ impl<BlockHeader> ImportingBlocks<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
 {
+    #[inline(always)]
     pub(crate) fn new() -> Self {
         Self {
             list: Arc::default(),
@@ -177,8 +210,12 @@ where
     ///
     /// Returned header is used to indicate successful import of the block. If this block is already
     /// being imported, `None` is returned.
-    pub(crate) fn insert(&self, header: BlockHeader) -> Option<ImportingBlockHandle<BlockHeader>> {
-        let new_entry = ImportingBlockEntry::new(header);
+    pub(crate) fn insert(
+        &self,
+        header: BlockHeader,
+        mmr: Arc<BlockMerkleMountainRange>,
+    ) -> Option<ImportingBlockHandle<BlockHeader>> {
+        let new_entry = ImportingBlockEntry::new(header, mmr);
         let handle = ImportingBlockHandle::new(new_entry.clone(), self.clone());
 
         let mut list = self.list.lock();

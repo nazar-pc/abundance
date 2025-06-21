@@ -104,7 +104,7 @@ where
     let mut mmr = MerkleMountainRange::<N_U64>::new();
     assert_eq!(
         mmr.peaks(),
-        MerkleMountainRange::from_peaks(mmr.peaks())
+        MerkleMountainRange::from_peaks(&mmr.peaks())
             .unwrap()
             .peaks()
     );
@@ -202,7 +202,7 @@ where
             .unwrap();
         assert_eq!(
             mmr.peaks(),
-            MerkleMountainRange::from_peaks(mmr.peaks())
+            MerkleMountainRange::from_peaks(&mmr.peaks())
                 .unwrap()
                 .peaks(),
             "N {N} leaf_index {leaf_index}"

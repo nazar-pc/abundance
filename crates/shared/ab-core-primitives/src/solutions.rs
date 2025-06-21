@@ -523,9 +523,9 @@ impl Solution {
             });
         }
 
-        // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows
-        //  the code to compile. Constant 16 is hardcoded here and in `if` branch below for compilation
-        //  to succeed
+        // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
+        //  allows the code to compile. Constant 65536 is hardcoded here and below for compilation
+        //  to succeed.
         const _: () = {
             assert!(Record::NUM_S_BUCKETS == 65536);
         };

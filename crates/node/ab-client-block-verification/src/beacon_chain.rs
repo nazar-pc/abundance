@@ -14,6 +14,7 @@ use ab_core_primitives::block::header::{
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
 use ab_core_primitives::segments::SegmentRoot;
 use ab_core_primitives::solutions::{SolutionVerifyError, SolutionVerifyParams};
@@ -82,11 +83,13 @@ where
     async fn verify(
         &self,
         parent_header: &GenericHeader<'_, OwnedBeaconChainBlock>,
+        parent_block_mmr_root: &Blake3Hash,
         header: &GenericHeader<'_, OwnedBeaconChainBlock>,
         body: &GenericBody<'_, OwnedBeaconChainBlock>,
         origin: BlockOrigin,
     ) -> Result<(), BlockVerificationError> {
-        self.verify(parent_header, header, body, origin).await
+        self.verify(parent_header, parent_block_mmr_root, header, body, origin)
+            .await
     }
 }
 
@@ -141,18 +144,19 @@ where
     fn check_header_prefix(
         &self,
         parent_header_prefix: &BlockHeaderPrefix,
+        parent_block_mmr_root: &Blake3Hash,
         header_prefix: &BlockHeaderPrefix,
     ) -> Result<(), BlockVerificationError> {
         let basic_valid = header_prefix.version == BlockHeaderPrefix::BLOCK_VERSION
             && header_prefix.number == parent_header_prefix.number + BlockNumber::ONE
-            && header_prefix.shard_index == parent_header_prefix.shard_index;
+            && header_prefix.shard_index == parent_header_prefix.shard_index
+            && &header_prefix.mmr_root == parent_block_mmr_root;
 
         if !basic_valid {
             return Err(BlockVerificationError::InvalidHeaderPrefix);
         }
 
         // TODO: Check Timestamp
-        // TODO: Check MMR
 
         Ok(())
     }
@@ -385,6 +389,7 @@ where
     async fn verify(
         &self,
         parent_header: &BeaconChainHeader<'_>,
+        parent_block_mmr_root: &Blake3Hash,
         header: &BeaconChainHeader<'_>,
         body: &BeaconChainBody<'_>,
         _origin: BlockOrigin,
@@ -413,7 +418,7 @@ where
             return Err(BlockVerificationError::BelowArchivingPoint);
         }
 
-        self.check_header_prefix(parent_header.prefix, header.prefix)?;
+        self.check_header_prefix(parent_header.prefix, parent_block_mmr_root, header.prefix)?;
 
         self.check_consensus_parameters(&parent_block_root, parent_header, header)?;
 

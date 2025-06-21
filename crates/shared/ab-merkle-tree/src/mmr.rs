@@ -5,19 +5,23 @@ use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use blake3::OUT_LEN;
+use core::mem;
 use core::mem::MaybeUninit;
 
-/// MMR peaks for [`MerkleMountainRange`]
+/// MMR peaks for [`MerkleMountainRange`].
+///
+/// Primarily intended to be used with [`MerkleMountainRange::from_peaks()`], can be sent over the
+/// network, etc.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct MmrPeaks<const MAX_N: u64>
 where
     [(); MAX_N.ilog2() as usize + 1]:,
 {
+    /// Number of leaves in MMR
+    pub num_leaves: u64,
     /// MMR peaks, first [`Self::num_peaks()`] elements are occupied by values, the rest are ignored
     /// and do not need to be retained.
     pub peaks: [[u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
-    /// Number of leaves in MMR
-    pub num_leaves: u64,
 }
 
 impl<const MAX_N: u64> MmrPeaks<MAX_N>
@@ -32,6 +36,28 @@ where
     }
 }
 
+/// Byte representation of [`MerkleMountainRange`] with correct alignment.
+///
+/// Somewhat similar in function to [`MmrPeaks`], but for local use only.
+#[derive(Debug, Copy, Clone)]
+#[repr(C, align(8))]
+pub struct MerkleMountainRangeBytes<const MAX_N: u64>(
+    pub [u8; merkle_mountain_range_bytes_size(MAX_N)],
+)
+where
+    [(); merkle_mountain_range_bytes_size(MAX_N)]:;
+
+/// Size of [`MerkleMountainRange`]/[`MerkleMountainRangeBytes`] in bytes
+pub const fn merkle_mountain_range_bytes_size(max_n: u64) -> usize {
+    size_of::<u64>() + OUT_LEN * (max_n.ilog2() as usize + 1)
+}
+
+const _: () = {
+    assert!(size_of::<MerkleMountainRangeBytes<2>>() == merkle_mountain_range_bytes_size(2));
+    assert!(size_of::<MerkleMountainRange<2>>() == merkle_mountain_range_bytes_size(2));
+    assert!(align_of::<MerkleMountainRangeBytes<2>>() == align_of::<MerkleMountainRange<2>>());
+};
+
 /// Merkle Mountain Range variant that has pre-hashed leaves with arbitrary number of elements.
 ///
 /// This can be considered a general case of [`UnbalancedMerkleTree`]. The root and proofs are
@@ -42,13 +68,14 @@ where
 /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
 /// usage.
 #[derive(Debug, Copy, Clone)]
+#[repr(C)]
 pub struct MerkleMountainRange<const MAX_N: u64>
 where
     [(); MAX_N.ilog2() as usize + 1]:,
 {
+    num_leaves: u64,
     // Stack of intermediate nodes per tree level
     stack: [[u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
-    num_leaves: u64,
 }
 
 impl<const MAX_N: u64> Default for MerkleMountainRange<MAX_N>
@@ -72,20 +99,20 @@ where
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn new() -> Self {
         Self {
-            stack: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
             num_leaves: 0,
+            stack: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
         }
     }
 
     /// Create a new instance from previously collected peaks.
     ///
     /// Returns `None` if input is invalid.
-    #[inline(always)]
+    #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn from_peaks(peaks: MmrPeaks<MAX_N>) -> Option<Self> {
+    pub fn from_peaks(peaks: &MmrPeaks<MAX_N>) -> Option<Self> {
         let mut result = Self {
-            stack: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
             num_leaves: peaks.num_leaves,
+            stack: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
         };
 
         // Convert peaks (where all occupied entries are all at the beginning of the list instead)
@@ -104,6 +131,34 @@ where
         }
 
         Some(result)
+    }
+
+    /// Get byte representation of Merkle Mountain Range
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn as_bytes(&self) -> &MerkleMountainRangeBytes<MAX_N>
+    where
+        [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+    {
+        // SAFETY: Both are `#[repr(C)]`, the same size and alignment as `Self`, all bit patterns
+        // are valid
+        unsafe { mem::transmute(self) }
+    }
+
+    /// Create an instance from byte representation.
+    ///
+    /// # Safety
+    /// Bytes must be previously created by [`Self::as_bytes()`].
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub unsafe fn from_bytes(bytes: &MerkleMountainRangeBytes<MAX_N>) -> &Self
+    where
+        [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+    {
+        // SAFETY: Both are `#[repr(C)]`, the same size and alignment as `Self`, all bit patterns
+        // are valid. `::from_bytes()` is an `unsafe` function with correct invariant being a
+        // prerequisite of calling it.
+        unsafe { mem::transmute(bytes) }
     }
 
     /// Get number of leaves aggregated in Merkle Mountain Range so far
@@ -160,8 +215,8 @@ where
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn peaks(&self) -> MmrPeaks<MAX_N> {
         let mut result = MmrPeaks {
-            peaks: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
             num_leaves: self.num_leaves,
+            peaks: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
         };
 
         // Convert stack (where occupied entries are at corresponding offsets) to peaks (where all
@@ -207,7 +262,11 @@ where
         }
 
         // Place the current hash at the first inactive level
-        self.stack[lowest_active_levels] = current;
+        // SAFETY: Stack is statically guaranteed to support all active levels with number of leaves
+        // checked at the beginning of the function.
+        // In fact the same exact code in `add_leaves()` doesn't require unchecked access, but here
+        // compiler is somehow unable to prove that panic can't happen otherwise.
+        *unsafe { self.stack.get_unchecked_mut(lowest_active_levels) } = current;
         self.num_leaves += 1;
 
         true
