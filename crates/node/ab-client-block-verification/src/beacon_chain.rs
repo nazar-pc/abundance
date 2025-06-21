@@ -148,8 +148,7 @@ where
         parent_block_mmr_root: &Blake3Hash,
         header_prefix: &BlockHeaderPrefix,
     ) -> Result<(), BlockVerificationError> {
-        let basic_valid = header_prefix.version == BlockHeaderPrefix::BLOCK_VERSION
-            && header_prefix.number == parent_header_prefix.number + BlockNumber::ONE
+        let basic_valid = header_prefix.number == parent_header_prefix.number + BlockNumber::ONE
             && header_prefix.shard_index == parent_header_prefix.shard_index
             && &header_prefix.mmr_root == parent_block_mmr_root
             && header_prefix.timestamp > parent_header_prefix.timestamp;

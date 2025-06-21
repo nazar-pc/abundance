@@ -65,13 +65,11 @@ where
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
 pub struct BlockHeaderPrefix {
-    /// Block version
-    pub version: u64,
     /// Block number
     pub number: BlockNumber,
     /// Shard index
     pub shard_index: ShardIndex,
-    /// Padding for data structure alignment
+    /// Padding for data structure alignment, contents must be all zeroes
     pub padding: [u8; 4],
     /// Block timestamp
     pub timestamp: BlockTimestamp,
@@ -83,9 +81,6 @@ pub struct BlockHeaderPrefix {
 }
 
 impl BlockHeaderPrefix {
-    /// The only supported block version right now
-    pub const BLOCK_VERSION: u64 = 0;
-
     /// Hash of the block header prefix, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
         // TODO: Keyed hash
@@ -1630,9 +1625,7 @@ impl<'a> BlockHeader<'a> {
         // SAFETY: All bit patterns are valid
         let prefix = unsafe { BlockHeaderPrefix::from_bytes(prefix) }?;
 
-        if !(prefix.version == BlockHeaderPrefix::BLOCK_VERSION
-            && prefix.padding == [0; _]
-            && prefix.shard_index.as_u32() <= ShardIndex::MAX_SHARD_INDEX)
+        if !(prefix.padding == [0; _] && prefix.shard_index.as_u32() <= ShardIndex::MAX_SHARD_INDEX)
         {
             return None;
         }

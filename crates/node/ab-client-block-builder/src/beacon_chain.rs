@@ -161,7 +161,6 @@ where
         }
 
         BlockHeaderPrefix {
-            version: BlockHeaderPrefix::BLOCK_VERSION,
             number: block_number,
             shard_index: ShardIndex::BEACON_CHAIN,
             padding: [0; _],
