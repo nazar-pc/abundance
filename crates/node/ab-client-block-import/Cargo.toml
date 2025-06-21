@@ -19,7 +19,7 @@ ab-client-block-verification = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
-async-lock = { workspace = true }
+async-lock = { workspace = true, features = ["std"] }
 parking_lot = { workspace = true }
 send-future = { workspace = true }
 stable_deref_trait = { workspace = true }
