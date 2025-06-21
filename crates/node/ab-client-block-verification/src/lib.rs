@@ -23,6 +23,9 @@ pub enum BlockVerificationError {
     /// Invalid header prefix
     #[error("Invalid header prefix")]
     InvalidHeaderPrefix,
+    /// Timestamp too far in the future
+    #[error("Timestamp too far in the future")]
+    TimestampTooFarInTheFuture,
     /// Invalid seal
     #[error("Invalid seal")]
     InvalidSeal,

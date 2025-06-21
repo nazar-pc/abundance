@@ -1,6 +1,6 @@
 pub mod consensus_parameters;
 
-use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::block::{BlockNumber, BlockTimestamp};
 use ab_core_primitives::pot::{SlotDuration, SlotNumber};
 use ab_core_primitives::segments::HistorySize;
 
@@ -36,4 +36,6 @@ pub struct ConsensusConstants {
     pub recent_history_fraction: (HistorySize, HistorySize),
     /// Minimum lifetime of a plotted sector, measured in archived segment
     pub min_sector_lifetime: HistorySize,
+    /// Max block timestamp drift allowed
+    pub max_block_timestamp_drift: BlockTimestamp,
 }

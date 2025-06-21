@@ -13,7 +13,7 @@ use ab_core_primitives::block::header::{
     OwnedBlockHeaderConsensusParameters,
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
-use ab_core_primitives::block::{BlockNumber, BlockRoot};
+use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
 use ab_core_primitives::segments::SegmentRoot;
@@ -23,6 +23,7 @@ use rand::prelude::*;
 use rayon::prelude::*;
 use std::iter;
 use std::marker::PhantomData;
+use std::time::SystemTime;
 use tracing::{debug, trace};
 
 /// Errors for [`BeaconChainBlockVerification`]
@@ -150,13 +151,24 @@ where
         let basic_valid = header_prefix.version == BlockHeaderPrefix::BLOCK_VERSION
             && header_prefix.number == parent_header_prefix.number + BlockNumber::ONE
             && header_prefix.shard_index == parent_header_prefix.shard_index
-            && &header_prefix.mmr_root == parent_block_mmr_root;
+            && &header_prefix.mmr_root == parent_block_mmr_root
+            && header_prefix.timestamp > parent_header_prefix.timestamp;
 
         if !basic_valid {
             return Err(BlockVerificationError::InvalidHeaderPrefix);
         }
 
-        // TODO: Check Timestamp
+        let timestamp_now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let timestamp_now = BlockTimestamp::new(u64::try_from(timestamp_now).unwrap_or(u64::MAX));
+
+        if header_prefix.timestamp
+            > timestamp_now.saturating_add(self.consensus_constants.max_block_timestamp_drift)
+        {
+            return Err(BlockVerificationError::TimestampTooFarInTheFuture);
+        }
 
         Ok(())
     }

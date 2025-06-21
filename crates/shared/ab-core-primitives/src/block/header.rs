@@ -8,7 +8,7 @@ use crate::block::header::owned::{
     GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBlockHeader,
     OwnedIntermediateShardHeader, OwnedLeafShardHeader,
 };
-use crate::block::{BlockNumber, BlockRoot};
+use crate::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use crate::hashes::Blake3Hash;
 use crate::pot::{PotOutput, PotParametersChange, SlotNumber};
@@ -73,9 +73,8 @@ pub struct BlockHeaderPrefix {
     pub shard_index: ShardIndex,
     /// Padding for data structure alignment
     pub padding: [u8; 4],
-    /// Unix timestamp in ms
-    // TODO: New type?
-    pub timestamp: u64,
+    /// Block timestamp
+    pub timestamp: BlockTimestamp,
     /// Root of the parent block
     pub parent_root: BlockRoot,
     /// MMR root of all block roots, including `parent_root`
