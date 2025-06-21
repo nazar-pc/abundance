@@ -70,7 +70,7 @@ pub struct BlockHeaderPrefix {
     /// Shard index
     pub shard_index: ShardIndex,
     /// Padding for data structure alignment, contents must be all zeroes
-    pub padding: [u8; 4],
+    pub padding_0: [u8; 4],
     /// Block timestamp
     pub timestamp: BlockTimestamp,
     /// Root of the parent block
@@ -1625,7 +1625,8 @@ impl<'a> BlockHeader<'a> {
         // SAFETY: All bit patterns are valid
         let prefix = unsafe { BlockHeaderPrefix::from_bytes(prefix) }?;
 
-        if !(prefix.padding == [0; _] && prefix.shard_index.as_u32() <= ShardIndex::MAX_SHARD_INDEX)
+        if !(prefix.padding_0 == [0; _]
+            && prefix.shard_index.as_u32() <= ShardIndex::MAX_SHARD_INDEX)
         {
             return None;
         }
