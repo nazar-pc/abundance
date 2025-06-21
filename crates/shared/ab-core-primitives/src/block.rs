@@ -143,6 +143,84 @@ impl BlockNumber {
     }
 }
 
+/// Block timestamp as Unix time in milliseconds
+#[derive(
+    Debug,
+    Display,
+    Default,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    From,
+    Into,
+    Add,
+    AddAssign,
+    Sub,
+    SubAssign,
+    TrivialType,
+)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
+#[repr(C)]
+pub struct BlockTimestamp(u64);
+
+impl BlockTimestamp {
+    /// Size in bytes
+    pub const SIZE: usize = size_of::<u64>();
+
+    /// Create new instance
+    #[inline(always)]
+    pub const fn new(ms: u64) -> Self {
+        Self(ms)
+    }
+
+    /// Get internal representation
+    #[inline(always)]
+    pub const fn as_ms(self) -> u64 {
+        self.0
+    }
+
+    /// Checked addition, returns `None` on overflow
+    #[inline(always)]
+    pub const fn checked_add(self, rhs: Self) -> Option<Self> {
+        if let Some(n) = self.0.checked_add(rhs.0) {
+            Some(Self(n))
+        } else {
+            None
+        }
+    }
+
+    /// Saturating addition
+    #[inline(always)]
+    pub const fn saturating_add(self, rhs: Self) -> Self {
+        Self(self.0.saturating_add(rhs.0))
+    }
+
+    /// Checked subtraction, returns `None` on underflow
+    #[inline(always)]
+    pub const fn checked_sub(self, rhs: Self) -> Option<Self> {
+        if let Some(n) = self.0.checked_sub(rhs.0) {
+            Some(Self(n))
+        } else {
+            None
+        }
+    }
+
+    /// Saturating subtraction
+    #[inline(always)]
+    pub const fn saturating_sub(self, rhs: Self) -> Self {
+        Self(self.0.saturating_sub(rhs.0))
+    }
+}
+
 /// Block root.
 ///
 /// This is typically called block hash in other blockchains, but here it represents Merkle Tree

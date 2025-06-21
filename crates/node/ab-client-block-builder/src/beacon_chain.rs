@@ -14,7 +14,7 @@ use ab_core_primitives::block::header::{
     OwnedBlockHeaderConsensusParameters, OwnedBlockHeaderSeal,
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
-use ab_core_primitives::block::{BlockNumber, BlockRoot};
+use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
 use ab_core_primitives::shard::ShardIndex;
@@ -85,7 +85,11 @@ where
     {
         let block_number = parent_header.prefix.number.saturating_add(BlockNumber::ONE);
 
-        let header_prefix = self.create_header_prefix(parent_block_root, block_number);
+        let header_prefix = self.create_header_prefix(
+            parent_block_root,
+            parent_header.prefix.timestamp,
+            block_number,
+        );
         let consensus_parameters = self.derive_consensus_parameters(
             parent_block_root,
             parent_header,
@@ -143,13 +147,18 @@ where
     fn create_header_prefix(
         &self,
         parent_block_root: &BlockRoot,
+        parent_timestamp: BlockTimestamp,
         block_number: BlockNumber,
     ) -> BlockHeaderPrefix {
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
-        let timestamp = u64::try_from(timestamp).unwrap_or(u64::MAX);
+        let mut timestamp = BlockTimestamp::new(u64::try_from(timestamp).unwrap_or(u64::MAX));
+
+        if timestamp <= parent_timestamp {
+            timestamp = BlockTimestamp::new(parent_timestamp.as_ms().saturating_add(1));
+        }
 
         BlockHeaderPrefix {
             version: BlockHeaderPrefix::BLOCK_VERSION,
