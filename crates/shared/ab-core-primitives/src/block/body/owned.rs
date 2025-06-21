@@ -14,6 +14,7 @@ use crate::transaction::Transaction;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
+use alloc::sync::Arc;
 use core::fmt;
 use core::iter::TrustedLen;
 use derive_more::From;
@@ -218,7 +219,7 @@ pub enum OwnedBeaconChainBodyError {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedBeaconChainBody {
-    inner: Yoke<BeaconChainBody<'static>, SharedAlignedBuffer>,
+    inner: Arc<Yoke<BeaconChainBody<'static>, SharedAlignedBuffer>>,
 }
 
 impl GenericOwnedBlockBody for OwnedBeaconChainBody {
@@ -381,7 +382,9 @@ impl OwnedBeaconChainBody {
         })
         .map_err(move |()| buffer)?;
 
-        Ok(Self { inner })
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
     }
 
     /// Inner buffer with block body contents
@@ -426,7 +429,7 @@ pub enum OwnedIntermediateShardBodyError {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardBody {
-    inner: Yoke<IntermediateShardBody<'static>, SharedAlignedBuffer>,
+    inner: Arc<Yoke<IntermediateShardBody<'static>, SharedAlignedBuffer>>,
 }
 
 impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
@@ -549,7 +552,9 @@ impl OwnedIntermediateShardBody {
         })
         .map_err(move |()| buffer)?;
 
-        Ok(Self { inner })
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
     }
 
     /// Inner buffer with block body contents
@@ -610,7 +615,7 @@ impl From<AddTransactionError> for OwnedLeafShardBodyError {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedLeafShardBody {
-    inner: Yoke<LeafShardBody<'static>, SharedAlignedBuffer>,
+    inner: Arc<Yoke<LeafShardBody<'static>, SharedAlignedBuffer>>,
 }
 
 impl GenericOwnedBlockBody for OwnedLeafShardBody {
@@ -677,7 +682,9 @@ impl OwnedLeafShardBody {
         })
         .map_err(move |()| buffer)?;
 
-        Ok(Self { inner })
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
     }
 
     /// Inner buffer with block body contents

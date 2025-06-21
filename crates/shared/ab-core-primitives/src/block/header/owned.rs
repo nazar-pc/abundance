@@ -10,6 +10,7 @@ use crate::hashes::Blake3Hash;
 use crate::shard::ShardKind;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
+use alloc::sync::Arc;
 use core::fmt;
 use derive_more::From;
 use yoke::Yoke;
@@ -55,7 +56,7 @@ pub enum OwnedBeaconChainHeaderError {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedBeaconChainHeader {
-    inner: Yoke<BeaconChainHeader<'static>, SharedAlignedBuffer>,
+    inner: Arc<Yoke<BeaconChainHeader<'static>, SharedAlignedBuffer>>,
 }
 
 impl GenericOwnedBlockHeader for OwnedBeaconChainHeader {
@@ -231,7 +232,9 @@ impl OwnedBeaconChainHeader {
         })
         .map_err(move |()| buffer)?;
 
-        Ok(Self { inner })
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
     }
 
     /// Inner buffer with block header contents
@@ -290,7 +293,7 @@ pub enum OwnedIntermediateShardHeaderError {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardHeader {
-    inner: Yoke<IntermediateShardHeader<'static>, SharedAlignedBuffer>,
+    inner: Arc<Yoke<IntermediateShardHeader<'static>, SharedAlignedBuffer>>,
 }
 
 impl GenericOwnedBlockHeader for OwnedIntermediateShardHeader {
@@ -403,7 +406,9 @@ impl OwnedIntermediateShardHeader {
         })
         .map_err(move |()| buffer)?;
 
-        Ok(Self { inner })
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
     }
 
     /// Inner buffer with block header contents
@@ -451,7 +456,7 @@ impl OwnedIntermediateShardHeaderUnsealed {
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedLeafShardHeader {
-    inner: Yoke<LeafShardHeader<'static>, SharedAlignedBuffer>,
+    inner: Arc<Yoke<LeafShardHeader<'static>, SharedAlignedBuffer>>,
 }
 
 impl GenericOwnedBlockHeader for OwnedLeafShardHeader {
@@ -530,7 +535,9 @@ impl OwnedLeafShardHeader {
         })
         .map_err(move |()| buffer)?;
 
-        Ok(Self { inner })
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
     }
 
     /// Inner buffer with block header contents
