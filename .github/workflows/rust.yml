@@ -75,7 +75,20 @@ jobs:
         run: |
           cargo -Zgitoxide -Zgit clippy --locked --all-targets -- -D warnings
 
+      - name: cargo clippy (each crate individually)
+        shell: bash
+        run: |
+          for crate_path in crates/{contracts/{core,example,system},execution,farmer,node,shared}/*; do
+            if [ ! -f "$crate_path/Cargo.toml" ]; then
+              continue
+            fi
+            crate="$(basename -- $crate_path)"
+            echo "Checking \`$crate\` individually"
+            cargo -Zgitoxide -Zgit clippy --all-targets --package $crate -- -D warnings
+          done
+
       - name: cargo clippy (various features)
+        shell: bash
         run: |
           for feature in alloc parallel scale-codec serde; do
             echo "Check clippy with feature: $feature"
@@ -112,7 +125,6 @@ jobs:
 
           echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`"
           cargo -Zgitoxide -Zgit clippy --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings
-        if: runner.os == 'Linux'
 
   cargo-test:
     strategy:

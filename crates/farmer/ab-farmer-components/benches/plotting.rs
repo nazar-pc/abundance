@@ -10,7 +10,8 @@ use ab_proof_of_space::Table;
 use ab_proof_of_space::chia::ChiaTable;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use futures::executor::block_on;
-use rand::prelude::*;
+use rand_chacha::ChaCha8Rng;
+use rand_core::{RngCore, SeedableRng};
 use std::env;
 use std::hint::black_box;
 use std::num::NonZeroU64;
@@ -28,8 +29,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     let public_key = Ed25519PublicKey::default();
     let public_key_hash = &public_key.hash();
     let sector_index = SectorIndex::ZERO;
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let mut input = RecordedHistorySegment::new_boxed();
-    StdRng::seed_from_u64(42).fill(AsMut::<[u8]>::as_mut(input.as_mut()));
+    rng.fill_bytes(input.as_mut().as_mut());
     let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
     let mut table_generators = [
