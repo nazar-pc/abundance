@@ -412,3 +412,13 @@ jobs:
             # TODO: This uses x86-64-based target, but will have to change to riscv64e-based target eventually
             cargo -Zgitoxide -Zgit rustc -Z build-std=core --crate-type cdylib --profile contract --target crates/contracts/x86_64-unknown-none-abundance.json --package $contract --features $contract/guest
           done
+
+  rust-all:
+    runs-on: ubuntu-24.04
+    needs:
+      - cargo-clippy
+      - cargo-fmt
+      - cargo-miri-test
+      - cargo-test
+      - contracts
+      - no-panic
