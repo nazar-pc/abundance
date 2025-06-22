@@ -51,6 +51,10 @@ jobs:
           - ubuntu-24.04-arm
           - macos-15
           - windows-2025
+        type:
+          - together
+          - individually
+          - features
 
     runs-on: ${{ matrix.os }}
 
@@ -74,6 +78,7 @@ jobs:
       - name: cargo clippy
         run: |
           cargo -Zgitoxide -Zgit clippy --locked --all-targets -- -D warnings
+        if: matrix.type == 'together'
 
       - name: cargo clippy (each crate individually)
         shell: bash
@@ -86,6 +91,7 @@ jobs:
             echo "Checking \`$crate\` individually"
             cargo -Zgitoxide -Zgit clippy --all-targets --package $crate -- -D warnings
           done
+        if: matrix.type == 'individually'
 
       - name: cargo clippy (various features)
         shell: bash
@@ -125,6 +131,7 @@ jobs:
 
           echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`"
           cargo -Zgitoxide -Zgit clippy --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings
+        if: matrix.type == 'features'
 
   cargo-test:
     strategy:
@@ -134,87 +141,22 @@ jobs:
           - ubuntu-24.04-arm
           - macos-15
           - windows-2025
+        miri:
+          - true
+          - false
+        type:
+          - together
+          - features
+          - guest-feature
+        exclude:
+          - os: macos-15
+            type: guest-feature
+          - os: windows-2025
+            type: guest-feature
 
     runs-on: ${{ matrix.os }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Configure cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-        # Cache on Windows is so slow, it is faster without it, see many reports like
-        # https://github.com/actions/runner-images/issues/7320
-        if: runner.os != 'Windows'
-
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@d12e869b89167df346dd0ff65da342d1fb1202fb # 2.53.2
-        with:
-          tool: cargo-nextest
-
-      - name: cargo nextest run
-        run: |
-          cargo -Zgitoxide -Zgit nextest run --locked
-
-      - name: cargo test (various features)
-        shell: bash
-        run: |
-          for feature in alloc parallel scale-codec serde; do
-            for crate_path in crates/{execution,farmer,node,shared}/*; do
-              # Not all crates have this feature
-              if ! grep --no-messages --quiet "^$feature = \[" "$crate_path/Cargo.toml"; then
-                continue
-              fi
-              crate="$(basename -- $crate_path)"
-              echo "Testing \`$feature\` in \`$crate\`"
-              cargo -Zgitoxide -Zgit nextest run --no-tests pass --package $crate --features $crate/$feature
-            done
-          done
-
-          echo "Checking \`executor\` in \`ab-contracts-common\`"
-          cargo -Zgitoxide -Zgit nextest run --package ab-contracts-common --features ab-contracts-common/executor
-
-          echo "Testing \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`"
-          cargo -Zgitoxide -Zgit nextest run --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
-
-      - name: cargo nextest run (guest feature)
-        shell: bash
-        run: |
-          # Ensure tests pass with `guest` feature
-          for contract_path in crates/contracts/{example,system}/*; do
-            contract="$(basename -- $contract_path)"
-            echo "Testing \`guest\` in \`$contract\`"
-            cargo -Zgitoxide -Zgit nextest run --no-tests pass --package $contract --features $contract/guest
-          done
-          for create_path in crates/contracts/core/*; do
-            # Not all crates have this feature
-            if ! grep --no-messages --quiet "^guest = \[" "$crate_path/Cargo.toml"; then
-              continue
-            fi
-            crate="$(basename -- $create_path)"
-            echo "Testing \`guest\` in \`$crate\`"
-            cargo -Zgitoxide -Zgit nextest run --no-tests pass --package $crate --features $crate/guest
-          done
-        if: runner.os == 'Linux'
-
-  # TODO: All these miri commands are otherwise identical to regular testing, think about de-duplicating them
-  cargo-miri-test:
-    strategy:
-      matrix:
-        os:
-          - ubuntu-24.04
-          - ubuntu-24.04-arm
-          - macos-15
-          - windows-2025
-
-    runs-on: ${{ matrix.os }}
+    env:
+      command: ${{ matrix.miri == 'true' && 'miri nextest run' || 'nextest run' }}
 
     steps:
       - name: Checkout
@@ -241,14 +183,15 @@ jobs:
       # TODO: This is a workaround for https://github.com/RustCrypto/stream-ciphers/issues/426
       - name: Miri aarch64 workaround
         run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C target-feature=-neon" >> $GITHUB_ENV
-        if: matrix.os == 'ubuntu-24.04-arm' || matrix.os == 'macos-15'
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} --cfg chacha20_force_soft" >> $GITHUB_ENV
+        if: matrix.miri == 'true' && (matrix.os == 'ubuntu-24.04-arm' || matrix.os == 'macos-15')
 
-      - name: cargo miri nextest run
+      - name: cargo ${{ env.command }}
         run: |
-          cargo -Zgitoxide -Zgit miri nextest run
+          cargo -Zgitoxide -Zgit ${{ env.command }} --locked
+        if: matrix.type == 'together'
 
-      - name: cargo miri nextest run (various features)
+      - name: cargo test (various features)
         shell: bash
         run: |
           for feature in alloc parallel scale-codec serde; do
@@ -259,24 +202,25 @@ jobs:
               fi
               crate="$(basename -- $crate_path)"
               echo "Testing \`$feature\` in \`$crate\`"
-              cargo -Zgitoxide -Zgit miri nextest run --no-tests pass --package $crate --features $crate/$feature
+              cargo -Zgitoxide -Zgit ${{ env.command }} --no-tests pass --package $crate --features $crate/$feature
             done
           done
 
           echo "Checking \`executor\` in \`ab-contracts-common\`"
-          cargo -Zgitoxide -Zgit miri nextest run --package ab-contracts-common --features ab-contracts-common/executor
+          cargo -Zgitoxide -Zgit ${{ env.command }} --package ab-contracts-common --features ab-contracts-common/executor
 
           echo "Testing \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`"
-          cargo -Zgitoxide -Zgit miri nextest run --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+          cargo -Zgitoxide -Zgit ${{ env.command }} --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+        if: matrix.type == 'features'
 
-      - name: cargo miri nextest run (guest feature)
+      - name: cargo ${{ env.command }} (guest feature)
         shell: bash
         run: |
           # Ensure tests pass with `guest` feature
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
             echo "Testing \`guest\` in \`$contract\`"
-            cargo -Zgitoxide -Zgit miri nextest run --no-tests pass --package $contract --features $contract/guest
+            cargo -Zgitoxide -Zgit ${{ env.command }} --no-tests pass --package $contract --features $contract/guest
           done
           for create_path in crates/contracts/core/*; do
             # Not all crates have this feature
@@ -285,9 +229,9 @@ jobs:
             fi
             crate="$(basename -- $create_path)"
             echo "Testing \`guest\` in \`$crate\`"
-            cargo -Zgitoxide -Zgit miri nextest run --no-tests pass --package $crate --features $crate/guest
+            cargo -Zgitoxide -Zgit ${{ env.command }} --no-tests pass --package $crate --features $crate/guest
           done
-        if: runner.os == 'Linux'
+        if: matrix.type == 'guest-feature' && runner.os == 'Linux'
 
   no-panic:
     strategy:
@@ -297,6 +241,15 @@ jobs:
           - ubuntu-24.04-arm
           - macos-15
           - windows-2025
+        type:
+          - default
+          - features
+          - guest-feature
+        exclude:
+          - os: macos-15
+            type: guest-feature
+          - os: windows-2025
+            type: guest-feature
 
     runs-on: ${{ matrix.os }}
 
@@ -338,6 +291,7 @@ jobs:
             echo "Checking \`$crate\`"
             cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $crate
           done
+        if: matrix.type == 'default'
 
       - name: Ensure no panics in annotated code (various features)
         env:
@@ -363,6 +317,8 @@ jobs:
 
           echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`"
           cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+        if: matrix.type == 'features'
+
       - name: Ensure no panics in annotated code (guest feature)
         run: |
           # Ensure no panics with `guest` feature
@@ -385,7 +341,7 @@ jobs:
             echo "Checking \`guest\` in \`$contract\`"
             cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $contract --features $contract/guest
           done
-        if: runner.os == 'Linux'
+        if: matrix.type == 'guest-feature' && runner.os == 'Linux'
 
   contracts:
     runs-on: ubuntu-24.04
@@ -418,7 +374,9 @@ jobs:
     needs:
       - cargo-clippy
       - cargo-fmt
-      - cargo-miri-test
       - cargo-test
       - contracts
       - no-panic
+    steps:
+      - name: Wait for all Rust jobs
+        run: echo "All Rust jobs succeeded!"
