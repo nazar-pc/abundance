@@ -48,11 +48,10 @@ backoff = { workspace = true, features = ["futures", "tokio"] }
 bitvec = { workspace = true }
 blake3 = { workspace = true, features = ["rayon"] }
 fs2 = { workspace = true }
-futures = { workspace = true, features = ["std"] }
+futures = { workspace = true, features = ["std", "executor"] }
 libc = { workspace = true }
 parity-scale-codec = { workspace = true }
 parking_lot = { workspace = true }
-rand = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
@@ -64,6 +63,8 @@ windows = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
+rand_core = { workspace = true }
+rand_chacha = { workspace = true }
 
 [lints]
 workspace = true

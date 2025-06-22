@@ -127,7 +127,6 @@ dependencies = [
  "libc",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "rand 0.9.1",
  "rayon",
  "serde",
  "thiserror 2.0.12",

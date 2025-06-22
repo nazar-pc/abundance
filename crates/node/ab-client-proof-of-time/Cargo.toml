@@ -14,7 +14,7 @@ include = [
 all-features = true
 
 [dependencies]
-ab-core-primitives = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["scale-codec"] }
 ab-client-api = { workspace = true }
 ab-proof-of-time = { workspace = true }
 derive_more = { workspace = true, features = ["deref", "deref_mut"] }

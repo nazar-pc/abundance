@@ -14,7 +14,7 @@ include = [
 all-features = true
 
 [dependencies]
-ab-core-primitives = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["scale-codec"] }
 parity-scale-codec = { workspace = true }
 parking_lot = { workspace = true }
 thiserror = { workspace = true }
