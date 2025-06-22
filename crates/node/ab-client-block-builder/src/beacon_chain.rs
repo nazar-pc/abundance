@@ -161,10 +161,9 @@ where
         }
 
         BlockHeaderPrefix {
-            version: BlockHeaderPrefix::BLOCK_VERSION,
             number: block_number,
             shard_index: ShardIndex::BEACON_CHAIN,
-            padding: [0; _],
+            padding_0: [0; _],
             timestamp,
             parent_root: *parent_block_root,
             // TODO: Real MMR root

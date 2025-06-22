@@ -286,7 +286,7 @@ impl NativeExecutor {
 
         let env_state = EnvState {
             shard_index: self.shard_index,
-            padding_0: Default::default(),
+            padding_0: [0; _],
             own_address: Address::NULL,
             context: Address::NULL,
             caller: Address::NULL,
@@ -344,7 +344,7 @@ impl NativeExecutor {
         // TODO: This is a pretty large data structure to copy around, try to make it a reference
         let env_state = EnvState {
             shard_index: self.shard_index,
-            padding_0: Default::default(),
+            padding_0: [0; _],
             own_address: Address::NULL,
             context: Address::NULL,
             caller: Address::NULL,
@@ -402,7 +402,7 @@ impl NativeExecutor {
         // TODO: This is a pretty large data structure to copy around, try to make it a reference
         let env_state = EnvState {
             shard_index: self.shard_index,
-            padding_0: Default::default(),
+            padding_0: [0; _],
             own_address: Address::NULL,
             context: Address::NULL,
             caller: Address::NULL,
@@ -485,7 +485,7 @@ impl NativeExecutor {
     {
         let env_state = EnvState {
             shard_index: self.shard_index,
-            padding_0: Default::default(),
+            padding_0: [0; _],
             own_address: contract,
             context: contract,
             caller: Address::NULL,
@@ -512,7 +512,7 @@ impl NativeExecutor {
     {
         let env_state = EnvState {
             shard_index: self.shard_index,
-            padding_0: Default::default(),
+            padding_0: [0; _],
             own_address: Address::NULL,
             context: Address::NULL,
             caller: Address::NULL,
