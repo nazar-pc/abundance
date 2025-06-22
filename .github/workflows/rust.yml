@@ -20,6 +20,14 @@ env:
   RUST_BACKTRACE: full
 
 jobs:
+  # Artificial job that gives windows jobs head start by making other jobs start a bit later, so Windows jobs schedule
+  # earlier than the rest and will not delay the rest of the queue as much as they would otherwise
+  windows-head-start:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Artificial delay
+        run: sleep 5
+
   cargo-fmt:
     runs-on: ubuntu-24.04
 
@@ -57,6 +65,7 @@ jobs:
           - features
 
     runs-on: ${{ matrix.os }}
+    needs: ${{ contains(matrix.os, 'windows') && fromJSON('[]') || 'windows-head-start' }}
 
     steps:
       - name: Checkout
@@ -377,6 +386,7 @@ jobs:
       - cargo-test
       - contracts
       - no-panic
+
     steps:
       - name: Wait for all Rust jobs
         run: echo "All Rust jobs succeeded!"
