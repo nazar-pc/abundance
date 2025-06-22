@@ -156,7 +156,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     env:
-      command: ${{ matrix.miri == 'true' && 'miri nextest run' || 'nextest run' }}
+      command: ${{ matrix.miri == true && 'miri nextest run' || 'nextest run' }}
 
     steps:
       - name: Checkout
@@ -184,7 +184,7 @@ jobs:
       - name: Miri aarch64 workaround
         run: |
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} --cfg chacha20_force_soft" >> $GITHUB_ENV
-        if: matrix.miri == 'true' && (matrix.os == 'ubuntu-24.04-arm' || matrix.os == 'macos-15')
+        if: matrix.miri == true && (matrix.os == 'ubuntu-24.04-arm' || matrix.os == 'macos-15')
 
       - name: cargo ${{ env.command }}
         run: |
