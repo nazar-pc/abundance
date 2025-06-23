@@ -198,11 +198,14 @@ where
                     let mut parent_level_size = N / 2;
 
                     for hash in shared_proof {
-                        let parent_other_position = if parent_position % 2 == 0 {
-                            parent_position + 1
-                        } else {
-                            parent_position - 1
-                        };
+                        // Line below is a more efficient branchless version of this:
+                        // let parent_other_position = if parent_position % 2 == 0 {
+                        //     parent_position + 1
+                        // } else {
+                        //     parent_position - 1
+                        // };
+                        let parent_other_position = parent_position ^ 1;
+
                         // SAFETY: Statically guaranteed to be present by constructor
                         let other_hash =
                             unsafe { tree_hashes.get_unchecked(parent_other_position) };
