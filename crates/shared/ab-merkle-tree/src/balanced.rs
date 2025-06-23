@@ -109,14 +109,9 @@ where
             // levels of hashes
             (parent_hashes, tree_hashes) = unsafe { tree_hashes.split_at_mut_unchecked(num_pairs) };
 
-            for pair_index in 0..num_pairs {
-                // SAFETY: Entry is statically known to be present
-                let left_hash = unsafe { level_hashes.get_unchecked(pair_index * 2) };
-                // SAFETY: Entry is statically known to be present
-                let right_hash = unsafe { level_hashes.get_unchecked(pair_index * 2 + 1) };
-                // SAFETY: Entry is statically known to be present
-                let parent_hash = unsafe { parent_hashes.get_unchecked_mut(pair_index) };
-
+            for ([left_hash, right_hash], parent_hash) in
+                level_hashes.array_chunks().zip(parent_hashes.iter_mut())
+            {
                 pair[..OUT_LEN].copy_from_slice(left_hash);
                 pair[OUT_LEN..].copy_from_slice(right_hash);
 
@@ -198,11 +193,14 @@ where
                     let mut parent_level_size = N / 2;
 
                     for hash in shared_proof {
-                        let parent_other_position = if parent_position % 2 == 0 {
-                            parent_position + 1
-                        } else {
-                            parent_position - 1
-                        };
+                        // Line below is a more efficient branchless version of this:
+                        // let parent_other_position = if parent_position % 2 == 0 {
+                        //     parent_position + 1
+                        // } else {
+                        //     parent_position - 1
+                        // };
+                        let parent_other_position = parent_position ^ 1;
+
                         // SAFETY: Statically guaranteed to be present by constructor
                         let other_hash =
                             unsafe { tree_hashes.get_unchecked(parent_other_position) };
