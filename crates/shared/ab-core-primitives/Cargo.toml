@@ -33,6 +33,9 @@ serde-big-array = { workspace = true }
 thiserror = { workspace = true }
 yoke = { workspace = true, features = ["derive"] }
 
+[target.'cfg(not(any(target_os = "none", target_os = "unknown")))'.dependencies]
+rclite = { workspace = true }
+
 [dev-dependencies]
 rand_core = { workspace = true }
 rand_chacha = { workspace = true }
