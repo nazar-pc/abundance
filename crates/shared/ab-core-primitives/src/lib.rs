@@ -33,7 +33,7 @@ pub mod shard;
 pub mod solutions;
 pub mod transaction;
 
-#[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
 const _: () = {
