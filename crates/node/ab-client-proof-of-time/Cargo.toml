@@ -21,6 +21,7 @@ derive_more = { workspace = true, features = ["deref", "deref_mut"] }
 futures = { workspace = true, features = ["alloc", "executor"] }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 parking_lot = { workspace = true }
+rclite = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 schnellru = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }

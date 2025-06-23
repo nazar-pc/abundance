@@ -5,18 +5,18 @@ use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use async_lock::{RwLock, RwLockWriteGuard};
 use parking_lot::Mutex;
+use rclite::Arc;
 use stable_deref_trait::StableDeref;
 use std::collections::VecDeque;
 use std::mem;
 use std::ops::Deref;
-use std::sync::Arc;
 use yoke::{Yoke, Yokeable};
 
 mod private {
     use ab_client_api::BlockMerkleMountainRange;
     use ab_core_primitives::block::BlockRoot;
     use async_lock::RwLock;
-    use std::sync::Arc;
+    use rclite::Arc;
 
     // Needs to be public to appear in `impl Deref for ImportingBlockEntry`
     #[derive(Debug)]

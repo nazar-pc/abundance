@@ -8,9 +8,9 @@ use ab_core_primitives::pot::{
     PotCheckpoints, PotOutput, PotParametersChange, PotSeed, SlotNumber,
 };
 use parking_lot::Mutex;
+use rclite::Arc;
 use schnellru::{ByLength, LruMap};
 use std::num::NonZeroU32;
-use std::sync::Arc;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 struct CacheKey {

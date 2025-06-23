@@ -21,6 +21,7 @@ ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
 async-lock = { workspace = true, features = ["std"] }
 parking_lot = { workspace = true }
+rclite = { workspace = true }
 send-future = { workspace = true }
 stable_deref_trait = { workspace = true }
 thiserror = { workspace = true }
