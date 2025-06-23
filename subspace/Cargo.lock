@@ -39,6 +39,7 @@ version = "0.0.1"
 dependencies = [
  "ab-core-primitives",
  "ab-merkle-tree",
+ "rclite",
  "thiserror 2.0.12",
 ]
 
@@ -53,6 +54,7 @@ dependencies = [
  "futures",
  "parity-scale-codec",
  "parking_lot 0.12.3",
+ "rclite",
  "scale-info",
  "schnellru",
  "tokio",
@@ -75,6 +77,7 @@ dependencies = [
  "once_cell",
  "parity-scale-codec",
  "rayon",
+ "rclite",
  "scale-info",
  "serde",
  "serde-big-array",
@@ -619,7 +622,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "paste",
- "rustc_version",
+ "rustc_version 0.4.1",
  "zeroize",
 ]
 
@@ -1349,6 +1352,15 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
+]
+
+[[package]]
+name = "branches"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c3cb31f305a2591edaae2206f29e1e05b19ba48eba41042a18735bcc0efe165"
+dependencies = [
+ "rustc_version 0.2.3",
 ]
 
 [[package]]
@@ -2147,7 +2159,7 @@ dependencies = [
  "curve25519-dalek-derive",
  "digest 0.10.7",
  "fiat-crypto",
- "rustc_version",
+ "rustc_version 0.4.1",
  "subtle 2.6.1",
  "zeroize",
 ]
@@ -2326,7 +2338,7 @@ dependencies = [
  "convert_case 0.4.0",
  "proc-macro2",
  "quote",
- "rustc_version",
+ "rustc_version 0.4.1",
  "syn 2.0.101",
 ]
 
@@ -7188,6 +7200,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rclite"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f528dfeba924f5fc67bb84a17fe043451d1b392758016ce2d9e9116649b0f35"
+dependencies = [
+ "branches",
+]
+
+[[package]]
 name = "readme-rustdocifier"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7456,6 +7477,15 @@ name = "rustc-hex"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e75f6a532d0fd9f7f13144f392b6ad56a32696bfcd9c78f797f16bbb6f072d6"
+
+[[package]]
+name = "rustc_version"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
+dependencies = [
+ "semver 0.9.0",
+]
 
 [[package]]
 name = "rustc_version"
@@ -8822,6 +8852,15 @@ dependencies = [
 
 [[package]]
 name = "semver"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
+dependencies = [
+ "semver-parser",
+]
+
+[[package]]
+name = "semver"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61697e0a1c7e512e84a621326239844a24d8207b4669b41bc18b32ea5cbf988b"
@@ -9129,7 +9168,7 @@ dependencies = [
  "curve25519-dalek",
  "rand_core 0.6.4",
  "ring 0.17.13",
- "rustc_version",
+ "rustc_version 0.4.1",
  "sha2 0.10.8",
  "subtle 2.6.1",
 ]

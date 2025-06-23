@@ -6,9 +6,9 @@ use ab_core_primitives::block::header::owned::OwnedBeaconChainHeader;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_proof_of_space::Table;
+use rclite::Arc;
 use send_future::SendFuture;
 use std::marker::PhantomData;
-use std::sync::Arc;
 
 /// Errors for [`BeaconChainBlockImport`]
 #[derive(Debug, thiserror::Error)]

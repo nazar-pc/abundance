@@ -10,9 +10,9 @@ use crate::hashes::Blake3Hash;
 use crate::shard::ShardKind;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
-use alloc::sync::Arc;
 use core::fmt;
 use derive_more::From;
+use rclite::Arc;
 use yoke::Yoke;
 
 /// Generic owned block header

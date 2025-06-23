@@ -14,10 +14,10 @@ use crate::transaction::Transaction;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
-use alloc::sync::Arc;
 use core::fmt;
 use core::iter::TrustedLen;
 use derive_more::From;
+use rclite::Arc;
 use yoke::Yoke;
 
 /// Generic owned block body

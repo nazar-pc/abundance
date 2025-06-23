@@ -8,7 +8,7 @@
 use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_merkle_tree::mmr::MerkleMountainRange;
-use std::sync::Arc;
+use rclite::Arc;
 
 // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows the
 //  code to compile. Constant 4294967295 is hardcoded here and below for compilation to succeed.

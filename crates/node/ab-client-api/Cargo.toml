@@ -16,6 +16,7 @@ all-features = true
 [dependencies]
 ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-merkle-tree = { workspace = true }
+rclite = { workspace = true }
 thiserror = { workspace = true }
 
 [lints]
