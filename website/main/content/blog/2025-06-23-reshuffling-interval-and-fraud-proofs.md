@@ -31,11 +31,12 @@ detected by honest farmers.
 - If a malicious farmer in a shard creates an invalid block or segment (invalid transaction, state
   transition, incorrect encoding, etc.), _eventually_ an honest farmer will be assigned to that
   shard during a reshuffle. This honest farmer will download and verify the latest shard's history.
-  Upon encountering the invalid block or segment, they will detect the fraud and submit it to its
-  parent and the beacon chain. Intermediate shards and the beacon chain do not immediately accept
-  new blocks being submitted by child shards, they wait for one or more reshuffling intervals to
-  ensure that the data has been verified by honest farmers. In the next section I will share the
-  model to determine the optimal values depending on the desired security level.
+  Upon encountering the invalid block or segment, they will trigger a re-org that will be detected
+  in follow-up submissions by the parent and the beacon chain. Intermediate shards and the beacon
+  chain do not immediately accept new blocks being submitted by child shards, they wait for one or
+  more reshuffling intervals to ensure that the data has been verified by honest farmers. In the
+  next section I will share the model to determine the optimal values depending on the desired
+  security level.
 - When the honest farmer detects fraud, they will refuse to build on top of the fraudulent chain. If
   the shard has a sufficient number of honest farmers that detect this, they will collectively build
   a valid fork, effectively causing a re-org that prunes the fraudulent history.
@@ -131,15 +132,15 @@ If a fraudulent segment or a block is submitted to the upper layers of the hiera
 remains undetected until an honest farmer is assigned to that shard and syncs.
 
 The probability that fraud in a specific shard remains undetected for \\(k\\) consecutive reshuffles
-is \\((p^n)^k\\).
+is \\( (p^n)^k \\).
 
-So, \\(P(\text{fraud detected by interval } k) = 1 - (p^n)^k\\).
+So, \\( P(\text{fraud detected by interval } k) = 1 - (p^n)^k \\).
 
 ### Overall Security Bound (\\(\alpha\_{fraud}\\)):
 
 We want the probability that any fraudulent segment or block remains undetected for \\(k\\)
-intervals to be very low. \\(P(\text{any fraud undetected for } k \text{ intervals}) \le S \cdot
-(p^n)^k\\) (Union Bound over shards)
+intervals to be very low. \\( P(\text{any fraud undetected for } k \text{ intervals}) \le S \cdot
+(p^n)^k \\) (Union Bound over shards)
 
 Setting this to \\( \alpha*{fraud} \\): \\( S \cdot (p^n)^k < \alpha*{fraud} \\)
 
@@ -156,13 +157,13 @@ This equation allows us to reason about the trade-offs (that actually match the 
 
 ### Solving for \\(k\\) (number of reshuffles until detection):
 
-Given \\(S, p, n, \alpha*{fraud}\\): \\(k > \frac{\log(\alpha*{fraud}/S)}{\log(p^n)}\\)
+Given \\(S, p, n, \alpha*{fraud}\\): \\( k > \frac{\log(\alpha*{fraud}/S)}{\log(p^n)} \\)
 
 This \\(k\\) gives use the number of reshuffling intervals we might need to "wait" before a block or
 a segment can be considered probabilistically secure against undetected fraud. If a block or segment
 submitted to the beacon chain and eventually included in a SuperSegment at beacon height \\(H\\),
-and \\(k\\) reshuffles happen, the "true" finality could be argued to be at beacon height \\(H+k
-\cdot L\\).
+and \\(k\\) reshuffles happen, the "true" finality could be argued to be at beacon height \\( H+k
+\cdot L \\).
 
 With this, we can determine the optimal reshuffling interval based on the desired security level
 (\\(\alpha\_{fraud}\\)) and the parameters of the system.
@@ -196,7 +197,9 @@ struct Solution {
     chunk_witness:       48 bytes
     proof_of_space:     160 bytes
     // --- NEW FIELD FOR MEMBERSHIP AND PLOT UNIQUENESS PROOF ---
-    plot_id:             32 bytes, // Unique identifier for the plot
+    // Unique identifier for the plot or the pieces of information required to infer it within the block
+    // (e.g. public key, max plot size, min and max history size).
+    plot_id:             32 bytes,
 }
 
     // Additional information that we may need to include as part of the `Solution` struct
@@ -282,10 +285,10 @@ solution, and that the farmer plot is allocated to the shard:
 
 The farming protocol presented above assumed a really specific mechanism for sector expiration and
 re-plotting. Unfortunately, after discussing it with Nazar we realised that my re-plotting proposal
-had some holes, so while the high-level of the verification stands, expect some minor changes in
-the information included in the header and the verification process. This will mainly be related
-with the history size window of the plot. I don't expect any big refactor to be needed here, but
-stay tuned!
+had some holes, so while the high-level of the verification stands, expect some minor changes in the
+information included in the header and the verification process. This will mainly be related with
+the history size window of the plot. I don't expect any big refactor to be needed here, but stay
+tuned!
 
 With this in mind, my two main focus for this week are on:
 
