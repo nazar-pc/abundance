@@ -34,7 +34,7 @@ detected by honest farmers.
   Upon encountering the invalid block or segment, they will detect the fraud and submit it to its
   parent and the beacon chain. Intermediate shards and the beacon chain do not immediately accept
   new blocks being submitted by child shards, they wait for one or more reshuffling intervals to
-  ensure that the data has been verified by honest farmers. In thew next section I will share the
+  ensure that the data has been verified by honest farmers. In the next section I will share the
   model to determine the optimal values depending on the desired security level.
 - When the honest farmer detects fraud, they will refuse to build on top of the fraudulent chain. If
   the shard has a sufficient number of honest farmers that detect this, they will collectively build
@@ -186,7 +186,7 @@ determine if the farmer is entitle to propose a block in the shard.
 ```rust
 // -- The shard ID is explicitly shared in the block header.
 struct Solution {
-    public_key_hash:          32 bytes
+    public_key_hash:     32 bytes
     sector_index:         2 bytes
     history_size:         8 bytes
     piece_offset:         2 bytes
@@ -217,7 +217,7 @@ struct Solution {
 At a really high-level these are the steps required to verify that a block includes the right
 solution, and that the farmer plot is allocated to the shard:
 
-- **Standard Subspace PoSt Verification**: It works in the same as it currently works in Subspace.
+- **Standard Subspace PoAS Verification**: It works in the same as it currently works in Subspace.
 
   - Verify `public_key` is not in block list.
   - Verify consensus log (`solution_range`, `global_randomness`).
@@ -282,7 +282,7 @@ solution, and that the farmer plot is allocated to the shard:
 
 The farming protocol presented above assumed a really specific mechanism for sector expiration and
 re-plotting. Unfortunately, after discussing it with Nazar we realised that my re-plotting proposal
-had some wholes, so while the high-level of the verification stands, expect some minor changes in
+had some holes, so while the high-level of the verification stands, expect some minor changes in
 the information included in the header and the verification process. This will mainly be related
 with the history size window of the plot. I don't expect any big refactor to be needed here, but
 stay tuned!
