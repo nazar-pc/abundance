@@ -2,7 +2,7 @@
 title: Reshuffling interval and living without fraud proofs
 date: 2025-06-23
 draft: false
-description: Identifying any existential risks to the system and how to mitigate them.
+description: Can we implement a protocol that does not require fraud proofs?
 tags: [status-update, consensus]
 authors: [adlrocha]
 ---
