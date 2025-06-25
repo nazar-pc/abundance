@@ -370,6 +370,8 @@ jobs:
           done
 
   rust-all:
+    # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks
+    if: ${{ always() }}
     runs-on: ubuntu-24.04
     needs:
       - cargo-clippy
