@@ -8,13 +8,12 @@ use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT};
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::table::{
     COMPUTE_F1_SIMD_FACTOR, calculate_left_targets, compute_f1, compute_f1_simd, compute_fn,
-    find_matches, metadata_size_bytes, partial_y,
+    find_matches, metadata_size_bytes,
 };
 use crate::chiapos::utils::EvaluatableUsize;
 use alloc::collections::BTreeMap;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use bitvec::prelude::*;
 
 /// Chia does this for some reason 🤷
 fn to_chia_seed(seed: &Seed) -> Seed {
@@ -36,14 +35,13 @@ fn test_compute_f1_k25() {
 
     for (x, expected_y) in xs.into_iter().zip(expected_ys) {
         let x = X::from(x);
-        let (partial_y, partial_y_offset) = partial_y::<K>(seed, x);
-        let y = compute_f1::<K>(x, &partial_y, partial_y_offset);
+        let y = compute_f1::<K>(x, &seed);
         assert_eq!(y, Y::from(expected_y));
 
         // Make sure SIMD matches non-SIMD version
         let mut partial_ys = [0; K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize];
-        partial_ys.view_bits_mut::<Msb0>()[..usize::from(K)]
-            .copy_from_bitslice(&partial_y.view_bits()[partial_y_offset..][..usize::from(K)]);
+        let starts_with_partial_y_bits = y.first_k_bits::<K>() << (u32::BITS - u32::from(K));
+        partial_ys[..size_of::<u32>()].copy_from_slice(&starts_with_partial_y_bits.to_be_bytes());
         let y = compute_f1_simd::<K>([x.into(); COMPUTE_F1_SIMD_FACTOR], &partial_ys);
         assert_eq!(y[0], Y::from(expected_y));
     }
@@ -62,14 +60,13 @@ fn test_compute_f1_k22() {
 
     for (x, expected_y) in xs.into_iter().zip(expected_ys) {
         let x = X::from(x);
-        let (partial_y, partial_y_offset) = partial_y::<K>(seed, x);
-        let y = compute_f1::<K>(x, &partial_y, partial_y_offset);
+        let y = compute_f1::<K>(x, &seed);
         assert_eq!(y, Y::from(expected_y));
 
         // Make sure SIMD matches non-SIMD version
         let mut partial_ys = [0; K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize];
-        partial_ys.view_bits_mut::<Msb0>()[..usize::from(K)]
-            .copy_from_bitslice(&partial_y.view_bits()[partial_y_offset..][..usize::from(K)]);
+        let starts_with_partial_y_bits = y.first_k_bits::<K>() << (u32::BITS - u32::from(K));
+        partial_ys[..size_of::<u32>()].copy_from_slice(&starts_with_partial_y_bits.to_be_bytes());
         let y = compute_f1_simd::<K>([x.into(); COMPUTE_F1_SIMD_FACTOR], &partial_ys);
         assert_eq!(y[0], Y::from(expected_y));
     }
@@ -116,8 +113,7 @@ fn test_matches() {
     let mut x = X::from(0);
     for _ in 0..=1 << (K - 4) {
         for _ in 0..16 {
-            let (partial_y, partial_y_offset) = partial_y::<K>(seed, x);
-            let y = compute_f1::<K>(x, &partial_y, partial_y_offset);
+            let y = compute_f1::<K>(x, &seed);
             let bucket_index = usize::from(y) / usize::from(PARAM_BC);
 
             bucket_ys.entry(bucket_index).or_default().push(y);

@@ -401,8 +401,8 @@ dependencies = [
 name = "ab-proof-of-space"
 version = "0.1.0"
 dependencies = [
+ "ab-chacha8",
  "ab-core-primitives",
- "bitvec",
  "blake3",
  "chacha20",
  "criterion",
