@@ -34,13 +34,13 @@ fn self_verification() {
         for (quality, proof) in qualities.into_iter().zip(&proofs) {
             assert_eq!(
                 Some(quality),
-                Tables::<K>::verify(seed, &challenge, proof),
+                Tables::<K>::verify(&seed, &challenge, proof),
                 "challenge index {challenge_index}"
             );
             let mut bad_challenge = [0; 32];
             bad_challenge[..size_of::<u32>()].copy_from_slice(&(challenge_index + 1).to_le_bytes());
             assert!(
-                Tables::<K>::verify(seed, &bad_challenge, proof).is_none(),
+                Tables::<K>::verify(&seed, &bad_challenge, proof).is_none(),
                 "challenge index {challenge_index}"
             );
         }

@@ -11,6 +11,7 @@ members = [
 [workspace.dependencies]
 ab-aligned-buffer = { version = "0.0.1", path = "crates/shared/ab-aligned-buffer" }
 ab-archiving = { version = "0.1.0", path = "crates/shared/ab-archiving" }
+ab-chacha8 = { version = "0.1.0", path = "crates/shared/ab-chacha8" }
 ab-client-api = { version = "0.0.1", path = "crates/node/ab-client-api" }
 ab-client-archiving = { version = "0.0.1", path = "crates/node/ab-client-archiving" }
 ab-client-block-authoring = { version = "0.0.1", path = "crates/node/ab-client-block-authoring" }

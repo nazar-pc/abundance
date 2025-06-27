@@ -28,6 +28,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-chacha8"
+version = "0.1.0"
+dependencies = [
+ "chacha20",
+ "no-panic",
+]
+
+[[package]]
 name = "ab-client-api"
 version = "0.0.1"
 dependencies = [
@@ -393,8 +401,8 @@ dependencies = [
 name = "ab-proof-of-space"
 version = "0.1.0"
 dependencies = [
+ "ab-chacha8",
  "ab-core-primitives",
- "bitvec",
  "blake3",
  "chacha20",
  "criterion",

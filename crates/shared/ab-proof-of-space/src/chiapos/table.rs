@@ -9,11 +9,12 @@ use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT, PARAM_M};
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::utils::EvaluatableUsize;
+use ab_chacha8::{ChaCha8Block, ChaCha8State};
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use chacha20::cipher::{Iv, KeyIvInit, StreamCipher, StreamCipherSeek};
+use chacha20::cipher::{Iv, KeyIvInit, StreamCipher};
 use chacha20::{ChaCha8, Key};
 use core::array;
 use core::simd::Simd;
@@ -67,30 +68,6 @@ fn partial_ys<const K: u8>(seed: Seed) -> Vec<u8> {
     cipher.write_keystream(&mut output);
 
     output
-}
-
-/// ChaCha8 byte for a single `y` at `x` in the first table for [`K`], returns bytes and offset (in
-/// bits) within those bytes at which data start.
-/// Prefer [`partial_ys`] if you process the whole first table.
-pub(super) fn partial_y<const K: u8>(
-    seed: Seed,
-    x: X,
-) -> ([u8; (K as usize * 2).div_ceil(u8::BITS as usize)], usize) {
-    let skip_bits = usize::from(K) * usize::from(x);
-    let skip_bytes = skip_bits / u8::BITS as usize;
-    let skip_bits = skip_bits % u8::BITS as usize;
-
-    let mut output = [0; (K as usize * 2).div_ceil(u8::BITS as usize)];
-
-    let key = Key::from(seed);
-    let iv = Iv::<ChaCha8>::default();
-
-    let mut cipher = ChaCha8::new(&key, &iv);
-
-    cipher.seek(skip_bytes);
-    cipher.write_keystream(&mut output);
-
-    (output, skip_bits)
 }
 
 #[derive(Debug, Clone)]
@@ -170,31 +147,44 @@ pub(super) struct RmapItem {
     start_position: Position,
 }
 
-/// `partial_y_offset` is in bits
-pub(super) fn compute_f1<const K: u8>(x: X, partial_y: &[u8], partial_y_offset: usize) -> Y {
-    let partial_y_length =
-        (partial_y_offset % u8::BITS as usize + usize::from(K)).div_ceil(u8::BITS as usize);
-    let mut pre_y_bytes = 0u64.to_be_bytes();
-    pre_y_bytes[..partial_y_length]
-        .copy_from_slice(&partial_y[partial_y_offset / u8::BITS as usize..][..partial_y_length]);
-    // Contains `K` desired bits of `partial_y` in the final offset of eventual `y` with the rest
-    // of bits being in undefined state
-    let pre_y = u64::from_be_bytes(pre_y_bytes)
-        >> (u64::BITS as usize - usize::from(K + PARAM_EXT) - partial_y_offset % u8::BITS as usize);
+/// `partial_y_offset` is in bits within `partial_y`
+pub(super) fn compute_f1<const K: u8>(x: X, seed: &Seed) -> Y {
+    let skip_bits = u32::from(K) * u32::from(x);
+    let skip_u32s = skip_bits / u32::BITS;
+    let partial_y_offset = skip_bits % u32::BITS;
+
+    const U32S_PER_BLOCK: usize = size_of::<ChaCha8Block>() / size_of::<u32>();
+
+    let initial_state = ChaCha8State::init(seed, &[0; _]);
+    let first_block_counter = skip_u32s / U32S_PER_BLOCK as u32;
+    let u32_in_first_block = skip_u32s as usize % U32S_PER_BLOCK;
+
+    let first_block = initial_state.compute_block(first_block_counter);
+    let hi = first_block[u32_in_first_block].to_be();
+
+    // TODO: Is SIMD version of `compute_block()` that produces two blocks at once possible?
+    let lo = if u32_in_first_block + 1 == U32S_PER_BLOCK {
+        // Spilled over into the second block
+        let second_block = initial_state.compute_block(first_block_counter + 1);
+        second_block[0].to_be()
+    } else {
+        first_block[u32_in_first_block + 1].to_be()
+    };
+
+    let partial_y = (u64::from(hi) << u32::BITS) | u64::from(lo);
+
+    let pre_y = partial_y >> (u64::BITS - u32::from(K + PARAM_EXT) - partial_y_offset);
     let pre_y = pre_y as u32;
     // Mask for clearing the rest of bits of `pre_y`.
-    let pre_y_mask = (u32::MAX << usize::from(PARAM_EXT))
-        & (u32::MAX >> (u32::BITS as usize - usize::from(K + PARAM_EXT)));
+    let pre_y_mask = (u32::MAX << PARAM_EXT) & (u32::MAX >> (u32::BITS - u32::from(K + PARAM_EXT)));
 
     // Extract `PARAM_EXT` most significant bits from `x` and store in the final offset of
-    // eventual `y` with the rest of bits being in undefined state.
-    let pre_ext = u32::from(x) >> (usize::from(K - PARAM_EXT));
-    // Mask for clearing the rest of bits of `pre_ext`.
-    let pre_ext_mask = u32::MAX >> (u32::BITS as usize - usize::from(PARAM_EXT));
+    // eventual `y` with the rest of bits being zero (`x` is `0..2^K`)
+    let pre_ext = u32::from(x) >> (K - PARAM_EXT);
 
     // Combine all of the bits together:
     // [padding zero bits][`K` bits rom `partial_y`][`PARAM_EXT` bits from `x`]
-    Y::from((pre_y & pre_y_mask) | (pre_ext & pre_ext_mask))
+    Y::from((pre_y & pre_y_mask) | pre_ext)
 }
 
 pub(super) fn compute_f1_simd<const K: u8>(

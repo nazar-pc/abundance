@@ -79,7 +79,7 @@ impl Tables<$k> {
 
     /// Verify proof of space for given seed and challenge.
     pub fn verify(
-        seed: Seed,
+        seed: &Seed,
         challenge: &Challenge,
         proof_of_space: &[u8; 64 * $k as usize / 8],
     ) -> Option<Quality> {

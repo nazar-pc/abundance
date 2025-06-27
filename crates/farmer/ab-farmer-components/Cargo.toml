@@ -45,6 +45,7 @@ ab-proof-of-space = { workspace = true, features = ["alloc", "parallel"] }
 anyhow = { workspace = true }
 async-lock = { workspace = true, features = ["std"] }
 backoff = { workspace = true, features = ["futures", "tokio"] }
+# TODO: Remove this dependency
 bitvec = { workspace = true }
 blake3 = { workspace = true, features = ["rayon"] }
 fs2 = { workspace = true }

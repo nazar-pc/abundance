@@ -18,6 +18,7 @@ all-features = true
 bench = false
 
 [dependencies]
+ab-chacha8 = { workspace = true }
 ab-core-primitives = { workspace = true }
 blake3 = { workspace = true }
 chacha20 = { workspace = true, features = ["cipher"] }
@@ -29,8 +30,6 @@ sha2 = { workspace = true, optional = true }
 spin = { workspace = true }
 
 [dev-dependencies]
-# TODO: Remove this dependency
-bitvec = { workspace = true }
 criterion = { workspace = true }
 rayon = { workspace = true }
 sha2 = { workspace = true }

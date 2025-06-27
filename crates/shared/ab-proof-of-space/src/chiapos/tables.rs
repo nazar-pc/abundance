@@ -8,7 +8,6 @@ pub use crate::chiapos::table::TablesCache;
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::table::{
     COMPUTE_F1_SIMD_FACTOR, Table, compute_f1, compute_fn, has_match, metadata_size_bytes,
-    partial_y,
 };
 use crate::chiapos::utils::EvaluatableUsize;
 use crate::chiapos::{Challenge, Quality, Seed};
@@ -301,7 +300,7 @@ where
     ///
     /// Returns quality on successful verification.
     pub(super) fn verify(
-        seed: Seed,
+        seed: &Seed,
         challenge: &Challenge,
         proof_of_space: &[u8; 64 * K as usize / 8],
     ) -> Option<Quality>
@@ -330,8 +329,7 @@ where
                 // Convert to desired type and clear extra bits
                 let x = X::from(pre_x as u32 & (u32::MAX >> (u32::BITS as usize - usize::from(K))));
 
-                let (partial_y, partial_y_offset) = partial_y::<K>(seed, x);
-                let y = compute_f1::<K>(x, &partial_y, partial_y_offset);
+                let y = compute_f1::<K>(x, seed);
 
                 (y, Metadata::from(x))
             })
