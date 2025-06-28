@@ -1,16 +1,16 @@
-#[cfg(not(target_arch = "spirv"))]
-use std::borrow::Cow;
-#[cfg(not(target_arch = "spirv"))]
-use std::slice;
-#[cfg(not(target_arch = "spirv"))]
-use wgpu::{ShaderModuleDescriptor, ShaderSource};
-
 pub mod chacha8;
 pub mod compute_f1;
 // TODO: Reuse constants from `ab-proof-of-space` once https://github.com/Rust-GPU/rust-gpu/pull/249 is
 //  merged
 mod constants;
 mod num;
+
+#[cfg(not(target_arch = "spirv"))]
+use std::borrow::Cow;
+#[cfg(not(target_arch = "spirv"))]
+use std::slice;
+#[cfg(not(target_arch = "spirv"))]
+use wgpu::{ShaderModuleDescriptor, ShaderSource};
 
 /// Compiled SPIR-V shader
 #[cfg(not(target_arch = "spirv"))]

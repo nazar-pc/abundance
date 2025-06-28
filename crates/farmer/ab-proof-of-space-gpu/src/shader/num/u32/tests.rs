@@ -1,6 +1,17 @@
 use super::*;
 
 #[test]
+fn test_from_lo_hi() {
+    for num in [0u32, 1, 42, 0x7FFF_FFFF, u32::MAX] {
+        let lo = num;
+        let hi = 42u32;
+        let correct = (u64::from(hi) << u32::BITS) | u64::from(lo);
+        let u64_poly = U64::from_lo_hi(lo, hi);
+        assert_eq!(u64_poly.to_be_bytes(), correct.to_be_bytes());
+    }
+}
+
+#[test]
 fn test_as_u32() {
     for num in [0u32, 1, 42, 0x7FFF_FFFF, u32::MAX] {
         // Create U64 from bytes and verify round-trip
@@ -8,6 +19,7 @@ fn test_as_u32() {
         assert_eq!(u64_poly.as_u32(), num);
     }
 }
+
 #[test]
 fn test_u64_add() {
     let cases = [
