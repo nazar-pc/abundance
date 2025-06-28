@@ -1,5 +1,6 @@
 //! Small GPU-friendly software implementation of ChaCha8
 
+#![no_std]
 #![feature(array_chunks)]
 
 #[cfg(test)]
