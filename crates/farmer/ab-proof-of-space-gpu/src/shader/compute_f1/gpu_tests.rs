@@ -1,5 +1,5 @@
 use crate::shader::SHADER_U32;
-use crate::shader::compute_f1::cpu_tests::compute_f1;
+use crate::shader::compute_f1::cpu_tests;
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use ab_core_primitives::pos::PosProof;
 use futures::executor::block_on;
@@ -7,11 +7,11 @@ use spirv_std::glam::UVec2;
 use std::slice;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
-    BackendOptions, Backends, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType, BufferDescriptor,
-    BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor, DeviceDescriptor, Features,
-    Instance, InstanceDescriptor, InstanceFlags, Limits, MapMode, MemoryHints,
-    PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    Adapter, BackendOptions, Backends, BindGroupDescriptor, BindGroupEntry,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
+    BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
+    DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MapMode,
+    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
 };
 
 #[test]
@@ -28,10 +28,7 @@ fn compute_f1_gpu() {
         .map(|counter| initial_state.compute_block(counter))
         .collect::<Vec<_>>();
 
-    let Some(actual_output) = block_on(chacha8_keystream_10_blocks(
-        chacha8_keystream.as_flattened(),
-        num_x,
-    )) else {
+    let Some(actual_output) = block_on(compute_f1(chacha8_keystream.as_flattened(), num_x)) else {
         if cfg!(feature = "__force-gpu-tests") {
             panic!("Skipping tests, no compatible device detected");
         } else {
@@ -43,7 +40,7 @@ fn compute_f1_gpu() {
     let expected_output = (0..num_x)
         .map(|x| UVec2 {
             x,
-            y: compute_f1::<{ PosProof::K }>(x, &seed),
+            y: cpu_tests::compute_f1::<{ PosProof::K }>(x, &seed),
         })
         .collect::<Vec<_>>();
 
@@ -53,7 +50,7 @@ fn compute_f1_gpu() {
     }
 }
 
-async fn chacha8_keystream_10_blocks(chacha8_keystream: &[u32], num_x: u32) -> Option<Vec<UVec2>> {
+async fn compute_f1(chacha8_keystream: &[u32], num_x: u32) -> Option<Vec<UVec2>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
         backends,
@@ -61,8 +58,32 @@ async fn chacha8_keystream_10_blocks(chacha8_keystream: &[u32], num_x: u32) -> O
         backend_options: BackendOptions::from_env_or_default(),
     });
 
-    let adapter = instance.enumerate_adapters(backends).into_iter().next()?;
+    let adapters = instance.enumerate_adapters(backends);
+    let mut result = None;
 
+    for adapter in adapters {
+        println!("Testing adapter {:?}", adapter.get_info());
+
+        let adapter_result = compute_f1_adapter(chacha8_keystream, num_x, adapter).await?;
+
+        match &result {
+            Some(result) => {
+                assert!(result == &adapter_result);
+            }
+            None => {
+                result.replace(adapter_result);
+            }
+        }
+    }
+
+    result
+}
+
+async fn compute_f1_adapter(
+    chacha8_keystream: &[u32],
+    num_x: u32,
+    adapter: Adapter,
+) -> Option<Vec<UVec2>> {
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {
             label: None,
