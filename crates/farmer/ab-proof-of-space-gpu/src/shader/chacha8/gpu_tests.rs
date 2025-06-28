@@ -1,4 +1,4 @@
-use crate::shader::SHADER_U32;
+use crate::shader::{SHADER_U32, SHADER_U64};
 use ab_chacha8::{ChaCha8Block, ChaCha8State, block_to_bytes, bytes_to_block};
 use futures::executor::block_on;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -73,10 +73,10 @@ async fn chacha8_keystream_10_blocks_adapter(
     num_blocks: usize,
     adapter: Adapter,
 ) -> Option<Vec<ChaCha8Block>> {
-    let required_features = if adapter.features().contains(Features::SHADER_INT64) {
-        Features::SHADER_INT64
+    let (required_features, shader) = if adapter.features().contains(Features::SHADER_INT64) {
+        (Features::SHADER_INT64, SHADER_U64)
     } else {
-        Features::default()
+        (Features::default(), SHADER_U32)
     };
 
     let (device, queue) = adapter
@@ -90,7 +90,7 @@ async fn chacha8_keystream_10_blocks_adapter(
         .await
         .unwrap();
 
-    let module = device.create_shader_module(SHADER_U32);
+    let module = device.create_shader_module(shader);
 
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         label: None,
