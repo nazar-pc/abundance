@@ -94,7 +94,7 @@ where
     engine: Arc<Mutex<GossipEngine<Block>>>,
     network: Arc<dyn NetworkPeers + Send + Sync>,
     topic: Block::Hash,
-    state: Arc<PotState>,
+    state: rclite::Arc<PotState>,
     pot_verifier: PotVerifier,
     gossip_cache: LruMap<PeerId, VecDeque<GossipProof>>,
     to_gossip_receiver: mpsc::Receiver<ToGossipMessage>,
@@ -108,7 +108,7 @@ where
     /// Instantiate gossip worker
     pub fn new<Network, GossipSync, SO>(
         pot_verifier: PotVerifier,
-        state: Arc<PotState>,
+        state: rclite::Arc<PotState>,
         network: Network,
         notification_service: Box<dyn NotificationService>,
         sync: Arc<GossipSync>,
@@ -130,7 +130,7 @@ where
             mpsc::channel(GOSSIP_INCOMING_CHANNEL_CAPACITY);
 
         let validator = Arc::new(PotGossipValidator::new(
-            Arc::clone(&state),
+            rclite::Arc::clone(&state),
             topic,
             sync_oracle,
             network.clone(),
@@ -510,7 +510,7 @@ struct PotGossipValidator<Block, SO, Network>
 where
     Block: BlockT,
 {
-    state: Arc<PotState>,
+    state: rclite::Arc<PotState>,
     topic: Block::Hash,
     sync_oracle: SO,
     network: Network,
@@ -522,7 +522,12 @@ where
     SO: SyncOracle,
 {
     /// Creates the validator.
-    fn new(state: Arc<PotState>, topic: Block::Hash, sync_oracle: SO, network: Network) -> Self {
+    fn new(
+        state: rclite::Arc<PotState>,
+        topic: Block::Hash,
+        sync_oracle: SO,
+        network: Network,
+    ) -> Self {
         Self {
             state,
             topic,

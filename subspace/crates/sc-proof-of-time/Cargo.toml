@@ -18,6 +18,7 @@ futures = { workspace = true }
 parity-scale-codec = { workspace = true }
 parking_lot = { workspace = true }
 rayon = { workspace = true }
+rclite = { workspace = true }
 schnellru = { workspace = true }
 sc-client-api = { workspace = true }
 sc-network = { workspace = true }
