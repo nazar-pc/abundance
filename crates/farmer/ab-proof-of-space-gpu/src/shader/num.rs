@@ -129,38 +129,24 @@ impl BitOrAssign for U64 {
     }
 }
 
-impl Shl<usize> for U64 {
+impl Shl<u32> for U64 {
     type Output = Self;
 
-    fn shl(self, shift: usize) -> Self {
+    fn shl(self, shift: u32) -> Self {
         if shift == 0 {
             return self;
         }
 
         let [low, high] = self.0;
 
-        if shift < 32 {
-            let new_high = (high << shift) | (low >> (32 - shift));
+        if shift < u32::BITS {
+            let new_high = (high << shift) | (low >> (u32::BITS - shift));
             let new_low = low << shift;
             Self([new_low, new_high])
         } else {
-            let new_high = low << (shift - 32);
+            let new_high = low << (shift - u32::BITS);
             Self([0, new_high])
         }
-    }
-}
-
-impl ShlAssign<usize> for U64 {
-    fn shl_assign(&mut self, shift: usize) {
-        *self = *self << shift;
-    }
-}
-
-impl Shl<u32> for U64 {
-    type Output = Self;
-
-    fn shl(self, shift: u32) -> Self {
-        self.shl(shift as usize)
     }
 }
 
@@ -170,38 +156,24 @@ impl ShlAssign<u32> for U64 {
     }
 }
 
-impl Shr<usize> for U64 {
+impl Shr<u32> for U64 {
     type Output = Self;
 
-    fn shr(self, shift: usize) -> Self {
+    fn shr(self, shift: u32) -> Self {
         if shift == 0 {
             return self;
         }
 
         let [low, high] = self.0;
 
-        if shift < 32 {
-            let new_low = (low >> shift) | (high << (32 - shift));
+        if shift < u32::BITS {
+            let new_low = (low >> shift) | (high << (u32::BITS - shift));
             let new_high = high >> shift;
             Self([new_low, new_high])
         } else {
-            let new_low = high >> (shift - 32);
+            let new_low = high >> (shift - u32::BITS);
             Self([new_low, 0])
         }
-    }
-}
-
-impl ShrAssign<usize> for U64 {
-    fn shr_assign(&mut self, shift: usize) {
-        *self = *self >> shift;
-    }
-}
-
-impl Shr<u32> for U64 {
-    type Output = Self;
-
-    fn shr(self, shift: u32) -> Self {
-        self.shr(shift as usize)
     }
 }
 
@@ -372,10 +344,10 @@ impl BitOrAssign for U128 {
     }
 }
 
-impl Shl<usize> for U128 {
+impl Shl<u32> for U128 {
     type Output = Self;
 
-    fn shl(self, shift: usize) -> Self {
+    fn shl(self, shift: u32) -> Self {
         if shift == 0 {
             return self;
         }
@@ -383,11 +355,11 @@ impl Shl<usize> for U128 {
         let low = self.0[0];
         let high = self.0[1];
 
-        if shift < 64 {
+        if shift < u64::BITS {
             let low_shifted = low << shift;
             let high_shifted = high << shift;
 
-            let carry = low >> (64 - shift);
+            let carry = low >> (u64::BITS - shift);
             let new_high = U64([
                 high_shifted.0[0] | carry.0[0],
                 high_shifted.0[1] | carry.0[1],
@@ -396,23 +368,9 @@ impl Shl<usize> for U128 {
             Self([low_shifted, new_high])
         } else {
             let new_low = U64([0, 0]);
-            let shifted = low << (shift - 64);
+            let shifted = low << (shift - u64::BITS);
             Self([new_low, shifted])
         }
-    }
-}
-
-impl ShlAssign<usize> for U128 {
-    fn shl_assign(&mut self, shift: usize) {
-        *self = *self << shift;
-    }
-}
-
-impl Shl<u32> for U128 {
-    type Output = Self;
-
-    fn shl(self, shift: u32) -> Self {
-        self.shl(shift as usize)
     }
 }
 
@@ -422,10 +380,10 @@ impl ShlAssign<u32> for U128 {
     }
 }
 
-impl Shr<usize> for U128 {
+impl Shr<u32> for U128 {
     type Output = Self;
 
-    fn shr(self, shift: usize) -> Self {
+    fn shr(self, shift: u32) -> Self {
         if shift == 0 {
             return self;
         }
@@ -433,32 +391,18 @@ impl Shr<usize> for U128 {
         let low = self.0[0];
         let high = self.0[1];
 
-        if shift < 64 {
+        if shift < u64::BITS {
             let low_shifted = low >> shift;
             let high_shifted = high >> shift;
 
-            let carry = high << (64 - shift);
+            let carry = high << (u64::BITS - shift);
             let new_low = U64([low_shifted.0[0] | carry.0[0], low_shifted.0[1] | carry.0[1]]);
 
             Self([new_low, high_shifted])
         } else {
-            let shifted = high >> (shift - 64);
+            let shifted = high >> (shift - u64::BITS);
             Self([shifted, U64([0, 0])])
         }
-    }
-}
-
-impl ShrAssign<usize> for U128 {
-    fn shr_assign(&mut self, shift: usize) {
-        *self = *self >> shift;
-    }
-}
-
-impl Shr<u32> for U128 {
-    type Output = Self;
-
-    fn shr(self, shift: u32) -> Self {
-        self.shr(shift as usize)
     }
 }
 
