@@ -186,9 +186,15 @@ jobs:
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} --cfg chacha20_force_soft" >> $GITHUB_ENV
         if: matrix.miri == true && (matrix.os == 'ubuntu-24.04-arm' || matrix.os == 'macos-15')
 
+      - name: Install Vulkan runtime and enable shader testing
+        run: |
+          sudo apt-get install --no-install-recommends --yes mesa-vulkan-drivers
+          echo "EXTRA_OPTIONS=--features=__force-gpu-tests" >> $GITHUB_ENV
+        if: matrix.miri == false && matrix.os == 'ubuntu-24.04' && matrix.type == 'together'
+
       - name: cargo ${{ env.command }}
         run: |
-          cargo -Zgitoxide -Zgit ${{ env.command }} --locked
+          cargo -Zgitoxide -Zgit ${{ env.command }} --locked ${{ env.EXTRA_OPTIONS }}
         if: matrix.type == 'together'
 
       - name: cargo test (various features)
@@ -380,5 +386,12 @@ jobs:
       - contracts
       - no-panic
     steps:
-      - name: Wait for all Rust jobs
-        run: echo "All Rust jobs succeeded!"
+      - name: Check job statuses
+        # Another hack is to actually check the status of the dependencies or else it'll fall through
+        run: |
+          echo "Checking statuses..."
+          [[ "${{ needs.cargo-clippy.result }}" == "success" ]] || exit 1
+          [[ "${{ needs.cargo-fmt.result }}" == "success" ]] || exit 1
+          [[ "${{ needs.cargo-test.result }}" == "success" ]] || exit 1
+          [[ "${{ needs.contracts.result }}" == "success" ]] || exit 1
+          [[ "${{ needs.no-panic.result }}" == "success" ]] || exit 1

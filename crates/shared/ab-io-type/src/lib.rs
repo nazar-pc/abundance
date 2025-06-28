@@ -30,7 +30,7 @@ const _: () = {
     // from host to guest environment
     assert!(
         u16::from_ne_bytes(1u16.to_le_bytes()) == 1u16,
-        "Only little-endian platform supported"
+        "Only little-endian platform is supported"
     );
 
     // Max alignment is expected to match that of `u128`

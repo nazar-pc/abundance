@@ -1,0 +1,42 @@
+[package]
+name = "ab-proof-of-space-gpu"
+description = "Proof of space plotting utilities for GPU (Vulkan/Metal)"
+license = "0BSD"
+version = "0.1.0"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/build.rs",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+# SPIR-V target requires `dylib`
+crate-type = ["dylib", "lib"]
+
+# TODO: Benches
+
+[dependencies]
+ab-chacha8 = { workspace = true }
+spirv-std = { workspace = true }
+
+[target.'cfg(not(target_arch = "spirv"))'.dependencies]
+ab-core-primitives = { workspace = true }
+wgpu = { workspace = true }
+
+[target.'cfg(not(target_arch = "spirv"))'.dev-dependencies]
+futures = { workspace = true, features = ["executor"] }
+
+# TODO: This will be built in the shader as well, figure out a way to avoid that
+[build-dependencies]
+cargo-gpu = { workspace = true }
+
+[features]
+__force-gpu-tests = []
+
+[lints]
+workspace = true
