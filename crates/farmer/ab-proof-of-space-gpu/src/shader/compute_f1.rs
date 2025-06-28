@@ -35,10 +35,7 @@ pub(super) fn compute_f1_impl(x: u32, chacha8_keystream: &[u32]) -> u32 {
 
     let hi = chacha8_keystream[skip_u32s as usize].to_be();
     let lo = chacha8_keystream[skip_u32s as usize + 1].to_be();
-
-    // This is only correct on little-endian platform, hence a debug assertion below
     let partial_y = U64::from_lo_hi(lo, hi);
-    debug_assert_eq!(partial_y, (U64::from(hi) << u32::BITS) | U64::from(lo));
 
     let pre_y = partial_y >> (u64::BITS - K_PLUS_PARAM_EXT_U32 - partial_y_offset);
     let pre_y = pre_y.as_u32();

@@ -1,5 +1,5 @@
-use crate::shader::SHADER_U32;
 use crate::shader::compute_f1::cpu_tests;
+use crate::shader::{SHADER_U32, SHADER_U64};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use ab_core_primitives::pos::PosProof;
 use futures::executor::block_on;
@@ -84,10 +84,16 @@ async fn compute_f1_adapter(
     num_x: u32,
     adapter: Adapter,
 ) -> Option<Vec<UVec2>> {
+    let (required_features, shader) = if adapter.features().contains(Features::SHADER_INT64) {
+        (Features::SHADER_INT64, SHADER_U64)
+    } else {
+        (Features::default(), SHADER_U32)
+    };
+
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {
             label: None,
-            required_features: Features::empty(),
+            required_features,
             required_limits: Limits::default(),
             memory_hints: MemoryHints::Performance,
             trace: Trace::default(),
@@ -95,7 +101,7 @@ async fn compute_f1_adapter(
         .await
         .unwrap();
 
-    let module = device.create_shader_module(SHADER_U32);
+    let module = device.create_shader_module(shader);
 
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         label: None,

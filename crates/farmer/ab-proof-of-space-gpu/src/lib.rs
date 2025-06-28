@@ -8,13 +8,13 @@
 // TODO: Remove after https://github.com/Rust-GPU/rust-gpu/pull/249
 #![cfg_attr(target_arch = "spirv", feature(generic_arg_infer, non_null_from_ref))]
 
-// TODO: Remove gate after https://github.com/Rust-GPU/rust-gpu/pull/249
-#[cfg(not(target_arch = "spirv"))]
-use ab_core_primitives::pos::PosProof;
-
 // This is used for benchmarks of isolated shaders externally, not for general use
 #[doc(hidden)]
 pub mod shader;
+
+// TODO: Remove gate after https://github.com/Rust-GPU/rust-gpu/pull/249
+#[cfg(not(target_arch = "spirv"))]
+use ab_core_primitives::pos::PosProof;
 
 // TODO: Remove gate after https://github.com/Rust-GPU/rust-gpu/pull/249
 #[cfg(not(target_arch = "spirv"))]
