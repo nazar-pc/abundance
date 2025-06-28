@@ -1,4 +1,4 @@
-use crate::shader::SHADER;
+use crate::shader::SHADER_U32;
 use crate::shader::compute_f1::cpu_tests::compute_f1;
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use ab_core_primitives::pos::PosProof;
@@ -74,7 +74,7 @@ async fn chacha8_keystream_10_blocks(chacha8_keystream: &[u32], num_x: u32) -> O
         .await
         .unwrap();
 
-    let module = device.create_shader_module(SHADER);
+    let module = device.create_shader_module(SHADER_U32);
 
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         label: None,

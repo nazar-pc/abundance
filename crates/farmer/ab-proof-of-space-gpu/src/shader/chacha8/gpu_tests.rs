@@ -1,4 +1,4 @@
-use crate::shader::SHADER;
+use crate::shader::SHADER_U32;
 use ab_chacha8::{ChaCha8Block, ChaCha8State, block_to_bytes, bytes_to_block};
 use futures::executor::block_on;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -60,7 +60,7 @@ async fn chacha8_keystream_10_blocks(
         .await
         .unwrap();
 
-    let module = device.create_shader_module(SHADER);
+    let module = device.create_shader_module(SHADER_U32);
 
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         label: None,
