@@ -33,6 +33,7 @@ jsonrpsee = { workspace = true, features = ["server-core"] }
 parity-scale-codec = { workspace = true }
 parking_lot = { workspace = true }
 prometheus-client = { workspace = true }
+rclite = { workspace = true }
 sc-basic-authorship = { workspace = true }
 sc-chain-spec = { workspace = true }
 sc-client-api = { workspace = true }

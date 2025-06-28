@@ -1,13 +1,13 @@
-use crate::shader::SHADER;
+use crate::shader::SHADER_U32;
 use ab_chacha8::{ChaCha8Block, ChaCha8State, block_to_bytes, bytes_to_block};
 use futures::executor::block_on;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
-    BackendOptions, Backends, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType, BufferDescriptor,
-    BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor, DeviceDescriptor, Features,
-    Instance, InstanceDescriptor, InstanceFlags, Limits, MapMode, MemoryHints,
-    PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    Adapter, BackendOptions, Backends, BindGroupDescriptor, BindGroupEntry,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
+    BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
+    DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MapMode,
+    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
 };
 
 #[test]
@@ -47,12 +47,42 @@ async fn chacha8_keystream_10_blocks(
         backend_options: BackendOptions::from_env_or_default(),
     });
 
-    let adapter = instance.enumerate_adapters(backends).into_iter().next()?;
+    let adapters = instance.enumerate_adapters(backends);
+    let mut result = None;
+
+    for adapter in adapters {
+        println!("Testing adapter {:?}", adapter.get_info());
+
+        let adapter_result = chacha8_keystream_10_blocks_adapter(seed, num_blocks, adapter).await?;
+
+        match &result {
+            Some(result) => {
+                assert!(result == &adapter_result);
+            }
+            None => {
+                result.replace(adapter_result);
+            }
+        }
+    }
+
+    result
+}
+
+async fn chacha8_keystream_10_blocks_adapter(
+    seed: &[u8; 32],
+    num_blocks: usize,
+    adapter: Adapter,
+) -> Option<Vec<ChaCha8Block>> {
+    let required_features = if adapter.features().contains(Features::SHADER_INT64) {
+        Features::SHADER_INT64
+    } else {
+        Features::default()
+    };
 
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {
             label: None,
-            required_features: Features::empty(),
+            required_features,
             required_limits: Limits::default(),
             memory_hints: MemoryHints::Performance,
             trace: Trace::default(),
@@ -60,7 +90,7 @@ async fn chacha8_keystream_10_blocks(
         .await
         .unwrap();
 
-    let module = device.create_shader_module(SHADER);
+    let module = device.create_shader_module(SHADER_U32);
 
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         label: None,

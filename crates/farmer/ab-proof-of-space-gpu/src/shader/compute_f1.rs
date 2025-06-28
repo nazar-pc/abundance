@@ -4,7 +4,7 @@ mod cpu_tests;
 mod gpu_tests;
 
 use crate::shader::constants::PARAM_EXT;
-use crate::shader::num::U64 as u64;
+use crate::shader::num::{U64, U64T};
 use spirv_std::glam::{UVec2, UVec3};
 use spirv_std::spirv;
 
@@ -37,8 +37,8 @@ pub(super) fn compute_f1_impl(x: u32, chacha8_keystream: &[u32]) -> u32 {
     let lo = chacha8_keystream[skip_u32s as usize + 1].to_be();
 
     // This is only correct on little-endian platform, hence a debug assertion below
-    let partial_y = u64([lo, hi]);
-    debug_assert_eq!(partial_y, (u64::from(hi) << u32::BITS) | u64::from(lo));
+    let partial_y = U64::from_lo_hi(lo, hi);
+    debug_assert_eq!(partial_y, (U64::from(hi) << u32::BITS) | U64::from(lo));
 
     let pre_y = partial_y >> (u64::BITS - K_PLUS_PARAM_EXT_U32 - partial_y_offset);
     let pre_y = pre_y.as_u32();

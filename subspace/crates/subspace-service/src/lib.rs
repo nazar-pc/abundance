@@ -801,7 +801,7 @@ where
     let block_importing_notification_stream = subspace_link.block_importing_notification_stream();
     let archived_segment_notification_stream = subspace_link.archived_segment_notification_stream();
 
-    let pot_state = Arc::new(
+    let pot_state = rclite::Arc::new(
         init_pot_state(client.clone(), pot_verifier.clone())
             .map_err(|error| Error::Other(error.into()))?,
     );
@@ -810,7 +810,7 @@ where
     if config.is_timekeeper {
         let span = Span::current();
         let (timekeeper_source, proof_receiver) =
-            Timekeeper::new(Arc::clone(&pot_state), pot_verifier.clone());
+            Timekeeper::new(rclite::Arc::clone(&pot_state), pot_verifier.clone());
         timekeeper_proof_receiver.replace(proof_receiver);
 
         thread::Builder::new()
@@ -844,7 +844,7 @@ where
     }
     let (pot_gossip_worker, to_gossip_sender, from_gossip_receiver) = PotGossipWorker::<Block>::new(
         pot_verifier.clone(),
-        Arc::clone(&pot_state),
+        rclite::Arc::clone(&pot_state),
         Arc::clone(&network_service),
         pot_gossip_notification_service,
         sync_service.clone(),
