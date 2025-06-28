@@ -15,6 +15,7 @@ use core::ops::{
 pub struct U64(pub [u32; 2]);
 
 impl From<u32> for U64 {
+    #[inline(always)]
     fn from(n: u32) -> Self {
         Self::from_u32(n)
     }
@@ -25,6 +26,7 @@ impl U64 {
     pub const BITS: u32 = u64::BITS;
 
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
+    #[inline(always)]
     pub fn to_be_bytes(self) -> [u8; 8] {
         let high = self.0[1].to_be_bytes();
         let low = self.0[0].to_be_bytes();
@@ -35,6 +37,7 @@ impl U64 {
     }
 
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
+    #[inline(always)]
     pub fn from_be_bytes(bytes: [u8; 8]) -> Self {
         let high = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
         let low = u32::from_be_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
@@ -42,10 +45,12 @@ impl U64 {
         Self([low, high])
     }
 
+    #[inline(always)]
     pub const fn from_u32(n: u32) -> Self {
         Self([n, 0])
     }
 
+    #[inline(always)]
     pub fn as_u32(&self) -> u32 {
         self.0[0]
     }
@@ -54,6 +59,7 @@ impl U64 {
 impl Add for U64 {
     type Output = Self;
 
+    #[inline(always)]
     fn add(self, other: Self) -> Self {
         let (res, overflow) = self.0[0].overflowing_add(other.0[0]);
 
@@ -62,6 +68,7 @@ impl Add for U64 {
 }
 
 impl AddAssign for U64 {
+    #[inline(always)]
     fn add_assign(&mut self, other: Self) {
         *self = *self + other;
     }
@@ -70,7 +77,7 @@ impl AddAssign for U64 {
 impl Sub for U64 {
     type Output = Self;
 
-    #[inline]
+    #[inline(always)]
     fn sub(self, other: Self) -> Self {
         let (res, overflow) = self.0[0].overflowing_sub(other.0[0]);
 
@@ -79,6 +86,7 @@ impl Sub for U64 {
 }
 
 impl SubAssign for U64 {
+    #[inline(always)]
     fn sub_assign(&mut self, other: Self) {
         *self = *self - other;
     }
@@ -87,13 +95,14 @@ impl SubAssign for U64 {
 impl BitAnd for U64 {
     type Output = Self;
 
-    #[inline]
+    #[inline(always)]
     fn bitand(self, other: Self) -> Self {
         Self([self.0[0] & other.0[0], self.0[1] & other.0[1]])
     }
 }
 
 impl BitAndAssign for U64 {
+    #[inline(always)]
     fn bitand_assign(&mut self, rhs: Self) {
         *self = *self & rhs;
     }
@@ -102,13 +111,14 @@ impl BitAndAssign for U64 {
 impl BitXor for U64 {
     type Output = Self;
 
-    #[inline]
+    #[inline(always)]
     fn bitxor(self, other: Self) -> Self {
         Self([self.0[0] ^ other.0[0], self.0[1] ^ other.0[1]])
     }
 }
 
 impl BitXorAssign for U64 {
+    #[inline(always)]
     fn bitxor_assign(&mut self, rhs: Self) {
         *self = *self ^ rhs;
     }
@@ -117,13 +127,14 @@ impl BitXorAssign for U64 {
 impl BitOr for U64 {
     type Output = Self;
 
-    #[inline]
+    #[inline(always)]
     fn bitor(self, other: Self) -> Self {
         Self([self.0[0] | other.0[0], self.0[1] | other.0[1]])
     }
 }
 
 impl BitOrAssign for U64 {
+    #[inline(always)]
     fn bitor_assign(&mut self, rhs: Self) {
         *self = *self | rhs;
     }
@@ -132,6 +143,7 @@ impl BitOrAssign for U64 {
 impl Shl<u32> for U64 {
     type Output = Self;
 
+    #[inline(always)]
     fn shl(self, shift: u32) -> Self {
         if shift == 0 {
             return self;
@@ -151,6 +163,7 @@ impl Shl<u32> for U64 {
 }
 
 impl ShlAssign<u32> for U64 {
+    #[inline(always)]
     fn shl_assign(&mut self, shift: u32) {
         *self = *self << shift;
     }
@@ -159,6 +172,7 @@ impl ShlAssign<u32> for U64 {
 impl Shr<u32> for U64 {
     type Output = Self;
 
+    #[inline(always)]
     fn shr(self, shift: u32) -> Self {
         if shift == 0 {
             return self;
@@ -178,6 +192,7 @@ impl Shr<u32> for U64 {
 }
 
 impl ShrAssign<u32> for U64 {
+    #[inline(always)]
     fn shr_assign(&mut self, shift: u32) {
         *self = *self >> shift;
     }
@@ -197,6 +212,7 @@ impl U128 {
     pub const BITS: u32 = u64::BITS;
 
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
+    #[inline(always)]
     pub fn to_be_bytes(self) -> [u8; 16] {
         let low = &self.0[0];
         let high = &self.0[1];
@@ -213,6 +229,7 @@ impl U128 {
     }
 
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
+    #[inline(always)]
     pub fn from_be_bytes(bytes: [u8; 16]) -> Self {
         let high0 = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
         let high1 = u32::from_be_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
@@ -226,6 +243,7 @@ impl U128 {
 impl Add for U128 {
     type Output = Self;
 
+    #[inline(always)]
     fn add(self, other: Self) -> Self {
         // Add lower 64 bits
         let (low_sum0, carry0) = self.0[0].0[0].overflowing_add(other.0[0].0[0]);
@@ -247,6 +265,7 @@ impl Add for U128 {
 }
 
 impl AddAssign for U128 {
+    #[inline(always)]
     fn add_assign(&mut self, other: Self) {
         *self = *self + other;
     }
@@ -255,6 +274,7 @@ impl AddAssign for U128 {
 impl Sub for U128 {
     type Output = Self;
 
+    #[inline(always)]
     fn sub(self, other: Self) -> Self {
         // Subtract lower 64 bits
         let (low_diff0, borrow0) = self.0[0].0[0].overflowing_sub(other.0[0].0[0]);
@@ -276,6 +296,7 @@ impl Sub for U128 {
 }
 
 impl SubAssign for U128 {
+    #[inline(always)]
     fn sub_assign(&mut self, other: Self) {
         *self = *self - other;
     }
@@ -284,7 +305,7 @@ impl SubAssign for U128 {
 impl BitAnd for U128 {
     type Output = Self;
 
-    #[inline]
+    #[inline(always)]
     fn bitand(self, other: U128) -> U128 {
         let Self(arr1) = self;
         let Self(arr2) = other;
@@ -297,6 +318,7 @@ impl BitAnd for U128 {
 }
 
 impl BitAndAssign for U128 {
+    #[inline(always)]
     fn bitand_assign(&mut self, rhs: Self) {
         *self = *self & rhs;
     }
@@ -305,7 +327,7 @@ impl BitAndAssign for U128 {
 impl BitXor for U128 {
     type Output = Self;
 
-    #[inline]
+    #[inline(always)]
     fn bitxor(self, other: Self) -> Self {
         let Self(arr1) = self;
         let Self(arr2) = other;
@@ -318,6 +340,7 @@ impl BitXor for U128 {
 }
 
 impl BitXorAssign for U128 {
+    #[inline(always)]
     fn bitxor_assign(&mut self, rhs: Self) {
         *self = *self ^ rhs;
     }
@@ -326,7 +349,7 @@ impl BitXorAssign for U128 {
 impl BitOr for U128 {
     type Output = Self;
 
-    #[inline]
+    #[inline(always)]
     fn bitor(self, other: Self) -> Self {
         let Self(arr1) = self;
         let Self(arr2) = other;
@@ -339,6 +362,7 @@ impl BitOr for U128 {
 }
 
 impl BitOrAssign for U128 {
+    #[inline(always)]
     fn bitor_assign(&mut self, rhs: Self) {
         *self = *self | rhs;
     }
@@ -347,6 +371,7 @@ impl BitOrAssign for U128 {
 impl Shl<u32> for U128 {
     type Output = Self;
 
+    #[inline(always)]
     fn shl(self, shift: u32) -> Self {
         if shift == 0 {
             return self;
@@ -375,6 +400,7 @@ impl Shl<u32> for U128 {
 }
 
 impl ShlAssign<u32> for U128 {
+    #[inline(always)]
     fn shl_assign(&mut self, shift: u32) {
         *self = *self << shift;
     }
@@ -383,6 +409,7 @@ impl ShlAssign<u32> for U128 {
 impl Shr<u32> for U128 {
     type Output = Self;
 
+    #[inline(always)]
     fn shr(self, shift: u32) -> Self {
         if shift == 0 {
             return self;
@@ -407,6 +434,7 @@ impl Shr<u32> for U128 {
 }
 
 impl ShrAssign<u32> for U128 {
+    #[inline(always)]
     fn shr_assign(&mut self, shift: u32) {
         *self = *self >> shift;
     }
