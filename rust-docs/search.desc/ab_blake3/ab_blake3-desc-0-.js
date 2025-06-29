@@ -1,0 +1,1 @@
+searchState.loadedDescShard("ab_blake3", 0, "Optimized and more exotic APIs around BLAKE3\nThe number of bytes in a block\nThe number of bytes in a key\nThe number of bytes in a hash\nHashing function like <code>blake3::hash()</code>, but <code>const fn</code>\nThe keyed hash function like <code>blake3::keyed_hash()</code>, but …")

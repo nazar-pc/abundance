@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BLOCK_LEN","KEY_LEN","OUT_LEN"],"fn":["const_derive_key","const_hash","const_keyed_hash"]};
