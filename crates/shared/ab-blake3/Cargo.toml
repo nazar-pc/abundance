@@ -1,0 +1,27 @@
+[package]
+name = "ab-blake3"
+description = "Optimized and more exotic APIs around BLAKE3"
+license = "0BSD"
+version = "0.1.0"
+authors = [
+    "Nazar Mokrynskyi <nazar@mokrynskyi.com>",
+    "Jack O'Connor <oconnor663@gmail.com>",
+    "Samuel Neves",
+]
+# TODO: Switch to 2024 edition after https://github.com/Rust-GPU/rust-gpu/pull/249
+edition = "2021"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+# TODO: Would be nice to have benchmarks here
+
+[dev-dependencies]
+blake3 = { workspace = true }
+
+[lints]
+workspace = true
