@@ -32,6 +32,7 @@ name = "ab-blake3"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "no-panic",
 ]
 
 [[package]]
