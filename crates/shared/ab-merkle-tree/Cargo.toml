@@ -22,7 +22,7 @@ name = "merkle_tree"
 harness = false
 
 [dependencies]
-blake3 = { workspace = true }
+ab-blake3 = { workspace = true }
 no-panic = { workspace = true, optional = true }
 
 [dev-dependencies]

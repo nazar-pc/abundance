@@ -32,7 +32,7 @@ pub mod unbalanced;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-use blake3::{KEY_LEN, OUT_LEN};
+use ab_blake3::{KEY_LEN, OUT_LEN};
 
 /// Used as a key in keyed blake3 hash for inner nodes of Merkle Trees.
 ///
@@ -43,7 +43,7 @@ pub const INNER_NODE_DOMAIN_SEPARATOR: [u8; KEY_LEN] = [
     0x1e, 0xb0, 0xa2, 0x0f, 0x5e, 0x5e, 0x26, 0x94, 0x47, 0x4b, 0x4f, 0xbd, 0x86, 0xc3, 0xc0, 0x7e,
 ];
 
-/// Helper function to hash two nodes together using [`blake3::keyed_hash()`] and
+/// Helper function to hash two nodes together using [`ab_blake3::single_block_keyed_hash()`] and
 /// [`INNER_NODE_DOMAIN_SEPARATOR`]
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
@@ -52,5 +52,6 @@ pub fn hash_pair(left: &[u8; OUT_LEN], right: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
     pair[..OUT_LEN].copy_from_slice(left);
     pair[OUT_LEN..].copy_from_slice(right);
 
-    blake3::keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair).into()
+    ab_blake3::single_block_keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair)
+        .expect("Exactly one block worth of data; qed")
 }

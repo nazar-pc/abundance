@@ -1,9 +1,9 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(generic_const_exprs)]
 
+use ab_blake3::OUT_LEN;
 use ab_merkle_tree::hash_pair;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
-use blake3::OUT_LEN;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::mem;

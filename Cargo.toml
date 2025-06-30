@@ -11,6 +11,7 @@ members = [
 [workspace.dependencies]
 ab-aligned-buffer = { version = "0.0.1", path = "crates/shared/ab-aligned-buffer" }
 ab-archiving = { version = "0.1.0", path = "crates/shared/ab-archiving" }
+ab-blake3 = { version = "0.1.0", path = "crates/shared/ab-blake3" }
 ab-chacha8 = { version = "0.1.0", path = "crates/shared/ab-chacha8" }
 ab-client-api = { version = "0.0.1", path = "crates/node/ab-client-api" }
 ab-client-archiving = { version = "0.0.1", path = "crates/node/ab-client-archiving" }
@@ -54,7 +55,6 @@ blake3 = { version = "1.8.2", default-features = false }
 bytes = { version = "1.10.1", default-features = false }
 cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "e5744605020d9a94931519a17815e027db5fba01", default-features = false }
 chacha20 = { version = "0.10.0-rc.0", default-features = false }
-const-sha1 = { version = "0.3.0", default-features = false }
 const_format = "0.2.34"
 core_affinity = "0.8.3"
 cpufeatures = "0.2.17"

@@ -32,6 +32,7 @@ name = "ab-blake3"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "no-panic",
 ]
 
 [[package]]
@@ -173,9 +174,9 @@ dependencies = [
 name = "ab-contracts-common"
 version = "0.0.1"
 dependencies = [
+ "ab-blake3",
  "ab-core-primitives",
  "ab-io-type",
- "const-sha1",
  "derive_more 2.0.1",
  "no-panic",
  "thiserror 2.0.12",
@@ -397,7 +398,7 @@ dependencies = [
 name = "ab-merkle-tree"
 version = "0.0.1"
 dependencies = [
- "blake3",
+ "ab-blake3",
  "criterion",
  "no-panic",
  "rand_chacha 0.9.0",
@@ -408,9 +409,9 @@ dependencies = [
 name = "ab-proof-of-space"
 version = "0.1.0"
 dependencies = [
+ "ab-blake3",
  "ab-chacha8",
  "ab-core-primitives",
- "blake3",
  "chacha20",
  "criterion",
  "derive_more 2.0.1",
@@ -1072,12 +1073,6 @@ checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
 ]
-
-[[package]]
-name = "const-sha1"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d8a42181e0652c2997ae4d217f25b63c5337a52fd2279736e97b832fa0a3cff"
 
 [[package]]
 name = "const_format"

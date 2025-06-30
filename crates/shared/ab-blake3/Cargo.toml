@@ -20,8 +20,15 @@ all-features = true
 
 # TODO: Would be nice to have benchmarks here
 
-[dev-dependencies]
+[dependencies]
 blake3 = { workspace = true }
+no-panic = { workspace = true, optional = true }
+
+[features]
+# Check that code can't panic under any conditions
+no-panic = [
+    "dep:no-panic",
+]
 
 [lints]
 workspace = true

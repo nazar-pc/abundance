@@ -1,8 +1,25 @@
-use crate::const_fn::{CVBytes, CVWords, IncrementCounter, IV, MSG_SCHEDULE};
-use crate::{BLOCK_LEN, OUT_LEN};
+use crate::platform::{le_bytes_from_words_32, words_from_le_bytes_64};
+use crate::{BlockBytes, BlockWords, CVBytes, CVWords, BLOCK_LEN, IV, MSG_SCHEDULE, OUT_LEN};
+
+/// Undocumented and unstable, for benchmarks only.
+#[derive(Clone, Copy)]
+pub(crate) enum IncrementCounter {
+    Yes,
+    No,
+}
+
+impl IncrementCounter {
+    #[inline]
+    pub(crate) const fn yes(&self) -> bool {
+        match self {
+            IncrementCounter::Yes => true,
+            IncrementCounter::No => false,
+        }
+    }
+}
 
 #[inline(always)]
-const fn g(state: &mut [u32; 16], a: usize, b: usize, c: usize, d: usize, x: u32, y: u32) {
+const fn g(state: &mut BlockWords, a: usize, b: usize, c: usize, d: usize, x: u32, y: u32) {
     state[a] = state[a].wrapping_add(state[b]).wrapping_add(x);
     state[d] = (state[d] ^ state[a]).rotate_right(16);
     state[c] = state[c].wrapping_add(state[d]);
@@ -14,7 +31,7 @@ const fn g(state: &mut [u32; 16], a: usize, b: usize, c: usize, d: usize, x: u32
 }
 
 #[inline(always)]
-const fn round(state: &mut [u32; 16], msg: &[u32; 16], round: usize) {
+const fn round(state: &mut BlockWords, msg: &BlockWords, round: usize) {
     // Select the message schedule based on the round.
     let schedule = MSG_SCHEDULE[round];
 
@@ -44,13 +61,11 @@ const fn counter_high(counter: u64) -> u32 {
 #[inline(always)]
 const fn compress_pre(
     cv: &CVWords,
-    block: &[u8; BLOCK_LEN],
-    block_len: u8,
+    block_words: &BlockWords,
+    block_len: u32,
     counter: u64,
-    flags: u8,
-) -> [u32; 16] {
-    let block_words = crate::const_fn::platform::words_from_le_bytes_64(block);
-
+    flags: u32,
+) -> BlockWords {
     let mut state = [
         cv[0],
         cv[1],
@@ -66,29 +81,29 @@ const fn compress_pre(
         IV[3],
         counter_low(counter),
         counter_high(counter),
-        block_len as u32,
-        flags as u32,
+        block_len,
+        flags,
     ];
 
-    round(&mut state, &block_words, 0);
-    round(&mut state, &block_words, 1);
-    round(&mut state, &block_words, 2);
-    round(&mut state, &block_words, 3);
-    round(&mut state, &block_words, 4);
-    round(&mut state, &block_words, 5);
-    round(&mut state, &block_words, 6);
+    round(&mut state, block_words, 0);
+    round(&mut state, block_words, 1);
+    round(&mut state, block_words, 2);
+    round(&mut state, block_words, 3);
+    round(&mut state, block_words, 4);
+    round(&mut state, block_words, 5);
+    round(&mut state, block_words, 6);
 
     state
 }
 
-pub(super) const fn compress_in_place(
+pub(crate) const fn compress_in_place(
     cv: &mut CVWords,
-    block: &[u8; BLOCK_LEN],
-    block_len: u8,
+    block_words: &BlockWords,
+    block_len: u32,
     counter: u64,
-    flags: u8,
+    flags: u32,
 ) {
-    let state = compress_pre(cv, block, block_len, counter, flags);
+    let state = compress_pre(cv, block_words, block_len, counter, flags);
 
     cv[0] = state[0] ^ state[8];
     cv[1] = state[1] ^ state[9];
@@ -120,19 +135,26 @@ const fn hash1<const N: usize>(
             block_flags |= flags_end;
         }
         let block = {
-            let ptr = block.as_ptr() as *const [u8; BLOCK_LEN];
+            let ptr = block.as_ptr() as *const BlockBytes;
             // SAFETY: Sliced off correct length above
             unsafe { &*ptr }
         };
+        let block_words = words_from_le_bytes_64(block);
 
-        compress_in_place(&mut cv, block, BLOCK_LEN as u8, counter, block_flags);
+        compress_in_place(
+            &mut cv,
+            &block_words,
+            BLOCK_LEN as u32,
+            counter,
+            block_flags as u32,
+        );
         block_flags = flags;
     }
-    *out = crate::const_fn::platform::le_bytes_from_words_32(&cv);
+    *out = *le_bytes_from_words_32(&cv);
 }
 
 #[expect(clippy::too_many_arguments, reason = "Internal")]
-pub(super) const fn hash_many<const N: usize>(
+pub(crate) const fn hash_many<const N: usize>(
     mut inputs: &[&[u8; N]],
     key: &CVWords,
     mut counter: u64,

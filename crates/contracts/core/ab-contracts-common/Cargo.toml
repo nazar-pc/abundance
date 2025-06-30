@@ -15,10 +15,8 @@ all-features = true
 
 [dependencies]
 ab-core-primitives = { workspace = true }
+ab-blake3 = { workspace = true }
 ab-io-type = { workspace = true }
-# TODO: Switch to blake3 once https://github.com/BLAKE3-team/BLAKE3/pull/439 is upstreamed and const hashing version is
-#  exposed
-const-sha1 = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 no-panic = { workspace = true, optional = true }
 thiserror = { workspace = true }

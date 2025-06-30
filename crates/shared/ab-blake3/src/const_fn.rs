@@ -1,66 +1,29 @@
 //! `const fn` BLAKE3 functions.
 //!
 //! This module and submodules are copied with modifications from the official [`blake3`] crate and
-//! is expected to be removed once https://github.com/BLAKE3-team/BLAKE3/pull/439 or similar lands
+//! is expected to be removed once <https://github.com/BLAKE3-team/BLAKE3/pull/439> or similar lands
 //! upstream.
-//!
-//! [`blake3`]: https://github.com/BLAKE3-team/BLAKE3
 
 mod hazmat;
-mod platform;
-mod portable;
 #[cfg(test)]
 mod tests;
 
-use crate::{BLOCK_LEN, KEY_LEN, OUT_LEN};
+use crate::platform::{
+    le_bytes_from_words_32, words_from_le_bytes_32, words_from_le_bytes_64, MAX_SIMD_DEGREE,
+    MAX_SIMD_DEGREE_OR_2,
+};
+use crate::portable::IncrementCounter;
+use crate::{
+    portable, BlockBytes, CVBytes, CVWords, BLOCK_LEN, CHUNK_END, CHUNK_LEN, CHUNK_START,
+    DERIVE_KEY_CONTEXT, DERIVE_KEY_MATERIAL, IV, KEYED_HASH, KEY_LEN, OUT_LEN, PARENT, ROOT,
+};
 use core::mem::MaybeUninit;
-use core::{fmt, slice};
-use platform::{MAX_SIMD_DEGREE, MAX_SIMD_DEGREE_OR_2};
-
-/// The number of bytes in a chunk, 1024.
-///
-/// You don't usually need to think about this number, but it often comes up in benchmarks, because
-/// the maximum degree of parallelism used by the implementation equals the number of chunks.
-const CHUNK_LEN: usize = 1024;
-
-// While iterating the compression function within a chunk, the CV is
-// represented as words, to avoid doing two extra endianness conversions for
-// each compression in the portable implementation. But the hash_many interface
-// needs to hash both input bytes and parent nodes, so its better for its
-// output CVs to be represented as bytes.
-type CVWords = [u32; 8];
-type CVBytes = [u8; 32]; // little-endian
-
-const IV: &CVWords = &[
-    0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19,
-];
-
-const MSG_SCHEDULE: [[usize; 16]; 7] = [
-    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-    [2, 6, 3, 10, 7, 0, 4, 13, 1, 11, 12, 5, 9, 14, 15, 8],
-    [3, 4, 10, 12, 13, 2, 7, 14, 6, 5, 9, 0, 11, 15, 8, 1],
-    [10, 7, 12, 9, 14, 3, 13, 15, 4, 0, 11, 2, 5, 8, 1, 6],
-    [12, 13, 9, 11, 15, 10, 14, 8, 7, 2, 5, 3, 0, 1, 6, 4],
-    [9, 14, 11, 5, 8, 12, 15, 1, 13, 3, 0, 10, 2, 6, 4, 7],
-    [11, 15, 5, 0, 1, 9, 8, 6, 14, 10, 2, 12, 3, 4, 7, 13],
-];
-
-// These are the internal flags that we use to domain separate root/non-root,
-// chunk/parent, and chunk beginning/middle/end. These get set at the high end
-// of the block flags word in the compression function, so their values start
-// high and go down.
-const CHUNK_START: u8 = 1 << 0;
-const CHUNK_END: u8 = 1 << 1;
-const PARENT: u8 = 1 << 2;
-const ROOT: u8 = 1 << 3;
-const KEYED_HASH: u8 = 1 << 4;
-const DERIVE_KEY_CONTEXT: u8 = 1 << 5;
-const DERIVE_KEY_MATERIAL: u8 = 1 << 6;
+use core::slice;
 
 /// `Output` with `const fn` methods
 struct ConstOutput {
     input_chaining_value: CVWords,
-    block: [u8; 64],
+    block: BlockBytes,
     block_len: u8,
     counter: u64,
     flags: u8,
@@ -69,29 +32,36 @@ struct ConstOutput {
 impl ConstOutput {
     const fn chaining_value(&self) -> CVBytes {
         let mut cv = self.input_chaining_value;
+        let block_words = words_from_le_bytes_64(&self.block);
         portable::compress_in_place(
             &mut cv,
-            &self.block,
-            self.block_len,
+            &block_words,
+            self.block_len as u32,
             self.counter,
-            self.flags,
+            self.flags as u32,
         );
-        platform::le_bytes_from_words_32(&cv)
+        *le_bytes_from_words_32(&cv)
     }
 
     const fn root_hash(&self) -> [u8; OUT_LEN] {
         debug_assert!(self.counter == 0);
         let mut cv = self.input_chaining_value;
-        portable::compress_in_place(&mut cv, &self.block, self.block_len, 0, self.flags | ROOT);
-        platform::le_bytes_from_words_32(&cv)
+        let block_words = words_from_le_bytes_64(&self.block);
+        portable::compress_in_place(
+            &mut cv,
+            &block_words,
+            self.block_len as u32,
+            0,
+            (self.flags | ROOT) as u32,
+        );
+        *le_bytes_from_words_32(&cv)
     }
 }
 
-/// [`ChunkState`] with `const fn` methods
 struct ConstChunkState {
     cv: CVWords,
     chunk_counter: u64,
-    buf: [u8; BLOCK_LEN],
+    buf: BlockBytes,
     buf_len: u8,
     blocks_compressed: u8,
     flags: u8,
@@ -147,12 +117,13 @@ impl ConstChunkState {
             if !input.is_empty() {
                 debug_assert!(self.buf_len as usize == BLOCK_LEN);
                 let block_flags = self.flags | self.start_flag(); // borrowck
+                let block_words = words_from_le_bytes_64(&self.buf);
                 portable::compress_in_place(
                     &mut self.cv,
-                    &self.buf,
-                    BLOCK_LEN as u8,
+                    &block_words,
+                    BLOCK_LEN as u32,
                     self.chunk_counter,
-                    block_flags,
+                    block_flags as u32,
                 );
                 self.buf_len = 0;
                 self.buf = [0; BLOCK_LEN];
@@ -163,14 +134,16 @@ impl ConstChunkState {
         while input.len() > BLOCK_LEN {
             debug_assert!(self.buf_len == 0);
             let block_flags = self.flags | self.start_flag(); // borrowck
+            let block = input
+                .first_chunk::<BLOCK_LEN>()
+                .expect("Interation only starts when there is at least `BLOCK_LEN` bytes; qed");
+            let block_words = words_from_le_bytes_64(block);
             portable::compress_in_place(
                 &mut self.cv,
-                input
-                    .first_chunk::<BLOCK_LEN>()
-                    .expect("Interation only starts when there is at least `BLOCK_LEN` bytes; qed"),
-                BLOCK_LEN as u8,
+                &block_words,
+                BLOCK_LEN as u32,
                 self.chunk_counter,
-                block_flags,
+                block_flags as u32,
             );
             self.blocks_compressed += 1;
             input = input.split_at(BLOCK_LEN).1;
@@ -194,17 +167,6 @@ impl ConstChunkState {
     }
 }
 
-// Don't derive(Debug), because the state may be secret.
-impl fmt::Debug for ConstChunkState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ConstChunkState")
-            .field("count", &self.count())
-            .field("chunk_counter", &self.chunk_counter)
-            .field("flags", &self.flags)
-            .finish()
-    }
-}
-
 // IMPLEMENTATION NOTE
 // ===================
 // The recursive function compress_subtree_wide(), implemented below, is the
@@ -219,24 +181,6 @@ impl fmt::Debug for ConstChunkState {
 //   to benefit from larger inputs, because more levels of the tree benefit can
 //   use full-width SIMD vectors for parent hashing. Without parallel parent
 //   hashing, we lose about 10% of overall throughput on AVX2 and AVX-512.
-
-/// Undocumented and unstable, for benchmarks only.
-#[doc(hidden)]
-#[derive(Clone, Copy)]
-enum IncrementCounter {
-    Yes,
-    No,
-}
-
-impl IncrementCounter {
-    #[inline]
-    const fn yes(&self) -> bool {
-        match self {
-            IncrementCounter::Yes => true,
-            IncrementCounter::No => false,
-        }
-    }
-}
 
 // Use SIMD parallelism to hash up to MAX_SIMD_DEGREE chunks at the same time
 // on a single thread. Write out the chunk chaining values and return the
@@ -319,7 +263,7 @@ const fn const_compress_parents_parallel(
     // Use MAX_SIMD_DEGREE_OR_2 rather than MAX_SIMD_DEGREE here, because of
     // the requirements of compress_subtree_wide().
     let mut parents_so_far = 0;
-    let mut parents_array = [MaybeUninit::<&[u8; BLOCK_LEN]>::uninit(); MAX_SIMD_DEGREE_OR_2];
+    let mut parents_array = [MaybeUninit::<&BlockBytes>::uninit(); MAX_SIMD_DEGREE_OR_2];
     while let Some(parent) = parents.first_chunk::<BLOCK_LEN>() {
         parents = parents.split_at(BLOCK_LEN).1;
         parents_array[parents_so_far].write(parent);
@@ -328,10 +272,7 @@ const fn const_compress_parents_parallel(
     portable::hash_many(
         // SAFETY: Exactly `parents_so_far` elements of `parents_array` were initialized above
         unsafe {
-            slice::from_raw_parts(
-                parents_array.as_ptr().cast::<&[u8; BLOCK_LEN]>(),
-                parents_so_far,
-            )
+            slice::from_raw_parts(parents_array.as_ptr().cast::<&BlockBytes>(), parents_so_far)
         },
         key,
         0, // Parents always use counter 0.
@@ -430,7 +371,7 @@ const fn const_compress_subtree_to_parent_node(
     key: &CVWords,
     chunk_counter: u64,
     flags: u8,
-) -> [u8; BLOCK_LEN] {
+) -> BlockBytes {
     debug_assert!(input.len() > CHUNK_LEN);
     let mut cv_array = [0; MAX_SIMD_DEGREE_OR_2 * OUT_LEN];
     let mut num_cvs = const_compress_subtree_wide(input, key, chunk_counter, flags, &mut cv_array);
@@ -472,20 +413,21 @@ const fn const_hash_all_at_once(input: &[u8], key: &CVWords, flags: u8) -> Const
     }
 }
 
-/// Hashing function like `blake3::hash()`, but `const fn`
+/// Hashing function like [`blake3::hash()`], but `const fn`
 pub const fn const_hash(input: &[u8]) -> [u8; OUT_LEN] {
     const_hash_all_at_once(input, IV, 0).root_hash()
 }
 
-/// The keyed hash function like `blake3::keyed_hash()`, but `const fn`
+/// The keyed hash function like [`blake3::keyed_hash()`], but `const fn`
 pub const fn const_keyed_hash(key: &[u8; KEY_LEN], input: &[u8]) -> [u8; OUT_LEN] {
-    let key_words = platform::words_from_le_bytes_32(key);
+    let key_words = words_from_le_bytes_32(key);
     const_hash_all_at_once(input, &key_words, KEYED_HASH).root_hash()
 }
 
-// The key derivation function like `blake3::derive_key()`, but `const fn`
+// The key derivation function like [`blake3::derive_key()`], but `const fn`
 pub const fn const_derive_key(context: &str, key_material: &[u8]) -> [u8; OUT_LEN] {
-    let context_key = hazmat::const_hash_derive_key_context(context);
-    let context_key_words = platform::words_from_le_bytes_32(&context_key);
+    let context_key =
+        const_hash_all_at_once(context.as_bytes(), IV, DERIVE_KEY_CONTEXT).root_hash();
+    let context_key_words = words_from_le_bytes_32(&context_key);
     const_hash_all_at_once(key_material, &context_key_words, DERIVE_KEY_MATERIAL).root_hash()
 }

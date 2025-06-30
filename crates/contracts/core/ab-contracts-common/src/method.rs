@@ -1,7 +1,7 @@
 use crate::metadata::ContractMetadataKind;
+use ab_blake3::const_hash;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_io_type::trivial_type::TrivialType;
-use const_sha1::sha1;
 use derive_more::Display;
 
 /// Hash of method's compact metadata, which uniquely represents method signature.
@@ -29,13 +29,7 @@ impl MethodFingerprint {
         // in const environment yet
         let compact_metadata = compact_metadata_scratch.split_at(compact_metadata_size).0;
 
-        let hash = sha1(compact_metadata).as_bytes();
-
-        Some(Self(Blake3Hash::new([
-            hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7], hash[8],
-            hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15], hash[16],
-            hash[17], hash[18], hash[19], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ])))
+        Some(Self(Blake3Hash::new(const_hash(compact_metadata))))
     }
 
     #[inline(always)]

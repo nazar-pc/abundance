@@ -1,9 +1,9 @@
 use crate::hash_pair;
+use ab_blake3::OUT_LEN;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-use blake3::OUT_LEN;
 use core::mem::MaybeUninit;
 
 /// Merkle Tree variant that has pre-hashed leaves with arbitrary number of elements.
