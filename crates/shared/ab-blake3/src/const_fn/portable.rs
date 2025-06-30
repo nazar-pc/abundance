@@ -1,8 +1,8 @@
 use crate::const_fn::{CVBytes, CVWords, IncrementCounter, IV, MSG_SCHEDULE};
-use crate::{BLOCK_LEN, OUT_LEN};
+use crate::{BlockBytes, BlockWords, BLOCK_LEN, OUT_LEN};
 
 #[inline(always)]
-const fn g(state: &mut [u32; 16], a: usize, b: usize, c: usize, d: usize, x: u32, y: u32) {
+const fn g(state: &mut BlockWords, a: usize, b: usize, c: usize, d: usize, x: u32, y: u32) {
     state[a] = state[a].wrapping_add(state[b]).wrapping_add(x);
     state[d] = (state[d] ^ state[a]).rotate_right(16);
     state[c] = state[c].wrapping_add(state[d]);
@@ -14,7 +14,7 @@ const fn g(state: &mut [u32; 16], a: usize, b: usize, c: usize, d: usize, x: u32
 }
 
 #[inline(always)]
-const fn round(state: &mut [u32; 16], msg: &[u32; 16], round: usize) {
+const fn round(state: &mut BlockWords, msg: &BlockWords, round: usize) {
     // Select the message schedule based on the round.
     let schedule = MSG_SCHEDULE[round];
 
@@ -44,11 +44,11 @@ const fn counter_high(counter: u64) -> u32 {
 #[inline(always)]
 const fn compress_pre(
     cv: &CVWords,
-    block: &[u8; BLOCK_LEN],
+    block: &BlockBytes,
     block_len: u8,
     counter: u64,
     flags: u8,
-) -> [u32; 16] {
+) -> BlockWords {
     let block_words = crate::const_fn::platform::words_from_le_bytes_64(block);
 
     let mut state = [
@@ -83,7 +83,7 @@ const fn compress_pre(
 
 pub(super) const fn compress_in_place(
     cv: &mut CVWords,
-    block: &[u8; BLOCK_LEN],
+    block: &BlockBytes,
     block_len: u8,
     counter: u64,
     flags: u8,
@@ -120,7 +120,7 @@ const fn hash1<const N: usize>(
             block_flags |= flags_end;
         }
         let block = {
-            let ptr = block.as_ptr() as *const [u8; BLOCK_LEN];
+            let ptr = block.as_ptr() as *const BlockBytes;
             // SAFETY: Sliced off correct length above
             unsafe { &*ptr }
         };

@@ -12,9 +12,9 @@ mod portable;
 #[cfg(test)]
 mod tests;
 
-use crate::{BLOCK_LEN, KEY_LEN, OUT_LEN};
+use crate::{BlockBytes, BLOCK_LEN, KEY_LEN, OUT_LEN};
 use core::mem::MaybeUninit;
-use core::{fmt, slice};
+use core::slice;
 use platform::{MAX_SIMD_DEGREE, MAX_SIMD_DEGREE_OR_2};
 
 /// The number of bytes in a chunk, 1024.
@@ -60,7 +60,7 @@ const DERIVE_KEY_MATERIAL: u8 = 1 << 6;
 /// `Output` with `const fn` methods
 struct ConstOutput {
     input_chaining_value: CVWords,
-    block: [u8; 64],
+    block: BlockBytes,
     block_len: u8,
     counter: u64,
     flags: u8,
@@ -87,11 +87,10 @@ impl ConstOutput {
     }
 }
 
-/// [`ChunkState`] with `const fn` methods
 struct ConstChunkState {
     cv: CVWords,
     chunk_counter: u64,
-    buf: [u8; BLOCK_LEN],
+    buf: BlockBytes,
     buf_len: u8,
     blocks_compressed: u8,
     flags: u8,
@@ -194,17 +193,6 @@ impl ConstChunkState {
     }
 }
 
-// Don't derive(Debug), because the state may be secret.
-impl fmt::Debug for ConstChunkState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ConstChunkState")
-            .field("count", &self.count())
-            .field("chunk_counter", &self.chunk_counter)
-            .field("flags", &self.flags)
-            .finish()
-    }
-}
-
 // IMPLEMENTATION NOTE
 // ===================
 // The recursive function compress_subtree_wide(), implemented below, is the
@@ -221,7 +209,6 @@ impl fmt::Debug for ConstChunkState {
 //   hashing, we lose about 10% of overall throughput on AVX2 and AVX-512.
 
 /// Undocumented and unstable, for benchmarks only.
-#[doc(hidden)]
 #[derive(Clone, Copy)]
 enum IncrementCounter {
     Yes,
@@ -319,7 +306,7 @@ const fn const_compress_parents_parallel(
     // Use MAX_SIMD_DEGREE_OR_2 rather than MAX_SIMD_DEGREE here, because of
     // the requirements of compress_subtree_wide().
     let mut parents_so_far = 0;
-    let mut parents_array = [MaybeUninit::<&[u8; BLOCK_LEN]>::uninit(); MAX_SIMD_DEGREE_OR_2];
+    let mut parents_array = [MaybeUninit::<&BlockBytes>::uninit(); MAX_SIMD_DEGREE_OR_2];
     while let Some(parent) = parents.first_chunk::<BLOCK_LEN>() {
         parents = parents.split_at(BLOCK_LEN).1;
         parents_array[parents_so_far].write(parent);
@@ -328,10 +315,7 @@ const fn const_compress_parents_parallel(
     portable::hash_many(
         // SAFETY: Exactly `parents_so_far` elements of `parents_array` were initialized above
         unsafe {
-            slice::from_raw_parts(
-                parents_array.as_ptr().cast::<&[u8; BLOCK_LEN]>(),
-                parents_so_far,
-            )
+            slice::from_raw_parts(parents_array.as_ptr().cast::<&BlockBytes>(), parents_so_far)
         },
         key,
         0, // Parents always use counter 0.
@@ -430,7 +414,7 @@ const fn const_compress_subtree_to_parent_node(
     key: &CVWords,
     chunk_counter: u64,
     flags: u8,
-) -> [u8; BLOCK_LEN] {
+) -> BlockBytes {
     debug_assert!(input.len() > CHUNK_LEN);
     let mut cv_array = [0; MAX_SIMD_DEGREE_OR_2 * OUT_LEN];
     let mut num_cvs = const_compress_subtree_wide(input, key, chunk_counter, flags, &mut cv_array);

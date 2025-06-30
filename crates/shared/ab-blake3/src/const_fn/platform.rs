@@ -1,3 +1,5 @@
+use crate::{BlockBytes, BlockWords};
+
 pub(super) const MAX_SIMD_DEGREE: usize = 1;
 
 // There are some places where we want a static size that's equal to the
@@ -43,7 +45,7 @@ pub(super) const fn words_from_le_bytes_32(bytes: &[u8; 32]) -> [u32; 8] {
 }
 
 #[inline(always)]
-pub(super) const fn words_from_le_bytes_64(bytes: &[u8; 64]) -> [u32; 16] {
+pub(super) const fn words_from_le_bytes_64(bytes: &BlockBytes) -> BlockWords {
     let mut out = [0; 16];
     out[0] = extract_u32_from_byte_chunks!(bytes, 0);
     out[1] = extract_u32_from_byte_chunks!(bytes, 1);
