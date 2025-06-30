@@ -383,15 +383,16 @@ where
             let input = [input_a.to_be_bytes(), input_b.to_be_bytes()];
             let input_len =
                 size_of::<u128>() + right_bits_pushed_into_input_b.div_ceil(u8::BITS as usize);
-            blake3::hash(&input.as_flattened()[..input_len])
+            ab_blake3::single_block_hash(&input.as_flattened()[..input_len])
+                .expect("Exactly a single block worth of bytes; qed")
         } else {
             let right_bits_a = right_metadata << (right_bits_start_offset - y_and_left_bits);
             let input_a = y_bits | left_metadata_bits | right_bits_a;
 
-            blake3::hash(&input_a.to_be_bytes()[..num_bytes_with_data])
+            ab_blake3::single_block_hash(&input_a.to_be_bytes()[..num_bytes_with_data])
+                .expect("Less than a single block worth of bytes; qed")
         }
     };
-    let hash = <[u8; 32]>::from(hash);
 
     let y_output = Y::from(
         u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]])

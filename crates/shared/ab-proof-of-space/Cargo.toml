@@ -18,9 +18,9 @@ all-features = true
 bench = false
 
 [dependencies]
+ab-blake3 = { workspace = true }
 ab-chacha8 = { workspace = true }
 ab-core-primitives = { workspace = true }
-blake3 = { workspace = true }
 chacha20 = { workspace = true, features = ["cipher"] }
 derive_more = { workspace = true, features = ["full"] }
 parking_lot = { workspace = true, optional = true }

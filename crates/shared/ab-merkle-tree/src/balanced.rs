@@ -1,7 +1,7 @@
 use crate::hash_pair;
+use ab_blake3::OUT_LEN;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-use blake3::OUT_LEN;
 use core::iter;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;

@@ -34,6 +34,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-blake3"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+]
+
+[[package]]
 name = "ab-chacha8"
 version = "0.1.0"
 
@@ -156,13 +163,14 @@ dependencies = [
 name = "ab-merkle-tree"
 version = "0.0.1"
 dependencies = [
- "blake3",
+ "ab-blake3",
 ]
 
 [[package]]
 name = "ab-proof-of-space"
 version = "0.1.0"
 dependencies = [
+ "ab-blake3",
  "ab-chacha8",
  "ab-core-primitives",
  "blake3",
