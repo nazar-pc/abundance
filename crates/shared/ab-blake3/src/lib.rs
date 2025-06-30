@@ -6,9 +6,15 @@
 mod const_fn;
 mod platform;
 mod portable;
+mod single_block;
 mod single_chunk;
 
 pub use const_fn::{const_derive_key, const_hash, const_keyed_hash};
+pub use platform::{le_bytes_from_words_32, words_from_le_bytes_32, words_from_le_bytes_64};
+pub use single_block::{
+    single_block_derive_key, single_block_hash, single_block_hash_portable_words,
+    single_block_keyed_hash,
+};
 pub use single_chunk::{single_chunk_derive_key, single_chunk_hash, single_chunk_keyed_hash};
 
 /// The number of bytes in a hash

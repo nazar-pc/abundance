@@ -62,9 +62,9 @@ const fn counter_high(counter: u64) -> u32 {
 const fn compress_pre(
     cv: &CVWords,
     block_words: &BlockWords,
-    block_len: u8,
+    block_len: u32,
     counter: u64,
-    flags: u8,
+    flags: u32,
 ) -> BlockWords {
     let mut state = [
         cv[0],
@@ -81,8 +81,8 @@ const fn compress_pre(
         IV[3],
         counter_low(counter),
         counter_high(counter),
-        block_len as u32,
-        flags as u32,
+        block_len,
+        flags,
     ];
 
     round(&mut state, block_words, 0);
@@ -99,9 +99,9 @@ const fn compress_pre(
 pub(crate) const fn compress_in_place(
     cv: &mut CVWords,
     block_words: &BlockWords,
-    block_len: u8,
+    block_len: u32,
     counter: u64,
-    flags: u8,
+    flags: u32,
 ) {
     let state = compress_pre(cv, block_words, block_len, counter, flags);
 
@@ -141,10 +141,16 @@ const fn hash1<const N: usize>(
         };
         let block_words = words_from_le_bytes_64(block);
 
-        compress_in_place(&mut cv, &block_words, BLOCK_LEN as u8, counter, block_flags);
+        compress_in_place(
+            &mut cv,
+            &block_words,
+            BLOCK_LEN as u32,
+            counter,
+            block_flags as u32,
+        );
         block_flags = flags;
     }
-    *out = le_bytes_from_words_32(&cv);
+    *out = *le_bytes_from_words_32(&cv);
 }
 
 #[expect(clippy::too_many_arguments, reason = "Internal")]

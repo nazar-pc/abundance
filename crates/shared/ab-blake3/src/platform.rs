@@ -1,4 +1,5 @@
 use crate::{BlockBytes, BlockWords};
+use core::mem;
 
 pub(crate) const MAX_SIMD_DEGREE: usize = 1;
 
@@ -19,19 +20,9 @@ macro_rules! extract_u32_from_byte_chunks {
     };
 }
 
-macro_rules! store_u32_to_by_chunks {
-    ($src:ident, $dst:ident, $chunk_index:literal) => {
-        [
-            $dst[$chunk_index * 4 + 0],
-            $dst[$chunk_index * 4 + 1],
-            $dst[$chunk_index * 4 + 2],
-            $dst[$chunk_index * 4 + 3],
-        ] = $src[$chunk_index].to_le_bytes();
-    };
-}
-
+/// Converts bytes into `u32` words, the size matches BLAKE3 hash
 #[inline(always)]
-pub(crate) const fn words_from_le_bytes_32(bytes: &[u8; 32]) -> [u32; 8] {
+pub const fn words_from_le_bytes_32(bytes: &[u8; 32]) -> [u32; 8] {
     let mut out = [0; 8];
     out[0] = extract_u32_from_byte_chunks!(bytes, 0);
     out[1] = extract_u32_from_byte_chunks!(bytes, 1);
@@ -44,8 +35,9 @@ pub(crate) const fn words_from_le_bytes_32(bytes: &[u8; 32]) -> [u32; 8] {
     out
 }
 
+/// Converts bytes into `u32` words, the size matches BLAKE3 block
 #[inline(always)]
-pub(crate) const fn words_from_le_bytes_64(bytes: &BlockBytes) -> BlockWords {
+pub const fn words_from_le_bytes_64(bytes: &BlockBytes) -> BlockWords {
     let mut out = [0; 16];
     out[0] = extract_u32_from_byte_chunks!(bytes, 0);
     out[1] = extract_u32_from_byte_chunks!(bytes, 1);
@@ -66,16 +58,9 @@ pub(crate) const fn words_from_le_bytes_64(bytes: &BlockBytes) -> BlockWords {
     out
 }
 
+/// Converts `u32` words into bytes, the size matches BLAKE3 hash
 #[inline(always)]
-pub(crate) const fn le_bytes_from_words_32(words: &[u32; 8]) -> [u8; 32] {
-    let mut out = [0; 32];
-    store_u32_to_by_chunks!(words, out, 0);
-    store_u32_to_by_chunks!(words, out, 1);
-    store_u32_to_by_chunks!(words, out, 2);
-    store_u32_to_by_chunks!(words, out, 3);
-    store_u32_to_by_chunks!(words, out, 4);
-    store_u32_to_by_chunks!(words, out, 5);
-    store_u32_to_by_chunks!(words, out, 6);
-    store_u32_to_by_chunks!(words, out, 7);
-    out
+pub const fn le_bytes_from_words_32(words: &[u32; 8]) -> &[u8; 32] {
+    // SAFETY: All bit patterns are valid, output alignment is smaller (1 byte) than input
+    unsafe { mem::transmute::<&[u32; 8], &[u8; 32]>(words) }
 }

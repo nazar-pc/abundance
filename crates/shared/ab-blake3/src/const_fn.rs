@@ -36,19 +36,25 @@ impl ConstOutput {
         portable::compress_in_place(
             &mut cv,
             &block_words,
-            self.block_len,
+            self.block_len as u32,
             self.counter,
-            self.flags,
+            self.flags as u32,
         );
-        le_bytes_from_words_32(&cv)
+        *le_bytes_from_words_32(&cv)
     }
 
     const fn root_hash(&self) -> [u8; OUT_LEN] {
         debug_assert!(self.counter == 0);
         let mut cv = self.input_chaining_value;
         let block_words = words_from_le_bytes_64(&self.block);
-        portable::compress_in_place(&mut cv, &block_words, self.block_len, 0, self.flags | ROOT);
-        le_bytes_from_words_32(&cv)
+        portable::compress_in_place(
+            &mut cv,
+            &block_words,
+            self.block_len as u32,
+            0,
+            (self.flags | ROOT) as u32,
+        );
+        *le_bytes_from_words_32(&cv)
     }
 }
 
@@ -115,9 +121,9 @@ impl ConstChunkState {
                 portable::compress_in_place(
                     &mut self.cv,
                     &block_words,
-                    BLOCK_LEN as u8,
+                    BLOCK_LEN as u32,
                     self.chunk_counter,
-                    block_flags,
+                    block_flags as u32,
                 );
                 self.buf_len = 0;
                 self.buf = [0; BLOCK_LEN];
@@ -135,9 +141,9 @@ impl ConstChunkState {
             portable::compress_in_place(
                 &mut self.cv,
                 &block_words,
-                BLOCK_LEN as u8,
+                BLOCK_LEN as u32,
                 self.chunk_counter,
-                block_flags,
+                block_flags as u32,
             );
             self.blocks_compressed += 1;
             input = input.split_at(BLOCK_LEN).1;

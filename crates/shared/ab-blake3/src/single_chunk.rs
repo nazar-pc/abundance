@@ -51,7 +51,7 @@ fn hash_chunk(input: &[u8], key: CVWords, flags: u8) -> Option<[u8; OUT_LEN]> {
         platform.compress_in_place(&mut cv, &buf, remainder.len() as u8, 0, block_flags);
     }
 
-    Some(le_bytes_from_words_32(&cv))
+    Some(*le_bytes_from_words_32(&cv))
 }
 
 /// Hashing function for at most a single chunk worth of bytes.
