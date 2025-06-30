@@ -50,6 +50,7 @@ const TEST_CASES_MAX: usize = 100 * CHUNK_LEN;
 const TEST_KEY: CVBytes = *b"whats the Elvish word for friend";
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn test_compare_with_upstream() {
     let mut input_buf = [0; TEST_CASES_MAX];
 
