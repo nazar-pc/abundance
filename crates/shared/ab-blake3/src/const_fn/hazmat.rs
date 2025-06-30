@@ -1,10 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::const_fn::{CHUNK_LEN, IV, KEY_LEN};
-
-/// An alias to distinguish [`const_hash_derive_key_context`] outputs from other keys.
-pub(super) type ContextKey = [u8; KEY_LEN];
+use crate::CHUNK_LEN;
 
 /// Given the length in bytes of either a complete input or a subtree input, return the number of
 /// bytes that belong to its left child subtree. The rest belong to its right child subtree.
@@ -24,15 +21,4 @@ pub(super) const fn left_subtree_len(input_len: u64) -> u64 {
     debug_assert!(input_len > CHUNK_LEN as u64);
     // Note that .next_power_of_two() is greater than *or equal*.
     input_len.div_ceil(2).next_power_of_two()
-}
-
-/// Hash a [`const_derive_key`](crate::const_fn::const_derive_key) context string and return a
-/// [`ContextKey`]
-pub(super) const fn const_hash_derive_key_context(context: &str) -> ContextKey {
-    crate::const_fn::const_hash_all_at_once(
-        context.as_bytes(),
-        IV,
-        crate::const_fn::DERIVE_KEY_CONTEXT,
-    )
-    .root_hash()
 }

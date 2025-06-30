@@ -1,5 +1,22 @@
-use crate::const_fn::{CVBytes, CVWords, IncrementCounter, IV, MSG_SCHEDULE};
-use crate::{BlockBytes, BlockWords, BLOCK_LEN, OUT_LEN};
+use crate::platform::{le_bytes_from_words_32, words_from_le_bytes_64};
+use crate::{BlockBytes, BlockWords, CVBytes, CVWords, BLOCK_LEN, IV, MSG_SCHEDULE, OUT_LEN};
+
+/// Undocumented and unstable, for benchmarks only.
+#[derive(Clone, Copy)]
+pub(crate) enum IncrementCounter {
+    Yes,
+    No,
+}
+
+impl IncrementCounter {
+    #[inline]
+    pub(crate) const fn yes(&self) -> bool {
+        match self {
+            IncrementCounter::Yes => true,
+            IncrementCounter::No => false,
+        }
+    }
+}
 
 #[inline(always)]
 const fn g(state: &mut BlockWords, a: usize, b: usize, c: usize, d: usize, x: u32, y: u32) {
@@ -49,7 +66,7 @@ const fn compress_pre(
     counter: u64,
     flags: u8,
 ) -> BlockWords {
-    let block_words = crate::const_fn::platform::words_from_le_bytes_64(block);
+    let block_words = words_from_le_bytes_64(block);
 
     let mut state = [
         cv[0],
@@ -81,7 +98,7 @@ const fn compress_pre(
     state
 }
 
-pub(super) const fn compress_in_place(
+pub(crate) const fn compress_in_place(
     cv: &mut CVWords,
     block: &BlockBytes,
     block_len: u8,
@@ -128,11 +145,11 @@ const fn hash1<const N: usize>(
         compress_in_place(&mut cv, block, BLOCK_LEN as u8, counter, block_flags);
         block_flags = flags;
     }
-    *out = crate::const_fn::platform::le_bytes_from_words_32(&cv);
+    *out = le_bytes_from_words_32(&cv);
 }
 
 #[expect(clippy::too_many_arguments, reason = "Internal")]
-pub(super) const fn hash_many<const N: usize>(
+pub(crate) const fn hash_many<const N: usize>(
     mut inputs: &[&[u8; N]],
     key: &CVWords,
     mut counter: u64,

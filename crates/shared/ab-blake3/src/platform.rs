@@ -1,12 +1,12 @@
 use crate::{BlockBytes, BlockWords};
 
-pub(super) const MAX_SIMD_DEGREE: usize = 1;
+pub(crate) const MAX_SIMD_DEGREE: usize = 1;
 
 // There are some places where we want a static size that's equal to the
 // MAX_SIMD_DEGREE, but also at least 2. Constant contexts aren't currently
 // allowed to use cmp::max, so we have to hardcode this additional constant
 // value. Get rid of this once cmp::max is a const fn.
-pub(super) const MAX_SIMD_DEGREE_OR_2: usize = 2;
+pub(crate) const MAX_SIMD_DEGREE_OR_2: usize = 2;
 
 macro_rules! extract_u32_from_byte_chunks {
     ($src:ident, $chunk_index:literal) => {
@@ -31,7 +31,7 @@ macro_rules! store_u32_to_by_chunks {
 }
 
 #[inline(always)]
-pub(super) const fn words_from_le_bytes_32(bytes: &[u8; 32]) -> [u32; 8] {
+pub(crate) const fn words_from_le_bytes_32(bytes: &[u8; 32]) -> [u32; 8] {
     let mut out = [0; 8];
     out[0] = extract_u32_from_byte_chunks!(bytes, 0);
     out[1] = extract_u32_from_byte_chunks!(bytes, 1);
@@ -45,7 +45,7 @@ pub(super) const fn words_from_le_bytes_32(bytes: &[u8; 32]) -> [u32; 8] {
 }
 
 #[inline(always)]
-pub(super) const fn words_from_le_bytes_64(bytes: &BlockBytes) -> BlockWords {
+pub(crate) const fn words_from_le_bytes_64(bytes: &BlockBytes) -> BlockWords {
     let mut out = [0; 16];
     out[0] = extract_u32_from_byte_chunks!(bytes, 0);
     out[1] = extract_u32_from_byte_chunks!(bytes, 1);
@@ -67,7 +67,7 @@ pub(super) const fn words_from_le_bytes_64(bytes: &BlockBytes) -> BlockWords {
 }
 
 #[inline(always)]
-pub(super) const fn le_bytes_from_words_32(words: &[u32; 8]) -> [u8; 32] {
+pub(crate) const fn le_bytes_from_words_32(words: &[u32; 8]) -> [u8; 32] {
     let mut out = [0; 32];
     store_u32_to_by_chunks!(words, out, 0);
     store_u32_to_by_chunks!(words, out, 1);

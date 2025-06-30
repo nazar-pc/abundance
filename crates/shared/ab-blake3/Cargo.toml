@@ -20,7 +20,7 @@ all-features = true
 
 # TODO: Would be nice to have benchmarks here
 
-[dev-dependencies]
+[dependencies]
 blake3 = { workspace = true }
 
 [lints]
