@@ -15,6 +15,7 @@ const K_PLUS_PARAM_EXT_U32: u32 = (K + PARAM_EXT) as u32;
 // TODO: Should not be necessary, but https://github.com/Rust-GPU/rust-gpu/issues/300
 const K_MINUS_PARAM_EXT_U32: u32 = (K - PARAM_EXT) as u32;
 
+// TODO: Make unsafe and avoid bounds check
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and
 //  https://github.com/Rust-GPU/rust-gpu/discussions/301
 /// `partial_y_offset` is in bits within `partial_y`
@@ -52,6 +53,7 @@ pub fn compute_f1(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] chacha8_keystream: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] xys: &mut [UVec2],
 ) {
+    // TODO: Make a single input bounds check and use unsafe to avoid bounds check later
     let invocation_id = invocation_id.x;
     let num_workgroups = num_workgroups.x;
 
