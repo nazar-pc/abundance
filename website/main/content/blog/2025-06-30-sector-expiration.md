@@ -3,12 +3,10 @@ title: Expiring Sharded Subspace Plots and improving model script
 date: 2025-06-30
 draft: false
 description:
-  Keeping the Subspace protocol's plot expiration mechanism for the sharded version of the protocol
+  Commiting sectors to a range of history sizes to maintain Subspace's plot expiration logic
 tags: [status-update, consensus]
 authors: [adlrocha]
 ---
-
-{{< katex >}}
 
 As mentioned on last week's status update, one of the key pieces that I was to have the detailed
 operation of plot membership allocation was the impact of sector expiration on the protocol. By
