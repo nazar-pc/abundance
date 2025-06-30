@@ -11,7 +11,8 @@ mod hazmat;
 mod tests;
 
 use crate::platform::{
-    le_bytes_from_words_32, words_from_le_bytes_32, MAX_SIMD_DEGREE, MAX_SIMD_DEGREE_OR_2,
+    le_bytes_from_words_32, words_from_le_bytes_32, words_from_le_bytes_64, MAX_SIMD_DEGREE,
+    MAX_SIMD_DEGREE_OR_2,
 };
 use crate::portable::IncrementCounter;
 use crate::{
@@ -33,9 +34,10 @@ struct ConstOutput {
 impl ConstOutput {
     const fn chaining_value(&self) -> CVBytes {
         let mut cv = self.input_chaining_value;
+        let block_words = words_from_le_bytes_64(&self.block);
         portable::compress_in_place(
             &mut cv,
-            &self.block,
+            &block_words,
             self.block_len,
             self.counter,
             self.flags,
@@ -46,7 +48,8 @@ impl ConstOutput {
     const fn root_hash(&self) -> [u8; OUT_LEN] {
         debug_assert!(self.counter == 0);
         let mut cv = self.input_chaining_value;
-        portable::compress_in_place(&mut cv, &self.block, self.block_len, 0, self.flags | ROOT);
+        let block_words = words_from_le_bytes_64(&self.block);
+        portable::compress_in_place(&mut cv, &block_words, self.block_len, 0, self.flags | ROOT);
         le_bytes_from_words_32(&cv)
     }
 }
@@ -110,9 +113,10 @@ impl ConstChunkState {
             if !input.is_empty() {
                 debug_assert!(self.buf_len as usize == BLOCK_LEN);
                 let block_flags = self.flags | self.start_flag(); // borrowck
+                let block_words = words_from_le_bytes_64(&self.buf);
                 portable::compress_in_place(
                     &mut self.cv,
-                    &self.buf,
+                    &block_words,
                     BLOCK_LEN as u8,
                     self.chunk_counter,
                     block_flags,
@@ -126,11 +130,13 @@ impl ConstChunkState {
         while input.len() > BLOCK_LEN {
             debug_assert!(self.buf_len == 0);
             let block_flags = self.flags | self.start_flag(); // borrowck
+            let block = input
+                .first_chunk::<BLOCK_LEN>()
+                .expect("Interation only starts when there is at least `BLOCK_LEN` bytes; qed");
+            let block_words = words_from_le_bytes_64(block);
             portable::compress_in_place(
                 &mut self.cv,
-                input
-                    .first_chunk::<BLOCK_LEN>()
-                    .expect("Interation only starts when there is at least `BLOCK_LEN` bytes; qed"),
+                &block_words,
                 BLOCK_LEN as u8,
                 self.chunk_counter,
                 block_flags,

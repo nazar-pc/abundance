@@ -61,13 +61,11 @@ const fn counter_high(counter: u64) -> u32 {
 #[inline(always)]
 const fn compress_pre(
     cv: &CVWords,
-    block: &BlockBytes,
+    block_words: &BlockWords,
     block_len: u8,
     counter: u64,
     flags: u8,
 ) -> BlockWords {
-    let block_words = words_from_le_bytes_64(block);
-
     let mut state = [
         cv[0],
         cv[1],
@@ -87,25 +85,25 @@ const fn compress_pre(
         flags as u32,
     ];
 
-    round(&mut state, &block_words, 0);
-    round(&mut state, &block_words, 1);
-    round(&mut state, &block_words, 2);
-    round(&mut state, &block_words, 3);
-    round(&mut state, &block_words, 4);
-    round(&mut state, &block_words, 5);
-    round(&mut state, &block_words, 6);
+    round(&mut state, block_words, 0);
+    round(&mut state, block_words, 1);
+    round(&mut state, block_words, 2);
+    round(&mut state, block_words, 3);
+    round(&mut state, block_words, 4);
+    round(&mut state, block_words, 5);
+    round(&mut state, block_words, 6);
 
     state
 }
 
 pub(crate) const fn compress_in_place(
     cv: &mut CVWords,
-    block: &BlockBytes,
+    block_words: &BlockWords,
     block_len: u8,
     counter: u64,
     flags: u8,
 ) {
-    let state = compress_pre(cv, block, block_len, counter, flags);
+    let state = compress_pre(cv, block_words, block_len, counter, flags);
 
     cv[0] = state[0] ^ state[8];
     cv[1] = state[1] ^ state[9];
@@ -141,8 +139,9 @@ const fn hash1<const N: usize>(
             // SAFETY: Sliced off correct length above
             unsafe { &*ptr }
         };
+        let block_words = words_from_le_bytes_64(block);
 
-        compress_in_place(&mut cv, block, BLOCK_LEN as u8, counter, block_flags);
+        compress_in_place(&mut cv, &block_words, BLOCK_LEN as u8, counter, block_flags);
         block_flags = flags;
     }
     *out = le_bytes_from_words_32(&cv);
