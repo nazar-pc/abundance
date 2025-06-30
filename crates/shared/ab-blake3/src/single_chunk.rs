@@ -2,8 +2,6 @@
 //!
 //! This module and submodules are copied with modifications from the official [`blake3`] crate, but
 //! is unlikely to be upstreamed.
-//!
-//! [`blake3`]: https://github.com/BLAKE3-team/BLAKE3
 
 #[cfg(test)]
 mod tests;

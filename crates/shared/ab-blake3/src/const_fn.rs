@@ -1,10 +1,8 @@
 //! `const fn` BLAKE3 functions.
 //!
 //! This module and submodules are copied with modifications from the official [`blake3`] crate and
-//! is expected to be removed once https://github.com/BLAKE3-team/BLAKE3/pull/439 or similar lands
+//! is expected to be removed once <https://github.com/BLAKE3-team/BLAKE3/pull/439> or similar lands
 //! upstream.
-//!
-//! [`blake3`]: https://github.com/BLAKE3-team/BLAKE3
 
 mod hazmat;
 #[cfg(test)]
@@ -409,18 +407,18 @@ const fn const_hash_all_at_once(input: &[u8], key: &CVWords, flags: u8) -> Const
     }
 }
 
-/// Hashing function like `blake3::hash()`, but `const fn`
+/// Hashing function like [`blake3::hash()`], but `const fn`
 pub const fn const_hash(input: &[u8]) -> [u8; OUT_LEN] {
     const_hash_all_at_once(input, IV, 0).root_hash()
 }
 
-/// The keyed hash function like `blake3::keyed_hash()`, but `const fn`
+/// The keyed hash function like [`blake3::keyed_hash()`], but `const fn`
 pub const fn const_keyed_hash(key: &[u8; KEY_LEN], input: &[u8]) -> [u8; OUT_LEN] {
     let key_words = words_from_le_bytes_32(key);
     const_hash_all_at_once(input, &key_words, KEYED_HASH).root_hash()
 }
 
-// The key derivation function like `blake3::derive_key()`, but `const fn`
+// The key derivation function like [`blake3::derive_key()`], but `const fn`
 pub const fn const_derive_key(context: &str, key_material: &[u8]) -> [u8; OUT_LEN] {
     let context_key =
         const_hash_all_at_once(context.as_bytes(), IV, DERIVE_KEY_CONTEXT).root_hash();
