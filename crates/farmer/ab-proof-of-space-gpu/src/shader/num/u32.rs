@@ -3,6 +3,7 @@ mod tests;
 
 use crate::shader::num::{U64T, U128T};
 use core::cmp::{Eq, PartialEq};
+use core::mem;
 use core::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Shl, ShlAssign,
     Shr, ShrAssign, Sub, SubAssign,
@@ -18,7 +19,7 @@ pub(in super::super) struct U64([u32; 2]);
 impl From<u32> for U64 {
     #[inline(always)]
     fn from(n: u32) -> Self {
-        Self::from_u32(n)
+        Self([n, 0])
     }
 }
 
@@ -48,11 +49,6 @@ impl U64T for U64 {
         let low = u32::from_be_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
 
         Self([low, high])
-    }
-
-    #[inline(always)]
-    fn from_u32(n: u32) -> Self {
-        Self([n, 0])
     }
 
     #[inline(always)]
@@ -210,7 +206,16 @@ impl ShrAssign<u32> for U64 {
 #[repr(C)]
 pub(in super::super) struct U128([U64; 2]);
 
+impl From<u32> for U128 {
+    #[inline(always)]
+    fn from(n: u32) -> Self {
+        Self([U64::from(n), U64::ZERO])
+    }
+}
+
 impl U128T for U128 {
+    const ZERO: Self = Self([U64::ZERO; 2]);
+
     #[inline(always)]
     fn to_be_bytes(self) -> [u8; 16] {
         let low = &self.0[0];
@@ -235,6 +240,32 @@ impl U128T for U128 {
         let low1 = u32::from_be_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]);
 
         Self([U64([low1, low0]), U64([high1, high0])])
+    }
+
+    #[inline(always)]
+    fn as_be_bytes_to_le_u32_words(&self) -> [u32; 4] {
+        // SAFETY: All bit patterns are valid, alignment is the same
+        let be_words = unsafe { mem::transmute::<&[U64; 2], &[u32; 4]>(&self.0) };
+
+        [
+            be_words[3].swap_bytes(),
+            be_words[2].swap_bytes(),
+            be_words[1].swap_bytes(),
+            be_words[0].swap_bytes(),
+        ]
+    }
+
+    #[inline(always)]
+    fn from_le_u32_words_as_be_bytes(words: &[u32; 4]) -> Self {
+        let be_words = [
+            words[3].swap_bytes(),
+            words[2].swap_bytes(),
+            words[1].swap_bytes(),
+            words[0].swap_bytes(),
+        ];
+
+        // SAFETY: All bit patterns are valid, alignment is the same
+        Self(unsafe { mem::transmute::<[u32; 4], [U64; 2]>(be_words) })
     }
 }
 
@@ -307,11 +338,11 @@ impl BitAnd for U128 {
     fn bitand(self, other: U128) -> U128 {
         let Self(arr1) = self;
         let Self(arr2) = other;
-        let mut ret = [U64::ZERO; 2];
+        let mut ret = Self::ZERO;
         for i in 0..2 {
-            ret[i] = arr1[i] & arr2[i];
+            ret.0[i] = arr1[i] & arr2[i];
         }
-        Self(ret)
+        ret
     }
 }
 
@@ -329,11 +360,11 @@ impl BitXor for U128 {
     fn bitxor(self, other: Self) -> Self {
         let Self(arr1) = self;
         let Self(arr2) = other;
-        let mut ret = [U64::ZERO; 2];
+        let mut ret = Self::ZERO;
         for i in 0..2 {
-            ret[i] = arr1[i] ^ arr2[i];
+            ret.0[i] = arr1[i] ^ arr2[i];
         }
-        Self(ret)
+        ret
     }
 }
 
