@@ -414,7 +414,7 @@ where
         );
         // Remove extra bits at the beginning
         let metadata = metadata << (y_size_bits(K) % u8::BITS as usize);
-        // Move bits into correct location
+        // Move bits into the correct location
         metadata >> (u128::BITS as usize - metadata_size_bits)
     } else {
         0
