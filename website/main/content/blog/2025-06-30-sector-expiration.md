@@ -32,8 +32,8 @@ that we wanted the protocol to have:
     This prevents an attack where the same plot ID could be used to create sectors with different
     `history_size` values, which would allow farmers to manipulate shard allocation by assigning to
     a plot the most convenient sector at each time.
-3.  **Load-Balanced Archiving (New History):** As new history arrives, it gets stored across
-    farmers/plots without large re-plotting events.
+3.  **Load-Balanced Archiving (New History):** As new history is archived, it gets plotted shortly after by sufficient number of
+    farmers without large re-plotting events.
 4.  **Detect Expiration and Validity:** Plots, sectors and blocks include all the information needed
     to verify their validity, plot assignment to a shard, sector belonging to the plot, and
     expiration.
