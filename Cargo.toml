@@ -107,11 +107,12 @@ wgpu = { version = "26.0.1", default-features = false, features = ["metal", "spi
 windows = { version = "0.61.3", features = ["Win32_Storage_FileSystem"] }
 yoke = { version = "0.8.0", default-features = false }
 
-# Following libraries have a major impact on developement experience and need to be compiled with optimizations even in
-# debug builds
+# The following libraries have a major impact on developement experience and need to be compiled with optimizations even
+# in debug builds
 [profile.dev.package]
 ab-archiving = { opt-level = 3 }
 ab-proof-of-space = { opt-level = 3 }
+ab-proof-of-space-gpu = { opt-level = 3 }
 ab-proof-of-time = { opt-level = 3 }
 blake3 = { opt-level = 3 }
 reed-solomon-simd = { opt-level = 3 }

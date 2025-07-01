@@ -1,13 +1,18 @@
+#[cfg(not(target_arch = "spirv"))]
 use crate::platform::{le_bytes_from_words_32, words_from_le_bytes_64};
-use crate::{BLOCK_LEN, BlockBytes, BlockWords, CVBytes, CVWords, IV, MSG_SCHEDULE, OUT_LEN};
+#[cfg(not(target_arch = "spirv"))]
+use crate::{BLOCK_LEN, BlockBytes, CVBytes, OUT_LEN};
+use crate::{BlockWords, CVWords, IV, MSG_SCHEDULE};
 
 /// Undocumented and unstable, for benchmarks only.
 #[derive(Clone, Copy)]
+#[cfg(not(target_arch = "spirv"))]
 pub(crate) enum IncrementCounter {
     Yes,
     No,
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl IncrementCounter {
     #[inline]
     pub(crate) const fn yes(&self) -> bool {
@@ -48,16 +53,19 @@ const fn round(state: &mut BlockWords, msg: &BlockWords, round: usize) {
     g(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]]);
 }
 
+#[cfg(not(target_arch = "spirv"))]
 #[inline]
 const fn counter_low(counter: u64) -> u32 {
     counter as u32
 }
 
+#[cfg(not(target_arch = "spirv"))]
 #[inline]
 const fn counter_high(counter: u64) -> u32 {
     (counter >> 32) as u32
 }
 
+#[cfg(not(target_arch = "spirv"))]
 #[inline(always)]
 const fn compress_pre(
     cv: &CVWords,
@@ -96,6 +104,7 @@ const fn compress_pre(
     state
 }
 
+#[cfg(not(target_arch = "spirv"))]
 pub(crate) const fn compress_in_place(
     cv: &mut CVWords,
     block_words: &BlockWords,
@@ -115,6 +124,69 @@ pub(crate) const fn compress_in_place(
     cv[7] = state[7] ^ state[15];
 }
 
+///  Like [`compress_pre()`], but `counter` is limited to `u32` for small inputs
+#[inline(always)]
+const fn compress_pre_u32(
+    cv: &CVWords,
+    block_words: &BlockWords,
+    block_len: u32,
+    counter: u32,
+    flags: u32,
+) -> BlockWords {
+    #[rustfmt::skip]
+    let mut state = [
+        cv[0],
+        cv[1],
+        cv[2],
+        cv[3],
+        cv[4],
+        cv[5],
+        cv[6],
+        cv[7],
+        IV[0],
+        IV[1],
+        IV[2],
+        IV[3],
+        // Counter low
+        counter,
+        // Counter high
+        0,
+        block_len,
+        flags,
+    ];
+
+    round(&mut state, block_words, 0);
+    round(&mut state, block_words, 1);
+    round(&mut state, block_words, 2);
+    round(&mut state, block_words, 3);
+    round(&mut state, block_words, 4);
+    round(&mut state, block_words, 5);
+    round(&mut state, block_words, 6);
+
+    state
+}
+
+///  Like [`compress_in_place()`], but `counter` is limited to `u32` for small inputs
+pub(crate) const fn compress_in_place_u32(
+    cv: &mut CVWords,
+    block_words: &BlockWords,
+    block_len: u32,
+    counter: u32,
+    flags: u32,
+) {
+    let state = compress_pre_u32(cv, block_words, block_len, counter, flags);
+
+    cv[0] = state[0] ^ state[8];
+    cv[1] = state[1] ^ state[9];
+    cv[2] = state[2] ^ state[10];
+    cv[3] = state[3] ^ state[11];
+    cv[4] = state[4] ^ state[12];
+    cv[5] = state[5] ^ state[13];
+    cv[6] = state[6] ^ state[14];
+    cv[7] = state[7] ^ state[15];
+}
+
+#[cfg(not(target_arch = "spirv"))]
 const fn hash1<const N: usize>(
     input: &[u8; N],
     key: &CVWords,
@@ -153,6 +225,7 @@ const fn hash1<const N: usize>(
     *out = *le_bytes_from_words_32(&cv);
 }
 
+#[cfg(not(target_arch = "spirv"))]
 #[expect(clippy::too_many_arguments, reason = "Internal")]
 pub(crate) const fn hash_many<const N: usize>(
     mut inputs: &[&[u8; N]],

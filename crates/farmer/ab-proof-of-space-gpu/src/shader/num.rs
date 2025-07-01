@@ -5,17 +5,14 @@ mod u64;
 #[cfg(not(target_arch = "spirv"))]
 pub(super) use crate::shader::num::native::U64;
 #[cfg(not(target_arch = "spirv"))]
-#[expect(unused_imports, reason = "Not using U128 yet")]
 pub(super) use crate::shader::num::native::U128;
 #[cfg(all(target_arch = "spirv", not(target_feature = "Int64")))]
 pub(super) use crate::shader::num::u32::U64;
 #[cfg(all(target_arch = "spirv", not(target_feature = "Int64")))]
 pub(super) use crate::shader::num::u32::U128;
 #[cfg(all(target_arch = "spirv", target_feature = "Int64"))]
-#[expect(unused_imports, reason = "Not using U128 yet")]
 pub(super) use crate::shader::num::u64::U64;
 #[cfg(all(target_arch = "spirv", target_feature = "Int64"))]
-#[expect(unused_imports, reason = "Not using U128 yet")]
 pub(super) use crate::shader::num::u64::U128;
 use core::cmp::{Eq, PartialEq};
 use core::fmt;
@@ -84,7 +81,6 @@ pub(super) trait U128T:
     + Shr<u32>
     + ShrAssign<u32>
 {
-    #[expect(dead_code, reason = "Not used yet")]
     const ZERO: Self;
 
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
@@ -93,9 +89,7 @@ pub(super) trait U128T:
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     fn from_be_bytes(bytes: [u8; 16]) -> Self;
 
-    #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     fn as_be_bytes_to_le_u32_words(&self) -> [u32; 4];
 
-    #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     fn from_le_u32_words_as_be_bytes(words: &[u32; 4]) -> Self;
 }

@@ -20,8 +20,11 @@ all-features = true
 # TODO: Would be nice to have benchmarks here
 
 [dependencies]
-blake3 = { workspace = true }
 no-panic = { workspace = true, optional = true }
+
+# TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+[target.'cfg(not(target_arch = "spirv"))'.dependencies]
+blake3 = { workspace = true }
 
 [features]
 # Check that code can't panic under any conditions

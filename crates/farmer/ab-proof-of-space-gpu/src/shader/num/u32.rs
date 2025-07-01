@@ -3,7 +3,6 @@ mod tests;
 
 use crate::shader::num::{U64T, U128T};
 use core::cmp::{Eq, PartialEq};
-use core::mem;
 use core::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Shl, ShlAssign,
     Shr, ShrAssign, Sub, SubAssign,
@@ -246,8 +245,16 @@ impl U128T for U128 {
 
     #[inline(always)]
     fn as_be_bytes_to_le_u32_words(&self) -> [u32; 4] {
-        // SAFETY: All bit patterns are valid, alignment is the same
-        let be_words = unsafe { mem::transmute::<&[U64; 2], &[u32; 4]>(&self.0) };
+        // TODO: `transmute()` doesn't work in `rust-gpu`, probably because of
+        //  https://github.com/Rust-GPU/rust-gpu/issues/241
+        // // SAFETY: All bit patterns are valid, alignment is the same
+        // let be_words = unsafe { mem::transmute::<&[U64; 2], &[u32; 4]>(&self.0) };
+        let be_words = [
+            self.0[0].0[0],
+            self.0[0].0[1],
+            self.0[1].0[0],
+            self.0[1].0[1],
+        ];
 
         [
             be_words[3].swap_bytes(),
@@ -266,8 +273,14 @@ impl U128T for U128 {
             words[0].swap_bytes(),
         ];
 
-        // SAFETY: All bit patterns are valid, alignment is the same
-        Self(unsafe { mem::transmute::<[u32; 4], [U64; 2]>(be_words) })
+        // TODO: `transmute()` doesn't work in `rust-gpu`, probably because of
+        //  https://github.com/Rust-GPU/rust-gpu/issues/241
+        // // SAFETY: All bit patterns are valid, alignment is the same
+        // Self(unsafe { mem::transmute::<[u32; 4], [U64; 2]>(be_words) })
+        Self([
+            U64([be_words[0], be_words[1]]),
+            U64([be_words[2], be_words[3]]),
+        ])
     }
 }
 

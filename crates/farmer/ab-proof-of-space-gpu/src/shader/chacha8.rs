@@ -7,7 +7,7 @@ use spirv_std::spirv;
 
 /// Produce a ChaCha8 keystream.
 ///
-/// NOTE: Length of keystream is limited by `u32`
+/// NOTE: Length of the keystream is limited by `u32`
 #[spirv(compute(threads(256), entry_point_name = "chacha8_keystream"))]
 pub fn chacha8_keystream(
     #[spirv(global_invocation_id)] invocation_id: UVec3,
