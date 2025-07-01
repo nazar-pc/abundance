@@ -21,6 +21,7 @@ crate-type = ["dylib", "lib"]
 # TODO: Benches
 
 [dependencies]
+ab-blake3 = { workspace = true }
 ab-chacha8 = { workspace = true }
 spirv-std = { workspace = true }
 

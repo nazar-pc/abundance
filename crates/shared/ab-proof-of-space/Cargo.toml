@@ -47,7 +47,7 @@ std = [
     # In no-std environment we use `spin`
     "parking_lot",
 ]
-# Enabling this feature exposes quality search on `chiapos` module as well as enables support for K=15..=25 (by default
+# Enabling this feature exposes quality search on `chiapos` module as well as enables support for K=15..=24 (by default
 # only K=20 is exposed)
 full-chiapos = [
     "dep:sha2",

@@ -3,7 +3,6 @@ mod tests;
 
 use crate::shader::num::{U64T, U128T};
 use core::cmp::{Eq, PartialEq};
-use core::mem;
 use core::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Shl, ShlAssign,
     Shr, ShrAssign, Sub, SubAssign,
@@ -12,7 +11,7 @@ use core::ops::{
 // TODO: Remove once https://github.com/Rust-GPU/rust-gpu/discussions/301 has a better solution
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(C)]
-pub(in super::super) struct U64(u64);
+pub struct U64(u64);
 
 impl From<u32> for U64 {
     #[inline(always)]
@@ -160,7 +159,7 @@ impl ShrAssign<u32> for U64 {
 /// platform
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(C)]
-pub(in super::super) struct U128([u64; 2]);
+pub struct U128([u64; 2]);
 
 impl From<u32> for U128 {
     #[inline(always)]
@@ -197,8 +196,16 @@ impl U128T for U128 {
 
     #[inline(always)]
     fn as_be_bytes_to_le_u32_words(&self) -> [u32; 4] {
-        // SAFETY: All bit patterns are valid, output alignment is lower than input
-        let be_words = unsafe { mem::transmute::<&[u64; 2], &[u32; 4]>(&self.0) };
+        // TODO: `transmute()` doesn't work in `rust-gpu`, probably because of
+        //  https://github.com/Rust-GPU/rust-gpu/issues/241
+        // // SAFETY: All bit patterns are valid, output alignment is lower than input
+        // let be_words = unsafe { mem::transmute::<&[u64; 2], &[u32; 4]>(&self.0) };
+        let be_words = [
+            self.0[0] as u32,
+            (self.0[0] >> u32::BITS) as u32,
+            self.0[1] as u32,
+            (self.0[1] >> u32::BITS) as u32,
+        ];
 
         [
             be_words[3].swap_bytes(),
@@ -217,8 +224,14 @@ impl U128T for U128 {
             words[0].swap_bytes(),
         ];
 
-        // SAFETY: All bit patterns are valid
-        Self(unsafe { be_words.as_ptr().cast::<[u64; 2]>().read_unaligned() })
+        // TODO: Unaligned read doesn't work in `rust-gpu`, probably because of
+        //  https://github.com/Rust-GPU/rust-gpu/issues/241
+        // // SAFETY: All bit patterns are valid
+        // Self(unsafe { be_words.as_ptr().cast::<[u64; 2]>().read_unaligned() })
+        Self([
+            u64::from(be_words[0]) | (u64::from(be_words[1]) << u32::BITS),
+            u64::from(be_words[2]) | (u64::from(be_words[3]) << u32::BITS),
+        ])
     }
 }
 

@@ -1,9 +1,10 @@
 pub mod chacha8;
 pub mod compute_f1;
+pub mod compute_fn;
 // TODO: Reuse constants from `ab-proof-of-space` once https://github.com/Rust-GPU/rust-gpu/pull/249 is
 //  merged
 mod constants;
-mod num;
+pub mod num;
 #[cfg(not(target_arch = "spirv"))]
 mod shader_bytes;
 
