@@ -3,33 +3,24 @@ mod cpu_tests;
 #[cfg(all(test, not(miri), not(target_arch = "spirv")))]
 mod gpu_tests;
 
-use crate::shader::constants::PARAM_EXT;
+use crate::shader::constants::{K, PARAM_EXT};
 use crate::shader::num::{U64, U64T};
 use spirv_std::glam::{UVec2, UVec3};
 use spirv_std::spirv;
 
-// TODO: Replace this constant with usage of `PosProof::K` after
-//  https://github.com/Rust-GPU/rust-gpu/pull/249 is merged
-const K: u8 = 20;
-#[cfg(not(target_arch = "spirv"))]
-const _: () = {
-    assert!(K == ab_core_primitives::pos::PosProof::K);
-};
-// TODO: Should not be necessary, but https://github.com/Rust-GPU/rust-gpu/issues/300
-const K_U32: u32 = K as u32;
 // TODO: Should not be necessary, but https://github.com/Rust-GPU/rust-gpu/issues/300
 const PARAM_EXT_U32: u32 = PARAM_EXT as u32;
 // TODO: Should not be necessary, but https://github.com/Rust-GPU/rust-gpu/issues/300
-const K_PLUS_PARAM_EXT_U32: u32 = K_U32 + PARAM_EXT_U32;
+const K_PLUS_PARAM_EXT_U32: u32 = (K + PARAM_EXT) as u32;
 // TODO: Should not be necessary, but https://github.com/Rust-GPU/rust-gpu/issues/300
-const K_MINUS_PARAM_EXT_U32: u32 = K_U32 - PARAM_EXT_U32;
+const K_MINUS_PARAM_EXT_U32: u32 = (K - PARAM_EXT) as u32;
 
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and
 //  https://github.com/Rust-GPU/rust-gpu/discussions/301
 /// `partial_y_offset` is in bits within `partial_y`
 #[inline(always)]
 pub(super) fn compute_f1_impl(x: u32, chacha8_keystream: &[u32]) -> u32 {
-    let skip_bits = K_U32 * x;
+    let skip_bits = u32::from(K) * x;
     let skip_u32s = skip_bits / u32::BITS;
     let partial_y_offset = skip_bits % u32::BITS;
 

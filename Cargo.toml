@@ -93,7 +93,7 @@ serde-big-array = "0.5.1"
 sha2 = { version = "0.10.9", default-features = false }
 smallvec = "1.15.0"
 spin = "0.10.0"
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "e6d017d5504c4441a84edcc27f4eca61de6fc8cf" }
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "f58374079a72ee1f73bf2a9bdaed435b5e44e20e" }
 stable_deref_trait = { version = "1.2.0", default-features = false }
 syn = "2.0.101"
 take_mut = "0.2.2"
