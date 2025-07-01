@@ -29,6 +29,7 @@ pub fn chacha8_keystream(
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     for position in (invocation_id..keystream.len() as u32).step_by(global_size as usize) {
+        // TODO: Make sure bounds check here is elided
         keystream[position as usize] = initial_state.compute_block(position);
     }
 }
