@@ -12,7 +12,7 @@ As mentioned on last week's status update, one of the key pieces that I was to h
 operation of plot membership allocation was the impact of sector expiration on the protocol. By
 having a unique plot identifier, we are able to uniquely link sectors to plots, but these sectors
 need to expire in a way that does not require farmers to re-plot while archiving the most recent
-history. Fortunately, we can leverage the current expiration mechanism of the current Subspace
+history. Fortunately, we can leverage the current expiration mechanism of the Subspace
 protocol, and build a layer on top of it to adapt it to the sharded version while maintaining the
 original guarantees in terms of plot expiration, sector re-plotting, and history archiving.
 
@@ -99,7 +99,7 @@ With this, we have all that we needed to finally implement farming in shards:
 - Sectors are committed to a range of history sizes determined by the plot ID, preventing farmers
   from gaming shard allocation.
 - Piece selection, sector expiration stay unchanged.
-- Farming stays slightly unchanged, apart from the additional information required to verify that
+- Farming stays mostly unchanged, apart from the additional information required to verify that
   the chunk for the piece in the solution range belongs to a sector bound to a plot currently
   assigned to the shard.
 
@@ -170,7 +170,7 @@ if expected_shard_id != current_shard_id {
 }
 ```
 
-To perform sharded verification, validators need:
+To perform sharded verification, clients need:
 
 - From the Solution
 
