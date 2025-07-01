@@ -5,7 +5,7 @@ use crate::shader::num::{U64T, U128T};
 use core::mem;
 
 // TODO: Remove once https://github.com/Rust-GPU/rust-gpu/discussions/301 has a better solution
-pub(in super::super) type U64 = u64;
+pub type U64 = u64;
 
 impl U64T for U64 {
     #[inline(always)]
@@ -30,7 +30,7 @@ impl U64T for U64 {
 }
 
 // TODO: Remove once https://github.com/Rust-GPU/rust-gpu/discussions/301 has a better solution
-pub(in super::super) type U128 = u128;
+pub type U128 = u128;
 
 impl U128T for U128 {
     const ZERO: Self = 0;

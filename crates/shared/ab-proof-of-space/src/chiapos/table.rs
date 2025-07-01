@@ -290,7 +290,7 @@ fn find_matches<T, Map>(
         let left_targets_r = left_targets_parity
             .chunks_exact(left_targets_parity.len() / usize::from(PARAM_BC))
             .nth(r)
-            .expect("r is valid");
+            .expect("r is valid; qed");
 
         const _: () = {
             assert!(PARAM_M as usize % FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR == 0);
@@ -404,7 +404,7 @@ where
     let metadata = if TABLE_NUMBER < 4 {
         (left_metadata << parent_metadata_bits) | right_metadata
     } else if metadata_size_bits > 0 {
-        // For K under 25 it is guaranteed that metadata + bit offset will always fit into u128.
+        // For K up to 25 it is guaranteed that metadata + bit offset will always fit into u128.
         // We collect bytes necessary, potentially with extra bits at the start and end of the bytes
         // that will be taken care of later.
         let metadata = u128::from_be_bytes(
@@ -414,7 +414,7 @@ where
         );
         // Remove extra bits at the beginning
         let metadata = metadata << (y_size_bits(K) % u8::BITS as usize);
-        // Move bits into correct location
+        // Move bits into the correct location
         metadata >> (u128::BITS as usize - metadata_size_bits)
     } else {
         0
@@ -602,7 +602,8 @@ where
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
 {
     /// Creates new [`TABLE_NUMBER`] table. There also exists [`Self::create_parallel()`] that
-    /// trades CPU efficiency and memory usage for lower latency.
+    /// trades CPU efficiency and memory usage for lower latency and with multiple parallel calls,
+    /// better overall performance.
     pub(super) fn create<const PARENT_TABLE_NUMBER: u8>(
         last_table: &Table<K, PARENT_TABLE_NUMBER>,
         cache: &mut TablesCache<K>,
@@ -688,7 +689,7 @@ where
 
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
     /// performance (though not efficiency of CPU and memory usage), if you create multiple tables
-    /// in parallel, prefer [`Self::create()`] for better overall performance.
+    /// in parallel, prefer [`Self::create_parallel()`] for better overall performance.
     #[cfg(any(feature = "parallel", test))]
     pub(super) fn create_parallel<const PARENT_TABLE_NUMBER: u8>(
         last_table: &Table<K, PARENT_TABLE_NUMBER>,

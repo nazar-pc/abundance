@@ -17,5 +17,6 @@ crate-type = ["dylib", "lib"]
 path = "../src/lib.rs"
 
 [dependencies]
+ab-blake3 = { path = "../../../../crates/shared/ab-blake3" }
 ab-chacha8 = { path = "../../../../crates/shared/ab-chacha8" }
 spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "f58374079a72ee1f73bf2a9bdaed435b5e44e20e" }

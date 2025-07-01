@@ -6,14 +6,18 @@
 #[cfg(test)]
 mod tests;
 
+#[cfg(not(target_arch = "spirv"))]
 use crate::platform::{le_bytes_from_words_32, words_from_le_bytes_32};
-use crate::{
-    portable, BlockWords, CVWords, BLOCK_LEN, CHUNK_END, CHUNK_START, DERIVE_KEY_CONTEXT,
-    DERIVE_KEY_MATERIAL, IV, KEYED_HASH, KEY_LEN, OUT_LEN, ROOT,
-};
+use crate::{portable, BlockWords, CVWords, CHUNK_END, CHUNK_START, IV, ROOT};
+#[cfg(not(target_arch = "spirv"))]
+use crate::{BLOCK_LEN, DERIVE_KEY_CONTEXT, DERIVE_KEY_MATERIAL, KEYED_HASH, KEY_LEN, OUT_LEN};
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+#[cfg(not(target_arch = "spirv"))]
 use blake3::platform::Platform;
 
 // Hash a single block worth of values
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+#[cfg(not(target_arch = "spirv"))]
 #[inline(always)]
 fn hash_block(input: &[u8], key: CVWords, flags: u8) -> Option<[u8; OUT_LEN]> {
     // If the whole subtree is one block, hash it directly with a ChunkState.
@@ -39,6 +43,8 @@ fn hash_block(input: &[u8], key: CVWords, flags: u8) -> Option<[u8; OUT_LEN]> {
 /// Hashing function for at most a single block worth of bytes.
 ///
 /// Returns `None` if input length exceeds one block.
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+#[cfg(not(target_arch = "spirv"))]
 #[inline]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn single_block_hash(input: &[u8]) -> Option<[u8; OUT_LEN]> {
@@ -48,6 +54,8 @@ pub fn single_block_hash(input: &[u8]) -> Option<[u8; OUT_LEN]> {
 /// The keyed hash function for at most a single block worth of bytes.
 ///
 /// Returns `None` if input length exceeds one block.
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+#[cfg(not(target_arch = "spirv"))]
 #[inline]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn single_block_keyed_hash(key: &[u8; KEY_LEN], input: &[u8]) -> Option<[u8; OUT_LEN]> {
@@ -58,6 +66,8 @@ pub fn single_block_keyed_hash(key: &[u8; KEY_LEN], input: &[u8]) -> Option<[u8;
 // The key derivation function for at most a single block worth of bytes.
 //
 // Returns `None` if either context or key material length exceed one block.
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+#[cfg(not(target_arch = "spirv"))]
 #[inline]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn single_block_derive_key(context: &str, key_material: &[u8]) -> Option<[u8; OUT_LEN]> {
@@ -85,7 +95,7 @@ pub fn single_block_derive_key(context: &str, key_material: &[u8]) -> Option<[u8
 pub fn single_block_hash_portable_words(input: &BlockWords, num_bytes: u32) -> CVWords {
     let mut cv = *IV;
 
-    portable::compress_in_place(
+    portable::compress_in_place_u32(
         &mut cv,
         input,
         num_bytes,
