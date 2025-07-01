@@ -18,4 +18,4 @@ path = "../src/lib.rs"
 
 [dependencies]
 ab-chacha8 = { path = "../../../../crates/shared/ab-chacha8" }
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "e6d017d5504c4441a84edcc27f4eca61de6fc8cf" }
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "f58374079a72ee1f73bf2a9bdaed435b5e44e20e" }

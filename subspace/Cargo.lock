@@ -173,7 +173,6 @@ dependencies = [
  "ab-blake3",
  "ab-chacha8",
  "ab-core-primitives",
- "blake3",
  "chacha20 0.10.0-rc.0",
  "derive_more 2.0.1",
  "rayon",
