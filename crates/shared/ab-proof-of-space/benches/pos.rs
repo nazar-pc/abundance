@@ -5,6 +5,8 @@ use ab_core_primitives::pos::PosSeed;
 use ab_proof_of_space::Table;
 #[cfg(feature = "alloc")]
 use ab_proof_of_space::TableGenerator;
+#[cfg(feature = "alloc")]
+use criterion::Throughput;
 use criterion::{Criterion, criterion_group, criterion_main};
 #[cfg(feature = "parallel")]
 use rayon::ThreadPoolBuilder;
@@ -56,6 +58,7 @@ fn pos_bench<PosTable>(
     let mut group = c.benchmark_group(name);
 
     let mut generator_instance = PosTable::generator();
+    group.throughput(Throughput::Elements(1));
     group.bench_function("table/single", |b| {
         b.iter(|| {
             generator_instance.generate(black_box(&seed));
@@ -65,9 +68,43 @@ fn pos_bench<PosTable>(
     #[cfg(feature = "parallel")]
     {
         let mut generator_instance = PosTable::generator();
+        group.throughput(Throughput::Elements(1));
         group.bench_function("table/parallel/1x", |b| {
             b.iter(|| {
                 generator_instance.generate_parallel(black_box(&seed));
+            });
+        });
+
+        let mut generator_instances = [PosTable::generator(), PosTable::generator()];
+        group.throughput(Throughput::Elements(2));
+        group.bench_function("table/parallel/2x", |b| {
+            b.iter(|| {
+                rayon::scope(|scope| {
+                    for g in &mut generator_instances {
+                        scope.spawn(|_scope| {
+                            g.generate_parallel(black_box(&seed));
+                        });
+                    }
+                });
+            });
+        });
+
+        let mut generator_instances = [
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+        ];
+        group.throughput(Throughput::Elements(4));
+        group.bench_function("table/parallel/4x", |b| {
+            b.iter(|| {
+                rayon::scope(|scope| {
+                    for g in &mut generator_instances {
+                        scope.spawn(|_scope| {
+                            g.generate_parallel(black_box(&seed));
+                        });
+                    }
+                });
             });
         });
 
@@ -81,6 +118,7 @@ fn pos_bench<PosTable>(
             PosTable::generator(),
             PosTable::generator(),
         ];
+        group.throughput(Throughput::Elements(8));
         group.bench_function("table/parallel/8x", |b| {
             b.iter(|| {
                 rayon::scope(|scope| {
@@ -96,6 +134,7 @@ fn pos_bench<PosTable>(
 
     let table = generator_instance.generate(&seed);
 
+    group.throughput(Throughput::Elements(1));
     group.bench_function("proof/missing", |b| {
         b.iter(|| {
             assert!(
@@ -106,6 +145,7 @@ fn pos_bench<PosTable>(
         });
     });
 
+    group.throughput(Throughput::Elements(1));
     group.bench_function("proof/present", |b| {
         b.iter(|| {
             assert!(
@@ -118,6 +158,7 @@ fn pos_bench<PosTable>(
 
     let proof = table.find_proof(challenge_index_with_solution).unwrap();
 
+    group.throughput(Throughput::Elements(1));
     group.bench_function("verification", |b| {
         b.iter(|| {
             assert!(<PosTable as Table>::is_proof_valid(
