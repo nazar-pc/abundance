@@ -355,8 +355,8 @@ where
     // left metadata and right metadata)
     let hash = {
         // Take only bytes where bits were set
-        let num_bytes_with_data = (y_size_bits(K) + metadata_size_bits(K, PARENT_TABLE_NUMBER) * 2)
-            .div_ceil(u8::BITS as usize);
+        let num_bytes_with_data =
+            (y_size_bits(K) + parent_metadata_bits * 2).div_ceil(u8::BITS as usize);
 
         // Collect `K` most significant bits of `y` at the final offset of eventual `input_a`
         let y_bits = u128::from(y) << (u128::BITS as usize - y_size_bits(K));

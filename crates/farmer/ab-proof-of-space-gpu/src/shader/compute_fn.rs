@@ -49,25 +49,35 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
     left_metadata: U128,
     right_metadata: U128,
 ) -> (u32, U128) {
-    let parent_metadata_bits = metadata_size_bits(K, PARENT_TABLE_NUMBER);
+    // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+    //  shouldn't be necessary otherwise
+    let parent_metadata_bits = const { metadata_size_bits(K, PARENT_TABLE_NUMBER) };
 
     // Only supports `K` from 15 to 25 (otherwise math will not be correct when concatenating y,
     // left metadata and right metadata)
     let mut input_words = [0; _];
     let byte_length = {
         // Take only bytes where bits were set
+        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+        //  shouldn't be necessary otherwise
         let num_bytes_with_data =
-            (y_size_bits(K) + metadata_size_bits(K, PARENT_TABLE_NUMBER) * 2).div_ceil(u8::BITS);
+            (const { y_size_bits(K) } + parent_metadata_bits * 2).div_ceil(u8::BITS);
 
         // Collect `K` most significant bits of `y` at the final offset of eventual `input_a`
-        let y_bits = U128::from(y) << (u128::BITS - y_size_bits(K));
+        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+        //  shouldn't be necessary otherwise
+        let y_bits = U128::from(y) << (u128::BITS - const { y_size_bits(K) });
 
         // Move bits of `left_metadata` at the final offset of eventual `input_a`
+        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+        //  shouldn't be necessary otherwise
         let left_metadata_bits =
-            left_metadata << (u128::BITS - parent_metadata_bits - y_size_bits(K));
+            left_metadata << (u128::BITS - parent_metadata_bits - const { y_size_bits(K) });
 
         // Part of the `right_bits` at the final offset of eventual `input_a`
-        let y_and_left_bits = y_size_bits(K) + parent_metadata_bits;
+        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+        //  shouldn't be necessary otherwise
+        let y_and_left_bits = const { y_size_bits(K) } + parent_metadata_bits;
         let right_bits_start_offset = u128::BITS - parent_metadata_bits;
 
         // If `right_metadata` bits start to the left of the desired position in `input_a` move
@@ -116,9 +126,13 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
     };
     let hash = ab_blake3::single_block_hash_portable_words(&input_words, byte_length);
 
-    let y_output = hash[0].to_be() >> (u32::BITS - y_size_bits(K));
+    // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+    //  shouldn't be necessary otherwise
+    let y_output = hash[0].to_be() >> (u32::BITS - const { y_size_bits(K) });
 
-    let metadata_size_bits = metadata_size_bits(K, TABLE_NUMBER);
+    // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+    //  shouldn't be necessary otherwise
+    let metadata_size_bits = const { metadata_size_bits(K, TABLE_NUMBER) };
 
     let metadata = if TABLE_NUMBER < 4 {
         (left_metadata << parent_metadata_bits) | right_metadata
@@ -134,7 +148,9 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
         //         .try_into()
         //         .expect("Always enough bits for any K; qed"),
         // );
-        let first_element = (y_size_bits(K) / u32::BITS) as usize;
+        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+        //  shouldn't be necessary otherwise
+        let first_element = (const { y_size_bits(K) } / u32::BITS) as usize;
         let metadata = U128::from_le_u32_words_as_be_bytes(&[
             hash[first_element],
             hash[first_element + 1],
@@ -142,7 +158,9 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
             hash[first_element + 3],
         ]);
         // Remove extra bits at the beginning
-        let metadata = metadata << (y_size_bits(K) % u8::BITS);
+        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+        //  shouldn't be necessary otherwise
+        let metadata = metadata << (const { y_size_bits(K) } % u8::BITS);
         // Move bits into the correct location
         metadata >> (u128::BITS - metadata_size_bits)
     } else {

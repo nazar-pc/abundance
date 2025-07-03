@@ -53,11 +53,13 @@ const fn round(state: &mut BlockWords, msg: &BlockWords, round: usize) {
     g(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]]);
 }
 
+#[cfg(not(target_arch = "spirv"))]
 #[inline]
 const fn counter_low(counter: u64) -> u32 {
     counter as u32
 }
 
+#[cfg(not(target_arch = "spirv"))]
 #[inline]
 const fn counter_high(counter: u64) -> u32 {
     (counter >> 32) as u32

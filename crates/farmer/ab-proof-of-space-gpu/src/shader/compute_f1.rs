@@ -8,13 +8,6 @@ use crate::shader::num::{U64, U64T};
 use spirv_std::glam::{UVec2, UVec3};
 use spirv_std::spirv;
 
-// TODO: Should not be necessary, but https://github.com/Rust-GPU/rust-gpu/issues/300
-const PARAM_EXT_U32: u32 = PARAM_EXT as u32;
-// TODO: Should not be necessary, but https://github.com/Rust-GPU/rust-gpu/issues/300
-const K_PLUS_PARAM_EXT_U32: u32 = (K + PARAM_EXT) as u32;
-// TODO: Should not be necessary, but https://github.com/Rust-GPU/rust-gpu/issues/300
-const K_MINUS_PARAM_EXT_U32: u32 = (K - PARAM_EXT) as u32;
-
 // TODO: Make unsafe and avoid bounds check
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and
 //  https://github.com/Rust-GPU/rust-gpu/discussions/301
@@ -29,14 +22,14 @@ pub(super) fn compute_f1_impl(x: u32, chacha8_keystream: &[u32]) -> u32 {
     let low = chacha8_keystream[skip_u32s as usize + 1].to_be();
     let partial_y = U64::from_low_high(low, high);
 
-    let pre_y = partial_y >> (u64::BITS - K_PLUS_PARAM_EXT_U32 - partial_y_offset);
+    let pre_y = partial_y >> (u64::BITS - u32::from(K + PARAM_EXT) - partial_y_offset);
     let pre_y = pre_y.as_u32();
     // Mask for clearing the rest of bits of `pre_y`.
-    let pre_y_mask = (u32::MAX << PARAM_EXT_U32) & (u32::MAX >> (u32::BITS - K_PLUS_PARAM_EXT_U32));
+    let pre_y_mask = (u32::MAX << PARAM_EXT) & (u32::MAX >> (u32::BITS - u32::from(K + PARAM_EXT)));
 
     // Extract `PARAM_EXT` most significant bits from `x` and store in the final offset of
     // eventual `y` with the rest of bits being zero (`x` is `0..2^K`)
-    let pre_ext = x >> K_MINUS_PARAM_EXT_U32;
+    let pre_ext = x >> (K - PARAM_EXT);
 
     // Combine all of the bits together:
     // [padding zero bits][`K` bits rom `partial_y`][`PARAM_EXT` bits from `x`]
