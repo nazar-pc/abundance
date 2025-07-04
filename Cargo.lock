@@ -894,7 +894,7 @@ dependencies = [
 [[package]]
 name = "cargo-gpu"
 version = "0.1.0"
-source = "git+https://github.com/Rust-GPU/cargo-gpu?rev=e5744605020d9a94931519a17815e027db5fba01#e5744605020d9a94931519a17815e027db5fba01"
+source = "git+https://github.com/Rust-GPU/cargo-gpu?rev=6a192d824ffa8fc4aa7870c957077fd647d3369b#6a192d824ffa8fc4aa7870c957077fd647d3369b"
 dependencies = [
  "anyhow",
  "cargo_metadata",

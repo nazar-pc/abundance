@@ -31,22 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             env::set_current_dir(&shader_crate)?;
         }
 
-        // TODO: Workaround for https://github.com/Rust-GPU/cargo-gpu/issues/90
-        let cargo_target_dir = env::var("CARGO_TARGET_DIR").ok();
-        // SAFETY: Single-threaded
-        unsafe {
-            env::remove_var("CARGO_TARGET_DIR");
-        }
-
         let backend = cargo_gpu::Install::from_shader_crate(shader_crate.clone()).run()?;
-
-        // TODO: Workaround for https://github.com/Rust-GPU/cargo-gpu/issues/90
-        if let Some(cargo_target_dir) = cargo_target_dir {
-            // SAFETY: Single-threaded
-            unsafe {
-                env::set_var("CARGO_TARGET_DIR", cargo_target_dir);
-            }
-        }
 
         let spirv_builder = backend
             .to_spirv_builder(shader_crate, "spirv-unknown-vulkan1.2")
