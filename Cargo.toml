@@ -53,7 +53,7 @@ bech32 = { version = "0.11.0", default-features = false }
 bitvec = "1.0.1"
 blake3 = { version = "1.8.2", default-features = false }
 bytes = { version = "1.10.1", default-features = false }
-cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "e5744605020d9a94931519a17815e027db5fba01", default-features = false }
+cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "6a192d824ffa8fc4aa7870c957077fd647d3369b", default-features = false }
 chacha20 = { version = "0.10.0-rc.0", default-features = false }
 const_format = "0.2.34"
 core_affinity = "0.8.3"
