@@ -84,6 +84,7 @@ pub(super) trait U128T:
     + Shr<u32>
     + ShrAssign<u32>
 {
+    #[expect(dead_code, reason = "Not used yet")]
     const ZERO: Self;
 
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]

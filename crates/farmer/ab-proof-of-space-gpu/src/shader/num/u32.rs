@@ -336,13 +336,7 @@ impl BitAnd for U128 {
 
     #[inline(always)]
     fn bitand(self, other: U128) -> U128 {
-        let Self(arr1) = self;
-        let Self(arr2) = other;
-        let mut ret = Self::ZERO;
-        for i in 0..2 {
-            ret.0[i] = arr1[i] & arr2[i];
-        }
-        ret
+        Self([self.0[0] & other.0[0], self.0[1] & other.0[1]])
     }
 }
 
@@ -358,13 +352,7 @@ impl BitXor for U128 {
 
     #[inline(always)]
     fn bitxor(self, other: Self) -> Self {
-        let Self(arr1) = self;
-        let Self(arr2) = other;
-        let mut ret = Self::ZERO;
-        for i in 0..2 {
-            ret.0[i] = arr1[i] ^ arr2[i];
-        }
-        ret
+        Self([self.0[0] ^ other.0[0], self.0[1] ^ other.0[1]])
     }
 }
 
@@ -380,13 +368,7 @@ impl BitOr for U128 {
 
     #[inline(always)]
     fn bitor(self, other: Self) -> Self {
-        let Self(arr1) = self;
-        let Self(arr2) = other;
-        let mut ret = [U64::ZERO; 2];
-        for i in 0..2 {
-            ret[i] = arr1[i] | arr2[i];
-        }
-        Self(ret)
+        Self([self.0[0] | other.0[0], self.0[1] | other.0[1]])
     }
 }
 
