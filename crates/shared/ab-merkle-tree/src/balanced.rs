@@ -2,9 +2,27 @@ use crate::hash_pair;
 use ab_blake3::OUT_LEN;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-use core::iter;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;
+use core::num::NonZero;
+
+/// Ensuring only supported `N` can be specified for [`BalancedMerkleTree`].
+///
+/// This is essentially a workaround for the current Rust type system constraints that do not allow
+/// a nicer way to do the same thing at compile time.
+pub const fn ensure_supported_n(n: usize) -> usize {
+    assert!(
+        n.is_power_of_two(),
+        "Balanced Merkle Tree must have a number of leaves that is a power of 2"
+    );
+
+    assert!(
+        n > 1,
+        "This Balanced Merkle Tree must have more than one leaf"
+    );
+
+    0
+}
 
 /// Merkle Tree variant that has hash-sized leaves and is fully balanced according to configured
 /// generic parameter.
@@ -29,7 +47,7 @@ where
     [(); N - 1]:,
 {
     leaves: &'a [[u8; OUT_LEN]],
-    // This tree doesn't include leaves because we know the size
+    // This tree doesn't include leaves because we have them in `leaves` field
     tree: [[u8; OUT_LEN]; N - 1],
 }
 
@@ -38,6 +56,7 @@ where
 impl<'a, const N: usize> BalancedMerkleTree<'a, N>
 where
     [(); N - 1]:,
+    [(); ensure_supported_n(N)]:,
 {
     /// Create a new tree from a fixed set of elements.
     ///
@@ -123,6 +142,7 @@ where
         }
     }
 
+    // TODO: Method that generates not only root, but also proof, like Unbalanced Merkle Tree
     /// Compute Merkle Tree root.
     ///
     /// This is functionally equivalent to creating an instance first and calling [`Self::root()`]
@@ -133,10 +153,6 @@ where
     where
         [(); N.ilog2() as usize + 1]:,
     {
-        if leaves.len() == 1 {
-            return leaves[0];
-        }
-
         // Stack of intermediate nodes per tree level
         let mut stack = [[0u8; OUT_LEN]; N.ilog2() as usize + 1];
 
@@ -156,9 +172,7 @@ where
         stack[N.ilog2() as usize]
     }
 
-    /// Get the root of Merkle Tree.
-    ///
-    /// In case a tree contains a single leaf hash, that leaf hash is returned.
+    /// Get the root of Merkle Tree
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn root(&self) -> [u8; OUT_LEN] {
@@ -177,11 +191,8 @@ where
     where
         [(); N.ilog2() as usize]:,
     {
-        let iter = self
-            .leaves
-            .array_chunks()
-            .enumerate()
-            .flat_map(|(pair_index, &[left_hash, right_hash])| {
+        let iter = self.leaves.array_chunks().enumerate().flat_map(
+            |(pair_index, &[left_hash, right_hash])| {
                 let mut left_proof = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); N.ilog2() as usize];
                 left_proof[0].write(right_hash);
 
@@ -219,21 +230,8 @@ where
                 right_proof[0] = left_hash;
 
                 [left_proof, right_proof]
-            })
-            // Special case for a single leaf tree to make sure proof is returned, even if it is
-            // empty
-            .chain({
-                let mut returned = false;
-
-                iter::from_fn(move || {
-                    if N == 1 && !returned {
-                        returned = true;
-                        Some([[0; OUT_LEN]; N.ilog2() as usize])
-                    } else {
-                        None
-                    }
-                })
-            });
+            },
+        );
 
         ProofsIterator { iter, len: N }
     }
@@ -301,6 +299,26 @@ where
         Self: Sized,
     {
         self.len
+    }
+
+    #[inline(always)]
+    fn last(self) -> Option<Self::Item>
+    where
+        Self: Sized,
+    {
+        self.iter.last()
+    }
+
+    #[inline(always)]
+    fn advance_by(&mut self, n: usize) -> Result<(), NonZero<usize>> {
+        self.len = self.len.saturating_sub(n);
+        self.iter.advance_by(n)
+    }
+
+    #[inline(always)]
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.len = self.len.saturating_sub(n.saturating_add(1));
+        self.iter.nth(n)
     }
 }
 
