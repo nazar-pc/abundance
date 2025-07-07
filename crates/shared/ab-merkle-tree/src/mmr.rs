@@ -248,7 +248,8 @@ where
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn add_leaf(&mut self, leaf: &[u8; OUT_LEN]) -> bool {
-        // How many leaves were processed so far
+        // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but `>=`
+        // helps compiler with panic safety checks.
         if self.num_leaves >= MAX_N {
             return false;
         }
@@ -287,7 +288,8 @@ where
     {
         // TODO: This can be optimized further
         for leaf in leaves {
-            // How many leaves were processed so far
+            // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but
+            // `>=` helps compiler with panic safety checks.
             if self.num_leaves >= MAX_N {
                 return false;
             }
@@ -372,7 +374,8 @@ where
         let mut position = self.num_leaves;
 
         {
-            // How many leaves were processed so far
+            // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but
+            // `>=` helps compiler with panic safety checks.
             if self.num_leaves >= MAX_N {
                 return None;
             }
