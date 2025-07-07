@@ -13,7 +13,6 @@ fn criterion_benchmark(c: &mut Criterion) {
         return;
     }
 
-    balanced::<1>(c);
     balanced::<2>(c);
     balanced::<4>(c);
     balanced::<256>(c);

@@ -10,11 +10,6 @@ use rand_core::{RngCore, SeedableRng};
 use std::mem::MaybeUninit;
 
 #[test]
-fn mt_balanced_1_leaves() {
-    test_basic::<1, 1>();
-}
-
-#[test]
 fn mt_balanced_2_leaves() {
     test_basic::<2, 2>();
 }

@@ -106,14 +106,14 @@ impl SimpleUnbalancedMerkleTree {
         }
 
         let mut current = leaf;
-        let mut index = leaf_index;
+        let mut position = leaf_index;
         let mut proof_pos = 0;
         let mut level_size = num_leaves;
 
         // Rebuild the path to the root
         while level_size > 1 {
-            let is_left = index % 2 == 0;
-            let is_last = index == level_size - 1;
+            let is_left = position % 2 == 0;
+            let is_last = position == level_size - 1;
 
             if is_left && !is_last {
                 // Left node with a right sibling
@@ -135,7 +135,7 @@ impl SimpleUnbalancedMerkleTree {
                 // Last node, no sibling, keep current
             }
 
-            index /= 2;
+            position /= 2;
             // Size of next level
             level_size = level_size.div_ceil(2);
         }
@@ -241,7 +241,7 @@ fn mt_unbalanced_too_many_leaves() {
 #[test]
 #[cfg_attr(miri, ignore)]
 fn mt_unbalanced_large_range() {
-    for number_of_leaves in 2..MAX_N {
+    for number_of_leaves in 1..MAX_N {
         test_basic(number_of_leaves);
     }
 }
@@ -336,26 +336,50 @@ fn test_basic(number_of_leaves: u64) {
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
 
-        assert!(
-            !SimpleUnbalancedMerkleTree::verify(
-                &root,
-                &random_proof,
-                leaf_index,
-                leaf,
-                leaves.len()
-            ),
-            "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
-        );
-        assert!(
-            !UnbalancedMerkleTree::verify(
-                &root,
-                &random_proof,
-                leaf_index as u64,
-                leaf,
-                leaves.len() as u64
-            ),
-            "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
-        );
+        if leaves.len() > 1 {
+            assert!(
+                !SimpleUnbalancedMerkleTree::verify(
+                    &root,
+                    &random_proof,
+                    leaf_index,
+                    leaf,
+                    leaves.len()
+                ),
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert!(
+                !UnbalancedMerkleTree::verify(
+                    &root,
+                    &random_proof,
+                    leaf_index as u64,
+                    leaf,
+                    leaves.len() as u64
+                ),
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+        } else {
+            // For a single leaf the proof must be empty
+            assert!(
+                !SimpleUnbalancedMerkleTree::verify(
+                    &root,
+                    &[[0; OUT_LEN]],
+                    leaf_index,
+                    leaf,
+                    leaves.len()
+                ),
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert!(
+                !UnbalancedMerkleTree::verify(
+                    &root,
+                    &[[0; OUT_LEN]],
+                    leaf_index as u64,
+                    leaf,
+                    leaves.len() as u64
+                ),
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+        }
 
         if let Some(bad_leaf_index) = leaf_index.checked_sub(1) {
             assert!(
