@@ -19,6 +19,7 @@
 ---
 
 * [Contribute](Contribute.md)
+* [Acknowledgements](Acknowledgements.md)
 
 ---
 
