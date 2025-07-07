@@ -6,6 +6,19 @@ use core::iter;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;
 
+/// Ensuring only supported `N` can be specified for [`BalancedMerkleTree`].
+///
+/// This is essentially a workaround for the current Rust type system constraints that do not allow
+/// a nicer way to do the same thing at compile time.
+pub const fn ensure_supported_n(n: usize) -> usize {
+    assert!(
+        n.is_power_of_two(),
+        "Balanced Merkle Tree must have a number of leaves that is a power of 2"
+    );
+
+    0
+}
+
 /// Merkle Tree variant that has hash-sized leaves and is fully balanced according to configured
 /// generic parameter.
 ///
@@ -29,7 +42,7 @@ where
     [(); N - 1]:,
 {
     leaves: &'a [[u8; OUT_LEN]],
-    // This tree doesn't include leaves because we know the size
+    // This tree doesn't include leaves because we have them in `leaves` field
     tree: [[u8; OUT_LEN]; N - 1],
 }
 
@@ -38,6 +51,7 @@ where
 impl<'a, const N: usize> BalancedMerkleTree<'a, N>
 where
     [(); N - 1]:,
+    [(); ensure_supported_n(N)]:,
 {
     /// Create a new tree from a fixed set of elements.
     ///

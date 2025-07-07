@@ -1,7 +1,7 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(generic_const_exprs, maybe_uninit_slice, new_zeroed_alloc)]
 
-use ab_merkle_tree::balanced::BalancedMerkleTree;
+use ab_merkle_tree::balanced::{BalancedMerkleTree, ensure_supported_n};
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
@@ -33,6 +33,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 fn balanced<const N: usize>(c: &mut Criterion)
 where
     [(); N - 1]:,
+    [(); ensure_supported_n(N)]:,
     [(); N.ilog2() as usize + 1]:,
 {
     let mut input = unsafe { Box::<[[u8; 32]; N]>::new_zeroed().assume_init() };

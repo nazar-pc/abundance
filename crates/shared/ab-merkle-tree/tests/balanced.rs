@@ -2,7 +2,7 @@
 #![feature(generic_const_exprs)]
 
 use ab_blake3::OUT_LEN;
-use ab_merkle_tree::balanced::BalancedMerkleTree;
+use ab_merkle_tree::balanced::{BalancedMerkleTree, ensure_supported_n};
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use rand_chacha::ChaCha8Rng;
@@ -49,6 +49,7 @@ fn mt_balanced_64_leaves() {
 fn test_basic<const N: usize, const N_U64: u64>()
 where
     [(); N - 1]:,
+    [(); ensure_supported_n(N)]:,
     [(); N.ilog2() as usize + 1]:,
     [(); N_U64.ilog2() as usize + 1]:,
 {
