@@ -15,6 +15,9 @@ There may or may not be funding available for these things.
 > [!NOTE]
 > Research
 
+> [!IMPORTANT]
+> WIP
+
 In a sharded blockchain, we need an algorithm for assignment farmers to shards. The algorithm must be fully
 permissionless, also, ideally, distributing farmers uniformly across all shards.
 
@@ -74,8 +77,8 @@ Here are the key requirements:
 * All keys are monotonically increasing 128-bit unsigned integers
 * It is extremely likely that many keys will be close to each other (most will be exactly next to each other)
 * All values are tiny, constant size, less than 100 bytes
-* Verifiable (likely using a Sparse Merkle Tree or similar data structure)
-* Efficiently updatable (including update of the Merkle Root or similar)
+* Verifiable, entries form a Sparse Merkle Tree, whose root is the state root
+* Efficiently updatable (including update of the Merkle Root)
 * Reasonably efficiently provable
 * Optimized for modern NVMe SSDs (concurrent random reads, sequential batch writes)
 * Should use low to moderate amount of RAM
@@ -133,7 +136,7 @@ are some requirements:
 
 The first thing that comes to mind is having multiple rewards addresses specified during farming, with a specified
 portion of rewards probabilistically ending up in a wallet of the developer/contributor that farmer wants to support.
-This doesn't solve the problem of discoverability though. One way or another there should not be a big
+This doesn't solve the problem of discoverability though. One way or another, there should not be a big
 treasury/governance structure that is responsible for managing funds, it should be more direct and more distributed.
 
 ## GPU plotting
@@ -141,9 +144,18 @@ treasury/governance structure that is responsible for managing funds, it should 
 > [!NOTE]
 > Engineering
 
+> [!IMPORTANT]
+> WIP
+
 GPU plotting was inherited from [Subspace reference implementation], but due to getting rid of KZG it is temporarily a
 bit broken.
 
-Fixing it is an immediate priority. That said, rewriting the whole thing with Rust GPU is also a very desirable thing,
-such that a wider range of hardware (basically anything Vulkan-capable) can be supported, including iGPUs of desktop
-CPUs and various SBCs.
+It is being [re-written in Rust] using [rust-gpu] with the goal of running on Vulkan 1.2-capable devices (plus Metal on
+macOS), which includes both dGPUs from different vendors and iGPUs (which due to unified memory could benefit from extra
+memory-related optimizations). This should make plotting less expensive and hopefully even make farming viable on larger
+SBCs.
+
+[re-written in Rust]: https://github.com/nazar-pc/abundance/tree/2862d4ae59b60000e020bcbf38c4dcbd9a74f10e/crates/farmer/ab-proof-of-space-gpu
+
+[rust-gpu]: https://github.com/Rust-GPU/rust-gpu
+
