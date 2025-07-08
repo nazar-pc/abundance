@@ -49,7 +49,7 @@ pub(super) trait U64T:
     + Shr<u32>
     + ShrAssign<u32>
 {
-    fn from_lo_hi(lo: u32, hi: u32) -> Self;
+    fn from_low_high(low: u32, high: u32) -> Self;
 
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]
     fn to_be_bytes(self) -> [u8; 8];
@@ -84,6 +84,7 @@ pub(super) trait U128T:
     + Shr<u32>
     + ShrAssign<u32>
 {
+    #[expect(dead_code, reason = "Not used yet")]
     const ZERO: Self;
 
     #[cfg_attr(not(test), expect(dead_code, reason = "Not used yet"))]

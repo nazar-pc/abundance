@@ -23,8 +23,8 @@ impl From<u32> for U64 {
 
 impl U64T for U64 {
     #[inline(always)]
-    fn from_lo_hi(lo: u32, hi: u32) -> Self {
-        Self((u64::from(hi) << u32::BITS) | u64::from(lo))
+    fn from_low_high(low: u32, high: u32) -> Self {
+        Self((u64::from(high) << u32::BITS) | u64::from(low))
     }
 
     #[inline(always)]
@@ -174,8 +174,8 @@ impl U128T for U128 {
 
     #[inline(always)]
     fn to_be_bytes(self) -> [u8; 16] {
-        let high = self.0[1].to_be_bytes();
         let low = self.0[0].to_be_bytes();
+        let high = self.0[1].to_be_bytes();
 
         [
             high[0], high[1], high[2], high[3], high[4], high[5], high[6], high[7], low[0], low[1],
@@ -185,11 +185,11 @@ impl U128T for U128 {
 
     #[inline(always)]
     fn from_be_bytes(bytes: [u8; 16]) -> Self {
-        let high = u64::from_be_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        ]);
         let low = u64::from_be_bytes([
             bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
+        ]);
+        let high = u64::from_be_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
         ]);
 
         Self([low, high])
@@ -227,9 +227,10 @@ impl Add for U128 {
 
     #[inline(always)]
     fn add(self, other: Self) -> Self {
-        let (res, overflow) = self.0[0].overflowing_add(other.0[0]);
+        let (low, carry) = self.0[0].carrying_add(other.0[0], false);
+        let (high, _) = self.0[1].carrying_add(other.0[1], carry);
 
-        Self([res, self.0[1] + other.0[1] + overflow as u64])
+        Self([low, high])
     }
 }
 
@@ -245,9 +246,10 @@ impl Sub for U128 {
 
     #[inline(always)]
     fn sub(self, other: Self) -> Self {
-        let (res, overflow) = self.0[0].overflowing_sub(other.0[0]);
+        let (low, borrow) = self.0[0].borrowing_sub(other.0[0], false);
+        let (high, _) = self.0[1].borrowing_sub(other.0[1], borrow);
 
-        Self([res, self.0[1] - other.0[1] - overflow as u64])
+        Self([low, high])
     }
 }
 
