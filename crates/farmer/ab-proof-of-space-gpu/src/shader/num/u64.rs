@@ -23,8 +23,8 @@ impl From<u32> for U64 {
 
 impl U64T for U64 {
     #[inline(always)]
-    fn from_lo_hi(lo: u32, hi: u32) -> Self {
-        Self((u64::from(hi) << u32::BITS) | u64::from(lo))
+    fn from_low_high(low: u32, high: u32) -> Self {
+        Self((u64::from(high) << u32::BITS) | u64::from(low))
     }
 
     #[inline(always)]
@@ -227,10 +227,10 @@ impl Add for U128 {
 
     #[inline(always)]
     fn add(self, other: Self) -> Self {
-        let (lo, carry) = self.0[0].carrying_add(other.0[0], false);
-        let (hi, _) = self.0[1].carrying_add(other.0[1], carry);
+        let (low, carry) = self.0[0].carrying_add(other.0[0], false);
+        let (high, _) = self.0[1].carrying_add(other.0[1], carry);
 
-        Self([lo, hi])
+        Self([low, high])
     }
 }
 
@@ -246,10 +246,10 @@ impl Sub for U128 {
 
     #[inline(always)]
     fn sub(self, other: Self) -> Self {
-        let (lo, borrow) = self.0[0].borrowing_sub(other.0[0], false);
-        let (hi, _) = self.0[1].borrowing_sub(other.0[1], borrow);
+        let (low, borrow) = self.0[0].borrowing_sub(other.0[0], false);
+        let (high, _) = self.0[1].borrowing_sub(other.0[1], borrow);
 
-        Self([lo, hi])
+        Self([low, high])
     }
 }
 

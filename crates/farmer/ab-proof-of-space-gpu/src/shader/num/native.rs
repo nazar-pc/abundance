@@ -9,8 +9,8 @@ pub(in super::super) type U64 = u64;
 
 impl U64T for U64 {
     #[inline(always)]
-    fn from_lo_hi(lo: u32, hi: u32) -> Self {
-        (u64::from(hi) << u32::BITS) | u64::from(lo)
+    fn from_low_high(low: u32, high: u32) -> Self {
+        (u64::from(high) << u32::BITS) | u64::from(low)
     }
 
     #[inline(always)]

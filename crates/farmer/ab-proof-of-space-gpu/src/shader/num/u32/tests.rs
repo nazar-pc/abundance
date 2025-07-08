@@ -1,12 +1,12 @@
 use super::*;
 
 #[test]
-fn test_from_lo_hi() {
+fn test_from_low_high() {
     for num in [0u32, 1, 42, 0x7FFF_FFFF, u32::MAX] {
-        let lo = num;
-        let hi = 42u32;
-        let correct = (u64::from(hi) << u32::BITS) | u64::from(lo);
-        let u64_poly = U64::from_lo_hi(lo, hi);
+        let low = num;
+        let high = 42u32;
+        let correct = (u64::from(high) << u32::BITS) | u64::from(low);
+        let u64_poly = U64::from_low_high(low, high);
         assert_eq!(u64_poly.to_be_bytes(), correct.to_be_bytes());
     }
 }

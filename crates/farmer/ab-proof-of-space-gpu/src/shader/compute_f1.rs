@@ -25,9 +25,9 @@ pub(super) fn compute_f1_impl(x: u32, chacha8_keystream: &[u32]) -> u32 {
     let skip_u32s = skip_bits / u32::BITS;
     let partial_y_offset = skip_bits % u32::BITS;
 
-    let hi = chacha8_keystream[skip_u32s as usize].to_be();
-    let lo = chacha8_keystream[skip_u32s as usize + 1].to_be();
-    let partial_y = U64::from_lo_hi(lo, hi);
+    let high = chacha8_keystream[skip_u32s as usize].to_be();
+    let low = chacha8_keystream[skip_u32s as usize + 1].to_be();
+    let partial_y = U64::from_low_high(low, high);
 
     let pre_y = partial_y >> (u64::BITS - K_PLUS_PARAM_EXT_U32 - partial_y_offset);
     let pre_y = pre_y.as_u32();
