@@ -35,8 +35,8 @@ impl U64T for U64 {
 
     #[inline(always)]
     fn to_be_bytes(self) -> [u8; 8] {
-        let high = self.0[1].to_be_bytes();
         let low = self.0[0].to_be_bytes();
+        let high = self.0[1].to_be_bytes();
 
         [
             high[0], high[1], high[2], high[3], low[0], low[1], low[2], low[3],
@@ -45,8 +45,8 @@ impl U64T for U64 {
 
     #[inline(always)]
     fn from_be_bytes(bytes: [u8; 8]) -> Self {
-        let high = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
         let low = u32::from_be_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
+        let high = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
 
         Self([low, high])
     }
@@ -221,10 +221,10 @@ impl U128T for U128 {
         let low = &self.0[0];
         let high = &self.0[1];
 
-        let high0 = high.0[1].to_be_bytes();
-        let high1 = high.0[0].to_be_bytes();
         let low0 = low.0[1].to_be_bytes();
         let low1 = low.0[0].to_be_bytes();
+        let high0 = high.0[1].to_be_bytes();
+        let high1 = high.0[0].to_be_bytes();
 
         [
             high0[0], high0[1], high0[2], high0[3], high1[0], high1[1], high1[2], high1[3],
@@ -234,10 +234,10 @@ impl U128T for U128 {
 
     #[inline(always)]
     fn from_be_bytes(bytes: [u8; 16]) -> Self {
-        let high0 = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
-        let high1 = u32::from_be_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
         let low0 = u32::from_be_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]);
         let low1 = u32::from_be_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]);
+        let high0 = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+        let high1 = u32::from_be_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
 
         Self([U64([low1, low0]), U64([high1, high0])])
     }

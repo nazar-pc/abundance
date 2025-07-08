@@ -174,8 +174,8 @@ impl U128T for U128 {
 
     #[inline(always)]
     fn to_be_bytes(self) -> [u8; 16] {
-        let high = self.0[1].to_be_bytes();
         let low = self.0[0].to_be_bytes();
+        let high = self.0[1].to_be_bytes();
 
         [
             high[0], high[1], high[2], high[3], high[4], high[5], high[6], high[7], low[0], low[1],
@@ -185,11 +185,11 @@ impl U128T for U128 {
 
     #[inline(always)]
     fn from_be_bytes(bytes: [u8; 16]) -> Self {
-        let high = u64::from_be_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        ]);
         let low = u64::from_be_bytes([
             bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
+        ]);
+        let high = u64::from_be_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
         ]);
 
         Self([low, high])
