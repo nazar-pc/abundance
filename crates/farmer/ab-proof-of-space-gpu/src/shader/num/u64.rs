@@ -227,9 +227,10 @@ impl Add for U128 {
 
     #[inline(always)]
     fn add(self, other: Self) -> Self {
-        let (res, overflow) = self.0[0].overflowing_add(other.0[0]);
+        let (lo, carry) = self.0[0].carrying_add(other.0[0], false);
+        let (hi, _) = self.0[1].carrying_add(other.0[1], carry);
 
-        Self([res, self.0[1] + other.0[1] + overflow as u64])
+        Self([lo, hi])
     }
 }
 
@@ -245,9 +246,10 @@ impl Sub for U128 {
 
     #[inline(always)]
     fn sub(self, other: Self) -> Self {
-        let (res, overflow) = self.0[0].overflowing_sub(other.0[0]);
+        let (lo, borrow) = self.0[0].borrowing_sub(other.0[0], false);
+        let (hi, _) = self.0[1].borrowing_sub(other.0[1], borrow);
 
-        Self([res, self.0[1] - other.0[1] - overflow as u64])
+        Self([lo, hi])
     }
 }
 

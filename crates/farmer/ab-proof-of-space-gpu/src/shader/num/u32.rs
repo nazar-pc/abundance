@@ -62,9 +62,10 @@ impl Add for U64 {
 
     #[inline(always)]
     fn add(self, other: Self) -> Self {
-        let (res, overflow) = self.0[0].overflowing_add(other.0[0]);
+        let (lo, carry) = self.0[0].carrying_add(other.0[0], false);
+        let (hi, _) = self.0[1].carrying_add(other.0[1], carry);
 
-        Self([res, self.0[1] + other.0[1] + overflow as u32])
+        Self([lo, hi])
     }
 }
 
@@ -80,9 +81,10 @@ impl Sub for U64 {
 
     #[inline(always)]
     fn sub(self, other: Self) -> Self {
-        let (res, overflow) = self.0[0].overflowing_sub(other.0[0]);
+        let (lo, borrow) = self.0[0].borrowing_sub(other.0[0], false);
+        let (hi, _) = self.0[1].borrowing_sub(other.0[1], borrow);
 
-        Self([res, self.0[1] - other.0[1] - overflow as u32])
+        Self([lo, hi])
     }
 }
 
@@ -274,22 +276,12 @@ impl Add for U128 {
 
     #[inline(always)]
     fn add(self, other: Self) -> Self {
-        // Add lower 64 bits
-        let (low_sum0, carry0) = self.0[0].0[0].overflowing_add(other.0[0].0[0]);
-        let (low_sum1, carry1a) = self.0[0].0[1].overflowing_add(other.0[0].0[1]);
-        let (low_sum1, carry1b) = low_sum1.overflowing_add(carry0 as u32);
-        let carry_low = carry1a || carry1b;
+        let (lo0, c0) = self.0[0].0[0].carrying_add(other.0[0].0[0], false);
+        let (lo1, c1) = self.0[0].0[1].carrying_add(other.0[0].0[1], c0);
+        let (hi0, c2) = self.0[1].0[0].carrying_add(other.0[1].0[0], c1);
+        let (hi1, _) = self.0[1].0[1].carrying_add(other.0[1].0[1], c2);
 
-        let low = U64([low_sum0, low_sum1]);
-
-        // Add upper 64 bits with carry
-        let (high_sum0, _) = self.0[1].0[0].overflowing_add(other.0[1].0[0]);
-        let (high_sum1, _) = self.0[1].0[1].overflowing_add(other.0[1].0[1]);
-        let (high_sum0, _) = high_sum0.overflowing_add(carry_low as u32);
-
-        let high = U64([high_sum0, high_sum1]);
-
-        Self([low, high])
+        Self([U64([lo0, lo1]), U64([hi0, hi1])])
     }
 }
 
@@ -305,22 +297,12 @@ impl Sub for U128 {
 
     #[inline(always)]
     fn sub(self, other: Self) -> Self {
-        // Subtract lower 64 bits
-        let (low_diff0, borrow0) = self.0[0].0[0].overflowing_sub(other.0[0].0[0]);
-        let (low_diff1, borrow1a) = self.0[0].0[1].overflowing_sub(other.0[0].0[1]);
-        let (low_diff1, borrow1b) = low_diff1.overflowing_sub(borrow0 as u32);
-        let borrow_low = borrow1a || borrow1b;
+        let (lo0, b0) = self.0[0].0[0].borrowing_sub(other.0[0].0[0], false);
+        let (lo1, b1) = self.0[0].0[1].borrowing_sub(other.0[0].0[1], b0);
+        let (hi0, b2) = self.0[1].0[0].borrowing_sub(other.0[1].0[0], b1);
+        let (hi1, _) = self.0[1].0[1].borrowing_sub(other.0[1].0[1], b2);
 
-        let low = U64([low_diff0, low_diff1]);
-
-        // Subtract upper 64 bits with borrow
-        let (high_diff0, _) = self.0[1].0[0].overflowing_sub(other.0[1].0[0]);
-        let (high_diff1, _) = self.0[1].0[1].overflowing_sub(other.0[1].0[1]);
-        let (high_diff0, _) = high_diff0.overflowing_sub(borrow_low as u32);
-
-        let high = U64([high_diff0, high_diff1]);
-
-        Self([low, high])
+        Self([U64([lo0, lo1]), U64([hi0, hi1])])
     }
 }
 
