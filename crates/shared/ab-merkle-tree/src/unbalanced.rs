@@ -54,7 +54,8 @@ impl UnbalancedMerkleTree {
         let mut num_leaves = 0_u64;
 
         for hash in leaves {
-            // How many leaves were processed so far
+            // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but
+            // `>=` helps compiler with panic safety checks.
             if num_leaves >= MAX_N {
                 return None;
             }
@@ -200,7 +201,8 @@ impl UnbalancedMerkleTree {
         let mut position = target_index;
 
         for (current_index, hash) in leaves.into_iter().enumerate() {
-            // How many leaves were processed so far
+            // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but
+            // `>=` helps compiler with panic safety checks.
             if num_leaves >= MAX_N {
                 return None;
             }
