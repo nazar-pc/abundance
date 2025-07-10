@@ -358,6 +358,14 @@ pub enum SolutionVerifyError {
         /// How many pieces one sector is supposed to contain (max)
         max_pieces_in_sector: u16,
     },
+    /// History size is in the future
+    #[error("History size {solution} is in the future, current is {current}")]
+    FutureHistorySize {
+        /// Current history size
+        current: HistorySize,
+        /// History size solution was created for
+        solution: HistorySize,
+    },
     /// Sector expired
     #[error("Sector expired")]
     SectorExpired {
@@ -549,12 +557,20 @@ impl Solution {
             sector_expiration_check_segment_root,
         }) = piece_check_params
         {
+            if &self.history_size > current_history_size {
+                return Err(SolutionVerifyError::FutureHistorySize {
+                    current: *current_history_size,
+                    solution: self.history_size,
+                });
+            }
+
             if u16::from(self.piece_offset) >= *max_pieces_in_sector {
                 return Err(SolutionVerifyError::InvalidPieceOffset {
                     piece_offset: u16::from(self.piece_offset),
                     max_pieces_in_sector: *max_pieces_in_sector,
                 });
             }
+
             if let Some(sector_expiration_check_segment_root) = sector_expiration_check_segment_root
             {
                 let expiration_history_size = match sector_id.derive_expiration_history_size(
