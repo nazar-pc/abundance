@@ -256,7 +256,7 @@ where
 
         let mut position = leaf_index;
         for hash in proof {
-            computed_root = if position % 2 == 0 {
+            computed_root = if position.is_multiple_of(2) {
                 hash_pair(&computed_root, hash)
             } else {
                 hash_pair(hash, &computed_root)

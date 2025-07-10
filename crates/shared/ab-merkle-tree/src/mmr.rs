@@ -433,7 +433,7 @@ where
 
             if lowest_active_level > current_target_level
                 || (lowest_active_level == current_target_level
-                    && (position % 2 != 0)
+                    && !position.is_multiple_of(2)
                     && !merged_peaks)
             {
                 // SAFETY: Method signature guarantees upper bound of the proof length

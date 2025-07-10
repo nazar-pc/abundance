@@ -355,7 +355,7 @@ where
     #[inline(always)]
     #[must_use = "Operation may fail"]
     pub fn truncate(&mut self, new_size: u32) -> bool {
-        if new_size > self.size() || new_size % Element::SIZE != 0 {
+        if new_size > self.size() || !new_size.is_multiple_of(Element::SIZE) {
             return false;
         }
 
@@ -438,7 +438,7 @@ where
     #[inline(always)]
     #[must_use = "Operation may fail"]
     pub unsafe fn assume_init(&mut self, size: u32) -> Option<&mut [Element]> {
-        if size > self.capacity || size % Element::SIZE != 0 {
+        if size > self.capacity || !size.is_multiple_of(Element::SIZE) {
             return None;
         }
 

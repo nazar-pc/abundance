@@ -371,7 +371,10 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
 
-            if slot_iterations.get() % u32::from(PotCheckpoints::NUM_CHECKPOINTS.get() * 2) != 0 {
+            if !slot_iterations
+                .get()
+                .is_multiple_of(u32::from(PotCheckpoints::NUM_CHECKPOINTS.get() * 2))
+            {
                 return Err(Error::<T>::NotMultipleOfCheckpoints.into());
             }
 

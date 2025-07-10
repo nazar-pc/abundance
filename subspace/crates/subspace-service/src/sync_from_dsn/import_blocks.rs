@@ -68,7 +68,7 @@ where
         }
     }
 
-    let mut imported_blocks = 0;
+    let mut imported_blocks = 0u64;
     let mut reconstructor = Arc::new(Mutex::new(Reconstructor::new(erasure_coding.clone())));
     // Start from the first unprocessed segment and process all segments known so far
     let segment_indices_iter = (*last_processed_segment_index + SegmentIndex::ONE)
@@ -222,7 +222,7 @@ where
 
             imported_blocks += 1;
 
-            if imported_blocks % 1000 == 0 {
+            if imported_blocks.is_multiple_of(1000) {
                 debug!("Adding block {} from DSN to the import queue", block_number);
             }
         }

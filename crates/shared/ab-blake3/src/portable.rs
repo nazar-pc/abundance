@@ -124,7 +124,7 @@ const fn hash1<const N: usize>(
     flags_end: u8,
     out: &mut CVBytes,
 ) {
-    debug_assert!(N % BLOCK_LEN == 0, "uneven blocks");
+    debug_assert!(N.is_multiple_of(BLOCK_LEN), "uneven blocks");
     let mut cv = *key;
     let mut block_flags = flags | flags_start;
     let mut slice = input.as_slice();

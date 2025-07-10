@@ -230,8 +230,13 @@ impl UnbalancedMerkleTree {
                 for (level, item) in stack.iter().enumerate().take(lowest_active_levels) {
                     if current_target_level == Some(level) {
                         // SAFETY: Method signature guarantees upper bound of the proof length
-                        unsafe { proof.get_unchecked_mut(proof_length) }
-                            .write(if position % 2 == 0 { current } else { *item });
+                        unsafe { proof.get_unchecked_mut(proof_length) }.write(
+                            if position.is_multiple_of(2) {
+                                current
+                            } else {
+                                *item
+                            },
+                        );
                         proof_length += 1;
 
                         current_target_level = Some(level + 1);
@@ -289,7 +294,7 @@ impl UnbalancedMerkleTree {
 
             if lowest_active_level > current_target_level
                 || (lowest_active_level == current_target_level
-                    && (position % 2 != 0)
+                    && !position.is_multiple_of(2)
                     && !merged_peaks)
             {
                 // SAFETY: Method signature guarantees upper bound of the proof length
@@ -336,7 +341,7 @@ impl UnbalancedMerkleTree {
 
         // Rebuild the path to the root
         while level_size > 1 {
-            let is_left = position % 2 == 0;
+            let is_left = position.is_multiple_of(2);
             let is_last = position == level_size - 1;
 
             if is_left && !is_last {

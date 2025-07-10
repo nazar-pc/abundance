@@ -293,7 +293,7 @@ fn find_matches<T, Map>(
             .expect("r is valid");
 
         const _: () = {
-            assert!(PARAM_M as usize % FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR == 0);
+            assert!((PARAM_M as usize).is_multiple_of(FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR));
         };
 
         for r_targets in left_targets_r

@@ -252,7 +252,7 @@ const fn const_compress_parents_parallel(
     out: &mut [u8],
 ) -> usize {
     debug_assert!(
-        child_chaining_values.len() % OUT_LEN == 0,
+        child_chaining_values.len().is_multiple_of(OUT_LEN),
         "wacky hash bytes"
     );
     let num_children = child_chaining_values.len() / OUT_LEN;
