@@ -6,7 +6,7 @@ description = "Proof of space plotting utilities for GPU (Vulkan/Metal)"
 license = "0BSD"
 version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
-edition = "2021"
+edition = "2024"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -18,4 +18,4 @@ path = "../src/lib.rs"
 
 [dependencies]
 ab-chacha8 = { path = "../../../../crates/shared/ab-chacha8" }
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "f58374079a72ee1f73bf2a9bdaed435b5e44e20e" }
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "4a9e76cd6d22a83efea9ee3cc0f685c9fb839902" }

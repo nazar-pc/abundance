@@ -4,8 +4,7 @@ description = "Small GPU-friendly software implementation of ChaCha8"
 license = "0BSD"
 version = "0.1.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
-# TODO: Switch to 2024 edition after https://github.com/Rust-GPU/rust-gpu/pull/249
-edition = "2021"
+edition = "2024"
 include = [
     "/src",
     "/Cargo.toml",
