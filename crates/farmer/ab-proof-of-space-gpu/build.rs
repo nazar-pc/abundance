@@ -24,12 +24,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         let profile = env::var("PROFILE").expect("Always set by Cargo; qed");
 
         let shader_crate = PathBuf::from(cargo_manifest_dir);
-        // TODO: Remove after https://github.com/Rust-GPU/rust-gpu/pull/249, together with the whole
-        //  `rust-gpu-workaround`
-        let shader_crate = shader_crate.join("rust-gpu-workaround");
-        {
-            env::set_current_dir(&shader_crate)?;
-        }
 
         let backend = cargo_gpu::Install::from_shader_crate(shader_crate.clone()).run()?;
 
