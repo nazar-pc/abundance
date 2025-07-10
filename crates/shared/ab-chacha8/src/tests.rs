@@ -1,4 +1,4 @@
-use crate::{block_to_bytes, ChaCha8State};
+use crate::{ChaCha8State, block_to_bytes};
 use chacha20::cipher::{Iv, StreamCipher};
 use chacha20::{ChaCha8, Key, KeyIvInit};
 

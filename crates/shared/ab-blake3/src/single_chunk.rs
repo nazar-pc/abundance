@@ -8,8 +8,8 @@ mod tests;
 
 use crate::platform::{le_bytes_from_words_32, words_from_le_bytes_32};
 use crate::{
-    CVWords, BLOCK_LEN, CHUNK_END, CHUNK_LEN, CHUNK_START, DERIVE_KEY_CONTEXT, DERIVE_KEY_MATERIAL,
-    IV, KEYED_HASH, KEY_LEN, OUT_LEN, ROOT,
+    BLOCK_LEN, CHUNK_END, CHUNK_LEN, CHUNK_START, CVWords, DERIVE_KEY_CONTEXT, DERIVE_KEY_MATERIAL,
+    IV, KEY_LEN, KEYED_HASH, OUT_LEN, ROOT,
 };
 use blake3::platform::Platform;
 

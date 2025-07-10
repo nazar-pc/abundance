@@ -9,13 +9,13 @@ mod hazmat;
 mod tests;
 
 use crate::platform::{
-    le_bytes_from_words_32, words_from_le_bytes_32, words_from_le_bytes_64, MAX_SIMD_DEGREE,
-    MAX_SIMD_DEGREE_OR_2,
+    MAX_SIMD_DEGREE, MAX_SIMD_DEGREE_OR_2, le_bytes_from_words_32, words_from_le_bytes_32,
+    words_from_le_bytes_64,
 };
 use crate::portable::IncrementCounter;
 use crate::{
-    portable, BlockBytes, CVBytes, CVWords, BLOCK_LEN, CHUNK_END, CHUNK_LEN, CHUNK_START,
-    DERIVE_KEY_CONTEXT, DERIVE_KEY_MATERIAL, IV, KEYED_HASH, KEY_LEN, OUT_LEN, PARENT, ROOT,
+    BLOCK_LEN, BlockBytes, CHUNK_END, CHUNK_LEN, CHUNK_START, CVBytes, CVWords, DERIVE_KEY_CONTEXT,
+    DERIVE_KEY_MATERIAL, IV, KEY_LEN, KEYED_HASH, OUT_LEN, PARENT, ROOT, portable,
 };
 use core::mem::MaybeUninit;
 use core::slice;
