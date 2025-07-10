@@ -130,6 +130,14 @@ pub enum Error<Header: HeaderT> {
         /// How many pieces one sector is supposed to contain (max)
         max_pieces_in_sector: u16,
     },
+    /// History size is in the future
+    #[error("History size {solution} is in the future, current is {current}")]
+    FutureHistorySize {
+        /// Current history size
+        current: HistorySize,
+        /// History size solution was created for
+        solution: HistorySize,
+    },
     /// Piece verification failed
     #[error("Piece verification failed for slot {0}")]
     InvalidPiece(SlotNumber),
@@ -214,6 +222,9 @@ where
                     piece_offset,
                     max_pieces_in_sector,
                 },
+                SolutionVerifyError::FutureHistorySize { current, solution } => {
+                    Error::FutureHistorySize { current, solution }
+                }
                 SolutionVerifyError::InvalidPiece => Error::InvalidPiece(slot),
                 SolutionVerifyError::OutsideSolutionRange {
                     solution_range,
