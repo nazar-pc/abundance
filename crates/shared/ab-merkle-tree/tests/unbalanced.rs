@@ -112,7 +112,7 @@ impl SimpleUnbalancedMerkleTree {
 
         // Rebuild the path to the root
         while level_size > 1 {
-            let is_left = position % 2 == 0;
+            let is_left = position.is_multiple_of(2);
             let is_last = position == level_size - 1;
 
             if is_left && !is_last {

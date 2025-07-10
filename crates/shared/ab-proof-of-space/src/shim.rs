@@ -67,7 +67,7 @@ impl Table for ShimTable {
 fn find_proof(seed: &PosSeed, challenge_index: u32) -> Option<PosProof> {
     let quality = ab_blake3::single_block_hash(&challenge_index.to_le_bytes())
         .expect("Less than a single block worth of bytes; qed");
-    if quality[0] % 3 > 0 {
+    if !quality[0].is_multiple_of(3) {
         let mut proof = PosProof::default();
         proof
             .iter_mut()

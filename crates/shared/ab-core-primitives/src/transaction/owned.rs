@@ -89,7 +89,8 @@ impl OwnedTransaction {
         const _: () = {
             // Writing `OwnedTransactionLengths` after `TransactionHeader` must be aligned
             assert!(
-                size_of::<TransactionHeader>() % align_of::<SerializedTransactionLengths>() == 0
+                size_of::<TransactionHeader>()
+                    .is_multiple_of(align_of::<SerializedTransactionLengths>())
             );
         };
 
@@ -124,8 +125,7 @@ impl OwnedTransaction {
             // must be aligned
             assert!(
                 (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
-                    % align_of::<TransactionSlot>()
-                    == 0
+                    .is_multiple_of(align_of::<TransactionSlot>())
             );
         };
         if transaction_lengths.read_slots > 0 {
@@ -150,19 +150,17 @@ impl OwnedTransaction {
             // `TransactionSlot` must be aligned to `u128`
             assert!(
                 (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
-                    % align_of::<u128>()
-                    == 0
+                    .is_multiple_of(align_of::<u128>())
             );
             assert!(
                 (size_of::<TransactionHeader>()
                     + size_of::<SerializedTransactionLengths>()
                     + size_of::<TransactionSlot>())
-                    % align_of::<u128>()
-                    == 0
+                .is_multiple_of(align_of::<u128>())
             );
         };
         if transaction_lengths.payload > 0 {
-            if transaction_lengths.payload % u128::SIZE != 0 {
+            if !transaction_lengths.payload.is_multiple_of(u128::SIZE) {
                 return Err(OwnedTransactionError::PayloadIsNotMultipleOfU128);
             }
 
@@ -179,15 +177,13 @@ impl OwnedTransaction {
             // `TransactionSlot` must be aligned to `u128`
             assert!(
                 (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
-                    % align_of::<u128>()
-                    == 0
+                    .is_multiple_of(align_of::<u128>())
             );
             assert!(
                 (size_of::<TransactionHeader>()
                     + size_of::<SerializedTransactionLengths>()
                     + size_of::<TransactionSlot>())
-                    % align_of::<u128>()
-                    == 0
+                .is_multiple_of(align_of::<u128>())
             );
         };
         if transaction_lengths.seal > 0 && !buffer.append(seal) {
@@ -237,7 +233,7 @@ impl OwnedTransaction {
             return Err(OwnedTransactionError::InvalidPadding);
         }
 
-        if payload % u128::SIZE != 0 {
+        if !payload.is_multiple_of(u128::SIZE) {
             return Err(OwnedTransactionError::PayloadIsNotMultipleOfU128);
         }
 

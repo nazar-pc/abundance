@@ -117,24 +117,25 @@ where
         });
     }
 
-    let next_solution_range =
-        if block_number.as_u64() % era_duration.as_u64() == 0 && block_number > era_duration {
-            let era_start_block = block_number.saturating_sub(era_duration);
-            let era_start_slot = chain_info
-                .ancestor_header(era_start_block, parent_block_root)
-                .ok_or(DeriveConsensusParametersError::GetAncestorHeader)?
-                .header()
-                .consensus_info
-                .slot;
+    let next_solution_range = if block_number.as_u64().is_multiple_of(era_duration.as_u64())
+        && block_number > era_duration
+    {
+        let era_start_block = block_number.saturating_sub(era_duration);
+        let era_start_slot = chain_info
+            .ancestor_header(era_start_block, parent_block_root)
+            .ok_or(DeriveConsensusParametersError::GetAncestorHeader)?
+            .header()
+            .consensus_info
+            .slot;
 
-            Some(solution_range.derive_next(
-                slot.saturating_sub(era_start_slot),
-                slot_probability,
-                era_duration,
-            ))
-        } else {
-            None
-        };
+        Some(solution_range.derive_next(
+            slot.saturating_sub(era_start_slot),
+            slot_probability,
+            era_duration,
+        ))
+    } else {
+        None
+    };
 
     Ok(SolutionRanges {
         current: solution_range,

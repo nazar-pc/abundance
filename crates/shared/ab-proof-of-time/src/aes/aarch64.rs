@@ -149,7 +149,7 @@ fn expand_key(key: &[u8; 16]) -> [uint8x16_t; NUM_ROUND_KEYS] {
     for i in nk..NUM_ROUND_KEYS * BLOCK_WORDS {
         let mut word = columns[i - 1];
 
-        if i % nk == 0 {
+        if i.is_multiple_of(nk) {
             word = sub_word(word).rotate_right(8) ^ ROUND_CONSTS[i / nk - 1];
         } else if nk > 6 && i % nk == 4 {
             word = sub_word(word);

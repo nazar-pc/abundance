@@ -160,7 +160,7 @@ impl<'a> Transaction<'a> {
             return None;
         }
 
-        if payload % u128::SIZE != 0 {
+        if !payload.is_multiple_of(u128::SIZE) {
             return None;
         }
 
