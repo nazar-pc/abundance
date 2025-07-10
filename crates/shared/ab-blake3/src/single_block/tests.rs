@@ -1,7 +1,7 @@
 use crate::platform::{le_bytes_from_words_32, words_from_le_bytes_64};
 use crate::{
-    single_block_derive_key, single_block_hash, single_block_hash_portable_words,
-    single_block_keyed_hash, CVBytes, BLOCK_LEN, CHUNK_LEN,
+    BLOCK_LEN, CHUNK_LEN, CVBytes, single_block_derive_key, single_block_hash,
+    single_block_hash_portable_words, single_block_keyed_hash,
 };
 use blake3::{derive_key, hash, keyed_hash};
 

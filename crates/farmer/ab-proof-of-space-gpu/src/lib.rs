@@ -5,8 +5,6 @@
 
 #![cfg_attr(target_arch = "spirv", no_std)]
 #![feature(array_chunks, bigint_helper_methods)]
-// TODO: Remove after https://github.com/Rust-GPU/rust-gpu/pull/249
-#![cfg_attr(target_arch = "spirv", feature(generic_arg_infer, non_null_from_ref))]
 
 // This is used for benchmarks of isolated shaders externally, not for general use
 #[doc(hidden)]

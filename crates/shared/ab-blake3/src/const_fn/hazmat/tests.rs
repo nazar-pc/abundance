@@ -1,5 +1,5 @@
-use crate::const_fn::hazmat::left_subtree_len;
 use crate::const_fn::CHUNK_LEN;
+use crate::const_fn::hazmat::left_subtree_len;
 
 #[test]
 fn test_left_subtree_len() {

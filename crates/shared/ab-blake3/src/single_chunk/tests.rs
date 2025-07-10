@@ -1,6 +1,6 @@
 use crate::{
-    single_chunk_derive_key, single_chunk_hash, single_chunk_keyed_hash, CVBytes, BLOCK_LEN,
-    CHUNK_LEN,
+    BLOCK_LEN, CHUNK_LEN, CVBytes, single_chunk_derive_key, single_chunk_hash,
+    single_chunk_keyed_hash,
 };
 use blake3::{derive_key, hash, keyed_hash};
 

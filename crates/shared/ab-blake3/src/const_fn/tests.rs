@@ -1,4 +1,4 @@
-use crate::{const_derive_key, const_hash, const_keyed_hash, CVBytes, BLOCK_LEN, CHUNK_LEN};
+use crate::{BLOCK_LEN, CHUNK_LEN, CVBytes, const_derive_key, const_hash, const_keyed_hash};
 use blake3::{derive_key, hash, keyed_hash};
 
 // Interesting input lengths to run tests on.

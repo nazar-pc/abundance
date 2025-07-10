@@ -8,8 +8,7 @@ authors = [
     "Jack O'Connor <oconnor663@gmail.com>",
     "Samuel Neves",
 ]
-# TODO: Switch to 2024 edition after https://github.com/Rust-GPU/rust-gpu/pull/249
-edition = "2021"
+edition = "2024"
 include = [
     "/src",
     "/Cargo.toml",

@@ -1,5 +1,5 @@
 use crate::platform::{le_bytes_from_words_32, words_from_le_bytes_64};
-use crate::{BlockBytes, BlockWords, CVBytes, CVWords, BLOCK_LEN, IV, MSG_SCHEDULE, OUT_LEN};
+use crate::{BLOCK_LEN, BlockBytes, BlockWords, CVBytes, CVWords, IV, MSG_SCHEDULE, OUT_LEN};
 
 /// Undocumented and unstable, for benchmarks only.
 #[derive(Clone, Copy)]
