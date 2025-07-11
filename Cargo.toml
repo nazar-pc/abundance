@@ -64,6 +64,7 @@ derive_more = { version = "2.0.1", default-features = false }
 #  https://github.com/dalek-cryptography/curve25519-dalek/issues/626 is resolved
 # TODO: Switch to offical 4.0.4+ is released with https://github.com/ZcashFoundation/ed25519-zebra/pull/174
 ed25519-zebra = { version = "4.0.3", git = "https://github.com/ZcashFoundation/ed25519-zebra", rev = "dbb5610b818a6b54ebd347c27f8c8d3d6af89648", default-features = false }
+# TODO: Not using fs4 on purpose due to https://github.com/al8n/fs4-rs/issues/15
 fs2 = "0.4.3"
 futures = { version = "0.3.31", default-features = false, features = ["async-await"] }
 halfbrown = "0.3.0"
@@ -97,6 +98,7 @@ spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "4a9e76cd6d22a
 stable_deref_trait = { version = "1.2.0", default-features = false }
 syn = "2.0.101"
 take_mut = "0.2.2"
+tempfile = "3.20.0"
 thiserror = { version = "2.0.12", default-features = false }
 tokio = { version = "1.45.1", default-features = false }
 tracing = "0.1.41"

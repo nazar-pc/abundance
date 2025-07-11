@@ -1,0 +1,31 @@
+[package]
+name = "ab-direct-io-file"
+description = "Cross-platform APIs for working with files using direct I/O"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+fs2 = { workspace = true }
+parking_lot = { workspace = true }
+
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+libc = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }
+
+[dev-dependencies]
+chacha20 = { workspace = true, features = ["rng"] }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

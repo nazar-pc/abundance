@@ -265,8 +265,8 @@ impl DiskPieceCache {
         {
             let file = files.write();
             if file.size()? != expected_size {
-                // Allocating the whole file (`set_len` below can create a sparse file, which will cause
-                // writes to fail later)
+                // Allocating the whole file (`set_len` below can create a sparse file, which will
+                // cause writes to fail later)
                 file.preallocate(expected_size)
                     .map_err(DiskPieceCacheError::CantPreallocateCacheFile)?;
                 // Truncating file (if necessary)
