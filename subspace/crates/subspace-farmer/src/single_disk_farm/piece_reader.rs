@@ -1,7 +1,7 @@
 //! Piece reader for single disk farm
 
 use crate::farm::{FarmError, PieceReader};
-use crate::single_disk_farm::direct_io_file::DirectIoFile;
+use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceOffset};
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
@@ -53,7 +53,7 @@ impl DiskPieceReader {
     pub(super) fn new<PosTable>(
         public_key_hash: Blake3Hash,
         pieces_in_sector: u16,
-        plot_file: Arc<DirectIoFile>,
+        plot_file: Arc<DirectIoFileWrapper>,
         sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
         erasure_coding: ErasureCoding,
         sectors_being_modified: Arc<AsyncRwLock<HashSet<SectorIndex>>>,

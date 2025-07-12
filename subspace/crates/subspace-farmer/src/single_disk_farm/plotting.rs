@@ -1,7 +1,7 @@
 use crate::farm::{SectorExpirationDetails, SectorPlottingDetails, SectorUpdate};
 use crate::node_client::NodeClient;
 use crate::plotter::{Plotter, SectorPlottingProgress};
-use crate::single_disk_farm::direct_io_file::DirectIoFile;
+use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::single_disk_farm::metrics::{SectorState, SingleDiskFarmMetrics};
 use crate::single_disk_farm::{
     BackgroundTaskError, Handlers, PlotMetadataHeader, RESERVED_PLOT_METADATA,
@@ -88,8 +88,8 @@ pub(super) struct SectorPlottingOptions<'a, NC> {
     pub(super) node_client: &'a NC,
     pub(super) pieces_in_sector: u16,
     pub(super) sector_size: usize,
-    pub(super) plot_file: Arc<DirectIoFile>,
-    pub(super) metadata_file: Arc<DirectIoFile>,
+    pub(super) plot_file: Arc<DirectIoFileWrapper>,
+    pub(super) metadata_file: Arc<DirectIoFileWrapper>,
     pub(super) handlers: &'a Handlers,
     pub(super) global_mutex: &'a AsyncMutex<()>,
     pub(super) plotter: Arc<dyn Plotter>,
@@ -220,7 +220,7 @@ async fn process_plotting_result(
     sectors_metadata: &AsyncRwLock<Vec<SectorMetadataChecksummed>>,
     sectors_being_modified: &AsyncRwLock<HashSet<SectorIndex>>,
     metadata_header: &mut PlotMetadataHeader,
-    metadata_file: Arc<DirectIoFile>,
+    metadata_file: Arc<DirectIoFileWrapper>,
 ) -> Result<(), PlottingError> {
     let SectorPlottingResult {
         sector_metadata,
@@ -521,8 +521,8 @@ where
 async fn plot_single_sector_internal(
     sector_index: SectorIndex,
     sector_size: usize,
-    plot_file: &Arc<DirectIoFile>,
-    metadata_file: &Arc<DirectIoFile>,
+    plot_file: &Arc<DirectIoFileWrapper>,
+    metadata_file: &Arc<DirectIoFileWrapper>,
     handlers: &Handlers,
     global_mutex: &AsyncMutex<()>,
     mut progress_receiver: mpsc::Receiver<SectorPlottingProgress>,

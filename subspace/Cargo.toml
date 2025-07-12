@@ -11,6 +11,7 @@ ab-client-api = { version = "0.0.1", path = "../crates/node/ab-client-api" }
 ab-client-proof-of-time = { version = "0.0.1", path = "../crates/node/ab-client-proof-of-time" }
 ab-core-primitives = { version = "0.1.0", path = "../crates/shared/ab-core-primitives", default-features = false }
 ab-data-retrieval = { version = "0.1.0", path = "../crates/shared/ab-data-retrieval", default-features = false }
+ab-direct-io-file = { version = "0.0.1", path = "../crates/shared/ab-direct-io-file" }
 ab-erasure-coding = { path = "../crates/shared/ab-erasure-coding", default-features = false }
 ab-farmer-components = { version = "0.1.0", path = "../crates/farmer/ab-farmer-components" }
 ab-proof-of-space = { version = "0.1.0", path = "../crates/shared/ab-proof-of-space", default-features = false }
