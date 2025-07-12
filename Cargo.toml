@@ -74,7 +74,7 @@ libc = "0.2.174"
 no-panic = "0.1.35"
 once_cell = { version = "1.21.3", default-features = false }
 parity-scale-codec = { version = "3.7.5", default-features = false }
-parking_lot = "0.12.3"
+parking_lot = "0.12.4"
 proc-macro2 = "1.0.95"
 quote = "1.0.40"
 rand = { version = "0.9.1", default-features = false }
@@ -91,19 +91,19 @@ send-future = "0.1.0"
 seq-macro = "0.3.6"
 serde = { version = "1.0.219", default-features = false }
 serde-big-array = "0.5.1"
-sha2 = { version = "0.10.9", default-features = false }
-smallvec = "1.15.0"
+sha2 = { version = "0.11.0-rc.0", default-features = false }
+smallvec = "1.15.1"
 spin = "0.10.0"
 spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "4a9e76cd6d22a83efea9ee3cc0f685c9fb839902" }
 stable_deref_trait = { version = "1.2.0", default-features = false }
-syn = "2.0.101"
+syn = "2.0.104"
 take_mut = "0.2.2"
 tempfile = "3.20.0"
 thiserror = { version = "2.0.12", default-features = false }
-tokio = { version = "1.45.1", default-features = false }
+tokio = { version = "1.46.1", default-features = false }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
-wgpu = { version = "25.0.2", default-features = false, features = ["metal", "spirv", "vulkan"] }
+wgpu = { version = "26.0.1", default-features = false, features = ["metal", "spirv", "vulkan"] }
 windows = { version = "0.61.3", features = ["Win32_Storage_FileSystem"] }
 yoke = { version = "0.8.0", default-features = false }
 

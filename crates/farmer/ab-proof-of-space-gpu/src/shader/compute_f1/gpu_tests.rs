@@ -11,7 +11,7 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
     DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MapMode,
-    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    MemoryBudgetThresholds, MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
 };
 
 #[test]
@@ -55,6 +55,7 @@ async fn compute_f1(chacha8_keystream: &[u32], num_x: u32) -> Option<Vec<UVec2>>
     let instance = Instance::new(&InstanceDescriptor {
         backends,
         flags: InstanceFlags::GPU_BASED_VALIDATION.with_env(),
+        memory_budget_thresholds: MemoryBudgetThresholds::default(),
         backend_options: BackendOptions::from_env_or_default(),
     });
 
