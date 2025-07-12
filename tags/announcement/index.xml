@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>announcement on Project Abundance</title>
+    <link>https://abundance.build/tags/announcement/</link>
+    <description>Recent content in announcement on Project Abundance</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <copyright>&lt;a href=&#34;https://creativecommons.org/publicdomain/zero/1.0/&#34; target=&#34;_blank&#34; rel=&#34;license noopener noreferrer&#34;&gt;CC0 1.0 Universal&lt;/a&gt;</copyright>
+    <lastBuildDate>Tue, 08 Apr 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://abundance.build/tags/announcement/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>We are building a blockchain</title>
+      <link>https://abundance.build/blog/2025-04-08-we-are-building-a-blockchain/</link>
+      <pubDate>Tue, 08 Apr 2025 00:00:00 +0000</pubDate>
+      
+      <guid>https://abundance.build/blog/2025-04-08-we-are-building-a-blockchain/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;../2025-01-13-welcome&#34;&gt;Welcome&lt;/a&gt; post mentioned briefly &lt;a href=&#34;https://gist.github.com/nazar-pc/760505c5ad7d56c20b2c75c1484e672f&#34; target=&#34;_blank&#34;&gt;initial set of constraints&lt;/a&gt; that led to the creation of this project, but I figured it
+might be helpful to have a short writeup about it that might be helpful for sharing.&lt;/p&gt;
+&lt;p&gt;In short: we&amp;rsquo;re building a blockchain.&lt;/p&gt;
+&lt;p&gt;By &amp;ldquo;we&amp;rdquo; I really mean just me and Alfonso so far, but I hope more people will join over time if they find it
+interesting.&lt;/p&gt;</description>
+      
+    </item>
+    
+    <item>
+      <title>There is two of us now</title>
+      <link>https://abundance.build/blog/2025-03-09-there-is-two-of-us-now/</link>
+      <pubDate>Sun, 09 Mar 2025 00:00:00 +0000</pubDate>
+      
+      <guid>https://abundance.build/blog/2025-03-09-there-is-two-of-us-now/</guid>
+      <description>&lt;p&gt;The big change from the last update is that &lt;a href=&#34;https://www.linkedin.com/in/adlrocha/&#34; target=&#34;_blank&#34;&gt;Alfonso de la Rocha&lt;/a&gt; has joined me
+as a part-time researcher to help with sharding designing. Code-wise, there were also a bunch of performance benchmarks
+and optimizations.&lt;/p&gt;</description>
+      
+    </item>
+    
+    <item>
+      <title>Welcome!</title>
+      <link>https://abundance.build/blog/2025-01-13-welcome/</link>
+      <pubDate>Mon, 13 Jan 2025 00:00:00 +0000</pubDate>
+      
+      <guid>https://abundance.build/blog/2025-01-13-welcome/</guid>
+      <description>&lt;p&gt;Hello, world 👋!&lt;/p&gt;
+&lt;p&gt;This is the beginning of hopefully successful thing I call &amp;ldquo;Project Abundance&amp;rdquo;.&lt;/p&gt;
+&lt;p&gt;After &lt;a href=&#34;https://gist.github.com/nazar-pc/760505c5ad7d56c20b2c75c1484e672f&#34; target=&#34;_blank&#34;&gt;writing initial set of constraints&lt;/a&gt; and thinking about it for quite a while, it is finally time to dedicate all
+my time to it and see where it leads us.&lt;/p&gt;</description>
+      
+    </item>
+    
+  </channel>
+</rss>
