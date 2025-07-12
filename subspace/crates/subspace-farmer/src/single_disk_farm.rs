@@ -4,7 +4,7 @@
 //! a small piece cache. It fully manages farming and plotting process, including listening to node
 //! notifications, producing solutions and singing rewards.
 
-pub mod direct_io_file;
+pub mod direct_io_file_wrapper;
 pub mod farming;
 pub mod identity;
 mod metrics;
@@ -22,7 +22,7 @@ use crate::farm::{
 };
 use crate::node_client::NodeClient;
 use crate::plotter::Plotter;
-use crate::single_disk_farm::direct_io_file::{DISK_SECTOR_SIZE, DirectIoFile};
+use crate::single_disk_farm::direct_io_file_wrapper::{DISK_PAGE_SIZE, DirectIoFileWrapper};
 use crate::single_disk_farm::farming::rayon_files::RayonFiles;
 use crate::single_disk_farm::farming::{
     FarmingOptions, PlotAudit, farming, slot_notification_forwarder,
@@ -64,7 +64,6 @@ use prometheus_client::registry::Registry;
 use rayon::prelude::*;
 use rayon::{ThreadPoolBuildError, ThreadPoolBuilder};
 use serde::{Deserialize, Serialize};
-use static_assertions::const_assert;
 use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
 use std::future::Future;
@@ -87,7 +86,9 @@ use tracing::{Instrument, Span, error, info, trace, warn};
 
 // Refuse to compile on non-64-bit platforms, offsets may fail on those when converting from u64 to
 // usize depending on chain parameters
-const_assert!(mem::size_of::<usize>() >= mem::size_of::<u64>());
+const _: () = {
+    assert!(mem::size_of::<usize>() >= mem::size_of::<u64>());
+};
 
 /// Reserve 1M of space for plot metadata (for potential future expansion)
 const RESERVED_PLOT_METADATA: u64 = 1024 * 1024;
@@ -648,7 +649,7 @@ impl AllocatedSpaceDistribution {
                 * (100 - u64::from(cache_percentage));
             // Do the rounding to make sure we have exactly as much space as fits whole number of
             // sectors, account for disk sector size just in case
-            (potentially_plottable_space - DISK_SECTOR_SIZE as u64) / single_sector_overhead
+            (potentially_plottable_space - DISK_PAGE_SIZE as u64) / single_sector_overhead
         };
 
         if target_sector_count == 0 {
@@ -670,8 +671,7 @@ impl AllocatedSpaceDistribution {
         }
         let plot_file_size = target_sector_count * sector_size;
         // Align plot file size for disk sector size
-        let plot_file_size =
-            plot_file_size.div_ceil(DISK_SECTOR_SIZE as u64) * DISK_SECTOR_SIZE as u64;
+        let plot_file_size = plot_file_size.div_ceil(DISK_PAGE_SIZE as u64) * DISK_PAGE_SIZE as u64;
 
         // Remaining space will be used for caching purposes
         let piece_cache_capacity = if cache_percentage > 0 {
@@ -725,8 +725,8 @@ struct SingleDiskFarmInit {
     identity: Identity,
     single_disk_farm_info: SingleDiskFarmInfo,
     single_disk_farm_info_lock: Option<SingleDiskFarmInfoLock>,
-    plot_file: Arc<DirectIoFile>,
-    metadata_file: DirectIoFile,
+    plot_file: Arc<DirectIoFileWrapper>,
+    metadata_file: DirectIoFileWrapper,
     metadata_header: PlotMetadataHeader,
     target_sector_count: u16,
     sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
@@ -956,7 +956,7 @@ impl SingleDiskFarm {
             farming_thread_pool
                 .install(move || {
                     RayonFiles::open_with(directory.join(Self::PLOT_FILE), |path| {
-                        DirectIoFile::open(path)
+                        DirectIoFileWrapper::open(path)
                     })
                 })
                 .map(|farming_plot| (farming_plot, farming_thread_pool))
@@ -1339,13 +1339,13 @@ impl SingleDiskFarm {
         let target_sector_count = allocated_space_distribution.target_sector_count;
 
         let metadata_file_path = directory.join(Self::METADATA_FILE);
-        let metadata_file = DirectIoFile::open(&metadata_file_path)?;
+        let metadata_file = DirectIoFileWrapper::open(&metadata_file_path)?;
 
         let metadata_size = metadata_file.size()?;
         let expected_metadata_size = allocated_space_distribution.metadata_file_size;
         // Align plot file size for disk sector size
         let expected_metadata_size =
-            expected_metadata_size.div_ceil(DISK_SECTOR_SIZE as u64) * DISK_SECTOR_SIZE as u64;
+            expected_metadata_size.div_ceil(DISK_PAGE_SIZE as u64) * DISK_PAGE_SIZE as u64;
         let metadata_header = if metadata_size == 0 {
             let metadata_header = PlotMetadataHeader {
                 version: SingleDiskFarm::SUPPORTED_PLOT_VERSION,
@@ -1431,7 +1431,7 @@ impl SingleDiskFarm {
             Arc::new(AsyncRwLock::new(sectors_metadata))
         };
 
-        let plot_file = DirectIoFile::open(directory.join(Self::PLOT_FILE))?;
+        let plot_file = DirectIoFileWrapper::open(directory.join(Self::PLOT_FILE))?;
 
         if plot_file.size()? != allocated_space_distribution.plot_file_size {
             // Allocating the whole file (`set_len` below can create a sparse file, which will cause
@@ -1574,7 +1574,7 @@ impl SingleDiskFarm {
     pub fn read_all_sectors_metadata(
         directory: &Path,
     ) -> io::Result<Vec<SectorMetadataChecksummed>> {
-        let metadata_file = DirectIoFile::open(directory.join(Self::METADATA_FILE))?;
+        let metadata_file = DirectIoFileWrapper::open(directory.join(Self::METADATA_FILE))?;
 
         let metadata_size = metadata_file.size()?;
         let sector_metadata_size = SectorMetadataChecksummed::encoded_size();

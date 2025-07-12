@@ -7,7 +7,7 @@ mod tests;
 use crate::disk_piece_cache::metrics::DiskPieceCacheMetrics;
 use crate::farm;
 use crate::farm::{FarmError, PieceCacheId, PieceCacheOffset};
-use crate::single_disk_farm::direct_io_file::{DISK_SECTOR_SIZE, DirectIoFile};
+use crate::single_disk_farm::direct_io_file_wrapper::{DISK_PAGE_SIZE, DirectIoFileWrapper};
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
@@ -59,14 +59,14 @@ pub enum DiskPieceCacheError {
 
 #[derive(Debug)]
 struct FilePool {
-    files: Box<[DirectIoFile; PIECES_READING_CONCURRENCY]>,
+    files: Box<[DirectIoFileWrapper; PIECES_READING_CONCURRENCY]>,
     cursor: AtomicU8,
 }
 
 impl FilePool {
     fn open(path: &Path) -> io::Result<Self> {
         let files = (0..PIECES_READING_CONCURRENCY)
-            .map(|_| DirectIoFile::open(path))
+            .map(|_| DirectIoFileWrapper::open(path))
             .collect::<Result<Box<_>, _>>()?
             .try_into()
             .expect("Statically correct length; qed");
@@ -76,12 +76,12 @@ impl FilePool {
         })
     }
 
-    fn read(&self) -> &DirectIoFile {
+    fn read(&self) -> &DirectIoFileWrapper {
         let position = usize::from(self.cursor.fetch_add(1, Ordering::Relaxed));
         &self.files[position % PIECES_READING_CONCURRENCY]
     }
 
-    fn write(&self) -> &DirectIoFile {
+    fn write(&self) -> &DirectIoFileWrapper {
         // Always the same file or else overlapping writes will be corrupted due to
         // read/modify/write internals, which are in turn caused by alignment requirements
         &self.files[0]
@@ -260,8 +260,7 @@ impl DiskPieceCache {
 
         let expected_size = u64::from(Self::element_size()) * u64::from(capacity);
         // Align plot file size for disk sector size
-        let expected_size =
-            expected_size.div_ceil(DISK_SECTOR_SIZE as u64) * DISK_SECTOR_SIZE as u64;
+        let expected_size = expected_size.div_ceil(DISK_PAGE_SIZE as u64) * DISK_PAGE_SIZE as u64;
         {
             let file = files.write();
             if file.size()? != expected_size {

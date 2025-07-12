@@ -4,7 +4,7 @@
 mod tests;
 
 use crate::farm::{FarmError, MaybePieceStoredResult, PlotCache};
-use crate::single_disk_farm::direct_io_file::DirectIoFile;
+use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
@@ -47,7 +47,7 @@ struct CachedPieces {
 /// Additional piece cache that exploit part of the plot that does not contain sectors yet
 #[derive(Debug, Clone)]
 pub struct DiskPlotCache {
-    file: Weak<DirectIoFile>,
+    file: Weak<DirectIoFileWrapper>,
     sectors_metadata: Weak<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     cached_pieces: Arc<RwLock<CachedPieces>>,
     target_sector_count: u16,
@@ -78,7 +78,7 @@ impl PlotCache for DiskPlotCache {
 
 impl DiskPlotCache {
     pub(crate) fn new(
-        file: &Arc<DirectIoFile>,
+        file: &Arc<DirectIoFileWrapper>,
         sectors_metadata: &Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
         target_sector_count: u16,
         sector_size: u64,
@@ -307,7 +307,7 @@ impl DiskPlotCache {
     }
 
     fn read_piece_internal(
-        file: &DirectIoFile,
+        file: &DirectIoFileWrapper,
         offset: u32,
         element: &mut [u8],
     ) -> Result<Option<PieceIndex>, DiskPlotCacheError> {

@@ -1,5 +1,5 @@
 use crate::farm::MaybePieceStoredResult;
-use crate::single_disk_farm::direct_io_file::{DISK_SECTOR_SIZE, DirectIoFile};
+use crate::single_disk_farm::direct_io_file_wrapper::{DISK_PAGE_SIZE, DirectIoFileWrapper};
 use crate::single_disk_farm::plot_cache::DiskPlotCache;
 use ab_core_primitives::pieces::{Piece, PieceIndex, Record};
 use ab_core_primitives::sectors::SectorIndex;
@@ -27,13 +27,12 @@ async fn basic() {
     });
 
     let tempdir = tempdir().unwrap();
-    let file = DirectIoFile::open(tempdir.path().join("plot.bin")).unwrap();
+    let file = DirectIoFileWrapper::open(tempdir.path().join("plot.bin")).unwrap();
 
     // Align plot file size for disk sector size
     file.preallocate(
-        (FAKE_SECTOR_SIZE as u64 * u64::from(TARGET_SECTOR_COUNT))
-            .div_ceil(DISK_SECTOR_SIZE as u64)
-            * DISK_SECTOR_SIZE as u64,
+        (FAKE_SECTOR_SIZE as u64 * u64::from(TARGET_SECTOR_COUNT)).div_ceil(DISK_PAGE_SIZE as u64)
+            * DISK_PAGE_SIZE as u64,
     )
     .unwrap();
 

@@ -113,6 +113,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-direct-io-file"
+version = "0.0.1"
+dependencies = [
+ "fs2",
+ "libc",
+ "parking_lot 0.12.3",
+ "windows 0.61.3",
+]
+
+[[package]]
 name = "ab-erasure-coding"
 version = "0.1.0"
 dependencies = [
@@ -10013,6 +10023,7 @@ version = "0.1.0"
 dependencies = [
  "ab-core-primitives",
  "ab-data-retrieval",
+ "ab-direct-io-file",
  "ab-erasure-coding",
  "ab-farmer-components",
  "ab-proof-of-space",
@@ -10050,7 +10061,6 @@ dependencies = [
  "serde",
  "serde_json",
  "ss58-registry",
- "static_assertions",
  "subspace-logging",
  "subspace-metrics",
  "subspace-networking",

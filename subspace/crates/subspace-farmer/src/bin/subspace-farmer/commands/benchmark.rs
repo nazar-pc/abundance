@@ -16,7 +16,7 @@ use std::fs::OpenOptions;
 use std::hint::black_box;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
-use subspace_farmer::single_disk_farm::direct_io_file::DirectIoFile;
+use subspace_farmer::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use subspace_farmer::single_disk_farm::farming::rayon_files::RayonFiles;
 use subspace_farmer::single_disk_farm::farming::{PlotAudit, PlotAuditOptions};
 use subspace_farmer::single_disk_farm::{
@@ -206,7 +206,7 @@ where
         }
         {
             let plot = RayonFiles::open_with(disk_farm.join(SingleDiskFarm::PLOT_FILE), |path| {
-                DirectIoFile::open(path)
+                DirectIoFileWrapper::open(path)
             })
             .map_err(|error| anyhow::anyhow!("Failed to open plot: {error}"))?;
             let plot_audit = PlotAudit::new(&plot);
@@ -407,7 +407,7 @@ where
         }
         {
             let plot = RayonFiles::open_with(disk_farm.join(SingleDiskFarm::PLOT_FILE), |path| {
-                DirectIoFile::open(path)
+                DirectIoFileWrapper::open(path)
             })
             .map_err(|error| anyhow::anyhow!("Failed to open plot: {error}"))?;
             let plot_audit = PlotAudit::new(&plot);
