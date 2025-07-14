@@ -138,6 +138,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-client-database"
+version = "0.0.1"
+dependencies = [
+ "ab-aligned-buffer",
+ "ab-blake3",
+ "ab-client-api",
+ "ab-core-primitives",
+ "ab-io-type",
+ "ab-merkle-tree",
+ "async-lock",
+ "blake3",
+ "enum-map",
+ "futures",
+ "rand_core 0.9.3",
+ "rclite",
+ "replace_with",
+ "smallvec",
+ "strum",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "ab-client-proof-of-time"
 version = "0.0.1"
 dependencies = [
@@ -1476,6 +1499,26 @@ name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
+
+[[package]]
+name = "enum-map"
+version = "2.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6866f3bfdf8207509a033af1a75a7b08abda06bbaaeae6669323fd5a097df2e9"
+dependencies = [
+ "enum-map-derive",
+]
+
+[[package]]
+name = "enum-map-derive"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f282cfdfe92516eb26c2af8589c274c7c17681f5ecc03c18255fe741c6aa64eb"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "env_filter"
@@ -3213,6 +3256,27 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "strum"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "subtle"

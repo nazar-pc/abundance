@@ -1,0 +1,36 @@
+[package]
+name = "ab-client-database"
+description = "Client database"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-aligned-buffer = { workspace = true }
+ab-blake3 = { workspace = true }
+ab-client-api = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["alloc"] }
+ab-io-type = { workspace = true }
+ab-merkle-tree = { workspace = true }
+async-lock = { workspace = true, features = ["std"] }
+blake3 = { workspace = true }
+enum-map = { workspace = true }
+futures = { workspace = true, features = ["alloc"] }
+rand_core = { workspace = true, features = ["os_rng", "std"] }
+rclite = { workspace = true }
+replace_with = { workspace = true }
+smallvec = { workspace = true, features = ["drain_filter"] }
+strum = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

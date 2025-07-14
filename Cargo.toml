@@ -20,6 +20,7 @@ ab-client-block-builder = { version = "0.0.1", path = "crates/node/ab-client-blo
 ab-client-block-import = { version = "0.0.1", path = "crates/node/ab-client-block-import" }
 ab-client-block-verification = { version = "0.0.1", path = "crates/node/ab-client-block-verification" }
 ab-client-consensus-common = { version = "0.0.1", path = "crates/node/ab-client-consensus-common" }
+ab-direct-io-file = { version = "0.0.1", path = "crates/shared/ab-direct-io-file" }
 ab-client-proof-of-time = { version = "0.0.1", path = "crates/node/ab-client-proof-of-time" }
 ab-contracts-common = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-common" }
 ab-contracts-macros = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros" }
@@ -64,6 +65,7 @@ derive_more = { version = "2.0.1", default-features = false }
 #  https://github.com/dalek-cryptography/curve25519-dalek/issues/626 is resolved
 # TODO: Switch to offical 4.0.4+ is released with https://github.com/ZcashFoundation/ed25519-zebra/pull/174
 ed25519-zebra = { version = "4.0.3", git = "https://github.com/ZcashFoundation/ed25519-zebra", rev = "dbb5610b818a6b54ebd347c27f8c8d3d6af89648", default-features = false }
+enum-map = "2.7.3"
 # TODO: Not using fs4 on purpose due to https://github.com/al8n/fs4-rs/issues/15
 fs2 = "0.4.3"
 futures = { version = "0.3.31", default-features = false, features = ["async-await"] }
@@ -93,10 +95,11 @@ seq-macro = "0.3.6"
 serde = { version = "1.0.219", default-features = false }
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0-rc.0", default-features = false }
-smallvec = "1.15.1"
+smallvec = { version = "1.15.1", features = ["union"] }
 spin = "0.10.0"
 spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "3df836eb9d7b01344f52737bf9a310d1fb5a0c26" }
 stable_deref_trait = { version = "1.2.0", default-features = false }
+strum = { version = "0.27.2", default-features = false, features = ["derive"] }
 syn = "2.0.104"
 tempfile = "3.20.0"
 thiserror = { version = "2.0.12", default-features = false }
