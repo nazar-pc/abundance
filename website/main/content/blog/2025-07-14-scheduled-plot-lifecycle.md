@@ -1,5 +1,5 @@
 ---
-title: A Scheduled Approach to Plot Lifecycle Management
+title: A Deterministic Mapping for Plot Lifecycle Management
 date: 2025-07-14
 draft: false
 description: A new model for plot and sector lifecycle management and a draft spec in progress
@@ -21,207 +21,157 @@ draft specification for the protocol that fits all the pieces together. Our prot
 Subspace protocol, so I am using the existing specification as a base and extending it with all the
 sharding specifics. I can't wait to share the first draft with you all for feedback and suggestions.
 
-<!--more-->
-
-## A Scheduled Approach to Plot Lifecycle Management
+## A Deterministic Mapping for Plot Lifecycle Management
 
 The core of this proposal is based on the simplification idea for sector expiration and plot
-identification from this [zulip discussion]. The basic idea is to decouple the long-term shard
-assignment from the specific, moment-in-time `history_size` a farmer commits a sector to. Instead of
-binding a plot to a single `history_size`, we bind it to a **Plot Epoch**, which is a large,
-predefined range of history. This allows a farmer to continuously re-plot expiring sectors with new
-history while remaining in the same shard for a predictable, extended period.
+identification from this [zulip discussion]. The basic idea is to simplify plot identification by
+removing scheduled, network-wide epochs. Instead, we introduce a **deterministic, cyclical mapping
+function**. This approach decouples long-term shard assignment from the specific `history_size` by
+mapping any `history_size` to a fixed set of "history classes". This allows a farmer to continuously
+update sectors with new history while having the flexibility to remain in the same shard, making a
+`plot epoch` parameter unnecessary. This also limits the number of sectors that can be created in
+parallel with the same sector index and different committed history sizes (artifically increasing
+the storage of a plot).
 
-[zulip-discussion]:
-  https://abundance.zulipchat.com/#narrow/channel/495788-research/topic/A.20radically.20simple.20farmer.20allocation.2Fsector.20expiration/with/527212623
-
-The operation of the protocol is based on the concept of a **Plot Epoch (`PLOT_EPOCH`):** which is a
-new global protocol parameter that defines a fixed length of blockchain history, measured in
-segments. For example, `PLOT_EPOCH` could be set to `100,000` segments. This parameter governs the
-cadence of plot turnover and mandatory shard re-shuffling for the entire network.
+The operation of the protocol is based on the concept of a **History Modulo (`HISTORY_MODULO`)**, a
+new global protocol parameter that defines the total number of unique history classes. For example,
+`HISTORY_MODULO` could be set to `2048`. This parameter governs the trade-off between farmer
+flexibility and shard selection potential.
 
 A farmer's assignment to a shard is determined not by the exact `history_size` they are plotting,
-but by the epoch that history falls into.
+but by the class that history maps to.
 
 - **History Class Calculation:** When a farmer creates a sector, they commit to a
-  `committed_history_size`. From this, a `history_class` is derived:
-
-```
-  history_class = floor(PLOT_EPOCH / committed_history_size​)
-```
-
+  `committed_history_size`. From this, a `history_class` is derived using a simple modulo operation:
+  ```
+  history_class = committed_history_size % HISTORY_MODULO
+  ```
 - **Plot ID Derivation:** The stable `plot_id` is then created by hashing the farmer's public key
   with this class. This is the crucial step that provides stability.
-
-```
+  ```
   plot_id = hash(public_key_hash, history_class)
-```
-
+  ```
 - **Shard Allocation:** This `plot_id` is then used as the input to the Verifiable Random Function
   (VRF) that determines the shard assignment.
+  ```
+  assigned_shard = vrf_output_to_shard(VRF(plot_id, randomness))
+  ```
 
-```
-  assigned_shard=vrf_output_to_shard(VRF(plot_id,randomness))
-```
-
-Because `history_class` remains the same for all history sizes within a large `PLOT_EPOCH`, the
-`plot_id` and the resulting shard assignment are stable for all sectors within that history class.
+Because `history_class` is the result of a modulo operation, many different `history_size` values
+will map to the same class. This ensures the `plot_id` and the resulting shard assignment can remain
+stable even as the farmer plots new history.
 
 #### Sector and Plot Identification
 
 Sectors must still be uniquely and verifiably tied to the specific history they contain.
 
-- **Sector ID:** The `sector_id` is then derived simply from this `plot_id` and the sector's index
-  within the plot.
+- **Sector ID:** The `sector_id` is derived simply from this `plot_id` and the sector's index within
+  the plot.
+  ```
+  sector_id = hash(plot_id, sector_index)
+  ```
 
-```
-  sector_id=hash(plot_id, sector_index)
-```
-
-This hierarchical ID structure ensures that a farmer's shard assignment is stable for the duration
-of an epoch, while still enforcing that each sector is uniquely tied to its specific
-`committed_history_size` for verification and expiration purposes.
+This hierarchical ID structure ensures that a farmer's shard assignment can be stable, while still
+enforcing that each sector is uniquely tied to its specific `committed_history_size` for
+verification and expiration.
 
 ### Expiration and Re-Plotting Cadence
 
-This model creates a natural and predictable lifecycle for farmers, directly addressing the
-re-plotting concerns.
+This model creates a flexible and predictable lifecycle for farmers, giving them direct control over
+their re-plotting strategy.
 
 **Farmer Lifecycle Example:**
 
-1.  **Joining (Epoch `k`):** A farmer starts plotting when the current history size is `H_1`. They
-    calculate `history_class_k = floor(H_1 / PLOT_EPOCH)`. This determines their corresponding
-    `plot_id` and assigns them to `plot_id` for the entire duration of Epoch `k`. They fill their
-    drive with sectors committed to `H_1`.
+1.  **Joining:** A farmer starts plotting when the current history size is `H_1`. They calculate
+    `history_class_1 = H_1 % HISTORY_MODULO`. This determines a `plot_id_1` and assigns them to a
+    corresponding shard. They begin filling their drive with sectors committed to `H_1`.
 
-2.  **Mid-Epoch Maintenance:** As time passes and the chain grows to history size `H_2`, their
-    initial sectors from `H_1` begin to expire probabilistically. The farmer uses the newly freed
-    space to plot new sectors committed to `H_2`. Since `floor(H_2 / PLOT_EPOCH)` is still
-    `history_class_k`, their `plot_id` does not change, and they **remain in `plot_id`**. They are
-    effectively maintaining a single plot within a single shard.
+2.  **Maintenance:** As time passes and the chain grows to a history size of `H_2`, their initial
+    sectors from `H_1` begin to expire. The farmer uses the newly freed space to plot new sectors.
+    They now have a choice:
 
-3.  **Epoch Turnover (Transition to `k+1`):** The blockchain history eventually surpasses
-    `(history_class_k + 1) * PLOT_EPOCH`. At this point, any new sectors the farmer wants to plot
-    must use a `committed_history_size`, `H_3`, that results in a new class: `history_class_{k+1}`.
-    This forces the creation of a new `plot_id` and triggers a **mandatory re-plotting** of sectors
-    into new plot for the new history class.
+- **Re-use Existing Plot:** The farmer can choose to remain in the same plot (and thus the same
+  shard). To do this, they find a `committed_history_size` (`H_commit`) that is less than or equal
+  to `H_2` and also satisfies `H_commit % HISTORY_MODULO == history_class_1`. A farmer can easily
+  calculate the most recent history size that meets this criterion.
+- **Utilize a New Plot:** Alternatively, the farmer can commit to the latest history, `H_2`. This
+  will generate a new class, `history_class_2 = H_2 % HISTORY_MODULO`, creating a new `plot_id` and
+  likely assigning them to a new shard.
 
-This creates a staggered, network-wide re-shuffling that is deterministic and tied to the growth of
-the chain, rather than individual farmer decisions.
+This model removes the concept of a mandatory, network-wide "Epoch Turnover." Instead, re-shuffling
+becomes a strategic choice made by the farmer.
 
 ### Benefits and Parameter Tuning
 
-This scheduled approach provides significant advantages over the previous "history window ranges"
-and the simple `hash(pk, history_size)` models that I introduced the past few weeks.
+This deterministic mapping provides significant advantages:
 
-- **Simplicity:** The logic is straightforward, relying on a single new parameter (`PLOT_EPOCH`) and
-  simple integer arithmetic, avoiding complex range management.
+- **Simplicity:** The logic is extremely straightforward, relying on a single new parameter
+  (`HISTORY_MODULO`) and simple modulo arithmetic.
+- **Farmer Quality of Life:** Farmers are never forced into a disruptive, network-wide re-plotting
+  event. They have fine-grained control over which plots they maintain, reducing operational
+  overhead.
+- **Flexibility:** Farmers can choose to commit to a slightly older history size to preserve their
+  shard assignment or switch to a new one if it is more advantageous.
 
-- **Farmer Quality of Life:** Farmers have a stable shard assignment for long periods, reducing
-  network overhead and operational complexity. They can focus on maintaining one logical plot in one
-  shard.
-
-- **Security:** It prevents the gaming attack where a farmer chooses a convenient `history_size` to
-  manipulate their shard assignment. The shard is fixed for the entire epoch.
-
-- **Controlled Dishonest Advantage:** A dishonest farmer might try to maintain valid sectors from
-  two different history points within the same epoch (e.g., the very beginning and the very end) to
-  temporarily increase their effective plot size. The `PLOT_EPOCH` parameter must be tuned to
-  mitigate this. It should be set to a value that aligns with the probabilistic sector lifetime. For
-  instance, if `PLOT_EPOCH` is roughly `1.5x` to `2x` the average sector lifespan, by the time a
-  farmer could start a second plot at the end of the epoch, the first one would be significantly or
-  entirely expired, keeping the maximum advantage close to the desired `~2x` bound, and often much
-  less in practice.
-
-The ideal value for `PLOT_EPOCH` requires balancing farmer stability against the security constraint
-of limiting this advantage, and it can be determined by modeling against the sector expiration
-probabilities.
+The primary consideration is tuning the `HISTORY_MODULO` parameter, which involves a direct
+trade-off between farmer flexibility and preventing strategic shard selection.
 
 ### A model for parameter tuning
 
-Let's define the key parameters of the system:
+The key to this design is selecting an optimal value for $M$, the `HISTORY_MODULO`. This choice
+involves balancing two competing factors: **History Lag** and **Shard Selection Power**.
 
-- \\(E\\): The `plot_epoch` size, measured in number of history segments. **This is the value we
-  want to determine.**
+Let's define the key parameters:
 
-- \\(L\_{min​}\\): The `MIN_SECTOR_LIFETIME`, a protocol constant representing the guaranteed
-  minimum lifetime of any sector.
+- \\(M\\): The `HISTORY_MODULO`, the number of distinct history classes. **This is the value we want
+  to determine.**
+- \\(S\\): The total number of shards in the network.
+- \\(H\_{current}\\): The current `history_size` of the blockchain.
 
-- \\(H\_{s​}\\): The `history_size` of the blockchain at the time a sector is plotted.
+#### Modeling Farmer Flexibility (History Lag)
 
-- \\(L*{avg​}(H*{s​})\\): The average lifetime of a sector plotted at history size \\(H\_{s​}\\).
-  Based on the Subspace expiration logic, this is:
-
-$$
-  L\*{avg​}(H\_{s​})=L\_{min​}+2H\_{s​}
-$$
-
-- \\(\alpha\\): The maximum acceptable plot size multiplier for a dishonest farmer. This is our
-  target security threshold (e.g., \\(\alpha=1.8\\) means we tolerate at most an 80% temporary
-  inflation of a dishonest farmer's plot size).
-
-- \\(\alpha\_{actual}(H_s,E)\\): The actual security multiplier a dishonest farmer can achieve at a
-  given history size \\(H\_{s}\\) with a chosen epoch length \\(E\\).
-
-#### Modeling the Dishonest Farmer Advantage
-
-The primary security risk is a farmer plotting their storage at the beginning of an epoch and again
-at the very end, temporarily farming with more than their actual pledged space. The maximum
-advantage is achieved at the moment the epoch transitions.
-
-The effective plot size multiplier for a dishonest farmer who plots at the beginning of an epoch
-(starting at Hs​) and again at the end can be calculated as:
+When a farmer wants to re-use an existing plot, they may not be able to use \\(H\_{current}\\). This
+creates a "lag" between their plotted history and the most current state of the network. We can
+quantify this as the **Average History Lag** (\(L_H\)):
 
 $$
-\alpha_{actual}(H_s, E) = 2 - \frac{E - L_{min}}{4H_s}
+L_H = \frac{M}{2}
 $$
 
-_(This formula is valid for \\(E \le L\_{min}\\)​. It represents 1 (for the new plot) + the fraction
-of the old plot that has survived after \\(E\\) segments)._
+A larger $M$ gives the farmer more classes to choose from, reducing the average lag for any given
+class.
 
-#### Modeling Farmer Stability (The Churn Factor)
+#### Modeling Security (Shard Selection Power)
 
-From a farmer's perspective, an ideal epoch length is related to the useful lifetime of their plot.
-If the epoch is too short, they are forced to replot sectors in a new plot very frequently. If it's
-too long, they will may need to entirely re-plot their storage multiple times for the same plot
-(opening the window for potential attacks).
+A farmer could try to gain an advantage by choosing which history class to plot. With \\(M\\)
+possible classes, they can generate \\(M\\) different `plot_id`s and calculate the resulting shard
+for each, choosing the one that is most favorable. We can model this as the **Shard Selection
+Power** (\\(P\_{select}\\)), the probability of landing in one specific target shard:
 
-We can model this relationship with a **Farmer Churn Factor**, \\(C\\). This factor represents the
-desired number of times a farmer should have to fully re-plot their storage (on average) within a
-single epoch.
+$$
+P_{select}(M, S) = 1 - \left(1 - \frac{1}{S}\right)^M
+$$
 
-- \\(C=1\\): The epoch length is equal to the average lifetime of a plot. This is a balanced choice.
-
-- \\(C>1\\): The epoch is longer than the average plot lifetime. This provides more stability but
-  means a farmer will perform more re-plotting work _within_ an epoch.
-
-- \\(C<1\\): The epoch is shorter than the average plot lifetime. This increases network agility and
-  re-shuffling frequency at the cost of more overhead for farmers.
+A smaller \\(M\\) significantly reduces this probability, making it difficult for farmers to
+strategically choose their shard.
 
 #### The Optimization Model
 
-To make the `plot_epoch` a single, constant value, we must choose a **Reference History Size**,
-\\(H\_{ref}\\), to anchor our calculations. This should be a value representing a mature state of
-the network (e.g., the number of segments produced after one or two years of operation).
-
-We can now define our `plot_epoch`, \\(E\\), based on our desired farmer experience (\\(C\\)) at
-this reference point:
+The goal is to choose a value for \\(M\\) that provides a good balance. For example, if a network
+has \\(S=1000\\) shards and we decide that no farmer should have more than a 5% chance of selecting
+a specific shard, we would solve for \\(M\\):
 
 $$
-E = C \times L_{avg}(H_{ref}) = C \times (L_{min} + 2H_{ref})
-$$
-
-By substituting this definition of \\(E\\) back into our security model, we get a final equation
-that describes the actual security level, \\(\alpha\_{actual}(H_s)\\), at any point in the
-blockchain's history \\(H_s\\):
-
-$$
-\alpha_{actual}(H_s) = 2 - \frac{C(L_{min} + 2H_{ref}) - L_{min}}{4H_s}
+0.05 = 1 - \left(1 - \frac{1}{1000}\right)^M
 $$
 
 $$
-\alpha_{actual}(H_s) = 2 - \frac{(C-1)L_{min} + 2CH_{ref}}{4H_s}
+\ln(0.95) = M \cdot \ln(0.999) \implies M \approx 51.3
 $$
+
+Based on this, a protocol designer might choose **$M=50$**. This value would provide a low risk of
+shard selection while ensuring the average history lag is only 25 segments—a very reasonable
+trade-off for farmer flexibility.
 
 ### An opportunity to simplify sector expiration?
 
@@ -230,14 +180,13 @@ part of the protocol. With this new approach to bind sectors into specific plots
 conceptually simplify the existing formula for sector expiration to make it more intuitive. The
 logic is fundamentally sound.
 
-Essentially, the current
+Essentially, the current model can be thought of as:
 
 **`Expiration Point = Base Lifetime + Random Additional Lifetime`**
 
 Where:
 
 - **Base Lifetime** = `history_size + MIN_SECTOR_LIFETIME`
-
 - **Random Additional Lifetime** = A random value between 0 and `3 * history_size`
 
 This conceptual model preserves all the benefits of the original design while being easier to reason
@@ -261,14 +210,12 @@ feedback and improvement suggestions.
 
 Throughout all of my more theoretical work from the past few weeks, I have been sharing theoretical
 models for different parts of the protocol, but I haven't shared the specific protocol parameters
-for the various components (e.g. the optimal `PLOT_EPOCH` value). As part of my spec'ing efforts, I
-am hoping to also recommend specific values for these parameters based on the theoretical models and
-target system requirements. Hopefully, this will provide a more concrete foundation for the protocol
-and help guide implementation efforts.
+for the various components (e.g. the optimal `HISTORY_MODULO` value). As part of my spec'ing
+efforts, I am hoping to also recommend specific values for these parameters based on the theoretical
+models and target system requirements. Hopefully, this will provide a more concrete foundation for
+the protocol and help guide implementation efforts.
 
 On another personal note, next week I will be giving a talk at the
 [Web3Summit in Berlin](https://web3summit.com/), so if you are around and you want to chat about
 this project, blockchain scalability, or honestly anything web3-related, feel free to reach out to
-me. I will be around the event and would love to meet you in person. Looking at the image, I can see
-the mathematical formulas and help you create proper LaTeX markdown. Here's the corrected version:
-Looking at the image, here's the corrected LaTeX markdown:
+me. I will be around the event and would love to meet you in person.
