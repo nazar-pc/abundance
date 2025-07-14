@@ -9,6 +9,7 @@ use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use rclite::Arc;
+use std::io;
 
 // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows the
 //  code to compile. Constant 4294967295 is hardcoded here and below for compilation to succeed.
@@ -16,6 +17,8 @@ const _: () = {
     assert!(u32::MAX == 4294967295);
 };
 
+// TODO: Make this a `#[transparent]` struct to improve usability (avoiding the need for
+//  `generic_const_exprs` feature in downstream crates)?
 /// Type alias for Merkle Mountain Range with block roots.
 ///
 /// NOTE: `u32` is smaller than `BlockNumber`'s internal `u64` but will be sufficient for a long
@@ -37,11 +40,32 @@ pub enum BlockOrigin {
 /// Error for [`ChainInfoWrite::persist_block()`]
 #[derive(Debug, thiserror::Error)]
 pub enum PersistBlockError {
-    // TODO
+    /// Missing parent
+    #[error("Missing parent")]
+    MissingParent,
+    /// Block is outside the acceptable range
+    #[error("Block is outside the acceptable range")]
+    OutsideAcceptableRange,
+    /// Storage item write error
+    #[error("Storage item write error")]
+    StorageItemWriteError {
+        /// Low-level error
+        #[from]
+        error: io::Error,
+    },
 }
 
 // TODO: Split this into different more narrow traits
-/// Chain info
+/// Chain info.
+///
+/// NOTE:
+/// <div class="warning">
+/// Blocks or their parts returned from these APIs are reference-counted and cheap to clone.
+/// However, it is not expected that they will be retained in memory for a long time. Blocks and
+/// headers will not be pruned until their reference count goes down to one. This is imported when
+/// there is an ongoing block import happening and its parent must exist until the import
+/// finishes.
+/// </div>
 pub trait ChainInfo<Block>: Clone + Send + Sync + 'static
 where
     Block: GenericOwnedBlock,

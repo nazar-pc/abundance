@@ -138,6 +138,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-client-database"
+version = "0.0.1"
+dependencies = [
+ "ab-aligned-buffer",
+ "ab-blake3",
+ "ab-client-api",
+ "ab-core-primitives",
+ "ab-io-type",
+ "ab-merkle-tree",
+ "async-lock",
+ "blake3",
+ "futures",
+ "rclite",
+ "replace_with",
+ "smallvec",
+ "thiserror 2.0.12",
+ "tracing",
+]
+
+[[package]]
 name = "ab-client-proof-of-time"
 version = "0.0.1"
 dependencies = [
