@@ -59,7 +59,7 @@ pub enum Leaf<'a> {
     },
     /// Leaf is empty
     Empty {
-        /// Number of consecutive empty leafs
+        /// Number of consecutive empty leaves
         skip_count: u128,
     },
 }

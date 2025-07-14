@@ -192,7 +192,7 @@ where
         // Ensure MMR implementation produces the same proofs and can verify them successfully
         let mmr_before = mmr;
 
-        // Add leafs individually with proof generation
+        // Add leaves individually with proof generation
         let (expected_mmr_root, expected_mmr_proof) = mmr
             .add_leaf_and_compute_proof_in(&leaf, proof_buffer)
             .unwrap();
@@ -234,7 +234,7 @@ where
             "N {N} leaf_index {leaf_index}"
         );
 
-        // Add leafs individually without proof generation
+        // Add leaves individually without proof generation
         {
             let mut mmr = mmr_before;
             assert!(mmr.add_leaf(&leaf));
@@ -250,7 +250,7 @@ where
             );
         }
 
-        // Add leafs individually with proof generation and `alloc`
+        // Add leaves individually with proof generation and `alloc`
         #[cfg(feature = "alloc")]
         {
             let mut mmr = mmr_before;

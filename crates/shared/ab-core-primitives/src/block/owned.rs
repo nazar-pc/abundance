@@ -28,7 +28,7 @@ use core::iter::TrustedLen;
 use derive_more::From;
 
 /// Generic owned block
-pub trait GenericOwnedBlock: Clone + fmt::Debug + 'static {
+pub trait GenericOwnedBlock: Clone + fmt::Debug + Send + Sync + 'static {
     /// Block header type
     type Header: GenericOwnedBlockHeader;
     /// Block body type

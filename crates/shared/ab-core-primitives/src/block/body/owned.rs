@@ -21,13 +21,13 @@ use rclite::Arc;
 use yoke::Yoke;
 
 /// Generic owned block body
-pub trait GenericOwnedBlockBody: Clone + fmt::Debug + 'static {
+pub trait GenericOwnedBlockBody: Clone + fmt::Debug + Send + Sync + 'static {
     /// Block body
     type Body<'a>: GenericBlockBody<'a>
     where
         Self: 'a;
 
-    /// Get regular block body out of the owned version
+    /// Get a regular block body out of the owned version
     fn body(&self) -> &Self::Body<'_>;
 }
 
@@ -365,7 +365,7 @@ impl OwnedBeaconChainBody {
         Ok(Self::from_buffer(buffer.into_shared()).expect("Known to be created correctly; qed"))
     }
 
-    /// Create owned body from a buffer
+    /// Create an owned body from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
         // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
@@ -535,7 +535,7 @@ impl OwnedIntermediateShardBody {
         Ok(Self::from_buffer(buffer.into_shared()).expect("Known to be created correctly; qed"))
     }
 
-    /// Create owned body from a buffer
+    /// Create an owned body from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
         // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
@@ -665,7 +665,7 @@ impl OwnedLeafShardBody {
         })
     }
 
-    /// Create owned body from a buffer
+    /// Create an owned body from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
         // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
@@ -741,7 +741,7 @@ pub enum OwnedBlockBody {
 }
 
 impl OwnedBlockBody {
-    /// Create owned body from a buffer
+    /// Create an owned body from a buffer
     #[inline]
     pub fn from_buffer(
         buffer: SharedAlignedBuffer,

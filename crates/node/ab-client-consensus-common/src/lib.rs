@@ -20,7 +20,7 @@ pub struct PotConsensusConstants {
 pub struct ConsensusConstants {
     /// Depth `K` after which a block enters the recorded history
     pub confirmation_depth_k: BlockNumber,
-    /// Number of slots between slot arrival and when corresponding block can be produced
+    /// Number of slots between slot arrival and when the corresponding block can be produced
     pub block_authoring_delay: SlotNumber,
     /// Proof-of-time consensus constants
     pub pot: PotConsensusConstants,

@@ -18,7 +18,7 @@ use std::{io, mem};
 
 /// 4096 is as a relatively safe size due to sector size on SSDs commonly being 512 or 4096 bytes
 pub const DISK_PAGE_SIZE: usize = 4096;
-/// Restrict how much data to read from disk in a single call to avoid very large memory usage
+/// Restrict how much data to read from the disk in a single call to avoid very large memory usage
 const MAX_READ_SIZE: usize = 1024 * 1024;
 
 const _: () = {
@@ -50,7 +50,7 @@ impl AlignedPageSize {
         unsafe { mem::transmute(value) }
     }
 
-    /// Convenient conversion from slice of underlying representation for efficiency purposes.
+    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
     ///
     /// Returns `None` if not correctly aligned.
     #[inline]
@@ -73,7 +73,7 @@ impl AlignedPageSize {
         unsafe { mem::transmute(slice) }
     }
 
-    /// Convenient conversion from slice of underlying representation for efficiency purposes.
+    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
     ///
     /// Returns `None` if not correctly aligned.
     #[inline]
@@ -105,10 +105,10 @@ pub struct DirectIoFile {
 }
 
 impl DirectIoFile {
-    /// Open file with basic open options at specified path for direct/unbuffered I/O for reads and
-    /// writes.
+    /// Open a file with basic open options at the specified path for direct/unbuffered I/O for
+    /// reads and writes.
     ///
-    /// `options` allows to configure things like read/write/create/truncate, but custom options
+    /// `options` allows configuring things like read/write/create/truncate, but custom options
     /// will be overridden internally.
     ///
     /// This is especially important on Windows to prevent huge memory usage.
@@ -170,13 +170,13 @@ impl DirectIoFile {
         Ok(self.file.metadata()?.len())
     }
 
-    /// Returns `Ok(true)` if file is empty
+    /// Returns `Ok(true)` if the file is empty
     #[inline]
     pub fn is_empty(&self) -> io::Result<bool> {
         Ok(self.len()? == 0)
     }
 
-    /// Make sure file has specified number of bytes allocated on the disk.
+    /// Make sure the file has a specified number of bytes allocated on the disk.
     ///
     /// Later writes within `len` will not fail due to lack of disk space.
     #[inline(always)]
@@ -206,7 +206,7 @@ impl DirectIoFile {
 
         let mut scratch_buffer = self.scratch_buffer.lock();
 
-        // This is guaranteed by constructor
+        // This is guaranteed by the constructor
         debug_assert!(
             AlignedPageSize::slice_to_repr(&scratch_buffer)
                 .as_flattened()
@@ -257,7 +257,7 @@ impl DirectIoFile {
 
         let mut scratch_buffer = self.scratch_buffer.lock();
 
-        // This is guaranteed by constructor
+        // This is guaranteed by the constructor
         debug_assert!(
             AlignedPageSize::slice_to_repr(&scratch_buffer)
                 .as_flattened()
@@ -265,7 +265,7 @@ impl DirectIoFile {
                 <= MAX_READ_SIZE
         );
 
-        // First write up to `MAX_READ_SIZE - padding`
+        // First, write up to `MAX_READ_SIZE - padding`
         let padding = (offset % DISK_PAGE_SIZE as u64) as usize;
         let first_unaligned_chunk_size = (MAX_READ_SIZE - padding).min(buf.len());
         let (unaligned_start, buf) = buf.split_at(first_unaligned_chunk_size);
@@ -396,7 +396,7 @@ impl DirectIoFile {
         let page_aligned_offset = offset / DISK_PAGE_SIZE as u64 * DISK_PAGE_SIZE as u64;
         let padding = (offset - page_aligned_offset) as usize;
 
-        // Make scratch buffer of a size that is necessary to read aligned memory, accounting
+        // Make a scratch buffer of a size that is necessary to read aligned memory, accounting
         // for extra bytes at the beginning and the end that will be thrown away
         let pages_to_read = (padding + bytes_to_read).div_ceil(DISK_PAGE_SIZE);
         let scratch_buffer = &mut scratch_buffer[..pages_to_read];

@@ -88,7 +88,7 @@ impl BlockHeaderPrefix {
     }
 }
 
-/// Consensus information in block header
+/// Consensus information in the block header
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
 #[cfg_attr(
     feature = "scale-codec",

@@ -171,7 +171,7 @@ where
     /// Calculate the root of Merkle Mountain Range.
     ///
     /// In case MMR contains a single leaf hash, that leaf hash is returned, `None` is returned if
-    /// there were no leafs added yet.
+    /// there were no leaves added yet.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn root(&self) -> Option<[u8; OUT_LEN]> {
@@ -244,7 +244,7 @@ where
     /// There is a more efficient version [`Self::add_leaves()`] in case multiple leaves are
     /// available.
     ///
-    /// Returns `true` on success, `false` if too many leafs were added.
+    /// Returns `true` on success, `false` if too many leaves were added.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn add_leaf(&mut self, leaf: &[u8; OUT_LEN]) -> bool {
@@ -312,7 +312,7 @@ where
 
     /// Add leaf to Merkle Mountain Range and generate inclusion proof.
     ///
-    /// Returns `Some((root, proof))` on success, `None` if too many leafs were added.
+    /// Returns `Some((root, proof))` on success, `None` if too many leaves were added.
     #[inline]
     #[cfg(feature = "alloc")]
     pub fn add_leaf_and_compute_proof(
@@ -340,7 +340,7 @@ where
 
     /// Add leaf to Merkle Mountain Range and generate inclusion proof.
     ///
-    /// Returns `Some((root, proof))` on success, `None` if too many leafs were added.
+    /// Returns `Some((root, proof))` on success, `None` if too many leaves were added.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn add_leaf_and_compute_proof_in<'proof>(
