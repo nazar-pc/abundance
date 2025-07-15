@@ -3,8 +3,8 @@ title: A Deterministic Mapping for Plot Lifecycle Management
 date: 2025-07-14
 draft: false
 description: A new model for plot and sector lifecycle management and a draft spec in progress
-tags: [status-update, consensus]
-authors: [adlrocha]
+tags: [ status-update, consensus ]
+authors: [ adlrocha ]
 ---
 
 {{< katex >}}
@@ -84,13 +84,13 @@ their re-plotting strategy.
 
 **Farmer Lifecycle Example:**
 
-1.  **Joining:** A farmer starts plotting when the current history size is `H_1`. They calculate
-    `history_class_1 = H_1 % HISTORY_MODULO`. This determines a `plot_id_1` and assigns them to a
-    corresponding shard. They begin filling their drive with sectors committed to `H_1`.
+1. **Joining:** A farmer starts plotting when the current history size is `H_1`. They calculate
+   `history_class_1 = H_1 % HISTORY_MODULO`. This determines a `plot_id_1` and assigns them to a
+   corresponding shard. They begin filling their drive with sectors committed to `H_1`.
 
-2.  **Maintenance:** As time passes and the chain grows to a history size of `H_2`, their initial
-    sectors from `H_1` begin to expire. The farmer uses the newly freed space to plot new sectors.
-    They now have a choice:
+2. **Maintenance:** As time passes and the chain grows to a history size of `H_2`, their initial
+   sectors from `H_1` begin to expire. The farmer uses the newly freed space to plot new sectors.
+   They now have a choice:
 
 - **Re-use Existing Plot:** The farmer can choose to remain in the same plot (and thus the same
   shard). To do this, they find a `committed_history_size` (`H_commit`) that is less than or equal
@@ -120,7 +120,7 @@ trade-off between farmer flexibility and preventing strategic shard selection.
 
 ### A model for parameter tuning
 
-The key to this design is selecting an optimal value for \\((M\\), the `HISTORY_MODULO`. This choice
+The key to this design is selecting an optimal value for \\(M\\), the `HISTORY_MODULO`. This choice
 involves balancing two competing factors: **History Lag** and **Shard Selection Power**.
 
 Let's define the key parameters:
@@ -140,7 +140,7 @@ $$
 L_H = \frac{M}{2}
 $$
 
-A larger $M$ gives the farmer more classes to choose from, reducing the average lag for any given
+A larger \\(M\\) gives the farmer more classes to choose from, reducing the average lag for any given
 class.
 
 #### Modeling Security (Shard Selection Power)
@@ -171,7 +171,7 @@ $$
 \ln(0.95) = M \cdot \ln(0.999) \implies M \approx 51.3
 $$
 
-Based on this, a protocol designer might choose **$M=50$**. This value would provide a low risk of
+Based on this, a protocol designer might choose \\(M=50\\). This value would provide a low risk of
 shard selection while ensuring the average history lag is only 25 segments—a very reasonable
 trade-off for farmer flexibility.
 
@@ -222,5 +222,4 @@ On another personal note, next week I will be giving a talk at the
 this project, blockchain scalability, or honestly anything web3-related, feel free to reach out to
 me. I will be around the event and would love to meet you in person.
 
-[zulip-discussion]:
-  https://abundance.zulipchat.com/#narrow/channel/495788-research/topic/A.20radically.20simple.20farmer.20allocation.2Fsector.20expiration/with/527212623
+[zulip-discussion]: https://abundance.zulipchat.com/#narrow/channel/495788-research/topic/A.20radically.20simple.20farmer.20allocation.2Fsector.20expiration/with/527212623
