@@ -16,6 +16,8 @@ derived, and how sectors were linked to plots. The high-level idea made sense, b
 some details that weren't clear. This week I managed to come up with a design that I think satisfies
 all of our requirements.
 
+<!--more-->
+
 Apart from all of this work around plot and sector lifecycle management, I also started working on a
 draft specification for the protocol that fits all the pieces together. Our protocol builds upon the
 Subspace protocol, so I am using the existing specification as a base and extending it with all the
