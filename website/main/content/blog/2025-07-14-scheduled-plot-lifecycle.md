@@ -120,7 +120,7 @@ trade-off between farmer flexibility and preventing strategic shard selection.
 
 ### A model for parameter tuning
 
-The key to this design is selecting an optimal value for $M$, the `HISTORY_MODULO`. This choice
+The key to this design is selecting an optimal value for \\((M\\), the `HISTORY_MODULO`. This choice
 involves balancing two competing factors: **History Lag** and **Shard Selection Power**.
 
 Let's define the key parameters:
@@ -221,3 +221,6 @@ On another personal note, next week I will be giving a talk at the
 [Web3Summit in Berlin](https://web3summit.com/), so if you are around and you want to chat about
 this project, blockchain scalability, or honestly anything web3-related, feel free to reach out to
 me. I will be around the event and would love to meet you in person.
+
+[zulip-discussion]:
+  https://abundance.zulipchat.com/#narrow/channel/495788-research/topic/A.20radically.20simple.20farmer.20allocation.2Fsector.20expiration/with/527212623
