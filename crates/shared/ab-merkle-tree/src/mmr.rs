@@ -7,6 +7,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::mem;
 use core::mem::MaybeUninit;
+use core::ops::{Deref, DerefMut};
 
 /// MMR peaks for [`MerkleMountainRange`].
 ///
@@ -42,10 +43,62 @@ where
 #[derive(Debug, Copy, Clone)]
 #[repr(C, align(8))]
 pub struct MerkleMountainRangeBytes<const MAX_N: u64>(
-    pub [u8; merkle_mountain_range_bytes_size(MAX_N)],
+    [u8; merkle_mountain_range_bytes_size(MAX_N)],
 )
 where
     [(); merkle_mountain_range_bytes_size(MAX_N)]:;
+
+impl<const MAX_N: u64> Default for MerkleMountainRangeBytes<MAX_N>
+where
+    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+{
+    #[inline(always)]
+    fn default() -> Self {
+        Self([0; _])
+    }
+}
+
+impl<const MAX_N: u64> From<[u8; merkle_mountain_range_bytes_size(MAX_N)]>
+    for MerkleMountainRangeBytes<MAX_N>
+where
+    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+{
+    fn from(value: [u8; merkle_mountain_range_bytes_size(MAX_N)]) -> Self {
+        Self(value)
+    }
+}
+
+impl<const MAX_N: u64> From<MerkleMountainRangeBytes<MAX_N>>
+    for [u8; merkle_mountain_range_bytes_size(MAX_N)]
+where
+    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+{
+    fn from(value: MerkleMountainRangeBytes<MAX_N>) -> Self {
+        value.0
+    }
+}
+
+impl<const MAX_N: u64> Deref for MerkleMountainRangeBytes<MAX_N>
+where
+    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+{
+    type Target = [u8; merkle_mountain_range_bytes_size(MAX_N)];
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<const MAX_N: u64> DerefMut for MerkleMountainRangeBytes<MAX_N>
+where
+    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+{
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 /// Size of [`MerkleMountainRange`]/[`MerkleMountainRangeBytes`] in bytes
 pub const fn merkle_mountain_range_bytes_size(max_n: u64) -> usize {
