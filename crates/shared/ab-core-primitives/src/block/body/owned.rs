@@ -21,11 +21,22 @@ use rclite::Arc;
 use yoke::Yoke;
 
 /// Generic owned block body
-pub trait GenericOwnedBlockBody: Clone + fmt::Debug + Send + Sync + 'static {
+pub trait GenericOwnedBlockBody:
+    Clone + fmt::Debug + Send + Sync + Into<OwnedBlockBody> + 'static
+{
+    /// Shard kind
+    const SHARD_KIND: ShardKind;
+
     /// Block body
     type Body<'a>: GenericBlockBody<'a>
     where
         Self: 'a;
+
+    /// Inner buffer with block body contents
+    fn buffer(&self) -> &SharedAlignedBuffer;
+
+    /// Number of clones in memory
+    fn ref_count(&self) -> usize;
 
     /// Get a regular block body out of the owned version
     fn body(&self) -> &Self::Body<'_>;
@@ -223,7 +234,19 @@ pub struct OwnedBeaconChainBody {
 }
 
 impl GenericOwnedBlockBody for OwnedBeaconChainBody {
+    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+
     type Body<'a> = BeaconChainBody<'a>;
+
+    #[inline(always)]
+    fn buffer(&self) -> &SharedAlignedBuffer {
+        self.buffer()
+    }
+
+    #[inline(always)]
+    fn ref_count(&self) -> usize {
+        self.ref_count()
+    }
 
     #[inline(always)]
     fn body(&self) -> &Self::Body<'_> {
@@ -393,6 +416,12 @@ impl OwnedBeaconChainBody {
         self.inner.backing_cart()
     }
 
+    /// Number of clones in memory
+    #[inline(always)]
+    pub fn ref_count(&self) -> usize {
+        self.inner.strong_count()
+    }
+
     /// Get [`BeaconChainBody`] out of [`OwnedBeaconChainBody`]
     #[inline(always)]
     pub fn body(&self) -> &BeaconChainBody<'_> {
@@ -433,7 +462,19 @@ pub struct OwnedIntermediateShardBody {
 }
 
 impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
+    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+
     type Body<'a> = IntermediateShardBody<'a>;
+
+    #[inline(always)]
+    fn buffer(&self) -> &SharedAlignedBuffer {
+        self.buffer()
+    }
+
+    #[inline(always)]
+    fn ref_count(&self) -> usize {
+        self.ref_count()
+    }
 
     #[inline(always)]
     fn body(&self) -> &Self::Body<'_> {
@@ -563,6 +604,12 @@ impl OwnedIntermediateShardBody {
         self.inner.backing_cart()
     }
 
+    /// Number of clones in memory
+    #[inline(always)]
+    pub fn ref_count(&self) -> usize {
+        self.inner.strong_count()
+    }
+
     /// Get [`IntermediateShardBody`] out of [`OwnedIntermediateShardBody`]
     #[inline(always)]
     pub fn body(&self) -> &IntermediateShardBody<'_> {
@@ -619,7 +666,19 @@ pub struct OwnedLeafShardBody {
 }
 
 impl GenericOwnedBlockBody for OwnedLeafShardBody {
+    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+
     type Body<'a> = LeafShardBody<'a>;
+
+    #[inline(always)]
+    fn buffer(&self) -> &SharedAlignedBuffer {
+        self.buffer()
+    }
+
+    #[inline(always)]
+    fn ref_count(&self) -> usize {
+        self.ref_count()
+    }
 
     #[inline(always)]
     fn body(&self) -> &Self::Body<'_> {
@@ -691,6 +750,12 @@ impl OwnedLeafShardBody {
     #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
         self.inner.backing_cart()
+    }
+
+    /// Number of clones in memory
+    #[inline(always)]
+    pub fn ref_count(&self) -> usize {
+        self.inner.strong_count()
     }
 
     /// Get [`LeafShardBody`] out of [`OwnedLeafShardBody`]
@@ -767,6 +832,16 @@ impl OwnedBlockBody {
             Self::BeaconChain(owned_body) => owned_body.buffer(),
             Self::IntermediateShard(owned_body) => owned_body.buffer(),
             Self::LeafShard(owned_body) => owned_body.buffer(),
+        }
+    }
+
+    /// Number of clones in memory
+    #[inline(always)]
+    pub fn ref_count(&self) -> usize {
+        match self {
+            Self::BeaconChain(owned_body) => owned_body.ref_count(),
+            Self::IntermediateShard(owned_body) => owned_body.ref_count(),
+            Self::LeafShard(owned_body) => owned_body.ref_count(),
         }
     }
 

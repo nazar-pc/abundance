@@ -28,7 +28,10 @@ use core::iter::TrustedLen;
 use derive_more::From;
 
 /// Generic owned block
-pub trait GenericOwnedBlock: Clone + fmt::Debug + Send + Sync + 'static {
+pub trait GenericOwnedBlock: Clone + fmt::Debug + Send + Sync + Into<OwnedBlock> + 'static {
+    /// Shard kind
+    const SHARD_KIND: ShardKind;
+
     /// Block header type
     type Header: GenericOwnedBlockHeader;
     /// Block body type
@@ -43,6 +46,11 @@ pub trait GenericOwnedBlock: Clone + fmt::Debug + Send + Sync + 'static {
 
     /// Block body
     fn body(&self) -> &Self::Body;
+
+    // TODO: Unchecked versions of methods that create instances from buffers (here and in
+    //  header/block)?
+    /// Create owned block from buffers
+    fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self>;
 
     /// Get regular block out of the owned version
     fn block(&self) -> Self::Block<'_>;
@@ -63,6 +71,8 @@ pub struct OwnedBeaconChainBlock {
 }
 
 impl GenericOwnedBlock for OwnedBeaconChainBlock {
+    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+
     type Header = OwnedBeaconChainHeader;
     type Body = OwnedBeaconChainBody;
     type Block<'a> = BeaconChainBlock<'a>;
@@ -75,6 +85,11 @@ impl GenericOwnedBlock for OwnedBeaconChainBlock {
     #[inline(always)]
     fn body(&self) -> &Self::Body {
         &self.body
+    }
+
+    #[inline(always)]
+    fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
+        Self::from_buffers(header, body)
     }
 
     #[inline(always)]
@@ -215,6 +230,8 @@ pub struct OwnedIntermediateShardBlock {
 }
 
 impl GenericOwnedBlock for OwnedIntermediateShardBlock {
+    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+
     type Header = OwnedIntermediateShardHeader;
     type Body = OwnedIntermediateShardBody;
     type Block<'a> = IntermediateShardBlock<'a>;
@@ -227,6 +244,11 @@ impl GenericOwnedBlock for OwnedIntermediateShardBlock {
     #[inline(always)]
     fn body(&self) -> &Self::Body {
         &self.body
+    }
+
+    #[inline(always)]
+    fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
+        Self::from_buffers(header, body)
     }
 
     #[inline(always)]
@@ -351,6 +373,8 @@ pub struct OwnedLeafShardBlock {
 }
 
 impl GenericOwnedBlock for OwnedLeafShardBlock {
+    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+
     type Header = OwnedLeafShardHeader;
     type Body = OwnedLeafShardBody;
     type Block<'a> = LeafShardBlock<'a>;
@@ -363,6 +387,11 @@ impl GenericOwnedBlock for OwnedLeafShardBlock {
     #[inline(always)]
     fn body(&self) -> &Self::Body {
         &self.body
+    }
+
+    #[inline(always)]
+    fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
+        Self::from_buffers(header, body)
     }
 
     #[inline(always)]
@@ -490,7 +519,7 @@ pub enum OwnedBlock {
 }
 
 impl OwnedBlock {
-    /// Get block header
+    /// Block header
     #[inline(always)]
     pub fn header(&self) -> BlockHeader<'_> {
         match self {
@@ -502,7 +531,7 @@ impl OwnedBlock {
         }
     }
 
-    /// Get block body
+    /// Block body
     #[inline(always)]
     pub fn body(&self) -> BlockBody<'_> {
         match self {

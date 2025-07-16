@@ -299,6 +299,9 @@ pub trait GenericBlock<'a>
 where
     Self: Clone + fmt::Debug,
 {
+    /// Shard kind
+    const SHARD_KIND: ShardKind;
+
     /// Block header type
     type Header: GenericBlockHeader<'a>;
     /// Block body type
@@ -406,6 +409,8 @@ impl<'a> BeaconChainBlock<'a> {
 }
 
 impl<'a> GenericBlock<'a> for BeaconChainBlock<'a> {
+    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+
     type Header = BeaconChainHeader<'a>;
     type Body = BeaconChainBody<'a>;
     #[cfg(feature = "alloc")]
@@ -514,6 +519,8 @@ impl<'a> IntermediateShardBlock<'a> {
 }
 
 impl<'a> GenericBlock<'a> for IntermediateShardBlock<'a> {
+    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+
     type Header = IntermediateShardHeader<'a>;
     type Body = IntermediateShardBody<'a>;
     #[cfg(feature = "alloc")]
@@ -608,6 +615,8 @@ impl<'a> LeafShardBlock<'a> {
 }
 
 impl<'a> GenericBlock<'a> for LeafShardBlock<'a> {
+    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+
     type Header = LeafShardHeader<'a>;
     type Body = LeafShardBody<'a>;
     #[cfg(feature = "alloc")]

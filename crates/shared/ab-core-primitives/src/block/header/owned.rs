@@ -16,11 +16,22 @@ use rclite::Arc;
 use yoke::Yoke;
 
 /// Generic owned block header
-pub trait GenericOwnedBlockHeader: Clone + fmt::Debug + Send + Sync + 'static {
+pub trait GenericOwnedBlockHeader:
+    Clone + fmt::Debug + Send + Sync + Into<OwnedBlockHeader> + 'static
+{
+    /// Shard kind
+    const SHARD_KIND: ShardKind;
+
     /// Block header
     type Header<'a>: GenericBlockHeader<'a>
     where
         Self: 'a;
+
+    /// Inner buffer with block header contents
+    fn buffer(&self) -> &SharedAlignedBuffer;
+
+    /// Number of clones in memory
+    fn ref_count(&self) -> usize;
 
     /// Get a regular block header out of the owned version
     fn header(&self) -> &Self::Header<'_>;
@@ -60,7 +71,19 @@ pub struct OwnedBeaconChainHeader {
 }
 
 impl GenericOwnedBlockHeader for OwnedBeaconChainHeader {
+    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+
     type Header<'a> = BeaconChainHeader<'a>;
+
+    #[inline(always)]
+    fn buffer(&self) -> &SharedAlignedBuffer {
+        self.buffer()
+    }
+
+    #[inline(always)]
+    fn ref_count(&self) -> usize {
+        self.ref_count()
+    }
 
     #[inline(always)]
     fn header(&self) -> &Self::Header<'_> {
@@ -243,6 +266,12 @@ impl OwnedBeaconChainHeader {
         self.inner.backing_cart()
     }
 
+    /// Number of clones in memory
+    #[inline(always)]
+    pub fn ref_count(&self) -> usize {
+        self.inner.strong_count()
+    }
+
     /// Get [`BeaconChainHeader`] out of [`OwnedBeaconChainHeader`]
     #[inline(always)]
     pub fn header(&self) -> &BeaconChainHeader<'_> {
@@ -297,7 +326,19 @@ pub struct OwnedIntermediateShardHeader {
 }
 
 impl GenericOwnedBlockHeader for OwnedIntermediateShardHeader {
+    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+
     type Header<'a> = IntermediateShardHeader<'a>;
+
+    #[inline(always)]
+    fn buffer(&self) -> &SharedAlignedBuffer {
+        self.buffer()
+    }
+
+    #[inline(always)]
+    fn ref_count(&self) -> usize {
+        self.ref_count()
+    }
 
     #[inline(always)]
     fn header(&self) -> &Self::Header<'_> {
@@ -416,6 +457,13 @@ impl OwnedIntermediateShardHeader {
     pub fn buffer(&self) -> &SharedAlignedBuffer {
         self.inner.backing_cart()
     }
+
+    /// Number of clones in memory
+    #[inline(always)]
+    pub fn ref_count(&self) -> usize {
+        self.inner.strong_count()
+    }
+
     /// Get [`IntermediateShardHeader`] out of [`OwnedIntermediateShardHeader`]
     #[inline(always)]
     pub fn header(&self) -> &IntermediateShardHeader<'_> {
@@ -460,7 +508,19 @@ pub struct OwnedLeafShardHeader {
 }
 
 impl GenericOwnedBlockHeader for OwnedLeafShardHeader {
+    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+
     type Header<'a> = LeafShardHeader<'a>;
+
+    #[inline(always)]
+    fn buffer(&self) -> &SharedAlignedBuffer {
+        self.buffer()
+    }
+
+    #[inline(always)]
+    fn ref_count(&self) -> usize {
+        self.ref_count()
+    }
 
     #[inline(always)]
     fn header(&self) -> &Self::Header<'_> {
@@ -545,6 +605,13 @@ impl OwnedLeafShardHeader {
     pub fn buffer(&self) -> &SharedAlignedBuffer {
         self.inner.backing_cart()
     }
+
+    /// Number of clones in memory
+    #[inline(always)]
+    pub fn ref_count(&self) -> usize {
+        self.inner.strong_count()
+    }
+
     /// Get [`LeafShardHeader`] out of [`OwnedLeafShardHeader`]
     #[inline(always)]
     pub fn header(&self) -> &LeafShardHeader<'_> {
@@ -621,6 +688,16 @@ impl OwnedBlockHeader {
             Self::BeaconChain(owned_header) => owned_header.buffer(),
             Self::IntermediateShard(owned_header) => owned_header.buffer(),
             Self::LeafShard(owned_header) => owned_header.buffer(),
+        }
+    }
+
+    /// Number of clones in memory
+    #[inline]
+    pub fn ref_count(&self) -> usize {
+        match self {
+            Self::BeaconChain(owned_header) => owned_header.ref_count(),
+            Self::IntermediateShard(owned_header) => owned_header.ref_count(),
+            Self::LeafShard(owned_header) => owned_header.ref_count(),
         }
     }
 
