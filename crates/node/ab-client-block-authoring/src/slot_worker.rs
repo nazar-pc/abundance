@@ -35,7 +35,7 @@ use tracing::{debug, error, info, trace, warn};
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
 const PENDING_SOLUTIONS_CHANNEL_CAPACITY: usize = 10;
 
-/// Information about new slot that just arrived
+/// Information about a new slot that just arrived
 #[derive(Debug, Copy, Clone)]
 pub struct NewSlotInfo {
     /// Slot number
@@ -46,7 +46,7 @@ pub struct NewSlotInfo {
     pub solution_range: SolutionRange,
 }
 
-/// New slot notification with slot information and sender for solution for the slot.
+/// New slot notification with slot information and sender for a solution for the slot.
 #[derive(Debug, Clone)]
 pub struct NewSlotNotification {
     /// New slot information.
@@ -68,7 +68,7 @@ pub struct BlockSealNotification {
 
 #[derive(Debug)]
 pub struct ClaimedSlot {
-    /// Consensus info for block header
+    /// Consensus info for a block header
     pub consensus_info: BlockHeaderConsensusInfo,
     /// Proof of time checkpoints from after future proof of parent block to current block's
     /// future proof (inclusive)
@@ -80,7 +80,7 @@ pub struct ClaimedSlot {
 pub struct SubspaceSlotWorkerOptions<BB, BI, BCI, CI, CSS> {
     /// Builder that can create a new block
     pub block_builder: BB,
-    /// Block import to import the block created by block builder
+    /// Block import to import the block created by a block builder
     pub block_import: BI,
     /// Beacon chain info
     pub beacon_chain_info: BCI,
@@ -148,12 +148,12 @@ where
 
         if slot <= parent_slot {
             debug!(
-                "Skipping claiming slot {slot} it must be higher than parent slot {parent_slot}",
+                "Skipping claiming slot {slot}, it must be higher than parent slot {parent_slot}",
             );
 
             return None;
         } else {
-            debug!(%slot, "Attempting to claim slot");
+            debug!(%slot, "Attempting to claim a slot");
         }
 
         let parent_consensus_parameters = parent_beacon_chain_header.consensus_parameters();
@@ -179,7 +179,7 @@ where
 
             let proof_of_time = self.pot_checkpoints.get(&slot)?.output();
 
-            // Future slot for which proof must be available before authoring block at this slot
+            // Future slot for which proof must be available before authoring a block at this slot
             let future_slot = slot + self.consensus_constants.block_authoring_delay;
 
             let pot_input = if parent_number == BlockNumber::ZERO {
@@ -197,7 +197,7 @@ where
                 )
             };
 
-            // Ensure proof of time is valid according to parent block
+            // Ensure proof of time is valid, according to parent block
             if !self.pot_verifier.is_output_valid(
                 pot_input,
                 slot - parent_slot,
@@ -208,7 +208,7 @@ where
                     %slot,
                     ?pot_input,
                     consensus_info = ?parent_header.consensus_info,
-                    "Proof of time is invalid, skipping block authoring at slot"
+                    "Proof of time is invalid, skipping block authoring at the slot"
                 );
                 return None;
             }
@@ -355,14 +355,14 @@ where
                     } else {
                         info!(
                             %slot,
-                            "Skipping solution that has quality sufficient for block because \
+                            "Skipping a solution that has quality sufficient for block because \
                             slot has already been claimed",
                         );
                     }
                 }
                 Err(error @ SolutionVerifyError::OutsideSolutionRange { .. }) => {
-                    // Solution range might have just adjusted, but when farmer was auditing they
-                    // didn't know about this, so downgrade warning to debug message
+                    // Solution range might have just adjusted, but when a farmer was auditing it
+                    // didn't know about this, so downgrade the warning to a debug message
                     if parent_consensus_parameters.next_solution_range.is_some() {
                         debug!(
                             %slot,
@@ -393,7 +393,7 @@ where
         })
     }
 
-    /// Create new Subspace slot worker
+    /// Create a new Subspace slot worker
     pub fn new(
         SubspaceSlotWorkerOptions {
             block_builder,
@@ -475,7 +475,7 @@ where
             let Some(slot_to_claim) =
                 slot.checked_sub(self.consensus_constants.block_authoring_delay)
             else {
-                trace!("Skipping very early slot during chain start");
+                trace!("Skipping a very early slot during chain start");
                 continue;
             };
 
@@ -494,7 +494,7 @@ where
             let block_import_fut = match self.block_import.import(block, BlockOrigin::Local) {
                 Ok(block_import_fut) => block_import_fut,
                 Err(error) => {
-                    error!(%best_root, %error, "Failed to queue newly produced block for import");
+                    error!(%best_root, %error, "Failed to queue a newly produced block for import");
                     continue;
                 }
             };
@@ -504,13 +504,13 @@ where
                     // Nothing else to do
                 }
                 Err(error) => {
-                    warn!(%best_root, %error, "Failed to import newly produced block");
+                    warn!(%best_root, %error, "Failed to import a newly produced block");
                 }
             }
         }
     }
 
-    /// Handle new slot: store checkpoints and generate notification for farmer
+    /// Handle new slot: store checkpoints and generate notification for a farmer
     fn store_checkpoints(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints) {
         // Remove checkpoints from future slots, if present they are out of date anyway
         self.pot_checkpoints
@@ -519,7 +519,7 @@ where
         self.pot_checkpoints.insert(slot, checkpoints);
     }
 
-    /// Handle new slot: store checkpoints and generate notification for farmer
+    /// Handle new slot: store checkpoints and generate notification for a farmer
     fn on_new_slot(
         &mut self,
         slot: SlotNumber,
@@ -534,7 +534,7 @@ where
 
         let proof_of_time = checkpoints.output();
 
-        // NOTE: Best hash is not necessarily going to be the parent of corresponding block, but
+        // NOTE: Best hash is not necessarily going to be the parent of the corresponding block, but
         // solution range shouldn't be too far off
         let solution_range = best_beacon_chain_header
             .consensus_parameters()
@@ -560,13 +560,13 @@ where
                 solution_sender,
             })
         {
-            warn!(%error, "Failed to send new slot notification");
+            warn!(%error, "Failed to send a new slot notification");
         }
 
         self.pending_solutions.insert(slot, solution_receiver);
     }
 
-    /// Called with slot for which block needs to be produced (if suitable solution was found)
+    /// Called with slot for which block needs to be produced (if a suitable solution was found)
     async fn produce_block(
         &mut self,
         slot: SlotNumber,
@@ -624,7 +624,7 @@ where
         {
             Ok(block) => block,
             Err(error) => {
-                error!(%slot, %parent_block_root, %error, "Failed to build block");
+                error!(%slot, %parent_block_root, %error, "Failed to build a block");
                 return None;
             }
         };

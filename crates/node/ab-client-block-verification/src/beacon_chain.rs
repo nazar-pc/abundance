@@ -423,7 +423,7 @@ where
             debug!(
                 ?header,
                 %best_number,
-                "Rejecting block below archiving point"
+                "Rejecting a block below the archiving point"
             );
 
             return Err(BlockVerificationError::BelowArchivingPoint);
@@ -437,7 +437,7 @@ where
             return Err(BlockVerificationError::InvalidSeal);
         }
 
-        // Verify that solution is valid
+        // Verify that the solution is valid
         consensus_info
             .solution
             .verify::<PosTable>(
