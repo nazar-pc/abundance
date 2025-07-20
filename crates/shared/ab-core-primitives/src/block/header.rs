@@ -32,8 +32,11 @@ use yoke::Yokeable;
 /// Generic block header
 pub trait GenericBlockHeader<'a>
 where
-    Self: Clone + fmt::Debug + Deref<Target = SharedBlockHeader<'a>>,
+    Self: Clone + fmt::Debug + Deref<Target = SharedBlockHeader<'a>> + Into<BlockHeader<'a>>,
 {
+    /// Shard kind
+    const SHARD_KIND: ShardKind;
+
     /// Owned block header
     #[cfg(feature = "alloc")]
     type Owned: GenericOwnedBlockHeader<Header<'a> = Self>
@@ -88,7 +91,7 @@ impl BlockHeaderPrefix {
     }
 }
 
-/// Consensus information in block header
+/// Consensus information in the block header
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
 #[cfg_attr(
     feature = "scale-codec",
@@ -713,6 +716,8 @@ impl<'a> Deref for BeaconChainHeader<'a> {
 }
 
 impl<'a> GenericBlockHeader<'a> for BeaconChainHeader<'a> {
+    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+
     #[cfg(feature = "alloc")]
     type Owned = OwnedBeaconChainHeader;
 
@@ -995,6 +1000,8 @@ impl<'a> Deref for IntermediateShardHeader<'a> {
 }
 
 impl<'a> GenericBlockHeader<'a> for IntermediateShardHeader<'a> {
+    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+
     #[cfg(feature = "alloc")]
     type Owned = OwnedIntermediateShardHeader;
 
@@ -1279,6 +1286,8 @@ impl<'a> Deref for LeafShardHeader<'a> {
 }
 
 impl<'a> GenericBlockHeader<'a> for LeafShardHeader<'a> {
+    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+
     #[cfg(feature = "alloc")]
     type Owned = OwnedLeafShardHeader;
 

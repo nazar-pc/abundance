@@ -16,13 +16,24 @@ use rclite::Arc;
 use yoke::Yoke;
 
 /// Generic owned block header
-pub trait GenericOwnedBlockHeader: Clone + fmt::Debug + 'static {
+pub trait GenericOwnedBlockHeader:
+    Clone + fmt::Debug + Send + Sync + Into<OwnedBlockHeader> + 'static
+{
+    /// Shard kind
+    const SHARD_KIND: ShardKind;
+
     /// Block header
     type Header<'a>: GenericBlockHeader<'a>
     where
         Self: 'a;
 
-    /// Get regular block header out of the owned version
+    /// Inner buffer with block header contents
+    fn buffer(&self) -> &SharedAlignedBuffer;
+
+    /// Number of clones in memory
+    fn ref_count(&self) -> usize;
+
+    /// Get a regular block header out of the owned version
     fn header(&self) -> &Self::Header<'_>;
 }
 
@@ -60,7 +71,19 @@ pub struct OwnedBeaconChainHeader {
 }
 
 impl GenericOwnedBlockHeader for OwnedBeaconChainHeader {
+    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+
     type Header<'a> = BeaconChainHeader<'a>;
+
+    #[inline(always)]
+    fn buffer(&self) -> &SharedAlignedBuffer {
+        self.buffer()
+    }
+
+    #[inline(always)]
+    fn ref_count(&self) -> usize {
+        self.ref_count()
+    }
 
     #[inline(always)]
     fn header(&self) -> &Self::Header<'_> {
@@ -86,7 +109,7 @@ impl OwnedBeaconChainHeader {
             + BlockHeaderSeal::MAX_SIZE
     }
 
-    /// Create new [`OwnedBeaconChainHeader`] from its parts
+    /// Create a new [`OwnedBeaconChainHeader`] from its parts
     pub fn from_parts(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
@@ -109,7 +132,7 @@ impl OwnedBeaconChainHeader {
         Ok(OwnedBeaconChainHeaderUnsealed { buffer })
     }
 
-    /// Create owned header from its parts and write it into provided buffer
+    /// Create an owned header from its parts and write it into the provided buffer
     pub fn from_parts_into(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
@@ -215,7 +238,7 @@ impl OwnedBeaconChainHeader {
         Ok(())
     }
 
-    /// Create owned header from a buffer
+    /// Create an owned header from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
         // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
@@ -241,6 +264,12 @@ impl OwnedBeaconChainHeader {
     #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
         self.inner.backing_cart()
+    }
+
+    /// Number of clones in memory
+    #[inline(always)]
+    pub fn ref_count(&self) -> usize {
+        self.inner.strong_count()
     }
 
     /// Get [`BeaconChainHeader`] out of [`OwnedBeaconChainHeader`]
@@ -297,7 +326,19 @@ pub struct OwnedIntermediateShardHeader {
 }
 
 impl GenericOwnedBlockHeader for OwnedIntermediateShardHeader {
+    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+
     type Header<'a> = IntermediateShardHeader<'a>;
+
+    #[inline(always)]
+    fn buffer(&self) -> &SharedAlignedBuffer {
+        self.buffer()
+    }
+
+    #[inline(always)]
+    fn ref_count(&self) -> usize {
+        self.ref_count()
+    }
 
     #[inline(always)]
     fn header(&self) -> &Self::Header<'_> {
@@ -323,7 +364,7 @@ impl OwnedIntermediateShardHeader {
             + BlockHeaderSeal::MAX_SIZE
     }
 
-    /// Create new [`OwnedIntermediateShardHeader`] from its parts
+    /// Create a new [`OwnedIntermediateShardHeader`] from its parts
     pub fn from_parts(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
@@ -346,7 +387,7 @@ impl OwnedIntermediateShardHeader {
         Ok(OwnedIntermediateShardHeaderUnsealed { buffer })
     }
 
-    /// Create owned header from its parts and write it into provided buffer
+    /// Create an owned header from its parts and write it into the provided buffer
     pub fn from_parts_into(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
@@ -388,7 +429,7 @@ impl OwnedIntermediateShardHeader {
         Ok(())
     }
 
-    /// Create owned header from a buffer
+    /// Create an owned header from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
         // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
@@ -416,6 +457,13 @@ impl OwnedIntermediateShardHeader {
     pub fn buffer(&self) -> &SharedAlignedBuffer {
         self.inner.backing_cart()
     }
+
+    /// Number of clones in memory
+    #[inline(always)]
+    pub fn ref_count(&self) -> usize {
+        self.inner.strong_count()
+    }
+
     /// Get [`IntermediateShardHeader`] out of [`OwnedIntermediateShardHeader`]
     #[inline(always)]
     pub fn header(&self) -> &IntermediateShardHeader<'_> {
@@ -460,7 +508,19 @@ pub struct OwnedLeafShardHeader {
 }
 
 impl GenericOwnedBlockHeader for OwnedLeafShardHeader {
+    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+
     type Header<'a> = LeafShardHeader<'a>;
+
+    #[inline(always)]
+    fn buffer(&self) -> &SharedAlignedBuffer {
+        self.buffer()
+    }
+
+    #[inline(always)]
+    fn ref_count(&self) -> usize {
+        self.ref_count()
+    }
 
     #[inline(always)]
     fn header(&self) -> &Self::Header<'_> {
@@ -476,7 +536,7 @@ impl OwnedLeafShardHeader {
         + BlockHeaderBeaconChainInfo::SIZE
         + BlockHeaderSeal::MAX_SIZE;
 
-    /// Create new [`OwnedLeafShardHeader`] from its parts
+    /// Create a new [`OwnedLeafShardHeader`] from its parts
     pub fn from_parts(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
@@ -496,7 +556,7 @@ impl OwnedLeafShardHeader {
         OwnedLeafShardHeaderUnsealed { buffer }
     }
 
-    /// Create owned header from its parts and write it into provided buffer
+    /// Create an owned header from its parts and write it into the provided buffer
     pub fn from_parts_into(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
@@ -518,7 +578,7 @@ impl OwnedLeafShardHeader {
         };
     }
 
-    /// Create owned header from a buffer
+    /// Create an owned header from a buffer
     #[inline]
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
         // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
@@ -545,6 +605,13 @@ impl OwnedLeafShardHeader {
     pub fn buffer(&self) -> &SharedAlignedBuffer {
         self.inner.backing_cart()
     }
+
+    /// Number of clones in memory
+    #[inline(always)]
+    pub fn ref_count(&self) -> usize {
+        self.inner.strong_count()
+    }
+
     /// Get [`LeafShardHeader`] out of [`OwnedLeafShardHeader`]
     #[inline(always)]
     pub fn header(&self) -> &LeafShardHeader<'_> {
@@ -593,7 +660,7 @@ pub enum OwnedBlockHeader {
 }
 
 impl OwnedBlockHeader {
-    /// Create owned header from a buffer
+    /// Create an owned header from a buffer
     #[inline]
     pub fn from_buffer(
         buffer: SharedAlignedBuffer,
@@ -621,6 +688,16 @@ impl OwnedBlockHeader {
             Self::BeaconChain(owned_header) => owned_header.buffer(),
             Self::IntermediateShard(owned_header) => owned_header.buffer(),
             Self::LeafShard(owned_header) => owned_header.buffer(),
+        }
+    }
+
+    /// Number of clones in memory
+    #[inline]
+    pub fn ref_count(&self) -> usize {
+        match self {
+            Self::BeaconChain(owned_header) => owned_header.ref_count(),
+            Self::IntermediateShard(owned_header) => owned_header.ref_count(),
+            Self::LeafShard(owned_header) => owned_header.ref_count(),
         }
     }
 

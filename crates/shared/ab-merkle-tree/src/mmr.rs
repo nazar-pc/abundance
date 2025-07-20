@@ -7,6 +7,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::mem;
 use core::mem::MaybeUninit;
+use core::ops::{Deref, DerefMut};
 
 /// MMR peaks for [`MerkleMountainRange`].
 ///
@@ -42,10 +43,62 @@ where
 #[derive(Debug, Copy, Clone)]
 #[repr(C, align(8))]
 pub struct MerkleMountainRangeBytes<const MAX_N: u64>(
-    pub [u8; merkle_mountain_range_bytes_size(MAX_N)],
+    [u8; merkle_mountain_range_bytes_size(MAX_N)],
 )
 where
     [(); merkle_mountain_range_bytes_size(MAX_N)]:;
+
+impl<const MAX_N: u64> Default for MerkleMountainRangeBytes<MAX_N>
+where
+    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+{
+    #[inline(always)]
+    fn default() -> Self {
+        Self([0; _])
+    }
+}
+
+impl<const MAX_N: u64> From<[u8; merkle_mountain_range_bytes_size(MAX_N)]>
+    for MerkleMountainRangeBytes<MAX_N>
+where
+    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+{
+    fn from(value: [u8; merkle_mountain_range_bytes_size(MAX_N)]) -> Self {
+        Self(value)
+    }
+}
+
+impl<const MAX_N: u64> From<MerkleMountainRangeBytes<MAX_N>>
+    for [u8; merkle_mountain_range_bytes_size(MAX_N)]
+where
+    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+{
+    fn from(value: MerkleMountainRangeBytes<MAX_N>) -> Self {
+        value.0
+    }
+}
+
+impl<const MAX_N: u64> Deref for MerkleMountainRangeBytes<MAX_N>
+where
+    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+{
+    type Target = [u8; merkle_mountain_range_bytes_size(MAX_N)];
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<const MAX_N: u64> DerefMut for MerkleMountainRangeBytes<MAX_N>
+where
+    [(); merkle_mountain_range_bytes_size(MAX_N)]:,
+{
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 /// Size of [`MerkleMountainRange`]/[`MerkleMountainRangeBytes`] in bytes
 pub const fn merkle_mountain_range_bytes_size(max_n: u64) -> usize {
@@ -171,7 +224,7 @@ where
     /// Calculate the root of Merkle Mountain Range.
     ///
     /// In case MMR contains a single leaf hash, that leaf hash is returned, `None` is returned if
-    /// there were no leafs added yet.
+    /// there were no leaves added yet.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn root(&self) -> Option<[u8; OUT_LEN]> {
@@ -244,7 +297,7 @@ where
     /// There is a more efficient version [`Self::add_leaves()`] in case multiple leaves are
     /// available.
     ///
-    /// Returns `true` on success, `false` if too many leafs were added.
+    /// Returns `true` on success, `false` if too many leaves were added.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn add_leaf(&mut self, leaf: &[u8; OUT_LEN]) -> bool {
@@ -312,7 +365,7 @@ where
 
     /// Add leaf to Merkle Mountain Range and generate inclusion proof.
     ///
-    /// Returns `Some((root, proof))` on success, `None` if too many leafs were added.
+    /// Returns `Some((root, proof))` on success, `None` if too many leaves were added.
     #[inline]
     #[cfg(feature = "alloc")]
     pub fn add_leaf_and_compute_proof(
@@ -340,7 +393,7 @@ where
 
     /// Add leaf to Merkle Mountain Range and generate inclusion proof.
     ///
-    /// Returns `Some((root, proof))` on success, `None` if too many leafs were added.
+    /// Returns `Some((root, proof))` on success, `None` if too many leaves were added.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn add_leaf_and_compute_proof_in<'proof>(

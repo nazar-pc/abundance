@@ -26,8 +26,11 @@ use yoke::Yokeable;
 /// Generic block body
 pub trait GenericBlockBody<'a>
 where
-    Self: Copy + fmt::Debug,
+    Self: Copy + Into<BlockBody<'a>> + fmt::Debug,
 {
+    /// Shard kind
+    const SHARD_KIND: ShardKind;
+
     /// Owned block body
     #[cfg(feature = "alloc")]
     type Owned: GenericOwnedBlockBody<Body<'a> = Self>
@@ -320,6 +323,8 @@ pub struct BeaconChainBody<'a> {
 }
 
 impl<'a> GenericBlockBody<'a> for BeaconChainBody<'a> {
+    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+
     #[cfg(feature = "alloc")]
     type Owned = OwnedBeaconChainBody;
 
@@ -716,6 +721,8 @@ pub struct IntermediateShardBody<'a> {
 }
 
 impl<'a> GenericBlockBody<'a> for IntermediateShardBody<'a> {
+    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+
     #[cfg(feature = "alloc")]
     type Owned = OwnedIntermediateShardBody;
 
@@ -974,6 +981,8 @@ pub struct LeafShardBody<'a> {
 }
 
 impl<'a> GenericBlockBody<'a> for LeafShardBody<'a> {
+    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+
     #[cfg(feature = "alloc")]
     type Owned = OwnedLeafShardBody;
 

@@ -16,7 +16,10 @@ const _: () = {
     assert!(u32::MAX == 4294967295);
 };
 
-/// Type alias for Merkle Mountain Range with block roots
+/// Type alias for Merkle Mountain Range with block roots.
+///
+/// NOTE: `u32` is smaller than `BlockNumber`'s internal `u64` but will be sufficient for a long
+/// time and substantially decrease the size of the data structure.
 pub type BlockMerkleMountainRange = MerkleMountainRange<4294967295>;
 
 // TODO: Probably move it elsewhere
@@ -25,7 +28,7 @@ pub type BlockMerkleMountainRange = MerkleMountainRange<4294967295>;
 pub enum BlockOrigin {
     /// Created locally
     Local,
-    /// Received during sync process
+    /// Received during the sync process
     Sync,
     /// Broadcast on the network during normal operation (not sync)
     Broadcast,
