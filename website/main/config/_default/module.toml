@@ -1,3 +1,9 @@
 [hugoVersion]
-  extended = false
-  min = "0.87.0"
+extended = false
+min = "0.87.0"
+
+[[mounts]]
+# Exclude explicit HTML files
+excludeFiles = '**/*.html'
+source = 'content'
+target = 'content'
