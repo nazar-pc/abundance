@@ -25,7 +25,7 @@ const _: () = {
     );
     assert!(
         align_of::<u128>() == MAX_ALIGNMENT as usize,
-        "Alignment of u128 is max alignment"
+        "Alignment of u128 is a max alignment"
     );
     assert!(size_of::<u128>() >= size_of::<AtomicU32>());
     assert!(align_of::<u128>() >= align_of::<AtomicU32>());
@@ -143,7 +143,7 @@ impl InnerBuffer {
             realloc(self.buffer.as_ptr().cast::<u8>(), layout, new_size).cast::<MaybeUninit<u128>>()
         };
         let Some(new_ptr) = NonNull::new(new_ptr) else {
-            panic!("Realloc from {} to {new_size} have failed", self.capacity());
+            panic!("Realloc from {} to {new_size} has failed", self.capacity());
         };
 
         self.buffer = new_ptr;
@@ -151,50 +151,56 @@ impl InnerBuffer {
     }
 
     #[inline(always)]
-    fn len(&self) -> u32 {
+    const fn len(&self) -> u32 {
         self.len
     }
 
     /// `len` bytes must be initialized
     #[inline(always)]
     unsafe fn set_len(&mut self, len: u32) {
+        debug_assert!(
+            len <= self.capacity(),
+            "Too many bytes {} > {}",
+            len,
+            self.capacity()
+        );
         self.len = len;
     }
 
     #[inline(always)]
-    fn capacity(&self) -> u32 {
+    const fn capacity(&self) -> u32 {
         self.capacity
     }
 
     #[inline(always)]
-    fn strong_count_ref(&self) -> &AtomicU32 {
+    const fn strong_count_ref(&self) -> &AtomicU32 {
         // SAFETY: The first bytes are allocated for `strong_count`, which is a correctly aligned
         // copy type initialized in the constructor
         unsafe { self.buffer.as_ptr().cast::<AtomicU32>().as_ref_unchecked() }
     }
 
     #[inline(always)]
-    fn as_slice(&self) -> &[u8] {
+    const fn as_slice(&self) -> &[u8] {
         let len = self.len() as usize;
         // SAFETY: Not null and length is a protected invariant of the implementation
         unsafe { slice::from_raw_parts(self.as_ptr(), len) }
     }
 
     #[inline(always)]
-    fn as_mut_slice(&mut self) -> &mut [u8] {
+    const fn as_mut_slice(&mut self) -> &mut [u8] {
         let len = self.len() as usize;
         // SAFETY: Not null and length is a protected invariant of the implementation
         unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), len) }
     }
 
     #[inline(always)]
-    fn as_ptr(&self) -> *const u8 {
+    const fn as_ptr(&self) -> *const u8 {
         // SAFETY: Constructor allocates the first element for `strong_count`
         unsafe { self.buffer.as_ptr().cast_const().add(1).cast::<u8>() }
     }
 
     #[inline(always)]
-    fn as_mut_ptr(&mut self) -> *mut u8 {
+    const fn as_mut_ptr(&mut self) -> *mut u8 {
         // SAFETY: Constructor allocates the first element for `strong_count`
         unsafe { self.buffer.as_ptr().add(1).cast::<u8>() }
     }
@@ -202,7 +208,7 @@ impl InnerBuffer {
 
 /// Owned aligned buffer for executor purposes.
 ///
-/// See [`SharedAlignedBuffer`] for a version that can be cheaply cloned, while reusing the original
+/// See [`SharedAlignedBuffer`] for a version that can be cheaply cloned while reusing the original
 /// allocation.
 ///
 /// Data is aligned to 16 bytes (128 bits), which is the largest alignment required by primitive
@@ -263,22 +269,22 @@ impl OwnedAlignedBuffer {
     }
 
     #[inline(always)]
-    pub fn as_slice(&self) -> &[u8] {
+    pub const fn as_slice(&self) -> &[u8] {
         self.inner.as_slice()
     }
 
     #[inline(always)]
-    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+    pub const fn as_mut_slice(&mut self) -> &mut [u8] {
         self.inner.as_mut_slice()
     }
 
     #[inline(always)]
-    pub fn as_ptr(&self) -> *const u8 {
+    pub const fn as_ptr(&self) -> *const u8 {
         self.inner.as_ptr()
     }
 
     #[inline(always)]
-    pub fn as_mut_ptr(&mut self) -> *mut u8 {
+    pub const fn as_mut_ptr(&mut self) -> *mut u8 {
         self.inner.as_mut_ptr()
     }
 
@@ -313,7 +319,7 @@ impl OwnedAlignedBuffer {
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
-        // and output, non-overlapping allocations guaranteed by type system
+        // and output, non-overlapping allocations guaranteed by the type system
         unsafe {
             self.as_mut_ptr()
                 .copy_from_nonoverlapping(bytes.as_ptr(), bytes.len());
@@ -342,7 +348,7 @@ impl OwnedAlignedBuffer {
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
-        // and output, non-overlapping allocations guaranteed by type system
+        // and output, non-overlapping allocations guaranteed by the type system
         unsafe {
             self.as_mut_ptr()
                 .add(self.len() as usize)
@@ -355,21 +361,21 @@ impl OwnedAlignedBuffer {
     }
 
     #[inline(always)]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.inner.len() == 0
     }
 
     #[inline(always)]
-    pub fn len(&self) -> u32 {
+    pub const fn len(&self) -> u32 {
         self.inner.len()
     }
 
     #[inline(always)]
-    pub fn capacity(&self) -> u32 {
+    pub const fn capacity(&self) -> u32 {
         self.inner.capacity()
     }
 
-    /// Set the length of the useful data to specified value.
+    /// Set the length of the useful data to a specified value.
     ///
     /// # Safety
     /// There must be `new_len` bytes initialized in the buffer.
@@ -378,12 +384,6 @@ impl OwnedAlignedBuffer {
     /// If `bytes.len()` doesn't fit into `u32`
     #[inline(always)]
     pub unsafe fn set_len(&mut self, new_len: u32) {
-        debug_assert!(
-            new_len <= self.capacity(),
-            "Too many bytes {} > {}",
-            new_len,
-            self.capacity()
-        );
         // SAFETY: Guaranteed by method contract
         unsafe {
             self.inner.set_len(new_len);
@@ -398,8 +398,8 @@ impl OwnedAlignedBuffer {
 /// Data is aligned to 16 bytes (128 bits), which is the largest alignment required by primitive
 /// types and by extension any type that implements `TrivialType`/`IoType`.
 ///
-/// NOTE: Counter for number of shared instances is `u32` and will wrap around if exceeded breaking
-/// internal invariants (which is extremely unlikely, but still).
+/// NOTE: Counter for the number of shared instances is `u32` and will wrap around if exceeded
+/// breaking internal invariants (which is extremely unlikely, but still).
 #[derive(Debug, Default, Clone)]
 pub struct SharedAlignedBuffer {
     inner: InnerBuffer,
@@ -424,7 +424,7 @@ unsafe impl CloneableCart for SharedAlignedBuffer {}
 impl SharedAlignedBuffer {
     /// Static reference to an empty buffer
     #[inline(always)]
-    pub fn empty_ref() -> &'static Self {
+    pub const fn empty_ref() -> &'static Self {
         &EMPTY_SHARED_ALIGNED_BUFFER
     }
 
@@ -439,7 +439,7 @@ impl SharedAlignedBuffer {
 
     /// Convert into owned buffer.
     ///
-    /// If this is the last shared instance, then allocation will be reused, otherwise new
+    /// If this is the last shared instance, then allocation will be reused, otherwise a new
     /// allocation will be created.
     ///
     /// Returns `None` if there exit other shared instances.
@@ -453,22 +453,22 @@ impl SharedAlignedBuffer {
     }
 
     #[inline(always)]
-    pub fn as_slice(&self) -> &[u8] {
+    pub const fn as_slice(&self) -> &[u8] {
         self.inner.as_slice()
     }
 
     #[inline(always)]
-    pub fn as_ptr(&self) -> *const u8 {
+    pub const fn as_ptr(&self) -> *const u8 {
         self.inner.as_ptr()
     }
 
     #[inline(always)]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.inner.len() == 0
     }
 
     #[inline(always)]
-    pub fn len(&self) -> u32 {
+    pub const fn len(&self) -> u32 {
         self.inner.len()
     }
 }
