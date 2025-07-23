@@ -190,6 +190,7 @@ jobs:
 
       - name: Install Vulkan runtime and enable shader testing
         run: |
+          sudo apt-get update
           sudo apt-get install --no-install-recommends --yes mesa-vulkan-drivers
           echo "EXTRA_OPTIONS=--features=__force-gpu-tests" >> $GITHUB_ENV
         if: matrix.miri == false && matrix.os == 'ubuntu-24.04' && matrix.type == 'together'
