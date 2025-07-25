@@ -5,6 +5,7 @@ extern crate alloc;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_core_primitives::address::Address;
 use alloc::boxed::Box;
+use replace_with::replace_with_or_abort;
 use smallvec::SmallVec;
 use tracing::debug;
 
@@ -294,9 +295,9 @@ impl<'a> Drop for NestedSlots<'a> {
                 .expect("Accessed slot exists; qed")
                 .1;
 
-            take_mut::take(slot, |slot| match slot {
+            replace_with_or_abort(slot, |slot| match slot {
                 SlotState::Original(_buffer) => {
-                    unreachable!("Slot can't be in Original state after being accessed")
+                    unreachable!("Slot can't be in `Original` state after being accessed; qed")
                 }
                 SlotState::OriginalReadOnly(buffer) => SlotState::Original(buffer),
                 SlotState::Modified(buffer) => SlotState::Modified(buffer),
@@ -819,9 +820,9 @@ impl<'a> NestedSlots<'a> {
                 .get_mut(usize::from(slot_access.slot_index))
                 .expect("Accessed slot exists; qed")
                 .1;
-            take_mut::take(slot, |slot| match slot {
+            replace_with_or_abort(slot, |slot| match slot {
                 SlotState::Original(_buffer) => {
-                    unreachable!("Slot can't be in Original state after being accessed")
+                    unreachable!("Slot can't be in `Original` state after being accessed; qed")
                 }
                 SlotState::OriginalReadOnly(buffer) => SlotState::Original(buffer),
                 SlotState::Modified(buffer) => SlotState::Modified(buffer),

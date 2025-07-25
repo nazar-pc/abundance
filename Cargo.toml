@@ -84,6 +84,7 @@ rayon = "1.10.0"
 rclite = "0.2.7"
 # TODO: Switch to upstream 3.1.1+ when released to include https://github.com/AndersTrier/reed-solomon-simd/pull/63
 reed-solomon-simd = { version = "3.1.0", git = "https://github.com/AndersTrier/reed-solomon-simd", rev = "b745c5076109149e5c624d88c995c98ccc11f6bd", default-features = false }
+replace_with = { version = "0.1.8", default-features = false, features = ["nightly"] }
 scale-info = { version = "2.11.6", default-features = false }
 schnellru = "0.2.4"
 schnorrkel = { version = "0.11.4", default-features = false }
@@ -97,7 +98,6 @@ spin = "0.10.0"
 spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "3e89e6cc7b32b51db51d75b5f558ccd7ecf5b850" }
 stable_deref_trait = { version = "1.2.0", default-features = false }
 syn = "2.0.104"
-take_mut = "0.2.2"
 tempfile = "3.20.0"
 thiserror = { version = "2.0.12", default-features = false }
 tokio = { version = "1.46.1", default-features = false }

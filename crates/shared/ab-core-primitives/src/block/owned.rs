@@ -1,14 +1,14 @@
 //! Data structures related to the owned version of [`Block`]
 
 use crate::block::body::owned::{
-    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError,
+    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedBlockBody,
     OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBlockBodyBuilder,
     OwnedLeafShardBody, OwnedLeafShardBodyError, WritableBodyTransaction,
 };
 use crate::block::body::{BlockBody, IntermediateShardBlockInfo, LeafShardBlockInfo};
 use crate::block::header::owned::{
     GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
-    OwnedBeaconChainHeaderUnsealed, OwnedIntermediateShardHeader,
+    OwnedBeaconChainHeaderUnsealed, OwnedBlockHeader, OwnedIntermediateShardHeader,
     OwnedIntermediateShardHeaderError, OwnedIntermediateShardHeaderUnsealed, OwnedLeafShardHeader,
     OwnedLeafShardHeaderUnsealed,
 };
@@ -40,6 +40,9 @@ pub trait GenericOwnedBlock: Clone + fmt::Debug + Send + Sync + Into<OwnedBlock>
     type Block<'a>: GenericBlock<'a>
     where
         Self: 'a;
+
+    /// Split into header and body
+    fn split(self) -> (Self::Header, Self::Body);
 
     /// Block header
     fn header(&self) -> &Self::Header;
@@ -76,6 +79,11 @@ impl GenericOwnedBlock for OwnedBeaconChainBlock {
     type Header = OwnedBeaconChainHeader;
     type Body = OwnedBeaconChainBody;
     type Block<'a> = BeaconChainBlock<'a>;
+
+    #[inline(always)]
+    fn split(self) -> (Self::Header, Self::Body) {
+        (self.header, self.body)
+    }
 
     #[inline(always)]
     fn header(&self) -> &Self::Header {
@@ -237,6 +245,11 @@ impl GenericOwnedBlock for OwnedIntermediateShardBlock {
     type Block<'a> = IntermediateShardBlock<'a>;
 
     #[inline(always)]
+    fn split(self) -> (Self::Header, Self::Body) {
+        (self.header, self.body)
+    }
+
+    #[inline(always)]
     fn header(&self) -> &Self::Header {
         &self.header
     }
@@ -380,6 +393,11 @@ impl GenericOwnedBlock for OwnedLeafShardBlock {
     type Block<'a> = LeafShardBlock<'a>;
 
     #[inline(always)]
+    fn split(self) -> (Self::Header, Self::Body) {
+        (self.header, self.body)
+    }
+
+    #[inline(always)]
     fn header(&self) -> &Self::Header {
         &self.header
     }
@@ -519,6 +537,25 @@ pub enum OwnedBlock {
 }
 
 impl OwnedBlock {
+    /// Split into header and body
+    #[inline]
+    pub fn split(self) -> (OwnedBlockHeader, OwnedBlockBody) {
+        match self {
+            Self::BeaconChain(block) => {
+                let (header, body) = block.split();
+                (header.into(), body.into())
+            }
+            Self::IntermediateShard(block) => {
+                let (header, body) = block.split();
+                (header.into(), body.into())
+            }
+            Self::LeafShard(block) => {
+                let (header, body) = block.split();
+                (header.into(), body.into())
+            }
+        }
+    }
+
     /// Block header
     #[inline(always)]
     pub fn header(&self) -> BlockHeader<'_> {

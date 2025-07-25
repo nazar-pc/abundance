@@ -16,8 +16,8 @@ all-features = true
 [dependencies]
 ab-aligned-buffer = { workspace = true }
 ab-core-primitives = { workspace = true }
+replace_with = { workspace = true }
 smallvec = { workspace = true }
-take_mut = { workspace = true }
 tracing = { workspace = true }
 
 [lints]
