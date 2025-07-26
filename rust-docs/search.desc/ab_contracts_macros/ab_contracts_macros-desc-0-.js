@@ -1,0 +1,1 @@
+searchState.loadedDescShard("ab_contracts_macros", 0, "Macros for contracts\n<code>#[contract]</code> macro to derive contract implementation.")
