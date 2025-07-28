@@ -3,18 +3,29 @@
 #![no_std]
 #![feature(array_chunks)]
 
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+#[cfg(not(target_arch = "spirv"))]
 mod const_fn;
+#[cfg(not(target_arch = "spirv"))]
 mod platform;
 mod portable;
 mod single_block;
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+#[cfg(not(target_arch = "spirv"))]
 mod single_chunk;
 
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+#[cfg(not(target_arch = "spirv"))]
 pub use const_fn::{const_derive_key, const_hash, const_keyed_hash};
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+#[cfg(not(target_arch = "spirv"))]
 pub use platform::{le_bytes_from_words_32, words_from_le_bytes_32, words_from_le_bytes_64};
-pub use single_block::{
-    single_block_derive_key, single_block_hash, single_block_hash_portable_words,
-    single_block_keyed_hash,
-};
+pub use single_block::single_block_hash_portable_words;
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+#[cfg(not(target_arch = "spirv"))]
+pub use single_block::{single_block_derive_key, single_block_hash, single_block_keyed_hash};
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
+#[cfg(not(target_arch = "spirv"))]
 pub use single_chunk::{single_chunk_derive_key, single_chunk_hash, single_chunk_keyed_hash};
 
 /// The number of bytes in a hash
@@ -28,6 +39,7 @@ pub const BLOCK_LEN: usize = 64;
 ///
 /// You don't usually need to think about this number, but it often comes up in benchmarks, because
 /// the maximum degree of parallelism used by the implementation equals the number of chunks.
+#[cfg(not(target_arch = "spirv"))]
 const CHUNK_LEN: usize = 1024;
 
 // While iterating the compression function within a chunk, the CV is
@@ -36,8 +48,10 @@ const CHUNK_LEN: usize = 1024;
 // needs to hash both input bytes and parent nodes, so its better for its
 // output CVs to be represented as bytes.
 type CVWords = [u32; 8];
+#[cfg(not(target_arch = "spirv"))]
 type CVBytes = [u8; 32]; // little-endian
 
+#[cfg(not(target_arch = "spirv"))]
 type BlockBytes = [u8; BLOCK_LEN];
 type BlockWords = [u32; 16];
 
@@ -61,8 +75,12 @@ const MSG_SCHEDULE: [[usize; 16]; 7] = [
 // high and go down.
 const CHUNK_START: u8 = 1 << 0;
 const CHUNK_END: u8 = 1 << 1;
+#[cfg(not(target_arch = "spirv"))]
 const PARENT: u8 = 1 << 2;
 const ROOT: u8 = 1 << 3;
+#[cfg(not(target_arch = "spirv"))]
 const KEYED_HASH: u8 = 1 << 4;
+#[cfg(not(target_arch = "spirv"))]
 const DERIVE_KEY_CONTEXT: u8 = 1 << 5;
+#[cfg(not(target_arch = "spirv"))]
 const DERIVE_KEY_MATERIAL: u8 = 1 << 6;

@@ -5,7 +5,7 @@ use ab_core_primitives::pos::PosProof;
 
 // TODO: Reuse code from `ab-proof-of-space`, right now this is copy-pasted from there
 /// `partial_y_offset` is in bits within `partial_y`
-pub(super) fn compute_f1<const K: u8>(x: u32, seed: &[u8; 32]) -> u32 {
+pub(super) fn correct_compute_f1<const K: u8>(x: u32, seed: &[u8; 32]) -> u32 {
     let skip_bits = u32::from(K) * x;
     let skip_u32s = skip_bits / u32::BITS;
     let partial_y_offset = skip_bits % u32::BITS;
@@ -60,7 +60,7 @@ fn compute_f1_cpu() {
 
     for x in 0..num_x {
         assert_eq!(
-            compute_f1::<{ PosProof::K }>(x, &seed),
+            correct_compute_f1::<{ PosProof::K }>(x, &seed),
             compute_f1_impl(x, chacha8_keystream.as_flattened()),
             "X={x}"
         );

@@ -1,4 +1,4 @@
-use crate::shader::compute_f1::cpu_tests;
+use crate::shader::compute_f1::cpu_tests::correct_compute_f1;
 use crate::shader::{SHADER_U32, SHADER_U64};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use ab_core_primitives::pos::PosProof;
@@ -40,12 +40,12 @@ fn compute_f1_gpu() {
     let expected_output = (0..num_x)
         .map(|x| UVec2 {
             x,
-            y: cpu_tests::compute_f1::<{ PosProof::K }>(x, &seed),
+            y: correct_compute_f1::<{ PosProof::K }>(x, &seed),
         })
         .collect::<Vec<_>>();
 
     assert_eq!(actual_output.len(), expected_output.len());
-    for (x, (actual, expected)) in actual_output.into_iter().zip(expected_output).enumerate() {
+    for (x, (expected, actual)) in expected_output.into_iter().zip(actual_output).enumerate() {
         assert_eq!(expected, actual, "X={x}");
     }
 }
@@ -145,7 +145,7 @@ async fn compute_f1_adapter(
         entry_point: Some("compute_f1"),
     });
 
-    let initial_state = device.create_buffer_init(&BufferInitDescriptor {
+    let initial_state_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
         contents: unsafe {
             slice::from_raw_parts(
@@ -165,7 +165,7 @@ async fn compute_f1_adapter(
 
     let xys_gpu = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: (size_of::<UVec2>() * num_x as usize) as BufferAddress,
+        size: xys_host.size(),
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
@@ -176,7 +176,7 @@ async fn compute_f1_adapter(
         entries: &[
             BindGroupEntry {
                 binding: 0,
-                resource: initial_state.as_entire_binding(),
+                resource: initial_state_gpu.as_entire_binding(),
             },
             BindGroupEntry {
                 binding: 1,
@@ -198,16 +198,21 @@ async fn compute_f1_adapter(
 
     queue.submit([encoder.finish()]);
 
-    let keystream_host_slice = xys_host.slice(..);
-    keystream_host_slice.map_async(MapMode::Read, |r| r.unwrap());
+    xys_host.map_async(MapMode::Read, .., |r| r.unwrap());
     device.poll(PollType::Wait).unwrap();
 
-    let keystream = keystream_host_slice
-        .get_mapped_range()
-        .array_chunks::<{ size_of::<UVec2>() }>()
-        .map(|xy| unsafe { xy.as_ptr().cast::<UVec2>().read_unaligned() })
-        .collect();
+    let xys = {
+        // Statically ensure it is aligned correctly
+        const _: () = {
+            assert!(align_of::<UVec2>() <= wgpu::MAP_ALIGNMENT as usize);
+        };
+        let xys_host_ptr = xys_host.get_mapped_range(..).as_ptr().cast::<UVec2>();
+        // Assert just in case
+        assert!(xys_host_ptr.is_aligned());
+
+        unsafe { slice::from_raw_parts(xys_host_ptr, num_x as usize) }.to_vec()
+    };
     xys_host.unmap();
 
-    Some(keystream)
+    Some(xys)
 }

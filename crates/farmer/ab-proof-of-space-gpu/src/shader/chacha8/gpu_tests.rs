@@ -135,7 +135,7 @@ async fn chacha8_keystream_10_blocks_adapter(
     });
 
     let initial_state = ChaCha8State::init(seed, &[0; _]);
-    let initial_state = device.create_buffer_init(&BufferInitDescriptor {
+    let initial_state_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
         contents: &block_to_bytes(&initial_state.to_repr()),
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
@@ -150,7 +150,7 @@ async fn chacha8_keystream_10_blocks_adapter(
 
     let keystream_gpu = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: (size_of::<ChaCha8Block>() * num_blocks) as BufferAddress,
+        size: keystream_host.size(),
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
@@ -161,7 +161,7 @@ async fn chacha8_keystream_10_blocks_adapter(
         entries: &[
             BindGroupEntry {
                 binding: 0,
-                resource: initial_state.as_entire_binding(),
+                resource: initial_state_gpu.as_entire_binding(),
             },
             BindGroupEntry {
                 binding: 1,
@@ -183,12 +183,11 @@ async fn chacha8_keystream_10_blocks_adapter(
 
     queue.submit([encoder.finish()]);
 
-    let keystream_host_slice = keystream_host.slice(..);
-    keystream_host_slice.map_async(MapMode::Read, |r| r.unwrap());
+    keystream_host.map_async(MapMode::Read, .., |r| r.unwrap());
     device.poll(PollType::Wait).unwrap();
 
-    let keystream = keystream_host_slice
-        .get_mapped_range()
+    let keystream = keystream_host
+        .get_mapped_range(..)
         .array_chunks()
         .map(bytes_to_block)
         .collect();

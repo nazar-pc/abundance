@@ -438,9 +438,11 @@ dependencies = [
 name = "ab-proof-of-space-gpu"
 version = "0.1.0"
 dependencies = [
+ "ab-blake3",
  "ab-chacha8",
  "ab-core-primitives",
  "cargo-gpu",
+ "chacha20",
  "futures",
  "spirv-std",
  "wgpu",

@@ -129,8 +129,8 @@ where
             .binary_search_by(|&y| y.first_k_bits::<K>().cmp(&first_k_challenge_bits))
             .unwrap_or_else(|insert| insert);
 
-        // We only compare first K bits above, which is why `binary_search_by` is not guaranteed to
-        // find the very first match in case there are multiple
+        // We only compare the first K bits above, which is why `binary_search_by` is not guaranteed
+        // to find the very first match in case there are multiple
         for index in (0..first_matching_element).rev() {
             if ys[index].first_k_bits::<K>() == first_k_challenge_bits {
                 first_matching_element = index;
@@ -212,8 +212,8 @@ where
             .binary_search_by(|&y| y.first_k_bits::<K>().cmp(&first_k_challenge_bits))
             .unwrap_or_else(|insert| insert);
 
-        // We only compare first K bits above, which is why `binary_search_by` is not guaranteed to
-        // find the very first match in case there are multiple
+        // We only compare the first K bits above, which is why `binary_search_by` is not guaranteed
+        // to find the very first match in case there are multiple
         for index in (0..first_matching_element).rev() {
             if ys[index].first_k_bits::<K>() == first_k_challenge_bits {
                 first_matching_element = index;
@@ -276,8 +276,8 @@ where
                             [..(x_offset_in_bits % u8::BITS as usize + usize::from(K))
                                 .div_ceil(u8::BITS as usize)];
 
-                        // Bits of `x` already shifted to correct location as they will appear in
-                        // `proof`
+                        // Bits of `x` already shifted to the correct location as they will appear
+                        // in `proof`
                         let x_shifted = u32::from(x)
                             << (u32::BITS as usize
                                 - (usize::from(K) + x_offset_in_bits % u8::BITS as usize));
