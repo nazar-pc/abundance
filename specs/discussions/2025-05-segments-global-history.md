@@ -63,7 +63,7 @@ pub struct LeafShardBlockInfo<'a> {
     /// Segment roots proof if there are segment roots in the corresponding block
     pub segment_roots_proof: Option<&'a [u8; 32]>,
     /// Segment roots produced by this shard
-    pub own_segment_info: &'a [(SegmentRoot, SegmentIndex)],
+    pub own_segment_info: &'a [(ShardId, SegmentRoot, SegmentIndex)],
     /// Segment info produced by child shard
     pub child_segment_info: &'a [(ShardId, SegmentRoot, SegmentIndex)],
 
@@ -81,7 +81,7 @@ pub struct LeafShardBlockInfo<'a> {
 ```rust
 pub struct IntermediateShardBlockBody {
     /// Segment info produced by this shard
-    pub own_segment_info: [(SegmentRoot, SegmentIndex)],
+    pub own_segment_info: [(ShardId, SegmentRoot, SegmentIndex)],
     /// Leaf shard blocks
     pub leaf_shard_blocks: [LeafShardBlocksInfo],
     /// User transactions
@@ -117,9 +117,6 @@ pub struct BeaconChainBlockBody {
    - The probability of re-org is inferred from the probability of a block being orphaned due to
      network latency which is approximately `2 * time_first_block_propagation / avg_block_time`,
      being `2*time_first_propagation` the vulnerable window of time where orphan blocks can happen.
-     These values can be set as constants in the implementation according to some protocol
-     heuristics or be dynamically computed in every farmer according to their view of the chain
-     health.
    - Thus, for each recent block, farmers can compute the probability of re-org according to their
      depth in the chain. For example, if the current heaviest chain is at height 100, the
      probability of re-org for the head of the chain is computed for depth 0, the previous block at
@@ -145,7 +142,7 @@ pub struct BeaconChainBlockBody {
     /// Segment roots proof if there are segment roots in the corresponding block
     pub segment_roots_proof: Option<&'a [u8; 32]>,
     /// Segment roots produced by this shard
-    pub own_segment_info: &'a [(SegmentRoot, SegmentIndex)],
+    pub own_segment_info: &'a [(ShardId, SegmentRoot, SegmentIndex)],
     /// Segment info produced by child shard
     pub child_segment_info: &'a [(ShardId, SegmentRoot, SegmentIndex)],
     /// Final child segments that can be considered final and included in the global history
@@ -169,31 +166,38 @@ pub struct BeaconChainBlockBody {
      the block of the intermediate shard where the `own_segment_info` has reached the
      `FINALITY_PROBABILITY_THRESHOLD`.
    - Finally, beacon chain segments can be included into the global history and into a super segment
-     as soon as they are created (as any re-org in the beacon chain will impact the ordering of the
-     global history in any case).
+     as soon as they are created.
 
-7. Once a new beacon chain block confirms the a set of segments from shards in the lower levels are
+7. Once a new beacon chain block confirms that a set of segments from shards in the lower levels are
    final, these segments and any beacon chain segments included in the block form a super segment. A
    Merkle root of these segments is included in the `super_segment_root` field of the
    `SuperSegmentHeader`.
-   - To compute the super segment root, segments are ordered starting from the `own_segments_root`
-     of the beacon chain, and then in increasing order according to their shard ID and the
-     underlying block height in which the segment confirmations were included (e.g.
-     `own_segment_info_1`, `own_segment_info_2`, `intermediate_shard_segment_shard1`,
-     `child_shard_segment_shard1`, `intermediate_shard_segment_shard2`, etc.).
-   - The super segment index is computed is determined by the number of segments aggregated in the
-     super segment, and the index of the super segment in the global history of the system. If the
-     previous super segment has `super_segment_index` 4 as it aggregates 4 super segments, if the
-     next super segments aggregates 5 segments, the `super_segment_index` of the next super segment
-     will be 4 + 5 = 9. In this way, the global history index for every segment of the shard is
-     assigned.
+
+- To compute the super segment root, segments are ordered starting from the `own_segments_root` of
+  the beacon chain, and then in increasing order according to their shard ID and the underlying
+  block height in which the segment confirmations were included (e.g. `own_segment_info_1`,
+  `own_segment_info_2`, `intermediate_shard_segment_shard1`, `child_shard_segment_shard1`,
+  `intermediate_shard_segment_shard2`, etc.).
+- Super segments have an increasing `super_segment_index` that is incremented by 1 for each new
+  super segment created. This index is used to identify the super segment in the beacon chain and to
+  link it to the previous super segment.
+- The `global_history_index` represents the position of this super segment in the global history
+  sequence. If the previous super segment had `global_history_index` 0 and aggregated 4 segments
+  (`num_segments` = 4), then the next super segment will have `global_history_index` = 4. Each
+  subsequent super segment's `global_history_index` equals the previous super segment's
+  `global_history_index` + `num_segments`. In this way, the global history index for every segment
+  can be uniquely determined and segments maintain their sequential ordering in the global history.
+  assigned.
 
 ```rust
 struct SuperSegmentHeader {
-	// Index of the super segment in the global history of the system
-	// (e.g. if the previous segment had super_segment_index 0, and num_segments 4,
-	// this super segment will have super_segment_index 4).
+	// Index of the super segment.
+  // Every new super segment increases in one this index.
 	super_segment_index: u64,
+	// Index of the super segment in the global history of the system
+	// (e.g. if the previous segment had global_history_index 0, and num_segments 4,
+	// this super segment will have global_history_index 4).
+  global_history_index: u64,
 	// Beacon height in which the super segment was created. This is useful to inspect the block
 	// for additional information about the transactions with segment creations
 	beacon_height: BlockNumber,
@@ -248,6 +252,41 @@ pub struct VerifiedSegmentHeader {
 }
 ```
 
+## Proposed Probabilistic Finality Threshold
+
+The probabilistic finality mechanism relies on a defined threshold to determine when a block, and
+the segments it contains, can be considered irreversible with high probability. This threshold is
+defined by the depth a block must be buried in its chain before being marked as final.
+
+The derivation is based on the reorg probability formula:
+
+```
+P_reorg​(depth)=(P_orphan​)^depth
+
+```
+
+where the probability of a single block being orphaned is:
+
+```
+P_orphan ​= (2 * time_first_block_propagation​)  / average_block_time
+```
+
+**Recommended Parameters**: Assuming a `time_first_block_propagation` of **0.5 seconds** and an
+`average_block_time` of **6 seconds**, the orphan probability is `P_orphan = 1/6`.
+
+To achieve a robust security guarantee against reorgs, a target reorg probability of **10-6** is
+proposed. To satisfy this, we solve for the required depth. The proposed finality depth is **8
+blocks**.
+
+- **Proposed `FINALITY_DEPTH`**: 8
+
+- **Finality Latency per Hierarchy Level**: `8 blocks * 6s/block` = **48 seconds**.
+
+This means a block in a leaf, intermediate, or beacon chain is considered final once it is buried
+under 8 new blocks. Due to the hierarchical structure, the total time for a leaf shard segment to be
+fully finalized in a super segment is cumulative, summing the finality latencies at each level
+(leaf, intermediate, and beacon).
+
 ## Handling chain re-orgs.
 
 > Note: This is a high-level overview of how re-orgs are handled and why they shouldn't impact
@@ -300,13 +339,34 @@ pub struct VerifiedSegmentHeader {
 
 ## Verifying that the segment roots available are valid and available
 
-> TODO: This section is a work in progress. The high-level idea that we are considering for the
-> verification of segments (and their availability) is the following:
->
-> - The population of farmers will be periodically assigned to different shards in the system to
->   prevent them from being able to pull attack in the shards they are assigned to through collusion
->   or power dilution.
-> - We will leverage the fact that farmers will have to sync to the new shards they are assigned to
->   in every reallocation event to ensure that they verify the most recent segments (and blocks)
->   that haven't been included to the global history and archived. Archived segments will be
->   verified through plotting.
+The protocol ensures the validity and availability of segments and blocks submitted by shards
+without relying on traditional fraud proofs. Instead, it leverages the periodic reshuffling of
+farmers between shards, a mechanism sometimes referred to as _state-sync-based fraud detection_.
+
+The core idea is that when farmers are reassigned to a new shard, they must sync its most recent
+history to begin participating. This synchronization process serves as a distributed verification
+mechanism.
+
+- **Fraud Detection**: If a malicious farmer in a shard creates an invalid block or segment (e.g.,
+  with an invalid state transition or incorrect encoding), it will eventually be detected. When an
+  honest farmer is assigned to that shard during a reshuffle, they will download and verify the
+  shard's history. Upon encountering the invalid data, they will refuse to build on the fraudulent
+  chain. If a sufficient number of honest farmers are assigned, they will collectively start a fork
+  from the last valid block, causing a re-org that prunes the fraudulent history. Parent shards and
+  the beacon chain will observe this re-org and update their view of the child shard's canonical
+  chain.
+
+- **Data Availability**: This mechanism inherently handles data availability. If a malicious block
+  producer makes a block header available but withholds the corresponding segment data, a newly
+  assigned honest farmer will be unable to complete their sync. This failure to sync prevents them
+  from building on or validating the chain past that point. The chain with unavailable data will
+  stall, while honest participants will build on the last known valid and available state.
+
+To ensure this mechanism is secure, parent chains must wait for a certain number of reshuffling
+intervals before considering data from a child shard probabilistically final. This delay provides
+sufficient time for newly assigned honest farmers to detect and expose any potential fraud. The
+number of required intervals can be modeled based on the system's security parameters.
+
+Additional context and details on the model and specific operation of farmer reshuffling can be
+found in this
+[update](https://abundance.build/blog/2025-06-23-reshuffling-interval-and-living-without-fraud-proofs/)
