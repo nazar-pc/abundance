@@ -24,7 +24,10 @@ pub use platform::{le_bytes_from_words_32, words_from_le_bytes_32, words_from_le
 pub use single_block::single_block_hash_portable_words;
 // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
-pub use single_block::{single_block_derive_key, single_block_hash, single_block_keyed_hash};
+pub use single_block::{
+    single_block_derive_key, single_block_hash, single_block_hash_many_exact,
+    single_block_keyed_hash, single_block_keyed_hash_many_exact,
+};
 // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 pub use single_chunk::{single_chunk_derive_key, single_chunk_hash, single_chunk_keyed_hash};
