@@ -1,13 +1,15 @@
 //! BLAKE3 functions that process at most a single block.
 //!
 //! This module and submodules are copied with modifications from the official [`blake3`] crate, but
-//! is unlikely to be upstreamed.
+//! are unlikely to be upstreamed.
 
 #[cfg(test)]
 mod tests;
 
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 use crate::platform::{le_bytes_from_words_32, words_from_le_bytes_32};
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 use crate::{BLOCK_LEN, DERIVE_KEY_CONTEXT, DERIVE_KEY_MATERIAL, KEY_LEN, KEYED_HASH, OUT_LEN};
 use crate::{BlockWords, CHUNK_END, CHUNK_START, CVWords, IV, ROOT, portable};
@@ -15,7 +17,7 @@ use crate::{BlockWords, CHUNK_END, CHUNK_START, CVWords, IV, ROOT, portable};
 #[cfg(not(target_arch = "spirv"))]
 use blake3::platform::Platform;
 
-// Hash a single block worth of values
+/// Hash single block worth of values
 // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 #[inline(always)]
@@ -40,9 +42,9 @@ fn hash_block(input: &[u8], key: CVWords, flags: u8) -> Option<[u8; OUT_LEN]> {
     Some(*le_bytes_from_words_32(&cv))
 }
 
-/// Hashing function for at most a single block worth of bytes.
+/// Hashing function for at most single block worth of bytes.
 ///
-/// Returns `None` if input length exceeds one block.
+/// Returns `None` if the input length exceeds one block.
 // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 #[inline]
@@ -51,9 +53,9 @@ pub fn single_block_hash(input: &[u8]) -> Option<[u8; OUT_LEN]> {
     hash_block(input, *IV, 0)
 }
 
-/// The keyed hash function for at most a single block worth of bytes.
+/// The keyed hash function for at most single block worth of bytes.
 ///
-/// Returns `None` if input length exceeds one block.
+/// Returns `None` if the input length exceeds one block.
 // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 #[inline]
@@ -76,15 +78,15 @@ pub fn single_block_derive_key(context: &str, key_material: &[u8]) -> Option<[u8
     hash_block(key_material, context_key_words, DERIVE_KEY_MATERIAL)
 }
 
-/// Hashing function for at most a single block worth of words using portable implementation.
+/// Hashing function for at most single block worth of words using portable implementation.
 ///
 /// This API operates on words and is GPU-friendly.
 ///
 /// `num_bytes` specifies how many actual bytes are occupied by useful value in `input`. Bytes
 /// outside that must be set to `0`.
 ///
-/// NOTE: If unused bytes are not set to `0` or invalid number of bytes is specified, it'll simply
-/// result in invalid hash.
+/// NOTE: If unused bytes are not set to `0` or an invalid number of bytes is specified, it'll
+/// simply result in an invalid hash.
 ///
 /// [`words_from_le_bytes_32()`], [`words_from_le_bytes_64()`] and [`le_bytes_from_words_32()`] can
 /// be used to convert bytes to words and back if necessary.

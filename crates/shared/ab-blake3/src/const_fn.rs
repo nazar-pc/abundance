@@ -1,8 +1,8 @@
 //! `const fn` BLAKE3 functions.
 //!
 //! This module and submodules are copied with modifications from the official [`blake3`] crate and
-//! is expected to be removed once <https://github.com/BLAKE3-team/BLAKE3/pull/439> or similar lands
-//! upstream.
+//! are expected to be removed once <https://github.com/BLAKE3-team/BLAKE3/pull/439> or similar
+//! lands upstream.
 
 mod hazmat;
 #[cfg(test)]
@@ -12,11 +12,11 @@ use crate::platform::{
     MAX_SIMD_DEGREE, MAX_SIMD_DEGREE_OR_2, le_bytes_from_words_32, words_from_le_bytes_32,
     words_from_le_bytes_64,
 };
-use crate::portable::IncrementCounter;
 use crate::{
     BLOCK_LEN, BlockBytes, CHUNK_END, CHUNK_LEN, CHUNK_START, CVBytes, CVWords, DERIVE_KEY_CONTEXT,
     DERIVE_KEY_MATERIAL, IV, KEY_LEN, KEYED_HASH, OUT_LEN, PARENT, ROOT, portable,
 };
+use blake3::IncrementCounter;
 use core::mem::MaybeUninit;
 use core::slice;
 
@@ -109,7 +109,7 @@ impl ConstChunkState {
         }
     }
 
-    // Try to avoid buffering as much as possible, by compressing directly from
+    // Try to avoid buffering as much as possible by compressing directly from
     // the input slice when full blocks are available.
     const fn update(&mut self, mut input: &[u8]) -> &mut Self {
         if self.buf_len > 0 {
@@ -402,7 +402,7 @@ const fn const_hash_all_at_once(input: &[u8], key: &CVWords, flags: u8) -> Const
         return ConstChunkState::new(key, 0, flags).update(input).output();
     }
 
-    // Otherwise construct an Output object from the parent node returned by
+    // Otherwise construct a `ConstOutput` object from the parent node returned by
     // compress_subtree_to_parent_node().
     ConstOutput {
         input_chaining_value: *key,

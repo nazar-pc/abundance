@@ -1,27 +1,13 @@
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 use crate::platform::{le_bytes_from_words_32, words_from_le_bytes_64};
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 use crate::{BLOCK_LEN, BlockBytes, CVBytes, OUT_LEN};
 use crate::{BlockWords, CVWords, IV, MSG_SCHEDULE};
-
-/// Undocumented and unstable, for benchmarks only.
-#[derive(Clone, Copy)]
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
-pub(crate) enum IncrementCounter {
-    Yes,
-    No,
-}
-
-#[cfg(not(target_arch = "spirv"))]
-impl IncrementCounter {
-    #[inline]
-    pub(crate) const fn yes(&self) -> bool {
-        match self {
-            IncrementCounter::Yes => true,
-            IncrementCounter::No => false,
-        }
-    }
-}
+use blake3::IncrementCounter;
 
 #[inline(always)]
 const fn g(state: &mut BlockWords, a: usize, b: usize, c: usize, d: usize, x: u32, y: u32) {
@@ -53,18 +39,21 @@ const fn round(state: &mut BlockWords, msg: &BlockWords, round: usize) {
     g(state, 3, 4, 9, 14, msg[schedule[14]], msg[schedule[15]]);
 }
 
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 #[inline]
 const fn counter_low(counter: u64) -> u32 {
     counter as u32
 }
 
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 #[inline]
 const fn counter_high(counter: u64) -> u32 {
     (counter >> 32) as u32
 }
 
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 #[inline(always)]
 const fn compress_pre(
@@ -104,6 +93,7 @@ const fn compress_pre(
     state
 }
 
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 pub(crate) const fn compress_in_place(
     cv: &mut CVWords,
@@ -186,6 +176,7 @@ pub(crate) const fn compress_in_place_u32(
     cv[7] = state[7] ^ state[15];
 }
 
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 const fn hash1<const N: usize>(
     input: &[u8; N],
@@ -225,6 +216,7 @@ const fn hash1<const N: usize>(
     *out = *le_bytes_from_words_32(&cv);
 }
 
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 #[expect(clippy::too_many_arguments, reason = "Internal")]
 pub(crate) const fn hash_many<const N: usize>(
@@ -250,7 +242,7 @@ pub(crate) const fn hash_many<const N: usize>(
         };
 
         hash1(input, key, counter, flags, flags_start, flags_end, o);
-        if increment_counter.yes() {
+        if matches!(increment_counter, IncrementCounter::Yes) {
             counter += 1;
         }
     }

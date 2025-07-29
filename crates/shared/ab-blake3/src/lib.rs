@@ -6,6 +6,7 @@
 // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 mod const_fn;
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 mod platform;
 mod portable;
@@ -39,6 +40,7 @@ pub const BLOCK_LEN: usize = 64;
 ///
 /// You don't usually need to think about this number, but it often comes up in benchmarks, because
 /// the maximum degree of parallelism used by the implementation equals the number of chunks.
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 const CHUNK_LEN: usize = 1024;
 
@@ -48,9 +50,11 @@ const CHUNK_LEN: usize = 1024;
 // needs to hash both input bytes and parent nodes, so its better for its
 // output CVs to be represented as bytes.
 type CVWords = [u32; 8];
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 type CVBytes = [u8; 32]; // little-endian
 
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 type BlockBytes = [u8; BLOCK_LEN];
 type BlockWords = [u32; 16];
@@ -75,12 +79,16 @@ const MSG_SCHEDULE: [[usize; 16]; 7] = [
 // high and go down.
 const CHUNK_START: u8 = 1 << 0;
 const CHUNK_END: u8 = 1 << 1;
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 const PARENT: u8 = 1 << 2;
 const ROOT: u8 = 1 << 3;
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 const KEYED_HASH: u8 = 1 << 4;
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 const DERIVE_KEY_CONTEXT: u8 = 1 << 5;
+// TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
 const DERIVE_KEY_MATERIAL: u8 = 1 << 6;
