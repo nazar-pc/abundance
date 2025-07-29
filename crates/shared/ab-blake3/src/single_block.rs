@@ -66,6 +66,8 @@ fn hash_block_many_exact<const NUM_BLOCKS: usize>(
 
     // TODO: Can bigger chunk size be better here?
     for (inputs, outputs) in input_chunks.by_ref().zip(output_chunks.by_ref()) {
+        // TODO: This is a very awkward API, ideally we wouldn't have this array allocated inline
+        //  for no good reason
         platform.hash_many(
             &[
                 &inputs[0],
@@ -95,7 +97,6 @@ fn hash_block_many_exact<const NUM_BLOCKS: usize>(
         );
     }
 
-    // TODO: Add `NUM_BLOCKS % 16 != 0` check for better DCE?
     for (input, output) in input_chunks
         .remainder()
         .iter()
@@ -103,7 +104,7 @@ fn hash_block_many_exact<const NUM_BLOCKS: usize>(
     {
         let mut cv = key;
 
-        Platform::detect().compress_in_place(
+        platform.compress_in_place(
             &mut cv,
             input,
             BLOCK_LEN as u8,

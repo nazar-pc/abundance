@@ -1,4 +1,4 @@
-use crate::{hash_pair, hash_pair_block};
+use crate::{hash_pair, hash_pair_block, hash_pair_blocks};
 use ab_blake3::{BLOCK_LEN, OUT_LEN};
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
@@ -6,6 +6,8 @@ use core::iter::TrustedLen;
 use core::mem;
 use core::mem::MaybeUninit;
 use core::num::NonZero;
+
+const CHUNKS_SIZE: usize = 16;
 
 /// Ensuring only supported `N` can be specified for [`BalancedMerkleTree`].
 ///
@@ -128,10 +130,43 @@ where
             // levels of hashes
             (parent_hashes, tree_hashes) = unsafe { tree_hashes.split_at_mut_unchecked(num_pairs) };
 
-            for (pair, parent_hash) in level_hashes.array_chunks().zip(parent_hashes.iter_mut()) {
-                // SAFETY: Same size and alignment
-                let pair = unsafe { mem::transmute::<&[[u8; OUT_LEN]; 2], &[u8; BLOCK_LEN]>(pair) };
-                parent_hash.write(hash_pair_block(pair));
+            if parent_hashes.len().is_multiple_of(CHUNKS_SIZE) {
+                // SAFETY: Just checked to be a multiple of chunk size and not empty
+                let parent_hashes_chunks =
+                    unsafe { parent_hashes.as_chunks_unchecked_mut::<CHUNKS_SIZE>() };
+                for (pairs, hashes) in level_hashes.array_chunks().zip(parent_hashes_chunks) {
+                    // SAFETY: Same size and alignment
+                    let pairs = unsafe {
+                        mem::transmute::<
+                            &[[u8; OUT_LEN]; CHUNKS_SIZE * BLOCK_LEN / OUT_LEN],
+                            &[[u8; BLOCK_LEN]; CHUNKS_SIZE],
+                        >(pairs)
+                    };
+                    // TODO: Would be nice to have a convenient method for this:
+                    //  https://github.com/rust-lang/rust/issues/96097#issuecomment-3133515169
+                    // SAFETY: Identical layout
+                    let hashes = unsafe {
+                        mem::transmute::<
+                            &mut [MaybeUninit<[u8; OUT_LEN]>; CHUNKS_SIZE],
+                            &mut MaybeUninit<[[u8; OUT_LEN]; CHUNKS_SIZE]>,
+                        >(hashes)
+                    };
+
+                    // TODO: This memory copy is unfortunate, make hashing write into this memory
+                    //  directly once blake3 API improves
+                    hashes.write(hash_pair_blocks(pairs));
+                }
+            } else {
+                for (pair, parent_hash) in level_hashes.array_chunks().zip(parent_hashes.iter_mut())
+                {
+                    // SAFETY: Same size and alignment
+                    let pair = unsafe {
+                        mem::transmute::<&[[u8; OUT_LEN]; BLOCK_LEN / OUT_LEN], &[u8; BLOCK_LEN]>(
+                            pair,
+                        )
+                    };
+                    parent_hash.write(hash_pair_block(pair));
+                }
             }
 
             // SAFETY: Just initialized
