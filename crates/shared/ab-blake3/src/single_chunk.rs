@@ -54,9 +54,9 @@ fn hash_chunk(input: &[u8], key: CVWords, flags: u8) -> Option<[u8; OUT_LEN]> {
     Some(*le_bytes_from_words_32(&cv))
 }
 
-/// Hashing function for at most a single chunk worth of bytes.
+/// Hashing function for at most single chunk worth of bytes.
 ///
-/// Returns `None` if input length exceeds one chunk.
+/// Returns `None` if the input length exceeds one chunk.
 #[inline]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn single_chunk_hash(input: &[u8]) -> Option<[u8; OUT_LEN]> {
@@ -65,7 +65,7 @@ pub fn single_chunk_hash(input: &[u8]) -> Option<[u8; OUT_LEN]> {
 
 /// The keyed hash function for at most a single chunk worth of bytes.
 ///
-/// Returns `None` if input length exceeds one chunk.
+/// Returns `None` if the input length exceeds one chunk.
 #[inline]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn single_chunk_keyed_hash(key: &[u8; KEY_LEN], input: &[u8]) -> Option<[u8; OUT_LEN]> {

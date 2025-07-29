@@ -1,7 +1,8 @@
 use crate::platform::{le_bytes_from_words_32, words_from_le_bytes_64};
+use crate::single_block::single_block_hash_many_exact;
 use crate::{
-    BLOCK_LEN, CHUNK_LEN, CVBytes, single_block_derive_key, single_block_hash,
-    single_block_hash_portable_words, single_block_keyed_hash,
+    BLOCK_LEN, CHUNK_LEN, CVBytes, OUT_LEN, single_block_derive_key, single_block_hash,
+    single_block_hash_portable_words, single_block_keyed_hash, single_block_keyed_hash_many_exact,
 };
 use blake3::{derive_key, hash, keyed_hash};
 
@@ -13,7 +14,7 @@ const TEST_KEY: CVBytes = *b"whats the Elvish word for friend";
 
 #[test]
 fn test_compare_with_upstream() {
-    let mut input_buf = [0; CHUNK_LEN];
+    let mut input_buf = [0; CHUNK_LEN + BLOCK_LEN];
 
     // Paint the input with a repeating byte pattern. We use a cycle length of 251,
     // because that's the largest prime number less than 256. This makes it
@@ -60,5 +61,51 @@ fn test_compare_with_upstream() {
             single_block_derive_key(context, input).unwrap(),
             "{case}"
         );
+    }
+
+    test_compare_with_upstream_exact::<17>(&input_buf);
+    test_compare_with_upstream_exact::<16>(&input_buf);
+    test_compare_with_upstream_exact::<15>(&input_buf);
+    test_compare_with_upstream_exact::<9>(&input_buf);
+    test_compare_with_upstream_exact::<8>(&input_buf);
+    test_compare_with_upstream_exact::<7>(&input_buf);
+    test_compare_with_upstream_exact::<5>(&input_buf);
+    test_compare_with_upstream_exact::<4>(&input_buf);
+    test_compare_with_upstream_exact::<3>(&input_buf);
+    test_compare_with_upstream_exact::<2>(&input_buf);
+    test_compare_with_upstream_exact::<1>(&input_buf);
+}
+
+fn test_compare_with_upstream_exact<const NUM_BLOCKS: usize>(input_buf: &[u8]) {
+    assert!(input_buf.len() >= BLOCK_LEN * NUM_BLOCKS);
+    let inputs = unsafe { &*input_buf.as_ptr().cast::<[[u8; BLOCK_LEN]; NUM_BLOCKS]>() };
+
+    // Regular hash
+    {
+        let mut outputs = [[0u8; OUT_LEN]; NUM_BLOCKS];
+
+        single_block_hash_many_exact(inputs, &mut outputs);
+
+        for (index, (input, output)) in inputs.iter().zip(&outputs).enumerate() {
+            assert_eq!(
+                hash(input).as_bytes(),
+                output,
+                "NUM_BLOCKS={NUM_BLOCKS} index={index}"
+            );
+        }
+    }
+
+    // Keyed hash
+    {
+        let mut outputs = [[0u8; OUT_LEN]; NUM_BLOCKS];
+        single_block_keyed_hash_many_exact(&TEST_KEY, inputs, &mut outputs);
+
+        for (index, (input, output)) in inputs.iter().zip(&outputs).enumerate() {
+            assert_eq!(
+                keyed_hash(&TEST_KEY, input).as_bytes(),
+                output,
+                "NUM_BLOCKS={NUM_BLOCKS} index={index}"
+            );
+        }
     }
 }
