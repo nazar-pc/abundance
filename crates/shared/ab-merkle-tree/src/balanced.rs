@@ -1,8 +1,9 @@
-use crate::hash_pair;
-use ab_blake3::OUT_LEN;
+use crate::{hash_pair, hash_pair_block};
+use ab_blake3::{BLOCK_LEN, OUT_LEN};
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::iter::TrustedLen;
+use core::mem;
 use core::mem::MaybeUninit;
 use core::num::NonZero;
 
@@ -120,7 +121,6 @@ where
         let mut tree_hashes = tree.as_mut_slice();
         let mut level_hashes = leaves.as_slice();
 
-        let mut pair = [0u8; OUT_LEN * 2];
         while level_hashes.len() > 1 {
             let num_pairs = level_hashes.len() / 2;
             let parent_hashes;
@@ -128,13 +128,10 @@ where
             // levels of hashes
             (parent_hashes, tree_hashes) = unsafe { tree_hashes.split_at_mut_unchecked(num_pairs) };
 
-            for ([left_hash, right_hash], parent_hash) in
-                level_hashes.array_chunks().zip(parent_hashes.iter_mut())
-            {
-                pair[..OUT_LEN].copy_from_slice(left_hash);
-                pair[OUT_LEN..].copy_from_slice(right_hash);
-
-                parent_hash.write(hash_pair(left_hash, right_hash));
+            for (pair, parent_hash) in level_hashes.array_chunks().zip(parent_hashes.iter_mut()) {
+                // SAFETY: Same size and alignment
+                let pair = unsafe { mem::transmute::<&[[u8; OUT_LEN]; 2], &[u8; BLOCK_LEN]>(pair) };
+                parent_hash.write(hash_pair_block(pair));
             }
 
             // SAFETY: Just initialized
@@ -156,6 +153,7 @@ where
         // Stack of intermediate nodes per tree level
         let mut stack = [[0u8; OUT_LEN]; N.ilog2() as usize + 1];
 
+        // TODO: Process leaves in larger chunks for higher performance
         for (num_leaves, &hash) in leaves.iter().enumerate() {
             let mut current = hash;
 

@@ -33,7 +33,7 @@ pub mod unbalanced;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-use ab_blake3::{KEY_LEN, OUT_LEN};
+use ab_blake3::{BLOCK_LEN, KEY_LEN, OUT_LEN};
 
 /// Used as a key in keyed blake3 hash for inner nodes of Merkle Trees.
 ///
@@ -51,5 +51,13 @@ pub fn hash_pair(left: &[u8; OUT_LEN], right: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
     pair[OUT_LEN..].copy_from_slice(right);
 
     ab_blake3::single_block_keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair)
+        .expect("Exactly one block worth of data; qed")
+}
+
+/// Similar to [`hash_pair()`] but already has left and right nodes concatenated
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+pub fn hash_pair_block(pair: &[u8; BLOCK_LEN]) -> [u8; OUT_LEN] {
+    ab_blake3::single_block_keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, pair)
         .expect("Exactly one block worth of data; qed")
 }
