@@ -1,7 +1,10 @@
 use ab_archiving::piece_reconstructor::{PiecesReconstructor, ReconstructorError};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_data_retrieval::piece_getter::PieceGetter;
-use ab_data_retrieval::segment_downloading::{SegmentDownloadingError, download_segment_pieces};
+use ab_data_retrieval::segment_downloading::{
+    SEGMENT_DOWNLOAD_RETRIES, SEGMENT_DOWNLOAD_RETRY_DELAY, SegmentDownloadingError,
+    download_segment_pieces,
+};
 use ab_erasure_coding::ErasureCoding;
 use thiserror::Error;
 use tokio::task::JoinError;
@@ -34,7 +37,13 @@ where
     let segment_index = missing_piece_index.segment_index();
     let position = missing_piece_index.position();
 
-    let segment_pieces = download_segment_pieces(segment_index, piece_getter, 0, None).await?;
+    let segment_pieces = download_segment_pieces(
+        segment_index,
+        piece_getter,
+        SEGMENT_DOWNLOAD_RETRIES,
+        Some(SEGMENT_DOWNLOAD_RETRY_DELAY),
+    )
+    .await?;
 
     let result = tokio::task::spawn_blocking(move || {
         let reconstructor = PiecesReconstructor::new(erasure_coding);

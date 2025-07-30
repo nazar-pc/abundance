@@ -4,7 +4,9 @@ use crate::utils::wait_for_block_import;
 use ab_archiving::reconstructor::Reconstructor;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::segments::SegmentIndex;
-use ab_data_retrieval::segment_downloading::download_segment_pieces;
+use ab_data_retrieval::segment_downloading::{
+    SEGMENT_DOWNLOAD_RETRIES, SEGMENT_DOWNLOAD_RETRY_DELAY, download_segment_pieces,
+};
 use ab_erasure_coding::ErasureCoding;
 use sc_client_api::{AuxStore, BlockchainEvents, ProofProvider};
 use sc_consensus::import_queue::ImportQueueService;
@@ -28,12 +30,6 @@ use subspace_networking::Node;
 use tokio::task;
 use tokio::time::sleep;
 use tracing::{debug, error, trace};
-
-/// The number of times we try to download a segment before giving up.
-const SEGMENT_DOWNLOAD_RETRIES: usize = 3;
-
-/// The amount of time we wait between segment download retries.
-const SEGMENT_DOWNLOAD_RETRY_DELAY: Duration = Duration::from_secs(10);
 
 /// Error type for snap sync.
 #[derive(thiserror::Error, Debug)]
@@ -215,7 +211,9 @@ where
                 Some(SEGMENT_DOWNLOAD_RETRY_DELAY),
             )
             .await
-            .map_err(|error| format!("Failed to download segment pieces: {error}"))?;
+            .map_err(|error| {
+                format!("Failed to download segment pieces during snap sync: {error}")
+            })?;
 
             // CPU-intensive piece and segment reconstruction code can block the async executor.
             let segment_contents_fut = task::spawn_blocking({

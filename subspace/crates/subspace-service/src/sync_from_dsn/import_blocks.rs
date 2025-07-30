@@ -3,7 +3,9 @@ use crate::sync_from_dsn::segment_header_downloader::SegmentHeaderDownloader;
 use ab_archiving::reconstructor::Reconstructor;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::segments::SegmentIndex;
-use ab_data_retrieval::segment_downloading::download_segment_pieces;
+use ab_data_retrieval::segment_downloading::{
+    SEGMENT_DOWNLOAD_RETRIES, SEGMENT_DOWNLOAD_RETRY_DELAY, download_segment_pieces,
+};
 use ab_erasure_coding::ErasureCoding;
 use sc_client_api::{AuxStore, BlockBackend, HeaderBackend};
 use sc_consensus::IncomingBlock;
@@ -155,9 +157,16 @@ where
             }
         }
 
-        let segment_pieces = download_segment_pieces(segment_index, piece_getter, 0, None)
-            .await
-            .map_err(|error| format!("Failed to download segment pieces: {error}"))?;
+        let segment_pieces = download_segment_pieces(
+            segment_index,
+            piece_getter,
+            SEGMENT_DOWNLOAD_RETRIES,
+            Some(SEGMENT_DOWNLOAD_RETRY_DELAY),
+        )
+        .await
+        .map_err(|error| {
+            format!("Failed to download segment pieces during block import: {error}")
+        })?;
         // CPU-intensive piece and segment reconstruction code can block the async executor.
         let segment_contents_fut = task::spawn_blocking({
             let reconstructor = reconstructor.clone();
