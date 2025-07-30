@@ -204,10 +204,17 @@ impl SegmentIndex {
         piece_indices
     }
 
-    /// Checked integer subtraction. Computes `self - rhs`, returning `None` if overflow occurred.
+    /// Checked integer subtraction. Computes `self - rhs`, returning `None` if underflow occurred.
     #[inline]
     pub fn checked_sub(self, rhs: Self) -> Option<Self> {
         self.0.checked_sub(rhs.0).map(Self)
+    }
+
+    /// Saturating integer subtraction. Computes `self - rhs`, returning zero if underflow
+    /// occurred.
+    #[inline]
+    pub const fn saturating_sub(self, rhs: Self) -> Self {
+        Self(self.0.saturating_sub(rhs.0))
     }
 }
 

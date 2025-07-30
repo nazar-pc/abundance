@@ -4,7 +4,9 @@ use crate::utils::wait_for_block_import;
 use ab_archiving::reconstructor::Reconstructor;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::segments::SegmentIndex;
-use ab_data_retrieval::segment_downloading::download_segment_pieces;
+use ab_data_retrieval::segment_downloading::{
+    SEGMENT_DOWNLOAD_RETRIES, SEGMENT_DOWNLOAD_RETRY_DELAY, download_segment_pieces,
+};
 use ab_erasure_coding::ErasureCoding;
 use sc_client_api::{AuxStore, BlockchainEvents, ProofProvider};
 use sc_consensus::import_queue::ImportQueueService;
@@ -202,9 +204,17 @@ where
         let reconstructor = Arc::new(Mutex::new(Reconstructor::new(erasure_coding.clone())));
 
         for segment_index in segments_to_reconstruct {
-            let segment_pieces = download_segment_pieces(segment_index, piece_getter)
-                .await
-                .map_err(|error| format!("Failed to download segment pieces: {error}"))?;
+            let segment_pieces = download_segment_pieces(
+                segment_index,
+                piece_getter,
+                SEGMENT_DOWNLOAD_RETRIES,
+                Some(SEGMENT_DOWNLOAD_RETRY_DELAY),
+            )
+            .await
+            .map_err(|error| {
+                format!("Failed to download segment pieces during snap sync: {error}")
+            })?;
+
             // CPU-intensive piece and segment reconstruction code can block the async executor.
             let segment_contents_fut = task::spawn_blocking({
                 let reconstructor = reconstructor.clone();

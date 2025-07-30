@@ -515,13 +515,15 @@ where
 
         // Store whatever correct pieces are immediately available after restart
         self.piece_caches.write().await.clone_from(&caches);
+        let stored_count = caches.stored_pieces_offsets().len();
 
         debug!(
+            %stored_count,
             count = %piece_indices_to_store.len(),
             "Identified piece indices that should be cached",
         );
 
-        let pieces_to_download_total = piece_indices_to_store.len();
+        let pieces_to_download_total = piece_indices_to_store.len() + stored_count;
         let piece_indices_to_store = piece_indices_to_store
             .into_values()
             .collect::<Vec<_>>()
@@ -532,7 +534,7 @@ where
             .map(|chunk| chunk.to_vec())
             .collect::<Vec<_>>();
 
-        let downloaded_pieces_count = AtomicUsize::new(0);
+        let downloaded_pieces_count = AtomicUsize::new(stored_count);
         let caches = Mutex::new(caches);
         self.handlers.progress.call_simple(&0.0);
         let piece_indices_to_store = piece_indices_to_store.into_iter().enumerate();
@@ -654,7 +656,17 @@ where
                                 let mut piece_caches = self.piece_caches.write().await;
                                 piece_caches.clone_from(&caches.lock());
 
-                                info!("Piece cache sync {progress:.2}% complete");
+                                info!(
+                                    "Piece cache sync {progress:.2}% complete ({} / {})",
+                                    bytesize::to_string(
+                                        (prev_downloaded_pieces_count * Piece::SIZE) as u64,
+                                        true,
+                                    ),
+                                    bytesize::to_string(
+                                        (pieces_to_download_total * Piece::SIZE) as u64,
+                                        true,
+                                    ),
+                                );
                             }
 
                             self.handlers.progress.call_simple(&progress);
