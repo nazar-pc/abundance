@@ -7962,6 +7962,7 @@ dependencies = [
  "ab-erasure-coding",
  "ab-proof-of-space",
  "async-trait",
+ "bytesize",
  "futures",
  "futures-timer",
  "parity-scale-codec",
