@@ -26,7 +26,7 @@ futures = { workspace = true }
 # TODO: Remove `std` feature, only needed due to https://github.com/paritytech/parity-scale-codec/issues/745
 parity-scale-codec = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["rt", "time"] }
 tracing = { workspace = true }
 
 [features]
