@@ -1,5 +1,4 @@
 #![feature(
-    array_chunks,
     array_windows,
     assert_matches,
     btree_extract_if,

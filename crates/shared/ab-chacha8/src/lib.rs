@@ -1,7 +1,6 @@
 //! Small GPU-friendly software implementation of ChaCha8
 
 #![no_std]
-#![feature(array_chunks)]
 
 #[cfg(test)]
 mod tests;
@@ -44,13 +43,13 @@ impl ChaCha8State {
         data[2] = 0x79622d32;
         data[3] = 0x6b206574;
 
-        for (i, &chunk) in key.array_chunks::<4>().enumerate() {
+        for (i, &chunk) in key.as_chunks::<4>().0.iter().enumerate() {
             data[4 + i] = u32::from_le_bytes(chunk);
         }
 
         // `data[12]` and `data[13]` is counter specific to each block, thus not set here
 
-        for (i, &chunk) in nonce.array_chunks::<4>().enumerate() {
+        for (i, &chunk) in nonce.as_chunks::<4>().0.iter().enumerate() {
             data[13 + i] = u32::from_le_bytes(chunk);
         }
 

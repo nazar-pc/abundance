@@ -68,12 +68,8 @@ impl SolutionDistance {
             audit_chunk[6],
             audit_chunk[7],
         ]);
-        let global_challenge_as_solution_range: SolutionRange = SolutionRange::from_bytes(
-            *global_challenge
-                .array_chunks::<{ SolutionRange::SIZE }>()
-                .next()
-                .expect("Solution range is smaller in size than global challenge; qed"),
-        );
+        let global_challenge_as_solution_range: SolutionRange =
+            SolutionRange::from_bytes(global_challenge.as_chunks::<{ SolutionRange::SIZE }>().0[0]);
 
         global_challenge_as_solution_range.bidirectional_distance(audit_chunk_as_solution_range)
     }

@@ -1,7 +1,6 @@
 //! Optimized and more exotic APIs around BLAKE3
 
 #![no_std]
-#![feature(array_chunks)]
 
 // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]

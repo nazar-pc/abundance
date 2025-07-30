@@ -1,5 +1,5 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
-#![feature(array_chunks, generic_const_exprs)]
+#![feature(generic_const_exprs)]
 
 use ab_blake3::OUT_LEN;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
@@ -223,7 +223,9 @@ fn naive_sparse_merkle_tree_root(leaves: &[[u8; OUT_LEN]]) -> [u8; OUT_LEN] {
 
     while level.len() > 1 {
         level = level
-            .array_chunks()
+            .as_chunks()
+            .0
+            .iter()
             .map(|[left, right]| {
                 if left == &ZERO && right == &ZERO {
                     ZERO

@@ -552,7 +552,7 @@ pub fn write_sector(
                     .iter_s_bucket_records(s_bucket)
                     .expect("S-bucket guaranteed to be in range; qed")
             })
-            .zip(s_buckets_region.array_chunks_mut::<{ RecordChunk::SIZE }>())
+            .zip(s_buckets_region.as_chunks_mut::<{ RecordChunk::SIZE }>().0)
         {
             let num_encoded_record_chunks =
                 usize::from(num_encoded_record_chunks[usize::from(piece_offset)]);
@@ -575,8 +575,9 @@ pub fn write_sector(
             output.copy_from_slice(&raw_sector.records[usize::from(piece_offset)][chunk_position]);
         }
 
-        let metadata_chunks =
-            metadata_region.array_chunks_mut::<{ RecordMetadata::encoded_size() }>();
+        let metadata_chunks = metadata_region
+            .as_chunks_mut::<{ RecordMetadata::encoded_size() }>()
+            .0;
         for (record_metadata, output) in raw_sector.metadata.iter().zip(metadata_chunks) {
             record_metadata.encode_to(&mut output.as_mut_slice());
         }
