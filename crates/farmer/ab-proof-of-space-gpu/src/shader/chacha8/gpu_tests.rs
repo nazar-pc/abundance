@@ -188,7 +188,9 @@ async fn chacha8_keystream_10_blocks_adapter(
 
     let keystream = keystream_host
         .get_mapped_range(..)
-        .array_chunks()
+        .as_chunks()
+        .0
+        .iter()
         .map(bytes_to_block)
         .collect();
     keystream_host.unmap();

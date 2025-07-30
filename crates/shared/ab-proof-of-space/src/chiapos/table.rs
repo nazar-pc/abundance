@@ -297,7 +297,9 @@ fn find_matches<T, Map>(
         };
 
         for r_targets in left_targets_r
-            .array_chunks::<{ FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR }>()
+            .as_chunks::<{ FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR }>()
+            .0
+            .iter()
             .take(usize::from(PARAM_M) / FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR)
         {
             let _: [(); FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
@@ -505,7 +507,9 @@ where
 
         let mut t_1 = Vec::with_capacity(1_usize << K);
         for (x_batch, partial_ys) in partial_ys
-            .array_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
+            .as_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
+            .0
+            .iter()
             .copied()
             .enumerate()
         {
@@ -533,7 +537,9 @@ where
 
         let mut t_1 = Vec::with_capacity(1_usize << K);
         for (x_batch, partial_ys) in partial_ys
-            .array_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
+            .as_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
+            .0
+            .iter()
             .copied()
             .enumerate()
         {

@@ -134,7 +134,7 @@ where
                 // SAFETY: Just checked to be a multiple of chunk size and not empty
                 let parent_hashes_chunks =
                     unsafe { parent_hashes.as_chunks_unchecked_mut::<CHUNKS_SIZE>() };
-                for (pairs, hashes) in level_hashes.array_chunks().zip(parent_hashes_chunks) {
+                for (pairs, hashes) in level_hashes.as_chunks().0.iter().zip(parent_hashes_chunks) {
                     // SAFETY: Same size and alignment
                     let pairs = unsafe {
                         mem::transmute::<
@@ -157,7 +157,11 @@ where
                     hashes.write(hash_pair_blocks(pairs));
                 }
             } else {
-                for (pair, parent_hash) in level_hashes.array_chunks().zip(parent_hashes.iter_mut())
+                for (pair, parent_hash) in level_hashes
+                    .as_chunks()
+                    .0
+                    .iter()
+                    .zip(parent_hashes.iter_mut())
                 {
                     // SAFETY: Same size and alignment
                     let pair = unsafe {
@@ -224,7 +228,7 @@ where
     where
         [(); N.ilog2() as usize]:,
     {
-        let iter = self.leaves.array_chunks().enumerate().flat_map(
+        let iter = self.leaves.as_chunks().0.iter().enumerate().flat_map(
             |(pair_index, &[left_hash, right_hash])| {
                 let mut left_proof = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); N.ilog2() as usize];
                 left_proof[0].write(right_hash);

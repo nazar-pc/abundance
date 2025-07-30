@@ -14,7 +14,6 @@
 
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
-    array_chunks,
     generic_const_exprs,
     iter_advance_by,
     maybe_uninit_slice,

@@ -1,5 +1,7 @@
 mod native;
+#[cfg(any(test, all(target_arch = "spirv", not(target_feature = "Int64"))))]
 mod u32;
+#[cfg(any(test, all(target_arch = "spirv", target_feature = "Int64")))]
 mod u64;
 
 #[cfg(not(target_arch = "spirv"))]
