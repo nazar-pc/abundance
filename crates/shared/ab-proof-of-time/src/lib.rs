@@ -1,6 +1,5 @@
 //! Proof of time implementation.
 
-#![cfg_attr(target_arch = "aarch64", feature(array_chunks))]
 #![feature(portable_simd)]
 #![no_std]
 

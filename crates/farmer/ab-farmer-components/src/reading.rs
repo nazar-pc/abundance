@@ -129,6 +129,11 @@ impl FromStr for ReadSectorRecordChunksMode {
     }
 }
 
+// TODO: Workaround for https://github.com/rust-lang/rust/issues/144690 that gets triggered on
+//  `s_bucket_offsets` argument below
+const _: () = {
+    assert!(65536 == Record::NUM_S_BUCKETS);
+};
 /// Read sector record chunks, only plotted s-buckets are returned (in decoded form).
 ///
 /// NOTE: This is an async function, but it also does CPU-intensive operation internally, while it
@@ -136,7 +141,9 @@ impl FromStr for ReadSectorRecordChunksMode {
 pub async fn read_sector_record_chunks<PosTable, S, A>(
     piece_offset: PieceOffset,
     pieces_in_sector: u16,
-    s_bucket_offsets: &[u32; Record::NUM_S_BUCKETS],
+    // TODO: Workaround for https://github.com/rust-lang/rust/issues/144690
+    // s_bucket_offsets: &[u32; Record::NUM_S_BUCKETS],
+    s_bucket_offsets: &[u32; 65536],
     sector_contents_map: &SectorContentsMap,
     pos_table: &PosTable,
     sector: &ReadAt<S, A>,
