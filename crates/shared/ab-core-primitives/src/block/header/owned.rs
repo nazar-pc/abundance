@@ -27,6 +27,9 @@ pub trait GenericOwnedBlockHeader:
     where
         Self: 'a;
 
+    /// Create an owned header from a buffer
+    fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer>;
+
     /// Inner buffer with block header contents
     fn buffer(&self) -> &SharedAlignedBuffer;
 
@@ -74,6 +77,11 @@ impl GenericOwnedBlockHeader for OwnedBeaconChainHeader {
     const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
 
     type Header<'a> = BeaconChainHeader<'a>;
+
+    #[inline(always)]
+    fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
+        Self::from_buffer(buffer)
+    }
 
     #[inline(always)]
     fn buffer(&self) -> &SharedAlignedBuffer {
@@ -331,6 +339,11 @@ impl GenericOwnedBlockHeader for OwnedIntermediateShardHeader {
     type Header<'a> = IntermediateShardHeader<'a>;
 
     #[inline(always)]
+    fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
+        Self::from_buffer(buffer)
+    }
+
+    #[inline(always)]
     fn buffer(&self) -> &SharedAlignedBuffer {
         self.buffer()
     }
@@ -511,6 +524,11 @@ impl GenericOwnedBlockHeader for OwnedLeafShardHeader {
     const SHARD_KIND: ShardKind = ShardKind::LeafShard;
 
     type Header<'a> = LeafShardHeader<'a>;
+
+    #[inline(always)]
+    fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
+        Self::from_buffer(buffer)
+    }
 
     #[inline(always)]
     fn buffer(&self) -> &SharedAlignedBuffer {
