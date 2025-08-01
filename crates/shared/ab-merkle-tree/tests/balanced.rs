@@ -2,7 +2,9 @@
 #![feature(generic_const_exprs)]
 
 use ab_blake3::OUT_LEN;
-use ab_merkle_tree::balanced::{BalancedMerkleTree, ensure_supported_n};
+use ab_merkle_tree::balanced::{
+    BalancedMerkleTree, compute_root_only_large_stack_size, ensure_supported_n,
+};
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use rand_chacha::ChaCha8Rng;
@@ -46,6 +48,7 @@ where
     [(); N - 1]:,
     [(); ensure_supported_n(N)]:,
     [(); N.ilog2() as usize + 1]:,
+    [(); compute_root_only_large_stack_size(N)]:,
     [(); N_U64.ilog2() as usize + 1]:,
 {
     assert!(N as u64 == N_U64);

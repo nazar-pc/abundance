@@ -1,4 +1,4 @@
-use crate::{hash_pair, hash_pair_block, hash_pair_blocks};
+use crate::{hash_pair, hash_pair_block, hash_pairs};
 use ab_blake3::{BLOCK_LEN, OUT_LEN};
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
@@ -7,7 +7,22 @@ use core::mem;
 use core::mem::MaybeUninit;
 use core::num::NonZero;
 
-const CHUNKS_SIZE: usize = 16;
+/// Optimal number of blocks for hashing at once to saturate BLAKE3 SIMD on any hardware
+const BATCH_HASH_NUM_BLOCKS: usize = 16;
+/// Number of leaves that corresponds to [`BATCH_HASH_NUM_BLOCKS`]
+const BATCH_HASH_NUM_LEAVES: usize = BATCH_HASH_NUM_BLOCKS * BLOCK_LEN / OUT_LEN;
+
+/// Inner function used in [`BalancedMerkleTree::compute_root_only()`] for stack allocation, only
+/// public due to use in generic bounds
+pub const fn compute_root_only_large_stack_size(n: usize) -> usize {
+    // For small trees the large stack is not used, so the returned value does not matter as long as
+    // it compiles
+    if n < BATCH_HASH_NUM_LEAVES {
+        return 1;
+    }
+
+    (n / BATCH_HASH_NUM_LEAVES).ilog2() as usize + 1
+}
 
 /// Ensuring only supported `N` can be specified for [`BalancedMerkleTree`].
 ///
@@ -130,31 +145,29 @@ where
             // levels of hashes
             (parent_hashes, tree_hashes) = unsafe { tree_hashes.split_at_mut_unchecked(num_pairs) };
 
-            if parent_hashes.len().is_multiple_of(CHUNKS_SIZE) {
+            if parent_hashes.len().is_multiple_of(BATCH_HASH_NUM_BLOCKS) {
                 // SAFETY: Just checked to be a multiple of chunk size and not empty
                 let parent_hashes_chunks =
-                    unsafe { parent_hashes.as_chunks_unchecked_mut::<CHUNKS_SIZE>() };
-                for (pairs, hashes) in level_hashes.as_chunks().0.iter().zip(parent_hashes_chunks) {
-                    // SAFETY: Same size and alignment
-                    let pairs = unsafe {
-                        mem::transmute::<
-                            &[[u8; OUT_LEN]; CHUNKS_SIZE * BLOCK_LEN / OUT_LEN],
-                            &[[u8; BLOCK_LEN]; CHUNKS_SIZE],
-                        >(pairs)
-                    };
+                    unsafe { parent_hashes.as_chunks_unchecked_mut::<BATCH_HASH_NUM_BLOCKS>() };
+                for (pairs, hashes) in level_hashes
+                    .as_chunks::<BATCH_HASH_NUM_LEAVES>()
+                    .0
+                    .iter()
+                    .zip(parent_hashes_chunks)
+                {
                     // TODO: Would be nice to have a convenient method for this:
                     //  https://github.com/rust-lang/rust/issues/96097#issuecomment-3133515169
                     // SAFETY: Identical layout
                     let hashes = unsafe {
                         mem::transmute::<
-                            &mut [MaybeUninit<[u8; OUT_LEN]>; CHUNKS_SIZE],
-                            &mut MaybeUninit<[[u8; OUT_LEN]; CHUNKS_SIZE]>,
+                            &mut [MaybeUninit<[u8; OUT_LEN]>; BATCH_HASH_NUM_BLOCKS],
+                            &mut MaybeUninit<[[u8; OUT_LEN]; BATCH_HASH_NUM_BLOCKS]>,
                         >(hashes)
                     };
 
                     // TODO: This memory copy is unfortunate, make hashing write into this memory
                     //  directly once blake3 API improves
-                    hashes.write(hash_pair_blocks(pairs));
+                    hashes.write(hash_pairs(pairs));
                 }
             } else {
                 for (pair, parent_hash) in level_hashes
@@ -188,25 +201,89 @@ where
     pub fn compute_root_only(leaves: &[[u8; OUT_LEN]; N]) -> [u8; OUT_LEN]
     where
         [(); N.ilog2() as usize + 1]:,
+        [(); compute_root_only_large_stack_size(N)]:,
     {
-        // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; N.ilog2() as usize + 1];
+        // Special case for small trees below optimal SIMD width
+        match N {
+            2 => {
+                let [root] = hash_pairs(leaves);
 
-        // TODO: Process leaves in larger chunks for higher performance
-        for (num_leaves, &hash) in leaves.iter().enumerate() {
-            let mut current = hash;
-
-            // Every bit set to `1` corresponds to an active Merkle Tree level
-            let lowest_active_levels = num_leaves.trailing_ones() as usize;
-            for item in stack.iter().take(lowest_active_levels) {
-                current = hash_pair(item, &current);
+                return root;
             }
+            4 => {
+                let hashes = hash_pairs::<2, _>(leaves);
+                let [root] = hash_pairs(&hashes);
 
-            // Place the current hash at the first inactive level
-            stack[lowest_active_levels] = current;
+                return root;
+            }
+            8 => {
+                let hashes = hash_pairs::<4, _>(leaves);
+                let hashes = hash_pairs::<2, _>(&hashes);
+                let [root] = hash_pairs(&hashes);
+
+                return root;
+            }
+            16 => {
+                let hashes = hash_pairs::<8, _>(leaves);
+                let hashes = hash_pairs::<4, _>(&hashes);
+                let hashes = hash_pairs::<2, _>(&hashes);
+                let [root] = hash_pairs(&hashes);
+
+                return root;
+            }
+            _ => {
+                // We know this is the case
+                assert!(N >= BATCH_HASH_NUM_LEAVES);
+            }
         }
 
-        stack[N.ilog2() as usize]
+        // Stack of intermediate nodes per tree level. The logic here is the same as with a small
+        // tree above, except we store `BATCH_HASH_NUM_BLOCKS` hashes per level and do a
+        // post-processing step at the very end to collapse them into a single root hash.
+        let mut stack =
+            [[[0u8; OUT_LEN]; BATCH_HASH_NUM_BLOCKS]; compute_root_only_large_stack_size(N)];
+
+        // This variable allows reusing and reducing stack usage instead of having a separate
+        // `current` variable
+        let mut parent_current = [[0u8; OUT_LEN]; BATCH_HASH_NUM_LEAVES];
+        for (num_chunks, chunk_leaves) in leaves
+            .as_chunks::<BATCH_HASH_NUM_LEAVES>()
+            .0
+            .iter()
+            .enumerate()
+        {
+            let (_parent_half, current_half) = parent_current.split_at_mut(BATCH_HASH_NUM_BLOCKS);
+
+            let current = hash_pairs::<BATCH_HASH_NUM_BLOCKS, _>(chunk_leaves);
+            current_half.copy_from_slice(&current);
+
+            // Every bit set to `1` corresponds to an active Merkle Tree level
+            let lowest_active_levels = num_chunks.trailing_ones() as usize;
+            for parent in &mut stack[..lowest_active_levels] {
+                let (parent_half, _current_half) =
+                    parent_current.split_at_mut(BATCH_HASH_NUM_BLOCKS);
+                parent_half.copy_from_slice(parent);
+
+                let current = hash_pairs::<BATCH_HASH_NUM_BLOCKS, _>(&parent_current);
+
+                let (_parent_half, current_half) =
+                    parent_current.split_at_mut(BATCH_HASH_NUM_BLOCKS);
+                current_half.copy_from_slice(&current);
+            }
+
+            let (_parent_half, current_half) = parent_current.split_at_mut(BATCH_HASH_NUM_BLOCKS);
+
+            // Place freshly computed 8 hashes into the first inactive level
+            stack[lowest_active_levels].copy_from_slice(current_half);
+        }
+
+        let hashes = &mut stack[compute_root_only_large_stack_size(N) - 1];
+        let hashes = hash_pairs::<{ BATCH_HASH_NUM_BLOCKS / 2 }, _>(hashes);
+        let hashes = hash_pairs::<{ BATCH_HASH_NUM_BLOCKS / 4 }, _>(&hashes);
+        let hashes = hash_pairs::<{ BATCH_HASH_NUM_BLOCKS / 8 }, _>(&hashes);
+        let [root] = hash_pairs::<{ BATCH_HASH_NUM_BLOCKS / 16 }, _>(&hashes);
+
+        root
     }
 
     /// Get the root of Merkle Tree
@@ -241,7 +318,7 @@ where
                     let mut parent_level_size = N / 2;
 
                     for hash in shared_proof {
-                        // Line below is a more efficient branchless version of this:
+                        // The line below is a more efficient branchless version of this:
                         // let parent_other_position = if parent_position % 2 == 0 {
                         //     parent_position + 1
                         // } else {
