@@ -33,6 +33,7 @@ pub mod unbalanced;
 extern crate alloc;
 
 use ab_blake3::{BLOCK_LEN, KEY_LEN, OUT_LEN};
+use core::mem;
 
 /// Used as a key in keyed blake3 hash for inner nodes of Merkle Trees.
 ///
@@ -61,12 +62,24 @@ pub fn hash_pair_block(pair: &[u8; BLOCK_LEN]) -> [u8; OUT_LEN] {
         .expect("Exactly one block worth of data; qed")
 }
 
-/// Similar to [`hash_pair_block()`] but supports processing multiple blocks at once
+// TODO: Combine `NUM_BLOCKS` and `NUM_LEAVES` into a single generic parameter once compiler is
+//  smart enough to deal with it
+/// Similar to [`hash_pair()`], but hashes multiple pairs at once efficiently.
+///
+/// # Panics
+/// Panics when `NUM_LEAVES != NUM_BLOCKS * BLOCK_LEN / OUT_LEN`.
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-pub fn hash_pair_blocks<const NUM_BLOCKS: usize>(
-    pairs: &[[u8; BLOCK_LEN]; NUM_BLOCKS],
+pub fn hash_pairs<const NUM_BLOCKS: usize, const NUM_LEAVES: usize>(
+    pairs: &[[u8; OUT_LEN]; NUM_LEAVES],
 ) -> [[u8; OUT_LEN]; NUM_BLOCKS] {
+    // This protects the invariant of the function
+    assert_eq!(NUM_LEAVES, NUM_BLOCKS * BLOCK_LEN / OUT_LEN);
+
+    // SAFETY: Same size (checked above) and alignment
+    let pairs = unsafe {
+        mem::transmute::<&[[u8; OUT_LEN]; NUM_LEAVES], &[[u8; BLOCK_LEN]; NUM_BLOCKS]>(pairs)
+    };
     let mut hashes = [[0; OUT_LEN]; NUM_BLOCKS];
     ab_blake3::single_block_keyed_hash_many_exact(&INNER_NODE_DOMAIN_SEPARATOR, pairs, &mut hashes);
     hashes

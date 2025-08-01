@@ -1,7 +1,9 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(generic_const_exprs, maybe_uninit_slice, new_zeroed_alloc)]
 
-use ab_merkle_tree::balanced::{BalancedMerkleTree, ensure_supported_n};
+use ab_merkle_tree::balanced::{
+    BalancedMerkleTree, compute_root_only_large_stack_size, ensure_supported_n,
+};
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
@@ -34,6 +36,7 @@ where
     [(); N - 1]:,
     [(); ensure_supported_n(N)]:,
     [(); N.ilog2() as usize + 1]:,
+    [(); compute_root_only_large_stack_size(N)]:,
 {
     let mut input = unsafe { Box::<[[u8; 32]; N]>::new_zeroed().assume_init() };
     for (index, input) in input.iter_mut().enumerate() {
