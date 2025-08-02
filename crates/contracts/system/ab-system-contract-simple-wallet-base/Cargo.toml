@@ -36,6 +36,8 @@ payload-builder = []
 # Check that code can't panic under any conditions
 no-panic = [
     "dep:no-panic",
+    # Helps with testing on CPUs without AVX512 support
+    "blake3/no_avx512",
 ]
 
 [lints]

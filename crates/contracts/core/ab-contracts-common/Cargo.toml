@@ -16,6 +16,8 @@ all-features = true
 [dependencies]
 ab-core-primitives = { workspace = true }
 ab-blake3 = { workspace = true }
+# NOTE: `blake3` is here only for `no-panic` feature
+blake3 = { workspace = true, optional = true }
 ab-io-type = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 no-panic = { workspace = true, optional = true }
@@ -28,6 +30,8 @@ executor = []
 # Check that code can't panic under any conditions
 no-panic = [
     "dep:no-panic",
+    # Helps with testing on CPUs without AVX512 support
+    "blake3/no_avx512",
 ]
 
 [lints]

@@ -186,14 +186,14 @@ jobs:
       - name: Miri aarch64 workaround
         run: |
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} --cfg chacha20_force_soft" >> $GITHUB_ENV
-        if: matrix.miri == true && (matrix.os == 'ubuntu-24.04-arm' || matrix.os == 'macos-15')
+        if: matrix.miri == true && runner.arch == 'ARM64'
 
       - name: Install Vulkan runtime and enable shader testing
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends --yes mesa-vulkan-drivers
           echo "EXTRA_OPTIONS=--features=__force-gpu-tests" >> $GITHUB_ENV
-        if: matrix.miri == false && matrix.os == 'ubuntu-24.04' && matrix.type == 'together'
+        if: matrix.miri == false && runner.os == 'Linux' && matrix.type == 'together'
 
       - name: cargo ${{ env.command }}
         run: |
@@ -279,11 +279,14 @@ jobs:
         # https://github.com/actions/runner-images/issues/7320
         if: runner.os != 'Windows'
 
+      # Increase the inlining threshold to make sure the compiler can see that some functions do not panic.
+      # Native CPU and LTO to allow the compiler to apply more optimizations and prove lack of panics in more cases.
+      - name: Set up RUSTFLAGS
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=5000 -C embed-bitcode -C lto -Z dylib-lto -C target-cpu=native" >> $GITHUB_ENV
+
       - name: Ensure no panics in annotated code
-        env:
-          # Increase inlining threshold to make sure the compiler can see that some functions do not panic
-          # Native CPU and LTO to allow compiler to apply more optimizations and prove lack of panics in more cases
-          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=5000 -C embed-bitcode -C lto -Z dylib-lto -C target-cpu=native
         shell: bash
         run: |
           # TODO: This doesn't seem to work for now: https://users.rust-lang.org/t/compiler-optimizations-are-different-for-crate-itself-vs-dependency/130187?u=nazar-pc
@@ -303,10 +306,6 @@ jobs:
         if: matrix.type == 'default'
 
       - name: Ensure no panics in annotated code (various features)
-        env:
-          # Increase inlining threshold to make sure the compiler can see that some functions do not panic
-          # Native CPU and LTO to allow compiler to apply more optimizations and prove lack of panics in more cases
-          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=5000 -C embed-bitcode -C lto -Z dylib-lto -C target-cpu=native
         shell: bash
         run: |
           # Ensure no panics with `alloc` feature

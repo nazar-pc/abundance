@@ -129,8 +129,10 @@ inherits = "production"
 strip = "symbols"
 
 [patch.crates-io]
-# TODO: Remove once 0.5.0-rc.1+ is released to include https://github.com/RustCrypto/traits/pull/1907
+# TODO: Remove once 0.5.0-rc.1+ is released with https://github.com/RustCrypto/traits/pull/1907
 cipher = { version = "0.5.0-rc.0", git = "https://github.com/RustCrypto/traits", rev = "57aea511ffc6e8122ef4abced5135ea29473ef8d" }
+# TODO: Remove once 1.8.3 is released with https://github.com/BLAKE3-team/BLAKE3/pull/469
+blake3 = { version = "1.8.2", git = "https://github.com/BLAKE3-team/BLAKE3", rev = "c7f0d216e6fc834b742456b39546c9835baa1277" }
 
 [workspace.lints.rust]
 rust_2018_idioms = "warn"
