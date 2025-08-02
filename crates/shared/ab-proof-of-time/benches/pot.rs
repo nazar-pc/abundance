@@ -7,6 +7,11 @@ use rand_core::{RngCore, SeedableRng};
 use std::hint::black_box;
 
 fn criterion_benchmark(c: &mut Criterion) {
+    // Intentional inlining prevention doesn't allow compiler to prove lack of panics
+    if cfg!(feature = "no-panic") {
+        return;
+    }
+
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let mut seed = PotSeed::default();
     rng.fill_bytes(seed.as_mut());

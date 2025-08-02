@@ -23,6 +23,8 @@ harness = false
 
 [dependencies]
 ab-blake3 = { workspace = true }
+# NOTE: `blake3` is here only for `no-panic` feature
+blake3 = { workspace = true, optional = true }
 no-panic = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -34,6 +36,8 @@ rand_chacha = { workspace = true }
 alloc = []
 no-panic = [
     "dep:no-panic",
+    # Helps with testing on CPUs without AVX512 support
+    "blake3/no_avx512",
 ]
 
 [lints]
