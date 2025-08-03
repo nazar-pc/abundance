@@ -1,7 +1,7 @@
 use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
 use crate::storage_item::page_group_header::StorageItemPageGroupHeader;
 use crate::storage_item::{StorageItem, StorageItemKind};
-use crate::{DatabaseId, PageGroupKind};
+use crate::{ClientDatabaseError, DatabaseId, PageGroupKind};
 use enum_map::EnumMap;
 use futures::FutureExt;
 use futures::channel::oneshot;
@@ -9,6 +9,7 @@ use replace_with::replace_with_or_abort_and_return;
 use std::collections::VecDeque;
 use std::task::Poll;
 use std::{future, io};
+use tracing::{debug, error};
 
 #[derive(Debug)]
 pub(crate) struct PageGroup {
@@ -77,6 +78,97 @@ impl StorageBackendAdapter {
             free_page_groups,
             had_write_failure: false,
         }
+    }
+
+    /// Read all page groups and call the storage item handler for every storage item except the
+    /// page group header
+    pub(crate) async fn read_page_groups<StorageBackend, SIH>(
+        target_page_groups: &mut PageGroups,
+        page_group_size: u32,
+        storage_backend: &StorageBackend,
+        mut buffer: Vec<AlignedPage>,
+        mut storage_item_handler: SIH,
+    ) -> Result<Vec<AlignedPage>, ClientDatabaseError>
+    where
+        StorageBackend: ClientDatabaseStorageBackend,
+        SIH: FnMut(StorageItem, u32) -> Result<(), ClientDatabaseError>,
+    {
+        let mut next_sequence_number = 0;
+
+        // Read all page groups from oldest to newest
+        for page_group in target_page_groups.list.iter_mut().rev() {
+            if next_sequence_number == 0 {
+                next_sequence_number = page_group.first_sequence_number;
+            }
+
+            buffer.clear();
+            buffer = storage_backend
+                .read(buffer, page_group_size, page_group.first_page_offset)
+                .await
+                .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
+                .map_err(|error| ClientDatabaseError::ReadError { error })?;
+
+            let mut pages = buffer.as_slice();
+
+            while !pages.is_empty() {
+                let page_offset = page_group.first_page_offset + page_group.inner_next_page_offset;
+                let storage_item = match StorageItem::read_from_pages(pages) {
+                    Ok(storage_item) => storage_item,
+                    Err(error) => {
+                        debug!(
+                            page_offset,
+                            %error,
+                            "Failed to read storage item, considering this to be the end of the \
+                            page group"
+                        );
+                        break;
+                    }
+                };
+
+                let sequence_number = storage_item.sequence_number;
+                let num_pages = storage_item.num_pages();
+
+                if sequence_number == next_sequence_number {
+                    next_sequence_number += 1;
+                } else {
+                    error!(
+                        page_offset,
+                        actual = sequence_number,
+                        expected = next_sequence_number,
+                        "Unexpected sequence number"
+                    );
+                    return Err(ClientDatabaseError::UnexpectedSequenceNumber {
+                        actual: sequence_number,
+                        expected: next_sequence_number,
+                        page_offset,
+                    });
+                }
+
+                // The very first thing in a page group is the page group header, skip it
+                if pages.len() == page_group_size as usize {
+                    match storage_item.storage_item_kind {
+                        StorageItemKind::PageGroupHeader(_) => {
+                            // Expected storage item
+                        }
+                        StorageItemKind::Block(_) => {
+                            return Err(ClientDatabaseError::UnexpectedBlockStorageItem {
+                                storage_item: Box::new(storage_item),
+                                page_offset,
+                            });
+                        }
+                    }
+                } else {
+                    storage_item_handler(storage_item, page_offset)?;
+                }
+
+                pages = &pages[num_pages as usize..];
+                page_group.inner_next_page_offset += num_pages;
+            }
+        }
+
+        target_page_groups.next_sequence_number = next_sequence_number;
+
+        Ok(buffer)
     }
 
     pub(super) async fn write_storage_item<StorageBackend>(

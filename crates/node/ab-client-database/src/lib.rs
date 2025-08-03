@@ -84,7 +84,7 @@ use std::num::NonZeroUsize;
 use std::ops::Deref;
 use std::{fmt, io};
 use strum::FromRepr;
-use tracing::{Instrument, debug, error, info_span};
+use tracing::{Instrument, error, info_span};
 
 /// Unique identifier for a database
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
@@ -943,7 +943,7 @@ where
         };
 
         // Read all permanent storage groups
-        buffer = Self::read_page_groups(
+        buffer = StorageBackendAdapter::read_page_groups(
             &mut page_groups[PageGroupKind::Permanent],
             page_group_size,
             &storage_backend,
@@ -961,7 +961,7 @@ where
         .await?;
 
         // Read all block storage groups
-        let _ = Self::read_page_groups(
+        let _ = StorageBackendAdapter::read_page_groups(
             &mut page_groups[PageGroupKind::Block],
             page_group_size,
             &storage_backend,
@@ -1142,96 +1142,6 @@ where
         Ok(Self {
             inner: Arc::new(inner),
         })
-    }
-
-    /// Read all page groups and call the storage item handler for every storage item except the
-    /// page group header
-    async fn read_page_groups<SIH>(
-        target_page_groups: &mut PageGroups,
-        page_group_size: u32,
-        storage_backend: &StorageBackend,
-        mut buffer: Vec<AlignedPage>,
-        mut storage_item_handler: SIH,
-    ) -> Result<Vec<AlignedPage>, ClientDatabaseError>
-    where
-        SIH: FnMut(StorageItem, u32) -> Result<(), ClientDatabaseError>,
-    {
-        let mut next_sequence_number = 0;
-
-        // Read all page groups from oldest to newest
-        for page_group in target_page_groups.list.iter_mut().rev() {
-            if next_sequence_number == 0 {
-                next_sequence_number = page_group.first_sequence_number;
-            }
-
-            buffer.clear();
-            buffer = storage_backend
-                .read(buffer, page_group_size, page_group.first_page_offset)
-                .await
-                .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
-                .map_err(|error| ClientDatabaseError::ReadError { error })?;
-
-            let mut pages = buffer.as_slice();
-
-            while !pages.is_empty() {
-                let page_offset = page_group.first_page_offset + page_group.inner_next_page_offset;
-                let storage_item = match StorageItem::read_from_pages(pages) {
-                    Ok(storage_item) => storage_item,
-                    Err(error) => {
-                        debug!(
-                            page_offset,
-                            %error,
-                            "Failed to read storage item, considering this to be the end of the \
-                            page group"
-                        );
-                        break;
-                    }
-                };
-
-                let sequence_number = storage_item.sequence_number;
-                let num_pages = storage_item.num_pages();
-
-                if sequence_number == next_sequence_number {
-                    next_sequence_number += 1;
-                } else {
-                    error!(
-                        page_offset,
-                        actual = sequence_number,
-                        expected = next_sequence_number,
-                        "Unexpected sequence number"
-                    );
-                    return Err(ClientDatabaseError::UnexpectedSequenceNumber {
-                        actual: sequence_number,
-                        expected: next_sequence_number,
-                        page_offset,
-                    });
-                }
-
-                // The very first thing in a page group is the page group header, skip it
-                if pages.len() == page_group_size as usize {
-                    match storage_item.storage_item_kind {
-                        StorageItemKind::PageGroupHeader(_) => {
-                            // Expected storage item
-                        }
-                        StorageItemKind::Block(_) => {
-                            return Err(ClientDatabaseError::UnexpectedBlockStorageItem {
-                                storage_item: Box::new(storage_item),
-                                page_offset,
-                            });
-                        }
-                    }
-                } else {
-                    storage_item_handler(storage_item, page_offset)?;
-                }
-
-                pages = &pages[num_pages as usize..];
-                page_group.inner_next_page_offset += num_pages;
-            }
-        }
-
-        target_page_groups.next_sequence_number = next_sequence_number;
-
-        Ok(buffer)
     }
 
     /// Format a new database
