@@ -1,4 +1,4 @@
-use crate::storage_backend_adapter::storage_item::{StorageItemError, StorageItemKind};
+use crate::storage_backend_adapter::storage_item::{StorageItem, StorageItemError};
 use crate::{DatabaseId, PageGroupKind};
 use ab_io_type::trivial_type::TrivialType;
 use std::mem;
@@ -20,7 +20,7 @@ pub(crate) struct StorageItemPageGroupHeader {
     pub(crate) page_group_size: u32,
 }
 
-impl StorageItemKind for StorageItemPageGroupHeader {
+impl StorageItem for StorageItemPageGroupHeader {
     #[inline(always)]
     fn total_bytes(&self) -> usize {
         size_of::<Self>()

@@ -31,7 +31,7 @@
 //! latest storage items is found, and the latest fully written storage item is identified to
 //! reconstruct the database state.
 //!
-//! Each page group starts with a `StorageItemKind::PageGroupHeader` storage item for easier
+//! Each page group starts with a `StorageItemPageGroupHeader` storage item for easier
 //! identification.
 //!
 //! The database is typically contained in a single file (though in principle could be contained in
@@ -56,8 +56,8 @@ mod page_group;
 pub mod storage_backend;
 mod storage_backend_adapter;
 
-use crate::page_group::block::StorageItemBlockKind;
-use crate::page_group::block::block::StorageItemBlock;
+use crate::page_group::block::StorageItemBlock;
+use crate::page_group::block::block::StorageItemBlockBlock;
 use crate::storage_backend::ClientDatabaseStorageBackend;
 use crate::storage_backend_adapter::{
     StorageBackendAdapter, StorageItemHandlerArg, StorageItemHandlers, WriteLocation,
@@ -115,7 +115,7 @@ impl DatabaseId {
 
 #[derive(Debug, Copy, Clone, TrivialType, enum_map::Enum, FromRepr)]
 #[repr(u8)]
-pub(crate) enum PageGroupKind {
+enum PageGroupKind {
     /// These pages are stored permanently and are never removed
     Permanent = 0,
     /// These pages are related to blocks and expire over time as blocks become buried deeper in
@@ -796,20 +796,20 @@ where
             },
             block: |arg| {
                 let StorageItemHandlerArg {
-                    storage_item_kind,
+                    storage_item,
                     page_offset,
                 } = arg;
                 #[expect(
                     clippy::infallible_destructuring_match,
                     reason = "Only a single variant for now"
                 )]
-                let storage_item_block = match storage_item_kind {
-                    StorageItemBlockKind::Block(storage_item_block) => storage_item_block,
+                let storage_item_block = match storage_item {
+                    StorageItemBlock::Block(storage_item_block) => storage_item_block,
                 };
 
                 // TODO: It would be nice to not allocate body here since we'll not use it here
                 //  anyway
-                let StorageItemBlock {
+                let StorageItemBlockBlock {
                     header,
                     body: _,
                     mmr_with_block,
@@ -1084,7 +1084,7 @@ where
                 .write_storage_item(
                     PageGroupKind::Block,
                     &inner.storage_backend,
-                    StorageItemBlockKind::Block(StorageItemBlock {
+                    StorageItemBlock::Block(StorageItemBlockBlock {
                         header: block.block.header().buffer().clone(),
                         body: block.block.body().buffer().clone(),
                         mmr_with_block: Arc::clone(&block.mmr_with_block),

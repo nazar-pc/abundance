@@ -4,8 +4,8 @@
 )]
 pub(crate) mod block;
 
-use crate::page_group::block::block::StorageItemBlock;
-use crate::storage_backend_adapter::storage_item::{StorageItemError, StorageItemKind};
+use crate::page_group::block::block::StorageItemBlockBlock;
+use crate::storage_backend_adapter::storage_item::{StorageItem, StorageItemError};
 use strum::FromRepr;
 
 #[derive(Debug, FromRepr)]
@@ -15,11 +15,11 @@ enum StorageItemBlockVariant {
 }
 
 #[derive(Debug)]
-pub(crate) enum StorageItemBlockKind {
-    Block(StorageItemBlock),
+pub(crate) enum StorageItemBlock {
+    Block(StorageItemBlockBlock),
 }
 
-impl StorageItemKind for StorageItemBlockKind {
+impl StorageItem for StorageItemBlock {
     #[inline(always)]
     fn total_bytes(&self) -> usize {
         match self {
@@ -42,7 +42,7 @@ impl StorageItemKind for StorageItemBlockKind {
             .ok_or(StorageItemError::UnknownStorageItemVariant(variant))?;
 
         Ok(match variant {
-            StorageItemBlockVariant::Block => Self::Block(StorageItemBlock::read(buffer)?),
+            StorageItemBlockVariant::Block => Self::Block(StorageItemBlockBlock::read(buffer)?),
         })
     }
 }

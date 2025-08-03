@@ -41,7 +41,7 @@ pub(crate) enum StorageItemError {
     InvalidBufferContents,
 }
 
-pub(crate) trait StorageItemKind: fmt::Debug + Send + Sync + Sized + 'static {
+pub(crate) trait StorageItem: fmt::Debug + Send + Sync + Sized + 'static {
     /// Total number of bytes
     fn total_bytes(&self) -> usize;
 
@@ -57,18 +57,18 @@ pub(crate) trait StorageItemKind: fmt::Debug + Send + Sync + Sized + 'static {
 }
 
 #[derive(Debug)]
-pub(super) struct StorageItem<Kind> {
+pub(super) struct StorageItemContainer<SI> {
     pub(super) sequence_number: u64,
-    pub(super) storage_item_kind: Kind,
+    pub(super) storage_item: SI,
 }
 
-impl<Kind> StorageItem<Kind>
+impl<SI> StorageItemContainer<SI>
 where
-    Kind: StorageItemKind,
+    SI: StorageItem,
 {
     /// Returns the number of pages necessary to write this storage item
     pub(super) fn num_pages(&self) -> u32 {
-        let storage_item_size = self.storage_item_kind.total_bytes();
+        let storage_item_size = self.storage_item.total_bytes();
 
         // Align buffer used by storage item to 128 bytes
         let prefix_size = Self::prefix_size().next_multiple_of(size_of::<u128>());
@@ -99,7 +99,7 @@ where
         // Align buffer used by storage item to 128 bytes
         buffer = &mut buffer[Self::prefix_size().next_multiple_of(size_of::<u128>())..];
 
-        let (storage_item_variant, storage_item_size) = self.storage_item_kind.write(buffer)?;
+        let (storage_item_variant, storage_item_size) = self.storage_item.write(buffer)?;
         let (storage_item_bytes, mut buffer) = buffer.split_at_mut(storage_item_size);
 
         let buffer_len = buffer.len();
@@ -210,11 +210,11 @@ where
             });
         }
 
-        let storage_item_kind = Kind::read(storage_item_variant, storage_item_bytes)?;
+        let storage_item = SI::read(storage_item_variant, storage_item_bytes)?;
 
         Ok(Self {
             sequence_number,
-            storage_item_kind,
+            storage_item,
         })
     }
 }

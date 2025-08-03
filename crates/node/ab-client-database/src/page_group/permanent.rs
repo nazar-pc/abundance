@@ -1,11 +1,11 @@
-use crate::storage_backend_adapter::storage_item::{StorageItemError, StorageItemKind};
+use crate::storage_backend_adapter::storage_item::{StorageItem, StorageItemError};
 
 #[derive(Debug)]
-pub(crate) enum StorageItemPermanentKind {
+pub(crate) enum StorageItemPermanent {
     // TODO
 }
 
-impl StorageItemKind for StorageItemPermanentKind {
+impl StorageItem for StorageItemPermanent {
     fn total_bytes(&self) -> usize {
         unreachable!()
     }

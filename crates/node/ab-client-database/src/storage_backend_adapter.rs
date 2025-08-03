@@ -1,10 +1,10 @@
 pub(crate) mod page_group_header;
 pub(crate) mod storage_item;
 
-use crate::page_group::block::StorageItemBlockKind;
-use crate::page_group::permanent::StorageItemPermanentKind;
+use crate::page_group::block::StorageItemBlock;
+use crate::page_group::permanent::StorageItemPermanent;
 use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
-use crate::storage_backend_adapter::storage_item::{StorageItem, StorageItemKind};
+use crate::storage_backend_adapter::storage_item::{StorageItem, StorageItemContainer};
 use crate::{
     ClientDatabaseError, ClientDatabaseFormatError, ClientDatabaseFormatOptions, DatabaseId,
     PageGroupKind,
@@ -56,8 +56,8 @@ pub(crate) struct WriteLocation {
 }
 
 #[derive(Debug)]
-pub(crate) struct StorageItemHandlerArg<K> {
-    pub(crate) storage_item_kind: K,
+pub(crate) struct StorageItemHandlerArg<SI> {
+    pub(crate) storage_item: SI,
     pub(crate) page_offset: u32,
 }
 
@@ -96,10 +96,8 @@ impl StorageBackendAdapter {
         storage_backend: &StorageBackend,
     ) -> Result<Self, ClientDatabaseError>
     where
-        SIHP: FnMut(
-            StorageItemHandlerArg<StorageItemPermanentKind>,
-        ) -> Result<(), ClientDatabaseError>,
-        SIHB: FnMut(StorageItemHandlerArg<StorageItemBlockKind>) -> Result<(), ClientDatabaseError>,
+        SIHP: FnMut(StorageItemHandlerArg<StorageItemPermanent>) -> Result<(), ClientDatabaseError>,
+        SIHB: FnMut(StorageItemHandlerArg<StorageItemBlock>) -> Result<(), ClientDatabaseError>,
         StorageBackend: ClientDatabaseStorageBackend,
     {
         let database_id;
@@ -130,9 +128,9 @@ impl StorageBackendAdapter {
                 .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
                 .map_err(|error| ClientDatabaseError::ReadError { error })?;
 
-            let storage_item =
-                match StorageItem::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
-                    Ok(storage_item) => storage_item,
+            let container =
+                match StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
+                    Ok(container) => container,
                     Err(_error) => {
                         // Page group header fit the first page, so any deciding error indicates it is
                         // not a valid page group header
@@ -140,7 +138,7 @@ impl StorageBackendAdapter {
                     }
                 };
 
-            let page_group_header = &storage_item.storage_item_kind;
+            let page_group_header = &container.storage_item;
             if page_group_header.database_version != Self::VERSION {
                 return Err(ClientDatabaseError::UnsupportedDatabaseVersion {
                     database_version: page_group_header.database_version,
@@ -159,8 +157,8 @@ impl StorageBackendAdapter {
                     page_groups[PageGroupKind::Permanent]
                         .list
                         .push_front(PageGroup {
-                            first_sequence_number: storage_item.sequence_number,
-                            inner_next_page_offset: storage_item.num_pages(),
+                            first_sequence_number: container.sequence_number,
+                            inner_next_page_offset: container.num_pages(),
                             first_page_offset: 0,
                         });
                 }
@@ -180,16 +178,16 @@ impl StorageBackendAdapter {
                 .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
                 .map_err(|error| ClientDatabaseError::ReadError { error })?;
 
-            let storage_item =
-                match StorageItem::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
-                    Ok(storage_item) => storage_item,
+            let container =
+                match StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
+                    Ok(container) => container,
                     Err(_error) => {
                         free_page_groups.push_back(first_page_offset);
                         continue;
                     }
                 };
 
-            let page_group_header = &storage_item.storage_item_kind;
+            let page_group_header = &container.storage_item;
             if !(page_group_header.database_id == database_id
                 && page_group_header.database_version == database_version
                 && page_group_header.page_group_size == page_group_size)
@@ -199,8 +197,8 @@ impl StorageBackendAdapter {
             }
 
             let page_group = PageGroup {
-                first_sequence_number: storage_item.sequence_number,
-                inner_next_page_offset: storage_item.num_pages(),
+                first_sequence_number: container.sequence_number,
+                inner_next_page_offset: container.num_pages(),
                 first_page_offset,
             };
             page_groups[page_group_header.page_group_kind]
@@ -217,14 +215,14 @@ impl StorageBackendAdapter {
         }
 
         // Read all permanent storage groups
-        buffer = StorageBackendAdapter::read_page_groups::<_, StorageItemPermanentKind, _>(
+        buffer = StorageBackendAdapter::read_page_groups::<_, StorageItemPermanent, _>(
             &mut page_groups[PageGroupKind::Permanent],
             page_group_size,
             storage_backend,
             buffer,
-            |storage_item, page_offset| {
+            |container, page_offset| {
                 (storage_item_handlers.permanent)(StorageItemHandlerArg {
-                    storage_item_kind: storage_item.storage_item_kind,
+                    storage_item: container.storage_item,
                     page_offset,
                 })
             },
@@ -238,9 +236,9 @@ impl StorageBackendAdapter {
             page_group_size,
             storage_backend,
             buffer,
-            |storage_item, page_offset| {
+            |container, page_offset| {
                 (storage_item_handlers.block)(StorageItemHandlerArg {
-                    storage_item_kind: storage_item.storage_item_kind,
+                    storage_item: container.storage_item,
                     page_offset,
                 })
             },
@@ -277,14 +275,15 @@ impl StorageBackendAdapter {
                 .map_err(|_error| ClientDatabaseFormatError::ReadRequestCancelled)?
                 .map_err(|error| ClientDatabaseFormatError::ReadError { error })?;
 
-            if StorageItem::<StorageItemPageGroupHeader>::read_from_pages(&buffer).is_ok() {
+            if StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&buffer).is_ok()
+            {
                 return Err(ClientDatabaseFormatError::AlreadyFormatted);
             }
         }
 
-        let storage_item = StorageItem {
+        let container = StorageItemContainer {
             sequence_number: 0,
-            storage_item_kind: StorageItemPageGroupHeader {
+            storage_item: StorageItemPageGroupHeader {
                 database_id: DatabaseId::new({
                     let mut id = [0; 32];
                     OsRng.try_fill_bytes(&mut id)?;
@@ -296,7 +295,7 @@ impl StorageBackendAdapter {
                 page_group_size: options.page_group_size,
             },
         };
-        storage_item
+        container
             .write_to_pages(&mut buffer)
             .map_err(io::Error::other)?;
 
@@ -310,7 +309,7 @@ impl StorageBackendAdapter {
 
     /// Read all page groups and call the storage item handler for every storage item except the
     /// page group header
-    async fn read_page_groups<StorageBackend, Kind, SIH>(
+    async fn read_page_groups<StorageBackend, SI, SIH>(
         target_page_groups: &mut PageGroups,
         page_group_size: u32,
         storage_backend: &StorageBackend,
@@ -319,8 +318,8 @@ impl StorageBackendAdapter {
     ) -> Result<Vec<AlignedPage>, ClientDatabaseError>
     where
         StorageBackend: ClientDatabaseStorageBackend,
-        Kind: StorageItemKind,
-        SIH: FnMut(StorageItem<Kind>, u32) -> Result<(), ClientDatabaseError>,
+        SI: StorageItem,
+        SIH: FnMut(StorageItemContainer<SI>, u32) -> Result<(), ClientDatabaseError>,
     {
         let mut next_sequence_number = 0;
 
@@ -362,8 +361,8 @@ impl StorageBackendAdapter {
 
             while !pages.is_empty() {
                 let page_offset = page_group.first_page_offset + page_group.inner_next_page_offset;
-                let storage_item = match StorageItem::read_from_pages(pages) {
-                    Ok(storage_item) => storage_item,
+                let container = match StorageItemContainer::read_from_pages(pages) {
+                    Ok(container) => container,
                     Err(error) => {
                         debug!(
                             page_offset,
@@ -375,8 +374,8 @@ impl StorageBackendAdapter {
                     }
                 };
 
-                let sequence_number = storage_item.sequence_number;
-                let num_pages = storage_item.num_pages();
+                let sequence_number = container.sequence_number;
+                let num_pages = container.num_pages();
 
                 if sequence_number == next_sequence_number {
                     next_sequence_number += 1;
@@ -394,7 +393,7 @@ impl StorageBackendAdapter {
                     });
                 }
 
-                storage_item_handler(storage_item, page_offset)?;
+                storage_item_handler(container, page_offset)?;
 
                 pages = &pages[num_pages as usize..];
                 page_group.inner_next_page_offset += num_pages;
@@ -406,15 +405,15 @@ impl StorageBackendAdapter {
         Ok(buffer)
     }
 
-    pub(super) async fn write_storage_item<StorageBackend, Kind>(
+    pub(super) async fn write_storage_item<StorageBackend, SI>(
         &mut self,
         page_group_kind: PageGroupKind,
         storage_backend: &StorageBackend,
-        storage_item_kind: Kind,
+        storage_item: SI,
     ) -> io::Result<WriteLocation>
     where
         StorageBackend: ClientDatabaseStorageBackend,
-        Kind: StorageItemKind,
+        SI: StorageItem,
     {
         if self.had_write_failure {
             return Err(io::Error::new(
@@ -423,34 +422,34 @@ impl StorageBackendAdapter {
             ));
         }
 
-        self.write_storage_item_inner(page_group_kind, storage_backend, storage_item_kind)
+        self.write_storage_item_inner(page_group_kind, storage_backend, storage_item)
             .await
             .inspect_err(|_error| {
                 self.had_write_failure = true;
             })
     }
 
-    async fn write_storage_item_inner<StorageBackend, Kind>(
+    async fn write_storage_item_inner<StorageBackend, SI>(
         &mut self,
         page_group_kind: PageGroupKind,
         storage_backend: &StorageBackend,
-        storage_item_kind: Kind,
+        storage_item: SI,
     ) -> io::Result<WriteLocation>
     where
         StorageBackend: ClientDatabaseStorageBackend,
-        Kind: StorageItemKind,
+        SI: StorageItem,
     {
         let target_page_groups = &mut self.page_groups[page_group_kind];
 
         let sequence_number = target_page_groups.next_sequence_number;
         target_page_groups.next_sequence_number += 1;
 
-        let mut storage_item = StorageItem {
+        let mut container = StorageItemContainer {
             sequence_number,
-            storage_item_kind,
+            storage_item,
         };
 
-        let mut num_pages = storage_item.num_pages();
+        let mut num_pages = container.num_pages();
         // Ensure a storage item doesn't exceed page group size. `-1` accounts for the page group
         // header.
         if num_pages > (self.page_group_size - 1) {
@@ -481,9 +480,9 @@ impl StorageBackendAdapter {
                 )
             })?;
 
-            let page_group_header = StorageItem {
+            let page_group_header = StorageItemContainer {
                 sequence_number,
-                storage_item_kind: StorageItemPageGroupHeader {
+                storage_item: StorageItemPageGroupHeader {
                     database_id: self.database_id,
                     database_version: self.database_version,
                     page_group_kind,
@@ -495,7 +494,7 @@ impl StorageBackendAdapter {
             // Adjust sequence numbers since the previous value was reused by a new page group
             // header
             target_page_groups.next_sequence_number += 1;
-            storage_item.sequence_number += 1;
+            container.sequence_number += 1;
             // Add a page that corresponds to the page group header
             num_pages += 1;
 
@@ -521,11 +520,7 @@ impl StorageBackendAdapter {
         if self.write_buffer.is_empty() {
             let mut buffer = Vec::new();
 
-            Self::write_pages_to_buffer(
-                &storage_item,
-                maybe_page_group_header.as_ref(),
-                &mut buffer,
-            )?;
+            Self::write_pages_to_buffer(&container, maybe_page_group_header.as_ref(), &mut buffer)?;
 
             let _buffer: Vec<_> = storage_backend
                 .write(buffer, page_offset)
@@ -583,7 +578,7 @@ impl StorageBackendAdapter {
 
                     // Resize buffer and write storage item pages
                     if let Err(error) = Self::write_pages_to_buffer(
-                        &storage_item,
+                        &container,
                         maybe_page_group_header.as_ref(),
                         &mut buffer,
                     ) {
@@ -613,30 +608,26 @@ impl StorageBackendAdapter {
     /// Resize the buffer to the correct size and write storage item with optional prepended page
     /// group header
     #[inline(always)]
-    fn write_pages_to_buffer<Kind>(
-        storage_item: &StorageItem<Kind>,
-        maybe_page_group_header: Option<&StorageItem<StorageItemPageGroupHeader>>,
+    fn write_pages_to_buffer<SI>(
+        container: &StorageItemContainer<SI>,
+        maybe_page_group_header: Option<&StorageItemContainer<StorageItemPageGroupHeader>>,
         buffer: &mut Vec<AlignedPage>,
     ) -> io::Result<()>
     where
-        Kind: StorageItemKind,
+        SI: StorageItem,
     {
         if let Some(page_group_header) = maybe_page_group_header {
-            buffer.resize_with(storage_item.num_pages() as usize + 1, AlignedPage::default);
+            buffer.resize_with(container.num_pages() as usize + 1, AlignedPage::default);
 
             let (header, buffer) = buffer.split_at_mut(1);
             page_group_header
                 .write_to_pages(header)
                 .map_err(io::Error::other)?;
-            storage_item
-                .write_to_pages(buffer)
-                .map_err(io::Error::other)?;
+            container.write_to_pages(buffer).map_err(io::Error::other)?;
         } else {
-            buffer.resize_with(storage_item.num_pages() as usize, AlignedPage::default);
+            buffer.resize_with(container.num_pages() as usize, AlignedPage::default);
 
-            storage_item
-                .write_to_pages(buffer)
-                .map_err(io::Error::other)?;
+            container.write_to_pages(buffer).map_err(io::Error::other)?;
         }
 
         Ok(())

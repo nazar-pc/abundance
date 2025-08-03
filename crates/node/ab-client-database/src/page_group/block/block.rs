@@ -5,14 +5,14 @@ use ab_merkle_tree::mmr::MerkleMountainRangeBytes;
 use rclite::Arc;
 
 #[derive(Debug)]
-pub(crate) struct StorageItemBlock {
+pub(crate) struct StorageItemBlockBlock {
     pub(crate) header: SharedAlignedBuffer,
     pub(crate) body: SharedAlignedBuffer,
     pub(crate) mmr_with_block: Arc<BlockMerkleMountainRange>,
     // TODO: State, segment headers
 }
 
-impl StorageItemBlock {
+impl StorageItemBlockBlock {
     pub(super) fn total_bytes(&self) -> usize {
         Self::total_bytes_inner(
             self.header.len(),
