@@ -1,13 +1,9 @@
-pub(crate) mod block;
-pub(crate) mod page_group_header;
-
 use crate::storage_backend::AlignedPage;
-use crate::storage_item::block::StorageItemBlock;
-use crate::storage_item::page_group_header::StorageItemPageGroupHeader;
+use crate::storage_backend_adapter::PageGroupKind;
 use ab_blake3::single_block_hash;
 use ab_core_primitives::hashes::Blake3Hash;
 use blake3::hash;
-use strum::FromRepr;
+use std::fmt;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum StorageItemError {
@@ -46,41 +42,40 @@ pub(crate) enum StorageItemError {
     InvalidBufferContents,
 }
 
+pub(crate) trait StorageItem: fmt::Debug + Send + Sync + Sized + 'static {
+    /// Total number of bytes
+    fn total_bytes(&self) -> usize;
+
+    /// Write a storage item to the provided buffer.
+    ///
+    /// The buffer is required to be aligned to 128-bit.
+    ///
+    /// Returns the storage item variant and the number of bytes written.
+    fn write(&self, buffer: &mut [u8]) -> Result<(u8, usize), StorageItemError>;
+
+    /// The inverse of [`Self::write_to_pages()`]
+    fn read(variant: u8, buffer: &[u8]) -> Result<Self, StorageItemError>;
+}
+
+/// Storage item that maps to a unique page group kind
+pub(crate) trait UniqueStorageItem: StorageItem {
+    /// Unique page group for this storage item
+    fn page_group_kind() -> PageGroupKind;
+}
+
 #[derive(Debug)]
-pub(crate) enum StorageItemKind {
-    PageGroupHeader(StorageItemPageGroupHeader),
-    Block(StorageItemBlock),
+pub(super) struct StorageItemContainer<SI> {
+    pub(super) sequence_number: u64,
+    pub(super) storage_item: SI,
 }
 
-impl StorageItemKind {
-    fn variant(&self) -> StorageItemVariant {
-        match self {
-            StorageItemKind::PageGroupHeader(_) => StorageItemVariant::PageGroupHeader,
-            StorageItemKind::Block(_) => StorageItemVariant::Block,
-        }
-    }
-}
-
-#[derive(Debug, FromRepr)]
-#[repr(u8)]
-enum StorageItemVariant {
-    PageGroupHeader,
-    Block,
-}
-
-#[derive(Debug)]
-pub(crate) struct StorageItem {
-    pub(crate) sequence_number: u64,
-    pub(crate) storage_item_kind: StorageItemKind,
-}
-
-impl StorageItem {
+impl<SI> StorageItemContainer<SI>
+where
+    SI: StorageItem,
+{
     /// Returns the number of pages necessary to write this storage item
-    pub(crate) fn num_pages(&self) -> u32 {
-        let storage_item_size = match &self.storage_item_kind {
-            StorageItemKind::PageGroupHeader(page_group_header) => page_group_header.total_bytes(),
-            StorageItemKind::Block(block) => block.total_bytes(),
-        };
+    pub(super) fn num_pages(&self) -> u32 {
+        let storage_item_size = self.storage_item.total_bytes();
 
         // Align buffer used by storage item to 128 bytes
         let prefix_size = Self::prefix_size().next_multiple_of(size_of::<u128>());
@@ -99,7 +94,7 @@ impl StorageItem {
     }
 
     /// Write a storage item to the provided buffer of aligned pages
-    pub(crate) fn write_to_pages(
+    pub(super) fn write_to_pages(
         &self,
         buffer: &mut [AlignedPage],
     ) -> Result<(), StorageItemError> {
@@ -111,12 +106,7 @@ impl StorageItem {
         // Align buffer used by storage item to 128 bytes
         buffer = &mut buffer[Self::prefix_size().next_multiple_of(size_of::<u128>())..];
 
-        let storage_item_size = match &self.storage_item_kind {
-            StorageItemKind::PageGroupHeader(page_group_header) => {
-                page_group_header.write(buffer)?
-            }
-            StorageItemKind::Block(block) => block.write(buffer)?,
-        };
+        let (storage_item_variant, storage_item_size) = self.storage_item.write(buffer)?;
         let (storage_item_bytes, mut buffer) = buffer.split_at_mut(storage_item_size);
 
         let buffer_len = buffer.len();
@@ -135,7 +125,7 @@ impl StorageItem {
 
         // Write prefix
         sequence_number_bytes.copy_from_slice(&self.sequence_number.to_le_bytes());
-        storage_item_variant_bytes[0] = self.storage_item_kind.variant() as u8;
+        storage_item_variant_bytes[0] = storage_item_variant;
         storage_item_size_bytes.copy_from_slice(&storage_item_size.to_le_bytes());
         let checksum =
             single_block_hash(before_checksum).expect("Less than one block worth of data; qed");
@@ -153,7 +143,7 @@ impl StorageItem {
     }
 
     /// The inverse of [`Self::write_to_pages()`]
-    pub(crate) fn read_from_pages(pages: &[AlignedPage]) -> Result<Self, StorageItemError> {
+    pub(super) fn read_from_pages(pages: &[AlignedPage]) -> Result<Self, StorageItemError> {
         let mut buffer = AlignedPage::slice_to_repr(pages).as_flattened();
 
         let prefix_bytes = buffer
@@ -182,10 +172,7 @@ impl StorageItem {
                 .try_into()
                 .expect("Correct length; qed"),
         );
-        let storage_item_variant = StorageItemVariant::from_repr(storage_item_variant_bytes[0])
-            .ok_or(StorageItemError::UnknownStorageItemVariant(
-                storage_item_variant_bytes[0],
-            ))?;
+        let storage_item_variant = storage_item_variant_bytes[0];
         let storage_item_size = u32::from_le_bytes(
             storage_item_size_bytes
                 .try_into()
@@ -230,18 +217,11 @@ impl StorageItem {
             });
         }
 
-        let storage_item_kind = match storage_item_variant {
-            StorageItemVariant::PageGroupHeader => StorageItemKind::PageGroupHeader(
-                StorageItemPageGroupHeader::read(storage_item_bytes)?,
-            ),
-            StorageItemVariant::Block => {
-                StorageItemKind::Block(StorageItemBlock::read(storage_item_bytes)?)
-            }
-        };
+        let storage_item = SI::read(storage_item_variant, storage_item_bytes)?;
 
         Ok(Self {
             sequence_number,
-            storage_item_kind,
+            storage_item,
         })
     }
 }

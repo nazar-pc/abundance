@@ -1,5 +1,6 @@
-use crate::storage_item::StorageItemError;
-use crate::{DatabaseId, PageGroupKind};
+use crate::DatabaseId;
+use crate::storage_backend_adapter::PageGroupKind;
+use crate::storage_backend_adapter::storage_item::{StorageItem, StorageItemError};
 use ab_io_type::trivial_type::TrivialType;
 use std::mem;
 
@@ -20,15 +21,14 @@ pub(crate) struct StorageItemPageGroupHeader {
     pub(crate) page_group_size: u32,
 }
 
-impl StorageItemPageGroupHeader {
-    pub(crate) const fn total_bytes(&self) -> usize {
+impl StorageItem for StorageItemPageGroupHeader {
+    #[inline(always)]
+    fn total_bytes(&self) -> usize {
         size_of::<Self>()
     }
 
-    /// Write a storage item to the provided buffer.
-    ///
-    /// Returns the number of bytes written.
-    pub(super) fn write(&self, buffer: &mut [u8]) -> Result<usize, StorageItemError> {
+    #[inline(always)]
+    fn write(&self, buffer: &mut [u8]) -> Result<(u8, usize), StorageItemError> {
         let total_bytes = size_of::<Self>();
 
         if buffer.len() < total_bytes {
@@ -40,11 +40,15 @@ impl StorageItemPageGroupHeader {
 
         buffer[..total_bytes].copy_from_slice(self.as_bytes());
 
-        Ok(total_bytes)
+        Ok((0, total_bytes))
     }
 
-    /// The inverse of [`Self::write_to_pages()`]
-    pub(super) fn read(buffer: &[u8]) -> Result<Self, StorageItemError> {
+    #[inline(always)]
+    fn read(variant: u8, buffer: &[u8]) -> Result<Self, StorageItemError> {
+        if variant != 0 {
+            return Err(StorageItemError::UnknownStorageItemVariant(variant));
+        }
+
         if buffer.len() < size_of::<Self>() {
             return Err(StorageItemError::BufferTooSmall {
                 expected: size_of::<Self>(),

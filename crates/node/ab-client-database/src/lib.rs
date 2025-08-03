@@ -9,6 +9,8 @@
 //! describes the contents of the page. `StorageItem` always starts at the multiple of the
 //! `u128`/16 bytes, allowing for direct memory mapping onto target data structures.
 //!
+//! [`AlignedPage`]: crate::storage_backend::AlignedPage
+//!
 //! Individual pages are grouped into page groups (configurable via [`ClientDatabaseOptions`]). Page
 //! groups can be permanent and ephemeral. Permanent page groups store information that is never
 //! going to be deleted, like segment headers. Ephemeral page groups store the majority of the
@@ -29,7 +31,7 @@
 //! latest storage items is found, and the latest fully written storage item is identified to
 //! reconstruct the database state.
 //!
-//! Each page group starts with a `StorageItemKind::PageGroupHeader` storage item for easier
+//! Each page group starts with a `StorageItemPageGroupHeader` storage item for easier
 //! identification.
 //!
 //! The database is typically contained in a single file (though in principle could be contained in
@@ -50,17 +52,16 @@
     try_blocks
 )]
 
+mod page_group;
 pub mod storage_backend;
 mod storage_backend_adapter;
-mod storage_item;
 
-use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
+use crate::page_group::block::StorageItemBlock;
+use crate::page_group::block::block::StorageItemBlockBlock;
+use crate::storage_backend::ClientDatabaseStorageBackend;
 use crate::storage_backend_adapter::{
-    PageGroup, PageGroups, StorageBackendAdapter, WriteBufferEntry, WriteLocation,
+    StorageBackendAdapter, StorageItemHandlerArg, StorageItemHandlers, WriteLocation,
 };
-use crate::storage_item::block::StorageItemBlock;
-use crate::storage_item::page_group_header::StorageItemPageGroupHeader;
-use crate::storage_item::{StorageItem, StorageItemKind};
 use ab_client_api::{BlockMerkleMountainRange, ChainInfo, ChainInfoWrite, PersistBlockError};
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::GenericBlockHeader;
@@ -72,19 +73,16 @@ use async_lock::{
     Mutex as AsyncMutex, RwLock as AsyncRwLock, RwLockUpgradableReadGuard,
     RwLockWriteGuard as AsyncRwLockWriteGuard,
 };
-use enum_map::enum_map;
-use rand_core::{OsError, OsRng, TryRngCore};
+use rand_core::OsError;
 use rclite::Arc;
 use replace_with::replace_with_or_abort;
 use smallvec::{SmallVec, smallvec};
-use std::cmp::Reverse;
 use std::collections::{HashMap, VecDeque};
 use std::hash::{BuildHasherDefault, Hasher};
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 use std::{fmt, io};
-use strum::FromRepr;
-use tracing::{Instrument, debug, error, info_span};
+use tracing::error;
 
 /// Unique identifier for a database
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
@@ -112,16 +110,6 @@ impl DatabaseId {
     pub const fn new(bytes: [u8; 32]) -> Self {
         Self(bytes)
     }
-}
-
-#[derive(Debug, Copy, Clone, TrivialType, enum_map::Enum, FromRepr)]
-#[repr(u8)]
-enum PageGroupKind {
-    /// These pages are stored permanently and are never removed
-    Permanent = 0,
-    /// These pages are related to blocks and expire over time as blocks become buried deeper in
-    /// blockchain history
-    Block = 1,
 }
 
 #[derive(Default)]
@@ -203,6 +191,8 @@ pub struct ClientDatabaseOptions {
 pub struct ClientDatabaseFormatOptions {
     /// The number of [`AlignedPage`]s in a single page group.
     ///
+    /// [`AlignedPage`]: crate::storage_backend::AlignedPage
+    ///
     /// Each group always has a set of storage items with monotonically increasing sequence numbers.
     /// The database only frees page groups for reuse when all storage items there are no longer in
     /// use.
@@ -251,14 +241,6 @@ pub enum ClientDatabaseError {
         /// Page group size in pages
         page_group_size: u32,
     },
-    /// Unexpected first storage item
-    #[error("Unexpected first storage item at offset {page_offset}: {storage_item:?}")]
-    UnexpectedFirstStorageItem {
-        /// First storage item
-        storage_item: Box<dyn fmt::Debug + Send + Sync>,
-        /// Page offset where storage item is found
-        page_offset: u32,
-    },
     /// Unexpected sequence number
     #[error(
         "Unexpected sequence number {actual} at page offset {page_offset} (expected \
@@ -272,17 +254,9 @@ pub enum ClientDatabaseError {
         /// Page offset where storage item is found
         page_offset: u32,
     },
-    /// Unexpected permanent storage item
-    #[error("Unexpected permanent storage item at offset {page_offset}: {storage_item:?}")]
-    UnexpectedPermanentStorageItem {
-        /// First storage item
-        storage_item: Box<dyn fmt::Debug + Send + Sync>,
-        /// Page offset where storage item is found
-        page_offset: u32,
-    },
-    /// Unexpected block storage item
-    #[error("Unexpected block storage item at offset {page_offset}: {storage_item:?}")]
-    UnexpectedBlockStorageItem {
+    /// Unexpected storage item
+    #[error("Unexpected storage item at offset {page_offset}: {storage_item:?}")]
+    UnexpectedStorageItem {
         /// First storage item
         storage_item: Box<dyn fmt::Debug + Send + Sync>,
         /// Page offset where storage item is found
@@ -348,8 +322,8 @@ struct ForkTip {
 /// Opaque parent header data structure that ensures the parent block is not removed too early
 #[derive(Debug)]
 struct OpaqueParentHeader<Header> {
-    /// Optional parent header, empty for parent of the genesis block or for the first block that
-    /// was read from persistent storage.
+    /// Optional parent header, empty for the parent of the genesis block or for the first block
+    /// that was read from persistent storage.
     ///
     /// NOTE: this field is not supposed to be accessed, it is only here to maintain the reference
     /// count of the parent header.
@@ -782,9 +756,6 @@ where
     Block: GenericOwnedBlock,
     StorageBackend: ClientDatabaseStorageBackend,
 {
-    /// Current database version
-    const VERSION: u8 = 0;
-
     /// Open the existing database.
     ///
     /// NOTE: The database needs to be formatted with [`Self::format()`] before it can be used.
@@ -801,185 +772,33 @@ where
             return Err(ClientDatabaseError::InvalidMaxForkTipDistance);
         }
 
-        let database_id;
-        let database_version;
-        let page_group_size;
-        let num_page_groups;
-
-        let mut page_groups = enum_map! {
-            PageGroupKind::Permanent => PageGroups {
-                next_sequence_number: 0,
-                list: VecDeque::new(),
-            },
-            PageGroupKind::Block => PageGroups {
-                next_sequence_number: 0,
-                list: VecDeque::new(),
-            },
-        };
-        let mut free_page_groups = VecDeque::new();
-
-        let mut buffer = Vec::new();
-
-        // Check the first page group. This could have been done in the loop below, but that makes
-        // the code even more ugly than this copy-paste.
-        {
-            buffer = storage_backend
-                .read(buffer, 1, 0)
-                .await
-                .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
-                .map_err(|error| ClientDatabaseError::ReadError { error })?;
-
-            let storage_item = match StorageItem::read_from_pages(&buffer) {
-                Ok(storage_item) => storage_item,
-                Err(_error) => {
-                    // Page group header fit the first page, so any deciding error indicates it is
-                    // not a valid page group header
-                    return Err(ClientDatabaseError::Unformatted);
-                }
-            };
-
-            let page_group_header = match storage_item.storage_item_kind {
-                StorageItemKind::PageGroupHeader(page_group_header) => {
-                    if page_group_header.database_version != Self::VERSION {
-                        return Err(ClientDatabaseError::UnsupportedDatabaseVersion {
-                            database_version: page_group_header.database_version,
-                        });
-                    }
-
-                    database_id = page_group_header.database_id;
-                    database_version = page_group_header.database_version;
-                    page_group_size = page_group_header.page_group_size;
-                    if page_group_size < 2 {
-                        return Err(ClientDatabaseError::PageGroupSizeTooSmall { page_group_size });
-                    }
-                    num_page_groups = storage_backend.num_pages() / page_group_size;
-
-                    page_group_header
-                }
-                StorageItemKind::Block(_) => {
-                    return Err(ClientDatabaseError::UnexpectedFirstStorageItem {
-                        storage_item: Box::new(storage_item),
-                        page_offset: 0,
-                    });
-                }
-            };
-
-            match page_group_header.page_group_kind {
-                PageGroupKind::Permanent => {
-                    page_groups[PageGroupKind::Permanent]
-                        .list
-                        .push_front(PageGroup {
-                            first_sequence_number: storage_item.sequence_number,
-                            inner_next_page_offset: storage_item.num_pages(),
-                            first_page_offset: 0,
-                        });
-                }
-                PageGroupKind::Block => {
-                    return Err(ClientDatabaseError::NonPermanentFirstPageGroup);
-                }
-            }
-        }
-
-        // Quick scan through the rest of page groups
-        for page_group_index in 1..num_page_groups {
-            let first_page_offset = page_group_index * page_group_size;
-            buffer.clear();
-            buffer = storage_backend
-                .read(buffer, 1, first_page_offset)
-                .await
-                .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
-                .map_err(|error| ClientDatabaseError::ReadError { error })?;
-
-            let storage_item = match StorageItem::read_from_pages(&buffer) {
-                Ok(storage_item) => storage_item,
-                Err(_error) => {
-                    free_page_groups.push_back(first_page_offset);
-                    continue;
-                }
-            };
-
-            let page_group_header = match storage_item.storage_item_kind {
-                StorageItemKind::PageGroupHeader(page_group_header) => {
-                    if !(page_group_header.database_id == database_id
-                        && page_group_header.database_version == database_version
-                        && page_group_header.page_group_size == page_group_size)
-                    {
-                        free_page_groups.push_back(first_page_offset);
-                        continue;
-                    }
-
-                    page_group_header
-                }
-                StorageItemKind::Block(_) => {
-                    return Err(ClientDatabaseError::UnexpectedFirstStorageItem {
-                        storage_item: Box::new(storage_item),
-                        page_offset: first_page_offset,
-                    });
-                }
-            };
-
-            let page_group = PageGroup {
-                first_sequence_number: storage_item.sequence_number,
-                inner_next_page_offset: storage_item.num_pages(),
-                first_page_offset,
-            };
-            page_groups[page_group_header.page_group_kind]
-                .list
-                .push_front(page_group);
-        }
-
-        // Sort page groups into the correct order of first sequence numbers
-        for entry in page_groups.values_mut() {
-            entry
-                .list
-                .make_contiguous()
-                .sort_by_key(|page_group| Reverse(page_group.first_sequence_number));
-        }
-
         let mut state = State {
             fork_tips: VecDeque::new(),
             block_roots: HashMap::default(),
             blocks: VecDeque::new(),
         };
 
-        // Read all permanent storage groups
-        buffer = Self::read_page_groups(
-            &mut page_groups[PageGroupKind::Permanent],
-            page_group_size,
-            &storage_backend,
-            buffer,
-            |storage_item, page_offset| match storage_item.storage_item_kind {
-                StorageItemKind::PageGroupHeader(_) | StorageItemKind::Block(_) => {
-                    Err(ClientDatabaseError::UnexpectedPermanentStorageItem {
-                        storage_item: Box::new(storage_item),
-                        page_offset,
-                    })
-                }
+        let storage_item_handlers = StorageItemHandlers {
+            permanent: |_arg| {
+                // TODO
+                Ok(())
             },
-        )
-        .instrument(info_span!("", page_group_kind = ?PageGroupKind::Permanent))
-        .await?;
-
-        // Read all block storage groups
-        let _ = Self::read_page_groups(
-            &mut page_groups[PageGroupKind::Block],
-            page_group_size,
-            &storage_backend,
-            buffer,
-            |storage_item, page_offset| {
-                let storage_item_block = match storage_item.storage_item_kind {
-                    StorageItemKind::PageGroupHeader(_) => {
-                        return Err(ClientDatabaseError::UnexpectedBlockStorageItem {
-                            storage_item: Box::new(storage_item),
-                            page_offset,
-                        });
-                    }
-                    StorageItemKind::Block(storage_item_block) => storage_item_block,
+            block: |arg| {
+                let StorageItemHandlerArg {
+                    storage_item,
+                    page_offset,
+                } = arg;
+                #[expect(
+                    clippy::infallible_destructuring_match,
+                    reason = "Only a single variant for now"
+                )]
+                let storage_item_block = match storage_item {
+                    StorageItemBlock::Block(storage_item_block) => storage_item_block,
                 };
 
                 // TODO: It would be nice to not allocate body here since we'll not use it here
                 //  anyway
-                let StorageItemBlock {
+                let StorageItemBlockBlock {
                     header,
                     body: _,
                     mmr_with_block,
@@ -1073,8 +892,13 @@ where
 
                 Ok(())
             },
+        };
+
+        let storage_backend_adapter = StorageBackendAdapter::open(
+            options.write_buffer_size,
+            storage_item_handlers,
+            &storage_backend,
         )
-        .instrument(info_span!("", page_group_kind = ?PageGroupKind::Block))
         .await?;
 
         if let Some(best_block) = state.blocks.front().and_then(|block_forks| {
@@ -1125,16 +949,7 @@ where
 
         let inner = Inner {
             state: AsyncRwLock::new(state),
-            storage_backend_adapter: AsyncMutex::new(StorageBackendAdapter::new(
-                database_id,
-                database_version,
-                page_group_size,
-                (0..options.write_buffer_size)
-                    .map(|_| WriteBufferEntry::Free(Vec::new()))
-                    .collect(),
-                page_groups,
-                free_page_groups,
-            )),
+            storage_backend_adapter: AsyncMutex::new(storage_backend_adapter),
             storage_backend,
             options,
         };
@@ -1144,139 +959,12 @@ where
         })
     }
 
-    /// Read all page groups and call the storage item handler for every storage item except the
-    /// page group header
-    async fn read_page_groups<SIH>(
-        target_page_groups: &mut PageGroups,
-        page_group_size: u32,
-        storage_backend: &StorageBackend,
-        mut buffer: Vec<AlignedPage>,
-        mut storage_item_handler: SIH,
-    ) -> Result<Vec<AlignedPage>, ClientDatabaseError>
-    where
-        SIH: FnMut(StorageItem, u32) -> Result<(), ClientDatabaseError>,
-    {
-        let mut next_sequence_number = 0;
-
-        // Read all page groups from oldest to newest
-        for page_group in target_page_groups.list.iter_mut().rev() {
-            if next_sequence_number == 0 {
-                next_sequence_number = page_group.first_sequence_number;
-            }
-
-            buffer.clear();
-            buffer = storage_backend
-                .read(buffer, page_group_size, page_group.first_page_offset)
-                .await
-                .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
-                .map_err(|error| ClientDatabaseError::ReadError { error })?;
-
-            let mut pages = buffer.as_slice();
-
-            while !pages.is_empty() {
-                let page_offset = page_group.first_page_offset + page_group.inner_next_page_offset;
-                let storage_item = match StorageItem::read_from_pages(pages) {
-                    Ok(storage_item) => storage_item,
-                    Err(error) => {
-                        debug!(
-                            page_offset,
-                            %error,
-                            "Failed to read storage item, considering this to be the end of the \
-                            page group"
-                        );
-                        break;
-                    }
-                };
-
-                let sequence_number = storage_item.sequence_number;
-                let num_pages = storage_item.num_pages();
-
-                if sequence_number == next_sequence_number {
-                    next_sequence_number += 1;
-                } else {
-                    error!(
-                        page_offset,
-                        actual = sequence_number,
-                        expected = next_sequence_number,
-                        "Unexpected sequence number"
-                    );
-                    return Err(ClientDatabaseError::UnexpectedSequenceNumber {
-                        actual: sequence_number,
-                        expected: next_sequence_number,
-                        page_offset,
-                    });
-                }
-
-                // The very first thing in a page group is the page group header, skip it
-                if pages.len() == page_group_size as usize {
-                    match storage_item.storage_item_kind {
-                        StorageItemKind::PageGroupHeader(_) => {
-                            // Expected storage item
-                        }
-                        StorageItemKind::Block(_) => {
-                            return Err(ClientDatabaseError::UnexpectedBlockStorageItem {
-                                storage_item: Box::new(storage_item),
-                                page_offset,
-                            });
-                        }
-                    }
-                } else {
-                    storage_item_handler(storage_item, page_offset)?;
-                }
-
-                pages = &pages[num_pages as usize..];
-                page_group.inner_next_page_offset += num_pages;
-            }
-        }
-
-        target_page_groups.next_sequence_number = next_sequence_number;
-
-        Ok(buffer)
-    }
-
     /// Format a new database
     pub async fn format(
         storage_backend: &StorageBackend,
         options: ClientDatabaseFormatOptions,
     ) -> Result<(), ClientDatabaseFormatError> {
-        let mut buffer = vec![AlignedPage::default(); 1];
-
-        if !options.force {
-            buffer = storage_backend
-                .read(buffer, 1, 0)
-                .await
-                .map_err(|_error| ClientDatabaseFormatError::ReadRequestCancelled)?
-                .map_err(|error| ClientDatabaseFormatError::ReadError { error })?;
-
-            if StorageItem::read_from_pages(&buffer).is_ok() {
-                return Err(ClientDatabaseFormatError::AlreadyFormatted);
-            }
-        }
-
-        let storage_item = StorageItem {
-            sequence_number: 0,
-            storage_item_kind: StorageItemKind::PageGroupHeader(StorageItemPageGroupHeader {
-                database_id: DatabaseId::new({
-                    let mut id = [0; 32];
-                    OsRng.try_fill_bytes(&mut id)?;
-                    id
-                }),
-                database_version: Self::VERSION,
-                page_group_kind: PageGroupKind::Permanent,
-                padding: [0; _],
-                page_group_size: options.page_group_size,
-            }),
-        };
-        storage_item
-            .write_to_pages(&mut buffer)
-            .map_err(io::Error::other)?;
-
-        let _buffer: Vec<AlignedPage> = storage_backend
-            .write(buffer, 0)
-            .await
-            .map_err(|_cancelled| ClientDatabaseFormatError::WriteRequestCancelled)??;
-
-        Ok(())
+        StorageBackendAdapter::format(storage_backend, options).await
     }
 
     async fn insert_new_best_block(
@@ -1383,9 +1071,8 @@ where
 
             let write_location = storage_backend_adapter
                 .write_storage_item(
-                    PageGroupKind::Block,
                     &inner.storage_backend,
-                    StorageItemKind::Block(StorageItemBlock {
+                    StorageItemBlock::Block(StorageItemBlockBlock {
                         header: block.block.header().buffer().clone(),
                         body: block.block.body().buffer().clone(),
                         mmr_with_block: Arc::clone(&block.mmr_with_block),
