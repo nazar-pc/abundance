@@ -1,4 +1,4 @@
-use crate::storage_item::{StorageItemError, StorageItemKind};
+use crate::storage_backend_adapter::storage_item::{StorageItemError, StorageItemKind};
 use crate::{DatabaseId, PageGroupKind};
 use ab_io_type::trivial_type::TrivialType;
 use std::mem;

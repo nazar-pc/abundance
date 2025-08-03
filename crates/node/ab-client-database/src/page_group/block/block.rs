@@ -1,4 +1,4 @@
-use crate::storage_item::StorageItemError;
+use crate::storage_backend_adapter::storage_item::StorageItemError;
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::BlockMerkleMountainRange;
 use ab_merkle_tree::mmr::MerkleMountainRangeBytes;

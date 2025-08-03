@@ -1,8 +1,10 @@
+pub(crate) mod page_group_header;
+pub(crate) mod storage_item;
+
 use crate::page_group::block::StorageItemBlockKind;
 use crate::page_group::permanent::StorageItemPermanentKind;
 use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
-use crate::storage_item::page_group_header::StorageItemPageGroupHeader;
-use crate::storage_item::{StorageItem, StorageItemKind};
+use crate::storage_backend_adapter::storage_item::{StorageItem, StorageItemKind};
 use crate::{
     ClientDatabaseError, ClientDatabaseFormatError, ClientDatabaseFormatOptions, DatabaseId,
     PageGroupKind,
@@ -10,6 +12,7 @@ use crate::{
 use enum_map::{EnumMap, enum_map};
 use futures::FutureExt;
 use futures::channel::oneshot;
+use page_group_header::StorageItemPageGroupHeader;
 use rand_core::{OsRng, TryRngCore};
 use replace_with::replace_with_or_abort_and_return;
 use std::cmp::Reverse;

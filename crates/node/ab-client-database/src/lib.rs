@@ -55,7 +55,6 @@
 mod page_group;
 pub mod storage_backend;
 mod storage_backend_adapter;
-mod storage_item;
 
 use crate::page_group::block::StorageItemBlockKind;
 use crate::page_group::block::block::StorageItemBlock;

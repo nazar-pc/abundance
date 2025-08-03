@@ -1,5 +1,3 @@
-pub(crate) mod page_group_header;
-
 use crate::storage_backend::AlignedPage;
 use ab_blake3::single_block_hash;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -59,9 +57,9 @@ pub(crate) trait StorageItemKind: fmt::Debug + Send + Sync + Sized + 'static {
 }
 
 #[derive(Debug)]
-pub(crate) struct StorageItem<Kind> {
-    pub(crate) sequence_number: u64,
-    pub(crate) storage_item_kind: Kind,
+pub(super) struct StorageItem<Kind> {
+    pub(super) sequence_number: u64,
+    pub(super) storage_item_kind: Kind,
 }
 
 impl<Kind> StorageItem<Kind>
@@ -69,7 +67,7 @@ where
     Kind: StorageItemKind,
 {
     /// Returns the number of pages necessary to write this storage item
-    pub(crate) fn num_pages(&self) -> u32 {
+    pub(super) fn num_pages(&self) -> u32 {
         let storage_item_size = self.storage_item_kind.total_bytes();
 
         // Align buffer used by storage item to 128 bytes
@@ -89,7 +87,7 @@ where
     }
 
     /// Write a storage item to the provided buffer of aligned pages
-    pub(crate) fn write_to_pages(
+    pub(super) fn write_to_pages(
         &self,
         buffer: &mut [AlignedPage],
     ) -> Result<(), StorageItemError> {
@@ -138,7 +136,7 @@ where
     }
 
     /// The inverse of [`Self::write_to_pages()`]
-    pub(crate) fn read_from_pages(pages: &[AlignedPage]) -> Result<Self, StorageItemError> {
+    pub(super) fn read_from_pages(pages: &[AlignedPage]) -> Result<Self, StorageItemError> {
         let mut buffer = AlignedPage::slice_to_repr(pages).as_flattened();
 
         let prefix_bytes = buffer

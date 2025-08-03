@@ -5,7 +5,7 @@
 pub(crate) mod block;
 
 use crate::page_group::block::block::StorageItemBlock;
-use crate::storage_item::{StorageItemError, StorageItemKind};
+use crate::storage_backend_adapter::storage_item::{StorageItemError, StorageItemKind};
 use strum::FromRepr;
 
 #[derive(Debug, FromRepr)]

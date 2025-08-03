@@ -1,4 +1,4 @@
-use crate::storage_item::{StorageItemError, StorageItemKind};
+use crate::storage_backend_adapter::storage_item::{StorageItemError, StorageItemKind};
 
 #[derive(Debug)]
 pub(crate) enum StorageItemPermanentKind {
