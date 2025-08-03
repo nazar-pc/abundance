@@ -1,40 +1,47 @@
+use crate::page_group::block::StorageItemBlockKind;
+use crate::page_group::permanent::StorageItemPermanentKind;
 use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
 use crate::storage_item::page_group_header::StorageItemPageGroupHeader;
 use crate::storage_item::{StorageItem, StorageItemKind};
-use crate::{ClientDatabaseError, DatabaseId, PageGroupKind};
-use enum_map::EnumMap;
+use crate::{
+    ClientDatabaseError, ClientDatabaseFormatError, ClientDatabaseFormatOptions, DatabaseId,
+    PageGroupKind,
+};
+use enum_map::{EnumMap, enum_map};
 use futures::FutureExt;
 use futures::channel::oneshot;
+use rand_core::{OsRng, TryRngCore};
 use replace_with::replace_with_or_abort_and_return;
+use std::cmp::Reverse;
 use std::collections::VecDeque;
 use std::task::Poll;
 use std::{future, io};
-use tracing::{debug, error};
+use tracing::{Instrument, debug, error, info_span};
 
 #[derive(Debug)]
-pub(crate) struct PageGroup {
-    pub(crate) first_sequence_number: u64,
+struct PageGroup {
+    first_sequence_number: u64,
     /// Next page offset within the page group
-    pub(crate) inner_next_page_offset: u32,
+    inner_next_page_offset: u32,
     /// Offset of the first page of this page group in the storage backend
-    pub(crate) first_page_offset: u32,
+    first_page_offset: u32,
 }
 
 #[derive(Debug)]
-pub(crate) struct PageGroups {
+struct PageGroups {
     /// Next sequence number to use
-    pub(crate) next_sequence_number: u64,
+    next_sequence_number: u64,
     /// A list of page groups.
     ///
     /// The front page is the active one, meaning it is being appended to, the back page is the
     /// oldest page.
     ///
     /// If pruning is needed, old pages are freed from back to front without gaps.
-    pub(crate) list: VecDeque<PageGroup>,
+    list: VecDeque<PageGroup>,
 }
 
 #[derive(Debug)]
-pub(crate) enum WriteBufferEntry {
+enum WriteBufferEntry {
     Free(Vec<AlignedPage>),
     Occupied(oneshot::Receiver<io::Result<Vec<AlignedPage>>>),
 }
@@ -43,6 +50,22 @@ pub(crate) enum WriteBufferEntry {
 pub(crate) struct WriteLocation {
     #[expect(dead_code, reason = "Not used yet")]
     pub(crate) page_offset: u32,
+}
+
+#[derive(Debug)]
+pub(crate) struct StorageItemHandlerArg<K> {
+    pub(crate) storage_item_kind: K,
+    pub(crate) page_offset: u32,
+}
+
+/// Storage item handlers are called on every storage item, storage items are read in the same order
+/// they are defined in this data structure
+#[derive(Debug)]
+pub(crate) struct StorageItemHandlers<P, B> {
+    /// Handler for storage items in permanent storage groups
+    pub(crate) permanent: P,
+    /// Handler for storage items in permanent block groups
+    pub(crate) block: B,
 }
 
 #[derive(Debug)]
@@ -61,28 +84,230 @@ pub(crate) struct StorageBackendAdapter {
 }
 
 impl StorageBackendAdapter {
-    pub(crate) fn new(
-        database_id: DatabaseId,
-        database_version: u8,
-        page_group_size: u32,
-        write_buffer: Box<[WriteBufferEntry]>,
-        page_groups: EnumMap<PageGroupKind, PageGroups>,
-        free_page_groups: VecDeque<u32>,
-    ) -> Self {
-        Self {
+    /// Current database version
+    const VERSION: u8 = 0;
+
+    pub(crate) async fn open<SIHP, SIHB, StorageBackend>(
+        write_buffer_size: usize,
+        mut storage_item_handlers: StorageItemHandlers<SIHP, SIHB>,
+        storage_backend: &StorageBackend,
+    ) -> Result<Self, ClientDatabaseError>
+    where
+        SIHP: FnMut(
+            StorageItemHandlerArg<StorageItemPermanentKind>,
+        ) -> Result<(), ClientDatabaseError>,
+        SIHB: FnMut(StorageItemHandlerArg<StorageItemBlockKind>) -> Result<(), ClientDatabaseError>,
+        StorageBackend: ClientDatabaseStorageBackend,
+    {
+        let database_id;
+        let database_version;
+        let page_group_size;
+        let num_page_groups;
+
+        let mut page_groups = enum_map! {
+            PageGroupKind::Permanent => PageGroups {
+                next_sequence_number: 0,
+                list: VecDeque::new(),
+            },
+            PageGroupKind::Block => PageGroups {
+                next_sequence_number: 0,
+                list: VecDeque::new(),
+            },
+        };
+        let mut free_page_groups = VecDeque::new();
+
+        let mut buffer = Vec::new();
+
+        // Check the first page group. This could have been done in the loop below, but that makes
+        // the code even more ugly than this copy-paste.
+        {
+            buffer = storage_backend
+                .read(buffer, 1, 0)
+                .await
+                .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
+                .map_err(|error| ClientDatabaseError::ReadError { error })?;
+
+            let storage_item =
+                match StorageItem::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
+                    Ok(storage_item) => storage_item,
+                    Err(_error) => {
+                        // Page group header fit the first page, so any deciding error indicates it is
+                        // not a valid page group header
+                        return Err(ClientDatabaseError::Unformatted);
+                    }
+                };
+
+            let page_group_header = &storage_item.storage_item_kind;
+            if page_group_header.database_version != Self::VERSION {
+                return Err(ClientDatabaseError::UnsupportedDatabaseVersion {
+                    database_version: page_group_header.database_version,
+                });
+            }
+            database_id = page_group_header.database_id;
+            database_version = page_group_header.database_version;
+            page_group_size = page_group_header.page_group_size;
+            if page_group_size < 2 {
+                return Err(ClientDatabaseError::PageGroupSizeTooSmall { page_group_size });
+            }
+            num_page_groups = storage_backend.num_pages() / page_group_size;
+
+            match page_group_header.page_group_kind {
+                PageGroupKind::Permanent => {
+                    page_groups[PageGroupKind::Permanent]
+                        .list
+                        .push_front(PageGroup {
+                            first_sequence_number: storage_item.sequence_number,
+                            inner_next_page_offset: storage_item.num_pages(),
+                            first_page_offset: 0,
+                        });
+                }
+                PageGroupKind::Block => {
+                    return Err(ClientDatabaseError::NonPermanentFirstPageGroup);
+                }
+            }
+        }
+
+        // Quick scan through the rest of page groups
+        for page_group_index in 1..num_page_groups {
+            let first_page_offset = page_group_index * page_group_size;
+            buffer.clear();
+            buffer = storage_backend
+                .read(buffer, 1, first_page_offset)
+                .await
+                .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
+                .map_err(|error| ClientDatabaseError::ReadError { error })?;
+
+            let storage_item =
+                match StorageItem::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
+                    Ok(storage_item) => storage_item,
+                    Err(_error) => {
+                        free_page_groups.push_back(first_page_offset);
+                        continue;
+                    }
+                };
+
+            let page_group_header = &storage_item.storage_item_kind;
+            if !(page_group_header.database_id == database_id
+                && page_group_header.database_version == database_version
+                && page_group_header.page_group_size == page_group_size)
+            {
+                free_page_groups.push_back(first_page_offset);
+                continue;
+            }
+
+            let page_group = PageGroup {
+                first_sequence_number: storage_item.sequence_number,
+                inner_next_page_offset: storage_item.num_pages(),
+                first_page_offset,
+            };
+            page_groups[page_group_header.page_group_kind]
+                .list
+                .push_front(page_group);
+        }
+
+        // Sort page groups into the correct order of first sequence numbers
+        for entry in page_groups.values_mut() {
+            entry
+                .list
+                .make_contiguous()
+                .sort_by_key(|page_group| Reverse(page_group.first_sequence_number));
+        }
+
+        // Read all permanent storage groups
+        buffer = StorageBackendAdapter::read_page_groups::<_, StorageItemPermanentKind, _>(
+            &mut page_groups[PageGroupKind::Permanent],
+            page_group_size,
+            storage_backend,
+            buffer,
+            |storage_item, page_offset| {
+                (storage_item_handlers.permanent)(StorageItemHandlerArg {
+                    storage_item_kind: storage_item.storage_item_kind,
+                    page_offset,
+                })
+            },
+        )
+        .instrument(info_span!("", page_group_kind = ?PageGroupKind::Permanent))
+        .await?;
+
+        // Read all block storage groups
+        let _ = StorageBackendAdapter::read_page_groups(
+            &mut page_groups[PageGroupKind::Block],
+            page_group_size,
+            storage_backend,
+            buffer,
+            |storage_item, page_offset| {
+                (storage_item_handlers.block)(StorageItemHandlerArg {
+                    storage_item_kind: storage_item.storage_item_kind,
+                    page_offset,
+                })
+            },
+        )
+        .instrument(info_span!("", page_group_kind = ?PageGroupKind::Block))
+        .await?;
+
+        Ok(Self {
             database_id,
             database_version,
             page_group_size,
-            write_buffer,
+            write_buffer: (0..write_buffer_size)
+                .map(|_| WriteBufferEntry::Free(Vec::new()))
+                .collect(),
             page_groups,
             free_page_groups,
             had_write_failure: false,
+        })
+    }
+
+    pub(crate) async fn format<StorageBackend>(
+        storage_backend: &StorageBackend,
+        options: ClientDatabaseFormatOptions,
+    ) -> Result<(), ClientDatabaseFormatError>
+    where
+        StorageBackend: ClientDatabaseStorageBackend,
+    {
+        let mut buffer = vec![AlignedPage::default(); 1];
+
+        if !options.force {
+            buffer = storage_backend
+                .read(buffer, 1, 0)
+                .await
+                .map_err(|_error| ClientDatabaseFormatError::ReadRequestCancelled)?
+                .map_err(|error| ClientDatabaseFormatError::ReadError { error })?;
+
+            if StorageItem::<StorageItemPageGroupHeader>::read_from_pages(&buffer).is_ok() {
+                return Err(ClientDatabaseFormatError::AlreadyFormatted);
+            }
         }
+
+        let storage_item = StorageItem {
+            sequence_number: 0,
+            storage_item_kind: StorageItemPageGroupHeader {
+                database_id: DatabaseId::new({
+                    let mut id = [0; 32];
+                    OsRng.try_fill_bytes(&mut id)?;
+                    id
+                }),
+                database_version: Self::VERSION,
+                page_group_kind: PageGroupKind::Permanent,
+                padding: [0; _],
+                page_group_size: options.page_group_size,
+            },
+        };
+        storage_item
+            .write_to_pages(&mut buffer)
+            .map_err(io::Error::other)?;
+
+        let _buffer: Vec<AlignedPage> = storage_backend
+            .write(buffer, 0)
+            .await
+            .map_err(|_cancelled| ClientDatabaseFormatError::WriteRequestCancelled)??;
+
+        Ok(())
     }
 
     /// Read all page groups and call the storage item handler for every storage item except the
     /// page group header
-    pub(crate) async fn read_page_groups<StorageBackend, Kind, SIH>(
+    async fn read_page_groups<StorageBackend, Kind, SIH>(
         target_page_groups: &mut PageGroups,
         page_group_size: u32,
         storage_backend: &StorageBackend,
