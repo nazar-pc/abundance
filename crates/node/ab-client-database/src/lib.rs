@@ -50,17 +50,20 @@
     try_blocks
 )]
 
+mod page_group;
 pub mod storage_backend;
 mod storage_backend_adapter;
 mod storage_item;
 
+use crate::page_group::block::StorageItemBlockKind;
+use crate::page_group::block::block::StorageItemBlock;
+use crate::page_group::permanent::StorageItemPermanentKind;
 use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
 use crate::storage_backend_adapter::{
     PageGroup, PageGroups, StorageBackendAdapter, WriteBufferEntry, WriteLocation,
 };
-use crate::storage_item::block::StorageItemBlock;
+use crate::storage_item::StorageItem;
 use crate::storage_item::page_group_header::StorageItemPageGroupHeader;
-use crate::storage_item::{StorageItem, StorageItemKind};
 use ab_client_api::{BlockMerkleMountainRange, ChainInfo, ChainInfoWrite, PersistBlockError};
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::GenericBlockHeader;
@@ -116,7 +119,7 @@ impl DatabaseId {
 
 #[derive(Debug, Copy, Clone, TrivialType, enum_map::Enum, FromRepr)]
 #[repr(u8)]
-enum PageGroupKind {
+pub(crate) enum PageGroupKind {
     /// These pages are stored permanently and are never removed
     Permanent = 0,
     /// These pages are related to blocks and expire over time as blocks become buried deeper in
@@ -251,14 +254,6 @@ pub enum ClientDatabaseError {
         /// Page group size in pages
         page_group_size: u32,
     },
-    /// Unexpected first storage item
-    #[error("Unexpected first storage item at offset {page_offset}: {storage_item:?}")]
-    UnexpectedFirstStorageItem {
-        /// First storage item
-        storage_item: Box<dyn fmt::Debug + Send + Sync>,
-        /// Page offset where storage item is found
-        page_offset: u32,
-    },
     /// Unexpected sequence number
     #[error(
         "Unexpected sequence number {actual} at page offset {page_offset} (expected \
@@ -272,17 +267,9 @@ pub enum ClientDatabaseError {
         /// Page offset where storage item is found
         page_offset: u32,
     },
-    /// Unexpected permanent storage item
-    #[error("Unexpected permanent storage item at offset {page_offset}: {storage_item:?}")]
-    UnexpectedPermanentStorageItem {
-        /// First storage item
-        storage_item: Box<dyn fmt::Debug + Send + Sync>,
-        /// Page offset where storage item is found
-        page_offset: u32,
-    },
-    /// Unexpected block storage item
-    #[error("Unexpected block storage item at offset {page_offset}: {storage_item:?}")]
-    UnexpectedBlockStorageItem {
+    /// Unexpected storage item
+    #[error("Unexpected storage item at offset {page_offset}: {storage_item:?}")]
+    UnexpectedStorageItem {
         /// First storage item
         storage_item: Box<dyn fmt::Debug + Send + Sync>,
         /// Page offset where storage item is found
@@ -348,8 +335,8 @@ struct ForkTip {
 /// Opaque parent header data structure that ensures the parent block is not removed too early
 #[derive(Debug)]
 struct OpaqueParentHeader<Header> {
-    /// Optional parent header, empty for parent of the genesis block or for the first block that
-    /// was read from persistent storage.
+    /// Optional parent header, empty for the parent of the genesis block or for the first block
+    /// that was read from persistent storage.
     ///
     /// NOTE: this field is not supposed to be accessed, it is only here to maintain the reference
     /// count of the parent header.
@@ -829,40 +816,29 @@ where
                 .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
                 .map_err(|error| ClientDatabaseError::ReadError { error })?;
 
-            let storage_item = match StorageItem::read_from_pages(&buffer) {
-                Ok(storage_item) => storage_item,
-                Err(_error) => {
-                    // Page group header fit the first page, so any deciding error indicates it is
-                    // not a valid page group header
-                    return Err(ClientDatabaseError::Unformatted);
-                }
-            };
-
-            let page_group_header = match storage_item.storage_item_kind {
-                StorageItemKind::PageGroupHeader(page_group_header) => {
-                    if page_group_header.database_version != Self::VERSION {
-                        return Err(ClientDatabaseError::UnsupportedDatabaseVersion {
-                            database_version: page_group_header.database_version,
-                        });
+            let storage_item =
+                match StorageItem::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
+                    Ok(storage_item) => storage_item,
+                    Err(_error) => {
+                        // Page group header fit the first page, so any deciding error indicates it is
+                        // not a valid page group header
+                        return Err(ClientDatabaseError::Unformatted);
                     }
+                };
 
-                    database_id = page_group_header.database_id;
-                    database_version = page_group_header.database_version;
-                    page_group_size = page_group_header.page_group_size;
-                    if page_group_size < 2 {
-                        return Err(ClientDatabaseError::PageGroupSizeTooSmall { page_group_size });
-                    }
-                    num_page_groups = storage_backend.num_pages() / page_group_size;
-
-                    page_group_header
-                }
-                StorageItemKind::Block(_) => {
-                    return Err(ClientDatabaseError::UnexpectedFirstStorageItem {
-                        storage_item: Box::new(storage_item),
-                        page_offset: 0,
-                    });
-                }
-            };
+            let page_group_header = &storage_item.storage_item_kind;
+            if page_group_header.database_version != Self::VERSION {
+                return Err(ClientDatabaseError::UnsupportedDatabaseVersion {
+                    database_version: page_group_header.database_version,
+                });
+            }
+            database_id = page_group_header.database_id;
+            database_version = page_group_header.database_version;
+            page_group_size = page_group_header.page_group_size;
+            if page_group_size < 2 {
+                return Err(ClientDatabaseError::PageGroupSizeTooSmall { page_group_size });
+            }
+            num_page_groups = storage_backend.num_pages() / page_group_size;
 
             match page_group_header.page_group_kind {
                 PageGroupKind::Permanent => {
@@ -890,33 +866,23 @@ where
                 .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
                 .map_err(|error| ClientDatabaseError::ReadError { error })?;
 
-            let storage_item = match StorageItem::read_from_pages(&buffer) {
-                Ok(storage_item) => storage_item,
-                Err(_error) => {
-                    free_page_groups.push_back(first_page_offset);
-                    continue;
-                }
-            };
-
-            let page_group_header = match storage_item.storage_item_kind {
-                StorageItemKind::PageGroupHeader(page_group_header) => {
-                    if !(page_group_header.database_id == database_id
-                        && page_group_header.database_version == database_version
-                        && page_group_header.page_group_size == page_group_size)
-                    {
+            let storage_item =
+                match StorageItem::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
+                    Ok(storage_item) => storage_item,
+                    Err(_error) => {
                         free_page_groups.push_back(first_page_offset);
                         continue;
                     }
+                };
 
-                    page_group_header
-                }
-                StorageItemKind::Block(_) => {
-                    return Err(ClientDatabaseError::UnexpectedFirstStorageItem {
-                        storage_item: Box::new(storage_item),
-                        page_offset: first_page_offset,
-                    });
-                }
-            };
+            let page_group_header = &storage_item.storage_item_kind;
+            if !(page_group_header.database_id == database_id
+                && page_group_header.database_version == database_version
+                && page_group_header.page_group_size == page_group_size)
+            {
+                free_page_groups.push_back(first_page_offset);
+                continue;
+            }
 
             let page_group = PageGroup {
                 first_sequence_number: storage_item.sequence_number,
@@ -943,18 +909,13 @@ where
         };
 
         // Read all permanent storage groups
-        buffer = StorageBackendAdapter::read_page_groups(
+        buffer = StorageBackendAdapter::read_page_groups::<_, StorageItemPermanentKind, _>(
             &mut page_groups[PageGroupKind::Permanent],
             page_group_size,
             &storage_backend,
             buffer,
-            |storage_item, page_offset| match storage_item.storage_item_kind {
-                StorageItemKind::PageGroupHeader(_) | StorageItemKind::Block(_) => {
-                    Err(ClientDatabaseError::UnexpectedPermanentStorageItem {
-                        storage_item: Box::new(storage_item),
-                        page_offset,
-                    })
-                }
+            |storage_item, _page_offset| match storage_item.storage_item_kind {
+                // TODO
             },
         )
         .instrument(info_span!("", page_group_kind = ?PageGroupKind::Permanent))
@@ -967,14 +928,12 @@ where
             &storage_backend,
             buffer,
             |storage_item, page_offset| {
+                #[expect(
+                    clippy::infallible_destructuring_match,
+                    reason = "Only a single variant for now"
+                )]
                 let storage_item_block = match storage_item.storage_item_kind {
-                    StorageItemKind::PageGroupHeader(_) => {
-                        return Err(ClientDatabaseError::UnexpectedBlockStorageItem {
-                            storage_item: Box::new(storage_item),
-                            page_offset,
-                        });
-                    }
-                    StorageItemKind::Block(storage_item_block) => storage_item_block,
+                    StorageItemBlockKind::Block(storage_item_block) => storage_item_block,
                 };
 
                 // TODO: It would be nice to not allocate body here since we'll not use it here
@@ -1145,6 +1104,7 @@ where
     }
 
     /// Format a new database
+    // TODO: Move formatting to storage backend adapter
     pub async fn format(
         storage_backend: &StorageBackend,
         options: ClientDatabaseFormatOptions,
@@ -1158,14 +1118,14 @@ where
                 .map_err(|_error| ClientDatabaseFormatError::ReadRequestCancelled)?
                 .map_err(|error| ClientDatabaseFormatError::ReadError { error })?;
 
-            if StorageItem::read_from_pages(&buffer).is_ok() {
+            if StorageItem::<StorageItemPageGroupHeader>::read_from_pages(&buffer).is_ok() {
                 return Err(ClientDatabaseFormatError::AlreadyFormatted);
             }
         }
 
         let storage_item = StorageItem {
             sequence_number: 0,
-            storage_item_kind: StorageItemKind::PageGroupHeader(StorageItemPageGroupHeader {
+            storage_item_kind: StorageItemPageGroupHeader {
                 database_id: DatabaseId::new({
                     let mut id = [0; 32];
                     OsRng.try_fill_bytes(&mut id)?;
@@ -1175,7 +1135,7 @@ where
                 page_group_kind: PageGroupKind::Permanent,
                 padding: [0; _],
                 page_group_size: options.page_group_size,
-            }),
+            },
         };
         storage_item
             .write_to_pages(&mut buffer)
@@ -1295,7 +1255,7 @@ where
                 .write_storage_item(
                     PageGroupKind::Block,
                     &inner.storage_backend,
-                    StorageItemKind::Block(StorageItemBlock {
+                    StorageItemBlockKind::Block(StorageItemBlock {
                         header: block.block.header().buffer().clone(),
                         body: block.block.body().buffer().clone(),
                         mmr_with_block: Arc::clone(&block.mmr_with_block),

@@ -82,7 +82,7 @@ impl StorageBackendAdapter {
 
     /// Read all page groups and call the storage item handler for every storage item except the
     /// page group header
-    pub(crate) async fn read_page_groups<StorageBackend, SIH>(
+    pub(crate) async fn read_page_groups<StorageBackend, Kind, SIH>(
         target_page_groups: &mut PageGroups,
         page_group_size: u32,
         storage_backend: &StorageBackend,
@@ -91,7 +91,8 @@ impl StorageBackendAdapter {
     ) -> Result<Vec<AlignedPage>, ClientDatabaseError>
     where
         StorageBackend: ClientDatabaseStorageBackend,
-        SIH: FnMut(StorageItem, u32) -> Result<(), ClientDatabaseError>,
+        Kind: StorageItemKind,
+        SIH: FnMut(StorageItem<Kind>, u32) -> Result<(), ClientDatabaseError>,
     {
         let mut next_sequence_number = 0;
 
@@ -103,10 +104,31 @@ impl StorageBackendAdapter {
 
             buffer.clear();
             buffer = storage_backend
-                .read(buffer, page_group_size, page_group.first_page_offset)
+                .read(
+                    buffer,
+                    // Substraction accounts for the page group header, which was already read
+                    page_group_size - page_group.inner_next_page_offset,
+                    page_group.first_page_offset + page_group.inner_next_page_offset,
+                )
                 .await
                 .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
                 .map_err(|error| ClientDatabaseError::ReadError { error })?;
+
+            // Account for the page group header that was already read
+            if page_group.first_sequence_number == next_sequence_number {
+                next_sequence_number += 1;
+            } else {
+                error!(
+                    actual = page_group.first_sequence_number,
+                    expected = next_sequence_number,
+                    "Unexpected first sequence number"
+                );
+                return Err(ClientDatabaseError::UnexpectedSequenceNumber {
+                    actual: page_group.first_sequence_number,
+                    expected: next_sequence_number,
+                    page_offset: page_group.first_page_offset,
+                });
+            }
 
             let mut pages = buffer.as_slice();
 
@@ -144,22 +166,7 @@ impl StorageBackendAdapter {
                     });
                 }
 
-                // The very first thing in a page group is the page group header, skip it
-                if pages.len() == page_group_size as usize {
-                    match storage_item.storage_item_kind {
-                        StorageItemKind::PageGroupHeader(_) => {
-                            // Expected storage item
-                        }
-                        StorageItemKind::Block(_) => {
-                            return Err(ClientDatabaseError::UnexpectedBlockStorageItem {
-                                storage_item: Box::new(storage_item),
-                                page_offset,
-                            });
-                        }
-                    }
-                } else {
-                    storage_item_handler(storage_item, page_offset)?;
-                }
+                storage_item_handler(storage_item, page_offset)?;
 
                 pages = &pages[num_pages as usize..];
                 page_group.inner_next_page_offset += num_pages;
@@ -171,14 +178,15 @@ impl StorageBackendAdapter {
         Ok(buffer)
     }
 
-    pub(super) async fn write_storage_item<StorageBackend>(
+    pub(super) async fn write_storage_item<StorageBackend, Kind>(
         &mut self,
         page_group_kind: PageGroupKind,
         storage_backend: &StorageBackend,
-        storage_item_kind: StorageItemKind,
+        storage_item_kind: Kind,
     ) -> io::Result<WriteLocation>
     where
         StorageBackend: ClientDatabaseStorageBackend,
+        Kind: StorageItemKind,
     {
         if self.had_write_failure {
             return Err(io::Error::new(
@@ -194,14 +202,15 @@ impl StorageBackendAdapter {
             })
     }
 
-    async fn write_storage_item_inner<StorageBackend>(
+    async fn write_storage_item_inner<StorageBackend, Kind>(
         &mut self,
         page_group_kind: PageGroupKind,
         storage_backend: &StorageBackend,
-        storage_item_kind: StorageItemKind,
+        storage_item_kind: Kind,
     ) -> io::Result<WriteLocation>
     where
         StorageBackend: ClientDatabaseStorageBackend,
+        Kind: StorageItemKind,
     {
         let target_page_groups = &mut self.page_groups[page_group_kind];
 
@@ -246,13 +255,13 @@ impl StorageBackendAdapter {
 
             let page_group_header = StorageItem {
                 sequence_number,
-                storage_item_kind: StorageItemKind::PageGroupHeader(StorageItemPageGroupHeader {
+                storage_item_kind: StorageItemPageGroupHeader {
                     database_id: self.database_id,
                     database_version: self.database_version,
                     page_group_kind,
                     padding: [0; _],
                     page_group_size: self.page_group_size,
-                }),
+                },
             };
 
             // Adjust sequence numbers since the previous value was reused by a new page group
@@ -376,11 +385,14 @@ impl StorageBackendAdapter {
     /// Resize the buffer to the correct size and write storage item with optional prepended page
     /// group header
     #[inline(always)]
-    fn write_pages_to_buffer(
-        storage_item: &StorageItem,
-        maybe_page_group_header: Option<&StorageItem>,
+    fn write_pages_to_buffer<Kind>(
+        storage_item: &StorageItem<Kind>,
+        maybe_page_group_header: Option<&StorageItem<StorageItemPageGroupHeader>>,
         buffer: &mut Vec<AlignedPage>,
-    ) -> io::Result<()> {
+    ) -> io::Result<()>
+    where
+        Kind: StorageItemKind,
+    {
         if let Some(page_group_header) = maybe_page_group_header {
             buffer.resize_with(storage_item.num_pages() as usize + 1, AlignedPage::default);
 

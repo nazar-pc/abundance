@@ -13,7 +13,7 @@ pub(crate) struct StorageItemBlock {
 }
 
 impl StorageItemBlock {
-    pub(crate) fn total_bytes(&self) -> usize {
+    pub(super) fn total_bytes(&self) -> usize {
         Self::total_bytes_inner(
             self.header.len(),
             self.body.len(),
@@ -34,9 +34,6 @@ impl StorageItemBlock {
         header_len as usize + body_len as usize + mmr_len as usize
     }
 
-    /// Write a storage item to the provided buffer.
-    ///
-    /// Returns the number of bytes written.
     pub(super) fn write(&self, mut buffer: &mut [u8]) -> Result<usize, StorageItemError> {
         let total_bytes = self.total_bytes();
 
@@ -75,7 +72,6 @@ impl StorageItemBlock {
         Ok(total_bytes)
     }
 
-    /// The inverse of [`Self::write_to_pages()`]
     pub(super) fn read(mut buffer: &[u8]) -> Result<Self, StorageItemError> {
         let buffer_len = buffer.len();
         let prefix_bytes = buffer.split_off(..Self::block_prefix_size()).ok_or(
