@@ -82,7 +82,6 @@ use std::hash::{BuildHasherDefault, Hasher};
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 use std::{fmt, io};
-use strum::FromRepr;
 use tracing::error;
 
 /// Unique identifier for a database
@@ -111,16 +110,6 @@ impl DatabaseId {
     pub const fn new(bytes: [u8; 32]) -> Self {
         Self(bytes)
     }
-}
-
-#[derive(Debug, Copy, Clone, TrivialType, enum_map::Enum, FromRepr)]
-#[repr(u8)]
-enum PageGroupKind {
-    /// These pages are stored permanently and are never removed
-    Permanent = 0,
-    /// These pages are related to blocks and expire over time as blocks become buried deeper in
-    /// blockchain history
-    Block = 1,
 }
 
 #[derive(Default)]
@@ -1082,7 +1071,6 @@ where
 
             let write_location = storage_backend_adapter
                 .write_storage_item(
-                    PageGroupKind::Block,
                     &inner.storage_backend,
                     StorageItemBlock::Block(StorageItemBlockBlock {
                         header: block.block.header().buffer().clone(),

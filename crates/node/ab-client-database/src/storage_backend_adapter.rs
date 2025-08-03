@@ -4,11 +4,13 @@ pub(crate) mod storage_item;
 use crate::page_group::block::StorageItemBlock;
 use crate::page_group::permanent::StorageItemPermanent;
 use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
-use crate::storage_backend_adapter::storage_item::{StorageItem, StorageItemContainer};
+use crate::storage_backend_adapter::storage_item::{
+    StorageItem, StorageItemContainer, UniqueStorageItem,
+};
 use crate::{
     ClientDatabaseError, ClientDatabaseFormatError, ClientDatabaseFormatOptions, DatabaseId,
-    PageGroupKind,
 };
+use ab_io_type::trivial_type::TrivialType;
 use enum_map::{EnumMap, enum_map};
 use futures::FutureExt;
 use futures::channel::oneshot;
@@ -19,10 +21,22 @@ use std::cmp::Reverse;
 use std::collections::VecDeque;
 use std::task::Poll;
 use std::{future, io};
+use strum::FromRepr;
 use tracing::{Instrument, debug, error, info_span};
+
+#[derive(Debug, Copy, Clone, TrivialType, enum_map::Enum, FromRepr)]
+#[repr(u8)]
+pub(crate) enum PageGroupKind {
+    /// These pages are stored permanently and are never removed
+    Permanent = 0,
+    /// These pages are related to blocks and expire over time as blocks become buried deeper in
+    /// blockchain history
+    Block = 1,
+}
 
 #[derive(Debug)]
 struct PageGroup {
+    /// Sequence number of the first storage item in this page group
     first_sequence_number: u64,
     /// Next page offset within the page group
     inner_next_page_offset: u32,
@@ -407,13 +421,12 @@ impl StorageBackendAdapter {
 
     pub(super) async fn write_storage_item<StorageBackend, SI>(
         &mut self,
-        page_group_kind: PageGroupKind,
         storage_backend: &StorageBackend,
         storage_item: SI,
     ) -> io::Result<WriteLocation>
     where
         StorageBackend: ClientDatabaseStorageBackend,
-        SI: StorageItem,
+        SI: UniqueStorageItem,
     {
         if self.had_write_failure {
             return Err(io::Error::new(
@@ -422,7 +435,7 @@ impl StorageBackendAdapter {
             ));
         }
 
-        self.write_storage_item_inner(page_group_kind, storage_backend, storage_item)
+        self.write_storage_item_inner(storage_backend, storage_item)
             .await
             .inspect_err(|_error| {
                 self.had_write_failure = true;
@@ -431,14 +444,14 @@ impl StorageBackendAdapter {
 
     async fn write_storage_item_inner<StorageBackend, SI>(
         &mut self,
-        page_group_kind: PageGroupKind,
         storage_backend: &StorageBackend,
         storage_item: SI,
     ) -> io::Result<WriteLocation>
     where
         StorageBackend: ClientDatabaseStorageBackend,
-        SI: StorageItem,
+        SI: UniqueStorageItem,
     {
+        let page_group_kind = SI::page_group_kind();
         let target_page_groups = &mut self.page_groups[page_group_kind];
 
         let sequence_number = target_page_groups.next_sequence_number;

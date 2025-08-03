@@ -5,7 +5,10 @@
 pub(crate) mod block;
 
 use crate::page_group::block::block::StorageItemBlockBlock;
-use crate::storage_backend_adapter::storage_item::{StorageItem, StorageItemError};
+use crate::storage_backend_adapter::PageGroupKind;
+use crate::storage_backend_adapter::storage_item::{
+    StorageItem, StorageItemError, UniqueStorageItem,
+};
 use strum::FromRepr;
 
 #[derive(Debug, FromRepr)]
@@ -44,5 +47,12 @@ impl StorageItem for StorageItemBlock {
         Ok(match variant {
             StorageItemBlockVariant::Block => Self::Block(StorageItemBlockBlock::read(buffer)?),
         })
+    }
+}
+
+impl UniqueStorageItem for StorageItemBlock {
+    #[inline(always)]
+    fn page_group_kind() -> PageGroupKind {
+        PageGroupKind::Block
     }
 }

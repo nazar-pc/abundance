@@ -1,4 +1,5 @@
 use crate::storage_backend::AlignedPage;
+use crate::storage_backend_adapter::PageGroupKind;
 use ab_blake3::single_block_hash;
 use ab_core_primitives::hashes::Blake3Hash;
 use blake3::hash;
@@ -54,6 +55,12 @@ pub(crate) trait StorageItem: fmt::Debug + Send + Sync + Sized + 'static {
 
     /// The inverse of [`Self::write_to_pages()`]
     fn read(variant: u8, buffer: &[u8]) -> Result<Self, StorageItemError>;
+}
+
+/// Storage item that maps to a unique page group kind
+pub(crate) trait UniqueStorageItem: StorageItem {
+    /// Unique page group for this storage item
+    fn page_group_kind() -> PageGroupKind;
 }
 
 #[derive(Debug)]
