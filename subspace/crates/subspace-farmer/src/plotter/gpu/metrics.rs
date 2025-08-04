@@ -24,7 +24,7 @@ pub(super) struct GpuPlotterMetrics {
 }
 
 impl GpuPlotterMetrics {
-    /// Create new instance
+    /// Create a new instance
     pub(super) fn new(
         registry: &mut Registry,
         subtype: &str,

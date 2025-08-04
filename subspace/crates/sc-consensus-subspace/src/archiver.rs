@@ -121,7 +121,7 @@ where
     const KEY_PREFIX: &'static [u8] = b"segment-headers";
     const INITIAL_CACHE_CAPACITY: usize = 1_000;
 
-    /// Create new instance
+    /// Create a new instance
     pub fn new(
         aux_store: Arc<AS>,
         confirmation_depth_k: BlockNumber,

@@ -51,7 +51,7 @@ impl<T> Drop for AsyncJoinOnDrop<T> {
 }
 
 impl<T> AsyncJoinOnDrop<T> {
-    /// Create new instance.
+    /// Create a new instance.
     #[inline]
     pub fn new(handle: task::JoinHandle<T>, abort_on_drop: bool) -> Self {
         Self {

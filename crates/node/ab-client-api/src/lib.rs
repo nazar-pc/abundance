@@ -113,7 +113,7 @@ where
 
 /// Chain sync status
 pub trait ChainSyncStatus: Clone + Send + Sync + 'static {
-    /// Block number that the sync process is targeting right now.
+    /// The block number that the sync process is targeting right now.
     ///
     /// Can be zero if not syncing actively.
     fn target_block_number(&self) -> BlockNumber;

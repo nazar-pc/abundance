@@ -41,7 +41,7 @@ impl SolutionDistance {
     pub const MAX: Self = Self(u64::MAX / 2);
 
     // TODO: Remove once `From` is stable
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub const fn from_u64(n: u64) -> Self {
         Self(n)
@@ -117,7 +117,7 @@ impl SolutionRange {
     pub const MAX: Self = Self(u64::MAX);
 
     // TODO: Remove once `From` is stable
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub const fn new(n: u64) -> Self {
         Self(n)

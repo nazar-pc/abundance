@@ -81,7 +81,7 @@ pub struct TransactionPool {
 }
 
 impl TransactionPool {
-    /// Create new instance.
+    /// Create a new instance.
     ///
     /// `pruning_depth` defines how old (in blocks) should transaction be before it is automatically
     /// removed from the transaction pool.

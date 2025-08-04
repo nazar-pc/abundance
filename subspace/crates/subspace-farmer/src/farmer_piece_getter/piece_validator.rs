@@ -18,7 +18,7 @@ pub struct SegmentRootPieceValidator<NC> {
 }
 
 impl<NC> SegmentRootPieceValidator<NC> {
-    /// Create new instance
+    /// Create a new instance
     pub fn new(dsn_node: Node, node_client: NC) -> Self {
         Self {
             dsn_node,

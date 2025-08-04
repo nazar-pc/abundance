@@ -54,7 +54,7 @@ pub(super) struct SingleDiskFarmMetrics {
 }
 
 impl SingleDiskFarmMetrics {
-    /// Create new instance for specified farm
+    /// Create a new instance for specified farm
     pub(super) fn new(
         registry: &mut Registry,
         farm_id: &FarmId,

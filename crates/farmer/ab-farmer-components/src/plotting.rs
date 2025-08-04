@@ -408,7 +408,7 @@ impl<'a, PosTable> CpuRecordsEncoder<'a, PosTable>
 where
     PosTable: Table,
 {
-    /// Create new instance
+    /// Create a new instance
     pub fn new(
         table_generators: &'a mut [PosTable::Generator],
         erasure_coding: &'a ErasureCoding,

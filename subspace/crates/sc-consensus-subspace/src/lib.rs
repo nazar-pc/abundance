@@ -42,7 +42,7 @@ pub struct SubspaceLink {
 }
 
 impl SubspaceLink {
-    /// Create new instance.
+    /// Create a new instance.
     pub fn new(chain_constants: ChainConstants, erasure_coding: ErasureCoding) -> Self {
         let (new_slot_notification_sender, new_slot_notification_stream) =
             notification::channel("subspace_new_slot_notification_stream");

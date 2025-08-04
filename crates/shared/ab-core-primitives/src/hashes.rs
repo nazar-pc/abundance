@@ -136,7 +136,7 @@ impl Blake3Hash {
     /// Size in bytes
     pub const SIZE: usize = OUT_LEN;
 
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub const fn new(hash: [u8; OUT_LEN]) -> Self {
         Self(hash)

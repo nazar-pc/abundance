@@ -114,7 +114,7 @@ where
     CI: ChainInfoWrite<OwnedBeaconChainBlock>,
     BV: BlockVerification<OwnedBeaconChainBlock>,
 {
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub fn new(chain_info: CI, block_verification: BV) -> Self {
         Self {

@@ -88,7 +88,7 @@ impl RecordsEncoder for CudaRecordsEncoder {
 }
 
 impl CudaRecordsEncoder {
-    /// Create new instance
+    /// Create a new instance
     pub fn new(
         cuda_device: CudaDevice,
         global_mutex: Arc<AsyncMutex<()>>,

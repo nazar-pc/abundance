@@ -160,7 +160,7 @@ where
     PG: PieceGetter + Clone + Send + Sync + 'static,
     GRE: GpuRecordsEncoder + 'static,
 {
-    /// Create new instance.
+    /// Create a new instance.
     ///
     /// Returns an error if empty list of encoders is provided.
     pub fn new(

@@ -68,7 +68,7 @@ impl SegmentHeadersStore {
     const KEY_PREFIX: &'static [u8] = b"segment-headers";
     const INITIAL_CACHE_CAPACITY: usize = 1_000;
 
-    /// Create new instance
+    /// Create a new instance
     pub fn new(confirmation_depth_k: BlockNumber) -> Result<Self, SegmentHeaderStoreError> {
         let cache = Vec::with_capacity(Self::INITIAL_CACHE_CAPACITY);
 

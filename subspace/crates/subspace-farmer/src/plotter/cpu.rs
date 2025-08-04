@@ -152,7 +152,7 @@ where
     PG: PieceGetter + Clone + Send + Sync + 'static,
     PosTable: Table,
 {
-    /// Create new instance
+    /// Create a new instance
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         piece_getter: PG,

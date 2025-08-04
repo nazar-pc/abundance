@@ -38,7 +38,7 @@ impl SlotDuration {
     /// Size in bytes
     pub const SIZE: usize = size_of::<u16>();
 
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub const fn from_millis(n: u16) -> Self {
         Self(n)
@@ -123,7 +123,7 @@ impl SlotNumber {
     /// Max slot
     pub const MAX: Self = Self(u64::MAX);
 
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub const fn new(n: u64) -> Self {
         Self(n)

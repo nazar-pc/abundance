@@ -46,7 +46,7 @@ pub enum NativeExecutorError {
     /// Duplicate method in contract
     #[error("Duplicate method fingerprint {method_fingerprint} for contract code {contact_code}")]
     DuplicateMethodInContract {
-        /// Name of the crate in which method was duplicated
+        /// Name of the crate in which the method was duplicated
         contact_code: &'static str,
         /// Method fingerprint
         method_fingerprint: &'static MethodFingerprint,
@@ -85,7 +85,8 @@ impl NativeExecutorBuilder {
             .with_contract::<State>()
     }
 
-    /// Make the native execution environment aware of the contract specified in generic argument.
+    /// Make the native execution environment aware of the contract specified in the generic
+    /// argument.
     ///
     /// Here `C` is the contract type:
     /// ```ignore
@@ -109,7 +110,7 @@ impl NativeExecutorBuilder {
     }
 
     /// Make the native execution environment aware of the trait implemented by the contract
-    /// specified in generic argument.
+    /// specified in the generic argument.
     ///
     /// Here `C` is the contract type and `DynCT` is a trait it implements in the form of
     /// `dyn ContractTrait`:
@@ -387,7 +388,7 @@ impl NativeExecutor {
         )
     }
 
-    /// Verify and execute provided transaction.
+    /// Verify and execute the provided transaction.
     ///
     /// A shortcut for [`Self::transaction_verify()`] + [`Self::transaction_execute()`].
     pub fn transaction_verify_execute(
@@ -473,7 +474,7 @@ impl NativeExecutor {
     /// NOTE: This is primarily useful for testing environment, usually changes are done in the
     /// transaction execution using [`Self::transaction_execute()`].
     ///
-    /// Returns `None` if read-only [`Slots`] instance was given.
+    /// Returns `None` if the read-only [`Slots`] instance was given.
     pub fn transaction_emulate<Calls, T>(
         &self,
         contract: Address,

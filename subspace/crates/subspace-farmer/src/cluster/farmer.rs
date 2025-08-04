@@ -292,7 +292,7 @@ impl Farm for ClusterFarm {
 }
 
 impl ClusterFarm {
-    /// Create new instance using information from previously received
+    /// Create a new instance using information from previously received
     /// [`ClusterFarmerIdentifyBroadcast`]
     pub async fn new(
         farm_id: FarmId,

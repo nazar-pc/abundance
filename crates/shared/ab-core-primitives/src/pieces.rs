@@ -94,7 +94,7 @@ impl PieceIndex {
     /// Piece index 1.
     pub const ONE: PieceIndex = PieceIndex(1);
 
-    /// Create new instance
+    /// Create a new instance
     #[inline]
     pub const fn new(n: u64) -> Self {
         Self(n)
