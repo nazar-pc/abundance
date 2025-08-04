@@ -5,6 +5,16 @@ use ab_core_primitives::hashes::Blake3Hash;
 use blake3::hash;
 use std::fmt;
 
+// TODO: use this
+/// The minimum overhead that the storage item will have due to the way it is stored on disk
+#[expect(dead_code, reason = "Not used yet")]
+pub(crate) const fn min_segment_item_overhead() -> usize {
+    // Align buffer used by storage item to 128 bytes
+    let prefix_size = StorageItemContainer::<()>::prefix_size().next_multiple_of(size_of::<u128>());
+
+    prefix_size + StorageItemContainer::<()>::suffix_size()
+}
+
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum StorageItemError {
     /// Buffer too small
@@ -69,6 +79,18 @@ pub(super) struct StorageItemContainer<SI> {
     pub(super) storage_item: SI,
 }
 
+impl<SI> StorageItemContainer<SI> {
+    const fn prefix_size() -> usize {
+        // Sequence number + enum variant + storage item size + checksum
+        size_of::<u64>() + size_of::<u8>() + size_of::<u32>() + size_of::<Blake3Hash>()
+    }
+
+    const fn suffix_size() -> usize {
+        // Storage item checksum + repeat of prefix checksum
+        size_of::<Blake3Hash>() * 2
+    }
+}
+
 impl<SI> StorageItemContainer<SI>
 where
     SI: StorageItem,
@@ -81,16 +103,6 @@ where
         let prefix_size = Self::prefix_size().next_multiple_of(size_of::<u128>());
 
         (prefix_size + storage_item_size + Self::suffix_size()).div_ceil(AlignedPage::SIZE) as u32
-    }
-
-    const fn prefix_size() -> usize {
-        // Sequence number + enum variant + storage item size + checksum
-        size_of::<u64>() + size_of::<u8>() + size_of::<u32>() + size_of::<Blake3Hash>()
-    }
-
-    const fn suffix_size() -> usize {
-        // Storage item checksum + repeat of prefix checksum
-        size_of::<Blake3Hash>() * 2
     }
 
     /// Write a storage item to the provided buffer of aligned pages
