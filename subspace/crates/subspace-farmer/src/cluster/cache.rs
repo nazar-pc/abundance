@@ -310,7 +310,7 @@ impl PieceCache for ClusterPieceCache {
 }
 
 impl ClusterPieceCache {
-    /// Create new instance using information from previously received
+    /// Create a new instance using information from previously received
     /// [`ClusterCacheIdentifyBroadcast`]
     #[inline]
     pub fn new(

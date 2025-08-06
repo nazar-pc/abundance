@@ -126,7 +126,7 @@ pub enum SingleDiskFarmInfo {
 impl SingleDiskFarmInfo {
     const FILE_NAME: &'static str = "single_disk_farm.json";
 
-    /// Create new instance
+    /// Create a new instance
     pub fn new(
         id: FarmId,
         genesis_root: BlockRoot,

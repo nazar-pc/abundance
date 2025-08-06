@@ -167,7 +167,7 @@ impl SegmentIndex {
     /// Segment index 1.
     pub const ONE: SegmentIndex = SegmentIndex(1);
 
-    /// Create new instance
+    /// Create a new instance
     #[inline]
     pub const fn new(n: u64) -> Self {
         Self(n)
@@ -346,7 +346,7 @@ impl HistorySize {
     /// History size of one
     pub const ONE: Self = Self(SegmentIndex::ZERO);
 
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub const fn new(value: NonZeroU64) -> Self {
         Self(SegmentIndex::new(value.get() - 1))

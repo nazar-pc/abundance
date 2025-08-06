@@ -88,7 +88,7 @@ impl RecordsEncoder for RocmRecordsEncoder {
 }
 
 impl RocmRecordsEncoder {
-    /// Create new instance
+    /// Create a new instance
     pub fn new(
         rocm_device: RocmDevice,
         global_mutex: Arc<AsyncMutex<()>>,

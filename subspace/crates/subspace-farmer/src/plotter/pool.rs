@@ -118,7 +118,7 @@ impl Plotter for PoolPlotter {
 }
 
 impl PoolPlotter {
-    /// Create new instance
+    /// Create a new instance
     pub fn new(plotters: Vec<Box<dyn Plotter + Send + Sync>>, retry_interval: Duration) -> Self {
         Self {
             plotters,

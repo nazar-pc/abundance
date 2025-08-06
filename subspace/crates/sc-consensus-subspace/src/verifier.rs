@@ -129,7 +129,7 @@ where
     Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + AuxStore + 'static,
     Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block>,
 {
-    /// Create new instance
+    /// Create a new instance
     fn new(options: SubspaceVerifierOptions<Client>) -> Self {
         let SubspaceVerifierOptions {
             client,
@@ -508,7 +508,7 @@ where
     Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + AuxStore + 'static,
     Client::Api: BlockBuilderApi<Block> + SubspaceApi<Block>,
 {
-    /// Create new instance
+    /// Create a new instance
     pub fn new(options: SubspaceVerifierOptions<Client>) -> Self {
         Self {
             inner: Arc::new(Inner::new(options)),

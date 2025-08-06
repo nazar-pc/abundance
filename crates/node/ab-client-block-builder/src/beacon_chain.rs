@@ -1,3 +1,5 @@
+//! Block building for the beacon chain
+
 use crate::{BlockBuilder, BlockBuilderError};
 use ab_client_api::ChainInfo;
 use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
@@ -38,8 +40,8 @@ pub enum BeaconChainBlockBuilderError {
         #[from]
         error: OwnedBeaconChainBodyError,
     },
-    /// Failed to create header
-    #[error("Failed to create header: {error}")]
+    /// Failed to create a header
+    #[error("Failed to create a header: {error}")]
     FailedToCreateHeader {
         // Header creation error
         #[from]

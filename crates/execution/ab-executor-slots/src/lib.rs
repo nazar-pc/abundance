@@ -26,6 +26,7 @@ pub struct SlotKey {
     pub contract: Address,
 }
 
+/// Opaque slot index, used to identify a used slot [`Slots`]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct SlotIndex(usize);
 
@@ -102,7 +103,7 @@ struct Inner {
     new_contracts: SmallVec<[Address; NEW_CONTRACTS_INLINE]>,
 }
 
-/// Collection of slots, primarily for execution environment
+/// Collection of slots, primarily for the execution environment
 #[derive(Debug, Clone)]
 pub struct Slots(Box<Inner>);
 
@@ -147,7 +148,7 @@ impl Slots {
         Self(Box::new(inner))
     }
 
-    /// Create a new nested read-write slots instance.
+    /// Create a new read-write [`NestedSlots`] instance.
     ///
     /// Nested instance will integrate its changes into the parent slot when dropped (or changes can
     /// be reset with [`NestedSlots::reset()`]).
@@ -160,7 +161,7 @@ impl Slots {
         })
     }
 
-    /// Create a new nested read-only slots instance
+    /// Create a new read-only [`NestedSlots`] instance
     #[inline(always)]
     pub fn new_nested_ro(&self) -> NestedSlots<'_> {
         NestedSlots(NestedSlotsInner::ReadOnly { inner: &self.0 })
@@ -179,7 +180,7 @@ impl Slots {
         let new_contracts = &mut self.0.new_contracts;
 
         if new_contracts.contains(&owner) {
-            debug!(?owner, "Not adding new contract duplicate");
+            debug!(?owner, "Not adding a new contract duplicate");
             return false;
         }
 
@@ -337,12 +338,12 @@ impl<'a> NestedSlots<'a> {
         }
     }
 
-    /// Create a new nested read-write slots instance.
+    /// Create a new read-write [`NestedSlots`] instance.
     ///
     /// Nested instance will integrate its changes into the parent slot when dropped (or changes can
     /// be reset with [`Self::reset()`]).
     ///
-    /// Returns `None` when attempted on read-only instance.
+    /// Returns `None` when attempted on a read-only instance.
     #[inline(always)]
     pub fn new_nested_rw<'b>(&'b mut self) -> Option<NestedSlots<'b>>
     where
@@ -396,7 +397,7 @@ impl<'a> NestedSlots<'a> {
         let new_contracts = &mut inner.new_contracts;
 
         if new_contracts.contains(&owner) {
-            debug!(?owner, "Not adding new contract duplicate");
+            debug!(?owner, "Not adding a new contract duplicate");
             return false;
         }
 
@@ -459,7 +460,7 @@ impl<'a> NestedSlots<'a> {
         Some(buffer.clone())
     }
 
-    /// Read-only access to a slot with specified owner and contract, marks it as used.
+    /// Read-only access to a slot with a specified owner and contract, marks it as used.
     ///
     /// Returns `None` in case of access violation.
     #[inline(always)]
@@ -510,7 +511,7 @@ impl<'a> NestedSlots<'a> {
             .map(SlotIndex);
 
         if let Some(slot_index) = maybe_slot_index {
-            // Ensure that slot is not currently being written to
+            // Ensure that the slot is not currently being written to
             if let Some(read_write) = slot_access.iter().find_map(|slot_access| {
                 (slot_access.slot_index == slot_index).then_some(slot_access.read_write)
             }) {
@@ -594,7 +595,7 @@ impl<'a> NestedSlots<'a> {
             .map(SlotIndex);
 
         if let Some(slot_index) = maybe_slot_index {
-            // Ensure that slot is not currently being written to
+            // Ensure that the slot is not currently being written to
             if let Some(read_write) = slot_access.iter().find_map(|slot_access| {
                 (slot_access.slot_index == slot_index).then_some(slot_access.read_write)
             }) && read_write
@@ -631,11 +632,12 @@ impl<'a> NestedSlots<'a> {
         }
     }
 
-    /// Read-write access to a slot with specified owner and contract, marks it as used.
+    /// Read-write access to a slot with a specified owner and contract, marks it as used.
     ///
     /// The returned slot is no longer accessible through [`Self::use_ro()`] or [`Self::use_rw()`]
-    /// during the lifetime of this `Slot` instance (and can be safely turned into a pointer). The
-    /// only way to get another mutable reference is to call [`Self::access_used_rw()`].
+    /// during the lifetime of this `NestedSlots` instance (and can be safely turned into a
+    /// pointer). The only way to get another mutable reference is to call
+    /// [`Self::access_used_rw()`].
     ///
     /// Returns `None` in case of access violation.
     #[inline(always)]
@@ -763,8 +765,8 @@ impl<'a> NestedSlots<'a> {
         }
     }
 
-    /// Read-write access to a slot with specified owner and contract, that is currently marked as
-    /// used due to earlier call to [`Self::use_rw()`].
+    /// Read-write access to a slot with a specified owner and contract that is currently marked as
+    /// used due to an earlier call to [`Self::use_rw()`].
     ///
     /// NOTE: Calling this method means that any pointers that might have been stored to the result
     /// of [`Self::use_rw()`] call are now invalid!

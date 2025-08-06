@@ -17,7 +17,7 @@ pub(super) struct DiskPieceCacheMetrics {
 }
 
 impl DiskPieceCacheMetrics {
-    /// Create new instance
+    /// Create a new instance
     pub(super) fn new(
         registry: &mut Registry,
         cache_id: &PieceCacheId,

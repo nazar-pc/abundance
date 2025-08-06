@@ -76,7 +76,7 @@ where
         &self.inner.mmr
     }
 
-    /// Check if corresponding block import has failed
+    /// Check if the corresponding block import has failed
     #[inline(always)]
     pub(crate) fn has_failed(&self) -> bool {
         match self.inner.success.try_read() {
@@ -85,9 +85,9 @@ where
         }
     }
 
-    /// Wait for corresponding block to be imported.
+    /// Wait for the corresponding block to be imported.
     ///
-    /// Returns `true` if block was imported successfully.
+    /// Returns `true` if a block was imported successfully.
     pub(crate) async fn wait_success(self) -> bool {
         *self.inner.success.read().await
     }
@@ -130,8 +130,8 @@ unsafe impl<'a> Yokeable<'a> for ImportingBlockHandleGuard<'static> {
 
 /// A handle to block that is being imported.
 ///
-/// Corresponding entry will be removed from [`ImportingBlocks<BlockHeader>`] when this instance is
-/// dropped.
+/// The corresponding entry will be removed from [`ImportingBlocks<BlockHeader>`] when this instance
+/// is dropped.
 #[derive(Debug)]
 pub(crate) struct ImportingBlockHandle<BlockHeader>
 where
@@ -208,8 +208,8 @@ where
 
     /// Insert a block of the header that is being imported.
     ///
-    /// Returned header is used to indicate successful import of the block. If this block is already
-    /// being imported, `None` is returned.
+    /// Returned header is used to indicate a successful import of the block. If this block is
+    /// already being imported, `None` is returned.
     pub(crate) fn insert(
         &self,
         header: BlockHeader,
@@ -233,7 +233,7 @@ where
     fn remove(&self, block_root: &BlockRoot) {
         let mut list = self.list.lock();
 
-        // Front element is the most likely to be removed, though not guaranteed
+        // The front element is the most likely to be removed, though not guaranteed
         if let Some(entry_index) = list
             .iter()
             .enumerate()
@@ -244,7 +244,7 @@ where
     }
 
     pub(crate) fn get(&self, block_root: &BlockRoot) -> Option<ImportingBlockEntry<BlockHeader>> {
-        // Back element is the most likely one to be returned, though it is not guaranteed
+        // The back element is the most likely one to be returned, though it is not guaranteed
         self.list
             .lock()
             .iter()

@@ -71,7 +71,7 @@ impl<GRE> GpuRecordsEncoderManager<GRE>
 where
     GRE: GpuRecordsEncoder,
 {
-    /// Create new instance.
+    /// Create a new instance.
     ///
     /// Returns an error if empty list of encoders is provided.
     pub(super) fn new(gpu_records_encoders: Vec<GRE>) -> Result<Self, TryFromIntError> {

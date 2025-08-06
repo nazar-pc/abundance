@@ -26,14 +26,14 @@ impl Block {
         }
     }
 
-    /// Initialize new block
+    /// Initialize a new block
     #[update]
     pub fn initialize(
         &mut self,
         #[env] env: &mut Env<'_>,
         #[input] &parent_root: &BlockRoot,
     ) -> Result<(), ContractError> {
-        // Only execution environment can make a direct call here
+        // Only the execution environment can make a direct call here
         if env.caller() != Address::NULL {
             return Err(ContractError::Forbidden);
         }

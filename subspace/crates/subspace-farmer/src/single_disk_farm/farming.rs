@@ -117,7 +117,7 @@ impl<'a, Plot> PlotAudit<Plot>
 where
     Plot: ReadAtSync + 'a,
 {
-    /// Create new instance
+    /// Create a new instance
     pub fn new(plot: Plot) -> Self {
         Self(plot)
     }

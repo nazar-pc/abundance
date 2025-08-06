@@ -75,7 +75,7 @@ where
     PV: PieceValidator + Send + 'static,
     NC: NodeClient,
 {
-    /// Create new instance
+    /// Create a new instance
     pub fn new(
         piece_provider: PieceProvider<PV>,
         farmer_caches: FarmerCaches,

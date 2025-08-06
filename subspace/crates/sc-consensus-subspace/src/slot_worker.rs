@@ -101,7 +101,7 @@ impl<SO> SubspaceSyncOracle<SO>
 where
     SO: SyncOracle + Send + Sync,
 {
-    /// Create new instance
+    /// Create a new instance
     pub fn new(
         force_authoring: bool,
         pause_sync: Arc<AtomicBool>,

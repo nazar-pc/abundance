@@ -18,7 +18,7 @@ pub(super) struct FarmerCacheMetrics {
 }
 
 impl FarmerCacheMetrics {
-    /// Create new instance
+    /// Create a new instance
     pub(super) fn new(registry: &mut Registry) -> Self {
         let registry = registry.sub_registry_with_prefix("farmer_cache");
 

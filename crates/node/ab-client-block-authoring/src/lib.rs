@@ -1,3 +1,3 @@
-//! Block building implementation
+//! Block authoring implementation
 
 pub mod slot_worker;

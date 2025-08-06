@@ -102,7 +102,7 @@ impl SectorIndex {
     /// Max sector index
     pub const MAX: Self = Self(u16::MAX);
 
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub const fn new(n: u16) -> Self {
         Self(n)

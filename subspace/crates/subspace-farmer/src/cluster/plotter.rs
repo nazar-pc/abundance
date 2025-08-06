@@ -238,7 +238,7 @@ impl Plotter for ClusterPlotter {
 }
 
 impl ClusterPlotter {
-    /// Create new instance
+    /// Create a new instance
     pub fn new(
         nats_client: NatsClient,
         sector_encoding_concurrency: NonZeroUsize,

@@ -114,7 +114,7 @@ pub struct TablesCache<const K: u8> {
 }
 
 impl<const K: u8> Default for TablesCache<K> {
-    /// Create new instance
+    /// Create a new instance
     fn default() -> Self {
         Self {
             buckets: Vec::new(),

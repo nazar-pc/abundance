@@ -1,3 +1,5 @@
+//! Block building implementation
+
 pub mod beacon_chain;
 
 use ab_core_primitives::block::BlockRoot;

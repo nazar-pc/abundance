@@ -86,7 +86,7 @@ impl BlockNumber {
     /// Max block number
     pub const MAX: BlockNumber = BlockNumber(u64::MAX);
 
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub const fn new(n: u64) -> Self {
         Self(n)
@@ -176,7 +176,7 @@ impl BlockTimestamp {
     /// Size in bytes
     pub const SIZE: usize = size_of::<u64>();
 
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub const fn new(ms: u64) -> Self {
         Self(ms)
@@ -271,7 +271,7 @@ impl BlockRoot {
     /// Size in bytes
     pub const SIZE: usize = Blake3Hash::SIZE;
 
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub const fn new(hash: Blake3Hash) -> Self {
         Self(hash)
@@ -778,7 +778,7 @@ impl BlockWeight {
     /// Max block wright
     pub const MAX: BlockWeight = BlockWeight(u128::MAX);
 
-    /// Create new instance
+    /// Create a new instance
     #[inline(always)]
     pub const fn new(n: u128) -> Self {
         Self(n)

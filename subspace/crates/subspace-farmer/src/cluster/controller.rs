@@ -433,7 +433,7 @@ impl PieceGetter for ClusterPieceGetter {
 }
 
 impl ClusterPieceGetter {
-    /// Create new instance
+    /// Create a new instance
     #[inline]
     pub fn new(nats_client: NatsClient, cache_group: Option<String>) -> Self {
         Self {

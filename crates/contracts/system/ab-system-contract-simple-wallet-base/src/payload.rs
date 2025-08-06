@@ -231,7 +231,7 @@ pub struct TransactionPayloadDecoder<'a> {
 }
 
 impl<'a> TransactionPayloadDecoder<'a> {
-    /// Create new instance.
+    /// Create a new instance.
     ///
     /// The size of `external_args_buffer` defines max number of bytes allocated for `ExternalArgs`,
     /// which impacts the number of arguments that can be represented by `ExternalArgs`. The size is

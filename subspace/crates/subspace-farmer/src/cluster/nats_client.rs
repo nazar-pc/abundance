@@ -374,7 +374,7 @@ impl Deref for NatsClient {
 }
 
 impl NatsClient {
-    /// Create new instance by connecting to specified addresses
+    /// Create a new instance by connecting to specified addresses
     pub async fn new<A: ToServerAddrs>(
         addrs: A,
         request_retry_backoff_policy: ExponentialBackoff,
