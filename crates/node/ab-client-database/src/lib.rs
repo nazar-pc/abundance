@@ -666,6 +666,13 @@ where
             .checked_sub(BlockNumber::ONE)
             .ok_or(PersistBlockError::MissingParent)?;
 
+        if best_number == BlockNumber::ZERO && block_number != BlockNumber::ONE {
+            // Special case when syncing on top of the fresh database
+            Self::insert_first_block(&mut state, block, mmr_with_block);
+
+            return Ok(());
+        }
+
         let parent_block_offset = best_number
             .checked_sub(parent_block_number)
             .ok_or(PersistBlockError::MissingParent)?
@@ -965,6 +972,35 @@ where
         options: ClientDatabaseFormatOptions,
     ) -> Result<(), ClientDatabaseFormatError> {
         StorageBackendAdapter::format(storage_backend, options).await
+    }
+
+    fn insert_first_block(
+        state: &mut State<Block>,
+        block: Block,
+        mmr_with_block: Arc<BlockMerkleMountainRange>,
+    ) {
+        // If the database is empty, initialize everything with the genesis block
+        let header = block.header().header();
+        let block_number = header.prefix.number;
+        let block_root = *header.root();
+
+        state.fork_tips.clear();
+        state.fork_tips.push_front(ForkTip {
+            number: block_number,
+            root: block_root,
+        });
+        state.block_roots.clear();
+        state.block_roots.insert(block_root, block_number);
+        state.blocks.clear();
+        state
+            .blocks
+            .push_front(smallvec![ClientDatabaseBlock::InMemory(
+                ClientDatabaseBlockInMemory {
+                    block,
+                    parent_header: OpaqueParentHeader::default(),
+                    mmr_with_block,
+                }
+            )]);
     }
 
     async fn insert_new_best_block(
