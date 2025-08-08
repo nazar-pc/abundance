@@ -77,6 +77,19 @@ jobs:
         # https://github.com/actions/runner-images/issues/7320
         if: runner.os != 'Windows'
 
+      # Use LLD linker for shorter build times
+      - name: Use LLD linker on Linux
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=clang" >> $GITHUB_ENV
+        if: runner.os == 'Linux'
+
+      # Use LLD linker for shorter build times
+      - name: Use LLD linker on Windows
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=lld-link" >> $GITHUB_ENV
+        if: runner.os == 'Windows'
+
       - name: cargo clippy
         run: |
           cargo -Zgitoxide -Zgit clippy --locked --all-targets -- -D warnings
@@ -182,6 +195,19 @@ jobs:
         with:
           tool: cargo-nextest
 
+      # Use LLD linker for shorter build times
+      - name: Use LLD linker on Linux
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=clang" >> $GITHUB_ENV
+        if: runner.os == 'Linux'
+
+      # Use LLD linker for shorter build times
+      - name: Use LLD linker on Windows
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=lld-link" >> $GITHUB_ENV
+        if: runner.os == 'Windows'
+
       # TODO: This is a workaround for https://github.com/RustCrypto/stream-ciphers/issues/426
       - name: Miri aarch64 workaround
         run: |
@@ -278,6 +304,19 @@ jobs:
         # Cache on Windows is so slow, it is faster without it, see many reports like
         # https://github.com/actions/runner-images/issues/7320
         if: runner.os != 'Windows'
+
+      # Use LLD linker for shorter build times
+      - name: Use LLD linker on Linux
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=clang" >> $GITHUB_ENV
+        if: runner.os == 'Linux'
+
+      # Use LLD linker for shorter build times
+      - name: Use LLD linker on Windows
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=lld-link" >> $GITHUB_ENV
+        if: runner.os == 'Windows'
 
       # Increase the inlining threshold to make sure the compiler can see that some functions do not panic.
       # Native CPU and LTO to allow the compiler to apply more optimizations and prove lack of panics in more cases.
