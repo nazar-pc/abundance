@@ -1,0 +1,1 @@
+searchState.loadedDescShard("ab_proof_of_space_gpu", 0, "Proof of space plotting utilities for GPU (Vulkan/Metal).")

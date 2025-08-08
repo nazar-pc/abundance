@@ -1,0 +1,1 @@
+searchState.loadedDescShard("ab_trivial_type_derive", 0, "")
