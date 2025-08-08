@@ -511,15 +511,11 @@ impl StorageBackendAdapter {
             // Add a page that corresponds to the page group header
             num_pages += 1;
 
-            target_page_groups.list.push_front(PageGroup {
+            let active_page_group = target_page_groups.list.push_front_mut(PageGroup {
                 first_sequence_number: sequence_number,
                 inner_next_page_offset: 0,
                 first_page_offset,
             });
-            let active_page_group = target_page_groups
-                .list
-                .front_mut()
-                .expect("Just inserted; qed");
 
             (active_page_group, Some(page_group_header))
         };
