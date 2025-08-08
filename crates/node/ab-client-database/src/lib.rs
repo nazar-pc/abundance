@@ -337,40 +337,12 @@ struct ForkTip {
     root: BlockRoot,
 }
 
-/// Opaque parent header data structure that ensures the parent block is not removed too early
-#[derive(Debug)]
-struct OpaqueParentHeader<Header> {
-    /// Optional parent header, empty for the parent of the genesis block or for the first block
-    /// that was read from persistent storage.
-    ///
-    /// NOTE: this field is not supposed to be accessed, it is only here to maintain the reference
-    /// count of the parent header.
-    _header: Option<Header>,
-}
-
-impl<Header> Default for OpaqueParentHeader<Header> {
-    #[inline(always)]
-    fn default() -> Self {
-        Self { _header: None }
-    }
-}
-
-impl<Header> OpaqueParentHeader<Header> {
-    #[inline(always)]
-    fn new(header: Header) -> Self {
-        Self {
-            _header: Some(header),
-        }
-    }
-}
-
 #[derive(Debug)]
 struct ClientDatabaseBlockInMemory<Block>
 where
     Block: GenericOwnedBlock,
 {
     block: Block,
-    parent_header: OpaqueParentHeader<Block::Header>,
     mmr_with_block: Arc<BlockMerkleMountainRange>,
     system_contract_states: StdArc<[ContractSlotState]>,
 }
@@ -391,7 +363,6 @@ where
     /// Block was persisted (likely on disk)
     Persisted {
         header: Block::Header,
-        parent_header: OpaqueParentHeader<Block::Header>,
         mmr_with_block: Arc<BlockMerkleMountainRange>,
         system_contract_states: StdArc<[ContractSlotState]>,
         write_location: WriteLocation,
@@ -400,7 +371,6 @@ where
     /// perspective
     PersistedConfirmed {
         header: Block::Header,
-        _parent_header: OpaqueParentHeader<Block::Header>,
         #[expect(dead_code, reason = "Not used yet")]
         write_location: WriteLocation,
     },
@@ -712,9 +682,6 @@ where
         let header = block.header().header();
 
         let block_number = header.prefix.number;
-        let parent_block_number = block_number
-            .checked_sub(BlockNumber::ONE)
-            .ok_or(PersistBlockError::MissingParent)?;
 
         if best_number == BlockNumber::ZERO && block_number != BlockNumber::ONE {
             // Special case when syncing on top of the fresh database
@@ -723,33 +690,11 @@ where
             return Ok(());
         }
 
-        let parent_block_offset = best_number
-            .checked_sub(parent_block_number)
-            .ok_or(PersistBlockError::MissingParent)?
-            .as_u64() as usize;
-        let parent_header = OpaqueParentHeader::new(
-            state
-                .blocks
-                .get_mut(parent_block_offset)
-                .and_then(|fork_headers| {
-                    fork_headers.iter().find_map(|fork_header| {
-                        let fork_header = fork_header.header();
-                        if *fork_header.header().root() == header.prefix.parent_root {
-                            Some(fork_header.clone())
-                        } else {
-                            None
-                        }
-                    })
-                })
-                .ok_or(PersistBlockError::MissingParent)?,
-        );
-
         if block_number == best_number + BlockNumber::ONE {
             return Self::insert_new_best_block(
                 state,
                 &self.inner,
                 block,
-                parent_header,
                 mmr_with_block,
                 system_contract_states,
             )
@@ -799,7 +744,6 @@ where
         state.block_roots.insert(block_root, block_number);
         block_forks.push(ClientDatabaseBlock::InMemory(ClientDatabaseBlockInMemory {
             block,
-            parent_header,
             system_contract_states,
             mmr_with_block,
         }));
@@ -889,7 +833,6 @@ where
 
                 let block_root = *header.header().root();
                 let block_number = header.header().prefix.number;
-                let parent_root = header.header().prefix.parent_root;
 
                 state.block_roots.insert(block_root, block_number);
 
@@ -931,16 +874,6 @@ where
                     0
                 };
 
-                let parent_header = state.blocks.get(block_offset + 1).and_then(|block_forks| {
-                    block_forks
-                        .iter()
-                        .map(ClientDatabaseBlock::header)
-                        .find(|block_fork_header: &&Block::Header| {
-                            *block_fork_header.header().root() == parent_root
-                        })
-                        .cloned()
-                });
-
                 let block_forks = match state.blocks.get_mut(block_offset) {
                     Some(block_forks) => block_forks,
                     None => {
@@ -954,9 +887,6 @@ where
                 // Push a new block to the end of the list, we'll fix it up later
                 block_forks.push(ClientDatabaseBlock::Persisted {
                     header,
-                    parent_header: parent_header
-                        .map(OpaqueParentHeader::new)
-                        .unwrap_or_default(),
                     mmr_with_block,
                     system_contract_states,
                     write_location: WriteLocation { page_offset },
@@ -1017,7 +947,6 @@ where
                 .push_front(smallvec![ClientDatabaseBlock::InMemory(
                     ClientDatabaseBlockInMemory {
                         block,
-                        parent_header: OpaqueParentHeader::default(),
                         system_contract_states,
                         mmr_with_block: Arc::new({
                             let mut mmr = BlockMerkleMountainRange::new();
@@ -1072,7 +1001,6 @@ where
             .push_front(smallvec![ClientDatabaseBlock::InMemory(
                 ClientDatabaseBlockInMemory {
                     block,
-                    parent_header: OpaqueParentHeader::default(),
                     system_contract_states,
                     mmr_with_block,
                 }
@@ -1083,7 +1011,6 @@ where
         mut state: AsyncRwLockWriteGuard<'_, State<Block>>,
         inner: &Inner<Block, StorageBackend>,
         block: Block,
-        parent_header: OpaqueParentHeader<Block::Header>,
         mmr_with_block: Arc<BlockMerkleMountainRange>,
         system_contract_states: StdArc<[ContractSlotState]>,
     ) -> Result<(), PersistBlockError> {
@@ -1118,7 +1045,6 @@ where
                 .push_front(smallvec![ClientDatabaseBlock::InMemory(
                     ClientDatabaseBlockInMemory {
                         block,
-                        parent_header,
                         system_contract_states,
                         mmr_with_block
                     }
@@ -1224,7 +1150,6 @@ where
 
                     ClientDatabaseBlock::Persisted {
                         header,
-                        parent_header: in_memory.parent_header,
                         mmr_with_block: in_memory.mmr_with_block,
                         system_contract_states: in_memory.system_contract_states,
                         write_location,
@@ -1473,13 +1398,11 @@ where
                 }
                 ClientDatabaseBlock::Persisted {
                     header,
-                    parent_header,
                     mmr_with_block: _,
                     system_contract_states: _,
                     write_location,
                 } => ClientDatabaseBlock::PersistedConfirmed {
                     header,
-                    _parent_header: parent_header,
                     write_location,
                 },
                 ClientDatabaseBlock::PersistedConfirmed { .. } => {
