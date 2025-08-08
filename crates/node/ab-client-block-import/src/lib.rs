@@ -25,9 +25,12 @@ pub enum BlockImportError {
         // Block root that was not found
         block_root: BlockRoot,
     },
-    /// Parent block MMR missing; this is an implementation bug and must never happen
-    #[error("Parent block MMR missing; this is an implementation bug and must never happen")]
-    ParentBlockMmrMissing,
+    // TODO: Use or remove
+    // /// Parent block details are missing; this is an implementation bug and must never happen
+    // #[error(
+    //     "Parent block details are missing; this is an implementation bug and must never happen"
+    // )]
+    // ParentBlockDetailsMissing,
     /// Invalid parent MMR; this is an implementation bug and must never happen
     #[error("Invalid parent MMR; this is an implementation bug and must never happen")]
     ParentBlockMmrInvalid,

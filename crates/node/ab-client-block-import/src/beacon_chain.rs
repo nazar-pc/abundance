@@ -1,4 +1,4 @@
-use crate::importing_blocks::{ImportingBlockEntry, ImportingBlockHandle, ImportingBlocks};
+use crate::importing_blocks::{ImportingBlockHandle, ImportingBlocks, ParentBlockImportStatus};
 use crate::{BlockImport, BlockImportError};
 use ab_client_api::{BlockOrigin, ChainInfoWrite};
 use ab_client_block_verification::{BlockVerification, BlockVerificationError};
@@ -9,6 +9,7 @@ use ab_proof_of_space::Table;
 use rclite::Arc;
 use send_future::SendFuture;
 use std::marker::PhantomData;
+use std::sync::Arc as StdArc;
 
 /// Errors for [`BeaconChainBlockImport`]
 #[derive(Debug, thiserror::Error)]
@@ -53,19 +54,24 @@ where
     ) -> Result<impl Future<Output = Result<(), BlockImportError>> + Send, BlockImportError> {
         let parent_root = &block.header.header().prefix.parent_root;
 
-        let (parent_header, parent_block_mmr, maybe_parent_importing_entry) =
-            if let Some(parent_header) = self.chain_info.header(parent_root) {
-                let parent_block_mmr = self
-                    .chain_info
-                    .mmr_with_block(parent_root)
-                    .ok_or(BlockImportError::ParentBlockMmrMissing)?;
-
-                (parent_header, parent_block_mmr, None)
+        let (parent_header, parent_block_mmr, parent_block_import_status) =
+            if let Some((parent_header, parent_block_details)) =
+                self.chain_info.header_with_details(parent_root)
+            {
+                (
+                    parent_header,
+                    parent_block_details.mmr_with_block,
+                    ParentBlockImportStatus::Imported {
+                        system_contract_states: parent_block_details.system_contract_states,
+                    },
+                )
             } else if let Some(importing_entry) = self.importing_blocks.get(parent_root) {
                 (
                     importing_entry.header().clone(),
                     Arc::clone(importing_entry.mmr()),
-                    Some(importing_entry),
+                    ParentBlockImportStatus::Importing {
+                        entry: importing_entry,
+                    },
                 )
             } else {
                 return Err(BlockImportError::UnknownParentBlock {
@@ -103,7 +109,7 @@ where
             block,
             origin,
             importing_handle,
-            maybe_parent_importing_entry,
+            parent_block_import_status,
         ))
     }
 }
@@ -132,7 +138,7 @@ where
         block: OwnedBeaconChainBlock,
         origin: BlockOrigin,
         importing_handle: ImportingBlockHandle<OwnedBeaconChainHeader>,
-        maybe_parent_importing_entry: Option<ImportingBlockEntry<OwnedBeaconChainHeader>>,
+        parent_block_import_status: ParentBlockImportStatus<OwnedBeaconChainHeader>,
     ) -> Result<(), BlockImportError> {
         let parent_header = parent_header.header();
         let header = block.header.header();
@@ -146,40 +152,28 @@ where
             .await
             .map_err(BeaconChainBlockImportError::from)?;
 
-        if maybe_parent_importing_entry
-            .as_ref()
-            .map(ImportingBlockEntry::has_failed)
-            .unwrap_or_default()
-        {
+        if parent_block_import_status.has_failed() {
             // Early exit to avoid extra work
             return Err(BlockImportError::ParentBlockImportFailed);
         }
+
+        let Some(system_contract_states) = parent_block_import_status.wait().await else {
+            return Err(BlockImportError::ParentBlockImportFailed);
+        };
 
         // TODO: Execute block
-
-        if maybe_parent_importing_entry
-            .as_ref()
-            .map(ImportingBlockEntry::has_failed)
-            .unwrap_or_default()
-        {
-            // Early exit to avoid extra work
-            return Err(BlockImportError::ParentBlockImportFailed);
-        }
-
         // TODO: Check state root
-
-        // Wait for parent block to be imported successfully
-        if let Some(parent_importing_entry) = maybe_parent_importing_entry
-            && !parent_importing_entry.wait_success().await
-        {
-            return Err(BlockImportError::ParentBlockImportFailed);
-        }
+        // TODO: `system_contract_states` must be for the current block, not parent
 
         self.chain_info
-            .persist_block(block, Arc::clone(importing_handle.mmr()))
+            .persist_block(
+                block,
+                Arc::clone(importing_handle.mmr()),
+                StdArc::clone(&system_contract_states),
+            )
             .await?;
 
-        importing_handle.set_success();
+        importing_handle.set_success(system_contract_states);
 
         Ok(())
     }
