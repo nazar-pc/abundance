@@ -80,7 +80,7 @@ jobs:
       # Use LLD linker for shorter build times
       - name: Use LLD linker on Linux
         run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=clang" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=clang -C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
         if: runner.os == 'Linux'
 
       # Use LLD linker for shorter build times
@@ -198,7 +198,7 @@ jobs:
       # Use LLD linker for shorter build times
       - name: Use LLD linker on Linux
         run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=clang" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=clang -C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
         if: runner.os == 'Linux'
 
       # Use LLD linker for shorter build times
@@ -308,7 +308,7 @@ jobs:
       # Use LLD linker for shorter build times
       - name: Use LLD linker on Linux
         run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=clang" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=clang -C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
         if: runner.os == 'Linux'
 
       # Use LLD linker for shorter build times
