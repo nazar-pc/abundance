@@ -47,6 +47,7 @@ dependencies = [
 name = "ab-client-api"
 version = "0.0.1"
 dependencies = [
+ "ab-aligned-buffer",
  "ab-core-primitives",
  "ab-merkle-tree",
  "rclite",

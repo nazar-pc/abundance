@@ -45,6 +45,7 @@
 //  https://github.com/rust-lang/rust/issues/141492
 #![feature(generic_const_exprs)]
 #![feature(
+    get_mut_unchecked,
     iter_collect_into,
     maybe_uninit_as_bytes,
     maybe_uninit_fill,
@@ -62,7 +63,10 @@ use crate::storage_backend::ClientDatabaseStorageBackend;
 use crate::storage_backend_adapter::{
     StorageBackendAdapter, StorageItemHandlerArg, StorageItemHandlers, WriteLocation,
 };
-use ab_client_api::{BlockMerkleMountainRange, ChainInfo, ChainInfoWrite, PersistBlockError};
+use ab_client_api::{
+    BlockDetails, BlockMerkleMountainRange, ChainInfo, ChainInfoWrite, ContractSlotState,
+    PersistBlockError,
+};
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
@@ -81,6 +85,7 @@ use std::collections::{HashMap, VecDeque};
 use std::hash::{BuildHasherDefault, Hasher};
 use std::num::NonZeroUsize;
 use std::ops::Deref;
+use std::sync::Arc as StdArc;
 use std::{fmt, io};
 use tracing::error;
 
@@ -131,9 +136,17 @@ impl Hasher for BlockRootHasher {
     }
 }
 
+#[derive(Debug)]
+pub struct GenesisBlockBuilderResult<Block> {
+    /// Genesis block
+    pub block: Block,
+    /// System contracts state in the genesis block
+    pub system_contract_states: StdArc<[ContractSlotState]>,
+}
+
 /// Options for [`ClientDatabase`]
 #[derive(Debug, Copy, Clone)]
-pub struct ClientDatabaseOptions {
+pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// Write buffer size.
     ///
     /// Larger buffer allows buffering more async writes for improved responsiveness but requires
@@ -184,6 +197,11 @@ pub struct ClientDatabaseOptions {
     ///
     /// The recommended value is 5 blocks.
     pub max_fork_tip_distance: BlockNumber,
+    /// Genesis block builder is responsible to create genesis block and corresponding state for
+    /// bootstrapping purposes.
+    pub genesis_block_builder: GBB,
+    /// Storage backend to use for storing and retrieving storage items
+    pub storage_backend: StorageBackend,
 }
 
 /// Options for [`ClientDatabase`]
@@ -354,6 +372,7 @@ where
     block: Block,
     parent_header: OpaqueParentHeader<Block::Header>,
     mmr_with_block: Arc<BlockMerkleMountainRange>,
+    system_contract_states: StdArc<[ContractSlotState]>,
 }
 
 /// Client database block contains details about the block state in the database.
@@ -374,6 +393,7 @@ where
         header: Block::Header,
         parent_header: OpaqueParentHeader<Block::Header>,
         mmr_with_block: Arc<BlockMerkleMountainRange>,
+        system_contract_states: StdArc<[ContractSlotState]>,
         write_location: WriteLocation,
     },
     /// Block was persisted (likely on disk) and is irreversibly "confirmed" from the consensus
@@ -404,6 +424,18 @@ where
         match self {
             Self::InMemory(in_memory) => Some(&in_memory.mmr_with_block),
             Self::Persisted { mmr_with_block, .. } => Some(mmr_with_block),
+            Self::PersistedConfirmed { .. } => None,
+        }
+    }
+
+    #[inline(always)]
+    fn system_contract_states(&self) -> Option<&StdArc<[ContractSlotState]>> {
+        match self {
+            Self::InMemory(in_memory) => Some(&in_memory.system_contract_states),
+            Self::Persisted {
+                system_contract_states,
+                ..
+            } => Some(system_contract_states),
             Self::PersistedConfirmed { .. } => None,
         }
     }
@@ -481,6 +513,14 @@ struct PersistedBlock {
 }
 
 #[derive(Debug)]
+struct ClientDatabaseInnerOptions {
+    confirmation_depth_k: BlockNumber,
+    soft_confirmation_depth: BlockNumber,
+    max_fork_tips: NonZeroUsize,
+    max_fork_tip_distance: BlockNumber,
+}
+
+#[derive(Debug)]
 struct Inner<Block, StorageBackend>
 where
     Block: GenericOwnedBlock,
@@ -488,7 +528,7 @@ where
     state: AsyncRwLock<State<Block>>,
     storage_backend_adapter: AsyncMutex<StorageBackendAdapter>,
     storage_backend: StorageBackend,
-    options: ClientDatabaseOptions,
+    options: ClientDatabaseInnerOptions,
 }
 
 /// Client database
@@ -624,7 +664,7 @@ where
         })
     }
 
-    fn mmr_with_block(&self, block_root: &BlockRoot) -> Option<Arc<BlockMerkleMountainRange>> {
+    fn header_with_details(&self, block_root: &BlockRoot) -> Option<(Block::Header, BlockDetails)> {
         // Blocking read lock is fine because the only place where write lock is taken is short and
         // all other locks are read locks
         let state = self.inner.state.read_blocking();
@@ -638,7 +678,16 @@ where
             let header = block.header();
 
             if &*header.header().root() == block_root {
-                block.mmr_with_block().cloned()
+                let mmr_with_block = block.mmr_with_block().cloned()?;
+                let system_contract_states = block.system_contract_states().cloned()?;
+
+                Some((
+                    header.clone(),
+                    BlockDetails {
+                        mmr_with_block,
+                        system_contract_states,
+                    },
+                ))
             } else {
                 None
             }
@@ -655,6 +704,7 @@ where
         &self,
         block: Block,
         mmr_with_block: Arc<BlockMerkleMountainRange>,
+        system_contract_states: StdArc<[ContractSlotState]>,
     ) -> Result<(), PersistBlockError> {
         let mut state = self.inner.state.write().await;
         let best_number = state.best_tip().number;
@@ -665,6 +715,13 @@ where
         let parent_block_number = block_number
             .checked_sub(BlockNumber::ONE)
             .ok_or(PersistBlockError::MissingParent)?;
+
+        if best_number == BlockNumber::ZERO && block_number != BlockNumber::ONE {
+            // Special case when syncing on top of the fresh database
+            Self::insert_first_block(&mut state, block, mmr_with_block, system_contract_states);
+
+            return Ok(());
+        }
 
         let parent_block_offset = best_number
             .checked_sub(parent_block_number)
@@ -694,6 +751,7 @@ where
                 block,
                 parent_header,
                 mmr_with_block,
+                system_contract_states,
             )
             .await;
         }
@@ -742,6 +800,7 @@ where
         block_forks.push(ClientDatabaseBlock::InMemory(ClientDatabaseBlockInMemory {
             block,
             parent_header,
+            system_contract_states,
             mmr_with_block,
         }));
 
@@ -759,16 +818,26 @@ where
     /// Open the existing database.
     ///
     /// NOTE: The database needs to be formatted with [`Self::format()`] before it can be used.
-    pub async fn open(
-        genesis_block: Block,
-        options: ClientDatabaseOptions,
-        storage_backend: StorageBackend,
-    ) -> Result<Self, ClientDatabaseError> {
-        if options.soft_confirmation_depth >= options.confirmation_depth_k {
+    pub async fn open<GBB>(
+        options: ClientDatabaseOptions<GBB, StorageBackend>,
+    ) -> Result<Self, ClientDatabaseError>
+    where
+        GBB: FnOnce() -> GenesisBlockBuilderResult<Block>,
+    {
+        let ClientDatabaseOptions {
+            write_buffer_size,
+            confirmation_depth_k,
+            soft_confirmation_depth,
+            max_fork_tips,
+            max_fork_tip_distance,
+            genesis_block_builder,
+            storage_backend,
+        } = options;
+        if soft_confirmation_depth >= confirmation_depth_k {
             return Err(ClientDatabaseError::InvalidSoftConfirmationDepth);
         }
 
-        if options.max_fork_tip_distance > options.confirmation_depth_k {
+        if max_fork_tip_distance > confirmation_depth_k {
             return Err(ClientDatabaseError::InvalidMaxForkTipDistance);
         }
 
@@ -776,6 +845,13 @@ where
             fork_tips: VecDeque::new(),
             block_roots: HashMap::default(),
             blocks: VecDeque::new(),
+        };
+
+        let options = ClientDatabaseInnerOptions {
+            confirmation_depth_k,
+            soft_confirmation_depth,
+            max_fork_tips,
+            max_fork_tip_distance,
         };
 
         let storage_item_handlers = StorageItemHandlers {
@@ -802,6 +878,7 @@ where
                     header,
                     body: _,
                     mmr_with_block,
+                    system_contract_states,
                 } = storage_item_block;
 
                 let header = Block::Header::from_buffer(header).map_err(|_buffer| {
@@ -881,6 +958,7 @@ where
                         .map(OpaqueParentHeader::new)
                         .unwrap_or_default(),
                     mmr_with_block,
+                    system_contract_states,
                     write_location: WriteLocation { page_offset },
                 });
 
@@ -894,12 +972,9 @@ where
             },
         };
 
-        let storage_backend_adapter = StorageBackendAdapter::open(
-            options.write_buffer_size,
-            storage_item_handlers,
-            &storage_backend,
-        )
-        .await?;
+        let storage_backend_adapter =
+            StorageBackendAdapter::open(write_buffer_size, storage_item_handlers, &storage_backend)
+                .await?;
 
         if let Some(best_block) = state.blocks.front().and_then(|block_forks| {
             // The best block is last in the list here because that is how it was inserted while
@@ -922,8 +997,13 @@ where
                 root: block_root,
             });
         } else {
+            let GenesisBlockBuilderResult {
+                block,
+                system_contract_states,
+            } = genesis_block_builder();
+
             // If the database is empty, initialize everything with the genesis block
-            let header = genesis_block.header().header();
+            let header = block.header().header();
             let block_number = header.prefix.number;
             let block_root = *header.root();
 
@@ -936,8 +1016,9 @@ where
                 .blocks
                 .push_front(smallvec![ClientDatabaseBlock::InMemory(
                     ClientDatabaseBlockInMemory {
-                        block: genesis_block,
+                        block,
                         parent_header: OpaqueParentHeader::default(),
+                        system_contract_states,
                         mmr_with_block: Arc::new({
                             let mut mmr = BlockMerkleMountainRange::new();
                             mmr.add_leaf(&block_root);
@@ -967,12 +1048,44 @@ where
         StorageBackendAdapter::format(storage_backend, options).await
     }
 
+    fn insert_first_block(
+        state: &mut State<Block>,
+        block: Block,
+        mmr_with_block: Arc<BlockMerkleMountainRange>,
+        system_contract_states: StdArc<[ContractSlotState]>,
+    ) {
+        // If the database is empty, initialize everything with the genesis block
+        let header = block.header().header();
+        let block_number = header.prefix.number;
+        let block_root = *header.root();
+
+        state.fork_tips.clear();
+        state.fork_tips.push_front(ForkTip {
+            number: block_number,
+            root: block_root,
+        });
+        state.block_roots.clear();
+        state.block_roots.insert(block_root, block_number);
+        state.blocks.clear();
+        state
+            .blocks
+            .push_front(smallvec![ClientDatabaseBlock::InMemory(
+                ClientDatabaseBlockInMemory {
+                    block,
+                    parent_header: OpaqueParentHeader::default(),
+                    system_contract_states,
+                    mmr_with_block,
+                }
+            )]);
+    }
+
     async fn insert_new_best_block(
         mut state: AsyncRwLockWriteGuard<'_, State<Block>>,
         inner: &Inner<Block, StorageBackend>,
         block: Block,
         parent_header: OpaqueParentHeader<Block::Header>,
         mmr_with_block: Arc<BlockMerkleMountainRange>,
+        system_contract_states: StdArc<[ContractSlotState]>,
     ) -> Result<(), PersistBlockError> {
         let header = block.header().header();
         let block_number = header.prefix.number;
@@ -1006,6 +1119,7 @@ where
                     ClientDatabaseBlockInMemory {
                         block,
                         parent_header,
+                        system_contract_states,
                         mmr_with_block
                     }
                 )]);
@@ -1076,6 +1190,7 @@ where
                         header: block.block.header().buffer().clone(),
                         body: block.block.body().buffer().clone(),
                         mmr_with_block: Arc::clone(&block.mmr_with_block),
+                        system_contract_states: StdArc::clone(&block.system_contract_states),
                     }),
                 )
                 .await?;
@@ -1111,6 +1226,7 @@ where
                         header,
                         parent_header: in_memory.parent_header,
                         mmr_with_block: in_memory.mmr_with_block,
+                        system_contract_states: in_memory.system_contract_states,
                         write_location,
                     }
                 } else {
@@ -1181,7 +1297,7 @@ where
     fn prune_outdated_fork_tips(
         best_number: BlockNumber,
         state: &mut State<Block>,
-        options: &ClientDatabaseOptions,
+        options: &ClientDatabaseInnerOptions,
     ) {
         let state = &mut *state;
 
@@ -1312,7 +1428,7 @@ where
     fn confirm_canonical_block(
         best_number: BlockNumber,
         state: &mut State<Block>,
-        options: &ClientDatabaseOptions,
+        options: &ClientDatabaseInnerOptions,
     ) {
         // `+1` means it effectively confirms parent blocks instead. This is done to keep the parent
         // of the confirmed block with its MMR in memory due to confirmed blocks not storing their
@@ -1359,6 +1475,7 @@ where
                     header,
                     parent_header,
                     mmr_with_block: _,
+                    system_contract_states: _,
                     write_location,
                 } => ClientDatabaseBlock::PersistedConfirmed {
                     header,

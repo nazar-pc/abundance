@@ -5,11 +5,14 @@
 //  https://github.com/rust-lang/rust/issues/141492
 #![feature(generic_const_exprs)]
 
+use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_core_primitives::address::Address;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use rclite::Arc;
 use std::io;
+use std::sync::Arc as StdArc;
 
 // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows the
 //  code to compile. Constant 4294967295 is hardcoded here and below for compilation to succeed.
@@ -24,6 +27,26 @@ const _: () = {
 /// NOTE: `u32` is smaller than `BlockNumber`'s internal `u64` but will be sufficient for a long
 /// time and substantially decrease the size of the data structure.
 pub type BlockMerkleMountainRange = MerkleMountainRange<4294967295>;
+
+/// State of a contract slot
+#[derive(Debug, Clone)]
+pub struct ContractSlotState {
+    /// Owner of the slot
+    pub owner: Address,
+    /// Contract that manages the slot
+    pub contract: Address,
+    /// Slot contents
+    pub contents: SharedAlignedBuffer,
+}
+
+/// Additional details about a block
+#[derive(Debug, Clone)]
+pub struct BlockDetails {
+    /// Merkle Mountain Range with block
+    pub mmr_with_block: Arc<BlockMerkleMountainRange>,
+    /// System contracts state after block
+    pub system_contract_states: StdArc<[ContractSlotState]>,
+}
 
 // TODO: Probably move it elsewhere
 /// Origin
@@ -94,8 +117,8 @@ where
     /// Block header
     fn header(&self, block_root: &BlockRoot) -> Option<Block::Header>;
 
-    /// Merkle Mountain Range with block
-    fn mmr_with_block(&self, block_root: &BlockRoot) -> Option<Arc<BlockMerkleMountainRange>>;
+    /// Returns a block header like [`Self::header()`] with additional block details
+    fn header_with_details(&self, block_root: &BlockRoot) -> Option<(Block::Header, BlockDetails)>;
 }
 
 /// [`ChainInfo`] extension for writing information
@@ -108,6 +131,7 @@ where
         &self,
         block: Block,
         mmr_with_block: Arc<BlockMerkleMountainRange>,
+        system_contract_states: StdArc<[ContractSlotState]>,
     ) -> impl Future<Output = Result<(), PersistBlockError>> + Send;
 }
 

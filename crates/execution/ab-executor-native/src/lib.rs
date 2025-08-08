@@ -275,7 +275,7 @@ impl NativeExecutor {
     ///
     /// [`Self::transaction_execute()`] can be used for transaction execution if needed.
     /// [`Self::transaction_verify_execute()`] can be used to verify and execute a transaction with
-    /// a single call.
+    /// a single call, primarily for testing purposes.
     pub fn transaction_verify(
         &self,
         transaction: Transaction<'_>,
@@ -332,7 +332,7 @@ impl NativeExecutor {
     ///
     /// [`Self::transaction_verify()`] must be used for verification.
     /// [`Self::transaction_verify_execute()`] can be used to verify and execute a transaction with
-    /// a single call.
+    /// a single call, primarily for testing purposes.
     pub fn transaction_execute(
         &self,
         transaction: Transaction<'_>,
@@ -388,9 +388,10 @@ impl NativeExecutor {
         )
     }
 
-    /// Verify and execute the provided transaction.
+    /// Verify and execute the provided transaction, primarily for testing purposes.
     ///
-    /// A shortcut for [`Self::transaction_verify()`] + [`Self::transaction_execute()`].
+    /// A slightly more efficient shortcut for [`Self::transaction_verify()`] +
+    /// [`Self::transaction_execute()`] compared to calling them separately.
     pub fn transaction_verify_execute(
         &self,
         transaction: Transaction<'_>,

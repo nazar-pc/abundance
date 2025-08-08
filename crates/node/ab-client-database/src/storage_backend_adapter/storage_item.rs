@@ -5,10 +5,20 @@ use ab_core_primitives::hashes::Blake3Hash;
 use blake3::hash;
 use std::fmt;
 
+// TODO: use this
+/// The minimum overhead that the storage item will have due to the way it is stored on disk
+#[expect(dead_code, reason = "Not used yet")]
+pub(crate) const fn min_segment_item_overhead() -> usize {
+    // Align buffer used by storage item to 128 bytes
+    let prefix_size = StorageItemContainer::<()>::prefix_size().next_multiple_of(size_of::<u128>());
+
+    prefix_size + StorageItemContainer::<()>::suffix_size()
+}
+
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum StorageItemError {
     /// Buffer too small
-    #[error("Buffer too small (expected: {expected}, actual: {actual})")]
+    #[error("Buffer too small: expected {expected}, actual {actual}")]
     BufferTooSmall { expected: usize, actual: usize },
     /// Need more bytes
     #[error("Need {0} more bytes")]
@@ -16,23 +26,30 @@ pub(crate) enum StorageItemError {
     /// Unknown storage item variant
     #[error("Unknown storage item variant {0}")]
     UnknownStorageItemVariant(u8),
-    /// Invalid MMR length
-    #[error("Invalid MMR length {0}")]
-    InvalidMmrLength(u32),
+    /// Invalid data length
+    #[error("Invalid data length {data_type}: expected {expected}, actual {actual}")]
+    InvalidDataLength {
+        data_type: &'static str,
+        expected: usize,
+        actual: usize,
+    },
+    /// Invalid data alignment
+    #[error("Invalid data alignment {data_type}")]
+    InvalidDataAlignment { data_type: &'static str },
     /// Checksum mismatch
-    #[error("Checksum mismatch (expected: {expected}, actual: {actual})")]
+    #[error("Checksum mismatch: expected {expected}, actual {actual}")]
     ChecksumMismatch {
         expected: Blake3Hash,
         actual: Blake3Hash,
     },
     /// Repeat checksum mismatch
-    #[error("Repeat checksum mismatch (expected: {expected}, actual: {actual})")]
+    #[error("Repeat checksum mismatch: expected {expected}, actual {actual}")]
     RepeatChecksumMismatch {
         expected: Blake3Hash,
         actual: Blake3Hash,
     },
     /// Storage item checksum mismatch
-    #[error("Storage item checksum mismatch (expected: {expected}, actual: {actual})")]
+    #[error("Storage item checksum mismatch: expected {expected}, actual {actual}")]
     StorageItemChecksumMismatch {
         expected: Blake3Hash,
         actual: Blake3Hash,
@@ -69,6 +86,18 @@ pub(super) struct StorageItemContainer<SI> {
     pub(super) storage_item: SI,
 }
 
+impl<SI> StorageItemContainer<SI> {
+    const fn prefix_size() -> usize {
+        // Sequence number + enum variant + storage item size + checksum
+        size_of::<u64>() + size_of::<u8>() + size_of::<u32>() + size_of::<Blake3Hash>()
+    }
+
+    const fn suffix_size() -> usize {
+        // Storage item checksum + repeat of prefix checksum
+        size_of::<Blake3Hash>() * 2
+    }
+}
+
 impl<SI> StorageItemContainer<SI>
 where
     SI: StorageItem,
@@ -81,16 +110,6 @@ where
         let prefix_size = Self::prefix_size().next_multiple_of(size_of::<u128>());
 
         (prefix_size + storage_item_size + Self::suffix_size()).div_ceil(AlignedPage::SIZE) as u32
-    }
-
-    const fn prefix_size() -> usize {
-        // Sequence number + enum variant + storage item size + checksum
-        size_of::<u64>() + size_of::<u8>() + size_of::<u32>() + size_of::<Blake3Hash>()
-    }
-
-    const fn suffix_size() -> usize {
-        // Storage item checksum + repeat of prefix checksum
-        size_of::<Blake3Hash>() * 2
     }
 
     /// Write a storage item to the provided buffer of aligned pages

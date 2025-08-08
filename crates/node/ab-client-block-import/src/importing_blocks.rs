@@ -1,5 +1,5 @@
 use crate::importing_blocks::private::ImportingBlockEntryInner;
-use ab_client_api::BlockMerkleMountainRange;
+use ab_client_api::{BlockMerkleMountainRange, ContractSlotState};
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
@@ -10,13 +10,15 @@ use stable_deref_trait::StableDeref;
 use std::collections::VecDeque;
 use std::mem;
 use std::ops::Deref;
+use std::sync::Arc as StdArc;
 use yoke::{Yoke, Yokeable};
 
 mod private {
-    use ab_client_api::BlockMerkleMountainRange;
+    use ab_client_api::{BlockMerkleMountainRange, ContractSlotState};
     use ab_core_primitives::block::BlockRoot;
     use async_lock::RwLock;
     use rclite::Arc;
+    use std::sync::Arc as StdArc;
 
     // Needs to be public to appear in `impl Deref for ImportingBlockEntry`
     #[derive(Debug)]
@@ -24,7 +26,43 @@ mod private {
         pub(super) block_root: BlockRoot,
         pub(super) header: BlockHeader,
         pub(super) mmr: Arc<BlockMerkleMountainRange>,
-        pub(super) success: RwLock<bool>,
+        pub(super) system_contract_states: RwLock<Option<StdArc<[ContractSlotState]>>>,
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum ParentBlockImportStatus<BlockHeader> {
+    Importing {
+        entry: ImportingBlockEntry<BlockHeader>,
+    },
+    Imported {
+        system_contract_states: StdArc<[ContractSlotState]>,
+    },
+}
+
+impl<BlockHeader> ParentBlockImportStatus<BlockHeader>
+where
+    BlockHeader: GenericOwnedBlockHeader,
+{
+    /// Check if the corresponding block import has failed
+    pub(crate) fn has_failed(&self) -> bool {
+        match self {
+            Self::Importing { entry } => entry.has_failed(),
+            Self::Imported { .. } => false,
+        }
+    }
+
+    /// Wait for the corresponding block to be imported.
+    ///
+    /// Returns `Some(system_contract_states)` if a block was imported successfully and `None`
+    /// otherwise.
+    pub(crate) async fn wait(self) -> Option<StdArc<[ContractSlotState]>> {
+        match self {
+            Self::Importing { entry } => entry.wait().await,
+            Self::Imported {
+                system_contract_states,
+            } => Some(system_contract_states),
+        }
     }
 }
 
@@ -56,7 +94,7 @@ where
                 block_root,
                 header,
                 mmr,
-                success: RwLock::new(false),
+                system_contract_states: RwLock::new(None),
             }),
         }
     }
@@ -79,23 +117,29 @@ where
     /// Check if the corresponding block import has failed
     #[inline(always)]
     pub(crate) fn has_failed(&self) -> bool {
-        match self.inner.success.try_read() {
-            Some(success) => !*success,
+        match self.inner.system_contract_states.try_read() {
+            Some(success) => success.is_none(),
             None => false,
         }
     }
 
     /// Wait for the corresponding block to be imported.
     ///
-    /// Returns `true` if a block was imported successfully.
-    pub(crate) async fn wait_success(self) -> bool {
-        *self.inner.success.read().await
+    /// Returns `Some(system_contract_states)` if a block was imported successfully and `None`
+    /// otherwise.
+    pub(crate) async fn wait(self) -> Option<StdArc<[ContractSlotState]>> {
+        self.inner
+            .system_contract_states
+            .read()
+            .await
+            .as_ref()
+            .cloned()
     }
 }
 
 // The only reason this wrapper exists is to be able to implement [`Yokeable`] on it
 #[derive(Debug)]
-struct ImportingBlockHandleGuard<'a>(RwLockWriteGuard<'a, bool>);
+struct ImportingBlockHandleGuard<'a>(RwLockWriteGuard<'a, Option<StdArc<[ContractSlotState]>>>);
 
 // SAFETY: Lifetime parameter on `RwLockWriteGuard` is covariant
 unsafe impl<'a> Yokeable<'a> for ImportingBlockHandleGuard<'static> {
@@ -175,17 +219,18 @@ where
     ) -> Self {
         Self {
             guard: Yoke::attach_to_cart(entry, |entry_inner| {
-                ImportingBlockHandleGuard(entry_inner.success.write_blocking())
+                ImportingBlockHandleGuard(entry_inner.system_contract_states.write_blocking())
             }),
             importing_blocks,
         }
     }
 
-    /// Indicate that the import of the corresponding block has finished successfully
+    /// Set system contract states, indicating that the import of the corresponding block has
+    /// finished successfully
     #[inline(always)]
-    pub(crate) fn set_success(mut self) {
+    pub(crate) fn set_success(mut self, system_contract_states: StdArc<[ContractSlotState]>) {
         self.guard.with_mut(|guard| {
-            *guard.0 = true;
+            guard.0.replace(system_contract_states);
         });
     }
 }
