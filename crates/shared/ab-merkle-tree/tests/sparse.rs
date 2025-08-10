@@ -3,20 +3,12 @@
 
 use ab_blake3::OUT_LEN;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
-use ab_sparse_merkle_tree::{Leaf, SparseMerkleTree, hash_pair};
+use ab_merkle_tree::hash_pair;
+use ab_merkle_tree::sparse::{Leaf, SparseMerkleTree};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 
 const ZERO: [u8; OUT_LEN] = [0; OUT_LEN];
-
-#[test]
-fn test_hash_pair() {
-    let a = [1; _];
-    let b = [2; _];
-
-    // Ensure both Merkle Tree and Sparse Merkle Tree use compatible hashes
-    assert_eq!(hash_pair(&a, &b), ab_merkle_tree::hash_pair(&a, &b));
-}
 
 #[test]
 fn smt_empty() {
