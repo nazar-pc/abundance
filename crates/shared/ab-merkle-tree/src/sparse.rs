@@ -1,34 +1,11 @@
 //! Sparse Merkle Tree and related data structures.
 //!
 //! Sparse Merkle Tree is essentially a huge Balanced Merkle Tree, where most of the leaves are
-//! empty. By "empty" here we mean `[0u8; 32]`. In order to optimize proofs and their verification,
+//! empty. By "empty" here we mean `[0u8; 32]`. To optimize proofs and their verification, the
 //! hashing function is customized and returns `[0u8; 32]` when both left and right branch are
 //! `[0u8; 32]`, otherwise BLAKE3 hash is used like in a Balanced Merkle Tree.
 
-#![expect(incomplete_features, reason = "generic_const_exprs")]
-#![feature(generic_const_exprs)]
-#![no_std]
-
-use ab_blake3::{KEY_LEN, OUT_LEN};
-
-/// Used as a key in keyed blake3 hash for inner nodes of Merkle Trees.
-///
-/// This value is a blake3 hash of as string `merkle-tree-inner-node`.
-pub const INNER_NODE_DOMAIN_SEPARATOR: [u8; KEY_LEN] =
-    ab_blake3::const_hash(b"merkle-tree-inner-node");
-
-/// Helper function to hash two nodes together using [`ab_blake3::single_block_keyed_hash()`] and
-/// [`INNER_NODE_DOMAIN_SEPARATOR`]
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-pub fn hash_pair(left: &[u8; OUT_LEN], right: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
-    let mut pair = [0u8; OUT_LEN * 2];
-    pair[..OUT_LEN].copy_from_slice(left);
-    pair[OUT_LEN..].copy_from_slice(right);
-
-    ab_blake3::single_block_keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair)
-        .expect("Exactly one block worth of data; qed")
-}
+use crate::{OUT_LEN, hash_pair};
 
 /// Ensuring only supported `NUM_BITS` can be specified for [`SparseMerkleTree`].
 ///
@@ -207,7 +184,7 @@ where
             let mut level = max_levels_to_skip;
             let mut current = ZERO;
             for item in stack.iter().skip(max_levels_to_skip as usize) {
-                // Check active level for merging up the stack.
+                // Check the active level for merging up the stack.
                 //
                 // `BITS == u128::BITS` condition is only added for better dead code elimination
                 // since that check is only relevant for 2^128 leaves case and nothing else.

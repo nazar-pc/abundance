@@ -10,7 +10,7 @@ use std::hint::black_box;
 use std::mem::MaybeUninit;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    // Intentional inlining prevention doesn't allow compiler to prove lack of panics
+    // Intentional inlining prevention doesn't allow the compiler to prove lack of panics
     if cfg!(feature = "no-panic") {
         return;
     }
@@ -29,6 +29,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     unbalanced::<65536, 65536>(c);
 
     // TODO: MMR benches
+    // TODO: Spase Merkle Tree benches
 }
 
 fn balanced<const N: usize>(c: &mut Criterion)

@@ -490,18 +490,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ab-sparse-merkle-tree"
-version = "0.0.1"
-dependencies = [
- "ab-blake3",
- "ab-merkle-tree",
- "blake3",
- "no-panic",
- "rand_chacha 0.9.0",
- "rand_core 0.9.3",
-]
-
-[[package]]
 name = "ab-system-contract-address-allocator"
 version = "0.0.1"
 dependencies = [

@@ -3,14 +3,22 @@
 //! This crate contains several Merkle Tree implementations and related data structures, many of
 //! which are a subset of each other.
 //!
-//! Currently [`BalancedMerkleTree`], [`UnbalancedMerkleTree`] and [`MerkleMountainRange`] are
-//! available. [`BalancedMerkleTree`] is an optimized special case of [`UnbalancedMerkleTree`],
-//! which is in turn an optimized version of [`MerkleMountainRange`] and all 3 will return the same
-//! results for identical inputs.
+//! Currently [`BalancedMerkleTree`], [`UnbalancedMerkleTree`] and [`MerkleMountainRange`] and
+//! [`SparseMerkleTree`] are available.
+//!
+//! [`BalancedMerkleTree`] is an optimized special case of [`UnbalancedMerkleTree`], which is in
+//! turn an optimized version of [`MerkleMountainRange`] and all 3 will return the same results for
+//! identical inputs.
+//!
+//! [`SparseMerkleTree`] is a special kind of Merkle Tree, usually of untractable size, where most
+//! of the leaves are empty (missing). It will also produce the same root as other trees in case the
+//! tree doesn't have any empty leaves, though it is unlikely to happen in practice.
+//!
 //!
 //! [`BalancedMerkleTree`]: balanced::BalancedMerkleTree
 //! [`MerkleMountainRange`]: mmr::MerkleMountainRange
 //! [`UnbalancedMerkleTree`]: unbalanced::UnbalancedMerkleTree
+//! [`SparseMerkleTree`]: sparse::SparseMerkleTree
 
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
@@ -27,6 +35,7 @@
 //  key
 pub mod balanced;
 pub mod mmr;
+pub mod sparse;
 pub mod unbalanced;
 
 #[cfg(feature = "alloc")]
