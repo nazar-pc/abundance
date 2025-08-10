@@ -35,6 +35,11 @@ pub enum Leaf<'a> {
         /// Leaf value
         leaf: &'a [u8; OUT_LEN],
     },
+    /// Leaf contains a value (owned)
+    OccupiedOwned {
+        /// Leaf value
+        leaf: [u8; OUT_LEN],
+    },
     /// Leaf is empty
     Empty {
         /// Number of consecutive empty leaves
@@ -101,25 +106,9 @@ where
                 processed_some = true;
             }
 
-            match leaf {
-                Leaf::Occupied { leaf } => {
-                    let mut current = *leaf;
-
-                    // Every bit set to `1` corresponds to an active Merkle Tree level
-                    let lowest_active_levels = num_leaves.trailing_ones() as usize;
-                    for item in stack.iter().take(lowest_active_levels) {
-                        current = hash_pair(item, &current);
-                    }
-
-                    // Place the current hash at the first inactive level
-                    // SAFETY: Number of lowest active levels corresponds to the number of inserted
-                    // elements, which in turn is checked above to fit into 2^BITS, while `BITS`
-                    // generic in turn ensured sufficient stack size
-                    *unsafe { stack.get_unchecked_mut(lowest_active_levels) } = current;
-                    // Wrapping is needed for `BITS == u128::BITS`, where number of leaves narrowly
-                    // doesn't fit into `u128` itself
-                    num_leaves = num_leaves.wrapping_add(1);
-                }
+            let leaf = match leaf {
+                Leaf::Occupied { leaf } => *leaf,
+                Leaf::OccupiedOwned { leaf } => leaf,
                 Leaf::Empty { skip_count } => {
                     num_leaves = Self::skip_leaves(
                         &mut stack,
@@ -127,8 +116,26 @@ where
                         num_leaves,
                         skip_count.get(),
                     )?;
+                    continue;
                 }
+            };
+
+            let mut current = leaf;
+
+            // Every bit set to `1` corresponds to an active Merkle Tree level
+            let lowest_active_levels = num_leaves.trailing_ones() as usize;
+            for item in stack.iter().take(lowest_active_levels) {
+                current = hash_pair(item, &current);
             }
+
+            // Place the current hash at the first inactive level
+            // SAFETY: Number of lowest active levels corresponds to the number of inserted
+            // elements, which in turn is checked above to fit into 2^BITS, while `BITS`
+            // generic in turn ensured sufficient stack size
+            *unsafe { stack.get_unchecked_mut(lowest_active_levels) } = current;
+            // Wrapping is needed for `BITS == u128::BITS`, where number of leaves narrowly
+            // doesn't fit into `u128` itself
+            num_leaves = num_leaves.wrapping_add(1);
         }
 
         if u32::from(BITS) < u128::BITS {

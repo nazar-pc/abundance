@@ -456,13 +456,12 @@ where
     }
 
     #[inline(always)]
-    fn best_header(&self) -> &Block::Header {
+    fn best_block(&self) -> &ClientDatabaseBlock<Block> {
         self.blocks
             .front()
             .expect("The best block is always present; qed")
             .first()
             .expect("The best block is always present; qed")
-            .header()
     }
 }
 
@@ -545,7 +544,34 @@ where
     fn best_header(&self) -> Block::Header {
         // Blocking read lock is fine because the only place where write lock is taken is short and
         // all other locks are read locks
-        self.inner.state.read_blocking().best_header().clone()
+        self.inner
+            .state
+            .read_blocking()
+            .best_block()
+            .header()
+            .clone()
+    }
+
+    fn best_header_with_details(&self) -> (Block::Header, BlockDetails) {
+        // Blocking read lock is fine because the only place where write lock is taken is short and
+        // all other locks are read locks
+        let state = self.inner.state.read_blocking();
+        let best_block = state.best_block();
+        (
+            best_block.header().clone(),
+            BlockDetails {
+                mmr_with_block: Arc::clone(
+                    best_block
+                        .mmr_with_block()
+                        .expect("Always present for the best block; qed"),
+                ),
+                system_contract_states: StdArc::clone(
+                    best_block
+                        .system_contract_states()
+                        .expect("Always present for the best block; qed"),
+                ),
+            },
+        )
     }
 
     fn ancestor_header(

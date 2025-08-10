@@ -9,6 +9,7 @@ mod importing_blocks;
 
 use ab_client_api::{BlockOrigin, PersistBlockError};
 use ab_core_primitives::block::BlockRoot;
+use ab_core_primitives::hashes::Blake3Hash;
 
 /// Error for [`BlockImport`]
 #[derive(Debug, thiserror::Error)]
@@ -42,6 +43,12 @@ pub enum BlockImportError {
     /// Parent block import failed
     #[error("Parent block import failed")]
     ParentBlockImportFailed,
+    /// Invalid state root
+    #[error("Invalid state root: expected {expected}, actual {actual}")]
+    InvalidStateRoot {
+        expected: Blake3Hash,
+        actual: Blake3Hash,
+    },
     /// Block persisting error
     #[error("Block persisting error: {error}")]
     PersistBlockError {

@@ -1,9 +1,9 @@
 //! Slot worker drives block and vote production based on slots produced in
 //! [`ab_client_proof_of_time`].
 
-use ab_client_api::{BlockOrigin, ChainInfo, ChainSyncStatus};
+use ab_client_api::{BlockDetails, BlockOrigin, ChainInfo, ChainSyncStatus};
 use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
-use ab_client_block_builder::BlockBuilder;
+use ab_client_block_builder::{BlockBuilder, BlockBuilderResult};
 use ab_client_block_import::BlockImport;
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_proof_of_time::PotNextSlotInput;
@@ -460,7 +460,7 @@ where
 
             let best_beacon_chain_header = self.beacon_chain_info.best_header();
             let best_beacon_chain_header = best_beacon_chain_header.header();
-            let best_header = self.chain_info.best_header();
+            let (best_header, best_block_details) = self.chain_info.best_header_with_details();
             let best_header = best_header.header();
             let best_root = &*best_header.root();
 
@@ -479,11 +479,12 @@ where
                 continue;
             };
 
-            let Some(block) = self
+            let Some(block_builder_result) = self
                 .produce_block(
                     slot_to_claim,
                     best_root,
                     best_header,
+                    &best_block_details,
                     best_beacon_chain_header,
                 )
                 .await
@@ -491,7 +492,12 @@ where
                 continue;
             };
 
-            let block_import_fut = match self.block_import.import(block, BlockOrigin::Local) {
+            let block_import_fut = match self.block_import.import(
+                block_builder_result.block,
+                BlockOrigin::LocalBlockBuilder {
+                    block_details: block_builder_result.block_details,
+                },
+            ) {
                 Ok(block_import_fut) => block_import_fut,
                 Err(error) => {
                     error!(%best_root, %error, "Failed to queue a newly produced block for import");
@@ -572,8 +578,9 @@ where
         slot: SlotNumber,
         parent_block_root: &BlockRoot,
         parent_header: &<Block::Header as GenericOwnedBlockHeader>::Header<'_>,
+        parent_block_details: &BlockDetails,
         parent_beacon_chain_header: &BeaconChainHeader<'_>,
-    ) -> Option<Block> {
+    ) -> Option<BlockBuilderResult<Block>> {
         if !self.force_authoring && self.chain_sync_status.is_offline() {
             debug!("Skipping slot, waiting for the network");
 
@@ -611,31 +618,32 @@ where
                 seal_receiver.await.ok()
             }
         };
-        let block = match self
+        let block_builder_result = match self
             .block_builder
             .build(
                 parent_block_root,
                 parent_header,
+                parent_block_details,
                 &claimed_slot.consensus_info,
                 &claimed_slot.checkpoints,
                 seal_block,
             )
             .await
         {
-            Ok(block) => block,
+            Ok(block_builder_result) => block_builder_result,
             Err(error) => {
                 error!(%slot, %parent_block_root, %error, "Failed to build a block");
                 return None;
             }
         };
 
-        let header = block.header().header();
+        let header = block_builder_result.block.header().header();
         info!(
             number = %header.prefix.number,
             root = %&*header.root(),
             "🔖 Built new block",
         );
 
-        Some(block)
+        Some(block_builder_result)
     }
 }

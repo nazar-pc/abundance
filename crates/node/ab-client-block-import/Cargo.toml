@@ -16,6 +16,7 @@ all-features = true
 [dependencies]
 ab-client-api = { workspace = true }
 ab-client-block-verification = { workspace = true }
+ab-client-consensus-common = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
