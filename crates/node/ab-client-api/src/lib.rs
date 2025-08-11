@@ -137,8 +137,7 @@ where
     fn persist_block(
         &self,
         block: Block,
-        mmr_with_block: Arc<BlockMerkleMountainRange>,
-        system_contract_states: StdArc<[ContractSlotState]>,
+        block_details: BlockDetails,
     ) -> impl Future<Output = Result<(), PersistBlockError>> + Send;
 }
 

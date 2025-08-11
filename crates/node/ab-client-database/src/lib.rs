@@ -344,8 +344,7 @@ where
     Block: GenericOwnedBlock,
 {
     block: Block,
-    mmr_with_block: Arc<BlockMerkleMountainRange>,
-    system_contract_states: StdArc<[ContractSlotState]>,
+    block_details: BlockDetails,
 }
 
 /// Client database block contains details about the block state in the database.
@@ -364,8 +363,7 @@ where
     /// Block was persisted (likely on disk)
     Persisted {
         header: Block::Header,
-        mmr_with_block: Arc<BlockMerkleMountainRange>,
-        system_contract_states: StdArc<[ContractSlotState]>,
+        block_details: BlockDetails,
         write_location: WriteLocation,
     },
     /// Block was persisted (likely on disk) and is irreversibly "confirmed" from the consensus
@@ -391,22 +389,10 @@ where
     }
 
     #[inline(always)]
-    fn mmr_with_block(&self) -> Option<&Arc<BlockMerkleMountainRange>> {
+    fn block_details(&self) -> Option<&BlockDetails> {
         match self {
-            Self::InMemory(in_memory) => Some(&in_memory.mmr_with_block),
-            Self::Persisted { mmr_with_block, .. } => Some(mmr_with_block),
-            Self::PersistedConfirmed { .. } => None,
-        }
-    }
-
-    #[inline(always)]
-    fn system_contract_states(&self) -> Option<&StdArc<[ContractSlotState]>> {
-        match self {
-            Self::InMemory(in_memory) => Some(&in_memory.system_contract_states),
-            Self::Persisted {
-                system_contract_states,
-                ..
-            } => Some(system_contract_states),
+            Self::InMemory(in_memory) => Some(&in_memory.block_details),
+            Self::Persisted { block_details, .. } => Some(block_details),
             Self::PersistedConfirmed { .. } => None,
         }
     }
@@ -559,18 +545,10 @@ where
         let best_block = state.best_block();
         (
             best_block.header().clone(),
-            BlockDetails {
-                mmr_with_block: Arc::clone(
-                    best_block
-                        .mmr_with_block()
-                        .expect("Always present for the best block; qed"),
-                ),
-                system_contract_states: StdArc::clone(
-                    best_block
-                        .system_contract_states()
-                        .expect("Always present for the best block; qed"),
-                ),
-            },
+            best_block
+                .block_details()
+                .expect("Always present for the best block; qed")
+                .clone(),
         )
     }
 
@@ -673,18 +651,10 @@ where
 
         block_candidates.iter().find_map(|block| {
             let header = block.header();
+            let block_details = block.block_details().cloned()?;
 
             if &*header.header().root() == block_root {
-                let mmr_with_block = block.mmr_with_block().cloned()?;
-                let system_contract_states = block.system_contract_states().cloned()?;
-
-                Some((
-                    header.clone(),
-                    BlockDetails {
-                        mmr_with_block,
-                        system_contract_states,
-                    },
-                ))
+                Some((header.clone(), block_details))
             } else {
                 None
             }
@@ -700,8 +670,7 @@ where
     async fn persist_block(
         &self,
         block: Block,
-        mmr_with_block: Arc<BlockMerkleMountainRange>,
-        system_contract_states: StdArc<[ContractSlotState]>,
+        block_details: BlockDetails,
     ) -> Result<(), PersistBlockError> {
         let mut state = self.inner.state.write().await;
         let best_number = state.best_tip().number;
@@ -712,20 +681,13 @@ where
 
         if best_number == BlockNumber::ZERO && block_number != BlockNumber::ONE {
             // Special case when syncing on top of the fresh database
-            Self::insert_first_block(&mut state, block, mmr_with_block, system_contract_states);
+            Self::insert_first_block(&mut state, block, block_details);
 
             return Ok(());
         }
 
         if block_number == best_number + BlockNumber::ONE {
-            return Self::insert_new_best_block(
-                state,
-                &self.inner,
-                block,
-                mmr_with_block,
-                system_contract_states,
-            )
-            .await;
+            return Self::insert_new_best_block(state, &self.inner, block, block_details).await;
         }
 
         let block_offset = best_number
@@ -771,8 +733,7 @@ where
         state.block_roots.insert(block_root, block_number);
         block_forks.push(ClientDatabaseBlock::InMemory(ClientDatabaseBlockInMemory {
             block,
-            system_contract_states,
-            mmr_with_block,
+            block_details,
         }));
 
         Self::prune_outdated_fork_tips(block_number, state, &self.inner.options);
@@ -914,8 +875,10 @@ where
                 // Push a new block to the end of the list, we'll fix it up later
                 block_forks.push(ClientDatabaseBlock::Persisted {
                     header,
-                    mmr_with_block,
-                    system_contract_states,
+                    block_details: BlockDetails {
+                        mmr_with_block,
+                        system_contract_states,
+                    },
                     write_location: WriteLocation { page_offset },
                 });
 
@@ -974,12 +937,14 @@ where
                 .push_front(smallvec![ClientDatabaseBlock::InMemory(
                     ClientDatabaseBlockInMemory {
                         block,
-                        system_contract_states,
-                        mmr_with_block: Arc::new({
-                            let mut mmr = BlockMerkleMountainRange::new();
-                            mmr.add_leaf(&block_root);
-                            mmr
-                        }),
+                        block_details: BlockDetails {
+                            system_contract_states,
+                            mmr_with_block: Arc::new({
+                                let mut mmr = BlockMerkleMountainRange::new();
+                                mmr.add_leaf(&block_root);
+                                mmr
+                            })
+                        },
                     }
                 )]);
         }
@@ -1004,12 +969,7 @@ where
         StorageBackendAdapter::format(storage_backend, options).await
     }
 
-    fn insert_first_block(
-        state: &mut State<Block>,
-        block: Block,
-        mmr_with_block: Arc<BlockMerkleMountainRange>,
-        system_contract_states: StdArc<[ContractSlotState]>,
-    ) {
+    fn insert_first_block(state: &mut State<Block>, block: Block, block_details: BlockDetails) {
         // If the database is empty, initialize everything with the genesis block
         let header = block.header().header();
         let block_number = header.prefix.number;
@@ -1028,8 +988,7 @@ where
             .push_front(smallvec![ClientDatabaseBlock::InMemory(
                 ClientDatabaseBlockInMemory {
                     block,
-                    system_contract_states,
-                    mmr_with_block,
+                    block_details,
                 }
             )]);
     }
@@ -1038,8 +997,7 @@ where
         mut state: AsyncRwLockWriteGuard<'_, State<Block>>,
         inner: &Inner<Block, StorageBackend>,
         block: Block,
-        mmr_with_block: Arc<BlockMerkleMountainRange>,
-        system_contract_states: StdArc<[ContractSlotState]>,
+        block_details: BlockDetails,
     ) -> Result<(), PersistBlockError> {
         let header = block.header().header();
         let block_number = header.prefix.number;
@@ -1072,8 +1030,7 @@ where
                 .push_front(smallvec![ClientDatabaseBlock::InMemory(
                     ClientDatabaseBlockInMemory {
                         block,
-                        system_contract_states,
-                        mmr_with_block
+                        block_details: block_details.clone()
                     }
                 )]);
         }
@@ -1142,8 +1099,10 @@ where
                     StorageItemBlock::Block(StorageItemBlockBlock {
                         header: block.block.header().buffer().clone(),
                         body: block.block.body().buffer().clone(),
-                        mmr_with_block: Arc::clone(&block.mmr_with_block),
-                        system_contract_states: StdArc::clone(&block.system_contract_states),
+                        mmr_with_block: Arc::clone(&block.block_details.mmr_with_block),
+                        system_contract_states: StdArc::clone(
+                            &block.block_details.system_contract_states,
+                        ),
                     }),
                 )
                 .await?;
@@ -1177,8 +1136,7 @@ where
 
                     ClientDatabaseBlock::Persisted {
                         header,
-                        mmr_with_block: in_memory.mmr_with_block,
-                        system_contract_states: in_memory.system_contract_states,
+                        block_details: in_memory.block_details,
                         write_location,
                     }
                 } else {
@@ -1425,8 +1383,7 @@ where
                 }
                 ClientDatabaseBlock::Persisted {
                     header,
-                    mmr_with_block: _,
-                    system_contract_states: _,
+                    block_details: _,
                     write_location,
                 } => ClientDatabaseBlock::PersistedConfirmed {
                     header,

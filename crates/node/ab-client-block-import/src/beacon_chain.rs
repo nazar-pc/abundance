@@ -1,6 +1,6 @@
 use crate::importing_blocks::{ImportingBlockHandle, ImportingBlocks, ParentBlockImportStatus};
 use crate::{BlockImport, BlockImportError};
-use ab_client_api::{BlockOrigin, ChainInfoWrite};
+use ab_client_api::{BlockDetails, BlockOrigin, ChainInfoWrite};
 use ab_client_block_verification::{BlockVerification, BlockVerificationError};
 use ab_client_consensus_common::state::GlobalState;
 use ab_core_primitives::block::header::owned::OwnedBeaconChainHeader;
@@ -180,8 +180,10 @@ where
         self.chain_info
             .persist_block(
                 block,
-                Arc::clone(importing_handle.mmr()),
-                StdArc::clone(&system_contract_states),
+                BlockDetails {
+                    mmr_with_block: Arc::clone(importing_handle.mmr()),
+                    system_contract_states: StdArc::clone(&system_contract_states),
+                },
             )
             .await?;
 
