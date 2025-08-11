@@ -6,6 +6,7 @@
 //! `[0u8; 32]`, otherwise BLAKE3 hash is used like in a Balanced Merkle Tree.
 
 use crate::{OUT_LEN, hash_pair};
+use core::num::NonZeroU128;
 
 /// Ensuring only supported `NUM_BITS` can be specified for [`SparseMerkleTree`].
 ///
@@ -29,7 +30,7 @@ pub const fn ensure_supported_bits(bits: u8) -> usize {
 #[derive(Debug)]
 pub enum Leaf<'a> {
     // TODO: Batch of leaves for efficiently, especially with SIMD?
-    /// Leaf is occupied by a value
+    /// Leaf contains a value
     Occupied {
         /// Leaf value
         leaf: &'a [u8; OUT_LEN],
@@ -37,7 +38,7 @@ pub enum Leaf<'a> {
     /// Leaf is empty
     Empty {
         /// Number of consecutive empty leaves
-        skip_count: u128,
+        skip_count: NonZeroU128,
     },
 }
 
@@ -120,8 +121,12 @@ where
                     num_leaves = num_leaves.wrapping_add(1);
                 }
                 Leaf::Empty { skip_count } => {
-                    num_leaves =
-                        Self::skip_leaves(&mut stack, &mut processed_some, num_leaves, skip_count)?;
+                    num_leaves = Self::skip_leaves(
+                        &mut stack,
+                        &mut processed_some,
+                        num_leaves,
+                        skip_count.get(),
+                    )?;
                 }
             }
         }

@@ -7,6 +7,7 @@ use ab_merkle_tree::hash_pair;
 use ab_merkle_tree::sparse::{Leaf, SparseMerkleTree};
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
+use std::num::NonZeroU128;
 
 const ZERO: [u8; OUT_LEN] = [0; OUT_LEN];
 
@@ -14,26 +15,38 @@ const ZERO: [u8; OUT_LEN] = [0; OUT_LEN];
 fn smt_empty() {
     assert_eq!(SparseMerkleTree::<1>::compute_root_only([]).unwrap(), ZERO);
     assert_eq!(
-        SparseMerkleTree::<1>::compute_root_only([Leaf::Empty { skip_count: 1 }]).unwrap(),
+        SparseMerkleTree::<1>::compute_root_only([Leaf::Empty {
+            skip_count: NonZeroU128::new(1).unwrap()
+        }])
+        .unwrap(),
         ZERO
     );
     assert_eq!(
         SparseMerkleTree::<1>::compute_root_only([
-            Leaf::Empty { skip_count: 1 },
-            Leaf::Empty { skip_count: 0 },
-            Leaf::Empty { skip_count: 1 },
+            Leaf::Empty {
+                skip_count: NonZeroU128::new(1).unwrap()
+            },
+            Leaf::Empty {
+                skip_count: NonZeroU128::new(1).unwrap()
+            },
         ])
         .unwrap(),
         ZERO
     );
     assert_eq!(
-        SparseMerkleTree::<1>::compute_root_only([Leaf::Empty { skip_count: 2 }]).unwrap(),
+        SparseMerkleTree::<1>::compute_root_only([Leaf::Empty {
+            skip_count: NonZeroU128::new(2).unwrap()
+        }])
+        .unwrap(),
         ZERO
     );
 
     assert_eq!(SparseMerkleTree::<2>::compute_root_only([]).unwrap(), ZERO);
     assert_eq!(
-        SparseMerkleTree::<2>::compute_root_only([Leaf::Empty { skip_count: 4 }]).unwrap(),
+        SparseMerkleTree::<2>::compute_root_only([Leaf::Empty {
+            skip_count: NonZeroU128::new(4).unwrap()
+        }])
+        .unwrap(),
         ZERO
     );
 }
@@ -42,24 +55,18 @@ fn smt_empty() {
 fn smt_too_many_leaves() {
     // 3 leaves is more than 2^1=2
     assert!(SparseMerkleTree::<1>::compute_root_only([ZERO; 3].iter().map(Leaf::from)).is_none());
-    assert!(SparseMerkleTree::<1>::compute_root_only([Leaf::Empty { skip_count: 3 }]).is_none());
     assert!(
-        SparseMerkleTree::<1>::compute_root_only(
-            [ZERO; 2]
-                .iter()
-                .map(Leaf::from)
-                .chain([Leaf::Empty { skip_count: 1 }])
-        )
+        SparseMerkleTree::<1>::compute_root_only([Leaf::Empty {
+            skip_count: NonZeroU128::new(3).unwrap()
+        }])
         .is_none()
     );
-    // Even an empty skip at the end is not supported
     assert!(
-        SparseMerkleTree::<1>::compute_root_only(
-            [ZERO; 2]
-                .iter()
-                .map(Leaf::from)
-                .chain([Leaf::Empty { skip_count: 0 }])
-        )
+        SparseMerkleTree::<1>::compute_root_only([ZERO; 2].iter().map(Leaf::from).chain([
+            Leaf::Empty {
+                skip_count: NonZeroU128::new(1).unwrap()
+            }
+        ]))
         .is_none()
     );
 }
@@ -125,9 +132,11 @@ fn smt_128_bit() {
     assert_eq!(
         SparseMerkleTree::<BITS>::compute_root_only([
             Leaf::Empty {
-                skip_count: u128::MAX
+                skip_count: NonZeroU128::MAX
             },
-            Leaf::Empty { skip_count: 1 }
+            Leaf::Empty {
+                skip_count: NonZeroU128::new(1).unwrap()
+            }
         ])
         .unwrap(),
         ZERO
@@ -154,23 +163,11 @@ fn smt_128_bit() {
             SparseMerkleTree::<BITS>::compute_root_only([
                 Leaf::Occupied { leaf: &first_leaf },
                 Leaf::Empty {
-                    skip_count: u128::MAX
+                    skip_count: NonZeroU128::MAX
                 }
             ])
             .unwrap(),
             correct_root
-        );
-
-        // Even an empty skip at the end is not supported
-        assert!(
-            SparseMerkleTree::<BITS>::compute_root_only([
-                Leaf::Occupied { leaf: &first_leaf },
-                Leaf::Empty {
-                    skip_count: u128::MAX
-                },
-                Leaf::Empty { skip_count: 0 }
-            ])
-            .is_none()
         );
     }
     {
@@ -188,7 +185,7 @@ fn smt_128_bit() {
         assert_eq!(
             SparseMerkleTree::<BITS>::compute_root_only([
                 Leaf::Empty {
-                    skip_count: u128::MAX
+                    skip_count: NonZeroU128::MAX
                 },
                 Leaf::Occupied { leaf: &last_leaf }
             ])
@@ -199,9 +196,11 @@ fn smt_128_bit() {
         assert!(
             SparseMerkleTree::<BITS>::compute_root_only([
                 Leaf::Empty {
-                    skip_count: u128::MAX
+                    skip_count: NonZeroU128::MAX
                 },
-                Leaf::Empty { skip_count: 1 },
+                Leaf::Empty {
+                    skip_count: NonZeroU128::new(1).unwrap()
+                },
                 Leaf::Occupied { leaf: &last_leaf }
             ])
             .is_none()
@@ -256,7 +255,9 @@ fn test_32(total_skip_size: usize) {
         assert_eq!(
             SparseMerkleTree::<BITS>::compute_root_only(modified_leaves.iter().map(|leaf| {
                 if leaf == &ZERO {
-                    Leaf::Empty { skip_count: 1 }
+                    Leaf::Empty {
+                        skip_count: NonZeroU128::new(1).unwrap(),
+                    }
                 } else {
                     Leaf::Occupied { leaf }
                 }
@@ -273,10 +274,8 @@ fn test_32(total_skip_size: usize) {
                     .iter()
                     .map(Leaf::from)
                     .chain([Leaf::Empty {
-                        skip_count: total_skip_size as u128
+                        skip_count: NonZeroU128::new(total_skip_size as u128).unwrap(),
                     }])
-                    // Throw an empty skip in the middle, shouldn't impact anything
-                    .chain([Leaf::Empty { skip_count: 0 }])
                     .chain(
                         modified_leaves[offset + total_skip_size..]
                             .iter()
