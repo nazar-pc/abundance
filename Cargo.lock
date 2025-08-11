@@ -91,6 +91,7 @@ dependencies = [
  "ab-client-consensus-common",
  "ab-core-primitives",
  "anyhow",
+ "rclite",
  "thiserror",
 ]
 
@@ -100,6 +101,7 @@ version = "0.0.1"
 dependencies = [
  "ab-client-api",
  "ab-client-block-verification",
+ "ab-client-consensus-common",
  "ab-core-primitives",
  "ab-proof-of-space",
  "anyhow",
@@ -133,8 +135,11 @@ dependencies = [
 name = "ab-client-consensus-common"
 version = "0.0.1"
 dependencies = [
+ "ab-aligned-buffer",
  "ab-client-api",
  "ab-core-primitives",
+ "ab-merkle-tree",
+ "blake3",
  "thiserror",
 ]
 

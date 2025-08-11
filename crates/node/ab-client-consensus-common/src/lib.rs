@@ -1,4 +1,10 @@
+#![expect(incomplete_features, reason = "generic_const_exprs")]
+// TODO: This feature is not actually used in this crate, but is added as a workaround for
+//  https://github.com/rust-lang/rust/issues/141492
+#![feature(generic_const_exprs, get_mut_unchecked)]
+
 pub mod consensus_parameters;
+pub mod state;
 
 use ab_core_primitives::block::{BlockNumber, BlockTimestamp};
 use ab_core_primitives::pot::{SlotDuration, SlotNumber};

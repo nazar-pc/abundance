@@ -50,10 +50,14 @@ pub struct BlockDetails {
 
 // TODO: Probably move it elsewhere
 /// Origin
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum BlockOrigin {
-    /// Created locally
-    Local,
+    // TODO: Take advantage of this in block import
+    /// Created locally by block builder
+    LocalBlockBuilder {
+        /// Additional details about a block
+        block_details: BlockDetails,
+    },
     /// Received during the sync process
     Sync,
     /// Broadcast on the network during normal operation (not sync)
@@ -107,6 +111,9 @@ where
     /// Best block header
     fn best_header(&self) -> Block::Header;
 
+    /// Returns the best block header like [`Self::best_header()`] with additional block details
+    fn best_header_with_details(&self) -> (Block::Header, BlockDetails);
+
     /// Get header of ancestor block number for descendant block root
     fn ancestor_header(
         &self,
@@ -130,8 +137,7 @@ where
     fn persist_block(
         &self,
         block: Block,
-        mmr_with_block: Arc<BlockMerkleMountainRange>,
-        system_contract_states: StdArc<[ContractSlotState]>,
+        block_details: BlockDetails,
     ) -> impl Future<Output = Result<(), PersistBlockError>> + Send;
 }
 

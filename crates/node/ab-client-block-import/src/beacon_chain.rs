@@ -1,7 +1,8 @@
 use crate::importing_blocks::{ImportingBlockHandle, ImportingBlocks, ParentBlockImportStatus};
 use crate::{BlockImport, BlockImportError};
-use ab_client_api::{BlockOrigin, ChainInfoWrite};
+use ab_client_api::{BlockDetails, BlockOrigin, ChainInfoWrite};
 use ab_client_block_verification::{BlockVerification, BlockVerificationError};
+use ab_client_consensus_common::state::GlobalState;
 use ab_core_primitives::block::header::owned::OwnedBeaconChainHeader;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -161,15 +162,28 @@ where
             return Err(BlockImportError::ParentBlockImportFailed);
         };
 
+        let global_state = GlobalState::new(&system_contract_states);
+
         // TODO: Execute block
-        // TODO: Check state root
-        // TODO: `system_contract_states` must be for the current block, not parent
+
+        let state_root = global_state.root();
+
+        if header.result.state_root == state_root {
+            return Err(BlockImportError::InvalidStateRoot {
+                expected: state_root,
+                actual: header.result.state_root,
+            });
+        }
+
+        let system_contract_states = global_state.to_system_contract_states();
 
         self.chain_info
             .persist_block(
                 block,
-                Arc::clone(importing_handle.mmr()),
-                StdArc::clone(&system_contract_states),
+                BlockDetails {
+                    mmr_with_block: Arc::clone(importing_handle.mmr()),
+                    system_contract_states: StdArc::clone(&system_contract_states),
+                },
             )
             .await?;
 

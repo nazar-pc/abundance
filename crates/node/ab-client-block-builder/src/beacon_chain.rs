@@ -1,12 +1,13 @@
 //! Block building for the beacon chain
 
-use crate::{BlockBuilder, BlockBuilderError};
-use ab_client_api::ChainInfo;
+use crate::{BlockBuilder, BlockBuilderError, BlockBuilderResult};
+use ab_client_api::{BlockDetails, BlockMerkleMountainRange, ChainInfo, ContractSlotState};
 use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
     DeriveConsensusParametersError, derive_consensus_parameters,
 };
+use ab_client_consensus_common::state::GlobalState;
 use ab_core_primitives::block::body::owned::OwnedBeaconChainBodyError;
 use ab_core_primitives::block::header::owned::{
     GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
@@ -20,7 +21,9 @@ use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
 use ab_core_primitives::shard::ShardIndex;
+use rclite::Arc;
 use std::iter;
+use std::sync::Arc as StdArc;
 use std::time::SystemTime;
 
 /// Error for [`BeaconChainBlockBuilder`]
@@ -77,10 +80,11 @@ where
         &mut self,
         parent_block_root: &BlockRoot,
         parent_header: &<OwnedBeaconChainHeader as GenericOwnedBlockHeader>::Header<'_>,
+        parent_block_details: &BlockDetails,
         consensus_info: &BlockHeaderConsensusInfo,
         checkpoints: &[PotCheckpoints],
         seal_block: SealBlock,
-    ) -> Result<OwnedBeaconChainBlock, BlockBuilderError>
+    ) -> Result<BlockBuilderResult<OwnedBeaconChainBlock>, BlockBuilderError>
     where
         SealBlock: FnOnce(Blake3Hash) -> SealBlockFut + Send,
         SealBlockFut: Future<Output = Option<OwnedBlockHeaderSeal>> + Send,
@@ -90,14 +94,17 @@ where
         let header_prefix = self.create_header_prefix(
             parent_block_root,
             parent_header.prefix.timestamp,
+            &parent_block_details.mmr_with_block,
             block_number,
-        );
+        )?;
         let consensus_parameters = self.derive_consensus_parameters(
             parent_block_root,
             parent_header,
             block_number,
             consensus_info.slot,
         )?;
+
+        let (state_root, system_contract_states) = self.execute_block(parent_block_details)?;
 
         let block_builder = OwnedBeaconChainBlock::init(
             self.segment_headers_store
@@ -113,8 +120,7 @@ where
         let block_unsealed = block_builder
             .with_header(
                 &header_prefix,
-                // TODO: Real state root
-                Default::default(),
+                state_root,
                 consensus_info,
                 consensus_parameters.as_ref(),
             )
@@ -125,7 +131,19 @@ where
             .ok_or(BlockBuilderError::FailedToSeal)?;
         let block = block_unsealed.with_seal(seal.as_ref());
 
-        Ok(block)
+        let mut block_mmr = *parent_block_details.mmr_with_block;
+
+        if !block_mmr.add_leaf(&block.header.header().root()) {
+            return Err(BlockBuilderError::CantExtendMmr);
+        }
+
+        Ok(BlockBuilderResult {
+            block,
+            block_details: BlockDetails {
+                mmr_with_block: Arc::new(block_mmr),
+                system_contract_states,
+            },
+        })
     }
 }
 
@@ -150,8 +168,9 @@ where
         &self,
         parent_block_root: &BlockRoot,
         parent_timestamp: BlockTimestamp,
+        mmr_with_block: &BlockMerkleMountainRange,
         block_number: BlockNumber,
-    ) -> BlockHeaderPrefix {
+    ) -> Result<BlockHeaderPrefix, BlockBuilderError> {
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or_default()
@@ -162,15 +181,18 @@ where
             timestamp = BlockTimestamp::new(parent_timestamp.as_ms().saturating_add(1));
         }
 
-        BlockHeaderPrefix {
+        Ok(BlockHeaderPrefix {
             number: block_number,
             shard_index: ShardIndex::BEACON_CHAIN,
             padding_0: [0; _],
             timestamp,
             parent_root: *parent_block_root,
-            // TODO: Real MMR root
-            mmr_root: Default::default(),
-        }
+            mmr_root: Blake3Hash::new(
+                mmr_with_block
+                    .root()
+                    .ok_or(BlockBuilderError::InvalidParentMmr)?,
+            ),
+        })
     }
 
     fn derive_consensus_parameters(
@@ -197,5 +219,19 @@ where
             next_solution_range: derived_consensus_parameters.next_solution_range,
             pot_parameters_change: derived_consensus_parameters.pot_parameters_change,
         })
+    }
+
+    fn execute_block(
+        &self,
+        parent_block_details: &BlockDetails,
+    ) -> Result<(Blake3Hash, StdArc<[ContractSlotState]>), BeaconChainBlockBuilderError> {
+        let global_state = GlobalState::new(&parent_block_details.system_contract_states);
+
+        // TODO: Execute block
+
+        let state_root = global_state.root();
+        let system_contract_states = global_state.to_system_contract_states();
+
+        Ok((state_root, system_contract_states))
     }
 }
