@@ -20,6 +20,8 @@ ab-client-block-builder = { version = "0.0.1", path = "crates/node/ab-client-blo
 ab-client-block-import = { version = "0.0.1", path = "crates/node/ab-client-block-import" }
 ab-client-block-verification = { version = "0.0.1", path = "crates/node/ab-client-block-verification" }
 ab-client-consensus-common = { version = "0.0.1", path = "crates/node/ab-client-consensus-common" }
+ab-client-database = { version = "0.0.1", path = "crates/node/ab-client-database" }
+ab-cli-utils = { version = "0.0.1", path = "crates/shared/ab-cli-utils" }
 ab-direct-io-file = { version = "0.0.1", path = "crates/shared/ab-direct-io-file" }
 ab-client-proof-of-time = { version = "0.0.1", path = "crates/node/ab-client-proof-of-time" }
 ab-contracts-common = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-common" }
@@ -54,8 +56,10 @@ bech32 = { version = "0.11.0", default-features = false }
 bitvec = "1.0.1"
 blake3 = { version = "1.8.2", default-features = false }
 bytes = { version = "1.10.1", default-features = false }
+bytesize = { version = "2.0.1", default-features = false }
 cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "39b238f25b7652ba79d153626e252321942cb558", default-features = false }
 chacha20 = { version = "0.10.0-rc.0", default-features = false }
+clap = "4.5.45"
 const_format = "0.2.34"
 core_affinity = "0.8.3"
 cpufeatures = "0.2.17"
