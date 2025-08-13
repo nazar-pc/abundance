@@ -13,8 +13,9 @@ mod tests;
 
 use parking_lot::Mutex;
 use std::fs::{File, OpenOptions};
+use std::mem::MaybeUninit;
 use std::path::Path;
-use std::{io, mem};
+use std::{io, mem, slice};
 
 /// 4096 is as a relatively safe size due to sector size on SSDs commonly being 512 or 4096 bytes
 pub const DISK_PAGE_SIZE: usize = 4096;
@@ -47,10 +48,25 @@ impl AlignedPage {
     /// bytes
     pub const SIZE: usize = 4096;
 
+    /// Convert an exclusive slice to an uninitialized version
+    pub fn as_uninit_slice_mut(value: &mut [Self]) -> &mut [MaybeUninit<Self>] {
+        // SAFETY: Same layout
+        unsafe { mem::transmute(value) }
+    }
+
     /// Convenient conversion from slice to underlying representation for efficiency purposes
     #[inline(always)]
     pub fn slice_to_repr(value: &[Self]) -> &[[u8; AlignedPage::SIZE]] {
-        // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
+        // SAFETY: `AlignedPage` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from slice to underlying representation for efficiency purposes
+    #[inline(always)]
+    pub fn uninit_slice_to_repr(
+        value: &[MaybeUninit<Self>],
+    ) -> &[MaybeUninit<[u8; AlignedPage::SIZE]>] {
+        // SAFETY: `AlignedPage` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
 
@@ -69,10 +85,37 @@ impl AlignedPage {
         }
     }
 
+    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
+    ///
+    /// Returns `None` if not correctly aligned.
+    #[inline]
+    pub fn try_uninit_slice_from_repr(
+        value: &[MaybeUninit<[u8; AlignedPage::SIZE]>],
+    ) -> Option<&[MaybeUninit<Self>]> {
+        // SAFETY: All bit patterns are valid
+        let (before, slice, after) = unsafe { value.align_to::<MaybeUninit<Self>>() };
+
+        if before.is_empty() && after.is_empty() {
+            Some(slice)
+        } else {
+            None
+        }
+    }
+
     /// Convenient conversion from mutable slice to underlying representation for efficiency
     /// purposes
     #[inline(always)]
     pub fn slice_mut_to_repr(slice: &mut [Self]) -> &mut [[u8; AlignedPage::SIZE]] {
+        // SAFETY: `AlignedSectorSize` is `#[repr(C)]` and its alignment is larger than inner value
+        unsafe { mem::transmute(slice) }
+    }
+
+    /// Convenient conversion from mutable slice to underlying representation for efficiency
+    /// purposes
+    #[inline(always)]
+    pub fn uninit_slice_mut_to_repr(
+        slice: &mut [MaybeUninit<Self>],
+    ) -> &mut [MaybeUninit<[u8; AlignedPage::SIZE]>] {
         // SAFETY: `AlignedSectorSize` is `#[repr(C)]` and its alignment is larger than inner value
         unsafe { mem::transmute(slice) }
     }
@@ -84,6 +127,23 @@ impl AlignedPage {
     pub fn try_slice_mut_from_repr(value: &mut [[u8; AlignedPage::SIZE]]) -> Option<&mut [Self]> {
         // SAFETY: All bit patterns are valid
         let (before, slice, after) = unsafe { value.align_to_mut::<Self>() };
+
+        if before.is_empty() && after.is_empty() {
+            Some(slice)
+        } else {
+            None
+        }
+    }
+
+    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
+    ///
+    /// Returns `None` if not correctly aligned.
+    #[inline]
+    pub fn try_uninit_slice_mut_from_repr(
+        value: &mut [MaybeUninit<[u8; AlignedPage::SIZE]>],
+    ) -> Option<&mut [MaybeUninit<Self>]> {
+        // SAFETY: All bit patterns are valid
+        let (before, slice, after) = unsafe { value.align_to_mut::<MaybeUninit<Self>>() };
 
         if before.is_empty() && after.is_empty() {
             Some(slice)
@@ -296,8 +356,24 @@ impl DirectIoFile {
     /// `offset` needs to be page-aligned as well or use [`Self::read_exact_at()`] if you're willing
     /// to pay for the corresponding overhead.
     #[inline]
-    pub fn read_exact_at_raw(&self, buf: &mut [AlignedPage], offset: u64) -> io::Result<()> {
-        let buf = AlignedPage::slice_mut_to_repr(buf).as_flattened_mut();
+    pub fn read_exact_at_raw(
+        &self,
+        buf: &mut [MaybeUninit<AlignedPage>],
+        offset: u64,
+    ) -> io::Result<()> {
+        let buf = AlignedPage::uninit_slice_mut_to_repr(buf);
+
+        // TODO: Switch to APIs from https://github.com/rust-lang/rust/issues/140771 once
+        //  implementation lands in nightly
+        // SAFETY: `buf` is never read by Rust internal API, only written to
+        let buf = unsafe {
+            slice::from_raw_parts_mut(
+                buf.as_mut_ptr().cast::<[u8; AlignedPage::SIZE]>(),
+                buf.len(),
+            )
+        };
+
+        let buf = buf.as_flattened_mut();
 
         #[cfg(unix)]
         {
@@ -365,7 +441,7 @@ impl DirectIoFile {
                     Ok(0) => {
                         return Err(io::Error::new(
                             io::ErrorKind::WriteZero,
-                            "failed to write whole buffer",
+                            "failed to write the whole buffer",
                         ));
                     }
                     Ok(n) => {
@@ -405,7 +481,10 @@ impl DirectIoFile {
         let pages_to_read = (padding + bytes_to_read).div_ceil(AlignedPage::SIZE);
         let scratch_buffer = &mut scratch_buffer[..pages_to_read];
 
-        self.read_exact_at_raw(scratch_buffer, page_aligned_offset)?;
+        self.read_exact_at_raw(
+            AlignedPage::as_uninit_slice_mut(scratch_buffer),
+            page_aligned_offset,
+        )?;
 
         Ok(&AlignedPage::slice_to_repr(scratch_buffer).as_flattened()[padding..][..bytes_to_read])
     }
@@ -432,7 +511,10 @@ impl DirectIoFile {
         } else {
             let scratch_buffer = &mut scratch_buffer[..pages_to_read];
             // Read whole pages where `bytes_to_write` will be written
-            self.read_exact_at_raw(scratch_buffer, page_aligned_offset)?;
+            self.read_exact_at_raw(
+                AlignedPage::as_uninit_slice_mut(scratch_buffer),
+                page_aligned_offset,
+            )?;
             // Update the contents of existing pages and write into the file
             AlignedPage::slice_mut_to_repr(scratch_buffer).as_flattened_mut()[padding..]
                 [..bytes_to_write.len()]
