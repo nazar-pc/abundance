@@ -280,7 +280,7 @@ impl StorageBackendAdapter {
     where
         StorageBackend: ClientDatabaseStorageBackend,
     {
-        let mut buffer = vec![AlignedPage::default(); 1];
+        let mut buffer = Vec::with_capacity(1);
 
         if !options.force {
             buffer = storage_backend
@@ -288,6 +288,7 @@ impl StorageBackendAdapter {
                 .await
                 .map_err(|_error| ClientDatabaseFormatError::ReadRequestCancelled)?
                 .map_err(|error| ClientDatabaseFormatError::ReadError { error })?;
+            buffer.clear();
 
             if StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&buffer).is_ok()
             {
@@ -306,12 +307,10 @@ impl StorageBackendAdapter {
                 database_version: Self::VERSION,
                 page_group_kind: PageGroupKind::Permanent,
                 padding: [0; _],
-                page_group_size: options.page_group_size,
+                page_group_size: options.page_group_size.get(),
             },
         };
-        container
-            .write_to_pages(&mut buffer)
-            .map_err(io::Error::other)?;
+        Self::write_pages_to_buffer(&container, None, &mut buffer)?;
 
         let _buffer: Vec<AlignedPage> = storage_backend
             .write(buffer, 0)
@@ -558,7 +557,11 @@ impl StorageBackendAdapter {
                             match receiver.poll_unpin(cx) {
                                 Poll::Ready(Ok(write_result)) => match write_result {
                                     // Write succeeded, reuse buffer
-                                    Ok(buffer) => buffer,
+                                    Ok(mut buffer) => {
+                                        buffer.clear();
+
+                                        buffer
+                                    }
                                     // Write failed
                                     Err(error) => {
                                         return (
@@ -585,12 +588,13 @@ impl StorageBackendAdapter {
                         }
                     };
 
-                    // Resize buffer and write storage item pages
+                    // Write storage item pages to the buffer
                     if let Err(error) = Self::write_pages_to_buffer(
                         &container,
                         maybe_page_group_header.as_ref(),
                         &mut buffer,
                     ) {
+                        buffer.clear();
                         return (
                             Some(Err(io::Error::other(error))),
                             WriteBufferEntry::Free(buffer),
@@ -614,8 +618,7 @@ impl StorageBackendAdapter {
         write_fut.await
     }
 
-    /// Resize the buffer to the correct size and write storage item with optional prepended page
-    /// group header
+    /// Write (append) a storage item with an optional page group header in front of it
     #[inline(always)]
     fn write_pages_to_buffer<SI>(
         container: &StorageItemContainer<SI>,
@@ -626,17 +629,21 @@ impl StorageBackendAdapter {
         SI: StorageItem,
     {
         if let Some(page_group_header) = maybe_page_group_header {
-            buffer.resize_with(container.num_pages() as usize + 1, AlignedPage::default);
+            let length = container.num_pages() as usize + 1;
+            buffer.reserve(length);
 
-            let (header, buffer) = buffer.split_at_mut(1);
+            let (header, buffer) = buffer.spare_capacity_mut()[..length].split_at_mut(1);
             page_group_header
                 .write_to_pages(header)
                 .map_err(io::Error::other)?;
             container.write_to_pages(buffer).map_err(io::Error::other)?;
         } else {
-            buffer.resize_with(container.num_pages() as usize, AlignedPage::default);
+            let length = container.num_pages() as usize;
+            buffer.reserve(length);
 
-            container.write_to_pages(buffer).map_err(io::Error::other)?;
+            container
+                .write_to_pages(&mut buffer.spare_capacity_mut()[..length])
+                .map_err(io::Error::other)?;
         }
 
         Ok(())

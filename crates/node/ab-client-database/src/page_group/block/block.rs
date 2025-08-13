@@ -5,6 +5,7 @@ use ab_core_primitives::address::Address;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::mmr::MerkleMountainRangeBytes;
 use rclite::Arc;
+use std::mem::MaybeUninit;
 use std::sync::Arc as StdArc;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
@@ -83,7 +84,10 @@ impl StorageItemBlockBlock {
         len.next_multiple_of(size_of::<u64>()) + system_contract_states_len as usize
     }
 
-    pub(super) fn write(&self, mut buffer: &mut [u8]) -> Result<usize, StorageItemError> {
+    pub(super) fn write(
+        &self,
+        mut buffer: &mut [MaybeUninit<u8>],
+    ) -> Result<usize, StorageItemError> {
         // The layout here is as follows:
         // * header length: u32 as aligned little-endian bytes
         // * body length: u32 as aligned little-endian bytes
@@ -124,11 +128,11 @@ impl StorageItemBlockBlock {
             let (body_len, remainder) = remainder.split_at_mut(size_of::<u32>());
             let (mmr_len, num_system_contract_states) = remainder.split_at_mut(size_of::<u32>());
 
-            header_len.copy_from_slice(&(header.len() as u32).to_le_bytes());
-            body_len.copy_from_slice(&(body.len() as u32).to_le_bytes());
-            mmr_len.copy_from_slice(&(mmr_with_block.len() as u32).to_le_bytes());
+            header_len.write_copy_of_slice(&(header.len() as u32).to_le_bytes());
+            body_len.write_copy_of_slice(&(body.len() as u32).to_le_bytes());
+            mmr_len.write_copy_of_slice(&(mmr_with_block.len() as u32).to_le_bytes());
             num_system_contract_states
-                .copy_from_slice(&(system_contract_states.len() as u32).to_le_bytes());
+                .write_copy_of_slice(&(system_contract_states.len() as u32).to_le_bytes());
 
             written_len += prefix_bytes.len();
         }
@@ -140,7 +144,7 @@ impl StorageItemBlockBlock {
                 .expect("Total length checked above; qed");
 
             // Sub-slice due to possible trailing alignment bytes
-            header_bytes[..header.len()].copy_from_slice(header);
+            header_bytes[..header.len()].write_copy_of_slice(header);
             written_len += header_bytes.len();
         }
         {
@@ -148,7 +152,7 @@ impl StorageItemBlockBlock {
                 .split_off_mut(..body.len())
                 .expect("Total length checked above; qed");
 
-            body_bytes.copy_from_slice(body);
+            body_bytes.write_copy_of_slice(body);
             written_len += body_bytes.len();
         }
         {
@@ -157,7 +161,7 @@ impl StorageItemBlockBlock {
                 .expect("Total length checked above; qed");
 
             // Sub-slice due to possible trailing alignment bytes
-            mmr_raw_bytes.copy_from_slice(mmr_with_block);
+            mmr_raw_bytes.write_copy_of_slice(mmr_with_block);
             written_len += mmr_raw_bytes.len();
         }
 
@@ -175,7 +179,7 @@ impl StorageItemBlockBlock {
                 let prefix_bytes = buffer
                     .split_off_mut(..size_of::<SystemContractStatePrefix>())
                     .expect("Total length checked above; qed");
-                prefix_bytes.copy_from_slice(
+                prefix_bytes.write_copy_of_slice(
                     SystemContractStatePrefix {
                         owner: system_contract_state.owner,
                         contract: system_contract_state.contract,
@@ -200,7 +204,7 @@ impl StorageItemBlockBlock {
                 let contents_bytes = buffer
                     .split_off_mut(..system_contract_state.contents.len() as usize)
                     .expect("Total length checked above; qed");
-                contents_bytes.copy_from_slice(system_contract_state.contents.as_slice());
+                contents_bytes.write_copy_of_slice(system_contract_state.contents.as_slice());
                 written_len += contents_bytes.len();
             }
         }

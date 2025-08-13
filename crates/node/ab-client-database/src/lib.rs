@@ -49,6 +49,7 @@
     iter_collect_into,
     maybe_uninit_as_bytes,
     maybe_uninit_fill,
+    maybe_uninit_slice,
     maybe_uninit_write_slice,
     push_mut,
     try_blocks
@@ -84,7 +85,7 @@ use replace_with::replace_with_or_abort;
 use smallvec::{SmallVec, smallvec};
 use std::collections::{HashMap, VecDeque};
 use std::hash::{BuildHasherDefault, Hasher};
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::Deref;
 use std::sync::Arc as StdArc;
 use std::{fmt, io};
@@ -224,7 +225,7 @@ pub struct ClientDatabaseFormatOptions {
     ///
     /// The recommended size is 256 MiB unless a tiny database is used for testing purposes, where
     /// a smaller value might work too.
-    pub page_group_size: u32,
+    pub page_group_size: NonZeroU32,
     /// By default, formatting will be aborted if the database appears to be already formatted.
     ///
     /// Setting this option to `true` skips the check and formats the database anyway.

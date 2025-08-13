@@ -1,0 +1,30 @@
+[package]
+name = "ab-node"
+description = "Consensus node CLI"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-client-database = { workspace = true }
+ab-cli-utils = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["alloc"] }
+ab-direct-io-file = { workspace = true }
+bytesize = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+futures = { workspace = true, features = ["alloc"] }
+rclite = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

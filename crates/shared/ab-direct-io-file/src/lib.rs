@@ -355,6 +355,8 @@ impl DirectIoFile {
     ///
     /// `offset` needs to be page-aligned as well or use [`Self::read_exact_at()`] if you're willing
     /// to pay for the corresponding overhead.
+    ///
+    /// Successful result guarantees that all bytes in `buf` were written.
     #[inline]
     pub fn read_exact_at_raw(
         &self,
