@@ -22,34 +22,34 @@ pub const DISK_PAGE_SIZE: usize = 4096;
 const MAX_READ_SIZE: usize = 1024 * 1024;
 
 const _: () = {
-    assert!(MAX_READ_SIZE.is_multiple_of(AlignedPageSize::SIZE));
+    assert!(MAX_READ_SIZE.is_multiple_of(AlignedPage::SIZE));
 };
 
 /// A wrapper data structure with 4096 bytes alignment, which is the most common alignment for
 /// direct I/O operations.
 #[derive(Debug, Copy, Clone)]
 #[repr(C, align(4096))]
-pub struct AlignedPageSize([u8; AlignedPageSize::SIZE]);
+pub struct AlignedPage([u8; AlignedPage::SIZE]);
 
 const _: () = {
-    assert!(align_of::<AlignedPageSize>() == AlignedPageSize::SIZE);
+    assert!(align_of::<AlignedPage>() == AlignedPage::SIZE);
 };
 
-impl Default for AlignedPageSize {
+impl Default for AlignedPage {
     #[inline(always)]
     fn default() -> Self {
-        Self([0; AlignedPageSize::SIZE])
+        Self([0; AlignedPage::SIZE])
     }
 }
 
-impl AlignedPageSize {
+impl AlignedPage {
     /// 4096 is as a relatively safe size due to sector size on SSDs commonly being 512 or 4096
     /// bytes
     pub const SIZE: usize = 4096;
 
     /// Convenient conversion from slice to underlying representation for efficiency purposes
     #[inline(always)]
-    pub fn slice_to_repr(value: &[Self]) -> &[[u8; AlignedPageSize::SIZE]] {
+    pub fn slice_to_repr(value: &[Self]) -> &[[u8; AlignedPage::SIZE]] {
         // SAFETY: `RecordChunk` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute(value) }
     }
@@ -58,7 +58,7 @@ impl AlignedPageSize {
     ///
     /// Returns `None` if not correctly aligned.
     #[inline]
-    pub fn try_slice_from_repr(value: &[[u8; AlignedPageSize::SIZE]]) -> Option<&[Self]> {
+    pub fn try_slice_from_repr(value: &[[u8; AlignedPage::SIZE]]) -> Option<&[Self]> {
         // SAFETY: All bit patterns are valid
         let (before, slice, after) = unsafe { value.align_to::<Self>() };
 
@@ -72,7 +72,7 @@ impl AlignedPageSize {
     /// Convenient conversion from mutable slice to underlying representation for efficiency
     /// purposes
     #[inline(always)]
-    pub fn slice_mut_to_repr(slice: &mut [Self]) -> &mut [[u8; AlignedPageSize::SIZE]] {
+    pub fn slice_mut_to_repr(slice: &mut [Self]) -> &mut [[u8; AlignedPage::SIZE]] {
         // SAFETY: `AlignedSectorSize` is `#[repr(C)]` and its alignment is larger than inner value
         unsafe { mem::transmute(slice) }
     }
@@ -81,9 +81,7 @@ impl AlignedPageSize {
     ///
     /// Returns `None` if not correctly aligned.
     #[inline]
-    pub fn try_slice_mut_from_repr(
-        value: &mut [[u8; AlignedPageSize::SIZE]],
-    ) -> Option<&mut [Self]> {
+    pub fn try_slice_mut_from_repr(value: &mut [[u8; AlignedPage::SIZE]]) -> Option<&mut [Self]> {
         // SAFETY: All bit patterns are valid
         let (before, slice, after) = unsafe { value.align_to_mut::<Self>() };
 
@@ -107,7 +105,7 @@ impl AlignedPageSize {
 pub struct DirectIoFile {
     file: File,
     /// Scratch buffer of aligned memory for reads and writes
-    scratch_buffer: Mutex<Vec<AlignedPageSize>>,
+    scratch_buffer: Mutex<Vec<AlignedPage>>,
 }
 
 impl DirectIoFile {
@@ -164,8 +162,8 @@ impl DirectIoFile {
             file,
             // In many cases, we'll want to read this much at once, so pre-allocate it right away
             scratch_buffer: Mutex::new(vec![
-                AlignedPageSize::default();
-                MAX_READ_SIZE / AlignedPageSize::SIZE
+                AlignedPage::default();
+                MAX_READ_SIZE / AlignedPage::SIZE
             ]),
         })
     }
@@ -214,14 +212,14 @@ impl DirectIoFile {
 
         // This is guaranteed by the constructor
         debug_assert!(
-            AlignedPageSize::slice_to_repr(&scratch_buffer)
+            AlignedPage::slice_to_repr(&scratch_buffer)
                 .as_flattened()
                 .len()
                 <= MAX_READ_SIZE
         );
 
         // First read up to `MAX_READ_SIZE - padding`
-        let padding = (offset % AlignedPageSize::SIZE as u64) as usize;
+        let padding = (offset % AlignedPage::SIZE as u64) as usize;
         let first_unaligned_chunk_size = (MAX_READ_SIZE - padding).min(buf.len());
         let (unaligned_start, buf) = buf.split_at_mut(first_unaligned_chunk_size);
         {
@@ -265,14 +263,14 @@ impl DirectIoFile {
 
         // This is guaranteed by the constructor
         debug_assert!(
-            AlignedPageSize::slice_to_repr(&scratch_buffer)
+            AlignedPage::slice_to_repr(&scratch_buffer)
                 .as_flattened()
                 .len()
                 <= MAX_READ_SIZE
         );
 
         // First, write up to `MAX_READ_SIZE - padding`
-        let padding = (offset % AlignedPageSize::SIZE as u64) as usize;
+        let padding = (offset % AlignedPage::SIZE as u64) as usize;
         let first_unaligned_chunk_size = (MAX_READ_SIZE - padding).min(buf.len());
         let (unaligned_start, buf) = buf.split_at(first_unaligned_chunk_size);
         {
@@ -298,8 +296,8 @@ impl DirectIoFile {
     /// `offset` needs to be page-aligned as well or use [`Self::read_exact_at()`] if you're willing
     /// to pay for the corresponding overhead.
     #[inline]
-    pub fn read_exact_at_raw(&self, buf: &mut [AlignedPageSize], offset: u64) -> io::Result<()> {
-        let buf = AlignedPageSize::slice_mut_to_repr(buf).as_flattened_mut();
+    pub fn read_exact_at_raw(&self, buf: &mut [AlignedPage], offset: u64) -> io::Result<()> {
+        let buf = AlignedPage::slice_mut_to_repr(buf).as_flattened_mut();
 
         #[cfg(unix)]
         {
@@ -347,8 +345,8 @@ impl DirectIoFile {
     /// `offset` needs to be page-aligned as well or use [`Self::write_all_at()`] if you're willing
     /// to pay for the corresponding overhead.
     #[inline]
-    pub fn write_all_at_raw(&self, buf: &[AlignedPageSize], offset: u64) -> io::Result<()> {
-        let buf = AlignedPageSize::slice_to_repr(buf).as_flattened();
+    pub fn write_all_at_raw(&self, buf: &[AlignedPage], offset: u64) -> io::Result<()> {
+        let buf = AlignedPage::slice_to_repr(buf).as_flattened();
 
         #[cfg(unix)]
         {
@@ -395,44 +393,39 @@ impl DirectIoFile {
 
     fn read_exact_at_internal<'a>(
         &self,
-        scratch_buffer: &'a mut [AlignedPageSize],
+        scratch_buffer: &'a mut [AlignedPage],
         bytes_to_read: usize,
         offset: u64,
     ) -> io::Result<&'a [u8]> {
-        let page_aligned_offset =
-            offset / AlignedPageSize::SIZE as u64 * AlignedPageSize::SIZE as u64;
+        let page_aligned_offset = offset / AlignedPage::SIZE as u64 * AlignedPage::SIZE as u64;
         let padding = (offset - page_aligned_offset) as usize;
 
         // Make a scratch buffer of a size that is necessary to read aligned memory, accounting
         // for extra bytes at the beginning and the end that will be thrown away
-        let pages_to_read = (padding + bytes_to_read).div_ceil(AlignedPageSize::SIZE);
+        let pages_to_read = (padding + bytes_to_read).div_ceil(AlignedPage::SIZE);
         let scratch_buffer = &mut scratch_buffer[..pages_to_read];
 
         self.read_exact_at_raw(scratch_buffer, page_aligned_offset)?;
 
-        Ok(
-            &AlignedPageSize::slice_to_repr(scratch_buffer).as_flattened()[padding..]
-                [..bytes_to_read],
-        )
+        Ok(&AlignedPage::slice_to_repr(scratch_buffer).as_flattened()[padding..][..bytes_to_read])
     }
 
     /// Panics on writes over `MAX_READ_SIZE` (including padding on both ends)
     fn write_all_at_internal(
         &self,
-        scratch_buffer: &mut [AlignedPageSize],
+        scratch_buffer: &mut [AlignedPage],
         bytes_to_write: &[u8],
         offset: u64,
     ) -> io::Result<()> {
-        let page_aligned_offset =
-            offset / AlignedPageSize::SIZE as u64 * AlignedPageSize::SIZE as u64;
+        let page_aligned_offset = offset / AlignedPage::SIZE as u64 * AlignedPage::SIZE as u64;
         let padding = (offset - page_aligned_offset) as usize;
 
         // Calculate the size of the read including padding on both ends
-        let pages_to_read = (padding + bytes_to_write.len()).div_ceil(AlignedPageSize::SIZE);
+        let pages_to_read = (padding + bytes_to_write.len()).div_ceil(AlignedPage::SIZE);
 
         if padding == 0 && pages_to_read == bytes_to_write.len() {
             let scratch_buffer = &mut scratch_buffer[..pages_to_read];
-            AlignedPageSize::slice_mut_to_repr(scratch_buffer)
+            AlignedPage::slice_mut_to_repr(scratch_buffer)
                 .as_flattened_mut()
                 .copy_from_slice(bytes_to_write);
             self.write_all_at_raw(scratch_buffer, offset)?;
@@ -441,7 +434,7 @@ impl DirectIoFile {
             // Read whole pages where `bytes_to_write` will be written
             self.read_exact_at_raw(scratch_buffer, page_aligned_offset)?;
             // Update the contents of existing pages and write into the file
-            AlignedPageSize::slice_mut_to_repr(scratch_buffer).as_flattened_mut()[padding..]
+            AlignedPage::slice_mut_to_repr(scratch_buffer).as_flattened_mut()[padding..]
                 [..bytes_to_write.len()]
                 .copy_from_slice(bytes_to_write);
             self.write_all_at_raw(scratch_buffer, page_aligned_offset)?;
