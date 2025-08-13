@@ -3,7 +3,8 @@ use crate::storage_backend_adapter::PageGroupKind;
 use ab_blake3::single_block_hash;
 use ab_core_primitives::hashes::Blake3Hash;
 use blake3::hash;
-use std::fmt;
+use std::mem::MaybeUninit;
+use std::{fmt, mem};
 
 // TODO: use this
 /// The minimum overhead that the storage item will have due to the way it is stored on disk
@@ -59,6 +60,16 @@ pub(crate) enum StorageItemError {
     InvalidBufferContents,
 }
 
+/// The result of [`StorageItem::write()`] call
+pub(crate) struct StorageItemWriteResult<'a> {
+    /// Storage item variant
+    pub(crate) storage_item_variant: u8,
+    /// Bytes where storage item was written
+    pub(crate) storage_item_bytes: &'a [u8],
+    /// Remaining bytes of the input buffer
+    pub(crate) buffer: &'a mut [MaybeUninit<u8>],
+}
+
 pub(crate) trait StorageItem: fmt::Debug + Send + Sync + Sized + 'static {
     /// Total number of bytes
     fn total_bytes(&self) -> usize;
@@ -68,7 +79,10 @@ pub(crate) trait StorageItem: fmt::Debug + Send + Sync + Sized + 'static {
     /// The buffer is required to be aligned to 128-bit.
     ///
     /// Returns the storage item variant and the number of bytes written.
-    fn write(&self, buffer: &mut [u8]) -> Result<(u8, usize), StorageItemError>;
+    fn write<'a>(
+        &self,
+        buffer: &'a mut [MaybeUninit<u8>],
+    ) -> Result<StorageItemWriteResult<'a>, StorageItemError>;
 
     /// The inverse of [`Self::write_to_pages()`]
     fn read(variant: u8, buffer: &[u8]) -> Result<Self, StorageItemError>;
@@ -112,21 +126,32 @@ where
         (prefix_size + storage_item_size + Self::suffix_size()).div_ceil(AlignedPage::SIZE) as u32
     }
 
-    /// Write a storage item to the provided buffer of aligned pages
+    /// Write (append) a storage item to the provided buffer of aligned pages
     pub(super) fn write_to_pages(
         &self,
-        buffer: &mut [AlignedPage],
+        buffer: &mut [MaybeUninit<AlignedPage>],
     ) -> Result<(), StorageItemError> {
-        let mut buffer = AlignedPage::slice_mut_to_repr(buffer).as_flattened_mut();
+        let buffer = AlignedPage::uninit_slice_mut_to_repr(buffer);
+        // SAFETY: Same size and alignment, all uninitialized
+        let buffer_bytes = unsafe {
+            mem::transmute::<
+                &mut [MaybeUninit<[u8; AlignedPage::SIZE]>],
+                &mut [[MaybeUninit<u8>; AlignedPage::SIZE]],
+            >(buffer)
+        };
+        let mut buffer = buffer_bytes.as_flattened_mut();
 
-        let prefix_bytes = buffer
-            .split_off_mut(..Self::prefix_size())
-            .expect("Always fits one page; qed");
         // Align buffer used by storage item to 128 bytes
-        buffer = &mut buffer[Self::prefix_size().next_multiple_of(size_of::<u128>())..];
+        let prefix_bytes = buffer
+            .split_off_mut(..Self::prefix_size().next_multiple_of(size_of::<u128>()))
+            .expect("Always fits one page; qed");
+        let prefix_bytes = &mut prefix_bytes[..Self::prefix_size()];
 
-        let (storage_item_variant, storage_item_size) = self.storage_item.write(buffer)?;
-        let (storage_item_bytes, mut buffer) = buffer.split_at_mut(storage_item_size);
+        let StorageItemWriteResult {
+            storage_item_variant,
+            storage_item_bytes,
+            mut buffer,
+        } = self.storage_item.write(buffer)?;
 
         let buffer_len = buffer.len();
         let suffix_bytes =
@@ -143,20 +168,22 @@ where
             remainder.split_at_mut(size_of::<u8>());
 
         // Write prefix
-        sequence_number_bytes.copy_from_slice(&self.sequence_number.to_le_bytes());
-        storage_item_variant_bytes[0] = storage_item_variant;
-        storage_item_size_bytes.copy_from_slice(&storage_item_size.to_le_bytes());
-        let checksum =
-            single_block_hash(before_checksum).expect("Less than one block worth of data; qed");
-        checksum_bytes.copy_from_slice(&checksum);
+        sequence_number_bytes.write_copy_of_slice(&self.sequence_number.to_le_bytes());
+        storage_item_variant_bytes[0].write(storage_item_variant);
+        let storage_item_size = storage_item_bytes.len() as u32;
+        storage_item_size_bytes.write_copy_of_slice(&storage_item_size.to_le_bytes());
+        // SAFETY: Wrote to all components of `before_checksum` above
+        let checksum = single_block_hash(unsafe { before_checksum.assume_init_ref() })
+            .expect("Less than one block worth of data; qed");
+        checksum_bytes.write_copy_of_slice(&checksum);
 
         let (storage_item_checksum_bytes, prefix_checksum_repeat_bytes) =
             suffix_bytes.split_at_mut(size_of::<Blake3Hash>());
 
         // Write suffix
         let storage_item_checksum = *hash(storage_item_bytes).as_bytes();
-        storage_item_checksum_bytes.copy_from_slice(&storage_item_checksum);
-        prefix_checksum_repeat_bytes.copy_from_slice(&checksum);
+        storage_item_checksum_bytes.write_copy_of_slice(&storage_item_checksum);
+        prefix_checksum_repeat_bytes.write_copy_of_slice(&checksum);
 
         Ok(())
     }
@@ -165,11 +192,11 @@ where
     pub(super) fn read_from_pages(pages: &[AlignedPage]) -> Result<Self, StorageItemError> {
         let mut buffer = AlignedPage::slice_to_repr(pages).as_flattened();
 
-        let prefix_bytes = buffer
-            .split_off(..Self::prefix_size())
-            .expect("Always fits one page; qed");
         // Align buffer used by storage item to 128 bytes
-        buffer = &buffer[Self::prefix_size().next_multiple_of(size_of::<u128>())..];
+        let prefix_bytes = buffer
+            .split_off(..Self::prefix_size().next_multiple_of(size_of::<u128>()))
+            .expect("Always fits one page; qed");
+        let prefix_bytes = &prefix_bytes[..Self::prefix_size()];
 
         let (sequence_number_bytes, remainder) = prefix_bytes.split_at(size_of::<u64>());
         let (storage_item_variant_bytes, remainder) = remainder.split_at(size_of::<u8>());

@@ -7,8 +7,10 @@ pub(crate) mod block;
 use crate::page_group::block::block::StorageItemBlockBlock;
 use crate::storage_backend_adapter::PageGroupKind;
 use crate::storage_backend_adapter::storage_item::{
-    StorageItem, StorageItemError, UniqueStorageItem,
+    StorageItem, StorageItemError, StorageItemWriteResult, UniqueStorageItem,
 };
+use std::mem;
+use std::mem::MaybeUninit;
 use strum::FromRepr;
 
 #[derive(Debug, FromRepr)]
@@ -31,12 +33,24 @@ impl StorageItem for StorageItemBlock {
     }
 
     #[inline(always)]
-    fn write(&self, buffer: &mut [u8]) -> Result<(u8, usize), StorageItemError> {
+    fn write<'a>(
+        &self,
+        buffer: &'a mut [MaybeUninit<u8>],
+    ) -> Result<StorageItemWriteResult<'a>, StorageItemError> {
         let (variant, storage_item_size) = match self {
             Self::Block(block) => (StorageItemBlockVariant::Block, block.write(buffer)?),
         };
 
-        Ok((variant as u8, storage_item_size))
+        let (storage_item_bytes, buffer) = buffer.split_at_mut(storage_item_size);
+        // SAFETY: Storage item bytes were just written to
+        let storage_item_bytes =
+            unsafe { mem::transmute::<&mut [MaybeUninit<u8>], &mut [u8]>(storage_item_bytes) };
+
+        Ok(StorageItemWriteResult {
+            storage_item_variant: variant as u8,
+            storage_item_bytes,
+            buffer,
+        })
     }
 
     #[inline(always)]

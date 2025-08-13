@@ -1,8 +1,11 @@
 use crate::DatabaseId;
 use crate::storage_backend_adapter::PageGroupKind;
-use crate::storage_backend_adapter::storage_item::{StorageItem, StorageItemError};
+use crate::storage_backend_adapter::storage_item::{
+    StorageItem, StorageItemError, StorageItemWriteResult,
+};
 use ab_io_type::trivial_type::TrivialType;
 use std::mem;
+use std::mem::MaybeUninit;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -28,7 +31,10 @@ impl StorageItem for StorageItemPageGroupHeader {
     }
 
     #[inline(always)]
-    fn write(&self, buffer: &mut [u8]) -> Result<(u8, usize), StorageItemError> {
+    fn write<'a>(
+        &self,
+        buffer: &'a mut [MaybeUninit<u8>],
+    ) -> Result<StorageItemWriteResult<'a>, StorageItemError> {
         let total_bytes = size_of::<Self>();
 
         if buffer.len() < total_bytes {
@@ -38,9 +44,14 @@ impl StorageItem for StorageItemPageGroupHeader {
             });
         }
 
-        buffer[..total_bytes].copy_from_slice(self.as_bytes());
+        let (storage_item_bytes, buffer) = buffer.split_at_mut(total_bytes);
+        let storage_item_bytes = storage_item_bytes.write_copy_of_slice(self.as_bytes());
 
-        Ok((0, total_bytes))
+        Ok(StorageItemWriteResult {
+            storage_item_variant: 0,
+            storage_item_bytes,
+            buffer,
+        })
     }
 
     #[inline(always)]

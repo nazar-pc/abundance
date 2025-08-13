@@ -1,4 +1,7 @@
-use crate::storage_backend_adapter::storage_item::{StorageItem, StorageItemError};
+use crate::storage_backend_adapter::storage_item::{
+    StorageItem, StorageItemError, StorageItemWriteResult,
+};
+use std::mem::MaybeUninit;
 
 #[derive(Debug)]
 pub(crate) enum StorageItemPermanent {
@@ -10,7 +13,10 @@ impl StorageItem for StorageItemPermanent {
         unreachable!()
     }
 
-    fn write(&self, _buffer: &mut [u8]) -> Result<(u8, usize), StorageItemError> {
+    fn write<'a>(
+        &self,
+        _buffer: &'a mut [MaybeUninit<u8>],
+    ) -> Result<StorageItemWriteResult<'a>, StorageItemError> {
         unreachable!()
     }
 
