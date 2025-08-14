@@ -69,7 +69,7 @@ impl SegmentHeadersStore {
     const INITIAL_CACHE_CAPACITY: usize = 1_000;
 
     /// Create a new instance
-    pub fn new(confirmation_depth_k: BlockNumber) -> Result<Self, SegmentHeaderStoreError> {
+    pub fn new(confirmation_depth_k: BlockNumber) -> Self {
         let cache = Vec::with_capacity(Self::INITIAL_CACHE_CAPACITY);
 
         debug!("Started loading segment headers into cache");
@@ -90,14 +90,14 @@ impl SegmentHeadersStore {
         // }
         debug!("Finished loading segment headers into cache");
 
-        Ok(Self {
+        Self {
             inner: Arc::new(SegmentHeadersStoreInner {
                 // aux_store,
                 next_key_index: AtomicU16::new(next_key_index),
                 cache: RwLock::new(cache),
             }),
             confirmation_depth_k,
-        })
+        }
     }
 
     /// Returns last observed segment header

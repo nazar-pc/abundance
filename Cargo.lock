@@ -462,14 +462,26 @@ name = "ab-node"
 version = "0.0.1"
 dependencies = [
  "ab-cli-utils",
+ "ab-client-api",
+ "ab-client-archiving",
+ "ab-client-block-authoring",
+ "ab-client-block-builder",
+ "ab-client-block-import",
+ "ab-client-block-verification",
+ "ab-client-consensus-common",
  "ab-client-database",
+ "ab-client-proof-of-time",
  "ab-core-primitives",
  "ab-direct-io-file",
+ "ab-proof-of-space",
  "bytesize",
  "clap",
+ "core_affinity",
  "futures",
  "rclite",
+ "tempfile",
  "thiserror",
+ "thread-priority",
  "tokio",
  "tracing",
 ]
@@ -3406,6 +3418,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "thread-priority"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd4ef372b29fbcc6cb0cef97bcbf3ffa9da90e02eb23dbf14db48ce30d11d2d5"
+dependencies = [
+ "bitflags 2.9.1",
+ "cfg-if",
+ "libc",
+ "log",
+ "rustversion",
+ "windows 0.61.3",
 ]
 
 [[package]]

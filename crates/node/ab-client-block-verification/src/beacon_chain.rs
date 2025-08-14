@@ -161,7 +161,8 @@ where
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
-        let timestamp_now = BlockTimestamp::new(u64::try_from(timestamp_now).unwrap_or(u64::MAX));
+        let timestamp_now =
+            BlockTimestamp::from_millis(u64::try_from(timestamp_now).unwrap_or(u64::MAX));
 
         if header_prefix.timestamp
             > timestamp_now.saturating_add(self.consensus_constants.max_block_timestamp_drift)

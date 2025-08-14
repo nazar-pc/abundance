@@ -40,8 +40,8 @@ impl SlotDuration {
 
     /// Create a new instance
     #[inline(always)]
-    pub const fn from_millis(n: u16) -> Self {
-        Self(n)
+    pub const fn from_millis(ms: u16) -> Self {
+        Self(ms)
     }
 
     /// Get internal representation

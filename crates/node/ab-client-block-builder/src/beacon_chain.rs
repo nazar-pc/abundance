@@ -175,10 +175,11 @@ where
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
-        let mut timestamp = BlockTimestamp::new(u64::try_from(timestamp).unwrap_or(u64::MAX));
+        let mut timestamp =
+            BlockTimestamp::from_millis(u64::try_from(timestamp).unwrap_or(u64::MAX));
 
         if timestamp <= parent_timestamp {
-            timestamp = BlockTimestamp::new(parent_timestamp.as_ms().saturating_add(1));
+            timestamp = BlockTimestamp::from_millis(parent_timestamp.as_millis().saturating_add(1));
         }
 
         Ok(BlockHeaderPrefix {

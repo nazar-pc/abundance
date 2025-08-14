@@ -14,15 +14,27 @@ include = [
 all-features = true
 
 [dependencies]
+ab-client-api = { workspace = true }
+ab-client-archiving = { workspace = true }
+ab-client-block-authoring = { workspace = true }
+ab-client-block-builder = { workspace = true }
+ab-client-block-import = { workspace = true }
+ab-client-block-verification = { workspace = true }
+ab-client-consensus-common = { workspace = true }
 ab-client-database = { workspace = true }
+ab-client-proof-of-time = { workspace = true }
 ab-cli-utils = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-direct-io-file = { workspace = true }
+ab-proof-of-space = { workspace = true }
 bytesize = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
+core_affinity = { workspace = true }
 futures = { workspace = true, features = ["alloc"] }
 rclite = { workspace = true }
+tempfile = { workspace = true }
 thiserror = { workspace = true }
+thread-priority = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing = { workspace = true }
 

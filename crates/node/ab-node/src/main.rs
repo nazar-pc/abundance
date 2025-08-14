@@ -1,5 +1,7 @@
 //! Consensus node CLI
 
+#![feature(default_field_values)]
+
 mod cli;
 mod storage_backend;
 
