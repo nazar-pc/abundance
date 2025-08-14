@@ -1,7 +1,7 @@
+use ab_cli_utils::init_logger;
 use clap::Parser;
 use std::path::PathBuf;
 use std::{fs, io};
-use subspace_logging::init_logger;
 use tracing::info;
 
 /// Options for running a node

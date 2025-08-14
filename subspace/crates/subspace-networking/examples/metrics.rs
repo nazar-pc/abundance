@@ -1,3 +1,4 @@
+use ab_cli_utils::init_logger;
 use futures::channel::oneshot;
 use futures::{FutureExt, StreamExt, select};
 use libp2p::PeerId;
@@ -7,7 +8,6 @@ use parking_lot::Mutex;
 use prometheus_client::registry::Registry;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_logging::init_logger;
 use subspace_metrics::{RegistryAdapter, start_prometheus_metrics_server};
 use subspace_networking::{Config, Node};
 use tokio::signal;

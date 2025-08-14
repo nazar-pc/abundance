@@ -108,7 +108,7 @@ tempfile = "3.20.0"
 thiserror = { version = "2.0.14", default-features = false }
 tokio = { version = "1.47.1", default-features = false }
 tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 wgpu = { version = "26.0.1", default-features = false, features = ["metal", "spirv", "vulkan"] }
 windows = { version = "0.61.3", features = ["Win32_Storage_FileSystem"] }
 yoke = { version = "0.8.0", default-features = false }

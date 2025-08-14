@@ -14,7 +14,8 @@ include = [
 all-features = true
 
 [dependencies]
-
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [lints]
 workspace = true

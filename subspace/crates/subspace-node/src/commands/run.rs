@@ -5,12 +5,12 @@ use crate::commands::run::consensus::{
     ConsensusChainConfiguration, ConsensusChainOptions, create_consensus_chain_configuration,
 };
 use crate::{Error, PosTable};
+use ab_cli_utils::init_logger;
 use clap::Parser;
 use futures::FutureExt;
 use sc_cli::Signals;
 use sc_storage_monitor::StorageMonitorService;
 use std::env;
-use subspace_logging::init_logger;
 use subspace_metrics::{RegistryAdapter, start_prometheus_metrics_server};
 use subspace_runtime::RuntimeApi;
 use subspace_service::config::ChainSyncMode;

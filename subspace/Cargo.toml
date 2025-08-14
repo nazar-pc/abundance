@@ -9,6 +9,7 @@ members = [
 ab-archiving = { version = "0.1.0", path = "../crates/shared/ab-archiving", default-features = false }
 ab-client-api = { version = "0.0.1", path = "../crates/node/ab-client-api" }
 ab-client-proof-of-time = { version = "0.0.1", path = "../crates/node/ab-client-proof-of-time" }
+ab-cli-utils = { version = "0.0.1", path = "../crates/shared/ab-cli-utils" }
 ab-core-primitives = { version = "0.1.0", path = "../crates/shared/ab-core-primitives", default-features = false }
 ab-data-retrieval = { version = "0.1.0", path = "../crates/shared/ab-data-retrieval", default-features = false }
 ab-direct-io-file = { version = "0.0.1", path = "../crates/shared/ab-direct-io-file" }
@@ -126,7 +127,6 @@ sp-version = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d
 sppark = { version = "0.1.8", git = "https://github.com/autonomys/sppark", rev = "b2a181eb99c8200f1a604f04122551ea39fbf63f" }
 ss58-registry = "1.51.0"
 static_assertions = "1.1.0"
-subspace-logging = { version = "0.0.1", path = "shared/subspace-logging" }
 subspace-metrics = { version = "0.1.0", path = "shared/subspace-metrics" }
 subspace-networking = { version = "0.1.0", path = "crates/subspace-networking" }
 subspace-proof-of-space-gpu = { version = "0.1.0", path = "shared/subspace-proof-of-space-gpu" }
@@ -138,7 +138,6 @@ subspace-verification = { version = "0.1.0", path = "crates/subspace-verificatio
 substrate-build-script-utils = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35" }
 substrate-prometheus-endpoint = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35" }
 substrate-wasm-builder = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35" }
-supports-color = "3.0.1"
 tempfile = "3.13.0"
 thiserror = { version = "2.0.0", default-features = false }
 thread-priority = "1.1.0"
