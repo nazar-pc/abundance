@@ -19,6 +19,7 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
         self.num_pages
     }
 
+    #[inline(always)]
     fn read(
         &self,
         mut buffer: Vec<AlignedPage>,
@@ -62,6 +63,7 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
         receiver
     }
 
+    #[inline(always)]
     fn write(
         &self,
         buffer: Vec<AlignedPage>,
@@ -95,6 +97,7 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
 }
 
 impl FileStorageBackend {
+    #[inline(always)]
     pub(crate) fn new(file: Arc<DirectIoFile>) -> io::Result<Self> {
         // TODO: Support even larger databases, which might be needed/helpful for multiple chains
         //  and/or caching purposes

@@ -61,32 +61,14 @@ fn hash_block_many_exact<const NUM_BLOCKS: usize>(
 ) {
     let platform = Platform::detect();
 
-    let mut input_chunks = inputs.chunks_exact(16);
-    let mut output_chunks = outputs.chunks_exact_mut(16);
+    let (input_chunks, remaining_inputs) = inputs.as_chunks::<16>();
+    let (output_chunks, remaining_output_chunks) = outputs.as_chunks_mut::<16>();
 
-    // TODO: Can bigger chunk size be better here?
-    for (inputs, outputs) in input_chunks.by_ref().zip(output_chunks.by_ref()) {
+    for (inputs, outputs) in input_chunks.iter().zip(output_chunks) {
         // TODO: This is a very awkward API, ideally we wouldn't have this array allocated inline
         //  for no good reason
         platform.hash_many(
-            &[
-                &inputs[0],
-                &inputs[1],
-                &inputs[2],
-                &inputs[3],
-                &inputs[4],
-                &inputs[5],
-                &inputs[6],
-                &inputs[7],
-                &inputs[8],
-                &inputs[9],
-                &inputs[10],
-                &inputs[11],
-                &inputs[12],
-                &inputs[13],
-                &inputs[14],
-                &inputs[15],
-            ],
+            &inputs.each_ref(),
             &key,
             0,
             IncrementCounter::No,
@@ -97,11 +79,7 @@ fn hash_block_many_exact<const NUM_BLOCKS: usize>(
         );
     }
 
-    for (input, output) in input_chunks
-        .remainder()
-        .iter()
-        .zip(output_chunks.into_remainder())
-    {
+    for (input, output) in remaining_inputs.iter().zip(remaining_output_chunks) {
         let mut cv = key;
 
         platform.compress_in_place(
