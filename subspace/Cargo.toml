@@ -35,8 +35,7 @@ clap = "4.5.18"
 core_affinity = "0.8.1"
 criterion = { version = "0.6.0", default-features = false }
 derive_more = { version = "1.0.0", default-features = false }
-# TODO: Switch to offical 4.0.4+ is released with https://github.com/ZcashFoundation/ed25519-zebra/pull/174
-ed25519-zebra = { version = "4.0.3", git = "https://github.com/ZcashFoundation/ed25519-zebra", rev = "dbb5610b818a6b54ebd347c27f8c8d3d6af89648", default-features = false }
+ed25519-zebra = { version = "4.1.0", default-features = false }
 event-listener = "5.3.1"
 event-listener-primitives = "2.0.1"
 fdlimit = "0.3.0"
