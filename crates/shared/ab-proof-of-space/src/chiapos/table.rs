@@ -673,14 +673,19 @@ where
 
         t_n.sort_unstable();
 
-        let mut ys = Vec::with_capacity(t_n.len());
-        let mut positions = Vec::with_capacity(t_n.len());
-        let mut metadatas = Vec::with_capacity(t_n.len());
+        let mut ys = Vec::with_capacity(num_values);
+        let mut positions = Vec::with_capacity(num_values);
+        // The last table doesn't have metadata
+        let mut metadatas = Vec::with_capacity(if metadata_size_bits(K, TABLE_NUMBER) > 0 {
+            num_values
+        } else {
+            0
+        });
 
         for (y, [left_position, right_position], metadata) in t_n {
             ys.push(y);
             positions.push([left_position, right_position]);
-            // Last table doesn't have metadata
+            // The last table doesn't have metadata
             if metadata_size_bits(K, TABLE_NUMBER) > 0 {
                 metadatas.push(metadata);
             }
@@ -723,7 +728,7 @@ where
 
         let previous_bucket = Mutex::new(first_bucket);
 
-        let t_n = rayon::broadcast(|_ctx| {
+        let entries = rayon::broadcast(|_ctx| {
             let mut entries = Vec::new();
             let mut rmap_scratch = Vec::new();
 
@@ -779,17 +784,24 @@ where
             entries
         });
 
-        let mut t_n = t_n.into_iter().flatten().collect::<Vec<_>>();
+        let num_values = 1 << K;
+        let mut t_n = Vec::with_capacity(num_values);
+        entries.into_iter().flatten().collect_into(&mut t_n);
         t_n.par_sort_unstable();
 
-        let mut ys = Vec::with_capacity(t_n.len());
-        let mut positions = Vec::with_capacity(t_n.len());
-        let mut metadatas = Vec::with_capacity(t_n.len());
+        let mut ys = Vec::with_capacity(num_values);
+        let mut positions = Vec::with_capacity(num_values);
+        // The last table doesn't have metadata
+        let mut metadatas = Vec::with_capacity(if metadata_size_bits(K, TABLE_NUMBER) > 0 {
+            num_values
+        } else {
+            0
+        });
 
         for (y, [left_position, right_position], metadata) in t_n.drain(..) {
             ys.push(y);
             positions.push([left_position, right_position]);
-            // Last table doesn't have metadata
+            // The last table doesn't have metadata
             if metadata_size_bits(K, TABLE_NUMBER) > 0 {
                 metadatas.push(metadata);
             }
