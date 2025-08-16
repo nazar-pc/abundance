@@ -2,12 +2,12 @@ use crate::protocols::request_response::handlers::generic_request_handler::{
     GenericRequest, GenericRequestHandler,
 };
 use crate::{Config, construct};
+use ab_cli_utils::init_logger;
 use futures::channel::oneshot;
 use libp2p::multiaddr::Protocol;
 use parity_scale_codec::{Decode, Encode};
 use parking_lot::Mutex;
 use std::sync::Arc;
-use subspace_logging::init_logger;
 
 #[derive(Encode, Decode)]
 struct ExampleRequest;

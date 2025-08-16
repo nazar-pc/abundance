@@ -13,11 +13,11 @@ use ab_core_primitives::segments::HistorySize;
 /// Proof-of-time consensus constants
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct PotConsensusConstants {
-    /// Interval, in blocks, between blockchain entropy injection into proof of time chain.
+    /// Interval, in blocks, between blockchain entropy injection into the proof of time chain
     pub entropy_injection_interval: BlockNumber,
-    /// Interval, in entropy injection intervals, where to take entropy for injection from.
+    /// Interval, in entropy injection intervals, where to take entropy for injection from
     pub entropy_injection_lookback_depth: u8,
-    /// Delay after block, in slots, when entropy injection takes effect.
+    /// Delay after block, in slots, when entropy injection takes effect
     pub entropy_injection_delay: SlotNumber,
 }
 
@@ -40,7 +40,7 @@ pub struct ConsensusConstants {
     pub recent_segments: HistorySize,
     /// Fraction of pieces from the "recent history" (`recent_segments`) in each sector
     pub recent_history_fraction: (HistorySize, HistorySize),
-    /// Minimum lifetime of a plotted sector, measured in archived segment
+    /// Minimum lifetime of a plotted sector, measured in archived segments
     pub min_sector_lifetime: HistorySize,
     /// Max block timestamp drift allowed
     pub max_block_timestamp_drift: BlockTimestamp,

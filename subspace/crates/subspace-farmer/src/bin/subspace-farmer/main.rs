@@ -3,13 +3,13 @@
 mod commands;
 mod utils;
 
+use ab_cli_utils::init_logger;
 use ab_proof_of_space::chia::ChiaTable;
 use clap::Parser;
 use std::path::PathBuf;
 use std::process::exit;
 use std::{fs, panic};
 use subspace_farmer::single_disk_farm::{ScrubTarget, SingleDiskFarm};
-use subspace_logging::init_logger;
 use tracing::info;
 
 #[global_allocator]

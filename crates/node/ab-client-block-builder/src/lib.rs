@@ -4,6 +4,7 @@
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
 //  https://github.com/rust-lang/rust/issues/141492
 #![feature(generic_const_exprs)]
+#![feature(async_fn_traits, unboxed_closures)]
 
 pub mod beacon_chain;
 
@@ -59,12 +60,12 @@ pub struct BlockBuilderResult<Block> {
 }
 
 /// Block builder interface
-pub trait BlockBuilder<Block>
+pub trait BlockBuilder<Block>: Send
 where
     Block: GenericOwnedBlock,
 {
     /// Build a new block using provided parameters
-    fn build<SealBlock, SealBlockFut>(
+    fn build<SealBlock>(
         &mut self,
         parent_block_root: &BlockRoot,
         parent_header: &<Block::Header as GenericOwnedBlockHeader>::Header<'_>,
@@ -74,6 +75,6 @@ where
         seal_block: SealBlock,
     ) -> impl Future<Output = Result<BlockBuilderResult<Block>, BlockBuilderError>> + Send
     where
-        SealBlock: FnOnce(Blake3Hash) -> SealBlockFut + Send,
-        SealBlockFut: Future<Output = Option<OwnedBlockHeaderSeal>> + Send;
+        SealBlock: AsyncFnOnce<(Blake3Hash,), Output = Option<OwnedBlockHeaderSeal>, CallOnceFuture: Send>
+            + Send;
 }

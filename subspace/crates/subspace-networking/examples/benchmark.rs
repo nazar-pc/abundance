@@ -1,3 +1,4 @@
+use ab_cli_utils::init_logger;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use async_lock::Semaphore;
 use backoff::ExponentialBackoff;
@@ -15,7 +16,6 @@ use std::error::Error;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
-use subspace_logging::init_logger;
 use subspace_networking::protocols::request_response::handlers::piece_by_index::PieceByIndexRequestHandler;
 use subspace_networking::utils::piece_provider::{NoPieceValidator, PieceProvider, PieceValidator};
 use subspace_networking::{Config, Node};

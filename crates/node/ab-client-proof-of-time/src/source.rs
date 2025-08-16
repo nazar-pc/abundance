@@ -8,8 +8,11 @@ use crate::source::block_import::BestBlockPotInfo;
 use crate::source::gossip::{GossipProof, ToGossipMessage};
 use crate::source::state::{PotState, PotStateSetOutcome};
 use crate::source::timekeeper::TimekeeperProof;
+use crate::verifier::PotVerifier;
 use ab_client_api::ChainSyncStatus;
-use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
+use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::block::header::BeaconChainHeader;
+use ab_core_primitives::pot::{PotCheckpoints, PotParametersChange, SlotNumber};
 use derive_more::{Deref, DerefMut};
 use futures::channel::mpsc;
 use futures::{FutureExt, StreamExt, select};
@@ -19,6 +22,46 @@ use tokio::sync::broadcast;
 use tracing::{debug, trace, warn};
 
 const SLOTS_CHANNEL_CAPACITY: usize = 10;
+
+/// Initialize [`PotState`] using the best available beacon chain header
+pub fn init_pot_state(
+    best_beacon_chain_header: &BeaconChainHeader<'_>,
+    pot_verifier: PotVerifier,
+    block_authoring_delay: SlotNumber,
+) -> PotState {
+    let block_number = best_beacon_chain_header.prefix.number;
+    let consensus_info = best_beacon_chain_header.consensus_info;
+    let consensus_parameters = best_beacon_chain_header.consensus_parameters();
+
+    let parent_slot = if block_number == BlockNumber::ZERO {
+        SlotNumber::ZERO
+    } else {
+        // The best one seen
+        consensus_info.slot + block_authoring_delay
+    };
+
+    let maybe_next_parameters_change = consensus_parameters
+        .pot_parameters_change
+        .copied()
+        .map(PotParametersChange::from);
+
+    let pot_input = if block_number == BlockNumber::ZERO {
+        PotNextSlotInput {
+            slot: parent_slot + SlotNumber::ONE,
+            slot_iterations: consensus_parameters.fixed_parameters.slot_iterations,
+            seed: pot_verifier.genesis_seed(),
+        }
+    } else {
+        PotNextSlotInput::derive(
+            consensus_parameters.fixed_parameters.slot_iterations,
+            parent_slot,
+            consensus_info.future_proof_of_time,
+            &maybe_next_parameters_change,
+        )
+    };
+
+    PotState::new(pot_input, maybe_next_parameters_change, pot_verifier)
+}
 
 /// Proof of time slot information
 #[derive(Debug, Copy, Clone)]

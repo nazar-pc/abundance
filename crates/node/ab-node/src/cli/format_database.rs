@@ -67,15 +67,20 @@ impl FormatDatabase {
     async fn run(self) -> Result<(), FormatDatabaseError> {
         let Self { path, size, force } = self;
 
-        let mut open_options = OpenOptions::new();
-        open_options
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false);
+        let file = DirectIoFile::open(
+            {
+                let mut open_options = OpenOptions::new();
+                open_options
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .truncate(false);
 
-        let file = DirectIoFile::open(open_options, path)
-            .map_err(|error| FormatDatabaseError::OpenDatabase { error })?;
+                open_options
+            },
+            path,
+        )
+        .map_err(|error| FormatDatabaseError::OpenDatabase { error })?;
 
         if let Some(size) = size {
             let size = size.as_u64();

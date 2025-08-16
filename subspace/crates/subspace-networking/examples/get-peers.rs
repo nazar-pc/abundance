@@ -1,10 +1,10 @@
+use ab_cli_utils::init_logger;
 use futures::StreamExt;
 use futures::channel::oneshot;
 use libp2p::multiaddr::Protocol;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_logging::init_logger;
 use subspace_networking::Config;
 
 #[tokio::main]

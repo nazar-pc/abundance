@@ -1,12 +1,14 @@
 //! Consensus node CLI
 
+#![feature(default_field_values)]
+
 mod cli;
 mod storage_backend;
 
 use crate::cli::CliCommand;
 use crate::cli::format_database::{FormatDatabase, FormatDatabaseError};
 use crate::cli::run::{Run, RunError};
-use ab_cli_utils::set_exit_on_panic;
+use ab_cli_utils::{init_logger, set_exit_on_panic};
 use ab_client_database::storage_backend::AlignedPage;
 use bytesize::ByteSize;
 use clap::Parser;
@@ -41,6 +43,7 @@ enum Error {
 
 fn main() -> Result<(), Error> {
     set_exit_on_panic();
+    init_logger();
 
     match Cli::parse() {
         Cli::FormatDatabase(cmd) => cmd.run(),

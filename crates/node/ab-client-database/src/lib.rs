@@ -45,6 +45,7 @@
 //  https://github.com/rust-lang/rust/issues/141492
 #![feature(generic_const_exprs)]
 #![feature(
+    default_field_values,
     get_mut_unchecked,
     iter_collect_into,
     maybe_uninit_as_bytes,
@@ -156,7 +157,7 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// operation that triggered it. Non-zero buffer means writes can happen in the background.
     ///
     /// The recommended value is 5.
-    pub write_buffer_size: usize,
+    pub write_buffer_size: usize = 5,
     /// Blocks at this depth are considered to be "confirmed" and irreversible from the consensus
     /// perspective.
     ///
@@ -176,7 +177,7 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// also increases the chance of recent blocks not being retained on disk in case of a crash.
     ///
     /// The recommended value is 3 blocks.
-    pub soft_confirmation_depth: BlockNumber,
+    pub soft_confirmation_depth: BlockNumber = BlockNumber::new(3),
     /// Defines how many fork tips should be maintained in total.
     ///
     /// As natural forks occur, there may be more than one tip in existence, with only one of them
@@ -187,7 +188,7 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// A larger number results in higher memory usage and higher complexity of pruning algorithms.
     ///
     /// The recommended value is 3 blocks.
-    pub max_fork_tips: NonZeroUsize,
+    pub max_fork_tips: NonZeroUsize = NonZeroUsize::new(3).expect("Not zero; qed"),
     /// Max distance between fork tip and the best block.
     ///
     /// When forks are this deep, they will be pruned, even without reaching the `max_fork_tips`
@@ -198,7 +199,7 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// A larger value results in higher memory usage and higher complexity of pruning algorithms.
     ///
     /// The recommended value is 5 blocks.
-    pub max_fork_tip_distance: BlockNumber,
+    pub max_fork_tip_distance: BlockNumber = BlockNumber::new(5),
     /// Genesis block builder is responsible to create genesis block and corresponding state for
     /// bootstrapping purposes.
     pub genesis_block_builder: GBB,

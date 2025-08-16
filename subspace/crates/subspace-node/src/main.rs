@@ -7,7 +7,7 @@ mod chain_spec_utils;
 mod cli;
 
 use crate::cli::{Cli, SubspaceCliPlaceholder};
-use crate::commands::set_exit_on_panic;
+use ab_cli_utils::set_exit_on_panic;
 use ab_proof_of_space::chia::ChiaTable;
 use clap::Parser;
 use futures::future::TryFutureExt;

@@ -178,13 +178,13 @@ impl BlockTimestamp {
 
     /// Create a new instance
     #[inline(always)]
-    pub const fn new(ms: u64) -> Self {
+    pub const fn from_millis(ms: u64) -> Self {
         Self(ms)
     }
 
     /// Get internal representation
     #[inline(always)]
-    pub const fn as_ms(self) -> u64 {
+    pub const fn as_millis(self) -> u64 {
         self.0
     }
 
@@ -297,7 +297,7 @@ impl BlockRoot {
 /// Generic block
 pub trait GenericBlock<'a>
 where
-    Self: Clone + fmt::Debug,
+    Self: Clone + fmt::Debug + Send + Sync,
 {
     /// Shard kind
     const SHARD_KIND: ShardKind;

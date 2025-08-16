@@ -76,7 +76,7 @@ impl<CI> BlockBuilder<OwnedBeaconChainBlock> for BeaconChainBlockBuilder<CI>
 where
     CI: ChainInfo<OwnedBeaconChainBlock>,
 {
-    async fn build<SealBlock, SealBlockFut>(
+    async fn build<SealBlock>(
         &mut self,
         parent_block_root: &BlockRoot,
         parent_header: &<OwnedBeaconChainHeader as GenericOwnedBlockHeader>::Header<'_>,
@@ -86,8 +86,8 @@ where
         seal_block: SealBlock,
     ) -> Result<BlockBuilderResult<OwnedBeaconChainBlock>, BlockBuilderError>
     where
-        SealBlock: FnOnce(Blake3Hash) -> SealBlockFut + Send,
-        SealBlockFut: Future<Output = Option<OwnedBlockHeaderSeal>> + Send,
+        SealBlock: AsyncFnOnce<(Blake3Hash,), Output = Option<OwnedBlockHeaderSeal>, CallOnceFuture: Send>
+            + Send,
     {
         let block_number = parent_header.prefix.number.saturating_add(BlockNumber::ONE);
 
@@ -175,10 +175,11 @@ where
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
-        let mut timestamp = BlockTimestamp::new(u64::try_from(timestamp).unwrap_or(u64::MAX));
+        let mut timestamp =
+            BlockTimestamp::from_millis(u64::try_from(timestamp).unwrap_or(u64::MAX));
 
         if timestamp <= parent_timestamp {
-            timestamp = BlockTimestamp::new(parent_timestamp.as_ms().saturating_add(1));
+            timestamp = BlockTimestamp::from_millis(parent_timestamp.as_millis().saturating_add(1));
         }
 
         Ok(BlockHeaderPrefix {

@@ -23,6 +23,7 @@ ab-client-proof-of-time = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-proof-of-space = { workspace = true }
 futures = { workspace = true, features = ["alloc"] }
+send-future = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 

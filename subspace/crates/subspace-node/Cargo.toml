@@ -19,6 +19,7 @@ include = [
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+ab-cli-utils = { workspace = true }
 ab-core-primitives = { workspace = true }
 ab-proof-of-space = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
@@ -47,7 +48,6 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 tracing = { workspace = true }
-subspace-logging = { workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }

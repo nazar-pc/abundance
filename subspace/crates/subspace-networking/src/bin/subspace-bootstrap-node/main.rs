@@ -2,6 +2,7 @@
 
 #![feature(type_changing_struct_update)]
 
+use ab_cli_utils::{init_logger, set_exit_on_panic};
 use clap::Parser;
 use futures::{FutureExt, select};
 use libp2p::identity::ed25519::Keypair;
@@ -13,9 +14,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::panic;
-use std::process::exit;
 use std::sync::Arc;
-use subspace_logging::init_logger;
 use subspace_metrics::{RegistryAdapter, start_prometheus_metrics_server};
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::{Config, KademliaMode, peer_id};
@@ -103,16 +102,6 @@ impl KeypairOutput {
             peer_id: peer_id_from_keypair(keypair).to_base58(),
         }
     }
-}
-
-/// Install a panic handler which exits on panics, rather than unwinding. Unwinding can hang the
-/// tokio runtime waiting for stuck tasks or threads.
-fn set_exit_on_panic() {
-    let default_panic_hook = panic::take_hook();
-    panic::set_hook(Box::new(move |panic_info| {
-        default_panic_hook(panic_info);
-        exit(1);
-    }));
 }
 
 #[tokio::main]

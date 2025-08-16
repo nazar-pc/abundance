@@ -9,13 +9,13 @@ use ab_client_consensus_common::ConsensusConstants;
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
+use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::header::{
     BeaconChainHeader, BlockHeaderConsensusInfo, GenericBlockHeader, OwnedBlockHeaderSeal,
     SharedBlockHeader,
 };
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
-use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
 use ab_core_primitives::sectors::SectorId;
@@ -27,6 +27,7 @@ use ab_core_primitives::solutions::{
 use ab_proof_of_space::Table;
 use futures::StreamExt;
 use futures::channel::{mpsc, oneshot};
+use send_future::SendFuture;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use tokio::sync::broadcast;
@@ -138,7 +139,6 @@ where
 {
     async fn claim_slot(
         &mut self,
-        _parent_block_root: &BlockRoot,
         parent_header: &SharedBlockHeader<'_>,
         parent_beacon_chain_header: &BeaconChainHeader<'_>,
         slot: SlotNumber,
@@ -462,9 +462,8 @@ where
             let best_beacon_chain_header = best_beacon_chain_header.header();
             let (best_header, best_block_details) = self.chain_info.best_header_with_details();
             let best_header = best_header.header();
-            let best_root = &*best_header.root();
 
-            self.on_new_slot(slot, checkpoints, best_root, best_beacon_chain_header);
+            self.on_new_slot(slot, checkpoints, best_beacon_chain_header);
 
             if self.chain_sync_status.is_syncing() {
                 debug!(%slot, "Skipping proposal slot due to sync");
@@ -479,14 +478,16 @@ where
                 continue;
             };
 
+            // TODO: `.send()` is a hack for compiler bug, see:
+            //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
             let Some(block_builder_result) = self
                 .produce_block(
                     slot_to_claim,
-                    best_root,
                     best_header,
                     &best_block_details,
                     best_beacon_chain_header,
                 )
+                .send()
                 .await
             else {
                 continue;
@@ -500,7 +501,11 @@ where
             ) {
                 Ok(block_import_fut) => block_import_fut,
                 Err(error) => {
-                    error!(%best_root, %error, "Failed to queue a newly produced block for import");
+                    error!(
+                        best_root = %*best_header.root(),
+                        %error,
+                        "Failed to queue a newly produced block for import"
+                    );
                     continue;
                 }
             };
@@ -510,7 +515,11 @@ where
                     // Nothing else to do
                 }
                 Err(error) => {
-                    warn!(%best_root, %error, "Failed to import a newly produced block");
+                    warn!(
+                        best_root = %*best_header.root(),
+                        %error,
+                        "Failed to import a newly produced block"
+                    );
                 }
             }
         }
@@ -530,7 +539,6 @@ where
         &mut self,
         slot: SlotNumber,
         checkpoints: PotCheckpoints,
-        _best_root: &BlockRoot,
         best_beacon_chain_header: &BeaconChainHeader<'_>,
     ) {
         if self.chain_sync_status.is_syncing() {
@@ -576,7 +584,6 @@ where
     async fn produce_block(
         &mut self,
         slot: SlotNumber,
-        parent_block_root: &BlockRoot,
         parent_header: &<Block::Header as GenericOwnedBlockHeader>::Header<'_>,
         parent_block_details: &BlockDetails,
         parent_beacon_chain_header: &BeaconChainHeader<'_>,
@@ -588,12 +595,7 @@ where
         }
 
         let claimed_slot = self
-            .claim_slot(
-                parent_block_root,
-                parent_header,
-                parent_beacon_chain_header,
-                slot,
-            )
+            .claim_slot(parent_header, parent_beacon_chain_header, slot)
             .await?;
 
         debug!(%slot, "Starting block authorship");
@@ -618,16 +620,22 @@ where
                 seal_receiver.await.ok()
             }
         };
+
+        let parent_block_root = *parent_header.root();
+
+        // TODO: `.send()` is a hack for compiler bug, see:
+        //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
         let block_builder_result = match self
             .block_builder
             .build(
-                parent_block_root,
+                &parent_block_root,
                 parent_header,
                 parent_block_details,
                 &claimed_slot.consensus_info,
                 &claimed_slot.checkpoints,
                 seal_block,
             )
+            .send()
             .await
         {
             Ok(block_builder_result) => block_builder_result,

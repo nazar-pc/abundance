@@ -45,6 +45,14 @@ name = "ab-chacha8"
 version = "0.1.0"
 
 [[package]]
+name = "ab-cli-utils"
+version = "0.0.1"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "ab-client-api"
 version = "0.0.1"
 dependencies = [
@@ -4297,12 +4305,6 @@ dependencies = [
  "libc",
  "windows-sys 0.52.0",
 ]
-
-[[package]]
-name = "is_ci"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7655c9839580ee829dfacba1d1278c2b7883e50a277ff7541299489d6bdfdc45"
 
 [[package]]
 name = "is_terminal_polyfill"
@@ -10043,6 +10045,7 @@ dependencies = [
 name = "subspace-farmer"
 version = "0.1.0"
 dependencies = [
+ "ab-cli-utils",
  "ab-core-primitives",
  "ab-data-retrieval",
  "ab-direct-io-file",
@@ -10083,7 +10086,6 @@ dependencies = [
  "serde",
  "serde_json",
  "ss58-registry",
- "subspace-logging",
  "subspace-metrics",
  "subspace-networking",
  "subspace-proof-of-space-gpu",
@@ -10100,15 +10102,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "subspace-logging"
-version = "0.0.1"
-dependencies = [
- "supports-color",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "subspace-metrics"
 version = "0.1.0"
 dependencies = [
@@ -10122,6 +10115,7 @@ dependencies = [
 name = "subspace-networking"
 version = "0.1.0"
 dependencies = [
+ "ab-cli-utils",
  "ab-core-primitives",
  "async-lock 3.4.1",
  "async-trait",
@@ -10148,7 +10142,6 @@ dependencies = [
  "schnellru",
  "serde",
  "serde_json",
- "subspace-logging",
  "subspace-metrics",
  "thiserror 2.0.14",
  "tokio",
@@ -10162,6 +10155,7 @@ dependencies = [
 name = "subspace-node"
 version = "0.1.0"
 dependencies = [
+ "ab-cli-utils",
  "ab-core-primitives",
  "ab-proof-of-space",
  "clap",
@@ -10180,7 +10174,6 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
- "subspace-logging",
  "subspace-metrics",
  "subspace-networking",
  "subspace-runtime",
@@ -10410,15 +10403,6 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
-
-[[package]]
-name = "supports-color"
-version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8775305acf21c96926c900ad056abeef436701108518cf890020387236ac5a77"
-dependencies = [
- "is_ci",
-]
 
 [[package]]
 name = "syn"
@@ -10921,9 +10905,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.3.18"
+version = "0.3.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
+checksum = "e8189decb5ac0fa7bc8b96b7cb9b2701d60d48805aca84a238004d665fcc4008"
 dependencies = [
  "matchers",
  "nu-ansi-term",
