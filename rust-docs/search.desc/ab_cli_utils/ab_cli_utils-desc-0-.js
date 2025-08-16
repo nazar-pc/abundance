@@ -1,0 +1,1 @@
+searchState.loadedDescShard("ab_cli_utils", 0, "Utilities used in various CLI applications\nInitialize logger with typical settings\nInstall a panic handler which exits on panics, rather than …")
