@@ -297,7 +297,7 @@ impl BlockRoot {
 /// Generic block
 pub trait GenericBlock<'a>
 where
-    Self: Clone + fmt::Debug,
+    Self: Clone + fmt::Debug + Send + Sync,
 {
     /// Shard kind
     const SHARD_KIND: ShardKind;

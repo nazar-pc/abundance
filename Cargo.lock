@@ -86,6 +86,7 @@ dependencies = [
  "ab-core-primitives",
  "ab-proof-of-space",
  "futures",
+ "send-future",
  "tokio",
  "tracing",
 ]

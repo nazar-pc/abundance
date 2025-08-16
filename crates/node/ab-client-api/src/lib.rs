@@ -93,7 +93,7 @@ pub enum PersistBlockError {
 /// there is an ongoing block import happening and its parent must exist until the import
 /// finishes.
 /// </div>
-pub trait ChainInfo<Block>: Clone + Send + Sync + 'static
+pub trait ChainInfo<Block>: Clone + Send + Sync
 where
     Block: GenericOwnedBlock,
 {

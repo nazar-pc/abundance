@@ -32,7 +32,12 @@ use yoke::Yokeable;
 /// Generic block header
 pub trait GenericBlockHeader<'a>
 where
-    Self: Clone + fmt::Debug + Deref<Target = SharedBlockHeader<'a>> + Into<BlockHeader<'a>>,
+    Self: Clone
+        + fmt::Debug
+        + Deref<Target = SharedBlockHeader<'a>>
+        + Into<BlockHeader<'a>>
+        + Send
+        + Sync,
 {
     /// Shard kind
     const SHARD_KIND: ShardKind;
@@ -53,7 +58,7 @@ where
     /// [`SharedBlockHeader`] and other fields of this enum in the declaration order.
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
-    fn root(&self) -> impl Deref<Target = BlockRoot>;
+    fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync;
 }
 
 /// Block header prefix.
@@ -728,7 +733,7 @@ impl<'a> GenericBlockHeader<'a> for BeaconChainHeader<'a> {
     }
 
     #[inline(always)]
-    fn root(&self) -> impl Deref<Target = BlockRoot> {
+    fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         self.root()
     }
 }
@@ -911,7 +916,7 @@ impl<'a> BeaconChainHeader<'a> {
     /// Note that this method computes root by doing a bunch of hashing. The result is then cached
     /// if `alloc` feature is enabled or when compiled for OS target that is not `none`.
     #[inline]
-    pub fn root(&self) -> impl Deref<Target = BlockRoot> {
+    pub fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         let Self {
             shared,
             child_shard_blocks,
@@ -1012,7 +1017,7 @@ impl<'a> GenericBlockHeader<'a> for IntermediateShardHeader<'a> {
     }
 
     #[inline(always)]
-    fn root(&self) -> impl Deref<Target = BlockRoot> {
+    fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         self.root()
     }
 }
@@ -1199,7 +1204,7 @@ impl<'a> IntermediateShardHeader<'a> {
     /// Note that this method computes root by doing a bunch of hashing. The result is then cached
     /// if `alloc` feature is enabled or when compiled for OS target that is not `none`.
     #[inline]
-    pub fn root(&self) -> impl Deref<Target = BlockRoot> {
+    pub fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         let Self {
             shared,
             beacon_chain_info,
@@ -1298,7 +1303,7 @@ impl<'a> GenericBlockHeader<'a> for LeafShardHeader<'a> {
     }
 
     #[inline(always)]
-    fn root(&self) -> impl Deref<Target = BlockRoot> {
+    fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         self.root()
     }
 }
@@ -1467,7 +1472,7 @@ impl<'a> LeafShardHeader<'a> {
     /// Note that this method computes root by doing a bunch of hashing. The result is then cached
     /// if `alloc` feature is enabled or when compiled for OS target that is not `none`.
     #[inline]
-    pub fn root(&self) -> impl Deref<Target = BlockRoot> {
+    pub fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         let Self {
             shared,
             beacon_chain_info,
@@ -1695,7 +1700,7 @@ impl<'a> BlockHeader<'a> {
     /// Note that this method computes root by doing a bunch of hashing. The result is then cached
     /// if `alloc` feature is enabled.
     #[inline]
-    pub fn root(&self) -> impl Deref<Target = BlockRoot> {
+    pub fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         enum Wrapper<B, I, L> {
             BeaconChain(B),
             IntermediateShard(I),

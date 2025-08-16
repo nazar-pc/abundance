@@ -76,7 +76,7 @@ impl<CI> BlockBuilder<OwnedBeaconChainBlock> for BeaconChainBlockBuilder<CI>
 where
     CI: ChainInfo<OwnedBeaconChainBlock>,
 {
-    async fn build<SealBlock, SealBlockFut>(
+    async fn build<SealBlock>(
         &mut self,
         parent_block_root: &BlockRoot,
         parent_header: &<OwnedBeaconChainHeader as GenericOwnedBlockHeader>::Header<'_>,
@@ -86,8 +86,8 @@ where
         seal_block: SealBlock,
     ) -> Result<BlockBuilderResult<OwnedBeaconChainBlock>, BlockBuilderError>
     where
-        SealBlock: FnOnce(Blake3Hash) -> SealBlockFut + Send,
-        SealBlockFut: Future<Output = Option<OwnedBlockHeaderSeal>> + Send,
+        SealBlock: AsyncFnOnce<(Blake3Hash,), Output = Option<OwnedBlockHeaderSeal>, CallOnceFuture: Send>
+            + Send,
     {
         let block_number = parent_header.prefix.number.saturating_add(BlockNumber::ONE);
 

@@ -26,7 +26,7 @@ use yoke::Yokeable;
 /// Generic block body
 pub trait GenericBlockBody<'a>
 where
-    Self: Copy + Into<BlockBody<'a>> + fmt::Debug,
+    Self: Copy + fmt::Debug + Into<BlockBody<'a>> + Send + Sync,
 {
     /// Shard kind
     const SHARD_KIND: ShardKind;
