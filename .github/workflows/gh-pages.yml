@@ -40,16 +40,19 @@ jobs:
         env:
           RUSTDOCFLAGS: "-D rustdoc::broken-intra-doc-links -D rustdoc::private_intra_doc_links -Z unstable-options --enable-index-page"
 
+      - name: Install Hugo
+        uses: peaceiris/actions-hugo@75d2e84710de30f6ff7268e08f310b60ef14033f #v3.0.0
+        with:
+          hugo-version: 0.148.2
+
       - name: Build main website
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends hugo
-          hugo --source website/main --destination $PWD/gh-pages
+          hugo build --minify --source website/main --destination $PWD/gh-pages
 
       - name: Build mdBook
         run: mdbook build website/book --dest-dir $PWD/gh-pages/book
 
-      # This is needed for custom domain to work
+      # This is needed for a custom domain to work
       - name: CNAME
         run: |
           echo "abundance.build" > gh-pages/CNAME
