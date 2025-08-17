@@ -6,7 +6,7 @@ mod cli;
 mod storage_backend;
 
 use crate::cli::CliCommand;
-use crate::cli::format_database::{FormatDatabase, FormatDatabaseError};
+use crate::cli::format_database::{FormatDb, FormatDbError};
 use crate::cli::run::{Run, RunError};
 use ab_cli_utils::{init_logger, set_exit_on_panic};
 use ab_client_database::storage_backend::AlignedPage;
@@ -26,7 +26,7 @@ const PAGE_GROUP_SIZE: NonZeroU32 =
 #[clap(about, version)]
 enum Cli {
     /// Format a database file/disk
-    FormatDatabase(FormatDatabase),
+    FormatDb(FormatDb),
     /// Run the blockchain node
     Run(Run),
 }
@@ -35,7 +35,7 @@ enum Cli {
 enum Error {
     /// Format database error
     #[error("Format database error: {0}")]
-    FormatDatabase(#[from] FormatDatabaseError),
+    FormatDb(#[from] FormatDbError),
     /// Run error
     #[error("Run error: {0}")]
     Run(#[from] RunError),
@@ -46,7 +46,7 @@ fn main() -> Result<(), Error> {
     init_logger();
 
     match Cli::parse() {
-        Cli::FormatDatabase(cmd) => cmd.run(),
+        Cli::FormatDb(cmd) => cmd.run(),
         Cli::Run(cmd) => cmd.run(),
     }
 }

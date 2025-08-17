@@ -11,9 +11,9 @@ use std::fs::OpenOptions;
 use std::io;
 use std::path::PathBuf;
 
-/// Error for [`FormatDatabase`]
+/// Error for [`FormatDb`]
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum FormatDatabaseError {
+pub(crate) enum FormatDbError {
     /// Failed to open the database
     #[error("Failed to open the database: {error}")]
     OpenDatabase {
@@ -43,7 +43,7 @@ pub(crate) enum FormatDatabaseError {
 
 /// Format a database file/disk
 #[derive(Debug, Parser)]
-pub(crate) struct FormatDatabase {
+pub(crate) struct FormatDb {
     /// Path to the database/disk
     path: PathBuf,
     /// Database size to format to (for files).
@@ -56,15 +56,15 @@ pub(crate) struct FormatDatabase {
     force: bool,
 }
 
-impl CliCommand for FormatDatabase {
+impl CliCommand for FormatDb {
     fn run(self) -> Result<(), Error> {
         Ok(self.run()?)
     }
 }
 
-impl FormatDatabase {
+impl FormatDb {
     #[tokio::main]
-    async fn run(self) -> Result<(), FormatDatabaseError> {
+    async fn run(self) -> Result<(), FormatDbError> {
         let Self { path, size, force } = self;
 
         let file = DirectIoFile::open(
@@ -80,7 +80,7 @@ impl FormatDatabase {
             },
             path,
         )
-        .map_err(|error| FormatDatabaseError::OpenDatabase { error })?;
+        .map_err(|error| FormatDbError::OpenDatabase { error })?;
 
         if let Some(size) = size {
             let size = size.as_u64();
@@ -88,15 +88,15 @@ impl FormatDatabase {
             // Allocating the whole file (`set_len` below can create a sparse file, which will cause
             // writes to fail later)
             file.allocate(size)
-                .map_err(|error| FormatDatabaseError::AllocateDatabase { error })?;
+                .map_err(|error| FormatDbError::AllocateDatabase { error })?;
 
             // Truncating file (if necessary)
             file.set_len(size)
-                .map_err(|error| FormatDatabaseError::AllocateDatabase { error })?;
+                .map_err(|error| FormatDbError::AllocateDatabase { error })?;
         }
 
         let storage_backend = FileStorageBackend::new(Arc::new(file))
-            .map_err(|error| FormatDatabaseError::InstantiateStorageBackend { error })?;
+            .map_err(|error| FormatDbError::InstantiateStorageBackend { error })?;
 
         ClientDatabase::<OwnedBeaconChainBlock, _>::format(
             &storage_backend,
