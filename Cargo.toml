@@ -100,12 +100,12 @@ serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0-rc.0", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
 spin = "0.10.0"
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "3df836eb9d7b01344f52737bf9a310d1fb5a0c26" }
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "b320baf49b392b194e14f15bf06ad528c7ae656c" }
 stable_deref_trait = { version = "1.2.0", default-features = false }
 strum = { version = "0.27.2", default-features = false, features = ["derive"] }
-syn = "2.0.105"
+syn = "2.0.106"
 tempfile = "3.20.0"
-thiserror = { version = "2.0.14", default-features = false }
+thiserror = { version = "2.0.15", default-features = false }
 thread-priority = "2.1.0"
 tokio = { version = "1.47.1", default-features = false }
 tracing = "0.1.41"
