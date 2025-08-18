@@ -248,19 +248,16 @@ fn find_matches<T, Map>(
     rmap_scratch.resize_with(usize::from(PARAM_BC), RmapItem::default);
     let rmap = rmap_scratch;
 
-    // Both left and right buckets can be empty
-    let Some(&first_left_bucket_y) = left_bucket_ys.first() else {
-        return;
-    };
     let Some(&first_right_bucket_y) = right_bucket_ys.first() else {
         return;
     };
     // Since all entries in a bucket are obtained after division by `PARAM_BC`, we can compute
     // quotient more efficiently by subtracting base value rather than computing the remainder of
     // the division
-    let base = (usize::from(first_right_bucket_y) / usize::from(PARAM_BC)) * usize::from(PARAM_BC);
+    let right_base =
+        (usize::from(first_right_bucket_y) / usize::from(PARAM_BC)) * usize::from(PARAM_BC);
     for (&y, right_position) in right_bucket_ys.iter().zip(right_bucket_start_position..) {
-        let r = usize::from(y) - base;
+        let r = usize::from(y) - right_base;
 
         // The same `y` and as a result `r` can appear in the table multiple times, in which case
         // they'll all occupy consecutive slots in `right_bucket` and all we need to store is just
@@ -274,8 +271,8 @@ fn find_matches<T, Map>(
 
     // Same idea as above, but avoids division by leveraging the fact that each bucket is exactly
     // `PARAM_BC` away from the previous one in terms of divisor by `PARAM_BC`
-    let base = base - usize::from(PARAM_BC);
-    let parity = (usize::from(first_left_bucket_y) / usize::from(PARAM_BC)) % 2;
+    let left_base = right_base - usize::from(PARAM_BC);
+    let parity = left_base % 2;
     let left_targets_parity = {
         let (a, b) = left_targets
             .left_targets
@@ -284,7 +281,7 @@ fn find_matches<T, Map>(
     };
 
     for (&y, left_position) in left_bucket_ys.iter().zip(left_bucket_start_position..) {
-        let r = usize::from(y) - base;
+        let r = usize::from(y) - left_base;
         let left_targets_r = left_targets_parity
             .chunks_exact(left_targets_parity.len() / usize::from(PARAM_BC))
             .nth(r)
@@ -298,7 +295,6 @@ fn find_matches<T, Map>(
             .as_chunks::<{ FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR }>()
             .0
             .iter()
-            .take(usize::from(PARAM_M) / FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR)
         {
             let _: [(); FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
                 [
