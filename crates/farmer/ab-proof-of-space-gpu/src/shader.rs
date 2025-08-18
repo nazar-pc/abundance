@@ -10,7 +10,7 @@ mod shader_bytes;
 
 /// Compiled SPIR-V shader for GPU that only supports `u32` (no `Int64` capability).
 ///
-/// For shader with `Int64` capability see [`SHADER_U64`].
+/// For a shader with `Int64` capability, see [`SHADER_U64`].
 #[cfg(not(target_arch = "spirv"))]
 pub const SHADER_U32: wgpu::ShaderModuleDescriptor<'static> = {
     use crate::shader::shader_bytes::ShaderBytes;
@@ -23,7 +23,7 @@ pub const SHADER_U32: wgpu::ShaderModuleDescriptor<'static> = {
 
 /// Compiled SPIR-V shader for GPUs that supports `u64` (`Int64` capability).
 ///
-/// For shader without `Int64` capability see [`SHADER_U32`].
+/// For a shader without `Int64` capability, see [`SHADER_U32`].
 #[cfg(not(target_arch = "spirv"))]
 pub const SHADER_U64: wgpu::ShaderModuleDescriptor<'static> = {
     use crate::shader::shader_bytes::ShaderBytes;

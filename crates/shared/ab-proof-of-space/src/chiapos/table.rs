@@ -11,14 +11,18 @@ use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::utils::EvaluatableUsize;
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 #[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
 use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use chacha20::cipher::{Iv, KeyIvInit, StreamCipher};
 use chacha20::{ChaCha8, Key};
-use core::array;
+use core::hint::assert_unchecked;
+use core::mem::MaybeUninit;
 use core::simd::Simd;
 use core::simd::num::SimdUint;
+use core::{array, mem};
 #[cfg(all(feature = "std", any(feature = "parallel", test)))]
 use parking_lot::Mutex;
 #[cfg(any(feature = "parallel", test))]
@@ -70,13 +74,18 @@ fn partial_ys<const K: u8>(seed: Seed) -> Vec<u8> {
     output
 }
 
-#[derive(Debug, Clone)]
-struct LeftTargets {
-    left_targets: Vec<Position>,
-}
+/// Mapping from `parity` to `r` to `m`
+type LeftTargets = [[[Position; PARAM_M as usize]; PARAM_BC as usize]; 2];
 
-fn calculate_left_targets() -> LeftTargets {
-    let mut left_targets = Vec::with_capacity(2 * usize::from(PARAM_BC) * usize::from(PARAM_M));
+fn calculate_left_targets() -> Box<LeftTargets> {
+    let mut left_targets = Box::<LeftTargets>::new_uninit();
+    // SAFETY: Same layout and uninitialized in both cases
+    let left_targets_slice = unsafe {
+        mem::transmute::<
+            &mut MaybeUninit<[[[Position; PARAM_M as usize]; PARAM_BC as usize]; 2]>,
+            &mut [[[MaybeUninit<Position>; PARAM_M as usize]; PARAM_BC as usize]; 2],
+        >(left_targets.as_mut())
+    };
 
     let param_b = u32::from(PARAM_B);
     let param_c = u32::from(PARAM_C);
@@ -88,29 +97,30 @@ fn calculate_left_targets() -> LeftTargets {
             for m in 0..u32::from(PARAM_M) {
                 let target = ((c + m) % param_b) * param_c
                     + (((2 * m + parity) * (2 * m + parity) + r) % param_c);
-                left_targets.push(Position::from(target));
+                left_targets_slice[parity as usize][r as usize][m as usize]
+                    .write(Position::from(target));
             }
         }
     }
 
-    LeftTargets { left_targets }
+    // SAFETY: Initialized all entries
+    unsafe { left_targets.assume_init() }
 }
 
 fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
     let param_b = u32::from(PARAM_B);
     let param_c = u32::from(PARAM_C);
 
-    let c = r / param_c;
-
-    ((c + m) % param_b) * param_c + (((2 * m + parity) * (2 * m + parity) + r) % param_c)
+    ((r / param_c + m) % param_b) * param_c + (((2 * m + parity) * (2 * m + parity) + r) % param_c)
 }
 
-/// Caches that can be used to optimize creation of multiple [`Tables`](super::Tables).
+/// Caches that can be used to optimize the creation of multiple [`Tables`](super::Tables).
 #[derive(Debug, Clone)]
 pub struct TablesCache<const K: u8> {
     buckets: Vec<Bucket>,
-    rmap_scratch: Vec<RmapItem>,
-    left_targets: LeftTargets,
+    rmap_scratch: Box<[RmapItem; PARAM_BC as usize]>,
+    matches: Vec<Match>,
+    left_targets: Box<LeftTargets>,
 }
 
 impl<const K: u8> Default for TablesCache<K> {
@@ -118,13 +128,15 @@ impl<const K: u8> Default for TablesCache<K> {
     fn default() -> Self {
         Self {
             buckets: Vec::new(),
-            rmap_scratch: Vec::new(),
+            // SAFETY: Zeroed value is a valid invariant for `RmapItem`
+            rmap_scratch: unsafe { Box::new_zeroed().assume_init() },
+            matches: Vec::new(),
             left_targets: calculate_left_targets(),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct Match {
     left_position: Position,
     left_y: Y,
@@ -135,16 +147,43 @@ struct Match {
 struct Bucket {
     /// Bucket index
     bucket_index: u32,
-    /// Start position of this bucket in the table
+    /// The start position of this bucket in the table
     start_position: Position,
     /// Size of this bucket
     size: Position,
 }
 
-#[derive(Debug, Default, Copy, Clone)]
-pub(super) struct RmapItem {
-    count: Position,
-    start_position: Position,
+/// Container that stores position and count.
+///
+/// Position is limited to 25 bits and count is limited to 7 bits. This means it only supports `K`
+/// to 25 (just like some other parts of the code).
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[repr(C)]
+pub(super) struct RmapItem(u32);
+
+impl RmapItem {
+    const COUNT_BITS: u32 = 7;
+    const EMPTY: Self = Self(0);
+
+    /// Create a new instance with the count set to zero
+    #[inline(always)]
+    fn new(start_position: Position) -> Self {
+        Self(u32::from(start_position) << Self::COUNT_BITS)
+    }
+
+    /// Increment count
+    #[inline(always)]
+    fn increment(&mut self) {
+        self.0 += 1;
+    }
+
+    /// Returns start position and count
+    #[inline(always)]
+    fn split(self) -> (Position, u32) {
+        let start_position = self.0 >> Self::COUNT_BITS;
+        let count = self.0 & (u32::MAX >> (u32::BITS - Self::COUNT_BITS));
+        (Position::from(start_position), count)
+    }
 }
 
 /// `partial_y_offset` is in bits within `partial_y`
@@ -232,91 +271,91 @@ pub(super) fn compute_f1_simd<const K: u8>(
 /// For verification purposes use [`has_match`] instead.
 ///
 /// Returns `None` if either of buckets is empty.
-#[allow(clippy::too_many_arguments)]
-fn find_matches<T, Map>(
+fn find_matches(
     left_bucket_ys: &[Y],
     left_bucket_start_position: Position,
     right_bucket_ys: &[Y],
     right_bucket_start_position: Position,
-    rmap_scratch: &mut Vec<RmapItem>,
+    rmap_scratch: &mut [RmapItem; PARAM_BC as usize],
+    matches: &mut Vec<Match>,
     left_targets: &LeftTargets,
-    map: Map,
-    output: &mut Vec<T>,
-) where
-    Map: Fn(Match) -> T,
-{
-    // Clear and set to correct size with zero values
-    rmap_scratch.clear();
-    rmap_scratch.resize_with(usize::from(PARAM_BC), RmapItem::default);
+) {
+    // Clear and set to the correct size with zero values
+    rmap_scratch.fill(RmapItem::default());
     let rmap = rmap_scratch;
 
-    // Both left and right buckets can be empty
-    let Some(&first_left_bucket_y) = left_bucket_ys.first() else {
-        return;
-    };
     let Some(&first_right_bucket_y) = right_bucket_ys.first() else {
         return;
     };
     // Since all entries in a bucket are obtained after division by `PARAM_BC`, we can compute
-    // quotient more efficiently by subtracting base value rather than computing remainder of
-    // division
-    let base = (usize::from(first_right_bucket_y) / usize::from(PARAM_BC)) * usize::from(PARAM_BC);
+    // quotient more efficiently by subtracting base value rather than computing the remainder of
+    // the division
+    let right_base =
+        (usize::from(first_right_bucket_y) / usize::from(PARAM_BC)) * usize::from(PARAM_BC);
     for (&y, right_position) in right_bucket_ys.iter().zip(right_bucket_start_position..) {
-        let r = usize::from(y) - base;
+        let r = usize::from(y) - right_base;
+        // SAFETY: All entries in a bucket are obtained after division by `PARAM_BC` by definition
+        unsafe {
+            assert_unchecked(r < usize::from(PARAM_BC));
+        }
 
-        // Same `y` and as the result `r` can appear in the table multiple times, in which case
+        // The same `y` and as a result `r` can appear in the table multiple times, in which case
         // they'll all occupy consecutive slots in `right_bucket` and all we need to store is just
         // the first position and number of elements.
-        if rmap[r].count == Position::ZERO {
-            rmap[r].start_position = right_position;
+        if rmap[r] == RmapItem::EMPTY {
+            rmap[r] = RmapItem::new(right_position);
         }
-        rmap[r].count += Position::ONE;
+        rmap[r].increment();
     }
-    let rmap = rmap.as_slice();
 
     // Same idea as above, but avoids division by leveraging the fact that each bucket is exactly
     // `PARAM_BC` away from the previous one in terms of divisor by `PARAM_BC`
-    let base = base - usize::from(PARAM_BC);
-    let parity = (usize::from(first_left_bucket_y) / usize::from(PARAM_BC)) % 2;
-    let left_targets_parity = {
-        let (a, b) = left_targets
-            .left_targets
-            .split_at(left_targets.left_targets.len() / 2);
-        if parity == 0 { a } else { b }
-    };
+    let left_base = right_base - usize::from(PARAM_BC);
+    let parity = left_base % 2;
+    let left_targets_parity = &left_targets[parity];
 
     for (&y, left_position) in left_bucket_ys.iter().zip(left_bucket_start_position..) {
-        let r = usize::from(y) - base;
-        let left_targets_r = left_targets_parity
-            .chunks_exact(left_targets_parity.len() / usize::from(PARAM_BC))
-            .nth(r)
-            .expect("r is valid; qed");
+        let r = usize::from(y) - left_base;
+        // SAFETY: All entries in a bucket are obtained after division by `PARAM_BC` by definition
+        unsafe {
+            assert_unchecked(r < usize::from(PARAM_BC));
+        }
+        let left_targets_r = left_targets_parity.get(r).expect("r is valid; qed");
 
         const _: () = {
             assert!((PARAM_M as usize).is_multiple_of(FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR));
         };
 
         for r_targets in left_targets_r
-            .as_chunks::<{ FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR }>()
+            .as_chunks::<FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR>()
             .0
             .iter()
-            .take(usize::from(PARAM_M) / FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR)
         {
+            let rmap_items: [_; FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
+                [
+                #(
+                    rmap[usize::from(r_targets[N])],
+                )*
+                ]
+            });
+
+            if rmap_items == [RmapItem::EMPTY; _] {
+                // Common case for the whole batch of items to have zero counts
+                continue;
+            }
+
             let _: [(); FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
                 [
                 #(
                 {
-                    let rmap_item = rmap[usize::from(r_targets[N])];
+                    let (start_position, count) = rmap_items[N].split();
 
-                    for right_position in
-                        rmap_item.start_position..rmap_item.start_position + rmap_item.count
-                    {
-                        let m = Match {
+                    for right_position in start_position..start_position + Position::from(count) {
+                        matches.push(Match {
                             left_position,
                             left_y: y,
                             right_position,
-                        };
-                        output.push(map(m));
+                        });
                     }
                 },
                 )*
@@ -339,6 +378,7 @@ pub(super) fn has_match(left_y: Y, right_y: Y) -> bool {
     r_targets.contains(&right_r)
 }
 
+#[inline(always)]
 pub(super) fn compute_fn<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     y: Y,
     left_metadata: Metadata<K, PARENT_TABLE_NUMBER>,
@@ -425,9 +465,10 @@ where
     (y_output, Metadata::from(metadata))
 }
 
+#[inline(always)]
 fn match_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     last_table: &Table<K, PARENT_TABLE_NUMBER>,
-    m: Match,
+    m: &Match,
 ) -> (Y, [Position; 2], Metadata<K, TABLE_NUMBER>)
 where
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
@@ -446,29 +487,32 @@ where
     (y, [m.left_position, m.right_position], metadata)
 }
 
-fn match_and_compute_fn<'a, const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
-    last_table: &'a Table<K, PARENT_TABLE_NUMBER>,
-    left_bucket: Bucket,
-    right_bucket: Bucket,
-    rmap_scratch: &'a mut Vec<RmapItem>,
-    left_targets: &'a LeftTargets,
-    results_table: &mut Vec<(Y, [Position; 2], Metadata<K, TABLE_NUMBER>)>,
+fn matches_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
+    last_table: &Table<K, PARENT_TABLE_NUMBER>,
+    matches: &[Match],
+    entries: &mut Vec<(Y, [Position; 2], Metadata<K, TABLE_NUMBER>)>,
 ) where
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
 {
-    find_matches(
-        &last_table.ys()[usize::from(left_bucket.start_position)..]
-            [..usize::from(left_bucket.size)],
-        left_bucket.start_position,
-        &last_table.ys()[usize::from(right_bucket.start_position)..]
-            [..usize::from(right_bucket.size)],
-        right_bucket.start_position,
-        rmap_scratch,
-        left_targets,
-        |m| match_to_result(last_table, m),
-        results_table,
-    )
+    entries.reserve(matches.len());
+
+    let (grouped_matches, other_matches) =
+        matches.as_chunks::<FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR>();
+    for grouped_matches in grouped_matches {
+        let _: [(); FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
+            [
+            #(
+            {
+                entries.push(match_to_result(last_table, &grouped_matches[N]));
+            },
+            )*
+            ]
+        });
+    }
+    for m in other_matches {
+        entries.push(match_to_result(last_table, m));
+    }
 }
 
 #[derive(Debug)]
@@ -619,6 +663,7 @@ where
     {
         let buckets = &mut cache.buckets;
         let rmap_scratch = &mut cache.rmap_scratch;
+        let matches = &mut cache.matches;
         let left_targets = &cache.left_targets;
 
         let mut bucket = Bucket {
@@ -657,20 +702,25 @@ where
         buckets.push(bucket);
 
         let num_values = 1 << K;
-        let mut t_n = Vec::with_capacity(num_values);
         buckets
             .array_windows::<2>()
             .for_each(|&[left_bucket, right_bucket]| {
-                match_and_compute_fn::<K, TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                    last_table,
-                    left_bucket,
-                    right_bucket,
+                find_matches(
+                    &last_table.ys()[usize::from(left_bucket.start_position)..]
+                        [..usize::from(left_bucket.size)],
+                    left_bucket.start_position,
+                    &last_table.ys()[usize::from(right_bucket.start_position)..]
+                        [..usize::from(right_bucket.size)],
+                    right_bucket.start_position,
                     rmap_scratch,
+                    matches,
                     left_targets,
-                    &mut t_n,
                 );
             });
 
+        let mut t_n = Vec::with_capacity(num_values);
+        matches_to_result(last_table, matches, &mut t_n);
+        matches.clear();
         t_n.sort_unstable();
 
         let mut ys = Vec::with_capacity(num_values);
@@ -730,7 +780,9 @@ where
 
         let entries = rayon::broadcast(|_ctx| {
             let mut entries = Vec::new();
-            let mut rmap_scratch = Vec::new();
+            // SAFETY: Zeroed value is a valid invariant for `RmapItem`
+            let mut rmap_scratch = unsafe { Box::new_zeroed().assume_init() };
+            let mut matches = Vec::new();
 
             loop {
                 let left_bucket;
@@ -771,14 +823,20 @@ where
                     *previous_bucket = right_bucket;
                 }
 
-                match_and_compute_fn::<K, TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                    last_table,
-                    left_bucket,
-                    right_bucket,
+                find_matches(
+                    &last_table.ys()[usize::from(left_bucket.start_position)..]
+                        [..usize::from(left_bucket.size)],
+                    left_bucket.start_position,
+                    &last_table.ys()[usize::from(right_bucket.start_position)..]
+                        [..usize::from(right_bucket.size)],
+                    right_bucket.start_position,
                     &mut rmap_scratch,
+                    &mut matches,
                     left_targets,
-                    &mut entries,
                 );
+
+                matches_to_result(last_table, &matches, &mut entries);
+                matches.clear();
             }
 
             entries
