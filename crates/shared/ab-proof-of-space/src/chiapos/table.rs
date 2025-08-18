@@ -100,12 +100,10 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
     let param_b = u32::from(PARAM_B);
     let param_c = u32::from(PARAM_C);
 
-    let c = r / param_c;
-
-    ((c + m) % param_b) * param_c + (((2 * m + parity) * (2 * m + parity) + r) % param_c)
+    ((r / param_c + m) % param_b) * param_c + (((2 * m + parity) * (2 * m + parity) + r) % param_c)
 }
 
-/// Caches that can be used to optimize creation of multiple [`Tables`](super::Tables).
+/// Caches that can be used to optimize the creation of multiple [`Tables`](super::Tables).
 #[derive(Debug, Clone)]
 pub struct TablesCache<const K: u8> {
     buckets: Vec<Bucket>,
@@ -135,7 +133,7 @@ struct Match {
 struct Bucket {
     /// Bucket index
     bucket_index: u32,
-    /// Start position of this bucket in the table
+    /// The start position of this bucket in the table
     start_position: Position,
     /// Size of this bucket
     size: Position,
@@ -245,7 +243,7 @@ fn find_matches<T, Map>(
 ) where
     Map: Fn(Match) -> T,
 {
-    // Clear and set to correct size with zero values
+    // Clear and set to the correct size with zero values
     rmap_scratch.clear();
     rmap_scratch.resize_with(usize::from(PARAM_BC), RmapItem::default);
     let rmap = rmap_scratch;
@@ -258,13 +256,13 @@ fn find_matches<T, Map>(
         return;
     };
     // Since all entries in a bucket are obtained after division by `PARAM_BC`, we can compute
-    // quotient more efficiently by subtracting base value rather than computing remainder of
-    // division
+    // quotient more efficiently by subtracting base value rather than computing the remainder of
+    // the division
     let base = (usize::from(first_right_bucket_y) / usize::from(PARAM_BC)) * usize::from(PARAM_BC);
     for (&y, right_position) in right_bucket_ys.iter().zip(right_bucket_start_position..) {
         let r = usize::from(y) - base;
 
-        // Same `y` and as the result `r` can appear in the table multiple times, in which case
+        // The same `y` and as a result `r` can appear in the table multiple times, in which case
         // they'll all occupy consecutive slots in `right_bucket` and all we need to store is just
         // the first position and number of elements.
         if rmap[r].count == Position::ZERO {
