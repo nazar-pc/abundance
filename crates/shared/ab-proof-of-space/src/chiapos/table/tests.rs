@@ -150,9 +150,8 @@ fn test_matches() {
             &right_bucket_ys,
             Position::ZERO,
             &mut rmap_scratch,
-            &left_targets,
-            |m| m,
             &mut matches,
+            &left_targets,
         );
         for m in matches {
             let yl = usize::from(*left_bucket_ys.get(usize::from(m.left_position)).unwrap());

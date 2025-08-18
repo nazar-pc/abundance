@@ -119,6 +119,7 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
 pub struct TablesCache<const K: u8> {
     buckets: Vec<Bucket>,
     rmap_scratch: Box<[RmapItem; PARAM_BC as usize]>,
+    matches: Vec<Match>,
     left_targets: Box<LeftTargets>,
 }
 
@@ -129,12 +130,13 @@ impl<const K: u8> Default for TablesCache<K> {
             buckets: Vec::new(),
             // SAFETY: Zeroed value is a valid invariant for `RmapItem`
             rmap_scratch: unsafe { Box::new_zeroed().assume_init() },
+            matches: Vec::new(),
             left_targets: calculate_left_targets(),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct Match {
     left_position: Position,
     left_y: Y,
@@ -242,19 +244,15 @@ pub(super) fn compute_f1_simd<const K: u8>(
 /// For verification purposes use [`has_match`] instead.
 ///
 /// Returns `None` if either of buckets is empty.
-#[allow(clippy::too_many_arguments)]
-fn find_matches<T, Map>(
+fn find_matches(
     left_bucket_ys: &[Y],
     left_bucket_start_position: Position,
     right_bucket_ys: &[Y],
     right_bucket_start_position: Position,
     rmap_scratch: &mut [RmapItem; PARAM_BC as usize],
+    matches: &mut Vec<Match>,
     left_targets: &LeftTargets,
-    map: Map,
-    output: &mut Vec<T>,
-) where
-    Map: Fn(Match) -> T,
-{
+) {
     // Clear and set to the correct size with zero values
     rmap_scratch.fill(RmapItem::default());
     let rmap = rmap_scratch;
@@ -302,7 +300,7 @@ fn find_matches<T, Map>(
         };
 
         for r_targets in left_targets_r
-            .as_chunks::<{ FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR }>()
+            .as_chunks::<FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR>()
             .0
             .iter()
         {
@@ -315,12 +313,11 @@ fn find_matches<T, Map>(
                     for right_position in
                         rmap_item.start_position..rmap_item.start_position + rmap_item.count
                     {
-                        let m = Match {
+                        matches.push(Match {
                             left_position,
                             left_y: y,
                             right_position,
-                        };
-                        output.push(map(m));
+                        });
                     }
                 },
                 )*
@@ -343,6 +340,7 @@ pub(super) fn has_match(left_y: Y, right_y: Y) -> bool {
     r_targets.contains(&right_r)
 }
 
+#[inline(always)]
 pub(super) fn compute_fn<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     y: Y,
     left_metadata: Metadata<K, PARENT_TABLE_NUMBER>,
@@ -429,9 +427,10 @@ where
     (y_output, Metadata::from(metadata))
 }
 
+#[inline(always)]
 fn match_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     last_table: &Table<K, PARENT_TABLE_NUMBER>,
-    m: Match,
+    m: &Match,
 ) -> (Y, [Position; 2], Metadata<K, TABLE_NUMBER>)
 where
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
@@ -450,29 +449,32 @@ where
     (y, [m.left_position, m.right_position], metadata)
 }
 
-fn match_and_compute_fn<'a, const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
-    last_table: &'a Table<K, PARENT_TABLE_NUMBER>,
-    left_bucket: Bucket,
-    right_bucket: Bucket,
-    rmap_scratch: &'a mut [RmapItem; PARAM_BC as usize],
-    left_targets: &'a LeftTargets,
-    results_table: &mut Vec<(Y, [Position; 2], Metadata<K, TABLE_NUMBER>)>,
+fn matches_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
+    last_table: &Table<K, PARENT_TABLE_NUMBER>,
+    matches: &[Match],
+    entries: &mut Vec<(Y, [Position; 2], Metadata<K, TABLE_NUMBER>)>,
 ) where
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
 {
-    find_matches(
-        &last_table.ys()[usize::from(left_bucket.start_position)..]
-            [..usize::from(left_bucket.size)],
-        left_bucket.start_position,
-        &last_table.ys()[usize::from(right_bucket.start_position)..]
-            [..usize::from(right_bucket.size)],
-        right_bucket.start_position,
-        rmap_scratch,
-        left_targets,
-        |m| match_to_result(last_table, m),
-        results_table,
-    )
+    entries.reserve(matches.len());
+
+    let (grouped_matches, other_matches) =
+        matches.as_chunks::<FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR>();
+    for grouped_matches in grouped_matches {
+        let _: [(); FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
+            [
+            #(
+            {
+                entries.push(match_to_result(last_table, &grouped_matches[N]));
+            },
+            )*
+            ]
+        });
+    }
+    for m in other_matches {
+        entries.push(match_to_result(last_table, m));
+    }
 }
 
 #[derive(Debug)]
@@ -623,6 +625,7 @@ where
     {
         let buckets = &mut cache.buckets;
         let rmap_scratch = &mut cache.rmap_scratch;
+        let matches = &mut cache.matches;
         let left_targets = &cache.left_targets;
 
         let mut bucket = Bucket {
@@ -661,20 +664,25 @@ where
         buckets.push(bucket);
 
         let num_values = 1 << K;
-        let mut t_n = Vec::with_capacity(num_values);
         buckets
             .array_windows::<2>()
             .for_each(|&[left_bucket, right_bucket]| {
-                match_and_compute_fn::<K, TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                    last_table,
-                    left_bucket,
-                    right_bucket,
+                find_matches(
+                    &last_table.ys()[usize::from(left_bucket.start_position)..]
+                        [..usize::from(left_bucket.size)],
+                    left_bucket.start_position,
+                    &last_table.ys()[usize::from(right_bucket.start_position)..]
+                        [..usize::from(right_bucket.size)],
+                    right_bucket.start_position,
                     rmap_scratch,
+                    matches,
                     left_targets,
-                    &mut t_n,
                 );
             });
 
+        let mut t_n = Vec::with_capacity(num_values);
+        matches_to_result(last_table, matches, &mut t_n);
+        matches.clear();
         t_n.sort_unstable();
 
         let mut ys = Vec::with_capacity(num_values);
@@ -736,6 +744,7 @@ where
             let mut entries = Vec::new();
             // SAFETY: Zeroed value is a valid invariant for `RmapItem`
             let mut rmap_scratch = unsafe { Box::new_zeroed().assume_init() };
+            let mut matches = Vec::new();
 
             loop {
                 let left_bucket;
@@ -776,14 +785,20 @@ where
                     *previous_bucket = right_bucket;
                 }
 
-                match_and_compute_fn::<K, TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                    last_table,
-                    left_bucket,
-                    right_bucket,
+                find_matches(
+                    &last_table.ys()[usize::from(left_bucket.start_position)..]
+                        [..usize::from(left_bucket.size)],
+                    left_bucket.start_position,
+                    &last_table.ys()[usize::from(right_bucket.start_position)..]
+                        [..usize::from(right_bucket.size)],
+                    right_bucket.start_position,
                     &mut rmap_scratch,
+                    &mut matches,
                     left_targets,
-                    &mut entries,
                 );
+
+                matches_to_result(last_table, &matches, &mut entries);
+                matches.clear();
             }
 
             entries
