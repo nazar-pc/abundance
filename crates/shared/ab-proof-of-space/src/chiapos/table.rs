@@ -153,10 +153,37 @@ struct Bucket {
     size: Position,
 }
 
-#[derive(Debug, Default, Copy, Clone)]
-pub(super) struct RmapItem {
-    count: Position,
-    start_position: Position,
+/// Container that stores position and count.
+///
+/// Position is limited to 25 bits and count is limited to 7 bits. This means it only supports `K`
+/// to 25 (just like some other parts of the code).
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[repr(C)]
+pub(super) struct RmapItem(u32);
+
+impl RmapItem {
+    const COUNT_BITS: u32 = 7;
+    const EMPTY: Self = Self(0);
+
+    /// Create a new instance with the count set to zero
+    #[inline(always)]
+    fn new(start_position: Position) -> Self {
+        Self(u32::from(start_position) << Self::COUNT_BITS)
+    }
+
+    /// Increment count
+    #[inline(always)]
+    fn increment(&mut self) {
+        self.0 += 1;
+    }
+
+    /// Returns start position and count
+    #[inline(always)]
+    fn split(self) -> (Position, u32) {
+        let start_position = self.0 >> Self::COUNT_BITS;
+        let count = self.0 & (u32::MAX >> (u32::BITS - Self::COUNT_BITS));
+        (Position::from(start_position), count)
+    }
 }
 
 /// `partial_y_offset` is in bits within `partial_y`
@@ -275,10 +302,10 @@ fn find_matches(
         // The same `y` and as a result `r` can appear in the table multiple times, in which case
         // they'll all occupy consecutive slots in `right_bucket` and all we need to store is just
         // the first position and number of elements.
-        if rmap[r].count == Position::ZERO {
-            rmap[r].start_position = right_position;
+        if rmap[r] == RmapItem::EMPTY {
+            rmap[r] = RmapItem::new(right_position);
         }
-        rmap[r].count += Position::ONE;
+        rmap[r].increment();
     }
 
     // Same idea as above, but avoids division by leveraging the fact that each bucket is exactly
@@ -304,15 +331,26 @@ fn find_matches(
             .0
             .iter()
         {
+            let rmap_items: [_; FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
+                [
+                #(
+                    rmap[usize::from(r_targets[N])],
+                )*
+                ]
+            });
+
+            if rmap_items == [RmapItem::EMPTY; _] {
+                // Common case for the whole batch of items to have zero counts
+                continue;
+            }
+
             let _: [(); FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
                 [
                 #(
                 {
-                    let rmap_item = rmap[usize::from(r_targets[N])];
+                    let (start_position, count) = rmap_items[N].split();
 
-                    for right_position in
-                        rmap_item.start_position..rmap_item.start_position + rmap_item.count
-                    {
+                    for right_position in start_position..start_position + Position::from(count) {
                         matches.push(Match {
                             left_position,
                             left_y: y,
