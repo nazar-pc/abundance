@@ -11,6 +11,8 @@ use crate::chiapos::table::{
     find_matches, metadata_size_bytes,
 };
 use crate::chiapos::utils::EvaluatableUsize;
+#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -131,7 +133,8 @@ fn test_matches() {
     }
 
     let left_targets = calculate_left_targets();
-    let mut rmap_scratch = Vec::new();
+    // SAFETY: Zeroed value is a valid invariant for `RmapItem`
+    let mut rmap_scratch = unsafe { Box::new_zeroed().assume_init() };
     let bucket_ys = bucket_ys.into_values().collect::<Vec<_>>();
     let mut total_matches = 0_usize;
     for [mut left_bucket_ys, mut right_bucket_ys] in bucket_ys.array_windows::<2>().cloned() {

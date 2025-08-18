@@ -11,14 +11,18 @@ use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::utils::EvaluatableUsize;
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 #[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
 use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use chacha20::cipher::{Iv, KeyIvInit, StreamCipher};
 use chacha20::{ChaCha8, Key};
-use core::array;
+use core::hint::assert_unchecked;
+use core::mem::MaybeUninit;
 use core::simd::Simd;
 use core::simd::num::SimdUint;
+use core::{array, mem};
 #[cfg(all(feature = "std", any(feature = "parallel", test)))]
 use parking_lot::Mutex;
 #[cfg(any(feature = "parallel", test))]
@@ -70,13 +74,18 @@ fn partial_ys<const K: u8>(seed: Seed) -> Vec<u8> {
     output
 }
 
-#[derive(Debug, Clone)]
-struct LeftTargets {
-    left_targets: Vec<Position>,
-}
+/// Mapping from `parity` to `r` to `m`
+type LeftTargets = [[[Position; PARAM_M as usize]; PARAM_BC as usize]; 2];
 
-fn calculate_left_targets() -> LeftTargets {
-    let mut left_targets = Vec::with_capacity(2 * usize::from(PARAM_BC) * usize::from(PARAM_M));
+fn calculate_left_targets() -> Box<LeftTargets> {
+    let mut left_targets = Box::<LeftTargets>::new_uninit();
+    // SAFETY: Same layout and uninitialized in both cases
+    let left_targets_slice = unsafe {
+        mem::transmute::<
+            &mut MaybeUninit<[[[Position; PARAM_M as usize]; PARAM_BC as usize]; 2]>,
+            &mut [[[MaybeUninit<Position>; PARAM_M as usize]; PARAM_BC as usize]; 2],
+        >(left_targets.as_mut())
+    };
 
     let param_b = u32::from(PARAM_B);
     let param_c = u32::from(PARAM_C);
@@ -88,12 +97,14 @@ fn calculate_left_targets() -> LeftTargets {
             for m in 0..u32::from(PARAM_M) {
                 let target = ((c + m) % param_b) * param_c
                     + (((2 * m + parity) * (2 * m + parity) + r) % param_c);
-                left_targets.push(Position::from(target));
+                left_targets_slice[parity as usize][r as usize][m as usize]
+                    .write(Position::from(target));
             }
         }
     }
 
-    LeftTargets { left_targets }
+    // SAFETY: Initialized all entries
+    unsafe { left_targets.assume_init() }
 }
 
 fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
@@ -107,8 +118,8 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
 #[derive(Debug, Clone)]
 pub struct TablesCache<const K: u8> {
     buckets: Vec<Bucket>,
-    rmap_scratch: Vec<RmapItem>,
-    left_targets: LeftTargets,
+    rmap_scratch: Box<[RmapItem; PARAM_BC as usize]>,
+    left_targets: Box<LeftTargets>,
 }
 
 impl<const K: u8> Default for TablesCache<K> {
@@ -116,7 +127,8 @@ impl<const K: u8> Default for TablesCache<K> {
     fn default() -> Self {
         Self {
             buckets: Vec::new(),
-            rmap_scratch: Vec::new(),
+            // SAFETY: Zeroed value is a valid invariant for `RmapItem`
+            rmap_scratch: unsafe { Box::new_zeroed().assume_init() },
             left_targets: calculate_left_targets(),
         }
     }
@@ -236,7 +248,7 @@ fn find_matches<T, Map>(
     left_bucket_start_position: Position,
     right_bucket_ys: &[Y],
     right_bucket_start_position: Position,
-    rmap_scratch: &mut Vec<RmapItem>,
+    rmap_scratch: &mut [RmapItem; PARAM_BC as usize],
     left_targets: &LeftTargets,
     map: Map,
     output: &mut Vec<T>,
@@ -244,8 +256,7 @@ fn find_matches<T, Map>(
     Map: Fn(Match) -> T,
 {
     // Clear and set to the correct size with zero values
-    rmap_scratch.clear();
-    rmap_scratch.resize_with(usize::from(PARAM_BC), RmapItem::default);
+    rmap_scratch.fill(RmapItem::default());
     let rmap = rmap_scratch;
 
     let Some(&first_right_bucket_y) = right_bucket_ys.first() else {
@@ -258,6 +269,10 @@ fn find_matches<T, Map>(
         (usize::from(first_right_bucket_y) / usize::from(PARAM_BC)) * usize::from(PARAM_BC);
     for (&y, right_position) in right_bucket_ys.iter().zip(right_bucket_start_position..) {
         let r = usize::from(y) - right_base;
+        // SAFETY: All entries in a bucket are obtained after division by `PARAM_BC` by definition
+        unsafe {
+            assert_unchecked(r < usize::from(PARAM_BC));
+        }
 
         // The same `y` and as a result `r` can appear in the table multiple times, in which case
         // they'll all occupy consecutive slots in `right_bucket` and all we need to store is just
@@ -267,25 +282,20 @@ fn find_matches<T, Map>(
         }
         rmap[r].count += Position::ONE;
     }
-    let rmap = rmap.as_slice();
 
     // Same idea as above, but avoids division by leveraging the fact that each bucket is exactly
     // `PARAM_BC` away from the previous one in terms of divisor by `PARAM_BC`
     let left_base = right_base - usize::from(PARAM_BC);
     let parity = left_base % 2;
-    let left_targets_parity = {
-        let (a, b) = left_targets
-            .left_targets
-            .split_at(left_targets.left_targets.len() / 2);
-        if parity == 0 { a } else { b }
-    };
+    let left_targets_parity = &left_targets[parity];
 
     for (&y, left_position) in left_bucket_ys.iter().zip(left_bucket_start_position..) {
         let r = usize::from(y) - left_base;
-        let left_targets_r = left_targets_parity
-            .chunks_exact(left_targets_parity.len() / usize::from(PARAM_BC))
-            .nth(r)
-            .expect("r is valid; qed");
+        // SAFETY: All entries in a bucket are obtained after division by `PARAM_BC` by definition
+        unsafe {
+            assert_unchecked(r < usize::from(PARAM_BC));
+        }
+        let left_targets_r = left_targets_parity.get(r).expect("r is valid; qed");
 
         const _: () = {
             assert!((PARAM_M as usize).is_multiple_of(FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR));
@@ -444,7 +454,7 @@ fn match_and_compute_fn<'a, const K: u8, const TABLE_NUMBER: u8, const PARENT_TA
     last_table: &'a Table<K, PARENT_TABLE_NUMBER>,
     left_bucket: Bucket,
     right_bucket: Bucket,
-    rmap_scratch: &'a mut Vec<RmapItem>,
+    rmap_scratch: &'a mut [RmapItem; PARAM_BC as usize],
     left_targets: &'a LeftTargets,
     results_table: &mut Vec<(Y, [Position; 2], Metadata<K, TABLE_NUMBER>)>,
 ) where
@@ -724,7 +734,8 @@ where
 
         let entries = rayon::broadcast(|_ctx| {
             let mut entries = Vec::new();
-            let mut rmap_scratch = Vec::new();
+            // SAFETY: Zeroed value is a valid invariant for `RmapItem`
+            let mut rmap_scratch = unsafe { Box::new_zeroed().assume_init() };
 
             loop {
                 let left_bucket;
