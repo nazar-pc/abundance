@@ -6,6 +6,7 @@ use anyhow::anyhow;
 use async_lock::{RwLock as AsyncRwLock, Semaphore};
 use backoff::ExponentialBackoff;
 use clap::{Parser, ValueHint};
+use futures::channel::oneshot;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt, select};
 use prometheus_client::registry::Registry;
@@ -341,8 +342,8 @@ pub(super) async fn controller(
 
         select! {
             // Networking future
-            _ = networking_fut.fuse() => {
-                info!("Node runner exited.")
+            Ok(()) | Err(oneshot::Canceled) = networking_fut.fuse() => {
+                info!("Node runner exited")
             },
 
             // Farms future
@@ -356,8 +357,9 @@ pub(super) async fn controller(
             },
 
             // Piece cache worker future
-            _ = farmer_cache_workers_fut.fuse() => {
-                info!("Farmer cache worker exited.")
+            result = farmer_cache_workers_fut.fuse() => {
+                info!(?result, "Farmer cache worker exited");
+                result?;
             },
 
             // Controller service future

@@ -847,11 +847,11 @@ where
 
     select! {
         // Signal future
-        _ = signal.fuse() => {},
+        () = signal.fuse() => {},
 
         // Networking future
-        _ = networking_fut.fuse() => {
-            info!("Node runner exited.")
+        Ok(()) | Err(oneshot::Canceled) = networking_fut.fuse() => {
+            info!("Node runner exited")
         },
 
         // Farm future
@@ -860,8 +860,8 @@ where
         },
 
         // Piece cache worker future
-        _ = farmer_cache_worker_fut.fuse() => {
-            info!("Farmer cache worker exited.")
+        Ok(()) | Err(oneshot::Canceled) = farmer_cache_worker_fut.fuse() => {
+            info!("Farmer cache worker exited")
         },
     }
 

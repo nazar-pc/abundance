@@ -163,7 +163,7 @@ where
 
     select! {
         // Signal future
-        _ = signal.fuse() => {
+        () = signal.fuse() => {
             Ok(())
         },
 
