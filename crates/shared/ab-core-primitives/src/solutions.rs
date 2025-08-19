@@ -7,6 +7,7 @@ use crate::pos::{PosProof, PosSeed};
 use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
+use ab_blake3::single_block_keyed_hash;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use blake3::OUT_LEN;
@@ -57,7 +58,8 @@ impl SolutionDistance {
         sector_slot_challenge: &SectorSlotChallenge,
     ) -> Self {
         // TODO: Is keyed hash really needed here?
-        let audit_chunk = *blake3::keyed_hash(sector_slot_challenge, chunk).as_bytes();
+        let audit_chunk = single_block_keyed_hash(sector_slot_challenge, chunk)
+            .expect("Less than a single block worth of bytes; qed");
         let audit_chunk_as_solution_range: SolutionRange = SolutionRange::from_bytes([
             audit_chunk[0],
             audit_chunk[1],

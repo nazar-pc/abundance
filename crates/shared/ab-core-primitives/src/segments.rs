@@ -8,10 +8,12 @@ use crate::hashes::Blake3Hash;
 use crate::pieces::{PieceIndex, Record};
 #[cfg(feature = "alloc")]
 pub use crate::segments::archival_history_segment::ArchivedHistorySegment;
+use ab_blake3::single_chunk_hash;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+use blake3::CHUNK_LEN;
 use core::iter::Step;
 use core::num::{NonZeroU32, NonZeroU64};
 use core::{fmt, mem};
@@ -497,7 +499,13 @@ impl SegmentHeader {
     /// Hash of the whole segment header
     #[inline(always)]
     pub fn hash(&self) -> Blake3Hash {
-        blake3::hash(self.as_bytes()).into()
+        const {
+            assert!(size_of::<Self>() <= CHUNK_LEN);
+        }
+        Blake3Hash::new(
+            single_chunk_hash(self.as_bytes())
+                .expect("Less than a single chunk worth of bytes; qed"),
+        )
     }
 
     /// Get segment index (unwrap `Unaligned`)

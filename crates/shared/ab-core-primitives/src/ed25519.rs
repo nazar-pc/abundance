@@ -1,6 +1,7 @@
 //! Primitives related to Ed25519
 
 use crate::hashes::Blake3Hash;
+use ab_blake3::single_block_hash;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use derive_more::{Deref, From, Into};
@@ -103,7 +104,9 @@ impl Ed25519PublicKey {
 
     /// Public key hash.
     pub fn hash(&self) -> Blake3Hash {
-        Blake3Hash::new(blake3::hash(&self.0).into())
+        Blake3Hash::new(
+            single_block_hash(&self.0).expect("Less than a single block worth of bytes; qed"),
+        )
     }
 
     /// Verify Ed25519 signature

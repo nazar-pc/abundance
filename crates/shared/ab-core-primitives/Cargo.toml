@@ -15,6 +15,7 @@ all-features = true
 
 [dependencies]
 ab-aligned-buffer = { workspace = true, optional = true }
+ab-blake3 = { workspace = true }
 ab-io-type = { workspace = true }
 ab-merkle-tree = { workspace = true }
 bech32 = { workspace = true }

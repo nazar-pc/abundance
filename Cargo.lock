@@ -269,6 +269,7 @@ name = "ab-core-primitives"
 version = "0.1.0"
 dependencies = [
  "ab-aligned-buffer",
+ "ab-blake3",
  "ab-io-type",
  "ab-merkle-tree",
  "bech32",

@@ -1,6 +1,7 @@
 //! Proof of space-related data structures.
 
 use crate::hashes::Blake3Hash;
+use ab_blake3::single_block_hash;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use derive_more::{Deref, DerefMut, From, Into};
@@ -106,6 +107,8 @@ impl PosProof {
 
     /// Proof hash.
     pub fn hash(&self) -> Blake3Hash {
-        blake3::hash(&self.0).into()
+        Blake3Hash::new(
+            single_block_hash(&self.0).expect("Less than a single block worth of bytes; qed"),
+        )
     }
 }
