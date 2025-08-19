@@ -135,9 +135,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             // Metrics
             let should_start_prometheus_server = !prometheus_listen_on.is_empty();
-            let mut metrics_registry = Registry::default();
-            let dsn_metrics_registry =
-                should_start_prometheus_server.then_some(&mut metrics_registry);
+            let mut maybe_registry = should_start_prometheus_server.then(Registry::default);
 
             let config = Config {
                 listen_on,
@@ -151,7 +149,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 kademlia_mode: KademliaMode::Static(Mode::Server),
                 external_addresses,
 
-                ..Config::new(protocol_version.to_string(), keypair, dsn_metrics_registry)
+                ..Config::new(
+                    protocol_version.to_string(),
+                    keypair,
+                    maybe_registry.as_mut(),
+                )
             };
             let (node, mut node_runner) =
                 subspace_networking::construct(config).expect("Networking stack creation failed.");
@@ -170,17 +172,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             info!("Subspace Bootstrap Node started");
 
-            let prometheus_task = should_start_prometheus_server
-                .then(|| {
+            // The prometheus server is a non-essential service, so we don't exit if it stops
+            let prometheus_task = maybe_registry
+                .map(|registry| {
                     start_prometheus_metrics_server(
                         prometheus_listen_on,
-                        RegistryAdapter::PrometheusClient(metrics_registry),
+                        RegistryAdapter::PrometheusClient(registry),
                     )
                 })
                 .transpose()?;
             if let Some(prometheus_task) = prometheus_task {
                 select! {
-                   _ = node_runner.run().fuse() => {},
+                   () = node_runner.run().fuse() => {},
                    _ = prometheus_task.fuse() => {},
                 }
             } else {
