@@ -32,7 +32,8 @@ use seq_macro::seq;
 use spin::Mutex;
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
-pub(super) const FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR: usize = 8;
+const COMPUTE_FN_SIMD_FACTOR: usize = 16;
+const FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR: usize = 8;
 
 /// Compute the size of `y` in bits
 pub(super) const fn y_size_bits(k: u8) -> usize {
@@ -117,7 +118,6 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
 /// Caches that can be used to optimize the creation of multiple [`Tables`](super::Tables).
 #[derive(Debug, Clone)]
 pub struct TablesCache<const K: u8> {
-    buckets: Vec<Bucket>,
     rmap_scratch: Box<[RmapItem; PARAM_BC as usize]>,
     matches: Vec<Match>,
     left_targets: Box<LeftTargets>,
@@ -127,7 +127,6 @@ impl<const K: u8> Default for TablesCache<K> {
     /// Create a new instance
     fn default() -> Self {
         Self {
-            buckets: Vec::new(),
             // SAFETY: Zeroed value is a valid invariant for `RmapItem`
             rmap_scratch: unsafe { Box::new_zeroed().assume_init() },
             matches: Vec::new(),
@@ -393,23 +392,23 @@ where
 
     let parent_metadata_bits = metadata_size_bits(K, PARENT_TABLE_NUMBER);
 
+    // Part of the `right_bits` at the final offset of eventual `input_a`
+    let y_and_left_bits = y_size_bits(K) + parent_metadata_bits;
+    let right_bits_start_offset = u128::BITS as usize - parent_metadata_bits;
+
+    // Take only bytes where bits were set
+    let num_bytes_with_data =
+        (y_size_bits(K) + parent_metadata_bits * 2).div_ceil(u8::BITS as usize);
+
     // Only supports `K` from 15 to 25 (otherwise math will not be correct when concatenating y,
     // left metadata and right metadata)
     let hash = {
-        // Take only bytes where bits were set
-        let num_bytes_with_data =
-            (y_size_bits(K) + parent_metadata_bits * 2).div_ceil(u8::BITS as usize);
-
         // Collect `K` most significant bits of `y` at the final offset of eventual `input_a`
         let y_bits = u128::from(y) << (u128::BITS as usize - y_size_bits(K));
 
         // Move bits of `left_metadata` at the final offset of eventual `input_a`
         let left_metadata_bits =
             left_metadata << (u128::BITS as usize - parent_metadata_bits - y_size_bits(K));
-
-        // Part of the `right_bits` at the final offset of eventual `input_a`
-        let y_and_left_bits = y_size_bits(K) + parent_metadata_bits;
-        let right_bits_start_offset = u128::BITS as usize - parent_metadata_bits;
 
         // If `right_metadata` bits start to the left of the desired position in `input_a` move
         // bits right, else move left
@@ -465,7 +464,138 @@ where
     (y_output, Metadata::from(metadata))
 }
 
-#[inline(always)]
+// TODO: This is actually using only pipelining rather than real SIMD (at least explicitly) due to:
+//  * https://github.com/rust-lang/portable-simd/issues/108
+//  * https://github.com/BLAKE3-team/BLAKE3/issues/478#issuecomment-3200106103
+fn compute_fn_simd<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
+    left_ys: [Y; COMPUTE_FN_SIMD_FACTOR],
+    left_metadatas: [Metadata<K, PARENT_TABLE_NUMBER>; COMPUTE_FN_SIMD_FACTOR],
+    right_metadatas: [Metadata<K, PARENT_TABLE_NUMBER>; COMPUTE_FN_SIMD_FACTOR],
+) -> (
+    [Y; COMPUTE_FN_SIMD_FACTOR],
+    [Metadata<K, TABLE_NUMBER>; COMPUTE_FN_SIMD_FACTOR],
+)
+where
+    EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
+    EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+{
+    let parent_metadata_bits = metadata_size_bits(K, PARENT_TABLE_NUMBER);
+    let metadata_size_bits = metadata_size_bits(K, TABLE_NUMBER);
+
+    // TODO: `u128` is not supported as SIMD element yet, see
+    //  https://github.com/rust-lang/portable-simd/issues/108
+    let left_metadatas: [u128; COMPUTE_FN_SIMD_FACTOR] = seq!(N in 0..16 {
+        [
+        #(
+            u128::from(left_metadatas[N]),
+        )*
+        ]
+    });
+    let right_metadatas: [u128; COMPUTE_FN_SIMD_FACTOR] = seq!(N in 0..16 {
+        [
+        #(
+            u128::from(right_metadatas[N]),
+        )*
+        ]
+    });
+
+    // Part of the `right_bits` at the final offset of eventual `input_a`
+    let y_and_left_bits = y_size_bits(K) + parent_metadata_bits;
+    let right_bits_start_offset = u128::BITS as usize - parent_metadata_bits;
+
+    // Take only bytes where bits were set
+    let num_bytes_with_data =
+        (y_size_bits(K) + parent_metadata_bits * 2).div_ceil(u8::BITS as usize);
+
+    // Only supports `K` from 15 to 25 (otherwise math will not be correct when concatenating y,
+    // left metadata and right metadata)
+    // TODO: SIMD hashing once this is possible:
+    //  https://github.com/BLAKE3-team/BLAKE3/issues/478#issuecomment-3200106103
+    let hashes: [_; COMPUTE_FN_SIMD_FACTOR] = seq!(N in 0..16 {
+        [
+        #(
+        {
+            let y = left_ys[N];
+            let left_metadata = left_metadatas[N];
+            let right_metadata = right_metadatas[N];
+
+            // Collect `K` most significant bits of `y` at the final offset of eventual
+            // `input_a`
+            let y_bits = u128::from(y) << (u128::BITS as usize - y_size_bits(K));
+
+            // Move bits of `left_metadata` at the final offset of eventual `input_a`
+            let left_metadata_bits =
+                left_metadata << (u128::BITS as usize - parent_metadata_bits - y_size_bits(K));
+
+            // If `right_metadata` bits start to the left of the desired position in `input_a` move
+            // bits right, else move left
+            if right_bits_start_offset < y_and_left_bits {
+                let right_bits_pushed_into_input_b = y_and_left_bits - right_bits_start_offset;
+                // Collect bits of `right_metadata` that will fit into `input_a` at the final offset
+                // in eventual `input_a`
+                let right_bits_a = right_metadata >> right_bits_pushed_into_input_b;
+                let input_a = y_bits | left_metadata_bits | right_bits_a;
+                // Collect bits of `right_metadata` that will spill over into `input_b`
+                let input_b = right_metadata << (u128::BITS as usize - right_bits_pushed_into_input_b);
+
+                let input = [input_a.to_be_bytes(), input_b.to_be_bytes()];
+                let input_len =
+                    size_of::<u128>() + right_bits_pushed_into_input_b.div_ceil(u8::BITS as usize);
+                ab_blake3::single_block_hash(&input.as_flattened()[..input_len])
+                    .expect("Exactly a single block worth of bytes; qed")
+            } else {
+                let right_bits_a = right_metadata << (right_bits_start_offset - y_and_left_bits);
+                let input_a = y_bits | left_metadata_bits | right_bits_a;
+
+                ab_blake3::single_block_hash(&input_a.to_be_bytes()[..num_bytes_with_data])
+                    .expect("Exactly a single block worth of bytes; qed")
+            }
+        },
+        )*
+        ]
+    });
+
+    let y_outputs = Simd::from_array(
+        hashes.map(|hash| u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]])),
+    ) >> (u32::BITS - y_size_bits(K) as u32);
+    let y_outputs = Y::array_from_repr(y_outputs.to_array());
+
+    let metadatas = if TABLE_NUMBER < 4 {
+        seq!(N in 0..16 {
+            [
+            #(
+                Metadata::from((left_metadatas[N] << parent_metadata_bits) | right_metadatas[N]),
+            )*
+            ]
+        })
+    } else if metadata_size_bits > 0 {
+        // For K up to 25 it is guaranteed that metadata + bit offset will always fit into u128.
+        // We collect the bytes necessary, potentially with extra bits at the start and end of the
+        // bytes that will be taken care of later.
+        seq!(N in 0..16 {
+            [
+            #(
+            {
+                let metadata = u128::from_be_bytes(
+                    hashes[N][y_size_bits(K) / u8::BITS as usize..][..size_of::<u128>()]
+                        .try_into()
+                        .expect("Always enough bits for any K; qed"),
+                );
+                // Remove extra bits at the beginning
+                let metadata = metadata << (y_size_bits(K) % u8::BITS as usize);
+                // Move bits into the correct location
+                Metadata::from(metadata >> (u128::BITS as usize - metadata_size_bits))
+            },
+            )*
+            ]
+        })
+    } else {
+        [Metadata::default(); _]
+    };
+
+    (y_outputs, metadatas)
+}
+
 fn match_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     last_table: &Table<K, PARENT_TABLE_NUMBER>,
     m: &Match,
@@ -487,6 +617,62 @@ where
     (y, [m.left_position, m.right_position], metadata)
 }
 
+fn match_to_result_simd<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
+    last_table: &Table<K, PARENT_TABLE_NUMBER>,
+    matches: &[Match; COMPUTE_FN_SIMD_FACTOR],
+) -> [(Y, [Position; 2], Metadata<K, TABLE_NUMBER>); COMPUTE_FN_SIMD_FACTOR]
+where
+    EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
+    EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+{
+    let left_ys: [_; COMPUTE_FN_SIMD_FACTOR] = seq!(N in 0..16 {
+        [
+        #(
+            matches[N].left_y,
+        )*
+        ]
+    });
+    let left_metadatas: [_; COMPUTE_FN_SIMD_FACTOR] = seq!(N in 0..16 {
+        [
+        #(
+            last_table
+                .metadata(matches[N].left_position)
+                .expect("Position resulted from matching is correct; qed"),
+        )*
+        ]
+    });
+    let right_metadatas: [_; COMPUTE_FN_SIMD_FACTOR] = seq!(N in 0..16 {
+        [
+        #(
+            last_table
+                .metadata(matches[N].right_position)
+                .expect("Position resulted from matching is correct; qed"),
+        )*
+        ]
+    });
+
+    let (y_outputs, metadatas) = compute_fn_simd::<K, TABLE_NUMBER, PARENT_TABLE_NUMBER>(
+        left_ys,
+        left_metadatas,
+        right_metadatas,
+    );
+
+    seq!(N in 0..16 {
+        [
+        #(
+            (
+                y_outputs[N],
+                [
+                    matches[N].left_position,
+                    matches[N].right_position,
+                ],
+                metadatas[N]
+            ),
+        )*
+        ]
+    })
+}
+
 fn matches_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     last_table: &Table<K, PARENT_TABLE_NUMBER>,
     matches: &[Match],
@@ -497,18 +683,9 @@ fn matches_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
 {
     entries.reserve(matches.len());
 
-    let (grouped_matches, other_matches) =
-        matches.as_chunks::<FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR>();
-    for grouped_matches in grouped_matches {
-        let _: [(); FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
-            [
-            #(
-            {
-                entries.push(match_to_result(last_table, &grouped_matches[N]));
-            },
-            )*
-            ]
-        });
+    let (grouped_matches, other_matches) = matches.as_chunks::<COMPUTE_FN_SIMD_FACTOR>();
+    for &grouped_matches in grouped_matches {
+        entries.extend(match_to_result_simd(last_table, &grouped_matches));
     }
     for m in other_matches {
         entries.push(match_to_result(last_table, m));
@@ -564,7 +741,7 @@ where
             t_1.extend(ys.into_iter().zip(X::array_from_repr(xs)));
         }
 
-        t_1.sort_unstable();
+        t_1.sort_by_key(|(y, _x)| *y);
 
         let (ys, xs) = t_1.into_iter().unzip();
 
@@ -661,67 +838,73 @@ where
     where
         EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     {
-        let buckets = &mut cache.buckets;
         let rmap_scratch = &mut cache.rmap_scratch;
         let matches = &mut cache.matches;
         let left_targets = &cache.left_targets;
 
-        let mut bucket = Bucket {
+        let mut left_bucket = Bucket {
             bucket_index: 0,
             start_position: Position::ZERO,
             size: Position::ZERO,
         };
+        let mut right_bucket = Bucket {
+            bucket_index: 0,
+            start_position: Position::ZERO,
+            size: Position::ZERO,
+        };
+        for (&y, position) in last_table.ys().iter().zip(Position::ZERO..) {
+            let bucket_index = u32::from(y) / u32::from(PARAM_BC);
 
-        let last_y = *last_table
-            .ys()
-            .last()
-            .expect("List of y values is never empty; qed");
-        buckets.clear();
-        buckets.reserve(1 + usize::from(last_y) / usize::from(PARAM_BC));
-        last_table
-            .ys()
-            .iter()
-            .zip(Position::ZERO..)
-            .for_each(|(&y, position)| {
-                let bucket_index = u32::from(y) / u32::from(PARAM_BC);
+            if bucket_index == right_bucket.bucket_index {
+                right_bucket.size += Position::ONE;
+                continue;
+            }
 
-                if bucket_index == bucket.bucket_index {
-                    bucket.size += Position::ONE;
-                    return;
+            if right_bucket.size > Position::ZERO {
+                if left_bucket.size > Position::ZERO {
+                    find_matches(
+                        &last_table.ys()[usize::from(left_bucket.start_position)..]
+                            [..usize::from(left_bucket.size)],
+                        left_bucket.start_position,
+                        &last_table.ys()[usize::from(right_bucket.start_position)..]
+                            [..usize::from(right_bucket.size)],
+                        right_bucket.start_position,
+                        rmap_scratch,
+                        matches,
+                        left_targets,
+                    );
                 }
 
-                buckets.push(bucket);
+                left_bucket = right_bucket;
+            }
 
-                bucket = Bucket {
-                    bucket_index,
-                    start_position: position,
-                    size: Position::ONE,
-                };
-            });
-        // Iteration stopped, but we did not store the last bucket yet
-        buckets.push(bucket);
+            right_bucket = Bucket {
+                bucket_index,
+                start_position: position,
+                size: Position::ONE,
+            };
+        }
+
+        // Iteration stopped, but we did not process the last pair of buckets yet
+        if left_bucket.size > Position::ZERO && right_bucket.size > Position::ZERO {
+            find_matches(
+                &last_table.ys()[usize::from(left_bucket.start_position)..]
+                    [..usize::from(left_bucket.size)],
+                left_bucket.start_position,
+                &last_table.ys()[usize::from(right_bucket.start_position)..]
+                    [..usize::from(right_bucket.size)],
+                right_bucket.start_position,
+                rmap_scratch,
+                matches,
+                left_targets,
+            );
+        }
 
         let num_values = 1 << K;
-        buckets
-            .array_windows::<2>()
-            .for_each(|&[left_bucket, right_bucket]| {
-                find_matches(
-                    &last_table.ys()[usize::from(left_bucket.start_position)..]
-                        [..usize::from(left_bucket.size)],
-                    left_bucket.start_position,
-                    &last_table.ys()[usize::from(right_bucket.start_position)..]
-                        [..usize::from(right_bucket.size)],
-                    right_bucket.start_position,
-                    rmap_scratch,
-                    matches,
-                    left_targets,
-                );
-            });
-
         let mut t_n = Vec::with_capacity(num_values);
         matches_to_result(last_table, matches, &mut t_n);
         matches.clear();
-        t_n.sort_unstable();
+        t_n.sort_by_key(|(y, _positions, _metadata)| *y);
 
         let mut ys = Vec::with_capacity(num_values);
         let mut positions = Vec::with_capacity(num_values);

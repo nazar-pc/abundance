@@ -8,7 +8,7 @@ use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT};
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::table::{
     COMPUTE_F1_SIMD_FACTOR, calculate_left_targets, compute_f1, compute_f1_simd, compute_fn,
-    find_matches, metadata_size_bytes,
+    compute_fn_simd, find_matches, metadata_size_bytes,
 };
 use crate::chiapos::utils::EvaluatableUsize;
 #[cfg(not(feature = "std"))]
@@ -190,6 +190,16 @@ fn verify_fn<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>
     assert_eq!(y_output, Y::from(y_output_expected));
     if metadata_expected != 0 {
         assert_eq!(metadata, Metadata::from(metadata_expected));
+    }
+
+    let (y_outputs, metadatas) = compute_fn_simd::<K, TABLE_NUMBER, PARENT_TABLE_NUMBER>(
+        [Y::from(y); _],
+        [Metadata::from(left_metadata); _],
+        [Metadata::from(right_metadata); _],
+    );
+    assert_eq!([y_output; _], y_outputs);
+    if metadata_expected != 0 {
+        assert_eq!([metadata; _], metadatas);
     }
 }
 

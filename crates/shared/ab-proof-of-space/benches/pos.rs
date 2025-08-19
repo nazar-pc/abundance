@@ -59,11 +59,109 @@ fn pos_bench<PosTable>(
 
     let mut generator_instance = PosTable::generator();
     group.throughput(Throughput::Elements(1));
-    group.bench_function("table/single", |b| {
+    group.bench_function("table/single/1x", |b| {
         b.iter(|| {
             generator_instance.generate(black_box(&seed));
         });
     });
+
+    #[cfg(feature = "parallel")]
+    {
+        {
+            let mut generator_instances = [PosTable::generator(), PosTable::generator()];
+            group.throughput(Throughput::Elements(2));
+            group.bench_function("table/single/2x", |b| {
+                b.iter(|| {
+                    rayon::scope(|scope| {
+                        for g in &mut generator_instances {
+                            scope.spawn(|_scope| {
+                                g.generate(black_box(&seed));
+                            });
+                        }
+                    });
+                });
+            });
+        }
+
+        {
+            let mut generator_instances = [
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+            ];
+            group.throughput(Throughput::Elements(4));
+            group.bench_function("table/single/4x", |b| {
+                b.iter(|| {
+                    rayon::scope(|scope| {
+                        for g in &mut generator_instances {
+                            scope.spawn(|_scope| {
+                                g.generate(black_box(&seed));
+                            });
+                        }
+                    });
+                });
+            });
+        }
+
+        {
+            let mut generator_instances = [
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+            ];
+            group.throughput(Throughput::Elements(8));
+            group.bench_function("table/single/8x", |b| {
+                b.iter(|| {
+                    rayon::scope(|scope| {
+                        for g in &mut generator_instances {
+                            scope.spawn(|_scope| {
+                                g.generate(black_box(&seed));
+                            });
+                        }
+                    });
+                });
+            });
+        }
+
+        {
+            let mut generator_instances = [
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+                PosTable::generator(),
+            ];
+            group.throughput(Throughput::Elements(16));
+            group.bench_function("table/single/16x", |b| {
+                b.iter(|| {
+                    rayon::scope(|scope| {
+                        for g in &mut generator_instances {
+                            scope.spawn(|_scope| {
+                                g.generate(black_box(&seed));
+                            });
+                        }
+                    });
+                });
+            });
+        }
+    }
 
     #[cfg(feature = "parallel")]
     {
@@ -120,6 +218,37 @@ fn pos_bench<PosTable>(
         ];
         group.throughput(Throughput::Elements(8));
         group.bench_function("table/parallel/8x", |b| {
+            b.iter(|| {
+                rayon::scope(|scope| {
+                    for g in &mut generator_instances {
+                        scope.spawn(|_scope| {
+                            g.generate_parallel(black_box(&seed));
+                        });
+                    }
+                });
+            });
+        });
+
+        let mut generator_instances = [
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+            PosTable::generator(),
+        ];
+        group.throughput(Throughput::Elements(16));
+        group.bench_function("table/parallel/16x", |b| {
             b.iter(|| {
                 rayon::scope(|scope| {
                     for g in &mut generator_instances {
