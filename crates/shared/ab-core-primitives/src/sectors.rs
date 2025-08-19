@@ -9,6 +9,7 @@ use crate::pieces::{PieceIndex, PieceOffset, Record};
 use crate::pos::PosSeed;
 use crate::sectors::nano_u256::NanoU256;
 use crate::segments::{HistorySize, SegmentRoot};
+use ab_blake3::{single_block_hash, single_block_keyed_hash};
 use ab_io_type::trivial_type::TrivialType;
 use core::hash::Hash;
 use core::iter::Step;
@@ -167,7 +168,10 @@ impl SectorId {
         bytes_to_hash[SectorIndex::SIZE..]
             .copy_from_slice(&history_size.as_non_zero_u64().get().to_le_bytes());
         // TODO: Is keyed hash really needed here?
-        Self(blake3::keyed_hash(public_key_hash, &bytes_to_hash).into())
+        Self(Blake3Hash::new(
+            single_block_keyed_hash(public_key_hash, &bytes_to_hash)
+                .expect("Less than a single block worth of bytes; qed"),
+        ))
     }
 
     /// Derive piece index that should be stored in sector at `piece_offset` for specified size of
@@ -191,7 +195,10 @@ impl SectorId {
             let mut key = [0; 32];
             key[..piece_offset_bytes.len()].copy_from_slice(&piece_offset_bytes);
             // TODO: Is keyed hash really needed here?
-            NanoU256::from_le_bytes(*blake3::keyed_hash(&key, self.as_ref()).as_bytes())
+            NanoU256::from_le_bytes(
+                single_block_keyed_hash(&key, self.as_ref())
+                    .expect("Less than a single block worth of bytes; qed"),
+            )
         };
         let history_size_in_pieces = history_size.in_pieces().get();
         let num_interleaved_pieces = 1.max(
@@ -229,9 +236,10 @@ impl SectorId {
         let mut bytes_to_hash = [0; Self::SIZE + PieceOffset::SIZE];
         bytes_to_hash[..Self::SIZE].copy_from_slice(self.as_ref());
         bytes_to_hash[Self::SIZE..].copy_from_slice(&piece_offset.to_bytes());
-        let evaluation_seed = blake3::hash(&bytes_to_hash);
+        let evaluation_seed = single_block_hash(&bytes_to_hash)
+            .expect("Less than a single block worth of bytes; qed");
 
-        PosSeed::from(*evaluation_seed.as_bytes())
+        PosSeed::from(evaluation_seed)
     }
 
     /// Derive history size when sector created at `history_size` expires.
@@ -248,8 +256,8 @@ impl SectorId {
             .as_non_zero_u64();
 
         let input_hash = NanoU256::from_le_bytes(
-            *blake3::hash([*self.0, **sector_expiration_check_segment_root].as_flattened())
-                .as_bytes(),
+            single_block_hash([*self.0, **sector_expiration_check_segment_root].as_flattened())
+                .expect("Less than a single block worth of bytes; qed"),
         );
 
         let last_possible_expiration = min_sector_lifetime

@@ -15,6 +15,7 @@ use crate::pot::PotCheckpoints;
 use crate::segments::SegmentRoot;
 use crate::shard::ShardKind;
 use crate::transaction::Transaction;
+use ab_blake3::single_block_hash;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
@@ -47,10 +48,9 @@ where
 
 /// Calculates a Merkle Tree root for a provided list of segment roots
 #[inline]
-pub fn compute_segments_root<Item, Iter>(segment_roots: Iter) -> Blake3Hash
+pub fn compute_segments_root<'a, Iter>(segment_roots: Iter) -> Blake3Hash
 where
-    Item: AsRef<[u8]>,
-    Iter: IntoIterator<Item = Item>,
+    Iter: IntoIterator<Item = &'a SegmentRoot>,
 {
     // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows
     //  the code to compile. Constant 4294967295 is hardcoded here and below for compilation to
@@ -63,7 +63,8 @@ where
         segment_roots.into_iter().map(|segment_root| {
             // Hash the root again so we can prove it, otherwise segments root is indistinguishable
             // from individual segment roots and can be used to confuse verifier
-            blake3::hash(segment_root.as_ref())
+            single_block_hash(segment_root.as_ref())
+                .expect("Less than a single block worth of bytes; qed")
         }),
     );
 
@@ -285,8 +286,8 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 // Hash the root again so we can prove it, otherwise headers root is
                 // indistinguishable from individual block roots and can be used to confuse
                 // verifier
-
-                blake3::hash(shard_block_info.header.root().as_ref())
+                single_block_hash(shard_block_info.header.root().as_ref())
+                    .expect("Less than a single block worth of bytes; qed")
             }),
         )
         .unwrap_or_default();
@@ -699,8 +700,8 @@ impl<'a> LeafShardBlocksInfo<'a> {
                 // Hash the root again so we can prove it, otherwise headers root is
                 // indistinguishable from individual block roots and can be used to confuse
                 // verifier
-
-                blake3::hash(shard_block_info.header.root().as_ref())
+                single_block_hash(shard_block_info.header.root().as_ref())
+                    .expect("Less than a single block worth of bytes; qed")
             }),
         )
         .unwrap_or_default();
@@ -960,7 +961,8 @@ impl<'a> Transactions<'a> {
                 // Hash the hash again so we can prove it, otherwise transactions root is
                 // indistinguishable from individual transaction roots and can be used to
                 // confuse verifier
-                blake3::hash(transaction.hash().as_ref())
+                single_block_hash(transaction.hash().as_ref())
+                    .expect("Less than a single block worth of bytes; qed")
             }),
         )
         .unwrap_or_default();

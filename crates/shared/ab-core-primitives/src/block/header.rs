@@ -15,8 +15,10 @@ use crate::pot::{PotOutput, PotParametersChange, SlotNumber};
 use crate::segments::SuperSegmentRoot;
 use crate::shard::{ShardIndex, ShardKind};
 use crate::solutions::{Solution, SolutionRange};
+use ab_blake3::{BLOCK_LEN, single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
+use blake3::CHUNK_LEN;
 use core::num::NonZeroU32;
 use core::ops::Deref;
 use core::{fmt, slice};
@@ -91,8 +93,14 @@ pub struct BlockHeaderPrefix {
 impl BlockHeaderPrefix {
     /// Hash of the block header prefix, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
+        const {
+            assert!(size_of::<Self>() <= CHUNK_LEN);
+        }
         // TODO: Keyed hash
-        Blake3Hash::from(blake3::hash(self.as_bytes()))
+        Blake3Hash::new(
+            single_chunk_hash(self.as_bytes())
+                .expect("Less than a single chunk worth of bytes; qed"),
+        )
     }
 }
 
@@ -143,8 +151,14 @@ pub struct BlockHeaderBeaconChainInfo {
 impl BlockHeaderBeaconChainInfo {
     /// Hash of the beacon chain info, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
+        const {
+            assert!(size_of::<Self>() <= BLOCK_LEN);
+        }
         // TODO: Keyed hash
-        Blake3Hash::from(blake3::hash(self.as_bytes()))
+        Blake3Hash::new(
+            single_block_hash(self.as_bytes())
+                .expect("Less than a single block worth of bytes; qed"),
+        )
     }
 }
 
@@ -505,8 +519,8 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
                     // Hash the root again so we can prove it, otherwise headers root is
                     // indistinguishable from individual block roots and can be used to confuse
                     // verifier
-
-                    blake3::hash(child_shard_block_root.as_ref())
+                    single_block_hash(child_shard_block_root.as_ref())
+                        .expect("Less than a single block worth of bytes; qed")
                 }),
         )?;
         Some(Blake3Hash::new(root))
@@ -536,8 +550,14 @@ pub struct BlockHeaderResult {
 impl BlockHeaderResult {
     /// Hash of the block header result, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
+        const {
+            assert!(size_of::<Self>() <= BLOCK_LEN);
+        }
         // TODO: Keyed hash
-        Blake3Hash::from(blake3::hash(self.as_bytes()))
+        Blake3Hash::new(
+            single_block_hash(self.as_bytes())
+                .expect("Less than a single block worth of bytes; qed"),
+        )
     }
 }
 
