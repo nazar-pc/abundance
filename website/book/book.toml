@@ -19,6 +19,6 @@ theme-id = "1"
 edition = "2024"
 
 [output.html]
-git-repository-url = "https://github.com/nazar-pc/abundance/tree/main/book"
+git-repository-url = "https://github.com/nazar-pc/abundance/tree/main/website/book"
 mathjax-support = true
 preferred-dark-theme = "ayu"
