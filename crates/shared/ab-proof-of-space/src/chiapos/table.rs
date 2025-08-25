@@ -32,8 +32,8 @@ use seq_macro::seq;
 use spin::Mutex;
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
+const FIND_MATCHES_UNROLL_FACTOR: usize = 8;
 const COMPUTE_FN_SIMD_FACTOR: usize = 16;
-const FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR: usize = 8;
 
 /// Compute the size of `y` in bits
 pub(super) const fn y_size_bits(k: u8) -> usize {
@@ -323,15 +323,15 @@ fn find_matches(
             .as_array();
 
         const _: () = {
-            assert!((PARAM_M as usize).is_multiple_of(FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR));
+            assert!((PARAM_M as usize).is_multiple_of(FIND_MATCHES_UNROLL_FACTOR));
         };
 
         for r_targets in left_targets_r
-            .as_chunks::<FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR>()
+            .as_chunks::<FIND_MATCHES_UNROLL_FACTOR>()
             .0
             .iter()
         {
-            let rmap_items: [_; FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
+            let rmap_items: [_; FIND_MATCHES_UNROLL_FACTOR] = seq!(N in 0..8 {
                 [
                 #(
                     rmap[usize::from(r_targets[N])],
@@ -344,7 +344,7 @@ fn find_matches(
                 continue;
             }
 
-            let _: [(); FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
+            let _: [(); FIND_MATCHES_UNROLL_FACTOR] = seq!(N in 0..8 {
                 [
                 #(
                 {
