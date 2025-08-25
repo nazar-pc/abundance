@@ -135,9 +135,7 @@ fn test_matches() {
     let mut total_matches = 0_usize;
     for [mut left_bucket_ys, mut right_bucket_ys] in bucket_ys.array_windows::<2>().cloned() {
         left_bucket_ys.sort_unstable();
-        left_bucket_ys.reverse();
         right_bucket_ys.sort_unstable();
-        right_bucket_ys.reverse();
 
         let mut matches = Vec::new();
         find_matches(
