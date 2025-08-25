@@ -76,30 +76,26 @@ fn partial_ys<const K: u8>(seed: Seed) -> Vec<u8> {
 }
 
 /// Mapping from `parity` to `r` to `m`
-type LeftTargets = [[[Position; PARAM_M as usize]; PARAM_BC as usize]; 2];
+type LeftTargets = [[[u16; PARAM_M as usize]; PARAM_BC as usize]; 2];
 
 fn calculate_left_targets() -> Box<LeftTargets> {
     let mut left_targets = Box::<LeftTargets>::new_uninit();
     // SAFETY: Same layout and uninitialized in both cases
     let left_targets_slice = unsafe {
         mem::transmute::<
-            &mut MaybeUninit<[[[Position; PARAM_M as usize]; PARAM_BC as usize]; 2]>,
-            &mut [[[MaybeUninit<Position>; PARAM_M as usize]; PARAM_BC as usize]; 2],
+            &mut MaybeUninit<[[[u16; PARAM_M as usize]; PARAM_BC as usize]; 2]>,
+            &mut [[[MaybeUninit<u16>; PARAM_M as usize]; PARAM_BC as usize]; 2],
         >(left_targets.as_mut())
     };
 
-    let param_b = u32::from(PARAM_B);
-    let param_c = u32::from(PARAM_C);
+    for parity in 0..=1 {
+        for r in 0..PARAM_BC {
+            let c = r / PARAM_C;
 
-    for parity in 0..=1u32 {
-        for r in 0..u32::from(PARAM_BC) {
-            let c = r / param_c;
-
-            for m in 0..u32::from(PARAM_M) {
-                let target = ((c + m) % param_b) * param_c
-                    + (((2 * m + parity) * (2 * m + parity) + r) % param_c);
-                left_targets_slice[parity as usize][r as usize][m as usize]
-                    .write(Position::from(target));
+            for m in 0..PARAM_M {
+                let target = ((c + m) % PARAM_B) * PARAM_C
+                    + (((2 * m + parity) * (2 * m + parity) + r) % PARAM_C);
+                left_targets_slice[parity as usize][r as usize][m as usize].write(target);
             }
         }
     }
