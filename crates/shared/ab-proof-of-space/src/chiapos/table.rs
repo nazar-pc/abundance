@@ -76,15 +76,15 @@ fn partial_ys<const K: u8>(seed: Seed) -> Vec<u8> {
 }
 
 /// Mapping from `parity` to `r` to `m`
-type LeftTargets = [[[u16; PARAM_M as usize]; PARAM_BC as usize]; 2];
+type LeftTargets = [[Simd<u16, { PARAM_M as usize }>; PARAM_BC as usize]; 2];
 
 fn calculate_left_targets() -> Box<LeftTargets> {
     let mut left_targets = Box::<LeftTargets>::new_uninit();
     // SAFETY: Same layout and uninitialized in both cases
     let left_targets_slice = unsafe {
         mem::transmute::<
-            &mut MaybeUninit<[[[u16; PARAM_M as usize]; PARAM_BC as usize]; 2]>,
-            &mut [[[MaybeUninit<u16>; PARAM_M as usize]; PARAM_BC as usize]; 2],
+            &mut MaybeUninit<[[Simd<u16, { PARAM_M as usize }>; PARAM_BC as usize]; 2]>,
+            &mut [[MaybeUninit<Simd<u16, { PARAM_M as usize }>>; PARAM_BC as usize]; 2],
         >(left_targets.as_mut())
     };
 
@@ -92,11 +92,13 @@ fn calculate_left_targets() -> Box<LeftTargets> {
         for r in 0..PARAM_BC {
             let c = r / PARAM_C;
 
-            for m in 0..PARAM_M {
-                let target = ((c + m) % PARAM_B) * PARAM_C
-                    + (((2 * m + parity) * (2 * m + parity) + r) % PARAM_C);
-                left_targets_slice[parity as usize][r as usize][m as usize].write(target);
-            }
+            let mut arr = array::from_fn(|m| {
+                let m = m as u16;
+                ((c + m) % PARAM_B) * PARAM_C
+                    + (((2 * m + parity) * (2 * m + parity) + r) % PARAM_C)
+            });
+            arr.sort_unstable();
+            left_targets_slice[parity as usize][r as usize].write(Simd::from_array(arr));
         }
     }
 
@@ -315,7 +317,10 @@ fn find_matches(
         unsafe {
             assert_unchecked(r < usize::from(PARAM_BC));
         }
-        let left_targets_r = left_targets_parity.get(r).expect("r is valid; qed");
+        let left_targets_r = left_targets_parity
+            .get(r)
+            .expect("r is valid; qed")
+            .as_array();
 
         const _: () = {
             assert!((PARAM_M as usize).is_multiple_of(FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR));
