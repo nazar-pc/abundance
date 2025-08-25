@@ -116,7 +116,6 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
 /// Caches that can be used to optimize the creation of multiple [`Tables`](super::Tables).
 #[derive(Debug, Clone)]
 pub struct TablesCache<const K: u8> {
-    rmap_scratch: Box<[RmapItem; PARAM_BC as usize]>,
     matches: Vec<Match>,
     left_targets: Box<LeftTargets>,
 }
@@ -125,8 +124,6 @@ impl<const K: u8> Default for TablesCache<K> {
     /// Create a new instance
     fn default() -> Self {
         Self {
-            // SAFETY: Zeroed value is a valid invariant for `RmapItem`
-            rmap_scratch: unsafe { Box::new_zeroed().assume_init() },
             matches: Vec::new(),
             left_targets: calculate_left_targets(),
         }
@@ -263,8 +260,6 @@ pub(super) fn compute_f1_simd<const K: u8>(
     Y::array_from_repr(ys.to_array())
 }
 
-/// `rmap_scratch` is just an optimization to reuse allocations between calls.
-///
 /// For verification purposes use [`has_match`] instead.
 ///
 /// Returns `None` if either of buckets is empty.
@@ -273,13 +268,10 @@ fn find_matches(
     left_bucket_start_position: Position,
     right_bucket_ys: &[Y],
     right_bucket_start_position: Position,
-    rmap_scratch: &mut [RmapItem; PARAM_BC as usize],
     matches: &mut Vec<Match>,
     left_targets: &LeftTargets,
 ) {
-    // Clear and set to the correct size with zero values
-    rmap_scratch.fill(RmapItem::default());
-    let rmap = rmap_scratch;
+    let mut rmap = [RmapItem::default(); PARAM_BC as usize];
 
     let Some(&first_right_bucket_y) = right_bucket_ys.first() else {
         return;
@@ -839,7 +831,6 @@ where
     where
         EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     {
-        let rmap_scratch = &mut cache.rmap_scratch;
         let matches = &mut cache.matches;
         let left_targets = &cache.left_targets;
 
@@ -870,7 +861,6 @@ where
                         &last_table.ys()[usize::from(right_bucket.start_position)..]
                             [..usize::from(right_bucket.size)],
                         right_bucket.start_position,
-                        rmap_scratch,
                         matches,
                         left_targets,
                     );
@@ -895,7 +885,6 @@ where
                 &last_table.ys()[usize::from(right_bucket.start_position)..]
                     [..usize::from(right_bucket.size)],
                 right_bucket.start_position,
-                rmap_scratch,
                 matches,
                 left_targets,
             );
@@ -964,8 +953,6 @@ where
 
         let entries = rayon::broadcast(|_ctx| {
             let mut entries = Vec::new();
-            // SAFETY: Zeroed value is a valid invariant for `RmapItem`
-            let mut rmap_scratch = unsafe { Box::new_zeroed().assume_init() };
             let mut matches = Vec::new();
 
             loop {
@@ -1014,7 +1001,6 @@ where
                     &last_table.ys()[usize::from(right_bucket.start_position)..]
                         [..usize::from(right_bucket.size)],
                     right_bucket.start_position,
-                    &mut rmap_scratch,
                     &mut matches,
                     left_targets,
                 );
