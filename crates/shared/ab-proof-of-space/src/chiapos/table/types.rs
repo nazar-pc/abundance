@@ -77,8 +77,9 @@ impl From<Y> for usize {
 }
 
 impl Y {
-    pub(in super::super) const fn first_k_bits<const K: u8>(self) -> u32 {
-        self.0 >> PARAM_EXT as usize
+    #[inline(always)]
+    pub(in super::super) const fn first_k_bits(self) -> u32 {
+        self.0 >> PARAM_EXT
     }
 
     #[inline(always)]

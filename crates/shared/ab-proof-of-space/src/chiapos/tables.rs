@@ -126,13 +126,13 @@ where
                 .expect("Challenge is known to statically have enough bytes; qed"),
         ) >> (u32::BITS as usize - usize::from(K));
         let mut first_matching_element = ys
-            .binary_search_by(|&y| y.first_k_bits::<K>().cmp(&first_k_challenge_bits))
+            .binary_search_by(|&y| y.first_k_bits().cmp(&first_k_challenge_bits))
             .unwrap_or_else(|insert| insert);
 
         // We only compare the first K bits above, which is why `binary_search_by` is not guaranteed
         // to find the very first match in case there are multiple
         for index in (0..first_matching_element).rev() {
-            if ys[index].first_k_bits::<K>() == first_k_challenge_bits {
+            if ys[index].first_k_bits() == first_k_challenge_bits {
                 first_matching_element = index;
             } else {
                 break;
@@ -144,7 +144,7 @@ where
             .iter()
             .take_while(move |&&y| {
                 // Check if first K bits of `y` match
-                y.first_k_bits::<K>() == first_k_challenge_bits
+                y.first_k_bits() == first_k_challenge_bits
             })
             .zip(Position::from(first_matching_element as u32)..)
             .map(move |(_y, position)| {
@@ -209,13 +209,13 @@ where
                 .expect("Challenge is known to statically have enough bytes; qed"),
         ) >> (u32::BITS as usize - usize::from(K));
         let mut first_matching_element = ys
-            .binary_search_by(|&y| y.first_k_bits::<K>().cmp(&first_k_challenge_bits))
+            .binary_search_by(|&y| y.first_k_bits().cmp(&first_k_challenge_bits))
             .unwrap_or_else(|insert| insert);
 
         // We only compare the first K bits above, which is why `binary_search_by` is not guaranteed
         // to find the very first match in case there are multiple
         for index in (0..first_matching_element).rev() {
-            if ys[index].first_k_bits::<K>() == first_k_challenge_bits {
+            if ys[index].first_k_bits() == first_k_challenge_bits {
                 first_matching_element = index;
             } else {
                 break;
@@ -227,7 +227,7 @@ where
             .iter()
             .take_while(move |&&y| {
                 // Check if first K bits of `y` match
-                y.first_k_bits::<K>() == first_k_challenge_bits
+                y.first_k_bits() == first_k_challenge_bits
             })
             .zip(Position::from(first_matching_element as u32)..)
             .map(move |(_y, position)| {
@@ -347,7 +347,7 @@ where
                     .expect("On success returns exactly one entry; qed");
 
                 // Check if first K bits of `y` match
-                y.first_k_bits::<K>() == first_k_challenge_bits
+                y.first_k_bits() == first_k_challenge_bits
             })
             .map(|_| {
                 // Quality is not used anywhere, so only enable it for tests
