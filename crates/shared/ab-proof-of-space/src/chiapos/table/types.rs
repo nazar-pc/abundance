@@ -77,8 +77,16 @@ impl From<Y> for usize {
 }
 
 impl Y {
-    pub(in super::super) const fn first_k_bits<const K: u8>(self) -> u32 {
-        self.0 >> PARAM_EXT as usize
+    /// The smallest `Y` that has provided `value` as first `K` bits
+    #[inline(always)]
+    pub(in super::super) fn from_first_k_bits(value: u32) -> Self {
+        Self(value << PARAM_EXT)
+    }
+
+    /// Get the first `K` bits
+    #[inline(always)]
+    pub(in super::super) const fn first_k_bits(self) -> u32 {
+        self.0 >> PARAM_EXT
     }
 
     #[inline(always)]

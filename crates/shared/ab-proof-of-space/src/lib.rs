@@ -6,7 +6,6 @@
     array_windows,
     generic_const_exprs,
     iter_collect_into,
-    new_zeroed_alloc,
     portable_simd,
     step_trait
 )]

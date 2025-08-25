@@ -11,8 +11,6 @@ use crate::chiapos::table::{
     compute_fn_simd, find_matches, metadata_size_bytes,
 };
 use crate::chiapos::utils::EvaluatableUsize;
-#[cfg(not(feature = "std"))]
-use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -42,7 +40,7 @@ fn test_compute_f1_k25() {
 
         // Make sure SIMD matches non-SIMD version
         let mut partial_ys = [0; K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize];
-        let starts_with_partial_y_bits = y.first_k_bits::<K>() << (u32::BITS - u32::from(K));
+        let starts_with_partial_y_bits = y.first_k_bits() << (u32::BITS - u32::from(K));
         partial_ys[..size_of::<u32>()].copy_from_slice(&starts_with_partial_y_bits.to_be_bytes());
         let y = compute_f1_simd::<K>([x.into(); COMPUTE_F1_SIMD_FACTOR], &partial_ys);
         assert_eq!(y[0], Y::from(expected_y));
@@ -67,7 +65,7 @@ fn test_compute_f1_k22() {
 
         // Make sure SIMD matches non-SIMD version
         let mut partial_ys = [0; K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize];
-        let starts_with_partial_y_bits = y.first_k_bits::<K>() << (u32::BITS - u32::from(K));
+        let starts_with_partial_y_bits = y.first_k_bits() << (u32::BITS - u32::from(K));
         partial_ys[..size_of::<u32>()].copy_from_slice(&starts_with_partial_y_bits.to_be_bytes());
         let y = compute_f1_simd::<K>([x.into(); COMPUTE_F1_SIMD_FACTOR], &partial_ys);
         assert_eq!(y[0], Y::from(expected_y));
@@ -133,15 +131,11 @@ fn test_matches() {
     }
 
     let left_targets = calculate_left_targets();
-    // SAFETY: Zeroed value is a valid invariant for `RmapItem`
-    let mut rmap_scratch = unsafe { Box::new_zeroed().assume_init() };
     let bucket_ys = bucket_ys.into_values().collect::<Vec<_>>();
     let mut total_matches = 0_usize;
     for [mut left_bucket_ys, mut right_bucket_ys] in bucket_ys.array_windows::<2>().cloned() {
         left_bucket_ys.sort_unstable();
-        left_bucket_ys.reverse();
         right_bucket_ys.sort_unstable();
-        right_bucket_ys.reverse();
 
         let mut matches = Vec::new();
         find_matches(
@@ -149,7 +143,6 @@ fn test_matches() {
             Position::ZERO,
             &right_bucket_ys,
             Position::ZERO,
-            &mut rmap_scratch,
             &mut matches,
             &left_targets,
         );
