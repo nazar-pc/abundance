@@ -109,7 +109,7 @@ where
         }
     }
 
-    /// Find proof of space quality for given challenge.
+    /// Find proof of space quality for a given challenge
     #[cfg(any(feature = "full-chiapos", test))]
     pub(super) fn find_quality<'a>(
         &'a self,
@@ -125,12 +125,13 @@ where
                 .try_into()
                 .expect("Challenge is known to statically have enough bytes; qed"),
         ) >> (u32::BITS as usize - usize::from(K));
+        let first_matching_y = Y::from_first_k_bits(first_k_challenge_bits);
         let mut first_matching_element = ys
-            .binary_search_by(|&y| y.first_k_bits().cmp(&first_k_challenge_bits))
+            .binary_search_by(|&y| y.cmp(&first_matching_y))
             .unwrap_or_else(|insert| insert);
 
         // We only compare the first K bits above, which is why `binary_search_by` is not guaranteed
-        // to find the very first match in case there are multiple
+        // to find the very first match in case there is multiple
         for index in (0..first_matching_element).rev() {
             if ys[index].first_k_bits() == first_k_challenge_bits {
                 first_matching_element = index;
@@ -143,7 +144,7 @@ where
         ys[first_matching_element..]
             .iter()
             .take_while(move |&&y| {
-                // Check if first K bits of `y` match
+                // Check if the first K bits of `y` match
                 y.first_k_bits() == first_k_challenge_bits
             })
             .zip(Position::from(first_matching_element as u32)..)
@@ -195,7 +196,7 @@ where
             })
     }
 
-    /// Find proof of space for given challenge.
+    /// Find proof of space for a given challenge
     pub(super) fn find_proof<'a>(
         &'a self,
         challenge: &'a Challenge,
@@ -208,12 +209,13 @@ where
                 .try_into()
                 .expect("Challenge is known to statically have enough bytes; qed"),
         ) >> (u32::BITS as usize - usize::from(K));
+        let first_matching_y = Y::from_first_k_bits(first_k_challenge_bits);
         let mut first_matching_element = ys
-            .binary_search_by(|&y| y.first_k_bits().cmp(&first_k_challenge_bits))
+            .binary_search_by(|&y| y.cmp(&first_matching_y))
             .unwrap_or_else(|insert| insert);
 
         // We only compare the first K bits above, which is why `binary_search_by` is not guaranteed
-        // to find the very first match in case there are multiple
+        // to find the very first match in case there is multiple
         for index in (0..first_matching_element).rev() {
             if ys[index].first_k_bits() == first_k_challenge_bits {
                 first_matching_element = index;
@@ -226,7 +228,7 @@ where
         ys[first_matching_element..]
             .iter()
             .take_while(move |&&y| {
-                // Check if first K bits of `y` match
+                // Check if the first K bits of `y` match
                 y.first_k_bits() == first_k_challenge_bits
             })
             .zip(Position::from(first_matching_element as u32)..)
@@ -296,7 +298,7 @@ where
             })
     }
 
-    /// Verify proof of space for given seed and challenge.
+    /// Verify proof of space for a given seed and challenge.
     ///
     /// Returns quality on successful verification.
     pub(super) fn verify(
@@ -326,7 +328,7 @@ where
                 // Extract `pre_x` whose last `K` bits start with `x`
                 let pre_x = u64::from_be_bytes(pre_x_bytes)
                     >> (u64::BITS as usize - (usize::from(K) + offset_in_bits % u8::BITS as usize));
-                // Convert to desired type and clear extra bits
+                // Convert to the desired type and clear extra bits
                 let x = X::from(pre_x as u32 & (u32::MAX >> (u32::BITS as usize - usize::from(K))));
 
                 let y = compute_f1::<K>(x, seed);
@@ -346,7 +348,7 @@ where
                     .first()
                     .expect("On success returns exactly one entry; qed");
 
-                // Check if first K bits of `y` match
+                // Check if the first K bits of `y` match
                 y.first_k_bits() == first_k_challenge_bits
             })
             .map(|_| {
@@ -361,7 +363,7 @@ where
                     quality_index[0] = last_5_challenge_bits;
                     let quality_index = usize::from_be_bytes(quality_index);
 
-                    // NOTE: this works correctly, but may overflow if `quality_index` is changed to
+                    // NOTE: this works correctly but may overflow if `quality_index` is changed to
                     // not be zero-initialized anymore
                     let left_right_xs_bit_offset = quality_index * usize::from(K * 2);
                     // Collect `left_x` and `right_x` bits, potentially with extra bits at the beginning
