@@ -32,8 +32,8 @@ use seq_macro::seq;
 use spin::Mutex;
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
+const FIND_MATCHES_UNROLL_FACTOR: usize = 8;
 const COMPUTE_FN_SIMD_FACTOR: usize = 16;
-const FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR: usize = 8;
 
 /// Compute the size of `y` in bits
 pub(super) const fn y_size_bits(k: u8) -> usize {
@@ -76,31 +76,29 @@ fn partial_ys<const K: u8>(seed: Seed) -> Vec<u8> {
 }
 
 /// Mapping from `parity` to `r` to `m`
-type LeftTargets = [[[Position; PARAM_M as usize]; PARAM_BC as usize]; 2];
+type LeftTargets = [[Simd<u16, { PARAM_M as usize }>; PARAM_BC as usize]; 2];
 
 fn calculate_left_targets() -> Box<LeftTargets> {
     let mut left_targets = Box::<LeftTargets>::new_uninit();
     // SAFETY: Same layout and uninitialized in both cases
     let left_targets_slice = unsafe {
         mem::transmute::<
-            &mut MaybeUninit<[[[Position; PARAM_M as usize]; PARAM_BC as usize]; 2]>,
-            &mut [[[MaybeUninit<Position>; PARAM_M as usize]; PARAM_BC as usize]; 2],
+            &mut MaybeUninit<[[Simd<u16, { PARAM_M as usize }>; PARAM_BC as usize]; 2]>,
+            &mut [[MaybeUninit<Simd<u16, { PARAM_M as usize }>>; PARAM_BC as usize]; 2],
         >(left_targets.as_mut())
     };
 
-    let param_b = u32::from(PARAM_B);
-    let param_c = u32::from(PARAM_C);
+    for parity in 0..=1 {
+        for r in 0..PARAM_BC {
+            let c = r / PARAM_C;
 
-    for parity in 0..=1u32 {
-        for r in 0..u32::from(PARAM_BC) {
-            let c = r / param_c;
-
-            for m in 0..u32::from(PARAM_M) {
-                let target = ((c + m) % param_b) * param_c
-                    + (((2 * m + parity) * (2 * m + parity) + r) % param_c);
-                left_targets_slice[parity as usize][r as usize][m as usize]
-                    .write(Position::from(target));
-            }
+            let mut arr = array::from_fn(|m| {
+                let m = m as u16;
+                ((c + m) % PARAM_B) * PARAM_C
+                    + (((2 * m + parity) * (2 * m + parity) + r) % PARAM_C)
+            });
+            arr.sort_unstable();
+            left_targets_slice[parity as usize][r as usize].write(Simd::from_array(arr));
         }
     }
 
@@ -319,18 +317,21 @@ fn find_matches(
         unsafe {
             assert_unchecked(r < usize::from(PARAM_BC));
         }
-        let left_targets_r = left_targets_parity.get(r).expect("r is valid; qed");
+        let left_targets_r = left_targets_parity
+            .get(r)
+            .expect("r is valid; qed")
+            .as_array();
 
         const _: () = {
-            assert!((PARAM_M as usize).is_multiple_of(FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR));
+            assert!((PARAM_M as usize).is_multiple_of(FIND_MATCHES_UNROLL_FACTOR));
         };
 
         for r_targets in left_targets_r
-            .as_chunks::<FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR>()
+            .as_chunks::<FIND_MATCHES_UNROLL_FACTOR>()
             .0
             .iter()
         {
-            let rmap_items: [_; FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
+            let rmap_items: [_; FIND_MATCHES_UNROLL_FACTOR] = seq!(N in 0..8 {
                 [
                 #(
                     rmap[usize::from(r_targets[N])],
@@ -343,7 +344,7 @@ fn find_matches(
                 continue;
             }
 
-            let _: [(); FIND_MATCHES_AND_COMPUTE_UNROLL_FACTOR] = seq!(N in 0..8 {
+            let _: [(); FIND_MATCHES_UNROLL_FACTOR] = seq!(N in 0..8 {
                 [
                 #(
                 {
