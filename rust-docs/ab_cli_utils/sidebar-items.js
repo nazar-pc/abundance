@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["init_logger","set_exit_on_panic"]};
