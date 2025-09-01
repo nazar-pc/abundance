@@ -34,6 +34,8 @@ use spin::Mutex;
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
 const FIND_MATCHES_UNROLL_FACTOR: usize = 8;
 const COMPUTE_FN_SIMD_FACTOR: usize = 16;
+const MAX_BUCKET_SIZE: usize = 512;
+const BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS: u8 = 128;
 
 /// Compute the size of `y` in bits
 pub(super) const fn y_size_bits(k: u8) -> usize {
@@ -73,6 +75,52 @@ fn partial_ys<const K: u8>(seed: Seed) -> Vec<u8> {
     cipher.write_keystream(&mut output);
 
     output
+}
+
+/// Calculate a probabilistic upper bound on the Chia bucket size for a given `k` and
+/// `security_bits` (security level).
+///
+/// This is based on a Chernoff bound for the Poisson distribution with mean
+/// `lambda = PARAM_BC / 2^PARAM_EXT`, ensuring the probability that any bucket exceeds the bound is
+/// less than `2^{-security_bits}`.
+/// The bound is lambda + ceil(sqrt(3 * lambda * (k + security_bits) * ln(2))).
+const fn bucket_size_upper_bound(k: u8, security_bits: u8) -> usize {
+    // Lambda is the expected number of entries in a bucket, approximated as
+    // `PARAM_BC / 2^PARAM_EXT`. It is independent of `k`.
+    const LAMBDA: u64 = PARAM_BC as u64 / 2u64.pow(PARAM_EXT as u32);
+    // Approximation of ln(2) as a fraction: ln(2) ≈ LN2_NUM / LN2_DEN.
+    // This allows integer-only computation of the square root term involving ln(2).
+    const LN2_NUM: u128 = 693147;
+    const LN2_DEN: u128 = 1000000;
+
+    // `k + security_bits` for the union bound over ~2^k intervals
+    let ks = k as u128 + security_bits as u128;
+    // Compute numerator for the expression under the square root:
+    // `3 * lambda * (k + security_bits) * LN2_NUM`
+    let num = 3u128 * LAMBDA as u128 * ks * LN2_NUM;
+    // Denominator for ln(2): `LN2_DEN`
+    let den = LN2_DEN;
+
+    let ceil_div: u128 = num.div_ceil(den);
+
+    // Binary search to find the smallest `x` such that `x * x * den >= num`,
+    // which computes `ceil(sqrt(num / den))` without floating-point.
+    // We use a custom binary search over `u64` range because binary search in the standard library
+    // operates on sorted slices, not directly on integer ranges for solving inequalities like this.
+    let mut low = 0u64;
+    let mut high = u64::MAX;
+    while low < high {
+        let mid = low + (high - low) / 2;
+        let left = (mid as u128) * (mid as u128);
+        if left >= ceil_div {
+            high = mid;
+        } else {
+            low = mid + 1;
+        }
+    }
+    let add_term = low;
+
+    (LAMBDA + add_term) as usize
 }
 
 /// Mapping from `parity` to `r` to `m`
@@ -709,6 +757,10 @@ where
     where
         EvaluatableUsize<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>: Sized,
     {
+        debug_assert!(
+            MAX_BUCKET_SIZE >= bucket_size_upper_bound(K, BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS),
+            "Max bucket size is not sufficiently large"
+        );
         let partial_ys = partial_ys::<K>(seed);
 
         let mut t_1 = Vec::with_capacity(1_usize << K);
@@ -739,6 +791,10 @@ where
     where
         EvaluatableUsize<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>: Sized,
     {
+        debug_assert!(
+            MAX_BUCKET_SIZE >= bucket_size_upper_bound(K, BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS),
+            "Max bucket size is not sufficiently large"
+        );
         let partial_ys = partial_ys::<K>(seed);
 
         let mut t_1 = Vec::with_capacity(1_usize << K);
