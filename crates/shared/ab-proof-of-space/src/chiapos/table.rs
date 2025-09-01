@@ -283,18 +283,16 @@ fn find_matches(
         (usize::from(first_right_bucket_y) / usize::from(PARAM_BC)) * usize::from(PARAM_BC);
     for (&y, right_position) in right_bucket_ys.iter().zip(right_bucket_start_position..) {
         let r = usize::from(y) - right_base;
-        // SAFETY: All entries in a bucket are obtained after division by `PARAM_BC` by definition
-        unsafe {
-            assert_unchecked(r < usize::from(PARAM_BC));
-        }
+        // SAFETY: `r` is within a bucket and exists by definition
+        let rmap_item = unsafe { rmap.get_unchecked_mut(r) };
 
         // The same `y` and as a result `r` can appear in the table multiple times, in which case
         // they'll all occupy consecutive slots in `right_bucket` and all we need to store is just
         // the first position and number of elements.
-        if rmap[r] == RmapItem::EMPTY {
-            rmap[r] = RmapItem::new(right_position);
+        if *rmap_item == RmapItem::EMPTY {
+            *rmap_item = RmapItem::new(right_position);
         }
-        rmap[r].increment();
+        rmap_item.increment();
     }
 
     // Same idea as above, but avoids division by leveraging the fact that each bucket is exactly
@@ -305,14 +303,8 @@ fn find_matches(
 
     for (&y, left_position) in left_bucket_ys.iter().zip(left_bucket_start_position..) {
         let r = usize::from(y) - left_base;
-        // SAFETY: All entries in a bucket are obtained after division by `PARAM_BC` by definition
-        unsafe {
-            assert_unchecked(r < usize::from(PARAM_BC));
-        }
-        let left_targets_r = left_targets_parity
-            .get(r)
-            .expect("r is valid; qed")
-            .as_array();
+        // SAFETY: `r` is within a bucket and exists by definition
+        let left_targets_r = unsafe { left_targets_parity.get_unchecked(r) }.as_array();
 
         const _: () = {
             assert!((PARAM_M as usize).is_multiple_of(FIND_MATCHES_UNROLL_FACTOR));
@@ -326,7 +318,8 @@ fn find_matches(
             let rmap_items: [_; FIND_MATCHES_UNROLL_FACTOR] = seq!(N in 0..8 {
                 [
                 #(
-                    rmap[usize::from(r_targets[N])],
+                    // SAFETY: target is within a bucket and exists by definition
+                    *unsafe { rmap.get_unchecked(usize::from(r_targets[N])) },
                 )*
                 ]
             });
@@ -666,7 +659,7 @@ where
     })
 }
 
-fn matches_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
+fn matches_to_results<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     last_table: &Table<K, PARENT_TABLE_NUMBER>,
     matches: &[Match],
     entries: &mut Vec<(Y, [Position; 2], Metadata<K, TABLE_NUMBER>)>,
@@ -674,8 +667,6 @@ fn matches_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
 {
-    entries.reserve(matches.len());
-
     let (grouped_matches, other_matches) = matches.as_chunks::<COMPUTE_FN_SIMD_FACTOR>();
     for &grouped_matches in grouped_matches {
         entries.extend(match_to_result_simd(last_table, &grouped_matches));
@@ -772,7 +763,8 @@ where
         Self::First { ys, xs }
     }
 
-    /// All `x`s as [`BitSlice`], for individual `x`s needs to be slices into [`K`] bits slices
+    /// All `x`s
+    #[inline(always)]
     pub(super) fn xs(&self) -> &[X] {
         match self {
             Table::First { xs, .. } => xs,
@@ -833,7 +825,7 @@ where
         EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     {
         let matches = &mut cache.matches;
-        let left_targets = &cache.left_targets;
+        let left_targets = &*cache.left_targets;
 
         let mut left_bucket = Bucket {
             bucket_index: 0,
@@ -893,7 +885,7 @@ where
 
         let num_values = 1 << K;
         let mut t_n = Vec::with_capacity(num_values);
-        matches_to_result(last_table, matches, &mut t_n);
+        matches_to_results(last_table, matches, &mut t_n);
         matches.clear();
         t_n.sort_by_key(|(y, _positions, _metadata)| *y);
 
@@ -933,7 +925,7 @@ where
     where
         EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     {
-        let left_targets = &cache.left_targets;
+        let left_targets = &*cache.left_targets;
 
         let mut first_bucket = Bucket {
             bucket_index: u32::from(last_table.ys()[0]) / u32::from(PARAM_BC),
@@ -1006,7 +998,7 @@ where
                     left_targets,
                 );
 
-                matches_to_result(last_table, &matches, &mut entries);
+                matches_to_results(last_table, &matches, &mut entries);
                 matches.clear();
             }
 
@@ -1053,7 +1045,8 @@ impl<const K: u8, const TABLE_NUMBER: u8> Table<K, TABLE_NUMBER>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
 {
-    /// All `y`s as [`BitSlice`], for individual `x`s needs to be slices into [`K`] bits slices
+    /// All `y`s
+    #[inline(always)]
     pub(super) fn ys(&self) -> &[Y] {
         let (Table::First { ys, .. } | Table::Other { ys, .. }) = self;
         ys
@@ -1061,6 +1054,7 @@ where
 
     /// Returns `None` for an invalid position or first table, `Some(left_position, right_position)`
     /// in the previous table on success
+    #[inline(always)]
     pub(super) fn position(&self, position: Position) -> Option<[Position; 2]> {
         match self {
             Table::First { .. } => None,
@@ -1069,7 +1063,8 @@ where
     }
 
     /// Returns `None` for an invalid position or for table number 7
-    pub(super) fn metadata(&self, position: Position) -> Option<Metadata<K, TABLE_NUMBER>> {
+    #[inline(always)]
+    fn metadata(&self, position: Position) -> Option<Metadata<K, TABLE_NUMBER>> {
         match self {
             Table::First { xs, .. } => xs.get(usize::from(position)).map(|&x| Metadata::from(x)),
             Table::Other { metadatas, .. } => metadatas.get(usize::from(position)).copied(),
