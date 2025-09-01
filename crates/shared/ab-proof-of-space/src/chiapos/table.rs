@@ -690,7 +690,8 @@ pub(super) enum Table<const K: u8, const TABLE_NUMBER: u8>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
 {
-    /// First table with contents of entries split into separate vectors for more efficient access
+    /// First table with the contents of entries split into separate vectors for more efficient
+    /// access
     First {
         /// Derived values computed from `x`
         ys: Vec<Y>,
@@ -699,7 +700,7 @@ where
     },
     /// Other tables
     Other {
-        /// Derived values computed from previous table
+        /// Derived values computed from the previous table
         ys: Vec<Y>,
         /// Left and right entry positions in a previous table encoded into bits
         positions: Vec<[Position; 2]>,
@@ -821,7 +822,7 @@ where
     Self: private::SupportedOtherTables,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
 {
-    /// Creates new [`TABLE_NUMBER`] table. There also exists [`Self::create_parallel()`] that
+    /// Creates a new [`TABLE_NUMBER`] table. There also exists [`Self::create_parallel()`] that
     /// trades CPU efficiency and memory usage for lower latency and with multiple parallel calls,
     /// better overall performance.
     pub(super) fn create<const PARENT_TABLE_NUMBER: u8>(
@@ -1058,8 +1059,8 @@ where
         ys
     }
 
-    /// Returns `None` on invalid position or first table, `Some(left_position, right_position)` in
-    /// previous table on success
+    /// Returns `None` for an invalid position or first table, `Some(left_position, right_position)`
+    /// in the previous table on success
     pub(super) fn position(&self, position: Position) -> Option<[Position; 2]> {
         match self {
             Table::First { .. } => None,
@@ -1067,7 +1068,7 @@ where
         }
     }
 
-    /// Returns `None` on invalid position or for table number 7
+    /// Returns `None` for an invalid position or for table number 7
     pub(super) fn metadata(&self, position: Position) -> Option<Metadata<K, TABLE_NUMBER>> {
         match self {
             Table::First { xs, .. } => xs.get(usize::from(position)).map(|&x| Metadata::from(x)),
