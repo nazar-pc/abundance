@@ -23,11 +23,9 @@ ab-chacha8 = { workspace = true }
 ab-core-primitives = { workspace = true }
 chacha20 = { workspace = true, features = ["cipher"] }
 derive_more = { workspace = true, features = ["full"] }
-parking_lot = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 seq-macro = { workspace = true }
 sha2 = { workspace = true, optional = true }
-spin = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
@@ -44,8 +42,6 @@ alloc = []
 std = [
     "alloc",
     "derive_more/std",
-    # In no-std environment we use `spin`
-    "parking_lot",
 ]
 # Enabling this feature exposes quality search on `chiapos` module as well as enables support for K=15..=25 (by default
 # only K=20 is exposed)

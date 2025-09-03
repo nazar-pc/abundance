@@ -5,9 +5,12 @@
 #![feature(
     array_windows,
     generic_const_exprs,
-    iter_collect_into,
+    maybe_uninit_slice,
+    maybe_uninit_write_slice,
     portable_simd,
-    step_trait
+    step_trait,
+    sync_unsafe_cell,
+    vec_into_raw_parts
 )]
 
 pub mod chia;

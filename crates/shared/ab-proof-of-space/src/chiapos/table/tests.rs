@@ -8,12 +8,14 @@ use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT};
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::table::{
     COMPUTE_F1_SIMD_FACTOR, calculate_left_targets, compute_f1, compute_f1_simd, compute_fn,
-    compute_fn_simd, find_matches, metadata_size_bytes,
+    compute_fn_simd, find_matches_in_buckets, metadata_size_bytes,
 };
 use crate::chiapos::utils::EvaluatableUsize;
 use alloc::collections::BTreeMap;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use core::mem::MaybeUninit;
+use core::simd::prelude::*;
 
 /// Chia does this for some reason 🤷
 fn to_chia_seed(seed: &Seed) -> Seed {
@@ -42,7 +44,7 @@ fn test_compute_f1_k25() {
         let mut partial_ys = [0; K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize];
         let starts_with_partial_y_bits = y.first_k_bits() << (u32::BITS - u32::from(K));
         partial_ys[..size_of::<u32>()].copy_from_slice(&starts_with_partial_y_bits.to_be_bytes());
-        let y = compute_f1_simd::<K>([x.into(); COMPUTE_F1_SIMD_FACTOR], &partial_ys);
+        let y = compute_f1_simd::<K>(Simd::splat(x.into()), &partial_ys);
         assert_eq!(y[0], Y::from(expected_y));
     }
 }
@@ -67,7 +69,7 @@ fn test_compute_f1_k22() {
         let mut partial_ys = [0; K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize];
         let starts_with_partial_y_bits = y.first_k_bits() << (u32::BITS - u32::from(K));
         partial_ys[..size_of::<u32>()].copy_from_slice(&starts_with_partial_y_bits.to_be_bytes());
-        let y = compute_f1_simd::<K>([x.into(); COMPUTE_F1_SIMD_FACTOR], &partial_ys);
+        let y = compute_f1_simd::<K>(Simd::splat(x.into()), &partial_ys);
         assert_eq!(y[0], Y::from(expected_y));
     }
 }
@@ -133,22 +135,56 @@ fn test_matches() {
     let left_targets = calculate_left_targets();
     let bucket_ys = bucket_ys.into_values().collect::<Vec<_>>();
     let mut total_matches = 0_usize;
-    for [mut left_bucket_ys, mut right_bucket_ys] in bucket_ys.array_windows::<2>().cloned() {
-        left_bucket_ys.sort_unstable();
-        right_bucket_ys.sort_unstable();
+    for (left_bucket_index, [left_bucket_ys, right_bucket_ys]) in
+        bucket_ys.array_windows::<2>().cloned().enumerate()
+    {
+        let mut left_bucket = [Position::SENTINEL; _];
+        assert!(left_bucket_ys.len() <= left_bucket.len());
+        for (position, index) in left_bucket.iter_mut().zip(0..left_bucket_ys.len()) {
+            *position = Position::from(index as u32);
+        }
+        let mut right_bucket = [Position::SENTINEL; _];
+        assert!(right_bucket_ys.len() <= right_bucket.len());
+        for (position, index) in right_bucket
+            .iter_mut()
+            .zip((left_bucket_ys.len()..).take(right_bucket_ys.len()))
+        {
+            *position = Position::from(index as u32);
+        }
+        let last_table_ys = left_bucket_ys
+            .iter()
+            .copied()
+            .chain(right_bucket_ys.iter().copied())
+            .map(MaybeUninit::new)
+            .collect::<Vec<_>>();
 
-        let mut matches = Vec::new();
-        find_matches(
-            &left_bucket_ys,
-            Position::ZERO,
-            &right_bucket_ys,
-            Position::ZERO,
-            &mut matches,
-            &left_targets,
-        );
+        let mut matches = [MaybeUninit::uninit(); _];
+        // SAFETY: Positions correspond to `y`s
+        let matches = unsafe {
+            find_matches_in_buckets(
+                left_bucket_index as u32,
+                &left_bucket,
+                &right_bucket,
+                &last_table_ys,
+                &mut matches,
+                &left_targets,
+            )
+        };
         for m in matches {
-            let yl = usize::from(*left_bucket_ys.get(usize::from(m.left_position)).unwrap());
-            let yr = usize::from(*right_bucket_ys.get(usize::from(m.right_position)).unwrap());
+            // SAFETY: All `y`s are initialized
+            let yl = usize::from(unsafe {
+                last_table_ys
+                    .get(usize::from(m.left_position))
+                    .unwrap()
+                    .assume_init()
+            });
+            // SAFETY: All `y`s are initialized
+            let yr = usize::from(unsafe {
+                last_table_ys
+                    .get(usize::from(m.right_position))
+                    .unwrap()
+                    .assume_init()
+            });
 
             assert!(check_match(yl, yr));
             total_matches += 1;

@@ -42,7 +42,6 @@ where
     EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
 {
-    table_1: Table<K, 1>,
     table_2: Table<K, 2>,
     table_3: Table<K, 3>,
     table_4: Table<K, 4>,
@@ -66,16 +65,17 @@ where
     /// Create Chia proof of space tables. There also exists [`Self::create_parallel()`] that trades
     /// CPU efficiency and memory usage for lower latency.
     pub(super) fn create(seed: Seed, cache: &mut TablesCache<K>) -> Self {
-        let table_1 = Table::<K, 1>::create(seed);
-        let table_2 = Table::<K, 2>::create(&table_1, cache);
-        let table_3 = Table::<K, 3>::create(&table_2, cache);
-        let table_4 = Table::<K, 4>::create(&table_3, cache);
-        let table_5 = Table::<K, 5>::create(&table_4, cache);
-        let table_6 = Table::<K, 6>::create(&table_5, cache);
-        let table_7 = Table::<K, 7>::create(&table_6, cache);
+        let mut table_1 = Table::<K, 1>::create(seed);
+        let mut table_2 = Table::<K, 2>::create(&mut table_1, cache);
+        // Free memory early
+        drop(table_1);
+        let mut table_3 = Table::<K, 3>::create(&mut table_2, cache);
+        let mut table_4 = Table::<K, 4>::create(&mut table_3, cache);
+        let mut table_5 = Table::<K, 5>::create(&mut table_4, cache);
+        let mut table_6 = Table::<K, 6>::create(&mut table_5, cache);
+        let table_7 = Table::<K, 7>::create(&mut table_6, cache);
 
         Self {
-            table_1,
             table_2,
             table_3,
             table_4,
@@ -90,16 +90,17 @@ where
     /// in parallel, prefer [`Self::create()`] for better overall performance.
     #[cfg(any(feature = "parallel", test))]
     pub(super) fn create_parallel(seed: Seed, cache: &mut TablesCache<K>) -> Self {
-        let table_1 = Table::<K, 1>::create_parallel(seed);
-        let table_2 = Table::<K, 2>::create_parallel(&table_1, cache);
-        let table_3 = Table::<K, 3>::create_parallel(&table_2, cache);
-        let table_4 = Table::<K, 4>::create_parallel(&table_3, cache);
-        let table_5 = Table::<K, 5>::create_parallel(&table_4, cache);
-        let table_6 = Table::<K, 6>::create_parallel(&table_5, cache);
-        let table_7 = Table::<K, 7>::create_parallel(&table_6, cache);
+        let mut table_1 = Table::<K, 1>::create_parallel(seed);
+        let mut table_2 = Table::<K, 2>::create_parallel(&mut table_1, cache);
+        // Free memory early
+        drop(table_1);
+        let mut table_3 = Table::<K, 3>::create_parallel(&mut table_2, cache);
+        let mut table_4 = Table::<K, 4>::create_parallel(&mut table_3, cache);
+        let mut table_5 = Table::<K, 5>::create_parallel(&mut table_4, cache);
+        let mut table_6 = Table::<K, 6>::create_parallel(&mut table_5, cache);
+        let table_7 = Table::<K, 7>::create_parallel(&mut table_6, cache);
 
         Self {
-            table_1,
             table_2,
             table_3,
             table_4,
@@ -117,7 +118,6 @@ where
     ) -> impl Iterator<Item = Quality> + 'a {
         let last_5_challenge_bits = challenge[challenge.len() - 1] & 0b00011111;
 
-        let ys = self.table_7.ys();
         // We take advantage of the fact that entries are sorted by `y` (as big-endian numbers) to
         // quickly seek to desired offset
         let first_k_challenge_bits = u32::from_be_bytes(
@@ -125,65 +125,54 @@ where
                 .try_into()
                 .expect("Challenge is known to statically have enough bytes; qed"),
         ) >> (u32::BITS as usize - usize::from(K));
-        let first_matching_y = Y::from_first_k_bits(first_k_challenge_bits);
-        let mut first_matching_element = ys
-            .binary_search_by(|&y| y.cmp(&first_matching_y))
-            .unwrap_or_else(|insert| insert);
-
-        // We only compare the first K bits above, which is why `binary_search_by` is not guaranteed
-        // to find the very first match in case there is multiple
-        for index in (0..first_matching_element).rev() {
-            if ys[index].first_k_bits() == first_k_challenge_bits {
-                first_matching_element = index;
-            } else {
-                break;
-            }
-        }
 
         // Iterate just over elements that are matching `first_k_challenge_bits` prefix
-        ys[first_matching_element..]
+        self.table_7.buckets()[Y::bucket_range_from_first_k_bits(first_k_challenge_bits)]
             .iter()
-            .take_while(move |&&y| {
-                // Check if the first K bits of `y` match
-                y.first_k_bits() == first_k_challenge_bits
-            })
-            .zip(Position::from(first_matching_element as u32)..)
-            .map(move |(_y, position)| {
-                let positions = self
-                    .table_7
-                    .position(position)
-                    .expect("Internally generated pointers must be correct; qed");
-                let positions = self
-                    .table_6
-                    .position(pick_position(positions, last_5_challenge_bits, 6))
-                    .expect("Internally generated pointers must be correct; qed");
-                let positions = self
-                    .table_5
-                    .position(pick_position(positions, last_5_challenge_bits, 5))
-                    .expect("Internally generated pointers must be correct; qed");
-                let positions = self
-                    .table_4
-                    .position(pick_position(positions, last_5_challenge_bits, 4))
-                    .expect("Internally generated pointers must be correct; qed");
-                let positions = self
-                    .table_3
-                    .position(pick_position(positions, last_5_challenge_bits, 3))
-                    .expect("Internally generated pointers must be correct; qed");
-                let [left_position, right_position] = self
-                    .table_2
-                    .position(pick_position(positions, last_5_challenge_bits, 2))
-                    .expect("Internally generated pointers must be correct; qed");
+            .flat_map(move |positions| {
+                positions
+                    .iter()
+                    .take_while(|&&position| position != Position::SENTINEL)
+                    .filter(move |&&position| {
+                        // SAFETY: `position` comes from `self.table_7.buckets()` and is not a
+                        // sentinel value
+                        let y = unsafe { self.table_7.y(position) };
 
-                let left_x = *self
-                    .table_1
-                    .xs()
-                    .get(usize::from(left_position))
-                    .expect("Internally generated pointers must be correct; qed");
-                let right_x = *self
-                    .table_1
-                    .xs()
-                    .get(usize::from(right_position))
-                    .expect("Internally generated pointers must be correct; qed");
+                        y.first_k_bits() == first_k_challenge_bits
+                    })
+            })
+            .map(move |&position| {
+                // SAFETY: Internally generated positions that come from the parent table
+                let positions = unsafe { self.table_7.position(position) };
+                // SAFETY: Internally generated positions that come from the parent table
+                let positions = unsafe {
+                    self.table_6
+                        .position(pick_position(positions, last_5_challenge_bits, 6))
+                };
+                // SAFETY: Internally generated positions that come from the parent table
+                let positions = unsafe {
+                    self.table_5
+                        .position(pick_position(positions, last_5_challenge_bits, 5))
+                };
+                // SAFETY: Internally generated positions that come from the parent table
+                let positions = unsafe {
+                    self.table_4
+                        .position(pick_position(positions, last_5_challenge_bits, 4))
+                };
+                // SAFETY: Internally generated positions that come from the parent table
+                let positions = unsafe {
+                    self.table_3
+                        .position(pick_position(positions, last_5_challenge_bits, 3))
+                };
+                // SAFETY: Internally generated positions that come from the parent table
+                let [left_position, right_position] = unsafe {
+                    self.table_2
+                        .position(pick_position(positions, last_5_challenge_bits, 2))
+                };
+
+                // X matches position
+                let left_x = X::from(u32::from(left_position));
+                let right_x = X::from(u32::from(right_position));
 
                 let mut hasher = Sha256::new();
                 hasher.update(challenge);
@@ -201,7 +190,6 @@ where
         &'a self,
         challenge: &'a Challenge,
     ) -> impl Iterator<Item = [u8; 64 * K as usize / 8]> + 'a {
-        let ys = self.table_7.ys();
         // We take advantage of the fact that entries are sorted by `y` (as big-endian numbers) to
         // quickly seek to desired offset
         let first_k_challenge_bits = u32::from_be_bytes(
@@ -209,69 +197,54 @@ where
                 .try_into()
                 .expect("Challenge is known to statically have enough bytes; qed"),
         ) >> (u32::BITS as usize - usize::from(K));
-        let first_matching_y = Y::from_first_k_bits(first_k_challenge_bits);
-        let mut first_matching_element = ys
-            .binary_search_by(|&y| y.cmp(&first_matching_y))
-            .unwrap_or_else(|insert| insert);
-
-        // We only compare the first K bits above, which is why `binary_search_by` is not guaranteed
-        // to find the very first match in case there is multiple
-        for index in (0..first_matching_element).rev() {
-            if ys[index].first_k_bits() == first_k_challenge_bits {
-                first_matching_element = index;
-            } else {
-                break;
-            }
-        }
 
         // Iterate just over elements that are matching `first_k_challenge_bits` prefix
-        ys[first_matching_element..]
+        self.table_7.buckets()[Y::bucket_range_from_first_k_bits(first_k_challenge_bits)]
             .iter()
-            .take_while(move |&&y| {
-                // Check if the first K bits of `y` match
-                y.first_k_bits() == first_k_challenge_bits
+            .flat_map(move |positions| {
+                positions
+                    .iter()
+                    .take_while(|&&position| position != Position::SENTINEL)
+                    .filter(move |&&position| {
+                        // SAFETY: `position` comes from `self.table_7.buckets()` and is not a
+                        // sentinel value
+                        let y = unsafe { self.table_7.y(position) };
+
+                        y.first_k_bits() == first_k_challenge_bits
+                    })
             })
-            .zip(Position::from(first_matching_element as u32)..)
-            .map(move |(_y, position)| {
+            .map(move |&position| {
                 let mut proof = [0u8; 64 * K as usize / 8];
 
-                self.table_7
-                    .position(position)
-                    .expect("Internally generated pointers must be correct; qed")
+                // SAFETY: Internally generated positions that come from the parent table
+                unsafe { self.table_7.position(position) }
                     .into_iter()
                     .flat_map(|position| {
-                        self.table_6
-                            .position(position)
-                            .expect("Internally generated pointers must be correct; qed")
+                        // SAFETY: Internally generated positions that come from the parent table
+                        unsafe { self.table_6.position(position) }
                     })
                     .flat_map(|position| {
-                        self.table_5
-                            .position(position)
-                            .expect("Internally generated pointers must be correct; qed")
+                        // SAFETY: Internally generated positions that come from the parent table
+                        unsafe { self.table_5.position(position) }
                     })
                     .flat_map(|position| {
-                        self.table_4
-                            .position(position)
-                            .expect("Internally generated pointers must be correct; qed")
+                        // SAFETY: Internally generated positions that come from the parent table
+                        unsafe { self.table_4.position(position) }
                     })
                     .flat_map(|position| {
-                        self.table_3
-                            .position(position)
-                            .expect("Internally generated pointers must be correct; qed")
+                        // SAFETY: Internally generated positions that come from the parent table
+                        unsafe { self.table_3.position(position) }
                     })
                     .flat_map(|position| {
-                        self.table_2
-                            .position(position)
-                            .expect("Internally generated pointers must be correct; qed")
+                        // SAFETY: Internally generated positions that come from the parent table
+                        unsafe { self.table_2.position(position) }
                     })
                     .map(|position| {
-                        self.table_1
-                            .xs()
-                            .get(usize::from(position))
-                            .expect("Internally generated pointers must be correct; qed")
+                        // X matches position
+                        X::from(u32::from(position))
                     })
                     .enumerate()
-                    .for_each(|(offset, &x)| {
+                    .for_each(|(offset, x)| {
                         let x_offset_in_bits = usize::from(K) * offset;
                         // Collect bytes where bits of `x` will be written
                         let proof_bytes = &mut proof[x_offset_in_bits / u8::BITS as usize..]

@@ -497,11 +497,9 @@ dependencies = [
  "chacha20",
  "criterion",
  "derive_more 2.0.1",
- "parking_lot",
  "rayon",
  "seq-macro",
  "sha2 0.11.0-rc.0",
- "spin",
 ]
 
 [[package]]
@@ -3239,15 +3237,6 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
-
-[[package]]
-name = "spin"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5fe4ccb98d9c292d56fec89a5e07da7fc4cf0dc11e156b41793132775d3e591"
-dependencies = [
- "lock_api",
-]
 
 [[package]]
 name = "spirv"
