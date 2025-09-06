@@ -1,8 +1,10 @@
-use crate::chiapos::constants::PARAM_EXT;
+use crate::chiapos::constants::{PARAM_BC, PARAM_EXT};
 use crate::chiapos::table::metadata_size_bytes;
 use crate::chiapos::utils::EvaluatableUsize;
 use core::iter::Step;
 use core::mem;
+use core::mem::MaybeUninit;
+use core::ops::RangeInclusive;
 use derive_more::{Add, AddAssign, From, Into};
 
 /// Stores data in lower bits
@@ -49,12 +51,7 @@ impl From<X> for usize {
 }
 
 impl X {
-    #[inline(always)]
-    pub(super) const fn array_from_repr<const N: usize>(array: [u32; N]) -> [Self; N] {
-        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/61956
-        // SAFETY: `X` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute_copy(&array) }
-    }
+    pub(in super::super) const ZERO: Self = Self(0);
 }
 
 /// Stores data in lower bits
@@ -77,10 +74,12 @@ impl From<Y> for usize {
 }
 
 impl Y {
-    /// The smallest `Y` that has provided `value` as first `K` bits
+    /// The range of buckets where `Y`s with the provided first `K` bits are located
     #[inline(always)]
-    pub(in super::super) fn from_first_k_bits(value: u32) -> Self {
-        Self(value << PARAM_EXT)
+    pub(in super::super) fn bucket_range_from_first_k_bits(value: u32) -> RangeInclusive<usize> {
+        let from = value << PARAM_EXT;
+        let to = from | (u32::MAX >> (u32::BITS - u32::from(PARAM_EXT)));
+        from as usize / usize::from(PARAM_BC)..=to as usize / usize::from(PARAM_BC)
     }
 
     /// Get the first `K` bits
@@ -92,8 +91,17 @@ impl Y {
     #[inline(always)]
     pub(super) const fn array_from_repr<const N: usize>(array: [u32; N]) -> [Self; N] {
         // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/61956
-        // SAFETY: `T` is `#[repr(C)]` and guaranteed to have the same memory layout
+        // SAFETY: `Y` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute_copy(&array) }
+    }
+
+    /// Convenient conversion to a slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub(super) const fn maybe_uninit_repr_from_slice(
+        value: &[MaybeUninit<Self>],
+    ) -> &[MaybeUninit<u32>] {
+        // SAFETY: `Y` is `#[repr(C)]` and guaranteed to have the same memory layout
+        unsafe { mem::transmute(value) }
     }
 }
 
@@ -129,7 +137,8 @@ impl From<Position> for usize {
 
 impl Position {
     pub(in super::super) const ZERO: Self = Self(0);
-    pub(in super::super) const ONE: Self = Self(1);
+    /// Position that can't exist
+    pub(in super::super) const SENTINEL: Self = Self(u32::MAX);
 }
 
 /// Stores data in lower bits

@@ -93,3 +93,18 @@ submitted to enact such change.
 
 After switching from KZG to Merkle Trees, commitments are renamed to roots, witnesses to proofs. Scalars are also called
 record chunks now.
+
+## Proof-of-space
+
+While there are many valid proof-of-space constructions that will successfully validate by Subspace consensus, reference
+implementation used one that corresponded to Chia reference implementation and contained all possible proofs. Turns out,
+this is unnecessary for Subspace purposes. Because of this, implementation was optimized for performance on both CPU and
+GPU at the cost of throwing away some proofs, while ensuring there is still enough of them left to fully encode sectors
+during plotting.
+
+In particular, new optimized implementation doesn't sort tables by `y` values, instead it only groups them by buckets,
+while limiting the bucket size for performance reasons. Similarly, matches that were found are also truncated for
+performance reasons. So as a result, some of the proofs that must exist will not be found.
+
+Since the tables are no longer sorted, proof searching now does full scan of the buckets where matching `y` values are
+potentially located, which while is a bit slower, is more than compensated by table creation performance improvements.
