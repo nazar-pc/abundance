@@ -74,9 +74,9 @@ impl Tables<$k> {
     /// Find proof of space for given challenge.
     pub fn find_proof<'a>(
         &'a self,
-        challenge: &'a Challenge,
+        first_challenge_bytes: [u8; 4],
     ) -> impl Iterator<Item = [u8; 64 * $k / 8]> + 'a {
-        self.0.find_proof(challenge)
+        self.0.find_proof(first_challenge_bytes)
     }
 
     /// Verify proof of space for given seed and challenge.

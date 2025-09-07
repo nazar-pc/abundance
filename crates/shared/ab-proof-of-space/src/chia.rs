@@ -72,11 +72,10 @@ impl Table for ChiaTable {
 
     #[cfg(feature = "alloc")]
     fn find_proof(&self, challenge_index: u32) -> Option<PosProof> {
-        let mut challenge = [0; 32];
-        challenge[..size_of::<u32>()].copy_from_slice(&challenge_index.to_le_bytes());
+        let first_challenge_bytes = challenge_index.to_le_bytes();
 
         self.tables
-            .find_proof(&challenge)
+            .find_proof(first_challenge_bytes)
             .next()
             .map(PosProof::from)
     }

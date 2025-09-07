@@ -193,15 +193,12 @@ where
     /// Find proof of space for a given challenge
     pub(super) fn find_proof<'a>(
         &'a self,
-        challenge: &'a Challenge,
+        first_challenge_bytes: [u8; 4],
     ) -> impl Iterator<Item = [u8; 64 * K as usize / 8]> + 'a {
         // We take advantage of the fact that entries are sorted by `y` (as big-endian numbers) to
         // quickly seek to desired offset
-        let first_k_challenge_bits = u32::from_be_bytes(
-            challenge[..size_of::<u32>()]
-                .try_into()
-                .expect("Challenge is known to statically have enough bytes; qed"),
-        ) >> (u32::BITS as usize - usize::from(K));
+        let first_k_challenge_bits =
+            u32::from_be_bytes(first_challenge_bytes) >> (u32::BITS as usize - usize::from(K));
 
         // Iterate just over elements that are matching `first_k_challenge_bits` prefix
         self.table_7.buckets()[Y::bucket_range_from_first_k_bits(first_k_challenge_bits)]
