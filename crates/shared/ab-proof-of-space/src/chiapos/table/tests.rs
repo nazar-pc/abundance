@@ -152,13 +152,13 @@ fn test_matches() {
         {
             *position = Position::from(index as u32);
         }
-        let last_table_ys = left_bucket_ys
+        let parent_table_ys = left_bucket_ys
             .iter()
             .copied()
             .chain(right_bucket_ys.iter().copied())
             .collect::<Vec<_>>();
-        let last_table = Table::<K, 2>::Other {
-            ys: last_table_ys,
+        let parent_table = Table::<K, 2>::Other {
+            ys: parent_table_ys,
             // Not used below
             positions: Default::default(),
             // Not used below
@@ -174,16 +174,16 @@ fn test_matches() {
                 left_bucket_index as u32,
                 &left_bucket,
                 &right_bucket,
-                &last_table,
+                &parent_table,
                 &mut matches,
                 &left_targets,
             )
         };
         for m in matches {
             // SAFETY: All `y`s are initialized
-            let yl = usize::from(unsafe { last_table.y(m.left_position) });
+            let yl = usize::from(unsafe { parent_table.y(m.left_position) });
             // SAFETY: All `y`s are initialized
-            let yr = usize::from(unsafe { last_table.y(m.right_position) });
+            let yr = usize::from(unsafe { parent_table.y(m.right_position) });
 
             assert!(check_match(yl, yr));
             total_matches += 1;

@@ -389,7 +389,7 @@ unsafe fn find_matches_in_buckets<'a, const K: u8, const PARENT_TABLE_NUMBER: u8
     left_bucket_index: u32,
     left_bucket: &[Position; REDUCED_BUCKETS_SIZE],
     right_bucket: &[Position; REDUCED_BUCKETS_SIZE],
-    last_table: &Table<K, PARENT_TABLE_NUMBER>,
+    parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     // `PARAM_M as usize * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
     matches: &'a mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT + PARAM_M as usize * 2],
@@ -414,7 +414,7 @@ where
             break;
         }
         // SAFETY: Guaranteed by function contract
-        let y = unsafe { last_table.y(right_position) };
+        let y = unsafe { parent_table.y(right_position) };
         // SAFETY: Guaranteed by function contract
         let r = u32::from(y) as usize - right_base as usize;
         // SAFETY: `r` is within a bucket and exists by definition
@@ -443,7 +443,7 @@ where
         }
 
         // SAFETY: Guaranteed by function contract
-        let y = unsafe { last_table.y(left_position) };
+        let y = unsafe { parent_table.y(left_position) };
         let r = u32::from(y) - left_base;
         // SAFETY: `r` is within a bucket and exists by definition
         let left_targets_r = unsafe { left_targets_parity.get_unchecked(r as usize) }.as_array();
@@ -737,7 +737,7 @@ where
 /// # Safety
 /// `m` must contain positions that correspond to the parent table
 unsafe fn match_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
-    last_table: &Table<K, PARENT_TABLE_NUMBER>,
+    parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     m: &Match,
 ) -> (Y, [Position; 2], Metadata<K, TABLE_NUMBER>)
 where
@@ -748,9 +748,9 @@ where
     [(); num_buckets(K)]:,
 {
     // SAFETY: Guaranteed by function contract
-    let left_metadata = unsafe { last_table.metadata(m.left_position) };
+    let left_metadata = unsafe { parent_table.metadata(m.left_position) };
     // SAFETY: Guaranteed by function contract
-    let right_metadata = unsafe { last_table.metadata(m.right_position) };
+    let right_metadata = unsafe { parent_table.metadata(m.right_position) };
 
     let (y, metadata) =
         compute_fn::<K, TABLE_NUMBER, PARENT_TABLE_NUMBER>(m.left_y, left_metadata, right_metadata);
@@ -766,7 +766,7 @@ unsafe fn match_to_result_simd_split<
     const TABLE_NUMBER: u8,
     const PARENT_TABLE_NUMBER: u8,
 >(
-    last_table: &Table<K, PARENT_TABLE_NUMBER>,
+    parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     matches: &[Match; COMPUTE_FN_SIMD_FACTOR],
 ) -> (
     [Y; COMPUTE_FN_SIMD_FACTOR],
@@ -792,7 +792,7 @@ where
         seq!(N in 0..16 {
             [
             #(
-                last_table.metadata(matches[N].left_position),
+                parent_table.metadata(matches[N].left_position),
             )*
             ]
         })
@@ -802,7 +802,7 @@ where
         seq!(N in 0..16 {
             [
             #(
-                last_table.metadata(matches[N].right_position),
+                parent_table.metadata(matches[N].right_position),
             )*
             ]
         })
@@ -836,7 +836,7 @@ unsafe fn matches_to_results_split<
     const TABLE_NUMBER: u8,
     const PARENT_TABLE_NUMBER: u8,
 >(
-    last_table: &Table<K, PARENT_TABLE_NUMBER>,
+    parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     matches: &[Match],
     ys: &mut Vec<Y>,
     positions: &mut Vec<[Position; 2]>,
@@ -852,7 +852,7 @@ unsafe fn matches_to_results_split<
     for &grouped_matches in grouped_matches {
         // SAFETY: Guaranteed by function contract
         let (ys_group, positions_group, metadatas_group) =
-            unsafe { match_to_result_simd_split(last_table, &grouped_matches) };
+            unsafe { match_to_result_simd_split(parent_table, &grouped_matches) };
         ys.extend(ys_group);
         positions.extend(positions_group);
         // The last table doesn't have metadata
@@ -862,7 +862,7 @@ unsafe fn matches_to_results_split<
     }
     for m in other_matches {
         // SAFETY: Guaranteed by function contract
-        let (y, p, metadata) = unsafe { match_to_result(last_table, m) };
+        let (y, p, metadata) = unsafe { match_to_result(parent_table, m) };
         ys.push(y);
         positions.push(p);
         // The last table doesn't have metadata
@@ -882,7 +882,7 @@ unsafe fn matches_to_results_bucket_split<
     const TABLE_NUMBER: u8,
     const PARENT_TABLE_NUMBER: u8,
 >(
-    last_table: &Table<K, PARENT_TABLE_NUMBER>,
+    parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     matches: &[Match],
     ys: &'a mut [MaybeUninit<Y>; REDUCED_MATCHES_COUNT],
     positions: &'a mut [MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT],
@@ -916,7 +916,7 @@ unsafe fn matches_to_results_bucket_split<
     {
         // SAFETY: Guaranteed by function contract
         let (ys_group, positions_group, metadatas_group) =
-            unsafe { match_to_result_simd_split(last_table, grouped_matches) };
+            unsafe { match_to_result_simd_split(parent_table, grouped_matches) };
 
         grouped_ys.write_copy_of_slice(&ys_group);
         grouped_positions.write_copy_of_slice(&positions_group);
@@ -932,7 +932,7 @@ unsafe fn matches_to_results_bucket_split<
         .zip(other_metadatas)
     {
         // SAFETY: Guaranteed by function contract
-        let (y, p, metadata) = unsafe { match_to_result(last_table, m) };
+        let (y, p, metadata) = unsafe { match_to_result(parent_table, m) };
         other_y.write(y);
         other_position.write(p);
         // The last table doesn't have metadata
@@ -1193,7 +1193,7 @@ where
     /// trades CPU efficiency and memory usage for lower latency and with multiple parallel calls,
     /// better overall performance.
     pub(super) fn create<const PARENT_TABLE_NUMBER: u8>(
-        last_table: &mut Table<K, PARENT_TABLE_NUMBER>,
+        parent_table: &mut Table<K, PARENT_TABLE_NUMBER>,
         cache: &mut TablesCache<K>,
     ) -> Self
     where
@@ -1212,7 +1212,7 @@ where
         });
 
         for ([left_bucket, right_bucket], left_bucket_index) in
-            last_table.buckets().array_windows().zip(0..)
+            parent_table.buckets().array_windows().zip(0..)
         {
             let mut matches = [MaybeUninit::uninit(); _];
             // SAFETY: Positions are taken from `Table::buckets()` and correspond to initialized
@@ -1222,7 +1222,7 @@ where
                     left_bucket_index,
                     left_bucket,
                     right_bucket,
-                    last_table,
+                    parent_table,
                     &mut matches,
                     left_targets,
                 )
@@ -1233,7 +1233,7 @@ where
             // SAFETY: Matches come from the parent table
             unsafe {
                 matches_to_results_split(
-                    last_table,
+                    parent_table,
                     matches,
                     &mut ys,
                     &mut positions,
@@ -1242,7 +1242,7 @@ where
             }
         }
 
-        last_table.clear_metadata();
+        parent_table.clear_metadata();
 
         // TODO: Try to group buckets in the process of collecting `y`s
         let buckets = group_by_buckets::<K>(&ys);
@@ -1260,7 +1260,7 @@ where
     /// in parallel, prefer [`Self::create_parallel()`] for better overall performance.
     #[cfg(any(feature = "parallel", test))]
     pub(super) fn create_parallel<const PARENT_TABLE_NUMBER: u8>(
-        last_table: &mut Table<K, PARENT_TABLE_NUMBER>,
+        parent_table: &mut Table<K, PARENT_TABLE_NUMBER>,
         cache: &mut TablesCache<K>,
     ) -> Self
     where
@@ -1284,7 +1284,7 @@ where
 
         let left_targets = &*cache.left_targets;
 
-        let buckets = last_table.buckets();
+        let buckets = parent_table.buckets();
         // Iterate over buckets in batches, such that a cache line worth of bytes is taken from
         // `global_results_counts` each time to avoid unnecessary false sharing
         let bucket_batch_size = CACHE_LINE_SIZE / size_of::<u16>();
@@ -1313,7 +1313,7 @@ where
                             left_bucket_index as u32,
                             left_bucket,
                             right_bucket,
-                            last_table,
+                            parent_table,
                             &mut matches,
                             left_targets,
                         )
@@ -1341,7 +1341,11 @@ where
                     // SAFETY: Matches come from the parent table
                     unsafe {
                         matches_to_results_bucket_split::<_, TABLE_NUMBER, _>(
-                            last_table, matches, ys, positions, metadatas,
+                            parent_table,
+                            matches,
+                            ys,
+                            positions,
+                            metadatas,
                         )
                     };
                     *count = matches.len() as u16;
@@ -1349,7 +1353,7 @@ where
             }
         });
 
-        last_table.clear_metadata();
+        parent_table.clear_metadata();
 
         let ys = strip_sync_unsafe_cell(ys);
         let positions = strip_sync_unsafe_cell(positions);
