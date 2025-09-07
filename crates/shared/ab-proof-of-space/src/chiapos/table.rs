@@ -742,6 +742,7 @@ where
     Table<K, PARENT_TABLE_NUMBER>: private::NotLastTable,
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
     // SAFETY: Guaranteed by function contract
@@ -774,6 +775,7 @@ where
     Table<K, PARENT_TABLE_NUMBER>: private::NotLastTable,
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
     let left_ys: [_; COMPUTE_FN_SIMD_FACTOR] = seq!(N in 0..16 {
@@ -841,6 +843,7 @@ unsafe fn matches_to_results_split<
     Table<K, PARENT_TABLE_NUMBER>: private::NotLastTable,
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
     let (grouped_matches, other_matches) = matches.as_chunks::<COMPUTE_FN_SIMD_FACTOR>();
@@ -886,6 +889,7 @@ unsafe fn matches_to_results_bucket_split<
     Table<K, PARENT_TABLE_NUMBER>: private::NotLastTable,
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
     let (grouped_matches, other_matches) = matches.as_chunks::<COMPUTE_FN_SIMD_FACTOR>();
@@ -940,13 +944,14 @@ unsafe fn matches_to_results_bucket_split<
 pub(super) enum Table<const K: u8, const TABLE_NUMBER: u8>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
     /// First table with the contents of entries split into separate vectors for more efficient
     /// access
     First {
         /// Derived values computed from `x`
-        ys: Vec<Y>,
+        ys: Box<[Y; 1 << K]>,
         /// Each bucket contains positions of `Y` values that belong to it.
         ///
         /// Buckets are padded with sentinel values to `REDUCED_BUCKETS_SIZE`.
@@ -990,6 +995,7 @@ where
 impl<const K: u8> Table<K, 1>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 1) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
     /// Create the table
@@ -1006,12 +1012,14 @@ where
 
         let partial_ys = partial_ys::<K>(seed);
 
-        let num_values = 1 << K;
-        let mut ys = Vec::with_capacity(num_values);
+        // SAFETY: Contents is `MaybeUninit`
+        let mut ys = unsafe { Box::<[MaybeUninit<Y>; 1 << K]>::new_uninit().assume_init() };
 
-        for (xs_batch_start, partial_ys) in (X::ZERO..)
-            .take(num_values)
-            .step_by(COMPUTE_F1_SIMD_FACTOR)
+        for ((ys, xs_batch_start), partial_ys) in ys
+            .as_chunks_mut::<COMPUTE_F1_SIMD_FACTOR>()
+            .0
+            .iter_mut()
+            .zip((X::ZERO..).step_by(COMPUTE_F1_SIMD_FACTOR))
             .zip(
                 partial_ys
                     .as_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
@@ -1022,11 +1030,14 @@ where
                 + Simd::from_array(array::from_fn(|i| i as u32));
             let ys_batch = compute_f1_simd::<K>(xs, partial_ys);
 
-            ys.extend(ys_batch);
+            ys.write_copy_of_slice(&ys_batch);
         }
 
+        // SAFETY: All entries are initialized
+        let ys = unsafe { Box::from_raw(Box::into_raw(ys).cast::<[Y; 1 << K]>()) };
+
         // TODO: Try to group buckets in the process of collecting `y`s
-        let buckets = group_by_buckets::<K>(&ys);
+        let buckets = group_by_buckets::<K>(ys.as_slice());
 
         Self::First { ys, buckets }
     }
@@ -1046,13 +1057,15 @@ where
 
         let partial_ys = partial_ys::<K>(seed);
 
-        let num_values = 1 << K;
-        let mut ys = Vec::with_capacity(num_values);
+        // SAFETY: Contents is `MaybeUninit`
+        let mut ys = unsafe { Box::<[MaybeUninit<Y>; 1 << K]>::new_uninit().assume_init() };
 
         // TODO: Try parallelism here?
-        for (xs_batch_start, partial_ys) in (X::ZERO..)
-            .take(num_values)
-            .step_by(COMPUTE_F1_SIMD_FACTOR)
+        for ((ys, xs_batch_start), partial_ys) in ys
+            .as_chunks_mut::<COMPUTE_F1_SIMD_FACTOR>()
+            .0
+            .iter_mut()
+            .zip((X::ZERO..).step_by(COMPUTE_F1_SIMD_FACTOR))
             .zip(
                 partial_ys
                     .as_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
@@ -1063,11 +1076,14 @@ where
                 + Simd::from_array(array::from_fn(|i| i as u32));
             let ys_batch = compute_f1_simd::<K>(xs, partial_ys);
 
-            ys.extend(ys_batch);
+            ys.write_copy_of_slice(&ys_batch);
         }
 
+        // SAFETY: All entries are initialized
+        let ys = unsafe { Box::from_raw(Box::into_raw(ys).cast::<[Y; 1 << K]>()) };
+
         // TODO: Try to group buckets in the process of collecting `y`s
-        let buckets = group_by_buckets::<K>(&ys);
+        let buckets = group_by_buckets::<K>(ys.as_slice());
 
         Self::First { ys, buckets }
     }
@@ -1081,36 +1097,42 @@ mod private {
 impl<const K: u8> private::SupportedOtherTables for Table<K, 2>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 2) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
 impl<const K: u8> private::SupportedOtherTables for Table<K, 3>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 3) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
 impl<const K: u8> private::SupportedOtherTables for Table<K, 4>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 4) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
 impl<const K: u8> private::SupportedOtherTables for Table<K, 5>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
 impl<const K: u8> private::SupportedOtherTables for Table<K, 6>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
 impl<const K: u8> private::SupportedOtherTables for Table<K, 7>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
@@ -1118,36 +1140,42 @@ where
 impl<const K: u8> private::NotLastTable for Table<K, 1>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 1) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
 impl<const K: u8> private::NotLastTable for Table<K, 2>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 2) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
 impl<const K: u8> private::NotLastTable for Table<K, 3>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 3) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
 impl<const K: u8> private::NotLastTable for Table<K, 4>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 4) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
 impl<const K: u8> private::NotLastTable for Table<K, 5>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
 impl<const K: u8> private::NotLastTable for Table<K, 6>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
 }
@@ -1156,6 +1184,7 @@ impl<const K: u8, const TABLE_NUMBER: u8> Table<K, TABLE_NUMBER>
 where
     Self: private::SupportedOtherTables,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
     /// Creates a new [`TABLE_NUMBER`] table. There also exists [`Self::create_parallel()`] that
@@ -1386,6 +1415,7 @@ impl<const K: u8, const TABLE_NUMBER: u8> Table<K, TABLE_NUMBER>
 where
     Self: private::NotLastTable,
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
     /// Returns `None` for an invalid position or for table number 7.
@@ -1420,6 +1450,7 @@ where
 impl<const K: u8, const TABLE_NUMBER: u8> Table<K, TABLE_NUMBER>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
     /// All `y`s

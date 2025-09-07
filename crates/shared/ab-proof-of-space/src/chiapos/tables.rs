@@ -42,6 +42,7 @@ where
     EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
     table_2: Table<K, 2>,
@@ -63,6 +64,7 @@ where
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
     EvaluatableUsize<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>: Sized,
     EvaluatableUsize<{ 64 * K as usize / 8 }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
     /// Create Chia proof of space tables. There also exists [`Self::create_parallel()`] that trades

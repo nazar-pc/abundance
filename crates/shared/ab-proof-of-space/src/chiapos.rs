@@ -28,6 +28,7 @@ where
     EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
+    [(); 1 << K]:,
     [(); num_buckets(K)]:;
 
 macro_rules! impl_any {
