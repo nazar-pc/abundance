@@ -968,7 +968,7 @@ where
     /// access
     First {
         /// Derived values computed from `x`
-        ys: Box<[Y; 1 << K]>,
+        ys: Vec<Y>,
         /// Each bucket contains positions of `Y` values that belong to it.
         ///
         /// Buckets are padded with sentinel values to `REDUCED_BUCKETS_SIZE`.
@@ -977,7 +977,7 @@ where
     /// Other tables
     Other {
         /// Derived values computed from the previous table
-        ys: Box<[MaybeUninit<Y>; 1 << K]>,
+        ys: Vec<Y>,
         /// Left and right entry positions in a previous table encoded into bits
         positions: Box<[MaybeUninit<[Position; 2]>; 1 << K]>,
         /// Metadata corresponding to each entry
@@ -993,7 +993,7 @@ where
         /// Derived values computed from the previous table.
         ///
         /// Only positions from the `buckets` field are guaranteed to be initialized.
-        ys: Box<[[MaybeUninit<Y>; REDUCED_MATCHES_COUNT]; num_buckets(K)]>,
+        ys: Vec<[MaybeUninit<Y>; REDUCED_MATCHES_COUNT]>,
         /// Left and right entry positions in a previous table encoded into bits.
         ///
         /// Only positions from the `buckets` field are guaranteed to be initialized.
@@ -1050,11 +1050,16 @@ where
             ys.write_copy_of_slice(&ys_batch);
         }
 
-        // SAFETY: All entries are initialized
-        let ys = unsafe { Box::from_raw(Box::into_raw(ys).cast::<[Y; 1 << K]>()) };
+        // SAFETY: Converting a boxed array to a vector of the same size, which has the same memory
+        // layout, all elements were initialized
+        let ys = unsafe {
+            let ys_len = ys.len();
+            let ys = Box::into_raw(ys);
+            Vec::from_raw_parts(ys.cast(), ys_len, ys_len)
+        };
 
         // TODO: Try to group buckets in the process of collecting `y`s
-        let buckets = group_by_buckets::<K>(ys.as_slice());
+        let buckets = group_by_buckets::<K>(&ys);
 
         Self::First { ys, buckets }
     }
@@ -1096,11 +1101,16 @@ where
             ys.write_copy_of_slice(&ys_batch);
         }
 
-        // SAFETY: All entries are initialized
-        let ys = unsafe { Box::from_raw(Box::into_raw(ys).cast::<[Y; 1 << K]>()) };
+        // SAFETY: Converting a boxed array to a vector of the same size, which has the same memory
+        // layout, all elements were initialized
+        let ys = unsafe {
+            let ys_len = ys.len();
+            let ys = Box::into_raw(ys);
+            Vec::from_raw_parts(ys.cast(), ys_len, ys_len)
+        };
 
         // TODO: Try to group buckets in the process of collecting `y`s
-        let buckets = group_by_buckets::<K>(ys.as_slice());
+        let buckets = group_by_buckets::<K>(&ys);
 
         Self::First { ys, buckets }
     }
@@ -1272,7 +1282,15 @@ where
             initialized_elements += matches.len();
         }
 
-        parent_table.clear_metadata();
+        parent_table.clear_ys_and_metadata();
+
+        // SAFETY: Converting a boxed array to a vector of the same size, which has the same memory
+        // layout, the number of elements matches the number of elements that were initialized
+        let ys = unsafe {
+            let ys_len = ys.len();
+            let ys = Box::into_raw(ys);
+            Vec::from_raw_parts(ys.cast(), initialized_elements, ys_len)
+        };
 
         // SAFETY: Converting a boxed array to a vector of the same size, which has the same memory
         // layout, the number of elements matches the number of elements that were initialized
@@ -1283,12 +1301,7 @@ where
         };
 
         // TODO: Try to group buckets in the process of collecting `y`s
-        // SAFETY: `initialized_elements` elements were initialized
-        let buckets = group_by_buckets::<K>(unsafe {
-            ys.split_at_unchecked(initialized_elements)
-                .0
-                .assume_init_ref()
-        });
+        let buckets = group_by_buckets::<K>(&ys);
 
         Self::Other {
             ys,
@@ -1396,11 +1409,19 @@ where
             }
         });
 
-        parent_table.clear_metadata();
+        parent_table.clear_ys_and_metadata();
 
         let ys = strip_sync_unsafe_cell(ys);
         let positions = strip_sync_unsafe_cell(positions);
         let metadatas = strip_sync_unsafe_cell(metadatas);
+        // SAFETY: Converting a boxed array to a vector of the same size, which has the same memory
+        // layout
+        let ys = unsafe {
+            let ys_len = ys.len();
+            let ys = Box::into_raw(ys);
+            Vec::from_raw_parts(ys, ys_len, ys_len)
+        };
+        let ys = ys.into_flattened();
         // SAFETY: Converting a boxed array to a vector of the same size, which has the same memory
         // layout
         let metadatas = unsafe {
@@ -1515,7 +1536,7 @@ where
             }
             Table::Other { ys, .. } => {
                 // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
-                unsafe { ys.get_unchecked(usize::from(position)).assume_init() }
+                *unsafe { ys.get_unchecked(usize::from(position)) }
             }
             #[cfg(any(feature = "parallel", test))]
             Table::OtherBuckets { ys, .. } => {
@@ -1529,14 +1550,18 @@ where
         }
     }
 
-    fn clear_metadata(&mut self) {
+    fn clear_ys_and_metadata(&mut self) {
         match self {
-            Table::First { .. } => {}
-            Table::Other { metadatas, .. } => {
+            Table::First { ys, .. } => {
+                mem::take(ys);
+            }
+            Table::Other { ys, metadatas, .. } => {
+                mem::take(ys);
                 mem::take(metadatas);
             }
             #[cfg(any(feature = "parallel", test))]
-            Table::OtherBuckets { metadatas, .. } => {
+            Table::OtherBuckets { ys, metadatas, .. } => {
+                mem::take(ys);
                 mem::take(metadatas);
             }
         }

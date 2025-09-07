@@ -152,15 +152,11 @@ fn test_matches() {
         {
             *position = Position::from(index as u32);
         }
-        // SAFETY: Contents is `MaybeUninit`
-        let mut parent_table_ys =
-            unsafe { Box::<[MaybeUninit<Y>; 1 << K]>::new_uninit().assume_init() };
-        parent_table_ys
-            .iter_mut()
-            .zip(left_bucket_ys.iter().chain(&right_bucket_ys))
-            .for_each(|(output, &input)| {
-                output.write(input);
-            });
+        let parent_table_ys = left_bucket_ys
+            .iter()
+            .copied()
+            .chain(right_bucket_ys.iter().copied())
+            .collect::<Vec<_>>();
         let parent_table = Table::<K, 2>::Other {
             ys: parent_table_ys,
             // SAFETY: Not used below
