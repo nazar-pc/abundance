@@ -830,7 +830,7 @@ where
 
 /// # Safety
 /// `matches` must contain positions that correspond to the parent table. `ys`, `position` and
-/// `metadatas` length must match the length of `matches`
+/// `metadatas` length must be at least the length of `matches`
 #[inline(always)]
 unsafe fn matches_to_results_split<
     const K: u8,
@@ -842,66 +842,6 @@ unsafe fn matches_to_results_split<
     ys: &mut [MaybeUninit<Y>],
     positions: &mut [MaybeUninit<[Position; 2]>],
     metadatas: &mut [MaybeUninit<Metadata<K, TABLE_NUMBER>>],
-) where
-    Table<K, PARENT_TABLE_NUMBER>: private::NotLastTable,
-    EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
-    [(); 1 << K]:,
-    [(); num_buckets(K)]:,
-{
-    let (grouped_matches, other_matches) = matches.as_chunks::<COMPUTE_FN_SIMD_FACTOR>();
-    let (grouped_ys, other_ys) = ys.as_chunks_mut::<COMPUTE_FN_SIMD_FACTOR>();
-    let (grouped_positions, other_positions) = positions.as_chunks_mut::<COMPUTE_FN_SIMD_FACTOR>();
-    let (grouped_metadatas, other_metadatas) = metadatas.as_chunks_mut::<COMPUTE_FN_SIMD_FACTOR>();
-
-    for (((&grouped_matches, grouped_ys), grouped_positions), grouped_metadatas) in grouped_matches
-        .iter()
-        .zip(grouped_ys)
-        .zip(grouped_positions)
-        .zip(grouped_metadatas)
-    {
-        // SAFETY: Guaranteed by function contract
-        let (ys_group, positions_group, metadatas_group) =
-            unsafe { match_to_result_simd_split(parent_table, &grouped_matches) };
-        grouped_ys.write_copy_of_slice(&ys_group);
-        grouped_positions.write_copy_of_slice(&positions_group);
-        // The last table doesn't have metadata
-        if metadata_size_bits(K, TABLE_NUMBER) > 0 {
-            grouped_metadatas.write_copy_of_slice(&metadatas_group);
-        }
-    }
-    for (((other_match, other_y), other_positions), other_metadata) in other_matches
-        .iter()
-        .zip(other_ys)
-        .zip(other_positions)
-        .zip(other_metadatas)
-    {
-        // SAFETY: Guaranteed by function contract
-        let (y, p, metadata) = unsafe { match_to_result(parent_table, other_match) };
-        other_y.write(y);
-        other_positions.write(p);
-        // The last table doesn't have metadata
-        if metadata_size_bits(K, TABLE_NUMBER) > 0 {
-            other_metadata.write(metadata);
-        }
-    }
-}
-
-/// # Safety
-/// `matches` must contain positions that correspond to the parent table
-#[cfg(any(feature = "parallel", test))]
-#[inline(always)]
-unsafe fn matches_to_results_bucket_split<
-    'a,
-    const K: u8,
-    const TABLE_NUMBER: u8,
-    const PARENT_TABLE_NUMBER: u8,
->(
-    parent_table: &Table<K, PARENT_TABLE_NUMBER>,
-    matches: &[Match],
-    ys: &'a mut [MaybeUninit<Y>; REDUCED_MATCHES_COUNT],
-    positions: &'a mut [MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT],
-    metadatas: &'a mut [MaybeUninit<Metadata<K, TABLE_NUMBER>>; REDUCED_MATCHES_COUNT],
 ) where
     Table<K, PARENT_TABLE_NUMBER>: private::NotLastTable,
     EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
@@ -932,24 +872,24 @@ unsafe fn matches_to_results_bucket_split<
         // SAFETY: Guaranteed by function contract
         let (ys_group, positions_group, metadatas_group) =
             unsafe { match_to_result_simd_split(parent_table, grouped_matches) };
-
         grouped_ys.write_copy_of_slice(&ys_group);
         grouped_positions.write_copy_of_slice(&positions_group);
+
         // The last table doesn't have metadata
         if metadata_size_bits(K, TABLE_NUMBER) > 0 {
             grouped_metadatas.write_copy_of_slice(&metadatas_group);
         }
     }
-    for (((m, other_y), other_position), other_metadata) in other_matches
+    for (((other_match, other_y), other_positions), other_metadata) in other_matches
         .iter()
         .zip(other_ys)
         .zip(other_positions)
         .zip(other_metadatas)
     {
         // SAFETY: Guaranteed by function contract
-        let (y, p, metadata) = unsafe { match_to_result(parent_table, m) };
+        let (y, p, metadata) = unsafe { match_to_result(parent_table, other_match) };
         other_y.write(y);
-        other_position.write(p);
+        other_positions.write(p);
         // The last table doesn't have metadata
         if metadata_size_bits(K, TABLE_NUMBER) > 0 {
             other_metadata.write(metadata);
@@ -1274,7 +1214,8 @@ where
                 )
             };
 
-            // SAFETY: Matches come from the parent table
+            // SAFETY: Matches come from the parent table and the size of `ys`, `positions`
+            // and `metadatas` is the same as the number of matches
             unsafe {
                 matches_to_results_split(parent_table, matches, ys, positions, metadatas);
             }
@@ -1325,15 +1266,15 @@ where
     {
         // SAFETY: Contents is `MaybeUninit`
         let ys = unsafe {
-            Box::<[SyncUnsafeCell<[MaybeUninit<_>; _]>; num_buckets(K)]>::new_uninit().assume_init()
+            Box::<[SyncUnsafeCell<[MaybeUninit<_>; REDUCED_MATCHES_COUNT]>; num_buckets(K)]>::new_uninit().assume_init()
         };
         // SAFETY: Contents is `MaybeUninit`
         let positions = unsafe {
-            Box::<[SyncUnsafeCell<[MaybeUninit<_>; _]>; num_buckets(K)]>::new_uninit().assume_init()
+            Box::<[SyncUnsafeCell<[MaybeUninit<_>; REDUCED_MATCHES_COUNT]>; num_buckets(K)]>::new_uninit().assume_init()
         };
         // SAFETY: Contents is `MaybeUninit`
         let metadatas = unsafe {
-            Box::<[SyncUnsafeCell<[MaybeUninit<_>; _]>; num_buckets(K)]>::new_uninit().assume_init()
+            Box::<[SyncUnsafeCell<[MaybeUninit<_>; REDUCED_MATCHES_COUNT]>; num_buckets(K)]>::new_uninit().assume_init()
         };
         let global_results_counts =
             array::from_fn::<_, { num_buckets(K) }, _>(|_| SyncUnsafeCell::new(0u16));
@@ -1394,9 +1335,10 @@ where
                         &mut *global_results_counts.get_unchecked(left_bucket_index).get()
                     };
 
-                    // SAFETY: Matches come from the parent table
+                    // SAFETY: Matches come from the parent table and the size of `ys`, `positions`
+                    // and `metadatas` is larger or equal to the number of matches
                     unsafe {
-                        matches_to_results_bucket_split::<_, TABLE_NUMBER, _>(
+                        matches_to_results_split::<_, TABLE_NUMBER, _>(
                             parent_table,
                             matches,
                             ys,
