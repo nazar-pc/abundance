@@ -761,11 +761,7 @@ where
 /// # Safety
 /// `matches` must contain positions that correspond to the parent table
 #[inline(always)]
-unsafe fn match_to_result_simd_split<
-    const K: u8,
-    const TABLE_NUMBER: u8,
-    const PARENT_TABLE_NUMBER: u8,
->(
+unsafe fn match_to_result_simd<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     matches: &[Match; COMPUTE_FN_SIMD_FACTOR],
 ) -> (
@@ -832,11 +828,7 @@ where
 /// `matches` must contain positions that correspond to the parent table. `ys`, `position` and
 /// `metadatas` length must be at least the length of `matches`
 #[inline(always)]
-unsafe fn matches_to_results_split<
-    const K: u8,
-    const TABLE_NUMBER: u8,
-    const PARENT_TABLE_NUMBER: u8,
->(
+unsafe fn matches_to_results<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     matches: &[Match],
     ys: &mut [MaybeUninit<Y>],
@@ -871,7 +863,7 @@ unsafe fn matches_to_results_split<
     {
         // SAFETY: Guaranteed by function contract
         let (ys_group, positions_group, metadatas_group) =
-            unsafe { match_to_result_simd_split(parent_table, grouped_matches) };
+            unsafe { match_to_result_simd(parent_table, grouped_matches) };
         grouped_ys.write_copy_of_slice(&ys_group);
         grouped_positions.write_copy_of_slice(&positions_group);
 
@@ -1217,7 +1209,7 @@ where
             // SAFETY: Matches come from the parent table and the size of `ys`, `positions`
             // and `metadatas` is the same as the number of matches
             unsafe {
-                matches_to_results_split(parent_table, matches, ys, positions, metadatas);
+                matches_to_results(parent_table, matches, ys, positions, metadatas);
             }
 
             initialized_elements += matches.len();
@@ -1338,7 +1330,7 @@ where
                     // SAFETY: Matches come from the parent table and the size of `ys`, `positions`
                     // and `metadatas` is larger or equal to the number of matches
                     unsafe {
-                        matches_to_results_split::<_, TABLE_NUMBER, _>(
+                        matches_to_results::<_, TABLE_NUMBER, _>(
                             parent_table,
                             matches,
                             ys,
