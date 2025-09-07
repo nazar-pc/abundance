@@ -7,10 +7,11 @@ use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT};
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::table::{
-    COMPUTE_F1_SIMD_FACTOR, calculate_left_targets, compute_f1, compute_f1_simd, compute_fn,
+    COMPUTE_F1_SIMD_FACTOR, Table, calculate_left_targets, compute_f1, compute_f1_simd, compute_fn,
     compute_fn_simd, find_matches_in_buckets, metadata_size_bytes,
 };
 use crate::chiapos::utils::EvaluatableUsize;
+use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -155,8 +156,16 @@ fn test_matches() {
             .iter()
             .copied()
             .chain(right_bucket_ys.iter().copied())
-            .map(MaybeUninit::new)
             .collect::<Vec<_>>();
+        let last_table = Table::<K, 2>::Other {
+            ys: last_table_ys,
+            // Not used below
+            positions: Default::default(),
+            // Not used below
+            metadatas: Default::default(),
+            // SAFETY: Not used below
+            buckets: unsafe { Box::new_uninit().assume_init() },
+        };
 
         let mut matches = [MaybeUninit::uninit(); _];
         // SAFETY: Positions correspond to `y`s
@@ -165,26 +174,16 @@ fn test_matches() {
                 left_bucket_index as u32,
                 &left_bucket,
                 &right_bucket,
-                &last_table_ys,
+                &last_table,
                 &mut matches,
                 &left_targets,
             )
         };
         for m in matches {
             // SAFETY: All `y`s are initialized
-            let yl = usize::from(unsafe {
-                last_table_ys
-                    .get(usize::from(m.left_position))
-                    .unwrap()
-                    .assume_init()
-            });
+            let yl = usize::from(unsafe { last_table.y(m.left_position) });
             // SAFETY: All `y`s are initialized
-            let yr = usize::from(unsafe {
-                last_table_ys
-                    .get(usize::from(m.right_position))
-                    .unwrap()
-                    .assume_init()
-            });
+            let yr = usize::from(unsafe { last_table.y(m.right_position) });
 
             assert!(check_match(yl, yr));
             total_matches += 1;

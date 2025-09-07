@@ -24,7 +24,7 @@ use core::mem::MaybeUninit;
 use core::simd::prelude::*;
 #[cfg(any(feature = "parallel", test))]
 use core::sync::atomic::{AtomicUsize, Ordering};
-use core::{array, mem, slice};
+use core::{array, mem};
 use seq_macro::seq;
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
@@ -379,24 +379,27 @@ pub(super) fn compute_f1_simd<const K: u8>(
     Y::array_from_repr(ys.to_array())
 }
 
-/// For verification purposes use [`has_match`] instead.
+/// For verification use [`has_match`] instead.
 ///
 /// # Safety
-/// Left and right bucket positions must correspond to initialized offsets in `last_table_ys`.
+/// Left and right bucket positions must correspond to the parent table.
 // TODO: Try to reduce the `matches` size further by processing `left_bucket` in chunks (like halves
 //  for example)
-unsafe fn find_matches_in_buckets<'a>(
+unsafe fn find_matches_in_buckets<'a, const K: u8, const PARENT_TABLE_NUMBER: u8>(
     left_bucket_index: u32,
     left_bucket: &[Position; REDUCED_BUCKETS_SIZE],
     right_bucket: &[Position; REDUCED_BUCKETS_SIZE],
-    last_table_ys: &[MaybeUninit<Y>],
+    last_table: &Table<K, PARENT_TABLE_NUMBER>,
     // `PARAM_M as usize * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
     matches: &'a mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT + PARAM_M as usize * 2],
     left_targets: &LeftTargets,
-) -> &'a [Match] {
-    let last_table_ys = Y::maybe_uninit_repr_from_slice(last_table_ys);
-
+) -> &'a [Match]
+where
+    EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
+    [(); 1 << K]:,
+    [(); num_buckets(K)]:,
+{
     if right_bucket[0] == Position::SENTINEL {
         // Completely empty bucket
         return &[];
@@ -410,10 +413,10 @@ unsafe fn find_matches_in_buckets<'a>(
         if right_position == Position::SENTINEL {
             break;
         }
-        let y = last_table_ys[usize::from(right_position)];
         // SAFETY: Guaranteed by function contract
-        let y = unsafe { y.assume_init() };
-        let r = y as usize - right_base as usize;
+        let y = unsafe { last_table.y(right_position) };
+        // SAFETY: Guaranteed by function contract
+        let r = u32::from(y) as usize - right_base as usize;
         // SAFETY: `r` is within a bucket and exists by definition
         let rmap_item = unsafe { rmap.get_unchecked_mut(r) };
 
@@ -439,10 +442,9 @@ unsafe fn find_matches_in_buckets<'a>(
             break;
         }
 
-        let y = last_table_ys[usize::from(left_position)];
         // SAFETY: Guaranteed by function contract
-        let y = unsafe { y.assume_init() };
-        let r = y - left_base;
+        let y = unsafe { last_table.y(left_position) };
+        let r = u32::from(y) - left_base;
         // SAFETY: `r` is within a bucket and exists by definition
         let left_targets_r = unsafe { left_targets_parity.get_unchecked(r as usize) }.as_array();
 
@@ -473,7 +475,7 @@ unsafe fn find_matches_in_buckets<'a>(
                         // elements is inserted
                         unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
                             left_position,
-                            left_y: Y::from(y),
+                            left_y: y,
                             right_position: right_position_a,
                         });
                         next_match_index += 1;
@@ -483,7 +485,7 @@ unsafe fn find_matches_in_buckets<'a>(
                             // `REDUCED_MATCHES_COUNT + PARAM_M * 2` elements is inserted
                             unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
                                 left_position,
-                                left_y: Y::from(y),
+                                left_y: y,
                                 right_position: right_position_b,
                             });
                             next_match_index += 1;
@@ -1220,7 +1222,7 @@ where
                     left_bucket_index,
                     left_bucket,
                     right_bucket,
-                    last_table.ys(),
+                    last_table,
                     &mut matches,
                     left_targets,
                 )
@@ -1311,7 +1313,7 @@ where
                             left_bucket_index as u32,
                             left_bucket,
                             right_bucket,
-                            last_table.ys(),
+                            last_table,
                             &mut matches,
                             left_targets,
                         )
@@ -1453,23 +1455,6 @@ where
     [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
-    /// All `y`s
-    #[inline(always)]
-    fn ys(&self) -> &[MaybeUninit<Y>] {
-        match self {
-            // SAFETY: It is safe to cast `&[T]` into `&[MaybeUninit<T>]`
-            Table::First { ys, .. } => unsafe {
-                slice::from_raw_parts(ys.as_ptr().cast(), ys.len())
-            },
-            // SAFETY: It is safe to cast `&[T]` into `&[MaybeUninit<T>]`
-            Table::Other { ys, .. } => unsafe {
-                slice::from_raw_parts(ys.as_ptr().cast(), ys.len())
-            },
-            #[cfg(any(feature = "parallel", test))]
-            Table::OtherBuckets { ys, .. } => ys.as_slice().as_flattened(),
-        }
-    }
-
     /// Get `y` at for a specified position.
     ///
     /// # Safety
