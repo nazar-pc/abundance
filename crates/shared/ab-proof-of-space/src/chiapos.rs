@@ -6,7 +6,7 @@ mod tables;
 mod utils;
 
 pub use crate::chiapos::table::TablesCache;
-use crate::chiapos::table::metadata_size_bytes;
+use crate::chiapos::table::{metadata_size_bytes, num_buckets};
 use crate::chiapos::tables::TablesGeneric;
 use crate::chiapos::utils::EvaluatableUsize;
 
@@ -27,7 +27,8 @@ where
     EvaluatableUsize<{ metadata_size_bytes(K, 4) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized;
+    EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
+    [(); num_buckets(K)]:;
 
 macro_rules! impl_any {
     ($($k: expr$(,)? )*) => {
