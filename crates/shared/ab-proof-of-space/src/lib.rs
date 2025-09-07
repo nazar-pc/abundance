@@ -4,7 +4,11 @@
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![feature(
     array_windows,
+    const_from,
+    const_trait_impl,
+    exact_size_is_empty,
     generic_const_exprs,
+    maybe_uninit_fill,
     maybe_uninit_slice,
     maybe_uninit_write_slice,
     portable_simd,
@@ -12,6 +16,7 @@
     sync_unsafe_cell,
     vec_into_raw_parts
 )]
+extern crate alloc;
 
 pub mod chia;
 pub mod chiapos;

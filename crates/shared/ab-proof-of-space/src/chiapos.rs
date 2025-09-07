@@ -6,7 +6,7 @@ mod tables;
 mod utils;
 
 pub use crate::chiapos::table::TablesCache;
-use crate::chiapos::table::metadata_size_bytes;
+use crate::chiapos::table::{metadata_size_bytes, num_buckets};
 use crate::chiapos::tables::TablesGeneric;
 use crate::chiapos::utils::EvaluatableUsize;
 
@@ -27,7 +27,9 @@ where
     EvaluatableUsize<{ metadata_size_bytes(K, 4) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized;
+    EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
+    [(); 1 << K]:,
+    [(); num_buckets(K)]:;
 
 macro_rules! impl_any {
     ($($k: expr$(,)? )*) => {
@@ -72,9 +74,9 @@ impl Tables<$k> {
     /// Find proof of space for given challenge.
     pub fn find_proof<'a>(
         &'a self,
-        challenge: &'a Challenge,
+        first_challenge_bytes: [u8; 4],
     ) -> impl Iterator<Item = [u8; 64 * $k / 8]> + 'a {
-        self.0.find_proof(challenge)
+        self.0.find_proof(first_challenge_bytes)
     }
 
     /// Verify proof of space for given seed and challenge.

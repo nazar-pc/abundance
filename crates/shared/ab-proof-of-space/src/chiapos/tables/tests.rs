@@ -18,15 +18,18 @@ fn self_verification() {
     for challenge_index in 0..1000_u32 {
         let mut challenge = [0; 32];
         challenge[..size_of::<u32>()].copy_from_slice(&challenge_index.to_le_bytes());
+        let first_challenge_bytes = challenge[..4].try_into().unwrap();
         let qualities = tables.find_quality(&challenge).collect::<Vec<_>>();
         assert_eq!(
             qualities,
             tables_parallel.find_quality(&challenge).collect::<Vec<_>>()
         );
-        let proofs = tables.find_proof(&challenge).collect::<Vec<_>>();
+        let proofs = tables.find_proof(first_challenge_bytes).collect::<Vec<_>>();
         assert_eq!(
             proofs,
-            tables_parallel.find_proof(&challenge).collect::<Vec<_>>()
+            tables_parallel
+                .find_proof(first_challenge_bytes)
+                .collect::<Vec<_>>()
         );
 
         assert_eq!(qualities.len(), proofs.len());

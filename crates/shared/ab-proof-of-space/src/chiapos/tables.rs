@@ -8,6 +8,7 @@ pub use crate::chiapos::table::TablesCache;
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::table::{
     COMPUTE_F1_SIMD_FACTOR, Table, compute_f1, compute_fn, has_match, metadata_size_bytes,
+    num_buckets,
 };
 use crate::chiapos::utils::EvaluatableUsize;
 use crate::chiapos::{Challenge, Quality, Seed};
@@ -41,6 +42,8 @@ where
     EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
+    [(); 1 << K]:,
+    [(); num_buckets(K)]:,
 {
     table_2: Table<K, 2>,
     table_3: Table<K, 3>,
@@ -61,6 +64,8 @@ where
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
     EvaluatableUsize<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>: Sized,
     EvaluatableUsize<{ 64 * K as usize / 8 }>: Sized,
+    [(); 1 << K]:,
+    [(); num_buckets(K)]:,
 {
     /// Create Chia proof of space tables. There also exists [`Self::create_parallel()`] that trades
     /// CPU efficiency and memory usage for lower latency.
@@ -188,15 +193,12 @@ where
     /// Find proof of space for a given challenge
     pub(super) fn find_proof<'a>(
         &'a self,
-        challenge: &'a Challenge,
+        first_challenge_bytes: [u8; 4],
     ) -> impl Iterator<Item = [u8; 64 * K as usize / 8]> + 'a {
         // We take advantage of the fact that entries are sorted by `y` (as big-endian numbers) to
         // quickly seek to desired offset
-        let first_k_challenge_bits = u32::from_be_bytes(
-            challenge[..size_of::<u32>()]
-                .try_into()
-                .expect("Challenge is known to statically have enough bytes; qed"),
-        ) >> (u32::BITS as usize - usize::from(K));
+        let first_k_challenge_bits =
+            u32::from_be_bytes(first_challenge_bytes) >> (u32::BITS as usize - usize::from(K));
 
         // Iterate just over elements that are matching `first_k_challenge_bits` prefix
         self.table_7.buckets()[Y::bucket_range_from_first_k_bits(first_k_challenge_bits)]

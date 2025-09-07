@@ -3,7 +3,6 @@ use crate::chiapos::table::metadata_size_bytes;
 use crate::chiapos::utils::EvaluatableUsize;
 use core::iter::Step;
 use core::mem;
-use core::mem::MaybeUninit;
 use core::ops::RangeInclusive;
 use derive_more::{Add, AddAssign, From, Into};
 
@@ -93,15 +92,6 @@ impl Y {
         // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/61956
         // SAFETY: `Y` is `#[repr(C)]` and guaranteed to have the same memory layout
         unsafe { mem::transmute_copy(&array) }
-    }
-
-    /// Convenient conversion to a slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub(super) const fn maybe_uninit_repr_from_slice(
-        value: &[MaybeUninit<Self>],
-    ) -> &[MaybeUninit<u32>] {
-        // SAFETY: `Y` is `#[repr(C)]` and guaranteed to have the same memory layout
-        unsafe { mem::transmute(value) }
     }
 }
 
