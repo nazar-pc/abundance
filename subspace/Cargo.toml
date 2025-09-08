@@ -221,5 +221,3 @@ hex = { git = "https://github.com/KokaKiwi/rust-hex", rev = "98b1ee36cac1533ae71
 # Patch away `libp2p-identity` in our dependency tree with the git version.
 # For details see: https://github.com/autonomys/rust-libp2p/blob/04c2e649b1f5482b8c3466b0fdbd1815b3126a48/Cargo.toml#L140-L145
 libp2p-identity = { git = "https://github.com/autonomys/rust-libp2p", rev = "04c2e649b1f5482b8c3466b0fdbd1815b3126a48" }
-# TODO: Remove once 0.5.0-rc.1+ is released to include https://github.com/RustCrypto/traits/pull/1907
-cipher = { version = "0.5.0-rc.0", git = "https://github.com/RustCrypto/traits", rev = "57aea511ffc6e8122ef4abced5135ea29473ef8d" }

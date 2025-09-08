@@ -46,7 +46,7 @@ ab-system-contract-native-token = { version = "0.0.1", path = "crates/contracts/
 ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-simple-wallet-base" }
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
 ab-trivial-type-derive = { version = "0.0.1", path = "crates/shared/ab-trivial-type-derive" }
-aes = "0.9.0-rc.0"
+aes = "0.9.0-rc.1"
 anyhow = { version = "1.0.99", default-features = false }
 async-lock = { version = "3.4.1", default-features = false }
 async-trait = "0.1.89"
@@ -57,9 +57,9 @@ bitvec = "1.0.1"
 blake3 = { version = "1.8.2", default-features = false }
 bytes = { version = "1.10.1", default-features = false }
 bytesize = { version = "2.0.1", default-features = false }
-cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "39b238f25b7652ba79d153626e252321942cb558", default-features = false }
-chacha20 = { version = "0.10.0-rc.0", default-features = false }
-clap = "4.5.45"
+cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "91286dd92ddadaa8f3992cca964f3928ca896402", default-features = false }
+chacha20 = { version = "0.10.0-rc.1", default-features = false }
+clap = "4.5.47"
 const_format = "0.2.34"
 core_affinity = "0.8.3"
 cpufeatures = "0.2.17"
@@ -75,12 +75,12 @@ futures = { version = "0.3.31", default-features = false, features = ["async-awa
 halfbrown = "0.3.0"
 hex = { version = "0.4.3", default-features = false }
 ident_case = "1.0.1"
-libc = "0.2.174"
+libc = "0.2.175"
 no-panic = "0.1.35"
 once_cell = { version = "1.21.3", default-features = false }
 parity-scale-codec = { version = "3.7.5", default-features = false }
 parking_lot = "0.12.4"
-proc-macro2 = "1.0.97"
+proc-macro2 = "1.0.101"
 quote = "1.0.40"
 rand = { version = "0.9.2", default-features = false }
 rand_chacha = { version = "0.9.0", default-features = false }
@@ -97,21 +97,20 @@ send-future = "0.1.0"
 seq-macro = "0.3.6"
 serde = { version = "1.0.219", default-features = false }
 serde-big-array = "0.5.1"
-sha2 = { version = "0.11.0-rc.0", default-features = false }
+sha2 = { version = "0.11.0-rc.2", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
-spin = "0.10.0"
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "b320baf49b392b194e14f15bf06ad528c7ae656c" }
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "cb518bbb0969b65959fcc1992cec96d53d294169" }
 stable_deref_trait = { version = "1.2.0", default-features = false }
 strum = { version = "0.27.2", default-features = false, features = ["derive"] }
 syn = "2.0.106"
-tempfile = "3.20.0"
-thiserror = { version = "2.0.15", default-features = false }
-thread-priority = "2.1.0"
+tempfile = "3.21.0"
+thiserror = { version = "2.0.16", default-features = false }
+thread-priority = "3.0.0"
 tokio = { version = "1.47.1", default-features = false }
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 wgpu = { version = "26.0.1", default-features = false, features = ["metal", "spirv", "vulkan"] }
-windows = { version = "0.61.3", features = ["Win32_Storage_FileSystem"] }
+windows = { version = "0.62.0", features = ["Win32_Storage_FileSystem"] }
 yoke = { version = "0.8.0", default-features = false }
 
 # The following libraries have a major impact on developement experience and need to be compiled with optimizations even
@@ -133,8 +132,8 @@ inherits = "production"
 strip = "symbols"
 
 [patch.crates-io]
-# TODO: Remove once 0.5.0-rc.1+ is released with https://github.com/RustCrypto/traits/pull/1907
-cipher = { version = "0.5.0-rc.0", git = "https://github.com/RustCrypto/traits", rev = "57aea511ffc6e8122ef4abced5135ea29473ef8d" }
+# TODO: Remove once 0.10.0-rc.2+ is released with https://github.com/RustCrypto/stream-ciphers/pull/455
+chacha20 = { version = "0.10.0-rc.1", git = "https://github.com/RustCrypto/stream-ciphers", rev = "d43c405c20a3305d3a8e7db13cb0a1f270549e68" }
 # TODO: Remove once 1.8.3 is released with https://github.com/BLAKE3-team/BLAKE3/pull/469
 blake3 = { version = "1.8.2", git = "https://github.com/BLAKE3-team/BLAKE3", rev = "c7f0d216e6fc834b742456b39546c9835baa1277" }
 
