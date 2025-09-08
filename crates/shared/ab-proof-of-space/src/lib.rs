@@ -16,7 +16,6 @@
     sync_unsafe_cell,
     vec_into_raw_parts
 )]
-extern crate alloc;
 
 pub mod chia;
 pub mod chiapos;
