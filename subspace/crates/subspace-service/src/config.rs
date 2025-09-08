@@ -310,9 +310,10 @@ pub struct SubspaceConfiguration {
 }
 
 /// Syncing mode.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum ChainSyncMode {
     /// Full sync. Download and verify all blocks from DSN.
+    #[default]
     Full,
     /// Download latest state and related blocks only. Run full DSN-sync afterwards.
     Snap,
@@ -336,12 +337,6 @@ impl fmt::Display for ChainSyncMode {
             Self::Full => f.write_str("full"),
             Self::Snap => f.write_str("snap"),
         }
-    }
-}
-
-impl Default for ChainSyncMode {
-    fn default() -> Self {
-        Self::Full
     }
 }
 
