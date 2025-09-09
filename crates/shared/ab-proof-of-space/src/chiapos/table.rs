@@ -420,8 +420,8 @@ where
         // SAFETY: `r` is within a bucket and exists by definition
         let rmap_item = unsafe { rmap.get_unchecked_mut(r) };
 
-        // The same `y` and as a result `r` can appear in the table multiple times. We support up to
-        // two duplicates here.
+        // The same `y` and as a result `r` can appear in the table multiple times, one duplicate is
+        // supported here.
         if rmap_item[0] == Position::ZERO {
             rmap_item[0] = right_position;
         } else if rmap_item[1] == Position::ZERO {
@@ -456,7 +456,7 @@ where
             let rmap_items: [_; FIND_MATCHES_UNROLL_FACTOR] = seq!(N in 0..8 {
                 [
                 #(
-                    // SAFETY: Targets are always limited to `PARAM_BC` and this guaranteed to exist
+                    // SAFETY: Targets are always limited to `PARAM_BC` and is guaranteed to exist
                     // in `rmap`
                     *unsafe { rmap.get_unchecked(usize::from(r_targets[N])) },
                 )*
