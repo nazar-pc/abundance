@@ -42,19 +42,12 @@ impl From<X> for u128 {
     }
 }
 
-impl From<X> for usize {
-    #[inline(always)]
-    fn from(value: X) -> Self {
-        value.0 as Self
-    }
-}
-
 impl X {
     pub(in super::super) const ZERO: Self = Self(0);
 }
 
 /// Stores data in lower bits
-#[derive(Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, From, Into)]
 #[repr(C)]
 pub(in super::super) struct Y(u32);
 
@@ -95,9 +88,7 @@ impl Y {
     }
 }
 
-#[derive(
-    Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into, Add, AddAssign,
-)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into)]
 #[repr(C)]
 pub(in super::super) struct Position(u32);
 
@@ -132,7 +123,7 @@ impl Position {
 }
 
 /// Stores data in lower bits
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 pub(in super::super) struct Metadata<const K: u8, const TABLE_NUMBER: u8>(
     [u8; metadata_size_bytes(K, TABLE_NUMBER)],

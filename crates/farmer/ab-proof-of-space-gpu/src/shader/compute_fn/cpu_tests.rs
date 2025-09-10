@@ -1,14 +1,18 @@
 use crate::shader::compute_fn::{compute_fn_impl, metadata_size_bits, y_size_bits};
 use crate::shader::constants::K;
+use crate::shader::types::{Metadata, Y};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{RngCore, SeedableRng};
 
 // TODO: Reuse code from `ab-proof-of-space`, right now this is copy-pasted from there
 pub(super) fn correct_compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
-    y: u32,
-    left_metadata: u128,
-    right_metadata: u128,
-) -> (u32, u128) {
+    y: Y,
+    left_metadata: Metadata,
+    right_metadata: Metadata,
+) -> (Y, Metadata) {
+    let left_metadata = u128::from(left_metadata);
+    let right_metadata = u128::from(right_metadata);
+
     let parent_metadata_bits = metadata_size_bits(K, PARENT_TABLE_NUMBER);
 
     // Only supports `K` from 15 to 25 (otherwise math will not be correct when concatenating y,
@@ -54,13 +58,14 @@ pub(super) fn correct_compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMB
         }
     };
 
-    let y_output =
-        u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]]) >> (u32::BITS - y_size_bits(K));
+    let y_output = Y::from(
+        u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]]) >> (u32::BITS - y_size_bits(K)),
+    );
 
     let metadata_size_bits = metadata_size_bits(K, TABLE_NUMBER);
 
     let metadata = if TABLE_NUMBER < 4 {
-        (left_metadata << parent_metadata_bits) | right_metadata
+        Metadata::from((left_metadata << parent_metadata_bits) | right_metadata)
     } else if metadata_size_bits > 0 {
         // For K up to 25 it is guaranteed that metadata + bit offset will always fit into u128.
         // We collect the bytes necessary, potentially with extra bits at the start and end of the
@@ -73,22 +78,24 @@ pub(super) fn correct_compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMB
         // Remove extra bits at the beginning
         let metadata = metadata << ((y_size_bits(K) % u8::BITS) as usize);
         // Move bits into the correct location
-        metadata >> (u128::BITS - metadata_size_bits)
+        Metadata::from(metadata >> (u128::BITS - metadata_size_bits))
     } else {
-        0
+        Metadata::default()
     };
 
     (y_output, metadata)
 }
 
-pub(super) fn random_y(rng: &mut ChaCha8Rng) -> u32 {
-    rng.next_u32() >> (u32::BITS - y_size_bits(K))
+pub(super) fn random_y(rng: &mut ChaCha8Rng) -> Y {
+    Y::from(rng.next_u32() >> (u32::BITS - y_size_bits(K)))
 }
 
-pub(super) fn random_metadata<const TABLE_NUMBER: u8>(rng: &mut ChaCha8Rng) -> u128 {
+pub(super) fn random_metadata<const TABLE_NUMBER: u8>(rng: &mut ChaCha8Rng) -> Metadata {
     let mut left_metadata = 0u128.to_le_bytes();
     rng.fill_bytes(&mut left_metadata);
-    u128::from_le_bytes(left_metadata) >> (u128::BITS - metadata_size_bits(K, TABLE_NUMBER))
+    Metadata::from(
+        u128::from_le_bytes(left_metadata) >> (u128::BITS - metadata_size_bits(K, TABLE_NUMBER)),
+    )
 }
 
 fn test_compute_fn_cpu_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
@@ -101,7 +108,7 @@ fn test_compute_fn_cpu_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u
     assert_eq!(
         correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(y, left_metadata, right_metadata),
         compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(y, left_metadata, right_metadata),
-        "TABLE_NUMBER={TABLE_NUMBER}: Y={y}, left_metadata={left_metadata}, right_metadata={right_metadata}"
+        "TABLE_NUMBER={TABLE_NUMBER}: Y={y:?}, left_metadata={left_metadata:?}, right_metadata={right_metadata:?}"
     );
 }
 

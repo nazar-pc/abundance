@@ -5,17 +5,18 @@ mod gpu_tests;
 
 use crate::shader::constants::{K, PARAM_EXT};
 use crate::shader::num::{U128, U128T};
+use crate::shader::types::{Metadata, Position, Y};
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
 
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct Match {
-    pub left_position: u32,
+    pub left_position: Position,
     // TODO: Would it be efficient to not store it here since `left_position` already points to the
     //  correct `y` in the parent table?
-    pub left_y: u32,
-    pub right_position: u32,
+    pub left_y: Y,
+    pub right_position: Position,
 }
 
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and
@@ -46,10 +47,13 @@ const fn metadata_size_bits(k: u8, table_number: u8) -> u32 {
 //  https://github.com/Rust-GPU/rust-gpu/discussions/301
 #[inline(always)]
 pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
-    y: u32,
-    left_metadata: U128,
-    right_metadata: U128,
-) -> (u32, U128) {
+    y: Y,
+    left_metadata: Metadata,
+    right_metadata: Metadata,
+) -> (Y, Metadata) {
+    let left_metadata = U128::from(left_metadata);
+    let right_metadata = U128::from(right_metadata);
+
     // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
     //  shouldn't be necessary otherwise
     let parent_metadata_bits = const { metadata_size_bits(K, PARENT_TABLE_NUMBER) };
@@ -129,14 +133,14 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
 
     // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
     //  shouldn't be necessary otherwise
-    let y_output = hash[0].to_be() >> (u32::BITS - const { y_size_bits(K) });
+    let y_output = Y::from(hash[0].to_be() >> (u32::BITS - const { y_size_bits(K) }));
 
     // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
     //  shouldn't be necessary otherwise
     let metadata_size_bits = const { metadata_size_bits(K, TABLE_NUMBER) };
 
     let metadata = if TABLE_NUMBER < 4 {
-        (left_metadata << parent_metadata_bits) | right_metadata
+        Metadata::from((left_metadata << parent_metadata_bits) | right_metadata)
     } else if metadata_size_bits > 0 {
         // For K up to 24 it is guaranteed that metadata + bit offset will always fit into 4 `u32`
         // words (equivalent to `u128` size). For K=25 it'll be necessary to have fifth word, which
@@ -163,9 +167,9 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
         //  shouldn't be necessary otherwise
         let metadata = metadata << (const { y_size_bits(K) } % u32::BITS);
         // Move bits into the correct location
-        metadata >> (u128::BITS - metadata_size_bits)
+        Metadata::from(metadata >> (u128::BITS - metadata_size_bits))
     } else {
-        U128::ZERO
+        Metadata::default()
     };
 
     (y_output, metadata)
@@ -177,9 +181,9 @@ fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     num_workgroups: UVec3,
     workgroup_size: u32,
     matches: &[Match],
-    parent_metadatas: &[U128],
-    ys: &mut [u32],
-    metadatas: &mut [U128],
+    parent_metadatas: &[Metadata],
+    ys: &mut [Y],
+    metadatas: &mut [Metadata],
 ) {
     // TODO: Make a single input bounds check and use unsafe to avoid bounds check later
     let invocation_id = invocation_id.x;
@@ -193,8 +197,8 @@ fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
         let index = index as usize;
 
         let m = matches[index];
-        let left_metadata = parent_metadatas[m.left_position as usize];
-        let right_metadata = parent_metadatas[m.right_position as usize];
+        let left_metadata = parent_metadatas[usize::from(m.left_position)];
+        let right_metadata = parent_metadatas[usize::from(m.right_position)];
 
         let (y, metadata) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
             m.left_y,
@@ -218,9 +222,9 @@ pub fn compute_f2(
     // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
     // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[U128],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [U128],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
     // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
     //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
@@ -245,9 +249,9 @@ pub fn compute_f3(
     // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
     // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[U128],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [U128],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
     // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
     //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
@@ -272,9 +276,9 @@ pub fn compute_f4(
     // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
     // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[U128],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [U128],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
     // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
     //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
@@ -299,9 +303,9 @@ pub fn compute_f5(
     // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
     // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[U128],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [U128],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
     // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
     //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
@@ -326,9 +330,9 @@ pub fn compute_f6(
     // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
     // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[U128],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [U128],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
     // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
     //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
@@ -353,11 +357,11 @@ pub fn compute_f7(
     // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
     // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[U128],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
     // TODO: This argument should not be required, but it is currently not possible to compile
     //  `&mut []` under `rust-gpu` directly
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [U128],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
     // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
     //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved

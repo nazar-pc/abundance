@@ -1,5 +1,6 @@
 use crate::shader::compute_fn::Match;
 use crate::shader::compute_fn::cpu_tests::{correct_compute_fn, random_metadata, random_y};
+use crate::shader::types::{Metadata, Position, Y};
 use crate::shader::{SHADER_U32, SHADER_U64};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{RngCore, SeedableRng};
@@ -58,12 +59,12 @@ fn test_compute_fn_gpu_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u
         .collect::<Vec<_>>();
     let matches = (0..num_matches)
         .map(|_| {
-            let left_position = rng.next_u32() % parent_table_size as u32;
-            let right_position = rng.next_u32() % parent_table_size as u32;
+            let left_position = Position::from(rng.next_u32() % parent_table_size as u32);
+            let right_position = Position::from(rng.next_u32() % parent_table_size as u32);
 
             Match {
                 left_position,
-                left_y: parent_ys[left_position as usize],
+                left_y: parent_ys[usize::from(left_position)],
                 right_position,
             }
         })
@@ -83,8 +84,8 @@ fn test_compute_fn_gpu_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u
     let (expected_ys, expected_metadatas) = matches
         .iter()
         .map(|m| {
-            let left_metadata = parent_metadatas[m.left_position as usize];
-            let right_metadata = parent_metadatas[m.right_position as usize];
+            let left_metadata = parent_metadatas[usize::from(m.left_position)];
+            let right_metadata = parent_metadatas[usize::from(m.right_position)];
             correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
                 m.left_y,
                 left_metadata,
@@ -107,8 +108,8 @@ fn test_compute_fn_gpu_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u
 
 async fn compute_fn<const TABLE_NUMBER: u8>(
     matches: &[Match],
-    parent_metadatas: &[u128],
-) -> Option<(Vec<u32>, Vec<u128>)> {
+    parent_metadatas: &[Metadata],
+) -> Option<(Vec<Y>, Vec<Metadata>)> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
         backends,
@@ -141,9 +142,9 @@ async fn compute_fn<const TABLE_NUMBER: u8>(
 
 async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
     matches: &[Match],
-    parent_metadatas: &[u128],
+    parent_metadatas: &[Metadata],
     adapter: Adapter,
-) -> Option<(Vec<u32>, Vec<u128>)> {
+) -> Option<(Vec<Y>, Vec<Metadata>)> {
     let num_matches = matches.len();
 
     let (required_features, shader) = if adapter.features().contains(Features::SHADER_INT64) {
@@ -247,7 +248,7 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
 
     let ys_host = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: (size_of::<u32>() * num_matches) as BufferAddress,
+        size: (size_of::<Y>() * num_matches) as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -261,7 +262,7 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
 
     let metadatas_host = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: (size_of::<u128>() * num_matches) as BufferAddress,
+        size: (size_of::<Metadata>() * num_matches) as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -315,24 +316,15 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
     device.poll(PollType::Wait).unwrap();
 
     let ys = {
-        // Statically ensure it is aligned correctly
-        const _: () = {
-            assert!(align_of::<u32>() <= wgpu::MAP_ALIGNMENT as usize);
-        };
-        let ys_host_ptr = ys_host.get_mapped_range(..).as_ptr().cast::<u32>();
-        // Assert just in case
-        assert!(ys_host_ptr.is_aligned());
+        let ys_host_ptr = ys_host.get_mapped_range(..).as_ptr().cast::<Y>();
 
         unsafe { slice::from_raw_parts(ys_host_ptr, num_matches) }.to_vec()
     };
     let metadatas = {
-        let metadatas_host_ptr = metadatas_host.get_mapped_range(..).as_ptr().cast::<u128>();
-        // Alignment seems to always be larger than `u128`, so to simplify code, just assert and
-        // move on
-        assert!(
-            metadatas_host_ptr.is_aligned(),
-            "Alignment wasn't sufficient"
-        );
+        let metadatas_host_ptr = metadatas_host
+            .get_mapped_range(..)
+            .as_ptr()
+            .cast::<Metadata>();
 
         unsafe { slice::from_raw_parts(metadatas_host_ptr, num_matches) }.to_vec()
     };

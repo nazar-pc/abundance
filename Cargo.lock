@@ -511,6 +511,7 @@ dependencies = [
  "ab-core-primitives",
  "cargo-gpu",
  "chacha20",
+ "derive_more 2.0.1",
  "futures",
  "spirv-std",
  "wgpu",
