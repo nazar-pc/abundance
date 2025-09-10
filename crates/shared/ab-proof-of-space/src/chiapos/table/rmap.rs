@@ -45,6 +45,9 @@ impl Rmap {
         unsafe { self.positions.get_unchecked_mut(physical_pointer as usize) }
     }
 
+    /// Note that `position == Position::ZERO` is effectively ignored here, supporting it cost too
+    /// much in terms of performance and not required for correctness.
+    ///
     /// # Safety
     /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKETS_SIZE`] items
     /// inserted
