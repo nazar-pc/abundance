@@ -23,6 +23,7 @@ crate-type = ["dylib", "lib"]
 [dependencies]
 ab-blake3 = { workspace = true }
 ab-chacha8 = { workspace = true }
+derive_more = { workspace = true, features = ["from", "into"] }
 spirv-std = { workspace = true }
 
 [target.'cfg(not(target_arch = "spirv"))'.dependencies]

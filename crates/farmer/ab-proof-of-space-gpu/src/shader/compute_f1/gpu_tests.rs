@@ -1,4 +1,5 @@
 use crate::shader::compute_f1::cpu_tests::correct_compute_f1;
+use crate::shader::types::{X, Y};
 use crate::shader::{SHADER_U32, SHADER_U64};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use ab_core_primitives::pos::PosProof;
@@ -36,7 +37,7 @@ fn compute_f1_gpu() {
         }
     };
 
-    let expected_output = (0..num_x)
+    let expected_output = (X::ZERO..X::from(num_x))
         .map(|x| correct_compute_f1::<{ PosProof::K }>(x, &seed))
         .collect::<Vec<_>>();
 
@@ -46,7 +47,7 @@ fn compute_f1_gpu() {
     }
 }
 
-async fn compute_f1(chacha8_keystream: &[u32], num_x: u32) -> Option<Vec<u32>> {
+async fn compute_f1(chacha8_keystream: &[u32], num_x: u32) -> Option<Vec<Y>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
         backends,
@@ -80,7 +81,7 @@ async fn compute_f1_adapter(
     chacha8_keystream: &[u32],
     num_x: u32,
     adapter: Adapter,
-) -> Option<Vec<u32>> {
+) -> Option<Vec<Y>> {
     let (required_features, shader) = if adapter.features().contains(Features::SHADER_INT64) {
         (Features::SHADER_INT64, SHADER_U64)
     } else {
@@ -154,7 +155,7 @@ async fn compute_f1_adapter(
 
     let ys_host = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: (size_of::<u32>() * num_x as usize) as BufferAddress,
+        size: (size_of::<Y>() * num_x as usize) as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -198,7 +199,7 @@ async fn compute_f1_adapter(
     device.poll(PollType::Wait).unwrap();
 
     let ys = {
-        let ys_host_ptr = ys_host.get_mapped_range(..).as_ptr().cast::<u32>();
+        let ys_host_ptr = ys_host.get_mapped_range(..).as_ptr().cast::<Y>();
         unsafe { slice::from_raw_parts(ys_host_ptr, num_x as usize) }.to_vec()
     };
     ys_host.unmap();

@@ -1,12 +1,13 @@
 use crate::shader::compute_f1::compute_f1_impl;
 use crate::shader::constants::PARAM_EXT;
+use crate::shader::types::{X, Y};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use ab_core_primitives::pos::PosProof;
 
 // TODO: Reuse code from `ab-proof-of-space`, right now this is copy-pasted from there
 /// `partial_y_offset` is in bits within `partial_y`
-pub(super) fn correct_compute_f1<const K: u8>(x: u32, seed: &[u8; 32]) -> u32 {
-    let skip_bits = u32::from(K) * x;
+pub(super) fn correct_compute_f1<const K: u8>(x: X, seed: &[u8; 32]) -> Y {
+    let skip_bits = u32::from(K) * u32::from(x);
     let skip_u32s = skip_bits / u32::BITS;
     let partial_y_offset = skip_bits % u32::BITS;
 
@@ -37,11 +38,11 @@ pub(super) fn correct_compute_f1<const K: u8>(x: u32, seed: &[u8; 32]) -> u32 {
 
     // Extract `PARAM_EXT` most significant bits from `x` and store in the final offset of
     // eventual `y` with the rest of bits being zero (`x` is `0..2^K`)
-    let pre_ext = x >> (K - PARAM_EXT);
+    let pre_ext = u32::from(x) >> (K - PARAM_EXT);
 
     // Combine all of the bits together:
     // [padding zero bits][`K` bits rom `partial_y`][`PARAM_EXT` bits from `x`]
-    (pre_y & pre_y_mask) | pre_ext
+    Y::from((pre_y & pre_y_mask) | pre_ext)
 }
 
 #[test]
@@ -58,11 +59,11 @@ fn compute_f1_cpu() {
         .map(|counter| initial_state.compute_block(counter))
         .collect::<Vec<_>>();
 
-    for x in 0..num_x {
+    for x in X::ZERO..X::from(num_x) {
         assert_eq!(
             correct_compute_f1::<{ PosProof::K }>(x, &seed),
             compute_f1_impl(x, chacha8_keystream.as_flattened()),
-            "X={x}"
+            "X={x:?}"
         );
     }
 }

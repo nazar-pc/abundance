@@ -5,6 +5,7 @@ mod gpu_tests;
 
 use crate::shader::constants::{K, PARAM_EXT};
 use crate::shader::num::{U64, U64T};
+use crate::shader::types::{X, Y};
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
 
@@ -13,8 +14,8 @@ use spirv_std::spirv;
 //  https://github.com/Rust-GPU/rust-gpu/discussions/301
 /// `partial_y_offset` is in bits within `partial_y`
 #[inline(always)]
-pub(super) fn compute_f1_impl(x: u32, chacha8_keystream: &[u32]) -> u32 {
-    let skip_bits = u32::from(K) * x;
+pub(super) fn compute_f1_impl(x: X, chacha8_keystream: &[u32]) -> Y {
+    let skip_bits = u32::from(K) * u32::from(x);
     let skip_u32s = skip_bits / u32::BITS;
     let partial_y_offset = skip_bits % u32::BITS;
 
@@ -29,11 +30,11 @@ pub(super) fn compute_f1_impl(x: u32, chacha8_keystream: &[u32]) -> u32 {
 
     // Extract `PARAM_EXT` most significant bits from `x` and store in the final offset of
     // eventual `y` with the rest of bits being zero (`x` is `0..2^K`)
-    let pre_ext = x >> (K - PARAM_EXT);
+    let pre_ext = u32::from(x) >> (K - PARAM_EXT);
 
     // Combine all of the bits together:
     // [padding zero bits][`K` bits rom `partial_y`][`PARAM_EXT` bits from `x`]
-    (pre_y & pre_y_mask) | pre_ext
+    Y::from((pre_y & pre_y_mask) | pre_ext)
 }
 
 /// Compute Chia's `f1()` function using previously computed ChaCha8 keystream
@@ -44,7 +45,7 @@ pub fn compute_f1(
     // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
     // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] chacha8_keystream: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] ys: &mut [u32],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] ys: &mut [Y],
 ) {
     // TODO: Make a single input bounds check and use unsafe to avoid bounds check later
     let invocation_id = invocation_id.x;
@@ -58,6 +59,6 @@ pub fn compute_f1(
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     for x in (invocation_id..ys.len() as u32).step_by(global_size as usize) {
-        ys[x as usize] = compute_f1_impl(x, chacha8_keystream);
+        ys[x as usize] = compute_f1_impl(X::from(x), chacha8_keystream);
     }
 }
