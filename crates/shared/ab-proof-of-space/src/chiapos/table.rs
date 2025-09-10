@@ -1,3 +1,4 @@
+mod rmap;
 #[cfg(test)]
 mod tests;
 pub(super) mod types;
@@ -7,6 +8,7 @@ extern crate alloc;
 
 use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT, PARAM_M};
+use crate::chiapos::table::rmap::Rmap;
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::utils::EvaluatableUsize;
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
@@ -408,24 +410,18 @@ where
     let left_base = left_bucket_index * u32::from(PARAM_BC);
     let right_base = left_base + u32::from(PARAM_BC);
 
-    let mut rmap = [[Position::ZERO; 2]; PARAM_BC as usize];
+    let mut rmap = Rmap::new();
     for &right_position in right_bucket {
         if right_position == Position::SENTINEL {
             break;
         }
         // SAFETY: Guaranteed by function contract
         let y = unsafe { parent_table.y(right_position) };
-        // SAFETY: Guaranteed by function contract
-        let r = u32::from(y) as usize - right_base as usize;
-        // SAFETY: `r` is within a bucket and exists by definition
-        let rmap_item = unsafe { rmap.get_unchecked_mut(r) };
-
-        // The same `y` and as a result `r` can appear in the table multiple times, one duplicate is
-        // supported here.
-        if rmap_item[0] == Position::ZERO {
-            rmap_item[0] = right_position;
-        } else if rmap_item[1] == Position::ZERO {
-            rmap_item[1] = right_position;
+        let r = u32::from(y) - right_base;
+        // SAFETY: `r` is within `0..PARAM_BC` range by definition, the right bucket is limited to
+        // `REDUCED_BUCKETS_SIZE`
+        unsafe {
+            rmap.add(r, right_position);
         }
     }
 
@@ -456,9 +452,8 @@ where
             let rmap_items: [_; FIND_MATCHES_UNROLL_FACTOR] = seq!(N in 0..8 {
                 [
                 #(
-                    // SAFETY: Targets are always limited to `PARAM_BC` and is guaranteed to exist
-                    // in `rmap`
-                    *unsafe { rmap.get_unchecked(usize::from(r_targets[N])) },
+                    // SAFETY: Targets are always limited to `PARAM_BC`
+                    unsafe { rmap.get(u32::from(r_targets[N])) },
                 )*
                 ]
             });
