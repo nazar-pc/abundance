@@ -160,8 +160,6 @@ fn group_by_buckets<const K: u8>(
 where
     [(); num_buckets(K)]:,
 {
-    // TODO: Try to return offsets too, so that filling with sentinel values and checking for them
-    //  is not necessary
     let mut bucket_offsets = [0_u16; num_buckets(K)];
     // SAFETY: Contents is `MaybeUninit`
     let mut buckets = unsafe {
@@ -205,8 +203,6 @@ where
     I: Iterator<Item = (&'a [MaybeUninit<Y>; REDUCED_MATCHES_COUNT], usize)> + 'a,
     [(); num_buckets(K)]:,
 {
-    // TODO: Try to return offsets too, so that filling with sentinel values and checking for them
-    //  is not necessary
     let mut bucket_offsets = [0_u16; num_buckets(K)];
     // SAFETY: Contents is `MaybeUninit`
     let mut buckets = unsafe {
