@@ -5,7 +5,7 @@ mod gpu_tests;
 
 use crate::shader::constants::{K, PARAM_EXT};
 use crate::shader::num::{U64, U64T};
-use spirv_std::glam::{UVec2, UVec3};
+use spirv_std::glam::UVec3;
 use spirv_std::spirv;
 
 // TODO: Make unsafe and avoid bounds check
@@ -44,7 +44,7 @@ pub fn compute_f1(
     // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
     // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] chacha8_keystream: &[u32],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] xys: &mut [UVec2],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] ys: &mut [u32],
 ) {
     // TODO: Make a single input bounds check and use unsafe to avoid bounds check later
     let invocation_id = invocation_id.x;
@@ -57,10 +57,7 @@ pub fn compute_f1(
 
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    for x in (invocation_id..xys.len() as u32).step_by(global_size as usize) {
-        xys[x as usize] = UVec2 {
-            x,
-            y: compute_f1_impl(x, chacha8_keystream),
-        };
+    for x in (invocation_id..ys.len() as u32).step_by(global_size as usize) {
+        ys[x as usize] = compute_f1_impl(x, chacha8_keystream);
     }
 }

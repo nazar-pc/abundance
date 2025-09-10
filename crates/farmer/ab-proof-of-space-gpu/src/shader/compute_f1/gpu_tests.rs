@@ -3,7 +3,6 @@ use crate::shader::{SHADER_U32, SHADER_U64};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use ab_core_primitives::pos::PosProof;
 use futures::executor::block_on;
-use spirv_std::glam::UVec2;
 use std::slice;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
@@ -38,10 +37,7 @@ fn compute_f1_gpu() {
     };
 
     let expected_output = (0..num_x)
-        .map(|x| UVec2 {
-            x,
-            y: correct_compute_f1::<{ PosProof::K }>(x, &seed),
-        })
+        .map(|x| correct_compute_f1::<{ PosProof::K }>(x, &seed))
         .collect::<Vec<_>>();
 
     assert_eq!(actual_output.len(), expected_output.len());
@@ -50,7 +46,7 @@ fn compute_f1_gpu() {
     }
 }
 
-async fn compute_f1(chacha8_keystream: &[u32], num_x: u32) -> Option<Vec<UVec2>> {
+async fn compute_f1(chacha8_keystream: &[u32], num_x: u32) -> Option<Vec<u32>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
         backends,
@@ -84,7 +80,7 @@ async fn compute_f1_adapter(
     chacha8_keystream: &[u32],
     num_x: u32,
     adapter: Adapter,
-) -> Option<Vec<UVec2>> {
+) -> Option<Vec<u32>> {
     let (required_features, shader) = if adapter.features().contains(Features::SHADER_INT64) {
         (Features::SHADER_INT64, SHADER_U64)
     } else {
@@ -156,16 +152,16 @@ async fn compute_f1_adapter(
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
     });
 
-    let xys_host = device.create_buffer(&BufferDescriptor {
+    let ys_host = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: (size_of::<UVec2>() * num_x as usize) as BufferAddress,
+        size: (size_of::<u32>() * num_x as usize) as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
-    let xys_gpu = device.create_buffer(&BufferDescriptor {
+    let ys_gpu = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: xys_host.size(),
+        size: ys_host.size(),
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
@@ -180,7 +176,7 @@ async fn compute_f1_adapter(
             },
             BindGroupEntry {
                 binding: 1,
-                resource: xys_gpu.as_entire_binding(),
+                resource: ys_gpu.as_entire_binding(),
             },
         ],
     });
@@ -194,25 +190,18 @@ async fn compute_f1_adapter(
         cpass.dispatch_workgroups(device.limits().max_compute_workgroup_size_x, 1, 1);
     }
 
-    encoder.copy_buffer_to_buffer(&xys_gpu, 0, &xys_host, 0, xys_host.size());
+    encoder.copy_buffer_to_buffer(&ys_gpu, 0, &ys_host, 0, ys_host.size());
 
     queue.submit([encoder.finish()]);
 
-    xys_host.map_async(MapMode::Read, .., |r| r.unwrap());
+    ys_host.map_async(MapMode::Read, .., |r| r.unwrap());
     device.poll(PollType::Wait).unwrap();
 
-    let xys = {
-        // Statically ensure it is aligned correctly
-        const _: () = {
-            assert!(align_of::<UVec2>() <= wgpu::MAP_ALIGNMENT as usize);
-        };
-        let xys_host_ptr = xys_host.get_mapped_range(..).as_ptr().cast::<UVec2>();
-        // Assert just in case
-        assert!(xys_host_ptr.is_aligned());
-
-        unsafe { slice::from_raw_parts(xys_host_ptr, num_x as usize) }.to_vec()
+    let ys = {
+        let ys_host_ptr = ys_host.get_mapped_range(..).as_ptr().cast::<u32>();
+        unsafe { slice::from_raw_parts(ys_host_ptr, num_x as usize) }.to_vec()
     };
-    xys_host.unmap();
+    ys_host.unmap();
 
-    Some(xys)
+    Some(ys)
 }
