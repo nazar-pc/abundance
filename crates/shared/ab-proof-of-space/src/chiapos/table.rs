@@ -30,7 +30,6 @@ use core::{array, mem};
 use seq_macro::seq;
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
-const FIND_MATCHES_UNROLL_FACTOR: usize = 8;
 const COMPUTE_FN_SIMD_FACTOR: usize = 16;
 const MAX_BUCKET_SIZE: usize = 512;
 const BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS: u8 = 128;
@@ -440,52 +439,32 @@ where
         // SAFETY: `r` is within a bucket and exists by definition
         let left_targets_r = unsafe { left_targets_parity.get_unchecked(r as usize) }.as_array();
 
-        const _: () = {
-            assert!((PARAM_M as usize).is_multiple_of(FIND_MATCHES_UNROLL_FACTOR));
-        };
+        for r_target in left_targets_r {
+            // SAFETY: Targets are always limited to `PARAM_BC`
+            let [right_position_a, right_position_b] = unsafe { rmap.get(u32::from(*r_target)) };
 
-        for r_targets in left_targets_r.as_chunks::<FIND_MATCHES_UNROLL_FACTOR>().0 {
-            let rmap_items: [_; FIND_MATCHES_UNROLL_FACTOR] = seq!(N in 0..8 {
-                [
-                #(
-                    // SAFETY: Targets are always limited to `PARAM_BC`
-                    unsafe { rmap.get(u32::from(r_targets[N])) },
-                )*
-                ]
-            });
+            // The right bucket position is never zero
+            if right_position_a != Position::ZERO {
+                // SAFETY: Iteration will stop before `REDUCED_MATCHES_COUNT + PARAM_M * 2`
+                // elements is inserted
+                unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
+                    left_position,
+                    left_y: y,
+                    right_position: right_position_a,
+                });
+                next_match_index += 1;
 
-            let _: [(); FIND_MATCHES_UNROLL_FACTOR] = seq!(N in 0..8 {
-                [
-                #(
-                {
-                    let [right_position_a, right_position_b] = rmap_items[N];
-
-                    // The right bucket position is never zero
-                    if right_position_a != Position::ZERO {
-                        // SAFETY: Iteration will stop before `REDUCED_MATCHES_COUNT + PARAM_M * 2`
-                        // elements is inserted
-                        unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
-                            left_position,
-                            left_y: y,
-                            right_position: right_position_a,
-                        });
-                        next_match_index += 1;
-
-                        if right_position_b != Position::ZERO {
-                            // SAFETY: Iteration will stop before
-                            // `REDUCED_MATCHES_COUNT + PARAM_M * 2` elements is inserted
-                            unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
-                                left_position,
-                                left_y: y,
-                                right_position: right_position_b,
-                            });
-                            next_match_index += 1;
-                        }
-                    }
-                },
-                )*
-                ]
-            });
+                if right_position_b != Position::ZERO {
+                    // SAFETY: Iteration will stop before
+                    // `REDUCED_MATCHES_COUNT + PARAM_M * 2` elements is inserted
+                    unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
+                        left_position,
+                        left_y: y,
+                        right_position: right_position_b,
+                    });
+                    next_match_index += 1;
+                }
+            }
         }
     }
 
