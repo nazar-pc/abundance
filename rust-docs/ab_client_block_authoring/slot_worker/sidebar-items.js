@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BlockSealNotification","ClaimedSlot","NewSlotInfo","NewSlotNotification","SubspaceSlotWorker","SubspaceSlotWorkerOptions"]};
