@@ -1,4 +1,4 @@
-use crate::shader::{SHADER_U32, SHADER_U64};
+use crate::shader::select_shader_features_limits;
 use ab_chacha8::{ChaCha8Block, ChaCha8State, block_to_bytes, bytes_to_block};
 use futures::executor::block_on;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
@@ -6,8 +6,8 @@ use wgpu::{
     Adapter, BackendOptions, Backends, BindGroupDescriptor, BindGroupEntry,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
-    DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MapMode,
-    MemoryBudgetThresholds, MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
+    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
 };
 
 #[test]
@@ -74,17 +74,14 @@ async fn chacha8_keystream_10_blocks_adapter(
     num_blocks: usize,
     adapter: Adapter,
 ) -> Option<Vec<ChaCha8Block>> {
-    let (required_features, shader) = if adapter.features().contains(Features::SHADER_INT64) {
-        (Features::SHADER_INT64, SHADER_U64)
-    } else {
-        (Features::default(), SHADER_U32)
-    };
+    let (shader, required_features, required_limits) =
+        select_shader_features_limits(adapter.features());
 
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {
             label: None,
             required_features,
-            required_limits: Limits::default(),
+            required_limits,
             memory_hints: MemoryHints::Performance,
             trace: Trace::default(),
         })

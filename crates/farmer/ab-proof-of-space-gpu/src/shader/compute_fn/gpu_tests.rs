@@ -1,7 +1,7 @@
 use crate::shader::compute_fn::Match;
 use crate::shader::compute_fn::cpu_tests::{correct_compute_fn, random_metadata, random_y};
+use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Metadata, Position, Y};
-use crate::shader::{SHADER_U32, SHADER_U64};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{RngCore, SeedableRng};
 use futures::executor::block_on;
@@ -11,8 +11,8 @@ use wgpu::{
     Adapter, BackendOptions, Backends, BindGroupDescriptor, BindGroupEntry,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
-    DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MapMode,
-    MemoryBudgetThresholds, MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
+    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
 };
 
 #[test]
@@ -147,17 +147,14 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
 ) -> Option<(Vec<Y>, Vec<Metadata>)> {
     let num_matches = matches.len();
 
-    let (required_features, shader) = if adapter.features().contains(Features::SHADER_INT64) {
-        (Features::SHADER_INT64, SHADER_U64)
-    } else {
-        (Features::default(), SHADER_U32)
-    };
+    let (shader, required_features, required_limits) =
+        select_shader_features_limits(adapter.features());
 
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {
             label: None,
             required_features,
-            required_limits: Limits::default(),
+            required_limits,
             memory_hints: MemoryHints::Performance,
             trace: Trace::default(),
         })
