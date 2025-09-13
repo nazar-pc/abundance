@@ -9,6 +9,10 @@ use crate::shader::types::{Metadata, Position, Y};
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
 
+// TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` below, can be removed once
+//  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
+const WORKGROUP_SIZE: u32 = 256;
+
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct Match {
@@ -46,7 +50,7 @@ const fn metadata_size_bits(k: u8, table_number: u8) -> u32 {
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and
 //  https://github.com/Rust-GPU/rust-gpu/discussions/301
 #[inline(always)]
-pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
+fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     y: Y,
     left_metadata: Metadata,
     right_metadata: Metadata,
@@ -177,23 +181,22 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
 
 #[inline(always)]
 fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
-    invocation_id: UVec3,
+    global_invocation_id: UVec3,
     num_workgroups: UVec3,
-    workgroup_size: u32,
     matches: &[Match],
     parent_metadatas: &[Metadata],
     ys: &mut [Y],
     metadatas: &mut [Metadata],
 ) {
     // TODO: Make a single input bounds check and use unsafe to avoid bounds check later
-    let invocation_id = invocation_id.x;
+    let global_invocation_id = global_invocation_id.x;
     let num_workgroups = num_workgroups.x;
 
-    let global_size = workgroup_size * num_workgroups;
+    let global_size = WORKGROUP_SIZE * num_workgroups;
 
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    for index in (invocation_id..matches.len() as u32).step_by(global_size as usize) {
+    for index in (global_invocation_id..matches.len() as u32).step_by(global_size as usize) {
         let index = index as usize;
 
         let m = matches[index];
@@ -217,23 +220,16 @@ fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
 /// Compute Chia's `f2()` function from matches in the parent table and corresponding metadata
 #[spirv(compute(threads(256), entry_point_name = "compute_f2"))]
 pub fn compute_f2(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
-    // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
-    // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
-    //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    let workgroup_size = 256_u32;
-
     compute_fn::<2, 1>(
-        invocation_id,
+        global_invocation_id,
         num_workgroups,
-        workgroup_size,
         matches,
         parent_metadatas,
         ys,
@@ -244,23 +240,16 @@ pub fn compute_f2(
 /// Compute Chia's `f3()` function from matches in the parent table and corresponding metadata
 #[spirv(compute(threads(256), entry_point_name = "compute_f3"))]
 pub fn compute_f3(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
-    // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
-    // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
-    //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    let workgroup_size = 256_u32;
-
     compute_fn::<3, 2>(
-        invocation_id,
+        global_invocation_id,
         num_workgroups,
-        workgroup_size,
         matches,
         parent_metadatas,
         ys,
@@ -271,23 +260,16 @@ pub fn compute_f3(
 /// Compute Chia's `f4()` function from matches in the parent table and corresponding metadata
 #[spirv(compute(threads(256), entry_point_name = "compute_f4"))]
 pub fn compute_f4(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
-    // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
-    // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
-    //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    let workgroup_size = 256_u32;
-
     compute_fn::<4, 3>(
-        invocation_id,
+        global_invocation_id,
         num_workgroups,
-        workgroup_size,
         matches,
         parent_metadatas,
         ys,
@@ -298,23 +280,16 @@ pub fn compute_f4(
 /// Compute Chia's `f5()` function from matches in the parent table and corresponding metadata
 #[spirv(compute(threads(256), entry_point_name = "compute_f5"))]
 pub fn compute_f5(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
-    // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
-    // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
-    //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    let workgroup_size = 256_u32;
-
     compute_fn::<5, 4>(
-        invocation_id,
+        global_invocation_id,
         num_workgroups,
-        workgroup_size,
         matches,
         parent_metadatas,
         ys,
@@ -325,23 +300,16 @@ pub fn compute_f5(
 /// Compute Chia's `f6()` function from matches in the parent table and corresponding metadata
 #[spirv(compute(threads(256), entry_point_name = "compute_f6"))]
 pub fn compute_f6(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
-    // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
-    // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
-    //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    let workgroup_size = 256_u32;
-
     compute_fn::<6, 5>(
-        invocation_id,
+        global_invocation_id,
         num_workgroups,
-        workgroup_size,
         matches,
         parent_metadatas,
         ys,
@@ -352,10 +320,8 @@ pub fn compute_f6(
 /// Compute Chia's `f7()` function from matches in the parent table and corresponding metadata
 #[spirv(compute(threads(256), entry_point_name = "compute_f7"))]
 pub fn compute_f7(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
-    // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
@@ -363,14 +329,9 @@ pub fn compute_f7(
     //  `&mut []` under `rust-gpu` directly
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
 ) {
-    // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
-    //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    let workgroup_size = 256_u32;
-
     compute_fn::<7, 6>(
-        invocation_id,
+        global_invocation_id,
         num_workgroups,
-        workgroup_size,
         matches,
         parent_metadatas,
         ys,

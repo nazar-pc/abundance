@@ -9,12 +9,16 @@ use crate::shader::types::{X, Y};
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
 
+// TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` below, can be removed once
+//  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
+const WORKGROUP_SIZE: u32 = 256;
+
 // TODO: Make unsafe and avoid bounds check
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and
 //  https://github.com/Rust-GPU/rust-gpu/discussions/301
 /// `partial_y_offset` is in bits within `partial_y`
 #[inline(always)]
-pub(super) fn compute_f1_impl(x: X, chacha8_keystream: &[u32]) -> Y {
+fn compute_f1_impl(x: X, chacha8_keystream: &[u32]) -> Y {
     let skip_bits = u32::from(K) * u32::from(x);
     let skip_u32s = skip_bits / u32::BITS;
     let partial_y_offset = skip_bits % u32::BITS;
@@ -37,28 +41,23 @@ pub(super) fn compute_f1_impl(x: X, chacha8_keystream: &[u32]) -> Y {
     Y::from((pre_y & pre_y_mask) | pre_ext)
 }
 
-/// Compute Chia's `f1()` function using previously computed ChaCha8 keystream
+/// Compute Chia's `f1()` function using the previously computed ChaCha8 keystream
 #[spirv(compute(threads(256), entry_point_name = "compute_f1"))]
 pub fn compute_f1(
-    #[spirv(global_invocation_id)] invocation_id: UVec3,
+    #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
-    // TODO: Uncomment once https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    // #[spirv(workgroup_size)] workgroup_size: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] chacha8_keystream: &[u32],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] ys: &mut [Y],
 ) {
     // TODO: Make a single input bounds check and use unsafe to avoid bounds check later
-    let invocation_id = invocation_id.x;
+    let global_invocation_id = global_invocation_id.x;
     let num_workgroups = num_workgroups.x;
 
-    // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` above, can be removed once
-    //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-    let workgroup_size = 256_u32;
-    let global_size = workgroup_size * num_workgroups;
+    let global_size = WORKGROUP_SIZE * num_workgroups;
 
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    for x in (invocation_id..ys.len() as u32).step_by(global_size as usize) {
+    for x in (global_invocation_id..ys.len() as u32).step_by(global_size as usize) {
         ys[x as usize] = compute_f1_impl(X::from(x), chacha8_keystream);
     }
 }
