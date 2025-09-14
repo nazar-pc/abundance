@@ -1260,8 +1260,8 @@ where
 
                 for (left_bucket_index, [left_bucket, right_bucket]) in buckets_batch {
                     let mut matches = [MaybeUninit::uninit(); _];
-                    // SAFETY: Positions are taken from `Table::buckets()` and correspond to initialized
-                    // values
+                    // SAFETY: Positions are taken from `Table::buckets()` and correspond to
+                    // initialized values
                     let matches = unsafe {
                         find_matches_in_buckets(
                             left_bucket_index as u32,
@@ -1275,19 +1275,19 @@ where
                     // Throw away some successful matches that are not that necessary
                     let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
 
-                    // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed at
-                    // this time, and it is guaranteed to be in range
+                    // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed
+                    // at this time, and it is guaranteed to be in range
                     let ys = unsafe { &mut *ys.get_unchecked(left_bucket_index).get() };
-                    // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed at
-                    // this time, and it is guaranteed to be in range
+                    // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed
+                    // at this time, and it is guaranteed to be in range
                     let positions =
                         unsafe { &mut *positions.get_unchecked(left_bucket_index).get() };
-                    // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed at
-                    // this time, and it is guaranteed to be in range
+                    // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed
+                    // at this time, and it is guaranteed to be in range
                     let metadatas =
                         unsafe { &mut *metadatas.get_unchecked(left_bucket_index).get() };
-                    // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed at
-                    // this time, and it is guaranteed to be in range
+                    // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed
+                    // at this time, and it is guaranteed to be in range
                     let count = unsafe {
                         &mut *global_results_counts.get_unchecked(left_bucket_index).get()
                     };

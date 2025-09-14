@@ -39,7 +39,11 @@ futures = { workspace = true, features = ["executor"] }
 cargo-gpu = { workspace = true }
 
 [features]
+# GPU tests search for compatible GPU. If no compatible GPU is found, tests are skipped unless this feature is
+# specified.
 __force-gpu-tests = []
+# Internal feature used by the build script for shader compilation. Should not be used externally.
+__modern-gpu = []
 
 [lints]
 workspace = true

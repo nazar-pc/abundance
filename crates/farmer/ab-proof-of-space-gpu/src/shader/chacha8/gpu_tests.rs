@@ -74,7 +74,7 @@ async fn chacha8_keystream_10_blocks_adapter(
     num_blocks: usize,
     adapter: Adapter,
 ) -> Option<Vec<ChaCha8Block>> {
-    let (shader, required_features, required_limits) =
+    let (shader, required_features, required_limits, _modern) =
         select_shader_features_limits(adapter.features());
 
     let (device, queue) = adapter
@@ -173,7 +173,7 @@ async fn chacha8_keystream_10_blocks_adapter(
         let mut cpass = encoder.begin_compute_pass(&Default::default());
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
-        cpass.dispatch_workgroups(device.limits().max_compute_workgroup_size_x, 1, 1);
+        cpass.dispatch_workgroups(device.limits().max_compute_workgroups_per_dimension, 1, 1);
     }
 
     encoder.copy_buffer_to_buffer(&keystream_gpu, 0, &keystream_host, 0, keystream_host.size());

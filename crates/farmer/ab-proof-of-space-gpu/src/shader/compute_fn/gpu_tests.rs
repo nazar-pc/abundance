@@ -1,5 +1,5 @@
-use crate::shader::compute_fn::Match;
 use crate::shader::compute_fn::cpu_tests::{correct_compute_fn, random_metadata, random_y};
+use crate::shader::find_matches_in_buckets::Match;
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Metadata, Position, Y};
 use chacha20::ChaCha8Rng;
@@ -64,7 +64,10 @@ fn test_compute_fn_gpu_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u
 
             Match {
                 left_position,
-                left_y: parent_ys[usize::from(left_position)],
+                // TODO: Correct version currently doesn't compile:
+                //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+                // left_y: parent_ys[usize::from(left_position)],
+                left_y: parent_ys[left_position as usize],
                 right_position,
             }
         })
@@ -84,8 +87,12 @@ fn test_compute_fn_gpu_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u
     let (expected_ys, expected_metadatas) = matches
         .iter()
         .map(|m| {
-            let left_metadata = parent_metadatas[usize::from(m.left_position)];
-            let right_metadata = parent_metadatas[usize::from(m.right_position)];
+            // TODO: Correct version currently doesn't compile:
+            //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+            // let left_metadata = parent_metadatas[usize::from(m.left_position)];
+            // let right_metadata = parent_metadatas[usize::from(m.right_position)];
+            let left_metadata = parent_metadatas[m.left_position as usize];
+            let right_metadata = parent_metadatas[m.right_position as usize];
             correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
                 m.left_y,
                 left_metadata,
@@ -147,7 +154,7 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
 ) -> Option<(Vec<Y>, Vec<Metadata>)> {
     let num_matches = matches.len();
 
-    let (shader, required_features, required_limits) =
+    let (shader, required_features, required_limits, _modern) =
         select_shader_features_limits(adapter.features());
 
     let (device, queue) = adapter
@@ -300,7 +307,7 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
         let mut cpass = encoder.begin_compute_pass(&Default::default());
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
-        cpass.dispatch_workgroups(device.limits().max_compute_workgroup_size_x, 1, 1);
+        cpass.dispatch_workgroups(device.limits().max_compute_workgroups_per_dimension, 1, 1);
     }
 
     encoder.copy_buffer_to_buffer(&ys_gpu, 0, &ys_host, 0, ys_host.size());

@@ -4,7 +4,11 @@
 //! structures used (`ab-proof-of-space` also supports `K=25`, but this crate doesn't for now).
 
 #![cfg_attr(target_arch = "spirv", no_std)]
-#![feature(bigint_helper_methods, step_trait)]
+#![feature(array_windows, bigint_helper_methods, ptr_as_ref_unchecked, step_trait)]
+#![cfg_attr(
+    all(test, not(miri), not(target_arch = "spirv")),
+    feature(const_convert, const_trait_impl, maybe_uninit_fill, maybe_uninit_slice)
+)]
 
 // This is used for benchmarks of isolated shaders externally, not for general use
 #[doc(hidden)]

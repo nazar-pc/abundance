@@ -82,7 +82,7 @@ async fn compute_f1_adapter(
     num_x: u32,
     adapter: Adapter,
 ) -> Option<Vec<Y>> {
-    let (shader, required_features, required_limits) =
+    let (shader, required_features, required_limits, _modern) =
         select_shader_features_limits(adapter.features());
 
     let (device, queue) = adapter
@@ -185,7 +185,7 @@ async fn compute_f1_adapter(
         let mut cpass = encoder.begin_compute_pass(&Default::default());
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
-        cpass.dispatch_workgroups(device.limits().max_compute_workgroup_size_x, 1, 1);
+        cpass.dispatch_workgroups(device.limits().max_compute_workgroups_per_dimension, 1, 1);
     }
 
     encoder.copy_buffer_to_buffer(&ys_gpu, 0, &ys_host, 0, ys_host.size());

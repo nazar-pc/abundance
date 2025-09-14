@@ -137,7 +137,7 @@ fn test_matches() {
     let bucket_ys = bucket_ys.into_values().collect::<Vec<_>>();
     let mut total_matches = 0_usize;
     for (left_bucket_index, [left_bucket_ys, right_bucket_ys]) in
-        bucket_ys.array_windows::<2>().cloned().enumerate()
+        bucket_ys.array_windows::<2>().enumerate()
     {
         let mut left_bucket = [Position::SENTINEL; _];
         assert!(left_bucket_ys.len() <= left_bucket.len());
