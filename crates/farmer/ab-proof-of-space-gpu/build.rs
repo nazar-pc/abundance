@@ -17,8 +17,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         {
             let empty_file = out_dir.join("empty.bin");
             fs::write(&empty_file, [])?;
-            println!("cargo::rustc-env=SHADER_PATH_U32={}", empty_file.display());
-            println!("cargo::rustc-env=SHADER_PATH_U64={}", empty_file.display());
+            println!(
+                "cargo::rustc-env=SHADER_PATH_FALLBACK={}",
+                empty_file.display()
+            );
+            println!(
+                "cargo::rustc-env=SHADER_PATH_MODERN={}",
+                empty_file.display()
+            );
 
             return Ok(());
         }
@@ -42,36 +48,46 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         thread::scope(|scope| -> Result<(), Box<dyn Error>> {
             // Compile with defaults (no `Int64` capability)
-            let handle_u32 = scope.spawn(|| {
+            let handle_fallback = scope.spawn(|| {
                 let compile_result = spirv_builder
                     .clone()
                     // Avoid Cargo deadlock, customize target
-                    .target_dir_path(out_dir.join("u32").to_string_lossy().to_string())
+                    .target_dir_path(out_dir.join("fallback").to_string_lossy().to_string())
                     .build()?;
                 let path_to_spv = compile_result.module.unwrap_single();
 
-                println!("cargo::rustc-env=SHADER_PATH_U32={}", path_to_spv.display());
+                println!(
+                    "cargo::rustc-env=SHADER_PATH_FALLBACK={}",
+                    path_to_spv.display()
+                );
 
                 Ok::<(), SpirvBuilderError>(())
             });
 
             // Compile with `Int64` capability
-            let handle_u64 = scope.spawn(|| {
+            let handle_modern = scope.spawn(|| {
                 let compile_result = spirv_builder
                     .clone()
                     // Avoid Cargo deadlock, customize target
-                    .target_dir_path(out_dir.join("u64").to_string_lossy().to_string())
+                    .target_dir_path(out_dir.join("modern").to_string_lossy().to_string())
                     .capability(Capability::Int64)
                     .build()?;
                 let path_to_spv = compile_result.module.unwrap_single();
 
-                println!("cargo::rustc-env=SHADER_PATH_U64={}", path_to_spv.display());
+                println!(
+                    "cargo::rustc-env=SHADER_PATH_MODERN={}",
+                    path_to_spv.display()
+                );
 
                 Ok::<(), SpirvBuilderError>(())
             });
 
-            handle_u32.join().expect("Spawning threads must succeed")?;
-            handle_u64.join().expect("Spawning threads must succeed")?;
+            handle_fallback
+                .join()
+                .expect("Spawning threads must succeed")?;
+            handle_modern
+                .join()
+                .expect("Spawning threads must succeed")?;
 
             Ok(())
         })?;

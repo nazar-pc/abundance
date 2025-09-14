@@ -1,6 +1,6 @@
 use crate::shader::compute_f1::cpu_tests::correct_compute_f1;
+use crate::shader::select_shader_features_limits;
 use crate::shader::types::{X, Y};
-use crate::shader::{SHADER_U32, SHADER_U64};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use ab_core_primitives::pos::PosProof;
 use futures::executor::block_on;
@@ -10,8 +10,8 @@ use wgpu::{
     Adapter, BackendOptions, Backends, BindGroupDescriptor, BindGroupEntry,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
-    DeviceDescriptor, Features, Instance, InstanceDescriptor, InstanceFlags, Limits, MapMode,
-    MemoryBudgetThresholds, MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
+    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
 };
 
 #[test]
@@ -82,17 +82,14 @@ async fn compute_f1_adapter(
     num_x: u32,
     adapter: Adapter,
 ) -> Option<Vec<Y>> {
-    let (required_features, shader) = if adapter.features().contains(Features::SHADER_INT64) {
-        (Features::SHADER_INT64, SHADER_U64)
-    } else {
-        (Features::default(), SHADER_U32)
-    };
+    let (shader, required_features, required_limits) =
+        select_shader_features_limits(adapter.features());
 
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {
             label: None,
             required_features,
-            required_limits: Limits::default(),
+            required_limits,
             memory_hints: MemoryHints::Performance,
             trace: Trace::default(),
         })

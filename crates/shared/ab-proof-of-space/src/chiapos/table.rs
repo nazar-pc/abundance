@@ -397,11 +397,6 @@ where
     [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
-    if right_bucket[0] == Position::SENTINEL {
-        // Completely empty bucket
-        return &[];
-    }
-
     let left_base = left_bucket_index * u32::from(PARAM_BC);
     let right_base = left_base + u32::from(PARAM_BC);
 
