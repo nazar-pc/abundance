@@ -4,24 +4,15 @@ mod cpu_tests;
 mod gpu_tests;
 
 use crate::shader::constants::{K, PARAM_EXT};
+use crate::shader::find_matches_in_buckets::Match;
 use crate::shader::num::{U128, U128T};
-use crate::shader::types::{Metadata, Position, Y};
+use crate::shader::types::{Metadata, Y};
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
 
 // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` below, can be removed once
 //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
 const WORKGROUP_SIZE: u32 = 256;
-
-#[derive(Debug, Copy, Clone)]
-#[repr(C)]
-pub struct Match {
-    pub left_position: Position,
-    // TODO: Would it be efficient to not store it here since `left_position` already points to the
-    //  correct `y` in the parent table?
-    pub left_y: Y,
-    pub right_position: Position,
-}
 
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and
 //  https://github.com/Rust-GPU/rust-gpu/discussions/301
@@ -200,8 +191,12 @@ fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
         let index = index as usize;
 
         let m = matches[index];
-        let left_metadata = parent_metadatas[usize::from(m.left_position)];
-        let right_metadata = parent_metadatas[usize::from(m.right_position)];
+        // TODO: Correct version currently doesn't compile:
+        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+        // let left_metadata = parent_metadatas[usize::from(m.left_position)];
+        // let right_metadata = parent_metadatas[usize::from(m.right_position)];
+        let left_metadata = parent_metadatas[m.left_position as usize];
+        let right_metadata = parent_metadatas[m.right_position as usize];
 
         let (y, metadata) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
             m.left_y,

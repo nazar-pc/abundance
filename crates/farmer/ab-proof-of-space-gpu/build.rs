@@ -44,10 +44,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             } else {
                 SpirvMetadata::None
             })
-            .release(profile != "debug");
+            .release(profile != "debug")
+            // TODO: This should not be needed: https://github.com/Rust-GPU/rust-gpu/discussions/385
+            .capability(Capability::GroupNonUniformArithmetic);
 
         thread::scope(|scope| -> Result<(), Box<dyn Error>> {
-            // Compile with defaults (no `Int64` capability)
+            // Compile SPIR-V shader for GPU that only supports baseline Vulkan features
             let handle_fallback = scope.spawn(|| {
                 let compile_result = spirv_builder
                     .clone()
@@ -64,10 +66,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Ok::<(), SpirvBuilderError>(())
             });
 
-            // Compile with `Int64` capability
+            // Compile SPIR-V shader for GPUs that supports modern Vulkan features
             let handle_modern = scope.spawn(|| {
                 let compile_result = spirv_builder
                     .clone()
+                    .shader_crate_features(["__modern-gpu".to_string()])
                     // Avoid Cargo deadlock, customize target
                     .target_dir_path(out_dir.join("modern").to_string_lossy().to_string())
                     .capability(Capability::Int64)
