@@ -137,16 +137,10 @@ where
             .flat_map(move |positions| {
                 positions
                     .iter()
-                    .take_while(|&&position| position != Position::SENTINEL)
-                    .filter(move |&&position| {
-                        // SAFETY: `position` comes from `self.table_7.buckets()` and is not a
-                        // sentinel value
-                        let y = unsafe { self.table_7.y(position) };
-
-                        y.first_k_bits() == first_k_challenge_bits
-                    })
+                    .take_while(|&&(position, _y)| position != Position::SENTINEL)
+                    .filter(move |&&(_position, y)| y.first_k_bits() == first_k_challenge_bits)
             })
-            .map(move |&position| {
+            .map(move |&(position, _y)| {
                 // SAFETY: Internally generated positions that come from the parent table
                 let positions = unsafe { self.table_7.position(position) };
                 // SAFETY: Internally generated positions that come from the parent table
@@ -206,16 +200,10 @@ where
             .flat_map(move |positions| {
                 positions
                     .iter()
-                    .take_while(|&&position| position != Position::SENTINEL)
-                    .filter(move |&&position| {
-                        // SAFETY: `position` comes from `self.table_7.buckets()` and is not a
-                        // sentinel value
-                        let y = unsafe { self.table_7.y(position) };
-
-                        y.first_k_bits() == first_k_challenge_bits
-                    })
+                    .take_while(|&&(position, _y)| position != Position::SENTINEL)
+                    .filter(move |&&(_position, y)| y.first_k_bits() == first_k_challenge_bits)
             })
-            .map(move |&position| {
+            .map(move |&(position, _y)| {
                 let mut proof = [0u8; 64 * K as usize / 8];
 
                 // SAFETY: Internally generated positions that come from the parent table

@@ -7,11 +7,10 @@ use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT};
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::table::{
-    COMPUTE_F1_SIMD_FACTOR, Table, calculate_left_targets, compute_f1, compute_f1_simd, compute_fn,
+    COMPUTE_F1_SIMD_FACTOR, calculate_left_targets, compute_f1, compute_f1_simd, compute_fn,
     compute_fn_simd, find_matches_in_buckets, metadata_size_bytes,
 };
 use crate::chiapos::utils::EvaluatableUsize;
-use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -139,33 +138,31 @@ fn test_matches() {
     for (left_bucket_index, [left_bucket_ys, right_bucket_ys]) in
         bucket_ys.array_windows::<2>().enumerate()
     {
-        let mut left_bucket = [Position::SENTINEL; _];
+        let mut left_bucket = [(Position::SENTINEL, Y::SENTINEL); _];
         assert!(left_bucket_ys.len() <= left_bucket.len());
-        for (position, index) in left_bucket.iter_mut().zip(0..left_bucket_ys.len()) {
-            *position = Position::from(index as u32);
-        }
-        let mut right_bucket = [Position::SENTINEL; _];
-        assert!(right_bucket_ys.len() <= right_bucket.len());
-        for (position, index) in right_bucket
+        for ((output, &y), index) in left_bucket
             .iter_mut()
+            .zip(left_bucket_ys)
+            .zip(0..left_bucket_ys.len())
+        {
+            let position = Position::from(index as u32);
+            *output = (position, y);
+        }
+        let mut right_bucket = [(Position::SENTINEL, Y::SENTINEL); _];
+        assert!(right_bucket_ys.len() <= right_bucket.len());
+        for ((output, &y), index) in right_bucket
+            .iter_mut()
+            .zip(right_bucket_ys)
             .zip((left_bucket_ys.len()..).take(right_bucket_ys.len()))
         {
-            *position = Position::from(index as u32);
+            let position = Position::from(index as u32);
+            *output = (position, y);
         }
         let parent_table_ys = left_bucket_ys
             .iter()
             .copied()
             .chain(right_bucket_ys.iter().copied())
             .collect::<Vec<_>>();
-        let parent_table = Table::<K, 2>::Other {
-            ys: parent_table_ys,
-            // SAFETY: Not used below
-            positions: unsafe { Box::new_uninit().assume_init() },
-            // Not used below
-            metadatas: Default::default(),
-            // SAFETY: Not used below
-            buckets: unsafe { Box::new_uninit().assume_init() },
-        };
 
         let mut matches = [MaybeUninit::uninit(); _];
         // SAFETY: Positions correspond to `y`s
@@ -174,16 +171,15 @@ fn test_matches() {
                 left_bucket_index as u32,
                 &left_bucket,
                 &right_bucket,
-                &parent_table,
                 &mut matches,
                 &left_targets,
             )
         };
         for m in matches {
             // SAFETY: All `y`s are initialized
-            let yl = usize::from(unsafe { parent_table.y(m.left_position) });
+            let yl = usize::from(parent_table_ys[usize::from(m.left_position)]);
             // SAFETY: All `y`s are initialized
-            let yr = usize::from(unsafe { parent_table.y(m.right_position) });
+            let yr = usize::from(parent_table_ys[usize::from(m.right_position)]);
 
             assert!(check_match(yl, yr));
             total_matches += 1;

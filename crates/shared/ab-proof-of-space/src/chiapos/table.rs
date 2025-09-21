@@ -9,7 +9,7 @@ extern crate alloc;
 use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT, PARAM_M};
 use crate::chiapos::table::rmap::Rmap;
-use crate::chiapos::table::types::{Metadata, Position, X, Y};
+use crate::chiapos::table::types::{Metadata, Position, R, X, Y};
 use crate::chiapos::utils::EvaluatableUsize;
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 #[cfg(not(feature = "std"))]
@@ -27,6 +27,7 @@ use core::simd::prelude::*;
 #[cfg(any(feature = "parallel", test))]
 use core::sync::atomic::{AtomicUsize, Ordering};
 use core::{array, mem};
+use derive_more::Deref;
 use seq_macro::seq;
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
@@ -155,20 +156,19 @@ const fn bucket_size_upper_bound(k: u8, security_bits: u8) -> usize {
 
 fn group_by_buckets<const K: u8>(
     ys: &[Y],
-) -> Box<[[Position; REDUCED_BUCKETS_SIZE]; num_buckets(K)]>
+) -> Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>
 where
     [(); num_buckets(K)]:,
 {
     let mut bucket_offsets = [0_u16; num_buckets(K)];
     // SAFETY: Contents is `MaybeUninit`
     let mut buckets = unsafe {
-        Box::<[[MaybeUninit<Position>; REDUCED_BUCKETS_SIZE]; num_buckets(K)]>::new_uninit()
+        Box::<[[MaybeUninit<(Position, Y)>; REDUCED_BUCKETS_SIZE]; num_buckets(K)]>::new_uninit()
             .assume_init()
     };
 
     for (&y, position) in ys.iter().zip(Position::ZERO..) {
-        let y = u32::from(y);
-        let bucket_index = (y / u32::from(PARAM_BC)) as usize;
+        let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
 
         // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
         let bucket_offset = unsafe { bucket_offsets.get_unchecked_mut(bucket_index) };
@@ -176,13 +176,13 @@ where
         let bucket = unsafe { buckets.get_unchecked_mut(bucket_index) };
 
         if *bucket_offset < REDUCED_BUCKETS_SIZE as u16 {
-            bucket[*bucket_offset as usize].write(position);
+            bucket[*bucket_offset as usize].write((position, y));
             *bucket_offset += 1;
         }
     }
 
     for (bucket, initialized) in buckets.iter_mut().zip(bucket_offsets) {
-        bucket[usize::from(initialized)..].write_filled(Position::SENTINEL);
+        bucket[usize::from(initialized)..].write_filled((Position::SENTINEL, Y::SENTINEL));
     }
 
     // SAFETY: All entries are initialized
@@ -197,7 +197,7 @@ where
 #[cfg(any(feature = "parallel", test))]
 unsafe fn group_by_buckets_from_buckets<'a, const K: u8, I>(
     iter: I,
-) -> Box<[[Position; REDUCED_BUCKETS_SIZE]; num_buckets(K)]>
+) -> Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>
 where
     I: Iterator<Item = (&'a [MaybeUninit<Y>; REDUCED_MATCHES_COUNT], usize)> + 'a,
     [(); num_buckets(K)]:,
@@ -205,7 +205,7 @@ where
     let mut bucket_offsets = [0_u16; num_buckets(K)];
     // SAFETY: Contents is `MaybeUninit`
     let mut buckets = unsafe {
-        Box::<[[MaybeUninit<Position>; REDUCED_BUCKETS_SIZE]; num_buckets(K)]>::new_uninit()
+        Box::<[[MaybeUninit<(Position, Y)>; REDUCED_BUCKETS_SIZE]; num_buckets(K)]>::new_uninit()
             .assume_init()
     };
 
@@ -213,8 +213,7 @@ where
         // SAFETY: Function contract guarantees that `y`s are initialized
         let ys = unsafe { ys[..count].assume_init_ref() };
         for (&y, position) in ys.iter().zip(batch_start..) {
-            let y = u32::from(y);
-            let bucket_index = (y / u32::from(PARAM_BC)) as usize;
+            let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
 
             // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
             let bucket_offset = unsafe { bucket_offsets.get_unchecked_mut(bucket_index) };
@@ -222,30 +221,34 @@ where
             let bucket = unsafe { buckets.get_unchecked_mut(bucket_index) };
 
             if *bucket_offset < REDUCED_BUCKETS_SIZE as u16 {
-                bucket[*bucket_offset as usize].write(position);
+                bucket[*bucket_offset as usize].write((position, y));
                 *bucket_offset += 1;
             }
         }
     }
 
     for (bucket, initialized) in buckets.iter_mut().zip(bucket_offsets) {
-        bucket[usize::from(initialized)..].write_filled(Position::SENTINEL);
+        bucket[usize::from(initialized)..].write_filled((Position::SENTINEL, Y::SENTINEL));
     }
 
     // SAFETY: All entries are initialized
     unsafe { Box::from_raw(Box::into_raw(buckets).cast()) }
 }
 
+#[derive(Debug, Copy, Clone, Deref)]
+#[repr(align(64))]
+struct CacheLineAligned<T>(T);
+
 /// Mapping from `parity` to `r` to `m`
-type LeftTargets = [[Simd<u16, { PARAM_M as usize }>; PARAM_BC as usize]; 2];
+type LeftTargets = [[CacheLineAligned<[R; PARAM_M as usize]>; PARAM_BC as usize]; 2];
 
 fn calculate_left_targets() -> Box<LeftTargets> {
     let mut left_targets = Box::<LeftTargets>::new_uninit();
     // SAFETY: Same layout and uninitialized in both cases
     let left_targets_slice = unsafe {
         mem::transmute::<
-            &mut MaybeUninit<[[Simd<u16, { PARAM_M as usize }>; PARAM_BC as usize]; 2]>,
-            &mut [[MaybeUninit<Simd<u16, { PARAM_M as usize }>>; PARAM_BC as usize]; 2],
+            &mut MaybeUninit<[[CacheLineAligned<[R; PARAM_M as usize]>; PARAM_BC as usize]; 2]>,
+            &mut [[MaybeUninit<CacheLineAligned<[R; PARAM_M as usize]>>; PARAM_BC as usize]; 2],
         >(left_targets.as_mut())
     };
 
@@ -255,11 +258,13 @@ fn calculate_left_targets() -> Box<LeftTargets> {
 
             let mut arr = array::from_fn(|m| {
                 let m = m as u16;
-                ((c + m) % PARAM_B) * PARAM_C
-                    + (((2 * m + parity) * (2 * m + parity) + r) % PARAM_C)
+                R::from(
+                    ((c + m) % PARAM_B) * PARAM_C
+                        + (((2 * m + parity) * (2 * m + parity) + r) % PARAM_C),
+                )
             });
             arr.sort_unstable();
-            left_targets_slice[parity as usize][r as usize].write(Simd::from_array(arr));
+            left_targets_slice[parity as usize][r as usize].write(CacheLineAligned(arr));
         }
     }
 
@@ -382,32 +387,24 @@ pub(super) fn compute_f1_simd<const K: u8>(
 /// Left and right bucket positions must correspond to the parent table.
 // TODO: Try to reduce the `matches` size further by processing `left_bucket` in chunks (like halves
 //  for example)
-unsafe fn find_matches_in_buckets<'a, const K: u8, const PARENT_TABLE_NUMBER: u8>(
+unsafe fn find_matches_in_buckets<'a>(
     left_bucket_index: u32,
-    left_bucket: &[Position; REDUCED_BUCKETS_SIZE],
-    right_bucket: &[Position; REDUCED_BUCKETS_SIZE],
-    parent_table: &Table<K, PARENT_TABLE_NUMBER>,
+    left_bucket: &[(Position, Y); REDUCED_BUCKETS_SIZE],
+    right_bucket: &[(Position, Y); REDUCED_BUCKETS_SIZE],
     // `PARAM_M as usize * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
     matches: &'a mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT + PARAM_M as usize * 2],
     left_targets: &LeftTargets,
-) -> &'a [Match]
-where
-    EvaluatableUsize<{ metadata_size_bytes(K, PARENT_TABLE_NUMBER) }>: Sized,
-    [(); 1 << K]:,
-    [(); num_buckets(K)]:,
-{
+) -> &'a [Match] {
     let left_base = left_bucket_index * u32::from(PARAM_BC);
     let right_base = left_base + u32::from(PARAM_BC);
 
     let mut rmap = Rmap::new();
-    for &right_position in right_bucket {
+    for &(right_position, y) in right_bucket {
         if right_position == Position::SENTINEL {
             break;
         }
-        // SAFETY: Guaranteed by function contract
-        let y = unsafe { parent_table.y(right_position) };
-        let r = u32::from(y) - right_base;
+        let r = R::from((u32::from(y) - right_base) as u16);
         // SAFETY: `r` is within `0..PARAM_BC` range by definition, the right bucket is limited to
         // `REDUCED_BUCKETS_SIZE`
         unsafe {
@@ -421,22 +418,20 @@ where
 
     // TODO: Simd read for left bucket? It might be more efficient in terms of memory access to
     //  process chunks of the left bucket against one right value for each at a time
-    for &left_position in left_bucket {
+    for &(left_position, y) in left_bucket {
         // `next_match_index >= REDUCED_MATCHES_COUNT` is crucial to make sure
         if left_position == Position::SENTINEL || next_match_index >= REDUCED_MATCHES_COUNT {
             // Sentinel values are padded to the end of the bucket
             break;
         }
 
-        // SAFETY: Guaranteed by function contract
-        let y = unsafe { parent_table.y(left_position) };
-        let r = u32::from(y) - left_base;
+        let r = R::from((u32::from(y) - left_base) as u16);
         // SAFETY: `r` is within a bucket and exists by definition
-        let left_targets_r = unsafe { left_targets_parity.get_unchecked(r as usize) }.as_array();
+        let left_targets_r = unsafe { left_targets_parity.get_unchecked(usize::from(r)) };
 
-        for r_target in left_targets_r {
+        for &r_target in left_targets_r.iter() {
             // SAFETY: Targets are always limited to `PARAM_BC`
-            let [right_position_a, right_position_b] = unsafe { rmap.get(u32::from(*r_target)) };
+            let [right_position_a, right_position_b] = unsafe { rmap.get(r_target) };
 
             // The right bucket position is never zero
             if right_position_a != Position::ZERO {
@@ -864,33 +859,27 @@ where
     /// First table with the contents of entries split into separate vectors for more efficient
     /// access
     First {
-        /// Derived values computed from `x`
-        ys: Vec<Y>,
-        /// Each bucket contains positions of `Y` values that belong to it.
+        /// Each bucket contains positions of `Y` values that belong to it and corresponding `r`
+        /// (which is `y` minus shared base of the bucket).
         ///
         /// Buckets are padded with sentinel values to `REDUCED_BUCKETS_SIZE`.
-        buckets: Box<[[Position; REDUCED_BUCKETS_SIZE]; num_buckets(K)]>,
+        buckets: Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>,
     },
     /// Other tables
     Other {
-        /// Derived values computed from the previous table
-        ys: Vec<Y>,
         /// Left and right entry positions in a previous table encoded into bits
         positions: Box<[MaybeUninit<[Position; 2]>; 1 << K]>,
         /// Metadata corresponding to each entry
         metadatas: Vec<Metadata<K, TABLE_NUMBER>>,
-        /// Each bucket contains positions of `Y` values that belong to it.
+        /// Each bucket contains positions of `Y` values that belong to it and corresponding `r`
+        /// (which is `y` minus shared base of the bucket).
         ///
         /// Buckets are padded with sentinel values to `REDUCED_BUCKETS_SIZE`.
-        buckets: Box<[[Position; REDUCED_BUCKETS_SIZE]; num_buckets(K)]>,
+        buckets: Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>,
     },
     /// Other tables
     #[cfg(any(feature = "parallel", test))]
     OtherBuckets {
-        /// Derived values computed from the previous table.
-        ///
-        /// Only positions from the `buckets` field are guaranteed to be initialized.
-        ys: Vec<[MaybeUninit<Y>; REDUCED_MATCHES_COUNT]>,
         /// Left and right entry positions in a previous table encoded into bits.
         ///
         /// Only positions from the `buckets` field are guaranteed to be initialized.
@@ -899,10 +888,11 @@ where
         ///
         /// Only positions from the `buckets` field are guaranteed to be initialized.
         metadatas: Vec<[MaybeUninit<Metadata<K, TABLE_NUMBER>>; REDUCED_MATCHES_COUNT]>,
-        /// Each bucket contains positions of `Y` values that belong to it.
+        /// Each bucket contains positions of `Y` values that belong to it and corresponding `r`
+        /// (which is `y` minus shared base of the bucket).
         ///
         /// Buckets are padded with sentinel values to `REDUCED_BUCKETS_SIZE`.
-        buckets: Box<[[Position; REDUCED_BUCKETS_SIZE]; num_buckets(K)]>,
+        buckets: Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>,
     },
 }
 
@@ -958,7 +948,7 @@ where
         // TODO: Try to group buckets in the process of collecting `y`s
         let buckets = group_by_buckets::<K>(&ys);
 
-        Self::First { ys, buckets }
+        Self::First { buckets }
     }
 
     /// Create the table, leverages available parallelism
@@ -1009,7 +999,7 @@ where
         // TODO: Try to group buckets in the process of collecting `y`s
         let buckets = group_by_buckets::<K>(&ys);
 
-        Self::First { ys, buckets }
+        Self::First { buckets }
     }
 }
 
@@ -1146,7 +1136,6 @@ where
                     left_bucket_index,
                     left_bucket,
                     right_bucket,
-                    parent_table,
                     &mut matches,
                     left_targets,
                 )
@@ -1180,7 +1169,7 @@ where
             initialized_elements += matches.len();
         }
 
-        parent_table.clear_ys_and_metadata();
+        parent_table.clear_metadata();
 
         // SAFETY: Converting a boxed array to a vector of the same size, which has the same memory
         // layout, the number of elements matches the number of elements that were initialized
@@ -1202,7 +1191,6 @@ where
         let buckets = group_by_buckets::<K>(&ys);
 
         Self::Other {
-            ys,
             positions,
             metadatas,
             buckets,
@@ -1267,7 +1255,6 @@ where
                             left_bucket_index as u32,
                             left_bucket,
                             right_bucket,
-                            parent_table,
                             &mut matches,
                             left_targets,
                         )
@@ -1308,7 +1295,7 @@ where
             }
         });
 
-        parent_table.clear_ys_and_metadata();
+        parent_table.clear_metadata();
 
         let ys = strip_sync_unsafe_cell(ys);
         let positions = strip_sync_unsafe_cell(positions);
@@ -1343,7 +1330,6 @@ where
         };
 
         Self::OtherBuckets {
-            ys,
             positions,
             metadatas,
             buckets,
@@ -1422,45 +1408,14 @@ where
     [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
-    /// Get `y` at for a specified position.
-    ///
-    /// # Safety
-    /// `position` must come from [`Self::buckets()`] and not be a sentinel value.
-    #[inline(always)]
-    pub(super) unsafe fn y(&self, position: Position) -> Y {
+    fn clear_metadata(&mut self) {
         match self {
-            Table::First { ys, .. } => {
-                // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
-                *unsafe { ys.get_unchecked(usize::from(position)) }
-            }
-            Table::Other { ys, .. } => {
-                // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
-                *unsafe { ys.get_unchecked(usize::from(position)) }
-            }
-            #[cfg(any(feature = "parallel", test))]
-            Table::OtherBuckets { ys, .. } => {
-                // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
-                unsafe {
-                    ys.as_flattened()
-                        .get_unchecked(usize::from(position))
-                        .assume_init()
-                }
-            }
-        }
-    }
-
-    fn clear_ys_and_metadata(&mut self) {
-        match self {
-            Table::First { ys, .. } => {
-                mem::take(ys);
-            }
-            Table::Other { ys, metadatas, .. } => {
-                mem::take(ys);
+            Table::First { .. } => {}
+            Table::Other { metadatas, .. } => {
                 mem::take(metadatas);
             }
             #[cfg(any(feature = "parallel", test))]
-            Table::OtherBuckets { ys, metadatas, .. } => {
-                mem::take(ys);
+            Table::OtherBuckets { metadatas, .. } => {
                 mem::take(metadatas);
             }
         }
@@ -1468,7 +1423,7 @@ where
 
     /// Positions of `y`s grouped by the bucket they belong to
     #[inline(always)]
-    pub(super) fn buckets(&self) -> &[[Position; REDUCED_BUCKETS_SIZE]; num_buckets(K)] {
+    pub(super) fn buckets(&self) -> &[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)] {
         match self {
             Table::First { buckets, .. } => buckets,
             Table::Other { buckets, .. } => buckets,
