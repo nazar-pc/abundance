@@ -5,6 +5,7 @@ mod table;
 mod tables;
 mod utils;
 
+#[cfg(feature = "alloc")]
 pub use crate::chiapos::table::TablesCache;
 use crate::chiapos::table::{metadata_size_bytes, num_buckets};
 use crate::chiapos::tables::TablesGeneric;
@@ -31,6 +32,7 @@ macro_rules! impl_any {
 impl Tables<$k> {
     /// Create Chia proof of space tables. There also exists [`Self::create_parallel()`] that trades
     /// memory usage for lower latency and higher CPU efficiency.
+    #[cfg(feature = "alloc")]
     pub fn create(seed: Seed, cache: &TablesCache) -> Self {
         Self(TablesGeneric::<$k>::create(
             seed, cache,
@@ -39,7 +41,7 @@ impl Tables<$k> {
 
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
     /// latency and performance (though higher memory usage).
-    #[cfg(any(feature = "parallel", test))]
+    #[cfg(feature = "parallel")]
     pub fn create_parallel(seed: Seed, cache: &TablesCache) -> Self {
         Self(TablesGeneric::<$k>::create_parallel(
             seed, cache,
@@ -47,7 +49,7 @@ impl Tables<$k> {
     }
 
     /// Find proof of space quality for given challenge.
-    #[cfg(any(feature = "full-chiapos", test))]
+    #[cfg(all(feature = "alloc", any(feature = "full-chiapos", test)))]
     pub fn find_quality<'a>(
         &'a self,
         challenge: &'a Challenge,
@@ -56,7 +58,8 @@ impl Tables<$k> {
     }
 
     /// Find proof of space for given challenge.
-    pub fn find_proof<'a>(
+        #[cfg(feature = "alloc")]
+pub fn find_proof<'a>(
         &'a self,
         first_challenge_bytes: [u8; 4],
     ) -> impl Iterator<Item = [u8; 64 * $k / 8]> + 'a {

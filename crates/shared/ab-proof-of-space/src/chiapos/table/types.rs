@@ -1,8 +1,12 @@
-use crate::chiapos::constants::{PARAM_BC, PARAM_EXT};
+#[cfg(feature = "alloc")]
+use crate::chiapos::constants::PARAM_BC;
+use crate::chiapos::constants::PARAM_EXT;
 use crate::chiapos::table::metadata_size_bytes;
 use crate::chiapos::utils::EvaluatableUsize;
 use core::iter::Step;
+#[cfg(any(feature = "alloc", test))]
 use core::mem;
+#[cfg(feature = "alloc")]
 use core::ops::RangeInclusive;
 use derive_more::{Add, AddAssign, From, Into};
 
@@ -43,6 +47,7 @@ impl From<X> for u128 {
 }
 
 impl X {
+    #[cfg(feature = "alloc")]
     pub(in super::super) const ZERO: Self = Self(0);
 }
 
@@ -67,9 +72,11 @@ impl From<Y> for usize {
 
 impl Y {
     /// Y that can't exist
+    #[cfg(feature = "alloc")]
     pub(in super::super) const SENTINEL: Self = Self(u32::MAX);
 
     /// The range of buckets where `Y`s with the provided first `K` bits are located
+    #[cfg(feature = "alloc")]
     #[inline(always)]
     pub(in super::super) fn bucket_range_from_first_k_bits(value: u32) -> RangeInclusive<usize> {
         let from = value << PARAM_EXT;
@@ -83,6 +90,7 @@ impl Y {
         self.0 >> PARAM_EXT
     }
 
+    #[cfg(any(feature = "alloc", test))]
     #[inline(always)]
     pub(super) const fn array_from_repr<const N: usize>(array: [u32; N]) -> [Self; N] {
         // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/61956
@@ -120,8 +128,10 @@ impl From<Position> for usize {
 }
 
 impl Position {
+    #[cfg(any(feature = "alloc", test))]
     pub(in super::super) const ZERO: Self = Self(0);
     /// Position that can't exist
+    #[cfg(feature = "alloc")]
     pub(in super::super) const SENTINEL: Self = Self(u32::MAX);
 }
 

@@ -1,38 +1,49 @@
+#[cfg(any(feature = "alloc", test))]
 mod rmap;
 #[cfg(test)]
 mod tests;
 pub(super) mod types;
 
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-
 use crate::chiapos::Seed;
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT, PARAM_M};
+#[cfg(feature = "alloc")]
 use crate::chiapos::table::rmap::Rmap;
-use crate::chiapos::table::types::{Metadata, Position, R, X, Y};
+use crate::chiapos::table::types::{Metadata, X, Y};
+#[cfg(feature = "alloc")]
+use crate::chiapos::table::types::{Position, R};
 use crate::chiapos::utils::EvaluatableUsize;
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "alloc")]
 use alloc::vec;
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+#[cfg(feature = "alloc")]
 use chacha20::cipher::{Iv, KeyIvInit, StreamCipher};
+#[cfg(feature = "alloc")]
 use chacha20::{ChaCha8, Key};
-#[cfg(any(feature = "parallel", test))]
+use core::array;
+#[cfg(feature = "parallel")]
 use core::cell::SyncUnsafeCell;
+#[cfg(feature = "alloc")]
+use core::mem;
+#[cfg(feature = "alloc")]
 use core::mem::MaybeUninit;
+#[cfg(any(feature = "alloc", test))]
 use core::simd::prelude::*;
-#[cfg(any(feature = "parallel", test))]
+#[cfg(feature = "parallel")]
 use core::sync::atomic::{AtomicUsize, Ordering};
-use core::{array, mem};
+#[cfg(feature = "alloc")]
 use derive_more::Deref;
+#[cfg(any(feature = "alloc", test))]
 use seq_macro::seq;
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
+#[cfg(any(feature = "alloc", test))]
 const COMPUTE_FN_SIMD_FACTOR: usize = 16;
 const MAX_BUCKET_SIZE: usize = 512;
+#[cfg(feature = "alloc")]
 const BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS: u8 = 128;
 /// Reducing bucket size for better performance.
 ///
@@ -46,7 +57,7 @@ const REDUCED_BUCKETS_SIZE: usize = 272;
 /// probability.
 // TODO: Statistical analysis if possible.
 const REDUCED_MATCHES_COUNT: usize = 288;
-#[cfg(any(feature = "parallel", test))]
+#[cfg(feature = "parallel")]
 const CACHE_LINE_SIZE: usize = 64;
 
 const _: () = {
@@ -85,7 +96,7 @@ pub const fn num_buckets(k: u8) -> usize {
         .div_ceil(usize::from(PARAM_BC))
 }
 
-#[cfg(any(feature = "parallel", test))]
+#[cfg(feature = "parallel")]
 #[inline(always)]
 fn strip_sync_unsafe_cell<const N: usize, T>(value: Box<[SyncUnsafeCell<T>; N]>) -> Box<[T; N]> {
     // SAFETY: `SyncUnsafeCell` has the same layout as `T`
@@ -94,6 +105,7 @@ fn strip_sync_unsafe_cell<const N: usize, T>(value: Box<[SyncUnsafeCell<T>; N]>)
 
 /// ChaCha8 [`Vec`] sufficient for the whole first table for [`K`].
 /// Prefer [`partial_y`] if you need partial y just for a single `x`.
+#[cfg(feature = "alloc")]
 fn partial_ys<const K: u8>(seed: Seed) -> Vec<u8> {
     let output_len_bits = usize::from(K) * (1 << K);
     let mut output = vec![0; output_len_bits.div_ceil(u8::BITS as usize)];
@@ -115,6 +127,7 @@ fn partial_ys<const K: u8>(seed: Seed) -> Vec<u8> {
 /// `lambda = PARAM_BC / 2^PARAM_EXT`, ensuring the probability that any bucket exceeds the bound is
 /// less than `2^{-security_bits}`.
 /// The bound is lambda + ceil(sqrt(3 * lambda * (k + security_bits) * ln(2))).
+#[cfg(feature = "alloc")]
 const fn bucket_size_upper_bound(k: u8, security_bits: u8) -> usize {
     // Lambda is the expected number of entries in a bucket, approximated as
     // `PARAM_BC / 2^PARAM_EXT`. It is independent of `k`.
@@ -154,6 +167,7 @@ const fn bucket_size_upper_bound(k: u8, security_bits: u8) -> usize {
     (LAMBDA + add_term) as usize
 }
 
+#[cfg(feature = "alloc")]
 fn group_by_buckets<const K: u8>(
     ys: &[Y],
 ) -> Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>
@@ -194,7 +208,7 @@ where
 /// # Safety
 /// Iterator item is a list of potentially uninitialized `y`s and a number of initialized `y`s. The
 /// number of initialized `y`s must be correct.
-#[cfg(any(feature = "parallel", test))]
+#[cfg(feature = "parallel")]
 unsafe fn group_by_buckets_from_buckets<'a, const K: u8, I>(
     iter: I,
 ) -> Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>
@@ -235,13 +249,16 @@ where
     unsafe { Box::from_raw(Box::into_raw(buckets).cast()) }
 }
 
+#[cfg(feature = "alloc")]
 #[derive(Debug, Copy, Clone, Deref)]
 #[repr(align(64))]
 struct CacheLineAligned<T>(T);
 
 /// Mapping from `parity` to `r` to `m`
+#[cfg(feature = "alloc")]
 type LeftTargets = [[CacheLineAligned<[R; PARAM_M as usize]>; PARAM_BC as usize]; 2];
 
+#[cfg(feature = "alloc")]
 fn calculate_left_targets() -> Box<LeftTargets> {
     let mut left_targets = Box::<LeftTargets>::new_uninit();
     // SAFETY: Same layout and uninitialized in both cases
@@ -280,11 +297,13 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
 }
 
 /// Caches that can be used to optimize the creation of multiple [`Tables`](super::Tables).
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone)]
 pub struct TablesCache {
     left_targets: Box<LeftTargets>,
 }
 
+#[cfg(feature = "alloc")]
 impl Default for TablesCache {
     /// Create a new instance
     fn default() -> Self {
@@ -294,6 +313,7 @@ impl Default for TablesCache {
     }
 }
 
+#[cfg(feature = "alloc")]
 #[derive(Debug, Copy, Clone)]
 struct Match {
     left_position: Position,
@@ -341,6 +361,7 @@ pub(super) fn compute_f1<const K: u8>(x: X, seed: &Seed) -> Y {
     Y::from((pre_y & pre_y_mask) | pre_ext)
 }
 
+#[cfg(any(feature = "alloc", test))]
 pub(super) fn compute_f1_simd<const K: u8>(
     xs: Simd<u32, COMPUTE_F1_SIMD_FACTOR>,
     partial_ys: &[u8; K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize],
@@ -387,6 +408,7 @@ pub(super) fn compute_f1_simd<const K: u8>(
 /// Left and right bucket positions must correspond to the parent table.
 // TODO: Try to reduce the `matches` size further by processing `left_bucket` in chunks (like halves
 //  for example)
+#[cfg(feature = "alloc")]
 unsafe fn find_matches_in_buckets<'a>(
     left_bucket_index: u32,
     left_bucket: &[(Position, Y); REDUCED_BUCKETS_SIZE],
@@ -565,6 +587,7 @@ where
 // TODO: This is actually using only pipelining rather than real SIMD (at least explicitly) due to:
 //  * https://github.com/rust-lang/portable-simd/issues/108
 //  * https://github.com/BLAKE3-team/BLAKE3/issues/478#issuecomment-3200106103
+#[cfg(any(feature = "alloc", test))]
 fn compute_fn_simd<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     left_ys: [Y; COMPUTE_FN_SIMD_FACTOR],
     left_metadatas: [Metadata<K, PARENT_TABLE_NUMBER>; COMPUTE_FN_SIMD_FACTOR],
@@ -696,6 +719,7 @@ where
 
 /// # Safety
 /// `m` must contain positions that correspond to the parent table
+#[cfg(feature = "alloc")]
 unsafe fn match_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     m: &Match,
@@ -720,6 +744,7 @@ where
 
 /// # Safety
 /// `matches` must contain positions that correspond to the parent table
+#[cfg(feature = "alloc")]
 #[inline(always)]
 unsafe fn match_to_result_simd<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     parent_table: &Table<K, PARENT_TABLE_NUMBER>,
@@ -787,6 +812,7 @@ where
 /// # Safety
 /// `matches` must contain positions that correspond to the parent table. `ys`, `position` and
 /// `metadatas` length must be at least the length of `matches`
+#[cfg(feature = "alloc")]
 #[inline(always)]
 unsafe fn matches_to_results<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     parent_table: &Table<K, PARENT_TABLE_NUMBER>,
@@ -850,6 +876,7 @@ unsafe fn matches_to_results<const K: u8, const TABLE_NUMBER: u8, const PARENT_T
 }
 
 /// Similar to [`Table`], but smaller size for later processing stages
+#[cfg(feature = "alloc")]
 #[derive(Debug)]
 pub(super) enum PrunedTable<const K: u8, const TABLE_NUMBER: u8>
 where
@@ -863,7 +890,7 @@ where
         positions: Box<[MaybeUninit<[Position; 2]>; 1 << K]>,
     },
     /// Other tables
-    #[cfg(any(feature = "parallel", test))]
+    #[cfg(feature = "parallel")]
     OtherBuckets {
         /// Left and right entry positions in a previous table encoded into bits.
         ///
@@ -872,6 +899,7 @@ where
     },
 }
 
+#[cfg(feature = "alloc")]
 impl<const K: u8, const TABLE_NUMBER: u8> PrunedTable<K, TABLE_NUMBER>
 where
     [(); 1 << K]:,
@@ -893,7 +921,7 @@ where
                 // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
                 unsafe { positions.get_unchecked(usize::from(position)).assume_init() }
             }
-            #[cfg(any(feature = "parallel", test))]
+            #[cfg(feature = "parallel")]
             Self::OtherBuckets { positions, .. } => {
                 // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
                 unsafe {
@@ -907,6 +935,7 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
 #[derive(Debug)]
 pub(super) enum Table<const K: u8, const TABLE_NUMBER: u8>
 where
@@ -933,7 +962,7 @@ where
         buckets: Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>,
     },
     /// Other tables
-    #[cfg(any(feature = "parallel", test))]
+    #[cfg(feature = "parallel")]
     OtherBuckets {
         /// Left and right entry positions in a previous table encoded into bits.
         ///
@@ -951,6 +980,7 @@ where
     },
 }
 
+#[cfg(feature = "alloc")]
 impl<const K: u8> Table<K, 1>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 1) }>: Sized,
@@ -1007,7 +1037,7 @@ where
     }
 
     /// Create the table, leverages available parallelism
-    #[cfg(any(feature = "parallel", test))]
+    #[cfg(feature = "parallel")]
     pub(super) fn create_parallel(seed: Seed) -> Self
     where
         EvaluatableUsize<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>: Sized,
@@ -1058,11 +1088,13 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
 mod private {
     pub(in super::super) trait SupportedOtherTables {}
     pub(in super::super) trait NotLastTable {}
 }
 
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::SupportedOtherTables for Table<K, 2>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 2) }>: Sized,
@@ -1070,6 +1102,7 @@ where
     [(); num_buckets(K)]:,
 {
 }
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::SupportedOtherTables for Table<K, 3>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 3) }>: Sized,
@@ -1077,6 +1110,7 @@ where
     [(); num_buckets(K)]:,
 {
 }
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::SupportedOtherTables for Table<K, 4>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 4) }>: Sized,
@@ -1084,6 +1118,7 @@ where
     [(); num_buckets(K)]:,
 {
 }
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::SupportedOtherTables for Table<K, 5>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
@@ -1091,6 +1126,7 @@ where
     [(); num_buckets(K)]:,
 {
 }
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::SupportedOtherTables for Table<K, 6>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
@@ -1098,6 +1134,7 @@ where
     [(); num_buckets(K)]:,
 {
 }
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::SupportedOtherTables for Table<K, 7>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
@@ -1106,6 +1143,7 @@ where
 {
 }
 
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::NotLastTable for Table<K, 1>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 1) }>: Sized,
@@ -1113,6 +1151,7 @@ where
     [(); num_buckets(K)]:,
 {
 }
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::NotLastTable for Table<K, 2>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 2) }>: Sized,
@@ -1120,6 +1159,7 @@ where
     [(); num_buckets(K)]:,
 {
 }
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::NotLastTable for Table<K, 3>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 3) }>: Sized,
@@ -1127,6 +1167,7 @@ where
     [(); num_buckets(K)]:,
 {
 }
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::NotLastTable for Table<K, 4>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 4) }>: Sized,
@@ -1134,6 +1175,7 @@ where
     [(); num_buckets(K)]:,
 {
 }
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::NotLastTable for Table<K, 5>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
@@ -1141,6 +1183,7 @@ where
     [(); num_buckets(K)]:,
 {
 }
+#[cfg(feature = "alloc")]
 impl<const K: u8> private::NotLastTable for Table<K, 6>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
@@ -1149,6 +1192,7 @@ where
 {
 }
 
+#[cfg(feature = "alloc")]
 impl<const K: u8, const TABLE_NUMBER: u8> Table<K, TABLE_NUMBER>
 where
     Self: private::SupportedOtherTables,
@@ -1249,7 +1293,7 @@ where
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
     /// performance (though not efficiency of CPU and memory usage), if you create multiple tables
     /// in parallel, prefer [`Self::create_parallel()`] for better overall performance.
-    #[cfg(any(feature = "parallel", test))]
+    #[cfg(feature = "parallel")]
     pub(super) fn create_parallel<const PARENT_TABLE_NUMBER: u8>(
         parent_table: Table<K, PARENT_TABLE_NUMBER>,
         cache: &TablesCache,
@@ -1387,7 +1431,7 @@ where
                 // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
                 unsafe { positions.get_unchecked(usize::from(position)).assume_init() }
             }
-            #[cfg(any(feature = "parallel", test))]
+            #[cfg(feature = "parallel")]
             Self::OtherBuckets { positions, .. } => {
                 // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
                 unsafe {
@@ -1401,6 +1445,7 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<const K: u8, const TABLE_NUMBER: u8> Table<K, TABLE_NUMBER>
 where
     Self: private::NotLastTable,
@@ -1423,7 +1468,7 @@ where
                 // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
                 unsafe { metadatas.get_unchecked(usize::from(position)).assume_init() }
             }
-            #[cfg(any(feature = "parallel", test))]
+            #[cfg(feature = "parallel")]
             Self::OtherBuckets { metadatas, .. } => {
                 // SAFETY: All non-sentinel positions returned by [`Self::buckets()`] are valid
                 unsafe {
@@ -1437,6 +1482,7 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<const K: u8, const TABLE_NUMBER: u8> Table<K, TABLE_NUMBER>
 where
     EvaluatableUsize<{ metadata_size_bytes(K, TABLE_NUMBER) }>: Sized,
@@ -1448,7 +1494,7 @@ where
         match self {
             Self::First { .. } => PrunedTable::First,
             Self::Other { positions, .. } => PrunedTable::Other { positions },
-            #[cfg(any(feature = "parallel", test))]
+            #[cfg(feature = "parallel")]
             Self::OtherBuckets { positions, .. } => PrunedTable::OtherBuckets { positions },
         }
     }
@@ -1459,7 +1505,7 @@ where
         match self {
             Self::First { buckets, .. } => buckets,
             Self::Other { buckets, .. } => buckets,
-            #[cfg(any(feature = "parallel", test))]
+            #[cfg(feature = "parallel")]
             Self::OtherBuckets { buckets, .. } => buckets,
         }
     }

@@ -1,19 +1,24 @@
 //! Tests translated into Rust from
 //! https://github.com/Chia-Network/chiapos/blob/a2049c5367fe60930533a995f7ffded538f04dc4/tests/test.cpp
 
-extern crate alloc;
-
 use crate::chiapos::Seed;
+#[cfg(feature = "alloc")]
 use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT};
-use crate::chiapos::table::types::{Metadata, Position, X, Y};
+#[cfg(feature = "alloc")]
+use crate::chiapos::table::types::Position;
+use crate::chiapos::table::types::{Metadata, X, Y};
 use crate::chiapos::table::{
-    COMPUTE_F1_SIMD_FACTOR, calculate_left_targets, compute_f1, compute_f1_simd, compute_fn,
-    compute_fn_simd, find_matches_in_buckets, metadata_size_bytes,
+    COMPUTE_F1_SIMD_FACTOR, compute_f1, compute_f1_simd, compute_fn, compute_fn_simd,
+    metadata_size_bytes,
 };
+#[cfg(feature = "alloc")]
+use crate::chiapos::table::{calculate_left_targets, find_matches_in_buckets};
 use crate::chiapos::utils::EvaluatableUsize;
+#[cfg(feature = "alloc")]
 use alloc::collections::BTreeMap;
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+#[cfg(feature = "alloc")]
 use core::mem::MaybeUninit;
 use core::simd::prelude::*;
 
@@ -74,6 +79,7 @@ fn test_compute_f1_k22() {
     }
 }
 
+#[cfg(feature = "alloc")]
 fn check_match(yl: usize, yr: usize) -> bool {
     let yl = yl as i64;
     let yr = yr as i64;
@@ -102,6 +108,7 @@ fn check_match(yl: usize, yr: usize) -> bool {
 
 // TODO: This test should be rewritten into something more readable, currently it is more or less
 //  direct translation from C++
+#[cfg(feature = "alloc")]
 #[test]
 #[cfg_attr(miri, ignore)]
 fn test_matches() {

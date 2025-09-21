@@ -1,12 +1,16 @@
-#[cfg(test)]
+#[cfg(all(feature = "alloc", test))]
 mod tests;
 
+#[cfg(feature = "alloc")]
 pub use crate::chiapos::table::TablesCache;
-use crate::chiapos::table::types::{Metadata, Position, X, Y};
+#[cfg(feature = "alloc")]
+use crate::chiapos::table::types::Position;
+use crate::chiapos::table::types::{Metadata, X, Y};
 use crate::chiapos::table::{
-    COMPUTE_F1_SIMD_FACTOR, PrunedTable, Table, compute_f1, compute_fn, has_match,
-    metadata_size_bytes, num_buckets,
+    COMPUTE_F1_SIMD_FACTOR, compute_f1, compute_fn, has_match, metadata_size_bytes, num_buckets,
 };
+#[cfg(feature = "alloc")]
+use crate::chiapos::table::{PrunedTable, Table};
 use crate::chiapos::utils::EvaluatableUsize;
 use crate::chiapos::{Challenge, Quality, Seed};
 use core::array;
@@ -15,7 +19,7 @@ use core::mem::MaybeUninit;
 use sha2::{Digest, Sha256};
 
 /// Pick position in `table_number` based on challenge bits
-#[cfg(any(feature = "full-chiapos", test))]
+#[cfg(all(feature = "alloc", any(feature = "full-chiapos", test)))]
 const fn pick_position(
     [left_position, right_position]: [Position; 2],
     last_5_challenge_bits: u8,
@@ -36,11 +40,17 @@ where
     [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
+    #[cfg(feature = "alloc")]
     table_2: PrunedTable<K, 2>,
+    #[cfg(feature = "alloc")]
     table_3: PrunedTable<K, 3>,
+    #[cfg(feature = "alloc")]
     table_4: PrunedTable<K, 4>,
+    #[cfg(feature = "alloc")]
     table_5: PrunedTable<K, 5>,
+    #[cfg(feature = "alloc")]
     table_6: PrunedTable<K, 6>,
+    #[cfg(feature = "alloc")]
     table_7: Table<K, 7>,
 }
 
@@ -60,6 +70,7 @@ where
 {
     /// Create Chia proof of space tables. There also exists [`Self::create_parallel()`] that trades
     /// CPU efficiency and memory usage for lower latency.
+    #[cfg(feature = "alloc")]
     pub(super) fn create(seed: Seed, cache: &TablesCache) -> Self {
         let table_1 = Table::<K, 1>::create(seed);
         let (table_2, _) = Table::<K, 2>::create(table_1, cache);
@@ -82,7 +93,7 @@ where
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
     /// performance (though not efficiency of CPU and memory usage), if you create multiple tables
     /// in parallel, prefer [`Self::create()`] for better overall performance.
-    #[cfg(any(feature = "parallel", test))]
+    #[cfg(feature = "parallel")]
     pub(super) fn create_parallel(seed: Seed, cache: &TablesCache) -> Self {
         let table_1 = Table::<K, 1>::create_parallel(seed);
         let (table_2, _) = Table::<K, 2>::create_parallel(table_1, cache);
@@ -103,7 +114,7 @@ where
     }
 
     /// Find proof of space quality for a given challenge
-    #[cfg(any(feature = "full-chiapos", test))]
+    #[cfg(all(feature = "alloc", any(feature = "full-chiapos", test)))]
     pub(super) fn find_quality<'a>(
         &'a self,
         challenge: &'a Challenge,
@@ -172,6 +183,7 @@ where
     }
 
     /// Find proof of space for a given challenge
+    #[cfg(feature = "alloc")]
     pub(super) fn find_proof<'a>(
         &'a self,
         first_challenge_bytes: [u8; 4],

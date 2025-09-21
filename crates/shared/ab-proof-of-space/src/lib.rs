@@ -1,5 +1,5 @@
 //! Proof of space implementation
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![feature(
@@ -20,6 +20,9 @@
 pub mod chia;
 pub mod chiapos;
 pub mod shim;
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 use ab_core_primitives::pos::{PosProof, PosSeed};
 use ab_core_primitives::solutions::SolutionPotVerifier;
@@ -47,7 +50,7 @@ pub trait TableGenerator<T: Table>: fmt::Debug + Default + Clone + Send + Sized 
     ///
     /// This implementation will trade efficiency of CPU and memory usage for lower latency, prefer
     /// [`Self::generate()`] unless lower latency is critical.
-    #[cfg(any(feature = "parallel", test))]
+    #[cfg(feature = "parallel")]
     fn generate_parallel(&mut self, seed: &PosSeed) -> T {
         self.generate(seed)
     }
@@ -71,7 +74,7 @@ pub trait Table: SolutionPotVerifier + Sized + Send + Sync + 'static {
     ///
     /// This implementation will trade efficiency of CPU and memory usage for lower latency, prefer
     /// [`Self::generate()`] unless lower latency is critical.
-    #[cfg(all(feature = "alloc", any(feature = "parallel", test)))]
+    #[cfg(feature = "parallel")]
     fn generate_parallel(seed: &PosSeed) -> Self {
         Self::generate(seed)
     }

@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::chiapos::constants::PARAM_BC;
 use crate::chiapos::table::REDUCED_BUCKETS_SIZE;
 use crate::chiapos::table::types::{Position, R};
