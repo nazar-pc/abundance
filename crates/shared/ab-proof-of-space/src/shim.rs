@@ -16,8 +16,8 @@ pub struct ShimTableGenerator;
 
 #[cfg(feature = "alloc")]
 impl TableGenerator<ShimTable> for ShimTableGenerator {
-    fn generate(&mut self, seed: &PosSeed) -> ShimTable {
-        ShimTable::generate(seed)
+    fn generate(&self, seed: &PosSeed) -> ShimTable {
+        ShimTable { seed: *seed }
     }
 }
 
@@ -44,11 +44,6 @@ impl Table for ShimTable {
     const TABLE_TYPE: PosTableType = PosTableType::Shim;
     #[cfg(feature = "alloc")]
     type Generator = ShimTableGenerator;
-
-    #[cfg(feature = "alloc")]
-    fn generate(seed: &PosSeed) -> ShimTable {
-        Self { seed: *seed }
-    }
 
     #[cfg(feature = "alloc")]
     fn find_proof(&self, challenge_index: u32) -> Option<PosProof> {
@@ -93,7 +88,7 @@ mod tests {
             198, 204, 10, 9, 10, 11, 129, 139, 171, 15, 23,
         ]);
 
-        let table = ShimTable::generate(&seed);
+        let table = ShimTable::generator().generate(&seed);
 
         assert!(table.find_proof(1).is_none());
 

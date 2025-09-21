@@ -1,5 +1,5 @@
 //! Proof of space implementation
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![feature(
@@ -8,6 +8,7 @@
     const_trait_impl,
     exact_size_is_empty,
     generic_const_exprs,
+    get_mut_unchecked,
     maybe_uninit_fill,
     maybe_uninit_slice,
     maybe_uninit_write_slice,
@@ -20,6 +21,9 @@
 pub mod chia;
 pub mod chiapos;
 pub mod shim;
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 use ab_core_primitives::pos::{PosProof, PosSeed};
 use ab_core_primitives::solutions::SolutionPotVerifier;
@@ -35,20 +39,24 @@ pub enum PosTableType {
     Shim,
 }
 
-/// Stateful table generator with better performance
+/// Stateful table generator with better performance.
+///
+/// Prefer cloning it over creating multiple separate generators.
 #[cfg(feature = "alloc")]
-pub trait TableGenerator<T: Table>: fmt::Debug + Default + Clone + Send + Sized + 'static {
+pub trait TableGenerator<T: Table>:
+    fmt::Debug + Default + Clone + Send + Sync + Sized + 'static
+{
     /// Generate new table with 32 bytes seed.
     ///
     /// There is also [`Self::generate_parallel()`] that can achieve lower latency.
-    fn generate(&mut self, seed: &PosSeed) -> T;
+    fn generate(&self, seed: &PosSeed) -> T;
 
     /// Generate new table with 32 bytes seed using parallelism.
     ///
     /// This implementation will trade efficiency of CPU and memory usage for lower latency, prefer
     /// [`Self::generate()`] unless lower latency is critical.
-    #[cfg(any(feature = "parallel", test))]
-    fn generate_parallel(&mut self, seed: &PosSeed) -> T {
+    #[cfg(feature = "parallel")]
+    fn generate_parallel(&self, seed: &PosSeed) -> T {
         self.generate(seed)
     }
 }
@@ -60,21 +68,6 @@ pub trait Table: SolutionPotVerifier + Sized + Send + Sync + 'static {
     /// Instance that can be used to generate tables with better performance
     #[cfg(feature = "alloc")]
     type Generator: TableGenerator<Self>;
-
-    /// Generate new table with 32 bytes seed.
-    ///
-    /// There is also [`Self::generate_parallel()`] that can achieve lower latency.
-    #[cfg(feature = "alloc")]
-    fn generate(seed: &PosSeed) -> Self;
-
-    /// Generate new table with 32 bytes seed using parallelism.
-    ///
-    /// This implementation will trade efficiency of CPU and memory usage for lower latency, prefer
-    /// [`Self::generate()`] unless lower latency is critical.
-    #[cfg(all(feature = "alloc", any(feature = "parallel", test)))]
-    fn generate_parallel(seed: &PosSeed) -> Self {
-        Self::generate(seed)
-    }
 
     /// Try to find proof at `challenge_index` if it exists
     #[cfg(feature = "alloc")]

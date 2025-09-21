@@ -28,7 +28,6 @@ use ab_proof_of_space::{Table, TableGenerator};
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use futures::StreamExt;
 use futures::channel::mpsc;
-use parking_lot::Mutex;
 use rayon::ThreadPool;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -92,7 +91,7 @@ where
     /// Mode of reading chunks during proving
     pub read_sector_record_chunks_mode: ReadSectorRecordChunksMode,
     /// Proof of space table generator
-    pub table_generator: &'a Mutex<PosTable::Generator>,
+    pub table_generator: &'a PosTable::Generator,
 }
 
 impl<PosTable> Clone for PlotAuditOptions<'_, '_, PosTable>
@@ -164,7 +163,7 @@ where
                 let sector_solutions = audit_results.solution_candidates.into_solutions(
                     erasure_coding,
                     mode,
-                    |seed: &PosSeed| table_generator.lock().generate_parallel(seed),
+                    |seed: &PosSeed| table_generator.generate_parallel(seed),
                 );
 
                 let sector_solutions = match sector_solutions {
@@ -248,7 +247,8 @@ where
     // We assume that each slot is one second
     let farming_timeout = farmer_app_info.farming_timeout;
 
-    let table_generator = Arc::new(Mutex::new(PosTable::generator()));
+    // TODO: Reuse global table generator (this comment is in many files)
+    let table_generator = PosTable::generator();
     let span = Span::current();
 
     let mut non_fatal_errors = 0;

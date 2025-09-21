@@ -123,7 +123,8 @@ async fn read_pieces<PosTable, S>(
     PosTable: Table,
     S: ReadAtSync,
 {
-    let mut table_generator = PosTable::generator();
+    // TODO: Reuse global table generator (this comment is in many files)
+    let table_generator = PosTable::generator();
 
     while let Some(read_piece_request) = read_piece_receiver.next().await {
         let ReadPieceRequest {
@@ -202,7 +203,7 @@ async fn read_pieces<PosTable, S>(
             &ReadAt::from_sync(&sector),
             &erasure_coding,
             mode,
-            &mut table_generator,
+            &table_generator,
         )
         .await;
 
@@ -218,7 +219,7 @@ async fn read_piece<PosTable, S, A>(
     sector: &ReadAt<S, A>,
     erasure_coding: &ErasureCoding,
     mode: ReadSectorRecordChunksMode,
-    table_generator: &mut PosTable::Generator,
+    table_generator: &PosTable::Generator,
 ) -> Option<Piece>
 where
     PosTable: Table,

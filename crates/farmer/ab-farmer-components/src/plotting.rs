@@ -328,7 +328,7 @@ pub struct CpuRecordsEncoder<'a, PosTable>
 where
     PosTable: Table,
 {
-    table_generators: &'a mut [PosTable::Generator],
+    table_generators: &'a [PosTable::Generator],
     erasure_coding: &'a ErasureCoding,
     global_mutex: &'a AsyncMutex<()>,
 }
@@ -354,7 +354,6 @@ where
         let mut sector_contents_map = SectorContentsMap::new(pieces_in_sector);
 
         {
-            let table_generators = &mut *self.table_generators;
             let global_mutex = self.global_mutex;
             let erasure_coding = self.erasure_coding;
 
@@ -365,7 +364,7 @@ where
             );
 
             rayon::scope(|scope| {
-                for table_generator in table_generators {
+                for table_generator in self.table_generators {
                     scope.spawn(|_scope| {
                         let mut chunks_scratch = Vec::with_capacity(Record::NUM_S_BUCKETS);
 
@@ -410,7 +409,7 @@ where
 {
     /// Create a new instance
     pub fn new(
-        table_generators: &'a mut [PosTable::Generator],
+        table_generators: &'a [PosTable::Generator],
         erasure_coding: &'a ErasureCoding,
         global_mutex: &'a AsyncMutex<()>,
     ) -> Self {
@@ -603,7 +602,7 @@ fn record_encoding<PosTable>(
     pos_seed: &PosSeed,
     record: &mut Record,
     mut encoded_chunks_used: EncodedChunksUsed<'_>,
-    table_generator: &mut PosTable::Generator,
+    table_generator: &PosTable::Generator,
     erasure_coding: &ErasureCoding,
     chunks_scratch: &mut Vec<[u8; RecordChunk::SIZE]>,
 ) where

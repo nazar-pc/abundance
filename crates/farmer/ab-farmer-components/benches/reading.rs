@@ -18,7 +18,6 @@ use ab_proof_of_space::chia::ChiaTable;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use futures::FutureExt;
 use futures::executor::block_on;
-use parking_lot::Mutex;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::fs::OpenOptions;
@@ -54,7 +53,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     rng.fill_bytes(input.as_mut().as_mut());
     let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
-    let mut table_generator = PosTable::generator();
+    let table_generator = PosTable::generator();
     let archived_history_segment = archiver
         .add_block(
             AsRef::<[u8]>::as_ref(input.as_ref()).to_vec(),
@@ -129,7 +128,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             downloading_semaphore: black_box(None),
             encoding_semaphore: black_box(None),
             records_encoder: &mut CpuRecordsEncoder::<PosTable>::new(
-                slice::from_mut(&mut table_generator),
+                slice::from_ref(&table_generator),
                 &erasure_coding,
                 &Default::default(),
             ),
@@ -152,8 +151,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let piece_offset = PieceOffset::ZERO;
 
-    let table_generator = &Mutex::new(table_generator);
-
     let mut group = c.benchmark_group("reading");
     group.throughput(Throughput::Elements(1));
     group.bench_function("piece/memory", |b| {
@@ -165,7 +162,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 black_box(&ReadAt::from_sync(&plotted_sector_bytes)),
                 black_box(&erasure_coding),
                 black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
-                black_box(&mut *table_generator.lock()),
+                black_box(&table_generator),
             )
             .now_or_never()
             .unwrap()
@@ -209,7 +206,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                         black_box(&ReadAt::from_sync(&sector)),
                         black_box(&erasure_coding),
                         black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
-                        black_box(&mut *table_generator.lock()),
+                        black_box(&table_generator),
                     )
                     .now_or_never()
                     .unwrap()

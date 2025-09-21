@@ -22,7 +22,6 @@ use ab_proof_of_space::chia::ChiaTable;
 use ab_proof_of_space::{Table, TableGenerator};
 use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
 use futures::executor::block_on;
-use parking_lot::Mutex;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::collections::HashSet;
@@ -59,7 +58,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     rng.fill_bytes(input.as_mut().as_mut());
     let erasure_coding = &ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
-    let mut table_generator = PosTable::generator();
+    let table_generator = PosTable::generator();
     let archived_history_segment = archiver
         .add_block(
             AsRef::<[u8]>::as_ref(input.as_ref()).to_vec(),
@@ -135,7 +134,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             downloading_semaphore: black_box(None),
             encoding_semaphore: black_box(None),
             records_encoder: &mut CpuRecordsEncoder::<PosTable>::new(
-                slice::from_mut(&mut table_generator),
+                slice::from_ref(&table_generator),
                 erasure_coding,
                 &Default::default(),
             ),
@@ -192,8 +191,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         }
     };
 
-    let table_generator = &Mutex::new(table_generator);
-
     let mut group = c.benchmark_group("proving");
     {
         group.throughput(Throughput::Elements(1));
@@ -204,7 +201,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     .into_solutions(
                         black_box(erasure_coding),
                         black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
-                        black_box(|seed: &PosSeed| table_generator.lock().generate_parallel(seed)),
+                        black_box(|seed: &PosSeed| table_generator.generate_parallel(seed)),
                     )
                     .unwrap()
                     // Process just one solution
@@ -271,7 +268,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                                     black_box(erasure_coding),
                                     black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
                                     black_box(|seed: &PosSeed| {
-                                        table_generator.lock().generate_parallel(seed)
+                                        table_generator.generate_parallel(seed)
                                     }),
                                 )
                                 .unwrap()

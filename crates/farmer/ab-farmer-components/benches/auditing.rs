@@ -54,7 +54,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     rng.fill_bytes(input.as_mut().as_mut());
     let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
-    let mut table_generator = PosTable::generator();
+    let table_generator = PosTable::generator();
     let archived_history_segment = archiver
         .add_block(
             AsRef::<[u8]>::as_ref(input.as_ref()).to_vec(),
@@ -131,7 +131,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             downloading_semaphore: black_box(None),
             encoding_semaphore: black_box(None),
             records_encoder: &mut CpuRecordsEncoder::<PosTable>::new(
-                slice::from_mut(&mut table_generator),
+                slice::from_ref(&table_generator),
                 &erasure_coding,
                 &Default::default(),
             ),
