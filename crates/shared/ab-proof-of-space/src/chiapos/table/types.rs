@@ -66,6 +66,9 @@ impl From<Y> for usize {
 }
 
 impl Y {
+    /// Y that can't exist
+    pub(in super::super) const SENTINEL: Self = Self(u32::MAX);
+
     /// The range of buckets where `Y`s with the provided first `K` bits are located
     #[inline(always)]
     pub(in super::super) fn bucket_range_from_first_k_bits(value: u32) -> RangeInclusive<usize> {
@@ -178,5 +181,17 @@ where
     #[inline(always)]
     fn from(value: X) -> Self {
         Self::from(u128::from(value))
+    }
+}
+
+/// `r` is a value of `y` minus bucket base
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into)]
+#[repr(C)]
+pub(in super::super) struct R(u16);
+
+impl From<R> for usize {
+    #[inline(always)]
+    fn from(value: R) -> Self {
+        Self::from(value.0)
     }
 }

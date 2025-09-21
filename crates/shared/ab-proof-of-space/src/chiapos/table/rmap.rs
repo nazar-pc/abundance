@@ -1,6 +1,6 @@
 use crate::chiapos::constants::PARAM_BC;
 use crate::chiapos::table::REDUCED_BUCKETS_SIZE;
-use crate::chiapos::table::types::Position;
+use crate::chiapos::table::types::{Position, R};
 
 pub(super) struct Rmap {
     /// `0` is a sentinel value indicating no virtual pointer is stored yet.
@@ -26,9 +26,9 @@ impl Rmap {
     /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKETS_SIZE`] items
     /// inserted
     #[inline(always)]
-    unsafe fn insertion_item(&mut self, r: u32) -> &mut [Position; 2] {
+    unsafe fn insertion_item(&mut self, r: R) -> &mut [Position; 2] {
         // SAFETY: Guaranteed by function contract
-        let virtual_pointer = unsafe { self.virtual_pointers.get_unchecked_mut(r as usize) };
+        let virtual_pointer = unsafe { self.virtual_pointers.get_unchecked_mut(usize::from(r)) };
 
         if let Some(physical_pointer) = virtual_pointer.checked_sub(1) {
             // SAFETY: Internal pointers are always valid
@@ -52,7 +52,7 @@ impl Rmap {
     /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKETS_SIZE`] items
     /// inserted
     #[inline(always)]
-    pub(super) unsafe fn add(&mut self, r: u32, position: Position) {
+    pub(super) unsafe fn add(&mut self, r: R, position: Position) {
         // SAFETY: Guaranteed by function contract
         let rmap_item = unsafe { self.insertion_item(r) };
 
@@ -67,9 +67,9 @@ impl Rmap {
     /// # Safety
     /// `r` must be in the range `0..PARAM_BC`
     #[inline(always)]
-    pub(super) unsafe fn get(&self, r: u32) -> [Position; 2] {
+    pub(super) unsafe fn get(&self, r: R) -> [Position; 2] {
         // SAFETY: Guaranteed by function contract
-        let virtual_pointer = *unsafe { self.virtual_pointers.get_unchecked(r as usize) };
+        let virtual_pointer = *unsafe { self.virtual_pointers.get_unchecked(usize::from(r)) };
 
         if let Some(physical_pointer) = virtual_pointer.checked_sub(1) {
             // SAFETY: Internal pointers are always valid
