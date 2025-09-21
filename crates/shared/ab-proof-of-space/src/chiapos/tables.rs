@@ -7,8 +7,8 @@ extern crate alloc;
 pub use crate::chiapos::table::TablesCache;
 use crate::chiapos::table::types::{Metadata, Position, X, Y};
 use crate::chiapos::table::{
-    COMPUTE_F1_SIMD_FACTOR, Table, compute_f1, compute_fn, has_match, metadata_size_bytes,
-    num_buckets,
+    COMPUTE_F1_SIMD_FACTOR, PrunedTable, Table, compute_f1, compute_fn, has_match,
+    metadata_size_bytes, num_buckets,
 };
 use crate::chiapos::utils::EvaluatableUsize;
 use crate::chiapos::{Challenge, Quality, Seed};
@@ -35,21 +35,15 @@ const fn pick_position(
 #[derive(Debug)]
 pub(super) struct TablesGeneric<const K: u8>
 where
-    EvaluatableUsize<{ metadata_size_bytes(K, 1) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 2) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 3) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 4) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
     [(); 1 << K]:,
     [(); num_buckets(K)]:,
 {
-    table_2: Table<K, 2>,
-    table_3: Table<K, 3>,
-    table_4: Table<K, 4>,
-    table_5: Table<K, 5>,
-    table_6: Table<K, 6>,
+    table_2: PrunedTable<K, 2>,
+    table_3: PrunedTable<K, 3>,
+    table_4: PrunedTable<K, 4>,
+    table_5: PrunedTable<K, 5>,
+    table_6: PrunedTable<K, 6>,
     table_7: Table<K, 7>,
 }
 
@@ -70,15 +64,13 @@ where
     /// Create Chia proof of space tables. There also exists [`Self::create_parallel()`] that trades
     /// CPU efficiency and memory usage for lower latency.
     pub(super) fn create(seed: Seed, cache: &mut TablesCache<K>) -> Self {
-        let mut table_1 = Table::<K, 1>::create(seed);
-        let mut table_2 = Table::<K, 2>::create(&mut table_1, cache);
-        // Free memory early
-        drop(table_1);
-        let mut table_3 = Table::<K, 3>::create(&mut table_2, cache);
-        let mut table_4 = Table::<K, 4>::create(&mut table_3, cache);
-        let mut table_5 = Table::<K, 5>::create(&mut table_4, cache);
-        let mut table_6 = Table::<K, 6>::create(&mut table_5, cache);
-        let table_7 = Table::<K, 7>::create(&mut table_6, cache);
+        let table_1 = Table::<K, 1>::create(seed);
+        let (table_2, _) = Table::<K, 2>::create(table_1, cache);
+        let (table_3, table_2) = Table::<K, 3>::create(table_2, cache);
+        let (table_4, table_3) = Table::<K, 4>::create(table_3, cache);
+        let (table_5, table_4) = Table::<K, 5>::create(table_4, cache);
+        let (table_6, table_5) = Table::<K, 6>::create(table_5, cache);
+        let (table_7, table_6) = Table::<K, 7>::create(table_6, cache);
 
         Self {
             table_2,
@@ -95,15 +87,13 @@ where
     /// in parallel, prefer [`Self::create()`] for better overall performance.
     #[cfg(any(feature = "parallel", test))]
     pub(super) fn create_parallel(seed: Seed, cache: &mut TablesCache<K>) -> Self {
-        let mut table_1 = Table::<K, 1>::create_parallel(seed);
-        let mut table_2 = Table::<K, 2>::create_parallel(&mut table_1, cache);
-        // Free memory early
-        drop(table_1);
-        let mut table_3 = Table::<K, 3>::create_parallel(&mut table_2, cache);
-        let mut table_4 = Table::<K, 4>::create_parallel(&mut table_3, cache);
-        let mut table_5 = Table::<K, 5>::create_parallel(&mut table_4, cache);
-        let mut table_6 = Table::<K, 6>::create_parallel(&mut table_5, cache);
-        let table_7 = Table::<K, 7>::create_parallel(&mut table_6, cache);
+        let table_1 = Table::<K, 1>::create_parallel(seed);
+        let (table_2, _) = Table::<K, 2>::create_parallel(table_1, cache);
+        let (table_3, table_2) = Table::<K, 3>::create_parallel(table_2, cache);
+        let (table_4, table_3) = Table::<K, 4>::create_parallel(table_3, cache);
+        let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4, cache);
+        let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5, cache);
+        let (table_7, table_6) = Table::<K, 7>::create_parallel(table_6, cache);
 
         Self {
             table_2,

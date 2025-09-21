@@ -21,12 +21,6 @@ type Quality = [u8; 32];
 #[derive(Debug)]
 pub struct Tables<const K: u8>(TablesGeneric<K>)
 where
-    EvaluatableUsize<{ metadata_size_bytes(K, 1) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 2) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 3) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 4) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
-    EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
     [(); 1 << K]:,
     [(); num_buckets(K)]:;
