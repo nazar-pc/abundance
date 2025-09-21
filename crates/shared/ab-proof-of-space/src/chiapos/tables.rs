@@ -63,7 +63,7 @@ where
 {
     /// Create Chia proof of space tables. There also exists [`Self::create_parallel()`] that trades
     /// CPU efficiency and memory usage for lower latency.
-    pub(super) fn create(seed: Seed, cache: &mut TablesCache<K>) -> Self {
+    pub(super) fn create(seed: Seed, cache: &TablesCache) -> Self {
         let table_1 = Table::<K, 1>::create(seed);
         let (table_2, _) = Table::<K, 2>::create(table_1, cache);
         let (table_3, table_2) = Table::<K, 3>::create(table_2, cache);
@@ -86,7 +86,7 @@ where
     /// performance (though not efficiency of CPU and memory usage), if you create multiple tables
     /// in parallel, prefer [`Self::create()`] for better overall performance.
     #[cfg(any(feature = "parallel", test))]
-    pub(super) fn create_parallel(seed: Seed, cache: &mut TablesCache<K>) -> Self {
+    pub(super) fn create_parallel(seed: Seed, cache: &TablesCache) -> Self {
         let table_1 = Table::<K, 1>::create_parallel(seed);
         let (table_2, _) = Table::<K, 2>::create_parallel(table_1, cache);
         let (table_3, table_2) = Table::<K, 3>::create_parallel(table_2, cache);

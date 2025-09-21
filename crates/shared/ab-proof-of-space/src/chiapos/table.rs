@@ -281,11 +281,11 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
 
 /// Caches that can be used to optimize the creation of multiple [`Tables`](super::Tables).
 #[derive(Debug, Clone)]
-pub struct TablesCache<const K: u8> {
+pub struct TablesCache {
     left_targets: Box<LeftTargets>,
 }
 
-impl<const K: u8> Default for TablesCache<K> {
+impl Default for TablesCache {
     /// Create a new instance
     fn default() -> Self {
         Self {
@@ -1161,7 +1161,7 @@ where
     /// better overall performance.
     pub(super) fn create<const PARENT_TABLE_NUMBER: u8>(
         parent_table: Table<K, PARENT_TABLE_NUMBER>,
-        cache: &mut TablesCache<K>,
+        cache: &TablesCache,
     ) -> (Self, PrunedTable<K, PARENT_TABLE_NUMBER>)
     where
         Table<K, PARENT_TABLE_NUMBER>: private::NotLastTable,
@@ -1252,7 +1252,7 @@ where
     #[cfg(any(feature = "parallel", test))]
     pub(super) fn create_parallel<const PARENT_TABLE_NUMBER: u8>(
         parent_table: Table<K, PARENT_TABLE_NUMBER>,
-        cache: &mut TablesCache<K>,
+        cache: &TablesCache,
     ) -> (Self, PrunedTable<K, PARENT_TABLE_NUMBER>)
     where
         Table<K, PARENT_TABLE_NUMBER>: private::NotLastTable,

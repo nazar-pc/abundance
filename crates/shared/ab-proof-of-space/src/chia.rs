@@ -15,21 +15,21 @@ const K: u8 = PosProof::K;
 #[derive(Debug, Default, Clone)]
 #[cfg(feature = "alloc")]
 pub struct ChiaTableGenerator {
-    tables_cache: TablesCache<K>,
+    tables_cache: TablesCache,
 }
 
 #[cfg(feature = "alloc")]
 impl TableGenerator<ChiaTable> for ChiaTableGenerator {
     fn generate(&mut self, seed: &PosSeed) -> ChiaTable {
         ChiaTable {
-            tables: Tables::<K>::create((*seed).into(), &mut self.tables_cache),
+            tables: Tables::<K>::create((*seed).into(), &self.tables_cache),
         }
     }
 
     #[cfg(any(feature = "parallel", test))]
     fn generate_parallel(&mut self, seed: &PosSeed) -> ChiaTable {
         ChiaTable {
-            tables: Tables::<K>::create_parallel((*seed).into(), &mut self.tables_cache),
+            tables: Tables::<K>::create_parallel((*seed).into(), &self.tables_cache),
         }
     }
 }
@@ -59,14 +59,14 @@ impl Table for ChiaTable {
     #[cfg(feature = "alloc")]
     fn generate(seed: &PosSeed) -> ChiaTable {
         Self {
-            tables: Tables::<K>::create_simple((*seed).into()),
+            tables: Tables::<K>::create((*seed).into(), &TablesCache::default()),
         }
     }
 
     #[cfg(all(feature = "alloc", any(feature = "parallel", test)))]
     fn generate_parallel(seed: &PosSeed) -> ChiaTable {
         Self {
-            tables: Tables::<K>::create_parallel((*seed).into(), &mut TablesCache::default()),
+            tables: Tables::<K>::create_parallel((*seed).into(), &TablesCache::default()),
         }
     }
 

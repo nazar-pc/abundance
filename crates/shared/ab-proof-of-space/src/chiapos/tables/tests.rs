@@ -12,8 +12,9 @@ const K: u8 = 17;
 #[test]
 fn self_verification() {
     let seed = [1; 32];
-    let tables = Tables::<K>::create_simple(seed);
-    let tables_parallel = Tables::<K>::create_parallel(seed, &mut TablesCache::default());
+    let cache = TablesCache::default();
+    let tables = Tables::<K>::create(seed, &cache);
+    let tables_parallel = Tables::<K>::create_parallel(seed, &cache);
 
     for challenge_index in 0..1000_u32 {
         let mut challenge = [0; 32];
