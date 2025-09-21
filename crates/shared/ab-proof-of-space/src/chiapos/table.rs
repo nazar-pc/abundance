@@ -38,6 +38,9 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use derive_more::Deref;
 #[cfg(any(feature = "alloc", test))]
 use seq_macro::seq;
+// TODO: Switch to `rclite` once https://github.com/fereidani/rclite/issues/11 is resolved
+#[cfg(feature = "alloc")]
+use alloc::sync::Arc;
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
 #[cfg(any(feature = "alloc", test))]
@@ -259,14 +262,14 @@ struct CacheLineAligned<T>(T);
 type LeftTargets = [[CacheLineAligned<[R; PARAM_M as usize]>; PARAM_BC as usize]; 2];
 
 #[cfg(feature = "alloc")]
-fn calculate_left_targets() -> Box<LeftTargets> {
-    let mut left_targets = Box::<LeftTargets>::new_uninit();
+fn calculate_left_targets() -> Arc<LeftTargets> {
+    let mut left_targets = Arc::<LeftTargets>::new_uninit();
     // SAFETY: Same layout and uninitialized in both cases
     let left_targets_slice = unsafe {
         mem::transmute::<
             &mut MaybeUninit<[[CacheLineAligned<[R; PARAM_M as usize]>; PARAM_BC as usize]; 2]>,
             &mut [[MaybeUninit<CacheLineAligned<[R; PARAM_M as usize]>>; PARAM_BC as usize]; 2],
-        >(left_targets.as_mut())
+        >(Arc::get_mut_unchecked(&mut left_targets))
     };
 
     for parity in 0..=1 {
@@ -300,7 +303,7 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
 #[cfg(feature = "alloc")]
 #[derive(Debug, Clone)]
 pub struct TablesCache {
-    left_targets: Box<LeftTargets>,
+    left_targets: Arc<LeftTargets>,
 }
 
 #[cfg(feature = "alloc")]

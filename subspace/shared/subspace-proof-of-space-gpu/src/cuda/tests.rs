@@ -19,11 +19,11 @@ fn basic() {
         .next()
         .expect("Need CUDA device to run this test");
 
-    let mut table_generator = PosTable::generator();
+    let table_generator = PosTable::generator();
     let erasure_coding = ErasureCoding::new();
     let global_mutex = Default::default();
     let mut cpu_records_encoder = CpuRecordsEncoder::<PosTable>::new(
-        slice::from_mut(&mut table_generator),
+        slice::from_ref(&table_generator),
         &erasure_coding,
         &global_mutex,
     );

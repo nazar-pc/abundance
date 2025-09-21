@@ -12,9 +12,9 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use futures::executor::block_on;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
-use std::env;
 use std::hint::black_box;
 use std::num::NonZeroU64;
+use std::{array, env};
 
 type PosTable = ChiaTable;
 
@@ -34,16 +34,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     rng.fill_bytes(input.as_mut().as_mut());
     let erasure_coding = ErasureCoding::new();
     let mut archiver = Archiver::new(erasure_coding.clone());
-    let mut table_generators = [
-        PosTable::generator(),
-        PosTable::generator(),
-        PosTable::generator(),
-        PosTable::generator(),
-        PosTable::generator(),
-        PosTable::generator(),
-        PosTable::generator(),
-        PosTable::generator(),
-    ];
+    let table_generators = array::repeat::<_, 8>(PosTable::generator());
     let archived_history_segment = archiver
         .add_block(
             AsRef::<[u8]>::as_ref(input.as_ref()).to_vec(),
@@ -84,7 +75,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 downloading_semaphore: black_box(None),
                 encoding_semaphore: black_box(None),
                 records_encoder: black_box(&mut CpuRecordsEncoder::<PosTable>::new(
-                    &mut table_generators,
+                    &table_generators,
                     &erasure_coding,
                     &Default::default(),
                 )),

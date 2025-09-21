@@ -449,7 +449,7 @@ pub async fn read_piece<PosTable, S, A>(
     sector: &ReadAt<S, A>,
     erasure_coding: &ErasureCoding,
     mode: ReadSectorRecordChunksMode,
-    table_generator: &mut PosTable::Generator,
+    table_generator: &PosTable::Generator,
 ) -> Result<Piece, ReadingError>
 where
     PosTable: Table,

@@ -20,14 +20,14 @@ pub struct ChiaTableGenerator {
 
 #[cfg(feature = "alloc")]
 impl TableGenerator<ChiaTable> for ChiaTableGenerator {
-    fn generate(&mut self, seed: &PosSeed) -> ChiaTable {
+    fn generate(&self, seed: &PosSeed) -> ChiaTable {
         ChiaTable {
             tables: Tables::<K>::create((*seed).into(), &self.tables_cache),
         }
     }
 
     #[cfg(feature = "parallel")]
-    fn generate_parallel(&mut self, seed: &PosSeed) -> ChiaTable {
+    fn generate_parallel(&self, seed: &PosSeed) -> ChiaTable {
         ChiaTable {
             tables: Tables::<K>::create_parallel((*seed).into(), &self.tables_cache),
         }
@@ -55,20 +55,6 @@ impl Table for ChiaTable {
     const TABLE_TYPE: PosTableType = PosTableType::Chia;
     #[cfg(feature = "alloc")]
     type Generator = ChiaTableGenerator;
-
-    #[cfg(feature = "alloc")]
-    fn generate(seed: &PosSeed) -> ChiaTable {
-        Self {
-            tables: Tables::<K>::create((*seed).into(), &TablesCache::default()),
-        }
-    }
-
-    #[cfg(feature = "parallel")]
-    fn generate_parallel(seed: &PosSeed) -> ChiaTable {
-        Self {
-            tables: Tables::<K>::create_parallel((*seed).into(), &TablesCache::default()),
-        }
-    }
 
     #[cfg(feature = "alloc")]
     fn find_proof(&self, challenge_index: u32) -> Option<PosProof> {
@@ -101,9 +87,10 @@ mod tests {
             198, 204, 10, 9, 10, 11, 129, 139, 171, 15, 23,
         ]);
 
-        let table = ChiaTable::generate(&seed);
+        let generator = ChiaTableGenerator::default();
+        let table = generator.generate(&seed);
         #[cfg(feature = "parallel")]
-        let table_parallel = ChiaTable::generate_parallel(&seed);
+        let table_parallel = generator.generate_parallel(&seed);
 
         assert!(table.find_proof(1232460437).is_none());
         #[cfg(feature = "parallel")]

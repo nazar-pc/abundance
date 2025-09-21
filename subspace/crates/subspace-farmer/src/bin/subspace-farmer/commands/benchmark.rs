@@ -9,7 +9,6 @@ use ab_proof_of_space::Table;
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use criterion::{BatchSize, Criterion, Throughput};
-use parking_lot::Mutex;
 use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
 use std::collections::HashSet;
 use std::fs::OpenOptions;
@@ -157,7 +156,7 @@ where
     let public_key_hash = &single_disk_farm_info.public_key().hash();
     let sector_size = sector_size(single_disk_farm_info.pieces_in_sector());
     let erasure_coding = ErasureCoding::new();
-    let table_generator = Mutex::new(PosTable::generator());
+    let table_generator = PosTable::generator();
 
     let sectors_metadata = SingleDiskFarm::read_all_sectors_metadata(&disk_farm)
         .map_err(|error| anyhow::anyhow!("Failed to read sectors metadata: {error}"))?;
@@ -321,7 +320,7 @@ where
 
     let public_key_hash = &single_disk_farm_info.public_key().hash();
     let erasure_coding = ErasureCoding::new();
-    let table_generator = Mutex::new(PosTable::generator());
+    let table_generator = PosTable::generator();
 
     let mut sectors_metadata = SingleDiskFarm::read_all_sectors_metadata(&disk_farm)
         .map_err(|error| anyhow::anyhow!("Failed to read sectors metadata: {error}"))?;

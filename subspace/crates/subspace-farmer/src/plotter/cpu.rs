@@ -351,11 +351,13 @@ where
                         };
 
                         let encoded_sector = thread_pool.install(|| {
-                            let mut generators = (0..record_encoding_concurrency.get())
-                                .map(|_| PosTable::generator())
+                            // TODO: Reuse global table generator (this comment is in many files)
+                            let generator = PosTable::generator();
+                            let generators = (0..record_encoding_concurrency.get())
+                                .map(|_| generator.clone())
                                 .collect::<Vec<_>>();
                             let mut records_encoder = CpuRecordsEncoder::<PosTable>::new(
-                                &mut generators,
+                                &generators,
                                 &erasure_coding,
                                 &global_mutex,
                             );
