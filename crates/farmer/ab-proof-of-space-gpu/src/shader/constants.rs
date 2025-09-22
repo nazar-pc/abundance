@@ -9,13 +9,13 @@ const _: () = {
 ///
 /// The number should be sufficient to produce enough proofs for sector encoding with high
 /// probability.
-// TODO: Statistical analysis if possible.
-pub(super) const REDUCED_BUCKETS_SIZE: usize = 272;
+// TODO: Statistical analysis if possible, confirming there will be enough proofs
+pub(super) const REDUCED_BUCKET_SIZE: usize = 272;
 /// Reducing matches count for better performance.
 ///
 /// The number should be sufficient to produce enough proofs for sector encoding with high
 /// probability.
-// TODO: Statistical analysis if possible.
+// TODO: Statistical analysis if possible, confirming there will be enough proofs
 pub(super) const REDUCED_MATCHES_COUNT: usize = 288;
 /// PRNG extension parameter to avoid collisions
 pub(super) const PARAM_EXT: u8 = 6;

@@ -5,7 +5,7 @@ mod gpu_tests;
 pub mod rmap;
 
 use crate::shader::MIN_SUBGROUP_SIZE;
-use crate::shader::constants::{PARAM_BC, PARAM_M, REDUCED_BUCKETS_SIZE, REDUCED_MATCHES_COUNT};
+use crate::shader::constants::{PARAM_BC, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT};
 use crate::shader::find_matches_in_buckets::rmap::{
     NextPhysicalPointer, Rmap, RmapBitPosition, RmapBitPositionExt,
 };
@@ -89,8 +89,8 @@ pub type LeftTargets = [[LeftTargetsR; PARAM_BC as usize]; 2];
 
 #[derive(Debug)]
 pub struct SharedScratchSpace {
-    bucket_size_a: [MaybeUninit<u32>; REDUCED_BUCKETS_SIZE],
-    bucket_size_b: [MaybeUninit<u32>; REDUCED_BUCKETS_SIZE],
+    bucket_size_a: [MaybeUninit<u32>; REDUCED_BUCKET_SIZE],
+    bucket_size_b: [MaybeUninit<u32>; REDUCED_BUCKET_SIZE],
     num_subgroups_size_a: [MaybeUninit<u32>; MAX_SUBGROUPS],
 }
 
@@ -122,8 +122,8 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
     num_subgroups: u32,
     local_invocation_id: u32,
     left_bucket_index: u32,
-    left_bucket: &[Position; REDUCED_BUCKETS_SIZE],
-    right_bucket: &[Position; REDUCED_BUCKETS_SIZE],
+    left_bucket: &[Position; REDUCED_BUCKET_SIZE],
+    right_bucket: &[Position; REDUCED_BUCKET_SIZE],
     parent_table_ys: &[Y],
     matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
     left_targets: &LeftTargets,
@@ -326,7 +326,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         // `CHUNK_SIZE` with `PARAM_M` must cover workgroup exactly
         assert!(CHUNK_SIZE as u32 * PARAM_M as u32 == WORKGROUP_SIZE);
         // The bucket size should be possible to iterate in exact chunks
-        assert!(REDUCED_BUCKETS_SIZE.is_multiple_of(CHUNK_SIZE));
+        assert!(REDUCED_BUCKET_SIZE.is_multiple_of(CHUNK_SIZE));
     }
     let shared_subgroup_totals = num_subgroups_size_a;
     let mut global_match_batch_offset = 0_u32;
@@ -477,8 +477,8 @@ pub unsafe fn find_matches_in_buckets(
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] left_targets: &LeftTargets,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    buckets: &[[Position; REDUCED_BUCKETS_SIZE]],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] buckets: &[[Position;
+          REDUCED_BUCKET_SIZE]],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] parent_table_ys: &[Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     matches: &mut [[MaybeUninit<Match>; REDUCED_MATCHES_COUNT]],

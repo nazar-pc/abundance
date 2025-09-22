@@ -1,5 +1,5 @@
 use crate::shader::constants::{
-    PARAM_B, PARAM_BC, PARAM_C, PARAM_M, REDUCED_BUCKETS_SIZE, REDUCED_MATCHES_COUNT,
+    PARAM_B, PARAM_BC, PARAM_C, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_in_buckets::{LeftTargets, LeftTargetsR, Match};
 use crate::shader::types::{Position, PositionExt, Y};
@@ -41,7 +41,7 @@ struct Rmap {
     /// Physical pointer must be increased by `1` to get a virtual pointer before storing. Virtual
     /// pointer must be decreased by `1` before reading to get a physical pointer.
     virtual_pointers: [u16; PARAM_BC as usize],
-    positions: [[Position; 2]; REDUCED_BUCKETS_SIZE],
+    positions: [[Position; 2]; REDUCED_BUCKET_SIZE],
     next_physical_pointer: u16,
 }
 
@@ -56,7 +56,7 @@ impl Rmap {
     }
 
     /// # Safety
-    /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKETS_SIZE`] items
+    /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKET_SIZE`] items
     /// inserted
     #[inline(always)]
     unsafe fn insertion_item(&mut self, r: u32) -> &mut [Position; 2] {
@@ -82,7 +82,7 @@ impl Rmap {
     /// much in terms of performance and not required for correctness.
     ///
     /// # Safety
-    /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKETS_SIZE`] items
+    /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKET_SIZE`] items
     /// inserted
     #[inline(always)]
     unsafe fn add(&mut self, r: u32, position: Position) {
@@ -119,8 +119,8 @@ impl Rmap {
 /// Left and right bucket positions must correspond to the parent table.
 pub(super) unsafe fn find_matches_in_buckets_correct<'a>(
     left_bucket_index: u32,
-    left_bucket: &[Position; REDUCED_BUCKETS_SIZE],
-    right_bucket: &[Position; REDUCED_BUCKETS_SIZE],
+    left_bucket: &[Position; REDUCED_BUCKET_SIZE],
+    right_bucket: &[Position; REDUCED_BUCKET_SIZE],
     parent_table_ys: &[Y],
     // `PARAM_M as usize * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
