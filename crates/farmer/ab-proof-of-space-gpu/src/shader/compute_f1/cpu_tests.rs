@@ -1,4 +1,4 @@
-use crate::shader::compute_f1::compute_f1_impl;
+use crate::shader::compute_f1::{KEYSTREAM_LEN_WORDS, compute_f1_impl};
 use crate::shader::constants::PARAM_EXT;
 use crate::shader::types::{X, Y};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
@@ -50,19 +50,19 @@ fn compute_f1_cpu() {
     let seed = [1; 32];
     let num_x = 100;
 
-    // Calculate the necessary number of ChaCha8 blocks
-    let keystream_length_blocks =
-        (num_x * u32::from(PosProof::K)).div_ceil(size_of::<ChaCha8Block>() as u32 * u8::BITS);
     let initial_state = ChaCha8State::init(&seed, &[0; _]);
 
-    let chacha8_keystream = (0..keystream_length_blocks)
-        .map(|counter| initial_state.compute_block(counter))
-        .collect::<Vec<_>>();
+    let mut chacha8_keystream =
+        unsafe { Box::<[u32; KEYSTREAM_LEN_WORDS]>::new_zeroed().assume_init() };
+
+    for (counter, block) in chacha8_keystream.as_chunks_mut().0.iter_mut().enumerate() {
+        *block = initial_state.compute_block(counter as u32);
+    }
 
     for x in X::ZERO..X::from(num_x) {
         assert_eq!(
             correct_compute_f1::<{ PosProof::K }>(x, &seed),
-            compute_f1_impl(x, chacha8_keystream.as_flattened()),
+            compute_f1_impl(x, &chacha8_keystream),
             "X={x:?}"
         );
     }

@@ -7,7 +7,13 @@
 #![feature(array_windows, bigint_helper_methods, ptr_as_ref_unchecked, step_trait)]
 #![cfg_attr(
     all(test, not(miri), not(target_arch = "spirv")),
-    feature(const_convert, const_trait_impl, maybe_uninit_fill, maybe_uninit_slice)
+    feature(
+        const_convert,
+        const_trait_impl,
+        maybe_uninit_fill,
+        maybe_uninit_slice,
+        new_zeroed_alloc
+    )
 )]
 
 // This is used for benchmarks of isolated shaders externally, not for general use

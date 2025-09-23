@@ -31,7 +31,7 @@ impl X {
 }
 
 /// Stores data in lower bits
-#[derive(Debug, Copy, Clone, Eq, PartialEq, From, Into)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into)]
 #[repr(C)]
 pub struct Y(u32);
 
@@ -84,7 +84,6 @@ pub(super) trait PositionExt: Sized {
     ) -> &mut [MaybeUninit<Self>; N];
 
     // TODO: This is just `Position::from()` usually
-    #[cfg(test)]
     fn from_u32(value: u32) -> Self;
 }
 
@@ -99,7 +98,6 @@ impl PositionExt for Position {
         array
     }
 
-    #[cfg(test)]
     #[inline(always)]
     fn from_u32(value: u32) -> Self {
         value
@@ -130,4 +128,14 @@ impl From<U128> for Metadata {
     fn from(value: U128) -> Self {
         Self(value)
     }
+}
+
+/// A tuple of [`Position`] and [`Y`] with guaranteed memory layout
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[repr(C)]
+pub struct PositionY {
+    /// Position
+    pub position: Position,
+    /// Y
+    pub y: Y,
 }
