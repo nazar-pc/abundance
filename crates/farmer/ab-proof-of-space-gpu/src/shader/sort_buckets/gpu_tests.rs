@@ -1,0 +1,202 @@
+use crate::shader::constants::{K, MAX_BUCKET_SIZE, NUM_BUCKETS, y_size_bits};
+use crate::shader::select_shader_features_limits;
+use crate::shader::types::{Position, PositionExt, PositionY, Y};
+use chacha20::ChaCha8Rng;
+use futures::executor::block_on;
+use rand::prelude::*;
+use std::mem::MaybeUninit;
+use std::slice;
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use wgpu::{
+    Adapter, BackendOptions, Backends, BindGroupDescriptor, BindGroupEntry,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
+    BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
+    DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
+    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+};
+
+#[test]
+fn sort_buckets_gpu() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    let mut buckets =
+        unsafe { Box::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>::new_zeroed().assume_init() };
+
+    for (index, position_y) in buckets.as_flattened_mut().iter_mut().enumerate() {
+        *position_y = PositionY {
+            position: Position::from_u32(index as u32),
+            // Limit `y` to the appropriate number of bits
+            y: Y::from(rng.next_u32() >> (u32::BITS - y_size_bits(K) as u32)),
+        };
+    }
+
+    buckets.as_flattened_mut().shuffle(&mut rng);
+
+    let Some(actual_output) = block_on(sort_buckets(&buckets)) else {
+        if cfg!(feature = "__force-gpu-tests") {
+            panic!("Skipping tests, no compatible device detected");
+        } else {
+            eprintln!("Skipping tests, no compatible device detected");
+            return;
+        }
+    };
+
+    let mut expected_output = buckets;
+    for bucket in expected_output.iter_mut() {
+        bucket.sort();
+    }
+
+    for (bucket_index, (expected, actual)) in
+        expected_output.iter().zip(actual_output.iter()).enumerate()
+    {
+        for (index, (expected, actual)) in expected.iter().zip(actual.iter()).enumerate() {
+            assert_eq!(
+                expected, actual,
+                "bucket_index={bucket_index}, index={index}"
+            );
+        }
+    }
+}
+
+async fn sort_buckets(
+    buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
+) -> Option<Box<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>> {
+    let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
+    let instance = Instance::new(&InstanceDescriptor {
+        backends,
+        flags: InstanceFlags::GPU_BASED_VALIDATION.with_env(),
+        memory_budget_thresholds: MemoryBudgetThresholds::default(),
+        backend_options: BackendOptions::from_env_or_default(),
+    });
+
+    let adapters = instance.enumerate_adapters(backends);
+    let mut result = None;
+
+    for adapter in adapters {
+        println!("Testing adapter {:?}", adapter.get_info());
+
+        let adapter_result = sort_buckets_adapter(buckets, adapter).await?;
+
+        match &result {
+            Some(result) => {
+                assert!(result == &adapter_result);
+            }
+            None => {
+                result.replace(adapter_result);
+            }
+        }
+    }
+
+    result
+}
+
+async fn sort_buckets_adapter(
+    buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
+    adapter: Adapter,
+) -> Option<Box<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>> {
+    let (shader, required_features, required_limits, _modern) =
+        select_shader_features_limits(adapter.features());
+
+    let (device, queue) = adapter
+        .request_device(&DeviceDescriptor {
+            label: None,
+            required_features,
+            required_limits,
+            memory_hints: MemoryHints::Performance,
+            trace: Trace::default(),
+        })
+        .await
+        .unwrap();
+
+    let module = device.create_shader_module(shader);
+
+    let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        label: None,
+        entries: &[BindGroupLayoutEntry {
+            binding: 0,
+            count: None,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::Buffer {
+                has_dynamic_offset: false,
+                min_binding_size: None,
+                ty: BufferBindingType::Storage { read_only: false },
+            },
+        }],
+    });
+
+    let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+        label: None,
+        bind_group_layouts: &[&bind_group_layout],
+        push_constant_ranges: &[],
+    });
+
+    let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
+        compilation_options: Default::default(),
+        cache: None,
+        label: None,
+        layout: Some(&pipeline_layout),
+        module: &module,
+        entry_point: Some("sort_buckets"),
+    });
+
+    let buckets_host = device.create_buffer(&BufferDescriptor {
+        label: None,
+        size: size_of_val(buckets) as BufferAddress,
+        usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+
+    let buckets_gpu = device.create_buffer_init(&BufferInitDescriptor {
+        label: None,
+        contents: unsafe {
+            slice::from_raw_parts(buckets.as_ptr().cast::<u8>(), size_of_val(buckets))
+        },
+        usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+    });
+
+    let bind_group = device.create_bind_group(&BindGroupDescriptor {
+        label: None,
+        layout: &bind_group_layout,
+        entries: &[BindGroupEntry {
+            binding: 0,
+            resource: buckets_gpu.as_entire_binding(),
+        }],
+    });
+
+    let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+
+    {
+        let mut cpass = encoder.begin_compute_pass(&Default::default());
+        cpass.set_bind_group(0, &bind_group, &[]);
+        cpass.set_pipeline(&compute_pipeline);
+        cpass.dispatch_workgroups(device.limits().max_compute_workgroups_per_dimension, 1, 1);
+    }
+
+    encoder.copy_buffer_to_buffer(&buckets_gpu, 0, &buckets_host, 0, buckets_host.size());
+
+    queue.submit([encoder.finish()]);
+
+    buckets_host.map_async(MapMode::Read, .., |r| r.unwrap());
+    device.poll(PollType::Wait).unwrap();
+
+    let buckets = {
+        let buckets_host_ptr = buckets_host
+            .get_mapped_range(..)
+            .as_ptr()
+            .cast::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
+        let buckets_ref = unsafe { &*buckets_host_ptr };
+
+        let mut buckets = unsafe {
+            Box::<[MaybeUninit<[PositionY; MAX_BUCKET_SIZE]>; NUM_BUCKETS]>::new_uninit()
+                .assume_init()
+        };
+        buckets.write_copy_of_slice(buckets_ref);
+        unsafe {
+            let ptr = Box::into_raw(buckets);
+            Box::from_raw(ptr.cast::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>())
+        }
+    };
+    buckets_host.unmap();
+
+    Some(buckets)
+}

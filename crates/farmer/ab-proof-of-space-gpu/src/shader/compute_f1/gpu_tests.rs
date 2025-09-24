@@ -1,7 +1,9 @@
+use crate::shader::compute_f1::KEYSTREAM_LEN_WORDS;
 use crate::shader::compute_f1::cpu_tests::correct_compute_f1;
+use crate::shader::constants::{MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS, PARAM_BC};
 use crate::shader::select_shader_features_limits;
-use crate::shader::types::{X, Y};
-use ab_chacha8::{ChaCha8Block, ChaCha8State};
+use crate::shader::types::{PositionY, X};
+use ab_chacha8::ChaCha8State;
 use ab_core_primitives::pos::PosProof;
 use futures::executor::block_on;
 use std::slice;
@@ -17,18 +19,16 @@ use wgpu::{
 #[test]
 fn compute_f1_gpu() {
     let seed = [1; 32];
-    let num_x = 100;
 
-    // Calculate the necessary number of ChaCha8 blocks
-    let keystream_length_blocks =
-        (num_x * u32::from(PosProof::K)).div_ceil(size_of::<ChaCha8Block>() as u32 * u8::BITS);
     let initial_state = ChaCha8State::init(&seed, &[0; _]);
+    let mut chacha8_keystream =
+        unsafe { Box::<[u32; KEYSTREAM_LEN_WORDS]>::new_zeroed().assume_init() };
 
-    let chacha8_keystream = (0..keystream_length_blocks)
-        .map(|counter| initial_state.compute_block(counter))
-        .collect::<Vec<_>>();
+    for (counter, block) in chacha8_keystream.as_chunks_mut().0.iter_mut().enumerate() {
+        *block = initial_state.compute_block(counter as u32);
+    }
 
-    let Some(actual_output) = block_on(compute_f1(chacha8_keystream.as_flattened(), num_x)) else {
+    let Some(actual_output) = block_on(compute_f1(&chacha8_keystream)) else {
         if cfg!(feature = "__force-gpu-tests") {
             panic!("Skipping tests, no compatible device detected");
         } else {
@@ -37,17 +37,35 @@ fn compute_f1_gpu() {
         }
     };
 
-    let expected_output = (X::ZERO..X::from(num_x))
+    let expected_output = (X::ZERO..)
+        .take(MAX_TABLE_SIZE as usize)
         .map(|x| correct_compute_f1::<{ PosProof::K }>(x, &seed))
         .collect::<Vec<_>>();
 
-    assert_eq!(actual_output.len(), expected_output.len());
-    for (x, (expected, actual)) in expected_output.into_iter().zip(actual_output).enumerate() {
-        assert_eq!(expected, actual, "X={x}");
+    assert_eq!(
+        actual_output
+            .iter()
+            .map(|bucket| bucket.len())
+            .sum::<usize>(),
+        MAX_TABLE_SIZE as usize
+    );
+    for (bucket_index, bucket) in actual_output.iter().enumerate() {
+        for &PositionY { position, y } in bucket {
+            let correct_bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
+            assert_eq!(
+                bucket_index, correct_bucket_index,
+                "position={position:?}, y={y:?}"
+            );
+            // TODO: This doesn't compile right now, but will be once this is resolved:
+            //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+            // let expected_y = expected_output[usize::from(position)];
+            let expected_y = expected_output[position as usize];
+            assert_eq!(y, expected_y, "position={position:?}, y={y:?}");
+        }
     }
 }
 
-async fn compute_f1(chacha8_keystream: &[u32], num_x: u32) -> Option<Vec<Y>> {
+async fn compute_f1(chacha8_keystream: &[u32; KEYSTREAM_LEN_WORDS]) -> Option<Vec<Vec<PositionY>>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
         backends,
@@ -57,16 +75,27 @@ async fn compute_f1(chacha8_keystream: &[u32], num_x: u32) -> Option<Vec<Y>> {
     });
 
     let adapters = instance.enumerate_adapters(backends);
-    let mut result = None;
+    let mut result = None::<Vec<Vec<PositionY>>>;
 
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let adapter_result = compute_f1_adapter(chacha8_keystream, num_x, adapter).await?;
+        let adapter_result = compute_f1_adapter(chacha8_keystream, adapter).await?;
 
         match &result {
             Some(result) => {
-                assert!(result == &adapter_result);
+                // Since output is non-deterministic here, sort buckets before comparing
+                for (bucket_index, (result, adapter_result)) in
+                    result.iter().zip(adapter_result).enumerate()
+                {
+                    let mut result = result.clone();
+                    let mut adapter_result = adapter_result.clone();
+
+                    result.sort();
+                    adapter_result.sort();
+
+                    assert!(result == adapter_result, "bucket_index={bucket_index}");
+                }
             }
             None => {
                 result.replace(adapter_result);
@@ -78,10 +107,9 @@ async fn compute_f1(chacha8_keystream: &[u32], num_x: u32) -> Option<Vec<Y>> {
 }
 
 async fn compute_f1_adapter(
-    chacha8_keystream: &[u32],
-    num_x: u32,
+    chacha8_keystream: &[u32; KEYSTREAM_LEN_WORDS],
     adapter: Adapter,
-) -> Option<Vec<Y>> {
+) -> Option<Vec<Vec<PositionY>>> {
     let (shader, required_features, required_limits, _modern) =
         select_shader_features_limits(adapter.features());
 
@@ -121,6 +149,16 @@ async fn compute_f1_adapter(
                     ty: BufferBindingType::Storage { read_only: false },
                 },
             },
+            BindGroupLayoutEntry {
+                binding: 2,
+                count: None,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Buffer {
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                    ty: BufferBindingType::Storage { read_only: false },
+                },
+            },
         ],
     });
 
@@ -150,16 +188,30 @@ async fn compute_f1_adapter(
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
     });
 
-    let ys_host = device.create_buffer(&BufferDescriptor {
+    let bucket_counts_host = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: (size_of::<Y>() * num_x as usize) as BufferAddress,
+        size: size_of::<[u32; NUM_BUCKETS]>() as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
-    let ys_gpu = device.create_buffer(&BufferDescriptor {
+    let bucket_counts_gpu = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: ys_host.size(),
+        size: bucket_counts_host.size(),
+        usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+
+    let buckets_host = device.create_buffer(&BufferDescriptor {
+        label: None,
+        size: size_of::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>() as BufferAddress,
+        usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+
+    let buckets_gpu = device.create_buffer(&BufferDescriptor {
+        label: None,
+        size: buckets_host.size(),
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
@@ -174,7 +226,11 @@ async fn compute_f1_adapter(
             },
             BindGroupEntry {
                 binding: 1,
-                resource: ys_gpu.as_entire_binding(),
+                resource: bucket_counts_gpu.as_entire_binding(),
+            },
+            BindGroupEntry {
+                binding: 2,
+                resource: buckets_gpu.as_entire_binding(),
             },
         ],
     });
@@ -188,18 +244,42 @@ async fn compute_f1_adapter(
         cpass.dispatch_workgroups(device.limits().max_compute_workgroups_per_dimension, 1, 1);
     }
 
-    encoder.copy_buffer_to_buffer(&ys_gpu, 0, &ys_host, 0, ys_host.size());
+    encoder.copy_buffer_to_buffer(
+        &bucket_counts_gpu,
+        0,
+        &bucket_counts_host,
+        0,
+        bucket_counts_host.size(),
+    );
+    encoder.copy_buffer_to_buffer(&buckets_gpu, 0, &buckets_host, 0, buckets_host.size());
 
     queue.submit([encoder.finish()]);
 
-    ys_host.map_async(MapMode::Read, .., |r| r.unwrap());
+    bucket_counts_host.map_async(MapMode::Read, .., |r| r.unwrap());
+    buckets_host.map_async(MapMode::Read, .., |r| r.unwrap());
     device.poll(PollType::Wait).unwrap();
 
-    let ys = {
-        let ys_host_ptr = ys_host.get_mapped_range(..).as_ptr().cast::<Y>();
-        unsafe { slice::from_raw_parts(ys_host_ptr, num_x as usize) }.to_vec()
-    };
-    ys_host.unmap();
+    let buckets = {
+        let bucket_counts_host_ptr = bucket_counts_host
+            .get_mapped_range(..)
+            .as_ptr()
+            .cast::<[u32; NUM_BUCKETS]>();
+        let bucket_counts = unsafe { &*bucket_counts_host_ptr };
 
-    Some(ys)
+        let buckets_host_ptr = buckets_host
+            .get_mapped_range(..)
+            .as_ptr()
+            .cast::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
+        let buckets = unsafe { &*buckets_host_ptr };
+
+        buckets
+            .iter()
+            .zip(bucket_counts)
+            .map(|(bucket, &bucket_count)| bucket[..bucket_count as usize].to_vec())
+            .collect()
+    };
+    bucket_counts_host.unmap();
+    buckets_host.unmap();
+
+    Some(buckets)
 }

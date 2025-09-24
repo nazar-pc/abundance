@@ -1,7 +1,7 @@
 #[cfg(all(test, not(target_arch = "spirv")))]
 mod tests;
 
-use crate::shader::constants::{PARAM_BC, REDUCED_BUCKETS_SIZE};
+use crate::shader::constants::{PARAM_BC, REDUCED_BUCKET_SIZE};
 #[cfg(target_arch = "spirv")]
 use crate::shader::find_matches_in_buckets::ArrayIndexingPolyfill;
 use crate::shader::types::{Position, PositionExt};
@@ -10,7 +10,7 @@ use core::mem::MaybeUninit;
 // TODO: Benchmark on different GPUs to see if the complexity of dealing with 9-bit pointers is
 //  worth it or maybe using u16s would be better despite using more shared memory
 /// Number of bits necessary to address a single pair of positions in the rmap
-const POINTER_BITS: u32 = REDUCED_BUCKETS_SIZE.next_power_of_two().ilog2();
+const POINTER_BITS: u32 = REDUCED_BUCKET_SIZE.next_power_of_two().ilog2();
 const POINTERS_BITS: usize = PARAM_BC as usize * POINTER_BITS as usize;
 const POINTERS_WORDS: usize = POINTERS_BITS.div_ceil(u32::BITS as usize);
 
@@ -106,7 +106,7 @@ pub struct Rmap {
     /// Physical pointer must be increased by `1` to get a virtual pointer before storing. Virtual
     /// pointer must be decreased by `1` before reading to get a physical pointer.
     virtual_pointers: [u32; POINTERS_WORDS],
-    positions: [[Position; 2]; REDUCED_BUCKETS_SIZE],
+    positions: [[Position; 2]; REDUCED_BUCKET_SIZE],
 }
 
 impl Rmap {
@@ -120,7 +120,7 @@ impl Rmap {
     }
 
     /// # Safety
-    /// There must be at most [`REDUCED_BUCKETS_SIZE`] items inserted. `NextPhysicalPointer` and
+    /// There must be at most [`REDUCED_BUCKET_SIZE`] items inserted. `NextPhysicalPointer` and
     /// `Rmap` must have 1:1 mapping and not mixed with anything else.
     #[inline(always)]
     fn insertion_item_physical_pointer(
@@ -180,7 +180,7 @@ impl Rmap {
     }
 
     /// # Safety
-    /// There must be at most [`REDUCED_BUCKETS_SIZE`] items inserted. `NextPhysicalPointer` and
+    /// There must be at most [`REDUCED_BUCKET_SIZE`] items inserted. `NextPhysicalPointer` and
     /// `Rmap` must have 1:1 mapping and not mixed with anything else.
     #[inline(always)]
     unsafe fn insertion_item(
@@ -198,7 +198,7 @@ impl Rmap {
     /// much in terms of performance and not required for correctness.
     ///
     /// # Safety
-    /// There must be at most [`REDUCED_BUCKETS_SIZE`] items inserted. `NextPhysicalPointer` and
+    /// There must be at most [`REDUCED_BUCKET_SIZE`] items inserted. `NextPhysicalPointer` and
     /// `Rmap` must have 1:1 mapping and not mixed with anything else.
     #[inline(always)]
     pub(super) unsafe fn add(

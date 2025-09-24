@@ -1,4 +1,4 @@
-use crate::shader::constants::{PARAM_BC, REDUCED_BUCKETS_SIZE, REDUCED_MATCHES_COUNT};
+use crate::shader::constants::{PARAM_BC, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT};
 use crate::shader::find_matches_in_buckets::cpu_tests::{
     calculate_left_targets, find_matches_in_buckets_correct,
 };
@@ -32,13 +32,13 @@ fn find_matches_in_buckets_gpu() {
         .map(|_| Y::from(rng.next_u32() % (PARAM_BC as u32 * NUM_BUCKETS as u32)))
         .collect::<Vec<_>>();
     let buckets = {
-        let mut buckets = [[Position::SENTINEL; REDUCED_BUCKETS_SIZE]; 3];
+        let mut buckets = [[Position::SENTINEL; REDUCED_BUCKET_SIZE]; 3];
 
         let mut total_found = [0_usize; 3];
         for (position, &y) in parent_table_ys.iter().enumerate() {
             let bucket_index = u32::from(y) / PARAM_BC as u32;
             let next_index = total_found[bucket_index as usize];
-            if next_index < REDUCED_BUCKETS_SIZE {
+            if next_index < REDUCED_BUCKET_SIZE {
                 buckets[bucket_index as usize][next_index] = Position::from_u32(position as u32);
                 total_found[bucket_index as usize] += 1;
             }
@@ -93,7 +93,7 @@ fn find_matches_in_buckets_gpu() {
 
 async fn find_matches_in_buckets(
     left_targets: &LeftTargets,
-    buckets: &[[Position; REDUCED_BUCKETS_SIZE]],
+    buckets: &[[Position; REDUCED_BUCKET_SIZE]],
     parent_table_ys: &[Y],
 ) -> Option<Vec<Vec<Match>>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
@@ -129,7 +129,7 @@ async fn find_matches_in_buckets(
 
 async fn find_matches_in_buckets_adapter(
     left_targets: &LeftTargets,
-    buckets: &[[Position; REDUCED_BUCKETS_SIZE]],
+    buckets: &[[Position; REDUCED_BUCKET_SIZE]],
     parent_table_ys: &[Y],
     adapter: Adapter,
 ) -> Option<Vec<Vec<Match>>> {

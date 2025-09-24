@@ -58,8 +58,8 @@ impl Tables<$k> {
     }
 
     /// Find proof of space for given challenge.
-        #[cfg(feature = "alloc")]
-pub fn find_proof<'a>(
+    #[cfg(feature = "alloc")]
+    pub fn find_proof<'a>(
         &'a self,
         first_challenge_bytes: [u8; 4],
     ) -> impl Iterator<Item = [u8; 64 * $k / 8]> + 'a {

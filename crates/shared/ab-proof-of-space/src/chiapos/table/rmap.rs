@@ -2,7 +2,7 @@
 mod tests;
 
 use crate::chiapos::constants::PARAM_BC;
-use crate::chiapos::table::REDUCED_BUCKETS_SIZE;
+use crate::chiapos::table::REDUCED_BUCKET_SIZE;
 use crate::chiapos::table::types::{Position, R};
 
 pub(super) struct Rmap {
@@ -11,7 +11,7 @@ pub(super) struct Rmap {
     /// Physical pointer must be increased by `1` to get a virtual pointer before storing. Virtual
     /// pointer must be decreased by `1` before reading to get a physical pointer.
     virtual_pointers: [u16; PARAM_BC as usize],
-    positions: [[Position; 2]; REDUCED_BUCKETS_SIZE],
+    positions: [[Position; 2]; REDUCED_BUCKET_SIZE],
     next_physical_pointer: u16,
 }
 
@@ -26,7 +26,7 @@ impl Rmap {
     }
 
     /// # Safety
-    /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKETS_SIZE`] items
+    /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKET_SIZE`] items
     /// inserted
     #[inline(always)]
     unsafe fn insertion_item(&mut self, r: R) -> &mut [Position; 2] {
@@ -52,7 +52,7 @@ impl Rmap {
     /// much in terms of performance and not required for correctness.
     ///
     /// # Safety
-    /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKETS_SIZE`] items
+    /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKET_SIZE`] items
     /// inserted
     #[inline(always)]
     pub(super) unsafe fn add(&mut self, r: R, position: Position) {

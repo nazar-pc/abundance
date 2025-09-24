@@ -52,19 +52,19 @@ const BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS: u8 = 128;
 ///
 /// The number should be sufficient to produce enough proofs for sector encoding with high
 /// probability.
-// TODO: Statistical analysis if possible.
-const REDUCED_BUCKETS_SIZE: usize = 272;
+// TODO: Statistical analysis if possible, confirming there will be enough proofs
+const REDUCED_BUCKET_SIZE: usize = 272;
 /// Reducing matches count for better performance.
 ///
 /// The number should be sufficient to produce enough proofs for sector encoding with high
 /// probability.
-// TODO: Statistical analysis if possible.
+// TODO: Statistical analysis if possible, confirming there will be enough proofs
 const REDUCED_MATCHES_COUNT: usize = 288;
 #[cfg(feature = "parallel")]
 const CACHE_LINE_SIZE: usize = 64;
 
 const _: () = {
-    debug_assert!(REDUCED_BUCKETS_SIZE <= MAX_BUCKET_SIZE);
+    debug_assert!(REDUCED_BUCKET_SIZE <= MAX_BUCKET_SIZE);
     debug_assert!(REDUCED_MATCHES_COUNT <= MAX_BUCKET_SIZE);
 };
 
@@ -173,14 +173,14 @@ const fn bucket_size_upper_bound(k: u8, security_bits: u8) -> usize {
 #[cfg(feature = "alloc")]
 fn group_by_buckets<const K: u8>(
     ys: &[Y],
-) -> Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>
+) -> Box<[[(Position, Y); REDUCED_BUCKET_SIZE]; num_buckets(K)]>
 where
     [(); num_buckets(K)]:,
 {
     let mut bucket_offsets = [0_u16; num_buckets(K)];
     // SAFETY: Contents is `MaybeUninit`
     let mut buckets = unsafe {
-        Box::<[[MaybeUninit<(Position, Y)>; REDUCED_BUCKETS_SIZE]; num_buckets(K)]>::new_uninit()
+        Box::<[[MaybeUninit<(Position, Y)>; REDUCED_BUCKET_SIZE]; num_buckets(K)]>::new_uninit()
             .assume_init()
     };
 
@@ -192,7 +192,7 @@ where
         // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
         let bucket = unsafe { buckets.get_unchecked_mut(bucket_index) };
 
-        if *bucket_offset < REDUCED_BUCKETS_SIZE as u16 {
+        if *bucket_offset < REDUCED_BUCKET_SIZE as u16 {
             bucket[*bucket_offset as usize].write((position, y));
             *bucket_offset += 1;
         }
@@ -214,7 +214,7 @@ where
 #[cfg(feature = "parallel")]
 unsafe fn group_by_buckets_from_buckets<'a, const K: u8, I>(
     iter: I,
-) -> Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>
+) -> Box<[[(Position, Y); REDUCED_BUCKET_SIZE]; num_buckets(K)]>
 where
     I: Iterator<Item = (&'a [MaybeUninit<Y>; REDUCED_MATCHES_COUNT], usize)> + 'a,
     [(); num_buckets(K)]:,
@@ -222,7 +222,7 @@ where
     let mut bucket_offsets = [0_u16; num_buckets(K)];
     // SAFETY: Contents is `MaybeUninit`
     let mut buckets = unsafe {
-        Box::<[[MaybeUninit<(Position, Y)>; REDUCED_BUCKETS_SIZE]; num_buckets(K)]>::new_uninit()
+        Box::<[[MaybeUninit<(Position, Y)>; REDUCED_BUCKET_SIZE]; num_buckets(K)]>::new_uninit()
             .assume_init()
     };
 
@@ -237,7 +237,7 @@ where
             // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
             let bucket = unsafe { buckets.get_unchecked_mut(bucket_index) };
 
-            if *bucket_offset < REDUCED_BUCKETS_SIZE as u16 {
+            if *bucket_offset < REDUCED_BUCKET_SIZE as u16 {
                 bucket[*bucket_offset as usize].write((position, y));
                 *bucket_offset += 1;
             }
@@ -414,8 +414,8 @@ pub(super) fn compute_f1_simd<const K: u8>(
 #[cfg(feature = "alloc")]
 unsafe fn find_matches_in_buckets<'a>(
     left_bucket_index: u32,
-    left_bucket: &[(Position, Y); REDUCED_BUCKETS_SIZE],
-    right_bucket: &[(Position, Y); REDUCED_BUCKETS_SIZE],
+    left_bucket: &[(Position, Y); REDUCED_BUCKET_SIZE],
+    right_bucket: &[(Position, Y); REDUCED_BUCKET_SIZE],
     // `PARAM_M as usize * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
     matches: &'a mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT + PARAM_M as usize * 2],
@@ -951,7 +951,7 @@ where
         /// Each bucket contains positions of `Y` values that belong to it and corresponding `y`.
         ///
         /// Buckets are padded with sentinel values to `REDUCED_BUCKETS_SIZE`.
-        buckets: Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>,
+        buckets: Box<[[(Position, Y); REDUCED_BUCKET_SIZE]; num_buckets(K)]>,
     },
     /// Other tables
     Other {
@@ -962,7 +962,7 @@ where
         /// Each bucket contains positions of `Y` values that belong to it and corresponding `y`.
         ///
         /// Buckets are padded with sentinel values to `REDUCED_BUCKETS_SIZE`.
-        buckets: Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>,
+        buckets: Box<[[(Position, Y); REDUCED_BUCKET_SIZE]; num_buckets(K)]>,
     },
     /// Other tables
     #[cfg(feature = "parallel")]
@@ -979,7 +979,7 @@ where
         /// Each bucket contains positions of `Y` values that belong to it and corresponding `y`.
         ///
         /// Buckets are padded with sentinel values to `REDUCED_BUCKETS_SIZE`.
-        buckets: Box<[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)]>,
+        buckets: Box<[[(Position, Y); REDUCED_BUCKET_SIZE]; num_buckets(K)]>,
     },
 }
 
@@ -1504,7 +1504,7 @@ where
 
     /// Positions of `y`s grouped by the bucket they belong to
     #[inline(always)]
-    pub(super) fn buckets(&self) -> &[[(Position, Y); REDUCED_BUCKETS_SIZE]; num_buckets(K)] {
+    pub(super) fn buckets(&self) -> &[[(Position, Y); REDUCED_BUCKET_SIZE]; num_buckets(K)] {
         match self {
             Self::First { buckets, .. } => buckets,
             Self::Other { buckets, .. } => buckets,

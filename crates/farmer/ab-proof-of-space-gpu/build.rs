@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 SpirvMetadata::None
             })
             .release(profile != "debug")
-            // TODO: This should not be needed: https://github.com/Rust-GPU/rust-gpu/discussions/385
+            // TODO: This should not be needed: https://github.com/Rust-GPU/rust-gpu/issues/386
             .capability(Capability::GroupNonUniformArithmetic);
 
         thread::scope(|scope| -> Result<(), Box<dyn Error>> {
