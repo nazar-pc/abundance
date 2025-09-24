@@ -46,7 +46,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             })
             .release(profile != "debug")
             // TODO: This should not be needed: https://github.com/Rust-GPU/rust-gpu/issues/386
-            .capability(Capability::GroupNonUniformArithmetic);
+            .capability(Capability::GroupNonUniformArithmetic)
+            // TODO: This should not be needed: https://github.com/Rust-GPU/rust-gpu/issues/386
+            .capability(Capability::GroupNonUniformShuffle);
 
         thread::scope(|scope| -> Result<(), Box<dyn Error>> {
             // Compile SPIR-V shader for GPU that only supports baseline Vulkan features

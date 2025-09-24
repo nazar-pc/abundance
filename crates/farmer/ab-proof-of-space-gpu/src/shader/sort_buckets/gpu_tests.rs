@@ -70,7 +70,7 @@ async fn sort_buckets(
     });
 
     let adapters = instance.enumerate_adapters(backends);
-    let mut result = None;
+    let mut result = None::<Box<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>>;
 
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
@@ -79,7 +79,18 @@ async fn sort_buckets(
 
         match &result {
             Some(result) => {
-                assert!(result == &adapter_result);
+                for (bucket_index, (result, adapter_result)) in
+                    result.iter().zip(adapter_result.iter()).enumerate()
+                {
+                    for (index, (result, adapter_result)) in
+                        result.iter().zip(adapter_result.iter()).enumerate()
+                    {
+                        assert_eq!(
+                            result, adapter_result,
+                            "bucket_index={bucket_index}, index={index}"
+                        );
+                    }
+                }
             }
             None => {
                 result.replace(adapter_result);

@@ -2,8 +2,8 @@
 mod gpu_tests;
 
 use crate::shader::constants::{MAX_BUCKET_SIZE, NUM_BUCKETS};
-use crate::shader::types::PositionY;
-use spirv_std::arch::workgroup_memory_barrier_with_group_sync;
+use crate::shader::types::{PositionY, Y};
+use spirv_std::arch::subgroup_shuffle;
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
 
@@ -12,110 +12,228 @@ use spirv_std::spirv;
 pub const WORKGROUP_SIZE: u32 = 256;
 
 #[inline(always)]
-fn perform_compare_swap(
-    local_invocation_id: u32,
-    block_size: usize,
+fn perform_local_compare_swap<const MAX_ELEMENTS_PER_THREAD: usize>(
+    lane_id: u32,
+    elements_per_thread: u32,
     bit_position: u32,
-    bucket: &mut [PositionY; MAX_BUCKET_SIZE],
+    block_size: u32,
+    local_data: &mut [PositionY; MAX_ELEMENTS_PER_THREAD],
 ) {
-    // Map contiguous `local_invocation_id` (0-255) to sparse `a_offset` (positions where bit
-    // `bit_position == 0`). This "inserts" a `0` at bit position `bit_position` in the binary
-    // representation of `local_invocation_id`, effectively treating `local_invocation_id` as an
-    // 8-bit number and expanding it to 9 bits by skipping bit `bit_position`.
-    //
-    // Result: 256 unique `a_offset` in [0..511] with bit `bit_position` unset, in order.
-    //
-    // For `bit_position=0 (`distance=1`):
-    //   `a_offset = local_invocation_id << 1 = even ids 0,2,...,510`
-    // For `bit_position=1` (`distance=2`):
-    //   `a_offset = (local_invocation_id & 1) | ((local_invocation_id >> 1) << 2) = 0,1,4,5,...`
-    //
-    // And similarly for `b_offset`, but setting `bit_position`th bit to `1`.
-    // This ensures each of the 256 threads handles one unique disjoint pair without overlap or
-    // idling.
+    // For local swaps within a thread's register data, iterate over half the elements to form pairs
+    // `(a_offset, b_offset)` where indices differ only at `bit_position` and swaps them in-place
+    for pair_id in 0..elements_per_thread / 2 {
+        // Compute pair indices using bit manipulation to map `pair_id`
+        // (`0..elements_per_thread / 2`) to sparse indices in `local_data`
+        // (`0..elements_per_thread`) where bit_position is `0` or `1`
 
-    // Bits above `bit_position`
-    let high = (local_invocation_id & (u32::MAX << bit_position)) << 1;
-    // Bits below `bit_position`
-    let low = local_invocation_id & u32::MAX.unbounded_shr(u32::BITS - bit_position);
-    // `a_offset` and `b_offset` differ in `bit_position`th bit only: `a_offset` has it set to `0`
-    // and `b_offset` to `1`
-    let a_offset = (high | low) as usize;
-    let b_offset = (high | (1u32 << bit_position) | low) as usize;
+        // Bits above `bit_position
+        let high = (pair_id & (u32::MAX << bit_position)) << 1;
+        // Bits below `bit_position`
+        let low = pair_id & u32::MAX.unbounded_shr(u32::BITS - bit_position);
+        let a_offset = high | low;
+        let b_offset = a_offset | (1u32 << bit_position);
 
-    let a = bucket[a_offset];
-    let b = bucket[b_offset];
+        let a = local_data[a_offset as usize];
+        let b = local_data[b_offset as usize];
 
-    let (smaller, larger) = if a.position <= b.position {
-        (a, b)
-    } else {
-        (b, a)
-    };
-    let ascending = (a_offset & block_size) == 0;
-    let (final_a, final_b) = if ascending {
-        (smaller, larger)
-    } else {
-        (larger, smaller)
-    };
+        // Determine the sort direction: ascending if `a_offset`'s bit at `block_size` is `0`.
+        // This alternates direction in bitonic merges to create sorted sequences.
+        let select_smaller = ((lane_id * elements_per_thread + a_offset) & block_size) == 0;
 
-    bucket[a_offset] = final_a;
-    bucket[b_offset] = final_b;
+        let (final_a, final_b) = if (a.position <= b.position) == select_smaller {
+            (a, b)
+        } else {
+            (b, a)
+        };
+
+        local_data[a_offset as usize] = final_a;
+        local_data[b_offset as usize] = final_b;
+    }
+}
+
+#[inline(always)]
+fn perform_cross_compare_swap<const MAX_ELEMENTS_PER_THREAD: usize>(
+    lane_id: u32,
+    elements_per_thread: u32,
+    bit_position: u32,
+    block_size: u32,
+    local_data: &mut [PositionY; MAX_ELEMENTS_PER_THREAD],
+) {
+    // For cross-subgroup swaps, compute partner lane differing at `lane_bit_position`
+    let lane_bit_position = bit_position - elements_per_thread.ilog2();
+    let partner_lane_id = lane_id ^ (1u32 << lane_bit_position);
+    // When this lane's bit at `lane_bit_position` is `0`, then this is a lower lane (when compared
+    // to `partner_lane_id`)
+    let is_low = (lane_id & (1u32 << lane_bit_position)) == 0;
+    // If `block_size` bit is `0`, setting sort direction for bitonic merge.
+    let ascending = ((lane_id * elements_per_thread) & block_size) == 0;
+    let select_smaller = is_low == ascending;
+
+    // Iterate over all elements in `local_data`, swapping with partner lane
+    for a_offset in 0..elements_per_thread {
+        let a = local_data[a_offset as usize];
+        let b = {
+            let position = subgroup_shuffle(a.position, partner_lane_id);
+            let y = Y::from(subgroup_shuffle(u32::from(a.y), partner_lane_id));
+
+            PositionY { position, y }
+        };
+
+        let selected_value = if (a.position <= b.position) == select_smaller {
+            a
+        } else {
+            b
+        };
+
+        local_data[a_offset as usize] = selected_value;
+    }
 }
 
 // TODO: Make unsafe and avoid bounds check
-// TODO: This can be heavily optimized by sorting a bucket per subgroup and storing everything in
-//  registers instead of shared memory
 /// Sort a bucket using bitonic sort
 #[inline(always)]
-fn sort_bucket_impl(
-    local_invocation_id: u32,
+fn sort_bucket_impl<const MAX_ELEMENTS_PER_THREAD: usize>(
+    lane_id: u32,
+    elements_per_thread: u32,
     bucket: &mut [PositionY; MAX_BUCKET_SIZE],
-    shared_bucket: &mut [PositionY; MAX_BUCKET_SIZE],
 ) {
-    let bucket_offset_a = local_invocation_id;
-    let bucket_offset_b = local_invocation_id + WORKGROUP_SIZE;
-
-    shared_bucket[bucket_offset_a as usize] = bucket[bucket_offset_a as usize];
-    shared_bucket[bucket_offset_b as usize] = bucket[bucket_offset_b as usize];
-
-    workgroup_memory_barrier_with_group_sync();
+    let mut local_data = [PositionY::default(); MAX_ELEMENTS_PER_THREAD];
 
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    let mut block_size = 2usize;
+    #[expect(
+        clippy::needless_range_loop,
+        reason = "rust-gpu can't compile idiomatic version"
+    )]
+    for local_offset in 0..elements_per_thread as usize {
+        let bucket_offset = (lane_id * elements_per_thread) as usize + local_offset;
+        local_data[local_offset] = bucket[bucket_offset];
+    }
+
+    // Iterate over merger stages, doubling block_size each time
+    let mut block_size = 2u32;
     let mut merger_stage = 1u32;
-    while block_size <= MAX_BUCKET_SIZE {
+    while block_size <= MAX_BUCKET_SIZE as u32 {
+        // For each stage, process bit positions in reverse for bitonic comparisons
         for bit_position in (0..merger_stage).rev() {
-            perform_compare_swap(local_invocation_id, block_size, bit_position, shared_bucket);
-            workgroup_memory_barrier_with_group_sync();
+            if bit_position < elements_per_thread.ilog2() {
+                // Local swaps within thread's registers, no synchronization needed
+                perform_local_compare_swap(
+                    lane_id,
+                    elements_per_thread,
+                    bit_position,
+                    block_size,
+                    &mut local_data,
+                );
+            } else {
+                // Cross-lane swaps using subgroup shuffles for communication
+                perform_cross_compare_swap(
+                    lane_id,
+                    elements_per_thread,
+                    bit_position,
+                    block_size,
+                    &mut local_data,
+                );
+            }
         }
         block_size *= 2;
         merger_stage += 1;
     }
-    bucket[bucket_offset_a as usize] = shared_bucket[bucket_offset_a as usize];
-    bucket[bucket_offset_b as usize] = shared_bucket[bucket_offset_b as usize];
+
+    // TODO: More idiomatic version currently doesn't compile:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+    #[expect(
+        clippy::needless_range_loop,
+        reason = "rust-gpu can't compile idiomatic version"
+    )]
+    for local_offset in 0..elements_per_thread as usize {
+        let bucket_offset = (lane_id * elements_per_thread) as usize + local_offset;
+        bucket[bucket_offset] = local_data[local_offset];
+    }
 }
 
 #[spirv(compute(threads(256), entry_point_name = "sort_buckets"))]
 pub fn sort_buckets(
-    #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(subgroup_id)] subgroup_id: u32,
+    #[spirv(subgroup_size)] subgroup_size: u32,
+    #[spirv(num_subgroups)] num_subgroups: u32,
+    #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] buckets: &mut [[PositionY; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
-    #[spirv(workgroup)] shared_bucket: &mut [PositionY; MAX_BUCKET_SIZE],
 ) {
-    let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
     let num_workgroups = num_workgroups.x;
 
+    let total_subgroups = num_workgroups * num_subgroups;
+    let global_subgroup_id = workgroup_id * num_subgroups + subgroup_id;
+
+    // Process one bucket per subgroup
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    for bucket_index in (workgroup_id as usize..NUM_BUCKETS).step_by(num_workgroups as usize) {
-        sort_bucket_impl(
-            local_invocation_id,
-            &mut buckets[bucket_index],
-            shared_bucket,
-        );
+    for bucket_index in (global_subgroup_id..NUM_BUCKETS as u32).step_by(total_subgroups as usize) {
+        // Specify some common subgroup sizes so the driver can easily eliminate dead code. This is
+        // important because `local_data` inside the function is generic and impacts the number of
+        // registers used, so we want to minimize them.
+        match subgroup_size {
+            // Hypothetically possible, do not optimize as hard, use the same number of registers
+            1 | 2 | 8 => {
+                sort_bucket_impl::<MAX_BUCKET_SIZE>(
+                    subgroup_local_invocation_id,
+                    MAX_BUCKET_SIZE as u32 / subgroup_size,
+                    &mut buckets[bucket_index as usize],
+                );
+            }
+            // llvmpipe
+            4 => {
+                const ELEMENTS_PER_THREAD: usize = MAX_BUCKET_SIZE / 4;
+                sort_bucket_impl::<ELEMENTS_PER_THREAD>(
+                    subgroup_local_invocation_id,
+                    ELEMENTS_PER_THREAD as u32,
+                    &mut buckets[bucket_index as usize],
+                );
+            }
+            // Raspberry PI 5
+            16 => {
+                const ELEMENTS_PER_THREAD: usize = MAX_BUCKET_SIZE / 16;
+                sort_bucket_impl::<ELEMENTS_PER_THREAD>(
+                    subgroup_local_invocation_id,
+                    ELEMENTS_PER_THREAD as u32,
+                    &mut buckets[bucket_index as usize],
+                );
+            }
+            // Intel/Nvidia
+            32 => {
+                const ELEMENTS_PER_THREAD: usize = MAX_BUCKET_SIZE / 32;
+                sort_bucket_impl::<ELEMENTS_PER_THREAD>(
+                    subgroup_local_invocation_id,
+                    ELEMENTS_PER_THREAD as u32,
+                    &mut buckets[bucket_index as usize],
+                );
+            }
+            // AMD
+            64 => {
+                const ELEMENTS_PER_THREAD: usize = MAX_BUCKET_SIZE / 64;
+                sort_bucket_impl::<ELEMENTS_PER_THREAD>(
+                    subgroup_local_invocation_id,
+                    ELEMENTS_PER_THREAD as u32,
+                    &mut buckets[bucket_index as usize],
+                );
+            }
+            // Hypothetically possible
+            128 => {
+                const ELEMENTS_PER_THREAD: usize = MAX_BUCKET_SIZE / 128;
+                sort_bucket_impl::<ELEMENTS_PER_THREAD>(
+                    subgroup_local_invocation_id,
+                    ELEMENTS_PER_THREAD as u32,
+                    &mut buckets[bucket_index as usize],
+                );
+            }
+            _ => {
+                // https://registry.khronos.org/vulkan/specs/latest/man/html/SubgroupSize.html
+                unreachable!("All Vulkan targets use power of two and subgroup size <= 128")
+            }
+        }
     }
 }
