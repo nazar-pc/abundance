@@ -139,3 +139,13 @@ pub struct PositionY {
     /// Y
     pub y: Y,
 }
+
+impl Default for PositionY {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            position: 0,
+            y: Y::from(0),
+        }
+    }
+}
