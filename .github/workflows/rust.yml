@@ -45,6 +45,14 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
+  # Artificial job that gives windows test jobs head start by making other jobs start a bit later, so Windows jobs
+  # schedule earlier than the rest and will not delay the rest of the queue as much as they would otherwise
+  cargo-test-slow-head-start:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Artificial delay
+        run: sleep 5
+
   cargo-clippy:
     strategy:
       matrix:
@@ -59,6 +67,8 @@ jobs:
           - features
 
     runs-on: ${{ matrix.os }}
+    # Gives the slow cargo test jobs a head start
+    needs: cargo-test-slow-head-start
 
     steps:
       - name: Checkout
@@ -157,7 +167,8 @@ jobs:
           - true
           - false
         type:
-          - together
+          # `together` variant is running in a separate job, see `cargo-test-slow`
+          # - together
           - features
           - guest-feature
         exclude:
@@ -167,10 +178,12 @@ jobs:
             type: guest-feature
 
     runs-on: ${{ matrix.os }}
+    # Gives the slow cargo test jobs a head start
+    needs: cargo-test-slow-head-start
     env:
       command: ${{ matrix.miri == true && 'miri nextest run' || 'nextest run' }}
 
-    steps:
+    steps: &test-steps
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -261,6 +274,34 @@ jobs:
             cargo -Zgitoxide -Zgit ${{ env.command }} --no-tests pass --package $crate --features $crate/guest
           done
         if: matrix.type == 'guest-feature' && runner.os == 'Linux'
+
+  # This is a hack to start slower jobs before the rest, see `cargo-test` job for full definition
+  cargo-test-slow:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-15
+          - windows-2025
+        miri:
+          - true
+          - false
+        type:
+          - together
+          # - features
+          # - guest-feature
+        exclude:
+          - os: macos-15
+            type: guest-feature
+          - os: windows-2025
+            type: guest-feature
+
+    runs-on: ${{ matrix.os }}
+    env:
+      command: ${{ matrix.miri == true && 'miri nextest run' || 'nextest run' }}
+
+    steps: *test-steps
 
   no-panic:
     strategy:
@@ -415,8 +456,10 @@ jobs:
       - cargo-clippy
       - cargo-fmt
       - cargo-test
+      - cargo-test-slow
       - contracts
       - no-panic
+
     steps:
       - name: Check job statuses
         # Another hack is to actually check the status of the dependencies or else it'll fall through
@@ -425,5 +468,6 @@ jobs:
           [[ "${{ needs.cargo-clippy.result }}" == "success" ]] || exit 1
           [[ "${{ needs.cargo-fmt.result }}" == "success" ]] || exit 1
           [[ "${{ needs.cargo-test.result }}" == "success" ]] || exit 1
+          [[ "${{ needs.cargo-test-slow.result }}" == "success" ]] || exit 1
           [[ "${{ needs.contracts.result }}" == "success" ]] || exit 1
           [[ "${{ needs.no-panic.result }}" == "success" ]] || exit 1
