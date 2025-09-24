@@ -11,6 +11,7 @@
     step_trait,
     uint_bit_width
 )]
+#![cfg_attr(all(test, not(target_arch = "spirv")), feature(new_zeroed_alloc))]
 #![cfg_attr(
     all(test, not(miri), not(target_arch = "spirv")),
     feature(
@@ -18,8 +19,7 @@
         const_trait_impl,
         maybe_uninit_fill,
         maybe_uninit_slice,
-        maybe_uninit_write_slice,
-        new_zeroed_alloc
+        maybe_uninit_write_slice
     )
 )]
 
