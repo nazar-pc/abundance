@@ -7,6 +7,7 @@ pub mod find_matches_in_buckets;
 mod num;
 #[cfg(not(target_arch = "spirv"))]
 mod shader_bytes;
+pub mod sort_buckets;
 // TODO: Reuse types from `ab-proof-of-space` once it compiles with `rust-gpu`
 pub mod types;
 

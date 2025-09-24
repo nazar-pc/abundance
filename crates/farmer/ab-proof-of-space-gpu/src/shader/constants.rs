@@ -28,7 +28,7 @@ pub(super) const PARAM_BC: u16 = PARAM_B * PARAM_C;
 pub(super) const MAX_TABLE_SIZE: u32 = 1 << K;
 
 /// Compute the size of `y` in bits
-const fn y_size_bits(k: u8) -> usize {
+pub(super) const fn y_size_bits(k: u8) -> usize {
     k as usize + PARAM_EXT as usize
 }
 
