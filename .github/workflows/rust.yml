@@ -24,6 +24,8 @@ env:
 jobs:
   cargo-fmt:
     runs-on: ubuntu-24.04
+    # Gives the slow cargo test jobs a head start
+    needs: cargo-test-slow-head-start
 
     steps:
       - name: Checkout
@@ -60,6 +62,7 @@ jobs:
           - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-15
+          - windows-11-arm
           - windows-2025
         type:
           - together
@@ -162,6 +165,7 @@ jobs:
           - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-15
+          - windows-11-arm
           - windows-2025
         miri:
           - true
@@ -173,6 +177,8 @@ jobs:
           - guest-feature
         exclude:
           - os: macos-15
+            type: guest-feature
+          - os: windows-11-arm
             type: guest-feature
           - os: windows-2025
             type: guest-feature
@@ -217,6 +223,7 @@ jobs:
 
       # TODO: This is a workaround for https://github.com/RustCrypto/stream-ciphers/issues/426
       - name: Miri aarch64 workaround
+        shell: bash
         run: |
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} --cfg chacha20_force_soft" >> $GITHUB_ENV
         if: matrix.miri == true && runner.arch == 'ARM64'
@@ -283,6 +290,7 @@ jobs:
           - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-15
+          - windows-11-arm
           - windows-2025
         miri:
           - true
@@ -293,6 +301,8 @@ jobs:
           # - guest-feature
         exclude:
           - os: macos-15
+            type: guest-feature
+          - os: windows-11-arm
             type: guest-feature
           - os: windows-2025
             type: guest-feature
@@ -310,6 +320,7 @@ jobs:
           - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-15
+          - windows-11-arm
           - windows-2025
         type:
           - default
@@ -317,6 +328,8 @@ jobs:
           - guest-feature
         exclude:
           - os: macos-15
+            type: guest-feature
+          - os: windows-11-arm
             type: guest-feature
           - os: windows-2025
             type: guest-feature
@@ -424,6 +437,8 @@ jobs:
 
   contracts:
     runs-on: ubuntu-24.04
+    # Gives the slow cargo test jobs a head start
+    needs: cargo-test-slow-head-start
 
     steps:
       - name: Checkout
