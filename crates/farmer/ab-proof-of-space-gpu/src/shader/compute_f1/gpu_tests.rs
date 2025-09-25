@@ -80,7 +80,9 @@ async fn compute_f1(chacha8_keystream: &[u32; KEYSTREAM_LEN_WORDS]) -> Option<Ve
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let adapter_result = compute_f1_adapter(chacha8_keystream, adapter).await?;
+        let Some(adapter_result) = compute_f1_adapter(chacha8_keystream, adapter).await else {
+            continue;
+        };
 
         match &result {
             Some(result) => {
@@ -111,7 +113,7 @@ async fn compute_f1_adapter(
     adapter: Adapter,
 ) -> Option<Vec<Vec<PositionY>>> {
     let (shader, required_features, required_limits, _modern) =
-        select_shader_features_limits(adapter.features());
+        select_shader_features_limits(&adapter)?;
 
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {

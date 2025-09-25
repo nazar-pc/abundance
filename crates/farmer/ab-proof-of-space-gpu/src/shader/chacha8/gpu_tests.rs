@@ -54,7 +54,11 @@ async fn chacha8_keystream_10_blocks(
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let adapter_result = chacha8_keystream_10_blocks_adapter(seed, num_blocks, adapter).await?;
+        let Some(adapter_result) =
+            chacha8_keystream_10_blocks_adapter(seed, num_blocks, adapter).await
+        else {
+            continue;
+        };
 
         match &result {
             Some(result) => {
@@ -75,7 +79,7 @@ async fn chacha8_keystream_10_blocks_adapter(
     adapter: Adapter,
 ) -> Option<Vec<ChaCha8Block>> {
     let (shader, required_features, required_limits, _modern) =
-        select_shader_features_limits(adapter.features());
+        select_shader_features_limits(&adapter)?;
 
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {

@@ -12,7 +12,7 @@ pub mod sort_buckets;
 pub mod types;
 
 #[cfg(not(target_arch = "spirv"))]
-use wgpu::{Features, Limits};
+use wgpu::{Adapter, Features, Limits};
 
 /// `4` is used by LLVMpipe, hence such a low number here
 const MIN_SUBGROUP_SIZE: u32 = 4;
@@ -43,35 +43,45 @@ const SHADER_MODERN: wgpu::ShaderModuleDescriptor<'static> = {
     SHADER_BYTES_INTERNAL.to_module()
 };
 
-/// For a given set of adapter features function returns the appropriate shader version, required
-/// features, required limits and a boolean flag indicating whether the adapter is modern or not
+/// For a given set of adapter features and limits, this function returns the appropriate shader
+/// version, required features, required limits and a boolean flag indicating whether the adapter is
+/// modern or not.
+///
+/// Returns `None` for unsupported adapter.
 #[cfg(not(target_arch = "spirv"))]
 pub fn select_shader_features_limits(
-    adapter_features: Features,
-) -> (
+    adapter: &Adapter,
+) -> Option<(
     wgpu::ShaderModuleDescriptor<'static>,
     Features,
     Limits,
     bool,
-) {
+)> {
     const SHADER_BASELINE_FEATURES: Features = Features::SUBGROUP;
     const SHADER_MODERN_FEATURES: Features = SHADER_BASELINE_FEATURES.union(Features::SHADER_INT64);
+    // Modern GPUs have at least 32 kiB of shared memory
+    const MODERN_SHADER_STORAGE_SIZE: u32 = 32 * 1024;
 
-    if adapter_features.contains(SHADER_MODERN_FEATURES) {
-        (
+    let adapter_features = adapter.features();
+    let adapter_limits = adapter.limits();
+
+    if adapter_features.contains(SHADER_MODERN_FEATURES)
+        && adapter_limits.min_subgroup_size >= MIN_SUBGROUP_SIZE
+        && adapter_limits.max_compute_workgroup_storage_size >= MODERN_SHADER_STORAGE_SIZE
+    {
+        Some((
             SHADER_MODERN,
             SHADER_MODERN_FEATURES,
             Limits {
                 min_subgroup_size: MIN_SUBGROUP_SIZE,
-                // Modern GPUs have at least 32 kiB of shared memory
-                max_compute_workgroup_storage_size: 32 * 1024,
+                max_compute_workgroup_storage_size: MODERN_SHADER_STORAGE_SIZE,
                 ..Limits::defaults()
             },
             true,
-        )
-    } else {
+        ))
+    } else if adapter_limits.min_subgroup_size >= MIN_SUBGROUP_SIZE {
         // Fallback GPU supports only baseline features and no extras
-        (
+        Some((
             SHADER_FALLBACK,
             SHADER_BASELINE_FEATURES,
             Limits {
@@ -79,6 +89,8 @@ pub fn select_shader_features_limits(
                 ..Limits::defaults()
             },
             false,
-        )
+        ))
+    } else {
+        None
     }
 }

@@ -110,8 +110,11 @@ async fn find_matches_in_buckets(
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let adapter_result =
-            find_matches_in_buckets_adapter(left_targets, buckets, adapter).await?;
+        let Some(adapter_result) =
+            find_matches_in_buckets_adapter(left_targets, buckets, adapter).await
+        else {
+            continue;
+        };
 
         match &result {
             Some(result) => {
@@ -134,7 +137,7 @@ async fn find_matches_in_buckets_adapter(
     let num_bucket_pairs = buckets.len() - 1;
 
     let (shader, required_features, required_limits, modern) =
-        select_shader_features_limits(adapter.features());
+        select_shader_features_limits(&adapter)?;
     println!("modern={modern}");
 
     let (device, queue) = adapter
