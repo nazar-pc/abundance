@@ -7,6 +7,7 @@ use crate::shader::constants::{K, PARAM_EXT};
 use crate::shader::find_matches_in_buckets::Match;
 use crate::shader::num::{U128, U128T};
 use crate::shader::types::{Metadata, Y};
+use core::mem::MaybeUninit;
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
 
@@ -41,7 +42,7 @@ const fn metadata_size_bits(k: u8, table_number: u8) -> u32 {
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and
 //  https://github.com/Rust-GPU/rust-gpu/discussions/301
 #[inline(always)]
-fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
+pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     y: Y,
     left_metadata: Metadata,
     right_metadata: Metadata,
@@ -176,8 +177,8 @@ fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     num_workgroups: UVec3,
     matches: &[Match],
     parent_metadatas: &[Metadata],
-    ys: &mut [Y],
-    metadatas: &mut [Metadata],
+    ys: &mut [MaybeUninit<Y>],
+    metadatas: &mut [MaybeUninit<Metadata>],
 ) {
     // TODO: Make a single input bounds check and use unsafe to avoid bounds check later
     let global_invocation_id = global_invocation_id.x;
@@ -187,9 +188,7 @@ fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
 
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    for index in (global_invocation_id..matches.len() as u32).step_by(global_size as usize) {
-        let index = index as usize;
-
+    for index in (global_invocation_id as usize..matches.len()).step_by(global_size as usize) {
         let m = matches[index];
         // TODO: Correct version currently doesn't compile:
         //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -204,10 +203,10 @@ fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
             right_metadata,
         );
 
-        ys[index] = y;
+        ys[index].write(y);
         // The last table doesn't have any metadata
         if TABLE_NUMBER < 7 {
-            metadatas[index] = metadata;
+            metadatas[index].write(metadata);
         }
     }
 }
@@ -219,8 +218,10 @@ pub fn compute_f2(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [MaybeUninit<
+        Metadata,
+    >],
 ) {
     compute_fn::<2, 1>(
         global_invocation_id,
@@ -239,8 +240,10 @@ pub fn compute_f3(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [MaybeUninit<
+        Metadata,
+    >],
 ) {
     compute_fn::<3, 2>(
         global_invocation_id,
@@ -259,8 +262,10 @@ pub fn compute_f4(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [MaybeUninit<
+        Metadata,
+    >],
 ) {
     compute_fn::<4, 3>(
         global_invocation_id,
@@ -279,8 +284,10 @@ pub fn compute_f5(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [MaybeUninit<
+        Metadata,
+    >],
 ) {
     compute_fn::<5, 4>(
         global_invocation_id,
@@ -299,8 +306,10 @@ pub fn compute_f6(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [MaybeUninit<
+        Metadata,
+    >],
 ) {
     compute_fn::<6, 5>(
         global_invocation_id,
@@ -319,10 +328,12 @@ pub fn compute_f7(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [Y],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
     // TODO: This argument should not be required, but it is currently not possible to compile
     //  `&mut []` under `rust-gpu` directly
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [Metadata],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] metadatas: &mut [MaybeUninit<
+        Metadata,
+    >],
 ) {
     compute_fn::<7, 6>(
         global_invocation_id,

@@ -23,9 +23,9 @@ use spirv_std::spirv;
 
 // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` below, can be removed once
 //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-pub const WORKGROUP_SIZE: u32 = 256;
+pub(super) const WORKGROUP_SIZE: u32 = 256;
 /// Worst-case for the number of subgroups
-pub const MAX_SUBGROUPS: usize = (WORKGROUP_SIZE / MIN_SUBGROUP_SIZE) as usize;
+const MAX_SUBGROUPS: usize = (WORKGROUP_SIZE / MIN_SUBGROUP_SIZE) as usize;
 
 // TODO: This is a polyfill to work around for this issue:
 //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043

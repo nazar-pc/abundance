@@ -82,8 +82,6 @@ pub unsafe fn compute_f1(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     chacha8_keystream: &[u32; KEYSTREAM_LEN_WORDS],
-    // TODO: Should have been `MaybeUninit<u32>`, but currently doesn't compile:
-    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] bucket_counts: &mut [u32;
              NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
@@ -111,6 +109,7 @@ pub unsafe fn compute_f1(
                 1,
             )
         };
+
         // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition. Bucket
         // size upper bound is known statically to be [`MAX_BUCKET_SIZE`], so `position_in_bucket`
         // is also always within bounds.
