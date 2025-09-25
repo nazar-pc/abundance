@@ -152,7 +152,7 @@ I copied the matrix definition with everything except `together` in the original
 `cargo-test-slow` job, while reusing the same exact `steps`, which can be maintained like before. Note `&test-steps`
 anchor and `*test-steps` reference to it.
 
-Now my slower test jobs start 5+ seconds later, which is fast enough to not delay the rest of the CI too much and fast
+Now my slower test jobs start 5+ seconds earlier, which is short enough to not delay the rest of the CI too much and long
 enough to give the slow job a head start in scheduling.
 
 # Results
