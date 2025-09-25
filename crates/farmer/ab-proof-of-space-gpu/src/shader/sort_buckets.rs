@@ -97,7 +97,7 @@ fn sort_bucket_impl<const MAX_ELEMENTS_PER_THREAD: usize>(
     elements_per_thread: u32,
     bucket: &mut [PositionY; MAX_BUCKET_SIZE],
 ) {
-    let mut local_data = [PositionY::default(); MAX_ELEMENTS_PER_THREAD];
+    let mut local_data = [PositionY::EMPTY; MAX_ELEMENTS_PER_THREAD];
 
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043

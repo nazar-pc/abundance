@@ -1,11 +1,13 @@
-use crate::shader::constants::{PARAM_BC, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT};
+use crate::shader::constants::{
+    MAX_BUCKET_SIZE, PARAM_BC, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
+};
 use crate::shader::find_matches_in_buckets::cpu_tests::{
     calculate_left_targets, find_matches_in_buckets_correct,
 };
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_matches_in_buckets::{LeftTargets, Match};
 use crate::shader::select_shader_features_limits;
-use crate::shader::types::{Position, PositionExt, Y};
+use crate::shader::types::{Position, PositionExt, PositionY, Y};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{RngCore, SeedableRng};
 use futures::executor::block_on;
@@ -32,14 +34,20 @@ fn find_matches_in_buckets_gpu() {
         .map(|_| Y::from(rng.next_u32() % (PARAM_BC as u32 * NUM_BUCKETS as u32)))
         .collect::<Vec<_>>();
     let buckets = {
-        let mut buckets = [[Position::SENTINEL; REDUCED_BUCKET_SIZE]; 3];
+        let mut buckets = [[PositionY {
+            position: Position::SENTINEL,
+            y: Y::from(0),
+        }; MAX_BUCKET_SIZE]; 3];
 
         let mut total_found = [0_usize; 3];
         for (position, &y) in parent_table_ys.iter().enumerate() {
             let bucket_index = u32::from(y) / PARAM_BC as u32;
             let next_index = total_found[bucket_index as usize];
             if next_index < REDUCED_BUCKET_SIZE {
-                buckets[bucket_index as usize][next_index] = Position::from_u32(position as u32);
+                buckets[bucket_index as usize][next_index] = PositionY {
+                    position: Position::from_u32(position as u32),
+                    y,
+                };
                 total_found[bucket_index as usize] += 1;
             }
         }
@@ -48,11 +56,7 @@ fn find_matches_in_buckets_gpu() {
     };
     let left_targets = calculate_left_targets();
 
-    let Some(actual_matches) = block_on(find_matches_in_buckets(
-        &left_targets,
-        &buckets,
-        &parent_table_ys,
-    )) else {
+    let Some(actual_matches) = block_on(find_matches_in_buckets(&left_targets, &buckets)) else {
         if cfg!(feature = "__force-gpu-tests") {
             panic!("Skipping tests, no compatible device detected");
         } else {
@@ -66,16 +70,13 @@ fn find_matches_in_buckets_gpu() {
         .enumerate()
         .map(|(left_bucket_index, [left_bucket, right_bucket])| {
             let mut matches = [MaybeUninit::uninit(); _];
-            unsafe {
-                find_matches_in_buckets_correct(
-                    left_bucket_index as u32,
-                    left_bucket,
-                    right_bucket,
-                    &parent_table_ys,
-                    &mut matches,
-                    &left_targets,
-                )
-            }
+            find_matches_in_buckets_correct(
+                left_bucket_index as u32,
+                left_bucket,
+                right_bucket,
+                &mut matches,
+                &left_targets,
+            )
             .to_vec()
         })
         .collect::<Vec<_>>();
@@ -93,8 +94,7 @@ fn find_matches_in_buckets_gpu() {
 
 async fn find_matches_in_buckets(
     left_targets: &LeftTargets,
-    buckets: &[[Position; REDUCED_BUCKET_SIZE]],
-    parent_table_ys: &[Y],
+    buckets: &[[PositionY; MAX_BUCKET_SIZE]],
 ) -> Option<Vec<Vec<Match>>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
@@ -111,8 +111,7 @@ async fn find_matches_in_buckets(
         println!("Testing adapter {:?}", adapter.get_info());
 
         let adapter_result =
-            find_matches_in_buckets_adapter(left_targets, buckets, parent_table_ys, adapter)
-                .await?;
+            find_matches_in_buckets_adapter(left_targets, buckets, adapter).await?;
 
         match &result {
             Some(result) => {
@@ -129,8 +128,7 @@ async fn find_matches_in_buckets(
 
 async fn find_matches_in_buckets_adapter(
     left_targets: &LeftTargets,
-    buckets: &[[Position; REDUCED_BUCKET_SIZE]],
-    parent_table_ys: &[Y],
+    buckets: &[[PositionY; MAX_BUCKET_SIZE]],
     adapter: Adapter,
 ) -> Option<Vec<Vec<Match>>> {
     let num_bucket_pairs = buckets.len() - 1;
@@ -182,7 +180,7 @@ async fn find_matches_in_buckets_adapter(
                 ty: BindingType::Buffer {
                     has_dynamic_offset: false,
                     min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: true },
+                    ty: BufferBindingType::Storage { read_only: false },
                 },
             },
             BindGroupLayoutEntry {
@@ -197,16 +195,6 @@ async fn find_matches_in_buckets_adapter(
             },
             BindGroupLayoutEntry {
                 binding: 4,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: false },
-                },
-            },
-            BindGroupLayoutEntry {
-                binding: 5,
                 count: None,
                 visibility: ShaderStages::COMPUTE,
                 ty: BindingType::Buffer {
@@ -248,17 +236,6 @@ async fn find_matches_in_buckets_adapter(
         label: None,
         contents: unsafe {
             slice::from_raw_parts(buckets.as_ptr().cast::<u8>(), size_of_val(buckets))
-        },
-        usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
-    });
-
-    let parent_table_ys_gpu = device.create_buffer_init(&BufferInitDescriptor {
-        label: None,
-        contents: unsafe {
-            slice::from_raw_parts(
-                parent_table_ys.as_ptr().cast::<u8>(),
-                size_of_val(parent_table_ys),
-            )
         },
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
     });
@@ -317,18 +294,14 @@ async fn find_matches_in_buckets_adapter(
             },
             BindGroupEntry {
                 binding: 2,
-                resource: parent_table_ys_gpu.as_entire_binding(),
-            },
-            BindGroupEntry {
-                binding: 3,
                 resource: matches_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 4,
+                binding: 3,
                 resource: matches_counts_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 5,
+                binding: 4,
                 resource: rmap_gpu.as_entire_binding(),
             },
         ],

@@ -140,12 +140,9 @@ pub struct PositionY {
     pub y: Y,
 }
 
-impl Default for PositionY {
-    #[inline(always)]
-    fn default() -> Self {
-        Self {
-            position: 0,
-            y: Y::from(0),
-        }
-    }
+impl PositionY {
+    pub(super) const EMPTY: Self = Self {
+        position: Position::SENTINEL,
+        y: Y(0),
+    };
 }

@@ -5,11 +5,13 @@ mod gpu_tests;
 pub mod rmap;
 
 use crate::shader::MIN_SUBGROUP_SIZE;
-use crate::shader::constants::{PARAM_BC, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT};
+use crate::shader::constants::{
+    MAX_BUCKET_SIZE, PARAM_BC, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
+};
 use crate::shader::find_matches_in_buckets::rmap::{
     NextPhysicalPointer, Rmap, RmapBitPosition, RmapBitPositionExt,
 };
-use crate::shader::types::{Position, PositionExt, Y};
+use crate::shader::types::{Position, PositionExt, PositionY, Y};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{
     control_barrier, subgroup_exclusive_i_add, subgroup_i_add,
@@ -109,9 +111,8 @@ pub struct Match {
 /// Returns the number of matches found.
 ///
 /// # Safety
-/// Left and right bucket positions must correspond to the parent table. Must be called from
-/// [`WORKGROUP_SIZE`] threads with `local_invocation_id` corresponding to the thread index.
-/// `num_subgroups` must be at most [`MAX_SUBGROUPS`] and `subgroup_id` must be within
+/// Must be called from [`WORKGROUP_SIZE`] threads with `local_invocation_id` corresponding to the
+/// thread index. `num_subgroups` must be at most [`MAX_SUBGROUPS`] and `subgroup_id` must be within
 /// `0..num_subgroups`.
 // TODO: Try to reduce the `matches` size further by processing `left_bucket` in chunks (like halves
 //  for example)
@@ -122,9 +123,8 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
     num_subgroups: u32,
     local_invocation_id: u32,
     left_bucket_index: u32,
-    left_bucket: &[Position; REDUCED_BUCKET_SIZE],
-    right_bucket: &[Position; REDUCED_BUCKET_SIZE],
-    parent_table_ys: &[Y],
+    left_bucket: &[PositionY; MAX_BUCKET_SIZE],
+    right_bucket: &[PositionY; MAX_BUCKET_SIZE],
     matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
     left_targets: &LeftTargets,
     scratch_space: &mut SharedScratchSpace,
@@ -191,23 +191,18 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         //     .step_by(WORKGROUP_SIZE as usize)
         // {
         for index in
-            (local_invocation_id as usize..right_bucket.len()).step_by(WORKGROUP_SIZE as usize)
+            (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
         {
-            let right_position = right_bucket[index];
-            let position = &mut right_bucket_positions[index];
+            let PositionY { position, y } = right_bucket[index];
+            let right_bucket_position = &mut right_bucket_positions[index];
             let rmap_bit_position = &mut rmap_bit_positions[index];
 
-            position.write(right_position);
+            right_bucket_position.write(position);
 
-            if right_position == Position::SENTINEL {
+            if position == Position::SENTINEL {
                 break;
             }
 
-            // TODO: Correct version currently doesn't compile:
-            //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-            // // SAFETY: Guaranteed by function contract
-            // let y = *unsafe { parent_table_ys.get_unchecked(usize::from(right_position)) };
-            let y = *unsafe { parent_table_ys.get_unchecked(right_position as usize) };
             let r = u32::from(y) - right_base;
 
             // SAFETY: `r` is within `0..PARAM_BC` range by definition
@@ -281,23 +276,17 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         //     .step_by(WORKGROUP_SIZE as usize)
         // {
         for index in
-            (local_invocation_id as usize..left_bucket.len()).step_by(WORKGROUP_SIZE as usize)
+            (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
         {
-            let left_position = left_bucket[index];
-            let position = &mut left_bucket_positions[index];
+            let PositionY { position, y } = left_bucket[index];
+            let left_bucket_position = &mut left_bucket_positions[index];
             let r = &mut left_rs[index];
 
-            position.write(left_position);
+            left_bucket_position.write(position);
 
-            if left_position == Position::SENTINEL {
+            if position == Position::SENTINEL {
                 break;
             }
-
-            // TODO: Correct version currently doesn't compile:
-            //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-            // // SAFETY: Guaranteed by function contract
-            // let y = *unsafe { parent_table_ys.get_unchecked(usize::from(left_position)) };
-            let y = *unsafe { parent_table_ys.get_unchecked(left_position as usize) };
 
             r.write(u32::from(y) - left_base);
         }
@@ -463,8 +452,8 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 }
 
 /// # Safety
-/// Left and right bucket positions must correspond to the parent table. Must be called from
-/// [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most [`MAX_SUBGROUPS`].
+/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
+/// [`MAX_SUBGROUPS`].
 #[spirv(compute(threads(256), entry_point_name = "find_matches_in_buckets"))]
 #[expect(
     clippy::too_many_arguments,
@@ -477,12 +466,11 @@ pub unsafe fn find_matches_in_buckets(
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] left_targets: &LeftTargets,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] buckets: &[[Position;
-          REDUCED_BUCKET_SIZE]],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] parent_table_ys: &[Y],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] buckets: &[[PositionY;
+          MAX_BUCKET_SIZE]],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     matches: &mut [[MaybeUninit<Match>; REDUCED_MATCHES_COUNT]],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] matches_counts: &mut [MaybeUninit<
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] matches_counts: &mut [MaybeUninit<
         u32,
     >],
     #[spirv(workgroup)] scratch_space: &mut SharedScratchSpace,
@@ -491,7 +479,7 @@ pub unsafe fn find_matches_in_buckets(
     #[spirv(workgroup)]
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
     rmap: &mut MaybeUninit<Rmap>,
 ) {
     let local_invocation_id = local_invocation_id.x;
@@ -516,6 +504,9 @@ pub unsafe fn find_matches_in_buckets(
         let matches = &mut matches[left_bucket_index];
         let matches_count = &mut matches_counts[left_bucket_index];
 
+        // TODO: Truncate buckets to reduced size here once it compiles:
+        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+        // SAFETY: Guaranteed by function contract
         matches_count.write(unsafe {
             find_matches_in_buckets_impl(
                 subgroup_id,
@@ -524,7 +515,6 @@ pub unsafe fn find_matches_in_buckets(
                 left_bucket_index as u32,
                 left_bucket,
                 right_bucket,
-                parent_table_ys,
                 matches,
                 left_targets,
                 scratch_space,
