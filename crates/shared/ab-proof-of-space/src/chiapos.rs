@@ -24,7 +24,8 @@ pub struct Tables<const K: u8>(TablesGeneric<K>)
 where
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
     [(); 1 << K]:,
-    [(); num_buckets(K)]:;
+    [(); num_buckets(K)]:,
+    [(); num_buckets(K) - 1]:;
 
 macro_rules! impl_any {
     ($($k: expr$(,)? )*) => {

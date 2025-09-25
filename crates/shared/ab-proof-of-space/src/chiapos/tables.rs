@@ -39,6 +39,7 @@ where
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
     [(); 1 << K]:,
     [(); num_buckets(K)]:,
+    [(); num_buckets(K) - 1]:,
 {
     #[cfg(feature = "alloc")]
     table_2: PrunedTable<K, 2>,
@@ -67,6 +68,7 @@ where
     EvaluatableUsize<{ 64 * K as usize / 8 }>: Sized,
     [(); 1 << K]:,
     [(); num_buckets(K)]:,
+    [(); num_buckets(K) - 1]:,
 {
     /// Create Chia proof of space tables. There also exists [`Self::create_parallel()`] that trades
     /// CPU efficiency and memory usage for lower latency.
