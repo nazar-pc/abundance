@@ -3,6 +3,7 @@ pub mod compute_f1;
 pub mod compute_fn;
 // TODO: Reuse constants from `ab-proof-of-space` once it compiles with `rust-gpu`
 mod constants;
+pub mod find_matches_and_compute_fn;
 pub mod find_matches_in_buckets;
 mod num;
 #[cfg(not(target_arch = "spirv"))]

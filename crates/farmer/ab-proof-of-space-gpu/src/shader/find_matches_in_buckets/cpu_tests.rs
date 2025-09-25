@@ -7,7 +7,7 @@ use crate::shader::types::{Position, PositionExt, PositionY};
 use std::mem::MaybeUninit;
 use std::{array, mem};
 
-pub(super) fn calculate_left_targets() -> Box<LeftTargets> {
+pub(in super::super) fn calculate_left_targets() -> Box<LeftTargets> {
     let mut left_targets = Box::<LeftTargets>::new_uninit();
     // TODO: Consider a helper method here to avoid the need for `unsafe`
     // SAFETY: Same layout and uninitialized in both cases (`LeftTargetsR` is `#[repr(C)]`)
@@ -115,7 +115,7 @@ impl Rmap {
 }
 
 /// For verification use [`has_match`] instead.
-pub(super) fn find_matches_in_buckets_correct<'a>(
+pub(in super::super) fn find_matches_in_buckets_correct<'a>(
     left_bucket_index: u32,
     left_bucket: &[PositionY; MAX_BUCKET_SIZE],
     right_bucket: &[PositionY; MAX_BUCKET_SIZE],

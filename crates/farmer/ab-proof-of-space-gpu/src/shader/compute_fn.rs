@@ -1,5 +1,5 @@
 #[cfg(all(test, not(target_arch = "spirv")))]
-mod cpu_tests;
+pub(super) mod cpu_tests;
 #[cfg(all(test, not(miri), not(target_arch = "spirv")))]
 mod gpu_tests;
 

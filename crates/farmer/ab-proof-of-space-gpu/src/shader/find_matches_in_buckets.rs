@@ -1,5 +1,5 @@
 #[cfg(all(test, not(miri), not(target_arch = "spirv")))]
-mod cpu_tests;
+pub(super) mod cpu_tests;
 #[cfg(all(test, not(miri), not(target_arch = "spirv")))]
 mod gpu_tests;
 pub mod rmap;
@@ -23,9 +23,9 @@ use spirv_std::spirv;
 
 // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` below, can be removed once
 //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-pub(super) const WORKGROUP_SIZE: u32 = 256;
+pub const WORKGROUP_SIZE: u32 = 256;
 /// Worst-case for the number of subgroups
-const MAX_SUBGROUPS: usize = (WORKGROUP_SIZE / MIN_SUBGROUP_SIZE) as usize;
+pub const MAX_SUBGROUPS: usize = (WORKGROUP_SIZE / MIN_SUBGROUP_SIZE) as usize;
 
 // TODO: This is a polyfill to work around for this issue:
 //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -123,6 +123,8 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
     num_subgroups: u32,
     local_invocation_id: u32,
     left_bucket_index: u32,
+    // TODO: These should use `REDUCED_BUCKET_SIZE`, but it currently doesn't compile:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     left_bucket: &[PositionY; MAX_BUCKET_SIZE],
     right_bucket: &[PositionY; MAX_BUCKET_SIZE],
     matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],

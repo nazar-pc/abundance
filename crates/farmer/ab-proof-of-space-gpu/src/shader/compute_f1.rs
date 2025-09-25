@@ -103,7 +103,7 @@ pub unsafe fn compute_f1(
         let bucket_count = unsafe { bucket_counts.get_unchecked_mut(bucket_index) };
         // TODO: Probably should not be unsafe to begin with:
         //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
-        let position_in_bucket = unsafe {
+        let bucket_offset = unsafe {
             atomic_i_add::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
                 bucket_count,
                 1,
@@ -111,12 +111,12 @@ pub unsafe fn compute_f1(
         };
 
         // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition. Bucket
-        // size upper bound is known statically to be [`MAX_BUCKET_SIZE`], so `position_in_bucket`
-        // is also always within bounds.
+        // size upper bound is known statically to be [`MAX_BUCKET_SIZE`], so `bucket_offset` is
+        // also always within bounds.
         unsafe {
             buckets
                 .get_unchecked_mut(bucket_index)
-                .get_unchecked_mut(position_in_bucket as usize)
+                .get_unchecked_mut(bucket_offset as usize)
         }
         .write(PositionY {
             position: Position::from_u32(x),
