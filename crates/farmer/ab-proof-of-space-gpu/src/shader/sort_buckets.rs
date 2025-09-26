@@ -2,7 +2,7 @@
 mod gpu_tests;
 
 use crate::shader::constants::{MAX_BUCKET_SIZE, NUM_BUCKETS};
-use crate::shader::types::{PositionY, Y};
+use crate::shader::types::{Position, PositionExt, PositionY, Y};
 use spirv_std::arch::subgroup_shuffle;
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
@@ -95,6 +95,7 @@ fn perform_cross_compare_swap<const MAX_ELEMENTS_PER_THREAD: usize>(
 fn sort_bucket_impl<const MAX_ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     elements_per_thread: u32,
+    bucket_size: u32,
     bucket: &mut [PositionY; MAX_BUCKET_SIZE],
 ) {
     let mut local_data = [PositionY::EMPTY; MAX_ELEMENTS_PER_THREAD];
@@ -107,7 +108,14 @@ fn sort_bucket_impl<const MAX_ELEMENTS_PER_THREAD: usize>(
     )]
     for local_offset in 0..elements_per_thread as usize {
         let bucket_offset = (lane_id * elements_per_thread) as usize + local_offset;
-        local_data[local_offset] = bucket[bucket_offset];
+        local_data[local_offset] = if bucket_offset < bucket_size as usize {
+            bucket[bucket_offset]
+        } else {
+            PositionY {
+                position: Position::SENTINEL,
+                y: Y::from(0),
+            }
+        };
     }
 
     // Iterate over merger stages, doubling block_size each time
@@ -153,6 +161,10 @@ fn sort_bucket_impl<const MAX_ELEMENTS_PER_THREAD: usize>(
 }
 
 #[spirv(compute(threads(256), entry_point_name = "sort_buckets"))]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Both I/O and Vulkan stuff together take a lot of arguments"
+)]
 pub fn sort_buckets(
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
@@ -160,7 +172,8 @@ pub fn sort_buckets(
     #[spirv(subgroup_size)] subgroup_size: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] buckets: &mut [[PositionY; MAX_BUCKET_SIZE];
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] bucket_sizes: &[u32; NUM_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] buckets: &mut [[PositionY; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
 ) {
     let workgroup_id = workgroup_id.x;
@@ -182,6 +195,7 @@ pub fn sort_buckets(
                 sort_bucket_impl::<MAX_BUCKET_SIZE>(
                     subgroup_local_invocation_id,
                     MAX_BUCKET_SIZE as u32 / subgroup_size,
+                    bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );
             }
@@ -191,6 +205,7 @@ pub fn sort_buckets(
                 sort_bucket_impl::<ELEMENTS_PER_THREAD>(
                     subgroup_local_invocation_id,
                     ELEMENTS_PER_THREAD as u32,
+                    bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );
             }
@@ -200,6 +215,7 @@ pub fn sort_buckets(
                 sort_bucket_impl::<ELEMENTS_PER_THREAD>(
                     subgroup_local_invocation_id,
                     ELEMENTS_PER_THREAD as u32,
+                    bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );
             }
@@ -209,6 +225,7 @@ pub fn sort_buckets(
                 sort_bucket_impl::<ELEMENTS_PER_THREAD>(
                     subgroup_local_invocation_id,
                     ELEMENTS_PER_THREAD as u32,
+                    bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );
             }
@@ -218,6 +235,7 @@ pub fn sort_buckets(
                 sort_bucket_impl::<ELEMENTS_PER_THREAD>(
                     subgroup_local_invocation_id,
                     ELEMENTS_PER_THREAD as u32,
+                    bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );
             }
@@ -227,6 +245,7 @@ pub fn sort_buckets(
                 sort_bucket_impl::<ELEMENTS_PER_THREAD>(
                     subgroup_local_invocation_id,
                     ELEMENTS_PER_THREAD as u32,
+                    bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );
             }
