@@ -1,4 +1,3 @@
-pub mod chacha8;
 pub mod compute_f1;
 pub mod compute_fn;
 // TODO: Reuse constants from `ab-proof-of-space` once it compiles with `rust-gpu`

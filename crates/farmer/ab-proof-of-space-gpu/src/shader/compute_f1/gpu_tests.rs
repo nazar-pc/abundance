@@ -1,4 +1,3 @@
-use crate::shader::compute_f1::KEYSTREAM_LEN_WORDS;
 use crate::shader::compute_f1::cpu_tests::correct_compute_f1;
 use crate::shader::constants::{MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS, PARAM_BC};
 use crate::shader::select_shader_features_limits;
@@ -21,14 +20,8 @@ fn compute_f1_gpu() {
     let seed = [1; 32];
 
     let initial_state = ChaCha8State::init(&seed, &[0; _]);
-    let mut chacha8_keystream =
-        unsafe { Box::<[u32; KEYSTREAM_LEN_WORDS]>::new_zeroed().assume_init() };
 
-    for (counter, block) in chacha8_keystream.as_chunks_mut().0.iter_mut().enumerate() {
-        *block = initial_state.compute_block(counter as u32);
-    }
-
-    let Some(actual_output) = block_on(compute_f1(&chacha8_keystream)) else {
+    let Some(actual_output) = block_on(compute_f1(&initial_state)) else {
         if cfg!(feature = "__force-gpu-tests") {
             panic!("Skipping tests, no compatible device detected");
         } else {
@@ -65,7 +58,7 @@ fn compute_f1_gpu() {
     }
 }
 
-async fn compute_f1(chacha8_keystream: &[u32; KEYSTREAM_LEN_WORDS]) -> Option<Vec<Vec<PositionY>>> {
+async fn compute_f1(initial_state: &ChaCha8State) -> Option<Vec<Vec<PositionY>>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
         backends,
@@ -80,7 +73,7 @@ async fn compute_f1(chacha8_keystream: &[u32; KEYSTREAM_LEN_WORDS]) -> Option<Ve
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let Some(adapter_result) = compute_f1_adapter(chacha8_keystream, adapter).await else {
+        let Some(adapter_result) = compute_f1_adapter(initial_state, adapter).await else {
             continue;
         };
 
@@ -109,7 +102,7 @@ async fn compute_f1(chacha8_keystream: &[u32; KEYSTREAM_LEN_WORDS]) -> Option<Ve
 }
 
 async fn compute_f1_adapter(
-    chacha8_keystream: &[u32; KEYSTREAM_LEN_WORDS],
+    initial_state: &ChaCha8State,
     adapter: Adapter,
 ) -> Option<Vec<Vec<PositionY>>> {
     let (shader, required_features, required_limits, _modern) =
@@ -179,12 +172,14 @@ async fn compute_f1_adapter(
         entry_point: Some("compute_f1"),
     });
 
+    let initial_state = initial_state.to_repr();
+
     let initial_state_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
         contents: unsafe {
             slice::from_raw_parts(
-                chacha8_keystream.as_ptr().cast::<u8>(),
-                size_of_val(chacha8_keystream),
+                initial_state.as_ptr().cast::<u8>(),
+                size_of_val(&initial_state),
             )
         },
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,

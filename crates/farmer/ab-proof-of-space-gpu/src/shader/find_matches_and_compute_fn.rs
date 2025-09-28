@@ -222,6 +222,10 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
 /// [`MAX_SUBGROUPS`].
 ///
+/// Buckets need to be sorted by position afterward due to concurrent writes that do not have
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// undefined.
+///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f2"))]
 #[expect(
@@ -282,6 +286,10 @@ pub unsafe fn find_matches_and_compute_f2(
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
 /// [`MAX_SUBGROUPS`].
+///
+/// Buckets need to be sorted by position afterward due to concurrent writes that do not have
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// undefined.
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f3"))]
@@ -344,6 +352,10 @@ pub unsafe fn find_matches_and_compute_f3(
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
 /// [`MAX_SUBGROUPS`].
 ///
+/// Buckets need to be sorted by position afterward due to concurrent writes that do not have
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// undefined.
+///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f4"))]
 #[expect(
@@ -404,6 +416,10 @@ pub unsafe fn find_matches_and_compute_f4(
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
 /// [`MAX_SUBGROUPS`].
+///
+/// Buckets need to be sorted by position afterward due to concurrent writes that do not have
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// undefined.
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f5"))]
@@ -466,6 +482,10 @@ pub unsafe fn find_matches_and_compute_f5(
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
 /// [`MAX_SUBGROUPS`].
 ///
+/// Buckets need to be sorted by position afterward due to concurrent writes that do not have
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// undefined.
+///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f6"))]
 #[expect(
@@ -526,6 +546,10 @@ pub unsafe fn find_matches_and_compute_f6(
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
 /// [`MAX_SUBGROUPS`].
+///
+/// Buckets need to be sorted by position afterward due to concurrent writes that do not have
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// undefined.
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f7"))]
