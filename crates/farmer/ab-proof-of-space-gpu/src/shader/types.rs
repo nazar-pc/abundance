@@ -42,6 +42,11 @@ impl From<Y> for U128 {
     }
 }
 
+impl Y {
+    /// Y that can't exist
+    pub(super) const SENTINEL: Self = Self(u32::MAX);
+}
+
 // TODO: The struct in this form currently doesn't compile:
 //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
 // #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into)]
