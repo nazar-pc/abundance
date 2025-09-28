@@ -1,4 +1,6 @@
+use crate::shader::compute_fn::WORKGROUP_SIZE;
 use crate::shader::compute_fn::cpu_tests::{correct_compute_fn, random_metadata, random_y};
+use crate::shader::constants::MAX_TABLE_SIZE;
 use crate::shader::find_matches_in_buckets::Match;
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Metadata, Position, Y};
@@ -309,7 +311,13 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
         let mut cpass = encoder.begin_compute_pass(&Default::default());
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
-        cpass.dispatch_workgroups(device.limits().max_compute_workgroups_per_dimension, 1, 1);
+        cpass.dispatch_workgroups(
+            MAX_TABLE_SIZE
+                .div_ceil(WORKGROUP_SIZE)
+                .min(device.limits().max_compute_workgroups_per_dimension),
+            1,
+            1,
+        );
     }
 
     encoder.copy_buffer_to_buffer(&ys_gpu, 0, &ys_host, 0, ys_host.size());
