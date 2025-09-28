@@ -72,7 +72,8 @@ fn compute_f1_impl(x: X, chacha8_keystream: &[u32; KEYSTREAM_LEN_WORDS]) -> Y {
 /// keystream straight into buckets of the first table.
 ///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
-/// deterministic order.
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// undefined.
 ///
 /// # Safety
 /// `bucket_counts` must be zero-initialized, which is the case by default in `wgpu`.
