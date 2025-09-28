@@ -1,4 +1,5 @@
 use crate::shader::compute_f1::cpu_tests::correct_compute_f1;
+use crate::shader::compute_f1::{ELEMENTS_PER_INVOCATION, WORKGROUP_SIZE};
 use crate::shader::constants::{MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS, PARAM_BC};
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{PositionY, X};
@@ -238,7 +239,13 @@ async fn compute_f1_adapter(
         let mut cpass = encoder.begin_compute_pass(&Default::default());
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
-        cpass.dispatch_workgroups(device.limits().max_compute_workgroups_per_dimension, 1, 1);
+        cpass.dispatch_workgroups(
+            MAX_TABLE_SIZE
+                .div_ceil(WORKGROUP_SIZE * ELEMENTS_PER_INVOCATION)
+                .min(device.limits().max_compute_workgroups_per_dimension),
+            1,
+            1,
+        );
     }
 
     encoder.copy_buffer_to_buffer(
