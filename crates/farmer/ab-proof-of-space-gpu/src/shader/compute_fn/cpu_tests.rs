@@ -5,7 +5,10 @@ use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{RngCore, SeedableRng};
 
 // TODO: Reuse code from `ab-proof-of-space`, right now this is copy-pasted from there
-pub(super) fn correct_compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
+pub(in super::super) fn correct_compute_fn<
+    const TABLE_NUMBER: u8,
+    const PARENT_TABLE_NUMBER: u8,
+>(
     y: Y,
     left_metadata: Metadata,
     right_metadata: Metadata,
@@ -90,7 +93,10 @@ pub(super) fn random_y(rng: &mut ChaCha8Rng) -> Y {
     Y::from(rng.next_u32() >> (u32::BITS - y_size_bits(K)))
 }
 
-pub(super) fn random_metadata<const TABLE_NUMBER: u8>(rng: &mut ChaCha8Rng) -> Metadata {
+pub(in super::super) fn random_metadata<const TABLE_NUMBER: u8>(rng: &mut ChaCha8Rng) -> Metadata {
+    if metadata_size_bits(K, TABLE_NUMBER) == 0 {
+        return Metadata::from(0);
+    }
     let mut left_metadata = 0u128.to_le_bytes();
     rng.fill_bytes(&mut left_metadata);
     Metadata::from(

@@ -17,45 +17,44 @@ use wgpu::{
 
 #[test]
 fn compute_f2_gpu() {
-    test_compute_fn_gpu_impl::<2, 1>(&mut ChaCha8Rng::from_seed(Default::default()));
+    compute_fn_gpu::<2, 1>();
 }
 
 #[test]
 fn compute_f3_gpu() {
-    test_compute_fn_gpu_impl::<3, 2>(&mut ChaCha8Rng::from_seed(Default::default()));
+    compute_fn_gpu::<3, 2>();
 }
 
 #[test]
 fn compute_f4_gpu() {
-    test_compute_fn_gpu_impl::<4, 3>(&mut ChaCha8Rng::from_seed(Default::default()));
+    compute_fn_gpu::<4, 3>();
 }
 
 #[test]
 fn compute_f5_gpu() {
-    test_compute_fn_gpu_impl::<5, 4>(&mut ChaCha8Rng::from_seed(Default::default()));
+    compute_fn_gpu::<5, 4>();
 }
 
 #[test]
 fn compute_f6_gpu() {
-    test_compute_fn_gpu_impl::<6, 5>(&mut ChaCha8Rng::from_seed(Default::default()));
+    compute_fn_gpu::<6, 5>();
 }
 
 #[test]
 fn compute_f7_gpu() {
-    test_compute_fn_gpu_impl::<7, 6>(&mut ChaCha8Rng::from_seed(Default::default()));
+    compute_fn_gpu::<7, 6>();
 }
 
-fn test_compute_fn_gpu_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
-    rng: &mut ChaCha8Rng,
-) {
+fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
     let parent_table_size = 100_usize;
     let num_matches = 100_usize;
 
     let parent_ys = (0..parent_table_size)
-        .map(|_| random_y(rng))
+        .map(|_| random_y(&mut rng))
         .collect::<Vec<_>>();
     let parent_metadatas = (0..parent_table_size)
-        .map(|_| random_metadata::<PARENT_TABLE_NUMBER>(rng))
+        .map(|_| random_metadata::<PARENT_TABLE_NUMBER>(&mut rng))
         .collect::<Vec<_>>();
     let matches = (0..num_matches)
         .map(|_| {
@@ -131,8 +130,11 @@ async fn compute_fn<const TABLE_NUMBER: u8>(
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let adapter_result =
-            compute_fn_adapter::<TABLE_NUMBER>(matches, parent_metadatas, adapter).await?;
+        let Some(adapter_result) =
+            compute_fn_adapter::<TABLE_NUMBER>(matches, parent_metadatas, adapter).await
+        else {
+            continue;
+        };
 
         match &result {
             Some(result) => {
@@ -155,7 +157,7 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
     let num_matches = matches.len();
 
     let (shader, required_features, required_limits, _modern) =
-        select_shader_features_limits(adapter.features());
+        select_shader_features_limits(&adapter)?;
 
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {

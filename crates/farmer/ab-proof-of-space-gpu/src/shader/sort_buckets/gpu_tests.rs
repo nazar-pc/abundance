@@ -32,7 +32,11 @@ fn sort_buckets_gpu() {
 
     buckets.as_flattened_mut().shuffle(&mut rng);
 
-    let Some(actual_output) = block_on(sort_buckets(&buckets)) else {
+    let reduced_last_bucket_size = MAX_BUCKET_SIZE as u32 - 10;
+    let mut bucket_sizes = Box::new([MAX_BUCKET_SIZE as u32; NUM_BUCKETS]);
+    *bucket_sizes.last_mut().unwrap() = reduced_last_bucket_size;
+
+    let Some(actual_output) = block_on(sort_buckets(&bucket_sizes, &buckets)) else {
         if cfg!(feature = "__force-gpu-tests") {
             panic!("Skipping tests, no compatible device detected");
         } else {
@@ -42,6 +46,12 @@ fn sort_buckets_gpu() {
     };
 
     let mut expected_output = buckets;
+    for entry in &mut expected_output.last_mut().unwrap()[reduced_last_bucket_size as usize..] {
+        *entry = PositionY {
+            position: Position::SENTINEL,
+            y: Y::from(0),
+        };
+    }
     for bucket in expected_output.iter_mut() {
         bucket.sort();
     }
@@ -59,6 +69,7 @@ fn sort_buckets_gpu() {
 }
 
 async fn sort_buckets(
+    bucket_sizes: &[u32; NUM_BUCKETS],
     buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
 ) -> Option<Box<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
@@ -75,7 +86,10 @@ async fn sort_buckets(
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let adapter_result = sort_buckets_adapter(buckets, adapter).await?;
+        let Some(adapter_result) = sort_buckets_adapter(bucket_sizes, buckets, adapter).await
+        else {
+            continue;
+        };
 
         match &result {
             Some(result) => {
@@ -102,11 +116,12 @@ async fn sort_buckets(
 }
 
 async fn sort_buckets_adapter(
+    bucket_sizes: &[u32; NUM_BUCKETS],
     buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     adapter: Adapter,
 ) -> Option<Box<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>> {
     let (shader, required_features, required_limits, _modern) =
-        select_shader_features_limits(adapter.features());
+        select_shader_features_limits(&adapter)?;
 
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {
@@ -123,16 +138,28 @@ async fn sort_buckets_adapter(
 
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         label: None,
-        entries: &[BindGroupLayoutEntry {
-            binding: 0,
-            count: None,
-            visibility: ShaderStages::COMPUTE,
-            ty: BindingType::Buffer {
-                has_dynamic_offset: false,
-                min_binding_size: None,
-                ty: BufferBindingType::Storage { read_only: false },
+        entries: &[
+            BindGroupLayoutEntry {
+                binding: 0,
+                count: None,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Buffer {
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                    ty: BufferBindingType::Storage { read_only: true },
+                },
             },
-        }],
+            BindGroupLayoutEntry {
+                binding: 1,
+                count: None,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Buffer {
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                    ty: BufferBindingType::Storage { read_only: false },
+                },
+            },
+        ],
     });
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
@@ -148,6 +175,17 @@ async fn sort_buckets_adapter(
         layout: Some(&pipeline_layout),
         module: &module,
         entry_point: Some("sort_buckets"),
+    });
+
+    let bucket_sizes_gpu = device.create_buffer_init(&BufferInitDescriptor {
+        label: None,
+        contents: unsafe {
+            slice::from_raw_parts(
+                bucket_sizes.as_ptr().cast::<u8>(),
+                size_of_val(bucket_sizes),
+            )
+        },
+        usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
     });
 
     let buckets_host = device.create_buffer(&BufferDescriptor {
@@ -168,10 +206,16 @@ async fn sort_buckets_adapter(
     let bind_group = device.create_bind_group(&BindGroupDescriptor {
         label: None,
         layout: &bind_group_layout,
-        entries: &[BindGroupEntry {
-            binding: 0,
-            resource: buckets_gpu.as_entire_binding(),
-        }],
+        entries: &[
+            BindGroupEntry {
+                binding: 0,
+                resource: bucket_sizes_gpu.as_entire_binding(),
+            },
+            BindGroupEntry {
+                binding: 1,
+                resource: buckets_gpu.as_entire_binding(),
+            },
+        ],
     });
 
     let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });

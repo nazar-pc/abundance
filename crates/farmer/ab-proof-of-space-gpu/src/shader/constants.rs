@@ -40,3 +40,5 @@ const fn num_buckets(k: u8) -> usize {
 }
 
 pub(super) const NUM_BUCKETS: usize = num_buckets(K);
+// Buckets are matched with a sliding window of `2`, hence one less bucket exists
+pub(super) const NUM_MATCH_BUCKETS: usize = NUM_BUCKETS - 1;

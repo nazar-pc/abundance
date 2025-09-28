@@ -1,12 +1,13 @@
 use crate::shader::constants::{
-    PARAM_B, PARAM_BC, PARAM_C, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
+    MAX_BUCKET_SIZE, PARAM_B, PARAM_BC, PARAM_C, PARAM_M, REDUCED_BUCKET_SIZE,
+    REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_in_buckets::{LeftTargets, LeftTargetsR, Match};
-use crate::shader::types::{Position, PositionExt, Y};
+use crate::shader::types::{Position, PositionExt, PositionY};
 use std::mem::MaybeUninit;
 use std::{array, mem};
 
-pub(super) fn calculate_left_targets() -> Box<LeftTargets> {
+pub(in super::super) fn calculate_left_targets() -> Box<LeftTargets> {
     let mut left_targets = Box::<LeftTargets>::new_uninit();
     // TODO: Consider a helper method here to avoid the need for `unsafe`
     // SAFETY: Same layout and uninitialized in both cases (`LeftTargetsR` is `#[repr(C)]`)
@@ -114,14 +115,10 @@ impl Rmap {
 }
 
 /// For verification use [`has_match`] instead.
-///
-/// # Safety
-/// Left and right bucket positions must correspond to the parent table.
-pub(super) unsafe fn find_matches_in_buckets_correct<'a>(
+pub(in super::super) fn find_matches_in_buckets_correct<'a>(
     left_bucket_index: u32,
-    left_bucket: &[Position; REDUCED_BUCKET_SIZE],
-    right_bucket: &[Position; REDUCED_BUCKET_SIZE],
-    parent_table_ys: &[Y],
+    left_bucket: &[PositionY; MAX_BUCKET_SIZE],
+    right_bucket: &[PositionY; MAX_BUCKET_SIZE],
     // `PARAM_M as usize * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
     matches: &'a mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT + PARAM_M as usize * 2],
@@ -131,17 +128,15 @@ pub(super) unsafe fn find_matches_in_buckets_correct<'a>(
     let right_base = left_base + u32::from(PARAM_BC);
 
     let mut rmap = Rmap::new();
-    for &right_position in right_bucket {
-        if right_position == Position::SENTINEL {
+    for &PositionY { position, y } in right_bucket {
+        if position == Position::SENTINEL {
             break;
         }
-        // SAFETY: Guaranteed by function contract
-        let y = *unsafe { parent_table_ys.get_unchecked(right_position as usize) };
         let r = u32::from(y) - right_base;
         // SAFETY: `r` is within `0..PARAM_BC` range by definition, the right bucket is limited to
         // `REDUCED_BUCKETS_SIZE`
         unsafe {
-            rmap.add(r, right_position);
+            rmap.add(r, position);
         }
     }
 
@@ -151,15 +146,13 @@ pub(super) unsafe fn find_matches_in_buckets_correct<'a>(
 
     // TODO: Simd read for left bucket? It might be more efficient in terms of memory access to
     //  process chunks of the left bucket against one right value for each at a time
-    for &left_position in left_bucket {
+    for &PositionY { position, y } in left_bucket {
         // `next_match_index >= REDUCED_MATCHES_COUNT` is crucial to make sure
-        if left_position == Position::SENTINEL || next_match_index >= REDUCED_MATCHES_COUNT {
+        if position == Position::SENTINEL || next_match_index >= REDUCED_MATCHES_COUNT {
             // Sentinel values are padded to the end of the bucket
             break;
         }
 
-        // SAFETY: Guaranteed by function contract
-        let y = *unsafe { parent_table_ys.get_unchecked(left_position as usize) };
         let r = u32::from(y) - left_base;
         // SAFETY: `r` is within a bucket and exists by definition
         let left_targets_r = unsafe { left_targets_parity.get_unchecked(r as usize) };
@@ -175,7 +168,7 @@ pub(super) unsafe fn find_matches_in_buckets_correct<'a>(
                 // SAFETY: Iteration will stop before `REDUCED_MATCHES_COUNT + PARAM_M * 2`
                 // elements is inserted
                 unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
-                    left_position,
+                    left_position: position,
                     left_y: y,
                     right_position: right_position_a,
                 });
@@ -185,7 +178,7 @@ pub(super) unsafe fn find_matches_in_buckets_correct<'a>(
                     // SAFETY: Iteration will stop before
                     // `REDUCED_MATCHES_COUNT + PARAM_M * 2` elements is inserted
                     unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
-                        left_position,
+                        left_position: position,
                         left_y: y,
                         right_position: right_position_b,
                     });
