@@ -113,7 +113,7 @@ fn sort_bucket_impl<const MAX_ELEMENTS_PER_THREAD: usize>(
         } else {
             PositionY {
                 position: Position::SENTINEL,
-                y: Y::from(0),
+                y: Y::SENTINEL,
             }
         };
     }

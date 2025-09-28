@@ -76,7 +76,7 @@ pub(super) fn find_matches_and_compute_fn_correct<
     for (bucket, initialized) in buckets.iter_mut().zip(bucket_offsets) {
         bucket[usize::from(initialized)..].write_filled(PositionY {
             position: Position::SENTINEL,
-            y: Y::from(0),
+            y: Y::SENTINEL,
         });
     }
 

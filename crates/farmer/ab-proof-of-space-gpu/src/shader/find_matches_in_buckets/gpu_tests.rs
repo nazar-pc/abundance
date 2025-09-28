@@ -36,7 +36,7 @@ fn find_matches_in_buckets_gpu() {
     let buckets = {
         let mut buckets = [[PositionY {
             position: Position::SENTINEL,
-            y: Y::from(0),
+            y: Y::SENTINEL,
         }; MAX_BUCKET_SIZE]; 3];
 
         let mut total_found = [0_usize; 3];

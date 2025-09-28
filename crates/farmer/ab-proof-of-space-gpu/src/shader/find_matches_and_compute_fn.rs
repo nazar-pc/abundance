@@ -67,7 +67,7 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
     // TODO: This should have been `&[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]`, but it
     //  currently doesn't compile if flattened:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * (NUM_MATCH_BUCKETS)],
+    parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
     bucket_counts: &mut [u32; NUM_BUCKETS],
     buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     positions: &mut [MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT],
@@ -146,7 +146,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
     num_subgroups: u32,
     left_targets: &LeftTargets,
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
-    parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * (NUM_MATCH_BUCKETS)],
+    parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
     bucket_counts: &mut [u32; NUM_BUCKETS],
     buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],

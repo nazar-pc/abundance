@@ -100,7 +100,7 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
         for (bucket, initialized) in buckets.iter_mut().zip(bucket_offsets) {
             bucket[initialized..].write_filled(PositionY {
                 position: Position::SENTINEL,
-                y: Y::from(0),
+                y: Y::SENTINEL,
             });
         }
 

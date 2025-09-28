@@ -132,7 +132,7 @@ async fn compute_f1_adapter(
                 ty: BindingType::Buffer {
                     has_dynamic_offset: false,
                     min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: true },
+                    ty: BufferBindingType::Uniform,
                 },
             },
             BindGroupLayoutEntry {
@@ -183,7 +183,7 @@ async fn compute_f1_adapter(
                 size_of_val(&initial_state),
             )
         },
-        usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+        usage: BufferUsages::UNIFORM,
     });
 
     let bucket_counts_host = device.create_buffer(&BufferDescriptor {
