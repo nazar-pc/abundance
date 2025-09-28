@@ -11,7 +11,7 @@ use crate::shader::types::{Position, PositionExt, PositionY, X, Y};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use core::mem::MaybeUninit;
 use spirv_std::arch::atomic_i_add;
-use spirv_std::glam::UVec3;
+use spirv_std::glam::{UVec3, UVec4};
 use spirv_std::memory::{Scope, Semantics};
 use spirv_std::spirv;
 
@@ -43,6 +43,65 @@ const BLOCKS_PER_INVOCATION: u32 = BITS_PER_INVOCATION / CHACHA8_BLOCK_BITS;
 // `+1` is needed due to the way `compute_fn_impl` does slightly outside what it, strictly speaking,
 // needs (for efficiency purposes)
 const INVOCATION_KEYSTREAM_WORDS: usize = BLOCKS_PER_INVOCATION as usize * CHACHA8_BLOCK_WORDS + 1;
+
+#[derive(Debug, Copy, Clone)]
+pub struct UniformChaCha8Block([UVec4; 4]);
+
+impl From<ChaCha8Block> for UniformChaCha8Block {
+    #[inline(always)]
+    fn from(value: ChaCha8Block) -> Self {
+        Self([
+            UVec4 {
+                x: value[0],
+                y: value[1],
+                z: value[2],
+                w: value[3],
+            },
+            UVec4 {
+                x: value[4],
+                y: value[5],
+                z: value[6],
+                w: value[7],
+            },
+            UVec4 {
+                x: value[8],
+                y: value[9],
+                z: value[10],
+                w: value[11],
+            },
+            UVec4 {
+                x: value[12],
+                y: value[13],
+                z: value[14],
+                w: value[15],
+            },
+        ])
+    }
+}
+
+impl From<UniformChaCha8Block> for ChaCha8Block {
+    #[inline(always)]
+    fn from(value: UniformChaCha8Block) -> Self {
+        [
+            value.0[0].x,
+            value.0[0].y,
+            value.0[0].z,
+            value.0[0].w,
+            value.0[1].x,
+            value.0[1].y,
+            value.0[1].z,
+            value.0[1].w,
+            value.0[2].x,
+            value.0[2].y,
+            value.0[2].z,
+            value.0[2].w,
+            value.0[3].x,
+            value.0[3].y,
+            value.0[3].z,
+            value.0[3].w,
+        ]
+    }
+}
 
 // TODO: This is a polyfill to work around for this issue:
 //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -101,7 +160,7 @@ fn compute_f1_impl(x: X, chacha8_keystream: &[u32; INVOCATION_KEYSTREAM_WORDS]) 
 pub unsafe fn compute_f1(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] initial_state: &ChaCha8Block,
+    #[spirv(uniform, descriptor_set = 0, binding = 0)] initial_state: &UniformChaCha8Block,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] bucket_counts: &mut [u32;
              NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
@@ -112,7 +171,7 @@ pub unsafe fn compute_f1(
     let num_workgroups = num_workgroups.x;
 
     let global_size = WORKGROUP_SIZE * num_workgroups;
-    let initial_state = ChaCha8State::from_repr(*initial_state);
+    let initial_state = ChaCha8State::from_repr(ChaCha8Block::from(*initial_state));
 
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
