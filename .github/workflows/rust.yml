@@ -228,12 +228,18 @@ jobs:
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} --cfg chacha20_force_soft" >> $GITHUB_ENV
         if: matrix.miri == true && runner.arch == 'ARM64'
 
-      - name: Install Vulkan runtime and enable shader testing
+      - name: Install Vulkan runtime (Linux)
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends --yes mesa-vulkan-drivers
-          echo "EXTRA_OPTIONS=--features=__force-gpu-tests" >> $GITHUB_ENV
         if: matrix.miri == false && runner.os == 'Linux' && matrix.type == 'together'
+
+      - name: Force shader testing
+        run: |
+          echo "EXTRA_OPTIONS=--features=__force-gpu-tests" >> $GITHUB_ENV
+        # NOTE: `macOS` has paravirtualized GPU available out of the box, but I'm lazy to configure SwiftShader or
+        # something like that on Windows to remove platform check here
+        if: matrix.miri == false && (runner.os == 'Linux' || runner.os == 'macOS') && matrix.type == 'together'
 
       - name: cargo ${{ env.command }}
         run: |
