@@ -23,50 +23,32 @@ use wgpu::{
     MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
 };
 
-// TODO: Fix it on macOS, apparently GitHub Actions support paravirtualized GPU and this currently
-//  fails there
 #[test]
-#[cfg_attr(target_os = "macos", ignore)]
 fn find_matches_and_compute_f2_gpu() {
     find_matches_and_compute_fn_gpu::<2, 1>();
 }
 
-// TODO: Fix it on macOS, apparently GitHub Actions support paravirtualized GPU and this currently
-//  fails there
 #[test]
-#[cfg_attr(target_os = "macos", ignore)]
 fn find_matches_and_compute_f3_gpu() {
     find_matches_and_compute_fn_gpu::<3, 2>();
 }
 
-// TODO: Fix it on macOS, apparently GitHub Actions support paravirtualized GPU and this currently
-//  fails there
 #[test]
-#[cfg_attr(target_os = "macos", ignore)]
 fn find_matches_and_compute_f4_gpu() {
     find_matches_and_compute_fn_gpu::<4, 3>();
 }
 
-// TODO: Fix it on macOS, apparently GitHub Actions support paravirtualized GPU and this currently
-//  fails there
 #[test]
-#[cfg_attr(target_os = "macos", ignore)]
 fn find_matches_and_compute_f5_gpu() {
     find_matches_and_compute_fn_gpu::<5, 4>();
 }
 
-// TODO: Fix it on macOS, apparently GitHub Actions support paravirtualized GPU and this currently
-//  fails there
 #[test]
-#[cfg_attr(target_os = "macos", ignore)]
 fn find_matches_and_compute_f6_gpu() {
     find_matches_and_compute_fn_gpu::<6, 5>();
 }
 
-// TODO: Fix it on macOS, apparently GitHub Actions support paravirtualized GPU and this currently
-//  fails there
 #[test]
-#[cfg_attr(target_os = "macos", ignore)]
 fn find_matches_and_compute_f7_gpu() {
     find_matches_and_compute_fn_gpu::<7, 6>();
 }
