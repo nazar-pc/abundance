@@ -10,7 +10,7 @@ use crate::shader::num::{U64, U64T};
 use crate::shader::types::{Position, PositionExt, PositionY, X, Y};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use core::mem::MaybeUninit;
-use spirv_std::arch::atomic_i_add;
+use spirv_std::arch::atomic_i_increment;
 use spirv_std::glam::{UVec3, UVec4};
 use spirv_std::memory::{Scope, Semantics};
 use spirv_std::spirv;
@@ -209,9 +209,8 @@ pub unsafe fn compute_f1(
             // TODO: Probably should not be unsafe to begin with:
             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
             let bucket_offset = unsafe {
-                atomic_i_add::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
+                atomic_i_increment::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
                     bucket_count,
-                    1,
                 )
             };
 
