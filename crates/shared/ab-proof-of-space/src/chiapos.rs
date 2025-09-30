@@ -49,7 +49,7 @@ impl Tables<$k> {
         ))
     }
 
-    /// Find proof of space quality for given challenge.
+    /// Find proof of space quality for a given challenge.
     #[cfg(all(feature = "alloc", any(feature = "full-chiapos", test)))]
     pub fn find_quality<'a>(
         &'a self,
@@ -58,7 +58,7 @@ impl Tables<$k> {
         self.0.find_quality(challenge)
     }
 
-    /// Find proof of space for given challenge.
+    /// Find proof of space for a given challenge.
     #[cfg(feature = "alloc")]
     pub fn find_proof<'a>(
         &'a self,
@@ -67,7 +67,7 @@ impl Tables<$k> {
         self.0.find_proof(first_challenge_bytes)
     }
 
-    /// Verify proof of space for given seed and challenge.
+    /// Verify proof of space for a given seed and challenge.
     pub fn verify(
         seed: &Seed,
         challenge: &Challenge,
@@ -80,7 +80,7 @@ impl Tables<$k> {
     }
 }
 
-// Only these k values are supported by current implementation
+// Only these k values are supported by the current implementation
 #[cfg(feature = "full-chiapos")]
 impl_any!(15, 16, 18, 19, 21, 22, 23, 24, 25);
 #[cfg(any(feature = "full-chiapos", test))]

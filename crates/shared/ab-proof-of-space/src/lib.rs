@@ -46,12 +46,12 @@ pub enum PosTableType {
 pub trait TableGenerator<T: Table>:
     fmt::Debug + Default + Clone + Send + Sync + Sized + 'static
 {
-    /// Generate new table with 32 bytes seed.
+    /// Generate a new table with 32 bytes seed.
     ///
     /// There is also [`Self::generate_parallel()`] that can achieve lower latency.
     fn generate(&self, seed: &PosSeed) -> T;
 
-    /// Generate new table with 32 bytes seed using parallelism.
+    /// Generate a new table with 32 bytes seed using parallelism.
     ///
     /// This implementation will trade efficiency of CPU and memory usage for lower latency, prefer
     /// [`Self::generate()`] unless lower latency is critical.

@@ -123,8 +123,6 @@ where
     ) -> impl Iterator<Item = Quality> + 'a {
         let last_5_challenge_bits = challenge[challenge.len() - 1] & 0b00011111;
 
-        // We take advantage of the fact that entries are sorted by `y` (as big-endian numbers) to
-        // quickly seek to desired offset
         let first_k_challenge_bits = u32::from_be_bytes(
             challenge[..size_of::<u32>()]
                 .try_into()
@@ -190,8 +188,6 @@ where
         &'a self,
         first_challenge_bytes: [u8; 4],
     ) -> impl Iterator<Item = [u8; 64 * K as usize / 8]> + 'a {
-        // We take advantage of the fact that entries are sorted by `y` (as big-endian numbers) to
-        // quickly seek to desired offset
         let first_k_challenge_bits =
             u32::from_be_bytes(first_challenge_bytes) >> (u32::BITS as usize - usize::from(K));
 
