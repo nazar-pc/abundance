@@ -49,7 +49,6 @@ use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::file_ext::FileExt;
-use ab_farmer_components::reading::ReadSectorRecordChunksMode;
 use ab_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed, sector_size};
 use ab_proof_of_space::Table;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
@@ -310,8 +309,6 @@ where
     pub max_plotting_sectors_per_farm: NonZeroUsize,
     /// Disable farm locking, for example if file system doesn't support it
     pub disable_farm_locking: bool,
-    /// Mode to use for reading of sector record chunks instead
-    pub read_sector_record_chunks_mode: ReadSectorRecordChunksMode,
     /// Prometheus registry
     pub registry: Option<&'a Mutex<&'a mut Registry>>,
     /// Whether to create a farm if it doesn't yet exist
@@ -845,7 +842,6 @@ impl SingleDiskFarm {
             global_mutex,
             max_plotting_sectors_per_farm,
             disable_farm_locking,
-            read_sector_record_chunks_mode,
             registry,
             create,
         } = options;
@@ -1109,7 +1105,6 @@ impl SingleDiskFarm {
                         sectors_being_modified,
                         slot_info_notifications: slot_info_forwarder_receiver,
                         thread_pool: farming_thread_pool,
-                        read_sector_record_chunks_mode,
                         global_mutex,
                         metrics,
                     };
@@ -1154,7 +1149,6 @@ impl SingleDiskFarm {
             Arc::clone(&sectors_metadata),
             erasure_coding,
             sectors_being_modified,
-            read_sector_record_chunks_mode,
             global_mutex,
         );
 

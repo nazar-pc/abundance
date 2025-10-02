@@ -14,7 +14,6 @@ use ab_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use ab_farmer_components::plotting::{
     CpuRecordsEncoder, PlotSectorOptions, PlottedSector, plot_sector,
 };
-use ab_farmer_components::reading::ReadSectorRecordChunksMode;
 use ab_farmer_components::sector::{
     SectorContentsMap, SectorMetadata, SectorMetadataChecksummed, sector_size,
 };
@@ -179,11 +178,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
         if !solution_candidates
             .clone()
-            .into_solutions(
-                erasure_coding,
-                ReadSectorRecordChunksMode::ConcurrentChunks,
-                |seed: &PosSeed| table_generator.generate_parallel(seed),
-            )
+            .into_solutions(erasure_coding, |seed: &PosSeed| {
+                table_generator.generate_parallel(seed)
+            })
             .unwrap()
             .is_empty()
         {
@@ -200,7 +197,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     .clone()
                     .into_solutions(
                         black_box(erasure_coding),
-                        black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
                         black_box(|seed: &PosSeed| table_generator.generate_parallel(seed)),
                     )
                     .unwrap()
@@ -266,7 +262,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                             solution_candidates
                                 .into_solutions(
                                     black_box(erasure_coding),
-                                    black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
                                     black_box(|seed: &PosSeed| {
                                         table_generator.generate_parallel(seed)
                                     }),
