@@ -2,9 +2,15 @@
 //! purposes to reduce memory and CPU usage
 
 #[cfg(feature = "alloc")]
+use crate::PosProofs;
+#[cfg(feature = "alloc")]
 use crate::TableGenerator;
 use crate::{PosTableType, Table};
+#[cfg(feature = "alloc")]
+use ab_core_primitives::pieces::Record;
 use ab_core_primitives::pos::{PosProof, PosSeed};
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 use core::iter;
 
 /// Proof of space table generator.
@@ -18,6 +24,32 @@ pub struct ShimTableGenerator;
 impl TableGenerator<ShimTable> for ShimTableGenerator {
     fn generate(&self, seed: &PosSeed) -> ShimTable {
         ShimTable { seed: *seed }
+    }
+
+    fn create_proofs(&self, seed: &PosSeed) -> Box<PosProofs> {
+        // SAFETY: Zeroed contents is a safe invariant
+        let mut proofs = unsafe { Box::<PosProofs>::new_zeroed().assume_init() };
+
+        let mut num_found_proofs = 0_usize;
+        'outer: for (challenge_indices, found_proofs) in (0..Record::NUM_S_BUCKETS as u32)
+            .array_chunks::<{ u8::BITS as usize }>()
+            .zip(&mut proofs.found_proofs)
+        {
+            for (proof_offset, challenge_index) in challenge_indices.into_iter().enumerate() {
+                if let Some(proof) = find_proof(seed, challenge_index) {
+                    *found_proofs |= 1 << proof_offset;
+
+                    proofs.proofs[num_found_proofs] = proof;
+                    num_found_proofs += 1;
+
+                    if num_found_proofs == Record::NUM_CHUNKS {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+
+        proofs
     }
 }
 

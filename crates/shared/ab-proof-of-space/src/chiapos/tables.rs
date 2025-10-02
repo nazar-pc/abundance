@@ -1,6 +1,8 @@
 #[cfg(all(feature = "alloc", test))]
 mod tests;
 
+#[cfg(feature = "alloc")]
+use crate::chiapos::Proofs;
 use crate::chiapos::Seed;
 #[cfg(feature = "alloc")]
 pub use crate::chiapos::table::TablesCache;
@@ -15,6 +17,10 @@ use crate::chiapos::table::{PrunedTable, Table};
 use crate::chiapos::utils::EvaluatableUsize;
 #[cfg(any(feature = "full-chiapos", test))]
 use crate::chiapos::{Challenge, Quality};
+#[cfg(feature = "alloc")]
+use ab_core_primitives::pieces::Record;
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 use core::array;
 use core::mem::MaybeUninit;
 #[cfg(any(feature = "full-chiapos", test))]
@@ -72,8 +78,10 @@ where
     [(); num_buckets(K)]:,
     [(); num_buckets(K) - 1]:,
 {
-    /// Create Chia proof of space tables. There also exists [`Self::create_parallel()`] that trades
-    /// CPU efficiency and memory usage for lower latency.
+    /// Create Chia proof of space tables.
+    ///
+    /// There is also `Self::create_parallel()` that can achieve higher performance and lower
+    /// latency at the cost of lower CPU efficiency and higher memory usage.
     #[cfg(feature = "alloc")]
     pub(super) fn create(seed: Seed, cache: &TablesCache) -> Self {
         let table_1 = Table::<K, 1>::create(seed);
@@ -94,9 +102,76 @@ where
         }
     }
 
+    /// Create proofs.
+    ///
+    /// This is an optimized combination of `Self::create()` and `Self::find_proof()`.
+    ///
+    /// There is also `Self::create_proofs_parallel()` that can achieve higher performance and lower
+    /// latency at the cost of lower CPU efficiency and higher memory usage.
+    #[cfg(feature = "alloc")]
+    pub(super) fn create_proofs(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>>
+    where
+        [(); 64 * usize::from(K) / 8]:,
+    {
+        let table_1 = Table::<K, 1>::create(seed);
+        let (table_2, _) = Table::<K, 2>::create(table_1, cache);
+        let (table_3, table_2) = Table::<K, 3>::create(table_2, cache);
+        let (table_4, table_3) = Table::<K, 4>::create(table_3, cache);
+        let (table_5, table_4) = Table::<K, 5>::create(table_4, cache);
+        let (table_6, table_5) = Table::<K, 6>::create(table_5, cache);
+        let (table_7, table_6) = Table::<K, 7>::create(table_6, cache);
+
+        let tables = Self {
+            table_2,
+            table_3,
+            table_4,
+            table_5,
+            table_6,
+            table_7,
+        };
+
+        let mut proofs = Box::<Proofs<K>>::new_uninit();
+        {
+            let proofs_ptr = proofs.as_mut().as_mut_ptr();
+            let found_proofs = unsafe {
+                (&raw mut (*proofs_ptr).found_proofs)
+                    .as_uninit_mut()
+                    .expect("Not null; qed")
+            };
+            let found_proofs = found_proofs.write([0; _]);
+            let proofs = unsafe {
+                (&raw mut (*proofs_ptr).proofs)
+                    .cast::<[MaybeUninit<_>; Record::NUM_CHUNKS]>()
+                    .as_mut_unchecked()
+            };
+
+            let mut num_found_proofs = 0_usize;
+            'outer: for (challenge_indices, found_proofs) in (0..Record::NUM_S_BUCKETS as u32)
+                .array_chunks::<{ u8::BITS as usize }>()
+                .zip(found_proofs)
+            {
+                // TODO: Find proofs with SIMD
+                for (proof_offset, challenge_index) in challenge_indices.into_iter().enumerate() {
+                    if let Some(proof) = tables.find_proof_raw(challenge_index).next() {
+                        *found_proofs |= 1 << proof_offset;
+
+                        proofs[num_found_proofs].write(proof);
+                        num_found_proofs += 1;
+
+                        if num_found_proofs == Record::NUM_CHUNKS {
+                            break 'outer;
+                        }
+                    }
+                }
+            }
+        }
+
+        // SAFETY: Fully initialized above
+        unsafe { proofs.assume_init() }
+    }
+
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
-    /// performance (though not efficiency of CPU and memory usage), if you create multiple tables
-    /// in parallel, prefer [`Self::create()`] for better overall performance.
+    /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
     #[cfg(feature = "parallel")]
     pub(super) fn create_parallel(seed: Seed, cache: &TablesCache) -> Self {
         let table_1 = Table::<K, 1>::create_parallel(seed);
@@ -115,6 +190,70 @@ where
             table_6,
             table_7,
         }
+    }
+
+    /// Almost the same as [`Self::create_proofs()`], but uses parallelism internally for better
+    /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
+    #[cfg(feature = "parallel")]
+    pub(super) fn create_proofs_parallel(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>>
+    where
+        [(); 64 * usize::from(K) / 8]:,
+    {
+        let table_1 = Table::<K, 1>::create_parallel(seed);
+        let (table_2, _) = Table::<K, 2>::create_parallel(table_1, cache);
+        let (table_3, table_2) = Table::<K, 3>::create_parallel(table_2, cache);
+        let (table_4, table_3) = Table::<K, 4>::create_parallel(table_3, cache);
+        let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4, cache);
+        let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5, cache);
+        let (table_7, table_6) = Table::<K, 7>::create_parallel(table_6, cache);
+
+        let tables = Self {
+            table_2,
+            table_3,
+            table_4,
+            table_5,
+            table_6,
+            table_7,
+        };
+
+        let mut proofs = Box::<Proofs<K>>::new_uninit();
+        {
+            let proofs_ptr = proofs.as_mut().as_mut_ptr();
+            let found_proofs = unsafe {
+                (&raw mut (*proofs_ptr).found_proofs)
+                    .as_uninit_mut()
+                    .expect("Not null; qed")
+            };
+            let found_proofs = found_proofs.write([0; _]);
+            let proofs = unsafe {
+                (&raw mut (*proofs_ptr).proofs)
+                    .cast::<[MaybeUninit<_>; Record::NUM_CHUNKS]>()
+                    .as_mut_unchecked()
+            };
+
+            let mut num_found_proofs = 0_usize;
+            'outer: for (challenge_indices, found_proofs) in (0..Record::NUM_S_BUCKETS as u32)
+                .array_chunks::<{ u8::BITS as usize }>()
+                .zip(found_proofs)
+            {
+                for (proof_offset, challenge_index) in challenge_indices.into_iter().enumerate() {
+                    // TODO: Find proofs with SIMD
+                    if let Some(proof) = tables.find_proof_raw(challenge_index).next() {
+                        *found_proofs |= 1 << proof_offset;
+
+                        proofs[num_found_proofs].write(proof);
+                        num_found_proofs += 1;
+
+                        if num_found_proofs == Record::NUM_CHUNKS {
+                            break 'outer;
+                        }
+                    }
+                }
+            }
+        }
+
+        // SAFETY: Fully initialized above
+        unsafe { proofs.assume_init() }
     }
 
     /// Find proof of space quality for a given challenge

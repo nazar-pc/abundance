@@ -6,10 +6,58 @@ mod tables;
 mod utils;
 
 #[cfg(feature = "alloc")]
+use crate::PosProofs;
+#[cfg(feature = "alloc")]
 pub use crate::chiapos::table::TablesCache;
 use crate::chiapos::table::{metadata_size_bytes, num_buckets};
 use crate::chiapos::tables::TablesGeneric;
 use crate::chiapos::utils::EvaluatableUsize;
+#[cfg(feature = "alloc")]
+use ab_core_primitives::pieces::Record;
+#[cfg(feature = "alloc")]
+use ab_core_primitives::pos::PosProof;
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
+#[cfg(feature = "alloc")]
+use core::mem::offset_of;
+
+/// Proof-of-space proofs
+#[derive(Debug)]
+#[cfg(feature = "alloc")]
+#[repr(C)]
+pub struct Proofs<const K: u8>
+where
+    [(); 64 * usize::from(K) / 8]:,
+{
+    /// S-buckets at which proofs were found.
+    ///
+    /// S-buckets are grouped by 8, within each `u8` bits right to left (LSB) indicate the presence
+    /// of a proof for corresponding s-bucket, so that the whole array of bytes can be thought as a
+    /// large set of bits.
+    ///
+    /// There will be at most [`Record::NUM_CHUNKS`] proofs produced/bits set to `1`.
+    pub found_proofs: [u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
+    /// [`Record::NUM_CHUNKS`] proofs, corresponding to set bits of `found_proofs`.
+    pub proofs: [[u8; 64 * usize::from(K) / 8]; Record::NUM_CHUNKS],
+}
+
+#[cfg(feature = "alloc")]
+impl From<Box<Proofs<{ PosProof::K }>>> for Box<PosProofs> {
+    fn from(proofs: Box<Proofs<{ PosProof::K }>>) -> Self {
+        // Statically ensure types are the same
+        const {
+            assert!(size_of::<Proofs<{ PosProof::K }>>() == size_of::<PosProofs>());
+            assert!(align_of::<Proofs<{ PosProof::K }>>() == align_of::<PosProofs>());
+            assert!(
+                offset_of!(Proofs<{ PosProof::K }>, found_proofs)
+                    == offset_of!(PosProofs, found_proofs)
+            );
+            assert!(offset_of!(Proofs<{ PosProof::K }>, proofs) == offset_of!(PosProofs, proofs));
+        }
+        // SAFETY: Both structs have an identical layout with `#[repr(C)]` internals
+        unsafe { Box::from_raw(Box::into_raw(proofs).cast()) }
+    }
+}
 
 type Seed = [u8; 32];
 #[cfg(any(feature = "full-chiapos", test))]
@@ -30,8 +78,10 @@ macro_rules! impl_any {
     ($($k: expr$(,)? )*) => {
         $(
 impl Tables<$k> {
-    /// Create Chia proof of space tables. There also exists [`Self::create_parallel()`] that trades
-    /// memory usage for lower latency and higher CPU efficiency.
+    /// Create Chia proof of space tables.
+    ///
+    /// There is also `Self::create_parallel()` that can achieve higher performance and lower
+    /// latency at the cost of lower CPU efficiency and higher memory usage.
     #[cfg(feature = "alloc")]
     pub fn create(seed: Seed, cache: &TablesCache) -> Self {
         Self(TablesGeneric::<$k>::create(
@@ -39,13 +89,28 @@ impl Tables<$k> {
         ))
     }
 
+    /// Create proofs.
+    ///
+    /// This is an optimized combination of `Self::create()` and `Self::find_proof()`.
+    #[cfg(feature = "alloc")]
+    pub fn create_proofs(seed: Seed, cache: &TablesCache) -> Box<Proofs<$k>> {
+        TablesGeneric::<$k>::create_proofs(seed, cache)
+    }
+
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
-    /// latency and performance (though higher memory usage)
+    /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
     #[cfg(feature = "parallel")]
     pub fn create_parallel(seed: Seed, cache: &TablesCache) -> Self {
         Self(TablesGeneric::<$k>::create_parallel(
             seed, cache,
         ))
+    }
+
+    /// Almost the same as [`Self::create_proofs()`], but uses parallelism internally for better
+    /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
+    #[cfg(feature = "alloc")]
+    pub fn create_proofs_parallel(seed: Seed, cache: &TablesCache) -> Box<Proofs<$k>> {
+        TablesGeneric::<$k>::create_proofs_parallel(seed, cache)
     }
 
     /// Find proof of space quality for a given challenge

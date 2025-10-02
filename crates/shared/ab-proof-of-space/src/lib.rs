@@ -10,10 +10,14 @@
     float_erf,
     generic_const_exprs,
     get_mut_unchecked,
+    iter_array_chunks,
     maybe_uninit_fill,
     maybe_uninit_slice,
     maybe_uninit_write_slice,
+    new_zeroed_alloc,
     portable_simd,
+    ptr_as_ref_unchecked,
+    ptr_as_uninit,
     step_trait,
     sync_unsafe_cell,
     vec_into_raw_parts
@@ -26,8 +30,12 @@ pub mod shim;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+#[cfg(feature = "alloc")]
+use ab_core_primitives::pieces::Record;
 use ab_core_primitives::pos::{PosProof, PosSeed};
 use ab_core_primitives::solutions::SolutionPotVerifier;
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use core::fmt;
 
@@ -40,6 +48,23 @@ pub enum PosTableType {
     Shim,
 }
 
+/// Proof-of-space proofs
+#[derive(Debug)]
+#[cfg(feature = "alloc")]
+#[repr(C)]
+pub struct PosProofs {
+    /// S-buckets at which proofs were found.
+    ///
+    /// S-buckets are grouped by 8, within each `u8` bits right to left (LSB) indicate the presence
+    /// of a proof for corresponding s-bucket, so that the whole array of bytes can be thought as a
+    /// large set of bits.
+    ///
+    /// There will be at most [`Record::NUM_CHUNKS`] proofs produced/bits set to `1`.
+    pub found_proofs: [u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
+    /// [`Record::NUM_CHUNKS`] proofs, corresponding to set bits of `found_proofs`.
+    pub proofs: [PosProof; Record::NUM_CHUNKS],
+}
+
 /// Stateful table generator with better performance.
 ///
 /// Prefer cloning it over creating multiple separate generators.
@@ -49,16 +74,28 @@ pub trait TableGenerator<T: Table>:
 {
     /// Generate a new table with 32 bytes seed.
     ///
-    /// There is also [`Self::generate_parallel()`] that can achieve lower latency.
+    /// There is also `Self::generate_parallel()` that can achieve higher performance and lower
+    /// latency at the cost of lower CPU efficiency and higher memory usage.
     fn generate(&self, seed: &PosSeed) -> T;
 
-    /// Generate a new table with 32 bytes seed using parallelism.
+    /// Create proofs with 32 bytes seed.
     ///
-    /// This implementation will trade efficiency of CPU and memory usage for lower latency, prefer
-    /// [`Self::generate()`] unless lower latency is critical.
+    /// There is also `Self::create_proofs_parallel()` that can achieve higher performance and
+    /// lower latency at the cost of lower CPU efficiency and higher memory usage.
+    fn create_proofs(&self, seed: &PosSeed) -> Box<PosProofs>;
+
+    /// Almost the same as [`Self::generate()`], but uses parallelism internally for better
+    /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
     #[cfg(feature = "parallel")]
     fn generate_parallel(&self, seed: &PosSeed) -> T {
         self.generate(seed)
+    }
+
+    /// Almost the same as [`Self::create_proofs()`], but uses parallelism internally for better
+    /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
+    #[cfg(feature = "parallel")]
+    fn create_proofs_parallel(&self, seed: &PosSeed) -> Box<PosProofs> {
+        self.create_proofs(seed)
     }
 }
 

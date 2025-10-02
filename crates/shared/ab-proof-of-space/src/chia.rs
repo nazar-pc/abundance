@@ -1,4 +1,7 @@
 //! Chia proof of space implementation
+
+#[cfg(feature = "alloc")]
+use crate::PosProofs;
 #[cfg(feature = "alloc")]
 use crate::TableGenerator;
 use crate::chiapos::Tables;
@@ -6,6 +9,8 @@ use crate::chiapos::Tables;
 use crate::chiapos::TablesCache;
 use crate::{PosTableType, Table};
 use ab_core_primitives::pos::{PosProof, PosSeed};
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 
 const K: u8 = PosProof::K;
 
@@ -26,11 +31,20 @@ impl TableGenerator<ChiaTable> for ChiaTableGenerator {
         }
     }
 
+    fn create_proofs(&self, seed: &PosSeed) -> Box<PosProofs> {
+        Tables::<K>::create_proofs((*seed).into(), &self.tables_cache).into()
+    }
+
     #[cfg(feature = "parallel")]
     fn generate_parallel(&self, seed: &PosSeed) -> ChiaTable {
         ChiaTable {
             tables: Tables::<K>::create_parallel((*seed).into(), &self.tables_cache),
         }
+    }
+
+    #[cfg(feature = "parallel")]
+    fn create_proofs_parallel(&self, seed: &PosSeed) -> Box<PosProofs> {
+        Tables::<K>::create_proofs_parallel((*seed).into(), &self.tables_cache).into()
     }
 }
 

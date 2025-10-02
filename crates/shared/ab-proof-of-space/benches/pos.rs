@@ -219,12 +219,12 @@ fn pos_bench<PosTable>(
     group.throughput(Throughput::Elements(1));
     group.bench_function("proof/for-record", |b| {
         b.iter(|| {
-            let mut found_proofs = 0_usize;
+            let mut num_found_proofs = 0_usize;
             for challenge_index in 0..Record::NUM_S_BUCKETS as u32 {
                 if table.find_proof(black_box(challenge_index)).is_some() {
-                    found_proofs += 1;
+                    num_found_proofs += 1;
 
-                    if found_proofs == Record::NUM_CHUNKS {
+                    if num_found_proofs == Record::NUM_CHUNKS {
                         break;
                     }
                 }
