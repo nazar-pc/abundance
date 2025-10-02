@@ -1,6 +1,8 @@
 #![feature(const_trait_impl)]
 
 #[cfg(feature = "alloc")]
+use ab_core_primitives::pieces::Record;
+#[cfg(feature = "alloc")]
 use ab_core_primitives::pos::PosSeed;
 use ab_proof_of_space::Table;
 #[cfg(feature = "alloc")]
@@ -211,6 +213,22 @@ fn pos_bench<PosTable>(
                     .find_proof(black_box(challenge_index_with_solution))
                     .is_some()
             );
+        });
+    });
+
+    group.throughput(Throughput::Elements(1));
+    group.bench_function("proof/for-record", |b| {
+        b.iter(|| {
+            let mut found_proofs = 0_usize;
+            for challenge_index in 0..Record::NUM_S_BUCKETS as u32 {
+                if table.find_proof(black_box(challenge_index)).is_some() {
+                    found_proofs += 1;
+
+                    if found_proofs == Record::NUM_CHUNKS {
+                        break;
+                    }
+                }
+            }
         });
     });
 
