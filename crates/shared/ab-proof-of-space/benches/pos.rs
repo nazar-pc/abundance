@@ -249,10 +249,10 @@ fn pos_bench<PosTable>(
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     {
-        // This challenge index with above seed is known to not have a solution
-        let challenge_index_without_solution = 1232460437;
-        // This challenge index with above seed is known to have a solution
-        let challenge_index_with_solution = 600426542;
+        // This challenge index with the above seed is known to not have a solution
+        let challenge_index_without_solution = 15651;
+        // This challenge index with the above seed is known to have a solution
+        let challenge_index_with_solution = 31500;
 
         pos_bench::<ab_proof_of_space::chia::ChiaTable>(
             c,

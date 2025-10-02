@@ -40,7 +40,7 @@ impl Tables<$k> {
     }
 
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
-    /// latency and performance (though higher memory usage).
+    /// latency and performance (though higher memory usage)
     #[cfg(feature = "parallel")]
     pub fn create_parallel(seed: Seed, cache: &TablesCache) -> Self {
         Self(TablesGeneric::<$k>::create_parallel(
@@ -48,7 +48,7 @@ impl Tables<$k> {
         ))
     }
 
-    /// Find proof of space quality for a given challenge.
+    /// Find proof of space quality for a given challenge
     #[cfg(all(feature = "alloc", any(feature = "full-chiapos", test)))]
     pub fn find_quality<'a>(
         &'a self,
@@ -57,8 +57,18 @@ impl Tables<$k> {
         self.0.find_quality(challenge)
     }
 
-    /// Find proof of space for a given challenge.
+    /// Similar to `Self::find_proof()`, but takes the first `k` challenge bits in the least
+    /// significant bits of `u32` as a challenge instead
     #[cfg(feature = "alloc")]
+    pub fn find_proof_raw<'a>(
+        &'a self,
+        first_k_challenge_bits: u32,
+    ) -> impl Iterator<Item = [u8; 64 * $k / 8]> + 'a {
+        self.0.find_proof_raw(first_k_challenge_bits)
+    }
+
+    /// Find proof of space for a given challenge
+    #[cfg(all(feature = "alloc", any(feature = "full-chiapos", test)))]
     pub fn find_proof<'a>(
         &'a self,
         first_challenge_bytes: [u8; 4],
@@ -66,18 +76,17 @@ impl Tables<$k> {
         self.0.find_proof(first_challenge_bytes)
     }
 
-    /// Verify proof of space for a given seed and challenge
-    pub fn verify_only(
+    /// Similar to `Self::verify()`, but takes the first `k` challenge bits in the least significant
+    /// bits of `u32` as a challenge instead and doesn't compute quality
+    pub fn verify_only_raw(
         seed: &Seed,
-        first_challenge_bytes: [u8; 4],
+        first_k_challenge_bits: u32,
         proof_of_space: &[u8; 64 * $k as usize / 8],
     ) -> bool {
-        TablesGeneric::<$k>::verify_only(seed, first_challenge_bytes, proof_of_space)
+        TablesGeneric::<$k>::verify_only_raw(seed, first_k_challenge_bits, proof_of_space)
     }
 
-    /// Verify proof of space for a given seed and challenge.
-    ///
-    /// Similar to [`Self::verify_only()`], but also returns quality on successful verification.
+    /// Verify proof of space for a given seed and challenge
     #[cfg(any(feature = "full-chiapos", test))]
     pub fn verify(
         seed: &Seed,

@@ -184,15 +184,13 @@ where
             })
     }
 
-    /// Find proof of space for a given challenge
+    /// Similar to `Self::find_proof()`, but takes the first `k` challenge bits in the least
+    /// significant bits of `u32` as a challenge instead
     #[cfg(feature = "alloc")]
-    pub(super) fn find_proof<'a>(
+    pub(super) fn find_proof_raw<'a>(
         &'a self,
-        first_challenge_bytes: [u8; 4],
+        first_k_challenge_bits: u32,
     ) -> impl Iterator<Item = [u8; 64 * K as usize / 8]> + 'a {
-        let first_k_challenge_bits =
-            u32::from_be_bytes(first_challenge_bytes) >> (u32::BITS as usize - usize::from(K));
-
         // Iterate just over elements that are matching `first_k_challenge_bits` prefix
         self.table_7.buckets()[Y::bucket_range_from_first_k_bits(first_k_challenge_bits)]
             .iter()
@@ -260,18 +258,25 @@ where
             })
     }
 
-    /// Verify proof of space for a given seed and challenge
-    pub(super) fn verify_only(
-        seed: &Seed,
+    /// Find proof of space for a given challenge
+    #[cfg(all(feature = "alloc", any(feature = "full-chiapos", test)))]
+    pub(super) fn find_proof<'a>(
+        &'a self,
         first_challenge_bytes: [u8; 4],
-        proof_of_space: &[u8; 64 * K as usize / 8],
-    ) -> bool
-    where
-        EvaluatableUsize<{ (K as usize * 2).div_ceil(u8::BITS as usize) }>: Sized,
-    {
+    ) -> impl Iterator<Item = [u8; 64 * K as usize / 8]> + 'a {
         let first_k_challenge_bits =
             u32::from_be_bytes(first_challenge_bytes) >> (u32::BITS as usize - usize::from(K));
 
+        self.find_proof_raw(first_k_challenge_bits)
+    }
+
+    /// Similar to `Self::verify()`, but takes the first `k` challenge bits in the least significant
+    /// bits of `u32` as a challenge instead and doesn't compute quality
+    pub fn verify_only_raw(
+        seed: &Seed,
+        first_k_challenge_bits: u32,
+        proof_of_space: &[u8; 64 * K as usize / 8],
+    ) -> bool {
         let ys_and_metadata = array::from_fn::<_, 64, _>(|offset| {
             let mut pre_x_bytes = 0u64.to_be_bytes();
             let offset_in_bits = usize::from(K) * offset;
@@ -319,9 +324,7 @@ where
         y.first_k_bits() == first_k_challenge_bits
     }
 
-    /// Verify proof of space for a given seed and challenge.
-    ///
-    /// Similar to [`Self::verify_only()`], but also returns quality on successful verification.
+    /// Verify proof of space for a given seed and challenge
     #[cfg(any(feature = "full-chiapos", test))]
     pub(super) fn verify(
         seed: &Seed,
@@ -331,11 +334,11 @@ where
     where
         EvaluatableUsize<{ (K as usize * 2).div_ceil(u8::BITS as usize) }>: Sized,
     {
-        if !Self::verify_only(
-            seed,
-            [challenge[0], challenge[1], challenge[2], challenge[3]],
-            proof_of_space,
-        ) {
+        let first_k_challenge_bits =
+            u32::from_be_bytes([challenge[0], challenge[1], challenge[2], challenge[3]])
+                >> (u32::BITS as usize - usize::from(K));
+
+        if !Self::verify_only_raw(seed, first_k_challenge_bits, proof_of_space) {
             return None;
         }
 

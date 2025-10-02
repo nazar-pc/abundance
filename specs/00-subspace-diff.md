@@ -108,3 +108,6 @@ performance reasons. So as a result, some of the proofs that must exist will not
 
 Since the tables are no longer sorted, proof searching now does full scan of the buckets where matching `y` values are
 potentially located, which while is a bit slower, is more than compensated by table creation performance improvements.
+
+Proofs searching has changed to not converting challenge indices to big-endian numbers and moving them around, which
+breaks compatibility with Subspace but improves performance due to better spatial locality.
