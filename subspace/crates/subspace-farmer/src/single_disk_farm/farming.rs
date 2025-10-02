@@ -22,7 +22,6 @@ use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::ReadAtSync;
 use ab_farmer_components::auditing::{AuditingError, audit_plot_sync};
 use ab_farmer_components::proving::{ProvableSolutions, ProvingError};
-use ab_farmer_components::reading::ReadSectorRecordChunksMode;
 use ab_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed};
 use ab_proof_of_space::{Table, TableGenerator};
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
@@ -88,8 +87,6 @@ where
     /// Optional sector that is currently being modified (for example replotted) and should not be
     /// audited
     pub sectors_being_modified: &'b HashSet<SectorIndex>,
-    /// Mode of reading chunks during proving
-    pub read_sector_record_chunks_mode: ReadSectorRecordChunksMode,
     /// Proof of space table generator
     pub table_generator: &'a PosTable::Generator,
 }
@@ -142,7 +139,6 @@ where
             sectors_metadata,
             erasure_coding,
             sectors_being_modified,
-            read_sector_record_chunks_mode: mode,
             table_generator,
         } = options;
 
@@ -160,11 +156,11 @@ where
             .filter_map(|audit_results| {
                 let sector_index = audit_results.sector_index;
 
-                let sector_solutions = audit_results.solution_candidates.into_solutions(
-                    erasure_coding,
-                    mode,
-                    |seed: &PosSeed| table_generator.generate_parallel(seed),
-                );
+                let sector_solutions = audit_results
+                    .solution_candidates
+                    .into_solutions(erasure_coding, |seed: &PosSeed| {
+                        table_generator.generate_parallel(seed)
+                    });
 
                 let sector_solutions = match sector_solutions {
                     Ok(solutions) => solutions,
@@ -205,7 +201,6 @@ pub(super) struct FarmingOptions<NC, PlotAudit> {
     pub(super) sectors_being_modified: Arc<AsyncRwLock<HashSet<SectorIndex>>>,
     pub(super) slot_info_notifications: mpsc::Receiver<SlotInfo>,
     pub(super) thread_pool: ThreadPool,
-    pub(super) read_sector_record_chunks_mode: ReadSectorRecordChunksMode,
     pub(super) global_mutex: Arc<AsyncMutex<()>>,
     pub(super) metrics: Option<Arc<SingleDiskFarmMetrics>>,
 }
@@ -234,7 +229,6 @@ where
         sectors_being_modified,
         mut slot_info_notifications,
         thread_pool,
-        read_sector_record_chunks_mode,
         global_mutex,
         metrics,
     } = farming_options;
@@ -278,7 +272,6 @@ where
                         sectors_metadata: &sectors_metadata,
                         erasure_coding: &erasure_coding,
                         sectors_being_modified,
-                        read_sector_record_chunks_mode,
                         table_generator: &table_generator,
                     })
                 })?

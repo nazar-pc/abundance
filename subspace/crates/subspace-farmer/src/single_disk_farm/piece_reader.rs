@@ -6,7 +6,6 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceOffset};
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_erasure_coding::ErasureCoding;
-use ab_farmer_components::reading::ReadSectorRecordChunksMode;
 use ab_farmer_components::sector::{SectorMetadataChecksummed, sector_size};
 use ab_farmer_components::{ReadAt, ReadAtAsync, ReadAtSync, reading};
 use ab_proof_of_space::Table;
@@ -57,7 +56,6 @@ impl DiskPieceReader {
         sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
         erasure_coding: ErasureCoding,
         sectors_being_modified: Arc<AsyncRwLock<HashSet<SectorIndex>>>,
-        read_sector_record_chunks_mode: ReadSectorRecordChunksMode,
         global_mutex: Arc<AsyncMutex<()>>,
     ) -> (Self, impl Future<Output = ()>)
     where
@@ -74,7 +72,6 @@ impl DiskPieceReader {
                 erasure_coding,
                 sectors_being_modified,
                 read_piece_receiver,
-                read_sector_record_chunks_mode,
                 global_mutex,
             )
             .await
@@ -117,7 +114,6 @@ async fn read_pieces<PosTable, S>(
     erasure_coding: ErasureCoding,
     sectors_being_modified: Arc<AsyncRwLock<HashSet<SectorIndex>>>,
     mut read_piece_receiver: mpsc::Receiver<ReadPieceRequest>,
-    mode: ReadSectorRecordChunksMode,
     global_mutex: Arc<AsyncMutex<()>>,
 ) where
     PosTable: Table,
@@ -202,7 +198,6 @@ async fn read_pieces<PosTable, S>(
             // TODO: Async
             &ReadAt::from_sync(&sector),
             &erasure_coding,
-            mode,
             &table_generator,
         )
         .await;
@@ -218,7 +213,6 @@ async fn read_piece<PosTable, S, A>(
     sector_metadata: &SectorMetadataChecksummed,
     sector: &ReadAt<S, A>,
     erasure_coding: &ErasureCoding,
-    mode: ReadSectorRecordChunksMode,
     table_generator: &PosTable::Generator,
 ) -> Option<Piece>
 where
@@ -236,7 +230,6 @@ where
         sector_metadata,
         sector,
         erasure_coding,
-        mode,
         table_generator,
     )
     .await

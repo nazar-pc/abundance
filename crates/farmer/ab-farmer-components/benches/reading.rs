@@ -8,7 +8,7 @@ use ab_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use ab_farmer_components::plotting::{
     CpuRecordsEncoder, PlotSectorOptions, PlottedSector, plot_sector,
 };
-use ab_farmer_components::reading::{ReadSectorRecordChunksMode, read_piece};
+use ab_farmer_components::reading::read_piece;
 use ab_farmer_components::sector::{
     SectorContentsMap, SectorMetadata, SectorMetadataChecksummed, sector_size,
 };
@@ -161,7 +161,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 black_box(&plotted_sector.sector_metadata),
                 black_box(&ReadAt::from_sync(&plotted_sector_bytes)),
                 black_box(&erasure_coding),
-                black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
                 black_box(&table_generator),
             )
             .now_or_never()
@@ -205,7 +204,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                         black_box(&plotted_sector.sector_metadata),
                         black_box(&ReadAt::from_sync(&sector)),
                         black_box(&erasure_coding),
-                        black_box(ReadSectorRecordChunksMode::ConcurrentChunks),
                         black_box(&table_generator),
                     )
                     .now_or_never()

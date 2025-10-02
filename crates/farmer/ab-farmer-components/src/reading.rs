@@ -18,10 +18,9 @@ use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use parity_scale_codec::Decode;
 use rayon::prelude::*;
+use std::io;
 use std::mem::ManuallyDrop;
 use std::simd::Simd;
-use std::str::FromStr;
-use std::{fmt, io};
 use thiserror::Error;
 use tracing::debug;
 
@@ -90,45 +89,6 @@ impl ReadingError {
     }
 }
 
-/// Defines a mode of reading chunks in [`read_sector_record_chunks`].
-///
-/// Which option that is slower or faster depends on disk used, there is no one-size-fits-all here,
-/// unfortunately.
-#[derive(Debug, Copy, Clone)]
-pub enum ReadSectorRecordChunksMode {
-    /// Read individual chunks ([`RecordChunk::SIZE`] in size) concurrently, which results in lower
-    /// total data transfer, but requires for SSD to support high concurrency and low latency
-    ConcurrentChunks,
-    /// Read the whole sector at once and extract chunks from in-memory buffer, which uses more
-    /// memory, but only requires linear read speed from the disk to be decent
-    WholeSector,
-}
-
-impl fmt::Display for ReadSectorRecordChunksMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ConcurrentChunks => {
-                write!(f, "ConcurrentChunks")
-            }
-            Self::WholeSector => {
-                write!(f, "WholeSector")
-            }
-        }
-    }
-}
-
-impl FromStr for ReadSectorRecordChunksMode {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "ConcurrentChunks" => Ok(Self::ConcurrentChunks),
-            "WholeSector" => Ok(Self::WholeSector),
-            s => Err(format!("Can't parse {s} as `ReadSectorRecordChunksMode`")),
-        }
-    }
-}
-
 // TODO: Workaround for https://github.com/rust-lang/rust/issues/144690 that gets triggered on
 //  `s_bucket_offsets` argument below
 const _: () = {
@@ -147,7 +107,6 @@ pub async fn read_sector_record_chunks<PosTable, S, A>(
     sector_contents_map: &SectorContentsMap,
     pos_table: &PosTable,
     sector: &ReadAt<S, A>,
-    mode: ReadSectorRecordChunksMode,
 ) -> Result<Box<[Option<RecordChunk>; Record::NUM_S_BUCKETS]>, ReadingError>
 where
     PosTable: Table,
@@ -185,43 +144,20 @@ where
         .collect::<Vec<_>>();
 
     let sector_contents_map_size = SectorContentsMap::encoded_size(pieces_in_sector) as u64;
-    let sector_bytes = match mode {
-        ReadSectorRecordChunksMode::ConcurrentChunks => None,
-        ReadSectorRecordChunksMode::WholeSector => {
-            Some(vec![0u8; crate::sector::sector_size(pieces_in_sector)])
-        }
-    };
     match sector {
         ReadAt::Sync(sector) => {
-            let sector_bytes = {
-                if let Some(mut sector_bytes) = sector_bytes {
-                    sector.read_at(&mut sector_bytes, 0)?;
-                    Some(sector_bytes)
-                } else {
-                    None
-                }
-            };
             read_chunks_inputs.into_par_iter().flatten().try_for_each(
                 |(maybe_record_chunk, chunk_location, encoded_chunk_used, s_bucket)| {
                     let mut record_chunk = [0; RecordChunk::SIZE];
-                    if let Some(sector_bytes) = &sector_bytes {
-                        record_chunk.copy_from_slice(
-                            &sector_bytes[sector_contents_map_size as usize
-                                + chunk_location as usize * RecordChunk::SIZE..]
-                                [..RecordChunk::SIZE],
-                        );
-                    } else {
-                        sector
-                            .read_at(
-                                &mut record_chunk,
-                                sector_contents_map_size
-                                    + chunk_location * RecordChunk::SIZE as u64,
-                            )
-                            .map_err(|error| ReadingError::FailedToReadChunk {
-                                chunk_location,
-                                error,
-                            })?;
-                    }
+                    sector
+                        .read_at(
+                            &mut record_chunk,
+                            sector_contents_map_size + chunk_location * RecordChunk::SIZE as u64,
+                        )
+                        .map_err(|error| ReadingError::FailedToReadChunk {
+                            chunk_location,
+                            error,
+                        })?;
 
                     // Decode chunk if necessary
                     if encoded_chunk_used {
@@ -240,39 +176,24 @@ where
             )?;
         }
         ReadAt::Async(sector) => {
-            let sector_bytes = &{
-                if let Some(sector_bytes) = sector_bytes {
-                    Some(sector.read_at(sector_bytes, 0).await?)
-                } else {
-                    None
-                }
-            };
             let processing_chunks = read_chunks_inputs
                 .into_iter()
                 .flatten()
                 .map(
                     |(maybe_record_chunk, chunk_location, encoded_chunk_used, s_bucket)| async move {
                         let mut record_chunk = [0; RecordChunk::SIZE];
-                        if let Some(sector_bytes) = &sector_bytes {
-                            record_chunk.copy_from_slice(
-                                &sector_bytes[sector_contents_map_size as usize
-                                    + chunk_location as usize * RecordChunk::SIZE..]
-                                    [..RecordChunk::SIZE],
-                            );
-                        } else {
-                            record_chunk.copy_from_slice(
-                                &sector
-                                    .read_at(
-                                        vec![0; RecordChunk::SIZE],
-                                        sector_contents_map_size + chunk_location * RecordChunk::SIZE as u64,
-                                    )
-                                    .await
-                                    .map_err(|error| ReadingError::FailedToReadChunk {
-                                        chunk_location,
-                                        error,
-                                    })?
-                            );
-                        }
+                        record_chunk.copy_from_slice(
+                            &sector
+                                .read_at(
+                                    vec![0; RecordChunk::SIZE],
+                                    sector_contents_map_size + chunk_location * RecordChunk::SIZE as u64,
+                                )
+                                .await
+                                .map_err(|error| ReadingError::FailedToReadChunk {
+                                    chunk_location,
+                                    error,
+                                })?
+                        );
 
 
                         // Decode chunk if necessary
@@ -448,7 +369,6 @@ pub async fn read_piece<PosTable, S, A>(
     sector_metadata: &SectorMetadataChecksummed,
     sector: &ReadAt<S, A>,
     erasure_coding: &ErasureCoding,
-    mode: ReadSectorRecordChunksMode,
     table_generator: &PosTable::Generator,
 ) -> Result<Piece, ReadingError>
 where
@@ -480,7 +400,6 @@ where
         &sector_contents_map,
         &table_generator.generate(&sector_id.derive_evaluation_seed(piece_offset)),
         sector,
-        mode,
     )
     .await?;
     // Restore source record scalars

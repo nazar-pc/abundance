@@ -3,7 +3,6 @@
 use crate::commands::shared::DiskFarm;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_erasure_coding::ErasureCoding;
-use ab_farmer_components::reading::ReadSectorRecordChunksMode;
 use ab_proof_of_space::Table;
 use anyhow::anyhow;
 use async_lock::Mutex as AsyncMutex;
@@ -178,7 +177,6 @@ where
         disk_farms = vec![DiskFarm {
             directory: tmp_directory.as_ref().to_path_buf(),
             allocated_space: plot_size.as_u64(),
-            read_sector_record_chunks_mode: Some(ReadSectorRecordChunksMode::ConcurrentChunks),
         }];
 
         Some(tmp_directory)
@@ -278,9 +276,6 @@ where
                             global_mutex,
                             max_plotting_sectors_per_farm,
                             disable_farm_locking,
-                            read_sector_record_chunks_mode: disk_farm
-                                .read_sector_record_chunks_mode
-                                .unwrap_or(ReadSectorRecordChunksMode::ConcurrentChunks),
                             registry: Some(registry),
                             create,
                         },

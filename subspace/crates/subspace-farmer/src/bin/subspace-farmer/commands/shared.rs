@@ -1,6 +1,5 @@
 pub(super) mod network;
 
-use ab_farmer_components::reading::ReadSectorRecordChunksMode;
 use bytesize::ByteSize;
 use clap::Parser;
 use std::fmt;
@@ -64,8 +63,6 @@ pub(in super::super) struct DiskFarm {
     pub(in super::super) directory: PathBuf,
     /// How much space in bytes can farm use
     pub(in super::super) allocated_space: u64,
-    /// Which mode to use for reading of sector record chunks
-    pub(in super::super) read_sector_record_chunks_mode: Option<ReadSectorRecordChunksMode>,
 }
 
 impl FromStr for DiskFarm {
@@ -80,7 +77,6 @@ impl FromStr for DiskFarm {
 
         let mut plot_directory = None;
         let mut allocated_space = None;
-        let mut read_sector_record_chunks_mode = None;
 
         for part in parts {
             let part = part.splitn(2, '=').collect::<Vec<_>>();
@@ -105,15 +101,6 @@ impl FromStr for DiskFarm {
                             .as_u64(),
                     );
                 }
-                "record-chunks-mode" => {
-                    read_sector_record_chunks_mode.replace(
-                        value
-                            .parse::<ReadSectorRecordChunksMode>()
-                            .map_err(|error| {
-                                format!("Failed to parse `record-chunks-mode` \"{value}\": {error}")
-                            })?,
-                    );
-                }
                 key => {
                     return Err(format!(
                         "Key \"{key}\" is not supported, only `path`, `size` or \
@@ -128,7 +115,6 @@ impl FromStr for DiskFarm {
                 .ok_or("`path` key is required with path to directory where farm will be stored")?,
             allocated_space: allocated_space
                 .ok_or("`size` key is required with allocated amount of disk space")?,
-            read_sector_record_chunks_mode,
         })
     }
 }

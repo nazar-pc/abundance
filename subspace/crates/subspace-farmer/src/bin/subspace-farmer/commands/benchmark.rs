@@ -3,7 +3,6 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::solutions::SolutionRange;
 use ab_erasure_coding::ErasureCoding;
-use ab_farmer_components::reading::ReadSectorRecordChunksMode;
 use ab_farmer_components::sector::sector_size;
 use ab_proof_of_space::Table;
 use anyhow::anyhow;
@@ -192,8 +191,6 @@ where
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
                             sectors_being_modified: &HashSet::default(),
-                            read_sector_record_chunks_mode:
-                                ReadSectorRecordChunksMode::ConcurrentChunks,
                             table_generator: &table_generator,
                         };
 
@@ -225,8 +222,6 @@ where
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
                             sectors_being_modified: &HashSet::default(),
-                            read_sector_record_chunks_mode:
-                                ReadSectorRecordChunksMode::ConcurrentChunks,
                             table_generator: &table_generator,
                         };
 
@@ -256,8 +251,6 @@ where
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
                             sectors_being_modified: &HashSet::default(),
-                            read_sector_record_chunks_mode:
-                                ReadSectorRecordChunksMode::ConcurrentChunks,
                             table_generator: &table_generator,
                         };
 
@@ -351,38 +344,12 @@ where
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,
                 sectors_being_modified: &HashSet::default(),
-                read_sector_record_chunks_mode: ReadSectorRecordChunksMode::ConcurrentChunks,
                 table_generator: &table_generator,
             };
 
             let mut audit_results = plot_audit.audit(options).unwrap();
 
-            group.bench_function("plot/single/concurrent-chunks", |b| {
-                b.iter_batched(
-                    || {
-                        if let Some(result) = audit_results.pop() {
-                            return result;
-                        }
-
-                        options.slot_info.global_challenge =
-                            Blake3Hash::from(rand::random::<[u8; 32]>());
-                        audit_results = plot_audit.audit(options).unwrap();
-
-                        audit_results.pop().unwrap()
-                    },
-                    |(_sector_index, mut provable_solutions)| {
-                        while black_box(provable_solutions.next()).is_none() {
-                            // Try to create one solution and exit
-                        }
-                    },
-                    BatchSize::SmallInput,
-                )
-            });
-
-            options.read_sector_record_chunks_mode = ReadSectorRecordChunksMode::WholeSector;
-            let mut audit_results = plot_audit.audit(options).unwrap();
-
-            group.bench_function("plot/single/whole-sector", |b| {
+            group.bench_function("plot/single", |b| {
                 b.iter_batched(
                     || {
                         if let Some(result) = audit_results.pop() {
@@ -421,38 +388,12 @@ where
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,
                 sectors_being_modified: &HashSet::default(),
-                read_sector_record_chunks_mode: ReadSectorRecordChunksMode::ConcurrentChunks,
                 table_generator: &table_generator,
             };
 
             let mut audit_results = plot_audit.audit(options).unwrap();
 
-            group.bench_function("plot/rayon/unbuffered/concurrent-chunks", |b| {
-                b.iter_batched(
-                    || {
-                        if let Some(result) = audit_results.pop() {
-                            return result;
-                        }
-
-                        options.slot_info.global_challenge =
-                            Blake3Hash::from(rand::random::<[u8; 32]>());
-                        audit_results = plot_audit.audit(options).unwrap();
-
-                        audit_results.pop().unwrap()
-                    },
-                    |(_sector_index, mut provable_solutions)| {
-                        while black_box(provable_solutions.next()).is_none() {
-                            // Try to create one solution and exit
-                        }
-                    },
-                    BatchSize::SmallInput,
-                )
-            });
-
-            options.read_sector_record_chunks_mode = ReadSectorRecordChunksMode::WholeSector;
-            let mut audit_results = plot_audit.audit(options).unwrap();
-
-            group.bench_function("plot/rayon/unbuffered/whole-sector", |b| {
+            group.bench_function("plot/rayon/unbuffered", |b| {
                 b.iter_batched(
                     || {
                         if let Some(result) = audit_results.pop() {
@@ -489,38 +430,12 @@ where
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,
                 sectors_being_modified: &HashSet::default(),
-                read_sector_record_chunks_mode: ReadSectorRecordChunksMode::ConcurrentChunks,
                 table_generator: &table_generator,
             };
 
             let mut audit_results = plot_audit.audit(options).unwrap();
 
-            group.bench_function("plot/rayon/regular/concurrent-chunks", |b| {
-                b.iter_batched(
-                    || {
-                        if let Some(result) = audit_results.pop() {
-                            return result;
-                        }
-
-                        options.slot_info.global_challenge =
-                            Blake3Hash::from(rand::random::<[u8; 32]>());
-                        audit_results = plot_audit.audit(options).unwrap();
-
-                        audit_results.pop().unwrap()
-                    },
-                    |(_sector_index, mut provable_solutions)| {
-                        while black_box(provable_solutions.next()).is_none() {
-                            // Try to create one solution and exit
-                        }
-                    },
-                    BatchSize::SmallInput,
-                )
-            });
-
-            options.read_sector_record_chunks_mode = ReadSectorRecordChunksMode::WholeSector;
-            let mut audit_results = plot_audit.audit(options).unwrap();
-
-            group.bench_function("plot/rayon/regular/whole-sector", |b| {
+            group.bench_function("plot/rayon/regular", |b| {
                 b.iter_batched(
                     || {
                         if let Some(result) = audit_results.pop() {

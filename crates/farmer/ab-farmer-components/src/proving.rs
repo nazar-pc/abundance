@@ -5,8 +5,7 @@
 
 use crate::auditing::ChunkCandidate;
 use crate::reading::{
-    ReadSectorRecordChunksMode, ReadingError, read_record_metadata, read_sector_record_chunks,
-    recover_extended_record_chunks,
+    ReadingError, read_record_metadata, read_sector_record_chunks, recover_extended_record_chunks,
 };
 use crate::sector::{
     SectorContentsMap, SectorContentsMapFromBytesError, SectorMetadataChecksummed,
@@ -144,7 +143,6 @@ where
     pub fn into_solutions<PosTable, TableGenerator>(
         self,
         erasure_coding: &'a ErasureCoding,
-        mode: ReadSectorRecordChunksMode,
         table_generator: TableGenerator,
     ) -> Result<impl ProvableSolutions<Item = MaybeSolution> + 'a, ProvingError>
     where
@@ -159,7 +157,6 @@ where
             self.sector_metadata,
             erasure_coding,
             self.chunk_candidates,
-            mode,
             table_generator,
         )
     }
@@ -184,7 +181,6 @@ where
     winning_chunks: VecDeque<WinningChunk>,
     count: usize,
     best_solution_distance: Option<SolutionDistance>,
-    mode: ReadSectorRecordChunksMode,
     table_generator: TableGenerator,
 }
 
@@ -226,7 +222,6 @@ where
                 &self.sector_contents_map,
                 &pos_table,
                 &self.sector,
-                self.mode,
             );
             let sector_record_chunks = sector_record_chunks_fut
                 .now_or_never()
@@ -328,7 +323,6 @@ where
         sector_metadata: &'a SectorMetadataChecksummed,
         erasure_coding: &'a ErasureCoding,
         chunk_candidates: VecDeque<ChunkCandidate>,
-        mode: ReadSectorRecordChunksMode,
         table_generator: TableGenerator,
     ) -> Result<Self, ProvingError> {
         let sector_contents_map = {
@@ -381,7 +375,6 @@ where
             winning_chunks,
             count,
             best_solution_distance,
-            mode,
             table_generator,
         })
     }
