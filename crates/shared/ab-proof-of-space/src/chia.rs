@@ -45,9 +45,7 @@ pub struct ChiaTable {
 
 impl ab_core_primitives::solutions::SolutionPotVerifier for ChiaTable {
     fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
-        let mut challenge = [0; 32];
-        challenge[..size_of::<u32>()].copy_from_slice(&challenge_index.to_le_bytes());
-        Tables::<K>::verify(seed, &challenge, proof).is_some()
+        Tables::<K>::verify_only_raw(seed, challenge_index, proof)
     }
 }
 
@@ -58,10 +56,8 @@ impl Table for ChiaTable {
 
     #[cfg(feature = "alloc")]
     fn find_proof(&self, challenge_index: u32) -> Option<PosProof> {
-        let first_challenge_bytes = challenge_index.to_le_bytes();
-
         self.tables
-            .find_proof(first_challenge_bytes)
+            .find_proof_raw(challenge_index)
             .next()
             .map(PosProof::from)
     }
@@ -92,12 +88,12 @@ mod tests {
         #[cfg(feature = "parallel")]
         let table_parallel = generator.generate_parallel(&seed);
 
-        assert!(table.find_proof(1232460437).is_none());
+        assert!(table.find_proof(15651).is_none());
         #[cfg(feature = "parallel")]
-        assert!(table_parallel.find_proof(1232460437).is_none());
+        assert!(table_parallel.find_proof(15651).is_none());
 
         {
-            let challenge_index = 600426542;
+            let challenge_index = 31500;
             let proof = table.find_proof(challenge_index).unwrap();
             #[cfg(feature = "parallel")]
             assert_eq!(proof, table_parallel.find_proof(challenge_index).unwrap());

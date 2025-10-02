@@ -1,6 +1,7 @@
 #[cfg(all(feature = "alloc", test))]
 mod tests;
 
+use crate::chiapos::Seed;
 #[cfg(feature = "alloc")]
 pub use crate::chiapos::table::TablesCache;
 #[cfg(feature = "alloc")]
@@ -12,7 +13,8 @@ use crate::chiapos::table::{
 #[cfg(feature = "alloc")]
 use crate::chiapos::table::{PrunedTable, Table};
 use crate::chiapos::utils::EvaluatableUsize;
-use crate::chiapos::{Challenge, Quality, Seed};
+#[cfg(any(feature = "full-chiapos", test))]
+use crate::chiapos::{Challenge, Quality};
 use core::array;
 use core::mem::MaybeUninit;
 #[cfg(any(feature = "full-chiapos", test))]
@@ -123,8 +125,6 @@ where
     ) -> impl Iterator<Item = Quality> + 'a {
         let last_5_challenge_bits = challenge[challenge.len() - 1] & 0b00011111;
 
-        // We take advantage of the fact that entries are sorted by `y` (as big-endian numbers) to
-        // quickly seek to desired offset
         let first_k_challenge_bits = u32::from_be_bytes(
             challenge[..size_of::<u32>()]
                 .try_into()
@@ -184,17 +184,13 @@ where
             })
     }
 
-    /// Find proof of space for a given challenge
+    /// Similar to `Self::find_proof()`, but takes the first `k` challenge bits in the least
+    /// significant bits of `u32` as a challenge instead
     #[cfg(feature = "alloc")]
-    pub(super) fn find_proof<'a>(
+    pub(super) fn find_proof_raw<'a>(
         &'a self,
-        first_challenge_bytes: [u8; 4],
+        first_k_challenge_bits: u32,
     ) -> impl Iterator<Item = [u8; 64 * K as usize / 8]> + 'a {
-        // We take advantage of the fact that entries are sorted by `y` (as big-endian numbers) to
-        // quickly seek to desired offset
-        let first_k_challenge_bits =
-            u32::from_be_bytes(first_challenge_bytes) >> (u32::BITS as usize - usize::from(K));
-
         // Iterate just over elements that are matching `first_k_challenge_bits` prefix
         self.table_7.buckets()[Y::bucket_range_from_first_k_bits(first_k_challenge_bits)]
             .iter()
@@ -262,23 +258,25 @@ where
             })
     }
 
-    /// Verify proof of space for a given seed and challenge.
-    ///
-    /// Returns quality on successful verification.
-    pub(super) fn verify(
-        seed: &Seed,
-        challenge: &Challenge,
-        proof_of_space: &[u8; 64 * K as usize / 8],
-    ) -> Option<Quality>
-    where
-        EvaluatableUsize<{ (K as usize * 2).div_ceil(u8::BITS as usize) }>: Sized,
-    {
-        let first_k_challenge_bits = u32::from_be_bytes(
-            challenge[..size_of::<u32>()]
-                .try_into()
-                .expect("Challenge is known to statically have enough bytes; qed"),
-        ) >> (u32::BITS as usize - usize::from(K));
+    /// Find proof of space for a given challenge
+    #[cfg(all(feature = "alloc", any(feature = "full-chiapos", test)))]
+    pub(super) fn find_proof<'a>(
+        &'a self,
+        first_challenge_bytes: [u8; 4],
+    ) -> impl Iterator<Item = [u8; 64 * K as usize / 8]> + 'a {
+        let first_k_challenge_bits =
+            u32::from_be_bytes(first_challenge_bytes) >> (u32::BITS as usize - usize::from(K));
 
+        self.find_proof_raw(first_k_challenge_bits)
+    }
+
+    /// Similar to `Self::verify()`, but takes the first `k` challenge bits in the least significant
+    /// bits of `u32` as a challenge instead and doesn't compute quality
+    pub fn verify_only_raw(
+        seed: &Seed,
+        first_k_challenge_bits: u32,
+        proof_of_space: &[u8; 64 * K as usize / 8],
+    ) -> bool {
         let ys_and_metadata = array::from_fn::<_, 64, _>(|offset| {
             let mut pre_x_bytes = 0u64.to_be_bytes();
             let offset_in_bits = usize::from(K) * offset;
@@ -318,52 +316,61 @@ where
         let ys_and_metadata =
             Self::collect_ys_and_metadata::<7, 6, 2>(ys_and_metadata, &mut next_ys_and_metadata);
 
-        let (y, _metadata) = ys_and_metadata.first()?;
+        let Some((y, _metadata)) = ys_and_metadata.first() else {
+            return false;
+        };
 
         // Check if the first K bits of `y` match
-        if y.first_k_bits() != first_k_challenge_bits {
+        y.first_k_bits() == first_k_challenge_bits
+    }
+
+    /// Verify proof of space for a given seed and challenge
+    #[cfg(any(feature = "full-chiapos", test))]
+    pub(super) fn verify(
+        seed: &Seed,
+        challenge: &Challenge,
+        proof_of_space: &[u8; 64 * K as usize / 8],
+    ) -> Option<Quality>
+    where
+        EvaluatableUsize<{ (K as usize * 2).div_ceil(u8::BITS as usize) }>: Sized,
+    {
+        let first_k_challenge_bits =
+            u32::from_be_bytes([challenge[0], challenge[1], challenge[2], challenge[3]])
+                >> (u32::BITS as usize - usize::from(K));
+
+        if !Self::verify_only_raw(seed, first_k_challenge_bits, proof_of_space) {
             return None;
         }
 
-        // Quality is not used anywhere, so only enable it for tests
-        #[cfg(not(any(feature = "full-chiapos", test)))]
-        {
-            Some(())
-        }
-        #[cfg(any(feature = "full-chiapos", test))]
-        {
-            let last_5_challenge_bits = challenge[challenge.len() - 1] & 0b00011111;
+        let last_5_challenge_bits = challenge[challenge.len() - 1] & 0b00011111;
 
-            let mut quality_index = 0_usize.to_be_bytes();
-            quality_index[0] = last_5_challenge_bits;
-            let quality_index = usize::from_be_bytes(quality_index);
+        let mut quality_index = 0_usize.to_be_bytes();
+        quality_index[0] = last_5_challenge_bits;
+        let quality_index = usize::from_be_bytes(quality_index);
 
-            // NOTE: this works correctly but may overflow if `quality_index` is changed to
-            // not be zero-initialized anymore
-            let left_right_xs_bit_offset = quality_index * usize::from(K * 2);
-            // Collect `left_x` and `right_x` bits, potentially with extra bits at the beginning
-            // and the end
-            let left_right_xs_bytes =
-                &proof_of_space[left_right_xs_bit_offset / u8::BITS as usize..]
-                    [..(left_right_xs_bit_offset % u8::BITS as usize + usize::from(K * 2))
-                        .div_ceil(u8::BITS as usize)];
+        // NOTE: this works correctly but may overflow if `quality_index` is changed to
+        // not be zero-initialized anymore
+        let left_right_xs_bit_offset = quality_index * usize::from(K * 2);
+        // Collect `left_x` and `right_x` bits, potentially with extra bits at the beginning
+        // and the end
+        let left_right_xs_bytes = &proof_of_space[left_right_xs_bit_offset / u8::BITS as usize..]
+            [..(left_right_xs_bit_offset % u8::BITS as usize + usize::from(K * 2))
+                .div_ceil(u8::BITS as usize)];
 
-            let mut left_right_xs = 0u64.to_be_bytes();
-            left_right_xs[..left_right_xs_bytes.len()].copy_from_slice(left_right_xs_bytes);
-            // Move `left_x` and `right_x` bits to most significant bits
-            let left_right_xs =
-                u64::from_be_bytes(left_right_xs) << (left_right_xs_bit_offset % u8::BITS as usize);
-            // Clear extra bits
-            let left_right_xs_mask = u64::MAX << (u64::BITS as usize - usize::from(K * 2));
-            let left_right_xs = left_right_xs & left_right_xs_mask;
+        let mut left_right_xs = 0u64.to_be_bytes();
+        left_right_xs[..left_right_xs_bytes.len()].copy_from_slice(left_right_xs_bytes);
+        // Move `left_x` and `right_x` bits to most significant bits
+        let left_right_xs =
+            u64::from_be_bytes(left_right_xs) << (left_right_xs_bit_offset % u8::BITS as usize);
+        // Clear extra bits
+        let left_right_xs_mask = u64::MAX << (u64::BITS as usize - usize::from(K * 2));
+        let left_right_xs = left_right_xs & left_right_xs_mask;
 
-            let mut hasher = Sha256::new();
-            hasher.update(challenge);
-            hasher.update(
-                &left_right_xs.to_be_bytes()[..usize::from(K * 2).div_ceil(u8::BITS as usize)],
-            );
-            Some(hasher.finalize().into())
-        }
+        let mut hasher = Sha256::new();
+        hasher.update(challenge);
+        hasher
+            .update(&left_right_xs.to_be_bytes()[..usize::from(K * 2).div_ceil(u8::BITS as usize)]);
+        Some(hasher.finalize().into())
     }
 
     fn collect_ys_and_metadata<

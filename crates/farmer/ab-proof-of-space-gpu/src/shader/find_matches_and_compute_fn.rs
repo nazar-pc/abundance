@@ -13,7 +13,7 @@ use crate::shader::find_matches_in_buckets::{
 };
 use crate::shader::types::{Metadata, Position, PositionExt, PositionY};
 use core::mem::MaybeUninit;
-use spirv_std::arch::{atomic_i_add, workgroup_memory_barrier_with_group_sync};
+use spirv_std::arch::{atomic_i_increment, workgroup_memory_barrier_with_group_sync};
 use spirv_std::glam::UVec3;
 use spirv_std::memory::{Scope, Semantics};
 use spirv_std::spirv;
@@ -101,9 +101,8 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
         // TODO: Probably should not be unsafe to begin with:
         //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
         let bucket_offset = unsafe {
-            atomic_i_add::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
+            atomic_i_increment::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
                 bucket_count,
-                1,
             )
         };
 
