@@ -45,9 +45,7 @@ pub struct ChiaTable {
 
 impl ab_core_primitives::solutions::SolutionPotVerifier for ChiaTable {
     fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
-        let mut challenge = [0; 32];
-        challenge[..size_of::<u32>()].copy_from_slice(&challenge_index.to_le_bytes());
-        Tables::<K>::verify(seed, &challenge, proof).is_some()
+        Tables::<K>::verify_only(seed, challenge_index.to_le_bytes(), proof)
     }
 }
 

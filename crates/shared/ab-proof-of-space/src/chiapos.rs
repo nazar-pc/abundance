@@ -12,9 +12,8 @@ use crate::chiapos::tables::TablesGeneric;
 use crate::chiapos::utils::EvaluatableUsize;
 
 type Seed = [u8; 32];
+#[cfg(any(feature = "full-chiapos", test))]
 type Challenge = [u8; 32];
-#[cfg(not(any(feature = "full-chiapos", test)))]
-type Quality = ();
 #[cfg(any(feature = "full-chiapos", test))]
 type Quality = [u8; 32];
 
@@ -67,7 +66,19 @@ impl Tables<$k> {
         self.0.find_proof(first_challenge_bytes)
     }
 
+    /// Verify proof of space for a given seed and challenge
+    pub fn verify_only(
+        seed: &Seed,
+        first_challenge_bytes: [u8; 4],
+        proof_of_space: &[u8; 64 * $k as usize / 8],
+    ) -> bool {
+        TablesGeneric::<$k>::verify_only(seed, first_challenge_bytes, proof_of_space)
+    }
+
     /// Verify proof of space for a given seed and challenge.
+    ///
+    /// Similar to [`Self::verify_only()`], but also returns quality on successful verification.
+    #[cfg(any(feature = "full-chiapos", test))]
     pub fn verify(
         seed: &Seed,
         challenge: &Challenge,
