@@ -140,13 +140,12 @@ where
                     s_bucket,
                 ))
             },
-        )
-        .collect::<Vec<_>>();
+        );
 
     let sector_contents_map_size = SectorContentsMap::encoded_size(pieces_in_sector) as u64;
     match sector {
         ReadAt::Sync(sector) => {
-            read_chunks_inputs.into_par_iter().flatten().try_for_each(
+            read_chunks_inputs.flatten().try_for_each(
                 |(maybe_record_chunk, chunk_location, encoded_chunk_used, s_bucket)| {
                     let mut record_chunk = [0; RecordChunk::SIZE];
                     sector
@@ -177,6 +176,7 @@ where
         }
         ReadAt::Async(sector) => {
             let processing_chunks = read_chunks_inputs
+                .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
                 .map(
