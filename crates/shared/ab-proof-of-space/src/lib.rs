@@ -7,6 +7,7 @@
     const_convert,
     const_trait_impl,
     exact_size_is_empty,
+    float_erf,
     generic_const_exprs,
     get_mut_unchecked,
     maybe_uninit_fill,

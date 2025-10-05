@@ -3,21 +3,25 @@
 
 use crate::chiapos::Seed;
 #[cfg(feature = "alloc")]
-use crate::chiapos::constants::{PARAM_B, PARAM_BC, PARAM_C, PARAM_EXT};
+use crate::chiapos::constants::{PARAM_B, PARAM_C};
+use crate::chiapos::constants::{PARAM_BC, PARAM_EXT};
 #[cfg(feature = "alloc")]
 use crate::chiapos::table::types::Position;
 use crate::chiapos::table::types::{Metadata, X, Y};
 use crate::chiapos::table::{
-    COMPUTE_F1_SIMD_FACTOR, compute_f1, compute_f1_simd, compute_fn, compute_fn_simd,
+    BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS, COMPUTE_F1_SIMD_FACTOR, REDUCED_BUCKET_SIZE,
+    REDUCED_MATCHES_COUNT, compute_f1, compute_f1_simd, compute_fn, compute_fn_simd,
     metadata_size_bytes,
 };
 #[cfg(feature = "alloc")]
 use crate::chiapos::table::{calculate_left_targets, find_matches_in_buckets};
 use crate::chiapos::utils::EvaluatableUsize;
+use ab_core_primitives::pieces::Record;
 #[cfg(feature = "alloc")]
 use alloc::collections::BTreeMap;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+use core::f64::consts::{LN_2, PI, SQRT_2};
 #[cfg(feature = "alloc")]
 use core::mem::MaybeUninit;
 use core::simd::prelude::*;
@@ -298,4 +302,93 @@ fn test_verify_fn() {
     );
     verify_fn::<K, 7, 6>(0x5fec898f, 0x82283d15, 0x14f410, 0x24c3c2, 0x0);
     verify_fn::<K, 7, 6>(0x64ac5db9, 0x7923986, 0x590fd, 0x1c74a2, 0x0);
+}
+
+#[test]
+fn test_proofs_lower_bound() {
+    /// Calculates a probabilistic lower bound on the number of challenges (out of
+    /// [`Record::NUM_S_BUCKETS`]) that will have at least one proof found, accounting for
+    /// truncations in matches and bucket sizes.
+    ///
+    /// This is based on modeling the entry propagation rate over 6 steps (for 7 tables), assuming
+    /// normal-distributed matches and bucket sizes with mean `lambda = PARAM_BC / 2^PARAM_EXT`.
+    /// A variance factor is applied to account for higher variance observed in practice for small
+    /// `k` due to clustering/non-uniformity.
+    ///
+    /// The bound ensures the probability that the actual number is below it is less than
+    /// `2^{-security_bits}`, using Chernoff on the lower tail of the binomial distribution for
+    /// non-empty challenge buckets.
+    /// Uses floating-point for precision in tail loss calculation (exact normal formula for
+    /// truncation rate with Abramowitz and Stegun erf approximation).
+    fn proofs_lower_bound(
+        security_bits: u8,
+        reduced_matches_count: usize,
+        reduced_bucket_size: usize,
+    ) -> u64 {
+        // Empirical variance factor to match observed higher variance/clustering for small `k`
+        const V_FACTOR: f64 = 9.0;
+        const NUM_TABLES: u8 = 7;
+
+        // Lambda is the expected number per bucket/pair, independent of `k`.
+        let lambda = f64::from(PARAM_BC) / 2u32.pow(u32::from(PARAM_EXT)) as f64;
+
+        // Rate for match truncation
+        let match_truncation_rate =
+            normal_rate_approx(lambda, reduced_matches_count as f64, V_FACTOR);
+        // Rate for bucket truncation
+        let bucket_truncation_rate =
+            normal_rate_approx(lambda, reduced_bucket_size as f64, V_FACTOR);
+
+        let step_rate = match_truncation_rate * bucket_truncation_rate;
+        let overall_rate = step_rate.powi(i32::from(NUM_TABLES - 1));
+        // Final lambda for each challenge (density after losses)
+        let final_lambda_per_challenge = overall_rate;
+
+        let num_challenges = Record::NUM_S_BUCKETS as f64;
+        let prob_non_empty = 1.0 - (-final_lambda_per_challenge).exp();
+        let expected_non_empty_count = num_challenges * prob_non_empty;
+
+        // Chernoff lower tail: solve for delta where exp(-mu * delta^2 / 2) < 2^{-security_bits}
+        let chernoff_inner = 2.0 * f64::from(security_bits) * LN_2 / expected_non_empty_count;
+        let relative_deviation = chernoff_inner.sqrt();
+        let lower_bound = expected_non_empty_count * (1.0 - relative_deviation);
+
+        lower_bound as u64
+    }
+
+    /// Propagation rate for a truncation cap using the exact normal tail loss formula.
+    /// Returns the fraction of entries retained after truncating at the cap, assuming a normal
+    /// distribution.
+    fn normal_rate_approx(mean: f64, cap: f64, variance_factor: f64) -> f64 {
+        if cap >= mean + 10.0 * (variance_factor * mean).sqrt() {
+            // Negligible loss for caps far above mean
+            1.0
+        } else if cap <= 0.0 {
+            0.0
+        } else {
+            let sigma = (variance_factor * mean).sqrt();
+            let z_score = (cap - mean) / sigma;
+            if z_score <= -10.0 {
+                // Cap far below mean: simple ratio
+                cap / mean
+            } else {
+                let tail_prob = (z_score / SQRT_2).erfc() / 2.0;
+                let density_at_z = (1.0 / (2.0 * PI).sqrt()) * (-z_score * z_score / 2.0).exp();
+                let tail_loss = ((mean - cap) * tail_prob + sigma * density_at_z).max(0.0);
+                1.0 - tail_loss / mean
+            }
+        }
+    }
+
+    // Ensure there are enough proofs found with overwhelming probability even for truncated
+    // bucket size and number of matches.
+    // TODO: LLM generated lower bound calculation formula, it may not be 100% correct, needs
+    //  improvements.
+    assert!(
+        proofs_lower_bound(
+            BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS,
+            REDUCED_MATCHES_COUNT,
+            REDUCED_BUCKET_SIZE
+        ) >= Record::NUM_CHUNKS as u64
+    )
 }
