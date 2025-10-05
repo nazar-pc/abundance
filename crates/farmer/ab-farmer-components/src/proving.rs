@@ -18,7 +18,7 @@ use ab_core_primitives::sectors::{SBucket, SectorId};
 use ab_core_primitives::solutions::{ChunkProof, Solution, SolutionDistance};
 use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
-use ab_proof_of_space::Table;
+use ab_proof_of_space::PosProofs;
 use futures::FutureExt;
 use std::collections::VecDeque;
 use std::io;
@@ -140,16 +140,15 @@ where
     }
 
     /// Turn solution candidates into actual solutions
-    pub fn into_solutions<PosTable, TableGenerator>(
+    pub fn into_solutions<PosProofGenerator>(
         self,
         erasure_coding: &'a ErasureCoding,
-        table_generator: TableGenerator,
+        table_generator: PosProofGenerator,
     ) -> Result<impl ProvableSolutions<Item = MaybeSolution> + 'a, ProvingError>
     where
-        PosTable: Table,
-        TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
+        PosProofGenerator: (FnMut(&PosSeed) -> Box<PosProofs>) + 'a,
     {
-        SolutionsIterator::<'a, PosTable, _, _>::new(
+        SolutionsIterator::<'a, _, _>::new(
             self.public_key_hash,
             self.sector_id,
             self.s_bucket,
@@ -164,11 +163,10 @@ where
 
 type MaybeSolution = Result<Solution, ProvingError>;
 
-struct SolutionsIterator<'a, PosTable, TableGenerator, Sector>
+struct SolutionsIterator<'a, PosProofGenerator, Sector>
 where
     Sector: ReadAtSync + 'a,
-    PosTable: Table,
-    TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
+    PosProofGenerator: (FnMut(&PosSeed) -> Box<PosProofs>) + 'a,
 {
     public_key_hash: &'a Blake3Hash,
     sector_id: SectorId,
@@ -181,24 +179,21 @@ where
     winning_chunks: VecDeque<WinningChunk>,
     count: usize,
     best_solution_distance: Option<SolutionDistance>,
-    table_generator: TableGenerator,
+    table_generator: PosProofGenerator,
 }
 
-impl<'a, PosTable, TableGenerator, Sector> ExactSizeIterator
-    for SolutionsIterator<'a, PosTable, TableGenerator, Sector>
+impl<'a, PosProofGenerator, Sector> ExactSizeIterator
+    for SolutionsIterator<'a, PosProofGenerator, Sector>
 where
     Sector: ReadAtSync + 'a,
-    PosTable: Table,
-    TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
+    PosProofGenerator: (FnMut(&PosSeed) -> Box<PosProofs>) + 'a,
 {
 }
 
-impl<'a, PosTable, TableGenerator, Sector> Iterator
-    for SolutionsIterator<'a, PosTable, TableGenerator, Sector>
+impl<'a, PosProofGenerator, Sector> Iterator for SolutionsIterator<'a, PosProofGenerator, Sector>
 where
     Sector: ReadAtSync + 'a,
-    PosTable: Table,
-    TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
+    PosProofGenerator: (FnMut(&PosSeed) -> Box<PosProofs>) + 'a,
 {
     type Item = MaybeSolution;
 
@@ -210,8 +205,8 @@ where
 
         self.count -= 1;
 
-        // Derive PoSpace table
-        let pos_table =
+        // Derive PoSpace proofs
+        let pos_proofs =
             (self.table_generator)(&self.sector_id.derive_evaluation_seed(piece_offset));
 
         let maybe_solution: Result<_, ProvingError> = try {
@@ -220,7 +215,7 @@ where
                 self.sector_metadata.pieces_in_sector,
                 &self.s_bucket_offsets,
                 &self.sector_contents_map,
-                &pos_table,
+                &pos_proofs,
                 &self.sector,
             );
             let sector_record_chunks = sector_record_chunks_fut
@@ -262,8 +257,8 @@ where
                 .now_or_never()
                 .expect("Sync reader; qed")?;
 
-            let proof_of_space = pos_table.find_proof(self.s_bucket.into()).expect(
-                "Quality exists for this s-bucket, otherwise it wouldn't be a winning chunk; qed",
+            let proof_of_space = pos_proofs.for_s_bucket(self.s_bucket).expect(
+                "Proof exists for this s-bucket, otherwise it wouldn't be a winning chunk; qed",
             );
 
             let chunk_proof = record_merkle_tree
@@ -296,23 +291,21 @@ where
     }
 }
 
-impl<'a, PosTable, TableGenerator, Sector> ProvableSolutions
-    for SolutionsIterator<'a, PosTable, TableGenerator, Sector>
+impl<'a, PosProofGenerator, Sector> ProvableSolutions
+    for SolutionsIterator<'a, PosProofGenerator, Sector>
 where
     Sector: ReadAtSync + 'a,
-    PosTable: Table,
-    TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
+    PosProofGenerator: (FnMut(&PosSeed) -> Box<PosProofs>) + 'a,
 {
     fn best_solution_distance(&self) -> Option<SolutionDistance> {
         self.best_solution_distance
     }
 }
 
-impl<'a, PosTable, TableGenerator, Sector> SolutionsIterator<'a, PosTable, TableGenerator, Sector>
+impl<'a, PosProofGenerator, Sector> SolutionsIterator<'a, PosProofGenerator, Sector>
 where
     Sector: ReadAtSync + 'a,
-    PosTable: Table,
-    TableGenerator: (FnMut(&PosSeed) -> PosTable) + 'a,
+    PosProofGenerator: (FnMut(&PosSeed) -> Box<PosProofs>) + 'a,
 {
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -323,7 +316,7 @@ where
         sector_metadata: &'a SectorMetadataChecksummed,
         erasure_coding: &'a ErasureCoding,
         chunk_candidates: VecDeque<ChunkCandidate>,
-        table_generator: TableGenerator,
+        table_generator: PosProofGenerator,
     ) -> Result<Self, ProvingError> {
         let sector_contents_map = {
             let mut sector_contents_map_bytes =

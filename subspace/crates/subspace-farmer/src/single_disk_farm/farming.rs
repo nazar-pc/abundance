@@ -159,7 +159,7 @@ where
                 let sector_solutions = audit_results
                     .solution_candidates
                     .into_solutions(erasure_coding, |seed: &PosSeed| {
-                        table_generator.generate_parallel(seed)
+                        table_generator.create_proofs_parallel(seed)
                     });
 
                 let sector_solutions = match sector_solutions {

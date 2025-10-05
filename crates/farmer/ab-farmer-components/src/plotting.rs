@@ -8,8 +8,8 @@
 
 use crate::FarmerProtocolInfo;
 use crate::sector::{
-    RawSector, RecordChunksUsed, RecordMetadata, SectorContentsMap, SectorMetadata,
-    SectorMetadataChecksummed, sector_record_chunks_size, sector_size,
+    RawSector, RecordMetadata, SectorContentsMap, SectorMetadata, SectorMetadataChecksummed,
+    SingleRecordBitArray, sector_record_chunks_size, sector_size,
 };
 use crate::segment_reconstruction::recover_missing_piece;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -27,7 +27,6 @@ use futures::stream::FuturesUnordered;
 use futures::{StreamExt, select};
 use parity_scale_codec::{Decode, Encode};
 use parking_lot::Mutex;
-use rayon::prelude::*;
 use std::collections::HashMap;
 use std::simd::Simd;
 use std::sync::Arc;
@@ -366,8 +365,6 @@ where
             rayon::scope(|scope| {
                 for table_generator in self.table_generators {
                     scope.spawn(|_scope| {
-                        let mut chunks_scratch = Vec::with_capacity(Record::NUM_S_BUCKETS);
-
                         loop {
                             // Take mutex briefly to make sure encoding is allowed right now
                             global_mutex.lock_blocking();
@@ -387,7 +384,6 @@ where
                                 record_chunks_used,
                                 table_generator,
                                 erasure_coding,
-                                &mut chunks_scratch,
                             );
 
                             if abort_early.load(Ordering::Relaxed) {
@@ -583,19 +579,16 @@ pub fn write_sector(
     Ok(())
 }
 
-// TODO: Rewrite this as single-pass non-parallel XORing once new PoSpace API is used
 fn record_encoding<PosTable>(
     pos_seed: &PosSeed,
     record: &mut Record,
-    mut record_chunks_used: RecordChunksUsed<'_>,
+    record_chunks_used: &mut SingleRecordBitArray,
     table_generator: &PosTable::Generator,
     erasure_coding: &ErasureCoding,
-    chunks_scratch: &mut Vec<[u8; RecordChunk::SIZE]>,
 ) where
     PosTable: Table,
 {
-    // Derive PoSpace table
-    let pos_table = table_generator.generate_parallel(pos_seed);
+    let pos_proofs = table_generator.create_proofs_parallel(pos_seed);
 
     let mut parity_record_chunks = Record::new_boxed();
 
@@ -603,54 +596,30 @@ fn record_encoding<PosTable>(
     erasure_coding
         .extend(record.iter(), parity_record_chunks.iter_mut())
         .expect("Statically guaranteed valid inputs; qed");
-    let source_record_chunks = record.to_vec();
 
-    chunks_scratch.clear();
-    // For every erasure coded chunk check if there is proof present, if so, then encode
-    // with PoSpace proof bytes and set the corresponding ` encoded_chunks_used ` bit to `true`
-    (u16::from(SBucket::ZERO)..=u16::from(SBucket::MAX))
-        .into_par_iter()
-        .map(SBucket::from)
-        .zip(
-            source_record_chunks
-                .par_iter()
-                .chain(parity_record_chunks.par_iter()),
-        )
-        .map(|(s_bucket, record_chunk)| {
-            if let Some(proof) = pos_table.find_proof(s_bucket.into()) {
-                (Simd::from(*record_chunk) ^ Simd::from(*proof.hash())).to_array()
-            } else {
-                // Dummy value indicating no proof
-                [0; RecordChunk::SIZE]
-            }
-        })
-        // TODO: Scratch should probably be a boxed array instead of a vector, with better PoSpace
-        //  API there will be no need to process all this in parallel since proofs will already be
-        //  ready and waiting
-        .collect_into_vec(chunks_scratch);
-    chunks_scratch
-        .drain(..)
-        .zip(record_chunks_used.iter_mut())
-        .filter_map(|(maybe_encoded_chunk, mut record_chunk_used)| {
-            // No proof, see above
-            if maybe_encoded_chunk == [0; RecordChunk::SIZE] {
-                None
-            } else {
-                // TODO: It will become unnecessary once proof generation API returns bitflags with
-                //  chunks for which proofs are found
-                *record_chunk_used = true;
+    record_chunks_used.data = pos_proofs.found_proofs;
 
-                Some(maybe_encoded_chunk)
+    // TODO: This can probably be optimized by using SIMD
+    let mut num_found_proofs = 0_usize;
+    for (s_buckets, found_proofs) in (0..Record::NUM_S_BUCKETS)
+        .array_chunks::<{ u8::BITS as usize }>()
+        .zip(pos_proofs.found_proofs)
+    {
+        for (proof_offset, s_bucket) in s_buckets.into_iter().enumerate() {
+            if (found_proofs & (1 << proof_offset)) != 0 {
+                let record_chunk = if s_bucket < Record::NUM_CHUNKS {
+                    record[s_bucket]
+                } else {
+                    parity_record_chunks[s_bucket - Record::NUM_CHUNKS]
+                };
+                // TODO: SIMD hashing
+                record[num_found_proofs] = (Simd::from(record_chunk)
+                    ^ Simd::from(*pos_proofs.proofs[num_found_proofs].hash()))
+                .to_array();
+                num_found_proofs += 1;
             }
-        })
-        // TODO: This should become unnecessary once PoSpace API returns exactly the correct number
-        //  of proofs
-        .take(record.len())
-        .zip(record.iter_mut())
-        // Write encoded chunk back so we can reuse the original allocation
-        .for_each(|(input_chunk, output_chunk)| {
-            *output_chunk = input_chunk;
-        });
+        }
+    }
 }
 
 async fn download_sector_internal<PG>(

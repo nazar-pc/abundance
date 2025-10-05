@@ -13,7 +13,7 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceOffset, Record, RecordChunk};
 use ab_core_primitives::sectors::{SBucket, SectorId};
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
-use ab_proof_of_space::{Table, TableGenerator};
+use ab_proof_of_space::{PosProofs, Table, TableGenerator};
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use parity_scale_codec::Decode;
@@ -97,18 +97,17 @@ const _: () = {
 ///
 /// NOTE: This is an async function, but it also does CPU-intensive operation internally, while it
 /// is not very long, make sure it is okay to do so in your context.
-pub async fn read_sector_record_chunks<PosTable, S, A>(
+pub async fn read_sector_record_chunks<S, A>(
     piece_offset: PieceOffset,
     pieces_in_sector: u16,
     // TODO: Workaround for https://github.com/rust-lang/rust/issues/144690
     // s_bucket_offsets: &[u32; Record::NUM_S_BUCKETS],
     s_bucket_offsets: &[u32; 65536],
     sector_contents_map: &SectorContentsMap,
-    pos_table: &PosTable,
+    pos_proofs: &PosProofs,
     sector: &ReadAt<S, A>,
 ) -> Result<Box<[Option<RecordChunk>; Record::NUM_S_BUCKETS]>, ReadingError>
 where
-    PosTable: Table,
     S: ReadAtSync,
     A: ReadAtAsync,
 {
@@ -120,27 +119,26 @@ where
     let read_chunks_inputs = record_chunks
         .par_iter_mut()
         .zip(sector_contents_map.par_iter_record_chunk_to_plot(piece_offset))
-        .zip(
-            (u16::from(SBucket::ZERO)..=u16::from(SBucket::MAX))
-                .into_par_iter()
-                .map(SBucket::from)
-                .zip(s_bucket_offsets.par_iter()),
-        )
+        .zip(s_bucket_offsets.par_iter())
         .map(
-            |((maybe_record_chunk, maybe_chunk_offset), (s_bucket, &s_bucket_offset))| {
+            |((maybe_record_chunk, maybe_chunk_offset), &s_bucket_offset)| {
                 let chunk_offset = maybe_chunk_offset?;
 
                 let chunk_location = chunk_offset as u64 + u64::from(s_bucket_offset);
 
-                Some((maybe_record_chunk, chunk_location, s_bucket))
+                Some((maybe_record_chunk, chunk_location))
             },
-        );
+        )
+        .flatten()
+        .collect::<Vec<_>>();
 
     let sector_contents_map_size = SectorContentsMap::encoded_size(pieces_in_sector) as u64;
     match sector {
         ReadAt::Sync(sector) => {
-            read_chunks_inputs.flatten().try_for_each(
-                |(maybe_record_chunk, chunk_location, s_bucket)| {
+            read_chunks_inputs
+                .into_par_iter()
+                .zip(&pos_proofs.proofs)
+                .try_for_each(|((maybe_record_chunk, chunk_location), pos_proof)| {
                     let mut record_chunk = [0; RecordChunk::SIZE];
                     sector
                         .read_at(
@@ -152,27 +150,21 @@ where
                             error,
                         })?;
 
-                    // Decode chunk
-                    let proof = pos_table
-                        .find_proof(s_bucket.into())
-                        .ok_or(ReadingError::MissingPosProof { s_bucket })?;
-
+                    // TODO: Use SIMD for hashing
                     record_chunk =
-                        Simd::to_array(Simd::from(record_chunk) ^ Simd::from(*proof.hash()));
+                        Simd::to_array(Simd::from(record_chunk) ^ Simd::from(*pos_proof.hash()));
 
                     maybe_record_chunk.replace(RecordChunk::from(record_chunk));
 
                     Ok::<_, ReadingError>(())
-                },
-            )?;
+                })?;
         }
         ReadAt::Async(sector) => {
             let processing_chunks = read_chunks_inputs
-                .collect::<Vec<_>>()
                 .into_iter()
-                .flatten()
+                .zip(&pos_proofs.proofs)
                 .map(
-                    |(maybe_record_chunk, chunk_location, s_bucket)| async move {
+                    |((maybe_record_chunk, chunk_location), pos_proof)| async move {
                         let mut record_chunk = [0; RecordChunk::SIZE];
                         record_chunk.copy_from_slice(
                             &sector
@@ -188,13 +180,10 @@ where
                                 })?,
                         );
 
-                        // Decode chunk
-                        let proof = pos_table
-                            .find_proof(s_bucket.into())
-                            .ok_or(ReadingError::MissingPosProof { s_bucket })?;
-
-                        record_chunk =
-                            Simd::to_array(Simd::from(record_chunk) ^ Simd::from(*proof.hash()));
+                        // TODO: Use SIMD for hashing
+                        record_chunk = Simd::to_array(
+                            Simd::from(record_chunk) ^ Simd::from(*pos_proof.hash()),
+                        );
 
                         maybe_record_chunk.replace(RecordChunk::from(record_chunk));
 
@@ -387,7 +376,7 @@ where
         pieces_in_sector,
         &sector_metadata.s_bucket_offsets(),
         &sector_contents_map,
-        &table_generator.generate(&sector_id.derive_evaluation_seed(piece_offset)),
+        &table_generator.create_proofs(&sector_id.derive_evaluation_seed(piece_offset)),
         sector,
     )
     .await?;
