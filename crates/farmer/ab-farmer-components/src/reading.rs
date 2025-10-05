@@ -19,7 +19,6 @@ use futures::stream::FuturesUnordered;
 use parity_scale_codec::Decode;
 use rayon::prelude::*;
 use std::io;
-use std::mem::ManuallyDrop;
 use std::simd::Simd;
 use thiserror::Error;
 use tracing::debug;
@@ -128,26 +127,20 @@ where
                 .zip(s_bucket_offsets.par_iter()),
         )
         .map(
-            |((maybe_record_chunk, maybe_chunk_details), (s_bucket, &s_bucket_offset))| {
-                let (chunk_offset, encoded_chunk_used) = maybe_chunk_details?;
+            |((maybe_record_chunk, maybe_chunk_offset), (s_bucket, &s_bucket_offset))| {
+                let chunk_offset = maybe_chunk_offset?;
 
                 let chunk_location = chunk_offset as u64 + u64::from(s_bucket_offset);
 
-                Some((
-                    maybe_record_chunk,
-                    chunk_location,
-                    encoded_chunk_used,
-                    s_bucket,
-                ))
+                Some((maybe_record_chunk, chunk_location, s_bucket))
             },
-        )
-        .collect::<Vec<_>>();
+        );
 
     let sector_contents_map_size = SectorContentsMap::encoded_size(pieces_in_sector) as u64;
     match sector {
         ReadAt::Sync(sector) => {
-            read_chunks_inputs.into_par_iter().flatten().try_for_each(
-                |(maybe_record_chunk, chunk_location, encoded_chunk_used, s_bucket)| {
+            read_chunks_inputs.flatten().try_for_each(
+                |(maybe_record_chunk, chunk_location, s_bucket)| {
                     let mut record_chunk = [0; RecordChunk::SIZE];
                     sector
                         .read_at(
@@ -159,15 +152,13 @@ where
                             error,
                         })?;
 
-                    // Decode chunk if necessary
-                    if encoded_chunk_used {
-                        let proof = pos_table
-                            .find_proof(s_bucket.into())
-                            .ok_or(ReadingError::MissingPosProof { s_bucket })?;
+                    // Decode chunk
+                    let proof = pos_table
+                        .find_proof(s_bucket.into())
+                        .ok_or(ReadingError::MissingPosProof { s_bucket })?;
 
-                        record_chunk =
-                            Simd::to_array(Simd::from(record_chunk) ^ Simd::from(*proof.hash()));
-                    }
+                    record_chunk =
+                        Simd::to_array(Simd::from(record_chunk) ^ Simd::from(*proof.hash()));
 
                     maybe_record_chunk.replace(RecordChunk::from(record_chunk));
 
@@ -177,34 +168,33 @@ where
         }
         ReadAt::Async(sector) => {
             let processing_chunks = read_chunks_inputs
+                .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
                 .map(
-                    |(maybe_record_chunk, chunk_location, encoded_chunk_used, s_bucket)| async move {
+                    |(maybe_record_chunk, chunk_location, s_bucket)| async move {
                         let mut record_chunk = [0; RecordChunk::SIZE];
                         record_chunk.copy_from_slice(
                             &sector
                                 .read_at(
                                     vec![0; RecordChunk::SIZE],
-                                    sector_contents_map_size + chunk_location * RecordChunk::SIZE as u64,
+                                    sector_contents_map_size
+                                        + chunk_location * RecordChunk::SIZE as u64,
                                 )
                                 .await
                                 .map_err(|error| ReadingError::FailedToReadChunk {
                                     chunk_location,
                                     error,
-                                })?
+                                })?,
                         );
 
+                        // Decode chunk
+                        let proof = pos_table
+                            .find_proof(s_bucket.into())
+                            .ok_or(ReadingError::MissingPosProof { s_bucket })?;
 
-                        // Decode chunk if necessary
-                        if encoded_chunk_used {
-                            let proof = pos_table.find_proof(s_bucket.into())
-                                .ok_or(ReadingError::MissingPosProof { s_bucket })?;
-
-                            record_chunk = Simd::to_array(
-                                Simd::from(record_chunk) ^ Simd::from(*proof.hash()),
-                            );
-                        }
+                        record_chunk =
+                            Simd::to_array(Simd::from(record_chunk) ^ Simd::from(*proof.hash()));
 
                         maybe_record_chunk.replace(RecordChunk::from(record_chunk));
 
@@ -212,9 +202,7 @@ where
                     },
                 )
                 .collect::<FuturesUnordered<_>>()
-                .filter_map(|result| async move {
-                    result.err()
-                });
+                .filter_map(|result| async move { result.err() });
 
             std::pin::pin!(processing_chunks)
                 .next()
@@ -279,9 +267,10 @@ pub fn recover_extended_record_chunks(
         .into_iter()
         .map(RecordChunk::from)
         .collect::<Box<_>>();
-    let mut record_chunks = ManuallyDrop::new(record_chunks);
-    // SAFETY: Original memory is not dropped, size of the data checked above
-    let record_chunks = unsafe { Box::from_raw(record_chunks.as_mut_ptr() as *mut _) };
+    // SAFETY: Size of the data is guaranteed above
+    let record_chunks = unsafe {
+        Box::from_raw(Box::into_raw(record_chunks).cast::<[RecordChunk; Record::NUM_S_BUCKETS]>())
+    };
 
     Ok(record_chunks)
 }

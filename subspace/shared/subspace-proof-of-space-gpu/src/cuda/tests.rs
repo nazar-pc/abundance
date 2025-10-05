@@ -53,7 +53,7 @@ fn basic() {
             &sector_id.derive_evaluation_seed(PieceOffset::ZERO),
             &mut gpu_encoded_records[0],
             gpu_sector_contents_map
-                .iter_record_bitfields_mut()
+                .iter_record_chunks_used_mut()
                 .next()
                 .unwrap()
                 .iter_mut(),
@@ -64,7 +64,7 @@ fn basic() {
             &sector_id.derive_evaluation_seed(PieceOffset::ONE),
             &mut gpu_encoded_records[1],
             gpu_sector_contents_map
-                .iter_record_bitfields_mut()
+                .iter_record_chunks_used_mut()
                 .nth(1)
                 .unwrap()
                 .iter_mut(),

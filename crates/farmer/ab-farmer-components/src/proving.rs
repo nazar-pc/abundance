@@ -337,21 +337,21 @@ where
             )?
         };
 
-        let s_bucket_records = sector_contents_map
-            .iter_s_bucket_records(s_bucket)
+        let s_bucket_piece_offsets = sector_contents_map
+            .iter_s_bucket_piece_offsets(s_bucket)
             .expect("S-bucket audit index is guaranteed to be in range; qed")
             .collect::<Vec<_>>();
         let winning_chunks = chunk_candidates
             .into_iter()
-            .filter_map(move |chunk_candidate| {
-                let (piece_offset, encoded_chunk_used) = s_bucket_records
+            .map(move |chunk_candidate| {
+                let piece_offset = s_bucket_piece_offsets
                     .get(chunk_candidate.chunk_offset as usize)
                     .expect("Wouldn't be a candidate if wasn't within s-bucket; qed");
 
-                encoded_chunk_used.then_some(WinningChunk {
+                WinningChunk {
                     piece_offset: *piece_offset,
                     solution_distance: chunk_candidate.solution_distance,
-                })
+                }
             })
             .collect::<VecDeque<_>>();
 

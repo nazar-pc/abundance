@@ -8,7 +8,7 @@
 
 use crate::FarmerProtocolInfo;
 use crate::sector::{
-    EncodedChunksUsed, RawSector, RecordMetadata, SectorContentsMap, SectorMetadata,
+    RawSector, RecordChunksUsed, RecordMetadata, SectorContentsMap, SectorMetadata,
     SectorMetadataChecksummed, sector_record_chunks_size, sector_size,
 };
 use crate::segment_reconstruction::recover_missing_piece;
@@ -360,7 +360,7 @@ where
             let iter = Mutex::new(
                 (PieceOffset::ZERO..)
                     .zip(records.iter_mut())
-                    .zip(sector_contents_map.iter_record_bitfields_mut()),
+                    .zip(sector_contents_map.iter_record_chunks_used_mut()),
             );
 
             rayon::scope(|scope| {
@@ -374,7 +374,7 @@ where
 
                             // This instead of `while` above because otherwise mutex will be held
                             // for the duration of the loop and will limit concurrency to 1 record
-                            let Some(((piece_offset, record), encoded_chunks_used)) =
+                            let Some(((piece_offset, record), record_chunks_used)) =
                                 iter.lock().next()
                             else {
                                 return;
@@ -384,7 +384,7 @@ where
                             record_encoding::<PosTable>(
                                 &pos_seed,
                                 record,
-                                encoded_chunks_used,
+                                record_chunks_used,
                                 table_generator,
                                 erasure_coding,
                                 &mut chunks_scratch,
@@ -524,7 +524,7 @@ pub fn write_sector(
 
     sector_output.resize(sector_size, 0);
 
-    // Write sector to disk in form of following regions:
+    // Write sector to disk in as the following regions:
     // * sector contents map
     // * record chunks as s-buckets
     // * record metadata
@@ -541,36 +541,21 @@ pub fn write_sector(
             .encode_into(sector_contents_map_region)
             .expect("Chunked into correct size above; qed");
 
-        let num_encoded_record_chunks = sector_contents_map.num_encoded_record_chunks();
-        let mut next_encoded_record_chunks_offset = vec![0_usize; pieces_in_sector.into()];
-        let mut next_unencoded_record_chunks_offset = vec![0_usize; pieces_in_sector.into()];
+        let mut next_record_chunks_offset = vec![0_usize; pieces_in_sector.into()];
         // Write record chunks, one s-bucket at a time
-        for ((piece_offset, encoded_chunk_used), output) in (SBucket::ZERO..=SBucket::MAX)
+        for (piece_offset, output) in (SBucket::ZERO..=SBucket::MAX)
             .flat_map(|s_bucket| {
                 sector_contents_map
-                    .iter_s_bucket_records(s_bucket)
+                    .iter_s_bucket_piece_offsets(s_bucket)
                     .expect("S-bucket guaranteed to be in range; qed")
             })
             .zip(s_buckets_region.as_chunks_mut::<{ RecordChunk::SIZE }>().0)
         {
-            let num_encoded_record_chunks =
-                usize::from(num_encoded_record_chunks[usize::from(piece_offset)]);
-            let next_encoded_record_chunks_offset =
-                &mut next_encoded_record_chunks_offset[usize::from(piece_offset)];
-            let next_unencoded_record_chunks_offset =
-                &mut next_unencoded_record_chunks_offset[usize::from(piece_offset)];
+            let next_record_chunks_offset =
+                &mut next_record_chunks_offset[usize::from(piece_offset)];
 
-            // We know that s-buckets in `raw_sector.records` are stored in order (encoded first,
-            // then unencoded), hence we don't need to calculate the position, we can just store a
-            // few cursors and know the position that way
-            let chunk_position;
-            if encoded_chunk_used {
-                chunk_position = *next_encoded_record_chunks_offset;
-                *next_encoded_record_chunks_offset += 1;
-            } else {
-                chunk_position = num_encoded_record_chunks + *next_unencoded_record_chunks_offset;
-                *next_unencoded_record_chunks_offset += 1;
-            }
+            let chunk_position = *next_record_chunks_offset;
+            *next_record_chunks_offset += 1;
             output.copy_from_slice(&raw_sector.records[usize::from(piece_offset)][chunk_position]);
         }
 
@@ -598,10 +583,11 @@ pub fn write_sector(
     Ok(())
 }
 
+// TODO: Rewrite this as single-pass non-parallel XORing once new PoSpace API is used
 fn record_encoding<PosTable>(
     pos_seed: &PosSeed,
     record: &mut Record,
-    mut encoded_chunks_used: EncodedChunksUsed<'_>,
+    mut record_chunks_used: RecordChunksUsed<'_>,
     table_generator: &PosTable::Generator,
     erasure_coding: &ErasureCoding,
     chunks_scratch: &mut Vec<[u8; RecordChunk::SIZE]>,
@@ -620,8 +606,8 @@ fn record_encoding<PosTable>(
     let source_record_chunks = record.to_vec();
 
     chunks_scratch.clear();
-    // For every erasure coded chunk check if there is proof present, if so then encode
-    // with PoSpace proof bytes and set corresponding `encoded_chunks_used` bit to `true`
+    // For every erasure coded chunk check if there is proof present, if so, then encode
+    // with PoSpace proof bytes and set the corresponding ` encoded_chunks_used ` bit to `true`
     (u16::from(SBucket::ZERO)..=u16::from(SBucket::MAX))
         .into_par_iter()
         .map(SBucket::from)
@@ -638,51 +624,32 @@ fn record_encoding<PosTable>(
                 [0; RecordChunk::SIZE]
             }
         })
+        // TODO: Scratch should probably be a boxed array instead of a vector, with better PoSpace
+        //  API there will be no need to process all this in parallel since proofs will already be
+        //  ready and waiting
         .collect_into_vec(chunks_scratch);
-    let num_successfully_encoded_chunks = chunks_scratch
+    chunks_scratch
         .drain(..)
-        .zip(encoded_chunks_used.iter_mut())
-        .filter_map(|(maybe_encoded_chunk, mut encoded_chunk_used)| {
+        .zip(record_chunks_used.iter_mut())
+        .filter_map(|(maybe_encoded_chunk, mut record_chunk_used)| {
             // No proof, see above
             if maybe_encoded_chunk == [0; RecordChunk::SIZE] {
                 None
             } else {
-                *encoded_chunk_used = true;
+                // TODO: It will become unnecessary once proof generation API returns bitflags with
+                //  chunks for which proofs are found
+                *record_chunk_used = true;
 
                 Some(maybe_encoded_chunk)
             }
         })
-        // Make sure above filter function (and corresponding `encoded_chunk_used` update)
-        // happen at most as many times as there is number of chunks in the record,
-        // otherwise `n+1` iterations could happen and update extra `encoded_chunk_used`
-        // unnecessarily causing issues down the line
+        // TODO: This should become unnecessary once PoSpace API returns exactly the correct number
+        //  of proofs
         .take(record.len())
         .zip(record.iter_mut())
-        // Write encoded chunk back so we can reuse original allocation
-        .map(|(input_chunk, output_chunk)| {
-            *output_chunk = input_chunk;
-        })
-        .count();
-
-    // In some cases there is not enough PoSpace proofs available, in which case we add
-    // remaining number of unencoded erasure coded record chunks to the end
-    source_record_chunks
-        .iter()
-        .chain(parity_record_chunks.iter())
-        .zip(encoded_chunks_used.iter())
-        // Skip chunks that were used previously
-        .filter_map(|(record_chunk, encoded_chunk_used)| {
-            if *encoded_chunk_used {
-                None
-            } else {
-                Some(record_chunk)
-            }
-        })
-        // First `num_successfully_encoded_chunks` chunks are encoded
-        .zip(record.iter_mut().skip(num_successfully_encoded_chunks))
-        // Write necessary number of unencoded chunks at the end
+        // Write encoded chunk back so we can reuse the original allocation
         .for_each(|(input_chunk, output_chunk)| {
-            *output_chunk = *input_chunk;
+            *output_chunk = input_chunk;
         });
 }
 
