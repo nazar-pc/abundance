@@ -40,8 +40,7 @@ pub struct AuditResult<'a, Sector> {
     pub solution_candidates: SolutionCandidates<'a, Sector>,
 }
 
-/// Chunk candidate, contains one or more potentially winning audit chunks (in case chunk itself was
-/// encoded and eligible for claiming a reward)
+/// Chunk candidate, contains one or more winning audit chunks
 #[derive(Debug, Clone)]
 pub(crate) struct ChunkCandidate {
     /// Chunk offset within s-bucket

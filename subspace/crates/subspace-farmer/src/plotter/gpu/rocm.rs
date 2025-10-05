@@ -42,7 +42,7 @@ impl RecordsEncoder for RocmRecordsEncoder {
             let iter = Mutex::new(
                 (PieceOffset::ZERO..)
                     .zip(records.iter_mut())
-                    .zip(sector_contents_map.iter_record_bitfields_mut()),
+                    .zip(sector_contents_map.iter_record_chunks_used_mut()),
             );
             let plotting_error = Mutex::new(None::<String>);
 
@@ -54,7 +54,7 @@ impl RecordsEncoder for RocmRecordsEncoder {
 
                         // This instead of `while` above because otherwise mutex will be held for the
                         // duration of the loop and will limit concurrency to 1 record
-                        let Some(((piece_offset, record), mut encoded_chunks_used)) =
+                        let Some(((piece_offset, record), mut record_chunks_used)) =
                             iter.lock().next()
                         else {
                             return;
@@ -64,7 +64,7 @@ impl RecordsEncoder for RocmRecordsEncoder {
                         if let Err(error) = self.rocm_device.generate_and_encode_pospace(
                             &pos_seed,
                             record,
-                            encoded_chunks_used.iter_mut(),
+                            record_chunks_used.iter_mut(),
                         ) {
                             plotting_error.lock().replace(error);
                             return;

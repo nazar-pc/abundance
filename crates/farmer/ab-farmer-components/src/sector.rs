@@ -15,9 +15,8 @@ use ab_io_type::trivial_type::TrivialType;
 use bitvec::prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use rayon::prelude::*;
-use std::mem::ManuallyDrop;
 use std::ops::{Deref, DerefMut};
-use std::{mem, slice};
+use std::slice;
 use thiserror::Error;
 use tracing::debug;
 
@@ -83,9 +82,10 @@ impl SectorMetadata {
             .collect::<Box<_>>();
 
         assert_eq!(s_bucket_offsets.len(), Record::NUM_S_BUCKETS);
-        let mut s_bucket_offsets = ManuallyDrop::new(s_bucket_offsets);
-        // SAFETY: Original memory is not dropped, number of elements checked above
-        unsafe { Box::from_raw(s_bucket_offsets.as_mut_ptr() as *mut [u32; Record::NUM_S_BUCKETS]) }
+        // SAFETY: Number of elements checked above
+        unsafe {
+            Box::from_raw(Box::into_raw(s_bucket_offsets).cast::<[u32; Record::NUM_S_BUCKETS]>())
+        }
     }
 }
 
@@ -176,44 +176,25 @@ impl RawSector {
 // Bit array containing space for bits equal to the number of s-buckets in a record
 type SingleRecordBitArray = BitArray<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>;
 
-const SINGLE_RECORD_BIT_ARRAY_SIZE: usize = mem::size_of::<SingleRecordBitArray>();
+const SINGLE_RECORD_BIT_ARRAY_SIZE: usize = size_of::<SingleRecordBitArray>();
 
-// TODO: I really tried to avoid `count_ones()`, but wasn't able to with safe Rust due to lifetimes
-/// Wrapper data structure that allows to iterate mutably over encoded chunks bitfields, while
-/// maintaining up-to-date number of encoded chunks
-///
-/// ## Panics
-/// Panics on drop if too many chunks are encoded
+/// Wrapper data structure that allows to iterate mutably over record chunks bitfields
 #[derive(Debug)]
-pub struct EncodedChunksUsed<'a> {
-    encoded_record_chunks_used: &'a mut SingleRecordBitArray,
-    num_encoded_record_chunks: &'a mut SBucket,
-    potentially_updated: bool,
+pub struct RecordChunksUsed<'a> {
+    record_chunks_used: &'a mut SingleRecordBitArray,
 }
 
-impl Drop for EncodedChunksUsed<'_> {
-    fn drop(&mut self) {
-        if self.potentially_updated {
-            let num_encoded_record_chunks = self.encoded_record_chunks_used.count_ones();
-            assert!(num_encoded_record_chunks <= SBucket::MAX.into());
-            *self.num_encoded_record_chunks = SBucket::try_from(num_encoded_record_chunks)
-                .expect("Checked with explicit assert above; qed");
-        }
-    }
-}
-
-impl EncodedChunksUsed<'_> {
-    /// Produces an iterator over encoded chunks bitfields.
+impl RecordChunksUsed<'_> {
+    /// Produces an iterator over record chunks bitfields.
     pub fn iter(&self) -> impl ExactSizeIterator<Item = impl Deref<Target = bool> + '_> + '_ {
-        self.encoded_record_chunks_used.iter()
+        self.record_chunks_used.iter()
     }
 
-    /// Produces a mutable iterator over encoded chunks bitfields.
+    /// Produces a mutable iterator over record chunks bitfields.
     pub fn iter_mut(
         &mut self,
     ) -> impl ExactSizeIterator<Item = impl DerefMut<Target = bool> + '_> + '_ {
-        self.potentially_updated = true;
-        self.encoded_record_chunks_used.iter_mut()
+        self.record_chunks_used.iter_mut()
     }
 }
 
@@ -227,14 +208,6 @@ pub enum SectorContentsMapFromBytesError {
         expected: usize,
         /// Actual length
         actual: usize,
-    },
-    /// Invalid number of encoded record chunks
-    #[error("Invalid number of encoded record chunks: {actual}")]
-    InvalidEncodedRecordChunks {
-        /// Actual number of encoded record chunks
-        actual: usize,
-        /// Max supported
-        max: usize,
     },
     /// Checksum mismatch
     #[error("Checksum mismatch")]
@@ -269,20 +242,14 @@ pub enum SectorContentsMapIterationError {
 
 /// Map of sector contents.
 ///
-/// Abstraction on top of bitfields that allow making sense of sector contents that contains both
-/// encoded (meaning erasure coded and encoded with existing PoSpace quality) and unencoded chunks
-/// (just erasure coded) used at the same time both in records (before writing to plot) and
-/// s-buckets (written into the plot) format
+/// Abstraction on top of bitfields that allow making sense of sector contents that contain
+/// encoded (meaning erasure coded and encoded with existing PoSpace proof) chunks used at the same
+/// time both in records (before writing to plot) and s-buckets (written into the plot) format
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SectorContentsMap {
-    /// Number of encoded chunks used in each record.
-    ///
-    /// This is technically redundant, but allows to drastically decrease amount of work in
-    /// [`Self::iter_s_bucket_records()`] and other places, which become unusably slow otherwise.
-    num_encoded_record_chunks: Vec<SBucket>,
-    /// Bitfields for each record, each bit is `true` if encoded chunk at corresponding position was
+    /// Bitfields for each record, each bit is `true` if record chunk at corresponding position was
     /// used
-    encoded_record_chunks_used: Vec<SingleRecordBitArray>,
+    record_chunks_used: Vec<SingleRecordBitArray>,
 }
 
 impl SectorContentsMap {
@@ -290,8 +257,7 @@ impl SectorContentsMap {
     /// records
     pub fn new(pieces_in_sector: u16) -> Self {
         Self {
-            num_encoded_record_chunks: vec![SBucket::default(); usize::from(pieces_in_sector)],
-            encoded_record_chunks_used: vec![
+            record_chunks_used: vec![
                 SingleRecordBitArray::default();
                 usize::from(pieces_in_sector)
             ],
@@ -331,37 +297,17 @@ impl SectorContentsMap {
             return Err(SectorContentsMapFromBytesError::ChecksumMismatch);
         }
 
-        let mut encoded_record_chunks_used =
-            vec![SingleRecordBitArray::default(); pieces_in_sector.into()];
+        let mut record_chunks_used = vec![SingleRecordBitArray::default(); pieces_in_sector.into()];
 
-        let num_encoded_record_chunks = encoded_record_chunks_used
-            .iter_mut()
-            .zip(
-                single_records_bit_arrays
-                    .as_chunks::<{ SINGLE_RECORD_BIT_ARRAY_SIZE }>()
-                    .0,
-            )
-            .map(|(encoded_record_chunks_used, bytes)| {
-                encoded_record_chunks_used
-                    .as_raw_mut_slice()
-                    .copy_from_slice(bytes);
-                let num_encoded_record_chunks = encoded_record_chunks_used.count_ones();
-                if num_encoded_record_chunks > Record::NUM_CHUNKS {
-                    return Err(
-                        SectorContentsMapFromBytesError::InvalidEncodedRecordChunks {
-                            actual: num_encoded_record_chunks,
-                            max: Record::NUM_CHUNKS,
-                        },
-                    );
-                }
-                Ok(SBucket::try_from(num_encoded_record_chunks).expect("Verified above; qed"))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        for (record_chunks_used, bytes) in record_chunks_used.iter_mut().zip(
+            single_records_bit_arrays
+                .as_chunks::<{ SINGLE_RECORD_BIT_ARRAY_SIZE }>()
+                .0,
+        ) {
+            record_chunks_used.as_raw_mut_slice().copy_from_slice(bytes);
+        }
 
-        Ok(Self {
-            num_encoded_record_chunks,
-            encoded_record_chunks_used,
-        })
+        Ok(Self { record_chunks_used })
     }
 
     /// Size of sector contents map when encoded and stored in the plot for specified number of
@@ -372,14 +318,14 @@ impl SectorContentsMap {
 
     /// Encode internal contents into `output`
     pub fn encode_into(&self, output: &mut [u8]) -> Result<(), SectorContentsMapEncodeIntoError> {
-        if output.len() != Self::encoded_size(self.encoded_record_chunks_used.len() as u16) {
+        if output.len() != Self::encoded_size(self.record_chunks_used.len() as u16) {
             return Err(SectorContentsMapEncodeIntoError::InvalidBytesLength {
-                expected: Self::encoded_size(self.encoded_record_chunks_used.len() as u16),
+                expected: Self::encoded_size(self.record_chunks_used.len() as u16),
                 actual: output.len(),
             });
         }
 
-        let slice = self.encoded_record_chunks_used.as_slice();
+        let slice = self.record_chunks_used.as_slice();
         // SAFETY: `BitArray` is a transparent data structure containing array of bytes
         let slice = unsafe {
             slice::from_raw_parts(
@@ -395,30 +341,18 @@ impl SectorContentsMap {
         Ok(())
     }
 
-    /// Number of encoded chunks in each record
-    pub fn num_encoded_record_chunks(&self) -> &[SBucket] {
-        &self.num_encoded_record_chunks
+    /// Iterate over individual record chunks (s-buckets) that were used
+    pub fn iter_record_chunks_used(&self) -> &[SingleRecordBitArray] {
+        &self.record_chunks_used
     }
 
-    /// Iterate over individual record bitfields
-    pub fn iter_record_bitfields(&self) -> &[SingleRecordBitArray] {
-        &self.encoded_record_chunks_used
-    }
-
-    /// Iterate mutably over individual record bitfields
-    pub fn iter_record_bitfields_mut(
+    /// Iterate mutably over individual record chunks (s-buckets) that were used
+    pub fn iter_record_chunks_used_mut(
         &mut self,
-    ) -> impl ExactSizeIterator<Item = EncodedChunksUsed<'_>> + '_ {
-        self.encoded_record_chunks_used
+    ) -> impl ExactSizeIterator<Item = RecordChunksUsed<'_>> + '_ {
+        self.record_chunks_used
             .iter_mut()
-            .zip(&mut self.num_encoded_record_chunks)
-            .map(
-                |(encoded_record_chunks_used, num_encoded_record_chunks)| EncodedChunksUsed {
-                    encoded_record_chunks_used,
-                    num_encoded_record_chunks,
-                    potentially_updated: false,
-                },
-            )
+            .map(|record_chunks_used| RecordChunksUsed { record_chunks_used })
     }
 
     /// Returns sizes of each s-bucket
@@ -428,108 +362,87 @@ impl SectorContentsMap {
             .into_par_iter()
             .map(SBucket::from)
             .map(|s_bucket| {
-                self.iter_s_bucket_records(s_bucket)
+                self.iter_s_bucket_piece_offsets(s_bucket)
                     .expect("S-bucket guaranteed to be in range; qed")
                     .count() as u16
             })
             .collect::<Box<_>>();
 
         assert_eq!(s_bucket_sizes.len(), Record::NUM_S_BUCKETS);
-        let mut s_bucket_sizes = ManuallyDrop::new(s_bucket_sizes);
-        // SAFETY: Original memory is not dropped, number of elements checked above
-        unsafe { Box::from_raw(s_bucket_sizes.as_mut_ptr() as *mut [u16; Record::NUM_S_BUCKETS]) }
+
+        // SAFETY: Number of elements checked above
+        unsafe {
+            Box::from_raw(Box::into_raw(s_bucket_sizes).cast::<[u16; Record::NUM_S_BUCKETS]>())
+        }
     }
 
-    /// Creates an iterator of `(s_bucket, encoded_chunk_used, chunk_location)`, where `s_bucket` is
-    /// position of the chunk in the erasure coded record, `encoded_chunk_used` indicates whether it
-    /// was encoded and `chunk_location` is the offset of the chunk in the plot (across all
-    /// s-buckets).
+    /// Creates an iterator of `(s_bucket, chunk_location)`, where `s_bucket` is the position of the
+    /// chunk in the erasure coded record and `chunk_location` is the offset of the chunk in the
+    /// plot (across all s-buckets).
     pub fn iter_record_chunk_to_plot(
         &self,
         piece_offset: PieceOffset,
-    ) -> impl Iterator<Item = (SBucket, bool, usize)> + '_ {
+    ) -> impl Iterator<Item = (SBucket, usize)> + '_ {
         // Iterate over all s-buckets
         (SBucket::ZERO..=SBucket::MAX)
             // In each s-bucket map all records used
             .flat_map(|s_bucket| {
-                self.iter_s_bucket_records(s_bucket)
+                self.iter_s_bucket_piece_offsets(s_bucket)
                     .expect("S-bucket guaranteed to be in range; qed")
-                    .map(move |(current_piece_offset, encoded_chunk_used)| {
-                        (s_bucket, current_piece_offset, encoded_chunk_used)
-                    })
+                    .map(move |current_piece_offset| (s_bucket, current_piece_offset))
             })
             // We've got contents of all s-buckets in a flat iterator, enumerating them so it is
             // possible to find in the plot later if desired
             .enumerate()
             // Everything about the piece offset we care about
-            .filter_map(
-                move |(chunk_location, (s_bucket, current_piece_offset, encoded_chunk_used))| {
-                    // In case record for `piece_offset` is found, return necessary information
-                    (current_piece_offset == piece_offset).then_some((
-                        s_bucket,
-                        encoded_chunk_used,
-                        chunk_location,
-                    ))
-                },
-            )
+            .filter_map(move |(chunk_location, (s_bucket, current_piece_offset))| {
+                // In case record for `piece_offset` is found, return necessary information
+                (current_piece_offset == piece_offset).then_some((s_bucket, chunk_location))
+            })
             // Tiny optimization in case we have found chunks for all records already
             .take(Record::NUM_CHUNKS)
     }
 
-    /// Creates an iterator of `Option<(chunk_offset, encoded_chunk_used)>`, where each entry
-    /// corresponds s-bucket/position of the chunk in the erasure coded record, `encoded_chunk_used`
-    /// indicates whether it was encoded and `chunk_offset` is the offset of the chunk in the
-    /// corresponding s-bucket.
+    /// Creates an iterator of `Option<chunk_offset>`, where each entry corresponds
+    /// s-bucket/position of the chunk in the erasure coded record, `chunk_offset` is the offset of
+    /// the chunk in the corresponding s-bucket.
     ///
     /// Similar to `Self::iter_record_chunk_to_plot()`, but runs in parallel, returns entries for
     /// all s-buckets and offsets are within corresponding s-buckets rather than the whole plot.
     pub fn par_iter_record_chunk_to_plot(
         &self,
         piece_offset: PieceOffset,
-    ) -> impl IndexedParallelIterator<Item = Option<(usize, bool)>> + '_ {
+    ) -> impl IndexedParallelIterator<Item = Option<usize>> + '_ {
         let piece_offset = usize::from(piece_offset);
         (u16::from(SBucket::ZERO)..=u16::from(SBucket::MAX))
             .into_par_iter()
             .map(SBucket::from)
             // In each s-bucket map all records used
             .map(move |s_bucket| {
-                let encoded_chunk_used = record_has_s_bucket_chunk(
-                    s_bucket.into(),
-                    &self.encoded_record_chunks_used[piece_offset],
-                    usize::from(self.num_encoded_record_chunks[piece_offset]),
-                )?;
+                if !self.record_chunks_used[piece_offset][usize::from(s_bucket)] {
+                    return None;
+                }
 
                 // How many other record chunks we have in s-bucket before piece offset we care
                 // about
                 let chunk_offset = self
-                    .encoded_record_chunks_used
+                    .record_chunks_used
                     .iter()
-                    .zip(&self.num_encoded_record_chunks)
                     .take(piece_offset)
-                    .filter(move |(record_bitfields, num_encoded_record_chunks)| {
-                        record_has_s_bucket_chunk(
-                            s_bucket.into(),
-                            record_bitfields,
-                            usize::from(**num_encoded_record_chunks),
-                        )
-                        .is_some()
-                    })
+                    .filter(move |record_chunks_used| record_chunks_used[usize::from(s_bucket)])
                     .count();
 
-                Some((chunk_offset, encoded_chunk_used))
+                Some(chunk_offset)
             })
     }
 
-    /// Creates an iterator of `(piece_offset, encoded_chunk_used)`, where `piece_offset`
-    /// corresponds to the record to which chunk belongs and `encoded_chunk_used` indicates whether
-    /// it was encoded.
+    /// Creates an iterator of piece offsets to which corresponding chunks belong.
     ///
     /// Returns error if `s_bucket` is outside of [`Record::NUM_S_BUCKETS`] range.
-    pub fn iter_s_bucket_records(
+    pub fn iter_s_bucket_piece_offsets(
         &self,
         s_bucket: SBucket,
-    ) -> Result<impl Iterator<Item = (PieceOffset, bool)> + '_, SectorContentsMapIterationError>
-    {
+    ) -> Result<impl Iterator<Item = PieceOffset> + '_, SectorContentsMapIterationError> {
         let s_bucket = usize::from(s_bucket);
 
         if s_bucket >= Record::NUM_S_BUCKETS {
@@ -540,30 +453,18 @@ impl SectorContentsMap {
         }
 
         Ok((PieceOffset::ZERO..)
-            .zip(
-                self.encoded_record_chunks_used
-                    .iter()
-                    .zip(&self.num_encoded_record_chunks),
-            )
-            .filter_map(
-                move |(piece_offset, (record_bitfields, num_encoded_record_chunks))| {
-                    let encoded_chunk_used = record_has_s_bucket_chunk(
-                        s_bucket,
-                        record_bitfields,
-                        usize::from(*num_encoded_record_chunks),
-                    )?;
-
-                    Some((piece_offset, encoded_chunk_used))
-                },
-            ))
+            .zip(&self.record_chunks_used)
+            .filter_map(move |(piece_offset, record_chunks_used)| {
+                record_chunks_used[s_bucket].then_some(piece_offset)
+            }))
     }
 
-    /// Iterate over chunks of s-bucket indicating if encoded chunk is used at corresponding
-    /// position
+    /// Iterate over chunks of s-bucket indicating if record chunk is used at corresponding
+    /// position.
     ///
     /// ## Panics
     /// Panics if `s_bucket` is outside of [`Record::NUM_S_BUCKETS`] range.
-    pub fn iter_s_bucket_encoded_record_chunks_used(
+    pub fn iter_s_bucket_used_record_chunks_used(
         &self,
         s_bucket: SBucket,
     ) -> Result<impl Iterator<Item = bool> + '_, SectorContentsMapIterationError> {
@@ -577,39 +478,8 @@ impl SectorContentsMap {
         }
 
         Ok(self
-            .encoded_record_chunks_used
+            .record_chunks_used
             .iter()
-            .map(move |record_bitfields| record_bitfields[s_bucket]))
-    }
-}
-
-/// Checks if record has corresponding s-bucket chunk, returns `Some(true)` if yes and chunk is
-/// encoded, `Some(false)` if yes and chunk is not encoded, `None` if chunk at corresponding
-/// s-bucket is not found.
-fn record_has_s_bucket_chunk(
-    s_bucket: usize,
-    record_bitfields: &SingleRecordBitArray,
-    num_encoded_record_chunks: usize,
-) -> Option<bool> {
-    if record_bitfields[s_bucket] {
-        // Bit is explicitly set to `true`, easy case
-        Some(true)
-    } else if num_encoded_record_chunks == Record::NUM_CHUNKS {
-        None
-    } else {
-        // Count how many encoded chunks we have before current offset
-        let encoded_before = record_bitfields[..s_bucket].count_ones();
-        let unencoded_before = s_bucket - encoded_before;
-        // And how many unencoded we have total and how many before current offset
-        // (we know that total number of used chunks is always `Record::NUM_CHUNKS`)
-        let unencoded_total = Record::NUM_CHUNKS.saturating_sub(num_encoded_record_chunks);
-
-        if unencoded_before < unencoded_total {
-            // Have not seen all unencoded chunks before current offset yet, hence
-            // current offset qualifies
-            Some(false)
-        } else {
-            None
-        }
+            .map(move |record_chunks_used| record_chunks_used[s_bucket]))
     }
 }
