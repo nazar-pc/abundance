@@ -232,6 +232,7 @@ fn verify_fn<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>
         [Metadata::from(left_metadata); _],
         [Metadata::from(right_metadata); _],
     );
+    let y_outputs = Y::array_from_repr(y_outputs.to_array());
     assert_eq!([y_output; _], y_outputs);
     if metadata_expected != 0 {
         assert_eq!([metadata; _], metadatas);

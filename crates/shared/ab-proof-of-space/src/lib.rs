@@ -69,18 +69,27 @@ pub struct PosProofs {
 // TODO: A method that returns hashed proofs (with SIMD) for all s-buckets for plotting
 #[cfg(feature = "alloc")]
 impl PosProofs {
-    // TODO: Extensive tests for this method
     /// Get proof for specified s-bucket (if exists).
     ///
     /// Note that this is not the most efficient API possible, so prefer using the `proofs` field
     /// directly if the use case allows.
     #[inline]
     pub fn for_s_bucket(&self, s_bucket: SBucket) -> Option<PosProof> {
+        let proof_index = Self::proof_index_for_s_bucket(self.found_proofs, s_bucket)?;
+
+        Some(self.proofs[proof_index])
+    }
+
+    #[inline(always)]
+    fn proof_index_for_s_bucket(
+        found_proofs: [u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
+        s_bucket: SBucket,
+    ) -> Option<usize> {
         let bits_offset = usize::from(s_bucket);
         let found_proofs_byte_offset = bits_offset / u8::BITS as usize;
         let found_proofs_bit_offset = bits_offset as u32 % u8::BITS;
         let (found_proofs_before, found_proofs_after) =
-            self.found_proofs.split_at(found_proofs_byte_offset);
+            found_proofs.split_at(found_proofs_byte_offset);
         if (found_proofs_after[0] & (1 << found_proofs_bit_offset)) == 0 {
             return None;
         }
@@ -92,7 +101,7 @@ impl PosProofs {
                 .unbounded_shl(u8::BITS - found_proofs_bit_offset)
                 .count_ones();
 
-        Some(self.proofs[proof_index as usize])
+        Some(proof_index as usize)
     }
 }
 
