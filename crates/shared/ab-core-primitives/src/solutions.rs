@@ -5,7 +5,7 @@ use crate::hashes::Blake3Hash;
 use crate::pieces::{PieceOffset, Record, RecordChunk, RecordProof, RecordRoot};
 use crate::pos::{PosProof, PosSeed};
 use crate::pot::{PotOutput, SlotNumber};
-use crate::sectors::{SectorId, SectorIndex, SectorSlotChallenge};
+use crate::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
 use ab_blake3::single_block_keyed_hash;
 use ab_io_type::trivial_type::TrivialType;
@@ -434,7 +434,7 @@ pub struct SolutionVerifyParams {
 /// Proof-of-time verifier to be used in [`Solution::verify()`]
 pub trait SolutionPotVerifier {
     /// Check whether proof created earlier is valid
-    fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool;
+    fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool;
 }
 
 /// Farmer solution for slot challenge.
@@ -510,7 +510,7 @@ impl Solution {
         // Check that proof of space is valid
         if !PotVerifier::is_proof_valid(
             &sector_id.derive_evaluation_seed(self.piece_offset),
-            s_bucket_audit_index.into(),
+            s_bucket_audit_index,
             &self.proof_of_space,
         ) {
             return Err(SolutionVerifyError::InvalidProofOfSpace);

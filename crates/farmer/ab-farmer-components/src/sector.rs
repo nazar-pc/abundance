@@ -173,30 +173,8 @@ impl RawSector {
     }
 }
 
-// Bit array containing space for bits equal to the number of s-buckets in a record
-type SingleRecordBitArray = BitArray<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>;
-
-const SINGLE_RECORD_BIT_ARRAY_SIZE: usize = size_of::<SingleRecordBitArray>();
-
-/// Wrapper data structure that allows to iterate mutably over record chunks bitfields
-#[derive(Debug)]
-pub struct RecordChunksUsed<'a> {
-    record_chunks_used: &'a mut SingleRecordBitArray,
-}
-
-impl RecordChunksUsed<'_> {
-    /// Produces an iterator over record chunks bitfields.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = impl Deref<Target = bool> + '_> + '_ {
-        self.record_chunks_used.iter()
-    }
-
-    /// Produces a mutable iterator over record chunks bitfields.
-    pub fn iter_mut(
-        &mut self,
-    ) -> impl ExactSizeIterator<Item = impl DerefMut<Target = bool> + '_> + '_ {
-        self.record_chunks_used.iter_mut()
-    }
-}
+/// Bit array containing space for bits equal to the number of s-buckets in a record
+pub type SingleRecordBitArray = BitArray<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>;
 
 /// Error happening when trying to create [`SectorContentsMap`] from bytes
 #[derive(Debug, Error, Copy, Clone, Eq, PartialEq)]
@@ -301,7 +279,7 @@ impl SectorContentsMap {
 
         for (record_chunks_used, bytes) in record_chunks_used.iter_mut().zip(
             single_records_bit_arrays
-                .as_chunks::<{ SINGLE_RECORD_BIT_ARRAY_SIZE }>()
+                .as_chunks::<{ size_of::<SingleRecordBitArray>() }>()
                 .0,
         ) {
             record_chunks_used.as_raw_mut_slice().copy_from_slice(bytes);
@@ -313,7 +291,7 @@ impl SectorContentsMap {
     /// Size of sector contents map when encoded and stored in the plot for specified number of
     /// pieces in sector
     pub const fn encoded_size(pieces_in_sector: u16) -> usize {
-        SINGLE_RECORD_BIT_ARRAY_SIZE * pieces_in_sector as usize + Blake3Hash::SIZE
+        size_of::<SingleRecordBitArray>() * pieces_in_sector as usize + Blake3Hash::SIZE
     }
 
     /// Encode internal contents into `output`
@@ -327,12 +305,8 @@ impl SectorContentsMap {
 
         let slice = self.record_chunks_used.as_slice();
         // SAFETY: `BitArray` is a transparent data structure containing array of bytes
-        let slice = unsafe {
-            slice::from_raw_parts(
-                slice.as_ptr() as *const u8,
-                slice.len() * SINGLE_RECORD_BIT_ARRAY_SIZE,
-            )
-        };
+        let slice =
+            unsafe { slice::from_raw_parts(slice.as_ptr().cast::<u8>(), size_of_val(slice)) };
 
         // Write data and checksum
         output[..slice.len()].copy_from_slice(slice);
@@ -347,12 +321,8 @@ impl SectorContentsMap {
     }
 
     /// Iterate mutably over individual record chunks (s-buckets) that were used
-    pub fn iter_record_chunks_used_mut(
-        &mut self,
-    ) -> impl ExactSizeIterator<Item = RecordChunksUsed<'_>> + '_ {
-        self.record_chunks_used
-            .iter_mut()
-            .map(|record_chunks_used| RecordChunksUsed { record_chunks_used })
+    pub fn iter_record_chunks_used_mut(&mut self) -> &mut [SingleRecordBitArray] {
+        &mut self.record_chunks_used
     }
 
     /// Returns sizes of each s-bucket

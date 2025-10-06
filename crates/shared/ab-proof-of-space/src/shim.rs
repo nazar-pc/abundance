@@ -2,9 +2,16 @@
 //! purposes to reduce memory and CPU usage
 
 #[cfg(feature = "alloc")]
+use crate::PosProofs;
+#[cfg(feature = "alloc")]
 use crate::TableGenerator;
 use crate::{PosTableType, Table};
+#[cfg(feature = "alloc")]
+use ab_core_primitives::pieces::Record;
 use ab_core_primitives::pos::{PosProof, PosSeed};
+use ab_core_primitives::sectors::SBucket;
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 use core::iter;
 
 /// Proof of space table generator.
@@ -16,8 +23,30 @@ pub struct ShimTableGenerator;
 
 #[cfg(feature = "alloc")]
 impl TableGenerator<ShimTable> for ShimTableGenerator {
-    fn generate(&self, seed: &PosSeed) -> ShimTable {
-        ShimTable { seed: *seed }
+    fn create_proofs(&self, seed: &PosSeed) -> Box<PosProofs> {
+        // SAFETY: Zeroed contents is a safe invariant
+        let mut proofs = unsafe { Box::<PosProofs>::new_zeroed().assume_init() };
+
+        let mut num_found_proofs = 0_usize;
+        'outer: for (s_buckets, found_proofs) in (0..Record::NUM_S_BUCKETS as u32)
+            .array_chunks::<{ u8::BITS as usize }>()
+            .zip(&mut proofs.found_proofs)
+        {
+            for (proof_offset, s_bucket) in s_buckets.into_iter().enumerate() {
+                if let Some(proof) = find_proof(seed, s_bucket) {
+                    *found_proofs |= 1 << proof_offset;
+
+                    proofs.proofs[num_found_proofs] = proof;
+                    num_found_proofs += 1;
+
+                    if num_found_proofs == Record::NUM_CHUNKS {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+
+        proofs
     }
 }
 
@@ -25,14 +54,11 @@ impl TableGenerator<ShimTable> for ShimTableGenerator {
 ///
 /// Shim implementation.
 #[derive(Debug)]
-pub struct ShimTable {
-    #[cfg(feature = "alloc")]
-    seed: PosSeed,
-}
+pub struct ShimTable;
 
 impl ab_core_primitives::solutions::SolutionPotVerifier for ShimTable {
-    fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
-        let Some(correct_proof) = find_proof(seed, challenge_index) else {
+    fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool {
+        let Some(correct_proof) = find_proof(seed, u32::from(s_bucket)) else {
             return false;
         };
 
@@ -45,16 +71,9 @@ impl Table for ShimTable {
     #[cfg(feature = "alloc")]
     type Generator = ShimTableGenerator;
 
-    #[cfg(feature = "alloc")]
-    fn find_proof(&self, challenge_index: u32) -> Option<PosProof> {
-        find_proof(&self.seed, challenge_index)
-    }
-
-    fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
+    fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool {
         <Self as ab_core_primitives::solutions::SolutionPotVerifier>::is_proof_valid(
-            seed,
-            challenge_index,
-            proof,
+            seed, s_bucket, proof,
         )
     }
 }
@@ -77,7 +96,7 @@ fn find_proof(seed: &PosSeed, challenge_index: u32) -> Option<PosProof> {
     }
 }
 
-#[cfg(all(feature = "alloc", test))]
+#[cfg(all(feature = "alloc", test, not(miri)))]
 mod tests {
     use super::*;
 
@@ -88,14 +107,19 @@ mod tests {
             198, 204, 10, 9, 10, 11, 129, 139, 171, 15, 23,
         ]);
 
-        let table = ShimTable::generator().generate(&seed);
+        let proofs = ShimTable::generator().create_proofs(&seed);
 
-        assert!(table.find_proof(1).is_none());
+        let s_bucket_without_proof = SBucket::from(1);
+        assert!(proofs.for_s_bucket(s_bucket_without_proof).is_none());
 
         {
-            let challenge_index = 0;
-            let proof = table.find_proof(challenge_index).unwrap();
-            assert!(ShimTable::is_proof_valid(&seed, challenge_index, &proof));
+            let s_bucket_with_proof = SBucket::from(0);
+            let proof = proofs.for_s_bucket(s_bucket_with_proof).unwrap();
+            assert!(ShimTable::is_proof_valid(
+                &seed,
+                s_bucket_with_proof,
+                &proof
+            ));
         }
     }
 }

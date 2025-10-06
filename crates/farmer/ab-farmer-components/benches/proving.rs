@@ -179,7 +179,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         if !solution_candidates
             .clone()
             .into_solutions(erasure_coding, |seed: &PosSeed| {
-                table_generator.generate_parallel(seed)
+                table_generator.create_proofs_parallel(seed)
             })
             .unwrap()
             .is_empty()
@@ -197,7 +197,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     .clone()
                     .into_solutions(
                         black_box(erasure_coding),
-                        black_box(|seed: &PosSeed| table_generator.generate_parallel(seed)),
+                        black_box(|seed: &PosSeed| table_generator.create_proofs_parallel(seed)),
                     )
                     .unwrap()
                     // Process just one solution
@@ -263,7 +263,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                                 .into_solutions(
                                     black_box(erasure_coding),
                                     black_box(|seed: &PosSeed| {
-                                        table_generator.generate_parallel(seed)
+                                        table_generator.create_proofs_parallel(seed)
                                     }),
                                 )
                                 .unwrap()
