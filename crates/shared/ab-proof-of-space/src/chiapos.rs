@@ -24,6 +24,8 @@ use ab_core_primitives::pieces::Record;
 #[cfg(feature = "alloc")]
 use ab_core_primitives::pos::PosProof;
 #[cfg(feature = "alloc")]
+use ab_core_primitives::sectors::SBucket;
+#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::array;
 use core::mem::MaybeUninit;
@@ -71,6 +73,23 @@ impl From<Box<Proofs<{ PosProof::K }>>> for Box<PosProofs> {
         }
         // SAFETY: Both structs have an identical layout with `#[repr(C)]` internals
         unsafe { Box::from_raw(Box::into_raw(proofs).cast()) }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<const K: u8> Proofs<K>
+where
+    [(); 64 * usize::from(K) / 8]:,
+{
+    /// Get proof for specified s-bucket (if exists).
+    ///
+    /// Note that this is not the most efficient API possible, so prefer using the `proofs` field
+    /// directly if the use case allows.
+    #[inline]
+    pub fn for_s_bucket(&self, s_bucket: SBucket) -> Option<[u8; 64 * usize::from(K) / 8]> {
+        let proof_index = PosProofs::proof_index_for_s_bucket(self.found_proofs, s_bucket)?;
+
+        Some(self.proofs[proof_index])
     }
 }
 
