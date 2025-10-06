@@ -38,11 +38,10 @@ use core::simd::prelude::*;
 use core::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(feature = "alloc")]
 use derive_more::Deref;
+#[cfg(feature = "alloc")]
+use rclite::Arc;
 #[cfg(any(feature = "alloc", test))]
 use seq_macro::seq;
-// TODO: Switch to `rclite` once https://github.com/fereidani/rclite/issues/11 is resolved
-#[cfg(feature = "alloc")]
-use alloc::sync::Arc;
 
 pub(super) const COMPUTE_F1_SIMD_FACTOR: usize = 8;
 #[cfg(any(feature = "alloc", test))]
@@ -289,7 +288,7 @@ fn calculate_left_targets() -> Arc<LeftTargets> {
     }
 
     // SAFETY: Initialized all entries
-    unsafe { left_targets.assume_init() }
+    unsafe { Arc::assume_init(left_targets) }
 }
 
 fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
