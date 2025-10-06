@@ -14,6 +14,8 @@ use crate::chiapos::table::types::{Position, R};
 use crate::chiapos::utils::EvaluatableUsize;
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 #[cfg(feature = "alloc")]
+use ab_core_primitives::pieces::Record;
+#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use alloc::vec;
@@ -720,6 +722,7 @@ where
 /// # Safety
 /// `m` must contain positions that correspond to the parent table
 #[cfg(feature = "alloc")]
+#[inline(always)]
 unsafe fn match_to_result<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     m: &Match,
@@ -1311,7 +1314,7 @@ where
 
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
     /// performance (though not efficiency of CPU and memory usage), if you create multiple tables
-    /// in parallel, prefer [`Self::create_parallel()`] for better overall performance.
+    /// in parallel, prefer this method for better overall performance.
     #[cfg(feature = "parallel")]
     pub(super) fn create_parallel<const PARENT_TABLE_NUMBER: u8>(
         parent_table: Table<K, PARENT_TABLE_NUMBER>,
@@ -1461,6 +1464,235 @@ where
                 }
             }
         }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<const K: u8> Table<K, 7>
+where
+    Self: private::SupportedOtherTables,
+    EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
+    [(); 1 << K]:,
+    [(); num_buckets(K)]:,
+    [(); num_buckets(K) - 1]:,
+{
+    /// Proof targets from the last table into the previous table, one for each
+    /// [`Record::NUM_S_BUCKETS`].
+    pub(super) fn create_proof_targets(
+        parent_table: Table<K, 6>,
+        cache: &TablesCache,
+    ) -> ([[Position; 2]; Record::NUM_S_BUCKETS], PrunedTable<K, 6>)
+    where
+        Table<K, 6>: private::NotLastTable,
+        EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
+    {
+        let left_targets = &*cache.left_targets;
+        let mut table_6_proof_targets = [[Position::ZERO; 2]; Record::NUM_S_BUCKETS];
+
+        for ([left_bucket, right_bucket], left_bucket_index) in
+            parent_table.buckets().array_windows().zip(0..)
+        {
+            let mut matches = [MaybeUninit::uninit(); _];
+            // SAFETY: Positions are taken from `Table::buckets()` and correspond to initialized
+            // values
+            let matches = unsafe {
+                find_matches_in_buckets(
+                    left_bucket_index,
+                    left_bucket,
+                    right_bucket,
+                    &mut matches,
+                    left_targets,
+                )
+            };
+            // Throw away some successful matches that are not that necessary
+            let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
+
+            let (grouped_matches, other_matches) = matches.as_chunks::<COMPUTE_FN_SIMD_FACTOR>();
+
+            for grouped_matches in grouped_matches {
+                // SAFETY: Guaranteed by function contract
+                let (ys_group, positions_group, _) =
+                    unsafe { match_to_result_simd::<_, 7, _>(&parent_table, grouped_matches) };
+
+                let s_buckets = ys_group >> Simd::splat(u32::from(PARAM_EXT));
+
+                for (s_bucket, p) in s_buckets.to_array().into_iter().zip(positions_group) {
+                    const {
+                        assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);
+                    }
+                    let Ok(s_bucket) = u16::try_from(s_bucket) else {
+                        continue;
+                    };
+                    let positions = &mut table_6_proof_targets[usize::from(s_bucket)];
+                    // Real right position is never zero
+                    if positions[1] == Position::ZERO {
+                        *positions = p;
+                    }
+                }
+            }
+            for other_match in other_matches {
+                // SAFETY: Guaranteed by function contract
+                let (y, p, _) = unsafe { match_to_result::<_, 7, _>(&parent_table, other_match) };
+
+                let s_bucket = u32::from(y) >> PARAM_EXT;
+
+                const {
+                    assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);
+                }
+                let Ok(s_bucket) = u16::try_from(s_bucket) else {
+                    continue;
+                };
+
+                let positions = &mut table_6_proof_targets[usize::from(s_bucket)];
+                // Real right position is never zero
+                if positions[1] == Position::ZERO {
+                    *positions = p;
+                }
+            }
+        }
+
+        let parent_table = parent_table.prune();
+
+        (table_6_proof_targets, parent_table)
+    }
+
+    /// Almost the same as [`Self::create_proof_targets()`], but uses parallelism internally for
+    /// better performance (though not efficiency of CPU and memory usage), if you create multiple
+    /// tables in parallel, prefer this method for better overall performance.
+    #[cfg(feature = "parallel")]
+    pub(super) fn create_proof_targets_parallel(
+        parent_table: Table<K, 6>,
+        cache: &TablesCache,
+    ) -> ([[Position; 2]; Record::NUM_S_BUCKETS], PrunedTable<K, 6>)
+    where
+        Table<K, 6>: private::NotLastTable,
+        EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
+    {
+        // SAFETY: Contents is `MaybeUninit`
+        let buckets_positions = unsafe {
+            Box::<[SyncUnsafeCell<[MaybeUninit<_>; REDUCED_MATCHES_COUNT]>; num_buckets(K) - 1]>::new_uninit().assume_init()
+        };
+        let global_results_counts =
+            array::from_fn::<_, { num_buckets(K) - 1 }, _>(|_| SyncUnsafeCell::new(0u16));
+
+        let left_targets = &*cache.left_targets;
+
+        let buckets = parent_table.buckets();
+        // Iterate over buckets in batches, such that a cache line worth of bytes is taken from
+        // `global_results_counts` each time to avoid unnecessary false sharing
+        let bucket_batch_size = CACHE_LINE_SIZE / size_of::<u16>();
+        let bucket_batch_index = AtomicUsize::new(0);
+
+        rayon::broadcast(|_ctx| {
+            loop {
+                let bucket_batch_index = bucket_batch_index.fetch_add(1, Ordering::Relaxed);
+
+                let buckets_batch = buckets
+                    .array_windows::<2>()
+                    .enumerate()
+                    .skip(bucket_batch_index * bucket_batch_size)
+                    .take(bucket_batch_size);
+
+                if buckets_batch.is_empty() {
+                    break;
+                }
+
+                for (left_bucket_index, [left_bucket, right_bucket]) in buckets_batch {
+                    let mut matches = [MaybeUninit::uninit(); _];
+                    // SAFETY: Positions are taken from `Table::buckets()` and correspond to
+                    // initialized values
+                    let matches = unsafe {
+                        find_matches_in_buckets(
+                            left_bucket_index as u32,
+                            left_bucket,
+                            right_bucket,
+                            &mut matches,
+                            left_targets,
+                        )
+                    };
+                    // Throw away some successful matches that are not that necessary
+                    let matches = &matches[..matches.len().min(REDUCED_MATCHES_COUNT)];
+
+                    // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed
+                    // at this time, and it is guaranteed to be in range
+                    let buckets_positions =
+                        unsafe { &mut *buckets_positions.get_unchecked(left_bucket_index).get() };
+                    // SAFETY: This is the only place where `left_bucket_index`'s entry is accessed
+                    // at this time, and it is guaranteed to be in range
+                    let count = unsafe {
+                        &mut *global_results_counts.get_unchecked(left_bucket_index).get()
+                    };
+
+                    let (grouped_matches, other_matches) =
+                        matches.as_chunks::<COMPUTE_FN_SIMD_FACTOR>();
+
+                    let mut reduced_count = 0_usize;
+                    for grouped_matches in grouped_matches {
+                        // SAFETY: Guaranteed by function contract
+                        let (ys_group, positions_group, _) = unsafe {
+                            match_to_result_simd::<_, 7, _>(&parent_table, grouped_matches)
+                        };
+
+                        let s_buckets = ys_group >> Simd::splat(u32::from(PARAM_EXT));
+                        let s_buckets = s_buckets.to_array();
+
+                        for (s_bucket, p) in s_buckets.into_iter().zip(positions_group) {
+                            const {
+                                assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);
+                            }
+                            let Ok(s_bucket) = u16::try_from(s_bucket) else {
+                                continue;
+                            };
+
+                            buckets_positions[reduced_count].write((s_bucket, p));
+                            reduced_count += 1;
+                        }
+                    }
+                    for other_match in other_matches {
+                        // SAFETY: Guaranteed by function contract
+                        let (y, p, _) =
+                            unsafe { match_to_result::<_, 7, _>(&parent_table, other_match) };
+
+                        let s_bucket = u32::from(y) >> PARAM_EXT;
+
+                        const {
+                            assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);
+                        }
+                        let Ok(s_bucket) = u16::try_from(s_bucket) else {
+                            continue;
+                        };
+
+                        buckets_positions[reduced_count].write((s_bucket, p));
+                        reduced_count += 1;
+                    }
+
+                    *count = reduced_count as u16;
+                }
+            }
+        });
+
+        let parent_table = parent_table.prune();
+
+        let buckets_positions = strip_sync_unsafe_cell(buckets_positions);
+
+        let mut table_6_proof_targets = [[Position::ZERO; 2]; Record::NUM_S_BUCKETS];
+
+        for (bucket, results_count) in buckets_positions.iter().zip(
+            global_results_counts
+                .into_iter()
+                .map(|count| usize::from(count.into_inner())),
+        ) {
+            // SAFETY: `results_count` corresponds to the number of initialized `bucket` elements
+            for &(s_bucket, p) in unsafe { bucket[..results_count].assume_init_ref() } {
+                let positions = &mut table_6_proof_targets[usize::from(s_bucket)];
+                // Real right position is never zero
+                if positions[1] == Position::ZERO {
+                    *positions = p;
+                }
+            }
+        }
+
+        (table_6_proof_targets, parent_table)
     }
 }
 

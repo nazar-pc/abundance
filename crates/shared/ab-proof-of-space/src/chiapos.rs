@@ -175,16 +175,7 @@ where
         let (table_4, table_3) = Table::<K, 4>::create(table_3, cache);
         let (table_5, table_4) = Table::<K, 5>::create(table_4, cache);
         let (table_6, table_5) = Table::<K, 6>::create(table_5, cache);
-        let (table_7, table_6) = Table::<K, 7>::create(table_6, cache);
-
-        let tables = Self {
-            table_2,
-            table_3,
-            table_4,
-            table_5,
-            table_6,
-            table_7,
-        };
+        let (table_6_proof_targets, table_6) = Table::<K, 7>::create_proof_targets(table_6, cache);
 
         // TODO: Rewrite this more efficiently
         let mut proofs = Box::<Proofs<K>>::new_uninit();
@@ -203,13 +194,25 @@ where
             };
 
             let mut num_found_proofs = 0_usize;
-            'outer: for (challenge_indices, found_proofs) in (0..Record::NUM_S_BUCKETS as u32)
-                .array_chunks::<{ u8::BITS as usize }>()
+            'outer: for (positions, found_proofs) in table_6_proof_targets
+                .as_chunks::<{ u8::BITS as usize }>()
+                .0
+                .iter()
                 .zip(found_proofs)
             {
                 // TODO: Find proofs with SIMD
-                for (proof_offset, challenge_index) in challenge_indices.into_iter().enumerate() {
-                    if let Some(proof) = tables.find_proof_raw(challenge_index).next() {
+                for (proof_offset, table_6_positions) in positions.iter().enumerate() {
+                    // Real right position is never zero
+                    if table_6_positions[1] != Position::ZERO {
+                        let proof = Self::find_proof_raw_internal(
+                            &table_2,
+                            &table_3,
+                            &table_4,
+                            &table_5,
+                            &table_6,
+                            *table_6_positions,
+                        );
+
                         *found_proofs |= 1 << proof_offset;
 
                         proofs[num_found_proofs].write(proof);
@@ -266,16 +269,8 @@ where
         let (table_4, table_3) = Table::<K, 4>::create_parallel(table_3, cache);
         let (table_5, table_4) = Table::<K, 5>::create_parallel(table_4, cache);
         let (table_6, table_5) = Table::<K, 6>::create_parallel(table_5, cache);
-        let (table_7, table_6) = Table::<K, 7>::create_parallel(table_6, cache);
-
-        let tables = Self {
-            table_2,
-            table_3,
-            table_4,
-            table_5,
-            table_6,
-            table_7,
-        };
+        let (table_6_proof_targets, table_6) =
+            Table::<K, 7>::create_proof_targets_parallel(table_6, cache);
 
         // TODO: Rewrite this more efficiently
         let mut proofs = Box::<Proofs<K>>::new_uninit();
@@ -294,13 +289,25 @@ where
             };
 
             let mut num_found_proofs = 0_usize;
-            'outer: for (challenge_indices, found_proofs) in (0..Record::NUM_S_BUCKETS as u32)
-                .array_chunks::<{ u8::BITS as usize }>()
+            'outer: for (positions, found_proofs) in table_6_proof_targets
+                .as_chunks::<{ u8::BITS as usize }>()
+                .0
+                .iter()
                 .zip(found_proofs)
             {
-                for (proof_offset, challenge_index) in challenge_indices.into_iter().enumerate() {
-                    // TODO: Find proofs with SIMD
-                    if let Some(proof) = tables.find_proof_raw(challenge_index).next() {
+                // TODO: Find proofs with SIMD
+                for (proof_offset, table_6_positions) in positions.iter().enumerate() {
+                    // Real right position is never zero
+                    if table_6_positions[1] != Position::ZERO {
+                        let proof = Self::find_proof_raw_internal(
+                            &table_2,
+                            &table_3,
+                            &table_4,
+                            &table_5,
+                            &table_6,
+                            *table_6_positions,
+                        );
+
                         *found_proofs |= 1 << proof_offset;
 
                         proofs[num_found_proofs].write(proof);
@@ -406,61 +413,83 @@ where
                     .filter(move |&&(_position, y)| y.first_k_bits() == first_k_challenge_bits)
             })
             .map(move |&(position, _y)| {
-                let mut proof = [0u8; 64 * K as usize / 8];
-
                 // SAFETY: Internally generated positions that come from the parent table
-                unsafe { self.table_7.position(position) }
-                    .into_iter()
-                    .flat_map(|position| {
-                        // SAFETY: Internally generated positions that come from the parent table
-                        unsafe { self.table_6.position(position) }
-                    })
-                    .flat_map(|position| {
-                        // SAFETY: Internally generated positions that come from the parent table
-                        unsafe { self.table_5.position(position) }
-                    })
-                    .flat_map(|position| {
-                        // SAFETY: Internally generated positions that come from the parent table
-                        unsafe { self.table_4.position(position) }
-                    })
-                    .flat_map(|position| {
-                        // SAFETY: Internally generated positions that come from the parent table
-                        unsafe { self.table_3.position(position) }
-                    })
-                    .flat_map(|position| {
-                        // SAFETY: Internally generated positions that come from the parent table
-                        unsafe { self.table_2.position(position) }
-                    })
-                    .map(|position| {
-                        // X matches position
-                        X::from(u32::from(position))
-                    })
-                    .enumerate()
-                    .for_each(|(offset, x)| {
-                        let x_offset_in_bits = usize::from(K) * offset;
-                        // Collect bytes where bits of `x` will be written
-                        let proof_bytes = &mut proof[x_offset_in_bits / u8::BITS as usize..]
-                            [..(x_offset_in_bits % u8::BITS as usize + usize::from(K))
-                                .div_ceil(u8::BITS as usize)];
+                let table_6_positions = unsafe { self.table_7.position(position) };
 
-                        // Bits of `x` already shifted to the correct location as they will appear
-                        // in `proof`
-                        let x_shifted = u32::from(x)
-                            << (u32::BITS as usize
-                                - (usize::from(K) + x_offset_in_bits % u8::BITS as usize));
-
-                        // Copy `x` bits into proof
-                        x_shifted
-                            .to_be_bytes()
-                            .iter()
-                            .zip(proof_bytes)
-                            .for_each(|(from, to)| {
-                                *to |= from;
-                            });
-                    });
-
-                proof
+                Self::find_proof_raw_internal(
+                    &self.table_2,
+                    &self.table_3,
+                    &self.table_4,
+                    &self.table_5,
+                    &self.table_6,
+                    table_6_positions,
+                )
             })
+    }
+
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn find_proof_raw_internal(
+        table_2: &PrunedTable<K, 2>,
+        table_3: &PrunedTable<K, 3>,
+        table_4: &PrunedTable<K, 4>,
+        table_5: &PrunedTable<K, 5>,
+        table_6: &PrunedTable<K, 6>,
+        table_6_positions: [Position; 2],
+    ) -> [u8; 64 * K as usize / 8] {
+        let mut proof = [0u8; 64 * K as usize / 8];
+
+        table_6_positions
+            .into_iter()
+            .flat_map(|position| {
+                // SAFETY: Internally generated positions that come from the parent table
+                unsafe { table_6.position(position) }
+            })
+            .flat_map(|position| {
+                // SAFETY: Internally generated positions that come from the parent table
+                unsafe { table_5.position(position) }
+            })
+            .flat_map(|position| {
+                // SAFETY: Internally generated positions that come from the parent table
+                unsafe { table_4.position(position) }
+            })
+            .flat_map(|position| {
+                // SAFETY: Internally generated positions that come from the parent table
+                unsafe { table_3.position(position) }
+            })
+            .flat_map(|position| {
+                // SAFETY: Internally generated positions that come from the parent table
+                unsafe { table_2.position(position) }
+            })
+            .map(|position| {
+                // X matches position
+                X::from(u32::from(position))
+            })
+            .enumerate()
+            .for_each(|(offset, x)| {
+                let x_offset_in_bits = usize::from(K) * offset;
+                // Collect bytes where bits of `x` will be written
+                let proof_bytes = &mut proof[x_offset_in_bits / u8::BITS as usize..]
+                    [..(x_offset_in_bits % u8::BITS as usize + usize::from(K))
+                        .div_ceil(u8::BITS as usize)];
+
+                // Bits of `x` already shifted to the correct location as they will appear
+                // in `proof`
+                let x_shifted = u32::from(x)
+                    << (u32::BITS as usize
+                        - (usize::from(K) + x_offset_in_bits % u8::BITS as usize));
+
+                // Copy `x` bits into proof
+                x_shifted
+                    .to_be_bytes()
+                    .iter()
+                    .zip(proof_bytes)
+                    .for_each(|(from, to)| {
+                        *to |= from;
+                    });
+            });
+
+        proof
     }
 
     /// Find proof of space for a given challenge
