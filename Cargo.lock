@@ -498,6 +498,7 @@ dependencies = [
  "criterion",
  "derive_more 2.0.1",
  "rayon",
+ "rclite",
  "seq-macro",
  "sha2 0.11.0-rc.2",
 ]
@@ -2802,9 +2803,9 @@ dependencies = [
 
 [[package]]
 name = "rclite"
-version = "0.2.8"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e09665c494a9de2bd230e1aedc0c2fb20481a51f28f7db84d0c9bcfe2fe537b2"
+checksum = "71269a047d7cc78bd762ae472d443f62bfa01763a55505db3286f88b0b2fd953"
 dependencies = [
  "branches",
 ]
