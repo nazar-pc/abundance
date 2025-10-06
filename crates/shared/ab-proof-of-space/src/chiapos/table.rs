@@ -594,7 +594,7 @@ fn compute_fn_simd<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBE
     left_metadatas: [Metadata<K, PARENT_TABLE_NUMBER>; COMPUTE_FN_SIMD_FACTOR],
     right_metadatas: [Metadata<K, PARENT_TABLE_NUMBER>; COMPUTE_FN_SIMD_FACTOR],
 ) -> (
-    [Y; COMPUTE_FN_SIMD_FACTOR],
+    Simd<u32, COMPUTE_FN_SIMD_FACTOR>,
     [Metadata<K, TABLE_NUMBER>; COMPUTE_FN_SIMD_FACTOR],
 )
 where
@@ -680,7 +680,6 @@ where
     let y_outputs = Simd::from_array(
         hashes.map(|hash| u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]])),
     ) >> (u32::BITS - y_size_bits(K) as u32);
-    let y_outputs = Y::array_from_repr(y_outputs.to_array());
 
     let metadatas = if TABLE_NUMBER < 4 {
         seq!(N in 0..16 {
@@ -752,7 +751,7 @@ unsafe fn match_to_result_simd<const K: u8, const TABLE_NUMBER: u8, const PARENT
     parent_table: &Table<K, PARENT_TABLE_NUMBER>,
     matches: &[Match; COMPUTE_FN_SIMD_FACTOR],
 ) -> (
-    [Y; COMPUTE_FN_SIMD_FACTOR],
+    Simd<u32, COMPUTE_FN_SIMD_FACTOR>,
     [[Position; 2]; COMPUTE_FN_SIMD_FACTOR],
     [Metadata<K, TABLE_NUMBER>; COMPUTE_FN_SIMD_FACTOR],
 )
@@ -854,6 +853,7 @@ unsafe fn matches_to_results<const K: u8, const TABLE_NUMBER: u8, const PARENT_T
         // SAFETY: Guaranteed by function contract
         let (ys_group, positions_group, metadatas_group) =
             unsafe { match_to_result_simd(parent_table, grouped_matches) };
+        let ys_group = Y::array_from_repr(ys_group.to_array());
         grouped_ys.write_copy_of_slice(&ys_group);
         grouped_positions.write_copy_of_slice(&positions_group);
 
@@ -1238,7 +1238,6 @@ where
         // SAFETY: Contents is `MaybeUninit`
         let mut positions =
             unsafe { Box::<[MaybeUninit<[Position; 2]>; 1 << K]>::new_uninit().assume_init() };
-        // The last table doesn't have metadata
         // SAFETY: Contents is `MaybeUninit`
         let mut metadatas = unsafe {
             Box::<[MaybeUninit<Metadata<K, TABLE_NUMBER>>; 1 << K]>::new_uninit().assume_init()
