@@ -69,7 +69,7 @@ pub struct PosProofs {
 // TODO: A method that returns hashed proofs (with SIMD) for all s-buckets for plotting
 #[cfg(feature = "alloc")]
 impl PosProofs {
-    // TODO: Test for this method
+    // TODO: Extensive tests for this method
     /// Get proof for specified s-bucket (if exists).
     ///
     /// Note that this is not the most efficient API possible, so prefer using the `proofs` field
@@ -96,6 +96,7 @@ impl PosProofs {
     }
 }
 
+// TODO: Think about redesigning this API now that proofs are the output rather than tables
 /// Stateful table generator with better performance.
 ///
 /// Prefer cloning it over creating multiple separate generators.
@@ -103,24 +104,11 @@ impl PosProofs {
 pub trait TableGenerator<T: Table>:
     fmt::Debug + Default + Clone + Send + Sync + Sized + 'static
 {
-    /// Generate a new table with 32 bytes seed.
-    ///
-    /// There is also `Self::generate_parallel()` that can achieve higher performance and lower
-    /// latency at the cost of lower CPU efficiency and higher memory usage.
-    fn generate(&self, seed: &PosSeed) -> T;
-
     /// Create proofs with 32 bytes seed.
     ///
     /// There is also `Self::create_proofs_parallel()` that can achieve higher performance and
     /// lower latency at the cost of lower CPU efficiency and higher memory usage.
     fn create_proofs(&self, seed: &PosSeed) -> Box<PosProofs>;
-
-    /// Almost the same as [`Self::generate()`], but uses parallelism internally for better
-    /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
-    #[cfg(feature = "parallel")]
-    fn generate_parallel(&self, seed: &PosSeed) -> T {
-        self.generate(seed)
-    }
 
     /// Almost the same as [`Self::create_proofs()`], but uses parallelism internally for better
     /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
@@ -138,12 +126,8 @@ pub trait Table: SolutionPotVerifier + Sized + Send + Sync + 'static {
     #[cfg(feature = "alloc")]
     type Generator: TableGenerator<Self>;
 
-    /// Try to find proof at `challenge_index` if it exists
-    #[cfg(feature = "alloc")]
-    fn find_proof(&self, challenge_index: u32) -> Option<PosProof>;
-
     /// Check whether proof created earlier is valid
-    fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool;
+    fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool;
 
     /// Returns a stateful table generator with better performance
     #[cfg(feature = "alloc")]

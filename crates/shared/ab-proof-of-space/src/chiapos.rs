@@ -138,7 +138,7 @@ where
     ///
     /// There is also `Self::create_parallel()` that can achieve higher performance and lower
     /// latency at the cost of lower CPU efficiency and higher memory usage.
-    #[cfg(feature = "alloc")]
+    #[cfg(all(feature = "alloc", any(feature = "full-chiapos", test)))]
     pub fn create(seed: Seed, cache: &TablesCache) -> Self {
         let table_1 = Table::<K, 1>::create(seed);
         let (table_2, _) = Table::<K, 2>::create(table_1, cache);
@@ -186,6 +186,7 @@ where
             table_7,
         };
 
+        // TODO: Rewrite this more efficiently
         let mut proofs = Box::<Proofs<K>>::new_uninit();
         {
             let proofs_ptr = proofs.as_mut().as_mut_ptr();
@@ -228,7 +229,7 @@ where
 
     /// Almost the same as [`Self::create()`], but uses parallelism internally for better
     /// performance and lower latency at the cost of lower CPU efficiency and higher memory usage
-    #[cfg(feature = "parallel")]
+    #[cfg(all(feature = "parallel", any(feature = "full-chiapos", test)))]
     pub fn create_parallel(seed: Seed, cache: &TablesCache) -> Self {
         let table_1 = Table::<K, 1>::create_parallel(seed);
         let (table_2, _) = Table::<K, 2>::create_parallel(table_1, cache);
@@ -272,6 +273,7 @@ where
             table_7,
         };
 
+        // TODO: Rewrite this more efficiently
         let mut proofs = Box::<Proofs<K>>::new_uninit();
         {
             let proofs_ptr = proofs.as_mut().as_mut_ptr();

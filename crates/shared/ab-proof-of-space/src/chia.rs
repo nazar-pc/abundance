@@ -9,6 +9,7 @@ use crate::chiapos::Tables;
 use crate::chiapos::TablesCache;
 use crate::{PosTableType, Table};
 use ab_core_primitives::pos::{PosProof, PosSeed};
+use ab_core_primitives::sectors::SBucket;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 
@@ -25,21 +26,8 @@ pub struct ChiaTableGenerator {
 
 #[cfg(feature = "alloc")]
 impl TableGenerator<ChiaTable> for ChiaTableGenerator {
-    fn generate(&self, seed: &PosSeed) -> ChiaTable {
-        ChiaTable {
-            tables: Tables::<K>::create((*seed).into(), &self.tables_cache),
-        }
-    }
-
     fn create_proofs(&self, seed: &PosSeed) -> Box<PosProofs> {
         Tables::<K>::create_proofs((*seed).into(), &self.tables_cache).into()
-    }
-
-    #[cfg(feature = "parallel")]
-    fn generate_parallel(&self, seed: &PosSeed) -> ChiaTable {
-        ChiaTable {
-            tables: Tables::<K>::create_parallel((*seed).into(), &self.tables_cache),
-        }
     }
 
     #[cfg(feature = "parallel")]
@@ -52,14 +40,11 @@ impl TableGenerator<ChiaTable> for ChiaTableGenerator {
 ///
 /// Chia implementation.
 #[derive(Debug)]
-pub struct ChiaTable {
-    #[cfg(feature = "alloc")]
-    tables: Tables<K>,
-}
+pub struct ChiaTable;
 
 impl ab_core_primitives::solutions::SolutionPotVerifier for ChiaTable {
-    fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
-        Tables::<K>::verify_only_raw(seed, challenge_index, proof)
+    fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool {
+        Tables::<K>::verify_only_raw(seed, u32::from(s_bucket), proof)
     }
 }
 
@@ -68,19 +53,9 @@ impl Table for ChiaTable {
     #[cfg(feature = "alloc")]
     type Generator = ChiaTableGenerator;
 
-    #[cfg(feature = "alloc")]
-    fn find_proof(&self, challenge_index: u32) -> Option<PosProof> {
-        self.tables
-            .find_proof_raw(challenge_index)
-            .next()
-            .map(PosProof::from)
-    }
-
-    fn is_proof_valid(seed: &PosSeed, challenge_index: u32, proof: &PosProof) -> bool {
+    fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool {
         <Self as ab_core_primitives::solutions::SolutionPotVerifier>::is_proof_valid(
-            seed,
-            challenge_index,
-            proof,
+            seed, s_bucket, proof,
         )
     }
 }
@@ -88,6 +63,7 @@ impl Table for ChiaTable {
 #[cfg(all(feature = "alloc", test, not(miri)))]
 mod tests {
     use super::*;
+    use ab_core_primitives::sectors::SBucket;
 
     #[test]
     fn basic() {
@@ -97,20 +73,32 @@ mod tests {
         ]);
 
         let generator = ChiaTableGenerator::default();
-        let table = generator.generate(&seed);
+        let proofs = generator.create_proofs(&seed);
         #[cfg(feature = "parallel")]
-        let table_parallel = generator.generate_parallel(&seed);
+        let proofs_parallel = generator.create_proofs_parallel(&seed);
 
-        assert!(table.find_proof(15651).is_none());
+        let s_bucket_without_proof = SBucket::from(15651);
+        assert!(proofs.for_s_bucket(s_bucket_without_proof).is_none());
         #[cfg(feature = "parallel")]
-        assert!(table_parallel.find_proof(15651).is_none());
+        assert!(
+            proofs_parallel
+                .for_s_bucket(s_bucket_without_proof)
+                .is_none()
+        );
 
         {
-            let challenge_index = 31500;
-            let proof = table.find_proof(challenge_index).unwrap();
+            let s_bucket_with_proof = SBucket::from(31500);
+            let proof = proofs.for_s_bucket(s_bucket_with_proof).unwrap();
             #[cfg(feature = "parallel")]
-            assert_eq!(proof, table_parallel.find_proof(challenge_index).unwrap());
-            assert!(ChiaTable::is_proof_valid(&seed, challenge_index, &proof));
+            assert_eq!(
+                proof,
+                proofs_parallel.for_s_bucket(s_bucket_with_proof).unwrap()
+            );
+            assert!(ChiaTable::is_proof_valid(
+                &seed,
+                s_bucket_with_proof,
+                &proof
+            ));
         }
     }
 }
