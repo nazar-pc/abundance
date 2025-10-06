@@ -221,6 +221,10 @@ where
                     }
                 }
             }
+
+            // It is statically known to be the case, and there is a test that checks the lower
+            // bound
+            debug_assert_eq!(num_found_proofs, Record::NUM_CHUNKS);
         }
 
         // SAFETY: Fully initialized above
@@ -308,6 +312,10 @@ where
                     }
                 }
             }
+
+            // It is statically known to be the case, and there is a test that checks the lower
+            // bound
+            debug_assert_eq!(num_found_proofs, Record::NUM_CHUNKS);
         }
 
         // SAFETY: Fully initialized above
