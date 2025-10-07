@@ -1,3 +1,4 @@
+use crate::shader::constants::PARAM_EXT;
 use crate::shader::num::{U128, U128T};
 use core::iter::Step;
 use core::mem::MaybeUninit;
@@ -45,6 +46,12 @@ impl From<Y> for U128 {
 impl Y {
     /// Y that can't exist
     pub(super) const SENTINEL: Self = Self(u32::MAX);
+
+    /// Get the first `K` bits
+    #[inline(always)]
+    pub(in super::super) const fn first_k_bits(self) -> u32 {
+        self.0 >> PARAM_EXT
+    }
 }
 
 // TODO: The struct in this form currently doesn't compile:
