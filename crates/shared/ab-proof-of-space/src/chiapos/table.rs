@@ -147,7 +147,7 @@ const fn bucket_size_upper_bound(k: u8, security_bits: u8) -> usize {
     // Denominator for ln(2): `LN2_DEN`
     let den = LN2_DEN;
 
-    let ceil_div: u128 = num.div_ceil(den);
+    let ceil_div = num.div_ceil(den);
 
     // Binary search to find the smallest `x` such that `x * x * den >= num`,
     // which computes `ceil(sqrt(num / den))` without floating-point.
@@ -1351,7 +1351,7 @@ where
                 let bucket_batch_index = bucket_batch_index.fetch_add(1, Ordering::Relaxed);
 
                 let buckets_batch = buckets
-                    .array_windows::<2>()
+                    .array_windows()
                     .enumerate()
                     .skip(bucket_batch_index * bucket_batch_size)
                     .take(bucket_batch_size);
@@ -1538,7 +1538,7 @@ where
                 // SAFETY: Guaranteed by function contract
                 let (y, p, _) = unsafe { match_to_result::<_, 7, _>(&parent_table, other_match) };
 
-                let s_bucket = u32::from(y) >> PARAM_EXT;
+                let s_bucket = y.first_k_bits();
 
                 const {
                     assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);
@@ -1595,7 +1595,7 @@ where
                 let bucket_batch_index = bucket_batch_index.fetch_add(1, Ordering::Relaxed);
 
                 let buckets_batch = buckets
-                    .array_windows::<2>()
+                    .array_windows()
                     .enumerate()
                     .skip(bucket_batch_index * bucket_batch_size)
                     .take(bucket_batch_size);
@@ -1660,7 +1660,7 @@ where
                         let (y, p, _) =
                             unsafe { match_to_result::<_, 7, _>(&parent_table, other_match) };
 
-                        let s_bucket = u32::from(y) >> PARAM_EXT;
+                        let s_bucket = y.first_k_bits();
 
                         const {
                             assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);

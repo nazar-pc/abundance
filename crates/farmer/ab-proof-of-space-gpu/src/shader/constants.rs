@@ -5,6 +5,13 @@ pub(super) const K: u8 = 20;
 const _: () = {
     assert!(K == ab_core_primitives::pos::PosProof::K);
 };
+// TODO: Replace this constant with usage of `Record::NUM_S_BUCKETS` after
+//  https://github.com/Rust-GPU/rust-gpu/pull/249 is merged
+pub(super) const NUM_S_BUCKETS: usize = 2_usize.pow(16);
+#[cfg(not(target_arch = "spirv"))]
+const _: () = {
+    assert!(NUM_S_BUCKETS == ab_core_primitives::pieces::Record::NUM_S_BUCKETS);
+};
 pub(super) const MAX_BUCKET_SIZE: usize = 512;
 /// Reducing bucket size for better performance.
 ///
