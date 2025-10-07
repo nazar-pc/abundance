@@ -1351,7 +1351,7 @@ where
                 let bucket_batch_index = bucket_batch_index.fetch_add(1, Ordering::Relaxed);
 
                 let buckets_batch = buckets
-                    .array_windows::<2>()
+                    .array_windows()
                     .enumerate()
                     .skip(bucket_batch_index * bucket_batch_size)
                     .take(bucket_batch_size);
@@ -1538,7 +1538,7 @@ where
                 // SAFETY: Guaranteed by function contract
                 let (y, p, _) = unsafe { match_to_result::<_, 7, _>(&parent_table, other_match) };
 
-                let s_bucket = u32::from(y) >> PARAM_EXT;
+                let s_bucket = y.first_k_bits();
 
                 const {
                     assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);
@@ -1595,7 +1595,7 @@ where
                 let bucket_batch_index = bucket_batch_index.fetch_add(1, Ordering::Relaxed);
 
                 let buckets_batch = buckets
-                    .array_windows::<2>()
+                    .array_windows()
                     .enumerate()
                     .skip(bucket_batch_index * bucket_batch_size)
                     .take(bucket_batch_size);
@@ -1660,7 +1660,7 @@ where
                         let (y, p, _) =
                             unsafe { match_to_result::<_, 7, _>(&parent_table, other_match) };
 
-                        let s_bucket = u32::from(y) >> PARAM_EXT;
+                        let s_bucket = y.first_k_bits();
 
                         const {
                             assert!(Record::NUM_S_BUCKETS == (u16::MAX as usize) + 1);
