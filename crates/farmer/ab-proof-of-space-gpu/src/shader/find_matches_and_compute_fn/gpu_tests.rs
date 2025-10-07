@@ -3,8 +3,8 @@ use crate::shader::constants::{
     MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_BUCKET_SIZE,
     REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_and_compute_fn::LeftTargets;
 use crate::shader::find_matches_and_compute_fn::cpu_tests::find_matches_and_compute_fn_correct;
+use crate::shader::find_matches_in_buckets::LeftTargets;
 use crate::shader::find_matches_in_buckets::cpu_tests::calculate_left_targets;
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::select_shader_features_limits;

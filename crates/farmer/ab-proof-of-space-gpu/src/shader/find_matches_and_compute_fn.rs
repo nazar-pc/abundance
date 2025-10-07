@@ -322,7 +322,7 @@ pub unsafe fn find_matches_and_compute_f3(
     #[spirv(workgroup)]
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 76)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)]
     rmap: &mut MaybeUninit<Rmap>,
 ) {
     // SAFETY: Guaranteed by function contract
@@ -387,7 +387,7 @@ pub unsafe fn find_matches_and_compute_f4(
     #[spirv(workgroup)]
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 76)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)]
     rmap: &mut MaybeUninit<Rmap>,
 ) {
     // SAFETY: Guaranteed by function contract
@@ -452,7 +452,7 @@ pub unsafe fn find_matches_and_compute_f5(
     #[spirv(workgroup)]
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 76)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)]
     rmap: &mut MaybeUninit<Rmap>,
 ) {
     // SAFETY: Guaranteed by function contract
@@ -517,7 +517,7 @@ pub unsafe fn find_matches_and_compute_f6(
     #[spirv(workgroup)]
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 76)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)]
     rmap: &mut MaybeUninit<Rmap>,
 ) {
     // SAFETY: Guaranteed by function contract
@@ -582,7 +582,7 @@ pub unsafe fn find_matches_and_compute_f7(
     #[spirv(workgroup)]
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 76)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 7)]
     rmap: &mut MaybeUninit<Rmap>,
 ) {
     // SAFETY: Guaranteed by function contract

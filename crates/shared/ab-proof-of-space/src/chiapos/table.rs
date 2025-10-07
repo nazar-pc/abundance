@@ -147,7 +147,7 @@ const fn bucket_size_upper_bound(k: u8, security_bits: u8) -> usize {
     // Denominator for ln(2): `LN2_DEN`
     let den = LN2_DEN;
 
-    let ceil_div: u128 = num.div_ceil(den);
+    let ceil_div = num.div_ceil(den);
 
     // Binary search to find the smallest `x` such that `x * x * den >= num`,
     // which computes `ceil(sqrt(num / den))` without floating-point.
