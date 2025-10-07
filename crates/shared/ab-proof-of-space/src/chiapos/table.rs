@@ -1480,13 +1480,18 @@ where
     pub(super) fn create_proof_targets(
         parent_table: Table<K, 6>,
         cache: &TablesCache,
-    ) -> ([[Position; 2]; Record::NUM_S_BUCKETS], PrunedTable<K, 6>)
+    ) -> (
+        Box<[[Position; 2]; Record::NUM_S_BUCKETS]>,
+        PrunedTable<K, 6>,
+    )
     where
         Table<K, 6>: private::NotLastTable,
         EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
     {
         let left_targets = &*cache.left_targets;
-        let mut table_6_proof_targets = [[Position::ZERO; 2]; Record::NUM_S_BUCKETS];
+        // SAFETY: Zero is a valid invariant
+        let mut table_6_proof_targets =
+            unsafe { Box::<[[Position; 2]; Record::NUM_S_BUCKETS]>::new_zeroed().assume_init() };
 
         for ([left_bucket, right_bucket], left_bucket_index) in
             parent_table.buckets().array_windows().zip(0..)
@@ -1562,7 +1567,10 @@ where
     pub(super) fn create_proof_targets_parallel(
         parent_table: Table<K, 6>,
         cache: &TablesCache,
-    ) -> ([[Position; 2]; Record::NUM_S_BUCKETS], PrunedTable<K, 6>)
+    ) -> (
+        Box<[[Position; 2]; Record::NUM_S_BUCKETS]>,
+        PrunedTable<K, 6>,
+    )
     where
         Table<K, 6>: private::NotLastTable,
         EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
@@ -1674,7 +1682,9 @@ where
 
         let buckets_positions = strip_sync_unsafe_cell(buckets_positions);
 
-        let mut table_6_proof_targets = [[Position::ZERO; 2]; Record::NUM_S_BUCKETS];
+        // SAFETY: Zero is a valid invariant
+        let mut table_6_proof_targets =
+            unsafe { Box::<[[Position; 2]; Record::NUM_S_BUCKETS]>::new_zeroed().assume_init() };
 
         for (bucket, results_count) in buckets_positions.iter().zip(
             global_results_counts
