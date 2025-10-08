@@ -198,7 +198,7 @@ pub fn sort_buckets(
                     &mut buckets[bucket_index as usize],
                 );
             }
-            // llvmpipe
+            // LLVMpipe (Mesa 24, SSE)
             4 => {
                 sort_bucket_impl::<{ MAX_BUCKET_SIZE / 4 }>(
                     subgroup_local_invocation_id,
@@ -206,7 +206,7 @@ pub fn sort_buckets(
                     &mut buckets[bucket_index as usize],
                 );
             }
-            // Hypothetically possible
+            // LLVMpipe (Mesa 25, AVX/AVX2)
             8 => {
                 sort_bucket_impl::<{ MAX_BUCKET_SIZE / 8 }>(
                     subgroup_local_invocation_id,

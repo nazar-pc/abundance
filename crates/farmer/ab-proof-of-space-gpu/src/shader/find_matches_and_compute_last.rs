@@ -29,10 +29,11 @@ const _: () = {
 };
 
 const PROOFS_BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS: u8 = 128;
-const NUM_ELEMENTS_PER_S_BUCKET: usize =
+/// Upper-bound estimation of the number of matched elements per s-bucket
+pub const NUM_ELEMENTS_PER_S_BUCKET: usize =
     proofs_bucket_upper_bound(PROOFS_BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS) as usize;
 
-/// Calculates a probabilistic upper bound on the bucket size for a given `k`.
+/// Upper-bound estimation of the number of matched elements per s-bucket.
 ///
 /// Buckets are defined by the lower `NUM_S_BUCKETS.ilog2()` bits of the values. This is based on a
 /// Chernoff bound for the Poisson distribution with mean `lambda = 1`, ensuring the probability

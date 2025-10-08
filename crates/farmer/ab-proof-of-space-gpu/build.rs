@@ -48,6 +48,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             // TODO: This should not be needed: https://github.com/Rust-GPU/rust-gpu/issues/386
             .capability(Capability::GroupNonUniformArithmetic)
             // TODO: This should not be needed: https://github.com/Rust-GPU/rust-gpu/issues/386
+            .capability(Capability::GroupNonUniformBallot)
+            // TODO: This should not be needed: https://github.com/Rust-GPU/rust-gpu/issues/386
             .capability(Capability::GroupNonUniformShuffle);
 
         thread::scope(|scope| -> Result<(), Box<dyn Error>> {
