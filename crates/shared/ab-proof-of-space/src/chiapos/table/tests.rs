@@ -2,9 +2,9 @@
 //! https://github.com/Chia-Network/chiapos/blob/a2049c5367fe60930533a995f7ffded538f04dc4/tests/test.cpp
 
 use crate::chiapos::Seed;
+use crate::chiapos::constants::{NUM_TABLES, PARAM_BC, PARAM_EXT};
 #[cfg(feature = "alloc")]
 use crate::chiapos::constants::{PARAM_B, PARAM_C};
-use crate::chiapos::constants::{PARAM_BC, PARAM_EXT};
 #[cfg(feature = "alloc")]
 use crate::chiapos::table::types::Position;
 use crate::chiapos::table::types::{Metadata, X, Y};
@@ -328,7 +328,6 @@ fn test_proofs_lower_bound() {
     ) -> u64 {
         // Empirical variance factor to match observed higher variance/clustering for small `k`
         const V_FACTOR: f64 = 9.0;
-        const NUM_TABLES: u8 = 7;
 
         // Lambda is the expected number per bucket/pair, independent of `k`.
         let lambda = f64::from(PARAM_BC) / 2u32.pow(u32::from(PARAM_EXT)) as f64;

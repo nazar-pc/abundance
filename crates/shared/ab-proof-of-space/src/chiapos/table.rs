@@ -366,7 +366,7 @@ pub(super) fn compute_f1<const K: u8>(x: X, seed: &Seed) -> Y {
 #[cfg(any(feature = "alloc", test))]
 pub(super) fn compute_f1_simd<const K: u8>(
     xs: Simd<u32, COMPUTE_F1_SIMD_FACTOR>,
-    partial_ys: &[u8; K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize],
+    partial_ys: &[u8; usize::from(K) * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize],
 ) -> [Y; COMPUTE_F1_SIMD_FACTOR] {
     // Each element contains `K` desired bits of `partial_ys` in the final offset of eventual `ys`
     // with the rest of bits being in undefined state
@@ -999,7 +999,7 @@ where
     /// Create the table
     pub(super) fn create(seed: Seed) -> Self
     where
-        EvaluatableUsize<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>: Sized,
+        EvaluatableUsize<{ usize::from(K) * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>: Sized,
     {
         // `MAX_BUCKET_SIZE` is not actively used, but is an upper-bound reference for the other
         // parameters
@@ -1020,7 +1020,7 @@ where
             .zip((X::ZERO..).step_by(COMPUTE_F1_SIMD_FACTOR))
             .zip(
                 partial_ys
-                    .as_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
+                    .as_chunks::<{ usize::from(K) * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
                     .0,
             )
         {
@@ -1049,7 +1049,7 @@ where
     #[cfg(feature = "parallel")]
     pub(super) fn create_parallel(seed: Seed) -> Self
     where
-        EvaluatableUsize<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>: Sized,
+        EvaluatableUsize<{ usize::from(K) * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>: Sized,
     {
         // `MAX_BUCKET_SIZE` is not actively used, but is an upper-bound reference for the other
         // parameters
@@ -1071,7 +1071,7 @@ where
             .zip((X::ZERO..).step_by(COMPUTE_F1_SIMD_FACTOR))
             .zip(
                 partial_ys
-                    .as_chunks::<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
+                    .as_chunks::<{ usize::from(K) * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>()
                     .0,
             )
         {

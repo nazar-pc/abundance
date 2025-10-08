@@ -8,6 +8,7 @@ mod utils;
 
 #[cfg(feature = "alloc")]
 use crate::PosProofs;
+use crate::chiapos::constants::NUM_TABLES;
 #[cfg(feature = "alloc")]
 pub use crate::chiapos::table::TablesCache;
 #[cfg(feature = "alloc")]
@@ -44,7 +45,7 @@ mod private {
 #[repr(C)]
 pub struct Proofs<const K: u8>
 where
-    [(); 64 * usize::from(K) / 8]:,
+    [(); 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize]:,
 {
     /// S-buckets at which proofs were found.
     ///
@@ -55,7 +56,8 @@ where
     /// There will be at most [`Record::NUM_CHUNKS`] proofs produced/bits set to `1`.
     pub found_proofs: [u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
     /// [`Record::NUM_CHUNKS`] proofs, corresponding to set bits of `found_proofs`.
-    pub proofs: [[u8; 64 * usize::from(K) / 8]; Record::NUM_CHUNKS],
+    pub proofs: [[u8; 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize];
+        Record::NUM_CHUNKS],
 }
 
 #[cfg(feature = "alloc")]
@@ -79,14 +81,18 @@ impl From<Box<Proofs<{ PosProof::K }>>> for Box<PosProofs> {
 #[cfg(feature = "alloc")]
 impl<const K: u8> Proofs<K>
 where
-    [(); 64 * usize::from(K) / 8]:,
+    [(); 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize]:,
 {
     /// Get proof for specified s-bucket (if exists).
     ///
     /// Note that this is not the most efficient API possible, so prefer using the `proofs` field
     /// directly if the use case allows.
     #[inline]
-    pub fn for_s_bucket(&self, s_bucket: SBucket) -> Option<[u8; 64 * usize::from(K) / 8]> {
+    pub fn for_s_bucket(
+        &self,
+        s_bucket: SBucket,
+    ) -> Option<[u8; 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize]>
+    {
         let proof_index = PosProofs::proof_index_for_s_bucket(self.found_proofs, s_bucket)?;
 
         Some(self.proofs[proof_index])
@@ -147,8 +153,10 @@ where
     EvaluatableUsize<{ metadata_size_bytes(K, 5) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
     EvaluatableUsize<{ metadata_size_bytes(K, 7) }>: Sized,
-    EvaluatableUsize<{ K as usize * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>: Sized,
-    EvaluatableUsize<{ 64 * K as usize / 8 }>: Sized,
+    EvaluatableUsize<{ usize::from(K) * COMPUTE_F1_SIMD_FACTOR / u8::BITS as usize }>: Sized,
+    EvaluatableUsize<
+        { 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize },
+    >: Sized,
     [(); 1 << K]:,
     [(); num_buckets(K)]:,
     [(); num_buckets(K) - 1]:,
@@ -186,7 +194,7 @@ where
     #[cfg(feature = "alloc")]
     pub fn create_proofs(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>>
     where
-        [(); 64 * usize::from(K) / 8]:,
+        [(); 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize]:,
     {
         let table_1 = Table::<K, 1>::create(seed);
         let (table_2, _) = Table::<K, 2>::create(table_1, cache);
@@ -280,7 +288,7 @@ where
     #[cfg(feature = "parallel")]
     pub fn create_proofs_parallel(seed: Seed, cache: &TablesCache) -> Box<Proofs<K>>
     where
-        [(); 64 * usize::from(K) / 8]:,
+        [(); 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize]:,
     {
         let table_1 = Table::<K, 1>::create_parallel(seed);
         let (table_2, _) = Table::<K, 2>::create_parallel(table_1, cache);
@@ -409,7 +417,8 @@ where
                 let left_right_xs = (u64::from(left_x) << (u64::BITS as usize - usize::from(K)))
                     | (u64::from(right_x) << (u64::BITS as usize - usize::from(K * 2)));
                 hasher.update(
-                    &left_right_xs.to_be_bytes()[..(K as usize * 2).div_ceil(u8::BITS as usize)],
+                    &left_right_xs.to_be_bytes()
+                        [..(usize::from(K) * 2).div_ceil(u8::BITS as usize)],
                 );
                 hasher.finalize().into()
             })
@@ -421,7 +430,9 @@ where
     pub fn find_proof_raw<'a>(
         &'a self,
         first_k_challenge_bits: u32,
-    ) -> impl Iterator<Item = [u8; 64 * K as usize / 8]> + 'a {
+    ) -> impl Iterator<
+        Item = [u8; 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize],
+    > + 'a {
         // Iterate just over elements that are matching `first_k_challenge_bits` prefix
         self.table_7.buckets()[Y::bucket_range_from_first_k_bits(first_k_challenge_bits)]
             .iter()
@@ -455,8 +466,9 @@ where
         table_5: &PrunedTable<K, 5>,
         table_6: &PrunedTable<K, 6>,
         table_6_positions: [Position; 2],
-    ) -> [u8; 64 * K as usize / 8] {
-        let mut proof = [0u8; 64 * K as usize / 8];
+    ) -> [u8; 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize] {
+        let mut proof =
+            [0u8; 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize];
 
         table_6_positions
             .into_iter()
@@ -516,7 +528,9 @@ where
     pub fn find_proof<'a>(
         &'a self,
         first_challenge_bytes: [u8; 4],
-    ) -> impl Iterator<Item = [u8; 64 * K as usize / 8]> + 'a {
+    ) -> impl Iterator<
+        Item = [u8; 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize],
+    > + 'a {
         let first_k_challenge_bits =
             u32::from_be_bytes(first_challenge_bytes) >> (u32::BITS as usize - usize::from(K));
 
@@ -528,7 +542,8 @@ where
     pub fn verify_only_raw(
         seed: &Seed,
         first_k_challenge_bits: u32,
-        proof_of_space: &[u8; 64 * K as usize / 8],
+        proof_of_space: &[u8; 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K)
+             / u8::BITS as usize],
     ) -> bool {
         let ys_and_metadata = array::from_fn::<_, 64, _>(|offset| {
             let mut pre_x_bytes = 0u64.to_be_bytes();
@@ -582,10 +597,11 @@ where
     pub fn verify(
         seed: &Seed,
         challenge: &Challenge,
-        proof_of_space: &[u8; 64 * K as usize / 8],
+        proof_of_space: &[u8; 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K)
+             / u8::BITS as usize],
     ) -> Option<Quality>
     where
-        EvaluatableUsize<{ (K as usize * 2).div_ceil(u8::BITS as usize) }>: Sized,
+        EvaluatableUsize<{ (usize::from(K) * 2).div_ceil(u8::BITS as usize) }>: Sized,
     {
         let first_k_challenge_bits =
             u32::from_be_bytes([challenge[0], challenge[1], challenge[2], challenge[3]])
