@@ -221,23 +221,25 @@ where
             };
 
             let mut num_found_proofs = 0_usize;
-            'outer: for (positions, found_proofs) in table_6_proof_targets
+            'outer: for (table_6_proof_targets, found_proofs) in table_6_proof_targets
                 .as_chunks::<{ u8::BITS as usize }>()
                 .0
                 .iter()
                 .zip(found_proofs)
             {
                 // TODO: Find proofs with SIMD
-                for (proof_offset, table_6_positions) in positions.iter().enumerate() {
+                for (proof_offset, table_6_proof_targets) in
+                    table_6_proof_targets.iter().enumerate()
+                {
                     // Real right position is never zero
-                    if table_6_positions[1] != Position::ZERO {
+                    if table_6_proof_targets[1] != Position::ZERO {
                         let proof = Self::find_proof_raw_internal(
                             &table_2,
                             &table_3,
                             &table_4,
                             &table_5,
                             &table_6,
-                            *table_6_positions,
+                            *table_6_proof_targets,
                         );
 
                         *found_proofs |= 1 << proof_offset;
@@ -316,23 +318,25 @@ where
             };
 
             let mut num_found_proofs = 0_usize;
-            'outer: for (positions, found_proofs) in table_6_proof_targets
+            'outer: for (table_6_proof_targets, found_proofs) in table_6_proof_targets
                 .as_chunks::<{ u8::BITS as usize }>()
                 .0
                 .iter()
                 .zip(found_proofs)
             {
                 // TODO: Find proofs with SIMD
-                for (proof_offset, table_6_positions) in positions.iter().enumerate() {
+                for (proof_offset, table_6_proof_targets) in
+                    table_6_proof_targets.iter().enumerate()
+                {
                     // Real right position is never zero
-                    if table_6_positions[1] != Position::ZERO {
+                    if table_6_proof_targets[1] != Position::ZERO {
                         let proof = Self::find_proof_raw_internal(
                             &table_2,
                             &table_3,
                             &table_4,
                             &table_5,
                             &table_6,
-                            *table_6_positions,
+                            *table_6_proof_targets,
                         );
 
                         *found_proofs |= 1 << proof_offset;
@@ -444,7 +448,7 @@ where
             })
             .map(move |&(position, _y)| {
                 // SAFETY: Internally generated positions that come from the parent table
-                let table_6_positions = unsafe { self.table_7.position(position) };
+                let table_6_proof_targets = unsafe { self.table_7.position(position) };
 
                 Self::find_proof_raw_internal(
                     &self.table_2,
@@ -452,7 +456,7 @@ where
                     &self.table_4,
                     &self.table_5,
                     &self.table_6,
-                    table_6_positions,
+                    table_6_proof_targets,
                 )
             })
     }
@@ -465,12 +469,13 @@ where
         table_4: &PrunedTable<K, 4>,
         table_5: &PrunedTable<K, 5>,
         table_6: &PrunedTable<K, 6>,
-        table_6_positions: [Position; 2],
+        table_6_proof_targets: [Position; 2],
     ) -> [u8; 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize] {
         let mut proof =
             [0u8; 2_usize.pow(u32::from(NUM_TABLES - 1)) * usize::from(K) / u8::BITS as usize];
 
-        table_6_positions
+        // TODO: Optimize with SIMD
+        table_6_proof_targets
             .into_iter()
             .flat_map(|position| {
                 // SAFETY: Internally generated positions that come from the parent table
