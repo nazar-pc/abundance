@@ -4,7 +4,6 @@ pub(super) mod cpu_tests;
 mod gpu_tests;
 pub mod rmap;
 
-use crate::shader::MIN_SUBGROUP_SIZE;
 use crate::shader::constants::{
     MAX_BUCKET_SIZE, PARAM_BC, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
@@ -25,7 +24,7 @@ use spirv_std::spirv;
 //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
 pub const WORKGROUP_SIZE: u32 = 256;
 /// Worst-case for the number of subgroups
-pub const MAX_SUBGROUPS: usize = (WORKGROUP_SIZE / MIN_SUBGROUP_SIZE) as usize;
+pub const MAX_SUBGROUPS: usize = WORKGROUP_SIZE as usize;
 
 // TODO: This is a polyfill to work around for this issue:
 //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043

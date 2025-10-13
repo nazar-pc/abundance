@@ -12,33 +12,33 @@ use spirv_std::spirv;
 pub const WORKGROUP_SIZE: u32 = 256;
 
 #[inline(always)]
-fn perform_local_compare_swap<const MAX_ELEMENTS_PER_THREAD: usize>(
+fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
-    elements_per_thread: u32,
     bit_position: u32,
-    block_size: u32,
-    local_data: &mut [PositionY; MAX_ELEMENTS_PER_THREAD],
+    block_size: usize,
+    local_data: &mut [PositionY; ELEMENTS_PER_THREAD],
 ) {
     // For local swaps within a thread's register data, iterate over half the elements to form pairs
     // `(a_offset, b_offset)` where indices differ only at `bit_position` and swaps them in-place
-    for pair_id in 0..elements_per_thread / 2 {
+    for pair_id in 0..ELEMENTS_PER_THREAD / 2 {
         // Compute pair indices using bit manipulation to map `pair_id`
-        // (`0..elements_per_thread / 2`) to sparse indices in `local_data`
-        // (`0..elements_per_thread`) where bit_position is `0` or `1`
+        // (`0..ELEMENTS_PER_THREAD / 2`) to sparse indices in `local_data`
+        // (`0..ELEMENTS_PER_THREAD`) where bit_position is `0` or `1`
 
         // Bits above `bit_position
-        let high = (pair_id & (u32::MAX << bit_position)) << 1;
+        let high = (pair_id & ((u32::MAX as usize) << bit_position)) << 1;
         // Bits below `bit_position`
-        let low = pair_id & u32::MAX.unbounded_shr(u32::BITS - bit_position);
+        let low = pair_id & (u32::MAX as usize).unbounded_shr(u32::BITS - bit_position);
         let a_offset = high | low;
-        let b_offset = a_offset | (1u32 << bit_position);
+        let b_offset = a_offset | (1 << bit_position);
 
-        let a = local_data[a_offset as usize];
-        let b = local_data[b_offset as usize];
+        let a = local_data[a_offset];
+        let b = local_data[b_offset];
 
         // Determine the sort direction: ascending if `a_offset`'s bit at `block_size` is `0`.
         // This alternates direction in bitonic merges to create sorted sequences.
-        let select_smaller = ((lane_id * elements_per_thread + a_offset) & block_size) == 0;
+        let select_smaller =
+            ((lane_id as usize * ELEMENTS_PER_THREAD + a_offset) & block_size) == 0;
 
         let (final_a, final_b) = if (a.position <= b.position) == select_smaller {
             (a, b)
@@ -46,32 +46,37 @@ fn perform_local_compare_swap<const MAX_ELEMENTS_PER_THREAD: usize>(
             (b, a)
         };
 
-        local_data[a_offset as usize] = final_a;
-        local_data[b_offset as usize] = final_b;
+        local_data[a_offset] = final_a;
+        local_data[b_offset] = final_b;
     }
 }
 
 #[inline(always)]
-fn perform_cross_compare_swap<const MAX_ELEMENTS_PER_THREAD: usize>(
+fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
-    elements_per_thread: u32,
     bit_position: u32,
-    block_size: u32,
-    local_data: &mut [PositionY; MAX_ELEMENTS_PER_THREAD],
+    block_size: usize,
+    local_data: &mut [PositionY; ELEMENTS_PER_THREAD],
 ) {
     // For cross-subgroup swaps, compute partner lane differing at `lane_bit_position`
-    let lane_bit_position = bit_position - elements_per_thread.ilog2();
-    let partner_lane_id = lane_id ^ (1u32 << lane_bit_position);
+    let lane_bit_position = bit_position - ELEMENTS_PER_THREAD.ilog2();
+    let partner_lane_id = lane_id ^ (1 << lane_bit_position);
     // When this lane's bit at `lane_bit_position` is `0`, then this is a lower lane (when compared
     // to `partner_lane_id`)
-    let is_low = (lane_id & (1u32 << lane_bit_position)) == 0;
+    let is_low = (lane_id as usize & (1 << lane_bit_position)) == 0;
     // If `block_size` bit is `0`, setting sort direction for bitonic merge.
-    let ascending = ((lane_id * elements_per_thread) & block_size) == 0;
+    let ascending = ((lane_id as usize * ELEMENTS_PER_THREAD) & block_size) == 0;
     let select_smaller = is_low == ascending;
 
+    // TODO: More idiomatic version currently doesn't compile:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+    #[expect(
+        clippy::needless_range_loop,
+        reason = "rust-gpu can't compile idiomatic version"
+    )]
     // Iterate over all elements in `local_data`, swapping with partner lane
-    for a_offset in 0..elements_per_thread {
-        let a = local_data[a_offset as usize];
+    for a_offset in 0..ELEMENTS_PER_THREAD {
+        let a = local_data[a_offset];
         let b = {
             let position = subgroup_shuffle(a.position, partner_lane_id);
             let y = Y::from(subgroup_shuffle(u32::from(a.y), partner_lane_id));
@@ -85,20 +90,19 @@ fn perform_cross_compare_swap<const MAX_ELEMENTS_PER_THREAD: usize>(
             b
         };
 
-        local_data[a_offset as usize] = selected_value;
+        local_data[a_offset] = selected_value;
     }
 }
 
 // TODO: Make unsafe and avoid bounds check
 /// Sort a bucket using bitonic sort
 #[inline(always)]
-fn sort_bucket_impl<const MAX_ELEMENTS_PER_THREAD: usize>(
+fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
-    elements_per_thread: u32,
     bucket_size: u32,
     bucket: &mut [PositionY; MAX_BUCKET_SIZE],
 ) {
-    let mut local_data = [PositionY::EMPTY; MAX_ELEMENTS_PER_THREAD];
+    let mut local_data = [PositionY::EMPTY; ELEMENTS_PER_THREAD];
 
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -106,8 +110,8 @@ fn sort_bucket_impl<const MAX_ELEMENTS_PER_THREAD: usize>(
         clippy::needless_range_loop,
         reason = "rust-gpu can't compile idiomatic version"
     )]
-    for local_offset in 0..elements_per_thread as usize {
-        let bucket_offset = (lane_id * elements_per_thread) as usize + local_offset;
+    for local_offset in 0..ELEMENTS_PER_THREAD {
+        let bucket_offset = lane_id as usize * ELEMENTS_PER_THREAD + local_offset;
         local_data[local_offset] = if bucket_offset < bucket_size as usize {
             bucket[bucket_offset]
         } else {
@@ -119,29 +123,17 @@ fn sort_bucket_impl<const MAX_ELEMENTS_PER_THREAD: usize>(
     }
 
     // Iterate over merger stages, doubling block_size each time
-    let mut block_size = 2u32;
-    let mut merger_stage = 1u32;
-    while block_size <= MAX_BUCKET_SIZE as u32 {
+    let mut block_size = 2;
+    let mut merger_stage = 1;
+    while block_size <= MAX_BUCKET_SIZE {
         // For each stage, process bit positions in reverse for bitonic comparisons
         for bit_position in (0..merger_stage).rev() {
-            if bit_position < elements_per_thread.ilog2() {
+            if bit_position < ELEMENTS_PER_THREAD.ilog2() {
                 // Local swaps within thread's registers, no synchronization needed
-                perform_local_compare_swap(
-                    lane_id,
-                    elements_per_thread,
-                    bit_position,
-                    block_size,
-                    &mut local_data,
-                );
+                perform_local_compare_swap(lane_id, bit_position, block_size, &mut local_data);
             } else {
                 // Cross-lane swaps using subgroup shuffles for communication
-                perform_cross_compare_swap(
-                    lane_id,
-                    elements_per_thread,
-                    bit_position,
-                    block_size,
-                    &mut local_data,
-                );
+                perform_cross_compare_swap(lane_id, bit_position, block_size, &mut local_data);
             }
         }
         block_size *= 2;
@@ -154,8 +146,8 @@ fn sort_bucket_impl<const MAX_ELEMENTS_PER_THREAD: usize>(
         clippy::needless_range_loop,
         reason = "rust-gpu can't compile idiomatic version"
     )]
-    for local_offset in 0..elements_per_thread as usize {
-        let bucket_offset = (lane_id * elements_per_thread) as usize + local_offset;
+    for local_offset in 0..ELEMENTS_PER_THREAD {
+        let bucket_offset = lane_id as usize * ELEMENTS_PER_THREAD + local_offset;
         bucket[bucket_offset] = local_data[local_offset];
     }
 }
@@ -190,61 +182,66 @@ pub fn sort_buckets(
         // important because `local_data` inside the function is generic and impacts the number of
         // registers used, so we want to minimize them.
         match subgroup_size {
-            // Hypothetically possible, do not optimize as hard, use the same number of registers
-            1 | 2 | 8 => {
+            // Hypothetically possible
+            1 => {
                 sort_bucket_impl::<MAX_BUCKET_SIZE>(
                     subgroup_local_invocation_id,
-                    MAX_BUCKET_SIZE as u32 / subgroup_size,
                     bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );
             }
-            // llvmpipe
-            4 => {
-                const ELEMENTS_PER_THREAD: usize = MAX_BUCKET_SIZE / 4;
-                sort_bucket_impl::<ELEMENTS_PER_THREAD>(
+            // Hypothetically possible
+            2 => {
+                sort_bucket_impl::<{ MAX_BUCKET_SIZE / 2 }>(
                     subgroup_local_invocation_id,
-                    ELEMENTS_PER_THREAD as u32,
+                    bucket_sizes[bucket_index as usize],
+                    &mut buckets[bucket_index as usize],
+                );
+            }
+            // LLVMpipe (Mesa 24, SSE)
+            4 => {
+                sort_bucket_impl::<{ MAX_BUCKET_SIZE / 4 }>(
+                    subgroup_local_invocation_id,
+                    bucket_sizes[bucket_index as usize],
+                    &mut buckets[bucket_index as usize],
+                );
+            }
+            // LLVMpipe (Mesa 25, AVX/AVX2)
+            8 => {
+                sort_bucket_impl::<{ MAX_BUCKET_SIZE / 8 }>(
+                    subgroup_local_invocation_id,
                     bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );
             }
             // Raspberry PI 5
             16 => {
-                const ELEMENTS_PER_THREAD: usize = MAX_BUCKET_SIZE / 16;
-                sort_bucket_impl::<ELEMENTS_PER_THREAD>(
+                sort_bucket_impl::<{ MAX_BUCKET_SIZE / 16 }>(
                     subgroup_local_invocation_id,
-                    ELEMENTS_PER_THREAD as u32,
                     bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );
             }
             // Intel/Nvidia
             32 => {
-                const ELEMENTS_PER_THREAD: usize = MAX_BUCKET_SIZE / 32;
-                sort_bucket_impl::<ELEMENTS_PER_THREAD>(
+                sort_bucket_impl::<{ MAX_BUCKET_SIZE / 32 }>(
                     subgroup_local_invocation_id,
-                    ELEMENTS_PER_THREAD as u32,
                     bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );
             }
             // AMD
             64 => {
-                const ELEMENTS_PER_THREAD: usize = MAX_BUCKET_SIZE / 64;
-                sort_bucket_impl::<ELEMENTS_PER_THREAD>(
+                sort_bucket_impl::<{ MAX_BUCKET_SIZE / 64 }>(
                     subgroup_local_invocation_id,
-                    ELEMENTS_PER_THREAD as u32,
                     bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );
             }
             // Hypothetically possible
             128 => {
-                const ELEMENTS_PER_THREAD: usize = MAX_BUCKET_SIZE / 128;
-                sort_bucket_impl::<ELEMENTS_PER_THREAD>(
+                sort_bucket_impl::<{ MAX_BUCKET_SIZE / 128 }>(
                     subgroup_local_invocation_id,
-                    ELEMENTS_PER_THREAD as u32,
                     bucket_sizes[bucket_index as usize],
                     &mut buckets[bucket_index as usize],
                 );

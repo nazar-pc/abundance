@@ -7,10 +7,12 @@
 #![feature(
     array_windows,
     bigint_helper_methods,
+    generic_const_exprs,
     ptr_as_ref_unchecked,
     step_trait,
     uint_bit_width
 )]
+#![expect(incomplete_features, reason = "generic_const_exprs")]
 #![cfg_attr(all(test, not(target_arch = "spirv")), feature(new_zeroed_alloc))]
 #![cfg_attr(
     all(test, not(miri), not(target_arch = "spirv")),

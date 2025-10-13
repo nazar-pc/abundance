@@ -49,6 +49,8 @@ pub enum PosTableType {
     Shim,
 }
 
+// TODO: Return a single full proof and the rest as hashes instead to optimize memory usage and
+//  parallelize compute more easily
 /// Proof-of-space proofs
 #[derive(Debug)]
 #[cfg(feature = "alloc")]

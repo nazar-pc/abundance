@@ -3,6 +3,7 @@
 #![cfg_attr(any(target_os = "none", target_os = "unknown"), no_std)]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![feature(
+    const_convert,
     const_trait_impl,
     const_try,
     portable_simd,
