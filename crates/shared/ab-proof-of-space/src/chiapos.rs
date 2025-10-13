@@ -515,6 +515,7 @@ where
                     << (u32::BITS as usize
                         - (usize::from(K) + x_offset_in_bits % u8::BITS as usize));
 
+                // TODO: Store proofs in words, like GPU version does
                 // Copy `x` bits into proof
                 x_shifted
                     .to_be_bytes()
