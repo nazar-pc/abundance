@@ -18,7 +18,7 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
     DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
-    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    PipelineLayoutDescriptor, PollType, ShaderStages,
 };
 
 fn generate_positions(
@@ -221,8 +221,7 @@ async fn find_proofs_adapter(
             label: None,
             required_features,
             required_limits,
-            memory_hints: MemoryHints::Performance,
-            trace: Trace::default(),
+            ..DeviceDescriptor::default()
         })
         .await
         .unwrap();
@@ -474,10 +473,11 @@ async fn find_proofs_adapter(
 
     encoder.copy_buffer_to_buffer(&proofs_gpu, 0, &proofs_host, 0, proofs_host.size());
 
+    encoder.map_buffer_on_submit(&proofs_host, MapMode::Read, .., |r| r.unwrap());
+
     queue.submit([encoder.finish()]);
 
-    proofs_host.map_async(MapMode::Read, .., |r| r.unwrap());
-    device.poll(PollType::Wait).unwrap();
+    device.poll(PollType::wait_indefinitely()).unwrap();
 
     let (found_proofs, proofs) = {
         let proofs_host_ptr = proofs_host

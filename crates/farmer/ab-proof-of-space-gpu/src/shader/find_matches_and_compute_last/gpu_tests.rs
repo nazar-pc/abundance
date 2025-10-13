@@ -21,7 +21,7 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
     DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
-    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    PipelineLayoutDescriptor, PollType, ShaderStages,
 };
 
 #[test]
@@ -209,8 +209,7 @@ async fn find_matches_and_compute_last_adapter(
             label: None,
             required_features,
             required_limits,
-            memory_hints: MemoryHints::Performance,
-            trace: Trace::default(),
+            ..DeviceDescriptor::default()
         })
         .await
         .unwrap();
@@ -362,8 +361,8 @@ async fn find_matches_and_compute_last_adapter(
     let rmap_gpu = device.create_buffer(&BufferDescriptor {
         label: None,
         size: if modern {
-            // A dummy buffer if `1` byte just because it can't be zero in wgpu
-            1
+            // A dummy buffer is `4` byte just because it can't be zero in wgpu
+            4
         } else {
             size_of::<Rmap>() as BufferAddress
         },
@@ -430,11 +429,16 @@ async fn find_matches_and_compute_last_adapter(
         table_6_proof_targets_host.size(),
     );
 
+    encoder.map_buffer_on_submit(&table_6_proof_target_counts_host, MapMode::Read, .., |r| {
+        r.unwrap()
+    });
+    encoder.map_buffer_on_submit(&table_6_proof_targets_host, MapMode::Read, .., |r| {
+        r.unwrap()
+    });
+
     queue.submit([encoder.finish()]);
 
-    table_6_proof_target_counts_host.map_async(MapMode::Read, .., |r| r.unwrap());
-    table_6_proof_targets_host.map_async(MapMode::Read, .., |r| r.unwrap());
-    device.poll(PollType::Wait).unwrap();
+    device.poll(PollType::wait_indefinitely()).unwrap();
 
     let table_6_proof_target_counts = {
         let table_6_proof_target_counts_host_ptr = table_6_proof_target_counts_host

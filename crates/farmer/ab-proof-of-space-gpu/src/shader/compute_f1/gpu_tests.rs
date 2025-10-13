@@ -13,7 +13,7 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
     DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
-    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    PipelineLayoutDescriptor, PollType, ShaderStages,
 };
 
 #[test]
@@ -114,8 +114,7 @@ async fn compute_f1_adapter(
             label: None,
             required_features,
             required_limits,
-            memory_hints: MemoryHints::Performance,
-            trace: Trace::default(),
+            ..DeviceDescriptor::default()
         })
         .await
         .unwrap();
@@ -257,11 +256,12 @@ async fn compute_f1_adapter(
     );
     encoder.copy_buffer_to_buffer(&buckets_gpu, 0, &buckets_host, 0, buckets_host.size());
 
+    encoder.map_buffer_on_submit(&bucket_counts_host, MapMode::Read, .., |r| r.unwrap());
+    encoder.map_buffer_on_submit(&buckets_host, MapMode::Read, .., |r| r.unwrap());
+
     queue.submit([encoder.finish()]);
 
-    bucket_counts_host.map_async(MapMode::Read, .., |r| r.unwrap());
-    buckets_host.map_async(MapMode::Read, .., |r| r.unwrap());
-    device.poll(PollType::Wait).unwrap();
+    device.poll(PollType::wait_indefinitely()).unwrap();
 
     let buckets = {
         let bucket_counts_host_ptr = bucket_counts_host

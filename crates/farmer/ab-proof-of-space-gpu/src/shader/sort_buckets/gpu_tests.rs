@@ -12,7 +12,7 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
     DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
-    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    PipelineLayoutDescriptor, PollType, ShaderStages,
 };
 
 #[test]
@@ -128,8 +128,7 @@ async fn sort_buckets_adapter(
             label: None,
             required_features,
             required_limits,
-            memory_hints: MemoryHints::Performance,
-            trace: Trace::default(),
+            ..DeviceDescriptor::default()
         })
         .await
         .unwrap();
@@ -233,10 +232,11 @@ async fn sort_buckets_adapter(
 
     encoder.copy_buffer_to_buffer(&buckets_gpu, 0, &buckets_host, 0, buckets_host.size());
 
+    encoder.map_buffer_on_submit(&buckets_host, MapMode::Read, .., |r| r.unwrap());
+
     queue.submit([encoder.finish()]);
 
-    buckets_host.map_async(MapMode::Read, .., |r| r.unwrap());
-    device.poll(PollType::Wait).unwrap();
+    device.poll(PollType::wait_indefinitely()).unwrap();
 
     let buckets = {
         let buckets_host_ptr = buckets_host
