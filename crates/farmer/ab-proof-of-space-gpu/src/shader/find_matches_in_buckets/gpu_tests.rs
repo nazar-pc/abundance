@@ -19,7 +19,7 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
     DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
-    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    PipelineLayoutDescriptor, PollType, ShaderStages,
 };
 
 const NUM_BUCKETS: usize = 3;
@@ -145,8 +145,7 @@ async fn find_matches_in_buckets_adapter(
             label: None,
             required_features,
             required_limits,
-            memory_hints: MemoryHints::Performance,
-            trace: Trace::default(),
+            ..DeviceDescriptor::default()
         })
         .await
         .unwrap();
@@ -274,8 +273,8 @@ async fn find_matches_in_buckets_adapter(
     let rmap_gpu = device.create_buffer(&BufferDescriptor {
         label: None,
         size: if modern {
-            // A dummy buffer if `1` byte just because it can't be zero in wgpu
-            1
+            // A dummy buffer is `4` byte just because it can't be zero in wgpu
+            4
         } else {
             size_of::<Rmap>() as BufferAddress
         },
@@ -332,11 +331,12 @@ async fn find_matches_in_buckets_adapter(
         matches_counts_host.size(),
     );
 
+    encoder.map_buffer_on_submit(&matches_host, MapMode::Read, .., |r| r.unwrap());
+    encoder.map_buffer_on_submit(&matches_counts_host, MapMode::Read, .., |r| r.unwrap());
+
     queue.submit([encoder.finish()]);
 
-    matches_host.map_async(MapMode::Read, .., |r| r.unwrap());
-    matches_counts_host.map_async(MapMode::Read, .., |r| r.unwrap());
-    device.poll(PollType::Wait).unwrap();
+    device.poll(PollType::wait_indefinitely()).unwrap();
 
     let matches = {
         let matches_host_ptr = matches_host

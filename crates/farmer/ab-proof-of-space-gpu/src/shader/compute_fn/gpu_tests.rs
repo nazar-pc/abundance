@@ -14,7 +14,7 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
     DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
-    MemoryHints, PipelineLayoutDescriptor, PollType, ShaderStages, Trace,
+    PipelineLayoutDescriptor, PollType, ShaderStages,
 };
 
 #[test]
@@ -166,8 +166,7 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
             label: None,
             required_features,
             required_limits,
-            memory_hints: MemoryHints::Performance,
-            trace: Trace::default(),
+            ..DeviceDescriptor::default()
         })
         .await
         .unwrap();
@@ -323,11 +322,12 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
     encoder.copy_buffer_to_buffer(&ys_gpu, 0, &ys_host, 0, ys_host.size());
     encoder.copy_buffer_to_buffer(&metadatas_gpu, 0, &metadatas_host, 0, metadatas_host.size());
 
+    encoder.map_buffer_on_submit(&ys_host, MapMode::Read, .., |r| r.unwrap());
+    encoder.map_buffer_on_submit(&metadatas_host, MapMode::Read, .., |r| r.unwrap());
+
     queue.submit([encoder.finish()]);
 
-    ys_host.map_async(MapMode::Read, .., |r| r.unwrap());
-    metadatas_host.map_async(MapMode::Read, .., |r| r.unwrap());
-    device.poll(PollType::Wait).unwrap();
+    device.poll(PollType::wait_indefinitely()).unwrap();
 
     let ys = {
         let ys_host_ptr = ys_host.get_mapped_range(..).as_ptr().cast::<Y>();
