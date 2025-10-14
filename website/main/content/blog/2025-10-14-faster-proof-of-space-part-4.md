@@ -152,10 +152,9 @@ them to a single one at a later stage.
 [PR 414]: https://github.com/nazar-pc/abundance/pull/414
 
 And with all of those, [PR 415] finally implemented `find_proofs` shader, which looks at those s-bucket elements,
-reduces
-each to a single one and finally generates proofs. It doesn't hash the proofs yet, which, as I mentioned above, would be
-a nice performance improvement. It also processes even entries that do not have proofs, which wastes some amount of
-compute that could have been used better. But those are optimizations for another time.
+reduces each to a single one and finally generates proofs. It doesn't hash the proofs yet, which, as I mentioned above,
+would be a nice performance improvement. It also processes even entries that do not have proofs, which wastes some
+amount of compute that could have been used better. But those are optimizations for another time.
 
 [PR 415]: https://github.com/nazar-pc/abundance/pull/415
 
