@@ -1,7 +1,7 @@
 pub mod compute_f1;
 pub mod compute_fn;
 // TODO: Reuse constants from `ab-proof-of-space` once it compiles with `rust-gpu`
-mod constants;
+pub mod constants;
 pub mod find_matches_and_compute_f2;
 pub mod find_matches_and_compute_f7;
 pub mod find_matches_and_compute_fn;
@@ -16,6 +16,9 @@ pub mod types;
 
 #[cfg(not(target_arch = "spirv"))]
 use wgpu::{Adapter, Features, Limits};
+
+#[cfg(not(target_endian = "little"))]
+compile_error!("Only little-endian platforms are supported");
 
 /// Compiled SPIR-V shader for GPU that only supports baseline Vulkan features.
 ///

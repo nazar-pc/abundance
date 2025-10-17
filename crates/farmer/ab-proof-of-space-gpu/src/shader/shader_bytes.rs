@@ -10,11 +10,6 @@ where
 #[cfg(not(target_arch = "spirv"))]
 impl ShaderBytes<[u8]> {
     pub(super) const fn to_module(&self) -> ShaderModuleDescriptor<'_> {
-        assert!(
-            u16::from_ne_bytes(1u16.to_le_bytes()) == 1u16,
-            "Only little-endian platform is supported"
-        );
-
         assert!(align_of_val(self) == align_of::<u32>());
         let shader_bytes = &self.0;
 

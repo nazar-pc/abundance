@@ -33,12 +33,12 @@ const fn lcm(a: u32, b: u32) -> u32 {
 
 // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` below, can be removed once
 //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
-const WORKGROUP_SIZE: u32 = 256;
+pub const WORKGROUP_SIZE: u32 = 256;
 const CHACHA8_BLOCK_BITS: u32 = size_of::<ChaCha8Block>() as u32 * u8::BITS;
 const CHACHA8_BLOCK_WORDS: usize = size_of::<ChaCha8Block>() / size_of::<u32>();
 // This number is both a multiple of `K` (bits per element) and ChaCha8 block (bits per block)
 const BITS_PER_INVOCATION: u32 = lcm(CHACHA8_BLOCK_BITS, K as u32);
-const ELEMENTS_PER_INVOCATION: u32 = BITS_PER_INVOCATION / K as u32;
+pub const ELEMENTS_PER_INVOCATION: u32 = BITS_PER_INVOCATION / K as u32;
 const BLOCKS_PER_INVOCATION: u32 = BITS_PER_INVOCATION / CHACHA8_BLOCK_BITS;
 // `+1` is needed due to the way `compute_fn_impl` does slightly outside what it, strictly speaking,
 // needs (for efficiency purposes)

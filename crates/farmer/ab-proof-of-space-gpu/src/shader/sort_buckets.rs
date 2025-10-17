@@ -96,7 +96,6 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
 
 // TODO: Make unsafe and avoid bounds check
 /// Sort a bucket using bitonic sort
-#[inline(always)]
 fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     bucket_size: u32,

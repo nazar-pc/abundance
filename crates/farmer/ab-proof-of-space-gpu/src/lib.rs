@@ -12,6 +12,7 @@
     step_trait,
     uint_bit_width
 )]
+#![cfg_attr(not(target_arch = "spirv"), feature(iter_array_chunks, portable_simd))]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![cfg_attr(
     all(test, not(miri), not(target_arch = "spirv")),
@@ -24,6 +25,8 @@
     )
 )]
 
+#[cfg(not(target_arch = "spirv"))]
+mod host;
 // This is used for benchmarks of isolated shaders externally, not for general use
 #[doc(hidden)]
 pub mod shader;
@@ -31,6 +34,8 @@ pub mod shader;
 // TODO: Remove gate after https://github.com/Rust-GPU/rust-gpu/pull/249
 #[cfg(not(target_arch = "spirv"))]
 use ab_core_primitives::pos::PosProof;
+#[cfg(not(target_arch = "spirv"))]
+pub use host::{Device, DeviceInstance};
 
 // TODO: Remove gate after https://github.com/Rust-GPU/rust-gpu/pull/249
 #[cfg(not(target_arch = "spirv"))]

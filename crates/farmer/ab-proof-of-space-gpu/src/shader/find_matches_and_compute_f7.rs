@@ -118,7 +118,7 @@ impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
 /// `bucket_index` must be within range `0..REDUCED_MATCHES_COUNT`. `matches_count` elements in
 /// `matches` must be initialized, `matches` must have valid pointers into `parent_metadatas`.
 #[inline(always)]
-unsafe fn compute_fn_into_buckets(
+unsafe fn compute_f7_into_buckets(
     local_invocation_id: u32,
     left_bucket_index: u32,
     matches_count: usize,
@@ -272,7 +272,7 @@ pub unsafe fn find_matches_and_compute_f7(
         workgroup_memory_barrier_with_group_sync();
 
         unsafe {
-            compute_fn_into_buckets(
+            compute_f7_into_buckets(
                 local_invocation_id,
                 left_bucket_index,
                 matches_count as usize,

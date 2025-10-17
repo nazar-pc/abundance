@@ -8,6 +8,8 @@ use crate::shader::constants::{
 };
 use crate::shader::find_matches_and_compute_f7::{NUM_ELEMENTS_PER_S_BUCKET, ProofTargets};
 use crate::shader::types::{Position, PositionExt};
+#[cfg(not(target_arch = "spirv"))]
+use ab_core_primitives::pos::PosProof;
 use core::mem::MaybeUninit;
 use spirv_std::arch::{
     atomic_or, subgroup_ballot, subgroup_memory_barrier, subgroup_shuffle, subgroup_u_min,
@@ -41,14 +43,20 @@ pub struct Proofs {
 
 // This is equivalent to the above but used for interpretation by the host
 #[derive(Debug, Copy, Clone)]
+#[cfg(not(target_arch = "spirv"))]
 #[repr(C)]
 pub struct ProofsHost {
-    found_proofs: [u8; NUM_S_BUCKETS / u8::BITS as usize],
+    // TODO: Would have been nice to avoid filtering-out on the host
+    /// S-buckets at which proofs were found, there will be more than `Record::NUM_CHUNKS` proofs
+    /// here, needs to be filtered-out by the host
+    pub found_proofs: [u8; NUM_S_BUCKETS / u8::BITS as usize],
     // TODO: Calculate bit mask for proofs found upfront and reduce the size here to just
     //  `NUM_CHUNKS`
-    proofs: [[u8; PROOF_BYTES]; NUM_S_BUCKETS],
+    /// All proofs, those that correspond to set bits of `found_proofs` exist
+    pub proofs: [PosProof; NUM_S_BUCKETS],
 }
 
+#[cfg(not(target_arch = "spirv"))]
 const _: () = {
     assert!(size_of::<Proofs>() == size_of::<ProofsHost>());
 };
@@ -206,7 +214,6 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
     clippy::too_many_arguments,
     reason = "Both I/O and Vulkan stuff together take a lot of arguments"
 )]
-#[inline(always)]
 fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
     local_invocation_id: u32,
     subgroup_id: u32,

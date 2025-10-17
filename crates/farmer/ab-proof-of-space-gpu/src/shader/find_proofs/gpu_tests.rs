@@ -3,10 +3,11 @@ use crate::shader::constants::{
 };
 use crate::shader::find_matches_and_compute_f7::{NUM_ELEMENTS_PER_S_BUCKET, ProofTargets};
 use crate::shader::find_proofs::cpu_tests::find_proofs_correct;
-use crate::shader::find_proofs::{PROOF_BYTES, ProofsHost, WORKGROUP_SIZE};
+use crate::shader::find_proofs::{ProofsHost, WORKGROUP_SIZE};
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::Position;
 use ab_core_primitives::pieces::Record;
+use ab_core_primitives::pos::PosProof;
 use chacha20::ChaCha8Rng;
 use futures::executor::block_on;
 use rand::prelude::*;
@@ -145,7 +146,7 @@ fn find_proofs_gpu() {
         .enumerate()
     {
         if bucket_size != 0 {
-            assert_eq!(expected, actual, "s_bucket={s_bucket}");
+            assert_eq!(expected, &**actual, "s_bucket={s_bucket}");
         }
     }
 }
@@ -160,7 +161,7 @@ async fn find_proofs(
     buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
 ) -> Option<(
     Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
-    Box<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>,
+    Box<[PosProof; NUM_S_BUCKETS]>,
 )> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
@@ -216,7 +217,7 @@ async fn find_proofs_adapter(
     adapter: Adapter,
 ) -> Option<(
     Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
-    Box<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>,
+    Box<[PosProof; NUM_S_BUCKETS]>,
 )> {
     // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits, _modern) =
@@ -496,13 +497,12 @@ async fn find_proofs_adapter(
         let proofs_ref = unsafe { &*proofs_host_ptr };
 
         let found_proofs = Box::new(proofs_ref.found_proofs);
-        let mut proofs = unsafe {
-            Box::<[MaybeUninit<[u8; PROOF_BYTES]>; NUM_S_BUCKETS]>::new_uninit().assume_init()
-        };
+        let mut proofs =
+            unsafe { Box::<[MaybeUninit<PosProof>; NUM_S_BUCKETS]>::new_uninit().assume_init() };
         proofs.write_copy_of_slice(&proofs_ref.proofs);
         let proofs = unsafe {
             let ptr = Box::into_raw(proofs);
-            Box::from_raw(ptr.cast::<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>())
+            Box::from_raw(ptr.cast::<[PosProof; NUM_S_BUCKETS]>())
         };
 
         (found_proofs, proofs)
