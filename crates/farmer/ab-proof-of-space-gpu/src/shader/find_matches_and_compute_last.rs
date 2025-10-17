@@ -9,7 +9,7 @@ use crate::shader::constants::{
 };
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_matches_in_buckets::{
-    LeftTargets, Match, SharedScratchSpace, find_matches_in_buckets_impl,
+    Match, SharedScratchSpace, find_matches_in_buckets_impl,
 };
 use crate::shader::types::{Metadata, Position, PositionY};
 use core::mem::MaybeUninit;
@@ -194,14 +194,13 @@ pub unsafe fn find_matches_and_compute_last(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] left_targets: &LeftTargets,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_buckets: &[[PositionY; MAX_BUCKET_SIZE];
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionY; MAX_BUCKET_SIZE];
          NUM_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_sizes: &mut [u32;
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] bucket_sizes: &mut [u32;
              NUM_S_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     table_6_proof_targets: &mut [[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET];
              NUM_S_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
@@ -211,7 +210,7 @@ pub unsafe fn find_matches_and_compute_last(
     #[spirv(workgroup)]
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
     rmap: &mut MaybeUninit<Rmap>,
 ) {
     let local_invocation_id = local_invocation_id.x;
@@ -247,7 +246,6 @@ pub unsafe fn find_matches_and_compute_last(
                 left_bucket,
                 right_bucket,
                 matches,
-                left_targets,
                 scratch_space,
                 rmap,
             )

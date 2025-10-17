@@ -5,13 +5,11 @@ use crate::shader::constants::{
 use crate::shader::find_matches_and_compute_last::{
     NUM_ELEMENTS_PER_S_BUCKET, PARENT_TABLE_NUMBER, TABLE_NUMBER,
 };
-use crate::shader::find_matches_in_buckets::LeftTargets;
 use crate::shader::find_matches_in_buckets::cpu_tests::find_matches_in_buckets_correct;
 use crate::shader::types::{Metadata, Position, PositionExt, PositionY};
 use std::mem::MaybeUninit;
 
 pub(super) fn find_matches_and_compute_last_correct<'a>(
-    left_targets: &LeftTargets,
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     table_6_proof_targets: &mut [[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET];
@@ -29,7 +27,6 @@ pub(super) fn find_matches_and_compute_last_correct<'a>(
             left_bucket,
             right_bucket,
             &mut matches,
-            left_targets,
         );
 
         for m in matches {

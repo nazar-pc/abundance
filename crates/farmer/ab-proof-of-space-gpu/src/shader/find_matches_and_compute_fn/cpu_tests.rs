@@ -3,7 +3,6 @@ use crate::shader::constants::{
     MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_BUCKET_SIZE,
     REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_in_buckets::LeftTargets;
 use crate::shader::find_matches_in_buckets::cpu_tests::find_matches_in_buckets_correct;
 use crate::shader::types::{Metadata, Position, PositionExt, PositionY, Y};
 use std::mem::MaybeUninit;
@@ -13,7 +12,6 @@ pub(super) fn find_matches_and_compute_fn_correct<
     const TABLE_NUMBER: u8,
     const PARENT_TABLE_NUMBER: u8,
 >(
-    left_targets: &LeftTargets,
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     buckets: &'a mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
@@ -37,7 +35,6 @@ pub(super) fn find_matches_and_compute_fn_correct<
             left_bucket,
             right_bucket,
             &mut matches,
-            left_targets,
         );
 
         for (index, ((m, match_positions), match_metadata)) in

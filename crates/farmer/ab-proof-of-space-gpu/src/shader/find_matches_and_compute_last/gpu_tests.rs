@@ -5,8 +5,6 @@ use crate::shader::constants::{
 };
 use crate::shader::find_matches_and_compute_last::cpu_tests::find_matches_and_compute_last_correct;
 use crate::shader::find_matches_and_compute_last::{NUM_ELEMENTS_PER_S_BUCKET, TABLE_NUMBER};
-use crate::shader::find_matches_in_buckets::LeftTargets;
-use crate::shader::find_matches_in_buckets::cpu_tests::calculate_left_targets;
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Metadata, Position, PositionExt, PositionY, Y};
@@ -77,10 +75,9 @@ fn find_matches_and_compute_last_gpu() {
             Box::from_raw(ptr.cast::<[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>())
         }
     };
-    let left_targets = calculate_left_targets();
 
     let Some((actual_table_6_proof_target_counts, table_6_proof_targets)) = block_on(
-        find_matches_and_compute_last(&left_targets, &parent_buckets, &parent_metadatas),
+        find_matches_and_compute_last(&parent_buckets, &parent_metadatas),
     ) else {
         if cfg!(feature = "__force-gpu-tests") {
             panic!("Skipping tests, no compatible device detected");
@@ -96,7 +93,6 @@ fn find_matches_and_compute_last_gpu() {
         .assume_init()
     };
     let expected_table_6_proof_targets = find_matches_and_compute_last_correct(
-        &left_targets,
         &parent_buckets,
         &parent_metadatas,
         &mut expected_table_6_proof_targets,
@@ -136,7 +132,6 @@ fn find_matches_and_compute_last_gpu() {
 }
 
 async fn find_matches_and_compute_last(
-    left_targets: &LeftTargets,
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
 ) -> Option<(
@@ -157,13 +152,8 @@ async fn find_matches_and_compute_last(
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let Some(mut adapter_result) = find_matches_and_compute_last_adapter(
-            left_targets,
-            parent_buckets,
-            parent_metadatas,
-            adapter,
-        )
-        .await
+        let Some(mut adapter_result) =
+            find_matches_and_compute_last_adapter(parent_buckets, parent_metadatas, adapter).await
         else {
             continue;
         };
@@ -192,7 +182,6 @@ async fn find_matches_and_compute_last(
 }
 
 async fn find_matches_and_compute_last_adapter(
-    left_targets: &LeftTargets,
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     adapter: Adapter,
@@ -246,7 +235,7 @@ async fn find_matches_and_compute_last_adapter(
                 ty: BindingType::Buffer {
                     has_dynamic_offset: false,
                     min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: true },
+                    ty: BufferBindingType::Storage { read_only: false },
                 },
             },
             BindGroupLayoutEntry {
@@ -261,16 +250,6 @@ async fn find_matches_and_compute_last_adapter(
             },
             BindGroupLayoutEntry {
                 binding: 4,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: false },
-                },
-            },
-            BindGroupLayoutEntry {
-                binding: 5,
                 count: None,
                 visibility: ShaderStages::COMPUTE,
                 ty: BindingType::Buffer {
@@ -295,17 +274,6 @@ async fn find_matches_and_compute_last_adapter(
         layout: Some(&pipeline_layout),
         module: &module,
         entry_point: Some("find_matches_and_compute_last"),
-    });
-
-    let left_targets_gpu = device.create_buffer_init(&BufferInitDescriptor {
-        label: None,
-        contents: unsafe {
-            slice::from_raw_parts(
-                left_targets.as_ptr().cast::<u8>(),
-                size_of_val(left_targets),
-            )
-        },
-        usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
     });
 
     let parent_buckets_gpu = device.create_buffer_init(&BufferInitDescriptor {
@@ -376,26 +344,22 @@ async fn find_matches_and_compute_last_adapter(
         entries: &[
             BindGroupEntry {
                 binding: 0,
-                resource: left_targets_gpu.as_entire_binding(),
-            },
-            BindGroupEntry {
-                binding: 1,
                 resource: parent_buckets_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 2,
+                binding: 1,
                 resource: parent_metadatas_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 3,
+                binding: 2,
                 resource: table_6_proof_target_counts_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 4,
+                binding: 3,
                 resource: table_6_proof_targets_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 5,
+                binding: 4,
                 resource: rmap_gpu.as_entire_binding(),
             },
         ],

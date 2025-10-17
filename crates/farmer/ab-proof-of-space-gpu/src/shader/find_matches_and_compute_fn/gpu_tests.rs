@@ -4,8 +4,6 @@ use crate::shader::constants::{
     REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_and_compute_fn::cpu_tests::find_matches_and_compute_fn_correct;
-use crate::shader::find_matches_in_buckets::LeftTargets;
-use crate::shader::find_matches_in_buckets::cpu_tests::calculate_left_targets;
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Metadata, Position, PositionExt, PositionY, Y};
@@ -105,15 +103,10 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
             Box::from_raw(ptr.cast::<[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>())
         }
     };
-    let left_targets = calculate_left_targets();
 
-    let Some((actual_bucket_sizes, actual_buckets, actual_positions, actual_metadatas)) =
-        block_on(find_matches_and_compute_fn::<TABLE_NUMBER>(
-            &left_targets,
-            &parent_buckets,
-            &parent_metadatas,
-        ))
-    else {
+    let Some((actual_bucket_sizes, actual_buckets, actual_positions, actual_metadatas)) = block_on(
+        find_matches_and_compute_fn::<TABLE_NUMBER>(&parent_buckets, &parent_metadatas),
+    ) else {
         if cfg!(feature = "__force-gpu-tests") {
             panic!("Skipping tests, no compatible device detected");
         } else {
@@ -135,7 +128,6 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
             .assume_init()
     };
     let expected_buckets = find_matches_and_compute_fn_correct::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-        &left_targets,
         &parent_buckets,
         &parent_metadatas,
         &mut expected_buckets,
@@ -197,7 +189,6 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
 }
 
 async fn find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
-    left_targets: &LeftTargets,
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
 ) -> Option<(
@@ -221,7 +212,6 @@ async fn find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
         println!("Testing adapter {:?}", adapter.get_info());
 
         let Some(mut adapter_result) = find_matches_and_compute_fn_adapter::<TABLE_NUMBER>(
-            left_targets,
             parent_buckets,
             parent_metadatas,
             adapter,
@@ -255,7 +245,6 @@ async fn find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
 }
 
 async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
-    left_targets: &LeftTargets,
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     adapter: Adapter,
@@ -311,7 +300,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
                 ty: BindingType::Buffer {
                     has_dynamic_offset: false,
                     min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: true },
+                    ty: BufferBindingType::Storage { read_only: false },
                 },
             },
             BindGroupLayoutEntry {
@@ -354,16 +343,6 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
                     ty: BufferBindingType::Storage { read_only: false },
                 },
             },
-            BindGroupLayoutEntry {
-                binding: 7,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: false },
-                },
-            },
         ],
     });
 
@@ -380,17 +359,6 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
         layout: Some(&pipeline_layout),
         module: &module,
         entry_point: Some(&format!("find_matches_and_compute_f{TABLE_NUMBER}")),
-    });
-
-    let left_targets_gpu = device.create_buffer_init(&BufferInitDescriptor {
-        label: None,
-        contents: unsafe {
-            slice::from_raw_parts(
-                left_targets.as_ptr().cast::<u8>(),
-                size_of_val(left_targets),
-            )
-        },
-        usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
     });
 
     let parent_buckets_gpu = device.create_buffer_init(&BufferInitDescriptor {
@@ -490,34 +458,30 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
         entries: &[
             BindGroupEntry {
                 binding: 0,
-                resource: left_targets_gpu.as_entire_binding(),
-            },
-            BindGroupEntry {
-                binding: 1,
                 resource: parent_buckets_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 2,
+                binding: 1,
                 resource: parent_metadatas_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 3,
+                binding: 2,
                 resource: bucket_sizes_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 4,
+                binding: 3,
                 resource: buckets_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 5,
+                binding: 4,
                 resource: positions_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 6,
+                binding: 5,
                 resource: metadatas_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 7,
+                binding: 6,
                 resource: rmap_gpu.as_entire_binding(),
             },
         ],

@@ -275,14 +275,13 @@ fn calculate_left_targets() -> Arc<LeftTargets> {
         for r in 0..PARAM_BC {
             let c = r / PARAM_C;
 
-            let mut arr = array::from_fn(|m| {
+            let arr = array::from_fn(|m| {
                 let m = m as u16;
                 R::from(
                     ((c + m) % PARAM_B) * PARAM_C
                         + (((2 * m + parity) * (2 * m + parity) + r) % PARAM_C),
                 )
             });
-            arr.sort_unstable();
             left_targets_slice[parity as usize][r as usize].write(CacheLineAligned(arr));
         }
     }
