@@ -107,7 +107,7 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
     };
     let left_targets = calculate_left_targets();
 
-    let Some((actual_bucket_counts, actual_buckets, actual_positions, actual_metadatas)) =
+    let Some((actual_bucket_sizes, actual_buckets, actual_positions, actual_metadatas)) =
         block_on(find_matches_and_compute_fn::<TABLE_NUMBER>(
             &left_targets,
             &parent_buckets,
@@ -150,7 +150,7 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
 
     for (bucket_index, (expected_bucket, (&actual_bucket_size, actual_bucket))) in expected_buckets
         .iter()
-        .zip(actual_bucket_counts.iter().zip(actual_buckets.iter()))
+        .zip(actual_bucket_sizes.iter().zip(actual_buckets.iter()))
         .enumerate()
     {
         let expected_bucket_size = expected_bucket
@@ -415,16 +415,16 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
     });
 
-    let bucket_counts_host = device.create_buffer(&BufferDescriptor {
+    let bucket_sizes_host = device.create_buffer(&BufferDescriptor {
         label: None,
         size: size_of::<[u32; NUM_BUCKETS]>() as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
-    let bucket_counts_gpu = device.create_buffer(&BufferDescriptor {
+    let bucket_sizes_gpu = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: bucket_counts_host.size(),
+        size: bucket_sizes_host.size(),
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
@@ -502,7 +502,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
             },
             BindGroupEntry {
                 binding: 3,
-                resource: bucket_counts_gpu.as_entire_binding(),
+                resource: bucket_sizes_gpu.as_entire_binding(),
             },
             BindGroupEntry {
                 binding: 4,
@@ -537,17 +537,17 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
     }
 
     encoder.copy_buffer_to_buffer(
-        &bucket_counts_gpu,
+        &bucket_sizes_gpu,
         0,
-        &bucket_counts_host,
+        &bucket_sizes_host,
         0,
-        bucket_counts_host.size(),
+        bucket_sizes_host.size(),
     );
     encoder.copy_buffer_to_buffer(&buckets_gpu, 0, &buckets_host, 0, buckets_host.size());
     encoder.copy_buffer_to_buffer(&positions_gpu, 0, &positions_host, 0, positions_host.size());
     encoder.copy_buffer_to_buffer(&metadatas_gpu, 0, &metadatas_host, 0, metadatas_host.size());
 
-    encoder.map_buffer_on_submit(&bucket_counts_host, MapMode::Read, .., |r| r.unwrap());
+    encoder.map_buffer_on_submit(&bucket_sizes_host, MapMode::Read, .., |r| r.unwrap());
     encoder.map_buffer_on_submit(&buckets_host, MapMode::Read, .., |r| r.unwrap());
     encoder.map_buffer_on_submit(&positions_host, MapMode::Read, .., |r| r.unwrap());
     encoder.map_buffer_on_submit(&metadatas_host, MapMode::Read, .., |r| r.unwrap());
@@ -556,18 +556,18 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
 
     device.poll(PollType::wait_indefinitely()).unwrap();
 
-    let bucket_counts = {
-        let bucket_counts_host_ptr = bucket_counts_host
+    let bucket_sizes = {
+        let bucket_sizes_host_ptr = bucket_sizes_host
             .get_mapped_range(..)
             .as_ptr()
             .cast::<[u32; NUM_BUCKETS]>();
-        let bucket_counts_ref = unsafe { &*bucket_counts_host_ptr };
+        let bucket_sizes_ref = unsafe { &*bucket_sizes_host_ptr };
 
-        let mut bucket_counts =
+        let mut bucket_sizes =
             unsafe { Box::<[MaybeUninit<u32>; NUM_BUCKETS]>::new_uninit().assume_init() };
-        bucket_counts.write_copy_of_slice(bucket_counts_ref);
+        bucket_sizes.write_copy_of_slice(bucket_sizes_ref);
         unsafe {
-            let ptr = Box::into_raw(bucket_counts);
+            let ptr = Box::into_raw(bucket_sizes);
             Box::from_raw(ptr.cast::<[u32; NUM_BUCKETS]>())
         }
     };
@@ -622,10 +622,10 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
             Box::from_raw(ptr.cast::<[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>())
         }
     };
-    bucket_counts_host.unmap();
+    bucket_sizes_host.unmap();
     buckets_host.unmap();
     positions_host.unmap();
     metadatas_host.unmap();
 
-    Some((bucket_counts, buckets, positions, metadatas))
+    Some((bucket_sizes, buckets, positions, metadatas))
 }

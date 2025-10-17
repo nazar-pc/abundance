@@ -151,18 +151,17 @@ fn compute_f1_impl(x: X, chacha8_keystream: &[u32; INVOCATION_KEYSTREAM_WORDS]) 
 /// straight into buckets of the first table.
 ///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
-/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
 ///
 /// # Safety
-/// `bucket_counts` must be zero-initialized, which is the case by default in `wgpu`.
+/// `bucket_sizes` must be zero-initialized, which is the case by default in `wgpu`.
 #[spirv(compute(threads(256), entry_point_name = "compute_f1"))]
 pub unsafe fn compute_f1(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(uniform, descriptor_set = 0, binding = 0)] initial_state: &UniformChaCha8Block,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] bucket_counts: &mut [u32;
-             NUM_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] bucket_sizes: &mut [u32; NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
 ) {
@@ -205,12 +204,12 @@ pub unsafe fn compute_f1(
 
             let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
             // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-            let bucket_count = unsafe { bucket_counts.get_unchecked_mut(bucket_index) };
+            let bucket_size = unsafe { bucket_sizes.get_unchecked_mut(bucket_index) };
             // TODO: Probably should not be unsafe to begin with:
             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
             let bucket_offset = unsafe {
                 atomic_i_increment::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
-                    bucket_count,
+                    bucket_size,
                 )
             };
 

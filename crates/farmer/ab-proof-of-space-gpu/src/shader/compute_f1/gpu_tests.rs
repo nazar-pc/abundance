@@ -185,16 +185,16 @@ async fn compute_f1_adapter(
         usage: BufferUsages::UNIFORM,
     });
 
-    let bucket_counts_host = device.create_buffer(&BufferDescriptor {
+    let bucket_sizes_host = device.create_buffer(&BufferDescriptor {
         label: None,
         size: size_of::<[u32; NUM_BUCKETS]>() as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
-    let bucket_counts_gpu = device.create_buffer(&BufferDescriptor {
+    let bucket_sizes_gpu = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: bucket_counts_host.size(),
+        size: bucket_sizes_host.size(),
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
@@ -223,7 +223,7 @@ async fn compute_f1_adapter(
             },
             BindGroupEntry {
                 binding: 1,
-                resource: bucket_counts_gpu.as_entire_binding(),
+                resource: bucket_sizes_gpu.as_entire_binding(),
             },
             BindGroupEntry {
                 binding: 2,
@@ -248,15 +248,15 @@ async fn compute_f1_adapter(
     }
 
     encoder.copy_buffer_to_buffer(
-        &bucket_counts_gpu,
+        &bucket_sizes_gpu,
         0,
-        &bucket_counts_host,
+        &bucket_sizes_host,
         0,
-        bucket_counts_host.size(),
+        bucket_sizes_host.size(),
     );
     encoder.copy_buffer_to_buffer(&buckets_gpu, 0, &buckets_host, 0, buckets_host.size());
 
-    encoder.map_buffer_on_submit(&bucket_counts_host, MapMode::Read, .., |r| r.unwrap());
+    encoder.map_buffer_on_submit(&bucket_sizes_host, MapMode::Read, .., |r| r.unwrap());
     encoder.map_buffer_on_submit(&buckets_host, MapMode::Read, .., |r| r.unwrap());
 
     queue.submit([encoder.finish()]);
@@ -264,11 +264,11 @@ async fn compute_f1_adapter(
     device.poll(PollType::wait_indefinitely()).unwrap();
 
     let buckets = {
-        let bucket_counts_host_ptr = bucket_counts_host
+        let bucket_sizes_host_ptr = bucket_sizes_host
             .get_mapped_range(..)
             .as_ptr()
             .cast::<[u32; NUM_BUCKETS]>();
-        let bucket_counts = unsafe { &*bucket_counts_host_ptr };
+        let bucket_sizes = unsafe { &*bucket_sizes_host_ptr };
 
         let buckets_host_ptr = buckets_host
             .get_mapped_range(..)
@@ -278,11 +278,11 @@ async fn compute_f1_adapter(
 
         buckets
             .iter()
-            .zip(bucket_counts)
+            .zip(bucket_sizes)
             .map(|(bucket, &bucket_count)| bucket[..bucket_count as usize].to_vec())
             .collect()
     };
-    bucket_counts_host.unmap();
+    bucket_sizes_host.unmap();
     buckets_host.unmap();
 
     Some(buckets)

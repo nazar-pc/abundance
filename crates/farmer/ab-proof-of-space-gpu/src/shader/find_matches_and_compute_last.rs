@@ -117,7 +117,7 @@ unsafe fn compute_fn_into_buckets(
     //  currently doesn't compile if flattened:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    bucket_counts: &mut [u32; NUM_S_BUCKETS],
+    bucket_sizes: &mut [u32; NUM_S_BUCKETS],
     table_6_proof_targets: &mut [[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET];
              NUM_S_BUCKETS],
 ) {
@@ -144,18 +144,18 @@ unsafe fn compute_fn_into_buckets(
         let s_bucket = y.first_k_bits() as usize;
         // TODO: More idiomatic version currently doesn't compile:
         //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // let Some(bucket_count) = bucket_counts.get_mut(s_bucket) else {
+        // let Some(bucket_count) = bucket_sizes.get_mut(s_bucket) else {
         //     continue;
         // };
         if s_bucket >= NUM_S_BUCKETS {
             continue;
         }
-        let bucket_count = &mut bucket_counts[s_bucket];
+        let bucket_size = &mut bucket_sizes[s_bucket];
         // TODO: Probably should not be unsafe to begin with:
         //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
         let bucket_offset = unsafe {
             atomic_i_increment::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
-                bucket_count,
+                bucket_size,
             )
         };
 
@@ -179,7 +179,7 @@ unsafe fn compute_fn_into_buckets(
 /// [`MAX_SUBGROUPS`].
 ///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
-/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
@@ -199,7 +199,7 @@ pub unsafe fn find_matches_and_compute_last(
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_counts: &mut [u32;
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_sizes: &mut [u32;
              NUM_S_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
     table_6_proof_targets: &mut [[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET];
@@ -261,7 +261,7 @@ pub unsafe fn find_matches_and_compute_last(
                 matches_count as usize,
                 matches,
                 parent_metadatas,
-                bucket_counts,
+                bucket_sizes,
                 table_6_proof_targets,
             );
         }
