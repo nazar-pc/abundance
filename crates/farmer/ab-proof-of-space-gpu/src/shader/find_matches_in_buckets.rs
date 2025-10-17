@@ -5,7 +5,8 @@ mod gpu_tests;
 pub mod rmap;
 
 use crate::shader::constants::{
-    MAX_BUCKET_SIZE, PARAM_BC, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
+    MAX_BUCKET_SIZE, PARAM_B, PARAM_BC, PARAM_C, PARAM_M, REDUCED_BUCKET_SIZE,
+    REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_in_buckets::rmap::{
     NextPhysicalPointer, Rmap, RmapBitPosition, RmapBitPositionExt,
@@ -49,44 +50,12 @@ impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
     }
 }
 
-/// Container that presents itself slightly differently on CPU and GPU
-#[derive(Debug)]
-#[repr(C)]
-pub struct LeftTargetsR {
-    #[cfg(not(target_arch = "spirv"))]
-    inner: [u16; PARAM_M as usize],
-    /// Using `u32` as a container on GPU due to lack of consistent `u16` support even among modern
-    /// GPUs (notably, Naga can't recompile it to Metal today)
-    #[cfg(target_arch = "spirv")]
-    inner: [u32; PARAM_M as usize / 2],
+fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
+    let param_b = u32::from(PARAM_B);
+    let param_c = u32::from(PARAM_C);
+
+    ((r / param_c + m) % param_b) * param_c + (((2 * m + parity) * (2 * m + parity) + r) % param_c)
 }
-
-impl LeftTargetsR {
-    /// # Safety
-    /// `index` must be within `0..PARAM_M` range
-    #[cfg(not(target_arch = "spirv"))]
-    #[inline(always)]
-    unsafe fn get_r(&self, index: u32) -> u32 {
-        // SAFETY: Guaranteed by function contract
-        u32::from(*unsafe { self.inner.get_unchecked(index as usize) })
-    }
-
-    /// # Safety
-    /// `index` must be within `0..PARAM_M` range
-    #[cfg(target_arch = "spirv")]
-    #[inline(always)]
-    unsafe fn get_r(&self, index: u32) -> u32 {
-        // SAFETY: Guaranteed by function contract
-        let base = *unsafe { self.inner.get_unchecked(index as usize / 2) };
-        // Compute shift: 0 for even index, 16 for odd index
-        let shift = (index & 1) * u16::BITS;
-        // Shift and extract `u16`
-        (base >> shift) & u32::from(u16::MAX)
-    }
-}
-
-/// Mapping from `parity` to `r` to `m`
-pub type LeftTargets = [[LeftTargetsR; PARAM_BC as usize]; 2];
 
 #[derive(Debug)]
 pub struct SharedScratchSpace {
@@ -127,7 +96,6 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
     left_bucket: &[PositionY; MAX_BUCKET_SIZE],
     right_bucket: &[PositionY; MAX_BUCKET_SIZE],
     matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
-    left_targets: &LeftTargets,
     scratch_space: &mut SharedScratchSpace,
     rmap: &mut MaybeUninit<Rmap>,
 ) -> u32 {
@@ -309,7 +277,6 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
     };
 
     let parity = left_base % 2;
-    let left_targets_parity = &left_targets[parity as usize];
 
     const CHUNK_SIZE: usize = WORKGROUP_SIZE as usize / PARAM_M as usize;
     const {
@@ -354,11 +321,8 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             // let left_r = unsafe { left_rs[chunk_index * CHUNK_SIZE + index_within_chunk].assume_init() };
             let left_r =
                 unsafe { left_rs[chunk_index * CHUNK_SIZE + index_within_chunk].assume_init() };
-            // SAFETY: `left_r` is within a bucket and exists by definition
-            let left_targets_r = unsafe { left_targets_parity.get_unchecked(left_r as usize) };
-            let r_target_index = local_invocation_id % PARAM_M as u32;
-            // SAFETY: `r_target_index` is within `0..PARAM_M` range
-            let r_target = unsafe { left_targets_r.get_r(r_target_index) };
+            let m = local_invocation_id % PARAM_M as u32;
+            let r_target = calculate_left_target_on_demand(parity, left_r, m);
 
             // SAFETY: Targets are always limited to `PARAM_BC`
             let positions = unsafe { rmap.get(RmapBitPosition::new(r_target)) };
@@ -466,12 +430,11 @@ pub unsafe fn find_matches_in_buckets(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] left_targets: &LeftTargets,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] buckets: &[[PositionY;
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] buckets: &[[PositionY;
           MAX_BUCKET_SIZE]],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     matches: &mut [[MaybeUninit<Match>; REDUCED_MATCHES_COUNT]],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] matches_counts: &mut [MaybeUninit<
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] matches_counts: &mut [MaybeUninit<
         u32,
     >],
     #[spirv(workgroup)] scratch_space: &mut SharedScratchSpace,
@@ -480,7 +443,7 @@ pub unsafe fn find_matches_in_buckets(
     #[spirv(workgroup)]
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     rmap: &mut MaybeUninit<Rmap>,
 ) {
     let local_invocation_id = local_invocation_id.x;
@@ -517,7 +480,6 @@ pub unsafe fn find_matches_in_buckets(
                 left_bucket,
                 right_bucket,
                 matches,
-                left_targets,
                 scratch_space,
                 rmap,
             )

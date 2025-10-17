@@ -1,40 +1,9 @@
 use crate::shader::constants::{
-    MAX_BUCKET_SIZE, PARAM_B, PARAM_BC, PARAM_C, PARAM_M, REDUCED_BUCKET_SIZE,
-    REDUCED_MATCHES_COUNT,
+    MAX_BUCKET_SIZE, PARAM_BC, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_in_buckets::{LeftTargets, LeftTargetsR, Match};
+use crate::shader::find_matches_in_buckets::{Match, calculate_left_target_on_demand};
 use crate::shader::types::{Position, PositionExt, PositionY};
 use std::mem::MaybeUninit;
-use std::{array, mem};
-
-pub(in super::super) fn calculate_left_targets() -> Box<LeftTargets> {
-    let mut left_targets = Box::<LeftTargets>::new_uninit();
-    // TODO: Consider a helper method here to avoid the need for `unsafe`
-    // SAFETY: Same layout and uninitialized in both cases (`LeftTargetsR` is `#[repr(C)]`)
-    let left_targets_slice = unsafe {
-        mem::transmute::<
-            &mut MaybeUninit<[[LeftTargetsR; PARAM_BC as usize]; 2]>,
-            &mut [[MaybeUninit<[u16; PARAM_M as usize]>; PARAM_BC as usize]; 2],
-        >(left_targets.as_mut())
-    };
-
-    for parity in 0..=1 {
-        for r in 0..PARAM_BC {
-            let c = r / PARAM_C;
-
-            let mut arr = array::from_fn(|m| {
-                let m = m as u16;
-                ((c + m) % PARAM_B) * PARAM_C
-                    + (((2 * m + parity) * (2 * m + parity) + r) % PARAM_C)
-            });
-            arr.sort_unstable();
-            left_targets_slice[parity as usize][r as usize].write(arr);
-        }
-    }
-
-    // SAFETY: Initialized all entries
-    unsafe { left_targets.assume_init() }
-}
 
 struct Rmap {
     /// `0` is a sentinel value indicating no virtual pointer is stored yet.
@@ -122,7 +91,6 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
     // `PARAM_M as usize * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
     matches: &'a mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT + PARAM_M as usize * 2],
-    left_targets: &LeftTargets,
 ) -> &'a [Match] {
     let left_base = left_bucket_index * u32::from(PARAM_BC);
     let right_base = left_base + u32::from(PARAM_BC);
@@ -141,7 +109,6 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
     }
 
     let parity = left_base % 2;
-    let left_targets_parity = &left_targets[parity as usize];
     let mut next_match_index = 0;
 
     // TODO: Simd read for left bucket? It might be more efficient in terms of memory access to
@@ -154,12 +121,9 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
         }
 
         let r = u32::from(y) - left_base;
-        // SAFETY: `r` is within a bucket and exists by definition
-        let left_targets_r = unsafe { left_targets_parity.get_unchecked(r as usize) };
 
-        for index in 0..PARAM_M {
-            // SAFETY: `index` is within `0..PARAM_M`
-            let r_target = unsafe { left_targets_r.get_r(u32::from(index)) };
+        for m in 0..u32::from(PARAM_M) {
+            let r_target = calculate_left_target_on_demand(parity, r, m);
             // SAFETY: Targets are always limited to `PARAM_BC`
             let [right_position_a, right_position_b] = unsafe { rmap.get(r_target) };
 
