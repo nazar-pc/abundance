@@ -68,7 +68,7 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
     //  currently doesn't compile if flattened:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    bucket_counts: &mut [u32; NUM_BUCKETS],
+    bucket_sizes: &mut [u32; NUM_BUCKETS],
     buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     positions: &mut [MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT],
     metadatas: &mut [MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT],
@@ -97,12 +97,12 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
 
         let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
         // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-        let bucket_count = unsafe { bucket_counts.get_unchecked_mut(bucket_index) };
+        let bucket_size = unsafe { bucket_sizes.get_unchecked_mut(bucket_index) };
         // TODO: Probably should not be unsafe to begin with:
         //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
         let bucket_offset = unsafe {
             atomic_i_increment::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
-                bucket_count,
+                bucket_size,
             )
         };
 
@@ -146,7 +146,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
     left_targets: &LeftTargets,
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    bucket_counts: &mut [u32; NUM_BUCKETS],
+    bucket_sizes: &mut [u32; NUM_BUCKETS],
     buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
@@ -205,7 +205,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
                 matches_count as usize,
                 matches,
                 parent_metadatas,
-                bucket_counts,
+                bucket_sizes,
                 buckets,
                 positions,
                 metadatas,
@@ -222,7 +222,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
 /// [`MAX_SUBGROUPS`].
 ///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
-/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
@@ -242,8 +242,7 @@ pub unsafe fn find_matches_and_compute_f2(
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_counts: &mut [u32;
-             NUM_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_sizes: &mut [u32; NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT];
@@ -271,7 +270,7 @@ pub unsafe fn find_matches_and_compute_f2(
             left_targets,
             parent_buckets,
             parent_metadatas,
-            bucket_counts,
+            bucket_sizes,
             buckets,
             positions,
             metadatas,
@@ -287,7 +286,7 @@ pub unsafe fn find_matches_and_compute_f2(
 /// [`MAX_SUBGROUPS`].
 ///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
-/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
@@ -307,8 +306,7 @@ pub unsafe fn find_matches_and_compute_f3(
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_counts: &mut [u32;
-             NUM_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_sizes: &mut [u32; NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT];
@@ -336,7 +334,7 @@ pub unsafe fn find_matches_and_compute_f3(
             left_targets,
             parent_buckets,
             parent_metadatas,
-            bucket_counts,
+            bucket_sizes,
             buckets,
             positions,
             metadatas,
@@ -352,7 +350,7 @@ pub unsafe fn find_matches_and_compute_f3(
 /// [`MAX_SUBGROUPS`].
 ///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
-/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
@@ -372,8 +370,7 @@ pub unsafe fn find_matches_and_compute_f4(
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_counts: &mut [u32;
-             NUM_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_sizes: &mut [u32; NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT];
@@ -401,7 +398,7 @@ pub unsafe fn find_matches_and_compute_f4(
             left_targets,
             parent_buckets,
             parent_metadatas,
-            bucket_counts,
+            bucket_sizes,
             buckets,
             positions,
             metadatas,
@@ -417,7 +414,7 @@ pub unsafe fn find_matches_and_compute_f4(
 /// [`MAX_SUBGROUPS`].
 ///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
-/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
@@ -437,8 +434,7 @@ pub unsafe fn find_matches_and_compute_f5(
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_counts: &mut [u32;
-             NUM_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_sizes: &mut [u32; NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT];
@@ -466,7 +462,7 @@ pub unsafe fn find_matches_and_compute_f5(
             left_targets,
             parent_buckets,
             parent_metadatas,
-            bucket_counts,
+            bucket_sizes,
             buckets,
             positions,
             metadatas,
@@ -482,7 +478,7 @@ pub unsafe fn find_matches_and_compute_f5(
 /// [`MAX_SUBGROUPS`].
 ///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
-/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
@@ -502,8 +498,7 @@ pub unsafe fn find_matches_and_compute_f6(
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_counts: &mut [u32;
-             NUM_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_sizes: &mut [u32; NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT];
@@ -531,7 +526,7 @@ pub unsafe fn find_matches_and_compute_f6(
             left_targets,
             parent_buckets,
             parent_metadatas,
-            bucket_counts,
+            bucket_sizes,
             buckets,
             positions,
             metadatas,
@@ -547,7 +542,7 @@ pub unsafe fn find_matches_and_compute_f6(
 /// [`MAX_SUBGROUPS`].
 ///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
-/// deterministic order. Content of the bucket beyond the size specified in `bucket_counts` is
+/// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
@@ -567,8 +562,7 @@ pub unsafe fn find_matches_and_compute_f7(
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_counts: &mut [u32;
-             NUM_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] bucket_sizes: &mut [u32; NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT];
@@ -596,7 +590,7 @@ pub unsafe fn find_matches_and_compute_f7(
             left_targets,
             parent_buckets,
             parent_metadatas,
-            bucket_counts,
+            bucket_sizes,
             buckets,
             positions,
             metadatas,
