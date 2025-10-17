@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SolutionVerifyError"],"struct":["ChunkProof","Solution","SolutionDistance","SolutionRange","SolutionVerifyParams","SolutionVerifyPieceCheckParams"],"trait":["SolutionPotVerifier"]};
