@@ -8,7 +8,7 @@ use ab_data_retrieval::segment_downloading::{
 use ab_erasure_coding::ErasureCoding;
 use thiserror::Error;
 use tokio::task::JoinError;
-use tracing::{error, info};
+use tracing::info;
 
 #[derive(Debug, Error)]
 pub(crate) enum SegmentReconstructionError {

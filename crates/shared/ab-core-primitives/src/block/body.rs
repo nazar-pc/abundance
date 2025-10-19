@@ -55,6 +55,8 @@ where
     // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that allows
     //  the code to compile. Constant 4294967295 is hardcoded here and below for compilation to
     //  succeed.
+    #[expect(clippy::assertions_on_constants, reason = "Intentional documentation")]
+    #[expect(clippy::eq_op, reason = "Intentional documentation")]
     const _: () = {
         assert!(u32::MAX == 4294967295);
     };

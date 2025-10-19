@@ -27,7 +27,6 @@ use ab_system_contract_native_token::{NativeToken, NativeTokenExt};
 use ab_system_contract_simple_wallet_base::SimpleWalletBase;
 use ab_system_contract_state::State;
 use halfbrown::HashMap;
-use tracing::error;
 
 /// Native executor errors
 #[derive(Debug, thiserror::Error)]
