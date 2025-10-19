@@ -128,6 +128,7 @@ async fn find_matches_in_buckets_adapter(
 ) -> Option<Vec<Vec<Match>>> {
     let num_bucket_pairs = buckets.len() - 1;
 
+    // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits, modern) =
         select_shader_features_limits(&adapter)?;
     println!("modern={modern}");

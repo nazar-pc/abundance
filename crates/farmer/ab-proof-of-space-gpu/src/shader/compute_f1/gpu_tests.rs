@@ -106,6 +106,7 @@ async fn compute_f1_adapter(
     initial_state: &ChaCha8State,
     adapter: Adapter,
 ) -> Option<Vec<Vec<PositionY>>> {
+    // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits, _modern) =
         select_shader_features_limits(&adapter)?;
 
