@@ -158,6 +158,7 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
 ) -> Option<(Vec<Y>, Vec<Metadata>)> {
     let num_matches = matches.len();
 
+    // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits, _modern) =
         select_shader_features_limits(&adapter)?;
 

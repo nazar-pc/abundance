@@ -213,6 +213,7 @@ async fn find_proofs_adapter(
     Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
     Box<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>,
 )> {
+    // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits, _modern) =
         select_shader_features_limits(&adapter)?;
 

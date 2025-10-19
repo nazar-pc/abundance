@@ -120,6 +120,7 @@ async fn sort_buckets_adapter(
     buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     adapter: Adapter,
 ) -> Option<Box<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>> {
+    // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits, _modern) =
         select_shader_features_limits(&adapter)?;
 

@@ -9,7 +9,7 @@ use crate::shader::constants::{
 };
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_matches_in_buckets::{
-    Match, SharedScratchSpace, find_matches_in_buckets_impl,
+    MAX_SUBGROUPS, Match, SharedScratchSpace, find_matches_in_buckets_impl,
 };
 use crate::shader::types::{Metadata, Position, PositionExt, PositionY};
 use core::mem::MaybeUninit;
@@ -147,7 +147,6 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
     metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
     scratch_space: &mut SharedScratchSpace,
-    // Non-modern GPUs do not have enough space in the shared memory
     rmap: &mut MaybeUninit<Rmap>,
 ) {
     let local_invocation_id = local_invocation_id.x;
@@ -211,13 +210,13 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
     }
 }
 
-/// # Safety
-/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
-///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
 /// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
+///
+/// # Safety
+/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
+/// [`MAX_SUBGROUPS`].
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f3"))]
@@ -250,7 +249,7 @@ pub unsafe fn find_matches_and_compute_f3(
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)]
-    rmap: &mut MaybeUninit<Rmap>,
+    rmap: &mut [MaybeUninit<Rmap>; MAX_SUBGROUPS],
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -268,18 +267,21 @@ pub unsafe fn find_matches_and_compute_f3(
             metadatas,
             matches,
             scratch_space,
+            #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
             rmap,
+            #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
+            &mut rmap[subgroup_id as usize],
         );
     }
 }
 
-/// # Safety
-/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
-///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
 /// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
+///
+/// # Safety
+/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
+/// [`MAX_SUBGROUPS`].
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f4"))]
@@ -312,7 +314,7 @@ pub unsafe fn find_matches_and_compute_f4(
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)]
-    rmap: &mut MaybeUninit<Rmap>,
+    rmap: &mut [MaybeUninit<Rmap>; MAX_SUBGROUPS],
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -330,18 +332,21 @@ pub unsafe fn find_matches_and_compute_f4(
             metadatas,
             matches,
             scratch_space,
+            #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
             rmap,
+            #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
+            &mut rmap[subgroup_id as usize],
         );
     }
 }
 
-/// # Safety
-/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
-///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
 /// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
+///
+/// # Safety
+/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
+/// [`MAX_SUBGROUPS`].
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f5"))]
@@ -374,7 +379,7 @@ pub unsafe fn find_matches_and_compute_f5(
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)]
-    rmap: &mut MaybeUninit<Rmap>,
+    rmap: &mut [MaybeUninit<Rmap>; MAX_SUBGROUPS],
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -392,18 +397,21 @@ pub unsafe fn find_matches_and_compute_f5(
             metadatas,
             matches,
             scratch_space,
+            #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
             rmap,
+            #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
+            &mut rmap[subgroup_id as usize],
         );
     }
 }
 
-/// # Safety
-/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
-///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
 /// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
+///
+/// # Safety
+/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
+/// [`MAX_SUBGROUPS`].
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f6"))]
@@ -436,7 +444,7 @@ pub unsafe fn find_matches_and_compute_f6(
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)]
-    rmap: &mut MaybeUninit<Rmap>,
+    rmap: &mut [MaybeUninit<Rmap>; MAX_SUBGROUPS],
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -454,7 +462,10 @@ pub unsafe fn find_matches_and_compute_f6(
             metadatas,
             matches,
             scratch_space,
+            #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
             rmap,
+            #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
+            &mut rmap[subgroup_id as usize],
         );
     }
 }
