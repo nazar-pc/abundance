@@ -142,6 +142,13 @@ impl From<U128> for Metadata {
     }
 }
 
+impl From<Position> for Metadata {
+    #[inline(always)]
+    fn from(value: Position) -> Self {
+        Self(U128::from(value))
+    }
+}
+
 /// A tuple of [`Position`] and [`Y`] with guaranteed memory layout
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[repr(C)]

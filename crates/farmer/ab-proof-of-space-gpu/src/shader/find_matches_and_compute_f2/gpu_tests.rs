@@ -1,9 +1,9 @@
-use crate::shader::compute_fn::cpu_tests::random_metadata;
 use crate::shader::constants::{
     MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_BUCKET_SIZE,
     REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_and_compute_fn::cpu_tests::find_matches_and_compute_fn_correct;
+use crate::shader::find_matches_and_compute_f2::cpu_tests::find_matches_and_compute_f2_correct;
+use crate::shader::find_matches_and_compute_f2::{PARENT_TABLE_NUMBER, TABLE_NUMBER};
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Metadata, Position, PositionExt, PositionY, Y};
@@ -22,26 +22,7 @@ use wgpu::{
 };
 
 #[test]
-fn find_matches_and_compute_f3_gpu() {
-    find_matches_and_compute_fn_gpu::<3, 2>();
-}
-
-#[test]
-fn find_matches_and_compute_f4_gpu() {
-    find_matches_and_compute_fn_gpu::<4, 3>();
-}
-
-#[test]
-fn find_matches_and_compute_f5_gpu() {
-    find_matches_and_compute_fn_gpu::<5, 4>();
-}
-
-#[test]
-fn find_matches_and_compute_f6_gpu() {
-    find_matches_and_compute_fn_gpu::<6, 5>();
-}
-
-fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
+fn find_matches_and_compute_f2_gpu() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
     // Generate `y`s within `0..PARAM_BC*NUM_BUCKETS` range to fill the first `NUM_BUCKETS` buckets
@@ -78,25 +59,10 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
 
         unsafe { Box::from_raw(ptr.cast::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>()) }
     };
-    let parent_metadatas = {
-        let mut parent_metadatas = unsafe {
-            Box::<[[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>::new_uninit()
-                .assume_init()
-        };
-        for metadata in parent_metadatas.as_flattened_mut() {
-            metadata.write(random_metadata::<TABLE_NUMBER>(&mut rng));
-        }
 
-        let ptr = Box::into_raw(parent_metadatas);
-
-        unsafe {
-            Box::from_raw(ptr.cast::<[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>())
-        }
-    };
-
-    let Some((actual_bucket_sizes, actual_buckets, actual_positions, actual_metadatas)) = block_on(
-        find_matches_and_compute_fn::<TABLE_NUMBER>(&parent_buckets, &parent_metadatas),
-    ) else {
+    let Some((actual_bucket_sizes, actual_buckets, actual_positions, actual_metadatas)) =
+        block_on(find_matches_and_compute_f2(&parent_buckets))
+    else {
         if cfg!(feature = "__force-gpu-tests") {
             panic!("Skipping tests, no compatible device detected");
         } else {
@@ -117,9 +83,8 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
         Box::<[[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>::new_uninit()
             .assume_init()
     };
-    let expected_buckets = find_matches_and_compute_fn_correct::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
+    let expected_buckets = find_matches_and_compute_f2_correct::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
         &parent_buckets,
-        &parent_metadatas,
         &mut expected_buckets,
         &mut expected_positions,
         &mut expected_metadatas,
@@ -178,9 +143,8 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
     }
 }
 
-async fn find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
+async fn find_matches_and_compute_f2(
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
-    parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
 ) -> Option<(
     Box<[u32; NUM_BUCKETS]>,
     Box<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>,
@@ -201,12 +165,8 @@ async fn find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let Some(mut adapter_result) = find_matches_and_compute_fn_adapter::<TABLE_NUMBER>(
-            parent_buckets,
-            parent_metadatas,
-            adapter,
-        )
-        .await
+        let Some(mut adapter_result) =
+            find_matches_and_compute_f2_adapter(parent_buckets, adapter).await
         else {
             continue;
         };
@@ -234,9 +194,8 @@ async fn find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
     result
 }
 
-async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
+async fn find_matches_and_compute_f2_adapter(
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
-    parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     adapter: Adapter,
 ) -> Option<(
     Box<[u32; NUM_BUCKETS]>,
@@ -280,7 +239,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
                 ty: BindingType::Buffer {
                     has_dynamic_offset: false,
                     min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: true },
+                    ty: BufferBindingType::Storage { read_only: false },
                 },
             },
             BindGroupLayoutEntry {
@@ -323,16 +282,6 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
                     ty: BufferBindingType::Storage { read_only: false },
                 },
             },
-            BindGroupLayoutEntry {
-                binding: 6,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: false },
-                },
-            },
         ],
     });
 
@@ -348,7 +297,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
         label: None,
         layout: Some(&pipeline_layout),
         module: &module,
-        entry_point: Some(&format!("find_matches_and_compute_f{TABLE_NUMBER}")),
+        entry_point: Some("find_matches_and_compute_f2"),
     });
 
     let parent_buckets_gpu = device.create_buffer_init(&BufferInitDescriptor {
@@ -357,17 +306,6 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
             slice::from_raw_parts(
                 parent_buckets.as_ptr().cast::<u8>(),
                 size_of_val(parent_buckets),
-            )
-        },
-        usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
-    });
-
-    let parent_metadatas_gpu = device.create_buffer_init(&BufferInitDescriptor {
-        label: None,
-        contents: unsafe {
-            slice::from_raw_parts(
-                parent_metadatas.as_ptr().cast::<u8>(),
-                size_of_val(parent_metadatas),
             )
         },
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
@@ -452,26 +390,22 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
             },
             BindGroupEntry {
                 binding: 1,
-                resource: parent_metadatas_gpu.as_entire_binding(),
-            },
-            BindGroupEntry {
-                binding: 2,
                 resource: bucket_sizes_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 3,
+                binding: 2,
                 resource: buckets_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 4,
+                binding: 3,
                 resource: positions_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 5,
+                binding: 4,
                 resource: metadatas_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 6,
+                binding: 5,
                 resource: rmap_gpu.as_entire_binding(),
             },
         ],

@@ -2,14 +2,14 @@ use crate::shader::compute_fn::cpu_tests::correct_compute_fn;
 use crate::shader::constants::{
     MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_and_compute_last::{
+use crate::shader::find_matches_and_compute_f7::{
     NUM_ELEMENTS_PER_S_BUCKET, PARENT_TABLE_NUMBER, TABLE_NUMBER,
 };
 use crate::shader::find_matches_in_buckets::cpu_tests::find_matches_in_buckets_correct;
 use crate::shader::types::{Metadata, Position, PositionExt, PositionY};
 use std::mem::MaybeUninit;
 
-pub(super) fn find_matches_and_compute_last_correct<'a>(
+pub(super) fn find_matches_and_compute_f7_correct<'a>(
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     table_6_proof_targets: &mut [[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET];
