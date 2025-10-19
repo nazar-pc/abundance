@@ -14,7 +14,6 @@
     maybe_uninit_fill,
     maybe_uninit_slice,
     maybe_uninit_write_slice,
-    new_zeroed_alloc,
     portable_simd,
     ptr_as_ref_unchecked,
     ptr_as_uninit,

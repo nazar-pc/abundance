@@ -40,7 +40,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fmt, io, iter};
 use thiserror::Error;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 const DEFAULT_NETWORK_PROTOCOL_VERSION: &str = "dev";
 const KADEMLIA_PROTOCOL: &str = "/subspace/kad/0.1.0";

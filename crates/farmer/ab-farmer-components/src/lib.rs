@@ -9,7 +9,6 @@
     iter_array_chunks,
     iter_collect_into,
     never_type,
-    new_zeroed_alloc,
     portable_simd,
     try_blocks
 )]
