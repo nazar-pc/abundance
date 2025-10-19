@@ -80,10 +80,6 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
     for index in (local_invocation_id..matches_count as u32).step_by(WORKGROUP_SIZE as usize) {
         // SAFETY: Guaranteed by function contract
         let m = unsafe { matches.get_unchecked(index as usize).assume_init() };
-        // TODO: Correct version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // let left_metadata = parent_metadatas[usize::from(m.left_position)];
-        // let right_metadata = parent_metadatas[usize::from(m.right_position)];
         // SAFETY: Guaranteed by function contract
         let left_metadata = *unsafe { parent_metadatas.get_unchecked(m.left_position as usize) };
         // SAFETY: Guaranteed by function contract
@@ -212,68 +208,6 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
 
         // No need for explicit synchronization, `matches` will not be touched before extra
         // synchronization in `find_matches_in_buckets_impl` again anyway
-    }
-}
-
-/// # Safety
-/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
-///
-/// Buckets need to be sorted by position afterward due to concurrent writes that do not have
-/// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
-/// undefined.
-///
-/// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
-#[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f2"))]
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Both I/O and Vulkan stuff together take a lot of arguments"
-)]
-pub unsafe fn find_matches_and_compute_f2(
-    #[spirv(local_invocation_id)] local_invocation_id: UVec3,
-    #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(subgroup_id)] subgroup_id: u32,
-    #[spirv(num_subgroups)] num_subgroups: u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionY; MAX_BUCKET_SIZE];
-         NUM_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] bucket_sizes: &mut [u32; NUM_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
-             NUM_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT];
-             NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT];
-             NUM_MATCH_BUCKETS],
-    #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
-    #[spirv(workgroup)] scratch_space: &mut SharedScratchSpace,
-    // Non-modern GPUs do not have enough space in the shared memory
-    #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
-    #[spirv(workgroup)]
-    rmap: &mut MaybeUninit<Rmap>,
-    #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)]
-    rmap: &mut MaybeUninit<Rmap>,
-) {
-    // SAFETY: Guaranteed by function contract
-    unsafe {
-        find_matches_and_compute_fn::<2, 1>(
-            local_invocation_id,
-            workgroup_id,
-            num_workgroups,
-            subgroup_id,
-            num_subgroups,
-            parent_buckets,
-            parent_metadatas,
-            bucket_sizes,
-            buckets,
-            positions,
-            metadatas,
-            matches,
-            scratch_space,
-            rmap,
-        );
     }
 }
 
@@ -507,68 +441,6 @@ pub unsafe fn find_matches_and_compute_f6(
     // SAFETY: Guaranteed by function contract
     unsafe {
         find_matches_and_compute_fn::<6, 5>(
-            local_invocation_id,
-            workgroup_id,
-            num_workgroups,
-            subgroup_id,
-            num_subgroups,
-            parent_buckets,
-            parent_metadatas,
-            bucket_sizes,
-            buckets,
-            positions,
-            metadatas,
-            matches,
-            scratch_space,
-            rmap,
-        );
-    }
-}
-
-/// # Safety
-/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
-///
-/// Buckets need to be sorted by position afterward due to concurrent writes that do not have
-/// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
-/// undefined.
-///
-/// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
-#[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f7"))]
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Both I/O and Vulkan stuff together take a lot of arguments"
-)]
-pub unsafe fn find_matches_and_compute_f7(
-    #[spirv(local_invocation_id)] local_invocation_id: UVec3,
-    #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(subgroup_id)] subgroup_id: u32,
-    #[spirv(num_subgroups)] num_subgroups: u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionY; MAX_BUCKET_SIZE];
-         NUM_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-    parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] bucket_sizes: &mut [u32; NUM_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
-             NUM_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT];
-             NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT];
-             NUM_MATCH_BUCKETS],
-    #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
-    #[spirv(workgroup)] scratch_space: &mut SharedScratchSpace,
-    // Non-modern GPUs do not have enough space in the shared memory
-    #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
-    #[spirv(workgroup)]
-    rmap: &mut MaybeUninit<Rmap>,
-    #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)]
-    rmap: &mut MaybeUninit<Rmap>,
-) {
-    // SAFETY: Guaranteed by function contract
-    unsafe {
-        find_matches_and_compute_fn::<7, 6>(
             local_invocation_id,
             workgroup_id,
             num_workgroups,

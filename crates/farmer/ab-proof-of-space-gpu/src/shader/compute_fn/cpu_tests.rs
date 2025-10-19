@@ -1,6 +1,6 @@
 use crate::shader::compute_fn::{compute_fn_impl, metadata_size_bits, y_size_bits};
 use crate::shader::constants::K;
-use crate::shader::types::{Metadata, Y};
+use crate::shader::types::{Metadata, Position, PositionExt, Y};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{RngCore, SeedableRng};
 
@@ -95,7 +95,7 @@ pub(super) fn random_y(rng: &mut ChaCha8Rng) -> Y {
 
 pub(in super::super) fn random_metadata<const TABLE_NUMBER: u8>(rng: &mut ChaCha8Rng) -> Metadata {
     if metadata_size_bits(K, TABLE_NUMBER) == 0 {
-        return Metadata::from(0);
+        return Metadata::from(Position::ZERO);
     }
     let mut left_metadata = 0u128.to_le_bytes();
     rng.fill_bytes(&mut left_metadata);
