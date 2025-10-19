@@ -4,6 +4,7 @@ use crate::shader::constants::{
 };
 use crate::shader::find_matches_and_compute_f2::cpu_tests::find_matches_and_compute_f2_correct;
 use crate::shader::find_matches_and_compute_f2::{PARENT_TABLE_NUMBER, TABLE_NUMBER};
+use crate::shader::find_matches_in_buckets::MAX_SUBGROUPS;
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Metadata, Position, PositionExt, PositionY, Y};
@@ -374,7 +375,7 @@ async fn find_matches_and_compute_f2_adapter(
             // A dummy buffer is `4` byte just because it can't be zero in wgpu
             4
         } else {
-            size_of::<Rmap>() as BufferAddress
+            size_of::<[Rmap; MAX_SUBGROUPS]>() as BufferAddress
         },
         usage: BufferUsages::STORAGE,
         mapped_at_creation: false,

@@ -444,7 +444,7 @@ pub unsafe fn find_matches_in_buckets(
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
-    rmap: &mut MaybeUninit<Rmap>,
+    rmap: &mut [MaybeUninit<Rmap>; MAX_SUBGROUPS],
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
@@ -481,7 +481,10 @@ pub unsafe fn find_matches_in_buckets(
                 right_bucket,
                 matches,
                 scratch_space,
+                #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
                 rmap,
+                #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
+                &mut rmap[subgroup_id as usize],
             )
         });
     }

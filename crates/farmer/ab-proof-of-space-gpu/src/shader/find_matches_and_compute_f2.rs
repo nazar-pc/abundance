@@ -9,7 +9,7 @@ use crate::shader::constants::{
 };
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_matches_in_buckets::{
-    Match, SharedScratchSpace, find_matches_in_buckets_impl,
+    MAX_SUBGROUPS, Match, SharedScratchSpace, find_matches_in_buckets_impl,
 };
 use crate::shader::types::{Metadata, Position, PositionExt, PositionY};
 use core::mem::MaybeUninit;
@@ -117,15 +117,15 @@ unsafe fn compute_f2_into_buckets(
     }
 }
 
-/// # Safety
-/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
+/// This is similar to `find_matches_and_compute_fn`, but it doesn't use any parent table metadata.
 ///
 /// Buckets need to be sorted by position afterward due to concurrent writes that do not have
 /// deterministic order. Content of the bucket beyond the size specified in `bucket_sizes` is
 /// undefined.
 ///
-/// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
+/// # Safety
+/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
+/// [`MAX_SUBGROUPS`].
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f2"))]
 #[expect(
     clippy::too_many_arguments,
@@ -154,7 +154,7 @@ pub unsafe fn find_matches_and_compute_f2(
     rmap: &mut MaybeUninit<Rmap>,
     #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]
-    rmap: &mut MaybeUninit<Rmap>,
+    rmap: &mut [MaybeUninit<Rmap>; MAX_SUBGROUPS],
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
@@ -192,7 +192,10 @@ pub unsafe fn find_matches_and_compute_f2(
                 right_bucket,
                 matches,
                 scratch_space,
+                #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
                 rmap,
+                #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
+                &mut rmap[subgroup_id as usize],
             )
         };
 
