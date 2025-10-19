@@ -71,7 +71,7 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
     bucket_sizes: &[u32; NUM_S_BUCKETS],
     buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
     found_proofs: &mut [MaybeUninit<u32>; FOUND_PROOFS_U32_WORDS],
-    found_proofs_scratch: &mut [u32; (WORKGROUP_SIZE / u32::BITS) as usize],
+    found_proofs_scratch: &mut [MaybeUninit<u32>; (WORKGROUP_SIZE / u32::BITS) as usize],
 ) -> [Position; 2] {
     let local_invocation_id = local_invocation_id as usize;
     let base = positions_group_index * SUBGROUP_SIZE;
@@ -135,7 +135,7 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
         }
     } else {
         if local_invocation_id < found_proofs_scratch.len() {
-            found_proofs_scratch[local_invocation_id] = 0;
+            found_proofs_scratch[local_invocation_id].write(0);
         }
 
         workgroup_memory_barrier_with_group_sync();
@@ -149,11 +149,14 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
             let local_word_index = (local_start_bit / u32::BITS) as usize;
             let local_word_shift = local_start_bit % u32::BITS;
 
+            // SAFETY: Initialized above
+            let found_proofs_word =
+                unsafe { found_proofs_scratch[local_word_index].assume_init_mut() };
             // TODO: Probably should not be unsafe to begin with:
             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
             unsafe {
                 atomic_or::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(
-                    &mut found_proofs_scratch[local_word_index],
+                    found_proofs_word,
                     found_proofs_words.x << local_word_shift,
                 );
             }
@@ -166,8 +169,10 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
             let workgroup_start_bucket = workgroup_base_group_index * SUBGROUP_SIZE;
             let global_start_word = (workgroup_start_bucket / u32::BITS) as usize;
 
-            found_proofs[global_start_word + local_invocation_id]
-                .write(found_proofs_scratch[local_invocation_id]);
+            // SAFETY: Initialized above
+            let found_proofs_word =
+                unsafe { found_proofs_scratch[local_invocation_id].assume_init() };
+            found_proofs[global_start_word + local_invocation_id].write(found_proofs_word);
         }
     }
 
@@ -197,7 +202,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
     buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
     found_proofs: &mut [MaybeUninit<u32>; FOUND_PROOFS_U32_WORDS],
     proofs: &mut [[u32; PROOF_U32_WORDS]; NUM_S_BUCKETS],
-    found_proofs_scratch: &mut [u32; (WORKGROUP_SIZE / u32::BITS) as usize],
+    found_proofs_scratch: &mut [MaybeUninit<u32>; (WORKGROUP_SIZE / u32::BITS) as usize],
 ) where
     [(); PROOF_X_SOURCES.div_ceil(SUBGROUP_SIZE as usize)]:,
     [(); PROOF_U32_WORDS.div_ceil(SUBGROUP_SIZE as usize)]:,
@@ -401,7 +406,8 @@ pub fn find_proofs(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET];
          NUM_S_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] proofs: &mut Proofs,
-    #[spirv(workgroup)] found_proofs_scratch: &mut [u32; (WORKGROUP_SIZE / u32::BITS) as usize],
+    #[spirv(workgroup)] found_proofs_scratch: &mut [MaybeUninit<u32>;
+             (WORKGROUP_SIZE / u32::BITS) as usize],
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;

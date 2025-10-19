@@ -18,7 +18,7 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
     DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
-    PipelineLayoutDescriptor, PollType, ShaderStages,
+    PipelineCompilationOptions, PipelineLayoutDescriptor, PollType, ShaderStages,
 };
 
 fn generate_positions(
@@ -322,7 +322,10 @@ async fn find_proofs_adapter(
     });
 
     let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
-        compilation_options: Default::default(),
+        compilation_options: PipelineCompilationOptions {
+            constants: &[],
+            zero_initialize_workgroup_memory: false,
+        },
         cache: None,
         label: None,
         layout: Some(&pipeline_layout),
