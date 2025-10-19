@@ -424,6 +424,7 @@ unsafe fn find_matches_in_buckets<'a>(
 
     let mut rmap = Rmap::new();
     for &(right_position, y) in right_bucket {
+        // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
         if right_position == Position::SENTINEL {
             break;
         }
@@ -442,6 +443,7 @@ unsafe fn find_matches_in_buckets<'a>(
     // TODO: Simd read for left bucket? It might be more efficient in terms of memory access to
     //  process chunks of the left bucket against one right value for each at a time
     for &(left_position, y) in left_bucket {
+        // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
         // `next_match_index >= REDUCED_MATCHES_COUNT` is crucial to make sure
         if left_position == Position::SENTINEL || next_match_index >= REDUCED_MATCHES_COUNT {
             // Sentinel values are padded to the end of the bucket

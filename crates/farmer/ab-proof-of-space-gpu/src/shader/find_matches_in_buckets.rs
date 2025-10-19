@@ -168,6 +168,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 
             right_bucket_position.write(position);
 
+            // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
             if position == Position::SENTINEL {
                 break;
             }
@@ -208,6 +209,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             let right_position = unsafe { right_bucket_positions[index].assume_init() };
             let rmap_bit_position = right_rmap_bit_positions[index];
 
+            // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
             if right_position == Position::SENTINEL {
                 break;
             }
@@ -253,6 +255,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 
             left_bucket_position.write(position);
 
+            // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
             if position == Position::SENTINEL {
                 break;
             }
@@ -309,6 +312,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             left_bucket_positions[chunk_index * CHUNK_SIZE + index_within_chunk].assume_init()
         };
 
+        // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
         // Check if reached the end of the bucket
         let ([right_position_a, right_position_b], left_r) = if left_position == Position::SENTINEL
         {
