@@ -77,7 +77,7 @@ fn find_matches_and_compute_f7_gpu() {
         }
     };
 
-    let Some((actual_table_6_proof_target_counts, table_6_proof_targets)) = block_on(
+    let Some((actual_table_6_proof_targets_sizes, table_6_proof_targets)) = block_on(
         find_matches_and_compute_f7(&parent_buckets, &parent_metadatas),
     ) else {
         if cfg!(feature = "__force-gpu-tests") {
@@ -103,7 +103,7 @@ fn find_matches_and_compute_f7_gpu() {
         expected_table_6_proof_targets
             .iter()
             .zip(
-                actual_table_6_proof_target_counts
+                actual_table_6_proof_targets_sizes
                     .iter()
                     .zip(table_6_proof_targets.iter()),
             )
@@ -300,16 +300,16 @@ async fn find_matches_and_compute_f7_adapter(
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
     });
 
-    let table_6_proof_target_counts_host = device.create_buffer(&BufferDescriptor {
+    let table_6_proof_targets_sizes_host = device.create_buffer(&BufferDescriptor {
         label: None,
         size: size_of::<[u32; NUM_S_BUCKETS]>() as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
-    let table_6_proof_target_counts_gpu = device.create_buffer(&BufferDescriptor {
+    let table_6_proof_targets_sizes_gpu = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: table_6_proof_target_counts_host.size(),
+        size: table_6_proof_targets_sizes_host.size(),
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
@@ -354,7 +354,7 @@ async fn find_matches_and_compute_f7_adapter(
             },
             BindGroupEntry {
                 binding: 2,
-                resource: table_6_proof_target_counts_gpu.as_entire_binding(),
+                resource: table_6_proof_targets_sizes_gpu.as_entire_binding(),
             },
             BindGroupEntry {
                 binding: 3,
@@ -381,11 +381,11 @@ async fn find_matches_and_compute_f7_adapter(
     }
 
     encoder.copy_buffer_to_buffer(
-        &table_6_proof_target_counts_gpu,
+        &table_6_proof_targets_sizes_gpu,
         0,
-        &table_6_proof_target_counts_host,
+        &table_6_proof_targets_sizes_host,
         0,
-        table_6_proof_target_counts_host.size(),
+        table_6_proof_targets_sizes_host.size(),
     );
     encoder.copy_buffer_to_buffer(
         &table_6_proof_targets_gpu,
@@ -395,7 +395,7 @@ async fn find_matches_and_compute_f7_adapter(
         table_6_proof_targets_host.size(),
     );
 
-    encoder.map_buffer_on_submit(&table_6_proof_target_counts_host, MapMode::Read, .., |r| {
+    encoder.map_buffer_on_submit(&table_6_proof_targets_sizes_host, MapMode::Read, .., |r| {
         r.unwrap()
     });
     encoder.map_buffer_on_submit(&table_6_proof_targets_host, MapMode::Read, .., |r| {
@@ -406,18 +406,18 @@ async fn find_matches_and_compute_f7_adapter(
 
     device.poll(PollType::wait_indefinitely()).unwrap();
 
-    let table_6_proof_target_counts = {
-        let table_6_proof_target_counts_host_ptr = table_6_proof_target_counts_host
+    let table_6_proof_targets_sizes = {
+        let table_6_proof_targets_sizes_host_ptr = table_6_proof_targets_sizes_host
             .get_mapped_range(..)
             .as_ptr()
             .cast::<[u32; NUM_S_BUCKETS]>();
-        let table_6_proof_target_counts_ref = unsafe { &*table_6_proof_target_counts_host_ptr };
+        let table_6_proof_targets_sizes_ref = unsafe { &*table_6_proof_targets_sizes_host_ptr };
 
-        let mut table_6_proof_target_counts =
+        let mut table_6_proof_targets_sizes =
             unsafe { Box::<[MaybeUninit<u32>; NUM_S_BUCKETS]>::new_uninit().assume_init() };
-        table_6_proof_target_counts.write_copy_of_slice(table_6_proof_target_counts_ref);
+        table_6_proof_targets_sizes.write_copy_of_slice(table_6_proof_targets_sizes_ref);
         unsafe {
-            let ptr = Box::into_raw(table_6_proof_target_counts);
+            let ptr = Box::into_raw(table_6_proof_targets_sizes);
             Box::from_raw(ptr.cast::<[u32; NUM_S_BUCKETS]>())
         }
     };
@@ -438,8 +438,8 @@ async fn find_matches_and_compute_f7_adapter(
             Box::from_raw(ptr.cast::<[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>())
         }
     };
-    table_6_proof_target_counts_host.unmap();
+    table_6_proof_targets_sizes_host.unmap();
     table_6_proof_targets_host.unmap();
 
-    Some((table_6_proof_target_counts, table_6_proof_targets))
+    Some((table_6_proof_targets_sizes, table_6_proof_targets))
 }

@@ -117,7 +117,7 @@ unsafe fn compute_fn_into_buckets(
     //  currently doesn't compile if flattened:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    bucket_sizes: &mut [u32; NUM_S_BUCKETS],
+    table_6_proof_targets_sizes: &mut [u32; NUM_S_BUCKETS],
     table_6_proof_targets: &mut [[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET];
              NUM_S_BUCKETS],
 ) {
@@ -150,7 +150,7 @@ unsafe fn compute_fn_into_buckets(
         if s_bucket >= NUM_S_BUCKETS {
             continue;
         }
-        let bucket_size = &mut bucket_sizes[s_bucket];
+        let bucket_size = &mut table_6_proof_targets_sizes[s_bucket];
         // TODO: Probably should not be unsafe to begin with:
         //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
         let bucket_offset = unsafe {
@@ -196,8 +196,8 @@ pub unsafe fn find_matches_and_compute_f7(
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] bucket_sizes: &mut [u32;
-             NUM_S_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
+    table_6_proof_targets_sizes: &mut [u32; NUM_S_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     table_6_proof_targets: &mut [[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET];
              NUM_S_BUCKETS],
@@ -260,7 +260,7 @@ pub unsafe fn find_matches_and_compute_f7(
                 matches_count as usize,
                 matches,
                 parent_metadatas,
-                bucket_sizes,
+                table_6_proof_targets_sizes,
                 table_6_proof_targets,
             );
         }
