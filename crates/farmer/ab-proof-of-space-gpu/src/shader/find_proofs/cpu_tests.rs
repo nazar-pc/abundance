@@ -1,5 +1,5 @@
 use crate::shader::constants::{K, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, REDUCED_MATCHES_COUNT};
-use crate::shader::find_matches_and_compute_last::NUM_ELEMENTS_PER_S_BUCKET;
+use crate::shader::find_matches_and_compute_f7::NUM_ELEMENTS_PER_S_BUCKET;
 use crate::shader::find_proofs::PROOF_BYTES;
 use crate::shader::types::{Position, X};
 use ab_core_primitives::pieces::Record;

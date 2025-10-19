@@ -2,15 +2,15 @@ pub mod compute_f1;
 pub mod compute_fn;
 // TODO: Reuse constants from `ab-proof-of-space` once it compiles with `rust-gpu`
 mod constants;
+pub mod find_matches_and_compute_f2;
+pub mod find_matches_and_compute_f7;
 pub mod find_matches_and_compute_fn;
-pub mod find_matches_and_compute_last;
 pub mod find_matches_in_buckets;
+pub mod find_proofs;
 mod num;
 #[cfg(not(target_arch = "spirv"))]
 mod shader_bytes;
 pub mod sort_buckets;
-pub mod find_matches_and_compute_f2;
-pub mod find_proofs;
 // TODO: Reuse types from `ab-proof-of-space` once it compiles with `rust-gpu`
 pub mod types;
 

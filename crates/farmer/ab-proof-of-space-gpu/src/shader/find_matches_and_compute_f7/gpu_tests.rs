@@ -3,8 +3,8 @@ use crate::shader::constants::{
     MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, PARAM_BC,
     REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_and_compute_last::cpu_tests::find_matches_and_compute_last_correct;
-use crate::shader::find_matches_and_compute_last::{NUM_ELEMENTS_PER_S_BUCKET, TABLE_NUMBER};
+use crate::shader::find_matches_and_compute_f7::cpu_tests::find_matches_and_compute_f7_correct;
+use crate::shader::find_matches_and_compute_f7::{NUM_ELEMENTS_PER_S_BUCKET, TABLE_NUMBER};
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Metadata, Position, PositionExt, PositionY, Y};
@@ -23,7 +23,7 @@ use wgpu::{
 };
 
 #[test]
-fn find_matches_and_compute_last_gpu() {
+fn find_matches_and_compute_f7_gpu() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
     // Generate `y`s within `0..PARAM_BC*NUM_BUCKETS` range to fill the first `NUM_BUCKETS` buckets
@@ -77,7 +77,7 @@ fn find_matches_and_compute_last_gpu() {
     };
 
     let Some((actual_table_6_proof_target_counts, table_6_proof_targets)) = block_on(
-        find_matches_and_compute_last(&parent_buckets, &parent_metadatas),
+        find_matches_and_compute_f7(&parent_buckets, &parent_metadatas),
     ) else {
         if cfg!(feature = "__force-gpu-tests") {
             panic!("Skipping tests, no compatible device detected");
@@ -92,7 +92,7 @@ fn find_matches_and_compute_last_gpu() {
         )
         .assume_init()
     };
-    let expected_table_6_proof_targets = find_matches_and_compute_last_correct(
+    let expected_table_6_proof_targets = find_matches_and_compute_f7_correct(
         &parent_buckets,
         &parent_metadatas,
         &mut expected_table_6_proof_targets,
@@ -131,7 +131,7 @@ fn find_matches_and_compute_last_gpu() {
     }
 }
 
-async fn find_matches_and_compute_last(
+async fn find_matches_and_compute_f7(
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
 ) -> Option<(
@@ -153,7 +153,7 @@ async fn find_matches_and_compute_last(
         println!("Testing adapter {:?}", adapter.get_info());
 
         let Some(mut adapter_result) =
-            find_matches_and_compute_last_adapter(parent_buckets, parent_metadatas, adapter).await
+            find_matches_and_compute_f7_adapter(parent_buckets, parent_metadatas, adapter).await
         else {
             continue;
         };
@@ -181,7 +181,7 @@ async fn find_matches_and_compute_last(
     result
 }
 
-async fn find_matches_and_compute_last_adapter(
+async fn find_matches_and_compute_f7_adapter(
     parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     adapter: Adapter,
@@ -273,7 +273,7 @@ async fn find_matches_and_compute_last_adapter(
         label: None,
         layout: Some(&pipeline_layout),
         module: &module,
-        entry_point: Some("find_matches_and_compute_last"),
+        entry_point: Some("find_matches_and_compute_f7"),
     });
 
     let parent_buckets_gpu = device.create_buffer_init(&BufferInitDescriptor {

@@ -1,7 +1,7 @@
 use crate::shader::constants::{
     MAX_TABLE_SIZE, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_and_compute_last::NUM_ELEMENTS_PER_S_BUCKET;
+use crate::shader::find_matches_and_compute_f7::NUM_ELEMENTS_PER_S_BUCKET;
 use crate::shader::find_proofs::cpu_tests::find_proofs_correct;
 use crate::shader::find_proofs::{PROOF_BYTES, ProofsHost, WORKGROUP_SIZE};
 use crate::shader::select_shader_features_limits;

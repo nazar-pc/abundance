@@ -183,12 +183,12 @@ unsafe fn compute_fn_into_buckets(
 /// undefined.
 ///
 /// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
-#[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_last"))]
+#[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f7"))]
 #[expect(
     clippy::too_many_arguments,
     reason = "Both I/O and Vulkan stuff together take a lot of arguments"
 )]
-pub unsafe fn find_matches_and_compute_last(
+pub unsafe fn find_matches_and_compute_f7(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
