@@ -10,7 +10,7 @@ use crate::shader::find_matches_and_compute_f7::NUM_ELEMENTS_PER_S_BUCKET;
 use crate::shader::types::{Position, PositionExt};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{
-    atomic_or, subgroup_ballot, subgroup_shuffle, subgroup_u_min,
+    atomic_or, subgroup_ballot, subgroup_memory_barrier, subgroup_shuffle, subgroup_u_min,
     workgroup_memory_barrier_with_group_sync,
 };
 use spirv_std::glam::{UVec2, UVec3};
@@ -36,10 +36,10 @@ pub struct Proofs {
     found_proofs: [MaybeUninit<u32>; FOUND_PROOFS_U32_WORDS],
     // TODO: Calculate bit mask for proofs found upfront and reduce the size here to just
     //  `NUM_CHUNKS`
-    proofs: [[u32; PROOF_U32_WORDS]; NUM_S_BUCKETS],
+    proofs: [MaybeUninit<u32>; PROOF_U32_WORDS * NUM_S_BUCKETS],
 }
 
-// This is equivalent to above, but used for interpretation by the host
+// This is equivalent to the above but used for interpretation by the host
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct ProofsHost {
@@ -210,7 +210,10 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
     bucket_sizes: &mut [u32; NUM_S_BUCKETS],
     buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
     found_proofs: &mut [MaybeUninit<u32>; FOUND_PROOFS_U32_WORDS],
-    proofs: &mut [[u32; PROOF_U32_WORDS]; NUM_S_BUCKETS],
+    // TODO: This should have been `&mut [[MaybeUninit<u32>; PROOF_U32_WORDS]; NUM_S_BUCKETS]`,
+    //  but it currently doesn't compile if flattened:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+    proofs: &mut [MaybeUninit<u32>; PROOF_U32_WORDS * NUM_S_BUCKETS],
     found_proofs_scratch: &mut [MaybeUninit<u32>; (WORKGROUP_SIZE / u32::BITS) as usize],
 ) where
     [(); PROOF_X_SOURCES.div_ceil(SUBGROUP_SIZE as usize)]:,
@@ -226,6 +229,23 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
         found_proofs,
         found_proofs_scratch,
     );
+
+    // TODO: This proof zeroing will not be needed once proofs are assembled in registers and no
+    //  longer use atomic writes
+    // Zero the proofs range with coalesced writes
+    {
+        let positions_group_words = SUBGROUP_SIZE as usize * PROOF_U32_WORDS;
+        let base_word = positions_group_index as usize * positions_group_words;
+
+        for offset in (subgroup_local_invocation_id as usize..positions_group_words)
+            .step_by(SUBGROUP_SIZE as usize)
+        {
+            proofs[base_word + offset].write(0);
+        }
+
+        subgroup_memory_barrier();
+    }
+
     // TODO: Here and below to/from `UVec2` conversion is only needed because the trait can't be
     //  derived right now: https://github.com/Rust-GPU/rust-gpu/issues/410
     let table_6_proof_targets = UVec2::from_array(table_6_proof_targets);
@@ -318,7 +338,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             positions_group_index * SUBGROUP_SIZE + group_proof_index;
                         group_left_x_index += SUBGROUP_SIZE * 2;
 
-                        let proof = &mut proofs[global_proof_index as usize];
+                        let proof_base = global_proof_index as usize * PROOF_U32_WORDS;
                         let first_proof_word_index =
                             ((u32::from(K) * x_left_offset) / u32::BITS) as usize;
 
@@ -358,23 +378,41 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             local_proof_words_index + (second_word != 0) as usize
                         };
 
-                        // TODO: Probably should not be unsafe to begin with:
-                        //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
-                        unsafe {
-                            // The first word is written unconditionally
-                            atomic_or::<_, { Scope::Subgroup as u32 }, { Semantics::NONE.bits() }>(
-                                &mut proof[first_proof_word_index],
-                                local_proof_words[0].to_be(),
-                            );
-
-                            for i in 1..=max_local_proof_word_index {
+                        // The first word is written unconditionally
+                        {
+                            // SAFETY: The whole proof is initialized at the beginning of the
+                            // function
+                            let word = unsafe {
+                                proofs[proof_base + first_proof_word_index].assume_init_mut()
+                            };
+                            // TODO: Probably should not be unsafe to begin with:
+                            //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
+                            unsafe {
                                 atomic_or::<
                                     _,
                                     { Scope::Subgroup as u32 },
                                     { Semantics::NONE.bits() },
                                 >(
-                                    &mut proof[first_proof_word_index + i],
-                                    local_proof_words[i].to_be(),
+                                    word, local_proof_words[0].to_be()
+                                );
+                            }
+                        }
+                        // Process remaining words
+                        for i in 1..=max_local_proof_word_index {
+                            // SAFETY: The whole proof is initialized at the beginning of the
+                            // function
+                            let word = unsafe {
+                                proofs[proof_base + first_proof_word_index + i].assume_init_mut()
+                            };
+                            // TODO: Probably should not be unsafe to begin with:
+                            //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
+                            unsafe {
+                                atomic_or::<
+                                    _,
+                                    { Scope::Subgroup as u32 },
+                                    { Semantics::NONE.bits() },
+                                >(
+                                    word, local_proof_words[i].to_be()
                                 );
                             }
                         }
