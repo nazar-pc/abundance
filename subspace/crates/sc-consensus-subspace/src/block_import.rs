@@ -114,9 +114,6 @@ pub enum Error<Header: HeaderT> {
     /// Invalid proof of space
     #[error("Invalid proof of space")]
     InvalidProofOfSpace,
-    /// Invalid audit chunk offset
-    #[error("Invalid audit chunk offset")]
-    InvalidAuditChunkOffset,
     /// Invalid chunk proof
     #[error("Invalid chunk proof")]
     InvalidChunkProof,
@@ -235,7 +232,6 @@ where
                     solution_distance,
                 },
                 SolutionVerifyError::InvalidProofOfSpace => Error::InvalidProofOfSpace,
-                SolutionVerifyError::InvalidAuditChunkOffset => Error::InvalidAuditChunkOffset,
                 SolutionVerifyError::InvalidChunkProof => Error::InvalidChunkProof,
                 SolutionVerifyError::SectorExpired {
                     expiration_history_size,

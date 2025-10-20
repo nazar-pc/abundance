@@ -386,9 +386,6 @@ pub enum SolutionVerifyError {
     /// Invalid proof of space
     #[error("Invalid proof of space")]
     InvalidProofOfSpace,
-    /// Invalid audit chunk offset
-    #[error("Invalid audit chunk offset")]
-    InvalidAuditChunkOffset,
     /// Invalid chunk proof
     #[error("Invalid chunk proof")]
     InvalidChunkProof,
