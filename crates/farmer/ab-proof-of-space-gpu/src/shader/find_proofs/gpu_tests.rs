@@ -289,7 +289,7 @@ async fn find_proofs_adapter(
                 ty: BindingType::Buffer {
                     has_dynamic_offset: false,
                     min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: true },
+                    ty: BufferBindingType::Storage { read_only: false },
                 },
             },
             BindGroupLayoutEntry {

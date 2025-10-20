@@ -68,7 +68,7 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
     subgroup_id: u32,
     subgroup_local_invocation_id: u32,
     positions_group_index: u32,
-    bucket_sizes: &[u32; NUM_S_BUCKETS],
+    bucket_sizes: &mut [u32; NUM_S_BUCKETS],
     buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
     found_proofs: &mut [MaybeUninit<u32>; FOUND_PROOFS_U32_WORDS],
     found_proofs_scratch: &mut [MaybeUninit<u32>; (WORKGROUP_SIZE / u32::BITS) as usize],
@@ -78,9 +78,18 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
 
     let mut min = [Position::SENTINEL; 2];
 
+    let local_bucket_size = {
+        let bucket_id = base + subgroup_local_invocation_id;
+
+        let local_bucket_size = bucket_sizes[bucket_id as usize];
+        bucket_sizes[bucket_id as usize] = 0;
+
+        local_bucket_size
+    };
+
     for local_bucket_id in 0..SUBGROUP_SIZE {
         let bucket_id = (base + local_bucket_id) as usize;
-        let bucket_size = bucket_sizes[bucket_id];
+        let bucket_size = subgroup_shuffle(local_bucket_size, local_bucket_id);
         let bucket = &buckets[bucket_id];
 
         let mut local_min = [Position::SENTINEL; 2];
@@ -198,7 +207,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
     table_4_positions: &[[Position; 2]; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
     table_5_positions: &[[Position; 2]; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
     table_6_positions: &[[Position; 2]; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    bucket_sizes: &[u32; NUM_S_BUCKETS],
+    bucket_sizes: &mut [u32; NUM_S_BUCKETS],
     buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
     found_proofs: &mut [MaybeUninit<u32>; FOUND_PROOFS_U32_WORDS],
     proofs: &mut [[u32; PROOF_U32_WORDS]; NUM_S_BUCKETS],
@@ -376,6 +385,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
     }
 }
 
+/// NOTE: bucket sizes are zeroed after use
 // TODO: Maybe split `found_proofs` and `proofs` searching into separate shaders, such that less
 //  compute is wasted on searching proofs overall (right now up to half of the compute is wasted
 //  when computing proofs). It'll also be easier to add hashing after proof computation that way.
@@ -402,7 +412,8 @@ pub fn find_proofs(
     table_5_positions: &[[Position; 2]; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)]
     table_6_positions: &[[Position; 2]; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] bucket_sizes: &[u32; NUM_S_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] bucket_sizes: &mut [u32;
+             NUM_S_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET];
          NUM_S_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] proofs: &mut Proofs,

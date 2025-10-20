@@ -152,6 +152,7 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
     }
 }
 
+/// NOTE: bucket sizes are zeroed after use
 #[spirv(compute(threads(256), entry_point_name = "sort_buckets"))]
 #[expect(
     clippy::too_many_arguments,
@@ -164,7 +165,7 @@ pub fn sort_buckets(
     #[spirv(subgroup_size)] subgroup_size: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] bucket_sizes: &[u32; NUM_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] bucket_sizes: &mut [u32; NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] buckets: &mut [[PositionY; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
 ) {
@@ -178,6 +179,14 @@ pub fn sort_buckets(
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     for bucket_index in (global_subgroup_id..NUM_BUCKETS as u32).step_by(total_subgroups as usize) {
+        let bucket_size = bucket_sizes[bucket_index as usize];
+        let bucket = &mut buckets[bucket_index as usize];
+        // TODO: should have been `subgroup_elect()`, but it is not implemented in `wgpu` yet:
+        //  https://github.com/gfx-rs/wgpu/issues/5555
+        if subgroup_local_invocation_id == 0 {
+            bucket_sizes[bucket_index as usize] = 0;
+        }
+
         // Specify some common subgroup sizes so the driver can easily eliminate dead code. This is
         // important because `local_data` inside the function is generic and impacts the number of
         // registers used, so we want to minimize them.
@@ -186,64 +195,64 @@ pub fn sort_buckets(
             1 => {
                 sort_bucket_impl::<MAX_BUCKET_SIZE>(
                     subgroup_local_invocation_id,
-                    bucket_sizes[bucket_index as usize],
-                    &mut buckets[bucket_index as usize],
+                    bucket_size,
+                    bucket,
                 );
             }
             // Hypothetically possible
             2 => {
                 sort_bucket_impl::<{ MAX_BUCKET_SIZE / 2 }>(
                     subgroup_local_invocation_id,
-                    bucket_sizes[bucket_index as usize],
-                    &mut buckets[bucket_index as usize],
+                    bucket_size,
+                    bucket,
                 );
             }
             // LLVMpipe (Mesa 24, SSE)
             4 => {
                 sort_bucket_impl::<{ MAX_BUCKET_SIZE / 4 }>(
                     subgroup_local_invocation_id,
-                    bucket_sizes[bucket_index as usize],
-                    &mut buckets[bucket_index as usize],
+                    bucket_size,
+                    bucket,
                 );
             }
             // LLVMpipe (Mesa 25, AVX/AVX2)
             8 => {
                 sort_bucket_impl::<{ MAX_BUCKET_SIZE / 8 }>(
                     subgroup_local_invocation_id,
-                    bucket_sizes[bucket_index as usize],
-                    &mut buckets[bucket_index as usize],
+                    bucket_size,
+                    bucket,
                 );
             }
             // Raspberry PI 5
             16 => {
                 sort_bucket_impl::<{ MAX_BUCKET_SIZE / 16 }>(
                     subgroup_local_invocation_id,
-                    bucket_sizes[bucket_index as usize],
-                    &mut buckets[bucket_index as usize],
+                    bucket_size,
+                    bucket,
                 );
             }
             // Intel/Nvidia
             32 => {
                 sort_bucket_impl::<{ MAX_BUCKET_SIZE / 32 }>(
                     subgroup_local_invocation_id,
-                    bucket_sizes[bucket_index as usize],
-                    &mut buckets[bucket_index as usize],
+                    bucket_size,
+                    bucket,
                 );
             }
             // AMD
             64 => {
                 sort_bucket_impl::<{ MAX_BUCKET_SIZE / 64 }>(
                     subgroup_local_invocation_id,
-                    bucket_sizes[bucket_index as usize],
-                    &mut buckets[bucket_index as usize],
+                    bucket_size,
+                    bucket,
                 );
             }
             // Hypothetically possible
             128 => {
                 sort_bucket_impl::<{ MAX_BUCKET_SIZE / 128 }>(
                     subgroup_local_invocation_id,
-                    bucket_sizes[bucket_index as usize],
-                    &mut buckets[bucket_index as usize],
+                    bucket_size,
+                    bucket,
                 );
             }
             _ => {
