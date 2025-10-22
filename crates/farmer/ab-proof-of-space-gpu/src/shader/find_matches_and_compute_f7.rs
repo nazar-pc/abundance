@@ -33,6 +33,17 @@ const PROOFS_BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS: u8 = 128;
 pub const NUM_ELEMENTS_PER_S_BUCKET: usize =
     proofs_bucket_upper_bound(PROOFS_BUCKET_SIZE_UPPER_BOUND_SECURITY_BITS) as usize;
 
+// TODO: This data structure is quite large, could be compressed to a single `u64`, saving 1/3 of
+//  space
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(C)]
+pub struct ProofTargets {
+    // Absolute position derived from bucket and match index
+    pub absolute_position: u32,
+    /// Left and right positions
+    pub positions: [Position; 2],
+}
+
 /// Upper-bound estimation of the number of matched elements per s-bucket.
 ///
 /// Buckets are defined by the lower `NUM_S_BUCKETS.ilog2()` bits of the values. This is based on a
@@ -107,8 +118,9 @@ impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
 /// `bucket_index` must be within range `0..REDUCED_MATCHES_COUNT`. `matches_count` elements in
 /// `matches` must be initialized, `matches` must have valid pointers into `parent_metadatas`.
 #[inline(always)]
-unsafe fn compute_fn_into_buckets(
+unsafe fn compute_f7_into_buckets(
     local_invocation_id: u32,
+    left_bucket_index: u32,
     matches_count: usize,
     // TODO: `&[Match]` would have been nicer, but it currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -117,10 +129,12 @@ unsafe fn compute_fn_into_buckets(
     //  currently doesn't compile if flattened:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    bucket_sizes: &mut [u32; NUM_S_BUCKETS],
-    table_6_proof_targets: &mut [[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET];
+    table_6_proof_targets_sizes: &mut [u32; NUM_S_BUCKETS],
+    table_6_proof_targets: &mut [[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET];
              NUM_S_BUCKETS],
 ) {
+    let absolute_position_base = left_bucket_index * REDUCED_MATCHES_COUNT as u32;
+
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     for index in (local_invocation_id..matches_count as u32).step_by(WORKGROUP_SIZE as usize) {
@@ -150,7 +164,7 @@ unsafe fn compute_fn_into_buckets(
         if s_bucket >= NUM_S_BUCKETS {
             continue;
         }
-        let bucket_size = &mut bucket_sizes[s_bucket];
+        let bucket_size = &mut table_6_proof_targets_sizes[s_bucket];
         // TODO: Probably should not be unsafe to begin with:
         //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
         let bucket_offset = unsafe {
@@ -167,7 +181,10 @@ unsafe fn compute_fn_into_buckets(
                 .get_unchecked_mut(s_bucket)
                 .get_unchecked_mut(bucket_offset as usize)
         }
-        .write([m.left_position, m.right_position]);
+        .write(ProofTargets {
+            absolute_position: absolute_position_base + index,
+            positions: [m.left_position, m.right_position],
+        });
     }
 }
 
@@ -196,10 +213,10 @@ pub unsafe fn find_matches_and_compute_f7(
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] bucket_sizes: &mut [u32;
-             NUM_S_BUCKETS],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)]
+    table_6_proof_targets_sizes: &mut [u32; NUM_S_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
-    table_6_proof_targets: &mut [[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET];
+    table_6_proof_targets: &mut [[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET];
              NUM_S_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
     #[spirv(workgroup)] scratch_space: &mut SharedScratchSpace,
@@ -255,12 +272,13 @@ pub unsafe fn find_matches_and_compute_f7(
         workgroup_memory_barrier_with_group_sync();
 
         unsafe {
-            compute_fn_into_buckets(
+            compute_f7_into_buckets(
                 local_invocation_id,
+                left_bucket_index,
                 matches_count as usize,
                 matches,
                 parent_metadatas,
-                bucket_sizes,
+                table_6_proof_targets_sizes,
                 table_6_proof_targets,
             );
         }

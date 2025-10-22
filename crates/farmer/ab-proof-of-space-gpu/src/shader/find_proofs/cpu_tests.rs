@@ -1,5 +1,5 @@
 use crate::shader::constants::{K, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, REDUCED_MATCHES_COUNT};
-use crate::shader::find_matches_and_compute_f7::NUM_ELEMENTS_PER_S_BUCKET;
+use crate::shader::find_matches_and_compute_f7::{NUM_ELEMENTS_PER_S_BUCKET, ProofTargets};
 use crate::shader::find_proofs::PROOF_BYTES;
 use crate::shader::types::{Position, X};
 use ab_core_primitives::pieces::Record;
@@ -11,7 +11,7 @@ pub(super) fn find_proofs_correct(
     table_5_positions: &[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     table_6_positions: &[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     bucket_sizes: &[u32; NUM_S_BUCKETS],
-    buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
+    buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
 ) -> (
     Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
     Box<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>,
@@ -39,7 +39,7 @@ pub(super) fn find_proofs_correct(
             if bucket_size != 0 {
                 let table_6_proof_targets = table_6_proof_targets[..bucket_size as usize]
                     .iter()
-                    .min()
+                    .min_by_key(|proof_targets| proof_targets.absolute_position)
                     .unwrap();
                 *proof = find_proof_raw_internal(
                     table_2_positions,
@@ -47,7 +47,7 @@ pub(super) fn find_proofs_correct(
                     table_4_positions,
                     table_5_positions,
                     table_6_positions,
-                    *table_6_proof_targets,
+                    table_6_proof_targets.positions,
                 );
 
                 *found_proofs |= 1 << proof_offset;

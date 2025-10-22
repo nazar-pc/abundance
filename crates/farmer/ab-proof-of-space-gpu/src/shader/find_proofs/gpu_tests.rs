@@ -1,12 +1,13 @@
 use crate::shader::constants::{
     MAX_TABLE_SIZE, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_and_compute_f7::NUM_ELEMENTS_PER_S_BUCKET;
+use crate::shader::find_matches_and_compute_f7::{NUM_ELEMENTS_PER_S_BUCKET, ProofTargets};
 use crate::shader::find_proofs::cpu_tests::find_proofs_correct;
-use crate::shader::find_proofs::{PROOF_BYTES, ProofsHost, WORKGROUP_SIZE};
+use crate::shader::find_proofs::{ProofsHost, WORKGROUP_SIZE};
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::Position;
 use ab_core_primitives::pieces::Record;
+use ab_core_primitives::pos::PosProof;
 use chacha20::ChaCha8Rng;
 use futures::executor::block_on;
 use rand::prelude::*;
@@ -18,7 +19,7 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
     DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
-    PipelineLayoutDescriptor, PollType, ShaderStages,
+    PipelineCompilationOptions, PipelineLayoutDescriptor, PollType, ShaderStages,
 };
 
 fn generate_positions(
@@ -43,12 +44,11 @@ fn generate_positions(
     }
 }
 
-#[expect(clippy::type_complexity, reason = "Fine for tests")]
 fn generate_buckets(
     rng: &mut ChaCha8Rng,
 ) -> (
     Box<[u32; NUM_S_BUCKETS]>,
-    Box<[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>,
+    Box<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>,
 ) {
     // Ensure exactly `Record::NUM_CHUNKS` elements have non-zero bucket size
     let mut bucket_sizes = Box::new(array::from_fn::<_, NUM_S_BUCKETS, _>(|_| {
@@ -59,22 +59,28 @@ fn generate_buckets(
     bucket_sizes.shuffle(rng);
 
     let mut buckets = unsafe {
-        Box::<[[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>::new_uninit(
-        )
-        .assume_init()
+        Box::<[[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>::new_uninit()
+            .assume_init()
     };
 
-    for positions in buckets.as_flattened_mut() {
-        positions.write([
-            rng.random_range(0..REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS) as u32,
-            rng.random_range(0..REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS) as u32,
-        ]);
+    for (absolute_position, proof_targets) in buckets.as_flattened_mut().iter_mut().enumerate() {
+        proof_targets.write(ProofTargets {
+            absolute_position: absolute_position as u32,
+            positions: [
+                rng.random_range(0..REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS) as u32,
+                rng.random_range(0..REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS) as u32,
+            ],
+        });
     }
 
-    let buckets = unsafe {
+    let mut buckets = unsafe {
         let ptr = Box::into_raw(buckets);
-        Box::from_raw(ptr.cast::<[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>())
+        Box::from_raw(ptr.cast::<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>())
     };
+
+    for bucket in buckets.iter_mut() {
+        bucket.shuffle(rng);
+    }
 
     (bucket_sizes, buckets)
 }
@@ -140,7 +146,7 @@ fn find_proofs_gpu() {
         .enumerate()
     {
         if bucket_size != 0 {
-            assert_eq!(expected, actual, "s_bucket={s_bucket}");
+            assert_eq!(expected, &**actual, "s_bucket={s_bucket}");
         }
     }
 }
@@ -152,10 +158,10 @@ async fn find_proofs(
     table_5_positions: &[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     table_6_positions: &[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     bucket_sizes: &[u32; NUM_S_BUCKETS],
-    buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
+    buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
 ) -> Option<(
     Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
-    Box<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>,
+    Box<[PosProof; NUM_S_BUCKETS]>,
 )> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
@@ -207,11 +213,11 @@ async fn find_proofs_adapter(
     table_5_positions: &[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     table_6_positions: &[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     bucket_sizes: &[u32; NUM_S_BUCKETS],
-    buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
+    buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
     adapter: Adapter,
 ) -> Option<(
     Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
-    Box<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>,
+    Box<[PosProof; NUM_S_BUCKETS]>,
 )> {
     // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits, _modern) =
@@ -289,7 +295,7 @@ async fn find_proofs_adapter(
                 ty: BindingType::Buffer {
                     has_dynamic_offset: false,
                     min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: true },
+                    ty: BufferBindingType::Storage { read_only: false },
                 },
             },
             BindGroupLayoutEntry {
@@ -322,7 +328,10 @@ async fn find_proofs_adapter(
     });
 
     let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
-        compilation_options: Default::default(),
+        compilation_options: PipelineCompilationOptions {
+            constants: &[],
+            zero_initialize_workgroup_memory: false,
+        },
         cache: None,
         label: None,
         layout: Some(&pipeline_layout),
@@ -488,13 +497,12 @@ async fn find_proofs_adapter(
         let proofs_ref = unsafe { &*proofs_host_ptr };
 
         let found_proofs = Box::new(proofs_ref.found_proofs);
-        let mut proofs = unsafe {
-            Box::<[MaybeUninit<[u8; PROOF_BYTES]>; NUM_S_BUCKETS]>::new_uninit().assume_init()
-        };
+        let mut proofs =
+            unsafe { Box::<[MaybeUninit<PosProof>; NUM_S_BUCKETS]>::new_uninit().assume_init() };
         proofs.write_copy_of_slice(&proofs_ref.proofs);
         let proofs = unsafe {
             let ptr = Box::into_raw(proofs);
-            Box::from_raw(ptr.cast::<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>())
+            Box::from_raw(ptr.cast::<[PosProof; NUM_S_BUCKETS]>())
         };
 
         (found_proofs, proofs)

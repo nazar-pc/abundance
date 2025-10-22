@@ -28,7 +28,17 @@ spirv-std = { workspace = true }
 
 [target.'cfg(not(target_arch = "spirv"))'.dependencies]
 ab-core-primitives = { workspace = true }
-wgpu = { workspace = true }
+ab-erasure-coding = { workspace = true }
+ab-farmer-components = { workspace = true }
+ab-proof-of-space = { workspace = true }
+anyhow = { workspace = true }
+futures = { workspace = true, features = ["std"] }
+parking_lot = { workspace = true }
+rclite = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+# TODO: `std` is only enabled because of https://github.com/gfx-rs/wgpu/issues/8380
+wgpu = { workspace = true, features = ["std"] }
 
 [target.'cfg(not(target_arch = "spirv"))'.dev-dependencies]
 chacha20 = { workspace = true, features = ["rng"] }

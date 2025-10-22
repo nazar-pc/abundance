@@ -13,7 +13,7 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType,
     BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePipelineDescriptor,
     DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
-    PipelineLayoutDescriptor, PollType, ShaderStages,
+    PipelineCompilationOptions, PipelineLayoutDescriptor, PollType, ShaderStages,
 };
 
 #[test]
@@ -165,7 +165,10 @@ async fn compute_f1_adapter(
     });
 
     let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
-        compilation_options: Default::default(),
+        compilation_options: PipelineCompilationOptions {
+            constants: &[],
+            zero_initialize_workgroup_memory: false,
+        },
         cache: None,
         label: None,
         layout: Some(&pipeline_layout),
