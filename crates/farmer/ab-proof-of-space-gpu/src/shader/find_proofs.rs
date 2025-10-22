@@ -6,7 +6,7 @@ mod gpu_tests;
 use crate::shader::constants::{
     K, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, NUM_TABLES, REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_and_compute_f7::NUM_ELEMENTS_PER_S_BUCKET;
+use crate::shader::find_matches_and_compute_f7::{NUM_ELEMENTS_PER_S_BUCKET, ProofTargets};
 use crate::shader::types::{Position, PositionExt};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{
@@ -69,7 +69,7 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
     subgroup_local_invocation_id: u32,
     positions_group_index: u32,
     bucket_sizes: &mut [u32; NUM_S_BUCKETS],
-    buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
+    buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
     found_proofs: &mut [MaybeUninit<u32>; FOUND_PROOFS_U32_WORDS],
     found_proofs_scratch: &mut [MaybeUninit<u32>; (WORKGROUP_SIZE / u32::BITS) as usize],
 ) -> [Position; 2] {
@@ -92,36 +92,49 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
         let bucket_size = subgroup_shuffle(local_bucket_size, local_bucket_id);
         let bucket = &buckets[bucket_id];
 
-        let mut local_min = [Position::SENTINEL; 2];
+        // TODO: Can't use the struct due to this issue in Naga:
+        //  https://github.com/gfx-rs/wgpu/issues/8389#issuecomment-3430788603
+        // let mut local_min = ProofTargets {
+        //     absolute_position: u32::MAX,
+        //     positions: [Position::SENTINEL; 2],
+        // };
+        let mut local_min_absolute_position = [u32::MAX];
+        let mut local_min_positions = [Position::SENTINEL; 2];
 
         for index in (subgroup_local_invocation_id..bucket_size).step_by(SUBGROUP_SIZE as usize) {
-            let positions = bucket[index as usize];
-            // TODO: Manual unrolling because `positions < local_min` does not compile in rust-gpu
-            //  today, see:
-            //  * https://github.com/Rust-GPU/rust-gpu/issues/147
-            //  * https://github.com/Rust-GPU/rust-gpu/issues/409
-            if positions[0] < local_min[0]
-                || (positions[0] == local_min[0] && positions[1] < local_min[1])
-            {
-                local_min = positions;
+            let proof_targets = bucket[index as usize];
+            if proof_targets.absolute_position < local_min_absolute_position[0] {
+                local_min_absolute_position[0] = proof_targets.absolute_position;
+                local_min_positions = proof_targets.positions;
             }
         }
 
-        let new_min_0 = subgroup_u_min(local_min[0]);
-        let min_1_candidate = if local_min[0] == new_min_0 {
-            local_min[1]
-        } else {
-            Position::SENTINEL
-        };
-        local_min[0] = new_min_0;
-        local_min[1] = subgroup_u_min(min_1_candidate);
+        let min_absolute_position = subgroup_u_min(local_min_absolute_position[0]);
+        let source_lane_mask =
+            subgroup_ballot(local_min_absolute_position[0] == min_absolute_position);
+        // TODO: This intrinsic is not supported by `wgpu` yet:
+        //  https://github.com/gfx-rs/wgpu/issues/8403
+        // let source_lane = subgroup_ballot_find_lsb(source_lane_mask);
+        let source_lane_mask = source_lane_mask.0.to_array();
+        let mut source_lane = u32::MAX;
+        for i in 0..SUBGROUP_SIZE.div_ceil(u32::BITS) {
+            let word = source_lane_mask[i as usize];
+            if word != 0 {
+                source_lane = word.trailing_zeros() + i * u32::BITS;
+                break;
+            }
+        }
+        let local_min = [
+            subgroup_shuffle(local_min_positions[0], source_lane),
+            subgroup_shuffle(local_min_positions[1], source_lane),
+        ];
 
         if subgroup_local_invocation_id == local_bucket_id {
             min = local_min;
         }
     }
 
-    let has_proof = min[0] != Position::SENTINEL;
+    let has_proof = local_bucket_size > 0;
     let found_proofs_words = subgroup_ballot(has_proof).0;
 
     if SUBGROUP_SIZE >= u32::BITS {
@@ -208,7 +221,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
     table_5_positions: &[[Position; 2]; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
     table_6_positions: &[[Position; 2]; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
     bucket_sizes: &mut [u32; NUM_S_BUCKETS],
-    buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
+    buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
     found_proofs: &mut [MaybeUninit<u32>; FOUND_PROOFS_U32_WORDS],
     // TODO: This should have been `&mut [[MaybeUninit<u32>; PROOF_U32_WORDS]; NUM_S_BUCKETS]`,
     //  but it currently doesn't compile if flattened:
@@ -452,7 +465,7 @@ pub fn find_proofs(
     table_6_positions: &[[Position; 2]; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] bucket_sizes: &mut [u32;
              NUM_S_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET];
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 6)] buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET];
          NUM_S_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 7)] proofs: &mut Proofs,
     #[spirv(workgroup)] found_proofs_scratch: &mut [MaybeUninit<u32>;

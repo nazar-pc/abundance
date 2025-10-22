@@ -1,7 +1,7 @@
 use crate::shader::constants::{
     MAX_TABLE_SIZE, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_and_compute_f7::NUM_ELEMENTS_PER_S_BUCKET;
+use crate::shader::find_matches_and_compute_f7::{NUM_ELEMENTS_PER_S_BUCKET, ProofTargets};
 use crate::shader::find_proofs::cpu_tests::find_proofs_correct;
 use crate::shader::find_proofs::{PROOF_BYTES, ProofsHost, WORKGROUP_SIZE};
 use crate::shader::select_shader_features_limits;
@@ -43,12 +43,11 @@ fn generate_positions(
     }
 }
 
-#[expect(clippy::type_complexity, reason = "Fine for tests")]
 fn generate_buckets(
     rng: &mut ChaCha8Rng,
 ) -> (
     Box<[u32; NUM_S_BUCKETS]>,
-    Box<[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>,
+    Box<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>,
 ) {
     // Ensure exactly `Record::NUM_CHUNKS` elements have non-zero bucket size
     let mut bucket_sizes = Box::new(array::from_fn::<_, NUM_S_BUCKETS, _>(|_| {
@@ -59,22 +58,28 @@ fn generate_buckets(
     bucket_sizes.shuffle(rng);
 
     let mut buckets = unsafe {
-        Box::<[[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>::new_uninit(
-        )
-        .assume_init()
+        Box::<[[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>::new_uninit()
+            .assume_init()
     };
 
-    for positions in buckets.as_flattened_mut() {
-        positions.write([
-            rng.random_range(0..REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS) as u32,
-            rng.random_range(0..REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS) as u32,
-        ]);
+    for (absolute_position, proof_targets) in buckets.as_flattened_mut().iter_mut().enumerate() {
+        proof_targets.write(ProofTargets {
+            absolute_position: absolute_position as u32,
+            positions: [
+                rng.random_range(0..REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS) as u32,
+                rng.random_range(0..REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS) as u32,
+            ],
+        });
     }
 
-    let buckets = unsafe {
+    let mut buckets = unsafe {
         let ptr = Box::into_raw(buckets);
-        Box::from_raw(ptr.cast::<[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>())
+        Box::from_raw(ptr.cast::<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>())
     };
+
+    for bucket in buckets.iter_mut() {
+        bucket.shuffle(rng);
+    }
 
     (bucket_sizes, buckets)
 }
@@ -152,7 +157,7 @@ async fn find_proofs(
     table_5_positions: &[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     table_6_positions: &[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     bucket_sizes: &[u32; NUM_S_BUCKETS],
-    buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
+    buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
 ) -> Option<(
     Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
     Box<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>,
@@ -207,7 +212,7 @@ async fn find_proofs_adapter(
     table_5_positions: &[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     table_6_positions: &[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     bucket_sizes: &[u32; NUM_S_BUCKETS],
-    buckets: &[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
+    buckets: &[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
     adapter: Adapter,
 ) -> Option<(
     Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,

@@ -4,7 +4,9 @@ use crate::shader::constants::{
     REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_and_compute_f7::cpu_tests::find_matches_and_compute_f7_correct;
-use crate::shader::find_matches_and_compute_f7::{NUM_ELEMENTS_PER_S_BUCKET, TABLE_NUMBER};
+use crate::shader::find_matches_and_compute_f7::{
+    NUM_ELEMENTS_PER_S_BUCKET, ProofTargets, TABLE_NUMBER,
+};
 use crate::shader::find_matches_in_buckets::MAX_SUBGROUPS;
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::select_shader_features_limits;
@@ -120,12 +122,13 @@ fn find_matches_and_compute_f7_gpu() {
             "bucket_index={bucket_index}"
         );
 
-        let mut expected_bucket = expected_bucket[..expected_bucket_size].to_vec();
-        expected_bucket.sort();
-
-        for (index, (expected, actual)) in expected_bucket.iter().zip(actual_bucket).enumerate() {
+        for (index, (expected, actual)) in expected_bucket[..expected_bucket_size]
+            .iter()
+            .zip(actual_bucket)
+            .enumerate()
+        {
             assert_eq!(
-                expected, actual,
+                expected, &actual.positions,
                 "bucket_index={bucket_index}, index={index}"
             );
         }
@@ -137,7 +140,7 @@ async fn find_matches_and_compute_f7(
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
 ) -> Option<(
     Box<[u32; NUM_S_BUCKETS]>,
-    Box<[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>,
+    Box<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>,
 )> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
@@ -166,7 +169,8 @@ async fn find_matches_and_compute_f7(
             .iter()
             .zip(adapter_result.1.iter_mut())
             .for_each(|(&bucket_size, bucket)| {
-                bucket[..bucket_size as usize].sort();
+                bucket[..bucket_size as usize]
+                    .sort_by_key(|proof_targets| proof_targets.absolute_position);
             });
 
         match &result {
@@ -188,7 +192,7 @@ async fn find_matches_and_compute_f7_adapter(
     adapter: Adapter,
 ) -> Option<(
     Box<[u32; NUM_S_BUCKETS]>,
-    Box<[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>,
+    Box<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>,
 )> {
     // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits, modern) =
@@ -319,7 +323,8 @@ async fn find_matches_and_compute_f7_adapter(
 
     let table_6_proof_targets_host = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: size_of::<[[PositionY; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>() as BufferAddress,
+        size: size_of::<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>()
+            as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -428,17 +433,18 @@ async fn find_matches_and_compute_f7_adapter(
         let buckets_host_ptr = table_6_proof_targets_host
             .get_mapped_range(..)
             .as_ptr()
-            .cast::<[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>();
+            .cast::<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>(
+        );
         let buckets_ref = unsafe { &*buckets_host_ptr };
 
         let mut table_6_proof_targets = unsafe {
-            Box::<[MaybeUninit<[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]>; NUM_S_BUCKETS]>::new_uninit()
+            Box::<[MaybeUninit<[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]>; NUM_S_BUCKETS]>::new_uninit()
                 .assume_init()
         };
         table_6_proof_targets.write_copy_of_slice(buckets_ref);
         unsafe {
             let ptr = Box::into_raw(table_6_proof_targets);
-            Box::from_raw(ptr.cast::<[[[Position; 2]; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>())
+            Box::from_raw(ptr.cast::<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>())
         }
     };
     table_6_proof_targets_sizes_host.unmap();

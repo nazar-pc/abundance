@@ -127,8 +127,6 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
 /// [`MAX_SUBGROUPS`].
-///
-/// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[expect(
     clippy::too_many_arguments,
     reason = "Both I/O and Vulkan stuff together take a lot of arguments"
@@ -217,8 +215,6 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
 /// [`MAX_SUBGROUPS`].
-///
-/// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f3"))]
 #[expect(
     clippy::too_many_arguments,
@@ -282,8 +278,6 @@ pub unsafe fn find_matches_and_compute_f3(
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
 /// [`MAX_SUBGROUPS`].
-///
-/// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f4"))]
 #[expect(
     clippy::too_many_arguments,
@@ -347,8 +341,6 @@ pub unsafe fn find_matches_and_compute_f4(
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
 /// [`MAX_SUBGROUPS`].
-///
-/// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f5"))]
 #[expect(
     clippy::too_many_arguments,
@@ -412,8 +404,6 @@ pub unsafe fn find_matches_and_compute_f5(
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
 /// [`MAX_SUBGROUPS`].
-///
-/// [`MAX_SUBGROUPS`]: crate::shader::find_matches_in_buckets::MAX_SUBGROUPS
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f6"))]
 #[expect(
     clippy::too_many_arguments,
