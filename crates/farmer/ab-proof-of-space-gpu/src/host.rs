@@ -335,7 +335,7 @@ impl DeviceInstance {
         let bucket_sizes_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("bucket_sizes_gpu"),
             size: bucket_sizes_gpu_buffer_size.max(table_6_proof_targets_sizes_gpu_buffer_size),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
         // Reuse the same buffer as `bucket_sizes_gpu`, they are not overlapping in use
@@ -344,14 +344,14 @@ impl DeviceInstance {
         let buckets_a_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("buckets_a_gpu"),
             size: size_of::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>() as BufferAddress,
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let buckets_b_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("buckets_b_gpu"),
             size: buckets_a_gpu.size(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
@@ -359,35 +359,35 @@ impl DeviceInstance {
             label: Some("positions_f2_gpu"),
             size: size_of::<[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>()
                 as BufferAddress,
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let positions_f3_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("positions_f3_gpu"),
             size: positions_f2_gpu.size(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let positions_f4_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("positions_f4_gpu"),
             size: positions_f2_gpu.size(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let positions_f5_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("positions_f5_gpu"),
             size: positions_f2_gpu.size(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let positions_f6_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("positions_f6_gpu"),
             size: positions_f2_gpu.size(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
@@ -399,7 +399,7 @@ impl DeviceInstance {
         let metadatas_a_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("metadatas_a_gpu"),
             size: metadatas_gpu_buffer_size.max(table_6_proof_targets_gpu_buffer_size),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
         // Reuse the same buffer as `metadatas_a_gpu`, they are not overlapping in use
@@ -408,7 +408,7 @@ impl DeviceInstance {
         let metadatas_b_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("metadatas_b_gpu"),
             size: metadatas_gpu_buffer_size,
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 

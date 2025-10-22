@@ -173,6 +173,9 @@ unsafe fn compute_f7_into_buckets(
             )
         };
 
+        // TODO: Maybe store `absolute_position` separately from more densely populated positions,
+        //  then per-s-bucket `atomic_u_min()` can be done to store the minimum pointer. This all
+        //  will use less memory overall
         // SAFETY: `s_bucket` is checked above to be correct. Bucket size upper bound is known
         // statically to be [`NUM_ELEMENTS_PER_S_BUCKET`], so `bucket_offset` is also always within
         // bounds.
