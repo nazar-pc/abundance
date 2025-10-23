@@ -514,6 +514,7 @@ dependencies = [
  "ab-farmer-components",
  "ab-proof-of-space",
  "anyhow",
+ "async-lock",
  "cargo-gpu",
  "chacha20",
  "derive_more 2.0.1",

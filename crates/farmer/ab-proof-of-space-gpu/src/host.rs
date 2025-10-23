@@ -18,12 +18,15 @@ use ab_core_primitives::sectors::SectorId;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::plotting::RecordsEncoder;
 use ab_farmer_components::sector::SectorContentsMap;
+use async_lock::Mutex as AsyncMutex;
 use futures::StreamExt;
 use futures::stream::FuturesOrdered;
 use parking_lot::Mutex;
 use rclite::Arc;
 use std::fmt;
+use std::ops::Deref;
 use std::simd::Simd;
+use std::sync::Arc as StdArc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tracing::{debug, warn};
 use wgpu::{
@@ -196,17 +199,27 @@ impl Device {
         self.adapter_info.backend
     }
 
-    pub fn instantiate(&self, erasure_coding: ErasureCoding) -> DeviceInstance {
-        DeviceInstance::new(erasure_coding, self.clone())
+    /// Whether GPU is considered to be modern
+    pub fn modern(&self) -> bool {
+        self.modern
+    }
+
+    pub fn instantiate(
+        &self,
+        erasure_coding: ErasureCoding,
+        global_mutex: StdArc<AsyncMutex<()>>,
+    ) -> GpuRecordsEncoder {
+        GpuRecordsEncoder::new(self.clone(), erasure_coding, global_mutex)
     }
 }
 
-pub struct DeviceInstance {
-    erasure_coding: ErasureCoding,
+pub struct GpuRecordsEncoder {
     device: Device,
     max_compute_workgroups_per_dimension: u32,
     mapping_error: Arc<Mutex<Option<BufferAsyncError>>>,
     tainted: bool,
+    erasure_coding: ErasureCoding,
+    global_mutex: StdArc<AsyncMutex<()>>,
     initial_state_host: Buffer,
     initial_state_gpu: Buffer,
     proofs_host: Buffer,
@@ -233,15 +246,23 @@ pub struct DeviceInstance {
     compute_pipeline_find_proofs: ComputePipeline,
 }
 
-impl fmt::Debug for DeviceInstance {
+impl fmt::Debug for GpuRecordsEncoder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("DeviceInstance")
+        f.debug_struct("GpuRecordsEncoder")
             .field("device", &self.device)
             .finish_non_exhaustive()
     }
 }
 
-impl RecordsEncoder for DeviceInstance {
+impl Deref for GpuRecordsEncoder {
+    type Target = Device;
+
+    fn deref(&self) -> &Self::Target {
+        &self.device
+    }
+}
+
+impl RecordsEncoder for GpuRecordsEncoder {
     // TODO: Run more than one encoding per device concurrently
     fn encode_records(
         &mut self,
@@ -258,6 +279,9 @@ impl RecordsEncoder for DeviceInstance {
             .zip(records.iter_mut())
             .zip(sector_contents_map.iter_record_chunks_used_mut())
         {
+            // Take mutex briefly to make sure encoding is allowed right now
+            self.global_mutex.lock_blocking();
+
             let mut parity_record_chunks = Record::new_boxed();
 
             // TODO: Do erasure coding on the GPU
@@ -307,8 +331,12 @@ impl RecordsEncoder for DeviceInstance {
     }
 }
 
-impl DeviceInstance {
-    fn new(erasure_coding: ErasureCoding, device: Device) -> Self {
+impl GpuRecordsEncoder {
+    fn new(
+        device: Device,
+        erasure_coding: ErasureCoding,
+        global_mutex: StdArc<AsyncMutex<()>>,
+    ) -> Self {
         let max_compute_workgroups_per_dimension =
             device.device.limits().max_compute_workgroups_per_dimension;
 
@@ -335,7 +363,7 @@ impl DeviceInstance {
         let bucket_sizes_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("bucket_sizes_gpu"),
             size: bucket_sizes_gpu_buffer_size.max(table_6_proof_targets_sizes_gpu_buffer_size),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
         // Reuse the same buffer as `bucket_sizes_gpu`, they are not overlapping in use
@@ -344,14 +372,14 @@ impl DeviceInstance {
         let buckets_a_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("buckets_a_gpu"),
             size: size_of::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>() as BufferAddress,
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let buckets_b_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("buckets_b_gpu"),
             size: buckets_a_gpu.size(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
@@ -359,35 +387,35 @@ impl DeviceInstance {
             label: Some("positions_f2_gpu"),
             size: size_of::<[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>()
                 as BufferAddress,
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let positions_f3_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("positions_f3_gpu"),
             size: positions_f2_gpu.size(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let positions_f4_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("positions_f4_gpu"),
             size: positions_f2_gpu.size(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let positions_f5_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("positions_f5_gpu"),
             size: positions_f2_gpu.size(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
         let positions_f6_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("positions_f6_gpu"),
             size: positions_f2_gpu.size(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
@@ -399,7 +427,7 @@ impl DeviceInstance {
         let metadatas_a_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("metadatas_a_gpu"),
             size: metadatas_gpu_buffer_size.max(table_6_proof_targets_gpu_buffer_size),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
         // Reuse the same buffer as `metadatas_a_gpu`, they are not overlapping in use
@@ -408,7 +436,7 @@ impl DeviceInstance {
         let metadatas_b_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("metadatas_b_gpu"),
             size: metadatas_gpu_buffer_size,
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
@@ -552,11 +580,12 @@ impl DeviceInstance {
             );
 
         Self {
-            erasure_coding,
             device,
             max_compute_workgroups_per_dimension,
             mapping_error: Arc::new(Mutex::new(None)),
             tainted: false,
+            erasure_coding,
+            global_mutex,
             initial_state_host,
             initial_state_gpu,
             proofs_host,

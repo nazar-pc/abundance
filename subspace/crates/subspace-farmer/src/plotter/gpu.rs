@@ -1,11 +1,7 @@
 //! GPU plotter
 
-#[cfg(feature = "cuda")]
-pub mod cuda;
 mod gpu_encoders_manager;
 pub mod metrics;
-#[cfg(feature = "rocm")]
-pub mod rocm;
 
 use crate::plotter::gpu::gpu_encoders_manager::GpuRecordsEncoderManager;
 use crate::plotter::gpu::metrics::GpuPlotterMetrics;
@@ -17,9 +13,10 @@ use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::plotting::{
-    DownloadSectorOptions, EncodeSectorOptions, PlottingError, RecordsEncoder, download_sector,
-    encode_sector, write_sector,
+    DownloadSectorOptions, EncodeSectorOptions, PlottingError, download_sector, encode_sector,
+    write_sector,
 };
+use ab_proof_of_space_gpu::GpuRecordsEncoder;
 use async_lock::{Mutex as AsyncMutex, Semaphore, SemaphoreGuardArc};
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -49,17 +46,11 @@ struct Handlers {
     plotting_progress: Handler3<Ed25519PublicKey, SectorIndex, SectorPlottingProgress>,
 }
 
-/// GPU-specific [`RecordsEncoder`] with extra APIs
-pub trait GpuRecordsEncoder: RecordsEncoder + fmt::Debug + Send {
-    /// GPU encoder type, typically related to GPU vendor
-    const TYPE: &'static str;
-}
-
 /// GPU plotter
-pub struct GpuPlotter<PG, GRE> {
+pub struct GpuPlotter<PG> {
     piece_getter: PG,
     downloading_semaphore: Arc<Semaphore>,
-    gpu_records_encoders_manager: GpuRecordsEncoderManager<GRE>,
+    gpu_records_encoders_manager: GpuRecordsEncoderManager,
     global_mutex: Arc<AsyncMutex<()>>,
     erasure_coding: ErasureCoding,
     handlers: Arc<Handlers>,
@@ -69,18 +60,14 @@ pub struct GpuPlotter<PG, GRE> {
     metrics: Option<Arc<GpuPlotterMetrics>>,
 }
 
-impl<PG, GRE> fmt::Debug for GpuPlotter<PG, GRE>
-where
-    GRE: GpuRecordsEncoder + 'static,
-{
+impl<PG> fmt::Debug for GpuPlotter<PG> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct(&format!("GpuPlotter[type = {}]", GRE::TYPE))
-            .finish_non_exhaustive()
+        f.debug_struct("GpuPlotter").finish_non_exhaustive()
     }
 }
 
-impl<PG, RE> Drop for GpuPlotter<PG, RE> {
+impl<PG> Drop for GpuPlotter<PG> {
     #[inline]
     fn drop(&mut self) {
         self.abort_early.store(true, Ordering::Release);
@@ -89,10 +76,9 @@ impl<PG, RE> Drop for GpuPlotter<PG, RE> {
 }
 
 #[async_trait]
-impl<PG, GRE> Plotter for GpuPlotter<PG, GRE>
+impl<PG> Plotter for GpuPlotter<PG>
 where
     PG: PieceGetter + Clone + Send + Sync + 'static,
-    GRE: GpuRecordsEncoder + 'static,
 {
     async fn has_free_capacity(&self) -> Result<bool, String> {
         Ok(self.downloading_semaphore.try_acquire().is_some())
@@ -155,10 +141,9 @@ where
     }
 }
 
-impl<PG, GRE> GpuPlotter<PG, GRE>
+impl<PG> GpuPlotter<PG>
 where
     PG: PieceGetter + Clone + Send + Sync + 'static,
-    GRE: GpuRecordsEncoder + 'static,
 {
     /// Create a new instance.
     ///
@@ -166,7 +151,7 @@ where
     pub fn new(
         piece_getter: PG,
         downloading_semaphore: Arc<Semaphore>,
-        gpu_records_encoders: Vec<GRE>,
+        gpu_records_encoders: Vec<GpuRecordsEncoder>,
         global_mutex: Arc<AsyncMutex<()>>,
         erasure_coding: ErasureCoding,
         registry: Option<&mut Registry>,
@@ -204,7 +189,6 @@ where
         let metrics = registry.map(|registry| {
             Arc::new(GpuPlotterMetrics::new(
                 registry,
-                GRE::TYPE,
                 gpu_records_encoders_manager.gpu_records_encoders(),
             ))
         });
