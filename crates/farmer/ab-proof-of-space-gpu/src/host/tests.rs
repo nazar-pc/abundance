@@ -12,6 +12,7 @@ use futures::executor::block_on;
 use rand::prelude::*;
 use rclite::Arc;
 use std::slice;
+use std::sync::Arc as StdArc;
 use std::sync::atomic::AtomicBool;
 
 #[test]
@@ -49,7 +50,7 @@ fn basic() {
 
     let devices = block_on(Device::enumerate());
     for device in devices {
-        let mut device_instance = device.instantiate(erasure_coding.clone());
+        let mut device_instance = device.instantiate(erasure_coding.clone(), StdArc::default());
 
         let mut actual_encoded_records = source_records.clone();
 
