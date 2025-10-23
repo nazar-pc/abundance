@@ -36,6 +36,8 @@ pub mod shader;
 use ab_core_primitives::pos::PosProof;
 #[cfg(not(target_arch = "spirv"))]
 pub use host::{Device, GpuRecordsEncoder};
+#[cfg(not(target_arch = "spirv"))]
+pub use wgpu::{Backend, DeviceType};
 
 // TODO: Remove gate after https://github.com/Rust-GPU/rust-gpu/pull/249
 #[cfg(not(target_arch = "spirv"))]

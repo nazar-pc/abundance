@@ -21,7 +21,7 @@ struct Inner {
     thread_pool_pairs: Vec<PlottingThreadPoolPair>,
 }
 
-/// Wrapper around [`PlottingThreadPoolPair`] that on `Drop` will return thread pool back into
+/// Wrapper around [`PlottingThreadPoolPair`] that on `Drop` will return a thread pool pair into
 /// corresponding [`PlottingThreadPoolManager`].
 #[derive(Debug)]
 #[must_use]

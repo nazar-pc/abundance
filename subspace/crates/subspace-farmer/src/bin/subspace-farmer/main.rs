@@ -5,6 +5,7 @@ mod utils;
 
 use ab_cli_utils::init_logger;
 use ab_proof_of_space::chia::ChiaTable;
+use ab_proof_of_space_gpu::{Device, DeviceType};
 use clap::Parser;
 use std::path::PathBuf;
 use std::process::exit;
@@ -25,6 +26,12 @@ enum Command {
     Farm(commands::farm::FarmingArgs),
     /// Farming cluster
     Cluster(commands::cluster::ClusterArgs),
+    /// List compatible GPUs available on the system
+    ListGpus {
+        /// Whether to print extra information about each GPU
+        #[arg(long)]
+        verbose: bool,
+    },
     /// Run various benchmarks
     #[clap(subcommand)]
     Benchmark(commands::benchmark::BenchmarkArgs),
@@ -86,6 +93,33 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Cluster(cluster_args) => {
             commands::cluster::cluster::<PosTable>(cluster_args).await?;
+        }
+        Command::ListGpus { verbose } => {
+            let devices = Device::enumerate().await;
+            for device in devices {
+                let maybe_modern = if device.modern() {
+                    "modern"
+                } else {
+                    "legacy fallback"
+                };
+                let device_type = match device.device_type() {
+                    DeviceType::Other => "other",
+                    DeviceType::IntegratedGpu => "Integrated GPU",
+                    DeviceType::DiscreteGpu => "Discrete GPU",
+                    DeviceType::VirtualGpu => "Virtual GPU",
+                    DeviceType::Cpu => "CPU emulation",
+                };
+                println!(
+                    "{}: {} ({device_type}, {maybe_modern})",
+                    device.id(),
+                    device.name()
+                );
+                if verbose {
+                    println!("   Backend: {}", device.backend());
+                    println!("   Driver: {}", device.driver());
+                    println!("   Driver info: {}", device.driver_info());
+                }
+            }
         }
         Command::Benchmark(benchmark_args) => {
             commands::benchmark::benchmark(benchmark_args)?;

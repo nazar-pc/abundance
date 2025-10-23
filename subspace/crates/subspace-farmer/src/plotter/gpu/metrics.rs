@@ -25,14 +25,11 @@ pub(super) struct GpuPlotterMetrics {
 
 impl GpuPlotterMetrics {
     /// Create a new instance
-    pub(super) fn new(
-        registry: &mut Registry,
-        subtype: &str,
-        total_capacity: NonZeroUsize,
-    ) -> Self {
+    pub(super) fn new(registry: &mut Registry, total_capacity: NonZeroUsize) -> Self {
         let registry = registry
             .sub_registry_with_prefix("plotter")
-            .sub_registry_with_label(("kind".into(), format!("gpu-{subtype}").into()));
+            // TODO: Maybe GPU type (dGPU/iGPU/etc.)
+            .sub_registry_with_label(("kind".into(), "gpu".into()));
 
         let sector_downloading_time = Histogram::new(exponential_buckets(0.1, 2.0, 15));
         registry.register_with_unit(

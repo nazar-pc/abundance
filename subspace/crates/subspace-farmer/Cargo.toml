@@ -23,6 +23,7 @@ ab-direct-io-file = { workspace = true }
 ab-erasure-coding = { workspace = true }
 ab-farmer-components = { workspace = true }
 ab-proof-of-space = { workspace = true }
+ab-proof-of-space-gpu = { workspace = true }
 anyhow = { workspace = true }
 async-lock = { workspace = true }
 async-nats = { workspace = true, optional = true }
@@ -59,7 +60,6 @@ serde_json = { workspace = true }
 ss58-registry = { workspace = true }
 subspace-metrics = { workspace = true, optional = true }
 subspace-networking = { workspace = true }
-subspace-proof-of-space-gpu = { workspace = true, optional = true }
 subspace-rpc-primitives = { workspace = true }
 subspace-verification = { workspace = true }
 tempfile = { workspace = true }
@@ -75,10 +75,6 @@ zeroize = { workspace = true }
 default = ["default-library", "binary"]
 cluster = ["dep:async-nats"]
 numa = ["dep:hwlocality"]
-# Only Volta+ architectures are supported (GeForce RTX 16xx consumer GPUs and newer)
-cuda = ["_gpu", "subspace-proof-of-space-gpu/cuda"]
-# Internal feature, shouldn't be used directly
-_gpu = []
 
 # TODO: This is a hack for https://github.com/rust-lang/cargo/issues/1982, `default-library` is what would essentially
 #  be default, but because binary compilation will require explicit feature to be specified without `binary` feature we

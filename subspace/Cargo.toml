@@ -16,6 +16,7 @@ ab-direct-io-file = { version = "0.0.1", path = "../crates/shared/ab-direct-io-f
 ab-erasure-coding = { path = "../crates/shared/ab-erasure-coding", default-features = false }
 ab-farmer-components = { version = "0.1.0", path = "../crates/farmer/ab-farmer-components" }
 ab-proof-of-space = { version = "0.1.0", path = "../crates/shared/ab-proof-of-space", default-features = false }
+ab-proof-of-space-gpu = { version = "0.1.0", path = "../crates/farmer/ab-proof-of-space-gpu", default-features = false }
 ab-proof-of-time = { version = "0.1.0", path = "../crates/shared/ab-proof-of-time" }
 actix-web = { version = "4.9.0", default-features = false }
 anyhow = "1.0.89"

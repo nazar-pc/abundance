@@ -1,4 +1,5 @@
 use crate::commands::shared::PlottingThreadPriority;
+use crate::commands::shared::gpu::{GpuPlottingOptions, init_gpu_plotter};
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_erasure_coding::ErasureCoding;
 use ab_proof_of_space::Table;
@@ -16,10 +17,6 @@ use subspace_farmer::cluster::nats_client::NatsClient;
 use subspace_farmer::cluster::plotter::plotter_service;
 use subspace_farmer::plotter::Plotter;
 use subspace_farmer::plotter::cpu::CpuPlotter;
-#[cfg(feature = "_gpu")]
-use subspace_farmer::plotter::gpu::GpuPlotter;
-#[cfg(feature = "cuda")]
-use subspace_farmer::plotter::gpu::cuda::CudaRecordsEncoder;
 use subspace_farmer::plotter::pool::PoolPlotter;
 use subspace_farmer::utils::{
     create_plotting_thread_pool_manager, parse_cpu_cores_sets, thread_pool_core_indices,
@@ -79,34 +76,15 @@ struct CpuPlottingOptions {
     cpu_plotting_thread_priority: PlottingThreadPriority,
 }
 
-#[cfg(feature = "cuda")]
-#[derive(Debug, Parser)]
-struct CudaPlottingOptions {
-    /// How many sectors farmer will download concurrently during plotting with CUDA GPUs.
-    /// Limits memory usage of the plotting process. Defaults to the number of CUDA GPUs * 3,
-    /// to download future sectors ahead of time.
-    ///
-    /// Increasing this value will cause higher memory usage.
-    #[arg(long)]
-    cuda_sector_downloading_concurrency: Option<NonZeroUsize>,
-    /// Set the exact GPUs to be used for plotting, instead of using all GPUs (default behavior).
-    ///
-    /// GPUs are coma-separated: `--cuda-gpus 0,1,3`. Use an empty string to disable CUDA
-    /// GPUs.
-    #[arg(long)]
-    cuda_gpus: Option<String>,
-}
-
 /// Arguments for plotter
 #[derive(Debug, Parser)]
 pub(super) struct PlotterArgs {
     /// Plotting options only used by CPU plotter
     #[clap(flatten)]
     cpu_plotting_options: CpuPlottingOptions,
-    /// Plotting options only used by CUDA GPU plotter
-    #[cfg(feature = "cuda")]
+    /// Plotting options only used by GPU plotter
     #[clap(flatten)]
-    cuda_plotting_options: CudaPlottingOptions,
+    gpu_plotting_options: GpuPlottingOptions,
     /// Cache group to use if specified, otherwise all caches are usable by this plotter
     #[arg(long)]
     cache_group: Option<String>,
@@ -125,8 +103,7 @@ where
 {
     let PlotterArgs {
         cpu_plotting_options,
-        #[cfg(feature = "cuda")]
-        cuda_plotting_options,
+        gpu_plotting_options,
         cache_group,
         additional_components: _,
     } = plotter_args;
@@ -138,18 +115,18 @@ where
 
     let mut plotters = Vec::<Box<dyn Plotter + Send + Sync>>::new();
 
-    #[cfg(feature = "cuda")]
     {
-        let maybe_cuda_plotter = init_cuda_plotter(
-            cuda_plotting_options,
+        let maybe_gpu_plotter = init_gpu_plotter(
+            gpu_plotting_options,
             piece_getter.clone(),
             Arc::clone(&global_mutex),
             erasure_coding.clone(),
             registry,
-        )?;
+        )
+        .await?;
 
-        if let Some(cuda_plotter) = maybe_cuda_plotter {
-            plotters.push(Box::new(cuda_plotter));
+        if let Some(gpu_plotter) = maybe_gpu_plotter {
+            plotters.push(Box::new(gpu_plotter));
         }
     }
     {
@@ -278,84 +255,4 @@ where
     );
 
     Ok(Some(cpu_plotter))
-}
-
-#[cfg(feature = "cuda")]
-fn init_cuda_plotter<PG>(
-    cuda_plotting_options: CudaPlottingOptions,
-    piece_getter: PG,
-    global_mutex: Arc<AsyncMutex<()>>,
-    erasure_coding: ErasureCoding,
-    registry: &mut Registry,
-) -> anyhow::Result<Option<GpuPlotter<PG, CudaRecordsEncoder>>>
-where
-    PG: PieceGetter + Clone + Send + Sync + 'static,
-{
-    use std::collections::BTreeSet;
-    use subspace_proof_of_space_gpu::cuda::cuda_devices;
-    use tracing::{debug, warn};
-
-    let CudaPlottingOptions {
-        cuda_sector_downloading_concurrency,
-        cuda_gpus,
-    } = cuda_plotting_options;
-
-    let mut cuda_devices = cuda_devices();
-    let mut used_cuda_devices = (0..cuda_devices.len()).collect::<Vec<_>>();
-
-    if let Some(cuda_gpus) = cuda_gpus {
-        if cuda_gpus.is_empty() {
-            info!("CUDA GPU plotting was explicitly disabled");
-            return Ok(None);
-        }
-
-        let mut cuda_gpus_to_use = cuda_gpus
-            .split(',')
-            .map(|gpu_index| gpu_index.parse())
-            .collect::<Result<BTreeSet<usize>, _>>()?;
-
-        (used_cuda_devices, cuda_devices) = cuda_devices
-            .into_iter()
-            .enumerate()
-            .filter(|(index, _cuda_device)| cuda_gpus_to_use.remove(index))
-            .unzip();
-
-        if !cuda_gpus_to_use.is_empty() {
-            warn!(
-                ?cuda_gpus_to_use,
-                "Some CUDA GPUs were not found on the system"
-            );
-        }
-    }
-
-    if cuda_devices.is_empty() {
-        debug!("No CUDA GPU devices found");
-        return Ok(None);
-    }
-
-    info!(?used_cuda_devices, "Using CUDA GPUs");
-
-    let cuda_downloading_semaphore = Arc::new(Semaphore::new(
-        cuda_sector_downloading_concurrency
-            .map(|cuda_sector_downloading_concurrency| cuda_sector_downloading_concurrency.get())
-            .unwrap_or(cuda_devices.len() * 3),
-    ));
-
-    Ok(Some(
-        GpuPlotter::new(
-            piece_getter,
-            cuda_downloading_semaphore,
-            cuda_devices
-                .into_iter()
-                .map(|cuda_device| CudaRecordsEncoder::new(cuda_device, Arc::clone(&global_mutex)))
-                .collect::<Result<_, _>>()
-                .map_err(|error| {
-                    anyhow::anyhow!("Failed to create CUDA records encoder: {error}")
-                })?,
-            global_mutex,
-            erasure_coding,
-            Some(registry),
-        )
-        .map_err(|error| anyhow::anyhow!("Failed to initialize CUDA plotter: {error}"))?,
-    ))
 }

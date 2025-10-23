@@ -1,23 +1,23 @@
 //! Thread pool managing utilities for plotting purposes
 
-use crate::plotter::gpu::GpuRecordsEncoder;
+use ab_proof_of_space_gpu::GpuRecordsEncoder;
 use event_listener::Event;
 use parking_lot::Mutex;
 use std::num::{NonZeroUsize, TryFromIntError};
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
-/// Wrapper around [`GpuEncoder`] that on `Drop` will return thread pool back into
+/// Wrapper around [`GpuRecordsEncoder`] that on `Drop` will return the records encoder into
 /// corresponding [`GpuRecordsEncoderManager`].
 #[derive(Debug)]
 #[must_use]
-pub(super) struct GpuRecordsEncoderGuard<GRE> {
-    inner: Arc<(Mutex<Vec<GRE>>, Event)>,
-    gpu_records_encoder: Option<GRE>,
+pub(super) struct GpuRecordsEncoderGuard {
+    inner: Arc<(Mutex<Vec<GpuRecordsEncoder>>, Event)>,
+    gpu_records_encoder: Option<GpuRecordsEncoder>,
 }
 
-impl<GRE> Deref for GpuRecordsEncoderGuard<GRE> {
-    type Target = GRE;
+impl Deref for GpuRecordsEncoderGuard {
+    type Target = GpuRecordsEncoder;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -27,7 +27,7 @@ impl<GRE> Deref for GpuRecordsEncoderGuard<GRE> {
     }
 }
 
-impl<GRE> DerefMut for GpuRecordsEncoderGuard<GRE> {
+impl DerefMut for GpuRecordsEncoderGuard {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.gpu_records_encoder
@@ -36,7 +36,7 @@ impl<GRE> DerefMut for GpuRecordsEncoderGuard<GRE> {
     }
 }
 
-impl<GRE> Drop for GpuRecordsEncoderGuard<GRE> {
+impl Drop for GpuRecordsEncoderGuard {
     #[inline]
     fn drop(&mut self) {
         let (mutex, event) = &*self.inner;
@@ -53,12 +53,12 @@ impl<GRE> Drop for GpuRecordsEncoderGuard<GRE> {
 ///
 /// This abstraction wraps a set of GPU records encoders and allows to use them one at a time.
 #[derive(Debug)]
-pub(super) struct GpuRecordsEncoderManager<GRE> {
-    inner: Arc<(Mutex<Vec<GRE>>, Event)>,
+pub(super) struct GpuRecordsEncoderManager {
+    inner: Arc<(Mutex<Vec<GpuRecordsEncoder>>, Event)>,
     gpu_records_encoders: NonZeroUsize,
 }
 
-impl<GRE> Clone for GpuRecordsEncoderManager<GRE> {
+impl Clone for GpuRecordsEncoderManager {
     fn clone(&self) -> Self {
         Self {
             inner: Arc::clone(&self.inner),
@@ -67,14 +67,13 @@ impl<GRE> Clone for GpuRecordsEncoderManager<GRE> {
     }
 }
 
-impl<GRE> GpuRecordsEncoderManager<GRE>
-where
-    GRE: GpuRecordsEncoder,
-{
+impl GpuRecordsEncoderManager {
     /// Create a new instance.
     ///
     /// Returns an error if empty list of encoders is provided.
-    pub(super) fn new(gpu_records_encoders: Vec<GRE>) -> Result<Self, TryFromIntError> {
+    pub(super) fn new(
+        gpu_records_encoders: Vec<GpuRecordsEncoder>,
+    ) -> Result<Self, TryFromIntError> {
         let count = gpu_records_encoders.len().try_into()?;
 
         Ok(Self {
@@ -89,7 +88,7 @@ where
     }
 
     /// Get one of inner thread pool pairs, will wait until one is available if needed
-    pub(super) async fn get_encoder(&self) -> GpuRecordsEncoderGuard<GRE> {
+    pub(super) async fn get_encoder(&self) -> GpuRecordsEncoderGuard {
         let (mutex, event) = &*self.inner;
 
         let gpu_records_encoder = loop {

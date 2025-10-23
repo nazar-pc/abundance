@@ -199,6 +199,11 @@ impl Device {
         self.adapter_info.backend
     }
 
+    /// Whether GPU is considered to be modern
+    pub fn modern(&self) -> bool {
+        self.modern
+    }
+
     pub fn instantiate(
         &self,
         erasure_coding: ErasureCoding,
