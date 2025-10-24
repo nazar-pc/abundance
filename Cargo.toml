@@ -117,7 +117,6 @@ yoke = { version = "0.8.0", default-features = false }
 [profile.dev.package]
 ab-archiving = { opt-level = 3 }
 ab-proof-of-space = { opt-level = 3 }
-ab-proof-of-space-gpu = { opt-level = 3 }
 ab-proof-of-time = { opt-level = 3 }
 blake3 = { opt-level = 3 }
 reed-solomon-simd = { opt-level = 3 }
