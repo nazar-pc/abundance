@@ -179,21 +179,6 @@ impl Rmap {
         }
     }
 
-    /// # Safety
-    /// There must be at most [`REDUCED_BUCKET_SIZE`] items inserted. `NextPhysicalPointer` and
-    /// `Rmap` must have 1:1 mapping and not mixed with anything else.
-    #[inline(always)]
-    unsafe fn insertion_item(
-        &mut self,
-        rmap_bit_position: RmapBitPosition,
-        next_physical_pointer: &mut NextPhysicalPointer,
-    ) -> &mut [Position; 2] {
-        let physical_pointer =
-            self.insertion_item_physical_pointer(rmap_bit_position, next_physical_pointer);
-        // SAFETY: Internal pointers are always valid
-        unsafe { self.positions.get_unchecked_mut(physical_pointer as usize) }
-    }
-
     /// Note that `position == Position::ZERO` is effectively ignored here, supporting it cost too
     /// much in terms of performance and not required for correctness.
     ///
@@ -207,8 +192,10 @@ impl Rmap {
         position: Position,
         next_physical_pointer: &mut NextPhysicalPointer,
     ) {
-        // SAFETY: Guaranteed by function contract
-        let rmap_item = unsafe { self.insertion_item(rmap_bit_position, next_physical_pointer) };
+        let physical_pointer =
+            self.insertion_item_physical_pointer(rmap_bit_position, next_physical_pointer);
+        // SAFETY: Internal pointers are always valid
+        let rmap_item = unsafe { self.positions.get_unchecked_mut(physical_pointer as usize) };
 
         // The same `r` can appear in the table multiple times, one duplicate is supported here
         if rmap_item[0] == Position::ZERO {
