@@ -38,8 +38,7 @@ parking_lot = { workspace = true }
 rclite = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-# TODO: `std` is only enabled because of https://github.com/gfx-rs/wgpu/issues/8380
-wgpu = { workspace = true, features = ["std"] }
+wgpu = { workspace = true }
 
 [target.'cfg(not(target_arch = "spirv"))'.dev-dependencies]
 chacha20 = { workspace = true, features = ["rng"] }

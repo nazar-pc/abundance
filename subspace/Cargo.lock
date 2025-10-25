@@ -12301,6 +12301,7 @@ dependencies = [
  "hashbrown 0.16.0",
  "log",
  "naga",
+ "parking_lot 0.12.5",
  "portable-atomic",
  "profiling",
  "raw-window-handle",

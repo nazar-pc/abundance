@@ -249,14 +249,24 @@ impl Rmap {
 
     // TODO: Remove as soon as non-hacky version compiles
     #[inline(always)]
-    pub(super) fn zeroing_hack(rmap: &mut MaybeUninit<Self>) {
+    pub(super) fn zeroing_hack(
+        rmap: &mut MaybeUninit<Self>,
+        local_invocation_id: u32,
+        workgroup_size: u32,
+    ) {
         let rmap = unsafe { rmap.assume_init_mut() };
-        for index in 0..rmap.positions.len() {
-            rmap.positions[index][0] = Position::ZERO;
-            rmap.positions[index][1] = Position::ZERO;
+
+        for i in (local_invocation_id..POINTERS_WORDS as u32).step_by(workgroup_size as usize) {
+            rmap.virtual_pointers[i as usize] = 0;
         }
-        for index in 0..rmap.virtual_pointers.len() {
-            rmap.virtual_pointers[index] = 0;
+
+        const {
+            assert!(REDUCED_BUCKET_SIZE.is_multiple_of(2));
+        }
+        let pair_id = local_invocation_id / 2;
+        let pair_offset = local_invocation_id % 2;
+        for bucket in (pair_id..REDUCED_BUCKET_SIZE as u32).step_by((workgroup_size / 2) as usize) {
+            rmap.positions[bucket as usize][pair_offset as usize] = Position::ZERO;
         }
     }
 }

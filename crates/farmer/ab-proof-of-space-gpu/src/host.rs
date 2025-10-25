@@ -99,7 +99,7 @@ impl Device {
         let instance = Instance::new(&InstanceDescriptor {
             backends,
             flags: if cfg!(debug_assertions) {
-                InstanceFlags::GPU_BASED_VALIDATION.with_env()
+                InstanceFlags::debugging().with_env()
             } else {
                 InstanceFlags::from_env_or_default()
             },

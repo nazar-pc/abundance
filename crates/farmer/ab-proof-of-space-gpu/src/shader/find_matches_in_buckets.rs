@@ -134,7 +134,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         //         rmap_words.get_unchecked_mut(word_index).write(0);
         //     }
         // }
-        Rmap::zeroing_hack(rmap);
+        Rmap::zeroing_hack(rmap, local_invocation_id, WORKGROUP_SIZE);
 
         // No barrier here, but `rmap` is not used until after the barrier below (as part of reading
         // right bucket), so it will be synchronized there together
