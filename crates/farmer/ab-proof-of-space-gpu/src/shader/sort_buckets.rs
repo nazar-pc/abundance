@@ -124,6 +124,8 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
     // Iterate over merger stages, doubling block_size each time
     let mut block_size = 2;
     let mut merger_stage = 1;
+    // TODO: Can `MAX_BUCKET_SIZE` be replaced with `bucket_size.next_power_of_two()` here while
+    //  preserving correctness?
     while block_size <= MAX_BUCKET_SIZE {
         // For each stage, process bit positions in reverse for bitonic comparisons
         for bit_position in (0..merger_stage).rev() {
