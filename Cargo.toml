@@ -108,7 +108,7 @@ thread-priority = "3.0.0"
 tokio = { version = "1.47.1", default-features = false }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-wgpu = { version = "27.0.1", default-features = false, features = ["metal", "spirv", "vulkan"] }
+wgpu = { version = "27.0.1", default-features = false, features = ["metal", "parking_lot", "spirv", "std", "vulkan"] }
 windows = { version = "0.62.2", features = ["Win32_Storage_FileSystem"] }
 yoke = { version = "0.8.0", default-features = false }
 
