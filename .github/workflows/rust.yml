@@ -234,12 +234,75 @@ jobs:
           sudo apt-get install --no-install-recommends --yes mesa-vulkan-drivers
         if: matrix.miri == false && runner.os == 'Linux' && matrix.type == 'together'
 
+      - name: Install Vulkan runtime (Windows)
+        run: |
+          & {
+            # See https://vulkan.lunarg.com/sdk/home for updates
+            $sdkVersion = "1.4.328.1"
+            if ("${{ runner.arch }}" -eq "ARM64") {
+              $arch = "ARM64"
+              $urlPath = "warm"
+              $expectedHash = "1f675a1b317a32d451ebf45d77483889d85a5fa972bd01dd1c1ee173278c63c9"
+            } else {
+              $arch = "X64"
+              $urlPath = "windows"
+              $expectedHash = "293efbb2c11e60429df7770f40e3c5c811a7fa42af81de0cc41e8718ddb2b373"
+            }
+
+            $url = "https://sdk.lunarg.com/sdk/download/$sdkVersion/$urlPath/VulkanRT-$arch-$sdkVersion-Components.zip"
+            Invoke-WebRequest -Uri $url -OutFile VulkanRT.zip
+
+            $actualHash = (Get-FileHash VulkanRT.zip -Algorithm SHA256).Hash.ToLower()
+            if ($actualHash -ne $expectedHash.ToLower()) {
+              throw "SHA256 mismatch: expected $expectedHash, got $actualHash"
+            }
+
+            7z e VulkanRT.zip -o"${{ runner.temp }}\vulkan" -r "vulkan-1.*"
+            Remove-Item VulkanRT.zip
+
+            $vulkanPath = "${{ runner.temp }}\vulkan"
+            "$vulkanPath" >> $env:GITHUB_PATH
+          }
+
+          & {
+            # See https://github.com/mmozeiko/build-mesa/releases for updates
+            $version = "25.2.5"
+            if ("${{ runner.arch }}" -eq "ARM64") {
+              $arch = "arm64"
+              $archJson = "aarch64"
+              $expectedHash = "94f19af7f14988ba7f292f258690b2c0f2e9aa84943e7d2d06a80308e054002b"
+            } else {
+              $arch = "x64"
+              $archJson = "x86_64"
+              $expectedHash = "4a88e27ea1ec6fa02d52873fe9ed95566dc7766540cb9f76d310b896c7b0060a"
+            }
+
+            $url = "https://github.com/mmozeiko/build-mesa/releases/download/$version/mesa-lavapipe-$arch-$version.7z"
+            Invoke-WebRequest -Uri $url -OutFile mesa-lavapipe.7z
+
+            $actualHash = (Get-FileHash mesa-lavapipe.7z -Algorithm SHA256).Hash.ToLower()
+            if ($actualHash -ne $expectedHash.ToLower()) {
+              throw "SHA256 mismatch: expected $expectedHash, got $actualHash"
+            }
+
+            7z x mesa-lavapipe.7z -o"${{ runner.temp }}\mesa"
+            Remove-Item mesa-lavapipe.7z
+
+            $mesaPath = "${{ runner.temp }}\mesa"
+            "$mesaPath" >> $env:GITHUB_PATH
+
+            $icdPath = "$mesaPath\lvp_icd.$archJson.json"
+            New-Item -Path "HKLM:\SOFTWARE\Khronos\Vulkan\Drivers" -Force| Out-Null
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\Khronos\Vulkan\Drivers" -Name $icdPath -Value 0 -Type DWord
+          }
+        if: matrix.miri == false && runner.os == 'Windows' && matrix.type == 'together'
+
       - name: Force shader testing
+        shell: bash
         run: |
           echo "EXTRA_OPTIONS=--features=__force-gpu-tests" >> $GITHUB_ENV
-        # NOTE: `macOS` has paravirtualized GPU available out of the box, but I'm lazy to configure SwiftShader or
-        # something like that on Windows to remove platform check here
-        if: matrix.miri == false && (runner.os == 'Linux' || runner.os == 'macOS') && matrix.type == 'together'
+        # NOTE: `macOS` has paravirtualized GPU available out of the box, LLVMpipe is used on Linux and Windows
+        if: matrix.miri == false && matrix.type == 'together'
 
       - name: cargo ${{ env.command }}
         run: |
