@@ -77,12 +77,7 @@ fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
     let Some((actual_ys, actual_metadatas)) =
         block_on(compute_fn::<TABLE_NUMBER>(&matches, &parent_metadatas))
     else {
-        if cfg!(feature = "__force-gpu-tests") {
-            panic!("Skipping tests, no compatible device detected");
-        } else {
-            eprintln!("Skipping tests, no compatible device detected");
-            return;
-        }
+        panic!("No compatible device detected, can't run tests");
     };
 
     let (expected_ys, expected_metadatas) = matches

@@ -297,13 +297,6 @@ jobs:
           }
         if: matrix.miri == false && runner.os == 'Windows' && matrix.type == 'together'
 
-      - name: Force shader testing
-        shell: bash
-        run: |
-          echo "EXTRA_OPTIONS=--features=__force-gpu-tests" >> $GITHUB_ENV
-        # NOTE: `macOS` has paravirtualized GPU available out of the box, LLVMpipe is used on Linux and Windows
-        if: matrix.miri == false && matrix.type == 'together'
-
       - name: cargo ${{ env.command }}
         run: |
           cargo -Zgitoxide -Zgit ${{ env.command }} --locked ${{ env.EXTRA_OPTIONS }}

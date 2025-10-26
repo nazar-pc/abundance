@@ -64,12 +64,7 @@ fn find_matches_and_compute_f2_gpu() {
     let Some((actual_bucket_sizes, actual_buckets, actual_positions, actual_metadatas)) =
         block_on(find_matches_and_compute_f2(&parent_buckets))
     else {
-        if cfg!(feature = "__force-gpu-tests") {
-            panic!("Skipping tests, no compatible device detected");
-        } else {
-            eprintln!("Skipping tests, no compatible device detected");
-            return;
-        }
+        panic!("No compatible device detected, can't run tests");
     };
 
     let mut expected_buckets = unsafe {
