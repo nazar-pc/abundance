@@ -51,14 +51,6 @@ impl NextPhysicalPointer {
 //     fn get(self) -> u32 {
 //         self.0
 //     }
-//
-//     #[inline(always)]
-//     pub(super) const fn uninit_array_from_repr_mut<const N: usize>(
-//         array: &mut [MaybeUninit<u32>; N],
-//     ) -> &mut [MaybeUninit<Self>; N] {
-//         // SAFETY: `RmapBitPosition` is `#[repr(C)]` and guaranteed to have the same memory layout
-//         unsafe { mem::transmute(array) }
-//     }
 // }
 
 pub(super) type RmapBitPosition = u32;
@@ -71,10 +63,6 @@ pub(super) trait RmapBitPositionExt: Sized {
 
     /// Extract `rmap_bit_position` out of the inner value
     fn get(self) -> u32;
-
-    fn uninit_array_from_repr_mut<const N: usize>(
-        array: &mut [MaybeUninit<u32>; N],
-    ) -> &mut [MaybeUninit<Self>; N];
 }
 
 impl RmapBitPositionExt for RmapBitPosition {
@@ -89,13 +77,6 @@ impl RmapBitPositionExt for RmapBitPosition {
     #[inline(always)]
     fn get(self) -> u32 {
         self
-    }
-
-    #[inline(always)]
-    fn uninit_array_from_repr_mut<const N: usize>(
-        array: &mut [MaybeUninit<u32>; N],
-    ) -> &mut [MaybeUninit<Self>; N] {
-        array
     }
 }
 

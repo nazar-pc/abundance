@@ -15,7 +15,7 @@ use crate::shader::find_matches_in_buckets::rmap::{
 use crate::shader::types::{Position, PositionExt, PositionR, Y};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{
-    control_barrier, subgroup_exclusive_i_add, subgroup_i_add,
+    control_barrier, subgroup_exclusive_i_add, subgroup_i_add, subgroup_shuffle,
     workgroup_memory_barrier_with_group_sync,
 };
 use spirv_std::glam::UVec3;
@@ -88,7 +88,9 @@ pub struct Match {
 #[expect(clippy::too_many_arguments, reason = "Function is inlined anyway")]
 #[inline(always)]
 pub(super) unsafe fn find_matches_in_buckets_impl(
+    subgroup_local_invocation_id: u32,
     subgroup_id: u32,
+    subgroup_size: u32,
     num_subgroups: u32,
     local_invocation_id: u32,
     left_bucket_index: u32,
@@ -136,95 +138,47 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         // }
         Rmap::zeroing_hack(rmap, local_invocation_id, WORKGROUP_SIZE);
 
-        // No barrier here, but `rmap` is not used until after the barrier below (as part of reading
-        // right bucket), so it will be synchronized there together
+        workgroup_memory_barrier_with_group_sync();
 
         // SAFETY: Initialized with zeroes
         unsafe { rmap.assume_init_mut() }
     };
 
-    // Load both into shared memory and precompute `rmap_bit_positions`. `rmap_bit_position`s for
-    // non-sentinel positions are guaranteed to be initialized
-    let (right_bucket_positions, right_rmap_bit_positions) = {
-        let right_bucket_positions =
-            <Position as PositionExt>::uninit_array_from_repr_mut(bucket_size_a);
-        let rmap_bit_positions =
-            <RmapBitPosition as RmapBitPositionExt>::uninit_array_from_repr_mut(bucket_size_b);
-        // TODO: More idiomatic version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // for ((&right_position, position), rmap_bit_position) in right_bucket
-        //     .iter()
-        //     .zip(right_bucket_positions.iter_mut())
-        //     .zip(rmap_bit_positions.iter_mut())
-        //     .skip(local_invocation_id as usize)
-        //     .step_by(WORKGROUP_SIZE as usize)
-        // {
-        for index in
-            (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
-        {
-            let PositionR { position, r } = right_bucket[index];
-            let right_bucket_position = &mut right_bucket_positions[index];
-            let rmap_bit_position = &mut rmap_bit_positions[index];
-
-            right_bucket_position.write(position);
-
-            // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
-            if position == Position::SENTINEL {
-                break;
-            }
-
-            let (r, _data) = r.split();
-
-            // SAFETY: `r` is within `0..PARAM_BC` range by definition
-            rmap_bit_position.write(unsafe { RmapBitPosition::new(r) });
-        }
-
-        workgroup_memory_barrier_with_group_sync();
-
-        // TODO: Correct version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // // SAFETY: Just initialized
-        // let right_bucket_positions = unsafe {
-        //     mem::transmute::<
-        //         &mut [MaybeUninit<Position>; REDUCED_BUCKETS_SIZE],
-        //         &mut [Position; REDUCED_BUCKETS_SIZE],
-        //     >(right_bucket_positions)
-        // };
-        //
-        // (&*right_bucket_positions, &*rmap_bit_positions)
-        (right_bucket_positions, &*rmap_bit_positions)
-    };
-
     // Fill `rmap`
-    // TODO: Try to parallelize this part
-    if local_invocation_id == 0 {
+    // TODO: Try to parallelize this part, should be possible if values are de-duplicated to at most
+    //  two from for each `rmap_bit_position`
+    if subgroup_id == 0 {
         let mut next_physical_pointer = NextPhysicalPointer::default();
 
-        // TODO: More idiomatic version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // for (&right_position, rmap_bit_position) in
-        //     right_bucket_positions.iter().zip(right_rmap_bit_positions)
-        // {
-        for index in 0..right_bucket_positions.len() {
-            let right_position = unsafe { right_bucket_positions[index].assume_init() };
-            let rmap_bit_position = right_rmap_bit_positions[index];
+        for index in (subgroup_local_invocation_id as usize
+            ..REDUCED_BUCKET_SIZE.next_multiple_of(subgroup_size as usize))
+            .step_by(subgroup_size as usize)
+        {
+            let PositionR { position, r } = if index < REDUCED_BUCKET_SIZE {
+                right_bucket[index]
+            } else {
+                PositionR::SENTINEL
+            };
 
-            // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
-            if right_position == Position::SENTINEL {
-                break;
-            }
+            for source_lane in 0..subgroup_size {
+                let position = subgroup_shuffle(position, source_lane);
+                // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
+                if position == Position::SENTINEL {
+                    break;
+                }
+                let (r, _data) = r.split();
+                let r = subgroup_shuffle(r, source_lane);
 
-            // SAFETY: `rmap_bit_position` for non-sentinel positions were initialized above
-            let rmap_bit_position = unsafe { rmap_bit_position.assume_init() };
+                // SAFETY: `r` is within `0..PARAM_BC` range by definition
+                let rmap_bit_position = unsafe { RmapBitPosition::new(r) };
 
-            // SAFETY: The right bucket is limited to `REDUCED_BUCKETS_SIZE`, same
-            // `next_physical_pointer` is used here exclusively
-            unsafe {
-                rmap.add(
-                    rmap_bit_position,
-                    right_position,
-                    &mut next_physical_pointer,
-                );
+                if subgroup_local_invocation_id == 0 {
+                    // SAFETY: The right bucket is limited to `REDUCED_BUCKETS_SIZE`, same
+                    // `next_physical_pointer` is used here exclusively
+                    unsafe {
+                        rmap.add(rmap_bit_position, position, &mut next_physical_pointer);
+                    }
+                }
             }
         }
     }
@@ -433,7 +387,9 @@ pub unsafe fn find_matches_in_buckets(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
+    #[spirv(subgroup_size)] subgroup_size: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] buckets: &[[PositionR;
           MAX_BUCKET_SIZE]],
@@ -478,7 +434,9 @@ pub unsafe fn find_matches_in_buckets(
         // SAFETY: Guaranteed by function contract
         matches_count.write(unsafe {
             find_matches_in_buckets_impl(
+                subgroup_local_invocation_id,
                 subgroup_id,
+                subgroup_size,
                 num_subgroups,
                 local_invocation_id,
                 left_bucket_index as u32,

@@ -210,7 +210,9 @@ pub unsafe fn find_matches_and_compute_f7(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
+    #[spirv(subgroup_size)] subgroup_size: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionR; MAX_BUCKET_SIZE];
          NUM_BUCKETS],
@@ -257,7 +259,9 @@ pub unsafe fn find_matches_and_compute_f7(
         // SAFETY: Guaranteed by function contract
         let matches_count = unsafe {
             find_matches_in_buckets_impl(
+                subgroup_local_invocation_id,
                 subgroup_id,
+                subgroup_size,
                 num_subgroups,
                 local_invocation_id,
                 left_bucket_index,
