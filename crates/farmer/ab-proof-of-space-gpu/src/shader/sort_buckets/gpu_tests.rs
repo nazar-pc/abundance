@@ -37,12 +37,7 @@ fn sort_buckets_gpu() {
     *bucket_sizes.last_mut().unwrap() = reduced_last_bucket_size;
 
     let Some(actual_output) = block_on(sort_buckets(&bucket_sizes, &buckets)) else {
-        if cfg!(feature = "__force-gpu-tests") {
-            panic!("Skipping tests, no compatible device detected");
-        } else {
-            eprintln!("Skipping tests, no compatible device detected");
-            return;
-        }
+        panic!("No compatible device detected, can't run tests");
     };
 
     let mut expected_output = buckets;

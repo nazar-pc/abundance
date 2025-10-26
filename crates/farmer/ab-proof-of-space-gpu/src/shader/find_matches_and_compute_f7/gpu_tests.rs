@@ -82,12 +82,7 @@ fn find_matches_and_compute_f7_gpu() {
     let Some((actual_table_6_proof_targets_sizes, table_6_proof_targets)) = block_on(
         find_matches_and_compute_f7(&parent_buckets, &parent_metadatas),
     ) else {
-        if cfg!(feature = "__force-gpu-tests") {
-            panic!("Skipping tests, no compatible device detected");
-        } else {
-            eprintln!("Skipping tests, no compatible device detected");
-            return;
-        }
+        panic!("No compatible device detected, can't run tests");
     };
 
     let mut expected_table_6_proof_targets = unsafe {

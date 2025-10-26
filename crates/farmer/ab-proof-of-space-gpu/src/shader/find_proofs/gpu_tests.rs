@@ -111,12 +111,7 @@ fn find_proofs_gpu() {
         &bucket_sizes,
         &buckets,
     )) else {
-        if cfg!(feature = "__force-gpu-tests") {
-            panic!("Skipping tests, no compatible device detected");
-        } else {
-            eprintln!("Skipping tests, no compatible device detected");
-            return;
-        }
+        panic!("No compatible device detected, can't run tests");
     };
 
     let (expected_found_proofs, expected_proofs) = find_proofs_correct(

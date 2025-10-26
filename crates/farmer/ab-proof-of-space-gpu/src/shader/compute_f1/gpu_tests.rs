@@ -23,12 +23,7 @@ fn compute_f1_gpu() {
     let initial_state = ChaCha8State::init(&seed, &[0; _]);
 
     let Some(actual_output) = block_on(compute_f1(&initial_state)) else {
-        if cfg!(feature = "__force-gpu-tests") {
-            panic!("Skipping tests, no compatible device detected");
-        } else {
-            eprintln!("Skipping tests, no compatible device detected");
-            return;
-        }
+        panic!("No compatible device detected, can't run tests");
     };
 
     let expected_output = (X::ZERO..)

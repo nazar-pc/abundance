@@ -54,12 +54,7 @@ fn find_matches_in_buckets_gpu() {
     };
 
     let Some(actual_matches) = block_on(find_matches_in_buckets(&buckets)) else {
-        if cfg!(feature = "__force-gpu-tests") {
-            panic!("Skipping tests, no compatible device detected");
-        } else {
-            eprintln!("Skipping tests, no compatible device detected");
-            return;
-        }
+        panic!("No compatible device detected, can't run tests");
     };
 
     let expected_matches = buckets
