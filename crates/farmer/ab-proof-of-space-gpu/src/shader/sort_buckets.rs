@@ -16,7 +16,7 @@ fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     bit_position: u32,
     block_size: usize,
-    local_data: &mut [PositionY; ELEMENTS_PER_THREAD],
+    local_bucket: &mut [PositionY; ELEMENTS_PER_THREAD],
 ) {
     // For local swaps within a thread's register data, iterate over half the elements to form pairs
     // `(a_offset, b_offset)` where indices differ only at `bit_position` and swaps them in-place
@@ -32,8 +32,8 @@ fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
         let a_offset = high | low;
         let b_offset = a_offset | (1 << bit_position);
 
-        let a = local_data[a_offset];
-        let b = local_data[b_offset];
+        let a = local_bucket[a_offset];
+        let b = local_bucket[b_offset];
 
         // Determine the sort direction: ascending if `a_offset`'s bit at `block_size` is `0`.
         // This alternates direction in bitonic merges to create sorted sequences.
@@ -46,8 +46,8 @@ fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
             (b, a)
         };
 
-        local_data[a_offset] = final_a;
-        local_data[b_offset] = final_b;
+        local_bucket[a_offset] = final_a;
+        local_bucket[b_offset] = final_b;
     }
 }
 
@@ -56,7 +56,7 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     bit_position: u32,
     block_size: usize,
-    local_data: &mut [PositionY; ELEMENTS_PER_THREAD],
+    local_bucket: &mut [PositionY; ELEMENTS_PER_THREAD],
 ) {
     // For cross-subgroup swaps, compute partner lane differing at `lane_bit_position`
     let lane_bit_position = bit_position - ELEMENTS_PER_THREAD.ilog2();
@@ -76,7 +76,7 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
     )]
     // Iterate over all elements in `local_data`, swapping with partner lane
     for a_offset in 0..ELEMENTS_PER_THREAD {
-        let a = local_data[a_offset];
+        let a = local_bucket[a_offset];
         let b = {
             let position = subgroup_shuffle(a.position, partner_lane_id);
             let y = Y::from(subgroup_shuffle(u32::from(a.y), partner_lane_id));
@@ -90,7 +90,7 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
             b
         };
 
-        local_data[a_offset] = selected_value;
+        local_bucket[a_offset] = selected_value;
     }
 }
 
@@ -101,7 +101,7 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
     bucket_size: u32,
     bucket: &mut [PositionY; MAX_BUCKET_SIZE],
 ) {
-    let mut local_data = [PositionY::EMPTY; ELEMENTS_PER_THREAD];
+    let mut local_bucket = [PositionY::EMPTY; ELEMENTS_PER_THREAD];
 
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -111,7 +111,7 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
     )]
     for local_offset in 0..ELEMENTS_PER_THREAD {
         let bucket_offset = lane_id as usize * ELEMENTS_PER_THREAD + local_offset;
-        local_data[local_offset] = if bucket_offset < bucket_size as usize {
+        local_bucket[local_offset] = if bucket_offset < bucket_size as usize {
             bucket[bucket_offset]
         } else {
             PositionY {
@@ -131,10 +131,10 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
         for bit_position in (0..merger_stage).rev() {
             if bit_position < ELEMENTS_PER_THREAD.ilog2() {
                 // Local swaps within thread's registers, no synchronization needed
-                perform_local_compare_swap(lane_id, bit_position, block_size, &mut local_data);
+                perform_local_compare_swap(lane_id, bit_position, block_size, &mut local_bucket);
             } else {
                 // Cross-lane swaps using subgroup shuffles for communication
-                perform_cross_compare_swap(lane_id, bit_position, block_size, &mut local_data);
+                perform_cross_compare_swap(lane_id, bit_position, block_size, &mut local_bucket);
             }
         }
         block_size *= 2;
@@ -149,7 +149,7 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
     )]
     for local_offset in 0..ELEMENTS_PER_THREAD {
         let bucket_offset = lane_id as usize * ELEMENTS_PER_THREAD + local_offset;
-        bucket[bucket_offset] = local_data[local_offset];
+        bucket[bucket_offset] = local_bucket[local_offset];
     }
 }
 
