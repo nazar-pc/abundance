@@ -93,15 +93,13 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
     }
 }
 
-// TODO: Make unsafe and avoid bounds check
-/// Sort a bucket using bitonic sort
-fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
+#[inline(always)]
+fn load_into_local_bucket<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     bucket_size: u32,
-    bucket: &mut [PositionY; MAX_BUCKET_SIZE],
+    bucket: &[PositionY; MAX_BUCKET_SIZE],
+    local_bucket: &mut [PositionY; ELEMENTS_PER_THREAD],
 ) {
-    let mut local_bucket = [PositionY::EMPTY; ELEMENTS_PER_THREAD];
-
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     #[expect(
@@ -119,7 +117,13 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
             }
         };
     }
+}
 
+#[inline(always)]
+fn sort_local_bucket<const ELEMENTS_PER_THREAD: usize>(
+    lane_id: u32,
+    local_bucket: &mut [PositionY; ELEMENTS_PER_THREAD],
+) {
     // Iterate over merger stages, doubling block_size each time
     let mut block_size = 2;
     let mut merger_stage = 1;
@@ -130,16 +134,23 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
         for bit_position in (0..merger_stage).rev() {
             if bit_position < ELEMENTS_PER_THREAD.ilog2() {
                 // Local swaps within thread's registers, no synchronization needed
-                perform_local_compare_swap(lane_id, bit_position, block_size, &mut local_bucket);
+                perform_local_compare_swap(lane_id, bit_position, block_size, local_bucket);
             } else {
                 // Cross-lane swaps using subgroup shuffles for communication
-                perform_cross_compare_swap(lane_id, bit_position, block_size, &mut local_bucket);
+                perform_cross_compare_swap(lane_id, bit_position, block_size, local_bucket);
             }
         }
         block_size *= 2;
         merger_stage += 1;
     }
+}
 
+#[inline(always)]
+fn store_from_local_bucket<const ELEMENTS_PER_THREAD: usize>(
+    lane_id: u32,
+    bucket: &mut [PositionY; MAX_BUCKET_SIZE],
+    local_bucket: &[PositionY; ELEMENTS_PER_THREAD],
+) {
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     #[expect(
@@ -150,6 +161,22 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
         let bucket_offset = lane_id as usize * ELEMENTS_PER_THREAD + local_offset;
         bucket[bucket_offset] = local_bucket[local_offset];
     }
+}
+
+// TODO: Make unsafe and avoid bounds check
+/// Sort a bucket using bitonic sort
+fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
+    lane_id: u32,
+    bucket_size: u32,
+    bucket: &mut [PositionY; MAX_BUCKET_SIZE],
+) {
+    let mut local_bucket = [PositionY::EMPTY; ELEMENTS_PER_THREAD];
+
+    load_into_local_bucket(lane_id, bucket_size, bucket, &mut local_bucket);
+
+    sort_local_bucket(lane_id, &mut local_bucket);
+
+    store_from_local_bucket(lane_id, bucket, &local_bucket);
 }
 
 /// NOTE: bucket sizes are zeroed after use
