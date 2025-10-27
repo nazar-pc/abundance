@@ -126,7 +126,7 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
 
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
+/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
 #[expect(
     clippy::too_many_arguments,
     reason = "Both I/O and Vulkan stuff together take a lot of arguments"
@@ -137,7 +137,6 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
     num_workgroups: UVec3,
     subgroup_local_invocation_id: u32,
     subgroup_id: u32,
-    subgroup_size: u32,
     num_subgroups: u32,
     parent_buckets: &[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
@@ -179,7 +178,6 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
             find_matches_in_buckets_impl(
                 subgroup_local_invocation_id,
                 subgroup_id,
-                subgroup_size,
                 num_subgroups,
                 local_invocation_id,
                 left_bucket_index,
@@ -218,7 +216,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
 ///
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
+/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f3"))]
 #[expect(
     clippy::too_many_arguments,
@@ -230,7 +228,6 @@ pub unsafe fn find_matches_and_compute_f3(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
-    #[spirv(subgroup_size)] subgroup_size: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionR; MAX_BUCKET_SIZE];
          NUM_BUCKETS],
@@ -261,7 +258,6 @@ pub unsafe fn find_matches_and_compute_f3(
             num_workgroups,
             subgroup_local_invocation_id,
             subgroup_id,
-            subgroup_size,
             num_subgroups,
             parent_buckets,
             parent_metadatas,
@@ -285,7 +281,7 @@ pub unsafe fn find_matches_and_compute_f3(
 ///
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
+/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f4"))]
 #[expect(
     clippy::too_many_arguments,
@@ -297,7 +293,6 @@ pub unsafe fn find_matches_and_compute_f4(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
-    #[spirv(subgroup_size)] subgroup_size: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionR; MAX_BUCKET_SIZE];
          NUM_BUCKETS],
@@ -328,7 +323,6 @@ pub unsafe fn find_matches_and_compute_f4(
             num_workgroups,
             subgroup_local_invocation_id,
             subgroup_id,
-            subgroup_size,
             num_subgroups,
             parent_buckets,
             parent_metadatas,
@@ -352,7 +346,7 @@ pub unsafe fn find_matches_and_compute_f4(
 ///
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
+/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f5"))]
 #[expect(
     clippy::too_many_arguments,
@@ -364,7 +358,6 @@ pub unsafe fn find_matches_and_compute_f5(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
-    #[spirv(subgroup_size)] subgroup_size: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionR; MAX_BUCKET_SIZE];
          NUM_BUCKETS],
@@ -395,7 +388,6 @@ pub unsafe fn find_matches_and_compute_f5(
             num_workgroups,
             subgroup_local_invocation_id,
             subgroup_id,
-            subgroup_size,
             num_subgroups,
             parent_buckets,
             parent_metadatas,
@@ -419,7 +411,7 @@ pub unsafe fn find_matches_and_compute_f5(
 ///
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
+/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f6"))]
 #[expect(
     clippy::too_many_arguments,
@@ -431,7 +423,6 @@ pub unsafe fn find_matches_and_compute_f6(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
-    #[spirv(subgroup_size)] subgroup_size: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionR; MAX_BUCKET_SIZE];
          NUM_BUCKETS],
@@ -462,7 +453,6 @@ pub unsafe fn find_matches_and_compute_f6(
             num_workgroups,
             subgroup_local_invocation_id,
             subgroup_id,
-            subgroup_size,
             num_subgroups,
             parent_buckets,
             parent_metadatas,

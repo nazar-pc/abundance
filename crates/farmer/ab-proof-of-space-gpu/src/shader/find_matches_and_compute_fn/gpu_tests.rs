@@ -74,7 +74,17 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
 
         let ptr = Box::into_raw(buckets);
 
-        unsafe { Box::from_raw(ptr.cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>()) }
+        let mut buckets =
+            unsafe { Box::from_raw(ptr.cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>()) };
+        for bucket in buckets.iter_mut() {
+            bucket.sort_by_key(|position_r| (position_r.r, position_r.position));
+            unsafe {
+                Rmap::update_local_bucket_r_data(0, 1, bucket);
+            }
+            bucket.sort_by_key(|entry| entry.position);
+        }
+
+        buckets
     };
     let parent_metadatas = {
         let mut parent_metadatas = unsafe {

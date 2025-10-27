@@ -11,6 +11,7 @@ mod num;
 #[cfg(not(target_arch = "spirv"))]
 mod shader_bytes;
 pub mod sort_buckets;
+pub mod sort_buckets_with_rmap_details;
 // TODO: Reuse types from `ab-proof-of-space` once it compiles with `rust-gpu`
 pub mod types;
 

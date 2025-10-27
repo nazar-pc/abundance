@@ -1,4 +1,4 @@
-#[cfg(all(test, not(miri), not(target_arch = "spirv")))]
+#[cfg(all(test, not(target_arch = "spirv")))]
 pub(super) mod cpu_tests;
 #[cfg(all(test, not(miri), not(target_arch = "spirv")))]
 mod gpu_tests;
@@ -9,13 +9,11 @@ use crate::shader::constants::{
     MAX_BUCKET_SIZE, PARAM_B, PARAM_BC, PARAM_C, PARAM_M, REDUCED_BUCKET_SIZE,
     REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_in_buckets::rmap::{
-    NextPhysicalPointer, Rmap, RmapBitPosition, RmapBitPositionExt,
-};
+use crate::shader::find_matches_in_buckets::rmap::{Rmap, RmapBitPosition, RmapBitPositionExt};
 use crate::shader::types::{Position, PositionExt, PositionR, Y};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{
-    control_barrier, subgroup_exclusive_i_add, subgroup_i_add, subgroup_shuffle,
+    control_barrier, subgroup_exclusive_i_add, subgroup_i_add,
     workgroup_memory_barrier_with_group_sync,
 };
 use spirv_std::glam::UVec3;
@@ -82,7 +80,7 @@ pub struct Match {
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads with `local_invocation_id` corresponding to the
 /// thread index. `num_subgroups` must be at most [`MAX_SUBGROUPS`] and `subgroup_id` must be within
-/// `0..num_subgroups`.
+/// `0..num_subgroups`. All buckets must come from the `sort_buckets_with_rmap_details` shader.
 // TODO: Try to reduce the `matches` size further by processing `left_bucket` in chunks (like halves
 //  for example)
 #[expect(clippy::too_many_arguments, reason = "Function is inlined anyway")]
@@ -90,7 +88,6 @@ pub struct Match {
 pub(super) unsafe fn find_matches_in_buckets_impl(
     subgroup_local_invocation_id: u32,
     subgroup_id: u32,
-    subgroup_size: u32,
     num_subgroups: u32,
     local_invocation_id: u32,
     left_bucket_index: u32,
@@ -141,49 +138,28 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         workgroup_memory_barrier_with_group_sync();
 
         // SAFETY: Initialized with zeroes
-        unsafe { rmap.assume_init_mut() }
-    };
+        let rmap = unsafe { rmap.assume_init_mut() };
 
-    // Fill `rmap`
-    // TODO: Try to parallelize this part, should be possible if values are de-duplicated to at most
-    //  two from for each `rmap_bit_position`
-    if subgroup_id == 0 {
-        let mut next_physical_pointer = NextPhysicalPointer::default();
-
-        for index in (subgroup_local_invocation_id as usize
-            ..REDUCED_BUCKET_SIZE.next_multiple_of(subgroup_size as usize))
-            .step_by(subgroup_size as usize)
+        for index in
+            (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
         {
-            let PositionR { position, r } = if index < REDUCED_BUCKET_SIZE {
-                right_bucket[index]
-            } else {
-                PositionR::SENTINEL
-            };
+            let PositionR { position, r } = right_bucket[index];
 
-            for source_lane in 0..subgroup_size {
-                let position = subgroup_shuffle(position, source_lane);
-                // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
-                if position == Position::SENTINEL {
-                    break;
-                }
-                let (r, _data) = r.split();
-                let r = subgroup_shuffle(r, source_lane);
+            // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
+            if position == Position::SENTINEL {
+                break;
+            }
 
-                // SAFETY: `r` is within `0..PARAM_BC` range by definition
-                let rmap_bit_position = unsafe { RmapBitPosition::new(r) };
-
-                if subgroup_local_invocation_id == 0 {
-                    // SAFETY: The right bucket is limited to `REDUCED_BUCKETS_SIZE`, same
-                    // `next_physical_pointer` is used here exclusively
-                    unsafe {
-                        rmap.add(rmap_bit_position, position, &mut next_physical_pointer);
-                    }
-                }
+            // SAFETY: Guaranteed by function contract
+            unsafe {
+                rmap.add_with_data_parallel(r, position);
             }
         }
-    }
 
-    workgroup_memory_barrier_with_group_sync();
+        workgroup_memory_barrier_with_group_sync();
+
+        rmap
+    };
 
     // Load both into shared memory and precompute `rmap_bit_positions`. `rmap_bit_position`s for
     // non-sentinel positions are guaranteed to be initialized
@@ -379,7 +355,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
+/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_in_buckets"))]
 #[expect(
     clippy::too_many_arguments,
@@ -391,7 +367,6 @@ pub unsafe fn find_matches_in_buckets(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
-    #[spirv(subgroup_size)] subgroup_size: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] buckets: &[[PositionR;
           MAX_BUCKET_SIZE]],
@@ -438,7 +413,6 @@ pub unsafe fn find_matches_in_buckets(
             find_matches_in_buckets_impl(
                 subgroup_local_invocation_id,
                 subgroup_id,
-                subgroup_size,
                 num_subgroups,
                 local_invocation_id,
                 left_bucket_index as u32,

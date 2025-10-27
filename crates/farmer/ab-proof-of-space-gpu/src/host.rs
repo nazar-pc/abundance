@@ -226,10 +226,10 @@ pub struct GpuRecordsEncoder {
     proofs_gpu: Buffer,
     bind_group_compute_f1: BindGroup,
     compute_pipeline_compute_f1: ComputePipeline,
-    bind_group_sort_buckets_a: BindGroup,
-    compute_pipeline_sort_buckets_a: ComputePipeline,
-    bind_group_sort_buckets_b: BindGroup,
-    compute_pipeline_sort_buckets_b: ComputePipeline,
+    bind_group_sort_buckets_with_rmap_details_a: BindGroup,
+    compute_pipeline_sort_buckets_with_rmap_details_a: ComputePipeline,
+    bind_group_sort_buckets_with_rmap_details_b: BindGroup,
+    compute_pipeline_sort_buckets_with_rmap_details_b: ComputePipeline,
     bind_group_find_matches_and_compute_f2: BindGroup,
     compute_pipeline_find_matches_and_compute_f2: ComputePipeline,
     bind_group_find_matches_and_compute_f3: BindGroup,
@@ -474,21 +474,25 @@ impl GpuRecordsEncoder {
                 &bucket_sizes_gpu,
                 &buckets_a_gpu,
             );
-        let (bind_group_sort_buckets_a, compute_pipeline_sort_buckets_a) =
-            bind_group_and_pipeline_sort_buckets(
-                &device.device,
-                &device.module,
-                &bucket_sizes_gpu,
-                &buckets_a_gpu,
-            );
+        let (
+            bind_group_sort_buckets_with_rmap_details_a,
+            compute_pipeline_sort_buckets_with_rmap_details_a,
+        ) = bind_group_and_pipeline_sort_buckets_with_rmap_details(
+            &device.device,
+            &device.module,
+            &bucket_sizes_gpu,
+            &buckets_a_gpu,
+        );
 
-        let (bind_group_sort_buckets_b, compute_pipeline_sort_buckets_b) =
-            bind_group_and_pipeline_sort_buckets(
-                &device.device,
-                &device.module,
-                &bucket_sizes_gpu,
-                &buckets_b_gpu,
-            );
+        let (
+            bind_group_sort_buckets_with_rmap_details_b,
+            compute_pipeline_sort_buckets_with_rmap_details_b,
+        ) = bind_group_and_pipeline_sort_buckets_with_rmap_details(
+            &device.device,
+            &device.module,
+            &bucket_sizes_gpu,
+            &buckets_b_gpu,
+        );
 
         let (bind_group_find_matches_and_compute_f2, compute_pipeline_find_matches_and_compute_f2) =
             bind_group_and_pipeline_find_matches_and_compute_f2(
@@ -592,10 +596,10 @@ impl GpuRecordsEncoder {
             proofs_gpu,
             bind_group_compute_f1,
             compute_pipeline_compute_f1,
-            bind_group_sort_buckets_a,
-            compute_pipeline_sort_buckets_a,
-            bind_group_sort_buckets_b,
-            compute_pipeline_sort_buckets_b,
+            bind_group_sort_buckets_with_rmap_details_a,
+            compute_pipeline_sort_buckets_with_rmap_details_a,
+            bind_group_sort_buckets_with_rmap_details_b,
+            compute_pipeline_sort_buckets_with_rmap_details_b,
             bind_group_find_matches_and_compute_f2,
             compute_pipeline_find_matches_and_compute_f2,
             bind_group_find_matches_and_compute_f3,
@@ -661,8 +665,8 @@ impl GpuRecordsEncoder {
                 1,
             );
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_a, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_a);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_a, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_a);
             cpass.dispatch_workgroups(
                 (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
                 1,
@@ -677,8 +681,8 @@ impl GpuRecordsEncoder {
                 1,
             );
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_b, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_b);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_b, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_b);
             cpass.dispatch_workgroups(
                 (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
                 1,
@@ -693,8 +697,8 @@ impl GpuRecordsEncoder {
                 1,
             );
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_a, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_a);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_a, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_a);
             cpass.dispatch_workgroups(
                 (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
                 1,
@@ -709,8 +713,8 @@ impl GpuRecordsEncoder {
                 1,
             );
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_b, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_b);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_b, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_b);
             cpass.dispatch_workgroups(
                 (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
                 1,
@@ -725,8 +729,8 @@ impl GpuRecordsEncoder {
                 1,
             );
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_a, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_a);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_a, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_a);
             cpass.dispatch_workgroups(
                 (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
                 1,
@@ -741,8 +745,8 @@ impl GpuRecordsEncoder {
                 1,
             );
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_b, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_b);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_b, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_b);
             cpass.dispatch_workgroups(
                 (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
                 1,
@@ -909,14 +913,14 @@ fn bind_group_and_pipeline_compute_f1(
     (bind_group, compute_pipeline)
 }
 
-fn bind_group_and_pipeline_sort_buckets(
+fn bind_group_and_pipeline_sort_buckets_with_rmap_details(
     device: &wgpu::Device,
     module: &ShaderModule,
     bucket_sizes_gpu: &Buffer,
     buckets_gpu: &Buffer,
 ) -> (BindGroup, ComputePipeline) {
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: Some("sort_buckets"),
+        label: Some("sort_buckets_with_rmap_details"),
         entries: &[
             BindGroupLayoutEntry {
                 binding: 0,
@@ -942,7 +946,7 @@ fn bind_group_and_pipeline_sort_buckets(
     });
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-        label: Some("sort_buckets"),
+        label: Some("sort_buckets_with_rmap_details"),
         bind_group_layouts: &[&bind_group_layout],
         push_constant_ranges: &[],
     });
@@ -953,14 +957,14 @@ fn bind_group_and_pipeline_sort_buckets(
             zero_initialize_workgroup_memory: false,
         },
         cache: None,
-        label: Some("sort_buckets"),
+        label: Some("sort_buckets_with_rmap_details"),
         layout: Some(&pipeline_layout),
         module,
-        entry_point: Some("sort_buckets"),
+        entry_point: Some("sort_buckets_with_rmap_details"),
     });
 
     let bind_group = device.create_bind_group(&BindGroupDescriptor {
-        label: Some("sort_buckets"),
+        label: Some("sort_buckets_with_rmap_details"),
         layout: &bind_group_layout,
         entries: &[
             BindGroupEntry {

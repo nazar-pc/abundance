@@ -5,7 +5,7 @@ use crate::shader::find_matches_in_buckets::{Match, calculate_left_target_on_dem
 use crate::shader::types::{Position, PositionExt, PositionR, Y};
 use std::mem::MaybeUninit;
 
-struct Rmap {
+pub(super) struct Rmap {
     /// `0` is a sentinel value indicating no virtual pointer is stored yet.
     ///
     /// Physical pointer must be increased by `1` to get a virtual pointer before storing. Virtual
@@ -17,7 +17,7 @@ struct Rmap {
 
 impl Rmap {
     #[inline(always)]
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             virtual_pointers: [0; _],
             positions: [[Position::ZERO; 2]; _],
@@ -55,7 +55,7 @@ impl Rmap {
     /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKET_SIZE`] items
     /// inserted
     #[inline(always)]
-    unsafe fn add(&mut self, r: u32, position: Position) {
+    pub(super) unsafe fn add(&mut self, r: u32, position: Position) {
         // SAFETY: Guaranteed by function contract
         let rmap_item = unsafe { self.insertion_item(r) };
 
@@ -70,7 +70,7 @@ impl Rmap {
     /// # Safety
     /// `r` must be in the range `0..PARAM_BC`
     #[inline(always)]
-    unsafe fn get(&self, r: u32) -> [Position; 2] {
+    pub(super) unsafe fn get(&self, r: u32) -> [Position; 2] {
         // SAFETY: Guaranteed by function contract
         let virtual_pointer = *unsafe { self.virtual_pointers.get_unchecked(r as usize) };
 

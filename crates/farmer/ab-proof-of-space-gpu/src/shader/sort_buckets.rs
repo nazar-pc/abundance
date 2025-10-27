@@ -104,12 +104,15 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
 }
 
 #[inline(always)]
-fn load_into_local_bucket<const ELEMENTS_PER_THREAD: usize>(
+pub(super) fn load_into_local_bucket<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     bucket_size: u32,
     bucket: &[PositionR; MAX_BUCKET_SIZE],
     local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
 ) {
+    // TODO: Every item is a pair of `u32`s, should this be rewritten for coalesced reads instead?
+    //  If so, casting to an array of `u32`s is needed here, but rust-gpu doesn't support it yet:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     #[expect(
@@ -127,7 +130,7 @@ fn load_into_local_bucket<const ELEMENTS_PER_THREAD: usize>(
 }
 
 #[inline(always)]
-fn sort_local_bucket<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
+pub(super) fn sort_local_bucket<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
     lane_id: u32,
     local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
     // TODO: Should have been just `fn()`, but https://github.com/Rust-GPU/rust-gpu/issues/452
@@ -169,11 +172,14 @@ fn sort_local_bucket<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
 }
 
 #[inline(always)]
-fn store_from_local_bucket<const ELEMENTS_PER_THREAD: usize>(
+pub(super) fn store_from_local_bucket<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     bucket: &mut [PositionR; MAX_BUCKET_SIZE],
     local_bucket: &[PositionR; ELEMENTS_PER_THREAD],
 ) {
+    // TODO: Every item is a pair of `u32`s, should this be rewritten for coalesced writes instead?
+    //  If so, casting to an array of `u32`s is needed here, but rust-gpu doesn't support it yet:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     #[expect(

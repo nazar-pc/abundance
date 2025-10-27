@@ -189,7 +189,6 @@ impl R {
     /// `r` value is expected to be within `0..PARAM_BC` range, `data` must contain at most
     /// `u32::BITS - (PARAM_BC - 1).bit_width()` bits of data in it.
     #[inline(always)]
-    #[cfg_attr(not(test), expect(dead_code, reason = "Will be used later"))]
     pub(super) unsafe fn new_with_data(r: u32, data: u32) -> Self {
         // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
         //  shouldn't be necessary otherwise

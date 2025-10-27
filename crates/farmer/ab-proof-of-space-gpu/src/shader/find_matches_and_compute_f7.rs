@@ -200,7 +200,7 @@ unsafe fn compute_f7_into_buckets(
 ///
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
+/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f7"))]
 #[expect(
     clippy::too_many_arguments,
@@ -212,7 +212,6 @@ pub unsafe fn find_matches_and_compute_f7(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
-    #[spirv(subgroup_size)] subgroup_size: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionR; MAX_BUCKET_SIZE];
          NUM_BUCKETS],
@@ -261,7 +260,6 @@ pub unsafe fn find_matches_and_compute_f7(
             find_matches_in_buckets_impl(
                 subgroup_local_invocation_id,
                 subgroup_id,
-                subgroup_size,
                 num_subgroups,
                 local_invocation_id,
                 left_bucket_index,
