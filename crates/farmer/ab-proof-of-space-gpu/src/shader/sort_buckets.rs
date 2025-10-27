@@ -12,12 +12,16 @@ use spirv_std::spirv;
 pub const WORKGROUP_SIZE: u32 = 256;
 
 #[inline(always)]
-fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
+fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
     lane_id: u32,
     bit_position: u32,
     block_size: usize,
     local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
-) {
+    // TODO: Should have been just `fn()`, but https://github.com/Rust-GPU/rust-gpu/issues/452
+    less_or_equal: LessOrEqual,
+) where
+    LessOrEqual: Fn(&PositionR, &PositionR) -> bool,
+{
     // For local swaps within a thread's register data, iterate over half the elements to form pairs
     // `(a_offset, b_offset)` where indices differ only at `bit_position` and swaps them in-place
     for pair_id in 0..ELEMENTS_PER_THREAD / 2 {
@@ -39,7 +43,7 @@ fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
         // This alternates direction in bitonic merges to create sorted sequences.
         let ascending = ((lane_id as usize * ELEMENTS_PER_THREAD + a_offset) & block_size) == 0;
 
-        let (final_a, final_b) = if (a.position <= b.position) == ascending {
+        let (final_a, final_b) = if less_or_equal(&a, &b) == ascending {
             (a, b)
         } else {
             (b, a)
@@ -51,12 +55,16 @@ fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
 }
 
 #[inline(always)]
-fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
+fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
     lane_id: u32,
     bit_position: u32,
     block_size: usize,
     local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
-) {
+    // TODO: Should have been just `fn()`, but https://github.com/Rust-GPU/rust-gpu/issues/452
+    less_or_equal: LessOrEqual,
+) where
+    LessOrEqual: Fn(&PositionR, &PositionR) -> bool,
+{
     // For cross-subgroup swaps, compute partner lane differing at `lane_bit_position`
     let lane_bit_position = bit_position - ELEMENTS_PER_THREAD.ilog2();
     let partner_lane_id = lane_id ^ (1 << lane_bit_position);
@@ -85,7 +93,7 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
             PositionR { position, r }
         };
 
-        let selected_value = if (a.position <= b.position) == select_smaller {
+        let selected_value = if less_or_equal(&a, &b) == select_smaller {
             a
         } else {
             b
@@ -119,10 +127,14 @@ fn load_into_local_bucket<const ELEMENTS_PER_THREAD: usize>(
 }
 
 #[inline(always)]
-fn sort_local_bucket<const ELEMENTS_PER_THREAD: usize>(
+fn sort_local_bucket<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
     lane_id: u32,
     local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
-) {
+    // TODO: Should have been just `fn()`, but https://github.com/Rust-GPU/rust-gpu/issues/452
+    less_or_equal: LessOrEqual,
+) where
+    LessOrEqual: Fn(&PositionR, &PositionR) -> bool,
+{
     // Iterate over merger stages, doubling block_size each time
     let mut block_size = 2;
     let mut merger_stage = 1;
@@ -133,10 +145,22 @@ fn sort_local_bucket<const ELEMENTS_PER_THREAD: usize>(
         for bit_position in (0..merger_stage).rev() {
             if bit_position < ELEMENTS_PER_THREAD.ilog2() {
                 // Local swaps within thread's registers, no synchronization needed
-                perform_local_compare_swap(lane_id, bit_position, block_size, local_bucket);
+                perform_local_compare_swap(
+                    lane_id,
+                    bit_position,
+                    block_size,
+                    local_bucket,
+                    &less_or_equal,
+                );
             } else {
                 // Cross-lane swaps using subgroup shuffles for communication
-                perform_cross_compare_swap(lane_id, bit_position, block_size, local_bucket);
+                perform_cross_compare_swap(
+                    lane_id,
+                    bit_position,
+                    block_size,
+                    local_bucket,
+                    &less_or_equal,
+                );
             }
         }
         block_size *= 2;
@@ -173,7 +197,12 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
 
     load_into_local_bucket(lane_id, bucket_size, bucket, &mut local_bucket);
 
-    sort_local_bucket(lane_id, &mut local_bucket);
+    sort_local_bucket(
+        lane_id,
+        &mut local_bucket,
+        #[inline(always)]
+        |a, b| a.position <= b.position,
+    );
 
     store_from_local_bucket(lane_id, bucket, &local_bucket);
 }
