@@ -37,10 +37,9 @@ fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
 
         // Determine the sort direction: ascending if `a_offset`'s bit at `block_size` is `0`.
         // This alternates direction in bitonic merges to create sorted sequences.
-        let select_smaller =
-            ((lane_id as usize * ELEMENTS_PER_THREAD + a_offset) & block_size) == 0;
+        let ascending = ((lane_id as usize * ELEMENTS_PER_THREAD + a_offset) & block_size) == 0;
 
-        let (final_a, final_b) = if (a.position <= b.position) == select_smaller {
+        let (final_a, final_b) = if (a.position <= b.position) == ascending {
             (a, b)
         } else {
             (b, a)

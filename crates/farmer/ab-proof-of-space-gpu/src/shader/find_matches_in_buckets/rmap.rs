@@ -10,7 +10,7 @@ use core::mem::MaybeUninit;
 // TODO: Benchmark on different GPUs to see if the complexity of dealing with 9-bit pointers is
 //  worth it or maybe using u16s would be better despite using more shared memory
 /// Number of bits necessary to address a single pair of positions in the rmap
-const POINTER_BITS: u32 = REDUCED_BUCKET_SIZE.next_power_of_two().ilog2();
+const POINTER_BITS: u32 = REDUCED_BUCKET_SIZE.bit_width();
 const POINTERS_BITS: usize = PARAM_BC as usize * POINTER_BITS as usize;
 const POINTERS_WORDS: usize = POINTERS_BITS.div_ceil(u32::BITS as usize);
 
