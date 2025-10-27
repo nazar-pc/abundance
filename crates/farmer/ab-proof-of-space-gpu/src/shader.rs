@@ -20,6 +20,10 @@ use wgpu::{Adapter, Features, Limits};
 #[cfg(not(target_endian = "little"))]
 compile_error!("Only little-endian platforms are supported");
 
+/// This should be more than any usable implementation has.
+///
+/// There are assertions elsewhere ensuring this is large enough at compile time.
+const MIN_SUBGROUP_SIZE: u32 = 4;
 /// Compiled SPIR-V shader for GPU that only supports baseline Vulkan features.
 ///
 /// For a shader with modern features, see [`SHADER_MODERN`].
@@ -70,22 +74,17 @@ pub fn select_shader_features_limits(
 
     if adapter_features.contains(SHADER_MODERN_FEATURES)
         && adapter_limits.max_compute_workgroup_storage_size >= MODERN_SHADER_STORAGE_SIZE
+        && adapter_limits.min_subgroup_size >= MIN_SUBGROUP_SIZE
     {
-        Some((
-            SHADER_MODERN,
-            SHADER_MODERN_FEATURES,
-            Limits {
-                max_compute_workgroup_storage_size: MODERN_SHADER_STORAGE_SIZE,
-                ..Limits::defaults()
-            },
-            true,
-        ))
-    } else if adapter_features.contains(SHADER_BASELINE_FEATURES) {
+        Some((SHADER_MODERN, SHADER_MODERN_FEATURES, adapter_limits, true))
+    } else if adapter_features.contains(SHADER_BASELINE_FEATURES)
+        && adapter_limits.min_subgroup_size >= MIN_SUBGROUP_SIZE
+    {
         // Fallback GPU supports only baseline features and no extras
         Some((
             SHADER_FALLBACK,
             SHADER_BASELINE_FEATURES,
-            Limits::defaults(),
+            adapter_limits,
             false,
         ))
     } else {

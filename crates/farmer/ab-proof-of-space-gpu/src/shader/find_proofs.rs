@@ -3,6 +3,7 @@ mod cpu_tests;
 #[cfg(all(test, not(miri), not(target_arch = "spirv")))]
 mod gpu_tests;
 
+use crate::shader::MIN_SUBGROUP_SIZE;
 use crate::shader::constants::{
     K, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, NUM_TABLES, REDUCED_MATCHES_COUNT,
 };
@@ -273,7 +274,9 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
     // `0` for left `1` for right
     let left_right = (subgroup_local_invocation_id % 2) as usize;
     // Otherwise `left_right` will not work as expected
-    assert!(SUBGROUP_SIZE >= 2);
+    const {
+        assert!(MIN_SUBGROUP_SIZE >= 2);
+    }
 
     let mut group_left_x_index = subgroup_local_invocation_id * 2;
 
