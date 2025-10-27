@@ -1,6 +1,6 @@
 use crate::shader::constants::{K, MAX_BUCKET_SIZE, NUM_BUCKETS, y_size_bits};
 use crate::shader::select_shader_features_limits;
-use crate::shader::types::{Position, PositionExt, PositionY, Y};
+use crate::shader::types::{Position, PositionExt, PositionR, Y};
 use chacha20::ChaCha8Rng;
 use futures::executor::block_on;
 use rand::prelude::*;
@@ -20,13 +20,15 @@ fn sort_buckets_gpu() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
     let mut buckets =
-        unsafe { Box::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>::new_zeroed().assume_init() };
+        unsafe { Box::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>::new_zeroed().assume_init() };
 
     for (index, position_y) in buckets.as_flattened_mut().iter_mut().enumerate() {
-        *position_y = PositionY {
+        let y = Y::from(rng.next_u32() >> (u32::BITS - y_size_bits(K) as u32));
+        let (_bucket_index, r) = y.into_bucket_index_and_r();
+        *position_y = PositionR {
             position: Position::from_u32(index as u32),
             // Limit `y` to the appropriate number of bits
-            y: Y::from(rng.next_u32() >> (u32::BITS - y_size_bits(K) as u32)),
+            r,
         };
     }
 
@@ -42,10 +44,7 @@ fn sort_buckets_gpu() {
 
     let mut expected_output = buckets;
     for entry in &mut expected_output.last_mut().unwrap()[reduced_last_bucket_size as usize..] {
-        *entry = PositionY {
-            position: Position::SENTINEL,
-            y: Y::SENTINEL,
-        };
+        *entry = PositionR::SENTINEL;
     }
     for bucket in expected_output.iter_mut() {
         bucket.sort();
@@ -65,8 +64,8 @@ fn sort_buckets_gpu() {
 
 async fn sort_buckets(
     bucket_sizes: &[u32; NUM_BUCKETS],
-    buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
-) -> Option<Box<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>> {
+    buckets: &[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS],
+) -> Option<Box<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
         backends,
@@ -76,7 +75,7 @@ async fn sort_buckets(
     });
 
     let adapters = instance.enumerate_adapters(backends);
-    let mut result = None::<Box<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>>;
+    let mut result = None::<Box<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>>;
 
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
@@ -112,9 +111,9 @@ async fn sort_buckets(
 
 async fn sort_buckets_adapter(
     bucket_sizes: &[u32; NUM_BUCKETS],
-    buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
+    buckets: &[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     adapter: Adapter,
-) -> Option<Box<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>> {
+) -> Option<Box<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>> {
     // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits, _modern) =
         select_shader_features_limits(&adapter)?;
@@ -241,17 +240,17 @@ async fn sort_buckets_adapter(
         let buckets_host_ptr = buckets_host
             .get_mapped_range(..)
             .as_ptr()
-            .cast::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
+            .cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
         let buckets_ref = unsafe { &*buckets_host_ptr };
 
         let mut buckets = unsafe {
-            Box::<[MaybeUninit<[PositionY; MAX_BUCKET_SIZE]>; NUM_BUCKETS]>::new_uninit()
+            Box::<[MaybeUninit<[PositionR; MAX_BUCKET_SIZE]>; NUM_BUCKETS]>::new_uninit()
                 .assume_init()
         };
         buckets.write_copy_of_slice(buckets_ref);
         unsafe {
             let ptr = Box::into_raw(buckets);
-            Box::from_raw(ptr.cast::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>())
+            Box::from_raw(ptr.cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>())
         }
     };
     buckets_host.unmap();

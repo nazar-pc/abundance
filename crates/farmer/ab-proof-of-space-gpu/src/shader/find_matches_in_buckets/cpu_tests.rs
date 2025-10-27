@@ -2,7 +2,7 @@ use crate::shader::constants::{
     MAX_BUCKET_SIZE, PARAM_BC, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_in_buckets::{Match, calculate_left_target_on_demand};
-use crate::shader::types::{Position, PositionExt, PositionY};
+use crate::shader::types::{Position, PositionExt, PositionR, Y};
 use std::mem::MaybeUninit;
 
 struct Rmap {
@@ -86,21 +86,20 @@ impl Rmap {
 /// For verification use [`has_match`] instead.
 pub(in super::super) fn find_matches_in_buckets_correct<'a>(
     left_bucket_index: u32,
-    left_bucket: &[PositionY; MAX_BUCKET_SIZE],
-    right_bucket: &[PositionY; MAX_BUCKET_SIZE],
+    left_bucket: &[PositionR; MAX_BUCKET_SIZE],
+    right_bucket: &[PositionR; MAX_BUCKET_SIZE],
     // `PARAM_M as usize * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
     matches: &'a mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT + PARAM_M as usize * 2],
 ) -> &'a [Match] {
     let left_base = left_bucket_index * u32::from(PARAM_BC);
-    let right_base = left_base + u32::from(PARAM_BC);
 
     let mut rmap = Rmap::new();
-    for &PositionY { position, y } in right_bucket {
+    for &PositionR { position, r } in right_bucket {
         if position == Position::SENTINEL {
             break;
         }
-        let r = u32::from(y) - right_base;
+        let (r, _data) = r.split();
         // SAFETY: `r` is within `0..PARAM_BC` range by definition, the right bucket is limited to
         // `REDUCED_BUCKETS_SIZE`
         unsafe {
@@ -113,14 +112,14 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
 
     // TODO: Simd read for left bucket? It might be more efficient in terms of memory access to
     //  process chunks of the left bucket against one right value for each at a time
-    for &PositionY { position, y } in left_bucket {
+    for &PositionR { position, r } in left_bucket {
         // `next_match_index >= REDUCED_MATCHES_COUNT` is crucial to make sure
         if position == Position::SENTINEL || next_match_index >= REDUCED_MATCHES_COUNT {
             // Sentinel values are padded to the end of the bucket
             break;
         }
 
-        let r = u32::from(y) - left_base;
+        let (r, _data) = r.split();
 
         for m in 0..u32::from(PARAM_M) {
             let r_target = calculate_left_target_on_demand(parity, r, m);
@@ -129,11 +128,12 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
 
             // The right bucket position is never zero
             if right_position_a != Position::ZERO {
+                let left_y = Y::from(r + left_base);
                 // SAFETY: Iteration will stop before `REDUCED_MATCHES_COUNT + PARAM_M * 2`
                 // elements is inserted
                 unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
                     left_position: position,
-                    left_y: y,
+                    left_y,
                     right_position: right_position_a,
                 });
                 next_match_index += 1;
@@ -143,7 +143,7 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
                     // `REDUCED_MATCHES_COUNT + PARAM_M * 2` elements is inserted
                     unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
                         left_position: position,
-                        left_y: y,
+                        left_y,
                         right_position: right_position_b,
                     });
                     next_match_index += 1;

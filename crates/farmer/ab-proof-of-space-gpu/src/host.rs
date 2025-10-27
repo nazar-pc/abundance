@@ -9,7 +9,7 @@ use crate::shader::find_matches_and_compute_f7::{NUM_ELEMENTS_PER_S_BUCKET, Proo
 use crate::shader::find_matches_in_buckets::MAX_SUBGROUPS;
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_proofs::ProofsHost;
-use crate::shader::types::{Metadata, Position, PositionY};
+use crate::shader::types::{Metadata, Position, PositionR};
 use crate::shader::{compute_f1, find_proofs, select_shader_features_limits};
 use ab_chacha8::{ChaCha8Block, ChaCha8State, block_to_bytes};
 use ab_core_primitives::pieces::{PieceOffset, Record};
@@ -371,7 +371,7 @@ impl GpuRecordsEncoder {
 
         let buckets_a_gpu = device.device.create_buffer(&BufferDescriptor {
             label: Some("buckets_a_gpu"),
-            size: size_of::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>() as BufferAddress,
+            size: size_of::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>() as BufferAddress,
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });

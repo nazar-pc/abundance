@@ -11,7 +11,7 @@ use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_matches_in_buckets::{
     MAX_SUBGROUPS, Match, SharedScratchSpace, find_matches_in_buckets_impl,
 };
-use crate::shader::types::{Metadata, Position, PositionY};
+use crate::shader::types::{Metadata, Position, PositionR};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{atomic_i_increment, workgroup_memory_barrier_with_group_sync};
 use spirv_std::glam::UVec3;
@@ -212,7 +212,7 @@ pub unsafe fn find_matches_and_compute_f7(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionY; MAX_BUCKET_SIZE];
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionR; MAX_BUCKET_SIZE];
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],

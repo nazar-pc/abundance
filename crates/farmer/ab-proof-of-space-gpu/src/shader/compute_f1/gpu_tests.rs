@@ -1,8 +1,8 @@
 use crate::shader::compute_f1::cpu_tests::correct_compute_f1;
 use crate::shader::compute_f1::{ELEMENTS_PER_INVOCATION, WORKGROUP_SIZE};
-use crate::shader::constants::{MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS, PARAM_BC};
+use crate::shader::constants::{MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS};
 use crate::shader::select_shader_features_limits;
-use crate::shader::types::{PositionY, X};
+use crate::shader::types::{PositionR, X};
 use ab_chacha8::ChaCha8State;
 use ab_core_primitives::pos::PosProof;
 use futures::executor::block_on;
@@ -39,22 +39,24 @@ fn compute_f1_gpu() {
         MAX_TABLE_SIZE as usize
     );
     for (bucket_index, bucket) in actual_output.iter().enumerate() {
-        for &PositionY { position, y } in bucket {
-            let correct_bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
-            assert_eq!(
-                bucket_index, correct_bucket_index,
-                "position={position:?}, y={y:?}"
-            );
+        for &PositionR { position, r } in bucket {
+            let (r, _data) = r.split();
             // TODO: This doesn't compile right now, but will be once this is resolved:
             //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
             // let expected_y = expected_output[usize::from(position)];
             let expected_y = expected_output[position as usize];
-            assert_eq!(y, expected_y, "position={position:?}, y={y:?}");
+            let (expected_bucket_index, expected_r) = expected_y.into_bucket_index_and_r();
+            let (expected_r, _data) = expected_r.split();
+            assert_eq!(
+                bucket_index, expected_bucket_index as usize,
+                "position={position:?}, r={r:?}"
+            );
+            assert_eq!(r, expected_r, "position={position:?}, r={r:?}");
         }
     }
 }
 
-async fn compute_f1(initial_state: &ChaCha8State) -> Option<Vec<Vec<PositionY>>> {
+async fn compute_f1(initial_state: &ChaCha8State) -> Option<Vec<Vec<PositionR>>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
         backends,
@@ -64,7 +66,7 @@ async fn compute_f1(initial_state: &ChaCha8State) -> Option<Vec<Vec<PositionY>>>
     });
 
     let adapters = instance.enumerate_adapters(backends);
-    let mut result = None::<Vec<Vec<PositionY>>>;
+    let mut result = None::<Vec<Vec<PositionR>>>;
 
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
@@ -100,7 +102,7 @@ async fn compute_f1(initial_state: &ChaCha8State) -> Option<Vec<Vec<PositionY>>>
 async fn compute_f1_adapter(
     initial_state: &ChaCha8State,
     adapter: Adapter,
-) -> Option<Vec<Vec<PositionY>>> {
+) -> Option<Vec<Vec<PositionR>>> {
     // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits, _modern) =
         select_shader_features_limits(&adapter)?;
@@ -200,7 +202,7 @@ async fn compute_f1_adapter(
 
     let buckets_host = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: size_of::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>() as BufferAddress,
+        size: size_of::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>() as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -272,7 +274,7 @@ async fn compute_f1_adapter(
         let buckets_host_ptr = buckets_host
             .get_mapped_range(..)
             .as_ptr()
-            .cast::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
+            .cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
         let buckets = unsafe { &*buckets_host_ptr };
 
         buckets

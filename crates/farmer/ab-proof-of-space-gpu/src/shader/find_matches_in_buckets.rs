@@ -12,7 +12,7 @@ use crate::shader::constants::{
 use crate::shader::find_matches_in_buckets::rmap::{
     NextPhysicalPointer, Rmap, RmapBitPosition, RmapBitPositionExt,
 };
-use crate::shader::types::{Position, PositionExt, PositionY, Y};
+use crate::shader::types::{Position, PositionExt, PositionR, Y};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{
     control_barrier, subgroup_exclusive_i_add, subgroup_i_add,
@@ -94,8 +94,8 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
     left_bucket_index: u32,
     // TODO: These should use `REDUCED_BUCKET_SIZE`, but it currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    left_bucket: &[PositionY; MAX_BUCKET_SIZE],
-    right_bucket: &[PositionY; MAX_BUCKET_SIZE],
+    left_bucket: &[PositionR; MAX_BUCKET_SIZE],
+    right_bucket: &[PositionR; MAX_BUCKET_SIZE],
     matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
     scratch_space: &mut SharedScratchSpace,
     rmap: &mut MaybeUninit<Rmap>,
@@ -107,7 +107,6 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
     } = scratch_space;
 
     let left_base = left_bucket_index * u32::from(PARAM_BC);
-    let right_base = left_base + u32::from(PARAM_BC);
 
     // Zero-initialize `rmap`
     let rmap = {
@@ -163,7 +162,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         for index in
             (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
         {
-            let PositionY { position, y } = right_bucket[index];
+            let PositionR { position, r } = right_bucket[index];
             let right_bucket_position = &mut right_bucket_positions[index];
             let rmap_bit_position = &mut rmap_bit_positions[index];
 
@@ -174,7 +173,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
                 break;
             }
 
-            let r = u32::from(y) - right_base;
+            let (r, _data) = r.split();
 
             // SAFETY: `r` is within `0..PARAM_BC` range by definition
             rmap_bit_position.write(unsafe { RmapBitPosition::new(r) });
@@ -250,9 +249,10 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         for index in
             (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
         {
-            let PositionY { position, y } = left_bucket[index];
+            let PositionR { position, r } = left_bucket[index];
+            let (r, _data) = r.split();
             let left_bucket_position = &mut left_bucket_positions[index];
-            let r = &mut left_rs[index];
+            let r_entry = &mut left_rs[index];
 
             left_bucket_position.write(position);
 
@@ -261,7 +261,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
                 break;
             }
 
-            r.write(u32::from(y) - left_base);
+            r_entry.write(r);
         }
 
         workgroup_memory_barrier_with_group_sync();
@@ -435,7 +435,7 @@ pub unsafe fn find_matches_in_buckets(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] buckets: &[[PositionY;
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] buckets: &[[PositionR;
           MAX_BUCKET_SIZE]],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     matches: &mut [[MaybeUninit<Match>; REDUCED_MATCHES_COUNT]],

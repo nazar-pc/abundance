@@ -2,7 +2,7 @@
 mod gpu_tests;
 
 use crate::shader::constants::{MAX_BUCKET_SIZE, NUM_BUCKETS};
-use crate::shader::types::{Position, PositionExt, PositionY, Y};
+use crate::shader::types::{PositionR, R};
 use spirv_std::arch::subgroup_shuffle;
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
@@ -16,7 +16,7 @@ fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     bit_position: u32,
     block_size: usize,
-    local_bucket: &mut [PositionY; ELEMENTS_PER_THREAD],
+    local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
 ) {
     // For local swaps within a thread's register data, iterate over half the elements to form pairs
     // `(a_offset, b_offset)` where indices differ only at `bit_position` and swaps them in-place
@@ -55,7 +55,7 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     bit_position: u32,
     block_size: usize,
-    local_bucket: &mut [PositionY; ELEMENTS_PER_THREAD],
+    local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
 ) {
     // For cross-subgroup swaps, compute partner lane differing at `lane_bit_position`
     let lane_bit_position = bit_position - ELEMENTS_PER_THREAD.ilog2();
@@ -78,9 +78,11 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
         let a = local_bucket[a_offset];
         let b = {
             let position = subgroup_shuffle(a.position, partner_lane_id);
-            let y = Y::from(subgroup_shuffle(u32::from(a.y), partner_lane_id));
+            // SAFETY: `R` is constructed from its own inner value
+            let r =
+                unsafe { R::new_from_inner(subgroup_shuffle(a.r.get_inner(), partner_lane_id)) };
 
-            PositionY { position, y }
+            PositionR { position, r }
         };
 
         let selected_value = if (a.position <= b.position) == select_smaller {
@@ -97,8 +99,8 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
 fn load_into_local_bucket<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     bucket_size: u32,
-    bucket: &[PositionY; MAX_BUCKET_SIZE],
-    local_bucket: &mut [PositionY; ELEMENTS_PER_THREAD],
+    bucket: &[PositionR; MAX_BUCKET_SIZE],
+    local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
 ) {
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -111,10 +113,7 @@ fn load_into_local_bucket<const ELEMENTS_PER_THREAD: usize>(
         local_bucket[local_offset] = if bucket_offset < bucket_size as usize {
             bucket[bucket_offset]
         } else {
-            PositionY {
-                position: Position::SENTINEL,
-                y: Y::SENTINEL,
-            }
+            PositionR::SENTINEL
         };
     }
 }
@@ -122,7 +121,7 @@ fn load_into_local_bucket<const ELEMENTS_PER_THREAD: usize>(
 #[inline(always)]
 fn sort_local_bucket<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
-    local_bucket: &mut [PositionY; ELEMENTS_PER_THREAD],
+    local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
 ) {
     // Iterate over merger stages, doubling block_size each time
     let mut block_size = 2;
@@ -148,8 +147,8 @@ fn sort_local_bucket<const ELEMENTS_PER_THREAD: usize>(
 #[inline(always)]
 fn store_from_local_bucket<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
-    bucket: &mut [PositionY; MAX_BUCKET_SIZE],
-    local_bucket: &[PositionY; ELEMENTS_PER_THREAD],
+    bucket: &mut [PositionR; MAX_BUCKET_SIZE],
+    local_bucket: &[PositionR; ELEMENTS_PER_THREAD],
 ) {
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -168,9 +167,9 @@ fn store_from_local_bucket<const ELEMENTS_PER_THREAD: usize>(
 fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     bucket_size: u32,
-    bucket: &mut [PositionY; MAX_BUCKET_SIZE],
+    bucket: &mut [PositionR; MAX_BUCKET_SIZE],
 ) {
-    let mut local_bucket = [PositionY::EMPTY; ELEMENTS_PER_THREAD];
+    let mut local_bucket = [PositionR::SENTINEL; ELEMENTS_PER_THREAD];
 
     load_into_local_bucket(lane_id, bucket_size, bucket, &mut local_bucket);
 
@@ -193,7 +192,7 @@ pub fn sort_buckets(
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] bucket_sizes: &mut [u32; NUM_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] buckets: &mut [[PositionY; MAX_BUCKET_SIZE];
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] buckets: &mut [[PositionR; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
 ) {
     let workgroup_id = workgroup_id.x;
