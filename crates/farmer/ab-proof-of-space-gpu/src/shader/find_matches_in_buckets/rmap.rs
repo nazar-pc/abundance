@@ -10,12 +10,12 @@ use core::mem::MaybeUninit;
 // TODO: Benchmark on different GPUs to see if the complexity of dealing with 9-bit pointers is
 //  worth it or maybe using u16s would be better despite using more shared memory
 /// Number of bits necessary to address a single pair of positions in the rmap
-const POINTER_BITS: u32 = REDUCED_BUCKET_SIZE.bit_width();
-const POINTERS_BITS: usize = PARAM_BC as usize * POINTER_BITS as usize;
+const VIRTUAL_POINTER_BITS: u32 = REDUCED_BUCKET_SIZE.bit_width();
+const POINTERS_BITS: usize = PARAM_BC as usize * VIRTUAL_POINTER_BITS as usize;
 const POINTERS_WORDS: usize = POINTERS_BITS.div_ceil(u32::BITS as usize);
 
-// Ensure `u32` is sufficiently large as a container
-const _: () = assert!(POINTER_BITS <= u32::BITS);
+// Ensure `u32` is large enough as a container for pointers
+const _: () = assert!(VIRTUAL_POINTER_BITS <= u32::BITS);
 
 #[derive(Debug, Default)]
 pub(super) struct NextPhysicalPointer {
@@ -43,7 +43,7 @@ impl NextPhysicalPointer {
 //     /// `r` must be in the range `0..PARAM_BC`
 //     #[inline(always)]
 //     pub(super) unsafe fn new(r: u32) -> Self {
-//         Self(r * POINTER_BITS)
+//         Self(r * VIRTUAL_POINTER_BITS)
 //     }
 //
 //     /// Extract `rmap_bit_position` out of the inner value
@@ -70,7 +70,7 @@ impl RmapBitPositionExt for RmapBitPosition {
     /// `r` must be in the range `0..PARAM_BC`
     #[inline(always)]
     unsafe fn new(r: u32) -> Self {
-        r * POINTER_BITS
+        r * VIRTUAL_POINTER_BITS
     }
 
     /// Extract `rmap_bit_position` out of the inner value
@@ -116,13 +116,13 @@ impl Rmap {
         // SAFETY: Offset comes from `RmapBitPosition`, whose constructor guarantees bounds
         let mut word = *unsafe { self.virtual_pointers.get_unchecked_mut(word_offset) };
 
-        if bit_offset + POINTER_BITS > u32::BITS {
+        if bit_offset + VIRTUAL_POINTER_BITS > u32::BITS {
             // SAFETY: Offset comes from `RmapBitPosition`, whose constructor guarantees bounds
             let mut word_next =
                 *unsafe { self.virtual_pointers.get_unchecked_mut(word_offset + 1) };
             {
                 let value = (word >> bit_offset) | (word_next << (u32::BITS - bit_offset));
-                let virtual_pointer = value & (u32::MAX >> (u32::BITS - POINTER_BITS));
+                let virtual_pointer = value & (u32::MAX >> (u32::BITS - VIRTUAL_POINTER_BITS));
 
                 if let Some(physical_pointer) = virtual_pointer.checked_sub(1) {
                     return physical_pointer;
@@ -142,7 +142,7 @@ impl Rmap {
         } else {
             {
                 let virtual_pointer =
-                    (word >> bit_offset) & (u32::MAX >> (u32::BITS - POINTER_BITS));
+                    (word >> bit_offset) & (u32::MAX >> (u32::BITS - VIRTUAL_POINTER_BITS));
 
                 if let Some(physical_pointer) = virtual_pointer.checked_sub(1) {
                     return physical_pointer;
@@ -192,19 +192,19 @@ impl Rmap {
         let word_offset = (bit_position / u32::BITS) as usize;
         let bit_offset = bit_position % u32::BITS;
 
-        let virtual_pointer = if bit_offset + POINTER_BITS > u32::BITS {
+        let virtual_pointer = if bit_offset + VIRTUAL_POINTER_BITS > u32::BITS {
             // SAFETY: Offset comes from `RmapBitPosition`, whose constructor guarantees bounds
             let word = unsafe { *self.virtual_pointers.get_unchecked(word_offset) };
             // SAFETY: Offset comes from `RmapBitPosition`, whose constructor guarantees bounds
             let word_next = unsafe { *self.virtual_pointers.get_unchecked(word_offset + 1) };
 
             let value = (word >> bit_offset) | (word_next << (u32::BITS - bit_offset));
-            value & (u32::MAX >> (u32::BITS - POINTER_BITS))
+            value & (u32::MAX >> (u32::BITS - VIRTUAL_POINTER_BITS))
         } else {
             // SAFETY: Offset comes from `RmapBitPosition`, whose constructor guarantees bounds
             let word = unsafe { *self.virtual_pointers.get_unchecked(word_offset) };
 
-            (word >> bit_offset) & (u32::MAX >> (u32::BITS - POINTER_BITS))
+            (word >> bit_offset) & (u32::MAX >> (u32::BITS - VIRTUAL_POINTER_BITS))
         };
 
         if let Some(physical_pointer) = virtual_pointer.checked_sub(1) {
