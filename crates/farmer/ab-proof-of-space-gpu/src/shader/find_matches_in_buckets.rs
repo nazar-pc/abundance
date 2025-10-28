@@ -298,9 +298,13 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             // Add up the numbers of matches in the subgroup (total)
             let subgroup_matches_count = subgroup_i_add(local_matches_count);
 
-            // SAFETY: Guaranteed by function contract
-            unsafe { shared_subgroup_totals.get_unchecked_mut(subgroup_id as usize) }
-                .write(subgroup_matches_count);
+            // TODO: should have been `subgroup_elect()`, but it is not implemented in `wgpu` yet:
+            //  https://github.com/gfx-rs/wgpu/issues/5555
+            if subgroup_local_invocation_id == 0 {
+                // SAFETY: Guaranteed by function contract
+                unsafe { shared_subgroup_totals.get_unchecked_mut(subgroup_id as usize) }
+                    .write(subgroup_matches_count);
+            }
         }
 
         workgroup_memory_barrier_with_group_sync();
@@ -332,35 +336,33 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             // let Some(m) = matches.get_mut(local_matches_offset as usize) else {
             //     continue;
             // };
-            if (local_matches_offset as usize) >= matches.len() {
-                continue;
-            }
-            let m = &mut matches[local_matches_offset as usize];
-
-            m.write(Match {
-                left_position,
-                left_y: y,
-                right_position: right_position_a,
-            });
-
-            local_matches_offset += 1;
-
-            if right_position_b != Position::ZERO {
-                // TODO: More idiomatic version currently doesn't compile:
-                //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-                // let Some(m) = matches.get_mut(local_matches_offset as usize) else {
-                //     continue;
-                // };
-                if (local_matches_offset as usize) >= matches.len() {
-                    continue;
-                }
+            if (local_matches_offset as usize) < matches.len() {
                 let m = &mut matches[local_matches_offset as usize];
 
                 m.write(Match {
                     left_position,
                     left_y: y,
-                    right_position: right_position_b,
+                    right_position: right_position_a,
                 });
+
+                local_matches_offset += 1;
+
+                if right_position_b != Position::ZERO {
+                    // TODO: More idiomatic version currently doesn't compile:
+                    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+                    // let Some(m) = matches.get_mut(local_matches_offset as usize) else {
+                    //     continue;
+                    // };
+                    if (local_matches_offset as usize) < matches.len() {
+                        let m = &mut matches[local_matches_offset as usize];
+
+                        m.write(Match {
+                            left_position,
+                            left_y: y,
+                            right_position: right_position_b,
+                        });
+                    }
+                }
             }
         }
 
