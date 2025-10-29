@@ -148,7 +148,7 @@ impl Device {
                     })
                     .await
                     .inspect_err(|error| {
-                        warn!(%id, ?adapter_info, %error, "Failed to request device");
+                        warn!(%id, ?adapter_info, %error, "Failed to request the device");
                     })
                     .ok()?;
 
