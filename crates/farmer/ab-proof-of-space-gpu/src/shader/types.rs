@@ -1,7 +1,7 @@
 #[cfg(all(test, not(target_arch = "spirv")))]
 mod tests;
 
-use crate::shader::constants::{PARAM_BC, PARAM_EXT};
+use crate::shader::constants::{MAX_TABLE_SIZE, PARAM_BC, PARAM_EXT};
 use crate::shader::num::{U128, U128T};
 use core::iter::Step;
 use core::mem::MaybeUninit;
@@ -78,7 +78,7 @@ impl Y {
 // impl Position {
 //     pub(super) const ZERO: Self = Self(0);
 //     /// Position that can't exist
-//     pub(super) const SENTINEL: Self = Self(u32::MAX);
+//     pub(super) const SENTINEL: Self = Self(u32::MAX >> (u32::BITS - MAX_TABLE_SIZE.bit_width()));
 // }
 //
 // impl Position {
@@ -109,7 +109,7 @@ pub(super) trait PositionExt: Sized {
 
 impl PositionExt for Position {
     const ZERO: Self = 0;
-    const SENTINEL: Self = u32::MAX;
+    const SENTINEL: Self = u32::MAX >> (u32::BITS - MAX_TABLE_SIZE.bit_width());
 
     #[inline(always)]
     fn uninit_array_from_repr_mut<const N: usize>(
