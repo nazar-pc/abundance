@@ -378,18 +378,29 @@ impl Rmap {
     /// This prepares the local bucket by appending extra information in `R`'s data field, such that
     /// `Rmap` can later be constructed in parallel rather than sequentially.
     ///
-    /// Each `local_bucket` stores its slice of elements of the whole bucket.
+    /// Each `local_bucket` stores its slice of elements of the whole bucket. `position` field is
+    /// checked for zero and sentinel values (checking functions are generic so that extra bits can
+    /// be repurposed for additional information), but otherwise is not interpreted or modified.
     ///
     /// NOTE: For this to work correctly, all local buckets together must be sorted by `r` and
     /// `position` among `r` duplicates. `r` must not store additional data in it yet.
     ///
     /// /// # Safety
     /// There must be at most [`REDUCED_BUCKET_SIZE`] items inserted.
-    pub(in super::super) unsafe fn update_local_bucket_r_data<const ELEMENTS_PER_THREAD: usize>(
+    pub(in super::super) unsafe fn update_local_bucket_r_data<
+        const ELEMENTS_PER_THREAD: usize,
+        IsZeroPosition,
+        IsSentinelPosition,
+    >(
         lane_id: u32,
         subgroup_size: u32,
         local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
-    ) {
+        is_zero_position: IsZeroPosition,
+        is_sentinel_position: IsSentinelPosition,
+    ) where
+        IsZeroPosition: Fn(Position) -> bool,
+        IsSentinelPosition: Fn(Position) -> bool,
+    {
         let mut preparation_state = RAccumulator::default();
 
         // TODO: More idiomatic version currently doesn't compile:
@@ -409,12 +420,12 @@ impl Rmap {
 
                     local_bucket[local_offset].position
                 };
-                if position == Position::ZERO {
+                if is_sentinel_position(position) {
+                    return;
+                }
+                if is_zero_position(position) {
                     // This is to match the sequential version
                     continue;
-                }
-                if position == Position::SENTINEL {
-                    return;
                 }
 
                 #[cfg(target_arch = "spirv")]

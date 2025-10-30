@@ -237,7 +237,13 @@ fn test_rmap_against_reference() {
         let mut bucket = source_bucket;
         bucket.sort_by_key(|position_r| (position_r.r, position_r.position));
         unsafe {
-            Rmap::update_local_bucket_r_data(0, 1, &mut bucket);
+            Rmap::update_local_bucket_r_data(
+                0,
+                1,
+                &mut bucket,
+                |p| p == Position::ZERO,
+                |p| p == Position::SENTINEL,
+            );
         }
 
         for position_r in &bucket {

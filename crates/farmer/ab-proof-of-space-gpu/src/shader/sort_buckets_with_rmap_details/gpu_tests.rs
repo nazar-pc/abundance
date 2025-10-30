@@ -53,7 +53,13 @@ fn sort_buckets_with_rmap_details_gpu() {
         bucket[REDUCED_BUCKET_SIZE..].fill(PositionR::SENTINEL);
         bucket.sort_by_key(|position_r| (position_r.r, position_r.position));
         unsafe {
-            Rmap::update_local_bucket_r_data(0, 1, bucket);
+            Rmap::update_local_bucket_r_data(
+                0,
+                1,
+                bucket,
+                |p| p == Position::ZERO,
+                |p| p == Position::SENTINEL,
+            );
         }
         bucket.sort_by_key(|entry| entry.position);
     }
