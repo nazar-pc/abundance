@@ -15,7 +15,7 @@
 #![cfg_attr(not(target_arch = "spirv"), feature(iter_array_chunks, portable_simd))]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![cfg_attr(
-    all(test, not(miri), not(target_arch = "spirv")),
+    all(test, not(target_arch = "spirv")),
     feature(
         const_convert,
         const_trait_impl,

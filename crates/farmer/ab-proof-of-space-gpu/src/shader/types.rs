@@ -1,4 +1,7 @@
-use crate::shader::constants::PARAM_EXT;
+#[cfg(all(test, not(target_arch = "spirv")))]
+mod tests;
+
+use crate::shader::constants::{MAX_TABLE_SIZE, PARAM_BC, PARAM_EXT};
 use crate::shader::num::{U128, U128T};
 use core::iter::Step;
 use core::mem::MaybeUninit;
@@ -44,13 +47,18 @@ impl From<Y> for U128 {
 }
 
 impl Y {
-    /// Y that can't exist
-    pub(super) const SENTINEL: Self = Self(u32::MAX);
-
     /// Get the first `K` bits
     #[inline(always)]
     pub(in super::super) const fn first_k_bits(self) -> u32 {
         self.0 >> PARAM_EXT
+    }
+
+    pub(super) fn into_bucket_index_and_r(self) -> (u32, R) {
+        let bucket_index = self.0 / u32::from(PARAM_BC);
+        let r = self.0 % u32::from(PARAM_BC);
+        // SAFETY: `r` is within `0..PARAM_BC` range
+        let r = unsafe { R::new(r) };
+        (bucket_index, r)
     }
 }
 
@@ -70,7 +78,7 @@ impl Y {
 // impl Position {
 //     pub(super) const ZERO: Self = Self(0);
 //     /// Position that can't exist
-//     pub(super) const SENTINEL: Self = Self(u32::MAX);
+//     pub(super) const SENTINEL: Self = Self(u32::MAX >> (u32::BITS - MAX_TABLE_SIZE.bit_width()));
 // }
 //
 // impl Position {
@@ -101,7 +109,7 @@ pub(super) trait PositionExt: Sized {
 
 impl PositionExt for Position {
     const ZERO: Self = 0;
-    const SENTINEL: Self = u32::MAX;
+    const SENTINEL: Self = u32::MAX >> (u32::BITS - MAX_TABLE_SIZE.bit_width());
 
     #[inline(always)]
     fn uninit_array_from_repr_mut<const N: usize>(
@@ -149,19 +157,77 @@ impl From<Position> for Metadata {
     }
 }
 
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[repr(C)]
+pub struct R(u32);
+
+impl R {
+    /// R that can't exist
+    pub(super) const SENTINEL: Self = Self(u32::MAX);
+
+    /// Create new `R` from provided value.
+    ///
+    /// # Safety
+    /// `r` value must be within `0..PARAM_BC` range.
+    #[inline(always)]
+    pub(super) unsafe fn new(r: u32) -> Self {
+        Self(r)
+    }
+
+    /// Create new `R` from provided inner value.
+    ///
+    /// # Safety
+    /// `r` value must be obtained from [`Self::get_inner()`].
+    #[inline(always)]
+    pub(super) unsafe fn new_from_inner(inner: u32) -> Self {
+        Self(inner)
+    }
+
+    /// Similar to `new`, but also stores extra data alongside `r`.
+    ///
+    /// # Safety
+    /// `r` value is expected to be within `0..PARAM_BC` range, `data` must contain at most
+    /// `u32::BITS - (PARAM_BC - 1).bit_width()` bits of data in it.
+    #[inline(always)]
+    pub(super) unsafe fn new_with_data(r: u32, data: u32) -> Self {
+        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+        //  shouldn't be necessary otherwise
+        Self(r | (data << const { (PARAM_BC - 1).bit_width() }))
+    }
+
+    /// Get the inner stored value, which in case of no extra data will be `r`, but may also include
+    /// extra data if constructed with [`Self::new_with_data()`].
+    #[inline(always)]
+    pub(super) fn get_inner(&self) -> u32 {
+        self.0
+    }
+
+    /// The inverse of [`Self::new_with_data()`], returns `(r, data)`
+    #[inline(always)]
+    pub(super) fn split(self) -> (u32, u32) {
+        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+        //  shouldn't be necessary otherwise
+        (
+            self.0 & (u32::MAX >> const { u32::BITS - (PARAM_BC - 1).bit_width() }),
+            self.0 >> const { (PARAM_BC - 1).bit_width() },
+        )
+    }
+}
+
 /// A tuple of [`Position`] and [`Y`] with guaranteed memory layout
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[repr(C)]
-pub struct PositionY {
+pub struct PositionR {
     /// Position
     pub position: Position,
-    /// Y
-    pub y: Y,
+    /// R
+    pub r: R,
 }
 
-impl PositionY {
-    pub(super) const EMPTY: Self = Self {
+impl PositionR {
+    /// PositionR that can't exist
+    pub(super) const SENTINEL: Self = Self {
         position: Position::SENTINEL,
-        y: Y(0),
+        r: R::SENTINEL,
     };
 }

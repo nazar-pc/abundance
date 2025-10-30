@@ -1,11 +1,11 @@
-use crate::shader::compute_f1::cpu_tests::correct_compute_f1;
-use crate::shader::compute_f1::{ELEMENTS_PER_INVOCATION, WORKGROUP_SIZE};
-use crate::shader::constants::{MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS};
+use crate::shader::constants::{K, MAX_BUCKET_SIZE, NUM_BUCKETS, REDUCED_BUCKET_SIZE, y_size_bits};
+use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::select_shader_features_limits;
-use crate::shader::types::{PositionR, X};
-use ab_chacha8::ChaCha8State;
-use ab_core_primitives::pos::PosProof;
+use crate::shader::types::{Position, PositionExt, PositionR, Y};
+use chacha20::ChaCha8Rng;
 use futures::executor::block_on;
+use rand::prelude::*;
+use std::mem::MaybeUninit;
 use std::slice;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
@@ -17,46 +17,69 @@ use wgpu::{
 };
 
 #[test]
-fn compute_f1_gpu() {
-    let seed = [1; 32];
+fn sort_buckets_with_rmap_details_gpu() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
 
-    let initial_state = ChaCha8State::init(&seed, &[0; _]);
+    let mut buckets =
+        unsafe { Box::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>::new_zeroed().assume_init() };
 
-    let Some(actual_output) = block_on(compute_f1(&initial_state)) else {
+    for (index, position_y) in buckets.as_flattened_mut().iter_mut().enumerate() {
+        let y = Y::from(rng.next_u32() >> (u32::BITS - y_size_bits(K) as u32));
+        let (_bucket_index, r) = y.into_bucket_index_and_r();
+        *position_y = PositionR {
+            position: Position::from_u32(index as u32),
+            // Limit `y` to the appropriate number of bits
+            r,
+        };
+    }
+
+    buckets.as_flattened_mut().shuffle(&mut rng);
+
+    let reduced_last_bucket_size = MAX_BUCKET_SIZE as u32 - 10;
+    let mut bucket_sizes = Box::new([MAX_BUCKET_SIZE as u32; NUM_BUCKETS]);
+    *bucket_sizes.last_mut().unwrap() = reduced_last_bucket_size;
+
+    let Some(actual_output) = block_on(sort_buckets_with_rmap_details(&bucket_sizes, &buckets))
+    else {
         panic!("No compatible device detected, can't run tests");
     };
 
-    let expected_output = (X::ZERO..)
-        .take(MAX_TABLE_SIZE as usize)
-        .map(|x| correct_compute_f1::<{ PosProof::K }>(x, &seed))
-        .collect::<Vec<_>>();
-
-    assert_eq!(
-        actual_output
-            .iter()
-            .map(|bucket| bucket.len())
-            .sum::<usize>(),
-        MAX_TABLE_SIZE as usize
-    );
-    for (bucket_index, bucket) in actual_output.iter().enumerate() {
-        for &PositionR { position, r } in bucket {
-            let (r, _data) = r.split();
-            // TODO: This doesn't compile right now, but will be once this is resolved:
-            //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-            // let expected_y = expected_output[usize::from(position)];
-            let expected_y = expected_output[position as usize];
-            let (expected_bucket_index, expected_r) = expected_y.into_bucket_index_and_r();
-            let (expected_r, _data) = expected_r.split();
-            assert_eq!(
-                bucket_index, expected_bucket_index as usize,
-                "position={position:?}, r={r:?}"
+    let mut expected_output = buckets;
+    for entry in &mut expected_output.last_mut().unwrap()[reduced_last_bucket_size as usize..] {
+        *entry = PositionR::SENTINEL;
+    }
+    for bucket in expected_output.iter_mut() {
+        bucket.sort_by_key(|entry| entry.position);
+        bucket[REDUCED_BUCKET_SIZE..].fill(PositionR::SENTINEL);
+        bucket.sort_by_key(|position_r| (position_r.r, position_r.position));
+        unsafe {
+            Rmap::update_local_bucket_r_data(
+                0,
+                1,
+                bucket,
+                |p| p == Position::ZERO,
+                |p| p == Position::SENTINEL,
             );
-            assert_eq!(r, expected_r, "position={position:?}, r={r:?}");
+        }
+        bucket.sort_by_key(|entry| entry.position);
+    }
+
+    for (bucket_index, (expected, actual)) in
+        expected_output.iter().zip(actual_output.iter()).enumerate()
+    {
+        for (index, (expected, actual)) in expected.iter().zip(actual.iter()).enumerate() {
+            assert_eq!(
+                expected, actual,
+                "bucket_index={bucket_index}, index={index}"
+            );
         }
     }
 }
 
-async fn compute_f1(initial_state: &ChaCha8State) -> Option<Vec<Vec<PositionR>>> {
+async fn sort_buckets_with_rmap_details(
+    bucket_sizes: &[u32; NUM_BUCKETS],
+    buckets: &[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS],
+) -> Option<Box<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
         backends,
@@ -66,28 +89,30 @@ async fn compute_f1(initial_state: &ChaCha8State) -> Option<Vec<Vec<PositionR>>>
     });
 
     let adapters = instance.enumerate_adapters(backends);
-    let mut result = None::<Vec<Vec<PositionR>>>;
+    let mut result = None::<Box<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>>;
 
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let Some(adapter_result) = compute_f1_adapter(initial_state, adapter).await else {
+        let Some(adapter_result) =
+            sort_buckets_with_rmap_details_adapter(bucket_sizes, buckets, adapter).await
+        else {
             continue;
         };
 
         match &result {
             Some(result) => {
-                // Since output is non-deterministic here, sort buckets before comparing
                 for (bucket_index, (result, adapter_result)) in
-                    result.iter().zip(adapter_result).enumerate()
+                    result.iter().zip(adapter_result.iter()).enumerate()
                 {
-                    let mut result = result.clone();
-                    let mut adapter_result = adapter_result.clone();
-
-                    result.sort();
-                    adapter_result.sort();
-
-                    assert!(result == adapter_result, "bucket_index={bucket_index}");
+                    for (index, (result, adapter_result)) in
+                        result.iter().zip(adapter_result.iter()).enumerate()
+                    {
+                        assert_eq!(
+                            result, adapter_result,
+                            "bucket_index={bucket_index}, index={index}"
+                        );
+                    }
                 }
             }
             None => {
@@ -99,10 +124,11 @@ async fn compute_f1(initial_state: &ChaCha8State) -> Option<Vec<Vec<PositionR>>>
     result
 }
 
-async fn compute_f1_adapter(
-    initial_state: &ChaCha8State,
+async fn sort_buckets_with_rmap_details_adapter(
+    bucket_sizes: &[u32; NUM_BUCKETS],
+    buckets: &[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     adapter: Adapter,
-) -> Option<Vec<Vec<PositionR>>> {
+) -> Option<Box<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>> {
     // TODO: Test both versions of the shader here
     let (shader, required_features, required_limits, _modern) =
         select_shader_features_limits(&adapter)?;
@@ -129,21 +155,11 @@ async fn compute_f1_adapter(
                 ty: BindingType::Buffer {
                     has_dynamic_offset: false,
                     min_binding_size: None,
-                    ty: BufferBindingType::Uniform,
-                },
-            },
-            BindGroupLayoutEntry {
-                binding: 1,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
                     ty: BufferBindingType::Storage { read_only: false },
                 },
             },
             BindGroupLayoutEntry {
-                binding: 2,
+                binding: 1,
                 count: None,
                 visibility: ShaderStages::COMPUTE,
                 ty: BindingType::Buffer {
@@ -170,48 +186,33 @@ async fn compute_f1_adapter(
         label: None,
         layout: Some(&pipeline_layout),
         module: &module,
-        entry_point: Some("compute_f1"),
+        entry_point: Some("sort_buckets_with_rmap_details"),
     });
 
-    let initial_state = initial_state.to_repr();
-
-    let initial_state_gpu = device.create_buffer_init(&BufferInitDescriptor {
+    let bucket_sizes_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
         contents: unsafe {
             slice::from_raw_parts(
-                initial_state.as_ptr().cast::<u8>(),
-                size_of_val(&initial_state),
+                bucket_sizes.as_ptr().cast::<u8>(),
+                size_of_val(bucket_sizes),
             )
         },
-        usage: BufferUsages::UNIFORM,
-    });
-
-    let bucket_sizes_host = device.create_buffer(&BufferDescriptor {
-        label: None,
-        size: size_of::<[u32; NUM_BUCKETS]>() as BufferAddress,
-        usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-
-    let bucket_sizes_gpu = device.create_buffer(&BufferDescriptor {
-        label: None,
-        size: bucket_sizes_host.size(),
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
     });
 
     let buckets_host = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: size_of::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>() as BufferAddress,
+        size: size_of_val(buckets) as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
 
-    let buckets_gpu = device.create_buffer(&BufferDescriptor {
+    let buckets_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
-        size: buckets_host.size(),
+        contents: unsafe {
+            slice::from_raw_parts(buckets.as_ptr().cast::<u8>(), size_of_val(buckets))
+        },
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
-        mapped_at_creation: false,
     });
 
     let bind_group = device.create_bind_group(&BindGroupDescriptor {
@@ -220,14 +221,10 @@ async fn compute_f1_adapter(
         entries: &[
             BindGroupEntry {
                 binding: 0,
-                resource: initial_state_gpu.as_entire_binding(),
-            },
-            BindGroupEntry {
-                binding: 1,
                 resource: bucket_sizes_gpu.as_entire_binding(),
             },
             BindGroupEntry {
-                binding: 2,
+                binding: 1,
                 resource: buckets_gpu.as_entire_binding(),
             },
         ],
@@ -240,24 +237,14 @@ async fn compute_f1_adapter(
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
         cpass.dispatch_workgroups(
-            MAX_TABLE_SIZE
-                .div_ceil(WORKGROUP_SIZE * ELEMENTS_PER_INVOCATION)
-                .min(device.limits().max_compute_workgroups_per_dimension),
+            (NUM_BUCKETS as u32).min(device.limits().max_compute_workgroups_per_dimension),
             1,
             1,
         );
     }
 
-    encoder.copy_buffer_to_buffer(
-        &bucket_sizes_gpu,
-        0,
-        &bucket_sizes_host,
-        0,
-        bucket_sizes_host.size(),
-    );
     encoder.copy_buffer_to_buffer(&buckets_gpu, 0, &buckets_host, 0, buckets_host.size());
 
-    encoder.map_buffer_on_submit(&bucket_sizes_host, MapMode::Read, .., |r| r.unwrap());
     encoder.map_buffer_on_submit(&buckets_host, MapMode::Read, .., |r| r.unwrap());
 
     queue.submit([encoder.finish()]);
@@ -265,25 +252,22 @@ async fn compute_f1_adapter(
     device.poll(PollType::wait_indefinitely()).unwrap();
 
     let buckets = {
-        let bucket_sizes_host_ptr = bucket_sizes_host
-            .get_mapped_range(..)
-            .as_ptr()
-            .cast::<[u32; NUM_BUCKETS]>();
-        let bucket_sizes = unsafe { &*bucket_sizes_host_ptr };
-
         let buckets_host_ptr = buckets_host
             .get_mapped_range(..)
             .as_ptr()
             .cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
-        let buckets = unsafe { &*buckets_host_ptr };
+        let buckets_ref = unsafe { &*buckets_host_ptr };
 
-        buckets
-            .iter()
-            .zip(bucket_sizes)
-            .map(|(bucket, &bucket_count)| bucket[..bucket_count as usize].to_vec())
-            .collect()
+        let mut buckets = unsafe {
+            Box::<[MaybeUninit<[PositionR; MAX_BUCKET_SIZE]>; NUM_BUCKETS]>::new_uninit()
+                .assume_init()
+        };
+        buckets.write_copy_of_slice(buckets_ref);
+        unsafe {
+            let ptr = Box::into_raw(buckets);
+            Box::from_raw(ptr.cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>())
+        }
     };
-    bucket_sizes_host.unmap();
     buckets_host.unmap();
 
     Some(buckets)

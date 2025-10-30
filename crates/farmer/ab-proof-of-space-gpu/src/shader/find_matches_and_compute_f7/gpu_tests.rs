@@ -10,7 +10,7 @@ use crate::shader::find_matches_and_compute_f7::{
 use crate::shader::find_matches_in_buckets::MAX_SUBGROUPS;
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::select_shader_features_limits;
-use crate::shader::types::{Metadata, Position, PositionExt, PositionY, Y};
+use crate::shader::types::{Metadata, Position, PositionExt, PositionR, Y};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{RngCore, SeedableRng};
 use futures::executor::block_on;
@@ -35,33 +35,46 @@ fn find_matches_and_compute_f7_gpu() {
         .collect::<Vec<_>>();
     let parent_buckets = {
         let mut buckets = unsafe {
-            Box::<[[MaybeUninit<PositionY>; MAX_BUCKET_SIZE]; NUM_BUCKETS]>::new_uninit()
+            Box::<[[MaybeUninit<PositionR>; MAX_BUCKET_SIZE]; NUM_BUCKETS]>::new_uninit()
                 .assume_init()
         };
 
         let mut bucket_offsets = [0_usize; NUM_BUCKETS];
         for (position, &y) in parent_table_ys.iter().enumerate() {
-            let bucket_index = u32::from(y) / PARAM_BC as u32;
+            let (bucket_index, r) = y.into_bucket_index_and_r();
             let next_index = bucket_offsets[bucket_index as usize];
             if next_index < REDUCED_BUCKET_SIZE {
-                buckets[bucket_index as usize][next_index].write(PositionY {
+                buckets[bucket_index as usize][next_index].write(PositionR {
                     position: Position::from_u32(position as u32),
-                    y,
+                    r,
                 });
                 bucket_offsets[bucket_index as usize] += 1;
             }
         }
 
         for (bucket, initialized) in buckets.iter_mut().zip(bucket_offsets) {
-            bucket[initialized..].write_filled(PositionY {
-                position: Position::SENTINEL,
-                y: Y::SENTINEL,
-            });
+            bucket[initialized..].write_filled(PositionR::SENTINEL);
         }
 
         let ptr = Box::into_raw(buckets);
 
-        unsafe { Box::from_raw(ptr.cast::<[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS]>()) }
+        let mut buckets =
+            unsafe { Box::from_raw(ptr.cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>()) };
+        for bucket in buckets.iter_mut() {
+            bucket.sort_by_key(|position_r| (position_r.r, position_r.position));
+            unsafe {
+                Rmap::update_local_bucket_r_data(
+                    0,
+                    1,
+                    bucket,
+                    |p| p == Position::ZERO,
+                    |p| p == Position::SENTINEL,
+                );
+            }
+            bucket.sort_by_key(|entry| entry.position);
+        }
+
+        buckets
     };
     let parent_metadatas = {
         let mut parent_metadatas = unsafe {
@@ -131,7 +144,7 @@ fn find_matches_and_compute_f7_gpu() {
 }
 
 async fn find_matches_and_compute_f7(
-    parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
+    parent_buckets: &[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
 ) -> Option<(
     Box<[u32; NUM_S_BUCKETS]>,
@@ -182,7 +195,7 @@ async fn find_matches_and_compute_f7(
 }
 
 async fn find_matches_and_compute_f7_adapter(
-    parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
+    parent_buckets: &[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     adapter: Adapter,
 ) -> Option<(

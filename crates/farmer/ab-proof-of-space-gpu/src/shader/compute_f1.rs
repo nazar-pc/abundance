@@ -3,11 +3,9 @@ mod cpu_tests;
 #[cfg(all(test, not(miri), not(target_arch = "spirv")))]
 mod gpu_tests;
 
-use crate::shader::constants::{
-    K, MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS, PARAM_BC, PARAM_EXT,
-};
+use crate::shader::constants::{K, MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS, PARAM_EXT};
 use crate::shader::num::{U64, U64T};
-use crate::shader::types::{Position, PositionExt, PositionY, X, Y};
+use crate::shader::types::{Position, PositionExt, PositionR, X, Y};
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use core::mem::MaybeUninit;
 use spirv_std::arch::atomic_i_increment;
@@ -162,7 +160,7 @@ pub unsafe fn compute_f1(
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(uniform, descriptor_set = 0, binding = 0)] initial_state: &UniformChaCha8Block,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] bucket_sizes: &mut [u32; NUM_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &mut [[MaybeUninit<PositionR>; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
 ) {
     // TODO: Make a single input bounds check and use unsafe to avoid bounds check later
@@ -202,9 +200,9 @@ pub unsafe fn compute_f1(
         for x in x_start..(x_start + ELEMENTS_PER_INVOCATION).min(MAX_TABLE_SIZE) {
             let y = compute_f1_impl(X::from(x), &chacha8_keystream);
 
-            let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
+            let (bucket_index, r) = y.into_bucket_index_and_r();
             // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-            let bucket_size = unsafe { bucket_sizes.get_unchecked_mut(bucket_index) };
+            let bucket_size = unsafe { bucket_sizes.get_unchecked_mut(bucket_index as usize) };
             // TODO: Probably should not be unsafe to begin with:
             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
             let bucket_offset = unsafe {
@@ -218,12 +216,12 @@ pub unsafe fn compute_f1(
             // also always within bounds.
             unsafe {
                 buckets
-                    .get_unchecked_mut(bucket_index)
+                    .get_unchecked_mut(bucket_index as usize)
                     .get_unchecked_mut(bucket_offset as usize)
             }
-            .write(PositionY {
+            .write(PositionR {
                 position: Position::from_u32(x),
-                y,
+                r,
             });
         }
     }

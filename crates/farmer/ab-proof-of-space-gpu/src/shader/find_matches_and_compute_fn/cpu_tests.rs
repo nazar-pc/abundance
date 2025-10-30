@@ -1,10 +1,9 @@
 use crate::shader::compute_fn::cpu_tests::correct_compute_fn;
 use crate::shader::constants::{
-    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_BUCKET_SIZE,
-    REDUCED_MATCHES_COUNT,
+    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_in_buckets::cpu_tests::find_matches_in_buckets_correct;
-use crate::shader::types::{Metadata, Position, PositionExt, PositionY, Y};
+use crate::shader::types::{Metadata, Position, PositionExt, PositionR};
 use std::mem::MaybeUninit;
 
 pub(super) fn find_matches_and_compute_fn_correct<
@@ -12,12 +11,12 @@ pub(super) fn find_matches_and_compute_fn_correct<
     const TABLE_NUMBER: u8,
     const PARENT_TABLE_NUMBER: u8,
 >(
-    parent_buckets: &[[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS],
+    parent_buckets: &[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     parent_metadatas: &[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
-    buckets: &'a mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
+    buckets: &'a mut [[MaybeUninit<PositionR>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
-) -> &'a [[PositionY; MAX_BUCKET_SIZE]; NUM_BUCKETS] {
+) -> &'a [[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS] {
     let parent_metadatas = parent_metadatas.as_flattened();
     let mut matches = [MaybeUninit::uninit(); _];
 
@@ -51,17 +50,17 @@ pub(super) fn find_matches_and_compute_fn_correct<
                 left_metadata,
                 right_metadata,
             );
-            let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
+            let (bucket_index, r) = y.into_bucket_index_and_r();
 
             // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-            let bucket_offset = unsafe { bucket_offsets.get_unchecked_mut(bucket_index) };
+            let bucket_offset = unsafe { bucket_offsets.get_unchecked_mut(bucket_index as usize) };
             // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-            let bucket = unsafe { buckets.get_unchecked_mut(bucket_index) };
+            let bucket = unsafe { buckets.get_unchecked_mut(bucket_index as usize) };
 
             if *bucket_offset < REDUCED_BUCKET_SIZE as u16 {
-                bucket[*bucket_offset as usize].write(PositionY {
+                bucket[*bucket_offset as usize].write(PositionR {
                     position: Position::from_u32(metadatas_offset + index as u32),
-                    y,
+                    r,
                 });
                 match_positions.write([m.left_position, m.right_position]);
                 match_metadata.write(metadata);
@@ -71,10 +70,7 @@ pub(super) fn find_matches_and_compute_fn_correct<
     }
 
     for (bucket, initialized) in buckets.iter_mut().zip(bucket_offsets) {
-        bucket[usize::from(initialized)..].write_filled(PositionY {
-            position: Position::SENTINEL,
-            y: Y::SENTINEL,
-        });
+        bucket[usize::from(initialized)..].write_filled(PositionR::SENTINEL);
     }
 
     // SAFETY: All entries are initialized

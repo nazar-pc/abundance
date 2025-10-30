@@ -1,4 +1,4 @@
-#[cfg(all(test, not(miri), not(target_arch = "spirv")))]
+#[cfg(all(test, not(target_arch = "spirv")))]
 pub(super) mod cpu_tests;
 #[cfg(all(test, not(miri), not(target_arch = "spirv")))]
 mod gpu_tests;
@@ -9,10 +9,8 @@ use crate::shader::constants::{
     MAX_BUCKET_SIZE, PARAM_B, PARAM_BC, PARAM_C, PARAM_M, REDUCED_BUCKET_SIZE,
     REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_in_buckets::rmap::{
-    NextPhysicalPointer, Rmap, RmapBitPosition, RmapBitPositionExt,
-};
-use crate::shader::types::{Position, PositionExt, PositionY, Y};
+use crate::shader::find_matches_in_buckets::rmap::{Rmap, RmapBitPosition, RmapBitPositionExt};
+use crate::shader::types::{Position, PositionExt, PositionR, Y};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{
     control_barrier, subgroup_exclusive_i_add, subgroup_i_add,
@@ -82,20 +80,21 @@ pub struct Match {
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads with `local_invocation_id` corresponding to the
 /// thread index. `num_subgroups` must be at most [`MAX_SUBGROUPS`] and `subgroup_id` must be within
-/// `0..num_subgroups`.
+/// `0..num_subgroups`. All buckets must come from the `sort_buckets_with_rmap_details` shader.
 // TODO: Try to reduce the `matches` size further by processing `left_bucket` in chunks (like halves
 //  for example)
 #[expect(clippy::too_many_arguments, reason = "Function is inlined anyway")]
 #[inline(always)]
 pub(super) unsafe fn find_matches_in_buckets_impl(
+    subgroup_local_invocation_id: u32,
     subgroup_id: u32,
     num_subgroups: u32,
     local_invocation_id: u32,
     left_bucket_index: u32,
     // TODO: These should use `REDUCED_BUCKET_SIZE`, but it currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    left_bucket: &[PositionY; MAX_BUCKET_SIZE],
-    right_bucket: &[PositionY; MAX_BUCKET_SIZE],
+    left_bucket: &[PositionR; MAX_BUCKET_SIZE],
+    right_bucket: &[PositionR; MAX_BUCKET_SIZE],
     matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
     scratch_space: &mut SharedScratchSpace,
     rmap: &mut MaybeUninit<Rmap>,
@@ -107,7 +106,6 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
     } = scratch_space;
 
     let left_base = left_bucket_index * u32::from(PARAM_BC);
-    let right_base = left_base + u32::from(PARAM_BC);
 
     // Zero-initialize `rmap`
     let rmap = {
@@ -137,100 +135,31 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         // }
         Rmap::zeroing_hack(rmap, local_invocation_id, WORKGROUP_SIZE);
 
-        // No barrier here, but `rmap` is not used until after the barrier below (as part of reading
-        // right bucket), so it will be synchronized there together
+        workgroup_memory_barrier_with_group_sync();
 
         // SAFETY: Initialized with zeroes
-        unsafe { rmap.assume_init_mut() }
-    };
+        let rmap = unsafe { rmap.assume_init_mut() };
 
-    // Load both into shared memory and precompute `rmap_bit_positions`. `rmap_bit_position`s for
-    // non-sentinel positions are guaranteed to be initialized
-    let (right_bucket_positions, right_rmap_bit_positions) = {
-        let right_bucket_positions =
-            <Position as PositionExt>::uninit_array_from_repr_mut(bucket_size_a);
-        let rmap_bit_positions =
-            <RmapBitPosition as RmapBitPositionExt>::uninit_array_from_repr_mut(bucket_size_b);
-        // TODO: More idiomatic version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // for ((&right_position, position), rmap_bit_position) in right_bucket
-        //     .iter()
-        //     .zip(right_bucket_positions.iter_mut())
-        //     .zip(rmap_bit_positions.iter_mut())
-        //     .skip(local_invocation_id as usize)
-        //     .step_by(WORKGROUP_SIZE as usize)
-        // {
         for index in
             (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
         {
-            let PositionY { position, y } = right_bucket[index];
-            let right_bucket_position = &mut right_bucket_positions[index];
-            let rmap_bit_position = &mut rmap_bit_positions[index];
-
-            right_bucket_position.write(position);
+            let PositionR { position, r } = right_bucket[index];
 
             // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
             if position == Position::SENTINEL {
                 break;
             }
 
-            let r = u32::from(y) - right_base;
-
-            // SAFETY: `r` is within `0..PARAM_BC` range by definition
-            rmap_bit_position.write(unsafe { RmapBitPosition::new(r) });
+            // SAFETY: Guaranteed by function contract
+            unsafe {
+                rmap.add_with_data_parallel(r, position);
+            }
         }
 
         workgroup_memory_barrier_with_group_sync();
 
-        // TODO: Correct version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // // SAFETY: Just initialized
-        // let right_bucket_positions = unsafe {
-        //     mem::transmute::<
-        //         &mut [MaybeUninit<Position>; REDUCED_BUCKETS_SIZE],
-        //         &mut [Position; REDUCED_BUCKETS_SIZE],
-        //     >(right_bucket_positions)
-        // };
-        //
-        // (&*right_bucket_positions, &*rmap_bit_positions)
-        (right_bucket_positions, &*rmap_bit_positions)
+        rmap
     };
-
-    // Fill `rmap`
-    // TODO: Try to parallelize this part
-    if local_invocation_id == 0 {
-        let mut next_physical_pointer = NextPhysicalPointer::default();
-
-        // TODO: More idiomatic version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // for (&right_position, rmap_bit_position) in
-        //     right_bucket_positions.iter().zip(right_rmap_bit_positions)
-        // {
-        for index in 0..right_bucket_positions.len() {
-            let right_position = unsafe { right_bucket_positions[index].assume_init() };
-            let rmap_bit_position = right_rmap_bit_positions[index];
-
-            // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
-            if right_position == Position::SENTINEL {
-                break;
-            }
-
-            // SAFETY: `rmap_bit_position` for non-sentinel positions were initialized above
-            let rmap_bit_position = unsafe { rmap_bit_position.assume_init() };
-
-            // SAFETY: The right bucket is limited to `REDUCED_BUCKETS_SIZE`, same
-            // `next_physical_pointer` is used here exclusively
-            unsafe {
-                rmap.add(
-                    rmap_bit_position,
-                    right_position,
-                    &mut next_physical_pointer,
-                );
-            }
-        }
-    }
-
-    workgroup_memory_barrier_with_group_sync();
 
     // Load both into shared memory and precompute `rmap_bit_positions`. `rmap_bit_position`s for
     // non-sentinel positions are guaranteed to be initialized
@@ -250,9 +179,10 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         for index in
             (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
         {
-            let PositionY { position, y } = left_bucket[index];
+            let PositionR { position, r } = left_bucket[index];
+            let (r, _data) = r.split();
             let left_bucket_position = &mut left_bucket_positions[index];
-            let r = &mut left_rs[index];
+            let r_entry = &mut left_rs[index];
 
             left_bucket_position.write(position);
 
@@ -261,7 +191,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
                 break;
             }
 
-            r.write(u32::from(y) - left_base);
+            r_entry.write(r);
         }
 
         workgroup_memory_barrier_with_group_sync();
@@ -344,9 +274,13 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             // Add up the numbers of matches in the subgroup (total)
             let subgroup_matches_count = subgroup_i_add(local_matches_count);
 
-            // SAFETY: Guaranteed by function contract
-            unsafe { shared_subgroup_totals.get_unchecked_mut(subgroup_id as usize) }
-                .write(subgroup_matches_count);
+            // TODO: should have been `subgroup_elect()`, but it is not implemented in `wgpu` yet:
+            //  https://github.com/gfx-rs/wgpu/issues/5555
+            if subgroup_local_invocation_id == 0 {
+                // SAFETY: Guaranteed by function contract
+                unsafe { shared_subgroup_totals.get_unchecked_mut(subgroup_id as usize) }
+                    .write(subgroup_matches_count);
+            }
         }
 
         workgroup_memory_barrier_with_group_sync();
@@ -378,35 +312,33 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             // let Some(m) = matches.get_mut(local_matches_offset as usize) else {
             //     continue;
             // };
-            if (local_matches_offset as usize) >= matches.len() {
-                continue;
-            }
-            let m = &mut matches[local_matches_offset as usize];
-
-            m.write(Match {
-                left_position,
-                left_y: y,
-                right_position: right_position_a,
-            });
-
-            local_matches_offset += 1;
-
-            if right_position_b != Position::ZERO {
-                // TODO: More idiomatic version currently doesn't compile:
-                //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-                // let Some(m) = matches.get_mut(local_matches_offset as usize) else {
-                //     continue;
-                // };
-                if (local_matches_offset as usize) >= matches.len() {
-                    continue;
-                }
+            if (local_matches_offset as usize) < matches.len() {
                 let m = &mut matches[local_matches_offset as usize];
 
                 m.write(Match {
                     left_position,
                     left_y: y,
-                    right_position: right_position_b,
+                    right_position: right_position_a,
                 });
+
+                local_matches_offset += 1;
+
+                if right_position_b != Position::ZERO {
+                    // TODO: More idiomatic version currently doesn't compile:
+                    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+                    // let Some(m) = matches.get_mut(local_matches_offset as usize) else {
+                    //     continue;
+                    // };
+                    if (local_matches_offset as usize) < matches.len() {
+                        let m = &mut matches[local_matches_offset as usize];
+
+                        m.write(Match {
+                            left_position,
+                            left_y: y,
+                            right_position: right_position_b,
+                        });
+                    }
+                }
             }
         }
 
@@ -423,7 +355,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
+/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_in_buckets"))]
 #[expect(
     clippy::too_many_arguments,
@@ -433,9 +365,10 @@ pub unsafe fn find_matches_in_buckets(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] buckets: &[[PositionY;
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] buckets: &[[PositionR;
           MAX_BUCKET_SIZE]],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     matches: &mut [[MaybeUninit<Match>; REDUCED_MATCHES_COUNT]],
@@ -478,6 +411,7 @@ pub unsafe fn find_matches_in_buckets(
         // SAFETY: Guaranteed by function contract
         matches_count.write(unsafe {
             find_matches_in_buckets_impl(
+                subgroup_local_invocation_id,
                 subgroup_id,
                 num_subgroups,
                 local_invocation_id,

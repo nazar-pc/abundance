@@ -5,7 +5,7 @@ use crate::shader::find_matches_in_buckets::cpu_tests::find_matches_in_buckets_c
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_matches_in_buckets::{MAX_SUBGROUPS, Match};
 use crate::shader::select_shader_features_limits;
-use crate::shader::types::{Position, PositionExt, PositionY, Y};
+use crate::shader::types::{Position, PositionExt, PositionR, Y};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{RngCore, SeedableRng};
 use futures::executor::block_on;
@@ -32,22 +32,33 @@ fn find_matches_in_buckets_gpu() {
         .map(|_| Y::from(rng.next_u32() % (PARAM_BC as u32 * NUM_BUCKETS as u32)))
         .collect::<Vec<_>>();
     let buckets = {
-        let mut buckets = [[PositionY {
-            position: Position::SENTINEL,
-            y: Y::SENTINEL,
-        }; MAX_BUCKET_SIZE]; 3];
+        let mut buckets = [[PositionR::SENTINEL; MAX_BUCKET_SIZE]; 3];
 
         let mut total_found = [0_usize; 3];
         for (position, &y) in parent_table_ys.iter().enumerate() {
-            let bucket_index = u32::from(y) / PARAM_BC as u32;
+            let (bucket_index, r) = y.into_bucket_index_and_r();
             let next_index = total_found[bucket_index as usize];
             if next_index < REDUCED_BUCKET_SIZE {
-                buckets[bucket_index as usize][next_index] = PositionY {
+                buckets[bucket_index as usize][next_index] = PositionR {
                     position: Position::from_u32(position as u32),
-                    y,
+                    r,
                 };
                 total_found[bucket_index as usize] += 1;
             }
+        }
+
+        for bucket in buckets.iter_mut() {
+            bucket.sort_by_key(|position_r| (position_r.r, position_r.position));
+            unsafe {
+                Rmap::update_local_bucket_r_data(
+                    0,
+                    1,
+                    bucket,
+                    |p| p == Position::ZERO,
+                    |p| p == Position::SENTINEL,
+                );
+            }
+            bucket.sort_by_key(|entry| entry.position);
         }
 
         buckets
@@ -84,7 +95,7 @@ fn find_matches_in_buckets_gpu() {
 }
 
 async fn find_matches_in_buckets(
-    buckets: &[[PositionY; MAX_BUCKET_SIZE]],
+    buckets: &[[PositionR; MAX_BUCKET_SIZE]],
 ) -> Option<Vec<Vec<Match>>> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
     let instance = Instance::new(&InstanceDescriptor {
@@ -118,7 +129,7 @@ async fn find_matches_in_buckets(
 }
 
 async fn find_matches_in_buckets_adapter(
-    buckets: &[[PositionY; MAX_BUCKET_SIZE]],
+    buckets: &[[PositionR; MAX_BUCKET_SIZE]],
     adapter: Adapter,
 ) -> Option<Vec<Vec<Match>>> {
     let num_bucket_pairs = buckets.len() - 1;

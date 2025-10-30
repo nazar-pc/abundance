@@ -2,7 +2,7 @@
 mod gpu_tests;
 
 use crate::shader::constants::{MAX_BUCKET_SIZE, NUM_BUCKETS};
-use crate::shader::types::{Position, PositionExt, PositionY, Y};
+use crate::shader::types::{PositionR, R};
 use spirv_std::arch::subgroup_shuffle;
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
@@ -12,12 +12,17 @@ use spirv_std::spirv;
 pub const WORKGROUP_SIZE: u32 = 256;
 
 #[inline(always)]
-fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
+fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
     lane_id: u32,
     bit_position: u32,
     block_size: usize,
-    local_bucket: &mut [PositionY; ELEMENTS_PER_THREAD],
-) {
+    local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
+    // TODO: Should have been just `fn()`, but https://github.com/Rust-GPU/rust-gpu/issues/452
+    less_or_equal: LessOrEqual,
+) where
+    LessOrEqual: Fn(&PositionR, &PositionR) -> bool,
+{
+    let lane_base = lane_id as usize * ELEMENTS_PER_THREAD;
     // For local swaps within a thread's register data, iterate over half the elements to form pairs
     // `(a_offset, b_offset)` where indices differ only at `bit_position` and swaps them in-place
     for pair_id in 0..ELEMENTS_PER_THREAD / 2 {
@@ -37,9 +42,9 @@ fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
 
         // Determine the sort direction: ascending if `a_offset`'s bit at `block_size` is `0`.
         // This alternates direction in bitonic merges to create sorted sequences.
-        let ascending = ((lane_id as usize * ELEMENTS_PER_THREAD + a_offset) & block_size) == 0;
+        let ascending = ((lane_base + a_offset) & block_size) == 0;
 
-        let (final_a, final_b) = if (a.position <= b.position) == ascending {
+        let (final_a, final_b) = if less_or_equal(&a, &b) == ascending {
             (a, b)
         } else {
             (b, a)
@@ -51,12 +56,16 @@ fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize>(
 }
 
 #[inline(always)]
-fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
+fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
     lane_id: u32,
     bit_position: u32,
     block_size: usize,
-    local_bucket: &mut [PositionY; ELEMENTS_PER_THREAD],
-) {
+    local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
+    // TODO: Should have been just `fn()`, but https://github.com/Rust-GPU/rust-gpu/issues/452
+    less_or_equal: LessOrEqual,
+) where
+    LessOrEqual: Fn(&PositionR, &PositionR) -> bool,
+{
     // For cross-subgroup swaps, compute partner lane differing at `lane_bit_position`
     let lane_bit_position = bit_position - ELEMENTS_PER_THREAD.ilog2();
     let partner_lane_id = lane_id ^ (1 << lane_bit_position);
@@ -78,12 +87,14 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
         let a = local_bucket[a_offset];
         let b = {
             let position = subgroup_shuffle(a.position, partner_lane_id);
-            let y = Y::from(subgroup_shuffle(u32::from(a.y), partner_lane_id));
+            // SAFETY: `R` is constructed from its own inner value
+            let r =
+                unsafe { R::new_from_inner(subgroup_shuffle(a.r.get_inner(), partner_lane_id)) };
 
-            PositionY { position, y }
+            PositionR { position, r }
         };
 
-        let selected_value = if (a.position <= b.position) == select_smaller {
+        let selected_value = if less_or_equal(&a, &b) == select_smaller {
             a
         } else {
             b
@@ -93,15 +104,16 @@ fn perform_cross_compare_swap<const ELEMENTS_PER_THREAD: usize>(
     }
 }
 
-// TODO: Make unsafe and avoid bounds check
-/// Sort a bucket using bitonic sort
-fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
+#[inline(always)]
+pub(super) fn load_into_local_bucket<const ELEMENTS_PER_THREAD: usize>(
     lane_id: u32,
     bucket_size: u32,
-    bucket: &mut [PositionY; MAX_BUCKET_SIZE],
+    bucket: &[PositionR; MAX_BUCKET_SIZE],
+    local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
 ) {
-    let mut local_bucket = [PositionY::EMPTY; ELEMENTS_PER_THREAD];
-
+    // TODO: Every item is a pair of `u32`s, should this be rewritten for coalesced reads instead?
+    //  If so, casting to an array of `u32`s is needed here, but rust-gpu doesn't support it yet:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     #[expect(
@@ -113,13 +125,20 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
         local_bucket[local_offset] = if bucket_offset < bucket_size as usize {
             bucket[bucket_offset]
         } else {
-            PositionY {
-                position: Position::SENTINEL,
-                y: Y::SENTINEL,
-            }
+            PositionR::SENTINEL
         };
     }
+}
 
+#[inline(always)]
+pub(super) fn sort_local_bucket<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
+    lane_id: u32,
+    local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
+    // TODO: Should have been just `fn()`, but https://github.com/Rust-GPU/rust-gpu/issues/452
+    less_or_equal: LessOrEqual,
+) where
+    LessOrEqual: Fn(&PositionR, &PositionR) -> bool,
+{
     // Iterate over merger stages, doubling block_size each time
     let mut block_size = 2;
     let mut merger_stage = 1;
@@ -130,16 +149,38 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
         for bit_position in (0..merger_stage).rev() {
             if bit_position < ELEMENTS_PER_THREAD.ilog2() {
                 // Local swaps within thread's registers, no synchronization needed
-                perform_local_compare_swap(lane_id, bit_position, block_size, &mut local_bucket);
+                perform_local_compare_swap(
+                    lane_id,
+                    bit_position,
+                    block_size,
+                    local_bucket,
+                    &less_or_equal,
+                );
             } else {
                 // Cross-lane swaps using subgroup shuffles for communication
-                perform_cross_compare_swap(lane_id, bit_position, block_size, &mut local_bucket);
+                perform_cross_compare_swap(
+                    lane_id,
+                    bit_position,
+                    block_size,
+                    local_bucket,
+                    &less_or_equal,
+                );
             }
         }
         block_size *= 2;
         merger_stage += 1;
     }
+}
 
+#[inline(always)]
+pub(super) fn store_from_local_bucket<const ELEMENTS_PER_THREAD: usize>(
+    lane_id: u32,
+    bucket: &mut [PositionR; MAX_BUCKET_SIZE],
+    local_bucket: &[PositionR; ELEMENTS_PER_THREAD],
+) {
+    // TODO: Every item is a pair of `u32`s, should this be rewritten for coalesced writes instead?
+    //  If so, casting to an array of `u32`s is needed here, but rust-gpu doesn't support it yet:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     #[expect(
@@ -150,6 +191,27 @@ fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
         let bucket_offset = lane_id as usize * ELEMENTS_PER_THREAD + local_offset;
         bucket[bucket_offset] = local_bucket[local_offset];
     }
+}
+
+// TODO: Make unsafe and avoid bounds check
+/// Sort a bucket using bitonic sort
+fn sort_bucket_impl<const ELEMENTS_PER_THREAD: usize>(
+    lane_id: u32,
+    bucket_size: u32,
+    bucket: &mut [PositionR; MAX_BUCKET_SIZE],
+) {
+    let mut local_bucket = [PositionR::SENTINEL; ELEMENTS_PER_THREAD];
+
+    load_into_local_bucket(lane_id, bucket_size, bucket, &mut local_bucket);
+
+    sort_local_bucket(
+        lane_id,
+        &mut local_bucket,
+        #[inline(always)]
+        |a, b| a.position <= b.position,
+    );
+
+    store_from_local_bucket(lane_id, bucket, &local_bucket);
 }
 
 /// NOTE: bucket sizes are zeroed after use
@@ -166,7 +228,7 @@ pub fn sort_buckets(
     #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] bucket_sizes: &mut [u32; NUM_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] buckets: &mut [[PositionY; MAX_BUCKET_SIZE];
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] buckets: &mut [[PositionR; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
 ) {
     let workgroup_id = workgroup_id.x;

@@ -5,13 +5,13 @@ mod gpu_tests;
 
 use crate::shader::compute_fn::compute_fn_impl;
 use crate::shader::constants::{
-    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_MATCHES_COUNT,
+    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_matches_in_buckets::{
     MAX_SUBGROUPS, Match, SharedScratchSpace, find_matches_in_buckets_impl,
 };
-use crate::shader::types::{Metadata, Position, PositionExt, PositionY};
+use crate::shader::types::{Metadata, Position, PositionExt, PositionR};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{atomic_i_increment, workgroup_memory_barrier_with_group_sync};
 use spirv_std::glam::UVec3;
@@ -67,7 +67,7 @@ unsafe fn compute_f2_into_buckets(
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
     bucket_sizes: &mut [u32; NUM_BUCKETS],
-    buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
+    buckets: &mut [[MaybeUninit<PositionR>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     positions: &mut [MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT],
     metadatas: &mut [MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT],
 ) {
@@ -87,9 +87,9 @@ unsafe fn compute_f2_into_buckets(
             right_metadata,
         );
 
-        let bucket_index = (u32::from(y) / u32::from(PARAM_BC)) as usize;
+        let (bucket_index, r) = y.into_bucket_index_and_r();
         // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-        let bucket_size = unsafe { bucket_sizes.get_unchecked_mut(bucket_index) };
+        let bucket_size = unsafe { bucket_sizes.get_unchecked_mut(bucket_index as usize) };
         // TODO: Probably should not be unsafe to begin with:
         //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
         let bucket_offset = unsafe {
@@ -103,12 +103,12 @@ unsafe fn compute_f2_into_buckets(
         // is also always within bounds.
         unsafe {
             buckets
-                .get_unchecked_mut(bucket_index)
+                .get_unchecked_mut(bucket_index as usize)
                 .get_unchecked_mut(bucket_offset as usize)
         }
-        .write(PositionY {
+        .write(PositionR {
             position: Position::from_u32(metadatas_offset + index),
-            y,
+            r,
         });
 
         positions[index as usize].write([m.left_position, m.right_position]);
@@ -125,7 +125,7 @@ unsafe fn compute_f2_into_buckets(
 ///
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].
+/// [`MAX_SUBGROUPS`].  All buckets must come from the `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f2"))]
 #[expect(
     clippy::too_many_arguments,
@@ -135,12 +135,13 @@ pub unsafe fn find_matches_and_compute_f2(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionY; MAX_BUCKET_SIZE];
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionR; MAX_BUCKET_SIZE];
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] bucket_sizes: &mut [u32; NUM_BUCKETS],
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &mut [[MaybeUninit<PositionY>; MAX_BUCKET_SIZE];
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &mut [[MaybeUninit<PositionR>; MAX_BUCKET_SIZE];
              NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT];
              NUM_MATCH_BUCKETS],
@@ -184,6 +185,7 @@ pub unsafe fn find_matches_and_compute_f2(
         // SAFETY: Guaranteed by function contract
         let matches_count = unsafe {
             find_matches_in_buckets_impl(
+                subgroup_local_invocation_id,
                 subgroup_id,
                 num_subgroups,
                 local_invocation_id,
