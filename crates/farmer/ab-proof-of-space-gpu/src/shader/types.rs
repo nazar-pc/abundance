@@ -183,7 +183,7 @@ impl R {
         Self(inner)
     }
 
-    /// Similar to `new`, but also stored extra data alongside `r`.
+    /// Similar to `new`, but also stores extra data alongside `r`.
     ///
     /// # Safety
     /// `r` value is expected to be within `0..PARAM_BC` range, `data` must contain at most

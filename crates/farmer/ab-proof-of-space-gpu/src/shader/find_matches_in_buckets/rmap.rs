@@ -385,7 +385,7 @@ impl Rmap {
     /// NOTE: For this to work correctly, all local buckets together must be sorted by `r` and
     /// `position` among `r` duplicates. `r` must not store additional data in it yet.
     ///
-    /// /// # Safety
+    /// # Safety
     /// There must be at most [`REDUCED_BUCKET_SIZE`] items inserted.
     pub(in super::super) unsafe fn update_local_bucket_r_data<
         const ELEMENTS_PER_THREAD: usize,
