@@ -79,13 +79,7 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
         for bucket in buckets.iter_mut() {
             bucket.sort_by_key(|position_r| (position_r.r, position_r.position));
             unsafe {
-                Rmap::update_local_bucket_r_data(
-                    0,
-                    1,
-                    bucket,
-                    |p| p == Position::ZERO,
-                    |p| p == Position::SENTINEL,
-                );
+                Rmap::update_local_bucket_r_data(0, 1, bucket);
             }
             bucket.sort_by_key(|entry| entry.position);
         }

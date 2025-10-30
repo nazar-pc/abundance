@@ -3,15 +3,16 @@ mod gpu_tests;
 
 use crate::shader::constants::{MAX_BUCKET_SIZE, NUM_BUCKETS, REDUCED_BUCKET_SIZE};
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
-use crate::shader::sort_buckets::{load_into_local_bucket, sort_local_bucket};
-use crate::shader::types::{Position, PositionExt, PositionR};
+use crate::shader::sort_buckets::{
+    load_into_local_bucket, sort_local_bucket, store_from_local_bucket,
+};
+use crate::shader::types::PositionR;
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
 
 // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` below, can be removed once
 //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
 pub const WORKGROUP_SIZE: u32 = 256;
-const POSITION_MASK: Position = u32::MAX >> (u32::BITS - Position::SENTINEL.bit_width());
 
 // TODO: Make unsafe and avoid bounds check
 /// Sort a bucket using bitonic sort and store `Rmap` details in `r`'s data
@@ -32,8 +33,7 @@ fn sort_buckets_with_rmap_details_impl<const ELEMENTS_PER_THREAD: usize>(
         #[inline(always)]
         |a, b| a.position <= b.position,
     );
-
-    // Truncate bucket to `REDUCED_BUCKET_SIZE` and store bucket offset before sorting by `r`
+    // Truncate bucket to `REDUCED_BUCKET_SIZE`
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     #[expect(
@@ -42,22 +42,10 @@ fn sort_buckets_with_rmap_details_impl<const ELEMENTS_PER_THREAD: usize>(
     )]
     for local_offset in 0..ELEMENTS_PER_THREAD {
         let bucket_offset = lane_id as usize * ELEMENTS_PER_THREAD + local_offset;
-        let position_r = &mut local_bucket[local_offset];
         if bucket_offset >= REDUCED_BUCKET_SIZE {
-            *position_r = PositionR::SENTINEL;
+            local_bucket[local_offset] = PositionR::SENTINEL;
         }
-
-        const {
-            assert!(
-                Position::SENTINEL.bit_width() + (MAX_BUCKET_SIZE - 1).bit_width() <= u32::BITS
-            );
-        }
-
-        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
-        //  shouldn't be necessary otherwise
-        position_r.position |= (bucket_offset as u32) << const { Position::SENTINEL.bit_width() };
     }
-
     // Stable sort by `r`, which retains relative `position` order
     sort_local_bucket(
         lane_id,
@@ -66,48 +54,25 @@ fn sort_buckets_with_rmap_details_impl<const ELEMENTS_PER_THREAD: usize>(
         |a, b| {
             // TODO: Comparison of `r` doesn't compile right now:
             //  https://github.com/Rust-GPU/rust-gpu/issues/409
-            a.r.get_inner() < b.r.get_inner()
-                || (a.r == b.r && (a.position & POSITION_MASK) <= (b.position & POSITION_MASK))
+            a.r.get_inner() < b.r.get_inner() || (a.r == b.r && a.position <= b.position)
         },
     );
 
     // SAFETY: Bucket is truncated to `REDUCED_BUCKET_SIZE` above
     unsafe {
-        Rmap::update_local_bucket_r_data(
-            lane_id,
-            subgroup_size,
-            &mut local_bucket,
-            #[inline(always)]
-            |position| (position & POSITION_MASK) == Position::ZERO,
-            #[inline(always)]
-            |position| (position & POSITION_MASK) == Position::SENTINEL,
-        );
+        Rmap::update_local_bucket_r_data(lane_id, subgroup_size, &mut local_bucket);
     }
 
-    // TODO: Every item is a pair of `u32`s, should this be rewritten for coalesced reads instead?
-    // Write back to the bucket in the order sorted by `position`
-    // TODO: More idiomatic version currently doesn't compile:
-    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    #[expect(
-        clippy::needless_range_loop,
-        reason = "rust-gpu can't compile idiomatic version"
-    )]
-    for local_offset in 0..ELEMENTS_PER_THREAD {
-        let bucket_offset = lane_id as usize * ELEMENTS_PER_THREAD + local_offset;
-        if bucket_offset >= REDUCED_BUCKET_SIZE.min(bucket_size as usize) {
-            bucket[bucket_offset] = PositionR::SENTINEL;
-        } else {
-            let position_r = &mut local_bucket[local_offset];
+    // TODO: Maybe retain original order and avoid sorting here?
+    // Re-sort back to position order
+    sort_local_bucket(
+        lane_id,
+        &mut local_bucket,
+        #[inline(always)]
+        |a, b| a.position <= b.position,
+    );
 
-            // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
-            //  shouldn't be necessary otherwise
-            let original_bucket_offset =
-                position_r.position >> const { Position::SENTINEL.bit_width() };
-            position_r.position &= POSITION_MASK;
-
-            bucket[original_bucket_offset as usize] = *position_r;
-        }
-    }
+    store_from_local_bucket(lane_id, bucket, &local_bucket);
 }
 
 /// NOTE: bucket sizes are zeroed after use

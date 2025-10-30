@@ -22,7 +22,6 @@ fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
 ) where
     LessOrEqual: Fn(&PositionR, &PositionR) -> bool,
 {
-    let lane_base = lane_id as usize * ELEMENTS_PER_THREAD;
     // For local swaps within a thread's register data, iterate over half the elements to form pairs
     // `(a_offset, b_offset)` where indices differ only at `bit_position` and swaps them in-place
     for pair_id in 0..ELEMENTS_PER_THREAD / 2 {
@@ -42,7 +41,7 @@ fn perform_local_compare_swap<const ELEMENTS_PER_THREAD: usize, LessOrEqual>(
 
         // Determine the sort direction: ascending if `a_offset`'s bit at `block_size` is `0`.
         // This alternates direction in bitonic merges to create sorted sequences.
-        let ascending = ((lane_base + a_offset) & block_size) == 0;
+        let ascending = ((lane_id as usize * ELEMENTS_PER_THREAD + a_offset) & block_size) == 0;
 
         let (final_a, final_b) = if less_or_equal(&a, &b) == ascending {
             (a, b)
