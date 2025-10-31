@@ -2,7 +2,7 @@
 mod gpu_tests;
 
 use crate::shader::constants::{MAX_BUCKET_SIZE, NUM_BUCKETS, REDUCED_BUCKET_SIZE};
-use crate::shader::find_matches_in_buckets::rmap::Rmap;
+use crate::shader::find_matches_in_buckets::rmap::{Rmap, assert_elements_per_thread};
 use crate::shader::sort_buckets::{
     load_into_local_bucket, sort_local_bucket, store_from_local_bucket,
 };
@@ -21,7 +21,9 @@ fn sort_buckets_with_rmap_details_impl<const ELEMENTS_PER_THREAD: usize>(
     subgroup_size: u32,
     bucket_size: u32,
     bucket: &mut [PositionR; MAX_BUCKET_SIZE],
-) {
+) where
+    [(); assert_elements_per_thread(ELEMENTS_PER_THREAD)]:,
+{
     let mut local_bucket = [PositionR::SENTINEL; ELEMENTS_PER_THREAD];
 
     load_into_local_bucket(lane_id, bucket_size, bucket, &mut local_bucket);

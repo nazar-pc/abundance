@@ -1,5 +1,7 @@
-use crate::shader::constants::{K, MAX_BUCKET_SIZE, NUM_BUCKETS, REDUCED_BUCKET_SIZE, y_size_bits};
-use crate::shader::find_matches_in_buckets::rmap::Rmap;
+use crate::shader::constants::{
+    K, MAX_BUCKET_SIZE, NUM_BUCKETS, PARAM_BC, REDUCED_BUCKET_SIZE, y_size_bits,
+};
+use crate::shader::find_matches_in_buckets::rmap::{Rmap, RmapBitPosition, RmapBitPositionExt};
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Position, PositionExt, PositionR, Y};
 use chacha20::ChaCha8Rng;
@@ -61,10 +63,32 @@ fn sort_buckets_with_rmap_details_gpu() {
     for (bucket_index, (expected, actual)) in
         expected_output.iter().zip(actual_output.iter()).enumerate()
     {
-        for (index, (expected, actual)) in expected.iter().zip(actual.iter()).enumerate() {
+        let mut rmap_expected = Rmap::new();
+        for position_r in expected {
+            if position_r.position == Position::SENTINEL {
+                break;
+            }
+
+            unsafe {
+                rmap_expected.add_with_data_parallel(position_r.r, position_r.position);
+            }
+        }
+        let mut rmap_actual = Rmap::new();
+        for position_r in actual {
+            if position_r.position == Position::SENTINEL {
+                break;
+            }
+
+            unsafe {
+                rmap_actual.add_with_data_parallel(position_r.r, position_r.position);
+            }
+        }
+        for r in 0..u32::from(PARAM_BC) {
+            let rmap_bit_position = unsafe { RmapBitPosition::new(r) };
             assert_eq!(
-                expected, actual,
-                "bucket_index={bucket_index}, index={index}"
+                rmap_expected.get(rmap_bit_position),
+                rmap_actual.get(rmap_bit_position),
+                "bucket_index={bucket_index}, r={r:?}"
             );
         }
     }
@@ -99,12 +123,32 @@ async fn sort_buckets_with_rmap_details(
                 for (bucket_index, (result, adapter_result)) in
                     result.iter().zip(adapter_result.iter()).enumerate()
                 {
-                    for (index, (result, adapter_result)) in
-                        result.iter().zip(adapter_result.iter()).enumerate()
-                    {
+                    let mut rmap_previous = Rmap::new();
+                    for position_r in adapter_result {
+                        if position_r.position == Position::SENTINEL {
+                            break;
+                        }
+
+                        unsafe {
+                            rmap_previous.add_with_data_parallel(position_r.r, position_r.position);
+                        }
+                    }
+                    let mut rmap_current = Rmap::new();
+                    for position_r in result {
+                        if position_r.position == Position::SENTINEL {
+                            break;
+                        }
+
+                        unsafe {
+                            rmap_current.add_with_data_parallel(position_r.r, position_r.position);
+                        }
+                    }
+                    for r in 0..u32::from(PARAM_BC) {
+                        let rmap_bit_position = unsafe { RmapBitPosition::new(r) };
                         assert_eq!(
-                            result, adapter_result,
-                            "bucket_index={bucket_index}, index={index}"
+                            rmap_previous.get(rmap_bit_position),
+                            rmap_current.get(rmap_bit_position),
+                            "bucket_index={bucket_index}, r={r:?}"
                         );
                     }
                 }
