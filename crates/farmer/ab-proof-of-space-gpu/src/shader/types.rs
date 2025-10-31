@@ -76,7 +76,6 @@ impl Y {
 // }
 //
 // impl Position {
-//     pub(super) const ZERO: Self = Self(0);
 //     /// Position that can't exist
 //     pub(super) const SENTINEL: Self = Self(u32::MAX >> (u32::BITS - MAX_TABLE_SIZE.bit_width()));
 // }
@@ -95,7 +94,6 @@ pub type Position = u32;
 
 // TODO: Remove once normal `Position` struct can be used
 pub(super) trait PositionExt: Sized {
-    const ZERO: Self;
     /// Position that can't exist
     const SENTINEL: Self;
 
@@ -108,7 +106,6 @@ pub(super) trait PositionExt: Sized {
 }
 
 impl PositionExt for Position {
-    const ZERO: Self = 0;
     const SENTINEL: Self = u32::MAX >> (u32::BITS - MAX_TABLE_SIZE.bit_width());
 
     #[inline(always)]
@@ -159,7 +156,7 @@ impl From<Position> for Metadata {
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[repr(C)]
-pub struct R(u32);
+pub struct R(pub u32);
 
 impl R {
     /// R that can't exist

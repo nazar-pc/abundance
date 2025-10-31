@@ -1,14 +1,12 @@
 #[cfg(all(test, not(target_arch = "spirv")))]
 mod tests;
 
-use crate::shader::constants::{PARAM_BC, REDUCED_BUCKET_SIZE};
+use crate::shader::constants::{MAX_BUCKET_SIZE, PARAM_BC, REDUCED_BUCKET_SIZE};
 #[cfg(target_arch = "spirv")]
 use crate::shader::find_matches_in_buckets::ArrayIndexingPolyfill;
 use crate::shader::types::{Position, PositionExt, PositionR, R};
 use core::mem::MaybeUninit;
-#[cfg(target_arch = "spirv")]
-use spirv_std::arch::{atomic_or, subgroup_shuffle};
-#[cfg(target_arch = "spirv")]
+use spirv_std::arch::{atomic_or, subgroup_exclusive_i_add, subgroup_shuffle, subgroup_u_max};
 use spirv_std::memory::{Scope, Semantics};
 
 // TODO: Benchmark on different GPUs to see if the complexity of dealing with 9-bit pointers is
@@ -61,10 +59,10 @@ impl NextPhysicalPointer {
 //     }
 // }
 
-pub(super) type RmapBitPosition = u32;
+pub(in super::super) type RmapBitPosition = u32;
 
 // TODO: Remove once normal `RmapBitPosition` struct can be used
-pub(super) trait RmapBitPositionExt: Sized {
+pub(in super::super) trait RmapBitPositionExt: Sized {
     /// # Safety
     /// `r` must be in the range `0..PARAM_BC`
     unsafe fn new(r: u32) -> Self;
@@ -88,64 +86,58 @@ impl RmapBitPositionExt for RmapBitPosition {
     }
 }
 
-/// Preparation state that combines a bunch of separate tracking values into a compact
-/// representation to minimize registers usage to maintain reasonable occupancy
-#[derive(Debug)]
-struct RAccumulator {
-    /// Accumulates `r`, virtual pointer, and a flag whether `r` duplicate was found
-    r_accumulator: u32,
+enum ConcurrentAddSlot {
+    First { physical_pointer: u32 },
+    Second { physical_pointer: u32 },
+    Ignore,
 }
 
-impl Default for RAccumulator {
+impl ConcurrentAddSlot {
     #[inline(always)]
-    fn default() -> Self {
-        Self {
-            // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
-            //  shouldn't be necessary otherwise
-            r_accumulator: const { u32::MAX >> (u32::BITS - (PARAM_BC - 1).bit_width()) },
+    fn into_data(self) -> u32 {
+        match self {
+            Self::First { physical_pointer } => physical_pointer << 2,
+            Self::Second { physical_pointer } => (physical_pointer << 2) | 1,
+            Self::Ignore => 0b11,
         }
+    }
+
+    /// SAFETY:
+    /// `data` must be created from the [`Self::First`] variant before
+    #[inline(always)]
+    unsafe fn data_to_second(data: u32) -> u32 {
+        data | 1
+    }
+
+    #[inline(always)]
+    fn is_first(data: u32) -> bool {
+        data & 0b11 == 0
+    }
+
+    #[inline(always)]
+    fn is_second(data: u32) -> bool {
+        data & 0b11 == 1
+    }
+
+    #[inline(always)]
+    fn is_ignore(data: u32) -> bool {
+        data == 0b11
+    }
+
+    /// # Safety
+    /// Must be called with data created from [`Self::into_data()`]. Note that this result is only
+    /// meaningful for [`Self::First`] and [`Self::Second`].
+    unsafe fn positions_offset_and_physical_pointer_from_data(data: u32) -> (usize, u32) {
+        (data as usize & 0b11, data >> 2)
     }
 }
 
-impl RAccumulator {
-    #[inline(always)]
-    fn get_additional_data(&self) -> u32 {
-        self.r_accumulator >> (u32::BITS - (VIRTUAL_POINTER_BITS + 1))
-    }
-
-    #[inline(always)]
-    fn set_r_duplicate(&mut self) {
-        let r_duplicate = 1 << (u32::BITS - (VIRTUAL_POINTER_BITS + 1));
-        self.r_accumulator |= r_duplicate;
-    }
-
-    #[inline(always)]
-    fn has_r_duplicate(&self) -> bool {
-        let r_duplicate = 1 << (u32::BITS - (VIRTUAL_POINTER_BITS + 1));
-        (self.r_accumulator & r_duplicate) != 0
-    }
-
-    #[inline(always)]
-    fn set_r(&mut self, r: u32) {
-        // Statically ensure all 3 components fit into `u32`
-        const {
-            assert!(VIRTUAL_POINTER_BITS + 1 + (PARAM_BC - 1).bit_width() <= u32::BITS);
-        }
-        // Clear everything except the virtual pointer
-        self.r_accumulator &= u32::MAX << (u32::BITS - VIRTUAL_POINTER_BITS);
-        // Increment virtual pointer
-        let virtual_pointer_increment = 1 << (u32::BITS - VIRTUAL_POINTER_BITS);
-        self.r_accumulator += virtual_pointer_increment;
-        // Set `r`
-        self.r_accumulator |= r;
-    }
-
-    #[inline(always)]
-    fn get_r(&self) -> u32 {
-        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
-        //  shouldn't be necessary otherwise
-        self.r_accumulator & const { u32::MAX >> (u32::BITS - (PARAM_BC - 1).bit_width()) }
-    }
+// TODO: This is a hack, better solution doesn't currently compile in Rust
+pub(in super::super) const fn assert_elements_per_thread(elements_per_thread: usize) -> usize {
+    // For less than 2 elements per thread, the logic inside `Rmap::update_local_bucket_r_data()`
+    // will read array out of bounds
+    assert!(elements_per_thread >= 2);
+    0
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -164,7 +156,7 @@ impl Rmap {
     pub(in super::super) fn new() -> Self {
         Self {
             virtual_pointers: [0; _],
-            positions: [[Position::ZERO; 2]; _],
+            positions: [[Position::SENTINEL; 2]; _],
         }
     }
 
@@ -252,9 +244,9 @@ impl Rmap {
         let rmap_item = unsafe { self.positions.get_unchecked_mut(physical_pointer as usize) };
 
         // The same `r` can appear in the table multiple times, one duplicate is supported here
-        if rmap_item[0] == Position::ZERO {
+        if rmap_item[0] == Position::SENTINEL {
             rmap_item[0] = position;
-        } else if rmap_item[1] == Position::ZERO {
+        } else if rmap_item[1] == Position::SENTINEL {
             rmap_item[1] = position;
         }
     }
@@ -264,14 +256,16 @@ impl Rmap {
     ///
     /// # Safety
     /// `r` elements must be updated using [`Self::update_local_bucket_r_data()`].
-    pub(super) unsafe fn add_with_data_parallel(&mut self, r: R, position: Position) {
+    pub(in super::super) unsafe fn add_with_data_parallel(&mut self, r: R, position: Position) {
         let (r, data) = r.split();
-        if data == 0 {
-            // No virtual pointer here, hence this is a duplicate that should be ignored
+        if ConcurrentAddSlot::is_ignore(data) {
+            // This is a duplicate that should be ignored
             return;
         }
-        let rmap_offset = data & 1;
-        let virtual_pointer = data >> 1;
+        // SAFETY: Guaranteed by function contract
+        let (positions_offset, physical_pointer) =
+            unsafe { ConcurrentAddSlot::positions_offset_and_physical_pointer_from_data(data) };
+        let virtual_pointer = physical_pointer + 1;
 
         // SAFETY: `r` is obtained from the `R` instance and thus must be valid
         let rmap_bit_position = unsafe { RmapBitPosition::new(r) };
@@ -282,17 +276,16 @@ impl Rmap {
 
         // SAFETY: Offset comes from `RmapBitPosition`, whose constructor guarantees bounds
         let word = unsafe { self.virtual_pointers.get_unchecked_mut(word_offset) };
-        // TODO: Probably should not be unsafe to begin with:
-        //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
-        #[cfg(target_arch = "spirv")]
-        unsafe {
-            atomic_or::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(
-                word,
-                virtual_pointer << bit_offset,
-            );
-        }
-        #[cfg(not(target_arch = "spirv"))]
-        {
+        if cfg!(target_arch = "spirv") {
+            // TODO: Probably should not be unsafe to begin with:
+            //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
+            unsafe {
+                atomic_or::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(
+                    word,
+                    virtual_pointer << bit_offset,
+                );
+            }
+        } else {
             *word |= virtual_pointer << bit_offset;
         }
 
@@ -301,15 +294,14 @@ impl Rmap {
             let word_next = unsafe { self.virtual_pointers.get_unchecked_mut(word_offset + 1) };
             // TODO: Probably should not be unsafe to begin with:
             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
-            #[cfg(target_arch = "spirv")]
-            unsafe {
-                atomic_or::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(
-                    word_next,
-                    virtual_pointer >> (u32::BITS - bit_offset),
-                );
-            }
-            #[cfg(not(target_arch = "spirv"))]
-            {
+            if cfg!(target_arch = "spirv") {
+                unsafe {
+                    atomic_or::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(
+                        word_next,
+                        virtual_pointer >> (u32::BITS - bit_offset),
+                    );
+                }
+            } else {
                 *word_next |= virtual_pointer >> (u32::BITS - bit_offset);
             }
         }
@@ -318,11 +310,11 @@ impl Rmap {
 
         // SAFETY: Internal pointers are always valid
         let rmap_item = unsafe { self.positions.get_unchecked_mut(physical_pointer as usize) };
-        rmap_item[rmap_offset as usize] = position;
+        rmap_item[positions_offset] = position;
     }
 
     #[inline(always)]
-    pub(super) fn get(&self, rmap_bit_position: RmapBitPosition) -> [Position; 2] {
+    pub(in super::super) fn get(&self, rmap_bit_position: RmapBitPosition) -> [Position; 2] {
         let bit_position = rmap_bit_position.get();
         let word_offset = (bit_position / u32::BITS) as usize;
         let bit_offset = bit_position % u32::BITS;
@@ -346,13 +338,12 @@ impl Rmap {
             // SAFETY: Internal pointers are always valid
             *unsafe { self.positions.get_unchecked(physical_pointer as usize) }
         } else {
-            [Position::ZERO; 2]
+            [Position::SENTINEL; 2]
         }
     }
 
-    // TODO: Remove as soon as non-hacky version compiles
     #[inline(always)]
-    pub(super) fn zeroing_hack(
+    pub(super) fn reset(
         rmap: &mut MaybeUninit<Self>,
         local_invocation_id: u32,
         workgroup_size: u32,
@@ -369,12 +360,10 @@ impl Rmap {
         let pair_id = local_invocation_id / 2;
         let pair_offset = local_invocation_id % 2;
         for bucket in (pair_id..REDUCED_BUCKET_SIZE as u32).step_by((workgroup_size / 2) as usize) {
-            rmap.positions[bucket as usize][pair_offset as usize] = Position::ZERO;
+            rmap.positions[bucket as usize][pair_offset as usize] = Position::SENTINEL;
         }
     }
 
-    // TODO: It should be possible to optimize this further with parallelism instead of (currently)
-    //  sequential version
     /// This prepares the local bucket by appending extra information in `R`'s data field, such that
     /// `Rmap` can later be constructed in parallel rather than sequentially.
     ///
@@ -389,73 +378,148 @@ impl Rmap {
         lane_id: u32,
         subgroup_size: u32,
         local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
-    ) {
-        let mut preparation_state = RAccumulator::default();
+    ) where
+        [(); assert_elements_per_thread(ELEMENTS_PER_THREAD)]:,
+    {
+        let mut positions_cursor = 0u32;
 
-        // TODO: More idiomatic version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        #[expect(
-            clippy::needless_range_loop,
-            reason = "rust-gpu can't compile idiomatic version"
-        )]
-        for source_lane in 0..subgroup_size {
-            for local_offset in 0..ELEMENTS_PER_THREAD {
-                #[cfg(target_arch = "spirv")]
-                let position = subgroup_shuffle(local_bucket[local_offset].position, source_lane);
-                #[cfg(not(target_arch = "spirv"))]
-                let position = {
-                    assert_eq!(lane_id, 0);
-                    assert_eq!(subgroup_size, 1);
+        if cfg!(target_arch = "spirv") {
+            // Special handling for the first element
+            {
+                let prev_r_inner = subgroup_shuffle(
+                    local_bucket[ELEMENTS_PER_THREAD - 1].r.get_inner(),
+                    lane_id.wrapping_sub(1) % subgroup_size,
+                );
+                let before_prev_r_inner = subgroup_shuffle(
+                    local_bucket[ELEMENTS_PER_THREAD - 2].r.get_inner(),
+                    lane_id.wrapping_sub(1) % subgroup_size,
+                );
 
-                    local_bucket[local_offset].position
-                };
-                if position == Position::ZERO {
-                    // This is to match the sequential version
-                    continue;
-                }
-                if position == Position::SENTINEL {
-                    return;
-                }
+                let position = local_bucket[0].position;
+                let r_inner = local_bucket[0].r.get_inner();
+                let ignore = position == Position::SENTINEL;
+                let is_first = !ignore && r_inner != prev_r_inner;
 
-                #[cfg(target_arch = "spirv")]
-                let r = subgroup_shuffle(local_bucket[local_offset].r.get_inner(), source_lane);
-                #[cfg(not(target_arch = "spirv"))]
-                let r = {
-                    assert_eq!(lane_id, 0);
-                    assert_eq!(subgroup_size, 1);
+                let positions_offset =
+                    positions_cursor + subgroup_exclusive_i_add(if is_first { 1 } else { 0 });
+                positions_cursor = subgroup_u_max(positions_offset + if is_first { 1 } else { 0 });
 
-                    local_bucket[local_offset].r.get_inner()
-                };
-
-                if preparation_state.get_r() == r {
-                    if preparation_state.has_r_duplicate() {
-                        // One `r` duplicate was already processed, all others are skipped
-                        continue;
+                let slot_offset = if is_first {
+                    ConcurrentAddSlot::First {
+                        physical_pointer: positions_offset,
                     }
-                    preparation_state.set_r_duplicate();
+                } else if !ignore && r_inner == prev_r_inner && r_inner != before_prev_r_inner {
+                    ConcurrentAddSlot::Second {
+                        // Set to zero for now, will be overwritten later
+                        physical_pointer: 0,
+                    }
                 } else {
-                    preparation_state.set_r(r);
-                }
+                    ConcurrentAddSlot::Ignore
+                };
+                // SAFETY: `r_inner` is valid according to the function contract, `data` part is
+                // statically known to fit
+                local_bucket[0].r = unsafe { R::new_with_data(r_inner, slot_offset.into_data()) };
+            }
 
-                if lane_id == source_lane {
-                    #[expect(clippy::int_plus_one, reason = "This describes the invariant exactly")]
-                    const {
-                        assert!(VIRTUAL_POINTER_BITS + 1 <= u32::BITS - (PARAM_BC - 1).bit_width());
-                    }
-                    // `r` is valid according to the function contract, `data` part is statically
-                    // asserted to fit above
-                    local_bucket[local_offset].r =
-                        unsafe { R::new_with_data(r, preparation_state.get_additional_data()) };
+            // Handle other elements within each invocation, copy positions from the previous
+            // element if necessary
+            for local_offset in 1..ELEMENTS_PER_THREAD {
+                let (prev_r, prev_data) = local_bucket[local_offset - 1].r.split();
 
-                    #[cfg(not(target_arch = "spirv"))]
-                    {
-                        assert_eq!(r, local_bucket[local_offset].r.split().0);
-                        assert_eq!(
-                            preparation_state.get_additional_data(),
-                            local_bucket[local_offset].r.split().1
-                        );
+                let position = local_bucket[local_offset].position;
+                let r_inner = local_bucket[local_offset].r.get_inner();
+                let ignore = position == Position::SENTINEL;
+                let is_first = !ignore && r_inner != prev_r;
+
+                let positions_offset =
+                    positions_cursor + subgroup_exclusive_i_add(if is_first { 1 } else { 0 });
+                positions_cursor = subgroup_u_max(positions_offset + if is_first { 1 } else { 0 });
+                let data = if is_first {
+                    ConcurrentAddSlot::First {
+                        physical_pointer: positions_offset,
                     }
+                    .into_data()
+                } else if !ignore && r_inner == prev_r && ConcurrentAddSlot::is_first(prev_data) {
+                    // SAFETY: Is the same `r` and previous is first, set earlier
+                    unsafe { ConcurrentAddSlot::data_to_second(prev_data) }
+                } else {
+                    ConcurrentAddSlot::Ignore.into_data()
+                };
+                // SAFETY: `r_inner` is valid according to the function contract, `data` part is
+                // statically known to fit
+                local_bucket[local_offset].r = unsafe { R::new_with_data(r_inner, data) };
+            }
+
+            // Special handling for the first element, update its data with positions offset if
+            // necessary
+            {
+                // SAFETY: `R` is constructed from its inner value
+                let prev_r = unsafe {
+                    R::new_from_inner(subgroup_shuffle(
+                        local_bucket[ELEMENTS_PER_THREAD - 1].r.get_inner(),
+                        lane_id.wrapping_sub(1) % subgroup_size,
+                    ))
+                };
+                let (r, data) = local_bucket[0].r.split();
+
+                // If second slot offset, copy positions from the previous element
+                if ConcurrentAddSlot::is_second(data) {
+                    let (_, prev_r_data) = prev_r.split();
+                    // SAFETY: Data must have been written by this function earlier with
+                    // `ConcurrentAddSlot::to_data()` according to function contract
+                    let data = unsafe { ConcurrentAddSlot::data_to_second(prev_r_data) };
+                    // SAFETY: `r` is valid according to the function contract, `data` part is
+                    // statically known to fit
+                    local_bucket[0].r = unsafe { R::new_with_data(r, data) };
                 }
+            }
+        } else {
+            assert_eq!(lane_id, 0);
+            assert_eq!(subgroup_size, 1);
+            assert_eq!(ELEMENTS_PER_THREAD, MAX_BUCKET_SIZE);
+
+            // SAFETY: `R` inner value is valid according to the function contract, `data` part is
+            // statically known to fit
+            local_bucket[0].r = unsafe {
+                R::new_with_data(local_bucket[0].r.get_inner(), {
+                    // The very first one is never ignored
+                    let data = ConcurrentAddSlot::First {
+                        physical_pointer: positions_cursor,
+                    }
+                    .into_data();
+                    positions_cursor += 1;
+                    data
+                })
+            };
+
+            for local_offset in 1..ELEMENTS_PER_THREAD {
+                let position = local_bucket[local_offset].position;
+                if position == Position::SENTINEL {
+                    break;
+                }
+                let r = local_bucket[local_offset].r.get_inner();
+
+                let (prev_r, prev_data) = local_bucket[local_offset - 1].r.split();
+
+                let data = if r == prev_r {
+                    if ConcurrentAddSlot::is_first(prev_data) {
+                        // SAFETY: Obtained from `ConcurrentAddSlot` on the previous iteration
+                        unsafe { ConcurrentAddSlot::data_to_second(prev_data) }
+                    } else {
+                        ConcurrentAddSlot::Ignore.into_data()
+                    }
+                } else {
+                    let data = ConcurrentAddSlot::First {
+                        physical_pointer: positions_cursor,
+                    }
+                    .into_data();
+                    positions_cursor += 1;
+                    data
+                };
+
+                // SAFETY: `r_inner` is valid according to the function contract, `data` part is
+                // statically known to fit
+                local_bucket[local_offset].r = unsafe { R::new_with_data(r, data) };
             }
         }
     }
