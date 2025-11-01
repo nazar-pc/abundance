@@ -107,7 +107,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 
     let left_base = left_bucket_index * u32::from(PARAM_BC);
 
-    // Zero-initialize `rmap`
+    // Initialize `rmap`
     let rmap = {
         const {
             assert!(size_of::<Rmap>().is_multiple_of(size_of::<u32>()));
@@ -116,24 +116,8 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             const fn assert_copy<T: Copy>() {}
             assert_copy::<Rmap>();
         }
-        // TODO: Proper parallel version currently doesn't compile, remove zeroing hack once it
-        //  does: https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // // SAFETY: `Rmap` is a simple `Copy` struct for which zero-initialization is valid
-        // let rmap_words = unsafe {
-        //     rmap.as_mut_ptr()
-        //         .cast::<[MaybeUninit<u32>; size_of::<Rmap>() / size_of::<u32>()]>()
-        //         .as_mut_unchecked()
-        // };
-        // for word_index in (0..size_of::<Rmap>())
-        //     .skip(local_invocation_id as usize)
-        //     .step_by(WORKGROUP_SIZE as usize)
-        // {
-        //     // SAFETY: `word_index` is within bounds of `Rmap`
-        //     unsafe {
-        //         rmap_words.get_unchecked_mut(word_index).write(0);
-        //     }
-        // }
-        Rmap::zeroing_hack(rmap, local_invocation_id, WORKGROUP_SIZE);
+
+        Rmap::reset(rmap, local_invocation_id, WORKGROUP_SIZE);
 
         workgroup_memory_barrier_with_group_sync();
 
@@ -185,12 +169,6 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             let r_entry = &mut left_rs[index];
 
             left_bucket_position.write(position);
-
-            // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
-            if position == Position::SENTINEL {
-                break;
-            }
-
             r_entry.write(r);
         }
 
@@ -248,7 +226,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         let ([right_position_a, right_position_b], left_r) = if left_position == Position::SENTINEL
         {
             // `left_r` value doesn't matter here, it will not be read/used anyway
-            ([Position::ZERO; _], 0)
+            ([Position::SENTINEL; _], 0)
         } else {
             // TODO: More idiomatic version currently doesn't compile:
             //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -265,8 +243,8 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             (positions, left_r)
         };
 
-        let local_matches_count = (right_position_a != Position::ZERO) as u32
-            + (right_position_b != Position::ZERO) as u32;
+        let local_matches_count = (right_position_a != Position::SENTINEL) as u32
+            + (right_position_b != Position::SENTINEL) as u32;
 
         // Add up the numbers of matches in the subgroup up to the current lane (exclusive)
         let local_matches_prefix = subgroup_exclusive_i_add(local_matches_count);
@@ -304,7 +282,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         // Calculate offset where to write local matches into
         let mut local_matches_offset = subgroup_matches_offset + local_matches_prefix;
 
-        if right_position_a != Position::ZERO {
+        if right_position_a != Position::SENTINEL {
             let y = Y::from(left_r + left_base);
 
             // TODO: More idiomatic version currently doesn't compile:
@@ -323,7 +301,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 
                 local_matches_offset += 1;
 
-                if right_position_b != Position::ZERO {
+                if right_position_b != Position::SENTINEL {
                     // TODO: More idiomatic version currently doesn't compile:
                     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
                     // let Some(m) = matches.get_mut(local_matches_offset as usize) else {
