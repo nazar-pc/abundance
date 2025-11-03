@@ -20,7 +20,7 @@ impl Rmap {
     pub(super) fn new() -> Self {
         Self {
             virtual_pointers: [0; _],
-            positions: [[Position::ZERO; 2]; _],
+            positions: [[Position::SENTINEL; 2]; _],
             next_physical_pointer: 0,
         }
     }
@@ -48,9 +48,6 @@ impl Rmap {
         unsafe { self.positions.get_unchecked_mut(physical_pointer as usize) }
     }
 
-    /// Note that `position == Position::ZERO` is effectively ignored here, supporting it cost too
-    /// much in terms of performance and not required for correctness.
-    ///
     /// # Safety
     /// `r` must be in the range `0..PARAM_BC`, there must be at most [`REDUCED_BUCKET_SIZE`] items
     /// inserted
@@ -60,9 +57,9 @@ impl Rmap {
         let rmap_item = unsafe { self.insertion_item(r) };
 
         // The same `r` can appear in the table multiple times, one duplicate is supported here
-        if rmap_item[0] == Position::ZERO {
+        if rmap_item[0] == Position::SENTINEL {
             rmap_item[0] = position;
-        } else if rmap_item[1] == Position::ZERO {
+        } else if rmap_item[1] == Position::SENTINEL {
             rmap_item[1] = position;
         }
     }
@@ -78,7 +75,7 @@ impl Rmap {
             // SAFETY: Internal pointers are always valid
             *unsafe { self.positions.get_unchecked(physical_pointer as usize) }
         } else {
-            [Position::ZERO; 2]
+            [Position::SENTINEL; 2]
         }
     }
 }

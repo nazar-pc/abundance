@@ -6,10 +6,15 @@ fn test_rmap_basic() {
     let mut rmap = Rmap::new();
 
     unsafe {
+        assert_eq!(
+            rmap.get(R::from(0)),
+            [Position::SENTINEL, Position::SENTINEL]
+        );
+
         rmap.add(R::from(0), Position::from(100));
         assert_eq!(
             rmap.get(R::from(0)),
-            [Position::from(100), Position::from(0)]
+            [Position::from(100), Position::SENTINEL]
         );
 
         rmap.add(R::from(0), Position::from(101));
@@ -28,37 +33,7 @@ fn test_rmap_basic() {
         rmap.add(R::from(1), Position::from(200));
         assert_eq!(
             rmap.get(R::from(1)),
-            [Position::from(200), Position::from(0)]
-        );
-    }
-}
-
-#[test]
-fn test_rmap_zero_position() {
-    let mut rmap = Rmap::new();
-
-    unsafe {
-        // Zero position is effectively ignored
-        rmap.add(R::from(2), Position::from(0));
-        assert_eq!(rmap.get(R::from(2)), [Position::from(0), Position::from(0)]);
-
-        rmap.add(R::from(2), Position::from(400));
-        assert_eq!(
-            rmap.get(R::from(2)),
-            [Position::from(400), Position::from(0)]
-        );
-
-        // Zero position is effectively ignored
-        rmap.add(R::from(2), Position::from(0));
-        assert_eq!(
-            rmap.get(R::from(2)),
-            [Position::from(400), Position::from(0)]
-        );
-
-        rmap.add(R::from(2), Position::from(401));
-        assert_eq!(
-            rmap.get(R::from(2)),
-            [Position::from(400), Position::from(401)]
+            [Position::from(200), Position::SENTINEL]
         );
     }
 }
