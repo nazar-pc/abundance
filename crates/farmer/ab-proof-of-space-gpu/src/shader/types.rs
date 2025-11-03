@@ -171,15 +171,6 @@ impl R {
         Self(r)
     }
 
-    /// Create new `R` from provided inner value.
-    ///
-    /// # Safety
-    /// `r` value must be obtained from [`Self::get_inner()`].
-    #[inline(always)]
-    pub(super) unsafe fn new_from_inner(inner: u32) -> Self {
-        Self(inner)
-    }
-
     /// Similar to `new`, but also stores extra data alongside `r`.
     ///
     /// # Safety
@@ -193,7 +184,8 @@ impl R {
     }
 
     /// Get the inner stored value, which in case of no extra data will be `r`, but may also include
-    /// extra data if constructed with [`Self::new_with_data()`].
+    /// extra data if constructed with [`Self::new_with_data()`]. This is a more efficient
+    /// alternative to [`Self::split()`] in case it is guaranteed that there is no `data` attached.
     #[inline(always)]
     pub(super) fn get_inner(&self) -> u32 {
         self.0

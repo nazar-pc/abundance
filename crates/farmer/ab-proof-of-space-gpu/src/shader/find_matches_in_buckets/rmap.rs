@@ -115,11 +115,6 @@ impl ConcurrentAddSlot {
     }
 
     #[inline(always)]
-    fn is_second(data: u32) -> bool {
-        data & 0b11 == 1
-    }
-
-    #[inline(always)]
     fn is_ignore(data: u32) -> bool {
         data == 0b11
     }
@@ -127,17 +122,10 @@ impl ConcurrentAddSlot {
     /// # Safety
     /// Must be called with data created from [`Self::into_data()`]. Note that this result is only
     /// meaningful for [`Self::First`] and [`Self::Second`].
+    #[inline(always)]
     unsafe fn positions_offset_and_physical_pointer_from_data(data: u32) -> (usize, u32) {
         (data as usize & 0b11, data >> 2)
     }
-}
-
-// TODO: This is a hack, better solution doesn't currently compile in Rust
-pub(in super::super) const fn assert_elements_per_thread(elements_per_thread: usize) -> usize {
-    // For less than 2 elements per thread, the logic inside `Rmap::update_local_bucket_r_data()`
-    // will read array out of bounds
-    assert!(elements_per_thread >= 2);
-    0
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -364,124 +352,97 @@ impl Rmap {
         }
     }
 
-    /// This prepares the local bucket by appending extra information in `R`'s data field, such that
-    /// `Rmap` can later be constructed in parallel rather than sequentially.
+    /// This prepares the shared bucket by appending extra information in `R`'s data field, such
+    /// that `Rmap` can later be constructed in parallel rather than sequentially.
     ///
-    /// Each `local_bucket` stores its slice of elements of the whole bucket.
-    ///
-    /// NOTE: For this to work correctly, all local buckets together must be sorted by `r` and
+    /// NOTE: For this to work correctly, the entire `shared_bucket` must be sorted by `r` and
     /// `position` among `r` duplicates. `r` must not store additional data in it yet.
     ///
     /// # Safety
-    /// There must be at most [`REDUCED_BUCKET_SIZE`] items inserted.
-    pub(in super::super) unsafe fn update_local_bucket_r_data<const ELEMENTS_PER_THREAD: usize>(
+    /// There must be at most [`REDUCED_BUCKET_SIZE`] non-sentinel values contiguously from the
+    /// start of the bucket. This function must be called from a single subgroup with size
+    /// `subgroup_size` that is at most [`MAX_BUCKET_SIZE`]. `lane_id` is less
+    /// than `subgroup_size`. CPU is also supported, in which case `lane_id == 0` and
+    /// `subgroup_size == 1` are expected.
+    #[inline]
+    pub(in super::super) unsafe fn update_local_bucket_r_data(
         lane_id: u32,
         subgroup_size: u32,
-        local_bucket: &mut [PositionR; ELEMENTS_PER_THREAD],
-    ) where
-        [(); assert_elements_per_thread(ELEMENTS_PER_THREAD)]:,
-    {
+        shared_bucket: &mut [PositionR; MAX_BUCKET_SIZE],
+    ) {
         let mut positions_cursor = 0u32;
 
         if cfg!(target_arch = "spirv") {
-            // Special handling for the first element
+            // Must be able to do `-2` lane offset
+            debug_assert!(subgroup_size >= 3);
+            debug_assert!(MAX_BUCKET_SIZE.is_multiple_of(subgroup_size as usize));
+
+            let mut prev_iter_r_inner = u32::MAX;
+            for local_offset in (lane_id as usize..MAX_BUCKET_SIZE).step_by(subgroup_size as usize)
             {
+                let position = shared_bucket[local_offset].position;
+                let r_inner = shared_bucket[local_offset].r.get_inner();
+                let ignore = position == Position::SENTINEL;
+                // SAFETY: `R` is constructed from its inner value
                 let prev_r_inner = subgroup_shuffle(
-                    local_bucket[ELEMENTS_PER_THREAD - 1].r.get_inner(),
+                    if lane_id == subgroup_size - 1 {
+                        prev_iter_r_inner
+                    } else {
+                        r_inner
+                    },
                     lane_id.wrapping_sub(1) % subgroup_size,
                 );
-                let before_prev_r_inner = subgroup_shuffle(
-                    local_bucket[ELEMENTS_PER_THREAD - 2].r.get_inner(),
-                    lane_id.wrapping_sub(1) % subgroup_size,
+                // SAFETY: `R` is constructed from its inner value
+                let before_prev_r = subgroup_shuffle(
+                    if lane_id >= subgroup_size - 2 {
+                        prev_iter_r_inner
+                    } else {
+                        r_inner
+                    },
+                    lane_id.wrapping_sub(2) % subgroup_size,
                 );
 
-                let position = local_bucket[0].position;
-                let r_inner = local_bucket[0].r.get_inner();
-                let ignore = position == Position::SENTINEL;
                 let is_first = !ignore && r_inner != prev_r_inner;
+                let is_second = !ignore && r_inner == prev_r_inner && r_inner != before_prev_r;
 
                 let positions_offset =
                     positions_cursor + subgroup_exclusive_i_add(if is_first { 1 } else { 0 });
-                positions_cursor = subgroup_u_max(positions_offset + if is_first { 1 } else { 0 });
+                let prev_positions_offset =
+                    subgroup_shuffle(positions_offset, lane_id.wrapping_sub(1));
 
-                let slot_offset = if is_first {
-                    ConcurrentAddSlot::First {
-                        physical_pointer: positions_offset,
-                    }
-                } else if !ignore && r_inner == prev_r_inner && r_inner != before_prev_r_inner {
-                    ConcurrentAddSlot::Second {
-                        // Set to zero for now, will be overwritten later
-                        physical_pointer: 0,
-                    }
-                } else {
-                    ConcurrentAddSlot::Ignore
-                };
-                // SAFETY: `r_inner` is valid according to the function contract, `data` part is
-                // statically known to fit
-                local_bucket[0].r = unsafe { R::new_with_data(r_inner, slot_offset.into_data()) };
-            }
-
-            // Handle other elements within each invocation, copy positions from the previous
-            // element if necessary
-            for local_offset in 1..ELEMENTS_PER_THREAD {
-                let (prev_r, prev_data) = local_bucket[local_offset - 1].r.split();
-
-                let position = local_bucket[local_offset].position;
-                let r_inner = local_bucket[local_offset].r.get_inner();
-                let ignore = position == Position::SENTINEL;
-                let is_first = !ignore && r_inner != prev_r;
-
-                let positions_offset =
-                    positions_cursor + subgroup_exclusive_i_add(if is_first { 1 } else { 0 });
-                positions_cursor = subgroup_u_max(positions_offset + if is_first { 1 } else { 0 });
                 let data = if is_first {
                     ConcurrentAddSlot::First {
                         physical_pointer: positions_offset,
                     }
                     .into_data()
-                } else if !ignore && r_inner == prev_r && ConcurrentAddSlot::is_first(prev_data) {
-                    // SAFETY: Is the same `r` and previous is first, set earlier
-                    unsafe { ConcurrentAddSlot::data_to_second(prev_data) }
+                } else if is_second {
+                    ConcurrentAddSlot::Second {
+                        physical_pointer: if lane_id == 0 {
+                            positions_cursor - 1
+                        } else {
+                            prev_positions_offset
+                        },
+                    }
+                    .into_data()
                 } else {
                     ConcurrentAddSlot::Ignore.into_data()
                 };
+
+                positions_cursor = subgroup_u_max(positions_offset + if is_first { 1 } else { 0 });
+
                 // SAFETY: `r_inner` is valid according to the function contract, `data` part is
                 // statically known to fit
-                local_bucket[local_offset].r = unsafe { R::new_with_data(r_inner, data) };
-            }
-
-            // Special handling for the first element, update its data with positions offset if
-            // necessary
-            {
-                // SAFETY: `R` is constructed from its inner value
-                let prev_r = unsafe {
-                    R::new_from_inner(subgroup_shuffle(
-                        local_bucket[ELEMENTS_PER_THREAD - 1].r.get_inner(),
-                        lane_id.wrapping_sub(1) % subgroup_size,
-                    ))
-                };
-                let (r, data) = local_bucket[0].r.split();
-
-                // If second slot offset, copy positions from the previous element
-                if ConcurrentAddSlot::is_second(data) {
-                    let (_, prev_r_data) = prev_r.split();
-                    // SAFETY: Data must have been written by this function earlier with
-                    // `ConcurrentAddSlot::to_data()` according to function contract
-                    let data = unsafe { ConcurrentAddSlot::data_to_second(prev_r_data) };
-                    // SAFETY: `r` is valid according to the function contract, `data` part is
-                    // statically known to fit
-                    local_bucket[0].r = unsafe { R::new_with_data(r, data) };
-                }
+                shared_bucket[local_offset].r = unsafe { R::new_with_data(r_inner, data) };
+                prev_iter_r_inner = r_inner;
             }
         } else {
             assert_eq!(lane_id, 0);
             assert_eq!(subgroup_size, 1);
-            assert_eq!(ELEMENTS_PER_THREAD, MAX_BUCKET_SIZE);
 
             // SAFETY: `R` inner value is valid according to the function contract, `data` part is
             // statically known to fit
-            local_bucket[0].r = unsafe {
-                R::new_with_data(local_bucket[0].r.get_inner(), {
+            shared_bucket[0].r = unsafe {
+                R::new_with_data(shared_bucket[0].r.get_inner(), {
                     // The very first one is never ignored
                     let data = ConcurrentAddSlot::First {
                         physical_pointer: positions_cursor,
@@ -492,14 +453,14 @@ impl Rmap {
                 })
             };
 
-            for local_offset in 1..ELEMENTS_PER_THREAD {
-                let position = local_bucket[local_offset].position;
+            for local_offset in 1..REDUCED_BUCKET_SIZE {
+                let position = shared_bucket[local_offset].position;
                 if position == Position::SENTINEL {
                     break;
                 }
-                let r = local_bucket[local_offset].r.get_inner();
+                let r = shared_bucket[local_offset].r.get_inner();
 
-                let (prev_r, prev_data) = local_bucket[local_offset - 1].r.split();
+                let (prev_r, prev_data) = shared_bucket[local_offset - 1].r.split();
 
                 let data = if r == prev_r {
                     if ConcurrentAddSlot::is_first(prev_data) {
@@ -519,7 +480,7 @@ impl Rmap {
 
                 // SAFETY: `r_inner` is valid according to the function contract, `data` part is
                 // statically known to fit
-                local_bucket[local_offset].r = unsafe { R::new_with_data(r, data) };
+                shared_bucket[local_offset].r = unsafe { R::new_with_data(r, data) };
             }
         }
     }
