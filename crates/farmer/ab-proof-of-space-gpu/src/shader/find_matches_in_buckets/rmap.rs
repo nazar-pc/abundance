@@ -434,6 +434,12 @@ impl Rmap {
                 // statically known to fit
                 shared_bucket[local_offset].r = unsafe { R::new_with_data(r_inner, data) };
                 prev_iter_r_inner = r_inner;
+
+                // TODO: `subgroup_shuffle` on bool would have been nice, but it is not supported by
+                //  wgpu
+                if subgroup_shuffle(ignore as u32, subgroup_size - 1) == 1 {
+                    break;
+                }
             }
         } else {
             assert_eq!(lane_id, 0);
