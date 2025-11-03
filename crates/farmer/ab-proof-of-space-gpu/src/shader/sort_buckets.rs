@@ -30,7 +30,7 @@ fn perform_compare_swap<LessOrEqual>(
     // Take a pair `(a_offset, b_offset)` where indices differ only at `bit_position` and swaps them
     let pair_id = local_invocation_id as usize;
     // Bits above `bit_position`
-    let high = (pair_id & ((u32::MAX as usize) << bit_position)) << 1;
+    let high = (pair_id >> bit_position) << (bit_position + 1);
     // Bits below `bit_position`
     let low = pair_id & (u32::MAX as usize).unbounded_shr(u32::BITS - bit_position);
     let a_offset = high | low;
@@ -60,9 +60,8 @@ pub(super) fn sort_shared_bucket<LessOrEqual>(
     LessOrEqual: Fn(&PositionR, &PositionR) -> bool,
 {
     // Iterate over merger stages, doubling block_size each time
-    let mut block_size = 2;
-    let mut merger_stage = 1;
-    while block_size <= MAX_BUCKET_SIZE {
+    for merger_stage in 1..=MAX_BUCKET_SIZE.ilog2() {
+        let block_size = 1 << merger_stage;
         // For each stage, process bit positions in reverse for bitonic comparisons
         for bit_position in (0..merger_stage).rev() {
             perform_compare_swap(
@@ -75,8 +74,6 @@ pub(super) fn sort_shared_bucket<LessOrEqual>(
 
             workgroup_memory_barrier_with_group_sync();
         }
-        block_size *= 2;
-        merger_stage += 1;
     }
 }
 
