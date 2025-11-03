@@ -136,7 +136,6 @@ fn sort_bucket_impl(
 #[spirv(compute(threads(256), entry_point_name = "sort_buckets"))]
 pub fn sort_buckets(
     #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] bucket_sizes: &mut [u32; NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] buckets: &mut [[PositionR; MAX_BUCKET_SIZE];
@@ -145,21 +144,16 @@ pub fn sort_buckets(
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
-    let num_workgroups = num_workgroups.x;
 
     // Process one bucket per workgroup
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    for bucket_index in (workgroup_id..NUM_BUCKETS as u32).step_by(num_workgroups as usize) {
-        let bucket_size = bucket_sizes[bucket_index as usize];
-        let bucket = &mut buckets[bucket_index as usize];
+    let bucket_size = bucket_sizes[workgroup_id as usize];
+    let bucket = &mut buckets[workgroup_id as usize];
 
-        sort_bucket_impl(local_invocation_id, bucket_size, bucket, shared_bucket);
+    sort_bucket_impl(local_invocation_id, bucket_size, bucket, shared_bucket);
 
-        if local_invocation_id == 0 {
-            bucket_sizes[bucket_index as usize] = 0;
-        }
-
-        workgroup_memory_barrier_with_group_sync();
+    if local_invocation_id == 0 {
+        bucket_sizes[workgroup_id as usize] = 0;
     }
 }

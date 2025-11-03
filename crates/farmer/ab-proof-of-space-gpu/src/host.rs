@@ -215,7 +215,6 @@ impl Device {
 
 pub struct GpuRecordsEncoder {
     device: Device,
-    max_compute_workgroups_per_dimension: u32,
     mapping_error: Arc<Mutex<Option<BufferAsyncError>>>,
     tainted: bool,
     erasure_coding: ErasureCoding,
@@ -337,9 +336,6 @@ impl GpuRecordsEncoder {
         erasure_coding: ErasureCoding,
         global_mutex: StdArc<AsyncMutex<()>>,
     ) -> Self {
-        let max_compute_workgroups_per_dimension =
-            device.device.limits().max_compute_workgroups_per_dimension;
-
         let initial_state_host = device.device.create_buffer(&BufferDescriptor {
             label: Some("initial_state_host"),
             size: size_of::<ChaCha8Block>() as BufferAddress,
@@ -585,7 +581,6 @@ impl GpuRecordsEncoder {
 
         Self {
             device,
-            max_compute_workgroups_per_dimension,
             mapping_error: Arc::new(Mutex::new(None)),
             tainted: false,
             erasure_coding,
@@ -659,117 +654,62 @@ impl GpuRecordsEncoder {
             cpass.set_pipeline(&self.compute_pipeline_compute_f1);
             cpass.dispatch_workgroups(
                 MAX_TABLE_SIZE
-                    .div_ceil(compute_f1::WORKGROUP_SIZE * compute_f1::ELEMENTS_PER_INVOCATION)
-                    .min(self.max_compute_workgroups_per_dimension),
+                    .div_ceil(compute_f1::WORKGROUP_SIZE * compute_f1::ELEMENTS_PER_INVOCATION),
                 1,
                 1,
             );
 
             cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_a, &[]);
             cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_a);
-            cpass.dispatch_workgroups(
-                (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f2, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_matches_and_compute_f2);
-            cpass.dispatch_workgroups(
-                (NUM_MATCH_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_b, &[]);
             cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_b);
-            cpass.dispatch_workgroups(
-                (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f3, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_matches_and_compute_f3);
-            cpass.dispatch_workgroups(
-                (NUM_MATCH_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_a, &[]);
             cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_a);
-            cpass.dispatch_workgroups(
-                (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f4, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_matches_and_compute_f4);
-            cpass.dispatch_workgroups(
-                (NUM_MATCH_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_b, &[]);
             cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_b);
-            cpass.dispatch_workgroups(
-                (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f5, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_matches_and_compute_f5);
-            cpass.dispatch_workgroups(
-                (NUM_MATCH_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_a, &[]);
             cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_a);
-            cpass.dispatch_workgroups(
-                (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f6, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_matches_and_compute_f6);
-            cpass.dispatch_workgroups(
-                (NUM_MATCH_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_b, &[]);
             cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_b);
-            cpass.dispatch_workgroups(
-                (NUM_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f7, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_matches_and_compute_f7);
-            cpass.dispatch_workgroups(
-                (NUM_MATCH_BUCKETS as u32).min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_proofs, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_proofs);
-            cpass.dispatch_workgroups(
-                (NUM_S_BUCKETS as u32)
-                    .div_ceil(find_proofs::WORKGROUP_SIZE)
-                    .min(self.max_compute_workgroups_per_dimension),
-                1,
-                1,
-            );
+            cpass.dispatch_workgroups(NUM_S_BUCKETS as u32 / find_proofs::WORKGROUP_SIZE, 1, 1);
         }
 
         encoder.copy_buffer_to_buffer(

@@ -21,6 +21,7 @@ const _: () = {
 
 // TODO: Make unsafe and avoid bounds check
 /// Sort a bucket using bitonic sort and store `Rmap` details in `r`'s data
+#[inline(always)]
 fn sort_buckets_with_rmap_details_impl(
     local_invocation_id: u32,
     subgroup_local_invocation_id: u32,
@@ -105,7 +106,6 @@ fn sort_buckets_with_rmap_details_impl(
 pub fn sort_buckets_with_rmap_details(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(subgroup_size)] subgroup_size: u32,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
@@ -116,29 +116,23 @@ pub fn sort_buckets_with_rmap_details(
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
-    let num_workgroups = num_workgroups.x;
 
-    // Process one bucket per subgroup
-    // TODO: More idiomatic version currently doesn't compile:
-    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    for bucket_index in (workgroup_id..NUM_BUCKETS as u32).step_by(num_workgroups as usize) {
-        let bucket_size = bucket_sizes[bucket_index as usize];
-        let bucket = &mut buckets[bucket_index as usize];
+    let bucket_size = bucket_sizes[workgroup_id as usize];
+    let bucket = &mut buckets[workgroup_id as usize];
 
-        sort_buckets_with_rmap_details_impl(
-            local_invocation_id,
-            subgroup_local_invocation_id,
-            subgroup_id,
-            subgroup_size,
-            bucket_size,
-            bucket,
-            shared_bucket,
-        );
+    sort_buckets_with_rmap_details_impl(
+        local_invocation_id,
+        subgroup_local_invocation_id,
+        subgroup_id,
+        subgroup_size,
+        bucket_size,
+        bucket,
+        shared_bucket,
+    );
 
-        if local_invocation_id == 0 {
-            bucket_sizes[bucket_index as usize] = 0;
-        }
-
-        workgroup_memory_barrier_with_group_sync();
+    if local_invocation_id == 0 {
+        bucket_sizes[workgroup_id as usize] = 0;
     }
+
+    workgroup_memory_barrier_with_group_sync();
 }

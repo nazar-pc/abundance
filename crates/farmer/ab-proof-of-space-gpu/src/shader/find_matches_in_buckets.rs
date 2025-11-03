@@ -342,7 +342,6 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 pub unsafe fn find_matches_in_buckets(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
@@ -364,45 +363,35 @@ pub unsafe fn find_matches_in_buckets(
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
-    let num_workgroups = num_workgroups.x;
 
-    // TODO: More idiomatic version currently doesn't compile:
-    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    // for (left_bucket_index, (([left_bucket, right_bucket], matches), matches_count)) in buckets
-    //     .array_windows::<2>()
-    //     .zip(matches)
-    //     .zip(matches_counts)
-    //     .enumerate()
-    //     .skip(workgroup_id as usize)
-    //     .step_by(num_workgroups as usize)
-    // {
-    for left_bucket_index in
-        (workgroup_id as usize..buckets.len() - 1).step_by(num_workgroups as usize)
-    {
-        let left_bucket = &buckets[left_bucket_index];
-        let right_bucket = &buckets[left_bucket_index + 1];
-        let matches = &mut matches[left_bucket_index];
-        let matches_count = &mut matches_counts[left_bucket_index];
-
-        // TODO: Truncate buckets to reduced size here once it compiles:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // SAFETY: Guaranteed by function contract
-        matches_count.write(unsafe {
-            find_matches_in_buckets_impl(
-                subgroup_local_invocation_id,
-                subgroup_id,
-                num_subgroups,
-                local_invocation_id,
-                left_bucket_index as u32,
-                left_bucket,
-                right_bucket,
-                matches,
-                scratch_space,
-                #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
-                rmap,
-                #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-                &mut rmap[subgroup_id as usize],
-            )
-        });
+    let left_bucket_index = workgroup_id as usize;
+    if left_bucket_index >= buckets.len() - 1 {
+        return;
     }
+
+    let left_bucket = &buckets[left_bucket_index];
+    let right_bucket = &buckets[left_bucket_index + 1];
+    let matches = &mut matches[left_bucket_index];
+    let matches_count = &mut matches_counts[left_bucket_index];
+
+    // TODO: Truncate buckets to reduced size here once it compiles:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+    // SAFETY: Guaranteed by function contract
+    matches_count.write(unsafe {
+        find_matches_in_buckets_impl(
+            subgroup_local_invocation_id,
+            subgroup_id,
+            num_subgroups,
+            local_invocation_id,
+            left_bucket_index as u32,
+            left_bucket,
+            right_bucket,
+            matches,
+            scratch_space,
+            #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
+            rmap,
+            #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
+            &mut rmap[subgroup_id as usize],
+        )
+    });
 }

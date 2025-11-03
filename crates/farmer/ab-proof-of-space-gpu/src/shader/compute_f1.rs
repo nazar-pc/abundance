@@ -157,7 +157,6 @@ fn compute_f1_impl(x: X, chacha8_keystream: &[u32; INVOCATION_KEYSTREAM_WORDS]) 
 #[spirv(compute(threads(256), entry_point_name = "compute_f1"))]
 pub unsafe fn compute_f1(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(uniform, descriptor_set = 0, binding = 0)] initial_state: &UniformChaCha8Block,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] bucket_sizes: &mut [u32; NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] buckets: &mut [[MaybeUninit<PositionR>; MAX_BUCKET_SIZE];
@@ -165,64 +164,58 @@ pub unsafe fn compute_f1(
 ) {
     // TODO: Make a single input bounds check and use unsafe to avoid bounds check later
     let global_invocation_id = global_invocation_id.x;
-    let num_workgroups = num_workgroups.x;
 
-    let global_size = WORKGROUP_SIZE * num_workgroups;
     let initial_state = ChaCha8State::from_repr(ChaCha8Block::from(*initial_state));
+
+    let x_start = global_invocation_id * ELEMENTS_PER_INVOCATION;
 
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    for x_start in (global_invocation_id * ELEMENTS_PER_INVOCATION..MAX_TABLE_SIZE)
-        .step_by(global_size as usize * ELEMENTS_PER_INVOCATION as usize)
-    {
-        // TODO: More idiomatic version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // let chacha8_keystream = [MaybeUninit<ChaCha8Block>; BLOCKS_PER_INVOCATION as usize];
-        let mut chacha8_keystream = [0u32; INVOCATION_KEYSTREAM_WORDS];
-        // TODO: More idiomatic version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        let first_block_counter = x_start * K as u32 / CHACHA8_BLOCK_BITS;
-        for block_index in 0..BLOCKS_PER_INVOCATION {
-            let counter = first_block_counter + block_index;
+    // let chacha8_keystream = [MaybeUninit<ChaCha8Block>; BLOCKS_PER_INVOCATION as usize];
+    let mut chacha8_keystream = [0u32; INVOCATION_KEYSTREAM_WORDS];
+    // TODO: More idiomatic version currently doesn't compile:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+    let first_block_counter = x_start * K as u32 / CHACHA8_BLOCK_BITS;
+    for block_index in 0..BLOCKS_PER_INVOCATION {
+        let counter = first_block_counter + block_index;
 
-            let block = initial_state.compute_block(counter);
-            // TODO: More idiomatic version currently doesn't compile:
-            //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-            let block_write_offset = block_index as usize * CHACHA8_BLOCK_WORDS;
-            #[allow(clippy::manual_memcpy, reason = "Doesn't compile under rust-gpu")]
-            for offset in 0..CHACHA8_BLOCK_WORDS {
-                chacha8_keystream[block_write_offset + offset] = block[offset];
-            }
+        let block = initial_state.compute_block(counter);
+        // TODO: More idiomatic version currently doesn't compile:
+        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+        let block_write_offset = block_index as usize * CHACHA8_BLOCK_WORDS;
+        #[allow(clippy::manual_memcpy, reason = "Doesn't compile under rust-gpu")]
+        for offset in 0..CHACHA8_BLOCK_WORDS {
+            chacha8_keystream[block_write_offset + offset] = block[offset];
         }
+    }
 
-        // TODO: More idiomatic version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        for x in x_start..(x_start + ELEMENTS_PER_INVOCATION).min(MAX_TABLE_SIZE) {
-            let y = compute_f1_impl(X::from(x), &chacha8_keystream);
+    // TODO: More idiomatic version currently doesn't compile:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+    for x in x_start..(x_start + ELEMENTS_PER_INVOCATION).min(MAX_TABLE_SIZE) {
+        let y = compute_f1_impl(X::from(x), &chacha8_keystream);
 
-            let (bucket_index, r) = y.into_bucket_index_and_r();
-            // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
-            let bucket_size = unsafe { bucket_sizes.get_unchecked_mut(bucket_index as usize) };
-            // TODO: Probably should not be unsafe to begin with:
-            //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
-            let bucket_offset = unsafe {
-                atomic_i_increment::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
-                    bucket_size,
-                )
-            };
+        let (bucket_index, r) = y.into_bucket_index_and_r();
+        // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
+        let bucket_size = unsafe { bucket_sizes.get_unchecked_mut(bucket_index as usize) };
+        // TODO: Probably should not be unsafe to begin with:
+        //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
+        let bucket_offset = unsafe {
+            atomic_i_increment::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
+                bucket_size,
+            )
+        };
 
-            // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition. Bucket
-            // size upper bound is known statically to be [`MAX_BUCKET_SIZE`], so `bucket_offset` is
-            // also always within bounds.
-            unsafe {
-                buckets
-                    .get_unchecked_mut(bucket_index as usize)
-                    .get_unchecked_mut(bucket_offset as usize)
-            }
-            .write(PositionR {
-                position: Position::from_u32(x),
-                r,
-            });
+        // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition. Bucket
+        // size upper bound is known statically to be [`MAX_BUCKET_SIZE`], so `bucket_offset` is
+        // also always within bounds.
+        unsafe {
+            buckets
+                .get_unchecked_mut(bucket_index as usize)
+                .get_unchecked_mut(bucket_offset as usize)
         }
+        .write(PositionR {
+            position: Position::from_u32(x),
+            r,
+        });
     }
 }

@@ -309,13 +309,7 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
         let mut cpass = encoder.begin_compute_pass(&Default::default());
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
-        cpass.dispatch_workgroups(
-            MAX_TABLE_SIZE
-                .div_ceil(WORKGROUP_SIZE)
-                .min(device.limits().max_compute_workgroups_per_dimension),
-            1,
-            1,
-        );
+        cpass.dispatch_workgroups(MAX_TABLE_SIZE.div_ceil(WORKGROUP_SIZE), 1, 1);
     }
 
     encoder.copy_buffer_to_buffer(&ys_gpu, 0, &ys_host, 0, ys_host.size());

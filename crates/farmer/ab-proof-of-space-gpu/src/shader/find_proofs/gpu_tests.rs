@@ -467,13 +467,7 @@ async fn find_proofs_adapter(
         let mut cpass = encoder.begin_compute_pass(&Default::default());
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
-        cpass.dispatch_workgroups(
-            (NUM_S_BUCKETS as u32)
-                .div_ceil(WORKGROUP_SIZE)
-                .min(device.limits().max_compute_workgroups_per_dimension),
-            1,
-            1,
-        );
+        cpass.dispatch_workgroups(NUM_S_BUCKETS as u32 / WORKGROUP_SIZE, 1, 1);
     }
 
     encoder.copy_buffer_to_buffer(&proofs_gpu, 0, &proofs_host, 0, proofs_host.size());

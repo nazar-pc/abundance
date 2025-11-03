@@ -240,9 +240,7 @@ async fn compute_f1_adapter(
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
         cpass.dispatch_workgroups(
-            MAX_TABLE_SIZE
-                .div_ceil(WORKGROUP_SIZE * ELEMENTS_PER_INVOCATION)
-                .min(device.limits().max_compute_workgroups_per_dimension),
+            MAX_TABLE_SIZE.div_ceil(WORKGROUP_SIZE * ELEMENTS_PER_INVOCATION),
             1,
             1,
         );

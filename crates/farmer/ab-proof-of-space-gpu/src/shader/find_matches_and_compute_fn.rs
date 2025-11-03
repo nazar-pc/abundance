@@ -134,7 +134,6 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
 pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     local_invocation_id: UVec3,
     workgroup_id: UVec3,
-    num_workgroups: UVec3,
     subgroup_local_invocation_id: u32,
     subgroup_id: u32,
     num_subgroups: u32,
@@ -150,63 +149,46 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
-    let num_workgroups = num_workgroups.x;
 
-    // TODO: More idiomatic version currently doesn't compile:
+    let left_bucket_index = workgroup_id as usize;
+    let left_bucket = &parent_buckets[left_bucket_index];
+    let right_bucket = &parent_buckets[left_bucket_index + 1];
+    let positions = &mut positions[left_bucket_index];
+    let metadatas = &mut metadatas[left_bucket_index];
+    let left_bucket_index = left_bucket_index as u32;
+
+    // TODO: Truncate buckets to reduced size here once it compiles:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    // for (left_bucket_index, (([left_bucket, right_bucket], matches), matches_count)) in buckets
-    //     .array_windows::<2>()
-    //     .zip(matches)
-    //     .zip(matches_counts)
-    //     .enumerate()
-    //     .skip(workgroup_id as usize)
-    //     .step_by(num_workgroups as usize)
-    // {
-    for left_bucket_index in
-        (workgroup_id as usize..NUM_MATCH_BUCKETS).step_by(num_workgroups as usize)
-    {
-        let left_bucket = &parent_buckets[left_bucket_index];
-        let right_bucket = &parent_buckets[left_bucket_index + 1];
-        let positions = &mut positions[left_bucket_index];
-        let metadatas = &mut metadatas[left_bucket_index];
-        let left_bucket_index = left_bucket_index as u32;
+    // SAFETY: Guaranteed by function contract
+    let matches_count = unsafe {
+        find_matches_in_buckets_impl(
+            subgroup_local_invocation_id,
+            subgroup_id,
+            num_subgroups,
+            local_invocation_id,
+            left_bucket_index,
+            left_bucket,
+            right_bucket,
+            matches,
+            scratch_space,
+            rmap,
+        )
+    };
 
-        // TODO: Truncate buckets to reduced size here once it compiles:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // SAFETY: Guaranteed by function contract
-        let matches_count = unsafe {
-            find_matches_in_buckets_impl(
-                subgroup_local_invocation_id,
-                subgroup_id,
-                num_subgroups,
-                local_invocation_id,
-                left_bucket_index,
-                left_bucket,
-                right_bucket,
-                matches,
-                scratch_space,
-                rmap,
-            )
-        };
+    workgroup_memory_barrier_with_group_sync();
 
-        workgroup_memory_barrier_with_group_sync();
-
-        unsafe {
-            compute_fn_into_buckets::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                local_invocation_id,
-                left_bucket_index,
-                matches_count as usize,
-                matches,
-                parent_metadatas,
-                bucket_sizes,
-                buckets,
-                positions,
-                metadatas,
-            );
-        }
-
-        // No need for explicit synchronization, `matches` will not be touched before extra
-        // synchronization in `find_matches_in_buckets_impl` again anyway
+    unsafe {
+        compute_fn_into_buckets::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
+            local_invocation_id,
+            left_bucket_index,
+            matches_count as usize,
+            matches,
+            parent_metadatas,
+            bucket_sizes,
+            buckets,
+            positions,
+            metadatas,
+        );
     }
 }
 
@@ -225,7 +207,6 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
 pub unsafe fn find_matches_and_compute_f3(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
@@ -255,7 +236,6 @@ pub unsafe fn find_matches_and_compute_f3(
         find_matches_and_compute_fn::<3, 2>(
             local_invocation_id,
             workgroup_id,
-            num_workgroups,
             subgroup_local_invocation_id,
             subgroup_id,
             num_subgroups,
@@ -290,7 +270,6 @@ pub unsafe fn find_matches_and_compute_f3(
 pub unsafe fn find_matches_and_compute_f4(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
@@ -320,7 +299,6 @@ pub unsafe fn find_matches_and_compute_f4(
         find_matches_and_compute_fn::<4, 3>(
             local_invocation_id,
             workgroup_id,
-            num_workgroups,
             subgroup_local_invocation_id,
             subgroup_id,
             num_subgroups,
@@ -355,7 +333,6 @@ pub unsafe fn find_matches_and_compute_f4(
 pub unsafe fn find_matches_and_compute_f5(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
@@ -385,7 +362,6 @@ pub unsafe fn find_matches_and_compute_f5(
         find_matches_and_compute_fn::<5, 4>(
             local_invocation_id,
             workgroup_id,
-            num_workgroups,
             subgroup_local_invocation_id,
             subgroup_id,
             num_subgroups,
@@ -420,7 +396,6 @@ pub unsafe fn find_matches_and_compute_f5(
 pub unsafe fn find_matches_and_compute_f6(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(num_subgroups)] num_subgroups: u32,
@@ -450,7 +425,6 @@ pub unsafe fn find_matches_and_compute_f6(
         find_matches_and_compute_fn::<6, 5>(
             local_invocation_id,
             workgroup_id,
-            num_workgroups,
             subgroup_local_invocation_id,
             subgroup_id,
             num_subgroups,

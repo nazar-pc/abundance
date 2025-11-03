@@ -286,11 +286,7 @@ async fn find_matches_in_buckets_adapter(
         let mut cpass = encoder.begin_compute_pass(&Default::default());
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
-        cpass.dispatch_workgroups(
-            (NUM_MATCH_BUCKETS as u32).min(device.limits().max_compute_workgroups_per_dimension),
-            1,
-            1,
-        );
+        cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
     }
 
     encoder.copy_buffer_to_buffer(&matches_gpu, 0, &matches_host, 0, matches_host.size());
