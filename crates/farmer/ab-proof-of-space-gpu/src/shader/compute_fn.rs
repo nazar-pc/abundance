@@ -13,6 +13,7 @@ use spirv_std::spirv;
 
 // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` below, can be removed once
 //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
+#[cfg(test)]
 const WORKGROUP_SIZE: u32 = 256;
 
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and
@@ -174,40 +175,35 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
 #[inline(always)]
 fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     global_invocation_id: UVec3,
-    num_workgroups: UVec3,
     matches: &[Match],
     parent_metadatas: &[Metadata],
     ys: &mut [MaybeUninit<Y>],
     metadatas: &mut [MaybeUninit<Metadata>],
 ) {
-    // TODO: Make a single input bounds check and use unsafe to avoid bounds check later
-    let global_invocation_id = global_invocation_id.x;
-    let num_workgroups = num_workgroups.x;
+    let global_invocation_id = global_invocation_id.x as usize;
 
-    let global_size = WORKGROUP_SIZE * num_workgroups;
+    if global_invocation_id >= matches.len() {
+        return;
+    }
 
-    // TODO: More idiomatic version currently doesn't compile:
+    let m = matches[global_invocation_id];
+    // TODO: Correct version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    for index in (global_invocation_id as usize..matches.len()).step_by(global_size as usize) {
-        let m = matches[index];
-        // TODO: Correct version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // let left_metadata = parent_metadatas[usize::from(m.left_position)];
-        // let right_metadata = parent_metadatas[usize::from(m.right_position)];
-        let left_metadata = parent_metadatas[m.left_position as usize];
-        let right_metadata = parent_metadatas[m.right_position as usize];
+    // let left_metadata = parent_metadatas[usize::from(m.left_position)];
+    // let right_metadata = parent_metadatas[usize::from(m.right_position)];
+    let left_metadata = parent_metadatas[m.left_position as usize];
+    let right_metadata = parent_metadatas[m.right_position as usize];
 
-        let (y, metadata) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-            m.left_y,
-            left_metadata,
-            right_metadata,
-        );
+    let (y, metadata) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
+        m.left_y,
+        left_metadata,
+        right_metadata,
+    );
 
-        ys[index].write(y);
-        // The last table doesn't have any metadata
-        if TABLE_NUMBER < 7 {
-            metadatas[index].write(metadata);
-        }
+    ys[global_invocation_id].write(y);
+    // The last table doesn't have any metadata
+    if TABLE_NUMBER < 7 {
+        metadatas[global_invocation_id].write(metadata);
     }
 }
 
@@ -215,7 +211,6 @@ fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
 #[spirv(compute(threads(256), entry_point_name = "compute_f2"))]
 pub fn compute_f2(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
@@ -225,7 +220,6 @@ pub fn compute_f2(
 ) {
     compute_fn::<2, 1>(
         global_invocation_id,
-        num_workgroups,
         matches,
         parent_metadatas,
         ys,
@@ -237,7 +231,6 @@ pub fn compute_f2(
 #[spirv(compute(threads(256), entry_point_name = "compute_f3"))]
 pub fn compute_f3(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
@@ -247,7 +240,6 @@ pub fn compute_f3(
 ) {
     compute_fn::<3, 2>(
         global_invocation_id,
-        num_workgroups,
         matches,
         parent_metadatas,
         ys,
@@ -259,7 +251,6 @@ pub fn compute_f3(
 #[spirv(compute(threads(256), entry_point_name = "compute_f4"))]
 pub fn compute_f4(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
@@ -269,7 +260,6 @@ pub fn compute_f4(
 ) {
     compute_fn::<4, 3>(
         global_invocation_id,
-        num_workgroups,
         matches,
         parent_metadatas,
         ys,
@@ -281,7 +271,6 @@ pub fn compute_f4(
 #[spirv(compute(threads(256), entry_point_name = "compute_f5"))]
 pub fn compute_f5(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
@@ -291,7 +280,6 @@ pub fn compute_f5(
 ) {
     compute_fn::<5, 4>(
         global_invocation_id,
-        num_workgroups,
         matches,
         parent_metadatas,
         ys,
@@ -303,7 +291,6 @@ pub fn compute_f5(
 #[spirv(compute(threads(256), entry_point_name = "compute_f6"))]
 pub fn compute_f6(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
@@ -313,7 +300,6 @@ pub fn compute_f6(
 ) {
     compute_fn::<6, 5>(
         global_invocation_id,
-        num_workgroups,
         matches,
         parent_metadatas,
         ys,
@@ -325,7 +311,6 @@ pub fn compute_f6(
 #[spirv(compute(threads(256), entry_point_name = "compute_f7"))]
 pub fn compute_f7(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] ys: &mut [MaybeUninit<Y>],
@@ -337,7 +322,6 @@ pub fn compute_f7(
 ) {
     compute_fn::<7, 6>(
         global_invocation_id,
-        num_workgroups,
         matches,
         parent_metadatas,
         ys,

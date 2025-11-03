@@ -79,13 +79,7 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
         for bucket in buckets.iter_mut() {
             bucket.sort_by_key(|position_r| (position_r.r, position_r.position));
             unsafe {
-                // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866
-                //  that allows the code to compile. Constant 4294967295 is hardcoded here and below
-                //  for compilation to succeed.
-                const {
-                    assert!(MAX_BUCKET_SIZE == 512);
-                }
-                Rmap::update_local_bucket_r_data::<512>(0, 1, bucket);
+                Rmap::update_local_bucket_r_data(0, 1, bucket);
             }
             bucket.sort_by_key(|entry| entry.position);
         }
@@ -496,11 +490,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
         let mut cpass = encoder.begin_compute_pass(&Default::default());
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.set_pipeline(&compute_pipeline);
-        cpass.dispatch_workgroups(
-            (NUM_MATCH_BUCKETS as u32).min(device.limits().max_compute_workgroups_per_dimension),
-            1,
-            1,
-        );
+        cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
     }
 
     encoder.copy_buffer_to_buffer(

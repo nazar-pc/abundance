@@ -457,7 +457,6 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
 )]
 pub fn find_proofs(
     #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(subgroup_size)] subgroup_size: u32,
@@ -483,177 +482,169 @@ pub fn find_proofs(
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
-    let num_workgroups = num_workgroups.x;
 
-    let total_subgroups = num_workgroups * num_subgroups;
     let global_subgroup_id = workgroup_id * num_subgroups + subgroup_id;
 
-    // Process `subgroup_size` buckets per subgroup
-    // TODO: More idiomatic version currently doesn't compile:
-    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    for positions_group_index in
-        (global_subgroup_id..NUM_S_BUCKETS as u32 / subgroup_size).step_by(total_subgroups as usize)
-    {
-        // Specify some common subgroup sizes so the driver can easily eliminate dead code. This is
-        // important because `local_words` inside the function is generic and impacts the number of
-        // registers used, so we want to minimize them.
-        match subgroup_size {
-            // Hypothetically possible
-            1 => {
-                find_proofs_impl::<1>(
-                    local_invocation_id,
-                    subgroup_id,
-                    subgroup_local_invocation_id,
-                    positions_group_index,
-                    table_2_positions,
-                    table_3_positions,
-                    table_4_positions,
-                    table_5_positions,
-                    table_6_positions,
-                    bucket_sizes,
-                    buckets,
-                    &mut proofs.found_proofs,
-                    &mut proofs.proofs,
-                    found_proofs_scratch,
-                );
-            }
-            // Hypothetically possible
-            2 => {
-                find_proofs_impl::<2>(
-                    local_invocation_id,
-                    subgroup_id,
-                    subgroup_local_invocation_id,
-                    positions_group_index,
-                    table_2_positions,
-                    table_3_positions,
-                    table_4_positions,
-                    table_5_positions,
-                    table_6_positions,
-                    bucket_sizes,
-                    buckets,
-                    &mut proofs.found_proofs,
-                    &mut proofs.proofs,
-                    found_proofs_scratch,
-                );
-            }
-            // LLVMpipe (Mesa 24, SSE)
-            4 => {
-                find_proofs_impl::<4>(
-                    local_invocation_id,
-                    subgroup_id,
-                    subgroup_local_invocation_id,
-                    positions_group_index,
-                    table_2_positions,
-                    table_3_positions,
-                    table_4_positions,
-                    table_5_positions,
-                    table_6_positions,
-                    bucket_sizes,
-                    buckets,
-                    &mut proofs.found_proofs,
-                    &mut proofs.proofs,
-                    found_proofs_scratch,
-                );
-            }
-            // LLVMpipe (Mesa 25, AVX/AVX2)
-            8 => {
-                find_proofs_impl::<8>(
-                    local_invocation_id,
-                    subgroup_id,
-                    subgroup_local_invocation_id,
-                    positions_group_index,
-                    table_2_positions,
-                    table_3_positions,
-                    table_4_positions,
-                    table_5_positions,
-                    table_6_positions,
-                    bucket_sizes,
-                    buckets,
-                    &mut proofs.found_proofs,
-                    &mut proofs.proofs,
-                    found_proofs_scratch,
-                );
-            }
-            // Raspberry PI 5
-            16 => {
-                find_proofs_impl::<16>(
-                    local_invocation_id,
-                    subgroup_id,
-                    subgroup_local_invocation_id,
-                    positions_group_index,
-                    table_2_positions,
-                    table_3_positions,
-                    table_4_positions,
-                    table_5_positions,
-                    table_6_positions,
-                    bucket_sizes,
-                    buckets,
-                    &mut proofs.found_proofs,
-                    &mut proofs.proofs,
-                    found_proofs_scratch,
-                );
-            }
-            // Intel/Nvidia
-            32 => {
-                find_proofs_impl::<32>(
-                    local_invocation_id,
-                    subgroup_id,
-                    subgroup_local_invocation_id,
-                    positions_group_index,
-                    table_2_positions,
-                    table_3_positions,
-                    table_4_positions,
-                    table_5_positions,
-                    table_6_positions,
-                    bucket_sizes,
-                    buckets,
-                    &mut proofs.found_proofs,
-                    &mut proofs.proofs,
-                    found_proofs_scratch,
-                );
-            }
-            // AMD
-            64 => {
-                find_proofs_impl::<64>(
-                    local_invocation_id,
-                    subgroup_id,
-                    subgroup_local_invocation_id,
-                    positions_group_index,
-                    table_2_positions,
-                    table_3_positions,
-                    table_4_positions,
-                    table_5_positions,
-                    table_6_positions,
-                    bucket_sizes,
-                    buckets,
-                    &mut proofs.found_proofs,
-                    &mut proofs.proofs,
-                    found_proofs_scratch,
-                );
-            }
-            // Hypothetically possible
-            128 => {
-                find_proofs_impl::<128>(
-                    local_invocation_id,
-                    subgroup_id,
-                    subgroup_local_invocation_id,
-                    positions_group_index,
-                    table_2_positions,
-                    table_3_positions,
-                    table_4_positions,
-                    table_5_positions,
-                    table_6_positions,
-                    bucket_sizes,
-                    buckets,
-                    &mut proofs.found_proofs,
-                    &mut proofs.proofs,
-                    found_proofs_scratch,
-                );
-            }
-            _ => {
-                // https://registry.khronos.org/vulkan/specs/latest/man/html/SubgroupSize.html
-                unreachable!("All Vulkan targets use power of two and subgroup size <= 128")
-            }
+    let positions_group_index = global_subgroup_id;
+    // Specify some common subgroup sizes so the driver can easily eliminate dead code. This is
+    // important because `local_words` inside the function is generic and impacts the number of
+    // registers used, so we want to minimize them.
+    match subgroup_size {
+        // Hypothetically possible
+        1 => {
+            find_proofs_impl::<1>(
+                local_invocation_id,
+                subgroup_id,
+                subgroup_local_invocation_id,
+                positions_group_index,
+                table_2_positions,
+                table_3_positions,
+                table_4_positions,
+                table_5_positions,
+                table_6_positions,
+                bucket_sizes,
+                buckets,
+                &mut proofs.found_proofs,
+                &mut proofs.proofs,
+                found_proofs_scratch,
+            );
+        }
+        // Hypothetically possible
+        2 => {
+            find_proofs_impl::<2>(
+                local_invocation_id,
+                subgroup_id,
+                subgroup_local_invocation_id,
+                positions_group_index,
+                table_2_positions,
+                table_3_positions,
+                table_4_positions,
+                table_5_positions,
+                table_6_positions,
+                bucket_sizes,
+                buckets,
+                &mut proofs.found_proofs,
+                &mut proofs.proofs,
+                found_proofs_scratch,
+            );
+        }
+        // LLVMpipe (Mesa 24, SSE)
+        4 => {
+            find_proofs_impl::<4>(
+                local_invocation_id,
+                subgroup_id,
+                subgroup_local_invocation_id,
+                positions_group_index,
+                table_2_positions,
+                table_3_positions,
+                table_4_positions,
+                table_5_positions,
+                table_6_positions,
+                bucket_sizes,
+                buckets,
+                &mut proofs.found_proofs,
+                &mut proofs.proofs,
+                found_proofs_scratch,
+            );
+        }
+        // LLVMpipe (Mesa 25, AVX/AVX2)
+        8 => {
+            find_proofs_impl::<8>(
+                local_invocation_id,
+                subgroup_id,
+                subgroup_local_invocation_id,
+                positions_group_index,
+                table_2_positions,
+                table_3_positions,
+                table_4_positions,
+                table_5_positions,
+                table_6_positions,
+                bucket_sizes,
+                buckets,
+                &mut proofs.found_proofs,
+                &mut proofs.proofs,
+                found_proofs_scratch,
+            );
+        }
+        // Raspberry PI 5
+        16 => {
+            find_proofs_impl::<16>(
+                local_invocation_id,
+                subgroup_id,
+                subgroup_local_invocation_id,
+                positions_group_index,
+                table_2_positions,
+                table_3_positions,
+                table_4_positions,
+                table_5_positions,
+                table_6_positions,
+                bucket_sizes,
+                buckets,
+                &mut proofs.found_proofs,
+                &mut proofs.proofs,
+                found_proofs_scratch,
+            );
+        }
+        // Intel/Nvidia
+        32 => {
+            find_proofs_impl::<32>(
+                local_invocation_id,
+                subgroup_id,
+                subgroup_local_invocation_id,
+                positions_group_index,
+                table_2_positions,
+                table_3_positions,
+                table_4_positions,
+                table_5_positions,
+                table_6_positions,
+                bucket_sizes,
+                buckets,
+                &mut proofs.found_proofs,
+                &mut proofs.proofs,
+                found_proofs_scratch,
+            );
+        }
+        // AMD
+        64 => {
+            find_proofs_impl::<64>(
+                local_invocation_id,
+                subgroup_id,
+                subgroup_local_invocation_id,
+                positions_group_index,
+                table_2_positions,
+                table_3_positions,
+                table_4_positions,
+                table_5_positions,
+                table_6_positions,
+                bucket_sizes,
+                buckets,
+                &mut proofs.found_proofs,
+                &mut proofs.proofs,
+                found_proofs_scratch,
+            );
+        }
+        // Hypothetically possible
+        128 => {
+            find_proofs_impl::<128>(
+                local_invocation_id,
+                subgroup_id,
+                subgroup_local_invocation_id,
+                positions_group_index,
+                table_2_positions,
+                table_3_positions,
+                table_4_positions,
+                table_5_positions,
+                table_6_positions,
+                bucket_sizes,
+                buckets,
+                &mut proofs.found_proofs,
+                &mut proofs.proofs,
+                found_proofs_scratch,
+            );
+        }
+        _ => {
+            // https://registry.khronos.org/vulkan/specs/latest/man/html/SubgroupSize.html
+            unreachable!("All Vulkan targets use power of two and subgroup size <= 128")
         }
     }
 }
