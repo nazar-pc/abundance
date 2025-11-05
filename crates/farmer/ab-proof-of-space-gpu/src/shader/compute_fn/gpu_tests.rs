@@ -1,6 +1,6 @@
 use crate::shader::compute_fn::WORKGROUP_SIZE;
 use crate::shader::compute_fn::cpu_tests::{correct_compute_fn, random_metadata, random_y};
-use crate::shader::constants::MAX_TABLE_SIZE;
+use crate::shader::constants::{MAX_TABLE_SIZE, NUM_BUCKETS, PARAM_BC};
 use crate::shader::find_matches_in_buckets::Match;
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Metadata, Position, Y};
@@ -49,6 +49,7 @@ fn compute_f7_gpu() {
 
 fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let left_bucket_index = rng.next_u32() % NUM_BUCKETS as u32;
     let parent_table_size = 100_usize;
     let num_matches = 100_usize;
 
@@ -68,15 +69,20 @@ fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
                 // TODO: Correct version currently doesn't compile:
                 //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
                 // left_y: parent_ys[usize::from(left_position)],
-                left_y: parent_ys[left_position as usize],
+                left_r: parent_ys[left_position as usize]
+                    .into_bucket_index_and_r()
+                    .1
+                    .get_inner(),
                 right_position,
             }
         })
         .collect::<Vec<_>>();
 
-    let Some((actual_ys, actual_metadatas)) =
-        block_on(compute_fn::<TABLE_NUMBER>(&matches, &parent_metadatas))
-    else {
+    let Some((actual_ys, actual_metadatas)) = block_on(compute_fn::<TABLE_NUMBER>(
+        left_bucket_index,
+        &matches,
+        &parent_metadatas,
+    )) else {
         panic!("No compatible device detected, can't run tests");
     };
 
@@ -90,7 +96,7 @@ fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
             let left_metadata = parent_metadatas[m.left_position as usize];
             let right_metadata = parent_metadatas[m.right_position as usize];
             correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                m.left_y,
+                Y::from(left_bucket_index * u32::from(PARAM_BC) + m.left_r),
                 left_metadata,
                 right_metadata,
             )
@@ -110,6 +116,7 @@ fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
 }
 
 async fn compute_fn<const TABLE_NUMBER: u8>(
+    left_bucket_index: u32,
     matches: &[Match],
     parent_metadatas: &[Metadata],
 ) -> Option<(Vec<Y>, Vec<Metadata>)> {
@@ -127,8 +134,13 @@ async fn compute_fn<const TABLE_NUMBER: u8>(
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let Some(adapter_result) =
-            compute_fn_adapter::<TABLE_NUMBER>(matches, parent_metadatas, adapter).await
+        let Some(adapter_result) = compute_fn_adapter::<TABLE_NUMBER>(
+            left_bucket_index,
+            matches,
+            parent_metadatas,
+            adapter,
+        )
+        .await
         else {
             continue;
         };
@@ -147,6 +159,7 @@ async fn compute_fn<const TABLE_NUMBER: u8>(
 }
 
 async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
+    left_bucket_index: u32,
     matches: &[Match],
     parent_metadatas: &[Metadata],
     adapter: Adapter,
@@ -199,11 +212,21 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
                 ty: BindingType::Buffer {
                     has_dynamic_offset: false,
                     min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: false },
+                    ty: BufferBindingType::Storage { read_only: true },
                 },
             },
             BindGroupLayoutEntry {
                 binding: 3,
+                count: None,
+                visibility: ShaderStages::COMPUTE,
+                ty: BindingType::Buffer {
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                    ty: BufferBindingType::Storage { read_only: false },
+                },
+            },
+            BindGroupLayoutEntry {
+                binding: 4,
                 count: None,
                 visibility: ShaderStages::COMPUTE,
                 ty: BindingType::Buffer {
@@ -231,6 +254,12 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
         layout: Some(&pipeline_layout),
         module: &module,
         entry_point: Some(&format!("compute_f{TABLE_NUMBER}")),
+    });
+
+    let left_bucket_index_gpu = device.create_buffer_init(&BufferInitDescriptor {
+        label: None,
+        contents: &left_bucket_index.to_le_bytes(),
+        usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
     });
 
     let matches_gpu = device.create_buffer_init(&BufferInitDescriptor {
@@ -286,18 +315,22 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
         entries: &[
             BindGroupEntry {
                 binding: 0,
-                resource: matches_gpu.as_entire_binding(),
+                resource: left_bucket_index_gpu.as_entire_binding(),
             },
             BindGroupEntry {
                 binding: 1,
-                resource: parent_metadatas_gpu.as_entire_binding(),
+                resource: matches_gpu.as_entire_binding(),
             },
             BindGroupEntry {
                 binding: 2,
-                resource: ys_gpu.as_entire_binding(),
+                resource: parent_metadatas_gpu.as_entire_binding(),
             },
             BindGroupEntry {
                 binding: 3,
+                resource: ys_gpu.as_entire_binding(),
+            },
+            BindGroupEntry {
+                binding: 4,
                 resource: metadatas_gpu.as_entire_binding(),
             },
         ],

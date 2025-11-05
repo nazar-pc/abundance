@@ -1,12 +1,12 @@
 use crate::shader::compute_fn::cpu_tests::correct_compute_fn;
 use crate::shader::constants::{
-    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, REDUCED_MATCHES_COUNT,
+    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, PARAM_BC, REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_and_compute_f7::{
     NUM_ELEMENTS_PER_S_BUCKET, PARENT_TABLE_NUMBER, TABLE_NUMBER,
 };
 use crate::shader::find_matches_in_buckets::cpu_tests::find_matches_in_buckets_correct;
-use crate::shader::types::{Metadata, Position, PositionExt, PositionR};
+use crate::shader::types::{Metadata, Position, PositionExt, PositionR, Y};
 use std::mem::MaybeUninit;
 
 pub(super) fn find_matches_and_compute_f7_correct<'a>(
@@ -22,6 +22,7 @@ pub(super) fn find_matches_and_compute_f7_correct<'a>(
     for (left_bucket_index, [left_bucket, right_bucket]) in
         parent_buckets.array_windows().enumerate()
     {
+        let left_bucket_base = left_bucket_index as u32 * u32::from(PARAM_BC);
         let matches = find_matches_in_buckets_correct(
             left_bucket_index as u32,
             left_bucket,
@@ -37,7 +38,7 @@ pub(super) fn find_matches_and_compute_f7_correct<'a>(
             let left_metadata = parent_metadatas[m.left_position as usize];
             let right_metadata = parent_metadatas[m.right_position as usize];
             let (y, _) = correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                m.left_y,
+                Y::from(left_bucket_base + m.left_r),
                 left_metadata,
                 right_metadata,
             );

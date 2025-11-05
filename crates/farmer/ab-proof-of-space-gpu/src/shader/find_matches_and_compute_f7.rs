@@ -5,13 +5,13 @@ mod gpu_tests;
 
 use crate::shader::compute_fn::compute_fn_impl;
 use crate::shader::constants::{
-    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, REDUCED_MATCHES_COUNT,
+    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, PARAM_BC, REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_matches_in_buckets::{
     MAX_SUBGROUPS, Match, SharedScratchSpace, find_matches_in_buckets_impl,
 };
-use crate::shader::types::{Metadata, Position, PositionR};
+use crate::shader::types::{Metadata, Position, PositionR, Y};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{atomic_i_increment, workgroup_memory_barrier_with_group_sync};
 use spirv_std::glam::UVec3;
@@ -133,6 +133,7 @@ unsafe fn compute_f7_into_buckets(
     table_6_proof_targets: &mut [[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET];
              NUM_S_BUCKETS],
 ) {
+    let left_bucket_base = left_bucket_index * u32::from(PARAM_BC);
     let absolute_position_base = left_bucket_index * REDUCED_MATCHES_COUNT as u32;
 
     // TODO: More idiomatic version currently doesn't compile:
@@ -150,7 +151,7 @@ unsafe fn compute_f7_into_buckets(
         let right_metadata = *unsafe { parent_metadatas.get_unchecked(m.right_position as usize) };
 
         let (y, _) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-            m.left_y,
+            Y::from(left_bucket_base + m.left_r),
             left_metadata,
             right_metadata,
         );

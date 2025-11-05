@@ -2,7 +2,7 @@ use crate::shader::constants::{
     MAX_BUCKET_SIZE, PARAM_BC, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_in_buckets::{Match, calculate_left_target_on_demand};
-use crate::shader::types::{Position, PositionExt, PositionR, Y};
+use crate::shader::types::{Position, PositionExt, PositionR};
 use std::mem::MaybeUninit;
 
 pub(super) struct Rmap {
@@ -116,21 +116,20 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
             break;
         }
 
-        let (r, _data) = r.split();
+        let (left_r, _data) = r.split();
 
         for m in 0..u32::from(PARAM_M) {
-            let r_target = calculate_left_target_on_demand(parity, r, m);
+            let r_target = calculate_left_target_on_demand(parity, left_r, m);
             // SAFETY: Targets are always limited to `PARAM_BC`
             let [right_position_a, right_position_b] = unsafe { rmap.get(r_target) };
 
             // The right bucket position is never zero
             if right_position_a != Position::SENTINEL {
-                let left_y = Y::from(r + left_base);
                 // SAFETY: Iteration will stop before `REDUCED_MATCHES_COUNT + PARAM_M * 2`
                 // elements is inserted
                 unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
                     left_position: position,
-                    left_y,
+                    left_r,
                     right_position: right_position_a,
                 });
                 next_match_index += 1;
@@ -140,7 +139,7 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
                     // `REDUCED_MATCHES_COUNT + PARAM_M * 2` elements is inserted
                     unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
                         left_position: position,
-                        left_y,
+                        left_r,
                         right_position: right_position_b,
                     });
                     next_match_index += 1;

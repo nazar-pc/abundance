@@ -6,11 +6,10 @@ pub mod rmap;
 
 use crate::shader::MIN_SUBGROUP_SIZE;
 use crate::shader::constants::{
-    MAX_BUCKET_SIZE, PARAM_B, PARAM_BC, PARAM_C, PARAM_M, REDUCED_BUCKET_SIZE,
-    REDUCED_MATCHES_COUNT,
+    MAX_BUCKET_SIZE, PARAM_B, PARAM_C, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_in_buckets::rmap::{Rmap, RmapBitPosition, RmapBitPositionExt};
-use crate::shader::types::{Position, PositionExt, PositionR, Y};
+use crate::shader::types::{Position, PositionExt, PositionR};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{
     control_barrier, subgroup_exclusive_i_add, subgroup_i_add,
@@ -69,7 +68,7 @@ pub struct Match {
     pub left_position: Position,
     // TODO: Would it be efficient to not store it here since `left_position` already points to the
     //  correct `y` in the parent table?
-    pub left_y: Y,
+    pub left_r: u32,
     pub right_position: Position,
 }
 
@@ -104,8 +103,6 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         bucket_size_b,
         num_subgroups_size_a,
     } = scratch_space;
-
-    let left_base = left_bucket_index * u32::from(PARAM_BC);
 
     // Initialize `rmap`
     let rmap = {
@@ -188,7 +185,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         (left_bucket_positions, &*left_rs)
     };
 
-    let parity = left_base % 2;
+    let parity = left_bucket_index % 2;
 
     const CHUNK_SIZE: usize = WORKGROUP_SIZE as usize / PARAM_M as usize;
     const {
@@ -281,8 +278,6 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         let mut local_matches_offset = subgroup_matches_offset + local_matches_prefix;
 
         if right_position_a != Position::SENTINEL {
-            let y = Y::from(left_r + left_base);
-
             // TODO: More idiomatic version currently doesn't compile:
             //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
             // let Some(m) = matches.get_mut(local_matches_offset as usize) else {
@@ -293,7 +288,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 
                 m.write(Match {
                     left_position,
-                    left_y: y,
+                    left_r,
                     right_position: right_position_a,
                 });
 
@@ -310,7 +305,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 
                         m.write(Match {
                             left_position,
-                            left_y: y,
+                            left_r,
                             right_position: right_position_b,
                         });
                     }
