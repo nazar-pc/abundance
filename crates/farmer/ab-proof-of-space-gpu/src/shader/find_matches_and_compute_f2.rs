@@ -79,11 +79,11 @@ unsafe fn compute_f2_into_buckets(
     for index in (local_invocation_id..matches_count as u32).step_by(WORKGROUP_SIZE as usize) {
         // SAFETY: Guaranteed by function contract
         let m = unsafe { matches.get_unchecked(index as usize).assume_init() };
-        let left_metadata = Metadata::from(m.left_position);
-        let right_metadata = Metadata::from(m.right_position);
+        let left_metadata = Metadata::from(m.left_position());
+        let right_metadata = Metadata::from(m.right_position());
 
         let (y, metadata) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-            Y::from(left_bucket_base + m.left_r),
+            Y::from(left_bucket_base + m.left_r()),
             left_metadata,
             right_metadata,
         );
@@ -112,7 +112,7 @@ unsafe fn compute_f2_into_buckets(
             r,
         });
 
-        positions[index as usize].write([m.left_position, m.right_position]);
+        positions[index as usize].write([m.left_position(), m.right_position()]);
 
         metadatas[index as usize].write(metadata);
     }
@@ -126,7 +126,8 @@ unsafe fn compute_f2_into_buckets(
 ///
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`].  All buckets must come from the `sort_buckets_with_rmap_details` shader.
+/// [`MAX_SUBGROUPS`]. All buckets must contain valid positions and `r` values and come from
+/// `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f2"))]
 #[expect(
     clippy::too_many_arguments,

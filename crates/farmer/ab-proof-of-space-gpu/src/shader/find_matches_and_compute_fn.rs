@@ -82,12 +82,13 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
         // SAFETY: Guaranteed by function contract
         let m = unsafe { matches.get_unchecked(index as usize).assume_init() };
         // SAFETY: Guaranteed by function contract
-        let left_metadata = *unsafe { parent_metadatas.get_unchecked(m.left_position as usize) };
+        let left_metadata = *unsafe { parent_metadatas.get_unchecked(m.left_position() as usize) };
         // SAFETY: Guaranteed by function contract
-        let right_metadata = *unsafe { parent_metadatas.get_unchecked(m.right_position as usize) };
+        let right_metadata =
+            *unsafe { parent_metadatas.get_unchecked(m.right_position() as usize) };
 
         let (y, metadata) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-            Y::from(left_bucket_base + m.left_r),
+            Y::from(left_bucket_base + m.left_r()),
             left_metadata,
             right_metadata,
         );
@@ -116,7 +117,7 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
             r,
         });
 
-        positions[index as usize].write([m.left_position, m.right_position]);
+        positions[index as usize].write([m.left_position(), m.right_position()]);
 
         // The last table doesn't have any metadata
         if TABLE_NUMBER < 7 {
@@ -127,7 +128,8 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
 
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
+/// [`MAX_SUBGROUPS`]. All buckets must contain valid positions and `r` values and come from
+/// `sort_buckets_with_rmap_details` shader.
 #[expect(
     clippy::too_many_arguments,
     reason = "Both I/O and Vulkan stuff together take a lot of arguments"

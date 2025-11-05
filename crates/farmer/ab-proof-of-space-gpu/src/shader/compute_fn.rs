@@ -190,13 +190,13 @@ fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     let m = matches[global_invocation_id];
     // TODO: Correct version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    // let left_metadata = parent_metadatas[usize::from(m.left_position)];
-    // let right_metadata = parent_metadatas[usize::from(m.right_position)];
-    let left_metadata = parent_metadatas[m.left_position as usize];
-    let right_metadata = parent_metadatas[m.right_position as usize];
+    // let left_metadata = parent_metadatas[usize::from(m.left_position())];
+    // let right_metadata = parent_metadatas[usize::from(m.right_position())];
+    let left_metadata = parent_metadatas[m.left_position() as usize];
+    let right_metadata = parent_metadatas[m.right_position() as usize];
 
     let (y, metadata) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-        Y::from(left_bucket_index * u32::from(PARAM_BC) + m.left_r),
+        Y::from(left_bucket_index * u32::from(PARAM_BC) + m.left_r()),
         left_metadata,
         right_metadata,
     );

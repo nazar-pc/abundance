@@ -143,15 +143,16 @@ unsafe fn compute_f7_into_buckets(
         let m = unsafe { matches.get_unchecked(index as usize).assume_init() };
         // TODO: Correct version currently doesn't compile:
         //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // let left_metadata = parent_metadatas[usize::from(m.left_position)];
-        // let right_metadata = parent_metadatas[usize::from(m.right_position)];
+        // let left_metadata = parent_metadatas[usize::from(m.left_position())];
+        // let right_metadata = parent_metadatas[usize::from(m.right_position())];
         // SAFETY: Guaranteed by function contract
-        let left_metadata = *unsafe { parent_metadatas.get_unchecked(m.left_position as usize) };
+        let left_metadata = *unsafe { parent_metadatas.get_unchecked(m.left_position() as usize) };
         // SAFETY: Guaranteed by function contract
-        let right_metadata = *unsafe { parent_metadatas.get_unchecked(m.right_position as usize) };
+        let right_metadata =
+            *unsafe { parent_metadatas.get_unchecked(m.right_position() as usize) };
 
         let (y, _) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-            Y::from(left_bucket_base + m.left_r),
+            Y::from(left_bucket_base + m.left_r()),
             left_metadata,
             right_metadata,
         );
@@ -187,7 +188,7 @@ unsafe fn compute_f7_into_buckets(
         }
         .write(ProofTargets {
             absolute_position: absolute_position_base + index,
-            positions: [m.left_position, m.right_position],
+            positions: [m.left_position(), m.right_position()],
         });
     }
 }
@@ -201,7 +202,8 @@ unsafe fn compute_f7_into_buckets(
 ///
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
+/// [`MAX_SUBGROUPS`]. All buckets must contain valid positions and `r` values and come from
+/// `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f7"))]
 #[expect(
     clippy::too_many_arguments,

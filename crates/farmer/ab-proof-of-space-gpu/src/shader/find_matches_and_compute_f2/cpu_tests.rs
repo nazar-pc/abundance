@@ -39,10 +39,10 @@ pub(super) fn find_matches_and_compute_f2_correct<
         for (index, ((m, match_positions), match_metadata)) in
             matches.iter().zip(positions).zip(metadatas).enumerate()
         {
-            let left_metadata = Metadata::from(m.left_position);
-            let right_metadata = Metadata::from(m.right_position);
+            let left_metadata = Metadata::from(m.left_position());
+            let right_metadata = Metadata::from(m.right_position());
             let (y, metadata) = correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                Y::from(left_bucket_base + m.left_r),
+                Y::from(left_bucket_base + m.left_r()),
                 left_metadata,
                 right_metadata,
             );
@@ -58,7 +58,7 @@ pub(super) fn find_matches_and_compute_f2_correct<
                     position: Position::from_u32(metadatas_offset + index as u32),
                     r,
                 });
-                match_positions.write([m.left_position, m.right_position]);
+                match_positions.write([m.left_position(), m.right_position()]);
                 match_metadata.write(metadata);
                 *bucket_offset += 1;
             }

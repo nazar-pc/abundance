@@ -64,16 +64,18 @@ fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
             let left_position = Position::from(rng.next_u32() % parent_table_size as u32);
             let right_position = Position::from(rng.next_u32() % parent_table_size as u32);
 
-            Match {
-                left_position,
-                // TODO: Correct version currently doesn't compile:
-                //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-                // left_y: parent_ys[usize::from(left_position)],
-                left_r: parent_ys[left_position as usize]
-                    .into_bucket_index_and_r()
-                    .1
-                    .get_inner(),
-                right_position,
+            unsafe {
+                Match::new(
+                    left_position,
+                    // TODO: Correct version currently doesn't compile:
+                    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+                    // parent_ys[usize::from(left_position)],
+                    parent_ys[left_position as usize]
+                        .into_bucket_index_and_r()
+                        .1
+                        .get_inner(),
+                    right_position,
+                )
             }
         })
         .collect::<Vec<_>>();
@@ -91,12 +93,12 @@ fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
         .map(|m| {
             // TODO: Correct version currently doesn't compile:
             //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-            // let left_metadata = parent_metadatas[usize::from(m.left_position)];
-            // let right_metadata = parent_metadatas[usize::from(m.right_position)];
-            let left_metadata = parent_metadatas[m.left_position as usize];
-            let right_metadata = parent_metadatas[m.right_position as usize];
+            // let left_metadata = parent_metadatas[usize::from(m.left_position())];
+            // let right_metadata = parent_metadatas[usize::from(m.right_position())];
+            let left_metadata = parent_metadatas[m.left_position() as usize];
+            let right_metadata = parent_metadatas[m.right_position() as usize];
             correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                Y::from(left_bucket_index * u32::from(PARAM_BC) + m.left_r),
+                Y::from(left_bucket_index * u32::from(PARAM_BC) + m.left_r()),
                 left_metadata,
                 right_metadata,
             )

@@ -33,12 +33,12 @@ pub(super) fn find_matches_and_compute_f7_correct<'a>(
         for m in matches {
             // TODO: Correct version currently doesn't compile:
             //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-            // let left_metadata = parent_metadatas[usize::from(m.left_position)];
-            // let right_metadata = parent_metadatas[usize::from(m.right_position)];
-            let left_metadata = parent_metadatas[m.left_position as usize];
-            let right_metadata = parent_metadatas[m.right_position as usize];
+            // let left_metadata = parent_metadatas[usize::from(m.left_position())];
+            // let right_metadata = parent_metadatas[usize::from(m.right_position())];
+            let left_metadata = parent_metadatas[m.left_position() as usize];
+            let right_metadata = parent_metadatas[m.right_position() as usize];
             let (y, _) = correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                Y::from(left_bucket_base + m.left_r),
+                Y::from(left_bucket_base + m.left_r()),
                 left_metadata,
                 right_metadata,
             );
@@ -53,7 +53,7 @@ pub(super) fn find_matches_and_compute_f7_correct<'a>(
             // within bounds.
             let bucket = unsafe { table_6_proof_targets.get_unchecked_mut(s_bucket) };
 
-            bucket[*bucket_offset as usize].write([m.left_position, m.right_position]);
+            bucket[*bucket_offset as usize].write([m.left_position(), m.right_position()]);
             *bucket_offset += 1;
         }
     }

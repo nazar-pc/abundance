@@ -65,11 +65,40 @@ pub struct SharedScratchSpace {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 pub struct Match {
-    pub left_position: Position,
+    left_position: Position,
     // TODO: Would it be efficient to not store it here since `left_position` already points to the
     //  correct `y` in the parent table?
-    pub left_r: u32,
-    pub right_position: Position,
+    left_r: u32,
+    right_position: Position,
+}
+
+impl Match {
+    /// # Safety
+    /// `r` value must be within `0..PARAM_BC` range, `left_position` and `right_position` must be
+    /// within `0..MAX_TABLE_SIZE` range
+    #[inline(always)]
+    pub unsafe fn new(left_position: Position, left_r: u32, right_position: Position) -> Self {
+        Self {
+            left_position,
+            left_r,
+            right_position,
+        }
+    }
+
+    #[inline(always)]
+    pub fn left_position(&self) -> Position {
+        self.left_position
+    }
+
+    #[inline(always)]
+    pub fn left_r(&self) -> u32 {
+        self.left_r
+    }
+
+    #[inline(always)]
+    pub fn right_position(&self) -> Position {
+        self.right_position
+    }
 }
 
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and
@@ -79,7 +108,8 @@ pub struct Match {
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads with `local_invocation_id` corresponding to the
 /// thread index. `num_subgroups` must be at most [`MAX_SUBGROUPS`] and `subgroup_id` must be within
-/// `0..num_subgroups`. All buckets must come from the `sort_buckets_with_rmap_details` shader.
+/// `0..num_subgroups`. All buckets must contain valid positions and `r` values and come from
+/// `sort_buckets_with_rmap_details` shader.
 // TODO: Try to reduce the `matches` size further by processing `left_bucket` in chunks (like halves
 //  for example)
 #[expect(clippy::too_many_arguments, reason = "Function is inlined anyway")]
@@ -286,11 +316,9 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             if (local_matches_offset as usize) < matches.len() {
                 let m = &mut matches[local_matches_offset as usize];
 
-                m.write(Match {
-                    left_position,
-                    left_r,
-                    right_position: right_position_a,
-                });
+                // SAFETY: Positions and `r`s are coming from the parent table and are valid
+                // according to function contract
+                m.write(unsafe { Match::new(left_position, left_r, right_position_a) });
 
                 local_matches_offset += 1;
 
@@ -303,11 +331,9 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
                     if (local_matches_offset as usize) < matches.len() {
                         let m = &mut matches[local_matches_offset as usize];
 
-                        m.write(Match {
-                            left_position,
-                            left_r,
-                            right_position: right_position_b,
-                        });
+                        // SAFETY: Positions and `r`s are coming from the parent table and are valid
+                        // according to function contract
+                        m.write(unsafe { Match::new(left_position, left_r, right_position_b) });
                     }
                 }
             }
@@ -326,7 +352,8 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
+/// [`MAX_SUBGROUPS`]. All buckets must contain valid positions and `r` values and come from
+/// `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_in_buckets"))]
 #[expect(
     clippy::too_many_arguments,

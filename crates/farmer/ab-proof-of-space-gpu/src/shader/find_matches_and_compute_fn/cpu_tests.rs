@@ -43,12 +43,12 @@ pub(super) fn find_matches_and_compute_fn_correct<
         {
             // TODO: Correct version currently doesn't compile:
             //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-            // let left_metadata = parent_metadatas[usize::from(m.left_position)];
-            // let right_metadata = parent_metadatas[usize::from(m.right_position)];
-            let left_metadata = parent_metadatas[m.left_position as usize];
-            let right_metadata = parent_metadatas[m.right_position as usize];
+            // let left_metadata = parent_metadatas[usize::from(m.left_position())];
+            // let right_metadata = parent_metadatas[usize::from(m.right_position())];
+            let left_metadata = parent_metadatas[m.left_position() as usize];
+            let right_metadata = parent_metadatas[m.right_position() as usize];
             let (y, metadata) = correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                Y::from(left_bucket_base + m.left_r),
+                Y::from(left_bucket_base + m.left_r()),
                 left_metadata,
                 right_metadata,
             );
@@ -64,7 +64,7 @@ pub(super) fn find_matches_and_compute_fn_correct<
                     position: Position::from_u32(metadatas_offset + index as u32),
                     r,
                 });
-                match_positions.write([m.left_position, m.right_position]);
+                match_positions.write([m.left_position(), m.right_position()]);
                 match_metadata.write(metadata);
                 *bucket_offset += 1;
             }
