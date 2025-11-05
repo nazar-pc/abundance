@@ -1,11 +1,11 @@
 use crate::shader::constants::{
     MAX_BUCKET_SIZE, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
+use crate::shader::find_matches_in_buckets::MAX_SUBGROUPS;
 use crate::shader::find_matches_in_buckets::cpu_tests::find_matches_in_buckets_correct;
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
-use crate::shader::find_matches_in_buckets::{MAX_SUBGROUPS, Match};
 use crate::shader::select_shader_features_limits;
-use crate::shader::types::{Position, PositionExt, PositionR, Y};
+use crate::shader::types::{Match, Position, PositionExt, PositionR, Y};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{RngCore, SeedableRng};
 use futures::executor::block_on;

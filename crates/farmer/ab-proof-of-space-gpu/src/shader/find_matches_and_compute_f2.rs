@@ -9,9 +9,9 @@ use crate::shader::constants::{
 };
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_matches_in_buckets::{
-    MAX_SUBGROUPS, Match, SharedScratchSpace, find_matches_in_buckets_impl,
+    MAX_SUBGROUPS, SharedScratchSpace, find_matches_in_buckets_impl,
 };
-use crate::shader::types::{Metadata, Position, PositionExt, PositionR, Y};
+use crate::shader::types::{Match, Metadata, Position, PositionExt, PositionR, Y};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{atomic_i_increment, workgroup_memory_barrier_with_group_sync};
 use spirv_std::glam::UVec3;

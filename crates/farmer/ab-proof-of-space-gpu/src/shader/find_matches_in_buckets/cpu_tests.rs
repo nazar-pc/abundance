@@ -1,8 +1,8 @@
 use crate::shader::constants::{
     MAX_BUCKET_SIZE, PARAM_BC, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_in_buckets::{Match, calculate_left_target_on_demand};
-use crate::shader::types::{Position, PositionExt, PositionR};
+use crate::shader::find_matches_in_buckets::calculate_left_target_on_demand;
+use crate::shader::types::{Match, Position, PositionExt, PositionR};
 use std::mem::MaybeUninit;
 
 pub(super) struct Rmap {
@@ -125,23 +125,17 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
 
             // The right bucket position is never zero
             if right_position_a != Position::SENTINEL {
+                let m = unsafe { Match::new(position, left_r, right_position_a) };
                 // SAFETY: Iteration will stop before `REDUCED_MATCHES_COUNT + PARAM_M * 2`
                 // elements is inserted
-                unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
-                    left_position: position,
-                    left_r,
-                    right_position: right_position_a,
-                });
+                unsafe { matches.get_unchecked_mut(next_match_index) }.write(m);
                 next_match_index += 1;
 
                 if right_position_b != Position::SENTINEL {
+                    let m = unsafe { Match::new(position, left_r, right_position_b) };
                     // SAFETY: Iteration will stop before
                     // `REDUCED_MATCHES_COUNT + PARAM_M * 2` elements is inserted
-                    unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
-                        left_position: position,
-                        left_r,
-                        right_position: right_position_b,
-                    });
+                    unsafe { matches.get_unchecked_mut(next_match_index) }.write(m);
                     next_match_index += 1;
                 }
             }

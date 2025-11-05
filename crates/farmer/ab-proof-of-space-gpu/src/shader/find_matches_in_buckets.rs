@@ -9,7 +9,7 @@ use crate::shader::constants::{
     MAX_BUCKET_SIZE, PARAM_B, PARAM_C, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_in_buckets::rmap::{Rmap, RmapBitPosition, RmapBitPositionExt};
-use crate::shader::types::{Position, PositionExt, PositionR};
+use crate::shader::types::{Match, Position, PositionExt, PositionR};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{
     control_barrier, subgroup_exclusive_i_add, subgroup_i_add,
@@ -60,45 +60,6 @@ pub struct SharedScratchSpace {
     bucket_size_a: [MaybeUninit<u32>; REDUCED_BUCKET_SIZE],
     bucket_size_b: [MaybeUninit<u32>; REDUCED_BUCKET_SIZE],
     num_subgroups_size_a: [MaybeUninit<u32>; MAX_SUBGROUPS],
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[repr(C)]
-pub struct Match {
-    left_position: Position,
-    // TODO: Would it be efficient to not store it here since `left_position` already points to the
-    //  correct `y` in the parent table?
-    left_r: u32,
-    right_position: Position,
-}
-
-impl Match {
-    /// # Safety
-    /// `r` value must be within `0..PARAM_BC` range, `left_position` and `right_position` must be
-    /// within `0..MAX_TABLE_SIZE` range
-    #[inline(always)]
-    pub unsafe fn new(left_position: Position, left_r: u32, right_position: Position) -> Self {
-        Self {
-            left_position,
-            left_r,
-            right_position,
-        }
-    }
-
-    #[inline(always)]
-    pub fn left_position(&self) -> Position {
-        self.left_position
-    }
-
-    #[inline(always)]
-    pub fn left_r(&self) -> u32 {
-        self.left_r
-    }
-
-    #[inline(always)]
-    pub fn right_position(&self) -> Position {
-        self.right_position
-    }
 }
 
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and

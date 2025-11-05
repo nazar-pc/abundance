@@ -4,9 +4,8 @@ pub(super) mod cpu_tests;
 mod gpu_tests;
 
 use crate::shader::constants::{K, PARAM_BC, PARAM_EXT};
-use crate::shader::find_matches_in_buckets::Match;
 use crate::shader::num::{U128, U128T};
-use crate::shader::types::{Metadata, Y};
+use crate::shader::types::{Match, Metadata, Y};
 use core::mem::MaybeUninit;
 use spirv_std::glam::UVec3;
 use spirv_std::spirv;
