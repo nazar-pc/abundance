@@ -217,9 +217,8 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         // `PARAM_M` process the second chunk index and so on, with each chunk index corresponding
         // to `PARAM_M` `r_target` values
         let index_within_chunk = local_invocation_id as usize / PARAM_M as usize;
-        let left_position = unsafe {
-            left_bucket_positions[chunk_index * CHUNK_SIZE + index_within_chunk].assume_init()
-        };
+        let bucket_offset = chunk_index * CHUNK_SIZE + index_within_chunk;
+        let left_position = unsafe { left_bucket_positions[bucket_offset].assume_init() };
 
         // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
         // Check if reached the end of the bucket
@@ -231,9 +230,8 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             // TODO: More idiomatic version currently doesn't compile:
             //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
             // // SAFETY: `left_position` is not sentinel, hence `left_r` must be initialized
-            // let left_r = unsafe { left_rs[chunk_index * CHUNK_SIZE + index_within_chunk].assume_init() };
-            let left_r =
-                unsafe { left_rs[chunk_index * CHUNK_SIZE + index_within_chunk].assume_init() };
+            // let left_r = unsafe { left_rs[bucket_offset].assume_init() };
+            let left_r = unsafe { left_rs[bucket_offset].assume_init() };
             let m = local_invocation_id % PARAM_M as u32;
             let r_target = calculate_left_target_on_demand(parity, left_r, m);
 
