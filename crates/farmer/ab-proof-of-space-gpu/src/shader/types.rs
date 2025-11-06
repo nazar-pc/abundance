@@ -224,8 +224,7 @@ impl PositionR {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 pub struct Match {
-    bucket_offset_left_position: u32,
-    right_position: Position,
+    bucket_offset_right_position: u32,
 }
 
 impl Match {
@@ -233,11 +232,7 @@ impl Match {
     /// `bucket_offset` value must be within `0..MAX_BUCKET_SIZE` range, `left_position` and
     /// `right_position` must be within `0..(NUM_BUCKETS * MAX_BUCKET_SIZE)` range
     #[inline(always)]
-    pub(super) unsafe fn new(
-        left_position: Position,
-        bucket_offset: u32,
-        right_position: Position,
-    ) -> Self {
+    pub(super) unsafe fn new(bucket_offset: u32, right_position: Position) -> Self {
         const {
             assert!(
                 (MAX_BUCKET_SIZE - 1).bit_width() + (NUM_BUCKETS * MAX_BUCKET_SIZE - 1).bit_width()
@@ -248,31 +243,25 @@ impl Match {
         // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
         //  shouldn't be necessary otherwise
         Self {
-            bucket_offset_left_position: (bucket_offset
+            bucket_offset_right_position: (bucket_offset
                 << const { (NUM_BUCKETS * MAX_BUCKET_SIZE - 1).bit_width() })
-                | left_position,
-            right_position,
+                | right_position,
         }
-    }
-
-    #[inline(always)]
-    pub fn left_position(&self) -> Position {
-        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
-        //  shouldn't be necessary otherwise
-        self.bucket_offset_left_position
-            & (u32::MAX >> const { u32::BITS - (NUM_BUCKETS * MAX_BUCKET_SIZE - 1).bit_width() })
     }
 
     #[inline(always)]
     pub fn bucket_offset(&self) -> u32 {
         // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
         //  shouldn't be necessary otherwise
-        self.bucket_offset_left_position
+        self.bucket_offset_right_position
             >> const { (NUM_BUCKETS * MAX_BUCKET_SIZE - 1).bit_width() }
     }
 
     #[inline(always)]
     pub fn right_position(&self) -> Position {
-        self.right_position
+        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
+        //  shouldn't be necessary otherwise
+        self.bucket_offset_right_position
+            & (u32::MAX >> const { u32::BITS - (NUM_BUCKETS * MAX_BUCKET_SIZE - 1).bit_width() })
     }
 }

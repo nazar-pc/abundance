@@ -125,14 +125,14 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
 
             // The right bucket position is never zero
             if right_position_a != Position::SENTINEL {
-                let m = unsafe { Match::new(position, bucket_offset as u32, right_position_a) };
+                let m = unsafe { Match::new(bucket_offset as u32, right_position_a) };
                 // SAFETY: Iteration will stop before `REDUCED_MATCHES_COUNT + PARAM_M * 2`
                 // elements is inserted
                 unsafe { matches.get_unchecked_mut(next_match_index) }.write(m);
                 next_match_index += 1;
 
                 if right_position_b != Position::SENTINEL {
-                    let m = unsafe { Match::new(position, bucket_offset as u32, right_position_b) };
+                    let m = unsafe { Match::new(bucket_offset as u32, right_position_b) };
                     // SAFETY: Iteration will stop before
                     // `REDUCED_MATCHES_COUNT + PARAM_M * 2` elements is inserted
                     unsafe { matches.get_unchecked_mut(next_match_index) }.write(m);

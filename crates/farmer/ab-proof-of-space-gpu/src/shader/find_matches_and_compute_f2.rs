@@ -82,10 +82,10 @@ unsafe fn compute_f2_into_buckets(
         // SAFETY: Guaranteed by function contract
         let m = unsafe { matches.get_unchecked(index as usize).assume_init() };
         // SAFETY: Guaranteed by function contract
-        let (left_r, _data) = unsafe { left_bucket.get_unchecked(m.bucket_offset() as usize) }
-            .r
-            .split();
-        let left_metadata = Metadata::from(m.left_position());
+        let left_position_r = *unsafe { left_bucket.get_unchecked(m.bucket_offset() as usize) };
+        let left_position = left_position_r.position;
+        let (left_r, _data) = left_position_r.r.split();
+        let left_metadata = Metadata::from(left_position);
         let right_metadata = Metadata::from(m.right_position());
 
         let (y, metadata) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
@@ -118,7 +118,7 @@ unsafe fn compute_f2_into_buckets(
             r,
         });
 
-        positions[index as usize].write([m.left_position(), m.right_position()]);
+        positions[index as usize].write([left_position, m.right_position()]);
 
         metadatas[index as usize].write(metadata);
     }

@@ -84,11 +84,15 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
         // SAFETY: Guaranteed by function contract
         let m = unsafe { matches.get_unchecked(index as usize).assume_init() };
         // SAFETY: Guaranteed by function contract
-        let (left_r, _data) = unsafe { left_bucket.get_unchecked(m.bucket_offset() as usize) }
-            .r
-            .split();
+        let left_position_r = *unsafe { left_bucket.get_unchecked(m.bucket_offset() as usize) };
+        let left_position = left_position_r.position;
+        let (left_r, _data) = left_position_r.r.split();
+        // TODO: Correct version currently doesn't compile:
+        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+        // let left_metadata = parent_metadatas[usize::from(left_position)];
+        // let right_metadata = parent_metadatas[usize::from(m.right_position())];
         // SAFETY: Guaranteed by function contract
-        let left_metadata = *unsafe { parent_metadatas.get_unchecked(m.left_position() as usize) };
+        let left_metadata = *unsafe { parent_metadatas.get_unchecked(left_position as usize) };
         // SAFETY: Guaranteed by function contract
         let right_metadata =
             *unsafe { parent_metadatas.get_unchecked(m.right_position() as usize) };
@@ -123,7 +127,7 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
             r,
         });
 
-        positions[index as usize].write([m.left_position(), m.right_position()]);
+        positions[index as usize].write([left_position, m.right_position()]);
 
         // The last table doesn't have any metadata
         if TABLE_NUMBER < 7 {

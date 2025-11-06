@@ -277,9 +277,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
                 // SAFETY: Positions are coming from the parent table and are valid
                 // according to function contract, `bucket_offset` is guaranteed to be within
                 // `0..NUM_BUCKETS * MAX_BUCKET_SIZE` range
-                m.write(unsafe {
-                    Match::new(left_position, bucket_offset as u32, right_position_a)
-                });
+                m.write(unsafe { Match::new(bucket_offset as u32, right_position_a) });
 
                 local_matches_offset += 1;
 
@@ -295,9 +293,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
                         // SAFETY: Positions are coming from the parent table and are valid
                         // according to function contract, `bucket_offset` is guaranteed to be
                         // within `0..NUM_BUCKETS * MAX_BUCKET_SIZE` range
-                        m.write(unsafe {
-                            Match::new(left_position, bucket_offset as u32, right_position_b)
-                        });
+                        m.write(unsafe { Match::new(bucket_offset as u32, right_position_b) });
                     }
                 }
             }
