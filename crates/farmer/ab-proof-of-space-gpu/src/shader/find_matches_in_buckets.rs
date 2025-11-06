@@ -210,10 +210,9 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 
         // TODO: Wouldn't it make more sense to check the size here instead of sentinel?
         // Check if reached the end of the bucket
-        let ([right_position_a, right_position_b], left_r) = if left_position == Position::SENTINEL
-        {
+        let [right_position_a, right_position_b] = if left_position == Position::SENTINEL {
             // `left_r` value doesn't matter here, it will not be read/used anyway
-            ([Position::SENTINEL; _], 0)
+            [Position::SENTINEL; _]
         } else {
             // TODO: More idiomatic version currently doesn't compile:
             //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -224,9 +223,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             let r_target = calculate_left_target_on_demand(parity, left_r, m);
 
             // SAFETY: Targets are always limited to `PARAM_BC`
-            let positions = unsafe { rmap.get(RmapBitPosition::new(r_target)) };
-
-            (positions, left_r)
+            unsafe { rmap.get(RmapBitPosition::new(r_target)) }
         };
 
         let local_matches_count = (right_position_a != Position::SENTINEL) as u32
@@ -277,9 +274,12 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             if (local_matches_offset as usize) < matches.len() {
                 let m = &mut matches[local_matches_offset as usize];
 
-                // SAFETY: Positions and `r`s are coming from the parent table and are valid
-                // according to function contract
-                m.write(unsafe { Match::new(left_position, left_r, right_position_a) });
+                // SAFETY: Positions are coming from the parent table and are valid
+                // according to function contract, `bucket_offset` is guaranteed to be within
+                // `0..MAX_BUCKET_SIZE` range
+                m.write(unsafe {
+                    Match::new(left_position, bucket_offset as u32, right_position_a)
+                });
 
                 local_matches_offset += 1;
 
@@ -292,9 +292,12 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
                     if (local_matches_offset as usize) < matches.len() {
                         let m = &mut matches[local_matches_offset as usize];
 
-                        // SAFETY: Positions and `r`s are coming from the parent table and are valid
-                        // according to function contract
-                        m.write(unsafe { Match::new(left_position, left_r, right_position_b) });
+                        // SAFETY: Positions are coming from the parent table and are valid
+                        // according to function contract, `bucket_offset` is guaranteed to be
+                        // within `0..MAX_BUCKET_SIZE` range
+                        m.write(unsafe {
+                            Match::new(left_position, bucket_offset as u32, right_position_b)
+                        });
                     }
                 }
             }

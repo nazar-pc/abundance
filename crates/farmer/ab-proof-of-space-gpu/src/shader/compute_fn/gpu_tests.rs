@@ -1,6 +1,6 @@
 use crate::shader::compute_fn::WORKGROUP_SIZE;
 use crate::shader::compute_fn::cpu_tests::{correct_compute_fn, random_metadata, random_y};
-use crate::shader::constants::{MAX_TABLE_SIZE, NUM_BUCKETS, PARAM_BC};
+use crate::shader::constants::MAX_TABLE_SIZE;
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Match, Metadata, Position, Y};
 use chacha20::ChaCha8Rng;
@@ -48,7 +48,6 @@ fn compute_f7_gpu() {
 
 fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
-    let left_bucket_index = rng.next_u32() % NUM_BUCKETS as u32;
     let parent_table_size = 100_usize;
     let num_matches = 100_usize;
 
@@ -63,25 +62,13 @@ fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
             let left_position = Position::from(rng.next_u32() % parent_table_size as u32);
             let right_position = Position::from(rng.next_u32() % parent_table_size as u32);
 
-            unsafe {
-                Match::new(
-                    left_position,
-                    // TODO: Correct version currently doesn't compile:
-                    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-                    // parent_ys[usize::from(left_position)],
-                    parent_ys[left_position as usize]
-                        .into_bucket_index_and_r()
-                        .1
-                        .get_inner(),
-                    right_position,
-                )
-            }
+            unsafe { Match::new(left_position, left_position, right_position) }
         })
         .collect::<Vec<_>>();
 
     let Some((actual_ys, actual_metadatas)) = block_on(compute_fn::<TABLE_NUMBER>(
-        left_bucket_index,
         &matches,
+        &parent_ys,
         &parent_metadatas,
     )) else {
         panic!("No compatible device detected, can't run tests");
@@ -97,7 +84,7 @@ fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
             let left_metadata = parent_metadatas[m.left_position() as usize];
             let right_metadata = parent_metadatas[m.right_position() as usize];
             correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                Y::from(left_bucket_index * u32::from(PARAM_BC) + m.left_r()),
+                parent_ys[m.bucket_offset() as usize],
                 left_metadata,
                 right_metadata,
             )
@@ -117,8 +104,8 @@ fn compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>() {
 }
 
 async fn compute_fn<const TABLE_NUMBER: u8>(
-    left_bucket_index: u32,
     matches: &[Match],
+    parent_ys: &[Y],
     parent_metadatas: &[Metadata],
 ) -> Option<(Vec<Y>, Vec<Metadata>)> {
     let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
@@ -135,13 +122,8 @@ async fn compute_fn<const TABLE_NUMBER: u8>(
     for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
-        let Some(adapter_result) = compute_fn_adapter::<TABLE_NUMBER>(
-            left_bucket_index,
-            matches,
-            parent_metadatas,
-            adapter,
-        )
-        .await
+        let Some(adapter_result) =
+            compute_fn_adapter::<TABLE_NUMBER>(matches, parent_ys, parent_metadatas, adapter).await
         else {
             continue;
         };
@@ -160,8 +142,8 @@ async fn compute_fn<const TABLE_NUMBER: u8>(
 }
 
 async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
-    left_bucket_index: u32,
     matches: &[Match],
+    parent_ys: &[Y],
     parent_metadatas: &[Metadata],
     adapter: Adapter,
 ) -> Option<(Vec<Y>, Vec<Metadata>)> {
@@ -257,16 +239,18 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
         entry_point: Some(&format!("compute_f{TABLE_NUMBER}")),
     });
 
-    let left_bucket_index_gpu = device.create_buffer_init(&BufferInitDescriptor {
-        label: None,
-        contents: &left_bucket_index.to_le_bytes(),
-        usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
-    });
-
     let matches_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
         contents: unsafe {
             slice::from_raw_parts(matches.as_ptr().cast::<u8>(), size_of_val(matches))
+        },
+        usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+    });
+
+    let parent_ys_gpu = device.create_buffer_init(&BufferInitDescriptor {
+        label: None,
+        contents: unsafe {
+            slice::from_raw_parts(parent_ys.as_ptr().cast::<u8>(), size_of_val(parent_ys))
         },
         usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
     });
@@ -316,11 +300,11 @@ async fn compute_fn_adapter<const TABLE_NUMBER: u8>(
         entries: &[
             BindGroupEntry {
                 binding: 0,
-                resource: left_bucket_index_gpu.as_entire_binding(),
+                resource: matches_gpu.as_entire_binding(),
             },
             BindGroupEntry {
                 binding: 1,
-                resource: matches_gpu.as_entire_binding(),
+                resource: parent_ys_gpu.as_entire_binding(),
             },
             BindGroupEntry {
                 binding: 2,

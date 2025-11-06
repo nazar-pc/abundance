@@ -109,7 +109,7 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
 
     // TODO: Simd read for left bucket? It might be more efficient in terms of memory access to
     //  process chunks of the left bucket against one right value for each at a time
-    for &PositionR { position, r } in left_bucket {
+    for (bucket_offset, &PositionR { position, r }) in left_bucket.iter().enumerate() {
         // `next_match_index >= REDUCED_MATCHES_COUNT` is crucial to make sure
         if position == Position::SENTINEL || next_match_index >= REDUCED_MATCHES_COUNT {
             // Sentinel values are padded to the end of the bucket
@@ -125,14 +125,14 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
 
             // The right bucket position is never zero
             if right_position_a != Position::SENTINEL {
-                let m = unsafe { Match::new(position, left_r, right_position_a) };
+                let m = unsafe { Match::new(position, bucket_offset as u32, right_position_a) };
                 // SAFETY: Iteration will stop before `REDUCED_MATCHES_COUNT + PARAM_M * 2`
                 // elements is inserted
                 unsafe { matches.get_unchecked_mut(next_match_index) }.write(m);
                 next_match_index += 1;
 
                 if right_position_b != Position::SENTINEL {
-                    let m = unsafe { Match::new(position, left_r, right_position_b) };
+                    let m = unsafe { Match::new(position, bucket_offset as u32, right_position_b) };
                     // SAFETY: Iteration will stop before
                     // `REDUCED_MATCHES_COUNT + PARAM_M * 2` elements is inserted
                     unsafe { matches.get_unchecked_mut(next_match_index) }.write(m);

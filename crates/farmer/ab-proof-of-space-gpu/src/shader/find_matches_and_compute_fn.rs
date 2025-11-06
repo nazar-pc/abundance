@@ -51,7 +51,8 @@ impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
 
 /// # Safety
 /// `bucket_index` must be within range `0..REDUCED_MATCHES_COUNT`. `matches_count` elements in
-/// `matches` must be initialized, `matches` must have valid pointers into `parent_metadatas`.
+/// `matches` must be initialized, `matches` must have valid pointers into `left_bucket` and
+/// `parent_metadatas`.
 #[inline(always)]
 #[expect(
     clippy::too_many_arguments,
@@ -60,10 +61,11 @@ impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
 unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     local_invocation_id: u32,
     left_bucket_index: u32,
+    left_bucket: &[PositionR; MAX_BUCKET_SIZE],
     matches_count: usize,
     // TODO: `&[Match]` would have been nicer, but it currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
+    matches: &[MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
     // TODO: This should have been `&[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]`, but it
     //  currently doesn't compile if flattened:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -82,13 +84,17 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
         // SAFETY: Guaranteed by function contract
         let m = unsafe { matches.get_unchecked(index as usize).assume_init() };
         // SAFETY: Guaranteed by function contract
+        let (left_r, _data) = unsafe { left_bucket.get_unchecked(m.bucket_offset() as usize) }
+            .r
+            .split();
+        // SAFETY: Guaranteed by function contract
         let left_metadata = *unsafe { parent_metadatas.get_unchecked(m.left_position() as usize) };
         // SAFETY: Guaranteed by function contract
         let right_metadata =
             *unsafe { parent_metadatas.get_unchecked(m.right_position() as usize) };
 
         let (y, metadata) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-            Y::from(left_bucket_base + m.left_r()),
+            Y::from(left_bucket_base + left_r),
             left_metadata,
             right_metadata,
         );
@@ -184,6 +190,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
         compute_fn_into_buckets::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
             local_invocation_id,
             left_bucket_index,
+            left_bucket,
             matches_count as usize,
             matches,
             parent_metadatas,

@@ -31,6 +31,7 @@ pub(super) fn find_matches_and_compute_f7_correct<'a>(
         );
 
         for m in matches {
+            let (left_r, _data) = left_bucket[m.bucket_offset() as usize].r.split();
             // TODO: Correct version currently doesn't compile:
             //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
             // let left_metadata = parent_metadatas[usize::from(m.left_position())];
@@ -38,7 +39,7 @@ pub(super) fn find_matches_and_compute_f7_correct<'a>(
             let left_metadata = parent_metadatas[m.left_position() as usize];
             let right_metadata = parent_metadatas[m.right_position() as usize];
             let (y, _) = correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                Y::from(left_bucket_base + m.left_r()),
+                Y::from(left_bucket_base + left_r),
                 left_metadata,
                 right_metadata,
             );

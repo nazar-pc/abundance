@@ -3,7 +3,7 @@ pub(super) mod cpu_tests;
 #[cfg(all(test, not(miri), not(target_arch = "spirv")))]
 mod gpu_tests;
 
-use crate::shader::constants::{K, PARAM_BC, PARAM_EXT};
+use crate::shader::constants::{K, PARAM_EXT};
 use crate::shader::num::{U128, U128T};
 use crate::shader::types::{Match, Metadata, Y};
 use core::mem::MaybeUninit;
@@ -174,8 +174,8 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
 #[inline(always)]
 fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     global_invocation_id: UVec3,
-    left_bucket_index: u32,
     matches: &[Match],
+    parent_ys: &[Y],
     parent_metadatas: &[Metadata],
     ys: &mut [MaybeUninit<Y>],
     metadatas: &mut [MaybeUninit<Metadata>],
@@ -195,7 +195,7 @@ fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
     let right_metadata = parent_metadatas[m.right_position() as usize];
 
     let (y, metadata) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-        Y::from(left_bucket_index * u32::from(PARAM_BC) + m.left_r()),
+        parent_ys[m.bucket_offset() as usize],
         left_metadata,
         right_metadata,
     );
@@ -211,8 +211,8 @@ fn compute_fn<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>(
 #[spirv(compute(threads(256), entry_point_name = "compute_f2"))]
 pub fn compute_f2(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] left_bucket_index: &u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_ys: &[Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] ys: &mut [MaybeUninit<Y>],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] metadatas: &mut [MaybeUninit<
@@ -221,8 +221,8 @@ pub fn compute_f2(
 ) {
     compute_fn::<2, 1>(
         global_invocation_id,
-        *left_bucket_index,
         matches,
+        parent_ys,
         parent_metadatas,
         ys,
         metadatas,
@@ -233,8 +233,8 @@ pub fn compute_f2(
 #[spirv(compute(threads(256), entry_point_name = "compute_f3"))]
 pub fn compute_f3(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] left_bucket_index: &u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_ys: &[Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] ys: &mut [MaybeUninit<Y>],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] metadatas: &mut [MaybeUninit<
@@ -243,8 +243,8 @@ pub fn compute_f3(
 ) {
     compute_fn::<3, 2>(
         global_invocation_id,
-        *left_bucket_index,
         matches,
+        parent_ys,
         parent_metadatas,
         ys,
         metadatas,
@@ -255,8 +255,8 @@ pub fn compute_f3(
 #[spirv(compute(threads(256), entry_point_name = "compute_f4"))]
 pub fn compute_f4(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] left_bucket_index: &u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_ys: &[Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] ys: &mut [MaybeUninit<Y>],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] metadatas: &mut [MaybeUninit<
@@ -265,8 +265,8 @@ pub fn compute_f4(
 ) {
     compute_fn::<4, 3>(
         global_invocation_id,
-        *left_bucket_index,
         matches,
+        parent_ys,
         parent_metadatas,
         ys,
         metadatas,
@@ -277,8 +277,8 @@ pub fn compute_f4(
 #[spirv(compute(threads(256), entry_point_name = "compute_f5"))]
 pub fn compute_f5(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] left_bucket_index: &u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_ys: &[Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] ys: &mut [MaybeUninit<Y>],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] metadatas: &mut [MaybeUninit<
@@ -287,8 +287,8 @@ pub fn compute_f5(
 ) {
     compute_fn::<5, 4>(
         global_invocation_id,
-        *left_bucket_index,
         matches,
+        parent_ys,
         parent_metadatas,
         ys,
         metadatas,
@@ -299,8 +299,8 @@ pub fn compute_f5(
 #[spirv(compute(threads(256), entry_point_name = "compute_f6"))]
 pub fn compute_f6(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] left_bucket_index: &u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_ys: &[Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] ys: &mut [MaybeUninit<Y>],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] metadatas: &mut [MaybeUninit<
@@ -309,8 +309,8 @@ pub fn compute_f6(
 ) {
     compute_fn::<6, 5>(
         global_invocation_id,
-        *left_bucket_index,
         matches,
+        parent_ys,
         parent_metadatas,
         ys,
         metadatas,
@@ -321,20 +321,20 @@ pub fn compute_f6(
 #[spirv(compute(threads(256), entry_point_name = "compute_f7"))]
 pub fn compute_f7(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] left_bucket_index: &u32,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] matches: &[Match],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] parent_ys: &[Y],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] parent_metadatas: &[Metadata],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)] ys: &mut [MaybeUninit<Y>],
     // TODO: This argument should not be required, but it is currently not possible to compile
     //  `&mut []` under `rust-gpu` directly
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 34)] metadatas: &mut [MaybeUninit<
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] metadatas: &mut [MaybeUninit<
         Metadata,
     >],
 ) {
     compute_fn::<7, 6>(
         global_invocation_id,
-        *left_bucket_index,
         matches,
+        parent_ys,
         parent_metadatas,
         ys,
         metadatas,

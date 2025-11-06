@@ -225,25 +225,24 @@ impl PositionR {
 #[repr(C)]
 pub struct Match {
     left_position: Position,
-    // TODO: Would it be efficient to not store it here since `left_position` already points to the
-    //  correct `y` in the parent table?
-    left_r: u32,
+    // TODO: Combine this with other fields
+    bucket_offset: u32,
     right_position: Position,
 }
 
 impl Match {
     /// # Safety
-    /// `r` value must be within `0..PARAM_BC` range, `left_position` and `right_position` must be
-    /// within `0..MAX_TABLE_SIZE` range
+    /// `parent_ys` value must be within `0..MAX_BUCKET_SIZE` range, `left_position` and
+    /// `right_position` must be within `0..MAX_TABLE_SIZE` range
     #[inline(always)]
     pub(super) unsafe fn new(
         left_position: Position,
-        left_r: u32,
+        bucket_offset: u32,
         right_position: Position,
     ) -> Self {
         Self {
             left_position,
-            left_r,
+            bucket_offset,
             right_position,
         }
     }
@@ -254,8 +253,8 @@ impl Match {
     }
 
     #[inline(always)]
-    pub fn left_r(&self) -> u32 {
-        self.left_r
+    pub fn bucket_offset(&self) -> u32 {
+        self.bucket_offset
     }
 
     #[inline(always)]

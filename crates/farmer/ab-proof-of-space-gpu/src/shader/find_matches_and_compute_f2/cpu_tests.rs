@@ -39,10 +39,11 @@ pub(super) fn find_matches_and_compute_f2_correct<
         for (index, ((m, match_positions), match_metadata)) in
             matches.iter().zip(positions).zip(metadatas).enumerate()
         {
+            let (left_r, _data) = left_bucket[m.bucket_offset() as usize].r.split();
             let left_metadata = Metadata::from(m.left_position());
             let right_metadata = Metadata::from(m.right_position());
             let (y, metadata) = correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-                Y::from(left_bucket_base + m.left_r()),
+                Y::from(left_bucket_base + left_r),
                 left_metadata,
                 right_metadata,
             );

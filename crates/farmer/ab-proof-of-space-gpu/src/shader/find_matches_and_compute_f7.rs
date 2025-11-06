@@ -116,15 +116,21 @@ impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
 
 /// # Safety
 /// `bucket_index` must be within range `0..REDUCED_MATCHES_COUNT`. `matches_count` elements in
-/// `matches` must be initialized, `matches` must have valid pointers into `parent_metadatas`.
+/// `matches` must be initialized, `matches` must have valid pointers into `left_bucket` and
+/// `parent_metadatas`.
 #[inline(always)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Both I/O and Vulkan stuff together take a lot of arguments"
+)]
 unsafe fn compute_f7_into_buckets(
     local_invocation_id: u32,
     left_bucket_index: u32,
+    left_bucket: &[PositionR; MAX_BUCKET_SIZE],
     matches_count: usize,
     // TODO: `&[Match]` would have been nicer, but it currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
+    matches: &[MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
     // TODO: This should have been `&[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]`, but it
     //  currently doesn't compile if flattened:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -141,6 +147,10 @@ unsafe fn compute_f7_into_buckets(
     for index in (local_invocation_id..matches_count as u32).step_by(WORKGROUP_SIZE as usize) {
         // SAFETY: Guaranteed by function contract
         let m = unsafe { matches.get_unchecked(index as usize).assume_init() };
+        // SAFETY: Guaranteed by function contract
+        let (left_r, _data) = unsafe { left_bucket.get_unchecked(m.bucket_offset() as usize) }
+            .r
+            .split();
         // TODO: Correct version currently doesn't compile:
         //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
         // let left_metadata = parent_metadatas[usize::from(m.left_position())];
@@ -152,7 +162,7 @@ unsafe fn compute_f7_into_buckets(
             *unsafe { parent_metadatas.get_unchecked(m.right_position() as usize) };
 
         let (y, _) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-            Y::from(left_bucket_base + m.left_r()),
+            Y::from(left_bucket_base + left_r),
             left_metadata,
             right_metadata,
         );
@@ -269,6 +279,7 @@ pub unsafe fn find_matches_and_compute_f7(
         compute_f7_into_buckets(
             local_invocation_id,
             left_bucket_index,
+            left_bucket,
             matches_count as usize,
             matches,
             parent_metadatas,
