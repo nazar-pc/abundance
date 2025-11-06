@@ -5,7 +5,7 @@ use crate::shader::find_matches_in_buckets::calculate_left_target_on_demand;
 use crate::shader::types::{Match, Position, PositionExt, PositionR};
 use std::mem::MaybeUninit;
 
-pub(super) struct Rmap {
+pub(in super::super) struct Rmap {
     /// `0` is a sentinel value indicating no virtual pointer is stored yet.
     ///
     /// Physical pointer must be increased by `1` to get a virtual pointer before storing. Virtual
@@ -67,7 +67,7 @@ impl Rmap {
     /// # Safety
     /// `r` must be in the range `0..PARAM_BC`
     #[inline(always)]
-    pub(super) unsafe fn get(&self, r: u32) -> [Position; 2] {
+    pub(in super::super) unsafe fn get(&self, r: u32) -> [Position; 2] {
         // SAFETY: Guaranteed by function contract
         let virtual_pointer = *unsafe { self.virtual_pointers.get_unchecked(r as usize) };
 
@@ -88,7 +88,7 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
     // `PARAM_M as usize * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
     matches: &'a mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT + PARAM_M as usize * 2],
-) -> &'a [Match] {
+) -> (&'a [Match], Rmap) {
     let left_base = left_bucket_index * u32::from(PARAM_BC);
 
     let mut rmap = Rmap::new();
@@ -125,17 +125,17 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
 
             // The right bucket position is never zero
             if right_position_a != Position::SENTINEL {
-                let m = unsafe { Match::new(bucket_offset as u32, right_position_a) };
+                let m = unsafe { Match::new(bucket_offset as u32, m, r_target) };
                 // SAFETY: Iteration will stop before `REDUCED_MATCHES_COUNT + PARAM_M * 2`
                 // elements is inserted
                 unsafe { matches.get_unchecked_mut(next_match_index) }.write(m);
                 next_match_index += 1;
 
                 if right_position_b != Position::SENTINEL {
-                    let m = unsafe { Match::new(bucket_offset as u32, right_position_b) };
                     // SAFETY: Iteration will stop before
                     // `REDUCED_MATCHES_COUNT + PARAM_M * 2` elements is inserted
-                    unsafe { matches.get_unchecked_mut(next_match_index) }.write(m);
+                    unsafe { matches.get_unchecked_mut(next_match_index) }
+                        .write(m.second_second_position());
                     next_match_index += 1;
                 }
             }
@@ -143,5 +143,8 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
     }
 
     // SAFETY: Initialized this many matches, limited to `REDUCED_MATCHES_COUNT`
-    unsafe { matches[..next_match_index.min(REDUCED_MATCHES_COUNT)].assume_init_ref() }
+    (
+        unsafe { matches[..next_match_index.min(REDUCED_MATCHES_COUNT)].assume_init_ref() },
+        rmap,
+    )
 }

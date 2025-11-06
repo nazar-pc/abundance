@@ -29,7 +29,7 @@ pub(super) fn find_matches_and_compute_f2_correct<
         let left_bucket_base = left_bucket_index as u32 * u32::from(PARAM_BC);
         let metadatas_offset = (left_bucket_index * REDUCED_MATCHES_COUNT) as u32;
 
-        let matches = find_matches_in_buckets_correct(
+        let (matches, rmap) = find_matches_in_buckets_correct(
             left_bucket_index as u32,
             left_bucket,
             right_bucket,
@@ -39,11 +39,22 @@ pub(super) fn find_matches_and_compute_f2_correct<
         for (index, ((m, match_positions), match_metadata)) in
             matches.iter().zip(positions).zip(metadatas).enumerate()
         {
-            let left_position_r = left_bucket[m.bucket_offset() as usize];
+            // SAFETY: Guaranteed by function contract
+            let (bucket_offset, r_target, positions_offset) = m.split();
+
+            let left_position_r = left_bucket[bucket_offset as usize];
             let left_position = left_position_r.position;
             let (left_r, _data) = left_position_r.r.split();
+
+            // SAFETY: `r_target` is guaranteed to be within `0..PARAM_BC` range by `Match`
+            // constructor
+            let right_positions = unsafe { rmap.get(r_target) };
+            // SAFETY: `positions_offset` is always either `0` or `1`
+            let right_position =
+                *unsafe { right_positions.get_unchecked(positions_offset as usize) };
+
             let left_metadata = Metadata::from(left_position);
-            let right_metadata = Metadata::from(m.right_position());
+            let right_metadata = Metadata::from(right_position);
             let (y, metadata) = correct_compute_fn::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
                 Y::from(left_bucket_base + left_r),
                 left_metadata,
@@ -61,7 +72,7 @@ pub(super) fn find_matches_and_compute_f2_correct<
                     position: Position::from_u32(metadatas_offset + index as u32),
                     r,
                 });
-                match_positions.write([left_position, m.right_position()]);
+                match_positions.write([left_position, right_position]);
                 match_metadata.write(metadata);
                 *bucket_offset += 1;
             }
