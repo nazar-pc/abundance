@@ -1,11 +1,11 @@
 use crate::shader::constants::{
     MAX_BUCKET_SIZE, PARAM_BC, PARAM_M, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_in_buckets::{Match, calculate_left_target_on_demand};
-use crate::shader::types::{Position, PositionExt, PositionR, Y};
+use crate::shader::find_matches_in_buckets::calculate_left_target_on_demand;
+use crate::shader::types::{Match, Position, PositionExt, PositionR};
 use std::mem::MaybeUninit;
 
-pub(super) struct Rmap {
+pub(in super::super) struct Rmap {
     /// `0` is a sentinel value indicating no virtual pointer is stored yet.
     ///
     /// Physical pointer must be increased by `1` to get a virtual pointer before storing. Virtual
@@ -67,7 +67,7 @@ impl Rmap {
     /// # Safety
     /// `r` must be in the range `0..PARAM_BC`
     #[inline(always)]
-    pub(super) unsafe fn get(&self, r: u32) -> [Position; 2] {
+    pub(in super::super) unsafe fn get(&self, r: u32) -> [Position; 2] {
         // SAFETY: Guaranteed by function contract
         let virtual_pointer = *unsafe { self.virtual_pointers.get_unchecked(r as usize) };
 
@@ -88,7 +88,7 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
     // `PARAM_M as usize * 2` corresponds to the upper bound number of matches a single `y` in the
     // left bucket might have here
     matches: &'a mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT + PARAM_M as usize * 2],
-) -> &'a [Match] {
+) -> (&'a [Match], Rmap) {
     let left_base = left_bucket_index * u32::from(PARAM_BC);
 
     let mut rmap = Rmap::new();
@@ -109,40 +109,33 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
 
     // TODO: Simd read for left bucket? It might be more efficient in terms of memory access to
     //  process chunks of the left bucket against one right value for each at a time
-    for &PositionR { position, r } in left_bucket {
+    for (bucket_offset, &PositionR { position, r }) in left_bucket.iter().enumerate() {
         // `next_match_index >= REDUCED_MATCHES_COUNT` is crucial to make sure
         if position == Position::SENTINEL || next_match_index >= REDUCED_MATCHES_COUNT {
             // Sentinel values are padded to the end of the bucket
             break;
         }
 
-        let (r, _data) = r.split();
+        let (left_r, _data) = r.split();
 
         for m in 0..u32::from(PARAM_M) {
-            let r_target = calculate_left_target_on_demand(parity, r, m);
+            let r_target = calculate_left_target_on_demand(parity, left_r, m);
             // SAFETY: Targets are always limited to `PARAM_BC`
             let [right_position_a, right_position_b] = unsafe { rmap.get(r_target) };
 
             // The right bucket position is never zero
             if right_position_a != Position::SENTINEL {
-                let left_y = Y::from(r + left_base);
+                let m = unsafe { Match::new(bucket_offset as u32, m, r_target) };
                 // SAFETY: Iteration will stop before `REDUCED_MATCHES_COUNT + PARAM_M * 2`
                 // elements is inserted
-                unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
-                    left_position: position,
-                    left_y,
-                    right_position: right_position_a,
-                });
+                unsafe { matches.get_unchecked_mut(next_match_index) }.write(m);
                 next_match_index += 1;
 
                 if right_position_b != Position::SENTINEL {
                     // SAFETY: Iteration will stop before
                     // `REDUCED_MATCHES_COUNT + PARAM_M * 2` elements is inserted
-                    unsafe { matches.get_unchecked_mut(next_match_index) }.write(Match {
-                        left_position: position,
-                        left_y,
-                        right_position: right_position_b,
-                    });
+                    unsafe { matches.get_unchecked_mut(next_match_index) }
+                        .write(m.second_second_position());
                     next_match_index += 1;
                 }
             }
@@ -150,5 +143,8 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
     }
 
     // SAFETY: Initialized this many matches, limited to `REDUCED_MATCHES_COUNT`
-    unsafe { matches[..next_match_index.min(REDUCED_MATCHES_COUNT)].assume_init_ref() }
+    (
+        unsafe { matches[..next_match_index.min(REDUCED_MATCHES_COUNT)].assume_init_ref() },
+        rmap,
+    )
 }

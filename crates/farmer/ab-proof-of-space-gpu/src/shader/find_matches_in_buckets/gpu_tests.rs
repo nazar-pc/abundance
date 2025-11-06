@@ -1,11 +1,9 @@
-use crate::shader::constants::{
-    MAX_BUCKET_SIZE, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_BUCKET_SIZE, REDUCED_MATCHES_COUNT,
-};
+use crate::shader::constants::{MAX_BUCKET_SIZE, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_BUCKET_SIZE};
+use crate::shader::find_matches_in_buckets::MAX_SUBGROUPS;
 use crate::shader::find_matches_in_buckets::cpu_tests::find_matches_in_buckets_correct;
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
-use crate::shader::find_matches_in_buckets::{MAX_SUBGROUPS, Match};
 use crate::shader::select_shader_features_limits;
-use crate::shader::types::{Position, PositionExt, PositionR, Y};
+use crate::shader::types::{Match, Position, PositionExt, PositionR, Y};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{RngCore, SeedableRng};
 use futures::executor::block_on;
@@ -73,6 +71,7 @@ fn find_matches_in_buckets_gpu() {
                 right_bucket,
                 &mut matches,
             )
+            .0
             .to_vec()
         })
         .collect::<Vec<_>>();
@@ -219,7 +218,7 @@ async fn find_matches_in_buckets_adapter(
 
     let matches_host = device.create_buffer(&BufferDescriptor {
         label: None,
-        size: (size_of::<[Match; REDUCED_MATCHES_COUNT]>() * num_bucket_pairs) as BufferAddress,
+        size: (size_of::<[Match; MAX_BUCKET_SIZE]>() * num_bucket_pairs) as BufferAddress,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -309,7 +308,7 @@ async fn find_matches_in_buckets_adapter(
         let matches_host_ptr = matches_host
             .get_mapped_range(..)
             .as_ptr()
-            .cast::<[Match; REDUCED_MATCHES_COUNT]>();
+            .cast::<[Match; MAX_BUCKET_SIZE]>();
         let matches_counts_host_ptr = matches_counts_host
             .get_mapped_range(..)
             .as_ptr()

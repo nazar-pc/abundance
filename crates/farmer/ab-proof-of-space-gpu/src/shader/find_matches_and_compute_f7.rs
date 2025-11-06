@@ -5,13 +5,13 @@ mod gpu_tests;
 
 use crate::shader::compute_fn::compute_fn_impl;
 use crate::shader::constants::{
-    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, REDUCED_MATCHES_COUNT,
+    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, NUM_S_BUCKETS, PARAM_BC, REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_in_buckets::rmap::Rmap;
+use crate::shader::find_matches_in_buckets::rmap::{Rmap, RmapBitPosition, RmapBitPositionExt};
 use crate::shader::find_matches_in_buckets::{
-    MAX_SUBGROUPS, Match, SharedScratchSpace, find_matches_in_buckets_impl,
+    FindMatchesShared, MAX_SUBGROUPS, find_matches_in_buckets_impl,
 };
-use crate::shader::types::{Metadata, Position, PositionR};
+use crate::shader::types::{Match, Metadata, Position, PositionR, Y};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{atomic_i_increment, workgroup_memory_barrier_with_group_sync};
 use spirv_std::glam::UVec3;
@@ -116,15 +116,22 @@ impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
 
 /// # Safety
 /// `bucket_index` must be within range `0..REDUCED_MATCHES_COUNT`. `matches_count` elements in
-/// `matches` must be initialized, `matches` must have valid pointers into `parent_metadatas`.
+/// `matches` must be initialized, `matches` must have valid pointers into `left_bucket` and
+/// `parent_metadatas`.
 #[inline(always)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Both I/O and Vulkan stuff together take a lot of arguments"
+)]
 unsafe fn compute_f7_into_buckets(
     local_invocation_id: u32,
     left_bucket_index: u32,
+    left_bucket: &[PositionR; MAX_BUCKET_SIZE],
     matches_count: usize,
     // TODO: `&[Match]` would have been nicer, but it currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
+    matches: &[MaybeUninit<Match>; MAX_BUCKET_SIZE],
+    rmap: &Rmap,
     // TODO: This should have been `&[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]`, but it
     //  currently doesn't compile if flattened:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
@@ -133,24 +140,38 @@ unsafe fn compute_f7_into_buckets(
     table_6_proof_targets: &mut [[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET];
              NUM_S_BUCKETS],
 ) {
+    let left_bucket_base = left_bucket_index * u32::from(PARAM_BC);
     let absolute_position_base = left_bucket_index * REDUCED_MATCHES_COUNT as u32;
 
     // TODO: More idiomatic version currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     for index in (local_invocation_id..matches_count as u32).step_by(WORKGROUP_SIZE as usize) {
         // SAFETY: Guaranteed by function contract
-        let m = unsafe { matches.get_unchecked(index as usize).assume_init() };
+        let (bucket_offset, r_target, positions_offset) =
+            unsafe { matches.get_unchecked(index as usize).assume_init() }.split();
+
+        // SAFETY: Guaranteed by function contract
+        let left_position_r = *unsafe { left_bucket.get_unchecked(bucket_offset as usize) };
+        let left_position = left_position_r.position;
+        let (left_r, _data) = left_position_r.r.split();
+
+        // SAFETY: `r_target` is guaranteed to be within `0..PARAM_BC` range by `Match` constructor
+        let rmap_bit_position = unsafe { RmapBitPosition::new(r_target) };
+        let right_positions = rmap.get(rmap_bit_position);
+        // SAFETY: `positions_offset` is always either `0` or `1`
+        let right_position = *unsafe { right_positions.get_unchecked(positions_offset as usize) };
+
         // TODO: Correct version currently doesn't compile:
         //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // let left_metadata = parent_metadatas[usize::from(m.left_position)];
-        // let right_metadata = parent_metadatas[usize::from(m.right_position)];
+        // let left_metadata = parent_metadatas[usize::from(left_position)];
+        // let right_metadata = parent_metadatas[usize::from(right_position)];
         // SAFETY: Guaranteed by function contract
-        let left_metadata = *unsafe { parent_metadatas.get_unchecked(m.left_position as usize) };
+        let left_metadata = *unsafe { parent_metadatas.get_unchecked(left_position as usize) };
         // SAFETY: Guaranteed by function contract
-        let right_metadata = *unsafe { parent_metadatas.get_unchecked(m.right_position as usize) };
+        let right_metadata = *unsafe { parent_metadatas.get_unchecked(right_position as usize) };
 
         let (y, _) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-            m.left_y,
+            Y::from(left_bucket_base + left_r),
             left_metadata,
             right_metadata,
         );
@@ -186,7 +207,7 @@ unsafe fn compute_f7_into_buckets(
         }
         .write(ProofTargets {
             absolute_position: absolute_position_base + index,
-            positions: [m.left_position, m.right_position],
+            positions: [left_position, right_position],
         });
     }
 }
@@ -200,7 +221,8 @@ unsafe fn compute_f7_into_buckets(
 ///
 /// # Safety
 /// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`]. All buckets must come from the `sort_buckets_with_rmap_details` shader.
+/// [`MAX_SUBGROUPS`]. All buckets must contain valid positions and `r` values and come from
+/// `sort_buckets_with_rmap_details` shader.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f7"))]
 #[expect(
     clippy::too_many_arguments,
@@ -209,9 +231,7 @@ unsafe fn compute_f7_into_buckets(
 pub unsafe fn find_matches_and_compute_f7(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(subgroup_local_invocation_id)] subgroup_local_invocation_id: u32,
     #[spirv(subgroup_id)] subgroup_id: u32,
-    #[spirv(num_subgroups)] num_subgroups: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionR; MAX_BUCKET_SIZE];
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
@@ -221,8 +241,8 @@ pub unsafe fn find_matches_and_compute_f7(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 3)]
     table_6_proof_targets: &mut [[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET];
              NUM_S_BUCKETS],
-    #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; REDUCED_MATCHES_COUNT],
-    #[spirv(workgroup)] scratch_space: &mut SharedScratchSpace,
+    #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
+    #[spirv(workgroup)] shared: &mut FindMatchesShared,
     // Non-modern GPUs do not have enough space in the shared memory
     #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
     #[spirv(workgroup)]
@@ -242,17 +262,14 @@ pub unsafe fn find_matches_and_compute_f7(
     // TODO: Truncate buckets to reduced size here once it compiles:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     // SAFETY: Guaranteed by function contract
-    let matches_count = unsafe {
+    let (matches_count, rmap) = unsafe {
         find_matches_in_buckets_impl(
-            subgroup_local_invocation_id,
-            subgroup_id,
-            num_subgroups,
             local_invocation_id,
             left_bucket_index,
             left_bucket,
             right_bucket,
             matches,
-            scratch_space,
+            shared,
             #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
             rmap,
             #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
@@ -266,8 +283,10 @@ pub unsafe fn find_matches_and_compute_f7(
         compute_f7_into_buckets(
             local_invocation_id,
             left_bucket_index,
+            left_bucket,
             matches_count as usize,
             matches,
+            rmap,
             parent_metadatas,
             table_6_proof_targets_sizes,
             table_6_proof_targets,

@@ -17,15 +17,16 @@ const _: () = {
 };
 
 #[inline(always)]
-fn perform_compare_swap<LessOrEqual>(
+fn perform_compare_swap<T, LessOrEqual>(
     local_invocation_id: u32,
     bit_position: u32,
     block_size: usize,
-    shared_bucket: &mut [PositionR; MAX_BUCKET_SIZE],
+    shared_bucket: &mut [T; MAX_BUCKET_SIZE],
     // TODO: Should have been just `fn()`, but https://github.com/Rust-GPU/rust-gpu/issues/452
     less_or_equal: LessOrEqual,
 ) where
-    LessOrEqual: Fn(&PositionR, &PositionR) -> bool,
+    T: Copy,
+    LessOrEqual: Fn(&T, &T) -> bool,
 {
     // Take a pair `(a_offset, b_offset)` where indices differ only at `bit_position` and swaps them
     let pair_id = local_invocation_id as usize;
@@ -51,13 +52,14 @@ fn perform_compare_swap<LessOrEqual>(
 }
 
 #[inline(always)]
-pub(super) fn sort_shared_bucket<LessOrEqual>(
+pub(super) fn sort_shared_bucket<T, LessOrEqual>(
     local_invocation_id: u32,
-    shared_bucket: &mut [PositionR; MAX_BUCKET_SIZE],
+    shared_bucket: &mut [T; MAX_BUCKET_SIZE],
     // TODO: Should have been just `fn()`, but https://github.com/Rust-GPU/rust-gpu/issues/452
     less_or_equal: LessOrEqual,
 ) where
-    LessOrEqual: Fn(&PositionR, &PositionR) -> bool,
+    T: Copy,
+    LessOrEqual: Fn(&T, &T) -> bool,
 {
     // Iterate over merger stages, doubling block_size each time
     for merger_stage in 1..=MAX_BUCKET_SIZE.ilog2() {
