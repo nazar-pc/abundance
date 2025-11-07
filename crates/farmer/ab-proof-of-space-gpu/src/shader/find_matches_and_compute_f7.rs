@@ -300,8 +300,6 @@ pub unsafe fn find_matches_and_compute_f7(
         )
     };
 
-    workgroup_memory_barrier_with_group_sync();
-
     unsafe {
         compute_f7_into_buckets(
             local_invocation_id,
