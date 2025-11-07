@@ -1,8 +1,6 @@
-#[cfg(all(test, not(target_arch = "spirv")))]
-mod tests;
-
 use crate::shader::constants::{MAX_BUCKET_SIZE, MAX_TABLE_SIZE, PARAM_BC, PARAM_EXT, PARAM_M};
 use crate::shader::num::{U128, U128T};
+use core::fmt;
 use core::iter::Step;
 use derive_more::{From, Into};
 
@@ -134,7 +132,7 @@ impl From<Position> for Metadata {
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[repr(C)]
-pub struct R(pub u32);
+pub struct R(u32);
 
 impl R {
     /// R that can't exist
@@ -149,35 +147,10 @@ impl R {
         Self(r)
     }
 
-    /// Similar to `new`, but also stores extra data alongside `r`.
-    ///
-    /// # Safety
-    /// `r` value is expected to be within `0..PARAM_BC` range, `data` must contain at most
-    /// `u32::BITS - (PARAM_BC - 1).bit_width()` bits of data in it.
+    /// Get the inner stored value
     #[inline(always)]
-    pub(super) unsafe fn new_with_data(r: u32, data: u32) -> Self {
-        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
-        //  shouldn't be necessary otherwise
-        Self(r | (data << const { (PARAM_BC - 1).bit_width() }))
-    }
-
-    /// Get the inner stored value, which in case of no extra data will be `r`, but may also include
-    /// extra data if constructed with [`Self::new_with_data()`]. This is a more efficient
-    /// alternative to [`Self::split()`] in case it is guaranteed that there is no `data` attached.
-    #[inline(always)]
-    pub(super) fn get_inner(&self) -> u32 {
+    pub(super) fn get(&self) -> u32 {
         self.0
-    }
-
-    /// The inverse of [`Self::new_with_data()`], returns `(r, data)`
-    #[inline(always)]
-    pub(super) fn split(self) -> (u32, u32) {
-        // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
-        //  shouldn't be necessary otherwise
-        (
-            self.0 & (u32::MAX >> const { u32::BITS - (PARAM_BC - 1).bit_width() }),
-            self.0 >> const { (PARAM_BC - 1).bit_width() },
-        )
     }
 }
 
@@ -199,9 +172,20 @@ impl PositionR {
     };
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 pub struct Match(u32);
+
+impl fmt::Debug for Match {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (bucket_offset, r_target, positions_offset) = self.split();
+        f.debug_struct("Match")
+            .field("bucket_offset", &bucket_offset)
+            .field("r_target", &r_target)
+            .field("positions_offset", &positions_offset)
+            .finish()
+    }
+}
 
 impl Match {
     /// Match that can't exist

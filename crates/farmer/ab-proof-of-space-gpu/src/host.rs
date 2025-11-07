@@ -6,8 +6,6 @@ use crate::shader::constants::{
     REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_and_compute_f7::{NUM_ELEMENTS_PER_S_BUCKET, ProofTargets};
-use crate::shader::find_matches_in_buckets::MAX_SUBGROUPS;
-use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_proofs::ProofsHost;
 use crate::shader::types::{Metadata, Position, PositionR};
 use crate::shader::{compute_f1, find_proofs, select_shader_features_limits};
@@ -225,10 +223,10 @@ pub struct GpuRecordsEncoder {
     proofs_gpu: Buffer,
     bind_group_compute_f1: BindGroup,
     compute_pipeline_compute_f1: ComputePipeline,
-    bind_group_sort_buckets_with_rmap_details_a: BindGroup,
-    compute_pipeline_sort_buckets_with_rmap_details_a: ComputePipeline,
-    bind_group_sort_buckets_with_rmap_details_b: BindGroup,
-    compute_pipeline_sort_buckets_with_rmap_details_b: ComputePipeline,
+    bind_group_sort_buckets_a: BindGroup,
+    compute_pipeline_sort_buckets_a: ComputePipeline,
+    bind_group_sort_buckets_b: BindGroup,
+    compute_pipeline_sort_buckets_b: ComputePipeline,
     bind_group_find_matches_and_compute_f2: BindGroup,
     compute_pipeline_find_matches_and_compute_f2: ComputePipeline,
     bind_group_find_matches_and_compute_f3: BindGroup,
@@ -436,18 +434,6 @@ impl GpuRecordsEncoder {
             mapped_at_creation: false,
         });
 
-        let rmap_gpu = device.device.create_buffer(&BufferDescriptor {
-            label: Some("rmap_gpu"),
-            size: if device.modern {
-                // A dummy buffer is `4` byte just because it can't be zero in wgpu
-                4
-            } else {
-                size_of::<[Rmap; MAX_SUBGROUPS]>() as BufferAddress
-            },
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
         let proofs_host = device.device.create_buffer(&BufferDescriptor {
             label: Some("proofs_host"),
             size: size_of::<ProofsHost>() as BufferAddress,
@@ -470,25 +456,21 @@ impl GpuRecordsEncoder {
                 &bucket_sizes_gpu,
                 &buckets_a_gpu,
             );
-        let (
-            bind_group_sort_buckets_with_rmap_details_a,
-            compute_pipeline_sort_buckets_with_rmap_details_a,
-        ) = bind_group_and_pipeline_sort_buckets_with_rmap_details(
-            &device.device,
-            &device.module,
-            &bucket_sizes_gpu,
-            &buckets_a_gpu,
-        );
+        let (bind_group_sort_buckets_a, compute_pipeline_sort_buckets_a) =
+            bind_group_and_pipeline_sort_buckets(
+                &device.device,
+                &device.module,
+                &bucket_sizes_gpu,
+                &buckets_a_gpu,
+            );
 
-        let (
-            bind_group_sort_buckets_with_rmap_details_b,
-            compute_pipeline_sort_buckets_with_rmap_details_b,
-        ) = bind_group_and_pipeline_sort_buckets_with_rmap_details(
-            &device.device,
-            &device.module,
-            &bucket_sizes_gpu,
-            &buckets_b_gpu,
-        );
+        let (bind_group_sort_buckets_b, compute_pipeline_sort_buckets_b) =
+            bind_group_and_pipeline_sort_buckets(
+                &device.device,
+                &device.module,
+                &bucket_sizes_gpu,
+                &buckets_b_gpu,
+            );
 
         let (bind_group_find_matches_and_compute_f2, compute_pipeline_find_matches_and_compute_f2) =
             bind_group_and_pipeline_find_matches_and_compute_f2(
@@ -499,7 +481,6 @@ impl GpuRecordsEncoder {
                 &buckets_b_gpu,
                 &positions_f2_gpu,
                 &metadatas_b_gpu,
-                &rmap_gpu,
             );
 
         let (bind_group_find_matches_and_compute_f3, compute_pipeline_find_matches_and_compute_f3) =
@@ -512,7 +493,6 @@ impl GpuRecordsEncoder {
                 &buckets_a_gpu,
                 &positions_f3_gpu,
                 &metadatas_a_gpu,
-                &rmap_gpu,
             );
 
         let (bind_group_find_matches_and_compute_f4, compute_pipeline_find_matches_and_compute_f4) =
@@ -525,7 +505,6 @@ impl GpuRecordsEncoder {
                 &buckets_b_gpu,
                 &positions_f4_gpu,
                 &metadatas_b_gpu,
-                &rmap_gpu,
             );
 
         let (bind_group_find_matches_and_compute_f5, compute_pipeline_find_matches_and_compute_f5) =
@@ -538,7 +517,6 @@ impl GpuRecordsEncoder {
                 &buckets_a_gpu,
                 &positions_f5_gpu,
                 &metadatas_a_gpu,
-                &rmap_gpu,
             );
 
         let (bind_group_find_matches_and_compute_f6, compute_pipeline_find_matches_and_compute_f6) =
@@ -551,7 +529,6 @@ impl GpuRecordsEncoder {
                 &buckets_b_gpu,
                 &positions_f6_gpu,
                 &metadatas_b_gpu,
-                &rmap_gpu,
             );
 
         let (bind_group_find_matches_and_compute_f7, compute_pipeline_find_matches_and_compute_f7) =
@@ -562,7 +539,6 @@ impl GpuRecordsEncoder {
                 &metadatas_b_gpu,
                 &table_6_proof_targets_sizes_gpu,
                 &table_6_proof_targets_gpu,
-                &rmap_gpu,
             );
 
         let (bind_group_find_proofs, compute_pipeline_find_proofs) =
@@ -591,10 +567,10 @@ impl GpuRecordsEncoder {
             proofs_gpu,
             bind_group_compute_f1,
             compute_pipeline_compute_f1,
-            bind_group_sort_buckets_with_rmap_details_a,
-            compute_pipeline_sort_buckets_with_rmap_details_a,
-            bind_group_sort_buckets_with_rmap_details_b,
-            compute_pipeline_sort_buckets_with_rmap_details_b,
+            bind_group_sort_buckets_a,
+            compute_pipeline_sort_buckets_a,
+            bind_group_sort_buckets_b,
+            compute_pipeline_sort_buckets_b,
             bind_group_find_matches_and_compute_f2,
             compute_pipeline_find_matches_and_compute_f2,
             bind_group_find_matches_and_compute_f3,
@@ -659,48 +635,48 @@ impl GpuRecordsEncoder {
                 1,
             );
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_a, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_a);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_a, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_a);
             cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f2, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_matches_and_compute_f2);
             cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_b, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_b);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_b, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_b);
             cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f3, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_matches_and_compute_f3);
             cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_a, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_a);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_a, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_a);
             cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f4, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_matches_and_compute_f4);
             cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_b, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_b);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_b, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_b);
             cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f5, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_matches_and_compute_f5);
             cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_a, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_a);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_a, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_a);
             cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f6, &[]);
             cpass.set_pipeline(&self.compute_pipeline_find_matches_and_compute_f6);
             cpass.dispatch_workgroups(NUM_MATCH_BUCKETS as u32, 1, 1);
 
-            cpass.set_bind_group(0, &self.bind_group_sort_buckets_with_rmap_details_b, &[]);
-            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_with_rmap_details_b);
+            cpass.set_bind_group(0, &self.bind_group_sort_buckets_b, &[]);
+            cpass.set_pipeline(&self.compute_pipeline_sort_buckets_b);
             cpass.dispatch_workgroups(NUM_BUCKETS as u32, 1, 1);
 
             cpass.set_bind_group(0, &self.bind_group_find_matches_and_compute_f7, &[]);
@@ -853,14 +829,14 @@ fn bind_group_and_pipeline_compute_f1(
     (bind_group, compute_pipeline)
 }
 
-fn bind_group_and_pipeline_sort_buckets_with_rmap_details(
+fn bind_group_and_pipeline_sort_buckets(
     device: &wgpu::Device,
     module: &ShaderModule,
     bucket_sizes_gpu: &Buffer,
     buckets_gpu: &Buffer,
 ) -> (BindGroup, ComputePipeline) {
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: Some("sort_buckets_with_rmap_details"),
+        label: Some("sort_buckets"),
         entries: &[
             BindGroupLayoutEntry {
                 binding: 0,
@@ -886,7 +862,7 @@ fn bind_group_and_pipeline_sort_buckets_with_rmap_details(
     });
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-        label: Some("sort_buckets_with_rmap_details"),
+        label: Some("sort_buckets"),
         bind_group_layouts: &[&bind_group_layout],
         push_constant_ranges: &[],
     });
@@ -897,14 +873,14 @@ fn bind_group_and_pipeline_sort_buckets_with_rmap_details(
             zero_initialize_workgroup_memory: false,
         },
         cache: None,
-        label: Some("sort_buckets_with_rmap_details"),
+        label: Some("sort_buckets"),
         layout: Some(&pipeline_layout),
         module,
-        entry_point: Some("sort_buckets_with_rmap_details"),
+        entry_point: Some("sort_buckets"),
     });
 
     let bind_group = device.create_bind_group(&BindGroupDescriptor {
-        label: Some("sort_buckets_with_rmap_details"),
+        label: Some("sort_buckets"),
         layout: &bind_group_layout,
         entries: &[
             BindGroupEntry {
@@ -921,10 +897,6 @@ fn bind_group_and_pipeline_sort_buckets_with_rmap_details(
     (bind_group, compute_pipeline)
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Both I/O and Vulkan stuff together take a lot of arguments"
-)]
 fn bind_group_and_pipeline_find_matches_and_compute_f2(
     device: &wgpu::Device,
     module: &ShaderModule,
@@ -933,7 +905,6 @@ fn bind_group_and_pipeline_find_matches_and_compute_f2(
     buckets_gpu: &Buffer,
     positions_gpu: &Buffer,
     metadatas_gpu: &Buffer,
-    rmap_gpu: &Buffer,
 ) -> (BindGroup, ComputePipeline) {
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         label: Some("find_matches_and_compute_f2"),
@@ -988,16 +959,6 @@ fn bind_group_and_pipeline_find_matches_and_compute_f2(
                     ty: BufferBindingType::Storage { read_only: false },
                 },
             },
-            BindGroupLayoutEntry {
-                binding: 5,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: false },
-                },
-            },
         ],
     });
 
@@ -1010,7 +971,7 @@ fn bind_group_and_pipeline_find_matches_and_compute_f2(
     let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
         compilation_options: PipelineCompilationOptions {
             constants: &[],
-            zero_initialize_workgroup_memory: false,
+            zero_initialize_workgroup_memory: true,
         },
         cache: None,
         label: Some("find_matches_and_compute_f2"),
@@ -1043,10 +1004,6 @@ fn bind_group_and_pipeline_find_matches_and_compute_f2(
                 binding: 4,
                 resource: metadatas_gpu.as_entire_binding(),
             },
-            BindGroupEntry {
-                binding: 5,
-                resource: rmap_gpu.as_entire_binding(),
-            },
         ],
     });
 
@@ -1066,7 +1023,6 @@ fn bind_group_and_pipeline_find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
     buckets_gpu: &Buffer,
     positions_gpu: &Buffer,
     metadatas_gpu: &Buffer,
-    rmap_gpu: &Buffer,
 ) -> (BindGroup, ComputePipeline) {
     let label = format!("find_matches_and_compute_f{TABLE_NUMBER}");
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -1132,16 +1088,6 @@ fn bind_group_and_pipeline_find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
                     ty: BufferBindingType::Storage { read_only: false },
                 },
             },
-            BindGroupLayoutEntry {
-                binding: 6,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: false },
-                },
-            },
         ],
     });
 
@@ -1154,7 +1100,7 @@ fn bind_group_and_pipeline_find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
     let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
         compilation_options: PipelineCompilationOptions {
             constants: &[],
-            zero_initialize_workgroup_memory: false,
+            zero_initialize_workgroup_memory: true,
         },
         cache: None,
         label: Some(&label),
@@ -1191,10 +1137,6 @@ fn bind_group_and_pipeline_find_matches_and_compute_fn<const TABLE_NUMBER: u8>(
                 binding: 5,
                 resource: metadatas_gpu.as_entire_binding(),
             },
-            BindGroupEntry {
-                binding: 6,
-                resource: rmap_gpu.as_entire_binding(),
-            },
         ],
     });
 
@@ -1208,7 +1150,6 @@ fn bind_group_and_pipeline_find_matches_and_compute_f7(
     parent_metadatas_gpu: &Buffer,
     table_6_proof_targets_sizes_gpu: &Buffer,
     table_6_proof_targets_gpu: &Buffer,
-    rmap_gpu: &Buffer,
 ) -> (BindGroup, ComputePipeline) {
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         label: Some("find_matches_and_compute_f7"),
@@ -1253,16 +1194,6 @@ fn bind_group_and_pipeline_find_matches_and_compute_f7(
                     ty: BufferBindingType::Storage { read_only: false },
                 },
             },
-            BindGroupLayoutEntry {
-                binding: 4,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: false },
-                },
-            },
         ],
     });
 
@@ -1275,7 +1206,7 @@ fn bind_group_and_pipeline_find_matches_and_compute_f7(
     let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
         compilation_options: PipelineCompilationOptions {
             constants: &[],
-            zero_initialize_workgroup_memory: false,
+            zero_initialize_workgroup_memory: true,
         },
         cache: None,
         label: Some("find_matches_and_compute_f7"),
@@ -1303,10 +1234,6 @@ fn bind_group_and_pipeline_find_matches_and_compute_f7(
             BindGroupEntry {
                 binding: 3,
                 resource: table_6_proof_targets_gpu.as_entire_binding(),
-            },
-            BindGroupEntry {
-                binding: 4,
-                resource: rmap_gpu.as_entire_binding(),
             },
         ],
     });

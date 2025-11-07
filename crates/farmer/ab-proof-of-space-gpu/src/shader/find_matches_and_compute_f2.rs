@@ -5,12 +5,11 @@ mod gpu_tests;
 
 use crate::shader::compute_fn::compute_fn_impl;
 use crate::shader::constants::{
-    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_MATCHES_COUNT,
+    MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_BUCKET_SIZE,
+    REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_in_buckets::rmap::{Rmap, RmapBitPosition, RmapBitPositionExt};
-use crate::shader::find_matches_in_buckets::{
-    FindMatchesShared, MAX_SUBGROUPS, find_matches_in_buckets_impl,
-};
+use crate::shader::find_matches_in_buckets::rmap::Rmap;
+use crate::shader::find_matches_in_buckets::{FindMatchesShared, find_matches_in_buckets_impl};
 use crate::shader::types::{Match, Metadata, Position, PositionExt, PositionR, Y};
 use core::mem::MaybeUninit;
 use spirv_std::arch::{atomic_i_increment, workgroup_memory_barrier_with_group_sync};
@@ -53,7 +52,7 @@ impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
 
 /// # Safety
 /// `bucket_index` must be within range `0..REDUCED_MATCHES_COUNT`. `matches_count` elements in
-/// `matches` must be initialized. `matches` must have valid pointers into `left_bucket` and
+/// `matches` must be initialized. `matches` must have valid pointers into left/right buckets and
 /// `parent_metadatas`.
 #[inline(always)]
 #[expect(
@@ -64,11 +63,11 @@ unsafe fn compute_f2_into_buckets(
     local_invocation_id: u32,
     left_bucket_index: u32,
     left_bucket: &[PositionR; MAX_BUCKET_SIZE],
+    right_bucket: &[PositionR; MAX_BUCKET_SIZE],
     matches_count: usize,
     // TODO: `&[Match]` would have been nicer, but it currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     matches: &[MaybeUninit<Match>; MAX_BUCKET_SIZE],
-    rmap: &Rmap,
     bucket_sizes: &mut [u32; NUM_BUCKETS],
     buckets: &mut [[MaybeUninit<PositionR>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     positions: &mut [MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT],
@@ -87,13 +86,25 @@ unsafe fn compute_f2_into_buckets(
         // SAFETY: Guaranteed by function contract
         let left_position_r = *unsafe { left_bucket.get_unchecked(bucket_offset as usize) };
         let left_position = left_position_r.position;
-        let (left_r, _data) = left_position_r.r.split();
+        let left_r = left_position_r.r.get();
 
-        // SAFETY: `r_target` is guaranteed to be within `0..PARAM_BC` range by `Match` constructor
-        let rmap_bit_position = unsafe { RmapBitPosition::new(r_target) };
-        let right_positions = rmap.get(rmap_bit_position);
-        // SAFETY: `positions_offset` is always either `0` or `1`
-        let right_position = *unsafe { right_positions.get_unchecked(positions_offset as usize) };
+        // Repurpose variable for two purposes to save on registers
+        let mut right_position_or_skip = positions_offset;
+        // TODO: More idiomatic version currently doesn't compile:
+        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+        #[allow(clippy::needless_range_loop)]
+        for offset in 0..REDUCED_BUCKET_SIZE {
+            let position_r = right_bucket[offset];
+            if position_r.r.get() == r_target {
+                if right_position_or_skip == 0 {
+                    right_position_or_skip = position_r.position;
+                    break;
+                } else {
+                    right_position_or_skip -= 1;
+                }
+            }
+        }
+        let right_position = right_position_or_skip;
 
         let left_metadata = Metadata::from(left_position);
         let right_metadata = Metadata::from(right_position);
@@ -141,9 +152,7 @@ unsafe fn compute_f2_into_buckets(
 /// undefined.
 ///
 /// # Safety
-/// Must be called from [`WORKGROUP_SIZE`] threads. `num_subgroups` must be at most
-/// [`MAX_SUBGROUPS`]. All buckets must contain valid positions and `r` values and come from
-/// `sort_buckets_with_rmap_details` shader.
+/// Must be called from [`WORKGROUP_SIZE`] threads. All buckets must contain valid positions.
 #[spirv(compute(threads(256), entry_point_name = "find_matches_and_compute_f2"))]
 #[expect(
     clippy::too_many_arguments,
@@ -152,7 +161,6 @@ unsafe fn compute_f2_into_buckets(
 pub unsafe fn find_matches_and_compute_f2(
     #[spirv(local_invocation_id)] local_invocation_id: UVec3,
     #[spirv(workgroup_id)] workgroup_id: UVec3,
-    #[spirv(subgroup_id)] subgroup_id: u32,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] parent_buckets: &[[PositionR; MAX_BUCKET_SIZE];
          NUM_BUCKETS],
     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] bucket_sizes: &mut [u32; NUM_BUCKETS],
@@ -164,13 +172,7 @@ pub unsafe fn find_matches_and_compute_f2(
              NUM_MATCH_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     #[spirv(workgroup)] shared: &mut FindMatchesShared,
-    // Non-modern GPUs do not have enough space in the shared memory
-    #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
-    #[spirv(workgroup)]
-    rmap: &mut MaybeUninit<Rmap>,
-    #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 5)]
-    rmap: &mut [MaybeUninit<Rmap>; MAX_SUBGROUPS],
+    #[spirv(workgroup)] rmap: &mut Rmap,
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
@@ -185,7 +187,7 @@ pub unsafe fn find_matches_and_compute_f2(
     // TODO: Truncate buckets to reduced size here once it compiles:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     // SAFETY: Guaranteed by function contract
-    let (matches_count, rmap) = unsafe {
+    let matches_count = unsafe {
         find_matches_in_buckets_impl(
             local_invocation_id,
             left_bucket_index,
@@ -193,10 +195,7 @@ pub unsafe fn find_matches_and_compute_f2(
             right_bucket,
             matches,
             shared,
-            #[cfg(all(target_arch = "spirv", feature = "__modern-gpu"))]
             rmap,
-            #[cfg(not(all(target_arch = "spirv", feature = "__modern-gpu")))]
-            &mut rmap[subgroup_id as usize],
         )
     };
 
@@ -207,9 +206,9 @@ pub unsafe fn find_matches_and_compute_f2(
             local_invocation_id,
             left_bucket_index,
             left_bucket,
+            right_bucket,
             matches_count as usize,
             matches,
-            rmap,
             bucket_sizes,
             buckets,
             positions,

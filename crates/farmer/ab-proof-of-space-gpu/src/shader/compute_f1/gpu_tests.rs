@@ -40,13 +40,11 @@ fn compute_f1_gpu() {
     );
     for (bucket_index, bucket) in actual_output.iter().enumerate() {
         for &PositionR { position, r } in bucket {
-            let (r, _data) = r.split();
             // TODO: This doesn't compile right now, but will be once this is resolved:
             //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
             // let expected_y = expected_output[usize::from(position)];
             let expected_y = expected_output[position as usize];
             let (expected_bucket_index, expected_r) = expected_y.into_bucket_index_and_r();
-            let (expected_r, _data) = expected_r.split();
             assert_eq!(
                 bucket_index, expected_bucket_index as usize,
                 "position={position:?}, r={r:?}"

@@ -1,129 +1,10 @@
 use crate::shader::constants::{MAX_BUCKET_SIZE, PARAM_BC, REDUCED_BUCKET_SIZE};
 use crate::shader::find_matches_in_buckets::cpu_tests::Rmap as CorrectRmap;
-use crate::shader::find_matches_in_buckets::rmap::{
-    NextPhysicalPointer, Rmap, RmapBitPosition, RmapBitPositionExt,
-};
+use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::types::{Position, PositionExt, PositionR, R};
 use chacha20::ChaCha8Rng;
 use rand::prelude::*;
 use std::array;
-
-#[test]
-fn test_rmap_basic() {
-    let mut next_physical_pointer = NextPhysicalPointer::default();
-    let mut rmap = Rmap::new();
-
-    unsafe {
-        rmap.add(
-            RmapBitPosition::new(0),
-            Position::from_u32(100),
-            &mut next_physical_pointer,
-        );
-        assert_eq!(
-            rmap.get(RmapBitPosition::new(0)),
-            [Position::from_u32(100), Position::SENTINEL]
-        );
-
-        rmap.add(
-            RmapBitPosition::new(0),
-            Position::from_u32(101),
-            &mut next_physical_pointer,
-        );
-        assert_eq!(
-            rmap.get(RmapBitPosition::new(0)),
-            [Position::from_u32(100), Position::from_u32(101)]
-        );
-
-        // Ignored as duplicate `r`
-        rmap.add(
-            RmapBitPosition::new(0),
-            Position::from_u32(102),
-            &mut next_physical_pointer,
-        );
-        assert_eq!(
-            rmap.get(RmapBitPosition::new(0)),
-            [Position::from_u32(100), Position::from_u32(101)]
-        );
-
-        rmap.add(
-            RmapBitPosition::new(1),
-            Position::from_u32(200),
-            &mut next_physical_pointer,
-        );
-        assert_eq!(
-            rmap.get(RmapBitPosition::new(1)),
-            [Position::from_u32(200), Position::SENTINEL]
-        );
-    }
-}
-
-#[test]
-fn test_rmap_spanning_across_words() {
-    let mut next_physical_pointer = NextPhysicalPointer::default();
-    let mut rmap = Rmap::new();
-
-    unsafe {
-        rmap.add(
-            RmapBitPosition::new(24),
-            Position::from_u32(300),
-            &mut next_physical_pointer,
-        );
-        assert_eq!(
-            rmap.get(RmapBitPosition::new(24)),
-            [Position::from_u32(300), Position::SENTINEL]
-        );
-
-        rmap.add(
-            RmapBitPosition::new(24),
-            Position::from_u32(301),
-            &mut next_physical_pointer,
-        );
-        assert_eq!(
-            rmap.get(RmapBitPosition::new(24)),
-            [Position::from_u32(300), Position::from_u32(301)]
-        );
-
-        // Ignored as duplicate `r`
-        rmap.add(
-            RmapBitPosition::new(24),
-            Position::from_u32(302),
-            &mut next_physical_pointer,
-        );
-        assert_eq!(
-            rmap.get(RmapBitPosition::new(24)),
-            [Position::from_u32(300), Position::from_u32(301)]
-        );
-    }
-}
-
-#[test]
-fn test_rmap_zero_when_full() {
-    let mut next_physical_pointer = NextPhysicalPointer::default();
-    let mut rmap = Rmap::new();
-
-    unsafe {
-        rmap.add(
-            RmapBitPosition::new(3),
-            Position::from_u32(500),
-            &mut next_physical_pointer,
-        );
-        rmap.add(
-            RmapBitPosition::new(3),
-            Position::from_u32(501),
-            &mut next_physical_pointer,
-        );
-        // Ignored as duplicate `r`
-        rmap.add(
-            RmapBitPosition::new(3),
-            Position::from_u32(0),
-            &mut next_physical_pointer,
-        );
-        assert_eq!(
-            rmap.get(RmapBitPosition::new(3)),
-            [Position::from_u32(500), Position::from_u32(501)]
-        );
-    }
-}
 
 #[test]
 fn test_rmap_against_reference() {
@@ -150,36 +31,31 @@ fn test_rmap_against_reference() {
                 break;
             }
             unsafe {
-                rmap_correct.add(position_r.r.get_inner(), position_r.position);
+                rmap_correct.add(position_r.r.get(), position_r.position);
             }
         }
     }
 
-    let mut rmap_sequential = Rmap::new();
+    let mut rmap_concurrent = Rmap::new();
     {
         let mut bucket = source_bucket;
         bucket.sort_by_key(|position_r| position_r.position);
 
-        let mut next_physical_pointer = NextPhysicalPointer::default();
         for position_r in bucket {
             if position_r.position == Position::SENTINEL {
                 break;
             }
-            unsafe {
-                rmap_sequential.add(
-                    RmapBitPosition::new(position_r.r.get_inner()),
-                    position_r.position,
-                    &mut next_physical_pointer,
-                );
-            }
+            rmap_concurrent.add_with_data_parallel(position_r.r);
         }
     }
 
     for r in 0..u32::from(PARAM_BC) {
-        let rmap_bit_position = unsafe { RmapBitPosition::new(r) };
+        let correct_positions = unsafe { rmap_correct.get(r) };
+
         assert_eq!(
-            unsafe { rmap_correct.get(r) },
-            rmap_sequential.get(rmap_bit_position),
+            (correct_positions[0] != Position::SENTINEL) as u32
+                + (correct_positions[1] != Position::SENTINEL) as u32,
+            rmap_concurrent.num_r_items(unsafe { R::new(r) }),
             "r={r:?}"
         );
     }

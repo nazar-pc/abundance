@@ -36,7 +36,7 @@ pub(super) fn find_matches_and_compute_f7_correct<'a>(
 
             let left_position_r = left_bucket[bucket_offset as usize];
             let left_position = left_position_r.position;
-            let (left_r, _data) = left_position_r.r.split();
+            let left_r = left_position_r.r.get();
 
             // SAFETY: `r_target` is guaranteed to be within `0..PARAM_BC` range by `Match`
             // constructor
