@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(all(test, not(miri)))]
 mod tests;
 
 use crate::protocols::request_response::handlers::generic_request_handler::GenericRequest;
