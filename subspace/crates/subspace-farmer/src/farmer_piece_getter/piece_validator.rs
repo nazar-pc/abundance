@@ -2,10 +2,10 @@
 
 use crate::node_client::NodeClient;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
+use ab_networking::Node;
+use ab_networking::libp2p::PeerId;
+use ab_networking::utils::piece_provider::PieceValidator;
 use async_trait::async_trait;
-use subspace_networking::Node;
-use subspace_networking::libp2p::PeerId;
-use subspace_networking::utils::piece_provider::PieceValidator;
 use tracing::{error, warn};
 
 /// Farmer-specific validator for pieces retrieved from the network.

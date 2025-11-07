@@ -164,6 +164,7 @@ impl EncodableKnownPeers {
 }
 
 /// A/b slots with known peers where we write serialized known peers in one after another
+#[derive(Debug)]
 struct KnownPeersSlots {
     a: MmapMut,
     b: MmapMut,
@@ -295,6 +296,7 @@ pub enum KnownPeersManagerPersistenceError {
 }
 
 /// Handles networking parameters. It manages network parameters set and its persistence.
+#[derive(Debug)]
 pub struct KnownPeersManager {
     /// Defines whether the cache requires saving to DB
     cache_need_saving: bool,

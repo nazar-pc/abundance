@@ -1,5 +1,9 @@
 use ab_cli_utils::init_logger;
 use ab_core_primitives::pieces::PieceIndex;
+use ab_networking::protocols::request_response::handlers::piece_by_index::{
+    PieceByIndexRequest, PieceByIndexRequestHandler, PieceByIndexResponse,
+};
+use ab_networking::{Config, Multihash, Node, PeerDiscovered, SendRequestError};
 use clap::Parser;
 use futures::StreamExt;
 use futures::channel::oneshot;
@@ -11,10 +15,6 @@ use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use subspace_networking::protocols::request_response::handlers::piece_by_index::{
-    PieceByIndexRequest, PieceByIndexRequestHandler, PieceByIndexResponse,
-};
-use subspace_networking::{Config, Multihash, Node, PeerDiscovered, SendRequestError};
 use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Parser)]
@@ -377,7 +377,7 @@ async fn configure_dsn(
         max_established_outgoing_connections: out_peers,
         ..default_config
     };
-    let (node, mut node_runner_1) = subspace_networking::construct(config).unwrap();
+    let (node, mut node_runner_1) = ab_networking::construct(config).unwrap();
 
     let (node_address_sender, node_address_receiver) = oneshot::channel();
     let on_new_listener_handler = node.on_new_listener(Arc::new({

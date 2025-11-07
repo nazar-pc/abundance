@@ -1,5 +1,7 @@
 use crate::dsn::DsnConfig;
 use ab_data_retrieval::piece_getter::PieceGetter;
+use ab_networking::Node;
+use ab_networking::libp2p::Multiaddr;
 use sc_chain_spec::ChainSpec;
 use sc_consensus_subspace::archiver::CreateObjectMappings;
 use sc_network::config::{
@@ -23,8 +25,6 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use subspace_networking::Node;
-use subspace_networking::libp2p::Multiaddr;
 use tokio::runtime::Handle;
 
 /// The default max request size in MB, copied from Substrate
@@ -300,7 +300,7 @@ pub struct SubspaceConfiguration {
     /// Create object mappings from a specified segment index, or disable object mapping creation.
     pub create_object_mappings: CreateObjectMappings,
     /// Subspace networking (DSN).
-    pub subspace_networking: SubspaceNetworking,
+    pub ab_networking: SubspaceNetworking,
     /// Is this node a Timekeeper
     pub is_timekeeper: bool,
     /// CPU cores that timekeeper can use

@@ -56,6 +56,7 @@ impl ConnectionHandler for Handler {
     fn on_connection_event(
         &mut self,
         _: ConnectionEvent<
+            '_,
             Self::InboundProtocol,
             Self::OutboundProtocol,
             Self::InboundOpenInfo,

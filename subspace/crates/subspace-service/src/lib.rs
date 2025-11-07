@@ -29,6 +29,8 @@ use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::pot::PotSeed;
 use ab_erasure_coding::ErasureCoding;
+use ab_networking::libp2p::multiaddr::Protocol;
+use ab_networking::utils::piece_provider::PieceProvider;
 use ab_proof_of_space::Table;
 use async_lock::Semaphore;
 use core_affinity::CoreId;
@@ -85,8 +87,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::Duration;
-use subspace_networking::libp2p::multiaddr::Protocol;
-use subspace_networking::utils::piece_provider::PieceProvider;
 use subspace_runtime_primitives::opaque::Block;
 use subspace_runtime_primitives::{AccountId, Balance, Nonce};
 use thread_priority::{ThreadPriority, set_current_thread_priority};
@@ -475,7 +475,7 @@ where
         sync_target_block_number,
     } = other;
 
-    let (node, bootstrap_nodes, piece_getter) = match config.subspace_networking {
+    let (node, bootstrap_nodes, piece_getter) = match config.ab_networking {
         SubspaceNetworking::Reuse {
             node,
             bootstrap_nodes,
@@ -515,7 +515,7 @@ where
                 .spawn_essential_handle()
                 .spawn_essential_blocking(
                     "node-runner",
-                    Some("subspace-networking"),
+                    Some("ab-networking"),
                     Box::pin(
                         async move {
                             node_runner.run().await;

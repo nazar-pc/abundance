@@ -3,6 +3,8 @@
 #![feature(type_changing_struct_update)]
 
 use ab_cli_utils::{init_logger, set_exit_on_panic};
+use ab_networking::libp2p::multiaddr::Protocol;
+use ab_networking::{Config, KademliaMode, peer_id};
 use clap::Parser;
 use futures::{FutureExt, select};
 use libp2p::identity::ed25519::Keypair;
@@ -15,8 +17,6 @@ use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::{io, panic};
-use subspace_networking::libp2p::multiaddr::Protocol;
-use subspace_networking::{Config, KademliaMode, peer_id};
 use tracing::{debug, info};
 
 /// Size of the LRU cache for peers.
@@ -155,7 +155,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )
             };
             let (node, mut node_runner) =
-                subspace_networking::construct(config).expect("Networking stack creation failed.");
+                ab_networking::construct(config).expect("Networking stack creation failed.");
 
             node.on_new_listener(Arc::new({
                 let node_id = node.id();

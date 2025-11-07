@@ -1,17 +1,17 @@
+use ab_networking::libp2p::kad::Mode;
+use ab_networking::libp2p::{Multiaddr, identity};
+use ab_networking::protocols::request_response::handlers::cached_piece_by_index::CachedPieceByIndexRequestHandler;
+use ab_networking::protocols::request_response::handlers::piece_by_index::PieceByIndexRequestHandler;
+use ab_networking::protocols::request_response::handlers::segment_header::SegmentHeaderBySegmentIndexesRequestHandler;
+use ab_networking::utils::strip_peer_id;
+use ab_networking::{
+    CreationError, KademliaMode, KnownPeersManager, KnownPeersManagerConfig,
+    KnownPeersManagerPersistenceError, Node, NodeRunner,
+};
 use prometheus_client::registry::Registry;
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
-use subspace_networking::libp2p::kad::Mode;
-use subspace_networking::libp2p::{Multiaddr, identity};
-use subspace_networking::protocols::request_response::handlers::cached_piece_by_index::CachedPieceByIndexRequestHandler;
-use subspace_networking::protocols::request_response::handlers::piece_by_index::PieceByIndexRequestHandler;
-use subspace_networking::protocols::request_response::handlers::segment_header::SegmentHeaderBySegmentIndexesRequestHandler;
-use subspace_networking::utils::strip_peer_id;
-use subspace_networking::{
-    CreationError, KademliaMode, KnownPeersManager, KnownPeersManagerConfig,
-    KnownPeersManagerPersistenceError, Node, NodeRunner,
-};
 use thiserror::Error;
 use tracing::trace;
 
@@ -96,9 +96,9 @@ pub(crate) fn create_dsn_instance(
 
     let keypair = dsn_config.keypair.clone();
     let default_networking_config =
-        subspace_networking::Config::new(dsn_protocol_version, keypair, prometheus_registry);
+        ab_networking::Config::new(dsn_protocol_version, keypair, prometheus_registry);
 
-    let networking_config = subspace_networking::Config {
+    let networking_config = ab_networking::Config {
         keypair: dsn_config.keypair.clone(),
         listen_on: dsn_config.listen_on,
         allow_non_global_addresses_in_dht: dsn_config.allow_non_global_addresses_in_dht,
@@ -122,5 +122,5 @@ pub(crate) fn create_dsn_instance(
         ..default_networking_config
     };
 
-    subspace_networking::construct(networking_config).map_err(Into::into)
+    ab_networking::construct(networking_config).map_err(Into::into)
 }

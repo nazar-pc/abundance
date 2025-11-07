@@ -678,6 +678,7 @@ impl WeakNode {
 /// connection and substream limits. It generally serves for the case when we have `get-providers`
 /// operation followed by request-responses. This way we likely share the same connection and
 /// we don't need to obtain separate semaphore permits for the operations.
+#[derive(Debug)]
 pub struct NodeRequestsBatchHandle {
     node: Node,
     _permit: OwnedSemaphorePermit,

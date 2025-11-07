@@ -97,7 +97,7 @@ where
     where
         PieceIndices: IntoIterator<Item = PieceIndex> + 'a,
     {
-        let download_id = random::<u64>();
+        let download_id = rand::random::<u64>();
         let (tx, mut rx) = mpsc::unbounded();
         let fut = async move {
             let not_downloaded_pieces = download_cached_pieces(
@@ -816,7 +816,7 @@ where
             }
         })
         .choose_multiple(
-            &mut thread_rng(),
+            &mut rand::rng(),
             CachedPieceByIndexRequest::RECOMMENDED_LIMIT,
         )
 }
@@ -832,7 +832,7 @@ struct DownloadedPieceFromPeer<'a> {
 /// `check_cached_pieces` contains a list of pieces for peer to filter-out according to locally
 /// caches pieces, `cached_pieces` and `not_cached_pieces` contain piece indices peer claims is
 /// known to have or not have already
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn download_cached_piece_from_peer<'a, PV>(
     node: &'a Node,
     piece_validator: &'a PV,

@@ -1,27 +1,16 @@
+#![feature(type_changing_struct_update)]
+
 use ab_cli_utils::init_logger;
+use ab_networking::Config;
+use futures::StreamExt;
 use futures::channel::oneshot;
+use libp2p::gossipsub::Sha256Topic;
 use libp2p::multiaddr::Protocol;
-use parity_scale_codec::{Decode, Encode};
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_networking::Config;
-use subspace_networking::protocols::request_response::handlers::generic_request_handler::{
-    GenericRequest, GenericRequestHandler,
-};
-use tokio::time::sleep;
 
-#[derive(Encode, Decode)]
-struct ExampleRequest;
-
-impl GenericRequest for ExampleRequest {
-    const PROTOCOL_NAME: &'static str = "/example";
-    const LOG_TARGET: &'static str = "example_request";
-    type Response = ExampleResponse;
-}
-
-#[derive(Encode, Decode, Debug)]
-struct ExampleResponse;
+const TOPIC: &str = "Foo";
 
 #[tokio::main]
 async fn main() {
@@ -30,17 +19,9 @@ async fn main() {
     let config_1 = Config {
         listen_on: vec!["/ip4/0.0.0.0/tcp/0".parse().unwrap()],
         allow_non_global_addresses_in_dht: true,
-        request_response_protocols: vec![GenericRequestHandler::<ExampleRequest>::create(
-            |_, _example_request| async {
-                sleep(Duration::from_secs(2)).await;
-
-                println!("Request handler for request");
-                Some(ExampleResponse)
-            },
-        )],
         ..Config::default()
     };
-    let (node_1, mut node_runner_1) = subspace_networking::construct(config_1).unwrap();
+    let (node_1, mut node_runner_1) = ab_networking::construct(config_1).unwrap();
 
     println!("Node 1 ID is {}", node_1.id());
 
@@ -65,18 +46,17 @@ async fn main() {
     let node_1_addr = node_1_address_receiver.await.unwrap();
     drop(on_new_listener_handler);
 
+    let mut subscription = node_1.subscribe(Sha256Topic::new(TOPIC)).await.unwrap();
+
     let bootstrap_addresses = vec![node_1_addr.with(Protocol::P2p(node_1.id()))];
     let config_2 = Config {
         listen_on: vec!["/ip4/0.0.0.0/tcp/0".parse().unwrap()],
         allow_non_global_addresses_in_dht: true,
-        request_response_protocols: vec![GenericRequestHandler::<ExampleRequest>::create(
-            |_, _| async { None },
-        )],
         bootstrap_addresses,
         ..Config::default()
     };
 
-    let (node_2, mut node_runner_2) = subspace_networking::construct(config_2).unwrap();
+    let (node_2, mut node_runner_2) = ab_networking::construct(config_2).unwrap();
 
     println!("Node 2 ID is {}", node_2.id());
 
@@ -87,13 +67,16 @@ async fn main() {
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     tokio::spawn(async move {
-        let resp = node_2
-            .send_generic_request(node_1.id(), Vec::new(), ExampleRequest)
+        node_2
+            .publish(Sha256Topic::new(TOPIC), "hello".to_string().into_bytes())
             .await
             .unwrap();
-
-        println!("Response: {resp:?}");
     });
 
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    let message = subscription.next().await.unwrap();
+    println!("Got message: {}", String::from_utf8_lossy(&message));
+
+    tokio::time::sleep(Duration::from_secs(5)).await;
 }

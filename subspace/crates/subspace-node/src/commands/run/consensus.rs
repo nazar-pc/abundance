@@ -1,5 +1,7 @@
 use crate::commands::run::shared::{RpcOptions, TrieCacheParams};
 use crate::{Error, chain_spec, derive_pot_external_entropy};
+use ab_networking::libp2p::Multiaddr;
+use ab_networking::libp2p::multiaddr::Protocol;
 use clap::Parser;
 use prometheus_client::registry::Registry;
 use sc_chain_spec::GenericChainSpec;
@@ -18,8 +20,6 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::num::NonZeroU64;
 use std::path::PathBuf;
 use std::str::FromStr;
-use subspace_networking::libp2p::Multiaddr;
-use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_service::config::{
     ChainSyncMode, SubspaceConfiguration, SubspaceNetworking, SubstrateConfiguration,
     SubstrateNetworkConfiguration, SubstrateRpcConfiguration,
@@ -725,7 +725,7 @@ pub(super) fn create_consensus_chain_configuration(
         };
 
         // Convert keypair from Substrate to libp2p type
-        let keypair = subspace_networking::libp2p::identity::Keypair::ed25519_from_bytes(
+        let keypair = ab_networking::libp2p::identity::Keypair::ed25519_from_bytes(
             network_keypair.secret().to_bytes(),
         )
         .expect("Keypair-from-protobuf decoding should succeed.");
@@ -752,7 +752,7 @@ pub(super) fn create_consensus_chain_configuration(
             base: consensus_chain_config,
             force_new_slot_notifications: false,
             create_object_mappings: create_object_mappings.unwrap_or_default().into(),
-            subspace_networking: SubspaceNetworking::Create { config: dsn_config },
+            ab_networking: SubspaceNetworking::Create { config: dsn_config },
             sync,
             is_timekeeper: timekeeper_options.timekeeper,
             timekeeper_cpu_cores: timekeeper_options.timekeeper_cpu_cores,

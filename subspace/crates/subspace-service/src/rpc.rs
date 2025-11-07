@@ -8,6 +8,7 @@
 
 use ab_client_api::ChainSyncStatus;
 use ab_erasure_coding::ErasureCoding;
+use ab_networking::libp2p::Multiaddr;
 use jsonrpsee::RpcModule;
 use sc_client_api::{AuxStore, BlockBackend};
 use sc_consensus_subspace::archiver::{ArchivedSegmentNotification, SegmentHeadersStore};
@@ -19,7 +20,6 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_subspace::SubspaceApi;
 use std::sync::Arc;
-use subspace_networking::libp2p::Multiaddr;
 use subspace_runtime_primitives::opaque::Block;
 
 /// Full client dependencies.

@@ -5,6 +5,7 @@ use crate::utils::shutdown_signal;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_erasure_coding::ErasureCoding;
+use ab_networking::utils::piece_provider::PieceProvider;
 use ab_proof_of_space::Table;
 use anyhow::anyhow;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock, Semaphore};
@@ -45,7 +46,6 @@ use subspace_farmer::utils::{
     thread_pool_core_indices,
 };
 use subspace_metrics::{RegistryAdapter, start_prometheus_metrics_server};
-use subspace_networking::utils::piece_provider::PieceProvider;
 use tracing::{Instrument, error, info, info_span, warn};
 
 /// Get piece retry attempts number.

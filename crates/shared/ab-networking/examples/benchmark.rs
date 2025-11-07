@@ -1,5 +1,8 @@
 use ab_cli_utils::init_logger;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
+use ab_networking::protocols::request_response::handlers::piece_by_index::PieceByIndexRequestHandler;
+use ab_networking::utils::piece_provider::{NoPieceValidator, PieceProvider, PieceValidator};
+use ab_networking::{Config, Node};
 use async_lock::Semaphore;
 use backoff::ExponentialBackoff;
 use backoff::future::retry;
@@ -16,9 +19,6 @@ use std::error::Error;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
-use subspace_networking::protocols::request_response::handlers::piece_by_index::PieceByIndexRequestHandler;
-use subspace_networking::utils::piece_provider::{NoPieceValidator, PieceProvider, PieceValidator};
-use subspace_networking::{Config, Node};
 use tracing::{debug, error, info, trace, warn};
 
 /// Defines initial duration between get_piece calls.
@@ -356,7 +356,7 @@ pub async fn configure_dsn(
         max_established_outgoing_connections: out_peers,
         ..default_config
     };
-    let (node, mut node_runner_1) = subspace_networking::construct(config).unwrap();
+    let (node, mut node_runner_1) = ab_networking::construct(config).unwrap();
 
     let (node_address_sender, node_address_receiver) = oneshot::channel();
     let on_new_listener_handler = node.on_new_listener(Arc::new({

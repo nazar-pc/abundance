@@ -22,6 +22,7 @@ use tracing::warn;
 const NETWORKING_REGISTRY_PREFIX: &str = "subspace";
 
 /// Metrics for Subspace networking
+#[derive(Debug)]
 pub struct SubspaceMetrics {
     established_connections: Gauge,
 }
