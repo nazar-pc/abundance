@@ -58,10 +58,6 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         matches_counter,
     } = shared;
 
-    if local_invocation_id == 0 {
-        *matches_counter = 0;
-    }
-
     for index in
         (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
     {
