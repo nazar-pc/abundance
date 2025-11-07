@@ -49,9 +49,5 @@ rand = { workspace = true }
 [build-dependencies]
 cargo-gpu = { workspace = true }
 
-[features]
-# Internal feature used by the build script for shader compilation. Should not be used externally.
-__modern-gpu = []
-
 [lints]
 workspace = true

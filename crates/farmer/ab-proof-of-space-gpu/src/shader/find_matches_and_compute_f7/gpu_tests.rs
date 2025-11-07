@@ -185,9 +185,7 @@ async fn find_matches_and_compute_f7_adapter(
     Box<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>,
 )> {
     // TODO: Test both versions of the shader here
-    let (shader, required_features, required_limits, modern) =
-        select_shader_features_limits(&adapter)?;
-    println!("modern={modern}");
+    let (shader, required_features, required_limits) = select_shader_features_limits(&adapter)?;
 
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {

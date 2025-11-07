@@ -1,21 +1,15 @@
 mod native;
-#[cfg(any(test, all(target_arch = "spirv", not(target_feature = "Int64"))))]
+#[cfg(any(test, target_arch = "spirv"))]
 mod u32;
-#[cfg(any(test, all(target_arch = "spirv", target_feature = "Int64")))]
-mod u64;
 
 #[cfg(not(target_arch = "spirv"))]
 pub(super) use crate::shader::num::native::U64;
 #[cfg(not(target_arch = "spirv"))]
 pub(super) use crate::shader::num::native::U128;
-#[cfg(all(target_arch = "spirv", not(target_feature = "Int64")))]
+#[cfg(target_arch = "spirv")]
 pub(super) use crate::shader::num::u32::U64;
-#[cfg(all(target_arch = "spirv", not(target_feature = "Int64")))]
+#[cfg(target_arch = "spirv")]
 pub(super) use crate::shader::num::u32::U128;
-#[cfg(all(target_arch = "spirv", target_feature = "Int64"))]
-pub(super) use crate::shader::num::u64::U64;
-#[cfg(all(target_arch = "spirv", target_feature = "Int64"))]
-pub(super) use crate::shader::num::u64::U128;
 use core::cmp::{Eq, PartialEq};
 use core::fmt;
 use core::hash::Hash;

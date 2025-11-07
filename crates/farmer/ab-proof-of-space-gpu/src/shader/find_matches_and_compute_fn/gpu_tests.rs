@@ -236,9 +236,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
     Box<[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>,
 )> {
     // TODO: Test both versions of the shader here
-    let (shader, required_features, required_limits, modern) =
-        select_shader_features_limits(&adapter)?;
-    println!("modern={modern}");
+    let (shader, required_features, required_limits) = select_shader_features_limits(&adapter)?;
 
     let (device, queue) = adapter
         .request_device(&DeviceDescriptor {
