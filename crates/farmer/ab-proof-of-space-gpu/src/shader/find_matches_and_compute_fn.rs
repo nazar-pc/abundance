@@ -74,7 +74,17 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
     buckets: &mut [[MaybeUninit<PositionR>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     positions: &mut [MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT],
     metadatas: &mut [MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT],
+    bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
+    // Load the right bucket into shared memory for faster access
+    for bucket_offset in
+        (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
+    {
+        bucket_scratch[bucket_offset] = right_bucket[bucket_offset];
+    }
+
+    workgroup_memory_barrier_with_group_sync();
+
     let left_bucket_base = left_bucket_index * u32::from(PARAM_BC);
     let metadatas_offset = left_bucket_index * REDUCED_MATCHES_COUNT as u32;
 
@@ -96,7 +106,7 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
         //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
         #[allow(clippy::needless_range_loop)]
         for offset in 0..REDUCED_BUCKET_SIZE {
-            let position_r = right_bucket[offset];
+            let position_r = bucket_scratch[offset];
             if position_r.r.get() == r_target {
                 if right_position_or_skip == 0 {
                     right_position_or_skip = position_r.position;
@@ -172,6 +182,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
     positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
+    bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
     shared: &mut FindMatchesShared,
     rmap: &mut Rmap,
 ) {
@@ -215,6 +226,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
             buckets,
             positions,
             metadatas,
+            bucket_scratch,
         );
     }
 }
@@ -247,6 +259,7 @@ pub unsafe fn find_matches_and_compute_f3(
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     #[spirv(workgroup)] shared: &mut FindMatchesShared,
     #[spirv(workgroup)] rmap: &mut Rmap,
+    #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -260,6 +273,7 @@ pub unsafe fn find_matches_and_compute_f3(
             positions,
             metadatas,
             matches,
+            bucket_scratch,
             shared,
             rmap,
         );
@@ -294,6 +308,7 @@ pub unsafe fn find_matches_and_compute_f4(
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     #[spirv(workgroup)] shared: &mut FindMatchesShared,
     #[spirv(workgroup)] rmap: &mut Rmap,
+    #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -307,6 +322,7 @@ pub unsafe fn find_matches_and_compute_f4(
             positions,
             metadatas,
             matches,
+            bucket_scratch,
             shared,
             rmap,
         );
@@ -341,6 +357,7 @@ pub unsafe fn find_matches_and_compute_f5(
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     #[spirv(workgroup)] shared: &mut FindMatchesShared,
     #[spirv(workgroup)] rmap: &mut Rmap,
+    #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -354,6 +371,7 @@ pub unsafe fn find_matches_and_compute_f5(
             positions,
             metadatas,
             matches,
+            bucket_scratch,
             shared,
             rmap,
         );
@@ -388,6 +406,7 @@ pub unsafe fn find_matches_and_compute_f6(
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     #[spirv(workgroup)] shared: &mut FindMatchesShared,
     #[spirv(workgroup)] rmap: &mut Rmap,
+    #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -401,6 +420,7 @@ pub unsafe fn find_matches_and_compute_f6(
             positions,
             metadatas,
             matches,
+            bucket_scratch,
             shared,
             rmap,
         );

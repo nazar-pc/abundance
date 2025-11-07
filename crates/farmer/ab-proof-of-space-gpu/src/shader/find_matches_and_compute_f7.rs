@@ -138,7 +138,17 @@ unsafe fn compute_f7_into_buckets(
     table_6_proof_targets_sizes: &mut [u32; NUM_S_BUCKETS],
     table_6_proof_targets: &mut [[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET];
              NUM_S_BUCKETS],
+    bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
+    // Load the right bucket into shared memory for faster access
+    for bucket_offset in
+        (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
+    {
+        bucket_scratch[bucket_offset] = right_bucket[bucket_offset];
+    }
+
+    workgroup_memory_barrier_with_group_sync();
+
     let left_bucket_base = left_bucket_index * u32::from(PARAM_BC);
     let absolute_position_base = left_bucket_index * REDUCED_MATCHES_COUNT as u32;
 
@@ -160,7 +170,7 @@ unsafe fn compute_f7_into_buckets(
         //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
         #[allow(clippy::needless_range_loop)]
         for offset in 0..REDUCED_BUCKET_SIZE {
-            let position_r = right_bucket[offset];
+            let position_r = bucket_scratch[offset];
             if position_r.r.get() == r_target {
                 if right_position_or_skip == 0 {
                     right_position_or_skip = position_r.position;
@@ -252,6 +262,7 @@ pub unsafe fn find_matches_and_compute_f7(
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     #[spirv(workgroup)] shared: &mut FindMatchesShared,
     #[spirv(workgroup)] rmap: &mut Rmap,
+    #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
@@ -289,6 +300,7 @@ pub unsafe fn find_matches_and_compute_f7(
             parent_metadatas,
             table_6_proof_targets_sizes,
             table_6_proof_targets,
+            bucket_scratch,
         );
     }
 }
