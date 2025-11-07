@@ -72,7 +72,6 @@ pub struct Device {
     device: wgpu::Device,
     queue: Queue,
     module: ShaderModule,
-    modern: bool,
     adapter_info: AdapterInfo,
 }
 
@@ -85,7 +84,6 @@ impl fmt::Debug for Device {
             .field("driver", &self.adapter_info.driver)
             .field("driver_info", &self.adapter_info.driver_info)
             .field("backend", &self.adapter_info.backend)
-            .field("modern", &self.modern)
             .finish_non_exhaustive()
     }
 }
@@ -114,17 +112,16 @@ impl Device {
             .map(|(adapter, id)| async move {
                 let adapter_info = adapter.get_info();
 
-                let (shader, required_features, required_limits, modern) =
+                let (shader, required_features, required_limits) =
                     match select_shader_features_limits(&adapter) {
-                        Some((shader, required_features, required_limits, modern)) => {
+                        Some((shader, required_features, required_limits)) => {
                             debug!(
                                 %id,
                                 adapter_info = ?adapter_info,
-                                modern,
                                 "Compatible adapter found"
                             );
 
-                            (shader, required_features, required_limits, modern)
+                            (shader, required_features, required_limits)
                         }
                         None => {
                             debug!(
@@ -157,7 +154,6 @@ impl Device {
                     device,
                     queue,
                     module,
-                    modern,
                     adapter_info,
                 })
             })
@@ -195,11 +191,6 @@ impl Device {
     /// Backend
     pub fn backend(&self) -> Backend {
         self.adapter_info.backend
-    }
-
-    /// Whether GPU is considered to be modern
-    pub fn modern(&self) -> bool {
-        self.modern
     }
 
     pub fn instantiate(

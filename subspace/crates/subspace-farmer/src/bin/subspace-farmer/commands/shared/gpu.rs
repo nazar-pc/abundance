@@ -129,11 +129,6 @@ where
 
     info!("Using GPUs:");
     for device in &used_gpu_devices {
-        let maybe_modern = if device.modern() {
-            "modern"
-        } else {
-            "legacy fallback"
-        };
         let device_type = match device.device_type() {
             DeviceType::Other => "other",
             DeviceType::IntegratedGpu => "Integrated GPU",
@@ -141,11 +136,7 @@ where
             DeviceType::VirtualGpu => "Virtual GPU",
             DeviceType::Cpu => "CPU emulation",
         };
-        info!(
-            "{}: {} ({device_type}, {maybe_modern})",
-            device.id(),
-            device.name()
-        );
+        info!("{}: {} ({device_type})", device.id(), device.name());
     }
 
     let downloading_semaphore = Arc::new(Semaphore::new(

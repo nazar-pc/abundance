@@ -97,11 +97,6 @@ async fn main() -> anyhow::Result<()> {
         Command::ListGpus { verbose } => {
             let devices = Device::enumerate().await;
             for device in devices {
-                let maybe_modern = if device.modern() {
-                    "modern"
-                } else {
-                    "legacy fallback"
-                };
                 let device_type = match device.device_type() {
                     DeviceType::Other => "other",
                     DeviceType::IntegratedGpu => "Integrated GPU",
@@ -109,11 +104,7 @@ async fn main() -> anyhow::Result<()> {
                     DeviceType::VirtualGpu => "Virtual GPU",
                     DeviceType::Cpu => "CPU emulation",
                 };
-                println!(
-                    "{}: {} ({device_type}, {maybe_modern})",
-                    device.id(),
-                    device.name()
-                );
+                println!("{}: {} ({device_type})", device.id(), device.name());
                 if verbose {
                     println!("   Backend: {}", device.backend());
                     println!("   Driver: {}", device.driver());
