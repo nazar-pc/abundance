@@ -1,4 +1,4 @@
-//! Networking functionality of Subspace Network, primarily used for DSN (Distributed Storage
+//! Networking functionality for Abundance, primarily used for DSN (Distributed Storage
 //! Network).
 
 #![feature(

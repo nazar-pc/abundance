@@ -34,7 +34,7 @@
 //!
 //! Original file commit: <https://github.com/paritytech/substrate/commit/c2fc4b3ca0d7a15cc3f9cb1e5f441d99ec8d6e0b>
 
-#[cfg(test)]
+#[cfg(all(test, not(miri)))]
 mod tests;
 
 use async_trait::async_trait;
@@ -62,7 +62,7 @@ use std::collections::hash_map::Entry;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
-use std::{io, iter};
+use std::{fmt, io, iter};
 use tracing::{debug, error, warn};
 
 const LOG_TARGET: &str = "request-response-protocols";
@@ -192,7 +192,6 @@ pub struct OutgoingResponse {
 #[derive(Debug)]
 // We are not reading these events in a meaningful way right now, but the fields in there are still
 // potentially useful
-#[allow(dead_code)]
 pub enum Event {
     /// A remote sent a request and either we have successfully answered it or an error happened.
     ///
@@ -247,13 +246,12 @@ impl From<(Cow<'static, str>, OutboundRequestId)> for ProtocolRequestId {
     }
 }
 
-/// When sending a request, what to do on a disconnected recipient.
+/// When sending a request, what to do on a disconnected recipient
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum IfDisconnected {
-    /// Try to connect to the peer.
+    /// Try to connect to the peer
     TryConnect,
-    /// Just fail if the destination is not yet connected.
-    #[allow(dead_code)] // reserved for the future logic or config change
+    /// Just fail if the destination is not yet connected
     ImmediateError,
 }
 
@@ -270,7 +268,10 @@ impl IfDisconnected {
 
 /// Implementation of `NetworkBehaviour` that provides support for multiple request-response
 /// protocols.
-#[allow(clippy::type_complexity)] // to preserve compatibility with copied implementation
+#[expect(
+    clippy::type_complexity,
+    reason = "To preserve compatibility with copied implementation"
+)]
 pub struct RequestResponseFactoryBehaviour {
     /// The multiple sub-protocols, by name.
     /// Contains the underlying libp2p `RequestResponse` behaviour, plus an optional
@@ -299,6 +300,14 @@ pub struct RequestResponseFactoryBehaviour {
 
     /// Request handlers future collection.
     request_handlers: Vec<Pin<Box<dyn Future<Output = ()> + Send>>>,
+}
+
+impl fmt::Debug for RequestResponseFactoryBehaviour {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RequestResponseFactoryBehaviour")
+            .finish_non_exhaustive()
+    }
 }
 
 // This is a state of processing incoming request Message.
@@ -493,7 +502,7 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
     }
 
     /// Informs the behaviour about an event from the [`Swarm`](libp2p::Swarm).
-    fn on_swarm_event(&mut self, event: FromSwarm) {
+    fn on_swarm_event(&mut self, event: FromSwarm<'_>) {
         match event {
             FromSwarm::ConnectionEstablished(inner) => {
                 for (protocol, _) in self.protocols.values_mut() {
@@ -607,7 +616,10 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
         )
     }
 
-    fn poll(&mut self, cx: &mut Context) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
+    fn poll(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
         'poll_all: loop {
             if let Some(message_request) = self.message_request.take() {
                 let MessageRequest {
@@ -907,22 +919,26 @@ pub enum RegisterError {
     DuplicateProtocol(Cow<'static, str>),
 }
 
-/// Error in a request.
+/// Error in a request
 #[derive(Debug, thiserror::Error)]
-#[allow(missing_docs)]
 pub enum RequestFailure {
-    #[error("We are not currently connected to the requested peer.")]
+    /// We are not currently connected to the requested peer
+    #[error("We are not currently connected to the requested peer")]
     NotConnected,
-    #[error("Given protocol hasn't been registered.")]
+    /// Given protocol hasn't been registered
+    #[error("Given protocol hasn't been registered")]
     UnknownProtocol,
+    /// Remote has closed the substream before answering, thereby signaling that it considers the
+    /// request as valid, but refused to answer it
     #[error(
         "Remote has closed the substream before answering, thereby signaling that it considers the \
-        request as valid, but refused to answer it."
+        request as valid, but refused to answer it"
     )]
     Refused,
-    #[error("The remote replied, but the local node is no longer interested in the response.")]
+    /// The remote replied, but the local node is no longer interested in the response
+    #[error("The remote replied, but the local node is no longer interested in the response")]
     Obsolete,
-    /// Problem on the network.
+    /// Problem on the network
     #[error("Problem on the network: {0}")]
     Network(OutboundFailure),
 }

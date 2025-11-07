@@ -1,5 +1,5 @@
 pub(crate) mod persistent_parameters;
-#[cfg(test)]
+#[cfg(all(test, not(miri)))]
 mod tests;
 
 use crate::constructor::DummyRecordStore;

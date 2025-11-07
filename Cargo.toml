@@ -37,6 +37,7 @@ ab-io-type = { version = "0.0.1", path = "crates/shared/ab-io-type" }
 ab-executor-native = { version = "0.0.1", path = "crates/execution/ab-executor-native" }
 ab-executor-slots = { version = "0.0.1", path = "crates/execution/ab-executor-slots" }
 ab-merkle-tree = { version = "0.0.1", path = "crates/shared/ab-merkle-tree" }
+ab-networking = { version = "0.1.0", path = "crates/shared/ab-networking" }
 ab-proof-of-space = { version = "0.1.0", path = "crates/shared/ab-proof-of-space" }
 ab-proof-of-time = { version = "0.1.0", path = "crates/shared/ab-proof-of-time" }
 ab-system-contract-address-allocator = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-address-allocator" }
@@ -69,18 +70,27 @@ derive_more = { version = "2.0.1", default-features = false }
 #  https://github.com/dalek-cryptography/curve25519-dalek/issues/626 is resolved
 ed25519-zebra = { version = "4.1.0", default-features = false }
 enum-map = "2.7.3"
+event-listener-primitives = "2.0.1"
 # TODO: Not using fs4 on purpose due to https://github.com/al8n/fs4-rs/issues/15
 fs2 = "0.4.3"
 futures = { version = "0.3.31", default-features = false, features = ["async-await"] }
+futures-timer = "3.0.3"
 halfbrown = "0.4.0"
 hex = { version = "0.4.3", default-features = false }
 ident_case = "1.0.1"
 libc = "0.2.175"
+libp2p = { version = "0.54.2", git = "https://github.com/autonomys/rust-libp2p", rev = "04c2e649b1f5482b8c3466b0fdbd1815b3126a48", default-features = false }
+libp2p-swarm-test = { version = "0.5.0", git = "https://github.com/autonomys/rust-libp2p", rev = "04c2e649b1f5482b8c3466b0fdbd1815b3126a48" }
+memmap2 = "0.9.9"
+multihash = "0.19.3"
+nohash-hasher = "0.2.0"
 no-panic = "0.1.35"
 once_cell = { version = "1.21.3", default-features = false }
 parity-scale-codec = { version = "3.7.5", default-features = false }
 parking_lot = "0.12.5"
+pin-project = "1.1.10"
 proc-macro2 = "1.0.101"
+prometheus-client = "0.22.3"
 quote = "1.0.41"
 rand = { version = "0.9.2", default-features = false }
 rand_chacha = { version = "0.9.0", default-features = false }
@@ -95,6 +105,7 @@ schnorrkel = { version = "0.11.5", default-features = false }
 send-future = "0.1.0"
 seq-macro = "0.3.6"
 serde = { version = "1.0.228", default-features = false }
+serde_json = "1.0.145"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0-rc.2", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
@@ -106,8 +117,11 @@ tempfile = "3.23.0"
 thiserror = { version = "2.0.17", default-features = false }
 thread-priority = "3.0.0"
 tokio = { version = "1.47.1", default-features = false }
+tokio-stream = "0.1.17"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+unsigned-varint = "0.8.0"
+void = "1.0.2"
 wgpu = { version = "27.0.1", default-features = false, features = ["metal", "parking_lot", "spirv", "std", "vulkan"] }
 windows = { version = "0.62.2", features = ["Win32_Storage_FileSystem"] }
 yoke = { version = "0.8.0", default-features = false }

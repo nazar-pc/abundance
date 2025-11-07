@@ -15,7 +15,7 @@ include = [
 [dependencies]
 ab-core-primitives = { workspace = true, features = ["scale-codec", "serde"] }
 ab-farmer-components = { workspace = true }
+ab-networking = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }
-subspace-networking = { workspace = true }
 subspace-verification = { workspace = true, features = ["scale-codec", "serde"] }

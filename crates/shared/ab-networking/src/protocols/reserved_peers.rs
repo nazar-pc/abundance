@@ -1,5 +1,5 @@
 mod handler;
-#[cfg(test)]
+#[cfg(all(test, not(miri)))]
 mod tests;
 
 use futures::FutureExt;
@@ -168,7 +168,7 @@ impl NetworkBehaviour for Behaviour {
         Ok(self.new_reserved_peers_handler(&peer_id))
     }
 
-    fn on_swarm_event(&mut self, event: FromSwarm) {
+    fn on_swarm_event(&mut self, event: FromSwarm<'_>) {
         match event {
             FromSwarm::ConnectionEstablished(ConnectionEstablished { peer_id, .. }) => {
                 if let Some(state) = self.reserved_peers_state.get_mut(&peer_id) {

@@ -2,6 +2,7 @@ use crate::commands::cluster::cache::CACHE_IDENTIFICATION_BROADCAST_INTERVAL;
 use crate::commands::cluster::farmer::FARMER_IDENTIFICATION_BROADCAST_INTERVAL;
 use crate::commands::shared::derive_libp2p_keypair;
 use crate::commands::shared::network::{NetworkArgs, configure_network};
+use ab_networking::utils::piece_provider::PieceProvider;
 use anyhow::anyhow;
 use async_lock::{RwLock as AsyncRwLock, Semaphore};
 use backoff::ExponentialBackoff;
@@ -29,7 +30,6 @@ use subspace_farmer::node_client::caching_proxy_node_client::CachingProxyNodeCli
 use subspace_farmer::node_client::rpc_node_client::RpcNodeClient;
 use subspace_farmer::single_disk_farm::identity::Identity;
 use subspace_farmer::utils::{AsyncJoinOnDrop, run_future_in_dedicated_thread};
-use subspace_networking::utils::piece_provider::PieceProvider;
 use tracing::{Instrument, info, info_span};
 
 /// Get piece retry attempts number.

@@ -1,16 +1,11 @@
-#![feature(type_changing_struct_update)]
-
 use ab_cli_utils::init_logger;
+use ab_networking::Config;
 use futures::StreamExt;
 use futures::channel::oneshot;
-use libp2p::gossipsub::Sha256Topic;
 use libp2p::multiaddr::Protocol;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::time::Duration;
-use subspace_networking::Config;
-
-const TOPIC: &str = "Foo";
 
 #[tokio::main]
 async fn main() {
@@ -21,7 +16,7 @@ async fn main() {
         allow_non_global_addresses_in_dht: true,
         ..Config::default()
     };
-    let (node_1, mut node_runner_1) = subspace_networking::construct(config_1).unwrap();
+    let (node_1, mut node_runner_1) = ab_networking::construct(config_1).unwrap();
 
     println!("Node 1 ID is {}", node_1.id());
 
@@ -46,8 +41,6 @@ async fn main() {
     let node_1_addr = node_1_address_receiver.await.unwrap();
     drop(on_new_listener_handler);
 
-    let mut subscription = node_1.subscribe(Sha256Topic::new(TOPIC)).await.unwrap();
-
     let bootstrap_addresses = vec![node_1_addr.with(Protocol::P2p(node_1.id()))];
     let config_2 = Config {
         listen_on: vec!["/ip4/0.0.0.0/tcp/0".parse().unwrap()],
@@ -56,7 +49,7 @@ async fn main() {
         ..Config::default()
     };
 
-    let (node_2, mut node_runner_2) = subspace_networking::construct(config_2).unwrap();
+    let (node_2, mut node_runner_2) = ab_networking::construct(config_2).unwrap();
 
     println!("Node 2 ID is {}", node_2.id());
 
@@ -66,17 +59,14 @@ async fn main() {
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    tokio::spawn(async move {
-        node_2
-            .publish(Sha256Topic::new(TOPIC), "hello".to_string().into_bytes())
-            .await
-            .unwrap();
-    });
+    let peer_id = node_2
+        .get_closest_peers(node_1.id().into())
+        .await
+        .unwrap()
+        .next()
+        .await
+        .unwrap();
+    assert_eq!(node_1.id(), peer_id);
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
-
-    let message = subscription.next().await.unwrap();
-    println!("Got message: {}", String::from_utf8_lossy(&message));
-
-    tokio::time::sleep(Duration::from_secs(5)).await;
+    println!("Exiting..");
 }

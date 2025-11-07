@@ -116,7 +116,7 @@ impl NetworkBehaviour for Behaviour {
         )
     }
 
-    fn on_swarm_event(&mut self, event: FromSwarm) {
+    fn on_swarm_event(&mut self, event: FromSwarm<'_>) {
         match event {
             new_listen_addr_event @ FromSwarm::NewListenAddr(_) => {
                 if let FromSwarm::NewListenAddr(addr) = new_listen_addr_event {

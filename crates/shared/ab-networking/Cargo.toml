@@ -1,15 +1,13 @@
 [package]
-name = "subspace-networking"
+name = "ab-networking"
+description = "Networking functionality for Abundance, primarily used for DSN (Distributed Storage Network)"
+license = "0BSD"
 version = "0.1.0"
 authors = [
     "Nazar Mokrynskyi <nazar@mokrynskyi.com>",
     "Shamil Gadelshin <shamilgadelshin@gmail.com>"
 ]
-description = "Networking functionality of Subspace Network, primarily used for DSN (Distributed Storage Network)"
 edition = "2024"
-license = "0BSD"
-homepage = "https://subspace.network"
-repository = "https://github.com/autonomys/subspace"
 include = [
     "/src",
     "/Cargo.toml",
@@ -37,11 +35,10 @@ parity-scale-codec = { workspace = true, features = ["std"] }
 parking_lot = { workspace = true }
 pin-project = { workspace = true }
 prometheus-client = { workspace = true }
-rand = { workspace = true }
+rand = { workspace = true, features = ["thread_rng"] }
 schnellru = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-subspace-metrics = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = { workspace = true }
@@ -53,3 +50,6 @@ libp2p = { workspace = true, features = ["autonat", "dns", "gossipsub", "identif
 [dev-dependencies]
 rand = { workspace = true }
 libp2p-swarm-test = { workspace = true }
+
+[lints]
+workspace = true

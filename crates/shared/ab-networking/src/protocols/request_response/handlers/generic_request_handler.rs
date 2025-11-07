@@ -9,6 +9,7 @@ use futures::channel::mpsc;
 use futures::prelude::*;
 use libp2p::PeerId;
 use parity_scale_codec::{Decode, Encode};
+use std::fmt;
 use std::pin::Pin;
 use std::sync::Arc;
 use tracing::{debug, trace};
@@ -38,13 +39,31 @@ type RequestHandlerFn<Request> = Arc<
 >;
 
 /// Defines generic request-response protocol handler.
-pub struct GenericRequestHandler<Request: GenericRequest> {
+pub struct GenericRequestHandler<Request>
+where
+    Request: GenericRequest,
+{
     request_receiver: mpsc::Receiver<IncomingRequest>,
     request_handler: RequestHandlerFn<Request>,
     protocol_config: ProtocolConfig,
 }
 
-impl<Request: GenericRequest> GenericRequestHandler<Request> {
+impl<Request> fmt::Debug for GenericRequestHandler<Request>
+where
+    Request: GenericRequest,
+{
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GenericRequestHandler")
+            .field("protocol_name", &Request::PROTOCOL_NAME)
+            .finish_non_exhaustive()
+    }
+}
+
+impl<Request> GenericRequestHandler<Request>
+where
+    Request: GenericRequest,
+{
     /// Creates new [`GenericRequestHandler`] by given handler.
     pub fn create<RH, Fut>(request_handler: RH) -> Box<dyn RequestHandler>
     where
@@ -81,7 +100,10 @@ impl<Request: GenericRequest> GenericRequestHandler<Request> {
 }
 
 #[async_trait]
-impl<Request: GenericRequest> RequestHandler for GenericRequestHandler<Request> {
+impl<Request> RequestHandler for GenericRequestHandler<Request>
+where
+    Request: GenericRequest,
+{
     /// Run [`RequestHandler`].
     async fn run(&mut self) {
         while let Some(request) = self.request_receiver.next().await {

@@ -22,6 +22,7 @@ ab-data-retrieval = { workspace = true }
 ab-direct-io-file = { workspace = true }
 ab-erasure-coding = { workspace = true }
 ab-farmer-components = { workspace = true }
+ab-networking = { workspace = true }
 ab-proof-of-space = { workspace = true }
 ab-proof-of-space-gpu = { workspace = true }
 anyhow = { workspace = true }
@@ -58,8 +59,6 @@ rayon = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 ss58-registry = { workspace = true }
-subspace-metrics = { workspace = true, optional = true }
-subspace-networking = { workspace = true }
 subspace-rpc-primitives = { workspace = true }
 subspace-verification = { workspace = true }
 tempfile = { workspace = true }
@@ -87,5 +86,4 @@ binary = [
     "dep:criterion",
     "dep:fdlimit",
     "dep:mimalloc",
-    "dep:subspace-metrics",
 ]

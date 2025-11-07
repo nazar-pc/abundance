@@ -8,6 +8,7 @@ use ab_data_retrieval::segment_downloading::{
     SEGMENT_DOWNLOAD_RETRIES, SEGMENT_DOWNLOAD_RETRY_DELAY, download_segment_pieces,
 };
 use ab_erasure_coding::ErasureCoding;
+use ab_networking::Node;
 use sc_client_api::{AuxStore, BlockchainEvents, ProofProvider};
 use sc_consensus::import_queue::ImportQueueService;
 use sc_consensus::{
@@ -26,7 +27,6 @@ use std::collections::{HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use subspace_networking::Node;
 use tokio::task;
 use tokio::time::sleep;
 use tracing::{debug, error, trace};

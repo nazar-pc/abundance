@@ -5,10 +5,10 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::solutions::{Solution, SolutionRange};
 use ab_farmer_components::FarmerProtocolInfo;
+use ab_networking::libp2p::Multiaddr;
 use parity_scale_codec::{Decode, Encode, EncodeLike, Input, Output};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use subspace_networking::libp2p::Multiaddr;
 use subspace_verification::ed25519::RewardSignature;
 
 /// Defines a limit for number of segments that can be requested over RPC

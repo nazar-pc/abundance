@@ -6,12 +6,12 @@ use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::HistorySize;
 use ab_farmer_components::file_ext::FileExt;
 use ab_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed};
+use ab_networking::libp2p::kad::RecordKey;
+use ab_networking::utils::multihash::ToMultihash;
 use rand::prelude::*;
 use std::assert_matches::assert_matches;
 use std::num::NonZeroU64;
 use std::sync::Arc;
-use subspace_networking::libp2p::kad::RecordKey;
-use subspace_networking::utils::multihash::ToMultihash;
 use tempfile::tempdir;
 
 const FAKE_SECTOR_SIZE: usize = 2 * 1024 * 1024;

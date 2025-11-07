@@ -3,6 +3,8 @@
 #![feature(type_changing_struct_update)]
 
 use ab_cli_utils::{init_logger, set_exit_on_panic};
+use ab_networking::libp2p::multiaddr::Protocol;
+use ab_networking::{Config, KademliaMode, peer_id};
 use clap::Parser;
 use futures::{FutureExt, select};
 use libp2p::identity::ed25519::Keypair;
@@ -13,11 +15,8 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::panic;
 use std::sync::Arc;
-use subspace_metrics::{RegistryAdapter, start_prometheus_metrics_server};
-use subspace_networking::libp2p::multiaddr::Protocol;
-use subspace_networking::{Config, KademliaMode, peer_id};
+use std::{io, panic};
 use tracing::{debug, info};
 
 /// Size of the LRU cache for peers.
@@ -156,7 +155,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )
             };
             let (node, mut node_runner) =
-                subspace_networking::construct(config).expect("Networking stack creation failed.");
+                ab_networking::construct(config).expect("Networking stack creation failed.");
 
             node.on_new_listener(Arc::new({
                 let node_id = node.id();
@@ -174,11 +173,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             // The prometheus server is a non-essential service, so we don't exit if it stops
             let prometheus_task = maybe_registry
-                .map(|registry| {
-                    start_prometheus_metrics_server(
-                        prometheus_listen_on,
-                        RegistryAdapter::PrometheusClient(registry),
-                    )
+                .map(|_registry| {
+                    // TODO: Start HTTP server
+                    // start_prometheus_metrics_server(
+                    //     prometheus_listen_on,
+                    //     RegistryAdapter::PrometheusClient(registry),
+                    // )
+                    Ok::<_, io::Error>(async { Ok::<_, io::Error>(()) })
                 })
                 .transpose()?;
             if let Some(prometheus_task) = prometheus_task {
