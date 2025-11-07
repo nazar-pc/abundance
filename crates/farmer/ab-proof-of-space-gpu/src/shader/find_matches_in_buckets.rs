@@ -29,7 +29,8 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
 
 #[derive(Debug)]
 pub struct FindMatchesShared {
-    pub matches_counter: u32,
+    rmap: Rmap,
+    matches_counter: u32,
 }
 
 // TODO: Reuse code from `ab-proof-of-space` after https://github.com/Rust-GPU/rust-gpu/pull/249 and
@@ -51,9 +52,11 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
     right_bucket: &[PositionR; MAX_BUCKET_SIZE],
     matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     shared: &mut FindMatchesShared,
-    rmap: &mut Rmap,
 ) -> u32 {
-    let FindMatchesShared { matches_counter } = shared;
+    let FindMatchesShared {
+        rmap,
+        matches_counter,
+    } = shared;
 
     if local_invocation_id == 0 {
         *matches_counter = 0;
@@ -169,7 +172,6 @@ pub unsafe fn find_matches_in_buckets(
         u32,
     >],
     #[spirv(workgroup)] shared: &mut FindMatchesShared,
-    #[spirv(workgroup)] rmap: &mut Rmap,
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
@@ -195,7 +197,6 @@ pub unsafe fn find_matches_in_buckets(
             right_bucket,
             matches,
             shared,
-            rmap,
         )
     });
 }

@@ -8,7 +8,6 @@ use crate::shader::constants::{
     MAX_BUCKET_SIZE, NUM_BUCKETS, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_BUCKET_SIZE,
     REDUCED_MATCHES_COUNT,
 };
-use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::find_matches_in_buckets::{FindMatchesShared, find_matches_in_buckets_impl};
 use crate::shader::types::{Match, Metadata, Position, PositionExt, PositionR, Y};
 use core::mem::MaybeUninit;
@@ -184,7 +183,6 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
     matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
     shared: &mut FindMatchesShared,
-    rmap: &mut Rmap,
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
@@ -207,7 +205,6 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
             right_bucket,
             matches,
             shared,
-            rmap,
         )
     };
 
@@ -258,7 +255,6 @@ pub unsafe fn find_matches_and_compute_f3(
              NUM_MATCH_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     #[spirv(workgroup)] shared: &mut FindMatchesShared,
-    #[spirv(workgroup)] rmap: &mut Rmap,
     #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
     // SAFETY: Guaranteed by function contract
@@ -275,7 +271,6 @@ pub unsafe fn find_matches_and_compute_f3(
             matches,
             bucket_scratch,
             shared,
-            rmap,
         );
     }
 }
@@ -307,7 +302,6 @@ pub unsafe fn find_matches_and_compute_f4(
              NUM_MATCH_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     #[spirv(workgroup)] shared: &mut FindMatchesShared,
-    #[spirv(workgroup)] rmap: &mut Rmap,
     #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
     // SAFETY: Guaranteed by function contract
@@ -324,7 +318,6 @@ pub unsafe fn find_matches_and_compute_f4(
             matches,
             bucket_scratch,
             shared,
-            rmap,
         );
     }
 }
@@ -356,7 +349,6 @@ pub unsafe fn find_matches_and_compute_f5(
              NUM_MATCH_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     #[spirv(workgroup)] shared: &mut FindMatchesShared,
-    #[spirv(workgroup)] rmap: &mut Rmap,
     #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
     // SAFETY: Guaranteed by function contract
@@ -373,7 +365,6 @@ pub unsafe fn find_matches_and_compute_f5(
             matches,
             bucket_scratch,
             shared,
-            rmap,
         );
     }
 }
@@ -405,7 +396,6 @@ pub unsafe fn find_matches_and_compute_f6(
              NUM_MATCH_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
     #[spirv(workgroup)] shared: &mut FindMatchesShared,
-    #[spirv(workgroup)] rmap: &mut Rmap,
     #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
     // SAFETY: Guaranteed by function contract
@@ -422,7 +412,6 @@ pub unsafe fn find_matches_and_compute_f6(
             matches,
             bucket_scratch,
             shared,
-            rmap,
         );
     }
 }

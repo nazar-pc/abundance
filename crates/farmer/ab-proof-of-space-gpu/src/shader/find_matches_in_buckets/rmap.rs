@@ -32,7 +32,7 @@ impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Rmap {
+pub(super) struct Rmap {
     /// Store two bits per target, indicating whether matching elements are present (two at most)
     presence_flags: [u32; PRESENCE_FLAGS_WORDS],
 }
@@ -40,7 +40,7 @@ pub struct Rmap {
 impl Rmap {
     #[cfg(test)]
     #[inline(always)]
-    pub(super) fn new() -> Self {
+    fn new() -> Self {
         Self {
             presence_flags: [0; _],
         }
