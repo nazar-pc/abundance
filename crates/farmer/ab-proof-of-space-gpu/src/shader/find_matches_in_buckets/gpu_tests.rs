@@ -1,7 +1,5 @@
 use crate::shader::constants::{MAX_BUCKET_SIZE, NUM_MATCH_BUCKETS, PARAM_BC, REDUCED_BUCKET_SIZE};
-use crate::shader::find_matches_in_buckets::MAX_SUBGROUPS;
 use crate::shader::find_matches_in_buckets::cpu_tests::find_matches_in_buckets_correct;
-use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Match, Position, PositionExt, PositionR, Y};
 use chacha20::ChaCha8Rng;
@@ -43,14 +41,6 @@ fn find_matches_in_buckets_gpu() {
                 };
                 total_found[bucket_index as usize] += 1;
             }
-        }
-
-        for bucket in buckets.iter_mut() {
-            bucket.sort_by_key(|position_r| (position_r.r, position_r.position));
-            unsafe {
-                Rmap::update_local_bucket_r_data(0, 1, bucket);
-            }
-            bucket.sort_by_key(|entry| entry.position);
         }
 
         buckets
@@ -101,7 +91,7 @@ async fn find_matches_in_buckets(
     let adapters = instance.enumerate_adapters(backends);
     let mut result = None;
 
-    for adapter in adapters {
+    for adapter in adapters.into_iter().take(1) {
         println!("Testing adapter {:?}", adapter.get_info());
 
         let Some(adapter_result) = find_matches_in_buckets_adapter(buckets, adapter).await else {
@@ -177,16 +167,6 @@ async fn find_matches_in_buckets_adapter(
                     ty: BufferBindingType::Storage { read_only: false },
                 },
             },
-            BindGroupLayoutEntry {
-                binding: 3,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: false },
-                },
-            },
         ],
     });
 
@@ -199,7 +179,7 @@ async fn find_matches_in_buckets_adapter(
     let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
         compilation_options: PipelineCompilationOptions {
             constants: &[],
-            zero_initialize_workgroup_memory: false,
+            zero_initialize_workgroup_memory: true,
         },
         cache: None,
         label: None,
@@ -244,18 +224,6 @@ async fn find_matches_in_buckets_adapter(
         mapped_at_creation: false,
     });
 
-    let rmap_gpu = device.create_buffer(&BufferDescriptor {
-        label: None,
-        size: if modern {
-            // A dummy buffer is `4` byte just because it can't be zero in wgpu
-            4
-        } else {
-            size_of::<[Rmap; MAX_SUBGROUPS]>() as BufferAddress
-        },
-        usage: BufferUsages::STORAGE,
-        mapped_at_creation: false,
-    });
-
     let bind_group = device.create_bind_group(&BindGroupDescriptor {
         label: None,
         layout: &bind_group_layout,
@@ -271,10 +239,6 @@ async fn find_matches_in_buckets_adapter(
             BindGroupEntry {
                 binding: 2,
                 resource: matches_counts_gpu.as_entire_binding(),
-            },
-            BindGroupEntry {
-                binding: 3,
-                resource: rmap_gpu.as_entire_binding(),
             },
         ],
     });

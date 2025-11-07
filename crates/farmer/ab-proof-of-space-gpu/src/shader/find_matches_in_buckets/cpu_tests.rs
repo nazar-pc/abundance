@@ -96,11 +96,10 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
         if position == Position::SENTINEL {
             break;
         }
-        let (r, _data) = r.split();
         // SAFETY: `r` is within `0..PARAM_BC` range by definition, the right bucket is limited to
         // `REDUCED_BUCKETS_SIZE`
         unsafe {
-            rmap.add(r, position);
+            rmap.add(r.get(), position);
         }
     }
 
@@ -116,7 +115,7 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
             break;
         }
 
-        let (left_r, _data) = r.split();
+        let left_r = r.get();
 
         for m in 0..u32::from(PARAM_M) {
             let r_target = calculate_left_target_on_demand(parity, left_r, m);

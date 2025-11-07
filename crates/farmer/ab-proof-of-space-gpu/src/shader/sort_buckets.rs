@@ -129,8 +129,6 @@ fn sort_bucket_impl(
         |a, b| a.position <= b.position,
     );
 
-    workgroup_memory_barrier_with_group_sync();
-
     store_from_shared_bucket(local_invocation_id, bucket, shared_bucket);
 }
 

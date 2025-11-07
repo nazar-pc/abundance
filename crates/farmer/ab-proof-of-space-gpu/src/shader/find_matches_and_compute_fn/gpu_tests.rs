@@ -4,8 +4,6 @@ use crate::shader::constants::{
     REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_and_compute_fn::cpu_tests::find_matches_and_compute_fn_correct;
-use crate::shader::find_matches_in_buckets::MAX_SUBGROUPS;
-use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::select_shader_features_limits;
 use crate::shader::types::{Metadata, Position, PositionExt, PositionR, Y};
 use chacha20::ChaCha8Rng;
@@ -74,17 +72,7 @@ fn find_matches_and_compute_fn_gpu<const TABLE_NUMBER: u8, const PARENT_TABLE_NU
 
         let ptr = Box::into_raw(buckets);
 
-        let mut buckets =
-            unsafe { Box::from_raw(ptr.cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>()) };
-        for bucket in buckets.iter_mut() {
-            bucket.sort_by_key(|position_r| (position_r.r, position_r.position));
-            unsafe {
-                Rmap::update_local_bucket_r_data(0, 1, bucket);
-            }
-            bucket.sort_by_key(|entry| entry.position);
-        }
-
-        buckets
+        unsafe { Box::from_raw(ptr.cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>()) }
     };
     let parent_metadatas = {
         let mut parent_metadatas = unsafe {
@@ -327,16 +315,6 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
                     ty: BufferBindingType::Storage { read_only: false },
                 },
             },
-            BindGroupLayoutEntry {
-                binding: 6,
-                count: None,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                    ty: BufferBindingType::Storage { read_only: false },
-                },
-            },
         ],
     });
 
@@ -349,7 +327,7 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
     let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
         compilation_options: PipelineCompilationOptions {
             constants: &[],
-            zero_initialize_workgroup_memory: false,
+            zero_initialize_workgroup_memory: true,
         },
         cache: None,
         label: None,
@@ -437,18 +415,6 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
         mapped_at_creation: false,
     });
 
-    let rmap_gpu = device.create_buffer(&BufferDescriptor {
-        label: None,
-        size: if modern {
-            // A dummy buffer is `4` byte just because it can't be zero in wgpu
-            4
-        } else {
-            size_of::<[Rmap; MAX_SUBGROUPS]>() as BufferAddress
-        },
-        usage: BufferUsages::STORAGE,
-        mapped_at_creation: false,
-    });
-
     let bind_group = device.create_bind_group(&BindGroupDescriptor {
         label: None,
         layout: &bind_group_layout,
@@ -476,10 +442,6 @@ async fn find_matches_and_compute_fn_adapter<const TABLE_NUMBER: u8>(
             BindGroupEntry {
                 binding: 5,
                 resource: metadatas_gpu.as_entire_binding(),
-            },
-            BindGroupEntry {
-                binding: 6,
-                resource: rmap_gpu.as_entire_binding(),
             },
         ],
     });
