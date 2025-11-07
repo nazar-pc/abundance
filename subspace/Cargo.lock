@@ -10470,7 +10470,6 @@ dependencies = [
  "serde",
  "serde_json",
  "ss58-registry",
- "subspace-metrics",
  "subspace-rpc-primitives",
  "subspace-verification",
  "tempfile",

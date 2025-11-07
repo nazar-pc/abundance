@@ -21,8 +21,6 @@ use std::mem;
 use std::net::SocketAddr;
 use std::time::Duration;
 use subspace_farmer::cluster::nats_client::NatsClient;
-use subspace_farmer::utils::AsyncJoinOnDrop;
-use subspace_metrics::{RegistryAdapter, start_prometheus_metrics_server};
 
 const REQUEST_RETRY_MAX_ELAPSED_TIME: Duration = Duration::from_mins(1);
 
@@ -150,15 +148,16 @@ where
     }
 
     if !prometheus_listen_on.is_empty() {
-        let prometheus_task = start_prometheus_metrics_server(
-            prometheus_listen_on,
-            RegistryAdapter::PrometheusClient(registry),
-        )?;
-
-        let join_handle = tokio::spawn(prometheus_task);
-        tasks.push(Box::pin(async move {
-            Ok(AsyncJoinOnDrop::new(join_handle, true).await??)
-        }));
+        // TODO: Start HTTP server
+        // let prometheus_task = start_prometheus_metrics_server(
+        //     prometheus_listen_on,
+        //     RegistryAdapter::PrometheusClient(registry),
+        // )?;
+        //
+        // let join_handle = tokio::spawn(prometheus_task);
+        // tasks.push(Box::pin(async move {
+        //     Ok(AsyncJoinOnDrop::new(join_handle, true).await??)
+        // }));
     }
 
     select! {

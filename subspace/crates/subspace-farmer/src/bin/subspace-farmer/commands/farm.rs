@@ -45,7 +45,6 @@ use subspace_farmer::utils::{
     recommended_number_of_farming_threads, run_future_in_dedicated_thread,
     thread_pool_core_indices,
 };
-use subspace_metrics::{RegistryAdapter, start_prometheus_metrics_server};
 use tracing::{Instrument, error, info, info_span, warn};
 
 /// Get piece retry attempts number.
@@ -714,13 +713,15 @@ where
     drop(plotted_pieces);
 
     let _prometheus_worker = if should_start_prometheus_server {
-        let prometheus_task = start_prometheus_metrics_server(
-            prometheus_listen_on,
-            RegistryAdapter::PrometheusClient(registry),
-        )?;
-
-        let join_handle = tokio::spawn(prometheus_task);
-        Some(AsyncJoinOnDrop::new(join_handle, true))
+        // TODO: Start HTTP server
+        // let prometheus_task = start_prometheus_metrics_server(
+        //     prometheus_listen_on,
+        //     RegistryAdapter::PrometheusClient(registry),
+        // )?;
+        //
+        // let join_handle = tokio::spawn(prometheus_task);
+        // Some(AsyncJoinOnDrop::new(join_handle, true))
+        None::<()>
     } else {
         None
     };
