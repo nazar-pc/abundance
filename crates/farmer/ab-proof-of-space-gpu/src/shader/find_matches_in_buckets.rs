@@ -137,7 +137,9 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
 
     workgroup_memory_barrier_with_group_sync();
 
-    for index in ((*matches_counter + local_invocation_id) as usize..MAX_BUCKET_SIZE)
+    let matches_counter = *matches_counter;
+
+    for index in ((matches_counter + local_invocation_id) as usize..MAX_BUCKET_SIZE)
         .step_by(WORKGROUP_SIZE as usize)
     {
         matches[index].write(Match::SENTINEL);
@@ -150,9 +152,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         unsafe { a.assume_init() }.cmp_key() <= unsafe { b.assume_init() }.cmp_key()
     });
 
-    workgroup_memory_barrier_with_group_sync();
-
-    (*matches_counter).min(REDUCED_MATCHES_COUNT as u32)
+    matches_counter.min(REDUCED_MATCHES_COUNT as u32)
 }
 
 /// # Safety
