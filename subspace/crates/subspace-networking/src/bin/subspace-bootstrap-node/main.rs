@@ -13,9 +13,8 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::panic;
 use std::sync::Arc;
-use subspace_metrics::{RegistryAdapter, start_prometheus_metrics_server};
+use std::{io, panic};
 use subspace_networking::libp2p::multiaddr::Protocol;
 use subspace_networking::{Config, KademliaMode, peer_id};
 use tracing::{debug, info};
@@ -174,11 +173,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             // The prometheus server is a non-essential service, so we don't exit if it stops
             let prometheus_task = maybe_registry
-                .map(|registry| {
-                    start_prometheus_metrics_server(
-                        prometheus_listen_on,
-                        RegistryAdapter::PrometheusClient(registry),
-                    )
+                .map(|_registry| {
+                    // TODO: Start HTTP server
+                    // start_prometheus_metrics_server(
+                    //     prometheus_listen_on,
+                    //     RegistryAdapter::PrometheusClient(registry),
+                    // )
+                    Ok::<_, io::Error>(async { Ok::<_, io::Error>(()) })
                 })
                 .transpose()?;
             if let Some(prometheus_task) = prometheus_task {

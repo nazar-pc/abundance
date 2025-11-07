@@ -10805,7 +10805,6 @@ dependencies = [
  "schnellru",
  "serde",
  "serde_json",
- "subspace-metrics",
  "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
