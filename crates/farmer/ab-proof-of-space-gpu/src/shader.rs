@@ -65,7 +65,7 @@ pub fn select_shader_features_limits(
     bool,
 )> {
     const SHADER_BASELINE_FEATURES: Features = Features::SUBGROUP;
-    const SHADER_MODERN_FEATURES: Features = SHADER_BASELINE_FEATURES.union(Features::SHADER_INT64);
+    const SHADER_MODERN_FEATURES: Features = SHADER_BASELINE_FEATURES;
     // Modern GPUs have at least 32 kiB of shared memory
     const MODERN_SHADER_STORAGE_SIZE: u32 = 32 * 1024;
 

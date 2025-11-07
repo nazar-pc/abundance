@@ -77,7 +77,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                     .shader_crate_features(["__modern-gpu".to_string()])
                     // Avoid Cargo deadlock, customize target
                     .target_dir_path(out_dir.join("modern").to_string_lossy().to_string())
-                    .capability(Capability::Int64)
                     .build()?;
                 let path_to_spv = compile_result.module.unwrap_single();
 
