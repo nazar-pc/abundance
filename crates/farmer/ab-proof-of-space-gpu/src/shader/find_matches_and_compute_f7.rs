@@ -10,6 +10,7 @@ use crate::shader::constants::{
 };
 use crate::shader::find_matches_in_buckets::{FindMatchesShared, find_matches_in_buckets_impl};
 use crate::shader::types::{Match, Metadata, Position, PositionR, Y};
+use core::fmt;
 use core::mem::MaybeUninit;
 use spirv_std::arch::{atomic_i_increment, workgroup_memory_barrier_with_group_sync};
 use spirv_std::glam::UVec3;
@@ -109,6 +110,22 @@ impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
     #[inline(always)]
     unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
         &mut self[index]
+    }
+}
+
+// TODO: Should be union, but it currently doesn't compile:
+//  https://github.com/Rust-GPU/rust-gpu/issues/241
+#[derive(Copy, Clone)]
+pub struct FindMatchesAndComputeF7Shared {
+    find_matches_shared: FindMatchesShared,
+    bucket_scratch: [PositionR; REDUCED_BUCKET_SIZE],
+}
+
+impl fmt::Debug for FindMatchesAndComputeF7Shared {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FindMatchesAndComputeF7Shared")
+            .finish_non_exhaustive()
     }
 }
 
@@ -259,8 +276,7 @@ pub unsafe fn find_matches_and_compute_f7(
     table_6_proof_targets: &mut [[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET];
              NUM_S_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
-    #[spirv(workgroup)] shared: &mut FindMatchesShared,
-    #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
+    #[spirv(workgroup)] shared: &mut FindMatchesAndComputeF7Shared,
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
@@ -280,7 +296,7 @@ pub unsafe fn find_matches_and_compute_f7(
             left_bucket,
             right_bucket,
             matches,
-            shared,
+            &mut shared.find_matches_shared,
         )
     };
 
@@ -297,7 +313,7 @@ pub unsafe fn find_matches_and_compute_f7(
             parent_metadatas,
             table_6_proof_targets_sizes,
             table_6_proof_targets,
-            bucket_scratch,
+            &mut shared.bucket_scratch,
         );
     }
 }

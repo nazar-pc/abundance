@@ -10,6 +10,7 @@ use crate::shader::constants::{
 };
 use crate::shader::find_matches_in_buckets::{FindMatchesShared, find_matches_in_buckets_impl};
 use crate::shader::types::{Match, Metadata, Position, PositionExt, PositionR, Y};
+use core::fmt;
 use core::mem::MaybeUninit;
 use spirv_std::arch::{atomic_i_increment, workgroup_memory_barrier_with_group_sync};
 use spirv_std::glam::UVec3;
@@ -44,6 +45,22 @@ impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
     #[inline(always)]
     unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
         &mut self[index]
+    }
+}
+
+// TODO: Should be union, but it currently doesn't compile:
+//  https://github.com/Rust-GPU/rust-gpu/issues/241
+#[derive(Copy, Clone)]
+pub struct FindMatchesAndComputeFnShared {
+    find_matches_shared: FindMatchesShared,
+    bucket_scratch: [PositionR; REDUCED_BUCKET_SIZE],
+}
+
+impl fmt::Debug for FindMatchesAndComputeFnShared {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FindMatchesAndComputeFnShared")
+            .finish_non_exhaustive()
     }
 }
 
@@ -181,8 +198,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
     positions: &mut [[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS],
     matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
-    bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
-    shared: &mut FindMatchesShared,
+    shared: &mut FindMatchesAndComputeFnShared,
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
@@ -204,7 +220,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
             left_bucket,
             right_bucket,
             matches,
-            shared,
+            &mut shared.find_matches_shared,
         )
     };
 
@@ -223,7 +239,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
             buckets,
             positions,
             metadatas,
-            bucket_scratch,
+            &mut shared.bucket_scratch,
         );
     }
 }
@@ -254,8 +270,7 @@ pub unsafe fn find_matches_and_compute_f3(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT];
              NUM_MATCH_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
-    #[spirv(workgroup)] shared: &mut FindMatchesShared,
-    #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
+    #[spirv(workgroup)] shared: &mut FindMatchesAndComputeFnShared,
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -269,7 +284,6 @@ pub unsafe fn find_matches_and_compute_f3(
             positions,
             metadatas,
             matches,
-            bucket_scratch,
             shared,
         );
     }
@@ -301,8 +315,7 @@ pub unsafe fn find_matches_and_compute_f4(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT];
              NUM_MATCH_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
-    #[spirv(workgroup)] shared: &mut FindMatchesShared,
-    #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
+    #[spirv(workgroup)] shared: &mut FindMatchesAndComputeFnShared,
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -316,7 +329,6 @@ pub unsafe fn find_matches_and_compute_f4(
             positions,
             metadatas,
             matches,
-            bucket_scratch,
             shared,
         );
     }
@@ -348,8 +360,7 @@ pub unsafe fn find_matches_and_compute_f5(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT];
              NUM_MATCH_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
-    #[spirv(workgroup)] shared: &mut FindMatchesShared,
-    #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
+    #[spirv(workgroup)] shared: &mut FindMatchesAndComputeFnShared,
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -363,7 +374,6 @@ pub unsafe fn find_matches_and_compute_f5(
             positions,
             metadatas,
             matches,
-            bucket_scratch,
             shared,
         );
     }
@@ -395,8 +405,7 @@ pub unsafe fn find_matches_and_compute_f6(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 5)] metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT];
              NUM_MATCH_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
-    #[spirv(workgroup)] shared: &mut FindMatchesShared,
-    #[spirv(workgroup)] bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
+    #[spirv(workgroup)] shared: &mut FindMatchesAndComputeFnShared,
 ) {
     // SAFETY: Guaranteed by function contract
     unsafe {
@@ -410,7 +419,6 @@ pub unsafe fn find_matches_and_compute_f6(
             positions,
             metadatas,
             matches,
-            bucket_scratch,
             shared,
         );
     }

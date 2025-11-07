@@ -27,7 +27,7 @@ fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {
     ((r / param_c + m) % param_b) * param_c + (((2 * m + parity) * (2 * m + parity) + r) % param_c)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct FindMatchesShared {
     rmap: Rmap,
     matches_counter: u32,
