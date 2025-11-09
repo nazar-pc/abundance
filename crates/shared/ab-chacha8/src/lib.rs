@@ -95,7 +95,7 @@ impl ChaCha8State {
 
         // TODO: More idiomatic version currently doesn't compile:
         //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        #[allow(clippy::needless_range_loop)]
+        #[expect(clippy::needless_range_loop)]
         // for (d, initial) in self.data.iter_mut().zip(initial) {
         //     *d = d.wrapping_add(initial);
         // }

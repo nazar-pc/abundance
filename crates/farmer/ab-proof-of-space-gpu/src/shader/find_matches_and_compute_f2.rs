@@ -118,7 +118,7 @@ unsafe fn compute_f2_into_buckets(
         let mut right_position_or_skip = positions_offset;
         // TODO: More idiomatic version currently doesn't compile:
         //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        #[allow(clippy::needless_range_loop)]
+        #[expect(clippy::needless_range_loop)]
         for offset in 0..REDUCED_BUCKET_SIZE {
             let position_r = bucket_scratch[offset];
             if position_r.r.get() == r_target {

@@ -1,5 +1,5 @@
 use crate::shader::constants::{MAX_BUCKET_SIZE, NUM_BUCKETS, PARAM_BC, PARAM_EXT, PARAM_M};
-use crate::shader::num::{U128, U128T};
+use crate::shader::u32n::U32N;
 use core::fmt;
 use core::iter::Step;
 use derive_more::{From, Into};
@@ -36,7 +36,7 @@ impl X {
 #[repr(C)]
 pub struct Y(u32);
 
-impl From<Y> for U128 {
+impl From<Y> for U32N<4> {
     #[inline(always)]
     fn from(value: Y) -> Self {
         Self::from(value.0)
@@ -100,25 +100,25 @@ impl PositionExt for Position {
 /// Stores data in lower bits
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
-pub struct Metadata(U128);
+pub struct Metadata(U32N<4>);
 
 impl Default for Metadata {
     #[inline(always)]
     fn default() -> Self {
-        Self(U128::ZERO)
+        Self(U32N::<4>::ZERO)
     }
 }
 
-impl From<Metadata> for U128 {
+impl From<Metadata> for U32N<4> {
     #[inline(always)]
     fn from(value: Metadata) -> Self {
         value.0
     }
 }
 
-impl From<U128> for Metadata {
+impl From<U32N<4>> for Metadata {
     #[inline(always)]
-    fn from(value: U128) -> Self {
+    fn from(value: U32N<4>) -> Self {
         Self(value)
     }
 }
@@ -126,7 +126,7 @@ impl From<U128> for Metadata {
 impl From<Position> for Metadata {
     #[inline(always)]
     fn from(value: Position) -> Self {
-        Self(U128::from(value))
+        Self(U32N::<4>::from(value))
     }
 }
 
