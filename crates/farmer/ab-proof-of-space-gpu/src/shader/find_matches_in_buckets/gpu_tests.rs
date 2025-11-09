@@ -91,7 +91,7 @@ async fn find_matches_in_buckets(
     let adapters = instance.enumerate_adapters(backends);
     let mut result = None;
 
-    for adapter in adapters.into_iter().take(1) {
+    for adapter in adapters {
         println!("Testing adapter {:?}", adapter.get_info());
 
         let Some(adapter_result) = find_matches_in_buckets_adapter(buckets, adapter).await else {

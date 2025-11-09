@@ -300,6 +300,7 @@ pub unsafe fn find_matches_and_compute_f7(
         )
     };
 
+    // SAFETY: Guaranteed by function contract and call to `find_matches_in_buckets_impl`
     unsafe {
         compute_f7_into_buckets(
             local_invocation_id,

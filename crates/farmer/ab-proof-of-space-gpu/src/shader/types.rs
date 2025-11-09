@@ -1,4 +1,4 @@
-use crate::shader::constants::{MAX_BUCKET_SIZE, MAX_TABLE_SIZE, PARAM_BC, PARAM_EXT, PARAM_M};
+use crate::shader::constants::{MAX_BUCKET_SIZE, NUM_BUCKETS, PARAM_BC, PARAM_EXT, PARAM_M};
 use crate::shader::num::{U128, U128T};
 use core::fmt;
 use core::iter::Step;
@@ -74,7 +74,7 @@ impl Y {
 //
 // impl Position {
 //     /// Position that can't exist
-//     pub(super) const SENTINEL: Self = Self(u32::MAX >> (u32::BITS - MAX_TABLE_SIZE.bit_width()));
+//     pub(super) const SENTINEL: Self = Self(u32::MAX >> (u32::BITS - (NUM_BUCKETS * MAX_BUCKET_SIZE).bit_width()));
 // }
 
 pub type Position = u32;
@@ -89,7 +89,7 @@ pub(super) trait PositionExt: Sized {
 }
 
 impl PositionExt for Position {
-    const SENTINEL: Self = u32::MAX >> (u32::BITS - MAX_TABLE_SIZE.bit_width());
+    const SENTINEL: Self = u32::MAX >> (u32::BITS - (NUM_BUCKETS * MAX_BUCKET_SIZE).bit_width());
 
     #[inline(always)]
     fn from_u32(value: u32) -> Self {
@@ -137,6 +137,8 @@ pub struct R(u32);
 impl R {
     /// R that can't exist
     pub(super) const SENTINEL: Self = Self(u32::MAX);
+    /// Number of bits used to fully represent `R`
+    pub(super) const BITS: u32 = (PARAM_BC - 1).bit_width();
 
     /// Create new `R` from provided value.
     ///
@@ -202,10 +204,7 @@ impl Match {
         #[expect(clippy::int_plus_one, reason = "Better explains the underlying logic")]
         const {
             assert!(
-                (MAX_BUCKET_SIZE - 1).bit_width()
-                    + (PARAM_M - 1).bit_width()
-                    + (PARAM_BC - 1).bit_width()
-                    + 1
+                (MAX_BUCKET_SIZE - 1).bit_width() + (PARAM_M - 1).bit_width() + R::BITS + 1
                     <= u32::BITS
             );
         }
@@ -213,8 +212,8 @@ impl Match {
         // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
         //  shouldn't be necessary otherwise
         Self(
-            (bucket_offset << const { (PARAM_M - 1).bit_width() + (PARAM_BC - 1).bit_width() + 1 })
-                | (m << const { (PARAM_BC - 1).bit_width() + 1 })
+            (bucket_offset << const { (PARAM_M - 1).bit_width() + R::BITS + 1 })
+                | (m << const { R::BITS + 1 })
                 | (r_target << 1),
         )
     }
@@ -236,8 +235,8 @@ impl Match {
         // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
         //  shouldn't be necessary otherwise
         (
-            self.0 >> const { (PARAM_M - 1).bit_width() + (PARAM_BC - 1).bit_width() + 1 },
-            (self.0 >> 1) & const { u32::MAX >> (u32::BITS - (PARAM_BC - 1).bit_width()) },
+            self.0 >> const { (PARAM_M - 1).bit_width() + R::BITS + 1 },
+            (self.0 >> 1) & const { u32::MAX >> (u32::BITS - R::BITS) },
             self.0 & 1,
         )
     }

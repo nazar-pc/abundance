@@ -223,6 +223,7 @@ pub unsafe fn find_matches_and_compute_f2(
         )
     };
 
+    // SAFETY: Guaranteed by function contract and call to `find_matches_in_buckets_impl`
     unsafe {
         compute_f2_into_buckets(
             local_invocation_id,

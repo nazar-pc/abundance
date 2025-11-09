@@ -224,6 +224,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
         )
     };
 
+    // SAFETY: Guaranteed by function contract and call to `find_matches_in_buckets_impl`
     unsafe {
         compute_fn_into_buckets::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
             local_invocation_id,
