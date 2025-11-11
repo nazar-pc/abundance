@@ -80,7 +80,7 @@ pub(super) fn sort_shared_bucket<T, LessOrEqual>(
 }
 
 #[inline(always)]
-pub(super) fn load_into_shared_bucket(
+fn load_into_shared_bucket(
     local_invocation_id: u32,
     bucket_size: u32,
     bucket: &[PositionR; MAX_BUCKET_SIZE],
@@ -98,7 +98,7 @@ pub(super) fn load_into_shared_bucket(
 }
 
 #[inline(always)]
-pub(super) fn store_from_shared_bucket(
+fn store_from_shared_bucket(
     local_invocation_id: u32,
     bucket: &mut [PositionR; MAX_BUCKET_SIZE],
     shared_bucket: &[PositionR; MAX_BUCKET_SIZE],

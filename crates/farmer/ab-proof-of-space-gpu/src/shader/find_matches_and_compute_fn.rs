@@ -120,7 +120,7 @@ unsafe fn compute_fn_into_buckets<const TABLE_NUMBER: u8, const PARENT_TABLE_NUM
         let mut right_position_or_skip = positions_offset;
         // TODO: More idiomatic version currently doesn't compile:
         //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        #[allow(clippy::needless_range_loop)]
+        #[expect(clippy::needless_range_loop)]
         for offset in 0..REDUCED_BUCKET_SIZE {
             let position_r = bucket_scratch[offset];
             if position_r.r.get() == r_target {
@@ -224,8 +224,7 @@ pub unsafe fn find_matches_and_compute_fn<const TABLE_NUMBER: u8, const PARENT_T
         )
     };
 
-    workgroup_memory_barrier_with_group_sync();
-
+    // SAFETY: Guaranteed by function contract and call to `find_matches_in_buckets_impl`
     unsafe {
         compute_fn_into_buckets::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
             local_invocation_id,

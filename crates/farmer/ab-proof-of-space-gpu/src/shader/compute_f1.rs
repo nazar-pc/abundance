@@ -4,8 +4,8 @@ mod cpu_tests;
 mod gpu_tests;
 
 use crate::shader::constants::{K, MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS, PARAM_EXT};
-use crate::shader::num::{U64, U64T};
 use crate::shader::types::{Position, PositionExt, PositionR, X, Y};
+use crate::shader::u32n::U32N;
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
 use core::mem::MaybeUninit;
 use spirv_std::arch::atomic_i_increment;
@@ -129,7 +129,7 @@ fn compute_f1_impl(x: X, chacha8_keystream: &[u32; INVOCATION_KEYSTREAM_WORDS]) 
 
     let high = chacha8_keystream[skip_u32s as usize].to_be();
     let low = chacha8_keystream[skip_u32s as usize + 1].to_be();
-    let partial_y = U64::from_low_high(low, high);
+    let partial_y = U32N::from_low_high(low, high);
 
     let pre_y = partial_y >> (u64::BITS - u32::from(K + PARAM_EXT) - partial_y_offset);
     let pre_y = pre_y.as_u32();

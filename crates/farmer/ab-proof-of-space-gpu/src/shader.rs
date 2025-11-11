@@ -7,12 +7,12 @@ pub mod find_matches_and_compute_f7;
 pub mod find_matches_and_compute_fn;
 pub mod find_matches_in_buckets;
 pub mod find_proofs;
-mod num;
 #[cfg(not(target_arch = "spirv"))]
 mod shader_bytes;
 pub mod sort_buckets;
 // TODO: Reuse types from `ab-proof-of-space` once it compiles with `rust-gpu`
 pub mod types;
+mod u32n;
 
 #[cfg(not(target_arch = "spirv"))]
 use wgpu::{Adapter, Features, Limits};

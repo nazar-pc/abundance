@@ -1,8 +1,10 @@
 use crate::shader::compute_fn::{compute_fn_impl, metadata_size_bits, y_size_bits};
 use crate::shader::constants::K;
 use crate::shader::types::{Metadata, Y};
+use crate::shader::u32n::U32N;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{RngCore, SeedableRng};
+use std::array;
 
 // TODO: Reuse code from `ab-proof-of-space`, right now this is copy-pasted from there
 pub(in super::super) fn correct_compute_fn<
@@ -13,8 +15,8 @@ pub(in super::super) fn correct_compute_fn<
     left_metadata: Metadata,
     right_metadata: Metadata,
 ) -> (Y, Metadata) {
-    let left_metadata = u128::from(left_metadata);
-    let right_metadata = u128::from(right_metadata);
+    let left_metadata = U32N::<4>::from(left_metadata);
+    let right_metadata = U32N::<4>::from(right_metadata);
 
     let parent_metadata_bits = metadata_size_bits(K, PARENT_TABLE_NUMBER);
 
@@ -26,15 +28,15 @@ pub(in super::super) fn correct_compute_fn<
             (y_size_bits(K) + parent_metadata_bits * 2).div_ceil(u8::BITS) as usize;
 
         // Collect `K` most significant bits of `y` at the final offset of eventual `input_a`
-        let y_bits = u128::from(y) << (u128::BITS - y_size_bits(K));
+        let y_bits = U32N::<4>::from(y) << (U32N::<4>::BITS - y_size_bits(K));
 
         // Move bits of `left_metadata` at the final offset of eventual `input_a`
         let left_metadata_bits =
-            left_metadata << (u128::BITS - parent_metadata_bits - y_size_bits(K));
+            left_metadata << (U32N::<4>::BITS - parent_metadata_bits - y_size_bits(K));
 
         // Part of the `right_bits` at the final offset of eventual `input_a`
         let y_and_left_bits = y_size_bits(K) + parent_metadata_bits;
-        let right_bits_start_offset = u128::BITS - parent_metadata_bits;
+        let right_bits_start_offset = U32N::<4>::BITS - parent_metadata_bits;
 
         // If `right_metadata` bits start to the left of the desired position in `input_a` move
         // bits right, else move left
@@ -45,11 +47,11 @@ pub(in super::super) fn correct_compute_fn<
             let right_bits_a = right_metadata >> right_bits_pushed_into_input_b;
             let input_a = y_bits | left_metadata_bits | right_bits_a;
             // Collect bits of `right_metadata` that will spill over into `input_b`
-            let input_b = right_metadata << (u128::BITS - right_bits_pushed_into_input_b);
+            let input_b = right_metadata << (U32N::<4>::BITS - right_bits_pushed_into_input_b);
 
             let input = [input_a.to_be_bytes(), input_b.to_be_bytes()];
             let input_len =
-                size_of::<u128>() + right_bits_pushed_into_input_b.div_ceil(u8::BITS) as usize;
+                size_of::<U32N<4>>() + right_bits_pushed_into_input_b.div_ceil(u8::BITS) as usize;
             ab_blake3::single_block_hash(&input.as_flattened()[..input_len])
                 .expect("Exactly a single block worth of bytes; qed")
         } else {
@@ -73,15 +75,15 @@ pub(in super::super) fn correct_compute_fn<
         // For K up to 25 it is guaranteed that metadata + bit offset will always fit into u128.
         // We collect the bytes necessary, potentially with extra bits at the start and end of the
         // bytes that will be taken care of later.
-        let metadata = u128::from_be_bytes(
-            hash[(y_size_bits(K) / u8::BITS) as usize..][..size_of::<u128>()]
+        let metadata = U32N::<4>::from_be_bytes(
+            hash[(y_size_bits(K) / u8::BITS) as usize..][..size_of::<U32N<4>>()]
                 .try_into()
                 .expect("Always enough bits for any K; qed"),
         );
         // Remove extra bits at the beginning
-        let metadata = metadata << ((y_size_bits(K) % u8::BITS) as usize);
+        let metadata = metadata << (y_size_bits(K) % u8::BITS);
         // Move bits into the correct location
-        Metadata::from(metadata >> (u128::BITS - metadata_size_bits))
+        Metadata::from(metadata >> (U32N::<4>::BITS - metadata_size_bits))
     } else {
         Metadata::default()
     };
@@ -95,12 +97,11 @@ pub(super) fn random_y(rng: &mut ChaCha8Rng) -> Y {
 
 pub(in super::super) fn random_metadata<const TABLE_NUMBER: u8>(rng: &mut ChaCha8Rng) -> Metadata {
     if metadata_size_bits(K, TABLE_NUMBER) == 0 {
-        return Metadata::from(0u128);
+        return Metadata::from(U32N::<4>::ZERO);
     }
-    let mut left_metadata = 0u128.to_le_bytes();
-    rng.fill_bytes(&mut left_metadata);
     Metadata::from(
-        u128::from_le_bytes(left_metadata) >> (u128::BITS - metadata_size_bits(K, TABLE_NUMBER)),
+        U32N::<4>::from_le_u32_words_as_be_bytes(&array::from_fn(|_| rng.next_u32()))
+            >> (U32N::<4>::BITS - metadata_size_bits(K, TABLE_NUMBER)),
     )
 }
 
