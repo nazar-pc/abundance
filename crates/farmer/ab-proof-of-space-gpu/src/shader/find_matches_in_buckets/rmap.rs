@@ -2,34 +2,13 @@
 mod tests;
 
 use crate::shader::constants::PARAM_BC;
+#[cfg(target_arch = "spirv")]
+use crate::shader::polyfills::ArrayIndexingPolyfill;
 use crate::shader::types::R;
 use spirv_std::arch::atomic_or;
 use spirv_std::memory::{Scope, Semantics};
 
 const PRESENCE_FLAGS_WORDS: usize = (PARAM_BC as usize * 2).div_ceil(u32::BITS as usize);
-
-// TODO: This is a polyfill to work around for this issue:
-//  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-#[cfg(target_arch = "spirv")]
-trait ArrayIndexingPolyfill<T> {
-    /// The same as [`<[T]>::get_unchecked()`]
-    unsafe fn get_unchecked(&self, index: usize) -> &T;
-    /// The same as [`<[T]>::get_unchecked_mut()`]
-    unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T;
-}
-
-#[cfg(target_arch = "spirv")]
-impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
-    #[inline(always)]
-    unsafe fn get_unchecked(&self, index: usize) -> &T {
-        &self[index]
-    }
-
-    #[inline(always)]
-    unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
-        &mut self[index]
-    }
-}
 
 #[derive(Debug, Copy, Clone)]
 pub(super) struct Rmap {

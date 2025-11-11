@@ -9,6 +9,8 @@ use crate::shader::constants::{
     REDUCED_MATCHES_COUNT,
 };
 use crate::shader::find_matches_in_buckets::{FindMatchesShared, find_matches_in_buckets_impl};
+#[cfg(target_arch = "spirv")]
+use crate::shader::polyfills::ArrayIndexingPolyfill;
 use crate::shader::types::{Match, Metadata, Position, PositionR, Y};
 use core::fmt;
 use core::mem::MaybeUninit;
@@ -88,29 +90,6 @@ const fn proofs_bucket_upper_bound(security_bits: u8) -> u64 {
     let add_term = low;
 
     LAMBDA + add_term
-}
-
-// TODO: This is a polyfill to work around for this issue:
-//  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-#[cfg(target_arch = "spirv")]
-trait ArrayIndexingPolyfill<T> {
-    /// The same as [`<[T]>::get_unchecked()`]
-    unsafe fn get_unchecked(&self, index: usize) -> &T;
-    /// The same as [`<[T]>::get_unchecked_mut()`]
-    unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T;
-}
-
-#[cfg(target_arch = "spirv")]
-impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
-    #[inline(always)]
-    unsafe fn get_unchecked(&self, index: usize) -> &T {
-        &self[index]
-    }
-
-    #[inline(always)]
-    unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
-        &mut self[index]
-    }
 }
 
 // TODO: Should be union, but it currently doesn't compile:

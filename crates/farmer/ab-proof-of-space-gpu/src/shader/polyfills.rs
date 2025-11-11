@@ -1,0 +1,22 @@
+// TODO: This is a polyfill to work around for this issue:
+//  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+#[cfg(target_arch = "spirv")]
+pub(super) trait ArrayIndexingPolyfill<T> {
+    /// The same as [`<[T]>::get_unchecked()`]
+    unsafe fn get_unchecked(&self, index: usize) -> &T;
+    /// The same as [`<[T]>::get_unchecked_mut()`]
+    unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T;
+}
+
+#[cfg(target_arch = "spirv")]
+impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
+    #[inline(always)]
+    unsafe fn get_unchecked(&self, index: usize) -> &T {
+        &self[index]
+    }
+
+    #[inline(always)]
+    unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
+        &mut self[index]
+    }
+}
