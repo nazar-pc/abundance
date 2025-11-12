@@ -100,25 +100,32 @@ impl PositionExt for Position {
 /// Stores data in lower bits
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
-pub struct Metadata(U32N<4>);
+pub struct Metadata(U32N<3>);
 
 impl Default for Metadata {
     #[inline(always)]
     fn default() -> Self {
-        Self(U32N::<4>::ZERO)
+        Self(U32N::ZERO)
     }
 }
 
-impl From<Metadata> for U32N<4> {
+impl From<Metadata> for U32N<3> {
     #[inline(always)]
     fn from(value: Metadata) -> Self {
         value.0
     }
 }
 
-impl From<U32N<4>> for Metadata {
+impl From<Metadata> for U32N<4> {
     #[inline(always)]
-    fn from(value: U32N<4>) -> Self {
+    fn from(value: Metadata) -> Self {
+        value.0.cast()
+    }
+}
+
+impl From<U32N<3>> for Metadata {
+    #[inline(always)]
+    fn from(value: U32N<3>) -> Self {
         Self(value)
     }
 }
@@ -126,7 +133,7 @@ impl From<U32N<4>> for Metadata {
 impl From<Position> for Metadata {
     #[inline(always)]
     fn from(value: Position) -> Self {
-        Self(U32N::<4>::from(value))
+        Self(U32N::from(value))
     }
 }
 

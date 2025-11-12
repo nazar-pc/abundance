@@ -47,6 +47,26 @@ impl<const N: usize> U32N<N> {
     pub(super) fn as_u32(&self) -> u32 {
         self.0[0]
     }
+
+    pub(super) fn cast<const O: usize>(self) -> U32N<O> {
+        let mut output = [0u32; O];
+        if N.min(O) > 0 {
+            output[0] = self.0[0];
+        }
+        if N.min(O) > 1 {
+            output[1] = self.0[1];
+        }
+        if N.min(O) > 2 {
+            output[2] = self.0[2];
+        }
+        if N.min(O) > 3 {
+            output[3] = self.0[3];
+        }
+        if N.min(O) > 4 {
+            unimplemented!();
+        }
+        U32N(output)
+    }
 }
 
 impl U32N<2> {
