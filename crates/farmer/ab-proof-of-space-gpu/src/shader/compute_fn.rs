@@ -37,8 +37,8 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
     left_metadata: Metadata,
     right_metadata: Metadata,
 ) -> (Y, Metadata) {
-    let left_metadata = U32N::from(left_metadata);
-    let right_metadata = U32N::from(right_metadata);
+    let left_metadata = U32N::<4>::from(left_metadata);
+    let right_metadata = U32N::<4>::from(right_metadata);
 
     // TODO: `const {}` is a workaround for https://github.com/Rust-GPU/rust-gpu/issues/322 and
     //  shouldn't be necessary otherwise
@@ -126,7 +126,9 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
     let metadata_size_bits = const { metadata_size_bits(K, TABLE_NUMBER) };
 
     let metadata = if TABLE_NUMBER < 4 {
-        Metadata::from((left_metadata << parent_metadata_bits) | right_metadata)
+        Metadata::from(
+            (left_metadata.cast::<3>() << parent_metadata_bits) | right_metadata.cast::<3>(),
+        )
     } else if metadata_size_bits > 0 {
         // For K up to 24 it is guaranteed that metadata + bit offset will always fit into 4 `u32`
         // words (equivalent to `u128` size). For K=25 it'll be necessary to have fifth word, which
@@ -153,7 +155,7 @@ pub(super) fn compute_fn_impl<const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER:
         //  shouldn't be necessary otherwise
         let metadata = metadata << (const { y_size_bits(K) } % u32::BITS);
         // Move bits into the correct location
-        Metadata::from(metadata >> (U32N::<4>::BITS - metadata_size_bits))
+        Metadata::from((metadata >> (U32N::<4>::BITS - metadata_size_bits)).cast())
     } else {
         Metadata::default()
     };

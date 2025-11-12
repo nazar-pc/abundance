@@ -4,6 +4,8 @@ mod cpu_tests;
 mod gpu_tests;
 
 use crate::shader::constants::{K, MAX_BUCKET_SIZE, MAX_TABLE_SIZE, NUM_BUCKETS, PARAM_EXT};
+#[cfg(target_arch = "spirv")]
+use crate::shader::polyfills::ArrayIndexingPolyfill;
 use crate::shader::types::{Position, PositionExt, PositionR, X, Y};
 use crate::shader::u32n::U32N;
 use ab_chacha8::{ChaCha8Block, ChaCha8State};
@@ -98,22 +100,6 @@ impl From<UniformChaCha8Block> for ChaCha8Block {
             value.0[3].z,
             value.0[3].w,
         ]
-    }
-}
-
-// TODO: This is a polyfill to work around for this issue:
-//  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-#[cfg(target_arch = "spirv")]
-trait ArrayIndexingPolyfill<T> {
-    /// The same as [`<[T]>::get_unchecked_mut()`]
-    unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T;
-}
-
-#[cfg(target_arch = "spirv")]
-impl<const N: usize, T> ArrayIndexingPolyfill<T> for [T; N] {
-    #[inline(always)]
-    unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
-        &mut self[index]
     }
 }
 

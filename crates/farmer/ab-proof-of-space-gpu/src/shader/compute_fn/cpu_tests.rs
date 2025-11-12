@@ -70,7 +70,7 @@ pub(in super::super) fn correct_compute_fn<
     let metadata_size_bits = metadata_size_bits(K, TABLE_NUMBER);
 
     let metadata = if TABLE_NUMBER < 4 {
-        Metadata::from((left_metadata << parent_metadata_bits) | right_metadata)
+        Metadata::from(((left_metadata << parent_metadata_bits) | right_metadata).cast())
     } else if metadata_size_bits > 0 {
         // For K up to 25 it is guaranteed that metadata + bit offset will always fit into u128.
         // We collect the bytes necessary, potentially with extra bits at the start and end of the
@@ -83,7 +83,7 @@ pub(in super::super) fn correct_compute_fn<
         // Remove extra bits at the beginning
         let metadata = metadata << (y_size_bits(K) % u8::BITS);
         // Move bits into the correct location
-        Metadata::from(metadata >> (U32N::<4>::BITS - metadata_size_bits))
+        Metadata::from((metadata >> (U32N::<4>::BITS - metadata_size_bits)).cast())
     } else {
         Metadata::default()
     };
@@ -97,11 +97,12 @@ pub(super) fn random_y(rng: &mut ChaCha8Rng) -> Y {
 
 pub(in super::super) fn random_metadata<const TABLE_NUMBER: u8>(rng: &mut ChaCha8Rng) -> Metadata {
     if metadata_size_bits(K, TABLE_NUMBER) == 0 {
-        return Metadata::from(U32N::<4>::ZERO);
+        return Metadata::from(U32N::ZERO);
     }
     Metadata::from(
-        U32N::<4>::from_le_u32_words_as_be_bytes(&array::from_fn(|_| rng.next_u32()))
-            >> (U32N::<4>::BITS - metadata_size_bits(K, TABLE_NUMBER)),
+        (U32N::<4>::from_le_u32_words_as_be_bytes(&array::from_fn(|_| rng.next_u32()))
+            >> (U32N::<4>::BITS - metadata_size_bits(K, TABLE_NUMBER)))
+        .cast(),
     )
 }
 
