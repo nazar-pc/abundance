@@ -12,7 +12,6 @@ use crate::shader::find_matches_in_buckets::{FindMatchesShared, find_matches_in_
 #[cfg(target_arch = "spirv")]
 use crate::shader::polyfills::ArrayIndexingPolyfill;
 use crate::shader::types::{Match, Metadata, Position, PositionExt, PositionR, Y};
-use core::fmt;
 use core::mem::MaybeUninit;
 use spirv_std::arch::{atomic_i_increment, workgroup_memory_barrier_with_group_sync};
 use spirv_std::glam::UVec3;
@@ -29,22 +28,6 @@ const _: () = {
     assert!(crate::shader::find_matches_in_buckets::WORKGROUP_SIZE == WORKGROUP_SIZE);
 };
 
-// TODO: Should be union, but it currently doesn't compile:
-//  https://github.com/Rust-GPU/rust-gpu/issues/241
-#[derive(Copy, Clone)]
-pub struct FindMatchesAndComputeF2Shared {
-    find_matches_shared: FindMatchesShared,
-    bucket_scratch: [PositionR; REDUCED_BUCKET_SIZE],
-}
-
-impl fmt::Debug for FindMatchesAndComputeF2Shared {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FindMatchesAndComputeF2Shared")
-            .finish_non_exhaustive()
-    }
-}
-
 /// # Safety
 /// `bucket_index` must be within range `0..REDUCED_MATCHES_COUNT`. `matches_count` elements in
 /// `matches` must be initialized. `matches` must have valid pointers into left/right buckets and
@@ -59,6 +42,7 @@ unsafe fn compute_f2_into_buckets_inner(
     left_bucket_base: u32,
     metadatas_offset: u32,
     left_bucket: &[PositionR; MAX_BUCKET_SIZE],
+    right_bucket: &[PositionR; MAX_BUCKET_SIZE],
     // TODO: `&[Match]` would have been nicer, but it currently doesn't compile:
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     matches: &[MaybeUninit<Match>; MAX_BUCKET_SIZE],
@@ -66,7 +50,6 @@ unsafe fn compute_f2_into_buckets_inner(
     buckets: &mut [[MaybeUninit<PositionR>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     positions: &mut [MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT],
     metadatas: &mut [MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT],
-    bucket_scratch: &[PositionR; REDUCED_BUCKET_SIZE],
 ) {
     // SAFETY: Guaranteed by function contract
     let (bucket_offset, r_target, positions_offset) =
@@ -83,7 +66,7 @@ unsafe fn compute_f2_into_buckets_inner(
     //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
     #[expect(clippy::needless_range_loop)]
     for offset in 0..REDUCED_BUCKET_SIZE {
-        let position_r = bucket_scratch[offset];
+        let position_r = right_bucket[offset];
         if position_r.r.get() == r_target {
             if right_position_or_skip == 0 {
                 right_position_or_skip = position_r.position;
@@ -154,15 +137,7 @@ unsafe fn compute_f2_into_buckets(
     buckets: &mut [[MaybeUninit<PositionR>; MAX_BUCKET_SIZE]; NUM_BUCKETS],
     positions: &mut [MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT],
     metadatas: &mut [MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT],
-    bucket_scratch: &mut [PositionR; REDUCED_BUCKET_SIZE],
 ) {
-    // Load the right bucket into shared memory for faster access
-    for bucket_offset in
-        (local_invocation_id as usize..REDUCED_BUCKET_SIZE).step_by(WORKGROUP_SIZE as usize)
-    {
-        bucket_scratch[bucket_offset] = right_bucket[bucket_offset];
-    }
-
     workgroup_memory_barrier_with_group_sync();
 
     let left_bucket_base = left_bucket_index * u32::from(PARAM_BC);
@@ -181,12 +156,12 @@ unsafe fn compute_f2_into_buckets(
                 left_bucket_base,
                 metadatas_offset,
                 left_bucket,
+                right_bucket,
                 matches,
                 bucket_sizes,
                 buckets,
                 positions,
                 metadatas,
-                bucket_scratch,
             );
         }
         if ((local_invocation_id + WORKGROUP_SIZE) as usize) < matches_count {
@@ -195,12 +170,12 @@ unsafe fn compute_f2_into_buckets(
                 left_bucket_base,
                 metadatas_offset,
                 left_bucket,
+                right_bucket,
                 matches,
                 bucket_sizes,
                 buckets,
                 positions,
                 metadatas,
-                bucket_scratch,
             );
         }
     }
@@ -232,7 +207,7 @@ pub unsafe fn find_matches_and_compute_f2(
     #[spirv(storage_buffer, descriptor_set = 0, binding = 4)] metadatas: &mut [[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT];
              NUM_MATCH_BUCKETS],
     #[spirv(workgroup)] matches: &mut [MaybeUninit<Match>; MAX_BUCKET_SIZE],
-    #[spirv(workgroup)] shared: &mut FindMatchesAndComputeF2Shared,
+    #[spirv(workgroup)] shared: &mut FindMatchesShared,
 ) {
     let local_invocation_id = local_invocation_id.x;
     let workgroup_id = workgroup_id.x;
@@ -254,7 +229,7 @@ pub unsafe fn find_matches_and_compute_f2(
             left_bucket,
             right_bucket,
             matches,
-            &mut shared.find_matches_shared,
+            shared,
         )
     };
 
@@ -271,7 +246,6 @@ pub unsafe fn find_matches_and_compute_f2(
             buckets,
             positions,
             metadatas,
-            &mut shared.bucket_scratch,
         );
     }
 }
