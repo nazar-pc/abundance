@@ -29,6 +29,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let backend = cargo_gpu::Install::from_shader_crate(shader_crate.clone()).run()?;
 
+        // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/461
+        unsafe {
+            env::set_var("RUST_MIN_STACK", "16777216");
+        }
+
         let spirv_builder = backend
             .to_spirv_builder(shader_crate, "spirv-unknown-vulkan1.2")
             .print_metadata(MetadataPrintout::DependencyOnly)

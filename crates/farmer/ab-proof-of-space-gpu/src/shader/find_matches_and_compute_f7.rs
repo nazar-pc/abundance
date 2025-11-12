@@ -117,6 +117,109 @@ impl fmt::Debug for FindMatchesAndComputeF7Shared {
     clippy::too_many_arguments,
     reason = "Both I/O and Vulkan stuff together take a lot of arguments"
 )]
+unsafe fn compute_f7_into_buckets_inner(
+    index: u32,
+    left_bucket_base: u32,
+    absolute_position_base: u32,
+    left_bucket: &[PositionR; MAX_BUCKET_SIZE],
+    // TODO: `&[Match]` would have been nicer, but it currently doesn't compile:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+    matches: &[MaybeUninit<Match>; MAX_BUCKET_SIZE],
+    // TODO: This should have been `&[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]`, but it
+    //  currently doesn't compile if flattened:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+    parent_metadatas: &[Metadata; REDUCED_MATCHES_COUNT * NUM_MATCH_BUCKETS],
+    table_6_proof_targets_sizes: &mut [u32; NUM_S_BUCKETS],
+    table_6_proof_targets: &mut [[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET];
+             NUM_S_BUCKETS],
+    bucket_scratch: &[PositionR; REDUCED_BUCKET_SIZE],
+) {
+    // SAFETY: Guaranteed by function contract
+    let (bucket_offset, r_target, positions_offset) =
+        unsafe { matches.get_unchecked(index as usize).assume_init() }.split();
+
+    // SAFETY: Guaranteed by function contract
+    let left_position_r = *unsafe { left_bucket.get_unchecked(bucket_offset as usize) };
+    let left_position = left_position_r.position;
+    let left_r = left_position_r.r.get();
+
+    // Repurpose variable for two purposes to save on registers
+    let mut right_position_or_skip = positions_offset;
+    // TODO: More idiomatic version currently doesn't compile:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+    #[expect(clippy::needless_range_loop)]
+    for offset in 0..REDUCED_BUCKET_SIZE {
+        let position_r = bucket_scratch[offset];
+        if position_r.r.get() == r_target {
+            if right_position_or_skip == 0 {
+                right_position_or_skip = position_r.position;
+                break;
+            } else {
+                right_position_or_skip -= 1;
+            }
+        }
+    }
+    let right_position = right_position_or_skip;
+
+    // TODO: Correct version currently doesn't compile:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+    // let left_metadata = parent_metadatas[usize::from(left_position)];
+    // let right_metadata = parent_metadatas[usize::from(right_position)];
+    // SAFETY: Guaranteed by function contract
+    let left_metadata = *unsafe { parent_metadatas.get_unchecked(left_position as usize) };
+    // SAFETY: Guaranteed by function contract
+    let right_metadata = *unsafe { parent_metadatas.get_unchecked(right_position as usize) };
+
+    let (y, _) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
+        Y::from(left_bucket_base + left_r),
+        left_metadata,
+        right_metadata,
+    );
+
+    let s_bucket = y.first_k_bits() as usize;
+    // TODO: More idiomatic version currently doesn't compile:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
+    // let Some(bucket_count) = bucket_sizes.get_mut(s_bucket) else {
+    //     continue;
+    // };
+    if s_bucket >= NUM_S_BUCKETS {
+        return;
+    }
+    let bucket_size = &mut table_6_proof_targets_sizes[s_bucket];
+    // TODO: Probably should not be unsafe to begin with:
+    //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
+    let bucket_offset = unsafe {
+        atomic_i_increment::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
+            bucket_size,
+        )
+    };
+
+    // TODO: Maybe store `absolute_position` separately from more densely populated positions,
+    //  then per-s-bucket `atomic_u_min()` can be done to store the minimum pointer. This all
+    //  will use less memory overall
+    // SAFETY: `s_bucket` is checked above to be correct. Bucket size upper bound is known
+    // statically to be [`NUM_ELEMENTS_PER_S_BUCKET`], so `bucket_offset` is also always within
+    // bounds.
+    unsafe {
+        table_6_proof_targets
+            .get_unchecked_mut(s_bucket)
+            .get_unchecked_mut(bucket_offset as usize)
+    }
+    .write(ProofTargets {
+        absolute_position: absolute_position_base + index,
+        positions: [left_position, right_position],
+    });
+}
+
+/// # Safety
+/// `bucket_index` must be within range `0..REDUCED_MATCHES_COUNT`. `matches_count` elements in
+/// `matches` must be initialized, `matches` must have valid pointers into left/right buckets and
+/// `parent_metadatas`.
+#[inline(always)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Both I/O and Vulkan stuff together take a lot of arguments"
+)]
 unsafe fn compute_f7_into_buckets(
     local_invocation_id: u32,
     left_bucket_index: u32,
@@ -147,84 +250,39 @@ unsafe fn compute_f7_into_buckets(
     let left_bucket_base = left_bucket_index * u32::from(PARAM_BC);
     let absolute_position_base = left_bucket_index * REDUCED_MATCHES_COUNT as u32;
 
-    // TODO: More idiomatic version currently doesn't compile:
-    //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-    for index in (local_invocation_id..matches_count as u32).step_by(WORKGROUP_SIZE as usize) {
-        // SAFETY: Guaranteed by function contract
-        let (bucket_offset, r_target, positions_offset) =
-            unsafe { matches.get_unchecked(index as usize).assume_init() }.split();
-
-        // SAFETY: Guaranteed by function contract
-        let left_position_r = *unsafe { left_bucket.get_unchecked(bucket_offset as usize) };
-        let left_position = left_position_r.position;
-        let left_r = left_position_r.r.get();
-
-        // Repurpose variable for two purposes to save on registers
-        let mut right_position_or_skip = positions_offset;
-        // TODO: More idiomatic version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        #[expect(clippy::needless_range_loop)]
-        for offset in 0..REDUCED_BUCKET_SIZE {
-            let position_r = bucket_scratch[offset];
-            if position_r.r.get() == r_target {
-                if right_position_or_skip == 0 {
-                    right_position_or_skip = position_r.position;
-                    break;
-                } else {
-                    right_position_or_skip -= 1;
-                }
-            }
+    const {
+        assert!(MAX_BUCKET_SIZE == WORKGROUP_SIZE as usize * 2);
+    }
+    // TODO: This should have been a loop, but register usage is too high, see:
+    //  https://github.com/Rust-GPU/rust-gpu/issues/462
+    // SAFETY: Guaranteed by function contract
+    unsafe {
+        if (local_invocation_id as usize) < matches_count {
+            compute_f7_into_buckets_inner(
+                local_invocation_id,
+                left_bucket_base,
+                absolute_position_base,
+                left_bucket,
+                matches,
+                parent_metadatas,
+                table_6_proof_targets_sizes,
+                table_6_proof_targets,
+                bucket_scratch,
+            );
         }
-        let right_position = right_position_or_skip;
-
-        // TODO: Correct version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // let left_metadata = parent_metadatas[usize::from(left_position)];
-        // let right_metadata = parent_metadatas[usize::from(right_position)];
-        // SAFETY: Guaranteed by function contract
-        let left_metadata = *unsafe { parent_metadatas.get_unchecked(left_position as usize) };
-        // SAFETY: Guaranteed by function contract
-        let right_metadata = *unsafe { parent_metadatas.get_unchecked(right_position as usize) };
-
-        let (y, _) = compute_fn_impl::<TABLE_NUMBER, PARENT_TABLE_NUMBER>(
-            Y::from(left_bucket_base + left_r),
-            left_metadata,
-            right_metadata,
-        );
-
-        let s_bucket = y.first_k_bits() as usize;
-        // TODO: More idiomatic version currently doesn't compile:
-        //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
-        // let Some(bucket_count) = bucket_sizes.get_mut(s_bucket) else {
-        //     continue;
-        // };
-        if s_bucket >= NUM_S_BUCKETS {
-            continue;
+        if ((local_invocation_id + WORKGROUP_SIZE) as usize) < matches_count {
+            compute_f7_into_buckets_inner(
+                local_invocation_id + WORKGROUP_SIZE,
+                left_bucket_base,
+                absolute_position_base,
+                left_bucket,
+                matches,
+                parent_metadatas,
+                table_6_proof_targets_sizes,
+                table_6_proof_targets,
+                bucket_scratch,
+            );
         }
-        let bucket_size = &mut table_6_proof_targets_sizes[s_bucket];
-        // TODO: Probably should not be unsafe to begin with:
-        //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
-        let bucket_offset = unsafe {
-            atomic_i_increment::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(
-                bucket_size,
-            )
-        };
-
-        // TODO: Maybe store `absolute_position` separately from more densely populated positions,
-        //  then per-s-bucket `atomic_u_min()` can be done to store the minimum pointer. This all
-        //  will use less memory overall
-        // SAFETY: `s_bucket` is checked above to be correct. Bucket size upper bound is known
-        // statically to be [`NUM_ELEMENTS_PER_S_BUCKET`], so `bucket_offset` is also always within
-        // bounds.
-        unsafe {
-            table_6_proof_targets
-                .get_unchecked_mut(s_bucket)
-                .get_unchecked_mut(bucket_offset as usize)
-        }
-        .write(ProofTargets {
-            absolute_position: absolute_position_base + index,
-            positions: [left_position, right_position],
-        });
     }
 }
 
