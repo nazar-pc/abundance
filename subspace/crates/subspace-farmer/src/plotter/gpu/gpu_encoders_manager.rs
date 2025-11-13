@@ -94,8 +94,8 @@ impl GpuRecordsEncoderManager {
         let gpu_records_encoder = loop {
             let listener = event.listen();
 
-            if let Some(thread_pool_pair) = mutex.lock().pop() {
-                break thread_pool_pair;
+            if let Some(gpu_records_encoder) = mutex.lock().pop() {
+                break gpu_records_encoder;
             }
 
             listener.await;

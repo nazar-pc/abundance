@@ -17,12 +17,14 @@ use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::plotting::RecordsEncoder;
 use ab_farmer_components::sector::SectorContentsMap;
 use async_lock::Mutex as AsyncMutex;
-use futures::StreamExt;
 use futures::stream::FuturesOrdered;
+use futures::{StreamExt, TryStreamExt};
 use parking_lot::Mutex;
+use rayon::prelude::*;
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use rclite::Arc;
 use std::fmt;
-use std::ops::Deref;
+use std::num::NonZeroU8;
 use std::simd::Simd;
 use std::sync::Arc as StdArc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -33,8 +35,8 @@ use wgpu::{
     BufferAsyncError, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
     ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, DeviceDescriptor,
     DeviceType, Instance, InstanceDescriptor, InstanceFlags, MapMode, MemoryBudgetThresholds,
-    PipelineCompilationOptions, PipelineLayoutDescriptor, PollError, PollType, Queue, ShaderModule,
-    ShaderStages,
+    PipelineCompilationOptions, PipelineLayoutDescriptor, PollError, PollType, Queue,
+    RequestDeviceError, ShaderModule, ShaderStages,
 };
 
 /// Proof creation error
@@ -69,9 +71,7 @@ impl Drop for ProofsHostWrapper<'_> {
 #[derive(Clone)]
 pub struct Device {
     id: u32,
-    device: wgpu::Device,
-    queue: Queue,
-    module: ShaderModule,
+    devices: Vec<(wgpu::Device, Queue, ShaderModule)>,
     adapter_info: AdapterInfo,
 }
 
@@ -90,7 +90,7 @@ impl fmt::Debug for Device {
 
 impl Device {
     /// Returns [`Device`] for each available device
-    pub async fn enumerate() -> Vec<Self> {
+    pub async fn enumerate(number_of_queues: NonZeroU8) -> Vec<Self> {
         let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
         let instance = Instance::new(&InstanceDescriptor {
             backends,
@@ -134,26 +134,33 @@ impl Device {
                         }
                     };
 
-                let (device, queue) = adapter
-                    .request_device(&DeviceDescriptor {
-                        label: None,
-                        required_features,
-                        required_limits,
-                        ..DeviceDescriptor::default()
-                    })
-                    .await
-                    .inspect_err(|error| {
-                        warn!(%id, ?adapter_info, %error, "Failed to request the device");
-                    })
-                    .ok()?;
+                // TODO: creation of multiple devices is a workaround for lack of support for
+                //  multiple queues: https://github.com/gfx-rs/wgpu/issues/1066
+                let devices = (0..number_of_queues.get())
+                    .map(|_| async {
+                        let (device, queue) = adapter
+                            .request_device(&DeviceDescriptor {
+                                label: None,
+                                required_features,
+                                required_limits: required_limits.clone(),
+                                ..DeviceDescriptor::default()
+                            })
+                            .await
+                            .inspect_err(|error| {
+                                warn!(%id, ?adapter_info, %error, "Failed to request the device");
+                            })?;
+                        let module = device.create_shader_module(shader.clone());
 
-                let module = device.create_shader_module(shader);
+                        Ok::<_, RequestDeviceError>((device, queue, module))
+                    })
+                    .collect::<FuturesOrdered<_>>()
+                    .try_collect::<Vec<_>>()
+                    .await
+                    .ok()?;
 
                 Some(Self {
                     id,
-                    device,
-                    queue,
-                    module,
+                    devices,
                     adapter_info,
                 })
             })
@@ -197,17 +204,162 @@ impl Device {
         &self,
         erasure_coding: ErasureCoding,
         global_mutex: StdArc<AsyncMutex<()>>,
-    ) -> GpuRecordsEncoder {
-        GpuRecordsEncoder::new(self.clone(), erasure_coding, global_mutex)
+    ) -> anyhow::Result<GpuRecordsEncoder> {
+        GpuRecordsEncoder::new(
+            self.id,
+            self.devices.clone(),
+            self.adapter_info.clone(),
+            erasure_coding,
+            global_mutex,
+        )
     }
 }
 
 pub struct GpuRecordsEncoder {
-    device: Device,
-    mapping_error: Arc<Mutex<Option<BufferAsyncError>>>,
-    tainted: bool,
+    id: u32,
+    instances: Vec<Mutex<GpuRecordsEncoderInstance>>,
+    thread_pool: ThreadPool,
+    adapter_info: AdapterInfo,
     erasure_coding: ErasureCoding,
     global_mutex: StdArc<AsyncMutex<()>>,
+}
+
+impl fmt::Debug for GpuRecordsEncoder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GpuRecordsEncoder")
+            .field("id", &self.id)
+            .field("name", &self.adapter_info.name)
+            .field("device_type", &self.adapter_info.device_type)
+            .field("driver", &self.adapter_info.driver)
+            .field("driver_info", &self.adapter_info.driver_info)
+            .field("backend", &self.adapter_info.backend)
+            .finish_non_exhaustive()
+    }
+}
+
+impl RecordsEncoder for GpuRecordsEncoder {
+    // TODO: Run more than one encoding per device concurrently
+    fn encode_records(
+        &mut self,
+        sector_id: &SectorId,
+        records: &mut [Record],
+        abort_early: &AtomicBool,
+    ) -> anyhow::Result<SectorContentsMap> {
+        let mut sector_contents_map = SectorContentsMap::new(
+            u16::try_from(records.len())
+                .map_err(|_| RecordEncodingError::TooManyRecords(records.len()))?,
+        );
+
+        let maybe_error = self.thread_pool.install(|| {
+            records
+                .par_iter_mut()
+                .zip(sector_contents_map.iter_record_chunks_used_mut())
+                .enumerate()
+                .find_map_any(|(piece_offset, (record, record_chunks_used))| {
+                    // Take mutex briefly to make sure encoding is allowed right now
+                    self.global_mutex.lock_blocking();
+
+                    let mut parity_record_chunks = Record::new_boxed();
+
+                    // TODO: Do erasure coding on the GPU
+                    // Erasure code source record chunks
+                    self.erasure_coding
+                        .extend(record.iter(), parity_record_chunks.iter_mut())
+                        .expect("Statically guaranteed valid inputs; qed");
+
+                    if abort_early.load(Ordering::Relaxed) {
+                        return None;
+                    }
+                    let seed =
+                        sector_id.derive_evaluation_seed(PieceOffset::from(piece_offset as u16));
+                    let thread_index = rayon::current_thread_index().unwrap_or_default();
+                    let mut encoder_instance = self.instances[thread_index]
+                        .try_lock()
+                        .expect("1:1 mapping between threads and devices; qed");
+                    let proofs = match encoder_instance.create_proofs(&seed) {
+                        Ok(proofs) => proofs,
+                        Err(error) => {
+                            return Some(error);
+                        }
+                    };
+                    let proofs = proofs.proofs;
+
+                    record_chunks_used.data = proofs.found_proofs;
+
+                    // TODO: Record encoding on the GPU
+                    let mut num_found_proofs = 0_usize;
+                    for (s_buckets, found_proofs) in (0..Record::NUM_S_BUCKETS)
+                        .array_chunks::<{ u8::BITS as usize }>()
+                        .zip(&mut record_chunks_used.data)
+                    {
+                        for (proof_offset, s_bucket) in s_buckets.into_iter().enumerate() {
+                            if num_found_proofs == Record::NUM_CHUNKS {
+                                // Enough proofs collected, clear the rest of the bits
+                                *found_proofs &=
+                                    u8::MAX.unbounded_shr(u8::BITS - proof_offset as u32);
+                                break;
+                            }
+                            if (*found_proofs & (1 << proof_offset)) != 0 {
+                                let record_chunk = if s_bucket < Record::NUM_CHUNKS {
+                                    record[s_bucket]
+                                } else {
+                                    parity_record_chunks[s_bucket - Record::NUM_CHUNKS]
+                                };
+
+                                record[num_found_proofs] = (Simd::from(record_chunk)
+                                    ^ Simd::from(*proofs.proofs[s_bucket].hash()))
+                                .to_array();
+                                num_found_proofs += 1;
+                            }
+                        }
+                    }
+
+                    None
+                })
+        });
+
+        if let Some(error) = maybe_error {
+            return Err(error.into());
+        }
+
+        Ok(sector_contents_map)
+    }
+}
+
+impl GpuRecordsEncoder {
+    fn new(
+        id: u32,
+        devices: Vec<(wgpu::Device, Queue, ShaderModule)>,
+        adapter_info: AdapterInfo,
+        erasure_coding: ErasureCoding,
+        global_mutex: StdArc<AsyncMutex<()>>,
+    ) -> anyhow::Result<Self> {
+        let thread_pool = ThreadPoolBuilder::new()
+            .thread_name(move |thread_index| format!("pos-gpu-{id}.{thread_index}"))
+            .num_threads(devices.len())
+            .build()?;
+
+        Ok(Self {
+            id,
+            instances: devices
+                .into_iter()
+                .map(|(device, queue, module)| {
+                    Mutex::new(GpuRecordsEncoderInstance::new(device, queue, module))
+                })
+                .collect(),
+            thread_pool,
+            adapter_info,
+            erasure_coding,
+            global_mutex,
+        })
+    }
+}
+
+struct GpuRecordsEncoderInstance {
+    device: wgpu::Device,
+    queue: Queue,
+    mapping_error: Arc<Mutex<Option<BufferAsyncError>>>,
+    tainted: bool,
     initial_state_host: Buffer,
     initial_state_gpu: Buffer,
     proofs_host: Buffer,
@@ -234,105 +386,16 @@ pub struct GpuRecordsEncoder {
     compute_pipeline_find_proofs: ComputePipeline,
 }
 
-impl fmt::Debug for GpuRecordsEncoder {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("GpuRecordsEncoder")
-            .field("device", &self.device)
-            .finish_non_exhaustive()
-    }
-}
-
-impl Deref for GpuRecordsEncoder {
-    type Target = Device;
-
-    fn deref(&self) -> &Self::Target {
-        &self.device
-    }
-}
-
-impl RecordsEncoder for GpuRecordsEncoder {
-    // TODO: Run more than one encoding per device concurrently
-    fn encode_records(
-        &mut self,
-        sector_id: &SectorId,
-        records: &mut [Record],
-        abort_early: &AtomicBool,
-    ) -> anyhow::Result<SectorContentsMap> {
-        let mut sector_contents_map = SectorContentsMap::new(
-            u16::try_from(records.len())
-                .map_err(|_| RecordEncodingError::TooManyRecords(records.len()))?,
-        );
-
-        for ((piece_offset, record), record_chunks_used) in (PieceOffset::ZERO..)
-            .zip(records.iter_mut())
-            .zip(sector_contents_map.iter_record_chunks_used_mut())
-        {
-            // Take mutex briefly to make sure encoding is allowed right now
-            self.global_mutex.lock_blocking();
-
-            let mut parity_record_chunks = Record::new_boxed();
-
-            // TODO: Do erasure coding on the GPU
-            // Erasure code source record chunks
-            self.erasure_coding
-                .extend(record.iter(), parity_record_chunks.iter_mut())
-                .expect("Statically guaranteed valid inputs; qed");
-
-            if abort_early.load(Ordering::Relaxed) {
-                break;
-            }
-            let seed = sector_id.derive_evaluation_seed(piece_offset);
-            let proofs = self.create_proofs(&seed)?;
-            let proofs = proofs.proofs;
-
-            record_chunks_used.data = proofs.found_proofs;
-
-            // TODO: Record encoding on the GPU
-            let mut num_found_proofs = 0_usize;
-            for (s_buckets, found_proofs) in (0..Record::NUM_S_BUCKETS)
-                .array_chunks::<{ u8::BITS as usize }>()
-                .zip(&mut record_chunks_used.data)
-            {
-                for (proof_offset, s_bucket) in s_buckets.into_iter().enumerate() {
-                    if num_found_proofs == Record::NUM_CHUNKS {
-                        // Enough proofs collected, clear the rest of the bits
-                        *found_proofs &= u8::MAX.unbounded_shr(u8::BITS - proof_offset as u32);
-                        break;
-                    }
-                    if (*found_proofs & (1 << proof_offset)) != 0 {
-                        let record_chunk = if s_bucket < Record::NUM_CHUNKS {
-                            record[s_bucket]
-                        } else {
-                            parity_record_chunks[s_bucket - Record::NUM_CHUNKS]
-                        };
-
-                        record[num_found_proofs] = (Simd::from(record_chunk)
-                            ^ Simd::from(*proofs.proofs[s_bucket].hash()))
-                        .to_array();
-                        num_found_proofs += 1;
-                    }
-                }
-            }
-        }
-
-        Ok(sector_contents_map)
-    }
-}
-
-impl GpuRecordsEncoder {
-    fn new(
-        device: Device,
-        erasure_coding: ErasureCoding,
-        global_mutex: StdArc<AsyncMutex<()>>,
-    ) -> Self {
-        let initial_state_host = device.device.create_buffer(&BufferDescriptor {
+impl GpuRecordsEncoderInstance {
+    fn new(device: wgpu::Device, queue: Queue, module: ShaderModule) -> Self {
+        let initial_state_host = device.create_buffer(&BufferDescriptor {
             label: Some("initial_state_host"),
             size: size_of::<ChaCha8Block>() as BufferAddress,
             usage: BufferUsages::MAP_WRITE | BufferUsages::COPY_SRC,
             mapped_at_creation: true,
         });
 
-        let initial_state_gpu = device.device.create_buffer(&BufferDescriptor {
+        let initial_state_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("initial_state_gpu"),
             size: initial_state_host.size(),
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
@@ -345,7 +408,7 @@ impl GpuRecordsEncoder {
         // TODO: Sizes are excessive, for `bucket_sizes_gpu` are less than `u16` and could use SWAR
         //  approach for storing bucket sizes. Similarly, `table_6_proof_targets_sizes_gpu` sizes
         //  are less than `u8` and could use SWAR too with even higher compression ratio
-        let bucket_sizes_gpu = device.device.create_buffer(&BufferDescriptor {
+        let bucket_sizes_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("bucket_sizes_gpu"),
             size: bucket_sizes_gpu_buffer_size.max(table_6_proof_targets_sizes_gpu_buffer_size),
             usage: BufferUsages::STORAGE,
@@ -354,21 +417,21 @@ impl GpuRecordsEncoder {
         // Reuse the same buffer as `bucket_sizes_gpu`, they are not overlapping in use
         let table_6_proof_targets_sizes_gpu = bucket_sizes_gpu.clone();
 
-        let buckets_a_gpu = device.device.create_buffer(&BufferDescriptor {
+        let buckets_a_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("buckets_a_gpu"),
             size: size_of::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>() as BufferAddress,
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
-        let buckets_b_gpu = device.device.create_buffer(&BufferDescriptor {
+        let buckets_b_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("buckets_b_gpu"),
             size: buckets_a_gpu.size(),
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
-        let positions_f2_gpu = device.device.create_buffer(&BufferDescriptor {
+        let positions_f2_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("positions_f2_gpu"),
             size: size_of::<[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>()
                 as BufferAddress,
@@ -376,28 +439,28 @@ impl GpuRecordsEncoder {
             mapped_at_creation: false,
         });
 
-        let positions_f3_gpu = device.device.create_buffer(&BufferDescriptor {
+        let positions_f3_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("positions_f3_gpu"),
             size: positions_f2_gpu.size(),
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
-        let positions_f4_gpu = device.device.create_buffer(&BufferDescriptor {
+        let positions_f4_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("positions_f4_gpu"),
             size: positions_f2_gpu.size(),
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
-        let positions_f5_gpu = device.device.create_buffer(&BufferDescriptor {
+        let positions_f5_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("positions_f5_gpu"),
             size: positions_f2_gpu.size(),
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
-        let positions_f6_gpu = device.device.create_buffer(&BufferDescriptor {
+        let positions_f6_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("positions_f6_gpu"),
             size: positions_f2_gpu.size(),
             usage: BufferUsages::STORAGE,
@@ -409,7 +472,7 @@ impl GpuRecordsEncoder {
         let table_6_proof_targets_gpu_buffer_size = size_of::<
             [[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS],
         >() as BufferAddress;
-        let metadatas_a_gpu = device.device.create_buffer(&BufferDescriptor {
+        let metadatas_a_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("metadatas_a_gpu"),
             size: metadatas_gpu_buffer_size.max(table_6_proof_targets_gpu_buffer_size),
             usage: BufferUsages::STORAGE,
@@ -418,21 +481,21 @@ impl GpuRecordsEncoder {
         // Reuse the same buffer as `metadatas_a_gpu`, they are not overlapping in use
         let table_6_proof_targets_gpu = metadatas_a_gpu.clone();
 
-        let metadatas_b_gpu = device.device.create_buffer(&BufferDescriptor {
+        let metadatas_b_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("metadatas_b_gpu"),
             size: metadatas_gpu_buffer_size,
             usage: BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
-        let proofs_host = device.device.create_buffer(&BufferDescriptor {
+        let proofs_host = device.create_buffer(&BufferDescriptor {
             label: Some("proofs_host"),
             size: size_of::<ProofsHost>() as BufferAddress,
             usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
-        let proofs_gpu = device.device.create_buffer(&BufferDescriptor {
+        let proofs_gpu = device.create_buffer(&BufferDescriptor {
             label: Some("proofs_gpu"),
             size: proofs_host.size(),
             usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
@@ -441,32 +504,32 @@ impl GpuRecordsEncoder {
 
         let (bind_group_compute_f1, compute_pipeline_compute_f1) =
             bind_group_and_pipeline_compute_f1(
-                &device.device,
-                &device.module,
+                &device,
+                &module,
                 &initial_state_gpu,
                 &bucket_sizes_gpu,
                 &buckets_a_gpu,
             );
         let (bind_group_sort_buckets_a, compute_pipeline_sort_buckets_a) =
             bind_group_and_pipeline_sort_buckets(
-                &device.device,
-                &device.module,
+                &device,
+                &module,
                 &bucket_sizes_gpu,
                 &buckets_a_gpu,
             );
 
         let (bind_group_sort_buckets_b, compute_pipeline_sort_buckets_b) =
             bind_group_and_pipeline_sort_buckets(
-                &device.device,
-                &device.module,
+                &device,
+                &module,
                 &bucket_sizes_gpu,
                 &buckets_b_gpu,
             );
 
         let (bind_group_find_matches_and_compute_f2, compute_pipeline_find_matches_and_compute_f2) =
             bind_group_and_pipeline_find_matches_and_compute_f2(
-                &device.device,
-                &device.module,
+                &device,
+                &module,
                 &buckets_a_gpu,
                 &bucket_sizes_gpu,
                 &buckets_b_gpu,
@@ -476,8 +539,8 @@ impl GpuRecordsEncoder {
 
         let (bind_group_find_matches_and_compute_f3, compute_pipeline_find_matches_and_compute_f3) =
             bind_group_and_pipeline_find_matches_and_compute_fn::<3>(
-                &device.device,
-                &device.module,
+                &device,
+                &module,
                 &buckets_b_gpu,
                 &metadatas_b_gpu,
                 &bucket_sizes_gpu,
@@ -488,8 +551,8 @@ impl GpuRecordsEncoder {
 
         let (bind_group_find_matches_and_compute_f4, compute_pipeline_find_matches_and_compute_f4) =
             bind_group_and_pipeline_find_matches_and_compute_fn::<4>(
-                &device.device,
-                &device.module,
+                &device,
+                &module,
                 &buckets_a_gpu,
                 &metadatas_a_gpu,
                 &bucket_sizes_gpu,
@@ -500,8 +563,8 @@ impl GpuRecordsEncoder {
 
         let (bind_group_find_matches_and_compute_f5, compute_pipeline_find_matches_and_compute_f5) =
             bind_group_and_pipeline_find_matches_and_compute_fn::<5>(
-                &device.device,
-                &device.module,
+                &device,
+                &module,
                 &buckets_b_gpu,
                 &metadatas_b_gpu,
                 &bucket_sizes_gpu,
@@ -512,8 +575,8 @@ impl GpuRecordsEncoder {
 
         let (bind_group_find_matches_and_compute_f6, compute_pipeline_find_matches_and_compute_f6) =
             bind_group_and_pipeline_find_matches_and_compute_fn::<6>(
-                &device.device,
-                &device.module,
+                &device,
+                &module,
                 &buckets_a_gpu,
                 &metadatas_a_gpu,
                 &bucket_sizes_gpu,
@@ -524,8 +587,8 @@ impl GpuRecordsEncoder {
 
         let (bind_group_find_matches_and_compute_f7, compute_pipeline_find_matches_and_compute_f7) =
             bind_group_and_pipeline_find_matches_and_compute_f7(
-                &device.device,
-                &device.module,
+                &device,
+                &module,
                 &buckets_b_gpu,
                 &metadatas_b_gpu,
                 &table_6_proof_targets_sizes_gpu,
@@ -534,8 +597,8 @@ impl GpuRecordsEncoder {
 
         let (bind_group_find_proofs, compute_pipeline_find_proofs) =
             bind_group_and_pipeline_find_proofs(
-                &device.device,
-                &device.module,
+                &device,
+                &module,
                 &positions_f2_gpu,
                 &positions_f3_gpu,
                 &positions_f4_gpu,
@@ -548,10 +611,9 @@ impl GpuRecordsEncoder {
 
         Self {
             device,
+            queue,
             mapping_error: Arc::new(Mutex::new(None)),
             tainted: false,
-            erasure_coding,
-            global_mutex,
             initial_state_host,
             initial_state_gpu,
             proofs_host,
@@ -589,7 +651,6 @@ impl GpuRecordsEncoder {
         self.tainted = true;
 
         let mut encoder = self
-            .device
             .device
             .create_command_encoder(&CommandEncoderDescriptor {
                 label: Some("create_proofs"),
@@ -707,9 +768,9 @@ impl GpuRecordsEncoder {
             }
         });
 
-        let submission_index = self.device.queue.submit([encoder.finish()]);
+        let submission_index = self.queue.submit([encoder.finish()]);
 
-        self.device.device.poll(PollType::Wait {
+        self.device.poll(PollType::Wait {
             submission_index: Some(submission_index),
             timeout: None,
         })?;

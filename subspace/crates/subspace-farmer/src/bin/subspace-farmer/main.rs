@@ -7,6 +7,7 @@ use ab_cli_utils::init_logger;
 use ab_proof_of_space::chia::ChiaTable;
 use ab_proof_of_space_gpu::{Device, DeviceType};
 use clap::Parser;
+use std::num::NonZeroU8;
 use std::path::PathBuf;
 use std::process::exit;
 use std::{fs, panic};
@@ -95,7 +96,7 @@ async fn main() -> anyhow::Result<()> {
             commands::cluster::cluster::<PosTable>(cluster_args).await?;
         }
         Command::ListGpus { verbose } => {
-            let devices = Device::enumerate().await;
+            let devices = Device::enumerate(NonZeroU8::MIN).await;
             for device in devices {
                 let device_type = match device.device_type() {
                     DeviceType::Other => "other",

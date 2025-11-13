@@ -11,6 +11,7 @@ use chacha20::ChaCha8Rng;
 use futures::executor::block_on;
 use rand::prelude::*;
 use rclite::Arc;
+use std::num::NonZeroU8;
 use std::slice;
 use std::sync::Arc as StdArc;
 use std::sync::atomic::AtomicBool;
@@ -48,9 +49,11 @@ fn basic() {
         .encode_records(&sector_id, &mut expected_encoded_records, &abort_early)
         .unwrap();
 
-    let devices = block_on(Device::enumerate());
+    let devices = block_on(Device::enumerate(NonZeroU8::new(1).unwrap()));
     for device in devices {
-        let mut device_instance = device.instantiate(erasure_coding.clone(), StdArc::default());
+        let mut device_instance = device
+            .instantiate(erasure_coding.clone(), StdArc::default())
+            .unwrap();
 
         let mut actual_encoded_records = source_records.clone();
 
