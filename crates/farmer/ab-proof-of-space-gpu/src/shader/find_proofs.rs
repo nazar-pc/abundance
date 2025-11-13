@@ -426,12 +426,12 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                                 );
                             }
                         }
-                        // Process remaining words
-                        for i in 1..=max_local_proof_word_index {
+                        // Process remaining words, the loop is unrolled to save vector registers
+                        if max_local_proof_word_index > 0 {
                             // SAFETY: The whole proof is initialized at the beginning of the
                             // function
                             let word = unsafe {
-                                proofs[proof_base + first_proof_word_index + i].assume_init_mut()
+                                proofs[proof_base + first_proof_word_index + 1].assume_init_mut()
                             };
                             // TODO: Probably should not be unsafe to begin with:
                             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
@@ -441,7 +441,25 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                                     { Scope::Subgroup as u32 },
                                     { Semantics::NONE.bits() },
                                 >(
-                                    word, local_proof_words[i].to_be()
+                                    word, local_proof_words[1].to_be()
+                                );
+                            }
+                        }
+                        if max_local_proof_word_index > 1 {
+                            // SAFETY: The whole proof is initialized at the beginning of the
+                            // function
+                            let word = unsafe {
+                                proofs[proof_base + first_proof_word_index + 2].assume_init_mut()
+                            };
+                            // TODO: Probably should not be unsafe to begin with:
+                            //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
+                            unsafe {
+                                atomic_or::<
+                                    _,
+                                    { Scope::Subgroup as u32 },
+                                    { Semantics::NONE.bits() },
+                                >(
+                                    word, local_proof_words[2].to_be()
                                 );
                             }
                         }
