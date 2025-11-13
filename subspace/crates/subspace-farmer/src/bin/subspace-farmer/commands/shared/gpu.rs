@@ -5,13 +5,21 @@ use async_lock::{Mutex as AsyncMutex, Semaphore};
 use clap::Parser;
 use prometheus_client::registry::Registry;
 use std::collections::BTreeSet;
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU8, NonZeroUsize};
 use std::sync::Arc;
 use subspace_farmer::plotter::gpu::GpuPlotter;
 use tracing::{debug, info, warn};
 
 #[derive(Debug, Parser)]
 pub(in super::super) struct GpuPlottingOptions {
+    /// How many records the farmer will encode concurrently on the same GPU.
+    ///
+    /// Increasing this value will cause higher VRAM usage and will not necessarily improve
+    /// performance.
+    ///
+    /// Defaults to 4 for dGPU and 2 otherwise (iGPU, etc.).
+    #[arg(long)]
+    gpu_record_encoding_concurrency: Option<NonZeroU8>,
     /// How many sectors a farmer will download concurrently during plotting with GPUs.
     ///
     /// Limits memory usage of the plotting process. Defaults to the number of GPUs * 3,
@@ -42,11 +50,24 @@ where
     PG: PieceGetter + Clone + Send + Sync + 'static,
 {
     let GpuPlottingOptions {
+        gpu_record_encoding_concurrency,
         gpu_sector_downloading_concurrency,
         gpus,
     } = gpu_plotting_options;
 
-    let all_gpu_devices = Device::enumerate().await;
+    let all_gpu_devices = Device::enumerate(|device_type| {
+        if let Some(gpu_record_encoding_concurrency) = gpu_record_encoding_concurrency {
+            return gpu_record_encoding_concurrency;
+        }
+        match device_type {
+            DeviceType::DiscreteGpu => NonZeroU8::new(4).expect("Not zero; qed"),
+            DeviceType::Other
+            | DeviceType::IntegratedGpu
+            | DeviceType::VirtualGpu
+            | DeviceType::Cpu => NonZeroU8::new(2).expect("Not zero; qed"),
+        }
+    })
+    .await;
 
     let used_gpu_devices = if let Some(gpus) = gpus {
         if gpus.is_empty() {
@@ -152,7 +173,8 @@ where
             used_gpu_devices
                 .into_iter()
                 .map(|device| device.instantiate(erasure_coding.clone(), Arc::clone(&global_mutex)))
-                .collect(),
+                .collect::<Result<_, _>>()
+                .map_err(|error| anyhow::anyhow!("Failed to instantiate GPU encoder: {error}"))?,
             global_mutex,
             erasure_coding,
             Some(registry),
