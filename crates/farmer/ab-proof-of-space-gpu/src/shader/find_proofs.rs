@@ -280,12 +280,14 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
 
     let mut group_left_x_index = subgroup_local_invocation_id * 2;
 
-    // TODO: This uses a lot of registers for all the loops and expressions, optimize it further
+    // `chunk_index` is used to emulate `for _ in 0..2` loops, while using a single variable for
+    // tracking the progress instead of a separate variable for each loop
+    let mut chunk_index = 0u32;
     // Reading positions from table 6
-    for table_6_chunk in 0..2 {
+    loop {
         let table_6_proof_targets = subgroup_shuffle(
             table_6_proof_targets,
-            SUBGROUP_SIZE / 2 * table_6_chunk + subgroup_local_invocation_id / 2,
+            SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
         );
         let table_6_proof_target = table_6_proof_targets.to_array()[left_right];
 
@@ -297,10 +299,11 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
         let table_5_proof_targets = UVec2::from_array(table_5_proof_targets);
 
         // Reading positions from table 5
-        for table_5_chunk in 0..2 {
+        chunk_index <<= 1;
+        loop {
             let table_5_proof_targets = subgroup_shuffle(
                 table_5_proof_targets,
-                SUBGROUP_SIZE / 2 * table_5_chunk + subgroup_local_invocation_id / 2,
+                SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
             );
             let table_5_proof_target = table_5_proof_targets.to_array()[left_right];
 
@@ -312,10 +315,11 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
             let table_4_proof_targets = UVec2::from_array(table_4_proof_targets);
 
             // Reading positions from table 4
-            for table_4_chunk in 0..2 {
+            chunk_index <<= 1;
+            loop {
                 let table_4_proof_targets = subgroup_shuffle(
                     table_4_proof_targets,
-                    SUBGROUP_SIZE / 2 * table_4_chunk + subgroup_local_invocation_id / 2,
+                    SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
                 );
                 let table_4_proof_target = table_4_proof_targets.to_array()[left_right];
 
@@ -327,10 +331,11 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                 let table_3_proof_targets = UVec2::from_array(table_3_proof_targets);
 
                 // Reading positions from table 3
-                for table_3_chunk in 0..2 {
+                chunk_index <<= 1;
+                loop {
                     let table_3_proof_targets = subgroup_shuffle(
                         table_3_proof_targets,
-                        SUBGROUP_SIZE / 2 * table_3_chunk + subgroup_local_invocation_id / 2,
+                        SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
                     );
                     let table_3_proof_target = table_3_proof_targets.to_array()[left_right];
 
@@ -342,10 +347,12 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                     let table_2_proof_targets = UVec2::from_array(table_2_proof_targets);
 
                     // Reading positions from table 2
-                    for table_2_chunk in 0..2 {
+                    chunk_index <<= 1;
+                    loop {
                         let table_2_proof_targets = subgroup_shuffle(
                             table_2_proof_targets,
-                            SUBGROUP_SIZE / 2 * table_2_chunk + subgroup_local_invocation_id / 2,
+                            SUBGROUP_SIZE / 2 * (chunk_index & 1)
+                                + subgroup_local_invocation_id / 2,
                         );
                         let table_2_proof_target = table_2_proof_targets.to_array()[left_right];
 
@@ -439,10 +446,39 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                                 );
                             }
                         }
+
+                        if chunk_index & 1 == 1 {
+                            break;
+                        }
+                        chunk_index += 1;
                     }
+                    chunk_index >>= 1;
+
+                    if chunk_index & 1 == 1 {
+                        break;
+                    }
+                    chunk_index += 1;
                 }
+                chunk_index >>= 1;
+
+                if chunk_index & 1 == 1 {
+                    break;
+                }
+                chunk_index += 1;
             }
+            chunk_index >>= 1;
+
+            if chunk_index & 1 == 1 {
+                break;
+            }
+            chunk_index += 1;
         }
+        chunk_index >>= 1;
+
+        if chunk_index & 1 == 1 {
+            break;
+        }
+        chunk_index += 1;
     }
 }
 
