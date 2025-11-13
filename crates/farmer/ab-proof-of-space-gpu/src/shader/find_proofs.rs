@@ -278,8 +278,6 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
         assert!(MIN_SUBGROUP_SIZE >= 2);
     }
 
-    let mut group_left_x_index = subgroup_local_invocation_id * 2;
-
     // `chunk_index` is used to emulate `for _ in 0..2` loops, while using a single variable for
     // tracking the progress instead of a separate variable for each loop
     let mut chunk_index = 0u32;
@@ -362,11 +360,12 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             table_2_positions[table_2_proof_target as usize]
                         };
 
-                        let group_proof_index = group_left_x_index / PROOF_X_SOURCES as u32;
-                        let x_left_offset = group_left_x_index % PROOF_X_SOURCES as u32;
+                        let global_x_left_offset =
+                            subgroup_local_invocation_id * 2 + chunk_index * SUBGROUP_SIZE * 2;
+                        let group_proof_index = global_x_left_offset / PROOF_X_SOURCES as u32;
+                        let x_left_offset = global_x_left_offset % PROOF_X_SOURCES as u32;
                         let global_proof_index =
                             positions_group_index * SUBGROUP_SIZE + group_proof_index;
-                        group_left_x_index += SUBGROUP_SIZE * 2;
 
                         let proof_base = global_proof_index as usize * PROOF_U32_WORDS;
                         let first_proof_word_index =
