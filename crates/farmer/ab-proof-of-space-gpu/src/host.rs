@@ -109,7 +109,6 @@ impl Device {
         let adapters = instance.enumerate_adapters(backends);
         let number_of_queues = &number_of_queues;
 
-        // TODO: Rethink this, pipelining with multiple queues might be beneficial
         adapters
             .into_iter()
             .zip(0..)
