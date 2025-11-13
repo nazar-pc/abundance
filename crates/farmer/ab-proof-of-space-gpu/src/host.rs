@@ -90,7 +90,10 @@ impl fmt::Debug for Device {
 
 impl Device {
     /// Returns [`Device`] for each available device
-    pub async fn enumerate(number_of_queues: NonZeroU8) -> Vec<Self> {
+    pub async fn enumerate<NOQ>(number_of_queues: NOQ) -> Vec<Self>
+    where
+        NOQ: Fn(DeviceType) -> NonZeroU8,
+    {
         let backends = Backends::from_env().unwrap_or(Backends::METAL | Backends::VULKAN);
         let instance = Instance::new(&InstanceDescriptor {
             backends,
@@ -104,6 +107,7 @@ impl Device {
         });
 
         let adapters = instance.enumerate_adapters(backends);
+        let number_of_queues = &number_of_queues;
 
         // TODO: Rethink this, pipelining with multiple queues might be beneficial
         adapters
@@ -136,7 +140,7 @@ impl Device {
 
                 // TODO: creation of multiple devices is a workaround for lack of support for
                 //  multiple queues: https://github.com/gfx-rs/wgpu/issues/1066
-                let devices = (0..number_of_queues.get())
+                let devices = (0..number_of_queues(adapter_info.device_type).get())
                     .map(|_| async {
                         let (device, queue) = adapter
                             .request_device(&DeviceDescriptor {

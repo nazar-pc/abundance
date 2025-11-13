@@ -96,7 +96,7 @@ async fn main() -> anyhow::Result<()> {
             commands::cluster::cluster::<PosTable>(cluster_args).await?;
         }
         Command::ListGpus { verbose } => {
-            let devices = Device::enumerate(NonZeroU8::MIN).await;
+            let devices = Device::enumerate(|_| NonZeroU8::MIN).await;
             for device in devices {
                 let device_type = match device.device_type() {
                     DeviceType::Other => "other",

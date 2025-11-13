@@ -49,7 +49,7 @@ fn basic() {
         .encode_records(&sector_id, &mut expected_encoded_records, &abort_early)
         .unwrap();
 
-    let devices = block_on(Device::enumerate(NonZeroU8::new(1).unwrap()));
+    let devices = block_on(Device::enumerate(|_| NonZeroU8::MIN));
     for device in devices {
         let mut device_instance = device
             .instantiate(erasure_coding.clone(), StdArc::default())

@@ -16,8 +16,10 @@ pub(in super::super) struct GpuPlottingOptions {
     ///
     /// Increasing this value will cause higher VRAM usage and will not necessarily improve
     /// performance.
-    #[arg(long, default_value = "2")]
-    gpu_record_encoding_concurrency: NonZeroU8,
+    ///
+    /// Defaults to 4 for dGPU and 2 otherwise (iGPU, etc.).
+    #[arg(long)]
+    gpu_record_encoding_concurrency: Option<NonZeroU8>,
     /// How many sectors a farmer will download concurrently during plotting with GPUs.
     ///
     /// Limits memory usage of the plotting process. Defaults to the number of GPUs * 3,
@@ -53,7 +55,19 @@ where
         gpus,
     } = gpu_plotting_options;
 
-    let all_gpu_devices = Device::enumerate(gpu_record_encoding_concurrency).await;
+    let all_gpu_devices = Device::enumerate(|device_type| {
+        if let Some(gpu_record_encoding_concurrency) = gpu_record_encoding_concurrency {
+            return gpu_record_encoding_concurrency;
+        }
+        match device_type {
+            DeviceType::DiscreteGpu => NonZeroU8::new(4).expect("Not zero; qed"),
+            DeviceType::Other
+            | DeviceType::IntegratedGpu
+            | DeviceType::VirtualGpu
+            | DeviceType::Cpu => NonZeroU8::new(2).expect("Not zero; qed"),
+        }
+    })
+    .await;
 
     let used_gpu_devices = if let Some(gpus) = gpus {
         if gpus.is_empty() {
