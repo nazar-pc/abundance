@@ -278,14 +278,14 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
         assert!(MIN_SUBGROUP_SIZE >= 2);
     }
 
-    let mut group_left_x_index = subgroup_local_invocation_id * 2;
-
-    // TODO: This uses a lot of registers for all the loops and expressions, optimize it further
+    // `chunk_index` is used to emulate `for _ in 0..2` loops, while using a single variable for
+    // tracking the progress instead of a separate variable for each loop
+    let mut chunk_index = 0u32;
     // Reading positions from table 6
-    for table_6_chunk in 0..2 {
+    loop {
         let table_6_proof_targets = subgroup_shuffle(
             table_6_proof_targets,
-            SUBGROUP_SIZE / 2 * table_6_chunk + subgroup_local_invocation_id / 2,
+            SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
         );
         let table_6_proof_target = table_6_proof_targets.to_array()[left_right];
 
@@ -297,10 +297,11 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
         let table_5_proof_targets = UVec2::from_array(table_5_proof_targets);
 
         // Reading positions from table 5
-        for table_5_chunk in 0..2 {
+        chunk_index <<= 1;
+        loop {
             let table_5_proof_targets = subgroup_shuffle(
                 table_5_proof_targets,
-                SUBGROUP_SIZE / 2 * table_5_chunk + subgroup_local_invocation_id / 2,
+                SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
             );
             let table_5_proof_target = table_5_proof_targets.to_array()[left_right];
 
@@ -312,10 +313,11 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
             let table_4_proof_targets = UVec2::from_array(table_4_proof_targets);
 
             // Reading positions from table 4
-            for table_4_chunk in 0..2 {
+            chunk_index <<= 1;
+            loop {
                 let table_4_proof_targets = subgroup_shuffle(
                     table_4_proof_targets,
-                    SUBGROUP_SIZE / 2 * table_4_chunk + subgroup_local_invocation_id / 2,
+                    SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
                 );
                 let table_4_proof_target = table_4_proof_targets.to_array()[left_right];
 
@@ -327,10 +329,11 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                 let table_3_proof_targets = UVec2::from_array(table_3_proof_targets);
 
                 // Reading positions from table 3
-                for table_3_chunk in 0..2 {
+                chunk_index <<= 1;
+                loop {
                     let table_3_proof_targets = subgroup_shuffle(
                         table_3_proof_targets,
-                        SUBGROUP_SIZE / 2 * table_3_chunk + subgroup_local_invocation_id / 2,
+                        SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
                     );
                     let table_3_proof_target = table_3_proof_targets.to_array()[left_right];
 
@@ -342,10 +345,12 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                     let table_2_proof_targets = UVec2::from_array(table_2_proof_targets);
 
                     // Reading positions from table 2
-                    for table_2_chunk in 0..2 {
+                    chunk_index <<= 1;
+                    loop {
                         let table_2_proof_targets = subgroup_shuffle(
                             table_2_proof_targets,
-                            SUBGROUP_SIZE / 2 * table_2_chunk + subgroup_local_invocation_id / 2,
+                            SUBGROUP_SIZE / 2 * (chunk_index & 1)
+                                + subgroup_local_invocation_id / 2,
                         );
                         let table_2_proof_target = table_2_proof_targets.to_array()[left_right];
 
@@ -355,11 +360,12 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             table_2_positions[table_2_proof_target as usize]
                         };
 
-                        let group_proof_index = group_left_x_index / PROOF_X_SOURCES as u32;
-                        let x_left_offset = group_left_x_index % PROOF_X_SOURCES as u32;
+                        let global_x_left_offset =
+                            subgroup_local_invocation_id * 2 + chunk_index * SUBGROUP_SIZE * 2;
+                        let group_proof_index = global_x_left_offset / PROOF_X_SOURCES as u32;
+                        let x_left_offset = global_x_left_offset % PROOF_X_SOURCES as u32;
                         let global_proof_index =
                             positions_group_index * SUBGROUP_SIZE + group_proof_index;
-                        group_left_x_index += SUBGROUP_SIZE * 2;
 
                         let proof_base = global_proof_index as usize * PROOF_U32_WORDS;
                         let first_proof_word_index =
@@ -420,12 +426,12 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                                 );
                             }
                         }
-                        // Process remaining words
-                        for i in 1..=max_local_proof_word_index {
+                        // Process remaining words, the loop is unrolled to save vector registers
+                        if max_local_proof_word_index > 0 {
                             // SAFETY: The whole proof is initialized at the beginning of the
                             // function
                             let word = unsafe {
-                                proofs[proof_base + first_proof_word_index + i].assume_init_mut()
+                                proofs[proof_base + first_proof_word_index + 1].assume_init_mut()
                             };
                             // TODO: Probably should not be unsafe to begin with:
                             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
@@ -435,14 +441,61 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                                     { Scope::Subgroup as u32 },
                                     { Semantics::NONE.bits() },
                                 >(
-                                    word, local_proof_words[i].to_be()
+                                    word, local_proof_words[1].to_be()
                                 );
                             }
                         }
+                        if max_local_proof_word_index > 1 {
+                            // SAFETY: The whole proof is initialized at the beginning of the
+                            // function
+                            let word = unsafe {
+                                proofs[proof_base + first_proof_word_index + 2].assume_init_mut()
+                            };
+                            // TODO: Probably should not be unsafe to begin with:
+                            //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
+                            unsafe {
+                                atomic_or::<
+                                    _,
+                                    { Scope::Subgroup as u32 },
+                                    { Semantics::NONE.bits() },
+                                >(
+                                    word, local_proof_words[2].to_be()
+                                );
+                            }
+                        }
+
+                        if chunk_index & 1 == 1 {
+                            break;
+                        }
+                        chunk_index += 1;
                     }
+                    chunk_index >>= 1;
+
+                    if chunk_index & 1 == 1 {
+                        break;
+                    }
+                    chunk_index += 1;
                 }
+                chunk_index >>= 1;
+
+                if chunk_index & 1 == 1 {
+                    break;
+                }
+                chunk_index += 1;
             }
+            chunk_index >>= 1;
+
+            if chunk_index & 1 == 1 {
+                break;
+            }
+            chunk_index += 1;
         }
+        chunk_index >>= 1;
+
+        if chunk_index & 1 == 1 {
+            break;
+        }
+        chunk_index += 1;
     }
 }
 
