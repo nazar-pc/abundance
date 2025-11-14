@@ -7,8 +7,8 @@ use ab_core_primitives::segments::{
     SegmentIndex,
 };
 use ab_erasure_coding::ErasureCoding;
-use rand_chacha::ChaCha8Rng;
-use rand_core::{RngCore, SeedableRng};
+use chacha20::ChaCha8Rng;
+use chacha20::rand_core::{RngCore, SeedableRng};
 use std::assert_matches::assert_matches;
 use std::iter;
 use std::num::NonZeroU32;

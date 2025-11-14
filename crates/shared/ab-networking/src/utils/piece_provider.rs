@@ -815,7 +815,7 @@ where
                 Some(*piece_index)
             }
         })
-        .choose_multiple(
+        .sample(
             &mut rand::rng(),
             CachedPieceByIndexRequest::RECOMMENDED_LIMIT,
         )

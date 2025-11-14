@@ -5,8 +5,8 @@ use ab_blake3::OUT_LEN;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_merkle_tree::hash_pair;
 use ab_merkle_tree::sparse::{Leaf, SparseMerkleTree};
-use rand_chacha::ChaCha8Rng;
-use rand_core::{RngCore, SeedableRng};
+use chacha20::ChaCha8Rng;
+use chacha20::rand_core::{RngCore, SeedableRng};
 use std::num::NonZeroU128;
 
 const ZERO: [u8; OUT_LEN] = [0; OUT_LEN];

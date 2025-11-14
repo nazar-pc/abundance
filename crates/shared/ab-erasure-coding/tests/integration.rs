@@ -1,8 +1,8 @@
 #![feature(assert_matches, trusted_len)]
 
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, RecoveryShardState};
-use rand_chacha::ChaCha8Rng;
-use rand_core::{RngCore, SeedableRng};
+use chacha20::ChaCha8Rng;
+use chacha20::rand_core::{RngCore, SeedableRng};
 use reed_solomon_simd::Error;
 use std::assert_matches::assert_matches;
 use std::iter::TrustedLen;

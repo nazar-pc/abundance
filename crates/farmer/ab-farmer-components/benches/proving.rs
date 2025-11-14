@@ -19,10 +19,10 @@ use ab_farmer_components::sector::{
 };
 use ab_proof_of_space::chia::ChiaTable;
 use ab_proof_of_space::{Table, TableGenerator};
+use chacha20::ChaCha8Rng;
+use chacha20::rand_core::{RngCore, SeedableRng};
 use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
 use futures::executor::block_on;
-use rand_chacha::ChaCha8Rng;
-use rand_core::{RngCore, SeedableRng};
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::hint::black_box;

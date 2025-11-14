@@ -47,7 +47,7 @@ ab-system-contract-native-token = { version = "0.0.1", path = "crates/contracts/
 ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-simple-wallet-base" }
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
 ab-trivial-type-derive = { version = "0.0.1", path = "crates/shared/ab-trivial-type-derive" }
-aes = "0.9.0-rc.1"
+aes = "0.9.0-rc.2"
 anyhow = { version = "1.0.100", default-features = false }
 async-lock = { version = "3.4.1", default-features = false }
 async-trait = "0.1.89"
@@ -57,10 +57,10 @@ bech32 = { version = "0.11.0", default-features = false }
 bitvec = "1.0.1"
 blake3 = { version = "1.8.2", default-features = false }
 bytes = { version = "1.10.1", default-features = false }
-bytesize = { version = "2.1.0", default-features = false }
-cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "09829681cbe3866b6d1fc2ee0eae83aa77855b3e", default-features = false }
-chacha20 = { version = "0.10.0-rc.2", default-features = false }
-clap = "4.5.48"
+bytesize = { version = "2.2.0", default-features = false }
+cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "eb5f8dbe3aef5a8d94886194fb3ba14caae80e2f", default-features = false }
+chacha20 = { version = "0.10.0-rc.5", default-features = false }
+clap = "4.5.51"
 const_format = "0.2.35"
 core_affinity = "0.8.3"
 cpufeatures = "0.2.17"
@@ -89,14 +89,12 @@ once_cell = { version = "1.21.3", default-features = false }
 parity-scale-codec = { version = "3.7.5", default-features = false }
 parking_lot = "0.12.5"
 pin-project = "1.1.10"
-proc-macro2 = "1.0.101"
+proc-macro2 = "1.0.103"
 prometheus-client = "0.22.3"
-quote = "1.0.41"
-rand = { version = "0.9.2", default-features = false }
-rand_chacha = { version = "0.9.0", default-features = false }
-rand_core = { version = "0.9.3", default-features = false }
+quote = "1.0.42"
+rand = { version = "0.10.0-rc.5", default-features = false }
 rayon = "1.11.0"
-rclite = "0.3.0"
+rclite = "0.4.0"
 reed-solomon-simd = { version = "3.1.0", default-features = false }
 replace_with = { version = "0.1.8", default-features = false, features = ["nightly"] }
 scale-info = { version = "2.11.6", default-features = false }
@@ -107,16 +105,16 @@ seq-macro = "0.3.6"
 serde = { version = "1.0.228", default-features = false }
 serde_json = "1.0.145"
 serde-big-array = "0.5.1"
-sha2 = { version = "0.11.0-rc.2", default-features = false }
+sha2 = { version = "0.11.0-rc.3", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "6a9ea3bb96d34b2d5211a34d09fae81b0c938916" }
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "b3eda4df9814b6176d3c0844eb67f70a22ebb378" }
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.27.2", default-features = false, features = ["derive"] }
-syn = "2.0.106"
+syn = "2.0.110"
 tempfile = "3.23.0"
 thiserror = { version = "2.0.17", default-features = false }
 thread-priority = "3.0.0"
-tokio = { version = "1.47.1", default-features = false }
+tokio = { version = "1.48.0", default-features = false }
 tokio-stream = "0.1.17"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
@@ -124,7 +122,7 @@ unsigned-varint = "0.8.0"
 void = "1.0.2"
 wgpu = { version = "27.0.1", default-features = false, features = ["metal", "parking_lot", "spirv", "std", "vulkan"] }
 windows = { version = "0.62.2", features = ["Win32_Storage_FileSystem"] }
-yoke = { version = "0.8.0", default-features = false }
+yoke = { version = "0.8.1", default-features = false }
 
 # The following libraries have a major impact on developement experience and need to be compiled with optimizations even
 # in debug builds

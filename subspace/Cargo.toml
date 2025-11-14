@@ -79,7 +79,7 @@ prometheus-client = "0.22.3"
 rand = { version = "0.8.5", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
 rayon = "1.10.0"
-rclite = "0.3.0"
+rclite = "0.4.0"
 sc-basic-authorship = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35" }
 sc-chain-spec = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35" }
 sc-cli = { git = "https://github.com/subspace/polkadot-sdk", rev = "d7b75f3d002f5f9bcd04da31cc8197d3a733de35", default-features = false }

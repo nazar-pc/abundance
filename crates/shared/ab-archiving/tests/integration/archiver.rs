@@ -8,9 +8,9 @@ use ab_core_primitives::segments::{
     SegmentHeader, SegmentIndex, SegmentRoot,
 };
 use ab_erasure_coding::ErasureCoding;
+use chacha20::ChaCha8Rng;
+use chacha20::rand_core::{RngCore, SeedableRng};
 use parity_scale_codec::{Decode, Encode};
-use rand_chacha::ChaCha8Rng;
-use rand_core::{RngCore, SeedableRng};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use std::assert_matches::assert_matches;

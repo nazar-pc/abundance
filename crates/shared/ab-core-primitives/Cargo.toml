@@ -38,8 +38,7 @@ yoke = { workspace = true, features = ["derive"] }
 rclite = { workspace = true }
 
 [dev-dependencies]
-rand_core = { workspace = true }
-rand_chacha = { workspace = true }
+chacha20 = { workspace = true, features = ["rng"] }
 
 [features]
 alloc = [

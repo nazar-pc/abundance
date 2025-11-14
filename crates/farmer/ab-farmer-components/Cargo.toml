@@ -63,9 +63,8 @@ tracing = { workspace = true }
 windows = { workspace = true }
 
 [dev-dependencies]
+chacha20 = { workspace = true, features = ["rng"] }
 criterion = { workspace = true }
-rand_core = { workspace = true }
-rand_chacha = { workspace = true }
 
 [lints]
 workspace = true

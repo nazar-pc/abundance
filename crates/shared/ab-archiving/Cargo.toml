@@ -32,9 +32,8 @@ serde = { workspace = true, features = ["derive"], optional = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+chacha20 = { workspace = true, features = ["rng"] }
 criterion = { workspace = true }
-rand_core = { workspace = true }
-rand_chacha = { workspace = true }
 
 [features]
 parallel = [
