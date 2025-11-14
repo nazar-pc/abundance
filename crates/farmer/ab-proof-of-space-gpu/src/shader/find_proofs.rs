@@ -124,7 +124,7 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
         // TODO: This intrinsic is not supported by `wgpu` yet:
         //  https://github.com/gfx-rs/wgpu/issues/8403
         // let source_lane = subgroup_ballot_find_lsb(source_lane_mask);
-        let source_lane_mask = source_lane_mask.0.to_array();
+        let source_lane_mask = source_lane_mask.to_array();
         let mut source_lane = u32::MAX;
         for i in 0..SUBGROUP_SIZE.div_ceil(u32::BITS) {
             let word = source_lane_mask[i as usize];
@@ -144,7 +144,7 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
     }
 
     let has_proof = local_bucket_size > 0;
-    let found_proofs_words = subgroup_ballot(has_proof).0;
+    let found_proofs_words = subgroup_ballot(has_proof);
 
     if SUBGROUP_SIZE >= u32::BITS {
         // For subgroup sizes that are multiple of `u32` words, results can be written directly into

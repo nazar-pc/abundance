@@ -35,10 +35,9 @@ thiserror = { workspace = true }
 cpufeatures = { workspace = true }
 
 [dev-dependencies]
+chacha20 = { workspace = true, features = ["rng"] }
 core_affinity = { workspace = true }
 criterion = { workspace = true }
-rand_core = { workspace = true }
-rand_chacha = { workspace = true }
 
 [features]
 # Check that code can't panic under any conditions

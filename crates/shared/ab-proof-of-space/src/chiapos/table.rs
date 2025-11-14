@@ -287,7 +287,7 @@ fn calculate_left_targets() -> Arc<LeftTargets> {
     }
 
     // SAFETY: Initialized all entries
-    unsafe { Arc::assume_init(left_targets) }
+    unsafe { left_targets.assume_init() }
 }
 
 fn calculate_left_target_on_demand(parity: u32, r: u32, m: u32) -> u32 {

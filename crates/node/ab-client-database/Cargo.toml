@@ -24,7 +24,8 @@ async-lock = { workspace = true, features = ["std"] }
 blake3 = { workspace = true }
 enum-map = { workspace = true }
 futures = { workspace = true, features = ["alloc"] }
-rand_core = { workspace = true, features = ["os_rng", "std"] }
+# TODO: `std` is only because of `Error` impl using `std::error::Error` rather than `core::error::Error`
+rand = { workspace = true, features = ["os_rng", "std"] }
 rclite = { workspace = true }
 replace_with = { workspace = true }
 smallvec = { workspace = true, features = ["drain_filter"] }

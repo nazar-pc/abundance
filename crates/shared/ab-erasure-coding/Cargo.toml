@@ -20,8 +20,7 @@ reed-solomon-simd = { workspace = true }
 thiserror = { workspace = true, default-features = false }
 
 [dev-dependencies]
-rand_core = { workspace = true }
-rand_chacha = { workspace = true }
+chacha20 = { workspace = true, features = ["rng"] }
 
 [lints]
 workspace = true

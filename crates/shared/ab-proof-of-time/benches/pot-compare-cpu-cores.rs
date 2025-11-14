@@ -1,9 +1,9 @@
 use ab_core_primitives::pot::PotSeed;
 use ab_proof_of_time::prove;
+use chacha20::ChaCha8Rng;
+use chacha20::rand_core::{RngCore, SeedableRng};
 use core::num::NonZeroU32;
 use criterion::{Criterion, criterion_group, criterion_main};
-use rand_chacha::ChaCha8Rng;
-use rand_core::{RngCore, SeedableRng};
 use std::hint::black_box;
 
 fn criterion_benchmark(c: &mut Criterion) {

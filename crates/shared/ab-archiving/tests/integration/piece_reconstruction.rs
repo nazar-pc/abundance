@@ -3,8 +3,8 @@ use ab_archiving::piece_reconstructor::{PiecesReconstructor, ReconstructorError}
 use ab_core_primitives::pieces::{FlatPieces, Piece};
 use ab_core_primitives::segments::{ArchivedHistorySegment, RecordedHistorySegment};
 use ab_erasure_coding::ErasureCoding;
-use rand_chacha::ChaCha8Rng;
-use rand_core::{RngCore, SeedableRng};
+use chacha20::ChaCha8Rng;
+use chacha20::rand_core::{RngCore, SeedableRng};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 

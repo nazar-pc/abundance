@@ -80,7 +80,7 @@ use async_lock::{
     Mutex as AsyncMutex, RwLock as AsyncRwLock, RwLockUpgradableReadGuard,
     RwLockWriteGuard as AsyncRwLockWriteGuard,
 };
-use rand_core::OsError;
+use rand::rngs::OsError;
 use rclite::Arc;
 use replace_with::replace_with_or_abort;
 use smallvec::{SmallVec, smallvec};

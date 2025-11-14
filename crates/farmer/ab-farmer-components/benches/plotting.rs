@@ -8,10 +8,10 @@ use ab_farmer_components::plotting::{CpuRecordsEncoder, PlotSectorOptions, plot_
 use ab_farmer_components::sector::sector_size;
 use ab_proof_of_space::Table;
 use ab_proof_of_space::chia::ChiaTable;
+use chacha20::ChaCha8Rng;
+use chacha20::rand_core::{RngCore, SeedableRng};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use futures::executor::block_on;
-use rand_chacha::ChaCha8Rng;
-use rand_core::{RngCore, SeedableRng};
 use std::hint::black_box;
 use std::num::NonZeroU64;
 use std::{array, env};

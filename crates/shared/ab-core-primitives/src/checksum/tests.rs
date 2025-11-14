@@ -1,8 +1,8 @@
 use super::Blake3Checksummed;
 use crate::hashes::Blake3Hash;
+use chacha20::ChaCha8Rng;
+use chacha20::rand_core::{RngCore, SeedableRng};
 use parity_scale_codec::{Decode, Encode};
-use rand_chacha::ChaCha8Rng;
-use rand_core::{RngCore, SeedableRng};
 
 #[test]
 fn basic() {
