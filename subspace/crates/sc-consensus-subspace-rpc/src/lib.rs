@@ -12,6 +12,10 @@ use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
 use ab_core_primitives::solutions::Solution;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
+use ab_farmer_rpc_primitives::{
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo,
+    SolutionResponse,
+};
 use ab_networking::libp2p::Multiaddr;
 use futures::channel::mpsc;
 use futures::{FutureExt, StreamExt, future};
@@ -41,10 +45,6 @@ use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
-use subspace_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo,
-    SolutionResponse,
-};
 use tracing::{debug, error, warn};
 
 const SUBSPACE_ERROR: i32 = 9000;

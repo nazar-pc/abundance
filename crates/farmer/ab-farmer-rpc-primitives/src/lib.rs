@@ -1,4 +1,4 @@
-//! Primitives for Subspace RPC.
+//! Primitives for the farmer
 
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::block::header::OwnedBlockHeaderSeal;

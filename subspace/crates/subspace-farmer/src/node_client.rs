@@ -13,13 +13,13 @@ pub mod rpc_node_client;
 
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_farmer_rpc_primitives::{
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
+};
 use async_trait::async_trait;
 use futures::Stream;
 use std::fmt;
 use std::pin::Pin;
-use subspace_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
-};
 
 /// Abstraction of the Node Client
 #[async_trait]

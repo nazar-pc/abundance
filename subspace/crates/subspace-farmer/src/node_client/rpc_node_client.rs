@@ -3,6 +3,9 @@
 use crate::node_client::{NodeClient, NodeClientExt};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_farmer_rpc_primitives::{
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
+};
 use async_lock::Semaphore;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
@@ -11,9 +14,6 @@ use jsonrpsee::rpc_params;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use std::pin::Pin;
 use std::sync::Arc;
-use subspace_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
-};
 
 /// TODO: Node is having a hard time responding for many piece requests, specifically this results
 ///  in subscriptions become broken on the node: https://github.com/paritytech/jsonrpsee/issues/1409

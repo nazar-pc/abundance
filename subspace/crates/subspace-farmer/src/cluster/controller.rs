@@ -20,6 +20,9 @@ use crate::node_client::NodeClient;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use ab_data_retrieval::piece_getter::PieceGetter;
+use ab_farmer_rpc_primitives::{
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
+};
 use anyhow::anyhow;
 use async_nats::HeaderValue;
 use async_trait::async_trait;
@@ -34,9 +37,6 @@ use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
-use subspace_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
-};
 use tracing::{debug, error, trace, warn};
 
 /// Special "cache group" that all controllers subscribe to and that can be used to query any cache

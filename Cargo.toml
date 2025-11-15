@@ -33,6 +33,7 @@ ab-core-primitives = { version = "0.1.0", path = "crates/shared/ab-core-primitiv
 ab-data-retrieval = { version = "0.1.0", path = "crates/shared/ab-data-retrieval" }
 ab-erasure-coding = { version = "0.1.0", path = "crates/shared/ab-erasure-coding" }
 ab-farmer-components = { version = "0.1.0", path = "crates/farmer/ab-farmer-components" }
+ab-farmer-rpc-primitives = { version = "0.1.0", path = "crates/farmer/ab-farmer-rpc-primitives" }
 ab-io-type = { version = "0.0.1", path = "crates/shared/ab-io-type" }
 ab-executor-native = { version = "0.0.1", path = "crates/execution/ab-executor-native" }
 ab-executor-slots = { version = "0.0.1", path = "crates/execution/ab-executor-slots" }

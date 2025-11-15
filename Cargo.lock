@@ -433,6 +433,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-farmer-rpc-primitives"
+version = "0.1.0"
+dependencies = [
+ "ab-core-primitives",
+ "ab-farmer-components",
+ "ab-networking",
+ "parity-scale-codec",
+ "serde",
+]
+
+[[package]]
 name = "ab-io-type"
 version = "0.0.1"
 dependencies = [

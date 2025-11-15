@@ -5,6 +5,10 @@ use crate::node_client::{NodeClient, NodeClientExt};
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_farmer_rpc_primitives::{
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo,
+    SolutionResponse,
+};
 use async_lock::{
     Mutex as AsyncMutex, RwLock as AsyncRwLock,
     RwLockUpgradableReadGuardArc as AsyncRwLockUpgradableReadGuard,
@@ -15,10 +19,6 @@ use futures::{FutureExt, Stream, StreamExt, select};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use subspace_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo,
-    SolutionResponse,
-};
 use tokio::sync::watch;
 use tokio_stream::wrappers::WatchStream;
 use tracing::{info, trace, warn};

@@ -1,9 +1,9 @@
 use crate::node_client::NodeClient;
 use crate::single_disk_farm::identity::Identity;
 use ab_core_primitives::block::header::{BlockHeaderEd25519Seal, OwnedBlockHeaderSeal};
+use ab_farmer_rpc_primitives::{BlockSealInfo, BlockSealResponse};
 use futures::StreamExt;
 use std::future::Future;
-use subspace_rpc_primitives::{BlockSealInfo, BlockSealResponse};
 use tracing::{info, warn};
 
 pub(super) async fn block_sealing<NC>(

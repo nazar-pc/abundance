@@ -6,6 +6,9 @@ use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex};
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_farmer_components::FarmerProtocolInfo;
+use ab_farmer_rpc_primitives::{
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
+};
 use ab_networking::libp2p::identity;
 use ab_networking::libp2p::kad::RecordKey;
 use ab_networking::utils::multihash::ToMultihash;
@@ -21,9 +24,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use subspace_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
-};
 use tempfile::tempdir;
 
 #[derive(Debug, Clone)]

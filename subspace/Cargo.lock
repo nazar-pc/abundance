@@ -170,6 +170,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-farmer-rpc-primitives"
+version = "0.1.0"
+dependencies = [
+ "ab-core-primitives",
+ "ab-farmer-components",
+ "ab-networking",
+ "parity-scale-codec",
+ "serde",
+]
+
+[[package]]
 name = "ab-io-type"
 version = "0.0.1"
 dependencies = [
@@ -8337,6 +8348,7 @@ dependencies = [
  "ab-core-primitives",
  "ab-erasure-coding",
  "ab-farmer-components",
+ "ab-farmer-rpc-primitives",
  "ab-networking",
  "async-oneshot",
  "futures",
@@ -8354,7 +8366,6 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus-subspace",
  "sp-runtime",
- "subspace-rpc-primitives",
  "thiserror 2.0.17",
  "tracing",
 ]
@@ -10441,6 +10452,7 @@ dependencies = [
  "ab-direct-io-file",
  "ab-erasure-coding",
  "ab-farmer-components",
+ "ab-farmer-rpc-primitives",
  "ab-networking",
  "ab-proof-of-space",
  "ab-proof-of-space-gpu",
@@ -10478,7 +10490,6 @@ dependencies = [
  "serde",
  "serde_json",
  "ss58-registry",
- "subspace-rpc-primitives",
  "tempfile",
  "thiserror 2.0.17",
  "thread-priority",
@@ -10533,17 +10544,6 @@ dependencies = [
  "thiserror 2.0.17",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "subspace-rpc-primitives"
-version = "0.1.0"
-dependencies = [
- "ab-core-primitives",
- "ab-farmer-components",
- "ab-networking",
- "parity-scale-codec",
- "serde",
 ]
 
 [[package]]
