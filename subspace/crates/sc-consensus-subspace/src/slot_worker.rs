@@ -22,6 +22,7 @@ use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::BlockNumber;
+use ab_core_primitives::block::header::OwnedBlockHeaderSeal;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, SlotNumber};
 use ab_core_primitives::sectors::SectorId;
@@ -56,7 +57,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 use subspace_verification::ed25519::RewardSignature;
-use subspace_verification::is_reward_signature_valid;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info, trace, warn};
 
@@ -142,7 +142,7 @@ pub struct RewardSigningNotification {
     /// Public key hash of the plot identity that should create signature.
     pub public_key_hash: Blake3Hash,
     /// Sender that can be used to send signature for the header.
-    pub signature_sender: TracingUnboundedSender<RewardSignature>,
+    pub signature_sender: TracingUnboundedSender<OwnedBlockHeaderSeal>,
 }
 
 /// Parameters for [`SubspaceSlotWorker`]
@@ -499,7 +499,7 @@ where
         storage_changes: sp_state_machine::StorageChanges<HashingFor<Block>>,
         (pre_digest, justification): (PreDigest, SubspaceJustification),
     ) -> Result<BlockImportParams<Block>, ConsensusError> {
-        let signature = self
+        let seal = self
             .sign_reward(
                 Blake3Hash::new(
                     header_hash
@@ -511,7 +511,14 @@ where
             )
             .await?;
 
-        let digest_item = DigestItem::subspace_seal(signature);
+        let OwnedBlockHeaderSeal::Ed25519(seal) = seal else {
+            unimplemented!();
+        };
+
+        let digest_item = DigestItem::subspace_seal(RewardSignature {
+            public_key: seal.public_key,
+            signature: seal.signature,
+        });
 
         let mut import_block = BlockImportParams::new(BlockOrigin::Own, header);
         import_block.post_digests.push(digest_item);
@@ -859,7 +866,7 @@ where
         &self,
         hash: Blake3Hash,
         public_key_hash: Blake3Hash,
-    ) -> Result<RewardSignature, ConsensusError> {
+    ) -> Result<OwnedBlockHeaderSeal, ConsensusError> {
         let (signature_sender, mut signature_receiver) =
             tracing_unbounded("subspace_signature_signing_stream", 100);
 
@@ -871,16 +878,8 @@ where
                 signature_sender,
             });
 
-        while let Some(signature) = signature_receiver.next().await {
-            if !is_reward_signature_valid(&hash, &signature, &public_key_hash) {
-                warn!(
-                    %hash,
-                    "Received invalid signature for reward"
-                );
-                continue;
-            }
-
-            return Ok(signature);
+        if let Some(seal) = signature_receiver.next().await {
+            return Ok(seal);
         }
 
         Err(ConsensusError::CannotSign(format!(

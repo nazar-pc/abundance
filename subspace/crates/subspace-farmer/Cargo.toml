@@ -60,7 +60,6 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 ss58-registry = { workspace = true }
 subspace-rpc-primitives = { workspace = true }
-subspace-verification = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 thread-priority = { workspace = true }

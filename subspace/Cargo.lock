@@ -10479,7 +10479,6 @@ dependencies = [
  "serde_json",
  "ss58-registry",
  "subspace-rpc-primitives",
- "subspace-verification",
  "tempfile",
  "thiserror 2.0.17",
  "thread-priority",
@@ -10545,7 +10544,6 @@ dependencies = [
  "ab-networking",
  "parity-scale-codec",
  "serde",
- "subspace-verification",
 ]
 
 [[package]]

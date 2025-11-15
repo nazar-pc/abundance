@@ -1,6 +1,7 @@
 //! Primitives for Subspace RPC.
 
 use ab_core_primitives::block::BlockRoot;
+use ab_core_primitives::block::header::OwnedBlockHeaderSeal;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::solutions::{Solution, SolutionRange};
@@ -9,7 +10,6 @@ use ab_networking::libp2p::Multiaddr;
 use parity_scale_codec::{Decode, Encode, EncodeLike, Input, Output};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use subspace_verification::ed25519::RewardSignature;
 
 /// Defines a limit for number of segments that can be requested over RPC
 pub const MAX_SEGMENT_HEADERS_PER_REQUEST: usize = 1000;
@@ -127,12 +127,12 @@ pub struct RewardSigningInfo {
     pub public_key_hash: Blake3Hash,
 }
 
-/// Signature in response to reward hash signing request.
+/// Signature in response to reward hash signing request
 #[derive(Clone, Copy, Debug, Encode, Decode, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RewardSignatureResponse {
-    /// Hash that was signed.
+    /// Hash that was signed
     pub hash: Blake3Hash,
-    /// Pre-header or vote hash signature.
-    pub signature: RewardSignature,
+    /// Public key that signature corresponds to
+    pub seal: OwnedBlockHeaderSeal,
 }

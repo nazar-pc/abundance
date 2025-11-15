@@ -1,9 +1,9 @@
 use crate::node_client::NodeClient;
 use crate::single_disk_farm::identity::Identity;
+use ab_core_primitives::block::header::{BlockHeaderEd25519Seal, OwnedBlockHeaderSeal};
 use futures::StreamExt;
 use std::future::Future;
 use subspace_rpc_primitives::{RewardSignatureResponse, RewardSigningInfo};
-use subspace_verification::ed25519::RewardSignature;
 use tracing::{info, warn};
 
 pub(super) async fn reward_signing<NC>(
@@ -32,10 +32,10 @@ where
             match node_client
                 .submit_reward_signature(RewardSignatureResponse {
                     hash,
-                    signature: RewardSignature {
+                    seal: OwnedBlockHeaderSeal::Ed25519(BlockHeaderEd25519Seal {
                         public_key: identity.public_key(),
                         signature: identity.sign_reward_hash(&hash),
-                    },
+                    }),
                 })
                 .await
             {
