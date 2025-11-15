@@ -32,10 +32,10 @@ where
             match node_client
                 .submit_reward_signature(RewardSignatureResponse {
                     hash,
-                    signature: Some(RewardSignature {
+                    signature: RewardSignature {
                         public_key: identity.public_key(),
                         signature: identity.sign_reward_hash(&hash),
-                    }),
+                    },
                 })
                 .await
             {

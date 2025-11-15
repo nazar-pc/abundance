@@ -134,5 +134,5 @@ pub struct RewardSignatureResponse {
     /// Hash that was signed.
     pub hash: Blake3Hash,
     /// Pre-header or vote hash signature.
-    pub signature: Option<RewardSignature>,
+    pub signature: RewardSignature,
 }

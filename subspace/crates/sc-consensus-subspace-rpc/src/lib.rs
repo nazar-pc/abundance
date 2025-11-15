@@ -462,10 +462,8 @@ where
                 // Wait for solutions and transform proposed proof of space solutions into
                 // data structure `sc-consensus-subspace` expects
                 let forward_signature_fut = async move {
-                    if let Ok(reward_signature) = response_receiver.await
-                        && let Some(signature) = reward_signature.signature
-                    {
-                        let _ = signature_sender.unbounded_send(signature);
+                    if let Ok(reward_signature) = response_receiver.await {
+                        let _ = signature_sender.unbounded_send(reward_signature.signature);
                     }
                 };
 
