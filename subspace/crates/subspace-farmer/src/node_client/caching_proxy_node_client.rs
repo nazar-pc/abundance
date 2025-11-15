@@ -16,8 +16,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use subspace_rpc_primitives::{
-    FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, RewardSignatureResponse, RewardSigningInfo,
-    SlotInfo, SolutionResponse,
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo,
+    SolutionResponse,
 };
 use tokio::sync::watch;
 use tokio_stream::wrappers::WatchStream;
@@ -138,7 +138,7 @@ pub struct CachingProxyNodeClient<NC> {
     inner: NC,
     slot_info_receiver: watch::Receiver<Option<SlotInfo>>,
     archived_segment_headers_receiver: watch::Receiver<Option<SegmentHeader>>,
-    reward_signing_receiver: watch::Receiver<Option<RewardSigningInfo>>,
+    block_sealing_receiver: watch::Receiver<Option<BlockSealInfo>>,
     segment_headers: Arc<AsyncRwLock<SegmentHeaders>>,
     last_farmer_app_info: Arc<AsyncMutex<(FarmerAppInfo, Instant)>>,
     _background_task: Arc<AsyncJoinOnDrop<()>>,
@@ -230,15 +230,14 @@ where
             }
         };
 
-        let (reward_signing_sender, reward_signing_receiver) =
-            watch::channel(None::<RewardSigningInfo>);
-        let reward_signing_proxy_fut = {
-            let mut reward_signing_subscription = client.subscribe_reward_signing().await?;
+        let (block_sealing_sender, block_sealing_receiver) = watch::channel(None::<BlockSealInfo>);
+        let block_sealing_proxy_fut = {
+            let mut block_sealing_subscription = client.subscribe_block_sealing().await?;
 
             async move {
-                while let Some(reward_signing_info) = reward_signing_subscription.next().await {
-                    if let Err(error) = reward_signing_sender.send(Some(reward_signing_info)) {
-                        warn!(%error, "Failed to proxy reward signing notification");
+                while let Some(block_sealing_info) = block_sealing_subscription.next().await {
+                    if let Err(error) = block_sealing_sender.send(Some(block_sealing_info)) {
+                        warn!(%error, "Failed to proxy block sealing notification");
                         return;
                     }
                 }
@@ -255,7 +254,7 @@ where
             select! {
                 _ = slot_info_proxy_fut.fuse() => {},
                 _ = segment_headers_maintenance_fut.fuse() => {},
-                _ = reward_signing_proxy_fut.fuse() => {},
+                _ = block_sealing_proxy_fut.fuse() => {},
             }
         });
 
@@ -263,7 +262,7 @@ where
             inner: client,
             slot_info_receiver,
             archived_segment_headers_receiver,
-            reward_signing_receiver,
+            block_sealing_receiver,
             segment_headers,
             last_farmer_app_info,
             _background_task: Arc::new(AsyncJoinOnDrop::new(background_task, true)),
@@ -308,21 +307,18 @@ where
         self.inner.submit_solution_response(solution_response).await
     }
 
-    async fn subscribe_reward_signing(
+    async fn subscribe_block_sealing(
         &self,
-    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = RewardSigningInfo> + Send + 'static>>> {
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = BlockSealInfo> + Send + 'static>>> {
         Ok(Box::pin(
-            WatchStream::new(self.reward_signing_receiver.clone())
-                .filter_map(|maybe_reward_signing_info| async move { maybe_reward_signing_info }),
+            WatchStream::new(self.block_sealing_receiver.clone())
+                .filter_map(|maybe_block_sealing_info| async move { maybe_block_sealing_info }),
         ))
     }
 
-    /// Submit a block signature
-    async fn submit_reward_signature(
-        &self,
-        reward_signature: RewardSignatureResponse,
-    ) -> anyhow::Result<()> {
-        self.inner.submit_reward_signature(reward_signature).await
+    /// Submit a block seal
+    async fn submit_block_seal(&self, block_seal: BlockSealResponse) -> anyhow::Result<()> {
+        self.inner.submit_block_seal(block_seal).await
     }
 
     async fn subscribe_archived_segment_headers(

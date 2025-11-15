@@ -35,7 +35,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
 use subspace_rpc_primitives::{
-    FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
 };
 use tracing::{debug, error, trace, warn};
 
@@ -79,14 +79,14 @@ impl GenericBroadcast for ClusterControllerSlotInfoBroadcast {
     }
 }
 
-/// Broadcast with reward signing info by controllers
+/// Broadcast with block sealing info by controllers
 #[derive(Debug, Clone, Encode, Decode)]
-struct ClusterControllerRewardSigningBroadcast {
-    reward_signing_info: RewardSigningInfo,
+struct ClusterControllerBlockSealingBroadcast {
+    block_sealing_info: BlockSealInfo,
 }
 
-impl GenericBroadcast for ClusterControllerRewardSigningBroadcast {
-    const SUBJECT: &'static str = "subspace.controller.reward-signing-info";
+impl GenericBroadcast for ClusterControllerBlockSealingBroadcast {
+    const SUBJECT: &'static str = "subspace.controller.block-sealing-info";
 }
 
 /// Broadcast with archived segment headers by controllers
@@ -121,14 +121,14 @@ impl GenericNotification for ClusterControllerSolutionNotification {
     const SUBJECT: &'static str = "subspace.controller.*.solution";
 }
 
-/// Notification messages with reward signature by farmers
+/// Notification messages with block seal by farmers
 #[derive(Debug, Clone, Encode, Decode)]
-struct ClusterControllerRewardSignatureNotification {
-    reward_signature: RewardSignatureResponse,
+struct ClusterControllerBlockSealNotification {
+    block_seal: BlockSealResponse,
 }
 
-impl GenericNotification for ClusterControllerRewardSignatureNotification {
-    const SUBJECT: &'static str = "subspace.controller.reward-signature";
+impl GenericNotification for ClusterControllerBlockSealNotification {
+    const SUBJECT: &'static str = "subspace.controller.block-seal";
 }
 
 /// Request farmer app info from controller
@@ -519,29 +519,22 @@ impl NodeClient for ClusterNodeClient {
             .await?)
     }
 
-    async fn subscribe_reward_signing(
+    async fn subscribe_block_sealing(
         &self,
-    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = RewardSigningInfo> + Send + 'static>>> {
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = BlockSealInfo> + Send + 'static>>> {
         let subscription = self
             .nats_client
-            .subscribe_to_broadcasts::<ClusterControllerRewardSigningBroadcast>(None, None)
+            .subscribe_to_broadcasts::<ClusterControllerBlockSealingBroadcast>(None, None)
             .await?
-            .map(|broadcast| broadcast.reward_signing_info);
+            .map(|broadcast| broadcast.block_sealing_info);
 
         Ok(Box::pin(subscription))
     }
 
-    /// Submit a block signature
-    async fn submit_reward_signature(
-        &self,
-        reward_signature: RewardSignatureResponse,
-    ) -> anyhow::Result<()> {
+    async fn submit_block_seal(&self, block_seal: BlockSealResponse) -> anyhow::Result<()> {
         Ok(self
             .nats_client
-            .notification(
-                &ClusterControllerRewardSignatureNotification { reward_signature },
-                None,
-            )
+            .notification(&ClusterControllerBlockSealNotification { block_seal }, None)
             .await?)
     }
 
@@ -628,7 +621,7 @@ where
             result = slot_info_broadcaster(nats_client, node_client, instance).fuse() => {
                 result
             },
-            result = reward_signing_broadcaster(nats_client, node_client, instance).fuse() => {
+            result = block_sealing_broadcaster(nats_client, node_client, instance).fuse() => {
                 result
             },
             result = archived_segment_headers_broadcaster(nats_client, node_client, instance).fuse() => {
@@ -637,7 +630,7 @@ where
             result = solution_response_forwarder(nats_client, node_client, instance).fuse() => {
                 result
             },
-            result = reward_signature_forwarder(nats_client, node_client, instance).fuse() => {
+            result = block_seal_forwarder(nats_client, node_client, instance).fuse() => {
                 result
             },
             result = farmer_app_info_responder(nats_client, node_client).fuse() => {
@@ -718,7 +711,7 @@ where
     Ok(())
 }
 
-async fn reward_signing_broadcaster<NC>(
+async fn block_sealing_broadcaster<NC>(
     nats_client: &NatsClient,
     node_client: &NC,
     instance: &str,
@@ -726,24 +719,22 @@ async fn reward_signing_broadcaster<NC>(
 where
     NC: NodeClient,
 {
-    let mut reward_signing_notifications = node_client
-        .subscribe_reward_signing()
+    let mut block_sealing_subscription = node_client
+        .subscribe_block_sealing()
         .await
-        .map_err(|error| anyhow!("Failed to subscribe to reward signing notifications: {error}"))?;
+        .map_err(|error| anyhow!("Failed to subscribe to block sealing notifications: {error}"))?;
 
-    while let Some(reward_signing_info) = reward_signing_notifications.next().await {
-        trace!(?reward_signing_info, "New reward signing notification");
+    while let Some(block_sealing_info) = block_sealing_subscription.next().await {
+        trace!(?block_sealing_info, "New block sealing notification");
 
         if let Err(error) = nats_client
             .broadcast(
-                &ClusterControllerRewardSigningBroadcast {
-                    reward_signing_info,
-                },
+                &ClusterControllerBlockSealingBroadcast { block_sealing_info },
                 instance,
             )
             .await
         {
-            warn!(%error, "Failed to broadcast reward signing info");
+            warn!(%error, "Failed to broadcast block sealing info");
         }
     }
 
@@ -832,7 +823,7 @@ where
     Ok(())
 }
 
-async fn reward_signature_forwarder<NC>(
+async fn block_seal_forwarder<NC>(
     nats_client: &NatsClient,
     node_client: &NC,
     instance: &str,
@@ -841,23 +832,18 @@ where
     NC: NodeClient,
 {
     let mut subscription = nats_client
-        .subscribe_to_notifications::<ClusterControllerRewardSignatureNotification>(
+        .subscribe_to_notifications::<ClusterControllerBlockSealNotification>(
             None,
             Some(instance.to_string()),
         )
         .await
-        .map_err(|error| {
-            anyhow!("Failed to subscribe to reward signature notifications: {error}")
-        })?;
+        .map_err(|error| anyhow!("Failed to subscribe to block seal notifications: {error}"))?;
 
     while let Some(notification) = subscription.next().await {
-        debug!(?notification, "Reward signature notification");
+        debug!(?notification, "Block seal notification");
 
-        if let Err(error) = node_client
-            .submit_reward_signature(notification.reward_signature)
-            .await
-        {
-            warn!(%error, "Failed to send reward signature");
+        if let Err(error) = node_client.submit_block_seal(notification.block_seal).await {
+            warn!(%error, "Failed to send block seal");
         }
     }
 

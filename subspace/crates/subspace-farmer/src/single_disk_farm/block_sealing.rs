@@ -3,55 +3,58 @@ use crate::single_disk_farm::identity::Identity;
 use ab_core_primitives::block::header::{BlockHeaderEd25519Seal, OwnedBlockHeaderSeal};
 use futures::StreamExt;
 use std::future::Future;
-use subspace_rpc_primitives::{RewardSignatureResponse, RewardSigningInfo};
+use subspace_rpc_primitives::{BlockSealInfo, BlockSealResponse};
 use tracing::{info, warn};
 
-pub(super) async fn reward_signing<NC>(
+pub(super) async fn block_sealing<NC>(
     node_client: NC,
     identity: Identity,
 ) -> anyhow::Result<impl Future<Output = ()>>
 where
     NC: NodeClient,
 {
-    info!("Subscribing to reward signing notifications");
+    info!("Subscribing to block sealing notifications");
 
-    let mut reward_signing_info_notifications = node_client.subscribe_reward_signing().await?;
+    let mut block_sealing_info_notifications = node_client.subscribe_block_sealing().await?;
     let own_public_key_hash = identity.public_key().hash();
 
-    let reward_signing_fut = async move {
-        while let Some(RewardSigningInfo {
-            hash,
+    let block_sealing_fut = async move {
+        while let Some(BlockSealInfo {
+            pre_seal_hash,
             public_key_hash,
-        }) = reward_signing_info_notifications.next().await
+        }) = block_sealing_info_notifications.next().await
         {
-            // Multiple plots might have solved, only sign with correct one
+            // Multiple plots might have solved, only sign with the correct one
             if public_key_hash != own_public_key_hash {
                 continue;
             }
 
             match node_client
-                .submit_reward_signature(RewardSignatureResponse {
-                    hash,
+                .submit_block_seal(BlockSealResponse {
+                    pre_seal_hash,
                     seal: OwnedBlockHeaderSeal::Ed25519(BlockHeaderEd25519Seal {
                         public_key: identity.public_key(),
-                        signature: identity.sign_reward_hash(&hash),
+                        signature: identity.sign_pre_seal_hash(&pre_seal_hash),
                     }),
                 })
                 .await
             {
                 Ok(_) => {
-                    info!("Successfully signed reward hash 0x{}", hex::encode(hash));
+                    info!(
+                        "Successfully sealed block pre-seal hash 0x{}",
+                        hex::encode(pre_seal_hash)
+                    );
                 }
                 Err(error) => {
                     warn!(
                         %error,
-                        "Failed to send signature for reward hash 0x{}",
-                        hex::encode(hash),
+                        "Failed to send seal for block pre-seal hash 0x{}",
+                        hex::encode(pre_seal_hash),
                     );
                 }
             }
         }
     };
 
-    Ok(reward_signing_fut)
+    Ok(block_sealing_fut)
 }

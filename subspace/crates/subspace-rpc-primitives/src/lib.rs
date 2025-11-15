@@ -117,22 +117,22 @@ pub struct SolutionResponse {
     pub solution: Solution,
 }
 
-/// Reward info that needs to be signed.
+/// Block sealing info
 #[derive(Clone, Copy, Debug, Encode, Decode, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RewardSigningInfo {
-    /// Hash to be signed.
-    pub hash: Blake3Hash,
-    /// Public key hash of the plot identity that should create signature.
+pub struct BlockSealInfo {
+    /// Block pre-seal hash to be signed
+    pub pre_seal_hash: Blake3Hash,
+    /// Public key hash of the plot identity that should create signature
     pub public_key_hash: Blake3Hash,
 }
 
-/// Signature in response to reward hash signing request
+/// Block sealing response
 #[derive(Clone, Copy, Debug, Encode, Decode, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RewardSignatureResponse {
-    /// Hash that was signed
-    pub hash: Blake3Hash,
-    /// Public key that signature corresponds to
+pub struct BlockSealResponse {
+    /// Block pre-seal hash that was signed
+    pub pre_seal_hash: Blake3Hash,
+    /// The seal itself
     pub seal: OwnedBlockHeaderSeal,
 }

@@ -22,7 +22,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use subspace_rpc_primitives::{
-    FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
 };
 use tempfile::tempdir;
 
@@ -72,16 +72,13 @@ impl NodeClient for MockNodeClient {
         unimplemented!()
     }
 
-    async fn subscribe_reward_signing(
+    async fn subscribe_block_sealing(
         &self,
-    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = RewardSigningInfo> + Send + 'static>>> {
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = BlockSealInfo> + Send + 'static>>> {
         unimplemented!()
     }
 
-    async fn submit_reward_signature(
-        &self,
-        _reward_signature: RewardSignatureResponse,
-    ) -> anyhow::Result<()> {
+    async fn submit_block_seal(&self, _block_seal: BlockSealResponse) -> anyhow::Result<()> {
         unimplemented!()
     }
 

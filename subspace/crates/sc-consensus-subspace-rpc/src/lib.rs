@@ -42,8 +42,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use subspace_rpc_primitives::{
-    FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, RewardSignatureResponse, RewardSigningInfo,
-    SlotInfo, SolutionResponse,
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo,
+    SolutionResponse,
 };
 use tracing::{debug, error, warn};
 
@@ -103,10 +103,7 @@ pub trait SubspaceRpcApi {
     fn subscribe_reward_signing(&self);
 
     #[method(name = "submitRewardSignature", with_extensions)]
-    fn submit_reward_signature(
-        &self,
-        reward_signature: RewardSignatureResponse,
-    ) -> Result<(), Error>;
+    fn submit_reward_signature(&self, reward_signature: BlockSealResponse) -> Result<(), Error>;
 
     /// Archived segment header subscription
     #[subscription(
@@ -145,7 +142,7 @@ struct ArchivedSegmentHeaderAcknowledgementSenders {
 #[derive(Default)]
 struct BlockSignatureSenders {
     current_hash: Blake3Hash,
-    senders: Vec<async_oneshot::Sender<RewardSignatureResponse>>,
+    senders: Vec<async_oneshot::Sender<BlockSealResponse>>,
 }
 
 /// In-memory cache of last archived segment, such that when request comes back right after
@@ -480,8 +477,8 @@ where
                 );
 
                 // This will be sent to the farmer
-                RewardSigningInfo {
-                    hash,
+                BlockSealInfo {
+                    pre_seal_hash: hash,
                     public_key_hash,
                 }
             },
@@ -499,7 +496,7 @@ where
     fn submit_reward_signature(
         &self,
         ext: &Extensions,
-        reward_signature: RewardSignatureResponse,
+        reward_signature: BlockSealResponse,
     ) -> Result<(), Error> {
         check_if_safe(ext)?;
 
@@ -509,7 +506,7 @@ where
         //  multiple (https://github.com/paritytech/jsonrpsee/issues/452)
         let mut reward_signature_senders = reward_signature_senders.lock();
 
-        if reward_signature_senders.current_hash == reward_signature.hash
+        if reward_signature_senders.current_hash == reward_signature.pre_seal_hash
             && let Some(mut sender) = reward_signature_senders.senders.pop()
         {
             let _ = sender.send(reward_signature);
