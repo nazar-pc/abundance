@@ -2,8 +2,9 @@
 //!
 //! Single disk farm is an abstraction that contains an identity, associated plot with metadata and
 //! a small piece cache. It fully manages farming and plotting process, including listening to node
-//! notifications, producing solutions and singing rewards.
+//! notifications, producing solutions and sealing blocks.
 
+mod block_sealing;
 pub mod direct_io_file_wrapper;
 pub mod farming;
 pub mod identity;
@@ -13,7 +14,6 @@ pub mod piece_reader;
 pub mod plot_cache;
 mod plotted_sectors;
 mod plotting;
-mod reward_signing;
 
 use crate::disk_piece_cache::{DiskPieceCache, DiskPieceCacheError};
 use crate::farm::{
@@ -22,6 +22,7 @@ use crate::farm::{
 };
 use crate::node_client::NodeClient;
 use crate::plotter::Plotter;
+use crate::single_disk_farm::block_sealing::block_sealing;
 use crate::single_disk_farm::direct_io_file_wrapper::{DISK_PAGE_SIZE, DirectIoFileWrapper};
 use crate::single_disk_farm::farming::rayon_files::RayonFiles;
 use crate::single_disk_farm::farming::{
@@ -37,7 +38,6 @@ pub use crate::single_disk_farm::plotting::PlottingError;
 use crate::single_disk_farm::plotting::{
     PlottingOptions, PlottingSchedulerOptions, SectorPlottingOptions, plotting, plotting_scheduler,
 };
-use crate::single_disk_farm::reward_signing::reward_signing;
 use crate::utils::{AsyncJoinOnDrop, tokio_rayon_spawn_handler};
 use crate::{KNOWN_PEERS_CACHE_SIZE, farm};
 use ab_core_primitives::block::BlockRoot;
@@ -50,6 +50,7 @@ use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::file_ext::FileExt;
 use ab_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed, sector_size};
+use ab_farmer_rpc_primitives::{FarmerAppInfo, SolutionResponse};
 use ab_networking::KnownPeersManager;
 use ab_proof_of_space::Table;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
@@ -76,7 +77,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use std::{fmt, fs, io, mem};
-use subspace_rpc_primitives::{FarmerAppInfo, SolutionResponse};
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
@@ -544,9 +544,9 @@ pub enum BackgroundTaskError {
     /// Farming error
     #[error(transparent)]
     Farming(#[from] FarmingError),
-    /// Reward signing
+    /// Block sealing
     #[error(transparent)]
-    RewardSigning(#[from] anyhow::Error),
+    BlockSealing(#[from] anyhow::Error),
     /// Background task panicked
     #[error("Background task {task} panicked")]
     BackgroundTaskPanicked {
@@ -1182,13 +1182,13 @@ impl SingleDiskFarm {
         }));
 
         tasks.push(Box::pin(async move {
-            match reward_signing(node_client, identity).await {
-                Ok(reward_signing_fut) => {
-                    reward_signing_fut.await;
+            match block_sealing(node_client, identity).await {
+                Ok(block_sealing_fut) => {
+                    block_sealing_fut.await;
                 }
                 Err(error) => {
-                    return Err(BackgroundTaskError::RewardSigning(anyhow::anyhow!(
-                        "Failed to subscribe to reward signing notifications: {error}"
+                    return Err(BackgroundTaskError::BlockSealing(anyhow::anyhow!(
+                        "Failed to subscribe to block sealing notifications: {error}"
                     )));
                 }
             }

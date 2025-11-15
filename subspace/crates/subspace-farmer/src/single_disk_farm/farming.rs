@@ -23,6 +23,7 @@ use ab_farmer_components::ReadAtSync;
 use ab_farmer_components::auditing::{AuditingError, audit_plot_sync};
 use ab_farmer_components::proving::{ProvableSolutions, ProvingError};
 use ab_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed};
+use ab_farmer_rpc_primitives::{SlotInfo, SolutionResponse};
 use ab_proof_of_space::{Table, TableGenerator};
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use futures::StreamExt;
@@ -31,7 +32,6 @@ use rayon::ThreadPool;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
-use subspace_rpc_primitives::{SlotInfo, SolutionResponse};
 use tracing::{Span, debug, error, info, trace, warn};
 
 /// How many non-fatal errors should happen in a row before farm is considered non-operational

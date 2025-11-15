@@ -109,9 +109,8 @@ impl Identity {
         self.signing_key.into()
     }
 
-    // TODO: Rename reward hash to `pre_seal_hash`
-    /// Sign reward hash.
-    pub fn sign_reward_hash(&self, header_hash: &Blake3Hash) -> Ed25519Signature {
-        Ed25519Signature::from(self.signing_key.sign(header_hash.as_ref()))
+    /// Sign block's pre-seal hash
+    pub fn sign_pre_seal_hash(&self, pre_seal_hash: &Blake3Hash) -> Ed25519Signature {
+        Ed25519Signature::from(self.signing_key.sign(pre_seal_hash.as_ref()))
     }
 }

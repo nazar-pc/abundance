@@ -3,6 +3,9 @@
 use crate::node_client::{NodeClient, NodeClientExt};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_farmer_rpc_primitives::{
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
+};
 use async_lock::Semaphore;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
@@ -11,9 +14,6 @@ use jsonrpsee::rpc_params;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use std::pin::Pin;
 use std::sync::Arc;
-use subspace_rpc_primitives::{
-    FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
-};
 
 /// TODO: Node is having a hard time responding for many piece requests, specifically this results
 ///  in subscriptions become broken on the node: https://github.com/paritytech/jsonrpsee/issues/1409
@@ -88,9 +88,9 @@ impl NodeClient for RpcNodeClient {
             .await?)
     }
 
-    async fn subscribe_reward_signing(
+    async fn subscribe_block_sealing(
         &self,
-    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = RewardSigningInfo> + Send + 'static>>> {
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = BlockSealInfo> + Send + 'static>>> {
         let subscription = self
             .client
             .subscribe(
@@ -101,15 +101,12 @@ impl NodeClient for RpcNodeClient {
             .await?;
 
         Ok(Box::pin(subscription.filter_map(
-            |reward_signing_info_result| async move { reward_signing_info_result.ok() },
+            |block_sealing_info_result| async move { block_sealing_info_result.ok() },
         )))
     }
 
     /// Submit a block signature
-    async fn submit_reward_signature(
-        &self,
-        reward_signature: RewardSignatureResponse,
-    ) -> anyhow::Result<()> {
+    async fn submit_block_seal(&self, reward_signature: BlockSealResponse) -> anyhow::Result<()> {
         Ok(self
             .client
             .request(

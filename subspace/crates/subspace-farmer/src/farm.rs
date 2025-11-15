@@ -13,6 +13,7 @@ use ab_core_primitives::segments::SegmentIndex;
 use ab_farmer_components::auditing::AuditingError;
 use ab_farmer_components::plotting::PlottedSector;
 use ab_farmer_components::proving::ProvingError;
+use ab_farmer_rpc_primitives::SolutionResponse;
 use ab_networking::libp2p::kad::RecordKey;
 use async_trait::async_trait;
 use derive_more::{Display, From};
@@ -24,7 +25,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{fmt, io};
-use subspace_rpc_primitives::SolutionResponse;
 use thiserror::Error;
 use ulid::Ulid;
 

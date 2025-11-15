@@ -13,13 +13,13 @@ pub mod rpc_node_client;
 
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_farmer_rpc_primitives::{
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
+};
 use async_trait::async_trait;
 use futures::Stream;
 use std::fmt;
 use std::pin::Pin;
-use subspace_rpc_primitives::{
-    FarmerAppInfo, RewardSignatureResponse, RewardSigningInfo, SlotInfo, SolutionResponse,
-};
 
 /// Abstraction of the Node Client
 #[async_trait]
@@ -38,16 +38,13 @@ pub trait NodeClient: fmt::Debug + Send + Sync + 'static {
         solution_response: SolutionResponse,
     ) -> anyhow::Result<()>;
 
-    /// Subscribe to block signing request
-    async fn subscribe_reward_signing(
+    /// Subscribe to block sealing requests
+    async fn subscribe_block_sealing(
         &self,
-    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = RewardSigningInfo> + Send + 'static>>>;
+    ) -> anyhow::Result<Pin<Box<dyn Stream<Item = BlockSealInfo> + Send + 'static>>>;
 
-    /// Submit a block signature
-    async fn submit_reward_signature(
-        &self,
-        reward_signature: RewardSignatureResponse,
-    ) -> anyhow::Result<()>;
+    /// Submit a block seal
+    async fn submit_block_seal(&self, block_seal: BlockSealResponse) -> anyhow::Result<()>;
 
     /// Subscribe to archived segment headers
     async fn subscribe_archived_segment_headers(

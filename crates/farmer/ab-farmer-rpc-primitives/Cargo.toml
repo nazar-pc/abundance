@@ -1,12 +1,10 @@
 [package]
-name = "subspace-rpc-primitives"
-version = "0.1.0"
-authors = ["Subspace Labs <https://subspace.network>"]
-description = "RPC primitives for Subspace Network"
-edition = "2024"
+name = "ab-farmer-rpc-primitives"
+description = "RPC primitives for the farmer"
 license = "0BSD"
-homepage = "https://subspace.network"
-repository = "https://github.com/autonomys/subspace"
+version = "0.1.0"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
 include = [
     "/src",
     "/Cargo.toml",
@@ -18,4 +16,3 @@ ab-farmer-components = { workspace = true }
 ab-networking = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }
-subspace-verification = { workspace = true, features = ["scale-codec", "serde"] }

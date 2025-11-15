@@ -1,3 +1,4 @@
+use ab_farmer_rpc_primitives::MAX_SEGMENT_HEADERS_PER_REQUEST;
 use ab_networking::libp2p::Multiaddr;
 use ab_networking::libp2p::identity::Keypair;
 use ab_networking::libp2p::multiaddr::Protocol;
@@ -31,7 +32,6 @@ use subspace_farmer::KNOWN_PEERS_CACHE_SIZE;
 use subspace_farmer::farm::plotted_pieces::PlottedPieces;
 use subspace_farmer::farmer_cache::FarmerCaches;
 use subspace_farmer::node_client::NodeClientExt;
-use subspace_rpc_primitives::MAX_SEGMENT_HEADERS_PER_REQUEST;
 use tracing::{Instrument, debug, error, info, warn};
 
 /// How many segment headers can be requested at a time.

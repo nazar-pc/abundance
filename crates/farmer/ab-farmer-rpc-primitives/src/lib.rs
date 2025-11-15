@@ -1,6 +1,7 @@
-//! Primitives for Subspace RPC.
+//! Primitives for the farmer
 
 use ab_core_primitives::block::BlockRoot;
+use ab_core_primitives::block::header::OwnedBlockHeaderSeal;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::solutions::{Solution, SolutionRange};
@@ -9,7 +10,6 @@ use ab_networking::libp2p::Multiaddr;
 use parity_scale_codec::{Decode, Encode, EncodeLike, Input, Output};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use subspace_verification::ed25519::RewardSignature;
 
 /// Defines a limit for number of segments that can be requested over RPC
 pub const MAX_SEGMENT_HEADERS_PER_REQUEST: usize = 1000;
@@ -117,22 +117,22 @@ pub struct SolutionResponse {
     pub solution: Solution,
 }
 
-/// Reward info that needs to be signed.
+/// Block sealing info
 #[derive(Clone, Copy, Debug, Encode, Decode, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RewardSigningInfo {
-    /// Hash to be signed.
-    pub hash: Blake3Hash,
-    /// Public key hash of the plot identity that should create signature.
+pub struct BlockSealInfo {
+    /// Block pre-seal hash to be signed
+    pub pre_seal_hash: Blake3Hash,
+    /// Public key hash of the plot identity that should create signature
     pub public_key_hash: Blake3Hash,
 }
 
-/// Signature in response to reward hash signing request.
+/// Block sealing response
 #[derive(Clone, Copy, Debug, Encode, Decode, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RewardSignatureResponse {
-    /// Hash that was signed.
-    pub hash: Blake3Hash,
-    /// Pre-header or vote hash signature.
-    pub signature: Option<RewardSignature>,
+pub struct BlockSealResponse {
+    /// Block pre-seal hash that was signed
+    pub pre_seal_hash: Blake3Hash,
+    /// The seal itself
+    pub seal: OwnedBlockHeaderSeal,
 }
