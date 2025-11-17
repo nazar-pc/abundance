@@ -14,6 +14,7 @@ use std::process::exit;
 use std::{fs, panic};
 use tracing::info;
 
+#[cfg(not(miri))]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 

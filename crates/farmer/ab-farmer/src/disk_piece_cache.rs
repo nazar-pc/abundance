@@ -1,6 +1,8 @@
 //! Disk piece cache implementation
 
 mod metrics;
+// TODO: Not supported under Miri: https://github.com/rust-lang/miri/issues/4464
+#[cfg(not(miri))]
 #[cfg(test)]
 mod tests;
 

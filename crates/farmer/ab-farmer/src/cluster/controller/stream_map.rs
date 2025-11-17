@@ -165,6 +165,10 @@ mod tests {
         assert_is_terminated(&stream_map);
     }
 
+    // TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
+    #[cfg(not(all(miri, target_os = "macos")))]
+    // TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+    #[cfg(not(all(miri, target_os = "windows")))]
     #[tokio::test]
     async fn test_stream_map_stream() {
         let mut stream_map = StreamMap::default();

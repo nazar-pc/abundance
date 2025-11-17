@@ -1,11 +1,14 @@
-use crate::utils::{
-    CpuCoreSet, parse_cpu_cores_sets, run_future_in_dedicated_thread,
-    thread_pool_core_indices_internal,
-};
+#[cfg(not(miri))]
+use crate::utils::parse_cpu_cores_sets;
+use crate::utils::{CpuCoreSet, run_future_in_dedicated_thread, thread_pool_core_indices_internal};
 use std::future;
 use std::num::NonZeroUsize;
 use tokio::sync::oneshot;
 
+// TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
+#[cfg(not(all(miri, target_os = "macos")))]
+// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+#[cfg(not(all(miri, target_os = "windows")))]
 #[tokio::test]
 async fn run_future_in_dedicated_thread_ready() {
     let value = run_future_in_dedicated_thread(|| future::ready(1), "ready".to_string())
@@ -16,6 +19,10 @@ async fn run_future_in_dedicated_thread_ready() {
     assert_eq!(value, 1);
 }
 
+// TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
+#[cfg(not(all(miri, target_os = "macos")))]
+// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+#[cfg(not(all(miri, target_os = "windows")))]
 #[tokio::test]
 async fn run_future_in_dedicated_thread_cancellation() {
     // This may hang if not implemented correctly
@@ -24,6 +31,10 @@ async fn run_future_in_dedicated_thread_cancellation() {
     );
 }
 
+// TODO: Not supported on Miri on macOS yet: https://github.com/rust-lang/miri/issues/4007
+#[cfg(not(all(miri, target_os = "macos")))]
+// TODO: Not supported on Miri on Window yet: https://github.com/rust-lang/miri/issues/1719
+#[cfg(not(all(miri, target_os = "windows")))]
 #[test]
 fn run_future_in_dedicated_thread_tokio_on_drop() {
     struct S;
@@ -51,6 +62,7 @@ fn run_future_in_dedicated_thread_tokio_on_drop() {
     });
 }
 
+#[cfg(not(miri))]
 #[test]
 fn test_parse_cpu_cores_sets() {
     {
