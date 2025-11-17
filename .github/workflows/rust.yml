@@ -62,7 +62,8 @@ jobs:
           - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-15
-          - windows-11-arm
+          # TODO: Re-enabled once https://github.com/HadrienG2/hwlocality/issues/309 is resolved
+          # - windows-11-arm
           - windows-2025
         type:
           - together
@@ -175,7 +176,8 @@ jobs:
           - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-15
-          - windows-11-arm
+          # TODO: Re-enabled once https://github.com/HadrienG2/hwlocality/issues/309 is resolved
+          # - windows-11-arm
           - windows-2025
         miri:
           - true
@@ -372,7 +374,8 @@ jobs:
           - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-15
-          - windows-11-arm
+          # TODO: Re-enabled once https://github.com/HadrienG2/hwlocality/issues/309 is resolved
+          # - windows-11-arm
           - windows-2025
         miri:
           - true
@@ -402,7 +405,8 @@ jobs:
           - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-15
-          - windows-11-arm
+          # TODO: Re-enabled once https://github.com/HadrienG2/hwlocality/issues/309 is resolved
+          # - windows-11-arm
           - windows-2025
         type:
           - default
