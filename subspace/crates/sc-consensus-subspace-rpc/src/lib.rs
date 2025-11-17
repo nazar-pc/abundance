@@ -1,4 +1,4 @@
-//! RPC api for Subspace.
+//! RPC API for the farmer
 
 #![feature(try_blocks)]
 
@@ -29,7 +29,7 @@ use sc_consensus_subspace::archiver::{
     ArchivedSegmentNotification, SegmentHeadersStore, recreate_genesis_segment,
 };
 use sc_consensus_subspace::notification::SubspaceNotificationStream;
-use sc_consensus_subspace::slot_worker::{NewSlotNotification, RewardSigningNotification};
+use sc_consensus_subspace::slot_worker::{BlockSealingNotification, NewSlotNotification};
 use sc_rpc::SubscriptionTaskExecutor;
 use sc_rpc::utils::{BoundedVecDeque, PendingSubscription};
 use sc_rpc_api::{UnsafeRpcError, check_if_safe};
@@ -48,10 +48,7 @@ use std::time::Duration;
 use tracing::{debug, error, warn};
 
 const SUBSPACE_ERROR: i32 = 9000;
-/// This is essentially equal to expected number of votes per block, one more is added implicitly by
-/// the fact that channel sender exists
-const SOLUTION_SENDER_CHANNEL_CAPACITY: usize = 9;
-const REWARD_SIGNING_TIMEOUT: Duration = Duration::from_millis(500);
+const BLOCK_SEALING_TIMEOUT: Duration = Duration::from_millis(500);
 
 // TODO: More specific errors instead of `StringError`
 /// Top-level error type for the RPC handler.
@@ -74,9 +71,9 @@ impl From<Error> for ErrorObjectOwned {
     }
 }
 
-/// Provides rpc methods for interacting with Subspace.
-#[rpc(server, namespace = "subspace")]
-pub trait SubspaceRpcApi {
+/// Provides rpc methods for interacting with the farmer
+#[rpc(server)]
+pub trait FarmerRpcApi {
     /// Get metadata necessary for farmer operation
     #[method(name = "getFarmerAppInfo")]
     fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error>;
@@ -95,15 +92,15 @@ pub trait SubspaceRpcApi {
 
     /// Sign block subscription
     #[subscription(
-        name = "subscribeRewardSigning" => "reward_signing",
-        unsubscribe = "unsubscribeRewardSigning",
-        item = RewardSigningInfo,
+        name = "subscribeBlockSealing" => "block_sealing",
+        unsubscribe = "unsubscribeBlockSealing",
+        item = BlockSealInfo,
         with_extensions,
     )]
-    fn subscribe_reward_signing(&self);
+    fn subscribe_block_sealing(&self);
 
-    #[method(name = "submitRewardSignature", with_extensions)]
-    fn submit_reward_signature(&self, reward_signature: BlockSealResponse) -> Result<(), Error>;
+    #[method(name = "submitBlockSeal", with_extensions)]
+    fn submit_block_seal(&self, block_seal: BlockSealResponse) -> Result<(), Error>;
 
     /// Archived segment header subscription
     #[subscription(
@@ -141,7 +138,7 @@ struct ArchivedSegmentHeaderAcknowledgementSenders {
 
 #[derive(Default)]
 struct BlockSignatureSenders {
-    current_hash: Blake3Hash,
+    current_pre_seal_hash: Blake3Hash,
     senders: Vec<async_oneshot::Sender<BlockSealResponse>>,
 }
 
@@ -165,8 +162,8 @@ impl CachedArchivedSegment {
     }
 }
 
-/// Subspace RPC configuration
-pub struct SubspaceRpcConfig<Client, CSS, AS>
+/// Farmer RPC configuration
+pub struct FarmerRpcConfig<Client, CSS, AS>
 where
     AS: AuxStore + Send + Sync + 'static,
 {
@@ -176,8 +173,8 @@ where
     pub subscription_executor: SubscriptionTaskExecutor,
     /// New slot notification stream
     pub new_slot_notification_stream: SubspaceNotificationStream<NewSlotNotification>,
-    /// Reward signing notification stream
-    pub reward_signing_notification_stream: SubspaceNotificationStream<RewardSigningNotification>,
+    /// Block sealing notification stream
+    pub block_sealing_notification_stream: SubspaceNotificationStream<BlockSealingNotification>,
     /// Archived segment notification stream
     pub archived_segment_notification_stream:
         SubspaceNotificationStream<ArchivedSegmentNotification>,
@@ -191,8 +188,8 @@ where
     pub erasure_coding: ErasureCoding,
 }
 
-/// Implements the [`SubspaceRpcApiServer`] trait for interacting with Subspace.
-pub struct SubspaceRpc<Block, Client, CSS, AS>
+/// Implements the [`FarmerRpcApiServer`] trait for farmer to connect to
+pub struct FarmerRpc<Block, Client, CSS, AS>
 where
     Block: BlockT,
     CSS: ChainSyncStatus,
@@ -200,10 +197,10 @@ where
     client: Arc<Client>,
     subscription_executor: SubscriptionTaskExecutor,
     new_slot_notification_stream: SubspaceNotificationStream<NewSlotNotification>,
-    reward_signing_notification_stream: SubspaceNotificationStream<RewardSigningNotification>,
+    block_sealing_notification_stream: SubspaceNotificationStream<BlockSealingNotification>,
     archived_segment_notification_stream: SubspaceNotificationStream<ArchivedSegmentNotification>,
     solution_response_senders: Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution>>>>,
-    reward_signature_senders: Arc<Mutex<BlockSignatureSenders>>,
+    block_seal_senders: Arc<Mutex<BlockSignatureSenders>>,
     dsn_bootstrap_nodes: Vec<Multiaddr>,
     segment_headers_store: SegmentHeadersStore<AS>,
     cached_archived_segment: Arc<Mutex<Option<CachedArchivedSegment>>>,
@@ -218,14 +215,14 @@ where
     _block: PhantomData<Block>,
 }
 
-/// [`SubspaceRpc`] is used for notifying subscribers about arrival of new slots and for
+/// [`FarmerRpc`] is used for notifying subscribers about the arrival of new slots and for
 /// submission of solutions (or lack thereof).
 ///
-/// Internally every time slot notifier emits information about new slot, notification is sent to
-/// every subscriber, after which RPC server waits for the same number of
-/// `subspace_submitSolutionResponse` requests with `SolutionResponse` in them or until
+/// Internally every time slot notifier emits information about a new slot, a notification is sent
+/// to every subscriber, after which the RPC server waits for the same number of
+/// `submitSolutionResponse` requests with `SolutionResponse` in them or until
 /// timeout is exceeded. The first valid solution for a particular slot wins, others are ignored.
-impl<Block, Client, CSS, AS> SubspaceRpc<Block, Client, CSS, AS>
+impl<Block, Client, CSS, AS> FarmerRpc<Block, Client, CSS, AS>
 where
     Block: BlockT,
     Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
@@ -233,8 +230,8 @@ where
     CSS: ChainSyncStatus,
     AS: AuxStore + Send + Sync + 'static,
 {
-    /// Creates a new instance of the `SubspaceRpc` handler.
-    pub fn new(config: SubspaceRpcConfig<Client, CSS, AS>) -> Result<Self, ApiError> {
+    /// Creates a new instance of the `FarmerRpc` handler.
+    pub fn new(config: FarmerRpcConfig<Client, CSS, AS>) -> Result<Self, ApiError> {
         let info = config.client.info();
         let best_hash = info.best_hash;
         let genesis_hash = BlockRoot::new(
@@ -259,12 +256,12 @@ where
             client: config.client,
             subscription_executor: config.subscription_executor,
             new_slot_notification_stream: config.new_slot_notification_stream,
-            reward_signing_notification_stream: config.reward_signing_notification_stream,
+            block_sealing_notification_stream: config.block_sealing_notification_stream,
             archived_segment_notification_stream: config.archived_segment_notification_stream,
             solution_response_senders: Arc::new(Mutex::new(LruMap::new(ByLength::new(
                 solution_response_senders_capacity,
             )))),
-            reward_signature_senders: Arc::default(),
+            block_seal_senders: Arc::default(),
             dsn_bootstrap_nodes: config.dsn_bootstrap_nodes,
             segment_headers_store: config.segment_headers_store,
             cached_archived_segment: Arc::default(),
@@ -281,7 +278,7 @@ where
 }
 
 #[async_trait]
-impl<Block, Client, CSS, AS> SubspaceRpcApiServer for SubspaceRpc<Block, Client, CSS, AS>
+impl<Block, Client, CSS, AS> FarmerRpcApiServer for FarmerRpc<Block, Client, CSS, AS>
 where
     Block: BlockT,
     Client: HeaderBackend<Block> + BlockBackend<Block> + Send + Sync + 'static,
@@ -368,8 +365,7 @@ where
                 // the farmer
                 let mut solution_response_senders = solution_response_senders.lock();
                 if solution_response_senders.peek(&slot_number).is_none() {
-                    let (response_sender, mut response_receiver) =
-                        mpsc::channel(SOLUTION_SENDER_CHANNEL_CAPACITY);
+                    let (response_sender, mut response_receiver) = mpsc::channel(1);
 
                     solution_response_senders.insert(slot_number, response_sender);
 
@@ -392,7 +388,7 @@ where
                     };
 
                     executor.spawn(
-                        "subspace-slot-info-forward",
+                        "slot-info-forward",
                         Some("rpc"),
                         Box::pin(forward_solution_fut),
                     );
@@ -416,7 +412,7 @@ where
             .map(handle_slot_notification);
 
         self.subscription_executor.spawn(
-            "subspace-slot-info-subscription",
+            "slot-info-subscription",
             Some("rpc"),
             PendingSubscription::from(pending)
                 .pipe_from_stream(stream, BoundedVecDeque::default())
@@ -424,52 +420,52 @@ where
         );
     }
 
-    fn subscribe_reward_signing(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
+    fn subscribe_block_sealing(&self, pending: PendingSubscriptionSink, ext: &Extensions) {
         if check_if_safe(ext).is_err() {
-            debug!("Unsafe subscribe_reward_signing ignored");
+            debug!("Unsafe subscribe_block_sealing ignored");
             return;
         }
 
         let executor = self.subscription_executor.clone();
-        let reward_signature_senders = self.reward_signature_senders.clone();
+        let block_seal_senders = self.block_seal_senders.clone();
 
-        let stream = self.reward_signing_notification_stream.subscribe().map(
-            move |reward_signing_notification| {
-                let RewardSigningNotification {
-                    hash,
+        let stream = self.block_sealing_notification_stream.subscribe().map(
+            move |block_sealing_notification| {
+                let BlockSealingNotification {
+                    pre_seal_hash,
                     public_key_hash,
                     signature_sender,
-                } = reward_signing_notification;
+                } = block_sealing_notification;
 
                 let (response_sender, response_receiver) = async_oneshot::oneshot();
 
                 // Store signature sender so that we can retrieve it when solution comes from
                 // the farmer
                 {
-                    let mut reward_signature_senders = reward_signature_senders.lock();
+                    let mut block_seal_senders = block_seal_senders.lock();
 
-                    if reward_signature_senders.current_hash != hash {
-                        reward_signature_senders.current_hash = hash;
-                        reward_signature_senders.senders.clear();
+                    if block_seal_senders.current_pre_seal_hash != pre_seal_hash {
+                        block_seal_senders.current_pre_seal_hash = pre_seal_hash;
+                        block_seal_senders.senders.clear();
                     }
 
-                    reward_signature_senders.senders.push(response_sender);
+                    block_seal_senders.senders.push(response_sender);
                 }
 
                 // Wait for solutions and transform proposed proof of space solutions into
                 // data structure `sc-consensus-subspace` expects
                 let forward_signature_fut = async move {
-                    if let Ok(reward_signature) = response_receiver.await {
-                        let _ = signature_sender.unbounded_send(reward_signature.seal);
+                    if let Ok(block_seal) = response_receiver.await {
+                        let _ = signature_sender.unbounded_send(block_seal.seal);
                     }
                 };
 
                 // Run above future with timeout
                 executor.spawn(
-                    "subspace-block-signing-forward",
+                    "block-signing-forward",
                     Some("rpc"),
                     future::select(
-                        futures_timer::Delay::new(REWARD_SIGNING_TIMEOUT),
+                        futures_timer::Delay::new(BLOCK_SEALING_TIMEOUT),
                         Box::pin(forward_signature_fut),
                     )
                     .map(|_| ())
@@ -478,14 +474,14 @@ where
 
                 // This will be sent to the farmer
                 BlockSealInfo {
-                    pre_seal_hash: hash,
+                    pre_seal_hash,
                     public_key_hash,
                 }
             },
         );
 
         self.subscription_executor.spawn(
-            "subspace-block-signing-subscription",
+            "block-signing-subscription",
             Some("rpc"),
             PendingSubscription::from(pending)
                 .pipe_from_stream(stream, BoundedVecDeque::default())
@@ -493,23 +489,23 @@ where
         );
     }
 
-    fn submit_reward_signature(
+    fn submit_block_seal(
         &self,
         ext: &Extensions,
-        reward_signature: BlockSealResponse,
+        block_seal: BlockSealResponse,
     ) -> Result<(), Error> {
         check_if_safe(ext)?;
 
-        let reward_signature_senders = self.reward_signature_senders.clone();
+        let block_seal_senders = self.block_seal_senders.clone();
 
         // TODO: This doesn't track what client sent a solution, allowing some clients to send
         //  multiple (https://github.com/paritytech/jsonrpsee/issues/452)
-        let mut reward_signature_senders = reward_signature_senders.lock();
+        let mut block_seal_senders = block_seal_senders.lock();
 
-        if reward_signature_senders.current_hash == reward_signature.pre_seal_hash
-            && let Some(mut sender) = reward_signature_senders.senders.pop()
+        if block_seal_senders.current_pre_seal_hash == block_seal.pre_seal_hash
+            && let Some(mut sender) = block_seal_senders.senders.pop()
         {
-            let _ = sender.send(reward_signature);
+            let _ = sender.send(block_seal);
         }
 
         Ok(())
@@ -598,7 +594,7 @@ where
         };
 
         self.subscription_executor.spawn(
-            "subspace-archived-segment-header-subscription",
+            "archived-segment-header-subscription",
             Some("rpc"),
             fut.boxed(),
         );

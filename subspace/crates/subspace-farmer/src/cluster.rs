@@ -19,7 +19,7 @@
 //! While there could be multiple controllers shared between farmers, each controller must have its
 //! dedicated pool of caches and each cache should belong to a single controller. This allows to
 //! shut down some controllers for upgrades and other maintenance tasks without affecting farmer's
-//! ability to farm and receive rewards.
+//! ability to farm and seal blocks.
 //!
 //! ### Farmer
 //!

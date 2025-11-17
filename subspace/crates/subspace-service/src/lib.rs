@@ -54,7 +54,7 @@ use sc_consensus_subspace::archiver::{
 use sc_consensus_subspace::block_import::{BlockImportingNotification, SubspaceBlockImport};
 use sc_consensus_subspace::notification::SubspaceNotificationStream;
 use sc_consensus_subspace::slot_worker::{
-    NewSlotNotification, RewardSigningNotification, SubspaceSlotWorker, SubspaceSlotWorkerOptions,
+    BlockSealingNotification, NewSlotNotification, SubspaceSlotWorker, SubspaceSlotWorkerOptions,
     SubspaceSyncOracle,
 };
 use sc_consensus_subspace::verifier::{SubspaceVerifier, SubspaceVerifierOptions};
@@ -389,7 +389,7 @@ where
     /// Note: this is currently used to send solutions from the farmer during tests.
     pub new_slot_notification_stream: SubspaceNotificationStream<NewSlotNotification>,
     /// Block signing stream.
-    pub reward_signing_notification_stream: SubspaceNotificationStream<RewardSigningNotification>,
+    pub block_sealing_notification_stream: SubspaceNotificationStream<BlockSealingNotification>,
     /// Stream of notifications about blocks about to be imported.
     pub block_importing_notification_stream: SubspaceNotificationStream<BlockImportingNotification>,
     /// Archived segment stream.
@@ -797,7 +797,7 @@ where
     }
 
     let new_slot_notification_stream = subspace_link.new_slot_notification_stream();
-    let reward_signing_notification_stream = subspace_link.reward_signing_notification_stream();
+    let block_sealing_notification_stream = subspace_link.block_sealing_notification_stream();
     let block_importing_notification_stream = subspace_link.block_importing_notification_stream();
     let archived_segment_notification_stream = subspace_link.archived_segment_notification_stream();
 
@@ -947,7 +947,7 @@ where
         rpc_builder: if enable_rpc_extensions {
             let client = client.clone();
             let new_slot_notification_stream = new_slot_notification_stream.clone();
-            let reward_signing_notification_stream = reward_signing_notification_stream.clone();
+            let block_sealing_notification_stream = block_sealing_notification_stream.clone();
             let archived_segment_notification_stream = archived_segment_notification_stream.clone();
 
             Box::new(move |subscription_executor| {
@@ -955,7 +955,7 @@ where
                     client: client.clone(),
                     subscription_executor,
                     new_slot_notification_stream: new_slot_notification_stream.clone(),
-                    reward_signing_notification_stream: reward_signing_notification_stream.clone(),
+                    block_sealing_notification_stream: block_sealing_notification_stream.clone(),
                     archived_segment_notification_stream: archived_segment_notification_stream
                         .clone(),
                     dsn_bootstrap_nodes: dsn_bootstrap_nodes.clone(),
@@ -982,7 +982,7 @@ where
         sync_service,
         backend,
         new_slot_notification_stream,
-        reward_signing_notification_stream,
+        block_sealing_notification_stream,
         block_importing_notification_stream,
         archived_segment_notification_stream,
         network_starter,

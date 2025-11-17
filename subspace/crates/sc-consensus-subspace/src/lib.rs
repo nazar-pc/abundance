@@ -20,7 +20,7 @@ pub mod verifier;
 use crate::archiver::{ArchivedSegmentNotification, ObjectMappingNotification};
 use crate::block_import::BlockImportingNotification;
 use crate::notification::{SubspaceNotificationSender, SubspaceNotificationStream};
-use crate::slot_worker::{NewSlotNotification, RewardSigningNotification};
+use crate::slot_worker::{BlockSealingNotification, NewSlotNotification};
 use ab_erasure_coding::ErasureCoding;
 use sp_consensus_subspace::ChainConstants;
 
@@ -29,8 +29,8 @@ use sp_consensus_subspace::ChainConstants;
 pub struct SubspaceLink {
     new_slot_notification_sender: SubspaceNotificationSender<NewSlotNotification>,
     new_slot_notification_stream: SubspaceNotificationStream<NewSlotNotification>,
-    reward_signing_notification_sender: SubspaceNotificationSender<RewardSigningNotification>,
-    reward_signing_notification_stream: SubspaceNotificationStream<RewardSigningNotification>,
+    block_sealing_notification_sender: SubspaceNotificationSender<BlockSealingNotification>,
+    block_sealing_notification_stream: SubspaceNotificationStream<BlockSealingNotification>,
     object_mapping_notification_sender: SubspaceNotificationSender<ObjectMappingNotification>,
     object_mapping_notification_stream: SubspaceNotificationStream<ObjectMappingNotification>,
     archived_segment_notification_sender: SubspaceNotificationSender<ArchivedSegmentNotification>,
@@ -46,8 +46,8 @@ impl SubspaceLink {
     pub fn new(chain_constants: ChainConstants, erasure_coding: ErasureCoding) -> Self {
         let (new_slot_notification_sender, new_slot_notification_stream) =
             notification::channel("subspace_new_slot_notification_stream");
-        let (reward_signing_notification_sender, reward_signing_notification_stream) =
-            notification::channel("subspace_reward_signing_notification_stream");
+        let (block_sealing_notification_sender, block_sealing_notification_stream) =
+            notification::channel("subspace_block_sealing_notification_stream");
         let (object_mapping_notification_sender, object_mapping_notification_stream) =
             notification::channel("subspace_object_mapping_notification_stream");
         let (archived_segment_notification_sender, archived_segment_notification_stream) =
@@ -58,8 +58,8 @@ impl SubspaceLink {
         Self {
             new_slot_notification_sender,
             new_slot_notification_stream,
-            reward_signing_notification_sender,
-            reward_signing_notification_stream,
+            block_sealing_notification_sender,
+            block_sealing_notification_stream,
             object_mapping_notification_sender,
             object_mapping_notification_stream,
             archived_segment_notification_sender,
@@ -78,10 +78,10 @@ impl SubspaceLink {
 
     /// A stream with notifications about headers that need to be signed with ability to send
     /// signature back.
-    pub fn reward_signing_notification_stream(
+    pub fn block_sealing_notification_stream(
         &self,
-    ) -> SubspaceNotificationStream<RewardSigningNotification> {
-        self.reward_signing_notification_stream.clone()
+    ) -> SubspaceNotificationStream<BlockSealingNotification> {
+        self.block_sealing_notification_stream.clone()
     }
 
     /// Get stream with notifications about object mappings

@@ -54,7 +54,7 @@ impl NodeClient for RpcNodeClient {
     async fn farmer_app_info(&self) -> anyhow::Result<FarmerAppInfo> {
         Ok(self
             .client
-            .request("subspace_getFarmerAppInfo", rpc_params![])
+            .request("getFarmerAppInfo", rpc_params![])
             .await?)
     }
 
@@ -63,11 +63,7 @@ impl NodeClient for RpcNodeClient {
     ) -> anyhow::Result<Pin<Box<dyn Stream<Item = SlotInfo> + Send + 'static>>> {
         let subscription = self
             .client
-            .subscribe(
-                "subspace_subscribeSlotInfo",
-                rpc_params![],
-                "subspace_unsubscribeSlotInfo",
-            )
+            .subscribe("subscribeSlotInfo", rpc_params![], "unsubscribeSlotInfo")
             .await?;
 
         Ok(Box::pin(subscription.filter_map(
@@ -81,10 +77,7 @@ impl NodeClient for RpcNodeClient {
     ) -> anyhow::Result<()> {
         Ok(self
             .client
-            .request(
-                "subspace_submitSolutionResponse",
-                rpc_params![&solution_response],
-            )
+            .request("submitSolutionResponse", rpc_params![&solution_response])
             .await?)
     }
 
@@ -94,9 +87,9 @@ impl NodeClient for RpcNodeClient {
         let subscription = self
             .client
             .subscribe(
-                "subspace_subscribeRewardSigning",
+                "subscribeBlockSealing",
                 rpc_params![],
-                "subspace_unsubscribeRewardSigning",
+                "unsubscribeBlockSealing",
             )
             .await?;
 
@@ -105,14 +98,11 @@ impl NodeClient for RpcNodeClient {
         )))
     }
 
-    /// Submit a block signature
-    async fn submit_block_seal(&self, reward_signature: BlockSealResponse) -> anyhow::Result<()> {
+    /// Submit a block seal
+    async fn submit_block_seal(&self, block_seal: BlockSealResponse) -> anyhow::Result<()> {
         Ok(self
             .client
-            .request(
-                "subspace_submitRewardSignature",
-                rpc_params![&reward_signature],
-            )
+            .request("submitBlockSeal", rpc_params![&block_seal])
             .await?)
     }
 
@@ -122,9 +112,9 @@ impl NodeClient for RpcNodeClient {
         let subscription = self
             .client
             .subscribe(
-                "subspace_subscribeArchivedSegmentHeader",
+                "subscribeArchivedSegmentHeader",
                 rpc_params![],
-                "subspace_unsubscribeArchivedSegmentHeader",
+                "unsubscribeArchivedSegmentHeader",
             )
             .await?;
 
@@ -139,7 +129,7 @@ impl NodeClient for RpcNodeClient {
     ) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
         Ok(self
             .client
-            .request("subspace_segmentHeaders", rpc_params![&segment_indices])
+            .request("segmentHeaders", rpc_params![&segment_indices])
             .await?)
     }
 
@@ -148,11 +138,10 @@ impl NodeClient for RpcNodeClient {
         let client = Arc::clone(&self.client);
         // Spawn a separate task to improve concurrency due to slow-ish JSON decoding that causes
         // issues for jsonrpsee
-        let piece_fut = tokio::task::spawn(async move {
-            client
-                .request("subspace_piece", rpc_params![&piece_index])
-                .await
-        });
+        let piece_fut =
+            tokio::task::spawn(
+                async move { client.request("piece", rpc_params![&piece_index]).await },
+            );
         Ok(piece_fut.await??)
     }
 
@@ -163,7 +152,7 @@ impl NodeClient for RpcNodeClient {
         Ok(self
             .client
             .request(
-                "subspace_acknowledgeArchivedSegmentHeader",
+                "acknowledgeArchivedSegmentHeader",
                 rpc_params![&segment_index],
             )
             .await?)
@@ -182,7 +171,7 @@ impl NodeClientExt for RpcNodeClient {
     async fn last_segment_headers(&self, limit: u32) -> anyhow::Result<Vec<Option<SegmentHeader>>> {
         Ok(self
             .client
-            .request("subspace_lastSegmentHeaders", rpc_params![limit])
+            .request("lastSegmentHeaders", rpc_params![limit])
             .await?)
     }
 }

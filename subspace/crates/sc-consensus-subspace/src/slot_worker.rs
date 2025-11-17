@@ -134,14 +134,15 @@ pub struct NewSlotNotification {
     /// Sender that can be used to send solutions for the slot.
     pub solution_sender: mpsc::Sender<Solution>,
 }
-/// Notification with a hash that needs to be signed to receive reward and sender for signature.
+
+/// Notification with a block pre-seal hash that needs to be signed and sender for the seal
 #[derive(Debug, Clone)]
-pub struct RewardSigningNotification {
-    /// Hash to be signed.
-    pub hash: Blake3Hash,
-    /// Public key hash of the plot identity that should create signature.
+pub struct BlockSealingNotification {
+    /// Block pre-seal hash to be signed
+    pub pre_seal_hash: Blake3Hash,
+    /// Public key hash of the plot identity that should create signature
     pub public_key_hash: Blake3Hash,
-    /// Sender that can be used to send signature for the header.
+    /// Sender that can be used to send seal for the header
     pub signature_sender: TracingUnboundedSender<OwnedBlockHeaderSeal>,
 }
 
@@ -864,16 +865,16 @@ where
 
     async fn sign_reward(
         &self,
-        hash: Blake3Hash,
+        pre_seal_hash: Blake3Hash,
         public_key_hash: Blake3Hash,
     ) -> Result<OwnedBlockHeaderSeal, ConsensusError> {
         let (signature_sender, mut signature_receiver) =
             tracing_unbounded("subspace_signature_signing_stream", 100);
 
         self.subspace_link
-            .reward_signing_notification_sender
-            .notify(|| RewardSigningNotification {
-                hash,
+            .block_sealing_notification_sender
+            .notify(|| BlockSealingNotification {
+                pre_seal_hash,
                 public_key_hash,
                 signature_sender,
             });

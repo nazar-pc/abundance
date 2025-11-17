@@ -1,7 +1,7 @@
 //! Node client abstraction
 //!
 //! During farmer operation it needs to communicate with node, for example to receive slot
-//! notifications and send solutions to claim rewards.
+//! notifications and send solutions to seal blocks.
 //!
 //! Implementation is abstracted away behind a trait to allow various implementation depending on
 //! use case. Implementation may connect to node via RPC directly, through some kind of networked
