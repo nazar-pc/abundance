@@ -16,3 +16,6 @@ ab-farmer-components = { workspace = true }
 ab-networking = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,258 @@
+use crate::commands::shared::PlottingThreadPriority;
+use crate::commands::shared::gpu::{GpuPlottingOptions, init_gpu_plotter};
+use ab_data_retrieval::piece_getter::PieceGetter;
+use ab_erasure_coding::ErasureCoding;
+use ab_farmer::cluster::controller::ClusterPieceGetter;
+use ab_farmer::cluster::nats_client::NatsClient;
+use ab_farmer::cluster::plotter::plotter_service;
+use ab_farmer::plotter::Plotter;
+use ab_farmer::plotter::cpu::CpuPlotter;
+use ab_farmer::plotter::pool::PoolPlotter;
+use ab_farmer::utils::{
+    create_plotting_thread_pool_manager, parse_cpu_cores_sets, thread_pool_core_indices,
+};
+use ab_proof_of_space::Table;
+use anyhow::anyhow;
+use async_lock::{Mutex as AsyncMutex, Semaphore};
+use clap::Parser;
+use prometheus_client::registry::Registry;
+use std::future::Future;
+use std::num::NonZeroUsize;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::time::Duration;
+use tracing::info;
+
+const PLOTTING_RETRY_INTERVAL: Duration = Duration::from_secs(5);
+
+#[derive(Debug, Parser)]
+struct CpuPlottingOptions {
+    /// How many sectors the farmer will download concurrently. Limits the memory usage of
+    /// the plotting process. Defaults to `--cpu-sector-encoding-concurrency` + 1 to download future
+    /// sector ahead of time.
+    ///
+    /// Increasing this value will cause higher memory usage.
+    #[arg(long)]
+    cpu_sector_downloading_concurrency: Option<NonZeroUsize>,
+    /// How many sectors the farmer will encode concurrently. Defaults to 1 on UMA system and the
+    /// number of NUMA nodes on NUMA system or L3 cache groups on large CPUs. It is further
+    /// restricted by
+    /// `--cpu-sector-downloading-concurrency` and setting this option higher than
+    /// `--cpu-sector-downloading-concurrency` will have no effect.
+    ///
+    /// CPU plotting is disabled by default if GPU plotting is detected.
+    ///
+    /// Increasing this value will cause higher memory usage. Set to 0 to disable CPU plotting.
+    #[arg(long)]
+    cpu_sector_encoding_concurrency: Option<usize>,
+    /// How many records the farmer will encode in a single sector concurrently. Defaults to one
+    /// record per 2 cores, but not more than 8 in total. Higher concurrency means higher memory
+    /// usage, and typically more efficient CPU utilization.
+    #[arg(long)]
+    cpu_record_encoding_concurrency: Option<NonZeroUsize>,
+    /// Size of one thread pool used for plotting. Defaults to number of logical CPUs available
+    /// on UMA system and number of logical CPUs available in NUMA node on NUMA system or L3 cache
+    /// groups on large CPUs.
+    ///
+    /// The number of thread pools is defined by `--cpu-sector-encoding-concurrency` option. Different
+    /// thread pools might have different numbers of threads if NUMA nodes do not have the same size.
+    ///
+    /// Threads will be pinned to corresponding CPU cores at creation.
+    #[arg(long)]
+    cpu_plotting_thread_pool_size: Option<NonZeroUsize>,
+    /// Set the exact CPU cores to be used for plotting, bypassing any custom logic in the farmer.
+    /// Replaces both `--cpu-sector-encoding-concurrency` and
+    /// `--cpu-plotting-thread-pool-size` options.
+    ///
+    /// Cores are coma-separated, with whitespace separating different thread pools/encoding
+    /// instances. For example "0,1 2,3" will result in two sectors being encoded at the same time,
+    /// each with a pair of CPU cores.
+    #[arg(long, conflicts_with_all = & ["cpu_sector_encoding_concurrency", "cpu_plotting_thread_pool_size"])]
+    cpu_plotting_cores: Option<String>,
+    /// Plotting thread priority, by default de-prioritizes plotting threads in order to make sure
+    /// farming is successful and computer can be used comfortably for other things. Can be set to
+    /// "min", "max" or "default".
+    #[arg(long, default_value_t = PlottingThreadPriority::Min)]
+    cpu_plotting_thread_priority: PlottingThreadPriority,
+}
+
+/// Arguments for plotter
+#[derive(Debug, Parser)]
+pub(super) struct PlotterArgs {
+    /// Plotting options only used by CPU plotter
+    #[clap(flatten)]
+    cpu_plotting_options: CpuPlottingOptions,
+    /// Plotting options only used by GPU plotter
+    #[clap(flatten)]
+    gpu_plotting_options: GpuPlottingOptions,
+    /// Cache group to use if specified, otherwise all caches are usable by this plotter
+    #[arg(long)]
+    cache_group: Option<String>,
+    /// Additional cluster components
+    #[clap(raw = true)]
+    pub(super) additional_components: Vec<String>,
+}
+
+pub(super) async fn plotter<PosTable>(
+    nats_client: NatsClient,
+    registry: &mut Registry,
+    plotter_args: PlotterArgs,
+) -> anyhow::Result<Pin<Box<dyn Future<Output = anyhow::Result<()>>>>>
+where
+    PosTable: Table,
+{
+    let PlotterArgs {
+        cpu_plotting_options,
+        gpu_plotting_options,
+        cache_group,
+        additional_components: _,
+    } = plotter_args;
+
+    let erasure_coding = ErasureCoding::new();
+    let piece_getter = ClusterPieceGetter::new(nats_client.clone(), cache_group);
+
+    let global_mutex = Arc::default();
+
+    let mut plotters = Vec::<Box<dyn Plotter + Send + Sync>>::new();
+
+    {
+        let maybe_gpu_plotter = init_gpu_plotter(
+            gpu_plotting_options,
+            piece_getter.clone(),
+            Arc::clone(&global_mutex),
+            erasure_coding.clone(),
+            registry,
+        )
+        .await?;
+
+        if let Some(gpu_plotter) = maybe_gpu_plotter {
+            plotters.push(Box::new(gpu_plotter));
+        }
+    }
+    {
+        let cpu_sector_encoding_concurrency = cpu_plotting_options.cpu_sector_encoding_concurrency;
+        let maybe_cpu_plotter = init_cpu_plotter::<_, PosTable>(
+            cpu_plotting_options,
+            piece_getter,
+            global_mutex,
+            erasure_coding,
+            registry,
+        )?;
+
+        if let Some(cpu_plotter) = maybe_cpu_plotter {
+            if !plotters.is_empty() && cpu_sector_encoding_concurrency.is_none() {
+                info!("CPU plotting was disabled due to detected faster plotting with GPU");
+            } else {
+                plotters.push(Box::new(cpu_plotter));
+            }
+        }
+    }
+    let plotter = Arc::new(PoolPlotter::new(plotters, PLOTTING_RETRY_INTERVAL));
+
+    Ok(Box::pin(async move {
+        plotter_service(&nats_client, &plotter)
+            .await
+            .map_err(|error| anyhow!("Plotter service failed: {error}"))
+    }))
+}
+
+#[allow(clippy::type_complexity)]
+fn init_cpu_plotter<PG, PosTable>(
+    cpu_plotting_options: CpuPlottingOptions,
+    piece_getter: PG,
+    global_mutex: Arc<AsyncMutex<()>>,
+    erasure_coding: ErasureCoding,
+    registry: &mut Registry,
+) -> anyhow::Result<Option<CpuPlotter<PG, PosTable>>>
+where
+    PG: PieceGetter + Clone + Send + Sync + 'static,
+    PosTable: Table,
+{
+    let CpuPlottingOptions {
+        cpu_sector_downloading_concurrency,
+        cpu_sector_encoding_concurrency,
+        cpu_record_encoding_concurrency,
+        cpu_plotting_thread_pool_size,
+        cpu_plotting_cores,
+        cpu_plotting_thread_priority,
+    } = cpu_plotting_options;
+
+    let cpu_sector_encoding_concurrency =
+        if let Some(cpu_sector_encoding_concurrency) = cpu_sector_encoding_concurrency {
+            match NonZeroUsize::new(cpu_sector_encoding_concurrency) {
+                Some(cpu_sector_encoding_concurrency) => Some(cpu_sector_encoding_concurrency),
+                None => {
+                    info!("CPU plotting was explicitly disabled");
+                    return Ok(None);
+                }
+            }
+        } else {
+            None
+        };
+
+    let plotting_thread_pool_core_indices;
+    if let Some(cpu_plotting_cores) = cpu_plotting_cores {
+        plotting_thread_pool_core_indices = parse_cpu_cores_sets(&cpu_plotting_cores)
+            .map_err(|error| anyhow!("Failed to parse `--cpu-plotting-cpu-cores`: {error}"))?;
+    } else {
+        plotting_thread_pool_core_indices = thread_pool_core_indices(
+            cpu_plotting_thread_pool_size,
+            cpu_sector_encoding_concurrency,
+        );
+
+        if plotting_thread_pool_core_indices.len() > 1 {
+            info!(
+                l3_cache_groups = %plotting_thread_pool_core_indices.len(),
+                "Multiple L3 cache groups detected"
+            );
+        }
+    }
+
+    let downloading_semaphore = Arc::new(Semaphore::new(
+        cpu_sector_downloading_concurrency
+            .map(|cpu_sector_downloading_concurrency| cpu_sector_downloading_concurrency.get())
+            .unwrap_or(plotting_thread_pool_core_indices.len() + 1),
+    ));
+
+    let cpu_record_encoding_concurrency = cpu_record_encoding_concurrency.unwrap_or_else(|| {
+        let cpu_cores = plotting_thread_pool_core_indices
+            .first()
+            .expect("Guaranteed to have some CPU cores; qed");
+
+        NonZeroUsize::new((cpu_cores.cpu_cores().len() / 2).clamp(1, 8)).expect("Not zero; qed")
+    });
+
+    info!(
+        ?plotting_thread_pool_core_indices,
+        "Preparing plotting thread pools"
+    );
+
+    let replotting_thread_pool_core_indices = plotting_thread_pool_core_indices
+        .clone()
+        .into_iter()
+        .map(|mut cpu_core_set| {
+            // We'll not use replotting threads at all, so just limit them to 1 core so we don't
+            // have too many threads hanging unnecessarily
+            cpu_core_set.truncate(1);
+            cpu_core_set
+        });
+    let plotting_thread_pool_manager = create_plotting_thread_pool_manager(
+        plotting_thread_pool_core_indices
+            .into_iter()
+            .zip(replotting_thread_pool_core_indices),
+        cpu_plotting_thread_priority.into(),
+    )
+    .map_err(|error| anyhow!("Failed to create thread pool manager: {error}"))?;
+
+    let cpu_plotter = CpuPlotter::<_, PosTable>::new(
+        piece_getter,
+        downloading_semaphore,
+        plotting_thread_pool_manager,
+        cpu_record_encoding_concurrency,
+        global_mutex,
+        erasure_coding,
+        Some(registry),
+    );
+
+    Ok(Some(cpu_plotter))
+}

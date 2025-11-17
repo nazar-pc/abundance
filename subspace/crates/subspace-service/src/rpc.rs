@@ -13,8 +13,8 @@ use jsonrpsee::RpcModule;
 use sc_client_api::{AuxStore, BlockBackend};
 use sc_consensus_subspace::archiver::{ArchivedSegmentNotification, SegmentHeadersStore};
 use sc_consensus_subspace::notification::SubspaceNotificationStream;
-use sc_consensus_subspace::slot_worker::{NewSlotNotification, RewardSigningNotification};
-use sc_consensus_subspace_rpc::{SubspaceRpc, SubspaceRpcApiServer, SubspaceRpcConfig};
+use sc_consensus_subspace::slot_worker::{BlockSealingNotification, NewSlotNotification};
+use sc_consensus_subspace_rpc::{FarmerRpc, FarmerRpcApiServer, FarmerRpcConfig};
 use sc_rpc::SubscriptionTaskExecutor;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -32,7 +32,7 @@ pub struct FullDeps<C, CSS, AS> {
     pub new_slot_notification_stream: SubspaceNotificationStream<NewSlotNotification>,
     /// A stream with notifications about headers that need to be signed with ability to send
     /// signature back.
-    pub reward_signing_notification_stream: SubspaceNotificationStream<RewardSigningNotification>,
+    pub block_sealing_notification_stream: SubspaceNotificationStream<BlockSealingNotification>,
     /// A stream with notifications about archived segment creation.
     pub archived_segment_notification_stream:
         SubspaceNotificationStream<ArchivedSegmentNotification>,
@@ -65,7 +65,7 @@ where
         client,
         subscription_executor,
         new_slot_notification_stream,
-        reward_signing_notification_stream,
+        block_sealing_notification_stream,
         archived_segment_notification_stream,
         dsn_bootstrap_nodes,
         segment_headers_store,
@@ -75,11 +75,11 @@ where
 
     let mut module = RpcModule::new(());
     module.merge(
-        SubspaceRpc::new(SubspaceRpcConfig {
+        FarmerRpc::new(FarmerRpcConfig {
             client: client.clone(),
             subscription_executor,
             new_slot_notification_stream,
-            reward_signing_notification_stream,
+            block_sealing_notification_stream,
             archived_segment_notification_stream,
             dsn_bootstrap_nodes,
             segment_headers_store,
