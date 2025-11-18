@@ -24,7 +24,7 @@ ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-proof-of-space = { workspace = true }
 futures = { workspace = true, features = ["alloc"] }
 send-future = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["sync", "time"] }
 tracing = { workspace = true }
 
 [lints]

@@ -128,6 +128,9 @@ where
 
     /// Returns a block header like [`Self::header()`] with additional block details
     fn header_with_details(&self, block_root: &BlockRoot) -> Option<(Block::Header, BlockDetails)>;
+
+    // TODO: Must return result due to potential reading from disk
+    fn block(&self, block_root: &BlockRoot) -> Option<Block>;
 }
 
 /// [`ChainInfo`] extension for writing information

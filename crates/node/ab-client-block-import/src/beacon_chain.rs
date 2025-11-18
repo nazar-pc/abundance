@@ -2,15 +2,19 @@ use crate::importing_blocks::{ImportingBlockHandle, ImportingBlocks, ParentBlock
 use crate::{BlockImport, BlockImportError};
 use ab_client_api::{BlockDetails, BlockOrigin, ChainInfoWrite};
 use ab_client_block_verification::{BlockVerification, BlockVerificationError};
+use ab_client_consensus_common::BlockImportingNotification;
 use ab_client_consensus_common::state::GlobalState;
 use ab_core_primitives::block::header::owned::OwnedBeaconChainHeader;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_proof_of_space::Table;
+use futures::channel::mpsc;
+use futures::prelude::*;
 use rclite::Arc;
 use send_future::SendFuture;
 use std::marker::PhantomData;
 use std::sync::Arc as StdArc;
+use tracing::warn;
 
 /// Errors for [`BeaconChainBlockImport`]
 #[derive(Debug, thiserror::Error)]
@@ -38,6 +42,7 @@ pub struct BeaconChainBlockImport<PosTable, CI, BV> {
     chain_info: CI,
     block_verification: BV,
     importing_blocks: ImportingBlocks<OwnedBeaconChainHeader>,
+    block_importing_notification_sender: mpsc::Sender<BlockImportingNotification>,
     _pos_table: PhantomData<PosTable>,
 }
 
@@ -123,11 +128,16 @@ where
 {
     /// Create a new instance
     #[inline(always)]
-    pub fn new(chain_info: CI, block_verification: BV) -> Self {
+    pub fn new(
+        chain_info: CI,
+        block_verification: BV,
+        block_importing_notification_sender: mpsc::Sender<BlockImportingNotification>,
+    ) -> Self {
         Self {
             chain_info,
             block_verification,
             importing_blocks: ImportingBlocks::new(),
+            block_importing_notification_sender,
             _pos_table: PhantomData,
         }
     }
@@ -176,6 +186,23 @@ where
         }
 
         let system_contract_states = global_state.to_system_contract_states();
+
+        let (acknowledgement_sender, mut acknowledgement_receiver) = mpsc::channel(0);
+        if let Err(error) = self
+            .block_importing_notification_sender
+            .clone()
+            .send(BlockImportingNotification {
+                block_number: header.prefix.number,
+                acknowledgement_sender,
+            })
+            .await
+        {
+            warn!(%error, "Failed to send block importing notification");
+        }
+
+        while acknowledgement_receiver.next().await.is_some() {
+            // Wait for all the acknowledgements to arrive
+        }
 
         self.chain_info
             .persist_block(

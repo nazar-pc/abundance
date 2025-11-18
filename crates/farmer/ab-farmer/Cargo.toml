@@ -10,6 +10,9 @@ include = [
     "/Cargo.toml",
 ]
 
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
 [[bin]]
 name = "ab-farmer"
 required-features = ["binary"]
@@ -26,7 +29,7 @@ ab-networking = { workspace = true }
 ab-proof-of-space = { workspace = true }
 ab-proof-of-space-gpu = { workspace = true }
 anyhow = { workspace = true }
-async-lock = { workspace = true }
+async-lock = { workspace = true, features = ["std"] }
 async-nats = { workspace = true, optional = true }
 async-trait = { workspace = true }
 backoff = { workspace = true, features = ["futures", "tokio"] }

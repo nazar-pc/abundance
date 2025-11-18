@@ -26,11 +26,15 @@ ab-client-proof-of-time = { workspace = true }
 ab-cli-utils = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-direct-io-file = { workspace = true }
+ab-erasure-coding = { workspace = true }
+ab-networking = { workspace = true }
+ab-node-rpc-server = { workspace = true }
 ab-proof-of-space = { workspace = true }
 bytesize = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 core_affinity = { workspace = true }
 futures = { workspace = true, features = ["alloc"] }
+jsonrpsee = { workspace = true, features = ["server"] }
 mimalloc = { workspace = true }
 rclite = { workspace = true }
 tempfile = { workspace = true }

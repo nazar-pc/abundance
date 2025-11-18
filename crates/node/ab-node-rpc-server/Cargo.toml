@@ -1,0 +1,37 @@
+[package]
+name = "ab-node-rpc-server"
+description = "RPC API for the farmer"
+license = "0BSD"
+version = "0.1.0"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+ab-archiving = { workspace = true }
+ab-client-api = { workspace = true }
+ab-client-archiving = { workspace = true }
+ab-client-block-authoring = { workspace = true }
+ab-client-consensus-common = { workspace = true }
+ab-core-primitives = { workspace = true }
+ab-erasure-coding = { workspace = true }
+ab-farmer-components = { workspace = true }
+ab-farmer-rpc-primitives = { workspace = true }
+ab-networking = { workspace = true }
+futures = { workspace = true, features = ["alloc"] }
+jsonrpsee = { workspace = true, features = ["server-core", "macros"] }
+parking_lot = { workspace = true }
+schnellru = { workspace = true }
+serde = { workspace = true, features = ["alloc", "derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

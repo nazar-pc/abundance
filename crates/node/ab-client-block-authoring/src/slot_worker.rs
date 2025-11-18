@@ -30,11 +30,13 @@ use futures::channel::{mpsc, oneshot};
 use send_future::SendFuture;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
+use std::time::Duration;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info, trace, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
 const PENDING_SOLUTIONS_CHANNEL_CAPACITY: usize = 10;
+const BLOCK_SEALING_TIMEOUT: Duration = Duration::from_millis(500);
 
 /// Information about a new slot that just arrived
 #[derive(Debug, Copy, Clone)]
@@ -617,7 +619,10 @@ where
                     warn!(%error, "Failed to send block sealing notification");
                 }
 
-                seal_receiver.await.ok()
+                match tokio::time::timeout(BLOCK_SEALING_TIMEOUT, seal_receiver).await {
+                    Ok(Ok(seal)) => Some(seal),
+                    _ => None,
+                }
             }
         };
 

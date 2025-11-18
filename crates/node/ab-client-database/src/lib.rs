@@ -349,6 +349,17 @@ where
     block_details: BlockDetails,
 }
 
+enum FullBlock<'a, Block>
+where
+    Block: GenericOwnedBlock,
+{
+    InMemory(&'a Block),
+    Persisted {
+        header: &'a Block::Header,
+        write_location: WriteLocation,
+    },
+}
+
 /// Client database block contains details about the block state in the database.
 ///
 /// Originally all blocks are stored in memory. Once a block is soft-confirmed (see
@@ -372,7 +383,6 @@ where
     /// perspective
     PersistedConfirmed {
         header: Block::Header,
-        #[expect(dead_code, reason = "Not used yet")]
         write_location: WriteLocation,
     },
 }
@@ -387,6 +397,25 @@ where
             Self::InMemory(in_memory) => in_memory.block.header(),
             Self::Persisted { header, .. } => header,
             Self::PersistedConfirmed { header, .. } => header,
+        }
+    }
+
+    #[inline(always)]
+    fn full_block(&self) -> FullBlock<'_, Block> {
+        match self {
+            Self::InMemory(in_memory) => FullBlock::InMemory(&in_memory.block),
+            Self::Persisted {
+                header,
+                write_location,
+                ..
+            }
+            | Self::PersistedConfirmed {
+                header,
+                write_location,
+            } => FullBlock::Persisted {
+                header,
+                write_location: *write_location,
+            },
         }
     }
 
@@ -554,6 +583,7 @@ where
         )
     }
 
+    // TODO: Add fast path when `descendant_block_root` is the best block
     fn ancestor_header(
         &self,
         ancestor_block_number: BlockNumber,
@@ -569,7 +599,7 @@ where
         let ancestor_block_candidates = state.blocks.get(ancestor_block_offset)?;
 
         let descendant_block_number = *state.block_roots.get(descendant_block_root)?;
-        if ancestor_block_number >= descendant_block_number {
+        if ancestor_block_number > descendant_block_number {
             return None;
         }
         let descendant_block_offset =
@@ -657,6 +687,38 @@ where
 
             if &*header.header().root() == block_root {
                 Some((header.clone(), block_details))
+            } else {
+                None
+            }
+        })
+    }
+
+    fn block(&self, block_root: &BlockRoot) -> Option<Block> {
+        // Blocking read lock is fine because the only place where write lock is taken is short and
+        // all other locks are read locks
+        let state = self.inner.state.read_blocking();
+        let best_number = state.best_tip().number;
+
+        let block_number = *state.block_roots.get(block_root)?;
+        let block_offset = best_number.checked_sub(block_number)?.as_u64() as usize;
+        let block_candidates = state.blocks.get(block_offset)?;
+
+        block_candidates.iter().find_map(|block| {
+            let header = block.header();
+
+            if &*header.header().root() == block_root {
+                match block.full_block() {
+                    FullBlock::InMemory(block) => Some(block.clone()),
+                    FullBlock::Persisted {
+                        header,
+                        write_location,
+                    } => {
+                        let _ = write_location;
+                        // TODO: Implement reading of the block from disk
+                        #[expect(unreachable_code, reason = "Unimplemented")]
+                        Block::from_buffers(header.buffer().clone(), unimplemented!())
+                    }
+                }
             } else {
                 None
             }

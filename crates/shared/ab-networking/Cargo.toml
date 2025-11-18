@@ -16,7 +16,7 @@ include = [
 [dependencies]
 ab-cli-utils = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
-async-lock = { workspace = true }
+async-lock = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
 backoff = { workspace = true, features = ["futures", "tokio"] }
 blake3 = { workspace = true }

@@ -9,6 +9,7 @@ pub mod state;
 use ab_core_primitives::block::{BlockNumber, BlockTimestamp};
 use ab_core_primitives::pot::{SlotDuration, SlotNumber};
 use ab_core_primitives::segments::HistorySize;
+use futures::channel::mpsc;
 
 /// Proof-of-time consensus constants
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -44,4 +45,15 @@ pub struct ConsensusConstants {
     pub min_sector_lifetime: HistorySize,
     /// Max block timestamp drift allowed
     pub max_block_timestamp_drift: BlockTimestamp,
+}
+
+/// Notification with information about the block that is about to be imported and acknowledgement
+/// sender that can be used to pause block production if necessary
+#[derive(Debug, Clone)]
+pub struct BlockImportingNotification {
+    /// Block number
+    pub block_number: BlockNumber,
+    /// Sender for pausing the block import for archiving purposes is not fast enough to process
+    /// the consensus block
+    pub acknowledgement_sender: mpsc::Sender<()>,
 }

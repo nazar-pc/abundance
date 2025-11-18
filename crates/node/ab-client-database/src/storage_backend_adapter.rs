@@ -64,7 +64,7 @@ enum WriteBufferEntry {
     Occupied(oneshot::Receiver<io::Result<Vec<AlignedPage>>>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub(crate) struct WriteLocation {
     #[expect(dead_code, reason = "Not used yet")]
     pub(crate) page_offset: u32,
