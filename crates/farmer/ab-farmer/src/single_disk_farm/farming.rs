@@ -263,7 +263,7 @@ where
         global_mutex.lock().await;
 
         let mut problematic_sectors = Vec::new();
-        let result: Result<(), FarmingError> = try {
+        let result = try {
             let start = Instant::now();
             let sectors_metadata = sectors_metadata.read().await;
 
@@ -272,19 +272,21 @@ where
             let mut sectors_solutions = {
                 let sectors_being_modified = &*sectors_being_modified.read().await;
 
-                thread_pool.install(|| {
-                    let _span_guard = span.enter();
+                thread_pool
+                    .install(|| {
+                        let _span_guard = span.enter();
 
-                    plot_audit.audit(PlotAuditOptions::<PosTable> {
-                        public_key_hash: &public_key_hash,
-                        shard_commitments_roots_cache: &shard_commitments_roots_cache,
-                        slot_info,
-                        sectors_metadata: &sectors_metadata,
-                        erasure_coding: &erasure_coding,
-                        sectors_being_modified,
-                        table_generator: &table_generator,
+                        plot_audit.audit(PlotAuditOptions::<PosTable> {
+                            public_key_hash: &public_key_hash,
+                            shard_commitments_roots_cache: &shard_commitments_roots_cache,
+                            slot_info,
+                            sectors_metadata: &sectors_metadata,
+                            erasure_coding: &erasure_coding,
+                            sectors_being_modified,
+                            table_generator: &table_generator,
+                        })
                     })
-                })?
+                    .map_err(FarmingError::LowLevelAuditing)?
             };
 
             sectors_solutions.sort_by(|a, b| {

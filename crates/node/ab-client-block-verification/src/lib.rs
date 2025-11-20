@@ -1,5 +1,3 @@
-#![feature(array_windows)]
-
 pub mod beacon_chain;
 
 use ab_client_api::BlockOrigin;

@@ -1,5 +1,3 @@
-#![feature(vec_deque_pop_if)]
-
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::transaction::TransactionHash;
 use ab_core_primitives::transaction::owned::OwnedTransaction;

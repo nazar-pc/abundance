@@ -24,7 +24,6 @@
 #![feature(
     generic_const_exprs,
     iter_advance_by,
-    maybe_uninit_slice,
     maybe_uninit_uninit_array_transpose,
     ptr_as_ref_unchecked,
     trusted_len

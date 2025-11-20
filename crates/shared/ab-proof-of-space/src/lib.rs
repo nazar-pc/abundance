@@ -3,7 +3,6 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![feature(
-    array_windows,
     const_convert,
     const_trait_impl,
     exact_size_is_empty,
@@ -12,14 +11,11 @@
     get_mut_unchecked,
     iter_array_chunks,
     maybe_uninit_fill,
-    maybe_uninit_slice,
-    maybe_uninit_write_slice,
     portable_simd,
     ptr_as_ref_unchecked,
     ptr_as_uninit,
     step_trait,
-    sync_unsafe_cell,
-    vec_into_raw_parts
+    sync_unsafe_cell
 )]
 
 pub mod chia;

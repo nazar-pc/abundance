@@ -1,11 +1,6 @@
 //! Utilities for working with contract files
 
-#![feature(
-    maybe_uninit_as_bytes,
-    maybe_uninit_fill,
-    maybe_uninit_write_slice,
-    trusted_len
-)]
+#![feature(maybe_uninit_as_bytes, maybe_uninit_fill, trusted_len)]
 #![no_std]
 
 use ab_contracts_common::metadata::decode::{

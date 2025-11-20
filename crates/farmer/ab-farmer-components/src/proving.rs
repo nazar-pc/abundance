@@ -232,7 +232,7 @@ where
         let pos_proofs =
             (self.table_generator)(&self.sector_id.derive_evaluation_seed(piece_offset));
 
-        let maybe_solution: Result<_, ProvingError> = try {
+        let maybe_solution = try {
             let sector_record_chunks_fut = read_sector_record_chunks(
                 piece_offset,
                 self.sector_metadata.pieces_in_sector,
@@ -243,7 +243,8 @@ where
             );
             let sector_record_chunks = sector_record_chunks_fut
                 .now_or_never()
-                .expect("Sync reader; qed")?;
+                .expect("Sync reader; qed")
+                .map_err(ProvingError::RecordReadingError)?;
 
             let chunk = sector_record_chunks
                 .get(usize::from(self.s_bucket))
@@ -254,7 +255,8 @@ where
                 &sector_record_chunks,
                 piece_offset,
                 self.erasure_coding,
-            )?;
+            )
+            .map_err(ProvingError::RecordReadingError)?;
             drop(sector_record_chunks);
 
             // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
@@ -278,7 +280,8 @@ where
             );
             let record_metadata = record_metadata_fut
                 .now_or_never()
-                .expect("Sync reader; qed")?;
+                .expect("Sync reader; qed")
+                .map_err(ProvingError::RecordReadingError)?;
 
             let proof_of_space = pos_proofs.for_s_bucket(self.s_bucket).expect(
                 "Proof exists for this s-bucket, otherwise it wouldn't be a winning chunk; qed",
