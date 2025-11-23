@@ -347,7 +347,7 @@ where
             match solution_verification_result {
                 Ok(()) => {
                     if maybe_consensus_info.is_none() {
-                        info!(%slot, "🚜 Claimed slot");
+                        debug!(%slot, "🚜 Claimed slot");
                         maybe_consensus_info.replace(BlockHeaderConsensusInfo {
                             slot,
                             proof_of_time,
@@ -355,7 +355,7 @@ where
                             solution,
                         });
                     } else {
-                        info!(
+                        debug!(
                             %slot,
                             "Skipping a solution that has quality sufficient for block because \
                             slot has already been claimed",
@@ -652,8 +652,10 @@ where
 
         let header = block_builder_result.block.header().header();
         info!(
+            slot = %header.consensus_info.slot,
             number = %header.prefix.number,
             root = %&*header.root(),
+            pre_seal_hash = %header.pre_seal_hash(),
             "🔖 Built new block",
         );
 

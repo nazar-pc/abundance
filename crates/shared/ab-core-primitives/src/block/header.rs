@@ -61,6 +61,9 @@ where
     ///
     /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
     fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync;
+
+    /// Hash of the block before seal is applied to it
+    fn pre_seal_hash(&self) -> Blake3Hash;
 }
 
 /// Block header prefix.
@@ -756,6 +759,11 @@ impl<'a> GenericBlockHeader<'a> for BeaconChainHeader<'a> {
     fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         self.root()
     }
+
+    #[inline(always)]
+    fn pre_seal_hash(&self) -> Blake3Hash {
+        self.pre_seal_hash()
+    }
 }
 
 impl<'a> BeaconChainHeader<'a> {
@@ -1039,6 +1047,11 @@ impl<'a> GenericBlockHeader<'a> for IntermediateShardHeader<'a> {
     #[inline(always)]
     fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         self.root()
+    }
+
+    #[inline(always)]
+    fn pre_seal_hash(&self) -> Blake3Hash {
+        self.pre_seal_hash()
     }
 }
 
@@ -1325,6 +1338,11 @@ impl<'a> GenericBlockHeader<'a> for LeafShardHeader<'a> {
     #[inline(always)]
     fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         self.root()
+    }
+
+    #[inline(always)]
+    fn pre_seal_hash(&self) -> Blake3Hash {
+        self.pre_seal_hash()
     }
 }
 

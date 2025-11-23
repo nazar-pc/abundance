@@ -32,8 +32,10 @@ use backoff::ExponentialBackoff;
 use bytesize::ByteSize;
 use clap::{Parser, ValueHint};
 use futures::channel::oneshot;
+use futures::prelude::*;
+use futures::select;
 use futures::stream::FuturesUnordered;
-use futures::{FutureExt, StreamExt, select};
+use futures::task::noop_waker_ref;
 use parking_lot::Mutex;
 use prometheus_client::registry::Registry;
 use std::fs;
@@ -42,6 +44,7 @@ use std::num::{NonZeroU8, NonZeroUsize};
 use std::pin::pin;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::task::Context;
 use std::time::Duration;
 use tracing::{Instrument, error, info, info_span, warn};
 
@@ -251,7 +254,9 @@ pub(crate) async fn farm<PosTable>(farming_args: FarmingArgs) -> anyhow::Result<
 where
     PosTable: Table,
 {
-    let signal = shutdown_signal();
+    let mut shutdown_signal_fut = pin!(shutdown_signal());
+    // Poll once to register signal handlers and ensure a graceful shutdown later
+    let _ = shutdown_signal_fut.poll_unpin(&mut Context::from_waker(noop_waker_ref()));
 
     let FarmingArgs {
         node_rpc_url,
@@ -567,8 +572,8 @@ where
                         let info = farm.info();
                         info!("Farm {farm_index}:");
                         info!("  ID: {}", info.id());
-                        info!("  Genesis hash: 0x{}", hex::encode(info.genesis_root()));
-                        info!("  Public key: 0x{}", hex::encode(info.public_key()));
+                        info!("  Genesis hash: {}", hex::encode(info.genesis_root()));
+                        info!("  Public key: {}", hex::encode(info.public_key()));
                         info!(
                             "  Allocated space: {} ({})",
                             ByteSize::b(info.allocated_space()).display().iec(),
@@ -778,7 +783,7 @@ where
 
     select! {
         // Signal future
-        () = signal.fuse() => {},
+        () = shutdown_signal_fut.fuse() => {},
 
         // Networking future
         Ok(()) | Err(oneshot::Canceled) = networking_fut.fuse() => {

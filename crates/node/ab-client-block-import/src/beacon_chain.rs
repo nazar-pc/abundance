@@ -14,7 +14,7 @@ use rclite::Arc;
 use send_future::SendFuture;
 use std::marker::PhantomData;
 use std::sync::Arc as StdArc;
-use tracing::warn;
+use tracing::{info, warn};
 
 /// Errors for [`BeaconChainBlockImport`]
 #[derive(Debug, thiserror::Error)]
@@ -155,6 +155,12 @@ where
         let header = block.header.header();
         let body = block.body.body();
 
+        let log_block_import = match origin {
+            BlockOrigin::LocalBlockBuilder { .. } => true,
+            BlockOrigin::Sync => false,
+            BlockOrigin::Broadcast => true,
+        };
+
         // TODO: `.send()` is a hack for compiler bug, see:
         //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
         self.block_verification
@@ -204,6 +210,9 @@ where
             // Wait for all the acknowledgements to arrive
         }
 
+        let number = header.prefix.number;
+        let root = *header.root();
+
         self.chain_info
             .persist_block(
                 block,
@@ -215,6 +224,14 @@ where
             .await?;
 
         importing_handle.set_success(system_contract_states);
+
+        if log_block_import {
+            info!(
+                %number,
+                %root,
+                "🏆 Imported block",
+            );
+        }
 
         Ok(())
     }

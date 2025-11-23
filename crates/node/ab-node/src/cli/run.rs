@@ -33,14 +33,18 @@ use bytesize::ByteSize;
 use clap::{Parser, ValueEnum};
 use core_affinity::CoreId;
 use futures::channel::mpsc;
-use futures::{StreamExt, select};
+use futures::prelude::*;
+use futures::select;
+use futures::task::noop_waker_ref;
 use jsonrpsee::server::Server;
 use rclite::Arc;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
+use std::pin::pin;
 use std::sync::Arc as StdArc;
+use std::task::Context;
 use std::{io, thread};
 use thread_priority::{ThreadPriority, set_current_thread_priority};
 use tracing::{Span, error, info, warn};
@@ -340,6 +344,10 @@ impl Run {
             mut timekeeper_options,
         } = self;
 
+        let mut shutdown_signal_fut = pin!(shutdown_signal());
+        // Poll once to register signal handlers and ensure a graceful shutdown later
+        let _ = shutdown_signal_fut.poll_unpin(&mut Context::from_waker(noop_waker_ref()));
+
         // Development mode handling is limited to this section
         {
             if dev {
@@ -435,8 +443,7 @@ impl Run {
             })
             .await?;
 
-        info!("Abundance");
-        info!("✌️ version {}", env!("CARGO_PKG_VERSION"));
+        info!("✌️ Abundance {}", env!("CARGO_PKG_VERSION"));
         // TODO: Un-comment when there is a chain spec notion
         info!("📋 Chain specification: {}", chain_spec.name(),);
         info!("💾 Database path: {}", db_path.display());
@@ -561,19 +568,6 @@ impl Run {
 
         let erasure_coding = ErasureCoding::new();
 
-        let archiver_task = create_archiver_task(
-            segment_headers_store.clone(),
-            client_database.clone(),
-            block_importing_notification_receiver,
-            archived_segment_notification_sender,
-            consensus_constants,
-            CreateObjectMappings::No,
-            erasure_coding.clone(),
-        )?;
-
-        // TODO: Better thread management, probably move to its own dedicated thread
-        tokio::spawn(archiver_task);
-
         let (farmer_rpc, farmer_rpc_worker) = FarmerRpc::new(FarmerRpcConfig {
             genesis_block,
             consensus_constants,
@@ -586,11 +580,39 @@ impl Run {
             dsn_bootstrap_nodes: Vec::new(),
             segment_headers_store: segment_headers_store.clone(),
             chain_sync_status: chain_sync_status.clone(),
-            erasure_coding,
+            erasure_coding: erasure_coding.clone(),
         });
+
+        let server = Server::builder()
+            .build(farmer_rpc_listen_on)
+            .await
+            .map_err(|error| RunError::FarmerRpcServer { error })?;
+
+        {
+            let address = server
+                .local_addr()
+                .map_err(|error| RunError::FarmerRpcServer { error })?;
+            info!(%address, "Started farmer RPC server");
+        }
 
         // TODO: Better thread management, probably move to its own dedicated thread
         tokio::spawn(farmer_rpc_worker.run());
+
+        // TODO: Initialize in a blocking task
+        let archiver_task = tokio::task::block_in_place(|| {
+            create_archiver_task(
+                segment_headers_store.clone(),
+                client_database.clone(),
+                block_importing_notification_receiver,
+                archived_segment_notification_sender,
+                consensus_constants,
+                CreateObjectMappings::No,
+                erasure_coding,
+            )
+        })?;
+
+        // TODO: Better thread management, probably move to its own dedicated thread
+        tokio::spawn(archiver_task);
 
         let slot_worker =
             SubspaceSlotWorker::<PosTable, _, _, _, _, _, _>::new(SubspaceSlotWorkerOptions {
@@ -626,23 +648,11 @@ impl Run {
             drop(best_block_pot_info_sender);
         });
 
-        let server = Server::builder()
-            .build(farmer_rpc_listen_on)
-            .await
-            .map_err(|error| RunError::FarmerRpcServer { error })?;
-
-        {
-            let address = server
-                .local_addr()
-                .map_err(|error| RunError::FarmerRpcServer { error })?;
-            info!(%address, "Started farmer RPC server");
-        }
-
         // TODO: Better thread management, probably move to its own dedicated thread
         tokio::spawn(server.start(farmer_rpc.into_rpc()).stopped());
 
         // TODO: This is just a placeholder to keep the node running
-        shutdown_signal().await;
+        shutdown_signal_fut.await;
 
         // TODO: These should be used
         let _ = force_synced;
