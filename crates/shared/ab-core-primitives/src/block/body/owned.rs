@@ -866,9 +866,7 @@ impl OwnedBlockBody {
 #[must_use]
 fn align_to_8_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
     let alignment = align_of::<u64>();
-    // Optimized version of the following due to alignment being a power of 2:
-    // let unaligned_by = self.payload.as_ptr().addr() % alignment;
-    let unaligned_by = buffer.as_ptr().addr() & (alignment - 1);
+    let unaligned_by = buffer.len() as usize % alignment;
     if unaligned_by > 0 {
         // SAFETY: Subtracted value is always smaller than alignment
         let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
@@ -888,9 +886,7 @@ fn align_to_8_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
 #[must_use]
 fn align_to_16_bytes_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
     let alignment = align_of::<u128>();
-    // Optimized version of the following due to alignment being a power of 2:
-    // let unaligned_by = self.payload.as_ptr().addr() % alignment;
-    let unaligned_by = buffer.as_ptr().addr() & (alignment - 1);
+    let unaligned_by = buffer.len() as usize % alignment;
     if unaligned_by > 0 {
         // SAFETY: Subtracted value is always smaller than alignment
         let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
