@@ -184,7 +184,7 @@ where
 
         let state_root = global_state.root();
 
-        if header.result.state_root == state_root {
+        if header.result.state_root != state_root {
             return Err(BlockImportError::InvalidStateRoot {
                 expected: state_root,
                 actual: header.result.state_root,

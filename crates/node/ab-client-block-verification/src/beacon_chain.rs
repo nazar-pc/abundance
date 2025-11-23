@@ -240,11 +240,12 @@ where
             .copied()
             .map(PotParametersChange::from);
 
-        // Last checkpoint must be the future proof of time
+        // The last checkpoint must be the future proof of time
         if checkpoints.last().map(PotCheckpoints::output) != Some(future_proof_of_time) {
             return Err(BeaconChainBlockVerificationError::InvalidPotCheckpoints);
         }
 
+        let future_slot = slot + block_authoring_delay;
         let parent_future_slot = if parent_slot == SlotNumber::ZERO {
             parent_slot
         } else {
@@ -254,11 +255,16 @@ where
         let slots_between_blocks = slot
             .checked_sub(parent_slot)
             .ok_or(BeaconChainBlockVerificationError::InvalidPotCheckpoints)?;
-        // Number of checkpoints must match the difference between parent's and this block's
+        // The number of checkpoints must match the difference between parent's and this block's
         // future slots. This also implicitly checks that there is a non-zero number of slots
-        // between this and parent block because list of checkpoints is already known to be not
+        // between this and parent block because the list of checkpoints is already known to be not
         // empty from the check above.
-        if slots_between_blocks.as_u64() != checkpoints.len() as u64 {
+        //
+        // The first block after genesis is a special case and is handled separately here.
+        if !(slots_between_blocks.as_u64() == checkpoints.len() as u64
+            || (parent_slot == SlotNumber::ZERO
+                && future_slot.as_u64() == checkpoints.len() as u64))
+        {
             return Err(BeaconChainBlockVerificationError::InvalidPotCheckpoints);
         }
 
@@ -276,7 +282,7 @@ where
                         .then_some(parameters_change.slot_iterations)
                 })
                 .unwrap_or(parent_consensus_parameters.fixed_parameters.slot_iterations);
-            // Derive inputs to the slot, which follows parent future slot
+            // Derive inputs to the slot, which follows the parent future slot
             PotNextSlotInput::derive(
                 slot_iterations,
                 parent_future_slot,
@@ -341,14 +347,14 @@ where
                     seed: pot_verifier.genesis_seed(),
                 }
             } else {
-                // Calculate slot iterations as of parent slot
+                // Calculate slot iterations as of the parent slot
                 let slot_iterations = parent_pot_parameters_change
                     .and_then(|parameters_change| {
                         (parameters_change.slot <= parent_slot)
                             .then_some(parameters_change.slot_iterations)
                     })
                     .unwrap_or(parent_consensus_parameters.fixed_parameters.slot_iterations);
-                // Derive inputs to the slot, which follows parent slot
+                // Derive inputs to the slot, which follows the parent slot
                 PotNextSlotInput::derive(
                     slot_iterations,
                     parent_slot,
@@ -357,7 +363,7 @@ where
                 )
             };
 
-            if pot_verifier.is_output_valid(
+            if !pot_verifier.is_output_valid(
                 pot_input,
                 slots_between_blocks,
                 proof_of_time,
