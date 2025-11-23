@@ -8,11 +8,15 @@ mod storage_backend;
 use crate::cli::CliCommand;
 use crate::cli::format_database::{FormatDb, FormatDbError};
 use crate::cli::run::{Run, RunError};
-use ab_cli_utils::{init_logger, set_exit_on_panic};
+use ab_cli_utils::{init_logger, raise_fd_limit, set_exit_on_panic};
 use ab_client_database::storage_backend::AlignedPage;
 use bytesize::ByteSize;
 use clap::Parser;
 use std::num::NonZeroU32;
+
+#[cfg(not(miri))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 /// This is the current recommended page group size.
 ///
@@ -44,6 +48,7 @@ enum Error {
 fn main() -> Result<(), Error> {
     set_exit_on_panic();
     init_logger();
+    raise_fd_limit();
 
     match Cli::parse() {
         Cli::FormatDb(cmd) => cmd.run(),

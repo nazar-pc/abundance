@@ -590,6 +590,7 @@ dependencies = [
  "clap",
  "core_affinity",
  "futures",
+ "mimalloc",
  "rclite",
  "tempfile",
  "thiserror 2.0.17",
