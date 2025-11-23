@@ -1,16 +1,14 @@
 #![feature(type_changing_struct_update)]
 
 mod commands;
-mod utils;
 
-use ab_cli_utils::init_logger;
+use ab_cli_utils::{init_logger, raise_fd_limit, set_exit_on_panic};
 use ab_farmer::single_disk_farm::{ScrubTarget, SingleDiskFarm};
 use ab_proof_of_space::chia::ChiaTable;
 use ab_proof_of_space_gpu::{Device, DeviceType};
 use clap::Parser;
 use std::num::NonZeroU8;
 use std::path::PathBuf;
-use std::process::exit;
 use std::{fs, panic};
 use tracing::info;
 
@@ -76,16 +74,9 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Exit on panics, rather than unwinding. Unwinding can hang the tokio runtime waiting for
-    // stuck tasks or threads.
-    let default_panic_hook = panic::take_hook();
-    panic::set_hook(Box::new(move |panic_info| {
-        default_panic_hook(panic_info);
-        exit(1);
-    }));
-
+    set_exit_on_panic();
     init_logger();
-    utils::raise_fd_limit();
+    raise_fd_limit();
 
     let command = Command::parse();
 

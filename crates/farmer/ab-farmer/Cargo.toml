@@ -41,7 +41,6 @@ derive_more = { workspace = true, features = ["full"] }
 ed25519-zebra = { workspace = true }
 event-listener = { workspace = true }
 event-listener-primitives = { workspace = true }
-fdlimit = { workspace = true, optional = true }
 fs4 = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true, features = ["serde"] }
@@ -62,7 +61,7 @@ ss58-registry = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 thread-priority = { workspace = true }
-tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "signal", "sync", "time"] }
+tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "sync", "time"] }
 tokio-stream = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 ulid = { workspace = true, features = ["serde"] }
@@ -82,7 +81,6 @@ binary = [
     "dep:ab-cli-utils",
     "dep:clap",
     "dep:criterion",
-    "dep:fdlimit",
     "dep:mimalloc",
 ]
 

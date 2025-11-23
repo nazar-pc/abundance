@@ -52,6 +52,9 @@ dependencies = [
 name = "ab-cli-utils"
 version = "0.0.1"
 dependencies = [
+ "fdlimit",
+ "futures",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]
@@ -437,7 +440,6 @@ dependencies = [
  "ed25519-zebra",
  "event-listener 5.4.1",
  "event-listener-primitives",
- "fdlimit",
  "fs4",
  "futures",
  "hex",

@@ -7,7 +7,7 @@ use crate::commands::cluster::cache::{CacheArgs, cache};
 use crate::commands::cluster::controller::{ControllerArgs, controller};
 use crate::commands::cluster::farmer::{FarmerArgs, farmer};
 use crate::commands::cluster::plotter::{PlotterArgs, plotter};
-use crate::utils::shutdown_signal;
+use ab_cli_utils::shutdown_signal;
 use ab_farmer::cluster::nats_client::NatsClient;
 use ab_proof_of_space::Table;
 use anyhow::anyhow;
