@@ -50,7 +50,7 @@ jobs:
   # Artificial job that gives windows test jobs head start by making other jobs start a bit later, so Windows jobs
   # schedule earlier than the rest and will not delay the rest of the queue as much as they would otherwise
   cargo-test-slow-head-start:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     steps:
       - name: Artificial delay
         run: sleep 5
@@ -552,7 +552,7 @@ jobs:
   rust-all:
     # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks
     if: ${{ always() }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-slim
     needs:
       - cargo-clippy
       - cargo-fmt
