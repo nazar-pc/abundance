@@ -78,7 +78,7 @@ enum-map = "2.7.3"
 event-listener = "5.4.1"
 event-listener-primitives = "2.0.1"
 fdlimit = "0.3.0"
-# TODO: Not using fs4 on purpose due to https://github.com/al8n/fs4-rs/issues/15
+# TODO: Not using fs4 intentionally due to https://github.com/al8n/fs4-rs/issues/15
 fs2 = "0.4.3"
 fs4 = "0.13.1"
 futures = { version = "0.3.31", default-features = false, features = ["async-await"] }
@@ -92,7 +92,6 @@ libc = "0.2.177"
 libp2p = { version = "0.54.2", git = "https://github.com/autonomys/rust-libp2p", rev = "04c2e649b1f5482b8c3466b0fdbd1815b3126a48", default-features = false }
 libp2p-swarm-test = { version = "0.5.0", git = "https://github.com/autonomys/rust-libp2p", rev = "04c2e649b1f5482b8c3466b0fdbd1815b3126a48" }
 memmap2 = "0.9.9"
-# TODO: Use for node too
 mimalloc = "0.1.48"
 multihash = "0.19.3"
 nohash-hasher = "0.2.0"

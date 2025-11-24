@@ -21,6 +21,9 @@ pub(crate) enum StorageItemError {
     /// Buffer too small
     #[error("Buffer too small: expected {expected}, actual {actual}")]
     BufferTooSmall { expected: usize, actual: usize },
+    /// Buffer too large
+    #[error("Buffer too large, {extra_pages} extra pages were provided")]
+    BufferTooLarge { extra_pages: usize },
     /// Need more bytes
     #[error("Need {0} more bytes")]
     NeedMoreBytes(usize),
@@ -126,7 +129,9 @@ where
         (prefix_size + storage_item_size + Self::suffix_size()).div_ceil(AlignedPage::SIZE) as u32
     }
 
-    /// Write (append) a storage item to the provided buffer of aligned pages
+    /// Write a storage item to the provided buffer of aligned pages.
+    ///
+    /// Successful write means all provided pages are fully initialized.
     pub(super) fn write_to_pages(
         &self,
         buffer: &mut [MaybeUninit<AlignedPage>],
@@ -184,6 +189,14 @@ where
         let storage_item_checksum = *hash(storage_item_bytes).as_bytes();
         storage_item_checksum_bytes.write_copy_of_slice(&storage_item_checksum);
         prefix_checksum_repeat_bytes.write_copy_of_slice(&checksum);
+
+        if buffer.len() < AlignedPage::SIZE {
+            buffer.write_filled(0);
+        } else {
+            return Err(StorageItemError::BufferTooLarge {
+                extra_pages: buffer.len(),
+            });
+        }
 
         Ok(())
     }

@@ -278,13 +278,15 @@ impl OwnedBeaconChainBody {
             }
         })?;
         let num_blocks = intermediate_shard_blocks.size_hint().0;
-        let num_blocks = u8::try_from(num_blocks).map_err(|_error| {
+        let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
             OwnedBeaconChainBodyError::TooManyIntermediateShardBlocks { actual: num_blocks }
         })?;
 
         let mut buffer = OwnedAlignedBuffer::with_capacity(
-            u8::SIZE
+            u32::SIZE
+                + u8::SIZE
                 + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
+                + u16::SIZE
                 // This is only an estimate to get in the ballpark where reallocation should not be
                 // necessary in many cases
                 + u32::from(num_blocks) * OwnedIntermediateShardHeader::max_allocation_for(&[]) * 2,
@@ -309,6 +311,7 @@ impl OwnedBeaconChainBody {
             };
             let mut segments_roots_num_cursor = buffer.len() as usize;
             for _ in 0..num_blocks {
+                // Placeholder values for the number of own and child segment roots
                 let true = buffer.append(&[0, 0, 0]) else {
                     unreachable!("Checked size above; qed");
                 };

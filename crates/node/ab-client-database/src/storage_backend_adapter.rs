@@ -633,11 +633,17 @@ impl StorageBackendAdapter {
             let length = container.num_pages() as usize + 1;
             buffer.reserve(length);
 
-            let (header, buffer) = buffer.spare_capacity_mut()[..length].split_at_mut(1);
-            page_group_header
-                .write_to_pages(header)
-                .map_err(io::Error::other)?;
-            container.write_to_pages(buffer).map_err(io::Error::other)?;
+            {
+                let (header, buffer) = buffer.spare_capacity_mut()[..length].split_at_mut(1);
+                page_group_header
+                    .write_to_pages(header)
+                    .map_err(io::Error::other)?;
+                container.write_to_pages(buffer).map_err(io::Error::other)?;
+            }
+            // SAFETY: Successful writes above fully initialized `length` pages
+            unsafe {
+                buffer.set_len(buffer.len() + length);
+            }
         } else {
             let length = container.num_pages() as usize;
             buffer.reserve(length);
@@ -645,6 +651,10 @@ impl StorageBackendAdapter {
             container
                 .write_to_pages(&mut buffer.spare_capacity_mut()[..length])
                 .map_err(io::Error::other)?;
+            // SAFETY: Successful write above fully initialized `length` pages
+            unsafe {
+                buffer.set_len(buffer.len() + length);
+            }
         }
 
         Ok(())

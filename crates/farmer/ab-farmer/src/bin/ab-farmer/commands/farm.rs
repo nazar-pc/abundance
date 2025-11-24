@@ -1,7 +1,7 @@
 use crate::commands::shared::gpu::{GpuPlottingOptions, init_gpu_plotter};
 use crate::commands::shared::network::{NetworkArgs, configure_network};
 use crate::commands::shared::{DiskFarm, PlottingThreadPriority, derive_libp2p_keypair};
-use crate::utils::shutdown_signal;
+use ab_cli_utils::shutdown_signal;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_erasure_coding::ErasureCoding;

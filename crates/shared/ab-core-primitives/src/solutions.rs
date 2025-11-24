@@ -1,6 +1,7 @@
 //! Solutions-related data structures and functions.
 
 use crate::block::BlockNumber;
+use crate::ed25519::Ed25519PublicKey;
 use crate::hashes::Blake3Hash;
 use crate::pieces::{PieceOffset, Record, RecordChunk, RecordProof, RecordRoot};
 use crate::pos::{PosProof, PosSeed};
@@ -470,7 +471,7 @@ impl Solution {
     /// Fake solution for the genesis block
     pub fn genesis_solution() -> Self {
         Self {
-            public_key_hash: Blake3Hash::default(),
+            public_key_hash: Ed25519PublicKey::default().hash(),
             record_root: RecordRoot::default(),
             record_proof: RecordProof::default(),
             chunk: RecordChunk::default(),

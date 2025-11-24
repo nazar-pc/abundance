@@ -48,6 +48,9 @@ version = "0.1.0"
 name = "ab-cli-utils"
 version = "0.0.1"
 dependencies = [
+ "fdlimit",
+ "futures",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]

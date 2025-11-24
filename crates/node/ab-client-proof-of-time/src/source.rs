@@ -83,6 +83,12 @@ impl Clone for PotSlotInfoStream {
     }
 }
 
+impl PotSlotInfoStream {
+    fn new(receiver: broadcast::Receiver<PotSlotInfo>) -> Self {
+        Self(receiver)
+    }
+}
+
 /// Worker producing proofs of time.
 ///
 /// Depending on configuration may produce proofs of time locally, send/receive via gossip and keep
@@ -125,7 +131,7 @@ where
             pot_state,
         };
 
-        let pot_slot_info_stream = PotSlotInfoStream(slot_receiver);
+        let pot_slot_info_stream = PotSlotInfoStream::new(slot_receiver);
 
         (source_worker, pot_slot_info_stream)
     }

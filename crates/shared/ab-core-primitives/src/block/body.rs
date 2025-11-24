@@ -134,7 +134,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         //   * concatenated child segment roots
 
         let num_blocks = bytes.split_off(..size_of::<u16>())?;
-        let num_blocks = usize::from(u16::from_le_bytes([num_blocks[1], num_blocks[2]]));
+        let num_blocks = usize::from(u16::from_le_bytes([num_blocks[0], num_blocks[1]]));
 
         let bytes_start = bytes;
 
@@ -358,14 +358,10 @@ impl<'a> BeaconChainBody<'a> {
         // * intermediate shard blocks: IntermediateShardBlocksInfo
         // * concatenated PoT checkpoints
 
-        let num_pot_checkpoints = bytes.split_off(..size_of::<u16>())?;
+        let num_pot_checkpoints = bytes.split_off(..size_of::<u32>())?;
         // SAFETY: All bit patterns are valid
         let num_pot_checkpoints =
             *unsafe { <u32 as TrivialType>::from_bytes(num_pot_checkpoints) }? as usize;
-
-        if num_pot_checkpoints == 0 {
-            return None;
-        }
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
@@ -445,14 +441,10 @@ impl<'a> BeaconChainBody<'a> {
         // * intermediate shard blocks: IntermediateShardBlocksInfo
         // * concatenated PoT checkpoints
 
-        let num_pot_checkpoints = bytes.split_off(..size_of::<u16>())?;
+        let num_pot_checkpoints = bytes.split_off(..size_of::<u32>())?;
         // SAFETY: All bit patterns are valid
         let num_pot_checkpoints =
             *unsafe { <u32 as TrivialType>::from_bytes(num_pot_checkpoints) }? as usize;
-
-        if num_pot_checkpoints == 0 {
-            return None;
-        }
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
