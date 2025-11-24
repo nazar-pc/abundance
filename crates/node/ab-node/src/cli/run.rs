@@ -1,17 +1,22 @@
 mod chain_spec;
 
-use crate::Error;
 use crate::cli::CliCommand;
 use crate::cli::run::chain_spec::ChainSpec;
 use crate::storage_backend::FileStorageBackend;
+use crate::{Error, PAGE_GROUP_SIZE};
+use ab_cli_utils::shutdown_signal;
 use ab_client_api::{ChainInfo, ChainSyncStatus};
+use ab_client_archiving::archiving::{
+    ArchiverTaskError, CreateObjectMappings, create_archiver_task,
+};
 use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
 use ab_client_block_authoring::slot_worker::{SubspaceSlotWorker, SubspaceSlotWorkerOptions};
 use ab_client_block_builder::beacon_chain::BeaconChainBlockBuilder;
 use ab_client_block_import::beacon_chain::BeaconChainBlockImport;
 use ab_client_block_verification::beacon_chain::BeaconChainBlockVerification;
 use ab_client_database::{
-    ClientDatabase, ClientDatabaseError, ClientDatabaseOptions, GenesisBlockBuilderResult,
+    ClientDatabase, ClientDatabaseError, ClientDatabaseFormatError, ClientDatabaseFormatOptions,
+    ClientDatabaseOptions, GenesisBlockBuilderResult,
 };
 use ab_client_proof_of_time::source::timekeeper::Timekeeper;
 use ab_client_proof_of_time::source::{PotSourceWorker, init_pot_state};
@@ -20,17 +25,26 @@ use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::pot::PotSeed;
 use ab_direct_io_file::DirectIoFile;
+use ab_erasure_coding::ErasureCoding;
+use ab_networking::libp2p::Multiaddr;
+use ab_node_rpc_server::{FarmerRpc, FarmerRpcApiServer, FarmerRpcConfig};
 use ab_proof_of_space::chia::ChiaTable;
+use bytesize::ByteSize;
 use clap::{Parser, ValueEnum};
 use core_affinity::CoreId;
 use futures::channel::mpsc;
-use futures::{StreamExt, select};
+use futures::prelude::*;
+use futures::select;
+use futures::task::noop_waker_ref;
+use jsonrpsee::server::Server;
 use rclite::Arc;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
+use std::pin::pin;
 use std::sync::Arc as StdArc;
+use std::task::Context;
 use std::{io, thread};
 use thread_priority::{ThreadPriority, set_current_thread_priority};
 use tracing::{Span, error, info, warn};
@@ -86,11 +100,24 @@ pub(crate) enum RunError {
         /// Low-level error
         error: io::Error,
     },
+    /// Failed to allocate the database
+    #[error("Failed to allocate the database: {error}")]
+    AllocateDatabase {
+        /// Low-level error
+        error: io::Error,
+    },
     /// Failed to instantiate the storage backend
     #[error("Failed to instantiate the storage backend: {error}")]
     InstantiateStorageBackend {
         /// Low-level error
         error: io::Error,
+    },
+    /// Failed to format the database
+    #[error("Failed to format the database: {error}")]
+    FormatDatabase {
+        /// Low-level error
+        #[from]
+        error: ClientDatabaseFormatError,
     },
     /// Failed to open the client database
     #[error("Failed to open the client database: {error}")]
@@ -98,6 +125,19 @@ pub(crate) enum RunError {
         /// Low-level error
         #[from]
         error: ClientDatabaseError,
+    },
+    /// Failed to create an archiver task
+    #[error("Failed to create an archiver task: {error}")]
+    ArchiverTask {
+        /// Low-level error
+        #[from]
+        error: ArchiverTaskError,
+    },
+    /// Failed to start farmer RPC server
+    #[error("Failed to start farmer RPC server: {error}")]
+    FarmerRpcServer {
+        /// Low-level error
+        error: io::Error,
     },
 }
 
@@ -169,11 +209,9 @@ struct NetworkOptions {
     //         .with(Protocol::Tcp(30433))
     // ])]
     // listen_on: Vec<Multiaddr>,
-    //
-    // /// Bootstrap nodes
-    // #[arg(long = "bootstrap-node")]
-    // bootstrap_nodes: Vec<Multiaddr>,
-    //
+    /// Bootstrap nodes
+    #[arg(long = "bootstrap-node")]
+    bootstrap_nodes: Vec<Multiaddr>,
     // /// Reserved peers
     // #[arg(long = "reserved-peer")]
     // reserved_peers: Vec<Multiaddr>,
@@ -241,7 +279,6 @@ pub(crate) struct Run {
     /// * `--force-authoring`
     /// * `--create-object-mappings`
     /// * `--allow-private-ips`
-    /// * `--rpc-cors all` (unless specified explicitly)
     /// * `--dsn-disable-bootstrap-on-start`
     /// * `--timekeeper`
     #[arg(long, verbatim_doc_comment)]
@@ -253,9 +290,12 @@ pub(crate) struct Run {
     #[arg(long)]
     tmp: bool,
     // TODO: This is only for farmer, would be nice to have a binary protocol instead of JSON-RPC
-    // /// Options for RPC
-    // #[clap(flatten)]
-    // rpc_options: RpcOptions<{ RPC_DEFAULT_PORT }>,
+    /// IP and port (TCP) on which to listen for farmer RPC requests.
+    #[arg(long, default_value_t = SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::LOCALHOST),
+        9944,
+    ))]
+    farmer_rpc_listen_on: SocketAddr,
     /// IP and port (TCP) to start Prometheus exporter on
     #[clap(long)]
     prometheus_listen_on: Option<SocketAddr>,
@@ -295,6 +335,7 @@ impl Run {
             mut chain,
             dev,
             mut tmp,
+            farmer_rpc_listen_on,
             prometheus_listen_on,
             mut force_synced,
             mut force_authoring,
@@ -302,6 +343,10 @@ impl Run {
             network_options,
             mut timekeeper_options,
         } = self;
+
+        let mut shutdown_signal_fut = pin!(shutdown_signal());
+        // Poll once to register signal handlers and ensure a graceful shutdown later
+        let _ = shutdown_signal_fut.poll_unpin(&mut Context::from_waker(noop_waker_ref()));
 
         // Development mode handling is limited to this section
         {
@@ -354,14 +399,40 @@ impl Run {
         )
         .map_err(|error| RunError::OpenDatabaseFile { error })?;
 
+        if maybe_tmp_file.is_some() {
+            // TODO: Proper database size calculation here
+            let size = ByteSize::gib(1).as_u64();
+
+            // Allocating the whole file (`set_len` below can create a sparse file, which will cause
+            // writes to fail later)
+            file.allocate(size)
+                .map_err(|error| RunError::AllocateDatabase { error })?;
+
+            // Truncating the file (if necessary)
+            file.set_len(size)
+                .map_err(|error| RunError::AllocateDatabase { error })?;
+        }
+
         let storage_backend = FileStorageBackend::new(Arc::new(file))
             .map_err(|error| RunError::InstantiateStorageBackend { error })?;
 
+        if maybe_tmp_file.is_some() {
+            ClientDatabase::<OwnedBeaconChainBlock, _>::format(
+                &storage_backend,
+                ClientDatabaseFormatOptions {
+                    page_group_size: PAGE_GROUP_SIZE,
+                    force: true,
+                },
+            )
+            .await?;
+        }
+
         let genesis_block = chain_spec.genesis_block();
+        let consensus_constants = *chain_spec.consensus_constants();
 
         let client_database =
             ClientDatabase::<OwnedBeaconChainBlock, _>::open(ClientDatabaseOptions {
-                confirmation_depth_k: Default::default(),
+                confirmation_depth_k: consensus_constants.confirmation_depth_k,
                 genesis_block_builder: || GenesisBlockBuilderResult {
                     block: genesis_block.clone(),
                     // TODO: Fill correct initial state
@@ -372,8 +443,7 @@ impl Run {
             })
             .await?;
 
-        info!("Abundance");
-        info!("✌️ version {}", env!("CARGO_PKG_VERSION"));
+        info!("✌️ Abundance {}", env!("CARGO_PKG_VERSION"));
         // TODO: Un-comment when there is a chain spec notion
         info!("📋 Chain specification: {}", chain_spec.name(),);
         info!("💾 Database path: {}", db_path.display());
@@ -387,8 +457,6 @@ impl Run {
             PotSeed::from_genesis(&genesis_block.header.header().root(), pot_external_entropy),
             POT_VERIFIER_CACHE_SIZE,
         );
-
-        let consensus_constants = *chain_spec.consensus_constants();
 
         // TODO: This should move into the database
         let segment_headers_store =
@@ -483,14 +551,68 @@ impl Run {
             client_database.clone(),
             chain_sync_status.clone(),
         );
+
+        let (block_importing_notification_sender, block_importing_notification_receiver) =
+            mpsc::channel(1);
         let block_import = BeaconChainBlockImport::<PosTable, _, _>::new(
             client_database.clone(),
             block_verification,
+            block_importing_notification_sender,
         );
 
-        let (new_slot_notification_sender, new_slot_notification_receiver) = mpsc::channel(0);
+        let (new_slot_notification_sender, new_slot_notification_receiver) = mpsc::channel(1);
         let (block_sealing_notification_sender, block_sealing_notification_receiver) =
             mpsc::channel(0);
+        let (archived_segment_notification_sender, archived_segment_notification_receiver) =
+            mpsc::channel(0);
+
+        let erasure_coding = ErasureCoding::new();
+
+        let (farmer_rpc, farmer_rpc_worker) = FarmerRpc::new(FarmerRpcConfig {
+            genesis_block,
+            consensus_constants,
+            // TODO: Query it from an actual chain
+            max_pieces_in_sector: 1000,
+            new_slot_notification_receiver,
+            block_sealing_notification_receiver,
+            archived_segment_notification_receiver,
+            // TODO: Correct values once networking stack is integrated
+            dsn_bootstrap_nodes: Vec::new(),
+            segment_headers_store: segment_headers_store.clone(),
+            chain_sync_status: chain_sync_status.clone(),
+            erasure_coding: erasure_coding.clone(),
+        });
+
+        let server = Server::builder()
+            .build(farmer_rpc_listen_on)
+            .await
+            .map_err(|error| RunError::FarmerRpcServer { error })?;
+
+        {
+            let address = server
+                .local_addr()
+                .map_err(|error| RunError::FarmerRpcServer { error })?;
+            info!(%address, "Started farmer RPC server");
+        }
+
+        // TODO: Better thread management, probably move to its own dedicated thread
+        tokio::spawn(farmer_rpc_worker.run());
+
+        // TODO: Initialize in a blocking task
+        let archiver_task = tokio::task::block_in_place(|| {
+            create_archiver_task(
+                segment_headers_store.clone(),
+                client_database.clone(),
+                block_importing_notification_receiver,
+                archived_segment_notification_sender,
+                consensus_constants,
+                CreateObjectMappings::No,
+                erasure_coding,
+            )
+        })?;
+
+        // TODO: Better thread management, probably move to its own dedicated thread
+        tokio::spawn(archiver_task);
 
         let slot_worker =
             SubspaceSlotWorker::<PosTable, _, _, _, _, _, _>::new(SubspaceSlotWorkerOptions {
@@ -513,25 +635,24 @@ impl Run {
         // TODO: Code below is just a placeholder
         tokio::spawn(async move {
             let mut to_gossip_receiver = to_gossip_receiver.fuse();
-            let mut new_slot_notification_receiver = new_slot_notification_receiver.fuse();
-            let mut block_sealing_notification_receiver =
-                block_sealing_notification_receiver.fuse();
 
             select! {
                 _ = to_gossip_receiver.next() => {
                     // TODO
                 }
-                _ = new_slot_notification_receiver.next() => {
-                    // TODO: Send to the farmer
-                }
-                _ = block_sealing_notification_receiver.next() => {
-                    // TODO: Send to the farmer
-                }
             }
+
+            std::future::pending::<()>().await;
 
             drop(from_gossip_sender);
             drop(best_block_pot_info_sender);
         });
+
+        // TODO: Better thread management, probably move to its own dedicated thread
+        tokio::spawn(server.start(farmer_rpc.into_rpc()).stopped());
+
+        // TODO: This is just a placeholder to keep the node running
+        shutdown_signal_fut.await;
 
         // TODO: These should be used
         let _ = force_synced;

@@ -14,10 +14,19 @@ include = [
 all-features = true
 
 [dependencies]
+ab-aligned-buffer = { workspace = true }
+ab-archiving = { workspace = true, features = ["parallel"] }
+ab-client-api = { workspace = true }
+ab-client-consensus-common = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["scale-codec"] }
+ab-erasure-coding = { workspace = true }
+bytesize = { workspace = true }
+chacha20 = { workspace = true, features = ["rng"] }
+futures = { workspace = true, features = ["alloc"] }
 parity-scale-codec = { workspace = true }
 parking_lot = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }
 
 [lints]

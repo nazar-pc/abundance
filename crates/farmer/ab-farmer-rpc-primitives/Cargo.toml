@@ -10,6 +10,9 @@ include = [
     "/Cargo.toml",
 ]
 
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
 [dependencies]
 ab-core-primitives = { workspace = true, features = ["scale-codec", "serde"] }
 ab-farmer-components = { workspace = true }

@@ -14,12 +14,16 @@ use anyhow::anyhow;
 use async_nats::ServerAddr;
 use backoff::ExponentialBackoff;
 use clap::{Parser, Subcommand};
+use futures::prelude::*;
+use futures::select;
 use futures::stream::FuturesUnordered;
-use futures::{FutureExt, StreamExt, select};
+use futures::task::noop_waker_ref;
 use prometheus_client::registry::Registry;
 use std::env::current_exe;
 use std::mem;
 use std::net::SocketAddr;
+use std::pin::pin;
+use std::task::Context;
 use std::time::Duration;
 
 const REQUEST_RETRY_MAX_ELAPSED_TIME: Duration = Duration::from_mins(1);
@@ -87,7 +91,9 @@ pub(crate) async fn cluster<PosTable>(cluster_args: ClusterArgs) -> anyhow::Resu
 where
     PosTable: Table,
 {
-    let signal = shutdown_signal();
+    let mut shutdown_signal_fut = pin!(shutdown_signal());
+    // Poll once to register signal handlers and ensure a graceful shutdown later
+    let _ = shutdown_signal_fut.poll_unpin(&mut Context::from_waker(noop_waker_ref()));
 
     let ClusterArgs {
         shared_args,
@@ -162,7 +168,7 @@ where
 
     select! {
         // Signal future
-        () = signal.fuse() => {
+        () = shutdown_signal_fut.fuse() => {
             Ok(())
         },
 

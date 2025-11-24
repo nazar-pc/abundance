@@ -90,7 +90,7 @@ impl FormatDb {
             file.allocate(size)
                 .map_err(|error| FormatDbError::AllocateDatabase { error })?;
 
-            // Truncating file (if necessary)
+            // Truncating the file (if necessary)
             file.set_len(size)
                 .map_err(|error| FormatDbError::AllocateDatabase { error })?;
         }

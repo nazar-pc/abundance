@@ -179,12 +179,12 @@ impl PotVerifier {
                     return Some(correct_checkpoints);
                 }
 
-                // There was another verification for these inputs and it wasn't successful, retry
+                // There was another verification for these inputs, and it wasn't successful, retry
                 continue;
             }
 
             if !do_proving_if_necessary {
-                // If not found and proving is not allowed then just exit
+                // If not found and proving is not allowed, then just exit
                 return None;
             }
 

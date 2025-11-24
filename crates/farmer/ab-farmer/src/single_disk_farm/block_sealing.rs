@@ -41,14 +41,14 @@ where
             {
                 Ok(_) => {
                     info!(
-                        "Successfully sealed block pre-seal hash 0x{}",
+                        "Successfully sealed block pre-seal hash {}",
                         hex::encode(pre_seal_hash)
                     );
                 }
                 Err(error) => {
                     warn!(
                         %error,
-                        "Failed to send seal for block pre-seal hash 0x{}",
+                        "Failed to send seal for block pre-seal hash {}",
                         hex::encode(pre_seal_hash),
                     );
                 }

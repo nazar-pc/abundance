@@ -25,7 +25,7 @@ ab-erasure-coding = { workspace = true }
 ab-networking = { workspace = true }
 ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
-async-lock = { workspace = true }
+async-lock = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
 core_affinity = { workspace = true }
 futures = { workspace = true }

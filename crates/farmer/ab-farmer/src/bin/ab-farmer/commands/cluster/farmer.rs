@@ -310,8 +310,8 @@ where
                         let info = farm.info();
                         info!("Farm {farm_index}:");
                         info!("  ID: {}", info.id());
-                        info!("  Genesis hash: 0x{}", hex::encode(info.genesis_root()));
-                        info!("  Public key: 0x{}", hex::encode(info.public_key()));
+                        info!("  Genesis hash: {}", hex::encode(info.genesis_root()));
+                        info!("  Public key: {}", hex::encode(info.public_key()));
                         info!(
                             "  Allocated space: {} ({})",
                             ByteSize::b(info.allocated_space()).display().iec(),

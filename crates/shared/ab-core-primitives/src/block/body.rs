@@ -376,10 +376,10 @@ impl<'a> BeaconChainBody<'a> {
         };
         let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-        let (intermediate_shard_blocks, remainder) =
+        let (intermediate_shard_blocks, mut remainder) =
             IntermediateShardBlocksInfo::try_from_bytes(bytes)?;
 
-        let pot_checkpoints = bytes.split_off(..num_pot_checkpoints * PotCheckpoints::SIZE)?;
+        let pot_checkpoints = remainder.split_off(..num_pot_checkpoints * PotCheckpoints::SIZE)?;
         // SAFETY: Valid pointer and size, no alignment requirements
         let pot_checkpoints = unsafe {
             slice::from_raw_parts(
@@ -459,10 +459,10 @@ impl<'a> BeaconChainBody<'a> {
         };
         let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-        let (intermediate_shard_blocks, remainder) =
+        let (intermediate_shard_blocks, mut remainder) =
             IntermediateShardBlocksInfo::try_from_bytes(bytes)?;
 
-        let pot_checkpoints = bytes.split_off(..num_pot_checkpoints * PotCheckpoints::SIZE)?;
+        let pot_checkpoints = remainder.split_off(..num_pot_checkpoints * PotCheckpoints::SIZE)?;
         // SAFETY: Valid pointer and size, no alignment requirements
         let pot_checkpoints = unsafe {
             slice::from_raw_parts(

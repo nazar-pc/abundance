@@ -1,0 +1,721 @@
+//! RPC API for the farmer
+
+#![feature(try_blocks)]
+
+use ab_archiving::archiver::NewArchivedSegment;
+use ab_client_api::ChainSyncStatus;
+use ab_client_archiving::archiving::{ArchivedSegmentNotification, recreate_genesis_segment};
+use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
+use ab_client_block_authoring::slot_worker::{BlockSealNotification, NewSlotNotification};
+use ab_client_consensus_common::ConsensusConstants;
+use ab_core_primitives::block::header::OwnedBlockHeaderSeal;
+use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pieces::{Piece, PieceIndex};
+use ab_core_primitives::pot::SlotNumber;
+use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
+use ab_core_primitives::solutions::Solution;
+use ab_erasure_coding::ErasureCoding;
+use ab_farmer_components::FarmerProtocolInfo;
+use ab_farmer_rpc_primitives::{
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo,
+    SolutionResponse,
+};
+use ab_networking::libp2p::Multiaddr;
+use futures::channel::{mpsc, oneshot};
+use futures::{StreamExt, select};
+use jsonrpsee::core::{SubscriptionResult, async_trait};
+use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::types::{ErrorObject, ErrorObjectOwned, SubscriptionId};
+use jsonrpsee::{PendingSubscriptionSink, SubscriptionSink, TrySendError};
+use parking_lot::Mutex;
+use schnellru::{ByLength, LruMap};
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use std::sync::{Arc, Weak};
+use tracing::{debug, error, warn};
+
+/// Top-level error type for the RPC handler.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    /// Solution was ignored
+    #[error("Solution was ignored for slot {slot}")]
+    SolutionWasIgnored {
+        /// Slot number
+        slot: SlotNumber,
+    },
+    /// Segment headers length exceeded the limit
+    #[error(
+        "Segment headers length exceeded the limit: {actual}/{MAX_SEGMENT_HEADERS_PER_REQUEST}"
+    )]
+    SegmentHeadersLengthExceeded {
+        /// Requested number of segment headers/indices
+        actual: usize,
+    },
+}
+
+impl From<Error> for ErrorObjectOwned {
+    fn from(error: Error) -> Self {
+        match &error {
+            Error::SolutionWasIgnored { .. } => {
+                ErrorObject::owned(0, error.to_string(), None::<()>)
+            }
+            Error::SegmentHeadersLengthExceeded { .. } => {
+                ErrorObject::owned(1, error.to_string(), None::<()>)
+            }
+        }
+    }
+}
+
+/// Provides rpc methods for interacting with the farmer
+#[rpc(server)]
+pub trait FarmerRpcApi {
+    /// Get metadata necessary for farmer operation
+    #[method(name = "getFarmerAppInfo")]
+    fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error>;
+
+    #[method(name = "submitSolutionResponse")]
+    fn submit_solution_response(&self, solution_response: SolutionResponse) -> Result<(), Error>;
+
+    /// Slot info subscription
+    #[subscription(
+        name = "subscribeSlotInfo" => "slot_info",
+        unsubscribe = "unsubscribeSlotInfo",
+        item = SlotInfo,
+    )]
+    async fn subscribe_slot_info(&self) -> SubscriptionResult;
+
+    /// Sign block subscription
+    #[subscription(
+        name = "subscribeBlockSealing" => "block_seal",
+        unsubscribe = "unsubscribeBlockSealing",
+        item = BlockSealInfo,
+    )]
+    async fn subscribe_block_seal(&self) -> SubscriptionResult;
+
+    #[method(name = "submitBlockSeal")]
+    fn submit_block_seal(&self, block_seal: BlockSealResponse) -> Result<(), Error>;
+
+    /// Archived segment header subscription
+    #[subscription(
+        name = "subscribeArchivedSegmentHeader" => "archived_segment_header",
+        unsubscribe = "unsubscribeArchivedSegmentHeader",
+        item = SegmentHeader,
+    )]
+    async fn subscribe_archived_segment_header(&self) -> SubscriptionResult;
+
+    #[method(name = "segmentHeaders")]
+    async fn segment_headers(
+        &self,
+        segment_indices: Vec<SegmentIndex>,
+    ) -> Result<Vec<Option<SegmentHeader>>, Error>;
+
+    #[method(name = "piece", blocking)]
+    fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, Error>;
+
+    #[method(name = "acknowledgeArchivedSegmentHeader")]
+    async fn acknowledge_archived_segment_header(
+        &self,
+        segment_index: SegmentIndex,
+    ) -> Result<(), Error>;
+
+    #[method(name = "lastSegmentHeaders")]
+    async fn last_segment_headers(&self, limit: u32) -> Result<Vec<Option<SegmentHeader>>, Error>;
+}
+
+#[derive(Debug, Default)]
+struct ArchivedSegmentHeaderAcknowledgementSenders {
+    segment_index: SegmentIndex,
+    senders: HashMap<SubscriptionId<'static>, mpsc::Sender<()>>,
+}
+
+#[derive(Debug, Default)]
+struct BlockSignatureSenders {
+    current_pre_seal_hash: Blake3Hash,
+    senders: Vec<oneshot::Sender<OwnedBlockHeaderSeal>>,
+}
+
+/// In-memory cache of last archived segment, such that when request comes back right after
+/// archived segment notification, RPC server is able to answer quickly.
+///
+/// We store weak reference, such that archived segment is not persisted for longer than
+/// necessary occupying RAM.
+#[derive(Debug)]
+enum CachedArchivedSegment {
+    /// Special case for genesis segment when requested over RPC
+    Genesis(Arc<NewArchivedSegment>),
+    Weak(Weak<NewArchivedSegment>),
+}
+
+impl CachedArchivedSegment {
+    fn get(&self) -> Option<Arc<NewArchivedSegment>> {
+        match self {
+            CachedArchivedSegment::Genesis(archived_segment) => Some(Arc::clone(archived_segment)),
+            CachedArchivedSegment::Weak(weak_archived_segment) => weak_archived_segment.upgrade(),
+        }
+    }
+}
+
+/// Farmer RPC configuration
+#[derive(Debug)]
+pub struct FarmerRpcConfig<CSS> {
+    /// Genesis beacon beacon chain block
+    pub genesis_block: OwnedBeaconChainBlock,
+    /// Consensus constants
+    pub consensus_constants: ConsensusConstants,
+    /// Max pieces in sector
+    pub max_pieces_in_sector: u16,
+    /// New slot notifications
+    pub new_slot_notification_receiver: mpsc::Receiver<NewSlotNotification>,
+    /// Block sealing notifications
+    pub block_sealing_notification_receiver: mpsc::Receiver<BlockSealNotification>,
+    /// Archived segment notifications
+    pub archived_segment_notification_receiver: mpsc::Receiver<ArchivedSegmentNotification>,
+    /// DSN bootstrap nodes
+    pub dsn_bootstrap_nodes: Vec<Multiaddr>,
+    /// Segment headers store
+    pub segment_headers_store: SegmentHeadersStore,
+    /// Chain sync status
+    pub chain_sync_status: CSS,
+    /// Erasure coding instance
+    pub erasure_coding: ErasureCoding,
+}
+
+/// Worker that drives RPC server tasks
+#[derive(Debug)]
+pub struct FarmerRpcWorker {
+    new_slot_notification_receiver: mpsc::Receiver<NewSlotNotification>,
+    block_sealing_notification_receiver: mpsc::Receiver<BlockSealNotification>,
+    archived_segment_notification_receiver: mpsc::Receiver<ArchivedSegmentNotification>,
+    solution_response_senders: Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution>>>>,
+    block_sealing_senders: Arc<Mutex<BlockSignatureSenders>>,
+    cached_archived_segment: Arc<Mutex<Option<CachedArchivedSegment>>>,
+    archived_segment_acknowledgement_senders:
+        Arc<Mutex<ArchivedSegmentHeaderAcknowledgementSenders>>,
+    slot_info_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
+    block_sealing_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
+    archived_segment_header_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
+}
+
+impl FarmerRpcWorker {
+    /// Drive RPC server tasks
+    pub async fn run(mut self) {
+        loop {
+            select! {
+                maybe_new_slot_notification = self.new_slot_notification_receiver.next() => {
+                    let Some(new_slot_notification) = maybe_new_slot_notification else {
+                        break;
+                    };
+
+                    self.handle_new_slot_notification(new_slot_notification).await;
+                }
+                maybe_block_sealing_notification = self.block_sealing_notification_receiver.next() => {
+                    let Some(block_sealing_notification) = maybe_block_sealing_notification else {
+                        break;
+                    };
+
+                    self.handle_block_sealing_notification(block_sealing_notification).await;
+                }
+                maybe_archived_segment_notification = self.archived_segment_notification_receiver.next() => {
+                    let Some(archived_segment_notification) = maybe_archived_segment_notification else {
+                        break;
+                    };
+
+                    self.handle_archived_segment_notification(archived_segment_notification).await;
+                }
+            }
+        }
+    }
+
+    async fn handle_new_slot_notification(&mut self, new_slot_notification: NewSlotNotification) {
+        let NewSlotNotification {
+            new_slot_info,
+            solution_sender,
+        } = new_slot_notification;
+
+        let slot_number = new_slot_info.slot;
+
+        // Store solution sender so that we can retrieve it when solution comes from
+        // the farmer
+        let mut solution_response_senders = self.solution_response_senders.lock();
+        if solution_response_senders.peek(&slot_number).is_none() {
+            solution_response_senders.insert(slot_number, solution_sender);
+        }
+
+        let global_challenge = new_slot_info
+            .proof_of_time
+            .derive_global_challenge(slot_number);
+
+        // This will be sent to the farmer
+        let slot_info = SlotInfo {
+            slot_number,
+            global_challenge,
+            solution_range: new_slot_info.solution_range,
+        };
+        let slot_info = serde_json::value::to_raw_value(&slot_info)
+            .expect("Serialization of slot info never fails; qed");
+
+        self.slot_info_subscriptions.lock().retain_mut(|sink| {
+            match sink.try_send(slot_info.clone()) {
+                Ok(()) => true,
+                Err(error) => match error {
+                    TrySendError::Closed(_) => {
+                        // Remove closed receivers
+                        false
+                    }
+                    TrySendError::Full(_) => {
+                        warn!(
+                            subscription_id = ?sink.subscription_id(),
+                            "Slot info receiver is too slow, dropping notification"
+                        );
+                        true
+                    }
+                },
+            }
+        });
+    }
+
+    async fn handle_block_sealing_notification(
+        &mut self,
+        block_sealing_notification: BlockSealNotification,
+    ) {
+        let BlockSealNotification {
+            pre_seal_hash,
+            public_key_hash,
+            seal_sender,
+        } = block_sealing_notification;
+
+        // Store signature sender so that we can retrieve it when a solution comes from the farmer
+        {
+            let mut block_sealing_senders = self.block_sealing_senders.lock();
+
+            if block_sealing_senders.current_pre_seal_hash != pre_seal_hash {
+                block_sealing_senders.current_pre_seal_hash = pre_seal_hash;
+                block_sealing_senders.senders.clear();
+            }
+
+            block_sealing_senders.senders.push(seal_sender);
+        }
+
+        // This will be sent to the farmer
+        let block_seal_info = BlockSealInfo {
+            pre_seal_hash,
+            public_key_hash,
+        };
+        let block_seal_info = serde_json::value::to_raw_value(&block_seal_info)
+            .expect("Serialization of block seal info never fails; qed");
+
+        self.block_sealing_subscriptions.lock().retain_mut(|sink| {
+            match sink.try_send(block_seal_info.clone()) {
+                Ok(()) => true,
+                Err(error) => match error {
+                    TrySendError::Closed(_) => {
+                        // Remove closed receivers
+                        false
+                    }
+                    TrySendError::Full(_) => {
+                        warn!(
+                            subscription_id = ?sink.subscription_id(),
+                            "Block seal info receiver is too slow, dropping notification"
+                        );
+                        true
+                    }
+                },
+            }
+        });
+    }
+
+    async fn handle_archived_segment_notification(
+        &mut self,
+        archived_segment_notification: ArchivedSegmentNotification,
+    ) {
+        let ArchivedSegmentNotification {
+            archived_segment,
+            acknowledgement_sender,
+        } = archived_segment_notification;
+
+        let segment_index = archived_segment.segment_header.segment_index();
+
+        self.archived_segment_header_subscriptions
+            .lock()
+            .retain_mut(|sink| {
+                let subscription_id = sink.subscription_id();
+
+                // Store acknowledgment sender so that we can retrieve it when acknowledgment
+                // comes from the farmer, but only if unsafe APIs are allowed
+                let mut archived_segment_acknowledgement_senders =
+                    self.archived_segment_acknowledgement_senders.lock();
+
+                if archived_segment_acknowledgement_senders.segment_index != segment_index {
+                    archived_segment_acknowledgement_senders.segment_index = segment_index;
+                    archived_segment_acknowledgement_senders.senders.clear();
+                }
+
+                let maybe_archived_segment_header = match archived_segment_acknowledgement_senders
+                    .senders
+                    .entry(subscription_id.clone())
+                {
+                    Entry::Occupied(_) => {
+                        // No need to do anything, a farmer is processing a request
+                        None
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(acknowledgement_sender.clone());
+
+                        // This will be sent to the farmer
+                        Some(archived_segment.segment_header)
+                    }
+                };
+
+                self.cached_archived_segment
+                    .lock()
+                    .replace(CachedArchivedSegment::Weak(Arc::downgrade(
+                        &archived_segment,
+                    )));
+
+                // This will be sent to the farmer
+                let maybe_archived_segment_header =
+                    serde_json::value::to_raw_value(&maybe_archived_segment_header)
+                        .expect("Serialization of archived segment info never fails; qed");
+
+                match sink.try_send(maybe_archived_segment_header) {
+                    Ok(()) => true,
+                    Err(error) => match error {
+                        TrySendError::Closed(_) => {
+                            // Remove closed receivers
+                            archived_segment_acknowledgement_senders
+                                .senders
+                                .remove(&subscription_id);
+                            false
+                        }
+                        TrySendError::Full(_) => {
+                            warn!(
+                                ?subscription_id,
+                                "Block seal info receiver is too slow, dropping notification"
+                            );
+                            true
+                        }
+                    },
+                }
+            });
+    }
+}
+
+/// Implements the [`FarmerRpcApiServer`] trait for farmer to connect to
+#[derive(Debug)]
+pub struct FarmerRpc<CSS>
+where
+    CSS: ChainSyncStatus,
+{
+    genesis_block: OwnedBeaconChainBlock,
+    solution_response_senders: Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution>>>>,
+    block_sealing_senders: Arc<Mutex<BlockSignatureSenders>>,
+    dsn_bootstrap_nodes: Vec<Multiaddr>,
+    segment_headers_store: SegmentHeadersStore,
+    cached_archived_segment: Arc<Mutex<Option<CachedArchivedSegment>>>,
+    archived_segment_acknowledgement_senders:
+        Arc<Mutex<ArchivedSegmentHeaderAcknowledgementSenders>>,
+    chain_sync_status: CSS,
+    consensus_constants: ConsensusConstants,
+    max_pieces_in_sector: u16,
+    slot_info_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
+    block_sealing_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
+    archived_segment_header_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
+    erasure_coding: ErasureCoding,
+}
+
+/// [`FarmerRpc`] is used for notifying subscribers about the arrival of new slots and for
+/// submission of solutions (or lack thereof).
+///
+/// Internally every time slot notifier emits information about a new slot, a notification is sent
+/// to every subscriber, after which the RPC server waits for the same number of
+/// `submitSolutionResponse` requests with `SolutionResponse` in them or until
+/// timeout is exceeded. The first valid solution for a particular slot wins, others are ignored.
+impl<CSS> FarmerRpc<CSS>
+where
+    CSS: ChainSyncStatus,
+{
+    /// Creates a new instance of the `FarmerRpc` handler.
+    pub fn new(config: FarmerRpcConfig<CSS>) -> (Self, FarmerRpcWorker) {
+        let block_authoring_delay = u64::from(config.consensus_constants.block_authoring_delay);
+        let block_authoring_delay = usize::try_from(block_authoring_delay)
+            .expect("Block authoring delay will never exceed usize on any platform; qed");
+        let solution_response_senders_capacity = u32::try_from(block_authoring_delay)
+            .expect("Always a tiny constant in the protocol; qed");
+
+        let slot_info_subscriptions = Arc::default();
+        let block_sealing_subscriptions = Arc::default();
+
+        let solution_response_senders = Arc::new(Mutex::new(LruMap::new(ByLength::new(
+            solution_response_senders_capacity,
+        ))));
+        let block_sealing_senders = Arc::default();
+        let archived_segment_header_subscriptions = Arc::default();
+        let cached_archived_segment = Arc::default();
+
+        let rpc = Self {
+            genesis_block: config.genesis_block,
+            solution_response_senders: Arc::clone(&solution_response_senders),
+            block_sealing_senders: Arc::clone(&block_sealing_senders),
+            dsn_bootstrap_nodes: config.dsn_bootstrap_nodes,
+            segment_headers_store: config.segment_headers_store,
+            cached_archived_segment: Arc::clone(&cached_archived_segment),
+            archived_segment_acknowledgement_senders: Arc::default(),
+            chain_sync_status: config.chain_sync_status,
+            consensus_constants: config.consensus_constants,
+            max_pieces_in_sector: config.max_pieces_in_sector,
+            slot_info_subscriptions: Arc::clone(&slot_info_subscriptions),
+            block_sealing_subscriptions: Arc::clone(&block_sealing_subscriptions),
+            archived_segment_header_subscriptions: Arc::clone(
+                &archived_segment_header_subscriptions,
+            ),
+            erasure_coding: config.erasure_coding,
+        };
+
+        let worker = FarmerRpcWorker {
+            new_slot_notification_receiver: config.new_slot_notification_receiver,
+            block_sealing_notification_receiver: config.block_sealing_notification_receiver,
+            archived_segment_notification_receiver: config.archived_segment_notification_receiver,
+            solution_response_senders,
+            block_sealing_senders,
+            cached_archived_segment,
+            archived_segment_acknowledgement_senders: Arc::new(Default::default()),
+            slot_info_subscriptions,
+            block_sealing_subscriptions,
+            archived_segment_header_subscriptions,
+        };
+
+        (rpc, worker)
+    }
+}
+
+#[async_trait]
+impl<CSS> FarmerRpcApiServer for FarmerRpc<CSS>
+where
+    CSS: ChainSyncStatus,
+{
+    fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
+        let last_segment_index = self
+            .segment_headers_store
+            .max_segment_index()
+            .unwrap_or(SegmentIndex::ZERO);
+
+        let consensus_constants = &self.consensus_constants;
+        let protocol_info = FarmerProtocolInfo {
+            history_size: HistorySize::from(last_segment_index),
+            max_pieces_in_sector: self.max_pieces_in_sector,
+            recent_segments: consensus_constants.recent_segments,
+            recent_history_fraction: consensus_constants.recent_history_fraction,
+            min_sector_lifetime: consensus_constants.min_sector_lifetime,
+        };
+
+        let farmer_app_info = FarmerAppInfo {
+            genesis_root: *self.genesis_block.header.header().root(),
+            dsn_bootstrap_nodes: self.dsn_bootstrap_nodes.clone(),
+            syncing: self.chain_sync_status.is_syncing(),
+            farming_timeout: consensus_constants
+                .slot_duration
+                .as_duration()
+                .mul_f64(consensus_constants.block_authoring_delay.as_u64() as f64),
+            protocol_info,
+        };
+
+        Ok(farmer_app_info)
+    }
+
+    fn submit_solution_response(&self, solution_response: SolutionResponse) -> Result<(), Error> {
+        let slot = solution_response.slot_number;
+        let public_key_hash = solution_response.solution.public_key_hash;
+        let sector_index = solution_response.solution.sector_index;
+        let mut solution_response_senders = self.solution_response_senders.lock();
+
+        let success = solution_response_senders
+            .peek_mut(&slot)
+            .and_then(|sender| sender.try_send(solution_response.solution).ok())
+            .is_some();
+
+        if !success {
+            warn!(
+                %slot,
+                %sector_index,
+                %public_key_hash,
+                "Solution was ignored, likely because farmer was too slow"
+            );
+
+            return Err(Error::SolutionWasIgnored { slot });
+        }
+
+        Ok(())
+    }
+
+    async fn subscribe_slot_info(&self, pending: PendingSubscriptionSink) -> SubscriptionResult {
+        let subscription = pending.accept().await?;
+        self.slot_info_subscriptions.lock().push(subscription);
+
+        Ok(())
+    }
+
+    async fn subscribe_block_seal(&self, pending: PendingSubscriptionSink) -> SubscriptionResult {
+        let subscription = pending.accept().await?;
+        self.block_sealing_subscriptions.lock().push(subscription);
+
+        Ok(())
+    }
+
+    fn submit_block_seal(&self, block_seal: BlockSealResponse) -> Result<(), Error> {
+        let block_sealing_senders = self.block_sealing_senders.clone();
+
+        let mut block_sealing_senders = block_sealing_senders.lock();
+
+        if block_sealing_senders.current_pre_seal_hash == block_seal.pre_seal_hash
+            && let Some(sender) = block_sealing_senders.senders.pop()
+        {
+            let _ = sender.send(block_seal.seal);
+        }
+
+        Ok(())
+    }
+
+    async fn subscribe_archived_segment_header(
+        &self,
+        pending: PendingSubscriptionSink,
+    ) -> SubscriptionResult {
+        let subscription = pending.accept().await?;
+        self.archived_segment_header_subscriptions
+            .lock()
+            .push(subscription);
+
+        Ok(())
+    }
+
+    async fn acknowledge_archived_segment_header(
+        &self,
+        segment_index: SegmentIndex,
+    ) -> Result<(), Error> {
+        let archived_segment_acknowledgement_senders =
+            self.archived_segment_acknowledgement_senders.clone();
+
+        let maybe_sender = {
+            let mut archived_segment_acknowledgement_senders_guard =
+                archived_segment_acknowledgement_senders.lock();
+
+            (archived_segment_acknowledgement_senders_guard.segment_index == segment_index)
+                .then(|| {
+                    let last_key = archived_segment_acknowledgement_senders_guard
+                        .senders
+                        .keys()
+                        .next()
+                        .cloned()?;
+
+                    archived_segment_acknowledgement_senders_guard
+                        .senders
+                        .remove(&last_key)
+                })
+                .flatten()
+        };
+
+        if let Some(mut sender) = maybe_sender
+            && let Err(error) = sender.try_send(())
+            && !error.is_disconnected()
+        {
+            warn!("Failed to acknowledge archived segment: {error}");
+        }
+
+        debug!(%segment_index, "Acknowledged archived segment.");
+
+        Ok(())
+    }
+
+    // Note: this RPC uses the cached archived segment, which is only updated by archived segments
+    // subscriptions
+    fn piece(&self, requested_piece_index: PieceIndex) -> Result<Option<Piece>, Error> {
+        let archived_segment = {
+            let mut cached_archived_segment = self.cached_archived_segment.lock();
+
+            match cached_archived_segment
+                .as_ref()
+                .and_then(CachedArchivedSegment::get)
+            {
+                Some(archived_segment) => archived_segment,
+                None => {
+                    if requested_piece_index > SegmentIndex::ZERO.last_piece_index() {
+                        return Ok(None);
+                    }
+
+                    debug!(%requested_piece_index, "Re-creating the genesis segment on demand");
+
+                    // Re-create the genesis segment on demand
+                    let archived_segment = Arc::new(recreate_genesis_segment(
+                        &self.genesis_block,
+                        self.erasure_coding.clone(),
+                    ));
+
+                    cached_archived_segment.replace(CachedArchivedSegment::Genesis(Arc::clone(
+                        &archived_segment,
+                    )));
+
+                    archived_segment
+                }
+            }
+        };
+
+        if requested_piece_index.segment_index() == archived_segment.segment_header.segment_index()
+        {
+            return Ok(archived_segment
+                .pieces
+                .pieces()
+                .nth(requested_piece_index.position() as usize));
+        }
+
+        Ok(None)
+    }
+
+    async fn segment_headers(
+        &self,
+        segment_indices: Vec<SegmentIndex>,
+    ) -> Result<Vec<Option<SegmentHeader>>, Error> {
+        if segment_indices.len() > MAX_SEGMENT_HEADERS_PER_REQUEST {
+            error!(
+                "`segment_indices` length exceed the limit: {} ",
+                segment_indices.len()
+            );
+
+            return Err(Error::SegmentHeadersLengthExceeded {
+                actual: segment_indices.len(),
+            });
+        };
+
+        Ok(segment_indices
+            .into_iter()
+            .map(|segment_index| self.segment_headers_store.get_segment_header(segment_index))
+            .collect())
+    }
+
+    async fn last_segment_headers(&self, limit: u32) -> Result<Vec<Option<SegmentHeader>>, Error> {
+        if limit as usize > MAX_SEGMENT_HEADERS_PER_REQUEST {
+            error!(
+                "Request limit ({}) exceed the server limit: {} ",
+                limit, MAX_SEGMENT_HEADERS_PER_REQUEST
+            );
+
+            return Err(Error::SegmentHeadersLengthExceeded {
+                actual: limit as usize,
+            });
+        };
+
+        let last_segment_index = self
+            .segment_headers_store
+            .max_segment_index()
+            .unwrap_or(SegmentIndex::ZERO);
+
+        let mut last_segment_headers = (SegmentIndex::ZERO..=last_segment_index)
+            .rev()
+            .take(limit as usize)
+            .map(|segment_index| self.segment_headers_store.get_segment_header(segment_index))
+            .collect::<Vec<_>>();
+
+        last_segment_headers.reverse();
+
+        Ok(last_segment_headers)
+    }
+}

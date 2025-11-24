@@ -32,7 +32,7 @@ ab-erasure-coding = { workspace = true }
 ab-farmer-components = { workspace = true }
 ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
-async-lock = { workspace = true }
+async-lock = { workspace = true, features = ["std"] }
 futures = { workspace = true, features = ["std"] }
 parking_lot = { workspace = true }
 rayon = { workspace = true }

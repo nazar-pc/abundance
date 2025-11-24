@@ -19,6 +19,7 @@ ab-client-api = { workspace = true }
 ab-core-primitives = { workspace = true }
 ab-merkle-tree = { workspace = true }
 blake3 = { workspace = true }
+futures = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
 
 [lints]
