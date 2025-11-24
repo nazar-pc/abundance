@@ -61,7 +61,7 @@ jobs:
         os:
           - ubuntu-24.04
           - ubuntu-24.04-arm
-          - macos-15
+          - macos-26
           # TODO: Re-enabled once https://github.com/HadrienG2/hwlocality/issues/309 is resolved
           # - windows-11-arm
           - windows-2025
@@ -175,7 +175,7 @@ jobs:
         os:
           - ubuntu-24.04
           - ubuntu-24.04-arm
-          - macos-15
+          - macos-26
           # TODO: Re-enabled once https://github.com/HadrienG2/hwlocality/issues/309 is resolved
           # - windows-11-arm
           - windows-2025
@@ -188,7 +188,7 @@ jobs:
           - features
           - guest-feature
         exclude:
-          - os: macos-15
+          - os: macos-26
             type: guest-feature
           - os: windows-11-arm
             type: guest-feature
@@ -373,7 +373,7 @@ jobs:
         os:
           - ubuntu-24.04
           - ubuntu-24.04-arm
-          - macos-15
+          - macos-26
           # TODO: Re-enabled once https://github.com/HadrienG2/hwlocality/issues/309 is resolved
           # - windows-11-arm
           - windows-2025
@@ -385,7 +385,7 @@ jobs:
           # - features
           # - guest-feature
         exclude:
-          - os: macos-15
+          - os: macos-26
             type: guest-feature
           - os: windows-11-arm
             type: guest-feature
@@ -404,7 +404,7 @@ jobs:
         os:
           - ubuntu-24.04
           - ubuntu-24.04-arm
-          - macos-15
+          - macos-26
           # TODO: Re-enabled once https://github.com/HadrienG2/hwlocality/issues/309 is resolved
           # - windows-11-arm
           - windows-2025
@@ -413,7 +413,7 @@ jobs:
           - features
           - guest-feature
         exclude:
-          - os: macos-15
+          - os: macos-26
             type: guest-feature
           - os: windows-11-arm
             type: guest-feature
