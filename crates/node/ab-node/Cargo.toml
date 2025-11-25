@@ -41,7 +41,7 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 thread-priority = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-tracing = { workspace = true }
+tracing = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

@@ -38,7 +38,7 @@ where
     where
         Self: 'a;
 
-    /// Turn into owned version
+    /// Turn into an owned version
     #[cfg(feature = "alloc")]
     fn to_owned(self) -> Self::Owned;
 
