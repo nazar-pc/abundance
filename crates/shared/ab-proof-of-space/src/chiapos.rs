@@ -231,8 +231,7 @@ where
                 for (proof_offset, table_6_proof_targets) in
                     table_6_proof_targets.iter().enumerate()
                 {
-                    // Real right position is never zero
-                    if table_6_proof_targets[1] != Position::ZERO {
+                    if table_6_proof_targets != &[Position::ZERO; 2] {
                         let proof = Self::find_proof_raw_internal(
                             &table_2,
                             &table_3,
@@ -328,8 +327,7 @@ where
                 for (proof_offset, table_6_proof_targets) in
                     table_6_proof_targets.iter().enumerate()
                 {
-                    // Real right position is never zero
-                    if table_6_proof_targets[1] != Position::ZERO {
+                    if table_6_proof_targets != &[Position::ZERO; 2] {
                         let proof = Self::find_proof_raw_internal(
                             &table_2,
                             &table_3,

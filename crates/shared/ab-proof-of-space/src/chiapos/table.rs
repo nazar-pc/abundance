@@ -1528,8 +1528,7 @@ where
                         continue;
                     };
                     let positions = &mut table_6_proof_targets[usize::from(s_bucket)];
-                    // Real right position is never zero
-                    if positions[1] == Position::ZERO {
+                    if positions == &[Position::ZERO; 2] {
                         *positions = p;
                     }
                 }
@@ -1548,8 +1547,7 @@ where
                 };
 
                 let positions = &mut table_6_proof_targets[usize::from(s_bucket)];
-                // Real right position is never zero
-                if positions[1] == Position::ZERO {
+                if positions == &[Position::ZERO; 2] {
                     *positions = p;
                 }
             }
@@ -1694,8 +1692,7 @@ where
             // SAFETY: `results_count` corresponds to the number of initialized `bucket` elements
             for &(s_bucket, p) in unsafe { bucket[..results_count].assume_init_ref() } {
                 let positions = &mut table_6_proof_targets[usize::from(s_bucket)];
-                // Real right position is never zero
-                if positions[1] == Position::ZERO {
+                if positions == &[Position::ZERO; 2] {
                     *positions = p;
                 }
             }
