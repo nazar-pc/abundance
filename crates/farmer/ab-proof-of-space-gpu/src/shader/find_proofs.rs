@@ -16,7 +16,7 @@ use spirv_std::arch::{
     atomic_or, subgroup_ballot, subgroup_memory_barrier, subgroup_shuffle, subgroup_u_min,
     workgroup_memory_barrier_with_group_sync,
 };
-use spirv_std::glam::{UVec2, UVec3};
+use spirv_std::glam::UVec3;
 use spirv_std::memory::{Scope, Semantics};
 use spirv_std::spirv;
 
@@ -133,10 +133,7 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
                 break;
             }
         }
-        let local_min = [
-            subgroup_shuffle(local_min_positions[0], source_lane),
-            subgroup_shuffle(local_min_positions[1], source_lane),
-        ];
+        let local_min = subgroup_shuffle(local_min_positions, source_lane);
 
         if subgroup_local_invocation_id == local_bucket_id {
             min = local_min;
@@ -267,10 +264,6 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
         subgroup_memory_barrier();
     }
 
-    // TODO: Here and below to/from `UVec2` conversion is only needed because the trait can't be
-    //  derived right now: https://github.com/Rust-GPU/rust-gpu/issues/410
-    let table_6_proof_targets = UVec2::from_array(table_6_proof_targets);
-
     // `0` for left `1` for right
     let left_right = (subgroup_local_invocation_id % 2) as usize;
     // Otherwise `left_right` will not work as expected
@@ -287,14 +280,13 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
             table_6_proof_targets,
             SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
         );
-        let table_6_proof_target = table_6_proof_targets.to_array()[left_right];
+        let table_6_proof_target = table_6_proof_targets[left_right];
 
         let table_5_proof_targets = if table_6_proof_target == Position::SENTINEL {
             [Position::SENTINEL; 2]
         } else {
             table_6_positions[table_6_proof_target as usize]
         };
-        let table_5_proof_targets = UVec2::from_array(table_5_proof_targets);
 
         // Reading positions from table 5
         chunk_index <<= 1;
@@ -303,14 +295,13 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                 table_5_proof_targets,
                 SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
             );
-            let table_5_proof_target = table_5_proof_targets.to_array()[left_right];
+            let table_5_proof_target = table_5_proof_targets[left_right];
 
             let table_4_proof_targets = if table_5_proof_target == Position::SENTINEL {
                 [Position::SENTINEL; 2]
             } else {
                 table_5_positions[table_5_proof_target as usize]
             };
-            let table_4_proof_targets = UVec2::from_array(table_4_proof_targets);
 
             // Reading positions from table 4
             chunk_index <<= 1;
@@ -319,14 +310,13 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                     table_4_proof_targets,
                     SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
                 );
-                let table_4_proof_target = table_4_proof_targets.to_array()[left_right];
+                let table_4_proof_target = table_4_proof_targets[left_right];
 
                 let table_3_proof_targets = if table_4_proof_target == Position::SENTINEL {
                     [Position::SENTINEL; 2]
                 } else {
                     table_4_positions[table_4_proof_target as usize]
                 };
-                let table_3_proof_targets = UVec2::from_array(table_3_proof_targets);
 
                 // Reading positions from table 3
                 chunk_index <<= 1;
@@ -335,14 +325,13 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                         table_3_proof_targets,
                         SUBGROUP_SIZE / 2 * (chunk_index & 1) + subgroup_local_invocation_id / 2,
                     );
-                    let table_3_proof_target = table_3_proof_targets.to_array()[left_right];
+                    let table_3_proof_target = table_3_proof_targets[left_right];
 
                     let table_2_proof_targets = if table_3_proof_target == Position::SENTINEL {
                         [Position::SENTINEL; 2]
                     } else {
                         table_3_positions[table_3_proof_target as usize]
                     };
-                    let table_2_proof_targets = UVec2::from_array(table_2_proof_targets);
 
                     // Reading positions from table 2
                     chunk_index <<= 1;
@@ -352,7 +341,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             SUBGROUP_SIZE / 2 * (chunk_index & 1)
                                 + subgroup_local_invocation_id / 2,
                         );
-                        let table_2_proof_target = table_2_proof_targets.to_array()[left_right];
+                        let table_2_proof_target = table_2_proof_targets[left_right];
 
                         let [x_left, x_right] = if table_2_proof_target == Position::SENTINEL {
                             [Position::SENTINEL; 2]

@@ -64,7 +64,7 @@ blake2 = { version = "0.11.0-rc.3", default-features = false }
 blake3 = { version = "1.8.2", default-features = false }
 bytes = { version = "1.11.0", default-features = false }
 bytesize = { version = "2.2.0", default-features = false }
-cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "eb5f8dbe3aef5a8d94886194fb3ba14caae80e2f", default-features = false }
+cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "bf24eb6060e0c7b0013eceddd23b5d7cee68f4cc", default-features = false }
 chacha20 = { version = "0.10.0-rc.5", default-features = false }
 clap = "4.5.51"
 const_format = "0.2.35"
@@ -121,7 +121,7 @@ serde_json = "1.0.145"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0-rc.3", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "b3eda4df9814b6176d3c0844eb67f70a22ebb378" }
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "6fb875068d0d35b1a81ae89b73cf7a464f8c60f7" }
 # TODO: Remove
 ss58-registry = "1.51.0"
 stable_deref_trait = { version = "1.2.1", default-features = false }
