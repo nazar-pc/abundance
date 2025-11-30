@@ -18,6 +18,7 @@ use ab_client_database::{
     ClientDatabase, ClientDatabaseError, ClientDatabaseFormatError, ClientDatabaseFormatOptions,
     ClientDatabaseOptions, GenesisBlockBuilderResult,
 };
+use ab_client_informer::run_informer;
 use ab_client_proof_of_time::source::timekeeper::Timekeeper;
 use ab_client_proof_of_time::source::{PotSourceWorker, init_pot_state};
 use ab_client_proof_of_time::verifier::PotVerifier;
@@ -45,6 +46,7 @@ use std::path::PathBuf;
 use std::pin::pin;
 use std::sync::Arc as StdArc;
 use std::task::Context;
+use std::time::Duration;
 use std::{io, thread};
 use thread_priority::{ThreadPriority, set_current_thread_priority};
 use tracing::{Span, error, info, warn};
@@ -53,6 +55,7 @@ use tracing::{Span, error, info, warn};
 /// This is over 15 minutes of slots assuming there are no forks, should be both sufficient and not
 /// too large to handle
 const POT_VERIFIER_CACHE_SIZE: u32 = 30_000;
+const INFORMER_INTERVAL: Duration = Duration::from_secs(5);
 
 type PosTable = ChiaTable;
 
@@ -619,7 +622,7 @@ impl Run {
                 block_builder,
                 block_import,
                 beacon_chain_info: client_database.clone(),
-                chain_info: client_database,
+                chain_info: client_database.clone(),
                 chain_sync_status,
                 force_authoring,
                 new_slot_notification_sender,
@@ -650,6 +653,9 @@ impl Run {
 
         // TODO: Better thread management, probably move to its own dedicated thread
         tokio::spawn(server.start(farmer_rpc.into_rpc()).stopped());
+
+        // TODO: Better thread management, probably move to its own dedicated thread
+        tokio::spawn(async move { run_informer(&client_database, INFORMER_INTERVAL).await });
 
         // TODO: This is just a placeholder to keep the node running
         shutdown_signal_fut.await;

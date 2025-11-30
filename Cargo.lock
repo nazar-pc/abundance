@@ -196,6 +196,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-client-informer"
+version = "0.0.1"
+dependencies = [
+ "ab-client-api",
+ "ab-core-primitives",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ab-client-proof-of-time"
 version = "0.0.1"
 dependencies = [
@@ -594,6 +604,7 @@ dependencies = [
  "ab-client-block-verification",
  "ab-client-consensus-common",
  "ab-client-database",
+ "ab-client-informer",
  "ab-client-proof-of-time",
  "ab-core-primitives",
  "ab-direct-io-file",

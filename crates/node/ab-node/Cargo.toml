@@ -22,6 +22,7 @@ ab-client-block-import = { workspace = true }
 ab-client-block-verification = { workspace = true }
 ab-client-consensus-common = { workspace = true }
 ab-client-database = { workspace = true }
+ab-client-informer = { workspace = true }
 ab-client-proof-of-time = { workspace = true }
 ab-cli-utils = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
