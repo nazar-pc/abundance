@@ -26,6 +26,7 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
         length: u32,
         offset: u32,
     ) -> oneshot::Receiver<io::Result<Vec<AlignedPage>>> {
+        let offset = offset as u64 * AlignedPage::SIZE as u64;
         let (sender, receiver) = oneshot::channel();
 
         tokio::task::spawn_blocking({
@@ -42,7 +43,7 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
                 );
                 let bytes = ab_direct_io_file::AlignedPage::try_uninit_slice_mut_from_repr(bytes)
                     .expect("Correctly aligned as it comes from another aligned buffer type; qed");
-                let result = match file.read_exact_at_raw(bytes, offset as u64) {
+                let result = match file.read_exact_at_raw(bytes, offset) {
                     Ok(()) => {
                         // SAFETY: Just written `length` bytes
                         unsafe {
@@ -69,6 +70,7 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
         buffer: Vec<AlignedPage>,
         offset: u32,
     ) -> oneshot::Receiver<io::Result<Vec<AlignedPage>>> {
+        let offset = offset as u64 * AlignedPage::SIZE as u64;
         let (sender, receiver) = oneshot::channel();
 
         tokio::task::spawn_blocking({
@@ -81,7 +83,7 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
                 let bytes = AlignedPage::slice_to_repr(&buffer);
                 let bytes = ab_direct_io_file::AlignedPage::try_slice_from_repr(bytes)
                     .expect("Correctly aligned as it comes from another aligned buffer type; qed");
-                let result = match file.write_all_at_raw(bytes, offset as u64) {
+                let result = match file.write_all_at_raw(bytes, offset) {
                     Ok(()) => Ok(buffer),
                     Err(error) => Err(error),
                 };
