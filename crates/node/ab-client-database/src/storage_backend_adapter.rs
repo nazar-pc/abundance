@@ -68,12 +68,15 @@ enum WriteBufferEntry {
 pub(crate) struct WriteLocation {
     #[expect(dead_code, reason = "Not used yet")]
     pub(crate) page_offset: u32,
+    #[expect(dead_code, reason = "Not used yet")]
+    pub(crate) num_pages: u32,
 }
 
 #[derive(Debug)]
 pub(crate) struct StorageItemHandlerArg<SI> {
     pub(crate) storage_item: SI,
     pub(crate) page_offset: u32,
+    pub(crate) num_pages: u32,
 }
 
 /// Storage item handlers are called on every storage item, storage items are read in the same order
@@ -239,9 +242,12 @@ where
             &storage_backend,
             buffer,
             |container, page_offset| {
+                let num_pages = container.num_pages();
+
                 (storage_item_handlers.permanent)(StorageItemHandlerArg {
                     storage_item: container.storage_item,
                     page_offset,
+                    num_pages,
                 })
             },
         )
@@ -255,9 +261,12 @@ where
             &storage_backend,
             buffer,
             |container, page_offset| {
+                let num_pages = container.num_pages();
+
                 (storage_item_handlers.block)(StorageItemHandlerArg {
                     storage_item: container.storage_item,
                     page_offset,
+                    num_pages,
                 })
             },
         )
@@ -312,7 +321,7 @@ where
                 page_group_size: options.page_group_size.get(),
             },
         };
-        Self::write_pages_to_buffer(&container, None, &mut buffer)?;
+        Self::write_pages_to_buffer(&container, None, &mut buffer, 0)?;
 
         let _buffer: Vec<AlignedPage> = storage_backend
             .write(buffer, 0)
@@ -455,14 +464,15 @@ where
             storage_item,
         };
 
-        let mut num_pages = container.num_pages();
+        let mut num_pages_to_write = container.num_pages();
         // Ensure a storage item doesn't exceed page group size. `-1` accounts for the page group
         // header.
-        if num_pages > (self.page_group_size - 1) {
+        if num_pages_to_write > (self.page_group_size - 1) {
             return Err(io::Error::new(
                 io::ErrorKind::QuotaExceeded,
                 format!(
-                    "Storage item is too large: {num_pages} pages, max supported is {} pages",
+                    "Storage item is too large: {num_pages_to_write} pages, max supported is {} \
+                    pages",
                     self.page_group_size
                 ),
             ));
@@ -474,7 +484,7 @@ where
             && let Some(remaining_pages_in_group) = self
                 .page_group_size
                 .checked_sub(page_group.inner_next_page_offset)
-            && remaining_pages_in_group >= num_pages
+            && remaining_pages_in_group >= num_pages_to_write
         {
             (page_group, None)
         } else {
@@ -502,7 +512,7 @@ where
             target_page_groups.next_sequence_number += 1;
             container.sequence_number += 1;
             // Add a page that corresponds to the page group header
-            num_pages += 1;
+            num_pages_to_write += 1;
 
             let active_page_group = target_page_groups.list.push_front_mut(PageGroup {
                 first_sequence_number: sequence_number,
@@ -513,20 +523,25 @@ where
             (active_page_group, Some(page_group_header))
         };
 
-        let page_offset =
+        let write_page_offset =
             active_page_group.first_page_offset + active_page_group.inner_next_page_offset;
-        active_page_group.inner_next_page_offset += num_pages;
+        active_page_group.inner_next_page_offset += num_pages_to_write;
 
         // In case buffering is disabled, allocate a buffer on demand and wait for write to
         // finish
         if self.write_buffer.is_empty() {
             let mut buffer = Vec::new();
 
-            Self::write_pages_to_buffer(&container, maybe_page_group_header.as_ref(), &mut buffer)?;
+            let page_offset = Self::write_pages_to_buffer(
+                &container,
+                maybe_page_group_header.as_ref(),
+                &mut buffer,
+                write_page_offset,
+            )?;
 
             let _buffer: Vec<_> = self
                 .storage_backend
-                .write(buffer, page_offset)
+                .write(buffer, write_page_offset)
                 .await
                 .map_err(|_cancelled| {
                     io::Error::new(
@@ -536,7 +551,10 @@ where
                 })
                 .flatten()?;
 
-            return Ok(WriteLocation { page_offset });
+            return Ok(WriteLocation {
+                page_offset,
+                num_pages: container.num_pages(),
+            });
         }
 
         let write_fut = future::poll_fn(|cx| {
@@ -584,21 +602,28 @@ where
                     };
 
                     // Write storage item pages to the buffer
-                    if let Err(error) = Self::write_pages_to_buffer(
+                    let page_offset = match Self::write_pages_to_buffer(
                         &container,
                         maybe_page_group_header.as_ref(),
                         &mut buffer,
+                        write_page_offset,
                     ) {
-                        buffer.clear();
-                        return (
-                            Some(Err(io::Error::other(error))),
-                            WriteBufferEntry::Free(buffer),
-                        );
-                    }
+                        Ok(page_offset) => page_offset,
+                        Err(error) => {
+                            buffer.clear();
+                            return (
+                                Some(Err(io::Error::other(error))),
+                                WriteBufferEntry::Free(buffer),
+                            );
+                        }
+                    };
 
-                    let receiver = self.storage_backend.write(buffer, page_offset);
+                    let receiver = self.storage_backend.write(buffer, write_page_offset);
                     (
-                        Some(Ok(WriteLocation { page_offset })),
+                        Some(Ok(WriteLocation {
+                            page_offset,
+                            num_pages: container.num_pages(),
+                        })),
                         WriteBufferEntry::Occupied(receiver),
                     )
                 })
@@ -613,13 +638,16 @@ where
         write_fut.await
     }
 
-    /// Write (append) a storage item with an optional page group header in front of it
+    /// Write (append) a storage item with an optional page group header in front of it.
+    ///
+    /// Returns page offset at which an item is written based on `preliminary_page_offset`.
     #[inline(always)]
     fn write_pages_to_buffer<SI>(
         container: &StorageItemContainer<SI>,
         maybe_page_group_header: Option<&StorageItemContainer<StorageItemPageGroupHeader>>,
         buffer: &mut Vec<AlignedPage>,
-    ) -> io::Result<()>
+        preliminary_page_offset: u32,
+    ) -> io::Result<u32>
     where
         SI: StorageItem,
     {
@@ -638,6 +666,9 @@ where
             unsafe {
                 buffer.set_len(buffer.len() + length);
             }
+
+            // +1 because the page header was written in front of the storage item
+            Ok(preliminary_page_offset + 1)
         } else {
             let length = container.num_pages() as usize;
             buffer.reserve(length);
@@ -649,8 +680,8 @@ where
             unsafe {
                 buffer.set_len(buffer.len() + length);
             }
-        }
 
-        Ok(())
+            Ok(preliminary_page_offset)
+        }
     }
 }

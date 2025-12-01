@@ -869,6 +869,7 @@ where
                 let StorageItemHandlerArg {
                     storage_item,
                     page_offset,
+                    num_pages,
                 } = arg;
                 #[expect(
                     clippy::infallible_destructuring_match,
@@ -953,7 +954,10 @@ where
                         mmr_with_block,
                         system_contract_states,
                     },
-                    write_location: WriteLocation { page_offset },
+                    write_location: WriteLocation {
+                        page_offset,
+                        num_pages,
+                    },
                 });
 
                 // If a new block was inserted, confirm a new canonical block to prune extra
