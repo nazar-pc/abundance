@@ -703,7 +703,7 @@ where
         })
     }
 
-    fn block(&self, block_root: &BlockRoot) -> Option<Block> {
+    async fn block(&self, block_root: &BlockRoot) -> Option<Block> {
         // Blocking read lock is fine because the only place where write lock is taken is short and
         // all other locks are read locks
         let state = self.inner.state.read_blocking();
