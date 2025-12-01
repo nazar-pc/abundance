@@ -142,7 +142,7 @@ impl CreateObjectMappings {
     }
 }
 
-fn find_last_archived_block<Block, CI, COM>(
+async fn find_last_archived_block<Block, CI, COM>(
     chain_info: &CI,
     segment_headers_store: &SegmentHeadersStore,
     best_block_number_to_archive: BlockNumber,
@@ -184,8 +184,8 @@ where
 
         let last_archived_block_root = &*last_archived_block_header.header().root();
 
-        let Some(last_archived_block) = chain_info.block(last_archived_block_root) else {
-            // This block data was already pruned (but the headers weren't)
+        let Ok(last_archived_block) = chain_info.block(last_archived_block_root).await else {
+            // Block might have been pruned between ancestor search and disk read
             continue;
         };
 
@@ -343,7 +343,7 @@ struct InitializedArchiver {
     best_archived_block: (BlockRoot, BlockNumber),
 }
 
-fn initialize_archiver<Block, CI>(
+async fn initialize_archiver<Block, CI>(
     segment_headers_store: &SegmentHeadersStore,
     chain_info: &CI,
     confirmation_depth_k: BlockNumber,
@@ -441,7 +441,8 @@ where
                 //     .unwrap_or_default()
                 Vec::new()
             }),
-    );
+    )
+    .await;
 
     let have_last_segment_header = maybe_last_archived_block.is_some();
     let mut best_archived_block = None::<(BlockRoot, BlockNumber)>;
@@ -510,6 +511,7 @@ where
 
                 let block = chain_info
                     .block(&header.header().root())
+                    .await
                     .expect("All blocks since last archived must be present; qed");
 
                 let block_object_mappings =
@@ -589,7 +591,7 @@ where
 ///
 /// Once a new segment is archived, a notification (`archived_segment_notification_sender`) will be
 /// sent and archiver will be paused until all receivers have provided an acknowledgement for it.
-pub fn create_archiver_task<Block, CI>(
+pub async fn create_archiver_task<Block, CI>(
     segment_headers_store: SegmentHeadersStore,
     chain_info: CI,
     mut block_importing_notification_receiver: mpsc::Receiver<BlockImportingNotification>,
@@ -612,13 +614,14 @@ where
     }
 
     let maybe_archiver = if segment_headers_store.max_segment_index().is_none() {
-        Some(initialize_archiver(
+        let initialize_archiver_fut = initialize_archiver(
             &segment_headers_store,
             &chain_info,
             consensus_constants.confirmation_depth_k,
             create_object_mappings,
             erasure_coding.clone(),
-        )?)
+        );
+        Some(initialize_archiver_fut.await?)
     } else {
         None
     };
@@ -626,13 +629,16 @@ where
     Ok(async move {
         let archiver = match maybe_archiver {
             Some(archiver) => archiver,
-            None => initialize_archiver(
-                &segment_headers_store,
-                &chain_info,
-                consensus_constants.confirmation_depth_k,
-                create_object_mappings,
-                erasure_coding.clone(),
-            )?,
+            None => {
+                let initialize_archiver_fut = initialize_archiver(
+                    &segment_headers_store,
+                    &chain_info,
+                    consensus_constants.confirmation_depth_k,
+                    create_object_mappings,
+                    erasure_coding.clone(),
+                );
+                initialize_archiver_fut.await?
+            }
         };
 
         let InitializedArchiver {
@@ -692,16 +698,17 @@ where
             // modes where pre-verified blocks are inserted at some point in the future comparing to
             // previously existing blocks
             if best_archived_block_number + BlockNumber::ONE != block_number_to_archive {
-                InitializedArchiver {
-                    archiver,
-                    best_archived_block: (best_archived_block_root, best_archived_block_number),
-                } = initialize_archiver(
+                let initialize_archiver_fut = initialize_archiver(
                     &segment_headers_store,
                     &chain_info,
                     consensus_constants.confirmation_depth_k,
                     create_object_mappings,
                     erasure_coding.clone(),
-                )?;
+                );
+                InitializedArchiver {
+                    archiver,
+                    best_archived_block: (best_archived_block_root, best_archived_block_number),
+                } = initialize_archiver_fut.await?;
 
                 if best_archived_block_number + BlockNumber::ONE == block_number_to_archive {
                     // As expected, can archive this block
@@ -778,6 +785,7 @@ where
 
     let block = chain_info
         .block(&block_root_to_archive)
+        .await
         .expect("All blocks since last archived must be present; qed");
 
     debug!("Archiving block {block_number_to_archive} ({block_root_to_archive})");

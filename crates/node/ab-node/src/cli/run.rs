@@ -49,6 +49,7 @@ use std::task::Context;
 use std::time::Duration;
 use std::{io, thread};
 use thread_priority::{ThreadPriority, set_current_thread_priority};
+use tokio::runtime::Handle;
 use tracing::{Span, error, info, warn};
 
 // TODO: Get rid of this, make verifier clean up cache based on slots of finalized blocks
@@ -606,7 +607,7 @@ impl Run {
 
         // TODO: Initialize in a blocking task
         let archiver_task = tokio::task::block_in_place(|| {
-            create_archiver_task(
+            Handle::current().block_on(create_archiver_task(
                 segment_headers_store.clone(),
                 client_database.clone(),
                 block_importing_notification_receiver,
@@ -614,7 +615,7 @@ impl Run {
                 consensus_constants,
                 CreateObjectMappings::No,
                 erasure_coding,
-            )
+            ))
         })?;
 
         // TODO: Better thread management, probably move to its own dedicated thread

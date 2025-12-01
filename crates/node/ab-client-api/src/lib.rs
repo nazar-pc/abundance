@@ -66,6 +66,24 @@ pub enum BlockOrigin {
     Broadcast,
 }
 
+/// Error for [`ChainInfo::block()`]
+#[derive(Debug, thiserror::Error)]
+pub enum ReadBlockError {
+    /// Unknown block root
+    #[error("Unknown block root")]
+    UnknownBlockRoot,
+    /// Failed to decode the block
+    #[error("Failed to decode the block")]
+    FailedToDecode,
+    /// Storage item read error
+    #[error("Storage item read error")]
+    StorageItemReadError {
+        /// Low-level error
+        #[from]
+        error: io::Error,
+    },
+}
+
 /// Error for [`ChainInfoWrite::persist_block()`]
 #[derive(Debug, thiserror::Error)]
 pub enum PersistBlockError {
@@ -129,8 +147,10 @@ where
     /// Returns a block header like [`Self::header()`] with additional block details
     fn header_with_details(&self, block_root: &BlockRoot) -> Option<(Block::Header, BlockDetails)>;
 
-    // TODO: Must return result due to potential reading from disk
-    fn block(&self, block_root: &BlockRoot) -> Option<Block>;
+    fn block(
+        &self,
+        block_root: &BlockRoot,
+    ) -> impl Future<Output = Result<Block, ReadBlockError>> + Send;
 }
 
 /// [`ChainInfo`] extension for writing information

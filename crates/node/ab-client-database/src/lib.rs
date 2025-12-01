@@ -68,7 +68,7 @@ use crate::storage_backend_adapter::{
 };
 use ab_client_api::{
     BlockDetails, BlockMerkleMountainRange, ChainInfo, ChainInfoWrite, ContractSlotState,
-    PersistBlockError,
+    PersistBlockError, ReadBlockError,
 };
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::GenericBlockHeader;
@@ -77,8 +77,7 @@ use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_io_type::trivial_type::TrivialType;
 use async_lock::{
-    Mutex as AsyncMutex, RwLock as AsyncRwLock, RwLockUpgradableReadGuard,
-    RwLockWriteGuard as AsyncRwLockWriteGuard,
+    RwLock as AsyncRwLock, RwLockUpgradableReadGuard, RwLockWriteGuard as AsyncRwLockWriteGuard,
 };
 use rand::rngs::OsError;
 use rclite::Arc;
@@ -430,7 +429,7 @@ where
 }
 
 #[derive(Debug)]
-struct State<Block>
+struct StateData<Block>
 where
     Block: GenericOwnedBlock,
 {
@@ -461,20 +460,32 @@ where
     blocks: VecDeque<SmallVec<[ClientDatabaseBlock<Block>; 2]>>,
 }
 
-impl<Block> State<Block>
+// TODO: Hide implementation details
+#[derive(Debug)]
+struct State<Block, StorageBackend>
+where
+    Block: GenericOwnedBlock,
+{
+    data: StateData<Block>,
+    storage_backend_adapter: AsyncRwLock<StorageBackendAdapter<StorageBackend>>,
+}
+
+impl<Block, StorageBackend> State<Block, StorageBackend>
 where
     Block: GenericOwnedBlock,
 {
     #[inline(always)]
     fn best_tip(&self) -> &ForkTip {
-        self.fork_tips
+        self.data
+            .fork_tips
             .front()
             .expect("The best block is always present; qed")
     }
 
     #[inline(always)]
     fn best_block(&self) -> &ClientDatabaseBlock<Block> {
-        self.blocks
+        self.data
+            .blocks
             .front()
             .expect("The best block is always present; qed")
             .first()
@@ -512,9 +523,7 @@ struct Inner<Block, StorageBackend>
 where
     Block: GenericOwnedBlock,
 {
-    state: AsyncRwLock<State<Block>>,
-    storage_backend_adapter: AsyncMutex<StorageBackendAdapter>,
-    storage_backend: StorageBackend,
+    state: AsyncRwLock<State<Block, StorageBackend>>,
     options: ClientDatabaseInnerOptions,
 }
 
@@ -596,9 +605,9 @@ where
 
         let ancestor_block_offset =
             best_number.checked_sub(ancestor_block_number)?.as_u64() as usize;
-        let ancestor_block_candidates = state.blocks.get(ancestor_block_offset)?;
+        let ancestor_block_candidates = state.data.blocks.get(ancestor_block_offset)?;
 
-        let descendant_block_number = *state.block_roots.get(descendant_block_root)?;
+        let descendant_block_number = *state.data.block_roots.get(descendant_block_root)?;
         if ancestor_block_number > descendant_block_number {
             return None;
         }
@@ -607,6 +616,7 @@ where
 
         // Range of blocks where the first item is expected to contain a descendant
         let mut blocks_range_iter = state
+            .data
             .blocks
             .iter()
             .enumerate()
@@ -656,9 +666,9 @@ where
         let state = self.inner.state.read_blocking();
         let best_number = state.best_tip().number;
 
-        let block_number = *state.block_roots.get(block_root)?;
+        let block_number = *state.data.block_roots.get(block_root)?;
         let block_offset = best_number.checked_sub(block_number)?.as_u64() as usize;
-        let block_candidates = state.blocks.get(block_offset)?;
+        let block_candidates = state.data.blocks.get(block_offset)?;
 
         block_candidates.iter().find_map(|block| {
             let header = block.header();
@@ -677,9 +687,9 @@ where
         let state = self.inner.state.read_blocking();
         let best_number = state.best_tip().number;
 
-        let block_number = *state.block_roots.get(block_root)?;
+        let block_number = *state.data.block_roots.get(block_root)?;
         let block_offset = best_number.checked_sub(block_number)?.as_u64() as usize;
-        let block_candidates = state.blocks.get(block_offset)?;
+        let block_candidates = state.data.blocks.get(block_offset)?;
 
         block_candidates.iter().find_map(|block| {
             let header = block.header();
@@ -693,36 +703,64 @@ where
         })
     }
 
-    fn block(&self, block_root: &BlockRoot) -> Option<Block> {
-        // Blocking read lock is fine because the only place where write lock is taken is short and
-        // all other locks are read locks
-        let state = self.inner.state.read_blocking();
+    async fn block(&self, block_root: &BlockRoot) -> Result<Block, ReadBlockError> {
+        let state = self.inner.state.read().await;
         let best_number = state.best_tip().number;
 
-        let block_number = *state.block_roots.get(block_root)?;
-        let block_offset = best_number.checked_sub(block_number)?.as_u64() as usize;
-        let block_candidates = state.blocks.get(block_offset)?;
+        let block_number = *state
+            .data
+            .block_roots
+            .get(block_root)
+            .ok_or(ReadBlockError::UnknownBlockRoot)?;
+        let block_offset = best_number
+            .checked_sub(block_number)
+            .expect("Known block roots always have valid block offset; qed")
+            .as_u64() as usize;
+        let block_candidates = state
+            .data
+            .blocks
+            .get(block_offset)
+            .expect("Valid block offsets always have block entries; qed");
 
-        block_candidates.iter().find_map(|block| {
-            let header = block.header();
+        for block_candidate in block_candidates {
+            let header = block_candidate.header();
 
             if &*header.header().root() == block_root {
-                match block.full_block() {
-                    FullBlock::InMemory(block) => Some(block.clone()),
+                return match block_candidate.full_block() {
+                    FullBlock::InMemory(block) => Ok(block.clone()),
                     FullBlock::Persisted {
                         header,
                         write_location,
                     } => {
-                        let _ = write_location;
-                        // TODO: Implement reading of the block from disk
-                        #[expect(unreachable_code, reason = "Unimplemented")]
-                        Block::from_buffers(header.buffer().clone(), unimplemented!())
+                        let storage_backend_adapter = state.storage_backend_adapter.read().await;
+
+                        let storage_item = storage_backend_adapter
+                            .read_storage_item::<StorageItemBlock>(write_location)
+                            .await?;
+
+                        #[expect(
+                            clippy::infallible_destructuring_match,
+                            reason = "Only a single variant for now"
+                        )]
+                        let storage_item_block = match storage_item {
+                            StorageItemBlock::Block(storage_item_block) => storage_item_block,
+                        };
+
+                        let StorageItemBlockBlock {
+                            header: _,
+                            body,
+                            mmr_with_block: _,
+                            system_contract_states: _,
+                        } = storage_item_block;
+
+                        Block::from_buffers(header.buffer().clone(), body)
+                            .ok_or(ReadBlockError::FailedToDecode)
                     }
-                }
-            } else {
-                None
+                };
             }
-        })
+        }
+
+        unreachable!("Known block root always has block candidate associated with it; qed")
     }
 }
 
@@ -745,7 +783,7 @@ where
 
         if best_number == BlockNumber::ZERO && block_number != BlockNumber::ONE {
             // Special case when syncing on top of the fresh database
-            Self::insert_first_block(&mut state, block, block_details);
+            Self::insert_first_block(&mut state.data, block, block_details);
 
             return Ok(());
         }
@@ -765,7 +803,7 @@ where
 
         let state = &mut *state;
 
-        let block_forks = state.blocks.get_mut(block_offset).ok_or_else(|| {
+        let block_forks = state.data.blocks.get_mut(block_offset).ok_or_else(|| {
             error!(
                 %block_number,
                 %block_offset,
@@ -776,10 +814,10 @@ where
             PersistBlockError::OutsideAcceptableRange
         })?;
 
-        for (index, fork_tip) in state.fork_tips.iter_mut().enumerate() {
+        for (index, fork_tip) in state.data.fork_tips.iter_mut().enumerate() {
             // Block's parent is no longer a fork tip, remove it
             if fork_tip.root == header.prefix.parent_root {
-                state.fork_tips.remove(index);
+                state.data.fork_tips.remove(index);
                 break;
             }
         }
@@ -787,20 +825,20 @@ where
         let block_root = *header.root();
         // Insert at position 1, which means the most recent tip, which doesn't correspond to
         // the best block
-        state.fork_tips.insert(
+        state.data.fork_tips.insert(
             1,
             ForkTip {
                 number: block_number,
                 root: block_root,
             },
         );
-        state.block_roots.insert(block_root, block_number);
+        state.data.block_roots.insert(block_root, block_number);
         block_forks.push(ClientDatabaseBlock::InMemory(ClientDatabaseBlockInMemory {
             block,
             block_details,
         }));
 
-        Self::prune_outdated_fork_tips(block_number, state, &self.inner.options);
+        Self::prune_outdated_fork_tips(block_number, &mut state.data, &self.inner.options);
 
         Ok(())
     }
@@ -837,7 +875,7 @@ where
             return Err(ClientDatabaseError::InvalidMaxForkTipDistance);
         }
 
-        let mut state = State {
+        let mut state_data = StateData {
             fork_tips: VecDeque::new(),
             block_roots: HashMap::default(),
             blocks: VecDeque::new(),
@@ -859,6 +897,7 @@ where
                 let StorageItemHandlerArg {
                     storage_item,
                     page_offset,
+                    num_pages,
                 } = arg;
                 #[expect(
                     clippy::infallible_destructuring_match,
@@ -886,9 +925,9 @@ where
                 let block_root = *header.header().root();
                 let block_number = header.header().prefix.number;
 
-                state.block_roots.insert(block_root, block_number);
+                state_data.block_roots.insert(block_root, block_number);
 
-                let maybe_best_number = state
+                let maybe_best_number = state_data
                     .blocks
                     .front()
                     .and_then(|block_forks| block_forks.first())
@@ -916,17 +955,17 @@ where
                             return Err(ClientDatabaseError::InvalidBlock { page_offset });
                         }
 
-                        state.blocks.push_front(SmallVec::new());
+                        state_data.blocks.push_front(SmallVec::new());
                         // Will insert a new block at the front
                         0
                     }
                 } else {
-                    state.blocks.push_front(SmallVec::new());
+                    state_data.blocks.push_front(SmallVec::new());
                     // Will insert a new block at the front
                     0
                 };
 
-                let block_forks = match state.blocks.get_mut(block_offset) {
+                let block_forks = match state_data.blocks.get_mut(block_offset) {
                     Some(block_forks) => block_forks,
                     None => {
                         // Ignore the older block, other blocks at its height were already pruned
@@ -943,13 +982,16 @@ where
                         mmr_with_block,
                         system_contract_states,
                     },
-                    write_location: WriteLocation { page_offset },
+                    write_location: WriteLocation {
+                        page_offset,
+                        num_pages,
+                    },
                 });
 
                 // If a new block was inserted, confirm a new canonical block to prune extra
                 // in-memory information
                 if block_offset == 0 && block_forks.len() == 1 {
-                    Self::confirm_canonical_block(block_number, &mut state, &options);
+                    Self::confirm_canonical_block(block_number, &mut state_data, &options);
                 }
 
                 Ok(())
@@ -957,10 +999,10 @@ where
         };
 
         let storage_backend_adapter =
-            StorageBackendAdapter::open(write_buffer_size, storage_item_handlers, &storage_backend)
+            StorageBackendAdapter::open(write_buffer_size, storage_item_handlers, storage_backend)
                 .await?;
 
-        if let Some(best_block) = state.blocks.front().and_then(|block_forks| {
+        if let Some(best_block) = state_data.blocks.front().and_then(|block_forks| {
             // The best block is last in the list here because that is how it was inserted while
             // reading from the database
             block_forks.last()
@@ -971,12 +1013,12 @@ where
             let block_number = header.prefix.number;
             let block_root = *header.root();
 
-            if !Self::adjust_ancestor_block_forks(&mut state.blocks, block_root) {
+            if !Self::adjust_ancestor_block_forks(&mut state_data.blocks, block_root) {
                 return Err(ClientDatabaseError::FailedToAdjustAncestorBlockForks);
             }
 
             // Store the best block as the first and only fork tip
-            state.fork_tips.push_front(ForkTip {
+            state_data.fork_tips.push_front(ForkTip {
                 number: block_number,
                 root: block_root,
             });
@@ -991,12 +1033,12 @@ where
             let block_number = header.prefix.number;
             let block_root = *header.root();
 
-            state.fork_tips.push_front(ForkTip {
+            state_data.fork_tips.push_front(ForkTip {
                 number: block_number,
                 root: block_root,
             });
-            state.block_roots.insert(block_root, block_number);
-            state
+            state_data.block_roots.insert(block_root, block_number);
+            state_data
                 .blocks
                 .push_front(smallvec![ClientDatabaseBlock::InMemory(
                     ClientDatabaseBlockInMemory {
@@ -1013,10 +1055,13 @@ where
                 )]);
         }
 
+        let state = State {
+            data: state_data,
+            storage_backend_adapter: AsyncRwLock::new(storage_backend_adapter),
+        };
+
         let inner = Inner {
             state: AsyncRwLock::new(state),
-            storage_backend_adapter: AsyncMutex::new(storage_backend_adapter),
-            storage_backend,
             options,
         };
 
@@ -1033,7 +1078,7 @@ where
         StorageBackendAdapter::format(storage_backend, options).await
     }
 
-    fn insert_first_block(state: &mut State<Block>, block: Block, block_details: BlockDetails) {
+    fn insert_first_block(state: &mut StateData<Block>, block: Block, block_details: BlockDetails) {
         // If the database is empty, initialize everything with the genesis block
         let header = block.header().header();
         let block_number = header.prefix.number;
@@ -1058,7 +1103,7 @@ where
     }
 
     async fn insert_new_best_block(
-        mut state: AsyncRwLockWriteGuard<'_, State<Block>>,
+        mut state: AsyncRwLockWriteGuard<'_, State<Block, StorageBackend>>,
         inner: &Inner<Block, StorageBackend>,
         block: Block,
         block_details: BlockDetails,
@@ -1070,26 +1115,27 @@ where
 
         // Adjust the relative order of forks to ensure the first index always corresponds to
         // ancestors of the new best block
-        if !Self::adjust_ancestor_block_forks(&mut state.blocks, parent_root) {
+        if !Self::adjust_ancestor_block_forks(&mut state.data.blocks, parent_root) {
             return Err(PersistBlockError::MissingParent);
         }
 
         // Store new block in the state
         {
-            for (index, fork_tip) in state.fork_tips.iter_mut().enumerate() {
+            for (index, fork_tip) in state.data.fork_tips.iter_mut().enumerate() {
                 // Block's parent is no longer a fork tip, remove it
                 if fork_tip.root == parent_root {
-                    state.fork_tips.remove(index);
+                    state.data.fork_tips.remove(index);
                     break;
                 }
             }
 
-            state.fork_tips.push_front(ForkTip {
+            state.data.fork_tips.push_front(ForkTip {
                 number: block_number,
                 root: block_root,
             });
-            state.block_roots.insert(block_root, block_number);
+            state.data.block_roots.insert(block_root, block_number);
             state
+                .data
                 .blocks
                 .push_front(smallvec![ClientDatabaseBlock::InMemory(
                     ClientDatabaseBlockInMemory {
@@ -1101,8 +1147,8 @@ where
 
         let options = &inner.options;
 
-        Self::confirm_canonical_block(block_number, &mut state, options);
-        Self::prune_outdated_fork_tips(block_number, &mut state, options);
+        Self::confirm_canonical_block(block_number, &mut state.data, options);
+        Self::prune_outdated_fork_tips(block_number, &mut state.data, options);
 
         // Convert write lock into upgradable read lock to allow reads, while preventing concurrent
         // block modifications
@@ -1110,14 +1156,9 @@ where
         //  are satisfied. If not, blocking read locks in other places will cause issues.
         let state = AsyncRwLockWriteGuard::downgrade_to_upgradable(state);
 
-        let mut blocks_to_persist = Vec::with_capacity(
-            options
-                .confirmation_depth_k
-                .saturating_sub(options.soft_confirmation_depth)
-                .as_u64() as usize,
-        );
+        let mut blocks_to_persist = Vec::new();
         for block_offset in options.soft_confirmation_depth.as_u64() as usize.. {
-            let Some(fork_blocks) = state.blocks.get(block_offset) else {
+            let Some(fork_blocks) = state.data.blocks.get(block_offset) else {
                 break;
             };
 
@@ -1146,36 +1187,35 @@ where
             }
         }
 
-        let mut storage_backend_adapter = inner.storage_backend_adapter.lock().await;
-
         // Persist blocks from older to newer
         let mut persisted_blocks = Vec::with_capacity(blocks_to_persist.len());
-        for block_to_persist in blocks_to_persist.into_iter().rev() {
-            let BlockToPersist {
-                block_offset,
-                fork_offset,
-                block,
-            } = block_to_persist;
+        {
+            let mut storage_backend_adapter = state.storage_backend_adapter.write().await;
 
-            let write_location = storage_backend_adapter
-                .write_storage_item(
-                    &inner.storage_backend,
-                    StorageItemBlock::Block(StorageItemBlockBlock {
+            for block_to_persist in blocks_to_persist.into_iter().rev() {
+                let BlockToPersist {
+                    block_offset,
+                    fork_offset,
+                    block,
+                } = block_to_persist;
+
+                let write_location = storage_backend_adapter
+                    .write_storage_item(StorageItemBlock::Block(StorageItemBlockBlock {
                         header: block.block.header().buffer().clone(),
                         body: block.block.body().buffer().clone(),
                         mmr_with_block: Arc::clone(&block.block_details.mmr_with_block),
                         system_contract_states: StdArc::clone(
                             &block.block_details.system_contract_states,
                         ),
-                    }),
-                )
-                .await?;
+                    }))
+                    .await?;
 
-            persisted_blocks.push(PersistedBlock {
-                block_offset,
-                fork_offset,
-                write_location,
-            });
+                persisted_blocks.push(PersistedBlock {
+                    block_offset,
+                    fork_offset,
+                    write_location,
+                });
+            }
         }
 
         // Convert blocks to persisted
@@ -1188,6 +1228,7 @@ where
             } = persisted_block;
 
             let block = state
+                .data
                 .blocks
                 .get_mut(block_offset)
                 .expect("Still holding the same lock since last check; qed")
@@ -1270,7 +1311,7 @@ where
     /// they end up being necessary later.
     fn prune_outdated_fork_tips(
         best_number: BlockNumber,
-        state: &mut State<Block>,
+        state: &mut StateData<Block>,
         options: &ClientDatabaseInnerOptions,
     ) {
         let state = &mut *state;
@@ -1309,7 +1350,7 @@ where
     fn prune_outdated_fork(
         best_number: BlockNumber,
         fork_tip: &ForkTip,
-        state: &mut State<Block>,
+        state: &mut StateData<Block>,
     ) -> bool {
         let block_offset = (best_number - fork_tip.number).as_u64() as usize;
 
@@ -1401,26 +1442,16 @@ where
     /// their descendants
     fn confirm_canonical_block(
         best_number: BlockNumber,
-        state: &mut State<Block>,
+        state_data: &mut StateData<Block>,
         options: &ClientDatabaseInnerOptions,
     ) {
         // `+1` means it effectively confirms parent blocks instead. This is done to keep the parent
         // of the confirmed block with its MMR in memory due to confirmed blocks not storing their
         // MMRs, which might be needed for reorgs at the lowest possible depth.
-        let Some(block_offset) =
-            best_number.checked_sub(options.confirmation_depth_k + BlockNumber::ONE)
-        else {
-            // Nothing to prune yet
-            return;
-        };
-        let block_offset = block_offset.as_u64() as usize;
+        let block_offset = (options.confirmation_depth_k + BlockNumber::ONE).as_u64() as usize;
 
-        let Some(fork_blocks) = state.blocks.get_mut(block_offset) else {
-            error!(
-                %best_number,
-                block_offset,
-                "Have not found fork blocks to confirm, this is an implementation bug"
-            );
+        let Some(fork_blocks) = state_data.blocks.get_mut(block_offset) else {
+            // Nothing to confirm yet
             return;
         };
 
@@ -1474,13 +1505,13 @@ where
         let mut current_block_offset = block_offset;
         while !block_roots_to_prune.is_empty() {
             // Prune fork tips (if any)
-            state
+            state_data
                 .fork_tips
                 .retain(|fork_tip| !block_roots_to_prune.contains(&fork_tip.root));
 
             // Prune removed block roots
             for block_root in &block_roots_to_prune {
-                state.block_roots.remove(block_root);
+                state_data.block_roots.remove(block_root);
             }
 
             // Block offset for direct descendants
@@ -1491,7 +1522,7 @@ where
                 break;
             }
 
-            let fork_blocks = state
+            let fork_blocks = state_data
                 .blocks
                 .get_mut(current_block_offset)
                 .expect("Lower block offset always exists; qed");
