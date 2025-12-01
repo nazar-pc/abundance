@@ -1156,12 +1156,7 @@ where
         //  are satisfied. If not, blocking read locks in other places will cause issues.
         let state = AsyncRwLockWriteGuard::downgrade_to_upgradable(state);
 
-        let mut blocks_to_persist = Vec::with_capacity(
-            options
-                .confirmation_depth_k
-                .saturating_sub(options.soft_confirmation_depth)
-                .as_u64() as usize,
-        );
+        let mut blocks_to_persist = Vec::new();
         for block_offset in options.soft_confirmation_depth.as_u64() as usize.. {
             let Some(fork_blocks) = state.data.blocks.get(block_offset) else {
                 break;
@@ -1453,20 +1448,10 @@ where
         // `+1` means it effectively confirms parent blocks instead. This is done to keep the parent
         // of the confirmed block with its MMR in memory due to confirmed blocks not storing their
         // MMRs, which might be needed for reorgs at the lowest possible depth.
-        let Some(block_offset) =
-            best_number.checked_sub(options.confirmation_depth_k + BlockNumber::ONE)
-        else {
-            // Nothing to prune yet
-            return;
-        };
-        let block_offset = block_offset.as_u64() as usize;
+        let block_offset = (options.confirmation_depth_k + BlockNumber::ONE).as_u64() as usize;
 
         let Some(fork_blocks) = state_data.blocks.get_mut(block_offset) else {
-            error!(
-                %best_number,
-                block_offset,
-                "Have not found fork blocks to confirm, this is an implementation bug"
-            );
+            // Nothing to confirm yet
             return;
         };
 
