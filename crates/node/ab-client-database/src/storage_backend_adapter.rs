@@ -66,9 +66,7 @@ enum WriteBufferEntry {
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct WriteLocation {
-    #[expect(dead_code, reason = "Not used yet")]
     pub(crate) page_offset: u32,
-    #[expect(dead_code, reason = "Not used yet")]
     pub(crate) num_pages: u32,
 }
 
@@ -426,6 +424,36 @@ where
         target_page_groups.next_sequence_number = next_sequence_number;
 
         Ok(buffer)
+    }
+
+    pub(super) async fn read_storage_item<SI>(
+        &self,
+        write_location: WriteLocation,
+    ) -> io::Result<SI>
+    where
+        SI: UniqueStorageItem,
+    {
+        let WriteLocation {
+            page_offset,
+            num_pages,
+        } = write_location;
+
+        let pages = self
+            .storage_backend
+            .read(Vec::new(), num_pages, page_offset)
+            .await
+            .map_err(|_cancelled| {
+                io::Error::new(
+                    io::ErrorKind::Interrupted,
+                    "Storage backend read was aborted",
+                )
+            })
+            .flatten()?;
+
+        let container = StorageItemContainer::read_from_pages(&pages)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+
+        Ok(container.storage_item)
     }
 
     pub(super) async fn write_storage_item<SI>(

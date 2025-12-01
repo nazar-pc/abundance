@@ -184,8 +184,8 @@ where
 
         let last_archived_block_root = &*last_archived_block_header.header().root();
 
-        let Some(last_archived_block) = chain_info.block(last_archived_block_root).await else {
-            // This block data was already pruned (but the headers weren't)
+        let Ok(last_archived_block) = chain_info.block(last_archived_block_root).await else {
+            // Block might have been pruned between ancestor search and disk read
             continue;
         };
 

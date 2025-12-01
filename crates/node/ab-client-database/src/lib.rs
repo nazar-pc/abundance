@@ -68,7 +68,7 @@ use crate::storage_backend_adapter::{
 };
 use ab_client_api::{
     BlockDetails, BlockMerkleMountainRange, ChainInfo, ChainInfoWrite, ContractSlotState,
-    PersistBlockError,
+    PersistBlockError, ReadBlockError,
 };
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::GenericBlockHeader;
@@ -703,36 +703,64 @@ where
         })
     }
 
-    async fn block(&self, block_root: &BlockRoot) -> Option<Block> {
-        // Blocking read lock is fine because the only place where write lock is taken is short and
-        // all other locks are read locks
-        let state = self.inner.state.read_blocking();
+    async fn block(&self, block_root: &BlockRoot) -> Result<Block, ReadBlockError> {
+        let state = self.inner.state.read().await;
         let best_number = state.best_tip().number;
 
-        let block_number = *state.data.block_roots.get(block_root)?;
-        let block_offset = best_number.checked_sub(block_number)?.as_u64() as usize;
-        let block_candidates = state.data.blocks.get(block_offset)?;
+        let block_number = *state
+            .data
+            .block_roots
+            .get(block_root)
+            .ok_or(ReadBlockError::UnknownBlockRoot)?;
+        let block_offset = best_number
+            .checked_sub(block_number)
+            .expect("Known block roots always have valid block offset; qed")
+            .as_u64() as usize;
+        let block_candidates = state
+            .data
+            .blocks
+            .get(block_offset)
+            .expect("Valid block offsets always have block entries; qed");
 
-        block_candidates.iter().find_map(|block| {
-            let header = block.header();
+        for block_candidate in block_candidates {
+            let header = block_candidate.header();
 
             if &*header.header().root() == block_root {
-                match block.full_block() {
-                    FullBlock::InMemory(block) => Some(block.clone()),
+                return match block_candidate.full_block() {
+                    FullBlock::InMemory(block) => Ok(block.clone()),
                     FullBlock::Persisted {
                         header,
                         write_location,
                     } => {
-                        let _ = write_location;
-                        // TODO: Implement reading of the block from disk
-                        #[expect(unreachable_code, reason = "Unimplemented")]
-                        Block::from_buffers(header.buffer().clone(), unimplemented!())
+                        let storage_backend_adapter = state.storage_backend_adapter.read().await;
+
+                        let storage_item = storage_backend_adapter
+                            .read_storage_item::<StorageItemBlock>(write_location)
+                            .await?;
+
+                        #[expect(
+                            clippy::infallible_destructuring_match,
+                            reason = "Only a single variant for now"
+                        )]
+                        let storage_item_block = match storage_item {
+                            StorageItemBlock::Block(storage_item_block) => storage_item_block,
+                        };
+
+                        let StorageItemBlockBlock {
+                            header: _,
+                            body,
+                            mmr_with_block: _,
+                            system_contract_states: _,
+                        } = storage_item_block;
+
+                        Block::from_buffers(header.buffer().clone(), body)
+                            .ok_or(ReadBlockError::FailedToDecode)
                     }
-                }
-            } else {
-                None
+                };
             }
-        })
+        }
+
+        unreachable!("Known block root always has block candidate associated with it; qed")
     }
 }
 
