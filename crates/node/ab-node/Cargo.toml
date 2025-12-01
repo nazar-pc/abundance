@@ -22,6 +22,7 @@ ab-client-block-import = { workspace = true }
 ab-client-block-verification = { workspace = true }
 ab-client-consensus-common = { workspace = true }
 ab-client-database = { workspace = true }
+ab-client-informer = { workspace = true }
 ab-client-proof-of-time = { workspace = true }
 ab-cli-utils = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
@@ -41,7 +42,7 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 thread-priority = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-tracing = { workspace = true }
+tracing = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

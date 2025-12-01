@@ -21,6 +21,7 @@ ab-client-block-import = { version = "0.0.1", path = "crates/node/ab-client-bloc
 ab-client-block-verification = { version = "0.0.1", path = "crates/node/ab-client-block-verification" }
 ab-client-consensus-common = { version = "0.0.1", path = "crates/node/ab-client-consensus-common" }
 ab-client-database = { version = "0.0.1", path = "crates/node/ab-client-database" }
+ab-client-informer = { version = "0.0.1", path = "crates/node/ab-client-informer" }
 ab-cli-utils = { version = "0.0.1", path = "crates/shared/ab-cli-utils" }
 ab-direct-io-file = { version = "0.0.1", path = "crates/shared/ab-direct-io-file" }
 ab-client-proof-of-time = { version = "0.0.1", path = "crates/node/ab-client-proof-of-time" }

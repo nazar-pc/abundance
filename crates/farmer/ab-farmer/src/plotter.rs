@@ -1,9 +1,9 @@
 //! Plotter abstraction
 //!
-//! Plotter is abstracted away to support different implementation. Originally it was just CPU, but
-//! eventually abstract network-attached, GPU or hybrid plotters become an option as well. Having a
+//! Plotter is abstracted away to support different implementations. Originally it was just CPU, but
+//! eventually abstract network-attached, GPU and hybrid plotters became an option as well. Having a
 //! trait with async API representing plotting functionality allows composition of different
-//! implementations without the rest of the library being aware of implementation details.
+//! implementations without the rest of the farmer being aware of implementation details.
 
 pub mod cpu;
 pub mod gpu;
@@ -34,7 +34,7 @@ pub enum SectorPlottingProgress {
     Encoded(Duration),
     /// Finished plotting
     Finished {
-        /// Information about plotted sector
+        /// Information about the plotted sector
         plotted_sector: PlottedSector,
         /// How much time it took to plot a sector
         time: Duration,
@@ -84,7 +84,7 @@ pub trait Plotter: fmt::Debug {
     /// Whether plotter has free capacity to encode more sectors
     async fn has_free_capacity(&self) -> Result<bool, String>;
 
-    /// Plot one sector, sending sector plotting events via provided stream.
+    /// Plot one sector, sending sector plotting events via the provided stream.
     ///
     /// Future returns once plotting is successfully scheduled (for backpressure purposes).
     async fn plot_sector(
@@ -97,7 +97,7 @@ pub trait Plotter: fmt::Debug {
         progress_sender: mpsc::Sender<SectorPlottingProgress>,
     );
 
-    /// Try to plot one sector, sending sector plotting events via provided stream.
+    /// Try to plot one sector, sending sector plotting events via the provided stream.
     ///
     /// Returns `true` if plotting started successfully and `false` if there is no capacity to start
     /// plotting immediately.

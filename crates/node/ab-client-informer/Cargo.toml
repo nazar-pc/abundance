@@ -1,0 +1,23 @@
+[package]
+name = "ab-client-informer"
+description = "Client informer, which logs node state periodically"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-client-api = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["alloc"] }
+tokio = { workspace = true, features = ["time"] }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

@@ -17,7 +17,7 @@ type GenericBody<'a, Block> =
 /// Error for [`BlockVerification`]
 #[derive(Debug, thiserror::Error)]
 pub enum BlockVerificationError {
-    /// Block is below archiving point
+    /// Block is below the archiving point
     #[error("Block is below archiving point")]
     BelowArchivingPoint,
     /// Invalid header prefix
@@ -51,10 +51,10 @@ pub trait BlockVerification<Block>: Send + Sync
 where
     Block: GenericOwnedBlock,
 {
-    /// Verify provided block header/body, typically as part of the block import, without executing
-    /// the block.
+    /// Verify the provided block header/body, typically as part of the block import, without
+    /// executing the block.
     ///
-    /// Expects (and doesn't check) that `parent_header` correspond to `header`'s parent root,
+    /// Expects (and doesn't check) that `parent_header` corresponds to `header`'s parent root,
     /// `header` corresponds to `body` and is internally consistent, see:
     /// * [`Block::is_internally_consistent()`]
     /// * [`BlockHeader::is_internally_consistent()`]
@@ -66,8 +66,8 @@ where
     ///
     /// These invariants are not checked during verification.
     ///
-    /// Since verification doesn't execute the block, state root is ignored and needs to be checked
-    /// separately after/if block is re-executed.
+    /// Since verification doesn't execute the block, the state root is ignored and needs to be
+    /// checked separately after/if the block is re-executed.
     fn verify(
         &self,
         parent_header: &GenericHeader<'_, Block>,

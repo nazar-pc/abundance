@@ -50,7 +50,7 @@ where
     where
         Self: 'a;
 
-    /// Turn into owned version
+    /// Turn into an owned version
     #[cfg(feature = "alloc")]
     fn to_owned(self) -> Self::Owned;
 
@@ -59,7 +59,7 @@ where
     /// Block root is a Merkle Tree Root. The leaves are derived from individual fields in
     /// [`SharedBlockHeader`] and other fields of this enum in the declaration order.
     ///
-    /// Note that this method does a bunch of hashing and if hash is needed often, should be cached.
+    /// Note that this method does a bunch of hashing and if root is often needed, should be cached.
     fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync;
 
     /// Hash of the block before seal is applied to it
