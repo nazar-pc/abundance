@@ -1489,7 +1489,7 @@ where
         EvaluatableUsize<{ metadata_size_bytes(K, 6) }>: Sized,
     {
         let left_targets = &*cache.left_targets;
-        // SAFETY: Zero is a valid invariant
+        // SAFETY: Data structure filled with zeroes is a valid invariant
         let mut table_6_proof_targets =
             unsafe { Box::<[[Position; 2]; Record::NUM_S_BUCKETS]>::new_zeroed().assume_init() };
 
@@ -1680,7 +1680,7 @@ where
 
         let buckets_positions = strip_sync_unsafe_cell(buckets_positions);
 
-        // SAFETY: Zero is a valid invariant
+        // SAFETY: Data structure filled with zeroes is a valid invariant
         let mut table_6_proof_targets =
             unsafe { Box::<[[Position; 2]; Record::NUM_S_BUCKETS]>::new_zeroed().assume_init() };
 

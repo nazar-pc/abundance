@@ -180,7 +180,7 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
             // SAFETY: Initialized above
             let found_proofs_word =
                 unsafe { found_proofs_scratch[local_word_index].assume_init_mut() };
-            // TODO: Probably should not be unsafe to begin with:
+            // SAFETY: TODO: Probably should not be unsafe to begin with:
             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
             unsafe {
                 atomic_or::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(
@@ -403,7 +403,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             let word = unsafe {
                                 proofs[proof_base + first_proof_word_index].assume_init_mut()
                             };
-                            // TODO: Probably should not be unsafe to begin with:
+                            // SAFETY: TODO: Probably should not be unsafe to begin with:
                             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
                             unsafe {
                                 atomic_or::<
@@ -422,7 +422,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             let word = unsafe {
                                 proofs[proof_base + first_proof_word_index + 1].assume_init_mut()
                             };
-                            // TODO: Probably should not be unsafe to begin with:
+                            // SAFETY: TODO: Probably should not be unsafe to begin with:
                             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
                             unsafe {
                                 atomic_or::<
@@ -440,7 +440,7 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             let word = unsafe {
                                 proofs[proof_base + first_proof_word_index + 2].assume_init_mut()
                             };
-                            // TODO: Probably should not be unsafe to begin with:
+                            // SAFETY: TODO: Probably should not be unsafe to begin with:
                             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
                             unsafe {
                                 atomic_or::<

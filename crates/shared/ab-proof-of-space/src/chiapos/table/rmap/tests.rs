@@ -5,6 +5,7 @@ use crate::chiapos::table::types::{Position, R};
 fn test_rmap_basic() {
     let mut rmap = Rmap::new();
 
+    // SAFETY: All `r` values are in `0..PARAM_BC` range
     unsafe {
         assert_eq!(
             rmap.get(R::from(0)),
@@ -42,6 +43,7 @@ fn test_rmap_basic() {
 fn test_rmap_zero_when_full() {
     let mut rmap = Rmap::new();
 
+    // SAFETY: All `r` values are in `0..PARAM_BC` range
     unsafe {
         rmap.add(R::from(3), Position::from(500));
         rmap.add(R::from(3), Position::from(501));

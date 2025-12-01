@@ -186,7 +186,7 @@ unsafe fn compute_f7_into_buckets_inner(
         return;
     }
     let bucket_size = &mut table_6_proof_targets_sizes[s_bucket];
-    // TODO: Probably should not be unsafe to begin with:
+    // SAFETY: TODO: Probably should not be unsafe to begin with:
     //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
     let bucket_offset = unsafe {
         atomic_i_increment::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(

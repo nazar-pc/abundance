@@ -188,6 +188,7 @@ async fn find_matches_in_buckets_adapter(
 
     let buckets_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(buckets.as_ptr().cast::<u8>(), size_of_val(buckets))
         },
@@ -276,7 +277,9 @@ async fn find_matches_in_buckets_adapter(
             .as_ptr()
             .cast::<u32>();
 
+        // SAFETY: The pointer points to correctly initialized and aligned memory
         let matches = unsafe { slice::from_raw_parts(matches_host_ptr, num_bucket_pairs) };
+        // SAFETY: The pointer points to correctly initialized and aligned memory
         let matches_counts =
             unsafe { slice::from_raw_parts(matches_counts_host_ptr, num_bucket_pairs) };
 

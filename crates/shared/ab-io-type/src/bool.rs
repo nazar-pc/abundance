@@ -38,6 +38,7 @@ impl From<Bool> for bool {
     }
 }
 
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for Bool {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Bool as u8];
 }

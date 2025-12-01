@@ -39,6 +39,7 @@ where
     [(); N.ilog2() as usize + 1]:,
     [(); compute_root_only_large_stack_size(N)]:,
 {
+    // SAFETY: Data structure filled with zeroes is a valid invariant
     let mut input = unsafe { Box::<[[u8; 32]; N]>::new_zeroed().assume_init() };
     for (index, input) in input.iter_mut().enumerate() {
         *input = [(index % u8::MAX as usize + 1) as u8; 32];
@@ -86,6 +87,7 @@ fn unbalanced<const MAX_N: usize, const MAX_N_U64: u64>(c: &mut Criterion)
 where
     [(); MAX_N_U64.ilog2() as usize + 1]:,
 {
+    // SAFETY: Data structure filled with zeroes is a valid invariant
     let mut input = unsafe { Box::<[[u8; 32]; MAX_N]>::new_zeroed().assume_init() };
     for (index, input) in input.iter_mut().enumerate() {
         *input = [(index % u8::MAX as usize + 1) as u8; 32];

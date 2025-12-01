@@ -130,6 +130,7 @@ fn expand_key(key: &[u8; 16]) -> [uint8x16_t; NUM_ROUND_KEYS] {
 
     // Sanity check, as this is required in order for the subsequent conversion to be sound.
     const _: () = assert!(align_of::<uint8x16_t>() >= align_of::<u32>());
+    // SAFETY: Size and alignment are the same
     let columns = unsafe {
         slice::from_raw_parts_mut(
             expanded_keys.as_mut_ptr().cast::<u32>(),

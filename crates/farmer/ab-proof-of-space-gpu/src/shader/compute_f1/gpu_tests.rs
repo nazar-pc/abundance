@@ -174,6 +174,7 @@ async fn compute_f1_adapter(
 
     let initial_state_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(
                 initial_state.as_ptr().cast::<u8>(),
@@ -264,12 +265,14 @@ async fn compute_f1_adapter(
             .get_mapped_range(..)
             .as_ptr()
             .cast::<[u32; NUM_BUCKETS]>();
+        // SAFETY: The pointer is to correctly initialized and aligned memory
         let bucket_sizes = unsafe { &*bucket_sizes_host_ptr };
 
         let buckets_host_ptr = buckets_host
             .get_mapped_range(..)
             .as_ptr()
             .cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
+        // SAFETY: The pointer is to correctly initialized and aligned memory
         let buckets = unsafe { &*buckets_host_ptr };
 
         buckets

@@ -412,11 +412,13 @@ impl KnownPeersManager {
             false
         };
 
+        // SAFETY: Mapping disjoint sections of the file only for non-conflicting writes
         let mut a_mmap = unsafe {
             MmapOptions::new()
                 .len(known_addresses_size)
                 .map_mut(&file)?
         };
+        // SAFETY: Mapping disjoint sections of the file only for non-conflicting writes
         let mut b_mmap = unsafe {
             MmapOptions::new()
                 .offset(known_addresses_size as u64)

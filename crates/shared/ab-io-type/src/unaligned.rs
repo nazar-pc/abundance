@@ -44,6 +44,7 @@ where
     }
 }
 
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl<Data> TrivialType for Unaligned<Data>
 where
     Data: TrivialType,

@@ -125,7 +125,7 @@ impl TransactionBuilder {
 
         if !align_to_16_bytes_with_padding(&mut self.buffer) {
             self.dec_transaction_count();
-            // Length was obtained from the same buffer before last write
+            // SAFETY: Length was obtained from the same buffer before the last write
             unsafe {
                 self.buffer.set_len(old_buffer_len);
             }

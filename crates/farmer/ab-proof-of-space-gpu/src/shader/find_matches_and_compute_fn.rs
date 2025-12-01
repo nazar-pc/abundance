@@ -115,7 +115,7 @@ unsafe fn compute_fn_into_buckets_inner<const TABLE_NUMBER: u8, const PARENT_TAB
     let (bucket_index, r) = y.into_bucket_index_and_r();
     // SAFETY: Bucket is obtained using division by `PARAM_BC` and fits by definition
     let bucket_size = unsafe { bucket_sizes.get_unchecked_mut(bucket_index as usize) };
-    // TODO: Probably should not be unsafe to begin with:
+    // SAFETY: TODO: Probably should not be unsafe to begin with:
     //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
     let bucket_offset = unsafe {
         atomic_i_increment::<_, { Scope::QueueFamily as u32 }, { Semantics::NONE.bits() }>(

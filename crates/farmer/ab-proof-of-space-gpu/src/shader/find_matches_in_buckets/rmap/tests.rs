@@ -13,6 +13,7 @@ fn test_rmap_against_reference() {
     let source_bucket = {
         let mut bucket = array::from_fn::<_, MAX_BUCKET_SIZE, _>(|i| PositionR {
             position: i as u32,
+            // SAFETY: `r` is within `0..PARAM_BC` range
             r: unsafe { R::new(rng.random_range(0..u32::from(PARAM_BC))) },
         });
         bucket.shuffle(&mut rng);
@@ -30,6 +31,8 @@ fn test_rmap_against_reference() {
             if position_r.position == Position::SENTINEL {
                 break;
             }
+            // SAFETY: `r` is within `0..PARAM_BC` range, there are at most `REDUCED_BUCKET_SIZE`
+            // elements in the bucket
             unsafe {
                 rmap_correct.add(position_r.r.get(), position_r.position);
             }
@@ -50,11 +53,13 @@ fn test_rmap_against_reference() {
     }
 
     for r in 0..u32::from(PARAM_BC) {
+        // SAFETY: `r` is within `0..PARAM_BC` range
         let correct_positions = unsafe { rmap_correct.get(r) };
 
         assert_eq!(
             (correct_positions[0] != Position::SENTINEL) as u32
                 + (correct_positions[1] != Position::SENTINEL) as u32,
+            // SAFETY: `r` is within `0..PARAM_BC` range
             rmap_concurrent.num_r_items(unsafe { R::new(r) }),
             "r={r:?}"
         );

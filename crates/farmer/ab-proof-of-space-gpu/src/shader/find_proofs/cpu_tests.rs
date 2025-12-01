@@ -16,9 +16,11 @@ pub(super) fn find_proofs_correct(
     Box<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>,
     Box<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>,
 ) {
+    // SAFETY: Data structure filled with zeroes is a valid invariant
     let mut found_proofs = unsafe {
         Box::<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>::new_zeroed().assume_init()
     };
+    // SAFETY: Data structure filled with zeroes is a valid invariant
     let mut proofs =
         unsafe { Box::<[[u8; PROOF_BYTES]; NUM_S_BUCKETS]>::new_zeroed().assume_init() };
 

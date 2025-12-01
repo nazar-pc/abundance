@@ -124,6 +124,7 @@ pub(in super::super) fn find_matches_in_buckets_correct<'a>(
 
             // The right bucket position is never zero
             if right_position_a != Position::SENTINEL {
+                // SAFETY: Ranges of input values are satisfied
                 let m = unsafe { Match::new(bucket_offset as u32, m, r_target) };
                 // SAFETY: Iteration will stop before `REDUCED_MATCHES_COUNT + PARAM_M * 2`
                 // elements is inserted

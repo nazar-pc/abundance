@@ -25,6 +25,7 @@ use wgpu::{
 fn generate_positions(
     rng: &mut ChaCha8Rng,
 ) -> Box<[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]> {
+    // SAFETY: Contents is `MaybeUninit`
     let mut positions = unsafe {
         Box::<[[MaybeUninit<[Position; 2]>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>::new_uninit(
         )
@@ -38,6 +39,7 @@ fn generate_positions(
         ]);
     }
 
+    // SAFETY: Just initialized
     unsafe {
         let ptr = Box::into_raw(positions);
         Box::from_raw(ptr.cast::<[[[Position; 2]; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>())
@@ -58,6 +60,7 @@ fn generate_buckets(
     bucket_sizes[..Record::NUM_CHUNKS].fill(0);
     bucket_sizes.shuffle(rng);
 
+    // SAFETY: Contents is `MaybeUninit`
     let mut buckets = unsafe {
         Box::<[[MaybeUninit<ProofTargets>; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>::new_uninit()
             .assume_init()
@@ -73,6 +76,7 @@ fn generate_buckets(
         });
     }
 
+    // SAFETY: Just initialized
     let mut buckets = unsafe {
         let ptr = Box::into_raw(buckets);
         Box::from_raw(ptr.cast::<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>())
@@ -335,6 +339,7 @@ async fn find_proofs_adapter(
 
     let table_2_positions_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(
                 table_2_positions.as_ptr().cast::<u8>(),
@@ -346,6 +351,7 @@ async fn find_proofs_adapter(
 
     let table_3_positions_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(
                 table_3_positions.as_ptr().cast::<u8>(),
@@ -357,6 +363,7 @@ async fn find_proofs_adapter(
 
     let table_4_positions_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(
                 table_4_positions.as_ptr().cast::<u8>(),
@@ -368,6 +375,7 @@ async fn find_proofs_adapter(
 
     let table_5_positions_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(
                 table_5_positions.as_ptr().cast::<u8>(),
@@ -379,6 +387,7 @@ async fn find_proofs_adapter(
 
     let table_6_positions_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(
                 table_6_positions.as_ptr().cast::<u8>(),
@@ -390,6 +399,7 @@ async fn find_proofs_adapter(
 
     let bucket_sizes_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(
                 bucket_sizes.as_ptr().cast::<u8>(),
@@ -401,6 +411,7 @@ async fn find_proofs_adapter(
 
     let buckets_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(buckets.as_ptr().cast::<u8>(), size_of_val(buckets))
         },
@@ -482,12 +493,15 @@ async fn find_proofs_adapter(
             .get_mapped_range(..)
             .as_ptr()
             .cast::<ProofsHost>();
+        // SAFETY: The pointer points to correctly initialized and aligned memory
         let proofs_ref = unsafe { &*proofs_host_ptr };
 
         let found_proofs = Box::new(proofs_ref.found_proofs);
+        // SAFETY: Contents is `MaybeUninit`
         let mut proofs =
             unsafe { Box::<[MaybeUninit<PosProof>; NUM_S_BUCKETS]>::new_uninit().assume_init() };
         proofs.write_copy_of_slice(&proofs_ref.proofs);
+        // SAFETY: Just initialized
         let proofs = unsafe {
             let ptr = Box::into_raw(proofs);
             Box::from_raw(ptr.cast::<[PosProof; NUM_S_BUCKETS]>())

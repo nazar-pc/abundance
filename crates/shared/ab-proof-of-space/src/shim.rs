@@ -24,7 +24,7 @@ pub struct ShimTableGenerator;
 #[cfg(feature = "alloc")]
 impl TableGenerator<ShimTable> for ShimTableGenerator {
     fn create_proofs(&self, seed: &PosSeed) -> Box<PosProofs> {
-        // SAFETY: Zeroed contents is a safe invariant
+        // SAFETY: Data structure filled with zeroes is a valid invariant
         let mut proofs = unsafe { Box::<PosProofs>::new_zeroed().assume_init() };
 
         let mut num_found_proofs = 0_usize;

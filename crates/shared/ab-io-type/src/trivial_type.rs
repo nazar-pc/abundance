@@ -33,15 +33,15 @@ where
 
     /// Create a reference to a type, which is represented by provided memory.
     ///
-    /// Memory must be correctly aligned or else `None` will be returned, but padding beyond the
+    /// Memory must be correctly aligned, or else `None` will be returned, but padding beyond the
     /// size of the type is allowed.
     ///
     /// # Safety
-    /// Input bytes must be previously produced by taking underlying bytes of the same type. For
-    /// example, only `0b0000_0000` and `0b0000_0001` are valid bit patterns for `bool` and using
+    /// Input bytes must be previously produced by taking underlying bytes of the same type. Using
     /// anything else will result in UB.
     #[inline(always)]
     unsafe fn from_bytes(bytes: &[u8]) -> Option<&Self> {
+        // SAFETY: For trivial types all bit patterns are valid
         let (before, slice, _) = unsafe { bytes.align_to::<Self>() };
 
         before.is_empty().then(|| slice.first()).flatten()
@@ -49,15 +49,15 @@ where
 
     /// Create a mutable reference to a type, which is represented by provided memory.
     ///
-    /// Memory must be correctly aligned or else `None` will be returned, but padding beyond the
+    /// Memory must be correctly aligned, or else `None` will be returned, but padding beyond the
     /// size of the type is allowed.
     ///
     /// # Safety
-    /// Input bytes must be previously produced by taking underlying bytes of the same type. For
-    /// example, only `0b0000_0000` and `0b0000_0001` are valid bit patterns for `bool` and using
+    /// Input bytes must be previously produced by taking underlying bytes of the same type. Using
     /// anything else will result in UB.
     #[inline(always)]
     unsafe fn from_bytes_mut(bytes: &mut [u8]) -> Option<&mut Self> {
+        // SAFETY: For trivial types all bit patterns are valid
         let (before, slice, _) = unsafe { bytes.align_to_mut::<Self>() };
 
         before.is_empty().then(|| slice.first_mut()).flatten()
@@ -82,36 +82,47 @@ where
     }
 }
 
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for () {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Unit as u8];
 }
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u8 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U8 as u8];
 }
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u16 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U16 as u8];
 }
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u32 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U32 as u8];
 }
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u64 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U64 as u8];
 }
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u128 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U128 as u8];
 }
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i8 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I8 as u8];
 }
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i16 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I16 as u8];
 }
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i32 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I32 as u8];
 }
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i64 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I64 as u8];
 }
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i128 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I128 as u8];
 }
@@ -158,6 +169,7 @@ const fn array_metadata(size: u32, inner_metadata: &[u8]) -> ([u8; MAX_METADATA_
 
 // TODO: Change `usize` to `u32` once stabilized `generic_const_exprs` feature allows us to do
 //  `SIZE as usize`
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl<const SIZE: usize, T> TrivialType for [T; SIZE]
 where
     T: TrivialType,
@@ -171,6 +183,7 @@ where
     };
 }
 
+// SAFETY: All `TrivialType` instances are valid for `IoType`
 unsafe impl<T> IoType for T
 where
     T: TrivialType,

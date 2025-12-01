@@ -47,6 +47,7 @@ fn format() {
         // Corrupted
         {
             let mut s = s.to_string();
+            // SAFETY: Keys are known to exist and all bytes are ASCII values
             unsafe {
                 s.as_bytes_mut()[5] = b'k';
                 s.as_bytes_mut()[6] = b'l';

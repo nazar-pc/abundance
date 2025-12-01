@@ -41,6 +41,7 @@ impl<const CAPACITY: usize> DerefMut for FixedCapacityStringU8<CAPACITY> {
     }
 }
 
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityStringU8<CAPACITY> {
     const METADATA: &[u8] = {
         #[inline(always)]
@@ -116,6 +117,7 @@ impl<const CAPACITY: usize> DerefMut for FixedCapacityStringU16<CAPACITY> {
     }
 }
 
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityStringU16<CAPACITY> {
     const METADATA: &[u8] = {
         #[inline(always)]

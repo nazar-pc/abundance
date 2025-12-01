@@ -23,6 +23,7 @@ where
     capacity: u32,
 }
 
+// SAFETY: Low-level (effectively internal) implementation that upholds safety requirements
 unsafe impl<Element, const RECOMMENDED_ALLOCATION: u32> IoType
     for VariableElements<Element, RECOMMENDED_ALLOCATION>
 where
@@ -150,6 +151,7 @@ where
         let size = unsafe { NonNull::new_unchecked(*size) };
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         {
+            // SAFETY: Must be guaranteed by the caller
             let size = unsafe { size.read() };
             debug_assert!(
                 size <= capacity,
