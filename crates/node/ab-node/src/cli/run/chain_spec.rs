@@ -87,7 +87,8 @@ impl ChainSpec {
                         ),
                         // TODO: Genesis slot iterations should come from the chain spec
                         // About 1s on 6.2 GHz Raptor Lake CPU (14900KS)
-                        slot_iterations: NonZeroU32::new(206_557_520).expect("Not zero; qed"),
+                        // slot_iterations: NonZeroU32::new(206_557_520).expect("Not zero; qed"),
+                        slot_iterations: NonZeroU32::new(256).expect("Not zero; qed"),
                     },
                     super_segment_root: None,
                     next_solution_range: None,

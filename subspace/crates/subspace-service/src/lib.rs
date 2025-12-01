@@ -809,8 +809,11 @@ where
     let mut timekeeper_proof_receiver = None;
     if config.is_timekeeper {
         let span = Span::current();
-        let (timekeeper_source, proof_receiver) =
-            Timekeeper::new(rclite::Arc::clone(&pot_state), pot_verifier.clone());
+        let (timekeeper_source, proof_receiver) = Timekeeper::new(
+            rclite::Arc::clone(&pot_state),
+            pot_verifier.clone(),
+            chain_constants.slot_duration(),
+        );
         timekeeper_proof_receiver.replace(proof_receiver);
 
         thread::Builder::new()

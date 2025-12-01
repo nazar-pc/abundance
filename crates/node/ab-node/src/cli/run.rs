@@ -476,8 +476,11 @@ impl Run {
         let mut timekeeper_proof_receiver = None;
         if timekeeper_options.timekeeper {
             let span = Span::current();
-            let (timekeeper_source, proof_receiver) =
-                Timekeeper::new(Arc::clone(&pot_state), pot_verifier.clone());
+            let (timekeeper_source, proof_receiver) = Timekeeper::new(
+                Arc::clone(&pot_state),
+                pot_verifier.clone(),
+                consensus_constants.slot_duration,
+            );
             timekeeper_proof_receiver.replace(proof_receiver);
 
             thread::Builder::new()
