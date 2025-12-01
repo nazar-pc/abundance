@@ -32,6 +32,7 @@ fn find_matches_and_compute_f7_gpu() {
         .map(|_| Y::from(rng.next_u32() % (PARAM_BC as u32 * NUM_BUCKETS as u32)))
         .collect::<Vec<_>>();
     let parent_buckets = {
+        // SAFETY: Contents is `MaybeUninit`
         let mut buckets = unsafe {
             Box::<[[MaybeUninit<PositionR>; MAX_BUCKET_SIZE]; NUM_BUCKETS]>::new_uninit()
                 .assume_init()
@@ -56,9 +57,11 @@ fn find_matches_and_compute_f7_gpu() {
 
         let ptr = Box::into_raw(buckets);
 
+        // SAFETY: Just initialized
         unsafe { Box::from_raw(ptr.cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>()) }
     };
     let parent_metadatas = {
+        // SAFETY: Contents is `MaybeUninit`
         let mut parent_metadatas = unsafe {
             Box::<[[MaybeUninit<Metadata>; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>::new_uninit()
                 .assume_init()
@@ -69,6 +72,7 @@ fn find_matches_and_compute_f7_gpu() {
 
         let ptr = Box::into_raw(parent_metadatas);
 
+        // SAFETY: Just initialized
         unsafe {
             Box::from_raw(ptr.cast::<[[Metadata; REDUCED_MATCHES_COUNT]; NUM_MATCH_BUCKETS]>())
         }
@@ -80,6 +84,7 @@ fn find_matches_and_compute_f7_gpu() {
         panic!("No compatible device detected, can't run tests");
     };
 
+    // SAFETY: Contents is `MaybeUninit`
     let mut expected_table_6_proof_targets = unsafe {
         Box::<[[MaybeUninit<[Position; 2]>; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>::new_uninit(
         )
@@ -265,6 +270,7 @@ async fn find_matches_and_compute_f7_adapter(
 
     let parent_buckets_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(
                 parent_buckets.as_ptr().cast::<u8>(),
@@ -276,6 +282,7 @@ async fn find_matches_and_compute_f7_adapter(
 
     let parent_metadatas_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(
                 parent_metadatas.as_ptr().cast::<u8>(),
@@ -377,11 +384,14 @@ async fn find_matches_and_compute_f7_adapter(
             .get_mapped_range(..)
             .as_ptr()
             .cast::<[u32; NUM_S_BUCKETS]>();
+        // SAFETY: The pointer points to correctly initialized and aligned memory
         let table_6_proof_targets_sizes_ref = unsafe { &*table_6_proof_targets_sizes_host_ptr };
 
+        // SAFETY: Contents is `MaybeUninit`
         let mut table_6_proof_targets_sizes =
             unsafe { Box::<[MaybeUninit<u32>; NUM_S_BUCKETS]>::new_uninit().assume_init() };
         table_6_proof_targets_sizes.write_copy_of_slice(table_6_proof_targets_sizes_ref);
+        // SAFETY: Just initialized
         unsafe {
             let ptr = Box::into_raw(table_6_proof_targets_sizes);
             Box::from_raw(ptr.cast::<[u32; NUM_S_BUCKETS]>())
@@ -393,13 +403,16 @@ async fn find_matches_and_compute_f7_adapter(
             .as_ptr()
             .cast::<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>(
         );
+        // SAFETY: The pointer points to correctly initialized and aligned memory
         let buckets_ref = unsafe { &*buckets_host_ptr };
 
+        // SAFETY: Contents is `MaybeUninit`
         let mut table_6_proof_targets = unsafe {
             Box::<[MaybeUninit<[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]>; NUM_S_BUCKETS]>::new_uninit()
                 .assume_init()
         };
         table_6_proof_targets.write_copy_of_slice(buckets_ref);
+        // SAFETY: Just initialized
         unsafe {
             let ptr = Box::into_raw(table_6_proof_targets);
             Box::from_raw(ptr.cast::<[[ProofTargets; NUM_ELEMENTS_PER_S_BUCKET]; NUM_S_BUCKETS]>())

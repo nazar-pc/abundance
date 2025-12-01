@@ -19,6 +19,7 @@ use wgpu::{
 fn sort_buckets_gpu() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
 
+    // SAFETY: Data structure filled with zeroes is a valid invariant
     let mut buckets =
         unsafe { Box::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>::new_zeroed().assume_init() };
 
@@ -175,6 +176,7 @@ async fn sort_buckets_adapter(
 
     let bucket_sizes_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(
                 bucket_sizes.as_ptr().cast::<u8>(),
@@ -193,6 +195,7 @@ async fn sort_buckets_adapter(
 
     let buckets_gpu = device.create_buffer_init(&BufferInitDescriptor {
         label: None,
+        // SAFETY: Initialized bytes of the correct length
         contents: unsafe {
             slice::from_raw_parts(buckets.as_ptr().cast::<u8>(), size_of_val(buckets))
         },
@@ -236,13 +239,16 @@ async fn sort_buckets_adapter(
             .get_mapped_range(..)
             .as_ptr()
             .cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>();
+        // SAFETY: The pointer points to correctly initialized and aligned memory
         let buckets_ref = unsafe { &*buckets_host_ptr };
 
+        // SAFETY: Contents is `MaybeUninit`
         let mut buckets = unsafe {
             Box::<[MaybeUninit<[PositionR; MAX_BUCKET_SIZE]>; NUM_BUCKETS]>::new_uninit()
                 .assume_init()
         };
         buckets.write_copy_of_slice(buckets_ref);
+        // SAFETY: Just initialized
         unsafe {
             let ptr = Box::into_raw(buckets);
             Box::from_raw(ptr.cast::<[[PositionR; MAX_BUCKET_SIZE]; NUM_BUCKETS]>())

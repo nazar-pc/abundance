@@ -1,3 +1,4 @@
+#![feature(slice_as_array)]
 //! Optimized and more exotic APIs around BLAKE3
 
 #![no_std]

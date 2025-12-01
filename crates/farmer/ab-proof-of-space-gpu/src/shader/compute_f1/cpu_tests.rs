@@ -51,6 +51,7 @@ fn compute_f1_cpu() {
 
     let initial_state = ChaCha8State::init(&seed, &[0; _]);
 
+    // SAFETY: Data structure filled with zeroes is a valid invariant
     let mut chacha8_keystream =
         unsafe { Box::<[u32; INVOCATION_KEYSTREAM_WORDS]>::new_zeroed().assume_init() };
 

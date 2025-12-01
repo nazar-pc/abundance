@@ -77,6 +77,7 @@ fn payload_encode_decode() {
         assert_eq!(contract, expected_contract);
         assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
         assert_eq!(
+            // SAFETY: method argument is a single `u8`
             unsafe { external_args.read().cast::<u8>().read() },
             new_value
         );
@@ -100,6 +101,7 @@ fn payload_encode_decode() {
             },
         );
 
+        // SAFETY: Trusted input
         let PreparedMethod {
             contract,
             fingerprint,
@@ -111,6 +113,7 @@ fn payload_encode_decode() {
         assert_eq!(contract, expected_contract);
         assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
         assert_eq!(
+            // SAFETY: method argument is a single `u8`
             unsafe { external_args.read().cast::<u8>().read() },
             new_value
         );
@@ -118,6 +121,7 @@ fn payload_encode_decode() {
 
         // There is some padding, but it is correctly determined that there is no payload anymore
         assert!(!decoder.payload.is_empty());
+        // SAFETY: Trusted input
         assert!(unsafe { decoder.decode_next_method_unchecked() }.is_none());
     }
 }
