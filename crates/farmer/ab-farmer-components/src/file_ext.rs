@@ -114,6 +114,7 @@ impl FileExt for File {
     #[cfg(target_os = "linux")]
     fn advise_random_access(&self) -> Result<()> {
         use std::os::unix::io::AsRawFd;
+        // SAFETY: Correct low-level FFI file
         let err = unsafe { libc::posix_fadvise(self.as_raw_fd(), 0, 0, libc::POSIX_FADV_RANDOM) };
         if err != 0 {
             Err(std::io::Error::from_raw_os_error(err))
@@ -125,6 +126,7 @@ impl FileExt for File {
     #[cfg(target_os = "macos")]
     fn advise_random_access(&self) -> Result<()> {
         use std::os::unix::io::AsRawFd;
+        // SAFETY: Correct low-level FFI file
         if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_RDAHEAD, 0) } != 0 {
             Err(std::io::Error::last_os_error())
         } else {
@@ -141,6 +143,7 @@ impl FileExt for File {
     #[cfg(target_os = "linux")]
     fn advise_sequential_access(&self) -> Result<()> {
         use std::os::unix::io::AsRawFd;
+        // SAFETY: Correct low-level FFI file
         let err =
             unsafe { libc::posix_fadvise(self.as_raw_fd(), 0, 0, libc::POSIX_FADV_SEQUENTIAL) };
         if err != 0 {
@@ -153,6 +156,7 @@ impl FileExt for File {
     #[cfg(target_os = "macos")]
     fn advise_sequential_access(&self) -> Result<()> {
         use std::os::unix::io::AsRawFd;
+        // SAFETY: Correct low-level FFI file
         if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_RDAHEAD, 1) } != 0 {
             Err(std::io::Error::last_os_error())
         } else {
@@ -175,6 +179,7 @@ impl FileExt for File {
     #[cfg(target_os = "macos")]
     fn disable_cache(&self) -> Result<()> {
         use std::os::unix::io::AsRawFd;
+        // SAFETY: Correct low-level FFI file
         if unsafe { libc::fcntl(self.as_raw_fd(), libc::F_NOCACHE, 1) } != 0 {
             Err(std::io::Error::last_os_error())
         } else {

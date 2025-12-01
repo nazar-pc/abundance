@@ -49,7 +49,7 @@ impl Rmap {
         let mask = 1 << bit_offset;
 
         if cfg!(target_arch = "spirv") {
-            // TODO: Probably should not be unsafe to begin with:
+            // SAFETY: TODO: Probably should not be unsafe to begin with:
             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
             let prev_word_value = unsafe {
                 atomic_or::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(word, mask)
@@ -58,7 +58,7 @@ impl Rmap {
             if prev_word_value & mask != 0 {
                 // Bit was already set, so this is not the first such `r` value, set a flag
                 // indicating there was a duplicate
-                // TODO: Probably should not be unsafe to begin with:
+                // SAFETY: TODO: Probably should not be unsafe to begin with:
                 //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
                 unsafe {
                     atomic_or::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(

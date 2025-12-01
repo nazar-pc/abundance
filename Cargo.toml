@@ -169,3 +169,6 @@ rust_2018_idioms = "warn"
 missing_debug_implementations = "warn"
 # `spirv` target architecture is not upstream yet
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_arch, values("spirv"))'], priority = 1 }
+
+[workspace.lints.clippy]
+undocumented_unsafe_blocks = "warn"

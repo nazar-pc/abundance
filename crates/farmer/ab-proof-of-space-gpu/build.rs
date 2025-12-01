@@ -30,6 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let backend = cargo_gpu::Install::from_shader_crate(shader_crate.clone()).run()?;
 
         // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/461
+        // SAFETY: Single-threaded
         unsafe {
             env::set_var("RUST_MIN_STACK", "16777216");
         }

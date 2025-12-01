@@ -118,7 +118,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
         };
 
         if local_matches_count >= 1 {
-            // TODO: Probably should not be unsafe to begin with:
+            // SAFETY: TODO: Probably should not be unsafe to begin with:
             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
             let local_matches_offset = unsafe {
                 atomic_i_add::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(

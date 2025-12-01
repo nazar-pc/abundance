@@ -20,6 +20,7 @@ pub struct VariableBytes<const RECOMMENDED_ALLOCATION: u32 = 0> {
     capacity: u32,
 }
 
+// SAFETY: Low-level (effectively internal) implementation that upholds safety requirements
 unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMENDED_ALLOCATION> {
     const METADATA: &[u8] = {
         const fn metadata(recommended_allocation: u32) -> ([u8; MAX_METADATA_CAPACITY], usize) {
@@ -156,6 +157,7 @@ unsafe impl<const RECOMMENDED_ALLOCATION: u32> IoType for VariableBytes<RECOMMEN
         let size = unsafe { NonNull::new_unchecked(*size) };
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         {
+            // SAFETY: Must be guaranteed by the caller
             let size = unsafe { size.read() };
             debug_assert!(
                 size <= capacity,
@@ -412,6 +414,8 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
 
         let ptr = self.bytes.cast::<T>();
 
+        // SAFETY: Trivial types are safe to read as bytes, pointer validity is a guaranteed
+        // internal invariant
         let value = unsafe {
             if ptr.is_aligned() {
                 ptr.read()

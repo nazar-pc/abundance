@@ -446,4 +446,5 @@ where
     }
 }
 
+// SAFETY: The length is always exact and correct here
 unsafe impl<Iter> TrustedLen for ProofsIterator<Iter> where Iter: Iterator {}

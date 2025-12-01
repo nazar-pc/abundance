@@ -17,6 +17,12 @@ pub enum ErasureCodingError {
     /// Decoder error
     #[error("Decoder error: {0}")]
     DecoderError(#[from] Error),
+    /// Ignored source shard
+    #[error("Ignored source shard {index}")]
+    IgnoredSourceShard {
+        /// Shard index
+        index: usize,
+    },
     /// Wrong source shard byte length
     #[error("Wrong source shard byte length: expected {expected}, actual {actual}")]
     WrongSourceShardByteLength { expected: usize, actual: usize },
@@ -32,7 +38,10 @@ pub enum RecoveryShardState<PresentShard, MissingShard> {
     Present(PresentShard),
     /// Shard is missing and needs to be recovered
     MissingRecover(MissingShard),
-    /// Shard is missing and does not need to be recovered
+    /// Shard is missing and does not need to be recovered.
+    ///
+    /// This is only allowed for parity shards, all source shards must always be present or
+    /// recovered.
     MissingIgnore,
 }
 
@@ -173,7 +182,9 @@ impl ErasureCoding {
                     RecoveryShardState::MissingRecover(shard_bytes) => {
                         source_shards_to_recover.push((index, shard_bytes));
                     }
-                    RecoveryShardState::MissingIgnore => {}
+                    RecoveryShardState::MissingIgnore => {
+                        return Err(ErasureCodingError::IgnoredSourceShard { index });
+                    }
                 }
             }
 
@@ -207,6 +218,7 @@ impl ErasureCoding {
         }
 
         if !parity_shards_to_recover.is_empty() {
+            // SAFETY: All `all_source_shards` are either initialized from the start or recovered
             let all_source_shards = unsafe { all_source_shards.assume_init_ref() };
 
             let mut encoder = HighRateEncoder::new(

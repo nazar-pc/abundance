@@ -73,7 +73,7 @@ impl<T> DerefMut for DerefWrapper<T> {
 
 // TODO: A way to point output types to input types in order to avoid unnecessary memory copy
 //  (setting a pointer)
-/// Trait that is used for types that are crossing host/guest boundary in contracts.
+/// Trait that is used for types that are crossing the host/guest boundary in contracts.
 ///
 /// Crucially, it is implemented for any type that implements [`TrivialType`] and for
 /// [`VariableBytes`](crate::variable_bytes::VariableBytes).
@@ -89,10 +89,11 @@ impl<T> DerefMut for DerefWrapper<T> {
 /// but extra care is still needed.
 ///
 /// **Do not implement this trait explicitly!** Use `#[derive(TrivialType)]` instead, which will
-/// ensure safety requirements are upheld, or use `VariableBytes` if more flexibility is needed.
+/// ensure safety requirements are upheld, or use `VariableBytes` or other provided wrapper types if
+/// more flexibility is needed.
 ///
 /// In case of variable state size is needed, create a wrapper struct around `VariableBytes` and
-/// implement traits on it by forwarding everything to inner implementation.
+/// implement traits on it by forwarding everything to the inner implementation.
 pub unsafe trait IoType {
     /// Data structure metadata in binary form, describing shape and types of the contents, see
     /// [`IoTypeMetadataKind`] for encoding details
@@ -160,10 +161,10 @@ pub unsafe trait IoType {
     ///
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
-    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
+    // `impl Deref` is used to tie lifetime of returned value to inputs but still treat it as a
     // shared reference for most practical purposes. While lifetime here is somewhat superficial due
-    // to `Copy` nature of the value, it must be respected. Size must point to properly initialized
-    // memory.
+    // to the `Copy` nature of the value, it must be respected. Size must point to properly
+    // initialized memory.
     #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
@@ -187,8 +188,8 @@ pub unsafe trait IoType {
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes. While lifetime here is somewhat superficial
-    // due to `Copy` nature of the value, it must be respected. Size must point to properly
-    // initialized memory for non-[`TrivialType`].
+    // due to the `Copy` nature of the value, it must be respected. Size must point to properly
+    // initialized and aligned memory for non-[`TrivialType`].
     #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,

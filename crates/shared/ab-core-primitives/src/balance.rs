@@ -14,6 +14,7 @@ use core::{fmt, ptr};
 #[repr(C)]
 pub struct Balance(u64, u64);
 
+// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for Balance {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Balance as u8];
 }

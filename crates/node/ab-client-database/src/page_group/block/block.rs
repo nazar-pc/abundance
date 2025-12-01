@@ -286,8 +286,8 @@ impl StorageItemBlockBlock {
             num_system_contract_states_len as usize,
         );
 
-        // SAFETY: A single pointer and a single use
         for system_contract_state in
+            // SAFETY: A single pointer and a single use
             unsafe { StdArc::get_mut_unchecked(&mut system_contract_states) }
         {
             // Alignment padding (if needed)
@@ -307,6 +307,8 @@ impl StorageItemBlockBlock {
                     .ok_or(StorageItemError::NeedMoreBytes(
                         buffer_len - size_of::<SystemContractStatePrefix>(),
                     ))?;
+                // SAFETY: This is a local database, so anything that is read that passes checksum
+                // verification is valid
                 let prefix = unsafe {
                     SystemContractStatePrefix::from_bytes(prefix_bytes).ok_or(
                         StorageItemError::InvalidDataAlignment {

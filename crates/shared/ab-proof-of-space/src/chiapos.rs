@@ -208,12 +208,14 @@ where
         let mut proofs = Box::<Proofs<K>>::new_uninit();
         {
             let proofs_ptr = proofs.as_mut().as_mut_ptr();
+            // SAFETY: This is the correct way to access uninit reference to the inner field
             let found_proofs = unsafe {
                 (&raw mut (*proofs_ptr).found_proofs)
                     .as_uninit_mut()
                     .expect("Not null; qed")
             };
             let found_proofs = found_proofs.write([0; _]);
+            // SAFETY: This is the correct way to access uninit reference to the inner field
             let proofs = unsafe {
                 (&raw mut (*proofs_ptr).proofs)
                     .cast::<[MaybeUninit<_>; Record::NUM_CHUNKS]>()
@@ -304,12 +306,14 @@ where
         let mut proofs = Box::<Proofs<K>>::new_uninit();
         {
             let proofs_ptr = proofs.as_mut().as_mut_ptr();
+            // SAFETY: This is the correct way to access uninit reference to the inner field
             let found_proofs = unsafe {
                 (&raw mut (*proofs_ptr).found_proofs)
                     .as_uninit_mut()
                     .expect("Not null; qed")
             };
             let found_proofs = found_proofs.write([0; _]);
+            // SAFETY: This is the correct way to access uninit reference to the inner field
             let proofs = unsafe {
                 (&raw mut (*proofs_ptr).proofs)
                     .cast::<[MaybeUninit<_>; Record::NUM_CHUNKS]>()

@@ -7,8 +7,8 @@ use core::ptr::NonNull;
 /// Wrapper type for `Data` that may or may not be filled with contents.
 ///
 /// This is somewhat similar to [`VariableBytes`](crate::variable_bytes::VariableBytes), but instead
-/// of variable size data structure allows to either have it or not have the contents or not have
-/// it, which is a simpler and more convenient API that is also sufficient in many cases.
+/// of variable size, data structure allows either having it or not having the contents, which is a
+/// simpler and more convenient API that is also sufficient in many cases.
 #[derive(Debug)]
 pub struct MaybeData<Data>
 where
@@ -18,6 +18,7 @@ where
     size: NonNull<u32>,
 }
 
+// SAFETY: Low-level (effectively internal) implementation that upholds safety requirements
 unsafe impl<Data> IoType for MaybeData<Data>
 where
     Data: TrivialType,
@@ -102,8 +103,8 @@ where
         // SAFETY: Must be guaranteed by the caller + debug check above
         let size = unsafe { NonNull::new_unchecked(*size) };
         debug_assert!(data.is_aligned(), "Misaligned pointer");
-        // SAFETY: Must be guaranteed by the caller
         {
+            // SAFETY: Must be guaranteed by the caller
             let size = unsafe { size.read() };
             debug_assert!(
                 size == 0 || size <= capacity,
