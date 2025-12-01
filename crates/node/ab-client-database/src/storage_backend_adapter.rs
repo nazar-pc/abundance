@@ -87,11 +87,12 @@ pub(crate) struct StorageItemHandlers<P, B> {
 }
 
 #[derive(Debug)]
-pub(crate) struct StorageBackendAdapter {
+pub(crate) struct StorageBackendAdapter<StorageBackend> {
     database_id: DatabaseId,
     database_version: u8,
     /// Page group size in pages
     page_group_size: u32,
+    storage_backend: StorageBackend,
     write_buffer: Box<[WriteBufferEntry]>,
     page_groups: EnumMap<PageGroupKind, PageGroups>,
     /// Offsets of the first pages that correspond to free page groups.
@@ -101,19 +102,21 @@ pub(crate) struct StorageBackendAdapter {
     had_write_failure: bool,
 }
 
-impl StorageBackendAdapter {
+impl<StorageBackend> StorageBackendAdapter<StorageBackend>
+where
+    StorageBackend: ClientDatabaseStorageBackend,
+{
     /// Current database version
     const VERSION: u8 = 0;
 
-    pub(crate) async fn open<SIHP, SIHB, StorageBackend>(
+    pub(crate) async fn open<SIHP, SIHB>(
         write_buffer_size: usize,
         mut storage_item_handlers: StorageItemHandlers<SIHP, SIHB>,
-        storage_backend: &StorageBackend,
+        storage_backend: StorageBackend,
     ) -> Result<Self, ClientDatabaseError>
     where
         SIHP: FnMut(StorageItemHandlerArg<StorageItemPermanent>) -> Result<(), ClientDatabaseError>,
         SIHB: FnMut(StorageItemHandlerArg<StorageItemBlock>) -> Result<(), ClientDatabaseError>,
-        StorageBackend: ClientDatabaseStorageBackend,
     {
         let database_id;
         let database_version;
@@ -230,10 +233,10 @@ impl StorageBackendAdapter {
         }
 
         // Read all permanent storage groups
-        buffer = StorageBackendAdapter::read_page_groups::<_, StorageItemPermanent, _>(
+        buffer = StorageBackendAdapter::read_page_groups::<StorageItemPermanent, _>(
             &mut page_groups[PageGroupKind::Permanent],
             page_group_size,
-            storage_backend,
+            &storage_backend,
             buffer,
             |container, page_offset| {
                 (storage_item_handlers.permanent)(StorageItemHandlerArg {
@@ -249,7 +252,7 @@ impl StorageBackendAdapter {
         let _ = StorageBackendAdapter::read_page_groups(
             &mut page_groups[PageGroupKind::Block],
             page_group_size,
-            storage_backend,
+            &storage_backend,
             buffer,
             |container, page_offset| {
                 (storage_item_handlers.block)(StorageItemHandlerArg {
@@ -265,6 +268,7 @@ impl StorageBackendAdapter {
             database_id,
             database_version,
             page_group_size,
+            storage_backend,
             write_buffer: (0..write_buffer_size)
                 .map(|_| WriteBufferEntry::Free(Vec::new()))
                 .collect(),
@@ -274,13 +278,10 @@ impl StorageBackendAdapter {
         })
     }
 
-    pub(crate) async fn format<StorageBackend>(
+    pub(crate) async fn format(
         storage_backend: &StorageBackend,
         options: ClientDatabaseFormatOptions,
-    ) -> Result<(), ClientDatabaseFormatError>
-    where
-        StorageBackend: ClientDatabaseStorageBackend,
-    {
+    ) -> Result<(), ClientDatabaseFormatError> {
         let mut buffer = Vec::with_capacity(1);
 
         if !options.force {
@@ -323,7 +324,7 @@ impl StorageBackendAdapter {
 
     /// Read all page groups and call the storage item handler for every storage item except the
     /// page group header
-    async fn read_page_groups<StorageBackend, SI, SIH>(
+    async fn read_page_groups<SI, SIH>(
         target_page_groups: &mut PageGroups,
         page_group_size: u32,
         storage_backend: &StorageBackend,
@@ -331,7 +332,6 @@ impl StorageBackendAdapter {
         mut storage_item_handler: SIH,
     ) -> Result<Vec<AlignedPage>, ClientDatabaseError>
     where
-        StorageBackend: ClientDatabaseStorageBackend,
         SI: StorageItem,
         SIH: FnMut(StorageItemContainer<SI>, u32) -> Result<(), ClientDatabaseError>,
     {
@@ -419,13 +419,11 @@ impl StorageBackendAdapter {
         Ok(buffer)
     }
 
-    pub(super) async fn write_storage_item<StorageBackend, SI>(
+    pub(super) async fn write_storage_item<SI>(
         &mut self,
-        storage_backend: &StorageBackend,
         storage_item: SI,
     ) -> io::Result<WriteLocation>
     where
-        StorageBackend: ClientDatabaseStorageBackend,
         SI: UniqueStorageItem,
     {
         if self.had_write_failure {
@@ -435,20 +433,15 @@ impl StorageBackendAdapter {
             ));
         }
 
-        self.write_storage_item_inner(storage_backend, storage_item)
+        self.write_storage_item_inner(storage_item)
             .await
             .inspect_err(|_error| {
                 self.had_write_failure = true;
             })
     }
 
-    async fn write_storage_item_inner<StorageBackend, SI>(
-        &mut self,
-        storage_backend: &StorageBackend,
-        storage_item: SI,
-    ) -> io::Result<WriteLocation>
+    async fn write_storage_item_inner<SI>(&mut self, storage_item: SI) -> io::Result<WriteLocation>
     where
-        StorageBackend: ClientDatabaseStorageBackend,
         SI: UniqueStorageItem,
     {
         let page_group_kind = SI::page_group_kind();
@@ -531,7 +524,8 @@ impl StorageBackendAdapter {
 
             Self::write_pages_to_buffer(&container, maybe_page_group_header.as_ref(), &mut buffer)?;
 
-            let _buffer: Vec<_> = storage_backend
+            let _buffer: Vec<_> = self
+                .storage_backend
                 .write(buffer, page_offset)
                 .await
                 .map_err(|_cancelled| {
@@ -602,7 +596,7 @@ impl StorageBackendAdapter {
                         );
                     }
 
-                    let receiver = storage_backend.write(buffer, page_offset);
+                    let receiver = self.storage_backend.write(buffer, page_offset);
                     (
                         Some(Ok(WriteLocation { page_offset })),
                         WriteBufferEntry::Occupied(receiver),

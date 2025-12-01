@@ -513,8 +513,7 @@ where
     Block: GenericOwnedBlock,
 {
     state: AsyncRwLock<State<Block>>,
-    storage_backend_adapter: AsyncMutex<StorageBackendAdapter>,
-    storage_backend: StorageBackend,
+    storage_backend_adapter: AsyncMutex<StorageBackendAdapter<StorageBackend>>,
     options: ClientDatabaseInnerOptions,
 }
 
@@ -957,7 +956,7 @@ where
         };
 
         let storage_backend_adapter =
-            StorageBackendAdapter::open(write_buffer_size, storage_item_handlers, &storage_backend)
+            StorageBackendAdapter::open(write_buffer_size, storage_item_handlers, storage_backend)
                 .await?;
 
         if let Some(best_block) = state.blocks.front().and_then(|block_forks| {
@@ -1016,7 +1015,6 @@ where
         let inner = Inner {
             state: AsyncRwLock::new(state),
             storage_backend_adapter: AsyncMutex::new(storage_backend_adapter),
-            storage_backend,
             options,
         };
 
@@ -1158,17 +1156,14 @@ where
             } = block_to_persist;
 
             let write_location = storage_backend_adapter
-                .write_storage_item(
-                    &inner.storage_backend,
-                    StorageItemBlock::Block(StorageItemBlockBlock {
-                        header: block.block.header().buffer().clone(),
-                        body: block.block.body().buffer().clone(),
-                        mmr_with_block: Arc::clone(&block.block_details.mmr_with_block),
-                        system_contract_states: StdArc::clone(
-                            &block.block_details.system_contract_states,
-                        ),
-                    }),
-                )
+                .write_storage_item(StorageItemBlock::Block(StorageItemBlockBlock {
+                    header: block.block.header().buffer().clone(),
+                    body: block.block.body().buffer().clone(),
+                    mmr_with_block: Arc::clone(&block.block_details.mmr_with_block),
+                    system_contract_states: StdArc::clone(
+                        &block.block_details.system_contract_states,
+                    ),
+                }))
                 .await?;
 
             persisted_blocks.push(PersistedBlock {
