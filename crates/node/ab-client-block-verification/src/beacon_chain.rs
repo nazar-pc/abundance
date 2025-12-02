@@ -388,7 +388,7 @@ where
                 pot_input,
                 slots_between_blocks,
                 proof_of_time,
-                pot_parameters_change,
+                parent_pot_parameters_change,
             ) {
                 return Err(BeaconChainBlockVerificationError::InvalidProofOfTime);
             }
