@@ -7,8 +7,6 @@ tags: [ status-update ]
 authors: [ nazar-pc ]
 ---
 
-{{< katex >}}
-
 All the updates in recent weeks were about Proof-of-Space performance improvements, but what was really driving it is my
 exploration into how to efficiently implement it for GPU. Today I'm happy to announce that an initial version of that
 implementation is integrated into the farmer.

@@ -7,8 +7,6 @@ tags: [ status-update ]
 authors: [ nazar-pc ]
 ---
 
-{{< katex >}}
-
 It has been a month since the last update, and I finally have more exciting news to share here. I received feedback
 previously that grinding on the same topic is not particularly interesting, so I decided to wait for something different
 to happen, and it finally did, we've got the first block on the beacon chain!

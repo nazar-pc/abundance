@@ -7,8 +7,6 @@ tags: [ status-update ]
 authors: [ nazar-pc ]
 ---
 
-{{< katex >}}
-
 This third part has fewer improvements and could have been called "[Adventures with rust-gpu] part 2" given how much
 time I spent wrestling with it.
 
