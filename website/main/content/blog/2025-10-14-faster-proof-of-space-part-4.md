@@ -7,8 +7,6 @@ tags: [ status-update ]
 authors: [ nazar-pc ]
 ---
 
-{{< katex >}}
-
 It has been a couple of weeks since the last status update about performance improvements in Proof-of-Space and I am
 finally at a decent stopping point where all architectural changes are done and I can share them with you.
 
