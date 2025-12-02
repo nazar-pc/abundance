@@ -247,15 +247,9 @@ where
         slot: SlotNumber,
         proof_of_time: PotOutput,
         future_proof_of_time: PotOutput,
-        consensus_parameters: &BlockHeaderConsensusParameters<'_>,
         checkpoints: &[PotCheckpoints],
         verify_checkpoints: bool,
     ) -> Result<(), BeaconChainBlockVerificationError> {
-        let pot_parameters_change = consensus_parameters
-            .pot_parameters_change
-            .copied()
-            .map(PotParametersChange::from);
-
         let parent_pot_parameters_change = parent_consensus_parameters
             .pot_parameters_change
             .copied()
@@ -325,7 +319,7 @@ where
                     pot_input.slot_iterations,
                     pot_input.slot,
                     left.output(),
-                    &pot_parameters_change,
+                    &parent_pot_parameters_change,
                 );
 
                 (pot_input, *right)
@@ -489,7 +483,6 @@ where
             consensus_info.slot,
             consensus_info.proof_of_time,
             consensus_info.future_proof_of_time,
-            consensus_parameters,
             body.pot_checkpoints(),
             self.full_pot_verification(block_number),
         )?;
