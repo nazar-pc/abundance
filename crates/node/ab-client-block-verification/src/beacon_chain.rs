@@ -37,8 +37,13 @@ pub enum BeaconChainBlockVerificationError {
         error: DeriveConsensusParametersError,
     },
     /// Invalid consensus parameters
-    #[error("Invalid consensus parameters")]
-    InvalidConsensusParameters,
+    #[error("Invalid consensus parameters: expected {expected:?}, actual {actual:?}")]
+    InvalidConsensusParameters {
+        /// Expected consensus parameters
+        expected: Box<OwnedBlockHeaderConsensusParameters>,
+        /// Actual consensus parameters
+        actual: Box<OwnedBlockHeaderConsensusParameters>,
+    },
     /// Invalid PoT checkpoints
     #[error("Invalid PoT checkpoints")]
     InvalidPotCheckpoints,
@@ -198,7 +203,23 @@ where
         };
 
         if header.consensus_parameters() != &expected_consensus_parameters.as_ref() {
-            return Err(BeaconChainBlockVerificationError::InvalidConsensusParameters);
+            return Err(
+                BeaconChainBlockVerificationError::InvalidConsensusParameters {
+                    expected: Box::new(expected_consensus_parameters),
+                    actual: Box::new(OwnedBlockHeaderConsensusParameters {
+                        fixed_parameters: header.consensus_parameters().fixed_parameters,
+                        super_segment_root: header
+                            .consensus_parameters()
+                            .super_segment_root
+                            .copied(),
+                        next_solution_range: header.consensus_parameters().next_solution_range,
+                        pot_parameters_change: header
+                            .consensus_parameters()
+                            .pot_parameters_change
+                            .copied(),
+                    }),
+                },
+            );
         }
 
         Ok(())
@@ -367,7 +388,7 @@ where
                 pot_input,
                 slots_between_blocks,
                 proof_of_time,
-                pot_parameters_change,
+                parent_pot_parameters_change,
             ) {
                 return Err(BeaconChainBlockVerificationError::InvalidProofOfTime);
             }

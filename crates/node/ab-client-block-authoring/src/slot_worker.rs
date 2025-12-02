@@ -517,7 +517,7 @@ where
                     // Nothing else to do
                 }
                 Err(error) => {
-                    warn!(
+                    error!(
                         best_root = %*best_header.root(),
                         %error,
                         "Failed to import a newly produced block"

@@ -43,6 +43,7 @@ pub struct BeaconChainBlockImport<PosTable, CI, BV> {
     block_verification: BV,
     importing_blocks: ImportingBlocks<OwnedBeaconChainHeader>,
     block_importing_notification_sender: mpsc::Sender<BlockImportingNotification>,
+    block_import_notification_sender: mpsc::Sender<OwnedBeaconChainBlock>,
     _pos_table: PhantomData<PosTable>,
 }
 
@@ -132,12 +133,14 @@ where
         chain_info: CI,
         block_verification: BV,
         block_importing_notification_sender: mpsc::Sender<BlockImportingNotification>,
+        block_import_notification_sender: mpsc::Sender<OwnedBeaconChainBlock>,
     ) -> Self {
         Self {
             chain_info,
             block_verification,
             importing_blocks: ImportingBlocks::new(),
             block_importing_notification_sender,
+            block_import_notification_sender,
             _pos_table: PhantomData,
         }
     }
@@ -215,7 +218,7 @@ where
 
         self.chain_info
             .persist_block(
-                block,
+                block.clone(),
                 BlockDetails {
                     mmr_with_block: Arc::clone(importing_handle.mmr()),
                     system_contract_states: StdArc::clone(&system_contract_states),
@@ -224,6 +227,20 @@ where
             .await?;
 
         importing_handle.set_success(system_contract_states);
+
+        if let Err(error) = self
+            .block_import_notification_sender
+            .clone()
+            .send(block)
+            .await
+        {
+            warn!(
+                %error,
+                block_number = %number,
+                block_root = %root,
+                "Failed to send block import notification"
+            );
+        }
 
         if log_block_import {
             info!(
