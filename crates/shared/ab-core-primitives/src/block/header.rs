@@ -289,6 +289,8 @@ impl BlockHeaderPotParametersChange {
         // * slot iterations: NonZeroU32 as unaligned little-endian bytes
         // * entropy: Blake3Hash
 
+        let pot_parameters_change_ptr = bytes.as_ptr().cast::<Self>();
+
         let _slot = bytes.split_off(..size_of::<SlotNumber>())?;
 
         let slot_iterations = bytes.split_off(..size_of::<u32>())?;
@@ -298,7 +300,7 @@ impl BlockHeaderPotParametersChange {
         let _entropy = bytes.split_off(..size_of::<Blake3Hash>())?;
 
         // SAFETY: Not null, packed, bit pattern for `NonZeroU32` checked above
-        let pot_parameters_change = unsafe { bytes.as_ptr().cast::<Self>().as_ref_unchecked() };
+        let pot_parameters_change = unsafe { pot_parameters_change_ptr.as_ref_unchecked() };
 
         Some((pot_parameters_change, bytes))
     }

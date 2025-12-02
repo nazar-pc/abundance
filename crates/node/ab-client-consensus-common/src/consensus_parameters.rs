@@ -177,7 +177,7 @@ where
     let parameters_change = if let Some(change) = parent_parameters_change
         && change.slot > slot
     {
-        // Retain previous PoT parameters change if it applies after block's slot
+        // Retain previous PoT parameters change if it applies after the block's slot
         Some(change)
     } else {
         let lookback_in_blocks = BlockNumber::new(
