@@ -356,6 +356,10 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
     pub const NEXT_SOLUTION_RANGE_MASK: u8 = 0b_0000_0010;
     /// Bitmask for presence of `pot_parameters_change` field
     pub const POT_PARAMETERS_CHANGE_MASK: u8 = 0b_0000_0100;
+    /// All supported bitmask variants
+    pub const MASK_ALL: u8 = Self::SUPER_SEGMENT_ROOT_MASK
+        | Self::NEXT_SOLUTION_RANGE_MASK
+        | Self::POT_PARAMETERS_CHANGE_MASK;
 
     /// Create an instance from provided bytes.
     ///
@@ -376,6 +380,11 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
 
         let bitflags = remainder.split_off(..size_of::<u8>())?;
         let bitflags = bitflags[0];
+
+        if (bitflags & Self::MASK_ALL) != bitflags {
+            // Unexpected bitflags were set
+            return None;
+        }
 
         let super_segment_root = if bitflags & Self::SUPER_SEGMENT_ROOT_MASK != 0 {
             let super_segment_root = remainder.split_off(..size_of::<SuperSegmentRoot>())?;
