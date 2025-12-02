@@ -19,12 +19,13 @@ use ab_client_database::{
     ClientDatabaseOptions, GenesisBlockBuilderResult,
 };
 use ab_client_informer::run_informer;
+use ab_client_proof_of_time::source::block_import::BestBlockPotInfo;
 use ab_client_proof_of_time::source::timekeeper::Timekeeper;
 use ab_client_proof_of_time::source::{PotSourceWorker, init_pot_state};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::BlockNumber;
-use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
-use ab_core_primitives::pot::PotSeed;
+use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
+use ab_core_primitives::pot::{PotParametersChange, PotSeed};
 use ab_direct_io_file::DirectIoFile;
 use ab_erasure_coding::ErasureCoding;
 use ab_networking::libp2p::Multiaddr;
@@ -50,7 +51,7 @@ use std::time::Duration;
 use std::{io, thread};
 use thread_priority::{ThreadPriority, set_current_thread_priority};
 use tokio::runtime::Handle;
-use tracing::{Span, error, info, warn};
+use tracing::{Span, debug, error, info, warn};
 
 // TODO: Get rid of this, make verifier clean up cache based on slots of finalized blocks
 /// This is over 15 minutes of slots assuming there are no forks, should be both sufficient and not
@@ -529,7 +530,7 @@ impl Run {
         // TODO: Code below is just a placeholder
         let (to_gossip_sender, to_gossip_receiver) = mpsc::channel(10);
         let (from_gossip_sender, from_gossip_receiver) = mpsc::channel(10);
-        let (best_block_pot_info_sender, best_block_pot_info_receiver) = mpsc::channel(1);
+        let (mut best_block_pot_info_sender, best_block_pot_info_receiver) = mpsc::channel(1);
 
         let chain_sync_status = ChainSyncStatusPlaceholder {};
 
@@ -561,11 +562,41 @@ impl Run {
 
         let (block_importing_notification_sender, block_importing_notification_receiver) =
             mpsc::channel(1);
+        let (block_imported_notification_sender, mut block_imported_notification_receiver) =
+            mpsc::channel(1);
         let block_import = BeaconChainBlockImport::<PosTable, _, _>::new(
             client_database.clone(),
             block_verification,
             block_importing_notification_sender,
+            block_imported_notification_sender,
         );
+
+        tokio::spawn(async move {
+            while let Some(block) = block_imported_notification_receiver.next().await {
+                let header = block.header().header();
+                let slot = header.consensus_info.slot + consensus_constants.block_authoring_delay;
+                let pot_parameters_change = header
+                    .consensus_parameters()
+                    .pot_parameters_change
+                    .copied()
+                    .map(PotParametersChange::from);
+
+                if let Err(error) = best_block_pot_info_sender
+                    .send(BestBlockPotInfo {
+                        slot,
+                        pot_output: header.consensus_info.future_proof_of_time,
+                        pot_parameters_change,
+                    })
+                    .await
+                {
+                    if error.is_disconnected() {
+                        debug!(%error, "Failed to send best block PoT info");
+                        break;
+                    }
+                    error!(%error, "Failed to send best block PoT info");
+                }
+            }
+        });
 
         let (new_slot_notification_sender, new_slot_notification_receiver) = mpsc::channel(1);
         let (block_sealing_notification_sender, block_sealing_notification_receiver) =
@@ -652,7 +683,6 @@ impl Run {
             std::future::pending::<()>().await;
 
             drop(from_gossip_sender);
-            drop(best_block_pot_info_sender);
         });
 
         // TODO: Better thread management, probably move to its own dedicated thread
