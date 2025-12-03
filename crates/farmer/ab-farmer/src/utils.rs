@@ -1,6 +1,5 @@
 //! Various utilities used by farmer or with farmer
 
-pub mod ss58;
 #[cfg(test)]
 mod tests;
 

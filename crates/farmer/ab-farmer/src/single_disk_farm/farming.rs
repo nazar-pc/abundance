@@ -11,7 +11,7 @@ use crate::farm::{
 use crate::node_client::NodeClient;
 use crate::single_disk_farm::Handlers;
 use crate::single_disk_farm::metrics::SingleDiskFarmMetrics;
-use ab_core_primitives::ed25519::Ed25519PublicKey;
+use ab_core_primitives::address::Address;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::Record;
 use ab_core_primitives::pos::PosSeed;
@@ -192,7 +192,7 @@ pub(super) struct FarmingOptions<NC, PlotAudit> {
         dead_code,
         reason = "Reward address was removed from `Solution` and will need to be re-introduced later"
     )]
-    pub(super) reward_address: Ed25519PublicKey,
+    pub(super) reward_address: Address,
     pub(super) node_client: NC,
     pub(super) plot_audit: PlotAudit,
     pub(super) sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,

@@ -58,10 +58,8 @@ async-nats = { version = "0.45.0", default-features = false, features = ["ring"]
 async-trait = "0.1.89"
 # TODO: Migrate to maintained backon
 backoff = "0.4.0"
-base58 = "0.2.0"
 bech32 = { version = "0.11.0", default-features = false }
 bitvec = "1.0.1"
-blake2 = { version = "0.11.0-rc.3", default-features = false }
 blake3 = { version = "1.8.2", default-features = false }
 bytes = { version = "1.11.0", default-features = false }
 bytesize = { version = "2.2.0", default-features = false }
@@ -123,8 +121,6 @@ serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0-rc.3", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
 spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "6fb875068d0d35b1a81ae89b73cf7a464f8c60f7" }
-# TODO: Remove
-ss58-registry = "1.51.0"
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.27.2", default-features = false, features = ["derive"] }
 syn = "2.0.110"

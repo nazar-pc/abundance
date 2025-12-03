@@ -28,7 +28,6 @@ async-nats = "0.37.0"
 async-oneshot = "0.5.9"
 async-trait = "0.1.83"
 backoff = "0.4.0"
-base58 = "0.2.0"
 blake2 = { version = "0.10.6", default-features = false }
 blake3 = { version = "1.5.4", default-features = false }
 bytes = { version = "1.11.0", default-features = false }

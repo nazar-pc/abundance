@@ -1,3 +1,4 @@
+pub(super) mod address;
 pub(super) mod gpu;
 pub(super) mod network;
 
