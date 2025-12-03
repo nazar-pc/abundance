@@ -156,7 +156,6 @@ ab-archiving = { opt-level = 3 }
 ab-farmer-components = { opt-level = 3 }
 ab-proof-of-space = { opt-level = 3 }
 ab-proof-of-time = { opt-level = 3 }
-bitvec = { opt-level = 3 }
 blake2 = { opt-level = 3 }
 blake3 = { opt-level = 3 }
 blake2b_simd = { opt-level = 3 }
