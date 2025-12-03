@@ -1,7 +1,8 @@
 //! Metrics specific for single disk farm
 
 use crate::commands::shared::DiskFarm;
-use ab_core_primitives::ed25519::Ed25519PublicKey;
+use crate::commands::shared::address::parse_reward_address;
+use ab_core_primitives::address::Address;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer::cluster::controller::ClusterNodeClient;
 use ab_farmer::cluster::farmer::farmer_service;
@@ -11,7 +12,6 @@ use ab_farmer::farm::Farm;
 use ab_farmer::node_client::NodeClient;
 use ab_farmer::node_client::caching_proxy_node_client::CachingProxyNodeClient;
 use ab_farmer::single_disk_farm::{SingleDiskFarm, SingleDiskFarmError, SingleDiskFarmOptions};
-use ab_farmer::utils::ss58::parse_ss58_reward_address;
 use ab_farmer::utils::{
     AsyncJoinOnDrop, recommended_number_of_farming_threads, run_future_in_dedicated_thread,
 };
@@ -55,9 +55,10 @@ pub(super) struct FarmerArgs {
     /// ensure it will not run out of space in runtime). Optionally, `record-chunks-mode` can be
     /// set to `ConcurrentChunks` (default) or `WholeSector`.
     disk_farms: Vec<DiskFarm>,
+    // TODO: Make actually optional in case farmer doesn't have a wallet yet
     /// Address for farming rewards
-    #[arg(long, value_parser = parse_ss58_reward_address)]
-    reward_address: Option<Ed25519PublicKey>,
+    #[arg(long, value_parser = parse_reward_address)]
+    reward_address: Option<Address>,
     /// Sets some flags that are convenient during development, currently `--reward-address` (if
     /// not specified explicitly)
     #[arg(long)]
@@ -154,12 +155,7 @@ where
         Some(reward_address) => reward_address,
         None => {
             if dev {
-                // `//Alice`
-                Ed25519PublicKey::from([
-                    0xd4, 0x35, 0x93, 0xc7, 0x15, 0xfd, 0xd3, 0x1c, 0x61, 0x14, 0x1a, 0xbd, 0x04,
-                    0xa9, 0x9f, 0xd6, 0x82, 0x2c, 0x85, 0x58, 0x85, 0x4c, 0xcd, 0xe3, 0x9a, 0x56,
-                    0x84, 0xe7, 0xa5, 0x6d, 0xa2, 0x7d,
-                ])
+                Address::default()
             } else {
                 return Err(anyhow!("`--reward-address` is required"));
             }

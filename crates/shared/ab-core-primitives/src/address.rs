@@ -197,7 +197,7 @@ impl Address {
 
     /// Parse address from a string formatted using [`Self::format()`].
     ///
-    /// Returns `None` if address is formatted incorrectly.
+    /// Returns `None` if the address is formatted incorrectly.
     pub fn parse(s: &str) -> Option<(ShortHrp, Self)> {
         let (hrp, other) = s.split_once('1')?;
         if hrp.len() > ShortHrp::MAX_HRP_LENGTH {

@@ -40,6 +40,7 @@ use crate::single_disk_farm::plotting::{
 };
 use crate::utils::{AsyncJoinOnDrop, tokio_rayon_spawn_handler};
 use crate::{KNOWN_PEERS_CACHE_SIZE, farm};
+use ab_core_primitives::address::Address;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -289,7 +290,7 @@ where
     /// RPC client connected to the node
     pub node_client: NC,
     /// Address where farming rewards should go
-    pub reward_address: Ed25519PublicKey,
+    pub reward_address: Address,
     /// Plotter
     pub plotter: Arc<dyn Plotter + Send + Sync>,
     /// Erasure coding instance to use.
