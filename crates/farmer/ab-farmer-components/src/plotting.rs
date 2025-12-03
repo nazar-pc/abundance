@@ -8,8 +8,8 @@
 
 use crate::FarmerProtocolInfo;
 use crate::sector::{
-    RawSector, RecordMetadata, SectorContentsMap, SectorMetadata, SectorMetadataChecksummed,
-    SingleRecordBitArray, sector_record_chunks_size, sector_size,
+    FoundProofs, RawSector, RecordMetadata, SectorContentsMap, SectorMetadata,
+    SectorMetadataChecksummed, sector_record_chunks_size, sector_size,
 };
 use crate::segment_reconstruction::recover_missing_piece;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -582,7 +582,7 @@ pub fn write_sector(
 fn record_encoding<PosTable>(
     pos_seed: &PosSeed,
     record: &mut Record,
-    record_chunks_used: &mut SingleRecordBitArray,
+    record_chunks_used: &mut FoundProofs,
     table_generator: &PosTable::Generator,
     erasure_coding: &ErasureCoding,
 ) where
@@ -597,7 +597,7 @@ fn record_encoding<PosTable>(
         .extend(record.iter(), parity_record_chunks.iter_mut())
         .expect("Statically guaranteed valid inputs; qed");
 
-    record_chunks_used.data = pos_proofs.found_proofs;
+    *record_chunks_used = pos_proofs.found_proofs;
 
     // TODO: This can probably be optimized by using SIMD
     let mut num_found_proofs = 0_usize;

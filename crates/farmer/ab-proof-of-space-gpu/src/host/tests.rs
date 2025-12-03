@@ -75,9 +75,8 @@ fn basic() {
             .enumerate()
         {
             for (byte_index, (expected, actual)) in expected_found_proofs
-                .data
                 .iter()
-                .zip(&actual_found_proofs.data)
+                .zip(actual_found_proofs)
                 .enumerate()
             {
                 assert_eq!(

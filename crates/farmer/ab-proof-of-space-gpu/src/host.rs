@@ -287,13 +287,13 @@ impl RecordsEncoder for GpuRecordsEncoder {
                     };
                     let proofs = proofs.proofs;
 
-                    record_chunks_used.data = proofs.found_proofs;
+                    *record_chunks_used = proofs.found_proofs;
 
                     // TODO: Record encoding on the GPU
                     let mut num_found_proofs = 0_usize;
                     for (s_buckets, found_proofs) in (0..Record::NUM_S_BUCKETS)
                         .array_chunks::<{ u8::BITS as usize }>()
-                        .zip(&mut record_chunks_used.data)
+                        .zip(record_chunks_used)
                     {
                         for (proof_offset, s_bucket) in s_buckets.into_iter().enumerate() {
                             if num_found_proofs == Record::NUM_CHUNKS {

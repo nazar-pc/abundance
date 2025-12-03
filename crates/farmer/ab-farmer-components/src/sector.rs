@@ -12,11 +12,9 @@ use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunksRoot, RecordPr
 use ab_core_primitives::sectors::{SBucket, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_io_type::trivial_type::TrivialType;
-use bitvec::prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use rayon::prelude::*;
 use std::ops::{Deref, DerefMut};
-use std::slice;
 use thiserror::Error;
 use tracing::debug;
 
@@ -173,8 +171,14 @@ impl RawSector {
     }
 }
 
-/// Bit array containing space for bits equal to the number of s-buckets in a record
-pub type SingleRecordBitArray = BitArray<[u8; Record::NUM_S_BUCKETS / u8::BITS as usize]>;
+/// S-buckets at which proofs were found.
+///
+/// S-buckets are grouped by 8, within each `u8` bits right to left (LSB) indicate the presence
+/// of a proof for corresponding s-bucket, so that the whole array of bytes can be thought as a
+/// large set of bits.
+///
+/// There will be at most [`Record::NUM_CHUNKS`] proofs produced/bits set to `1`.
+pub type FoundProofs = [u8; Record::NUM_S_BUCKETS / u8::BITS as usize];
 
 /// Error happening when trying to create [`SectorContentsMap`] from bytes
 #[derive(Debug, Error, Copy, Clone, Eq, PartialEq)]
@@ -227,7 +231,7 @@ pub enum SectorContentsMapIterationError {
 pub struct SectorContentsMap {
     /// Bitfields for each record, each bit is `true` if record chunk at corresponding position was
     /// used
-    record_chunks_used: Vec<SingleRecordBitArray>,
+    record_chunks_used: Vec<FoundProofs>,
 }
 
 impl SectorContentsMap {
@@ -235,10 +239,7 @@ impl SectorContentsMap {
     /// records
     pub fn new(pieces_in_sector: u16) -> Self {
         Self {
-            record_chunks_used: vec![
-                SingleRecordBitArray::default();
-                usize::from(pieces_in_sector)
-            ],
+            record_chunks_used: vec![[0; _]; usize::from(pieces_in_sector)],
         }
     }
 
@@ -275,15 +276,11 @@ impl SectorContentsMap {
             return Err(SectorContentsMapFromBytesError::ChecksumMismatch);
         }
 
-        let mut record_chunks_used = vec![SingleRecordBitArray::default(); pieces_in_sector.into()];
+        let mut record_chunks_used = vec![[0; _]; pieces_in_sector.into()];
 
-        for (record_chunks_used, bytes) in record_chunks_used.iter_mut().zip(
-            single_records_bit_arrays
-                .as_chunks::<{ size_of::<SingleRecordBitArray>() }>()
-                .0,
-        ) {
-            record_chunks_used.as_raw_mut_slice().copy_from_slice(bytes);
-        }
+        record_chunks_used
+            .as_flattened_mut()
+            .copy_from_slice(single_records_bit_arrays);
 
         Ok(Self { record_chunks_used })
     }
@@ -291,7 +288,7 @@ impl SectorContentsMap {
     /// Size of sector contents map when encoded and stored in the plot for specified number of
     /// pieces in sector
     pub const fn encoded_size(pieces_in_sector: u16) -> usize {
-        size_of::<SingleRecordBitArray>() * pieces_in_sector as usize + Blake3Hash::SIZE
+        size_of::<FoundProofs>() * pieces_in_sector as usize + Blake3Hash::SIZE
     }
 
     /// Encode internal contents into `output`
@@ -303,11 +300,7 @@ impl SectorContentsMap {
             });
         }
 
-        let slice = self.record_chunks_used.as_slice();
-        // SAFETY: `BitArray` is a transparent data structure containing array of bytes
-        let slice =
-            unsafe { slice::from_raw_parts(slice.as_ptr().cast::<u8>(), size_of_val(slice)) };
-
+        let slice = self.record_chunks_used.as_flattened();
         // Write data and checksum
         output[..slice.len()].copy_from_slice(slice);
         output[slice.len()..].copy_from_slice(blake3::hash(slice).as_bytes());
@@ -316,12 +309,12 @@ impl SectorContentsMap {
     }
 
     /// Iterate over individual record chunks (s-buckets) that were used
-    pub fn iter_record_chunks_used(&self) -> &[SingleRecordBitArray] {
+    pub fn iter_record_chunks_used(&self) -> &[FoundProofs] {
         &self.record_chunks_used
     }
 
     /// Iterate mutably over individual record chunks (s-buckets) that were used
-    pub fn iter_record_chunks_used_mut(&mut self) -> &mut [SingleRecordBitArray] {
+    pub fn iter_record_chunks_used_mut(&mut self) -> &mut [FoundProofs] {
         &mut self.record_chunks_used
     }
 
@@ -389,7 +382,10 @@ impl SectorContentsMap {
             .map(SBucket::from)
             // In each s-bucket map all records used
             .map(move |s_bucket| {
-                if !self.record_chunks_used[piece_offset][usize::from(s_bucket)] {
+                let byte_offset = usize::from(s_bucket) / u8::BITS as usize;
+                let bit_mask = 1 << (usize::from(s_bucket) % u8::BITS as usize);
+
+                if self.record_chunks_used[piece_offset][byte_offset] & bit_mask == 0 {
                     return None;
                 }
 
@@ -399,7 +395,9 @@ impl SectorContentsMap {
                     .record_chunks_used
                     .iter()
                     .take(piece_offset)
-                    .filter(move |record_chunks_used| record_chunks_used[usize::from(s_bucket)])
+                    .filter(move |record_chunks_used| {
+                        record_chunks_used[byte_offset] & bit_mask != 0
+                    })
                     .count();
 
                 Some(chunk_offset)
@@ -425,7 +423,10 @@ impl SectorContentsMap {
         Ok((PieceOffset::ZERO..)
             .zip(&self.record_chunks_used)
             .filter_map(move |(piece_offset, record_chunks_used)| {
-                record_chunks_used[s_bucket].then_some(piece_offset)
+                let byte_offset = s_bucket / u8::BITS as usize;
+                let bit_mask = 1 << (s_bucket % u8::BITS as usize);
+
+                (record_chunks_used[byte_offset] & bit_mask != 0).then_some(piece_offset)
             }))
     }
 
@@ -450,6 +451,11 @@ impl SectorContentsMap {
         Ok(self
             .record_chunks_used
             .iter()
-            .map(move |record_chunks_used| record_chunks_used[s_bucket]))
+            .map(move |record_chunks_used| {
+                let byte_offset = s_bucket / u8::BITS as usize;
+                let bit_mask = 1 << (s_bucket % u8::BITS as usize);
+
+                record_chunks_used[byte_offset] & bit_mask != 0
+            }))
     }
 }

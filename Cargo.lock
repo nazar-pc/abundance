@@ -494,7 +494,6 @@ dependencies = [
  "anyhow",
  "async-lock",
  "backoff",
- "bitvec",
  "blake3",
  "chacha20 0.10.0-rc.5",
  "criterion",
