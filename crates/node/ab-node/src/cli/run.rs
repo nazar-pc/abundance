@@ -10,7 +10,7 @@ use ab_client_archiving::archiving::{
     ArchiverTaskError, CreateObjectMappings, create_archiver_task,
 };
 use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
-use ab_client_block_authoring::slot_worker::{SubspaceSlotWorker, SubspaceSlotWorkerOptions};
+use ab_client_block_authoring::slot_worker::{SlotWorker, SlotWorkerOptions};
 use ab_client_block_builder::beacon_chain::BeaconChainBlockBuilder;
 use ab_client_block_import::beacon_chain::BeaconChainBlockImport;
 use ab_client_block_verification::beacon_chain::BeaconChainBlockVerification;
@@ -652,20 +652,19 @@ impl Run {
         // TODO: Better thread management, probably move to its own dedicated thread
         tokio::spawn(archiver_task);
 
-        let slot_worker =
-            SubspaceSlotWorker::<PosTable, _, _, _, _, _, _>::new(SubspaceSlotWorkerOptions {
-                block_builder,
-                block_import,
-                beacon_chain_info: client_database.clone(),
-                chain_info: client_database.clone(),
-                chain_sync_status,
-                force_authoring,
-                new_slot_notification_sender,
-                block_sealing_notification_sender,
-                segment_headers_store,
-                consensus_constants,
-                pot_verifier,
-            });
+        let slot_worker = SlotWorker::<PosTable, _, _, _, _, _, _>::new(SlotWorkerOptions {
+            block_builder,
+            block_import,
+            beacon_chain_info: client_database.clone(),
+            chain_info: client_database.clone(),
+            chain_sync_status,
+            force_authoring,
+            new_slot_notification_sender,
+            block_sealing_notification_sender,
+            segment_headers_store,
+            consensus_constants,
+            pot_verifier,
+        });
 
         // TODO: Better thread management, probably move to its own dedicated thread
         tokio::spawn(slot_worker.run(pot_slot_info_stream));

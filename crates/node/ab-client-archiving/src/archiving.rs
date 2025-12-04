@@ -1,8 +1,8 @@
 //! Consensus archiver responsible for archival of blockchain history, it is driven by the block
 //! import pipeline.
 //!
-//! Implements archiving process in Subspace blockchain that converts blockchain history (blocks)
-//! into archived history (pieces).
+//! Implements archiving process in that converts blockchain history (blocks) into archived history
+//! (segments and pieces).
 //!
 //! The main entry point here is [`create_archiver_task`] that will create a task, which while
 //! driven will perform the archiving itself.
