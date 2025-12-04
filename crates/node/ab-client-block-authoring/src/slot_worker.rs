@@ -78,9 +78,9 @@ pub struct ClaimedSlot {
     pub checkpoints: Vec<PotCheckpoints>,
 }
 
-/// Parameters for [`SubspaceSlotWorker`]
+/// Options for [`SlotWorker`]
 #[derive(Debug)]
-pub struct SubspaceSlotWorkerOptions<BB, BI, BCI, CI, CSS> {
+pub struct SlotWorkerOptions<BB, BI, BCI, CI, CSS> {
     /// Builder that can create a new block
     pub block_builder: BB,
     /// Block import to import the block created by a block builder
@@ -106,9 +106,9 @@ pub struct SubspaceSlotWorkerOptions<BB, BI, BCI, CI, CSS> {
     pub pot_verifier: PotVerifier,
 }
 
-/// Subspace slot worker responsible for block and vote production
+/// Slot worker responsible for block production
 #[derive(Debug)]
-pub struct SubspaceSlotWorker<PosTable, Block, BB, BI, BCI, CI, CSS> {
+pub struct SlotWorker<PosTable, Block, BB, BI, BCI, CI, CSS> {
     block_builder: BB,
     block_import: BI,
     beacon_chain_info: BCI,
@@ -128,8 +128,7 @@ pub struct SubspaceSlotWorker<PosTable, Block, BB, BI, BCI, CI, CSS> {
     _pos_table: PhantomData<(PosTable, Block)>,
 }
 
-impl<PosTable, Block, BB, BI, BCI, CI, CSS>
-    SubspaceSlotWorker<PosTable, Block, BB, BI, BCI, CI, CSS>
+impl<PosTable, Block, BB, BI, BCI, CI, CSS> SlotWorker<PosTable, Block, BB, BI, BCI, CI, CSS>
 where
     PosTable: Table,
     Block: GenericOwnedBlock,
@@ -395,9 +394,9 @@ where
         })
     }
 
-    /// Create a new Subspace slot worker
+    /// Create a new slot worker
     pub fn new(
-        SubspaceSlotWorkerOptions {
+        SlotWorkerOptions {
             block_builder,
             block_import,
             beacon_chain_info,
@@ -409,7 +408,7 @@ where
             segment_headers_store,
             consensus_constants,
             pot_verifier,
-        }: SubspaceSlotWorkerOptions<BB, BI, BCI, CI, CSS>,
+        }: SlotWorkerOptions<BB, BI, BCI, CI, CSS>,
     ) -> Self {
         Self {
             block_builder,

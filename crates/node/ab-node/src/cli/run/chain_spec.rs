@@ -20,7 +20,7 @@ const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
         entropy_injection_lookback_depth: 2,
         entropy_injection_delay: SlotNumber::new(15),
     },
-    era_duration: BlockNumber::new(300),
+    retarget_interval: BlockNumber::new(300),
     slot_probability: (1, 6),
     slot_duration: SlotDuration::from_millis(1000),
     recent_segments: HistorySize::new(NonZeroU64::new(5).expect("Not zero; qed")),

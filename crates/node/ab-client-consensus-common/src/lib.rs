@@ -31,8 +31,8 @@ pub struct ConsensusConstants {
     pub block_authoring_delay: SlotNumber,
     /// Proof-of-time consensus constants
     pub pot: PotConsensusConstants,
-    /// Era duration in blocks
-    pub era_duration: BlockNumber,
+    /// Period of time in blocks after which the solution range is adjusted
+    pub retarget_interval: BlockNumber,
     /// Slot probability
     pub slot_probability: (u64, u64),
     /// The slot duration in milliseconds

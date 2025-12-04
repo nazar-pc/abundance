@@ -7,7 +7,7 @@ use crate::block::header::{
     BlockHeaderSealType, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
 };
 use crate::hashes::Blake3Hash;
-use crate::shard::ShardKind;
+use crate::shard::RealShardKind;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
@@ -20,7 +20,7 @@ pub trait GenericOwnedBlockHeader:
     Clone + fmt::Debug + Send + Sync + Into<OwnedBlockHeader> + 'static
 {
     /// Shard kind
-    const SHARD_KIND: ShardKind;
+    const SHARD_KIND: RealShardKind;
 
     /// Block header
     type Header<'a>: GenericBlockHeader<'a>
@@ -74,7 +74,7 @@ pub struct OwnedBeaconChainHeader {
 }
 
 impl GenericOwnedBlockHeader for OwnedBeaconChainHeader {
-    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+    const SHARD_KIND: RealShardKind = RealShardKind::BeaconChain;
 
     type Header<'a> = BeaconChainHeader<'a>;
 
@@ -334,7 +334,7 @@ pub struct OwnedIntermediateShardHeader {
 }
 
 impl GenericOwnedBlockHeader for OwnedIntermediateShardHeader {
-    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+    const SHARD_KIND: RealShardKind = RealShardKind::IntermediateShard;
 
     type Header<'a> = IntermediateShardHeader<'a>;
 
@@ -521,7 +521,7 @@ pub struct OwnedLeafShardHeader {
 }
 
 impl GenericOwnedBlockHeader for OwnedLeafShardHeader {
-    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+    const SHARD_KIND: RealShardKind = RealShardKind::LeafShard;
 
     type Header<'a> = LeafShardHeader<'a>;
 
@@ -682,20 +682,16 @@ impl OwnedBlockHeader {
     #[inline]
     pub fn from_buffer(
         buffer: SharedAlignedBuffer,
-        shard_kind: ShardKind,
+        shard_kind: RealShardKind,
     ) -> Result<Self, SharedAlignedBuffer> {
         Ok(match shard_kind {
-            ShardKind::BeaconChain => {
+            RealShardKind::BeaconChain => {
                 Self::BeaconChain(OwnedBeaconChainHeader::from_buffer(buffer)?)
             }
-            ShardKind::IntermediateShard => {
+            RealShardKind::IntermediateShard => {
                 Self::IntermediateShard(OwnedIntermediateShardHeader::from_buffer(buffer)?)
             }
-            ShardKind::LeafShard => Self::LeafShard(OwnedLeafShardHeader::from_buffer(buffer)?),
-            ShardKind::Phantom | ShardKind::Invalid => {
-                // Blocks for such shards do not exist
-                return Err(buffer);
-            }
+            RealShardKind::LeafShard => Self::LeafShard(OwnedLeafShardHeader::from_buffer(buffer)?),
         })
     }
 

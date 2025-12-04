@@ -15,7 +15,7 @@ use crate::block::owned::{
     OwnedLeafShardBlock,
 };
 use crate::hashes::Blake3Hash;
-use crate::shard::ShardKind;
+use crate::shard::RealShardKind;
 use crate::solutions::SolutionRange;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
@@ -300,7 +300,7 @@ where
     Self: Clone + fmt::Debug + Send + Sync,
 {
     /// Shard kind
-    const SHARD_KIND: ShardKind;
+    const SHARD_KIND: RealShardKind;
 
     /// Block header type
     type Header: GenericBlockHeader<'a>;
@@ -409,7 +409,7 @@ impl<'a> BeaconChainBlock<'a> {
 }
 
 impl<'a> GenericBlock<'a> for BeaconChainBlock<'a> {
-    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+    const SHARD_KIND: RealShardKind = RealShardKind::BeaconChain;
 
     type Header = BeaconChainHeader<'a>;
     type Body = BeaconChainBody<'a>;
@@ -519,7 +519,7 @@ impl<'a> IntermediateShardBlock<'a> {
 }
 
 impl<'a> GenericBlock<'a> for IntermediateShardBlock<'a> {
-    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+    const SHARD_KIND: RealShardKind = RealShardKind::IntermediateShard;
 
     type Header = IntermediateShardHeader<'a>;
     type Body = IntermediateShardBody<'a>;
@@ -615,7 +615,7 @@ impl<'a> LeafShardBlock<'a> {
 }
 
 impl<'a> GenericBlock<'a> for LeafShardBlock<'a> {
-    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+    const SHARD_KIND: RealShardKind = RealShardKind::LeafShard;
 
     type Header = LeafShardHeader<'a>;
     type Body = LeafShardBody<'a>;
@@ -664,23 +664,19 @@ impl<'a> Block<'a> {
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
-    pub fn try_from_bytes(bytes: &'a [u8], shard_kind: ShardKind) -> Option<(Self, &'a [u8])> {
+    pub fn try_from_bytes(bytes: &'a [u8], shard_kind: RealShardKind) -> Option<(Self, &'a [u8])> {
         match shard_kind {
-            ShardKind::BeaconChain => {
+            RealShardKind::BeaconChain => {
                 let (block_header, remainder) = BeaconChainBlock::try_from_bytes(bytes)?;
                 Some((Self::BeaconChain(block_header), remainder))
             }
-            ShardKind::IntermediateShard => {
+            RealShardKind::IntermediateShard => {
                 let (block_header, remainder) = IntermediateShardBlock::try_from_bytes(bytes)?;
                 Some((Self::IntermediateShard(block_header), remainder))
             }
-            ShardKind::LeafShard => {
+            RealShardKind::LeafShard => {
                 let (block_header, remainder) = LeafShardBlock::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(block_header), remainder))
-            }
-            ShardKind::Phantom | ShardKind::Invalid => {
-                // Blocks for such shards do not exist
-                None
             }
         }
     }
@@ -706,25 +702,21 @@ impl<'a> Block<'a> {
     #[inline]
     pub fn try_from_bytes_unchecked(
         bytes: &'a [u8],
-        shard_kind: ShardKind,
+        shard_kind: RealShardKind,
     ) -> Option<(Self, &'a [u8])> {
         match shard_kind {
-            ShardKind::BeaconChain => {
+            RealShardKind::BeaconChain => {
                 let (block_header, remainder) = BeaconChainBlock::try_from_bytes_unchecked(bytes)?;
                 Some((Self::BeaconChain(block_header), remainder))
             }
-            ShardKind::IntermediateShard => {
+            RealShardKind::IntermediateShard => {
                 let (block_header, remainder) =
                     IntermediateShardBlock::try_from_bytes_unchecked(bytes)?;
                 Some((Self::IntermediateShard(block_header), remainder))
             }
-            ShardKind::LeafShard => {
+            RealShardKind::LeafShard => {
                 let (block_header, remainder) = LeafShardBlock::try_from_bytes_unchecked(bytes)?;
                 Some((Self::LeafShard(block_header), remainder))
-            }
-            ShardKind::Phantom | ShardKind::Invalid => {
-                // Blocks for such shards do not exist
-                None
             }
         }
     }
