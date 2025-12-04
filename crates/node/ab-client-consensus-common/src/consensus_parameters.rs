@@ -28,7 +28,7 @@ struct PotInfo {
 pub struct DerivedConsensusParameters {
     /// Consensus parameters that are always present
     pub fixed_parameters: BlockHeaderFixedConsensusParameters,
-    /// Solution range for the next block/era (if any)
+    /// Solution range for the next block/interval (if any)
     pub next_solution_range: Option<SolutionRange>,
     /// Change of parameters to apply to the proof of time chain (if any)
     pub pot_parameters_change: Option<BlockHeaderPotParametersChange>,
@@ -58,7 +58,7 @@ where
     CI: ChainInfo<OwnedBeaconChainBlock>,
 {
     let solution_ranges = derive_solution_ranges(
-        consensus_constants.era_duration,
+        consensus_constants.retarget_interval,
         consensus_constants.slot_probability,
         chain_info,
         parent_block_root,
@@ -98,7 +98,7 @@ where
     reason = "Explicit minimal input for better testability"
 )]
 fn derive_solution_ranges<CI>(
-    era_duration: BlockNumber,
+    retarget_interval: BlockNumber,
     slot_probability: (u64, u64),
     chain_info: &CI,
     parent_block_root: &BlockRoot,
@@ -117,21 +117,23 @@ where
         });
     }
 
-    let next_solution_range = if block_number.as_u64().is_multiple_of(era_duration.as_u64())
-        && block_number > era_duration
+    let next_solution_range = if block_number
+        .as_u64()
+        .is_multiple_of(retarget_interval.as_u64())
+        && block_number > retarget_interval
     {
-        let era_start_block = block_number.saturating_sub(era_duration);
-        let era_start_slot = chain_info
-            .ancestor_header(era_start_block, parent_block_root)
+        let interval_start_block = block_number.saturating_sub(retarget_interval);
+        let interval_start_slot = chain_info
+            .ancestor_header(interval_start_block, parent_block_root)
             .ok_or(DeriveConsensusParametersError::GetAncestorHeader)?
             .header()
             .consensus_info
             .slot;
 
         Some(solution_range.derive_next(
-            slot.saturating_sub(era_start_slot),
+            slot.saturating_sub(interval_start_slot),
             slot_probability,
-            era_duration,
+            retarget_interval,
         ))
     } else {
         None

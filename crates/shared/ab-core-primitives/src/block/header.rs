@@ -174,7 +174,7 @@ impl BlockHeaderBeaconChainInfo {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct BlockHeaderFixedConsensusParameters {
-    /// Solution range for this block/era
+    /// Solution range for this block/interval
     pub solution_range: SolutionRange,
     /// The number of iterations for proof of time per slot.
     ///
@@ -313,7 +313,7 @@ pub struct OwnedBlockHeaderConsensusParameters {
     pub fixed_parameters: BlockHeaderFixedConsensusParameters,
     /// Super segment root
     pub super_segment_root: Option<SuperSegmentRoot>,
-    /// Solution range for the next block/era (if any)
+    /// Solution range for the next block/interval (if any)
     pub next_solution_range: Option<SolutionRange>,
     /// Change of parameters to apply to the proof of time chain (if any)
     pub pot_parameters_change: Option<BlockHeaderPotParametersChange>,
@@ -339,7 +339,7 @@ pub struct BlockHeaderConsensusParameters<'a> {
     pub fixed_parameters: BlockHeaderFixedConsensusParameters,
     /// Super segment root
     pub super_segment_root: Option<&'a SuperSegmentRoot>,
-    /// Solution range for the next block/era (if any)
+    /// Solution range for the next block/interval (if any)
     pub next_solution_range: Option<SolutionRange>,
     /// Change of parameters to apply to the proof of time chain (if any)
     pub pot_parameters_change: Option<&'a BlockHeaderPotParametersChange>,

@@ -194,17 +194,17 @@ impl SolutionRange {
     #[inline]
     pub fn derive_next(
         self,
-        slots_in_last_era: SlotNumber,
+        slots_in_last_interval: SlotNumber,
         slot_probability: (u64, u64),
-        era_duration: BlockNumber,
+        retarget_interval: BlockNumber,
     ) -> Self {
         // The idea here is to keep block production at the same pace while space pledged on the
         // network changes. For this, we adjust the previous solution range according to actual and
-        // expected number of blocks per era.
+        // expected number of blocks per retarget interval.
         //
         // Below is code analogous to the following, but without using floats:
         // ```rust
-        // let actual_slots_per_block = slots_in_last_era as f64 / era_duration as f64;
+        // let actual_slots_per_block = slots_in_last_interval as f64 / retarget_interval as f64;
         // let expected_slots_per_block =
         //     slot_probability.1 as f64 / slot_probability.0 as f64;
         // let adjustment_factor =
@@ -216,9 +216,9 @@ impl SolutionRange {
         let current_solution_range = self.0;
         let next_solution_range = u64::try_from(
             u128::from(current_solution_range)
-                .saturating_mul(u128::from(slots_in_last_era))
+                .saturating_mul(u128::from(slots_in_last_interval))
                 .saturating_mul(u128::from(slot_probability.0))
-                / u128::from(u64::from(era_duration))
+                / u128::from(u64::from(retarget_interval))
                 / u128::from(slot_probability.1),
         );
 
