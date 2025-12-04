@@ -13,7 +13,7 @@ use crate::block::header::{IntermediateShardHeader, LeafShardHeader};
 use crate::hashes::Blake3Hash;
 use crate::pot::PotCheckpoints;
 use crate::segments::SegmentRoot;
-use crate::shard::ShardKind;
+use crate::shard::RealShardKind;
 use crate::transaction::Transaction;
 use ab_blake3::single_block_hash;
 use ab_io_type::trivial_type::TrivialType;
@@ -30,7 +30,7 @@ where
     Self: Copy + fmt::Debug + Into<BlockBody<'a>> + Send + Sync,
 {
     /// Shard kind
-    const SHARD_KIND: ShardKind;
+    const SHARD_KIND: RealShardKind;
 
     /// Owned block body
     #[cfg(feature = "alloc")]
@@ -326,7 +326,7 @@ pub struct BeaconChainBody<'a> {
 }
 
 impl<'a> GenericBlockBody<'a> for BeaconChainBody<'a> {
-    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+    const SHARD_KIND: RealShardKind = RealShardKind::BeaconChain;
 
     #[cfg(feature = "alloc")]
     type Owned = OwnedBeaconChainBody;
@@ -716,7 +716,7 @@ pub struct IntermediateShardBody<'a> {
 }
 
 impl<'a> GenericBlockBody<'a> for IntermediateShardBody<'a> {
-    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+    const SHARD_KIND: RealShardKind = RealShardKind::IntermediateShard;
 
     #[cfg(feature = "alloc")]
     type Owned = OwnedIntermediateShardBody;
@@ -977,7 +977,7 @@ pub struct LeafShardBody<'a> {
 }
 
 impl<'a> GenericBlockBody<'a> for LeafShardBody<'a> {
-    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+    const SHARD_KIND: RealShardKind = RealShardKind::LeafShard;
 
     #[cfg(feature = "alloc")]
     type Owned = OwnedLeafShardBody;
@@ -1144,23 +1144,19 @@ impl<'a> BlockBody<'a> {
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
-    pub fn try_from_bytes(bytes: &'a [u8], shard_kind: ShardKind) -> Option<(Self, &'a [u8])> {
+    pub fn try_from_bytes(bytes: &'a [u8], shard_kind: RealShardKind) -> Option<(Self, &'a [u8])> {
         match shard_kind {
-            ShardKind::BeaconChain => {
+            RealShardKind::BeaconChain => {
                 let (body, remainder) = BeaconChainBody::try_from_bytes(bytes)?;
                 Some((Self::BeaconChain(body), remainder))
             }
-            ShardKind::IntermediateShard => {
+            RealShardKind::IntermediateShard => {
                 let (body, remainder) = IntermediateShardBody::try_from_bytes(bytes)?;
                 Some((Self::IntermediateShard(body), remainder))
             }
-            ShardKind::LeafShard => {
+            RealShardKind::LeafShard => {
                 let (body, remainder) = LeafShardBody::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(body), remainder))
-            }
-            ShardKind::Phantom => {
-                // Blocks for such shards do not exist
-                None
             }
         }
     }
@@ -1183,24 +1179,20 @@ impl<'a> BlockBody<'a> {
     #[inline]
     pub fn try_from_bytes_unchecked(
         bytes: &'a [u8],
-        shard_kind: ShardKind,
+        shard_kind: RealShardKind,
     ) -> Option<(Self, &'a [u8])> {
         match shard_kind {
-            ShardKind::BeaconChain => {
+            RealShardKind::BeaconChain => {
                 let (body, remainder) = BeaconChainBody::try_from_bytes_unchecked(bytes)?;
                 Some((Self::BeaconChain(body), remainder))
             }
-            ShardKind::IntermediateShard => {
+            RealShardKind::IntermediateShard => {
                 let (body, remainder) = IntermediateShardBody::try_from_bytes_unchecked(bytes)?;
                 Some((Self::IntermediateShard(body), remainder))
             }
-            ShardKind::LeafShard => {
+            RealShardKind::LeafShard => {
                 let (body, remainder) = LeafShardBody::try_from_bytes_unchecked(bytes)?;
                 Some((Self::LeafShard(body), remainder))
-            }
-            ShardKind::Phantom => {
-                // Blocks for such shards do not exist
-                None
             }
         }
     }

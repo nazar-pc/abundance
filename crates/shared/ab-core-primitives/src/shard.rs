@@ -51,6 +51,43 @@ pub enum ShardKind {
     Phantom,
 }
 
+impl ShardKind {
+    /// Try to convert to real shard kind.
+    ///
+    /// Returns `None` for phantom shard.
+    #[inline(always)]
+    pub fn to_real(self) -> Option<RealShardKind> {
+        match self {
+            ShardKind::BeaconChain => Some(RealShardKind::BeaconChain),
+            ShardKind::IntermediateShard => Some(RealShardKind::IntermediateShard),
+            ShardKind::LeafShard => Some(RealShardKind::LeafShard),
+            ShardKind::Phantom => None,
+        }
+    }
+}
+
+/// Real shard kind for which a block may exist, see [`ShardKind`] for more details
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum RealShardKind {
+    /// Beacon chain shard
+    BeaconChain,
+    /// Intermediate shard directly below the beacon chain that has child shards
+    IntermediateShard,
+    /// Leaf shard, which doesn't have child shards
+    LeafShard,
+}
+
+impl From<RealShardKind> for ShardKind {
+    #[inline(always)]
+    fn from(shard_kind: RealShardKind) -> Self {
+        match shard_kind {
+            RealShardKind::BeaconChain => ShardKind::BeaconChain,
+            RealShardKind::IntermediateShard => ShardKind::IntermediateShard,
+            RealShardKind::LeafShard => ShardKind::LeafShard,
+        }
+    }
+}
+
 /// Shard index
 #[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
 #[cfg_attr(
@@ -116,6 +153,12 @@ impl ShardIndex {
         }
 
         self.0 & 0b11_1111_1111 != 0
+    }
+
+    /// Whether the shard index corresponds to a real shard
+    #[inline(always)]
+    pub const fn is_real(&self) -> bool {
+        !self.is_phantom_shard()
     }
 
     /// Whether the shard index corresponds to a phantom shard

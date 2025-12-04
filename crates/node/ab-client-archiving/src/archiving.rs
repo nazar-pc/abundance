@@ -41,7 +41,7 @@ use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::block::{BlockNumber, BlockRoot, GenericBlock};
 use ab_core_primitives::segments::{RecordedHistorySegment, SegmentHeader, SegmentIndex};
-use ab_core_primitives::shard::ShardKind;
+use ab_core_primitives::shard::RealShardKind;
 use ab_erasure_coding::ErasureCoding;
 use bytesize::ByteSize;
 use chacha20::ChaCha8Rng;
@@ -226,7 +226,7 @@ pub fn encode_block<Block>(block: &Block) -> Vec<u8>
 where
     Block: GenericOwnedBlock,
 {
-    let is_genesis_block = Block::Block::SHARD_KIND == ShardKind::BeaconChain
+    let is_genesis_block = Block::Block::SHARD_KIND == RealShardKind::BeaconChain
         && block.header().header().prefix.number == BlockNumber::ZERO;
     let header_buffer = block.header().buffer();
     let body_buffer = block.body().buffer();

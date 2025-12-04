@@ -4,7 +4,7 @@ use ab_client_api::ChainInfo;
 use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
-use ab_core_primitives::shard::ShardKind;
+use ab_core_primitives::shard::RealShardKind;
 use std::time::Duration;
 use tracing::info;
 
@@ -14,8 +14,8 @@ where
     CI: ChainInfo<Block>,
 {
     let shard = match Block::SHARD_KIND {
-        ShardKind::BeaconChain => "BeaconChain".to_string(),
-        ShardKind::IntermediateShard => {
+        RealShardKind::BeaconChain => "BeaconChain".to_string(),
+        RealShardKind::IntermediateShard => {
             format!(
                 "Intermediate[{}]",
                 chain_info
@@ -26,7 +26,7 @@ where
                     .as_u32()
             )
         }
-        ShardKind::LeafShard => {
+        RealShardKind::LeafShard => {
             format!(
                 "Leaf[{}]",
                 chain_info
@@ -36,9 +36,6 @@ where
                     .shard_index
                     .as_u32()
             )
-        }
-        ShardKind::Phantom => {
-            unreachable!("Invalid shard kind; qed");
         }
     };
     loop {

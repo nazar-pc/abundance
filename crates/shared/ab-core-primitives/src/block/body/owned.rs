@@ -9,7 +9,7 @@ use crate::block::header::owned::{
 };
 use crate::pot::PotCheckpoints;
 use crate::segments::SegmentRoot;
-use crate::shard::ShardKind;
+use crate::shard::RealShardKind;
 use crate::transaction::Transaction;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
@@ -25,7 +25,7 @@ pub trait GenericOwnedBlockBody:
     Clone + fmt::Debug + Send + Sync + Into<OwnedBlockBody> + 'static
 {
     /// Shard kind
-    const SHARD_KIND: ShardKind;
+    const SHARD_KIND: RealShardKind;
 
     /// Block body
     type Body<'a>: GenericBlockBody<'a>
@@ -234,7 +234,7 @@ pub struct OwnedBeaconChainBody {
 }
 
 impl GenericOwnedBlockBody for OwnedBeaconChainBody {
-    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+    const SHARD_KIND: RealShardKind = RealShardKind::BeaconChain;
 
     type Body<'a> = BeaconChainBody<'a>;
 
@@ -465,7 +465,7 @@ pub struct OwnedIntermediateShardBody {
 }
 
 impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
-    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+    const SHARD_KIND: RealShardKind = RealShardKind::IntermediateShard;
 
     type Body<'a> = IntermediateShardBody<'a>;
 
@@ -669,7 +669,7 @@ pub struct OwnedLeafShardBody {
 }
 
 impl GenericOwnedBlockBody for OwnedLeafShardBody {
-    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+    const SHARD_KIND: RealShardKind = RealShardKind::LeafShard;
 
     type Body<'a> = LeafShardBody<'a>;
 
@@ -813,18 +813,16 @@ impl OwnedBlockBody {
     #[inline]
     pub fn from_buffer(
         buffer: SharedAlignedBuffer,
-        shard_kind: ShardKind,
+        shard_kind: RealShardKind,
     ) -> Result<Self, SharedAlignedBuffer> {
         Ok(match shard_kind {
-            ShardKind::BeaconChain => Self::BeaconChain(OwnedBeaconChainBody::from_buffer(buffer)?),
-            ShardKind::IntermediateShard => {
+            RealShardKind::BeaconChain => {
+                Self::BeaconChain(OwnedBeaconChainBody::from_buffer(buffer)?)
+            }
+            RealShardKind::IntermediateShard => {
                 Self::IntermediateShard(OwnedIntermediateShardBody::from_buffer(buffer)?)
             }
-            ShardKind::LeafShard => Self::LeafShard(OwnedLeafShardBody::from_buffer(buffer)?),
-            ShardKind::Phantom => {
-                // Blocks for such shards do not exist
-                return Err(buffer);
-            }
+            RealShardKind::LeafShard => Self::LeafShard(OwnedLeafShardBody::from_buffer(buffer)?),
         })
     }
 

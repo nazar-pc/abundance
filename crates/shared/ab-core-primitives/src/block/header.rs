@@ -13,7 +13,7 @@ use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use crate::hashes::Blake3Hash;
 use crate::pot::{PotOutput, PotParametersChange, SlotNumber};
 use crate::segments::SuperSegmentRoot;
-use crate::shard::{ShardIndex, ShardKind};
+use crate::shard::{RealShardKind, ShardIndex, ShardKind};
 use crate::solutions::{Solution, SolutionRange};
 use ab_blake3::{BLOCK_LEN, single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
@@ -42,7 +42,7 @@ where
         + Sync,
 {
     /// Shard kind
-    const SHARD_KIND: ShardKind;
+    const SHARD_KIND: RealShardKind;
 
     /// Owned block header
     #[cfg(feature = "alloc")]
@@ -755,7 +755,7 @@ impl<'a> Deref for BeaconChainHeader<'a> {
 }
 
 impl<'a> GenericBlockHeader<'a> for BeaconChainHeader<'a> {
-    const SHARD_KIND: ShardKind = ShardKind::BeaconChain;
+    const SHARD_KIND: RealShardKind = RealShardKind::BeaconChain;
 
     #[cfg(feature = "alloc")]
     type Owned = OwnedBeaconChainHeader;
@@ -1044,7 +1044,7 @@ impl<'a> Deref for IntermediateShardHeader<'a> {
 }
 
 impl<'a> GenericBlockHeader<'a> for IntermediateShardHeader<'a> {
-    const SHARD_KIND: ShardKind = ShardKind::IntermediateShard;
+    const SHARD_KIND: RealShardKind = RealShardKind::IntermediateShard;
 
     #[cfg(feature = "alloc")]
     type Owned = OwnedIntermediateShardHeader;
@@ -1335,7 +1335,7 @@ impl<'a> Deref for LeafShardHeader<'a> {
 }
 
 impl<'a> GenericBlockHeader<'a> for LeafShardHeader<'a> {
-    const SHARD_KIND: ShardKind = ShardKind::LeafShard;
+    const SHARD_KIND: RealShardKind = RealShardKind::LeafShard;
 
     #[cfg(feature = "alloc")]
     type Owned = OwnedLeafShardHeader;
@@ -1614,23 +1614,19 @@ impl<'a> BlockHeader<'a> {
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
-    pub fn try_from_bytes(bytes: &'a [u8], shard_kind: ShardKind) -> Option<(Self, &'a [u8])> {
+    pub fn try_from_bytes(bytes: &'a [u8], shard_kind: RealShardKind) -> Option<(Self, &'a [u8])> {
         match shard_kind {
-            ShardKind::BeaconChain => {
+            RealShardKind::BeaconChain => {
                 let (header, remainder) = BeaconChainHeader::try_from_bytes(bytes)?;
                 Some((Self::BeaconChain(header), remainder))
             }
-            ShardKind::IntermediateShard => {
+            RealShardKind::IntermediateShard => {
                 let (header, remainder) = IntermediateShardHeader::try_from_bytes(bytes)?;
                 Some((Self::IntermediateShard(header), remainder))
             }
-            ShardKind::LeafShard => {
+            RealShardKind::LeafShard => {
                 let (header, remainder) = LeafShardHeader::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(header), remainder))
-            }
-            ShardKind::Phantom => {
-                // Blocks for such shards do not exist
-                None
             }
         }
     }
@@ -1653,24 +1649,20 @@ impl<'a> BlockHeader<'a> {
     #[inline]
     pub fn try_from_bytes_unchecked(
         bytes: &'a [u8],
-        shard_kind: ShardKind,
+        shard_kind: RealShardKind,
     ) -> Option<(Self, &'a [u8])> {
         match shard_kind {
-            ShardKind::BeaconChain => {
+            RealShardKind::BeaconChain => {
                 let (header, remainder) = BeaconChainHeader::try_from_bytes_unchecked(bytes)?;
                 Some((Self::BeaconChain(header), remainder))
             }
-            ShardKind::IntermediateShard => {
+            RealShardKind::IntermediateShard => {
                 let (header, remainder) = IntermediateShardHeader::try_from_bytes_unchecked(bytes)?;
                 Some((Self::IntermediateShard(header), remainder))
             }
-            ShardKind::LeafShard => {
+            RealShardKind::LeafShard => {
                 let (header, remainder) = LeafShardHeader::try_from_bytes_unchecked(bytes)?;
                 Some((Self::LeafShard(header), remainder))
-            }
-            ShardKind::Phantom => {
-                // Blocks for such shards do not exist
-                None
             }
         }
     }
