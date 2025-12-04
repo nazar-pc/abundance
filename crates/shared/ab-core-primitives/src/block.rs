@@ -678,7 +678,7 @@ impl<'a> Block<'a> {
                 let (block_header, remainder) = LeafShardBlock::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(block_header), remainder))
             }
-            ShardKind::Phantom | ShardKind::Invalid => {
+            ShardKind::Phantom => {
                 // Blocks for such shards do not exist
                 None
             }
@@ -722,7 +722,7 @@ impl<'a> Block<'a> {
                 let (block_header, remainder) = LeafShardBlock::try_from_bytes_unchecked(bytes)?;
                 Some((Self::LeafShard(block_header), remainder))
             }
-            ShardKind::Phantom | ShardKind::Invalid => {
+            ShardKind::Phantom => {
                 // Blocks for such shards do not exist
                 None
             }

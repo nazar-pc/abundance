@@ -597,7 +597,7 @@ impl OwnedBlock {
             ShardKind::LeafShard => {
                 Self::LeafShard(OwnedLeafShardBlock::from_buffers(header, body)?)
             }
-            ShardKind::Phantom | ShardKind::Invalid => {
+            ShardKind::Phantom => {
                 // Blocks for such shards do not exist
                 return None;
             }

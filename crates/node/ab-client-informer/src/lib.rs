@@ -37,7 +37,7 @@ where
                     .as_u32()
             )
         }
-        ShardKind::Phantom | ShardKind::Invalid => {
+        ShardKind::Phantom => {
             unreachable!("Invalid shard kind; qed");
         }
     };

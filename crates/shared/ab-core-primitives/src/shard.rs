@@ -45,12 +45,10 @@ pub enum ShardKind {
     BeaconChain,
     /// Intermediate shard directly below the beacon chain that has child shards
     IntermediateShard,
-    /// Leaf shard, doesn't have child shards
+    /// Leaf shard, which doesn't have child shards
     LeafShard,
     /// TODO
     Phantom,
-    /// Invalid shard kind (if decoded from invalid bit pattern)
-    Invalid,
 }
 
 /// Shard index
@@ -134,34 +132,34 @@ impl ShardIndex {
     #[inline]
     pub const fn is_child_of(self, parent: Self) -> bool {
         match self.shard_kind() {
-            ShardKind::BeaconChain => false,
-            ShardKind::IntermediateShard | ShardKind::Phantom => parent.is_beacon_chain(),
-            ShardKind::LeafShard => {
-                // Check that least significant bits match
+            Some(ShardKind::BeaconChain) => false,
+            Some(ShardKind::IntermediateShard | ShardKind::Phantom) => parent.is_beacon_chain(),
+            Some(ShardKind::LeafShard) => {
+                // Check that the least significant bits match
                 self.0 & 0b11_1111_1111 == parent.0 & 0b11_1111_1111
             }
-            ShardKind::Invalid => false,
+            None => false,
         }
     }
 
     /// Get shard kind
     #[inline(always)]
-    pub const fn shard_kind(&self) -> ShardKind {
-        match self.0 {
+    pub const fn shard_kind(&self) -> Option<ShardKind> {
+        Some(match self.0 {
             0 => ShardKind::BeaconChain,
             1..=1023 => ShardKind::IntermediateShard,
             shard_index => {
                 if shard_index > Self::MAX_SHARD_INDEX {
-                    return ShardKind::Invalid;
+                    return None;
                 }
 
-                // Check if least significant bits correspond to the beacon chain
+                // Check if the least significant bits correspond to the beacon chain
                 if shard_index & 0b11_1111_1111 == 0 {
                     ShardKind::Phantom
                 } else {
                     ShardKind::LeafShard
                 }
             }
-        }
+        })
     }
 }

@@ -797,7 +797,7 @@ impl<'a> BeaconChainHeader<'a> {
         let (prefix, consensus_info, result, remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
 
-        if prefix.shard_index.shard_kind() != ShardKind::BeaconChain {
+        if prefix.shard_index.shard_kind() != Some(ShardKind::BeaconChain) {
             return None;
         }
 
@@ -861,7 +861,7 @@ impl<'a> BeaconChainHeader<'a> {
         let (prefix, consensus_info, result, remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
 
-        if prefix.shard_index.shard_kind() != ShardKind::BeaconChain {
+        if prefix.shard_index.shard_kind() != Some(ShardKind::BeaconChain) {
             return None;
         }
 
@@ -1086,7 +1086,7 @@ impl<'a> IntermediateShardHeader<'a> {
         let (prefix, consensus_info, result, mut remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
 
-        if prefix.shard_index.shard_kind() != ShardKind::IntermediateShard {
+        if prefix.shard_index.shard_kind() != Some(ShardKind::IntermediateShard) {
             return None;
         }
 
@@ -1152,7 +1152,7 @@ impl<'a> IntermediateShardHeader<'a> {
         let (prefix, consensus_info, result, mut remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
 
-        if prefix.shard_index.shard_kind() != ShardKind::IntermediateShard {
+        if prefix.shard_index.shard_kind() != Some(ShardKind::IntermediateShard) {
             return None;
         }
 
@@ -1376,7 +1376,7 @@ impl<'a> LeafShardHeader<'a> {
         let (prefix, consensus_info, result, mut remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
 
-        if prefix.shard_index.shard_kind() != ShardKind::LeafShard {
+        if prefix.shard_index.shard_kind() != Some(ShardKind::LeafShard) {
             return None;
         }
 
@@ -1437,7 +1437,7 @@ impl<'a> LeafShardHeader<'a> {
         let (prefix, consensus_info, result, mut remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
 
-        if prefix.shard_index.shard_kind() != ShardKind::LeafShard {
+        if prefix.shard_index.shard_kind() != Some(ShardKind::LeafShard) {
             return None;
         }
 
@@ -1628,7 +1628,7 @@ impl<'a> BlockHeader<'a> {
                 let (header, remainder) = LeafShardHeader::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(header), remainder))
             }
-            ShardKind::Phantom | ShardKind::Invalid => {
+            ShardKind::Phantom => {
                 // Blocks for such shards do not exist
                 None
             }
@@ -1668,7 +1668,7 @@ impl<'a> BlockHeader<'a> {
                 let (header, remainder) = LeafShardHeader::try_from_bytes_unchecked(bytes)?;
                 Some((Self::LeafShard(header), remainder))
             }
-            ShardKind::Phantom | ShardKind::Invalid => {
+            ShardKind::Phantom => {
                 // Blocks for such shards do not exist
                 None
             }

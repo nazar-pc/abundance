@@ -692,7 +692,7 @@ impl OwnedBlockHeader {
                 Self::IntermediateShard(OwnedIntermediateShardHeader::from_buffer(buffer)?)
             }
             ShardKind::LeafShard => Self::LeafShard(OwnedLeafShardHeader::from_buffer(buffer)?),
-            ShardKind::Phantom | ShardKind::Invalid => {
+            ShardKind::Phantom => {
                 // Blocks for such shards do not exist
                 return Err(buffer);
             }
