@@ -561,12 +561,14 @@ where
     Block: GenericOwnedBlock,
     StorageBackend: ClientDatabaseStorageBackend,
 {
+    #[inline]
     fn best_root(&self) -> BlockRoot {
         // Blocking read lock is fine because the only place where write lock is taken is short and
         // all other locks are read locks
         self.inner.state.read_blocking().best_tip().root
     }
 
+    #[inline]
     fn best_header(&self) -> Block::Header {
         // Blocking read lock is fine because the only place where write lock is taken is short and
         // all other locks are read locks
@@ -578,6 +580,7 @@ where
             .clone()
     }
 
+    #[inline]
     fn best_header_with_details(&self) -> (Block::Header, BlockDetails) {
         // Blocking read lock is fine because the only place where write lock is taken is short and
         // all other locks are read locks
@@ -593,6 +596,7 @@ where
     }
 
     // TODO: Add fast path when `descendant_block_root` is the best block
+    #[inline]
     fn ancestor_header(
         &self,
         ancestor_block_number: BlockNumber,
@@ -660,6 +664,7 @@ where
         None
     }
 
+    #[inline]
     fn header(&self, block_root: &BlockRoot) -> Option<Block::Header> {
         // Blocking read lock is fine because the only place where write lock is taken is short and
         // all other locks are read locks
@@ -681,6 +686,7 @@ where
         })
     }
 
+    #[inline]
     fn header_with_details(&self, block_root: &BlockRoot) -> Option<(Block::Header, BlockDetails)> {
         // Blocking read lock is fine because the only place where write lock is taken is short and
         // all other locks are read locks
@@ -703,6 +709,7 @@ where
         })
     }
 
+    #[inline]
     async fn block(&self, block_root: &BlockRoot) -> Result<Block, ReadBlockError> {
         let state = self.inner.state.read().await;
         let best_number = state.best_tip().number;

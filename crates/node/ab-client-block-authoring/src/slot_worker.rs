@@ -1,20 +1,18 @@
 //! Slot worker drives block and vote production based on slots produced in
 //! [`ab_client_proof_of_time`].
 
-use ab_client_api::{BlockOrigin, ChainInfo, ChainSyncStatus};
+use crate::{BlockProducer, ClaimedSlot};
+use ab_client_api::{ChainInfo, ChainSyncStatus};
 use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
-use ab_client_block_builder::BlockBuilder;
-use ab_client_block_import::BlockImport;
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::BlockNumber;
-use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::header::{
-    BeaconChainHeader, BlockHeaderConsensusInfo, GenericBlockHeader, OwnedBlockHeaderSeal,
+    BeaconChainHeader, BlockHeaderConsensusInfo, OwnedBlockHeaderSeal,
 };
-use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
+use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
 use ab_core_primitives::sectors::SectorId;
@@ -31,7 +29,7 @@ use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use std::time::Duration;
 use tokio::sync::broadcast;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, info, trace, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
 const PENDING_SOLUTIONS_CHANNEL_CAPACITY: usize = 10;
@@ -68,26 +66,13 @@ pub struct BlockSealNotification {
     pub seal_sender: oneshot::Sender<OwnedBlockHeaderSeal>,
 }
 
-#[derive(Debug)]
-pub struct ClaimedSlot {
-    /// Consensus info for a block header
-    pub consensus_info: BlockHeaderConsensusInfo,
-    /// Proof of time checkpoints from after future proof of parent block to current block's
-    /// future proof (inclusive)
-    pub checkpoints: Vec<PotCheckpoints>,
-}
-
 /// Options for [`SlotWorker`]
 #[derive(Debug)]
-pub struct SlotWorkerOptions<BB, BI, BCI, CI, CSS> {
-    /// Builder that can create a new block
-    pub block_builder: BB,
-    /// Block import to import the block created by a block builder
-    pub block_import: BI,
+pub struct SlotWorkerOptions<BP, BCI, CSS> {
+    /// Producer of a new block
+    pub block_producer: BP,
     /// Beacon chain info
     pub beacon_chain_info: BCI,
-    /// Chain info
-    pub chain_info: CI,
     /// Chain sync status
     pub chain_sync_status: CSS,
     /// Force authoring of blocks even if we are offline
@@ -107,11 +92,9 @@ pub struct SlotWorkerOptions<BB, BI, BCI, CI, CSS> {
 
 /// Slot worker responsible for block production
 #[derive(Debug)]
-pub struct SlotWorker<PosTable, Block, BB, BI, BCI, CI, CSS> {
-    block_builder: BB,
-    block_import: BI,
+pub struct SlotWorker<PosTable, BP, BCI, CSS> {
+    block_producer: BP,
     beacon_chain_info: BCI,
-    chain_info: CI,
     chain_sync_status: CSS,
     force_authoring: bool,
     new_slot_notification_sender: mpsc::Sender<NewSlotNotification>,
@@ -124,26 +107,21 @@ pub struct SlotWorker<PosTable, Block, BB, BI, BCI, CI, CSS> {
     pot_checkpoints: BTreeMap<SlotNumber, PotCheckpoints>,
     consensus_constants: ConsensusConstants,
     pot_verifier: PotVerifier,
-    _pos_table: PhantomData<(PosTable, Block)>,
+    _pos_table: PhantomData<PosTable>,
 }
 
-impl<PosTable, Block, BB, BI, BCI, CI, CSS> SlotWorker<PosTable, Block, BB, BI, BCI, CI, CSS>
+impl<PosTable, BP, BCI, CSS> SlotWorker<PosTable, BP, BCI, CSS>
 where
     PosTable: Table,
-    Block: GenericOwnedBlock,
-    BB: BlockBuilder<Block>,
-    BI: BlockImport<Block>,
+    BP: BlockProducer,
     BCI: ChainInfo<OwnedBeaconChainBlock>,
-    CI: ChainInfo<Block>,
     CSS: ChainSyncStatus,
 {
     /// Create a new slot worker
     pub fn new(
         SlotWorkerOptions {
-            block_builder,
-            block_import,
+            block_producer,
             beacon_chain_info,
-            chain_info,
             chain_sync_status,
             force_authoring,
             new_slot_notification_sender,
@@ -151,13 +129,11 @@ where
             segment_headers_store,
             consensus_constants,
             pot_verifier,
-        }: SlotWorkerOptions<BB, BI, BCI, CI, CSS>,
+        }: SlotWorkerOptions<BP, BCI, CSS>,
     ) -> Self {
         Self {
-            block_builder,
-            block_import,
+            block_producer,
             beacon_chain_info,
-            chain_info,
             chain_sync_status,
             force_authoring,
             new_slot_notification_sender,
@@ -232,9 +208,41 @@ where
                 continue;
             };
 
+            debug!(
+                slot = %claimed_slot.consensus_info.slot,
+                "Starting block authorship"
+            );
+
+            let seal_block = {
+                let block_sealing_notification_sender = &mut self.block_sealing_notification_sender;
+                let public_key_hash = claimed_slot.consensus_info.solution.public_key_hash;
+
+                move |pre_seal_hash| async move {
+                    let (seal_sender, seal_receiver) = oneshot::channel::<OwnedBlockHeaderSeal>();
+
+                    if let Err(error) =
+                        block_sealing_notification_sender.try_send(BlockSealNotification {
+                            pre_seal_hash,
+                            public_key_hash,
+                            seal_sender,
+                        })
+                    {
+                        warn!(%error, "Failed to send block sealing notification");
+                    }
+
+                    match tokio::time::timeout(BLOCK_SEALING_TIMEOUT, seal_receiver).await {
+                        Ok(Ok(seal)) => Some(seal),
+                        _ => None,
+                    }
+                }
+            };
+
             // TODO: `.send()` is a hack for compiler bug, see:
             //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
-            self.produce_block(claimed_slot).send().await;
+            self.block_producer
+                .produce_block(claimed_slot, best_beacon_chain_header, seal_block)
+                .send()
+                .await;
         }
     }
 
@@ -547,98 +555,5 @@ where
             consensus_info,
             checkpoints,
         })
-    }
-
-    async fn produce_block(&mut self, claimed_slot: ClaimedSlot) {
-        let slot = claimed_slot.consensus_info.slot;
-
-        debug!(%slot, "Starting block authorship");
-
-        let seal_block = {
-            let block_sealing_notification_sender = &mut self.block_sealing_notification_sender;
-            let public_key_hash = claimed_slot.consensus_info.solution.public_key_hash;
-
-            move |pre_seal_hash| async move {
-                let (seal_sender, seal_receiver) = oneshot::channel::<OwnedBlockHeaderSeal>();
-
-                if let Err(error) =
-                    block_sealing_notification_sender.try_send(BlockSealNotification {
-                        pre_seal_hash,
-                        public_key_hash,
-                        seal_sender,
-                    })
-                {
-                    warn!(%error, "Failed to send block sealing notification");
-                }
-
-                match tokio::time::timeout(BLOCK_SEALING_TIMEOUT, seal_receiver).await {
-                    Ok(Ok(seal)) => Some(seal),
-                    _ => None,
-                }
-            }
-        };
-
-        let (best_header, best_block_details) = self.chain_info.best_header_with_details();
-        let best_header = best_header.header();
-
-        let parent_block_root = *best_header.root();
-
-        let block_builder_result = match self
-            .block_builder
-            .build(
-                &parent_block_root,
-                best_header,
-                &best_block_details,
-                &claimed_slot.consensus_info,
-                &claimed_slot.checkpoints,
-                seal_block,
-            )
-            .await
-        {
-            Ok(block_builder_result) => block_builder_result,
-            Err(error) => {
-                error!(%slot, %parent_block_root, %error, "Failed to build a block");
-                return;
-            }
-        };
-
-        let header = block_builder_result.block.header().header();
-        info!(
-            slot = %header.consensus_info.slot,
-            number = %header.prefix.number,
-            root = %&*header.root(),
-            pre_seal_hash = %header.pre_seal_hash(),
-            "🔖 Built new block",
-        );
-
-        let block_import_fut = match self.block_import.import(
-            block_builder_result.block,
-            BlockOrigin::LocalBlockBuilder {
-                block_details: block_builder_result.block_details,
-            },
-        ) {
-            Ok(block_import_fut) => block_import_fut,
-            Err(error) => {
-                error!(
-                    best_root = %*best_header.root(),
-                    %error,
-                    "Failed to queue a newly produced block for import"
-                );
-                return;
-            }
-        };
-
-        match block_import_fut.await {
-            Ok(()) => {
-                // Nothing else to do
-            }
-            Err(error) => {
-                error!(
-                    best_root = %*best_header.root(),
-                    %error,
-                    "Failed to import a newly produced block"
-                );
-            }
-        }
     }
 }

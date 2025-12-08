@@ -10,6 +10,7 @@ use ab_client_archiving::archiving::{
     ArchiverTaskError, CreateObjectMappings, create_archiver_task,
 };
 use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
+use ab_client_block_authoring::beacon_chain::BeaconChainBlockProducer;
 use ab_client_block_authoring::slot_worker::{SlotWorker, SlotWorkerOptions};
 use ab_client_block_builder::beacon_chain::BeaconChainBlockBuilder;
 use ab_client_block_import::beacon_chain::BeaconChainBlockImport;
@@ -652,11 +653,12 @@ impl Run {
         // TODO: Better thread management, probably move to its own dedicated thread
         tokio::spawn(archiver_task);
 
-        let slot_worker = SlotWorker::<PosTable, _, _, _, _, _, _>::new(SlotWorkerOptions {
-            block_builder,
-            block_import,
+        let block_producer =
+            BeaconChainBlockProducer::new(block_builder, block_import, client_database.clone());
+
+        let slot_worker = SlotWorker::<PosTable, _, _, _>::new(SlotWorkerOptions {
+            block_producer,
             beacon_chain_info: client_database.clone(),
-            chain_info: client_database.clone(),
             chain_sync_status,
             force_authoring,
             new_slot_notification_sender,
