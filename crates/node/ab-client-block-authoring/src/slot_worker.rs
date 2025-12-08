@@ -13,7 +13,6 @@ use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::header::{
     BeaconChainHeader, BlockHeaderConsensusInfo, GenericBlockHeader, OwnedBlockHeaderSeal,
-    SharedBlockHeader,
 };
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::hashes::Blake3Hash;
@@ -220,18 +219,26 @@ where
                 continue;
             };
 
+            if !self.force_authoring && self.chain_sync_status.is_offline() {
+                debug!("Skipping slot, waiting for the network");
+
+                continue;
+            }
+
+            let Some(claimed_slot) = self
+                .claim_slot(best_beacon_chain_header, slot_to_claim)
+                .await
+            else {
+                continue;
+            };
+
             let (best_header, best_block_details) = self.chain_info.best_header_with_details();
             let best_header = best_header.header();
 
             // TODO: `.send()` is a hack for compiler bug, see:
             //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
             let Some(block_builder_result) = self
-                .produce_block(
-                    slot_to_claim,
-                    best_header,
-                    &best_block_details,
-                    best_beacon_chain_header,
-                )
+                .produce_block(claimed_slot, best_header, &best_block_details)
                 .send()
                 .await
             else {
@@ -581,21 +588,13 @@ where
         })
     }
 
-    /// Called with slot for which block needs to be produced (if a suitable solution was found)
     async fn produce_block(
         &mut self,
-        slot: SlotNumber,
+        claimed_slot: ClaimedSlot,
         parent_header: &<Block::Header as GenericOwnedBlockHeader>::Header<'_>,
         parent_block_details: &BlockDetails,
-        parent_beacon_chain_header: &BeaconChainHeader<'_>,
     ) -> Option<BlockBuilderResult<Block>> {
-        if !self.force_authoring && self.chain_sync_status.is_offline() {
-            debug!("Skipping slot, waiting for the network");
-
-            return None;
-        }
-
-        let claimed_slot = self.claim_slot(parent_beacon_chain_header, slot).await?;
+        let slot = claimed_slot.consensus_info.slot;
 
         debug!(%slot, "Starting block authorship");
 
