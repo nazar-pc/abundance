@@ -461,9 +461,6 @@ where
 
             let best_beacon_chain_header = self.beacon_chain_info.best_header();
             let best_beacon_chain_header = best_beacon_chain_header.header();
-            let (best_header, best_block_details) = self.chain_info.best_header_with_details();
-            let best_header = best_header.header();
-
             self.on_new_slot(slot, checkpoints, best_beacon_chain_header);
 
             if self.chain_sync_status.is_syncing() {
@@ -478,6 +475,9 @@ where
                 trace!("Skipping a very early slot during chain start");
                 continue;
             };
+
+            let (best_header, best_block_details) = self.chain_info.best_header_with_details();
+            let best_header = best_header.header();
 
             // TODO: `.send()` is a hack for compiler bug, see:
             //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
