@@ -326,12 +326,11 @@ where
     }
     async fn claim_slot(
         &mut self,
-        parent_header: &SharedBlockHeader<'_>,
         parent_beacon_chain_header: &BeaconChainHeader<'_>,
         slot: SlotNumber,
     ) -> Option<ClaimedSlot> {
-        let parent_number = parent_header.prefix.number;
-        let parent_slot = parent_header.consensus_info.slot;
+        let parent_number = parent_beacon_chain_header.prefix.number;
+        let parent_slot = parent_beacon_chain_header.consensus_info.slot;
 
         if slot <= parent_slot {
             debug!(
@@ -379,7 +378,7 @@ where
                 PotNextSlotInput::derive(
                     parent_consensus_parameters.fixed_parameters.slot_iterations,
                     parent_slot,
-                    parent_header.consensus_info.proof_of_time,
+                    parent_beacon_chain_header.consensus_info.proof_of_time,
                     &parent_pot_parameters_change,
                 )
             };
@@ -394,7 +393,7 @@ where
                 warn!(
                     %slot,
                     ?pot_input,
-                    consensus_info = ?parent_header.consensus_info,
+                    consensus_info = ?parent_beacon_chain_header.consensus_info,
                     "Proof of time is invalid, skipping block authoring at the slot"
                 );
                 return None;
@@ -410,7 +409,9 @@ where
                 PotNextSlotInput::derive(
                     parent_consensus_parameters.fixed_parameters.slot_iterations,
                     parent_future_slot,
-                    parent_header.consensus_info.future_proof_of_time,
+                    parent_beacon_chain_header
+                        .consensus_info
+                        .future_proof_of_time,
                     &parent_pot_parameters_change,
                 )
             };
@@ -594,9 +595,7 @@ where
             return None;
         }
 
-        let claimed_slot = self
-            .claim_slot(parent_header, parent_beacon_chain_header, slot)
-            .await?;
+        let claimed_slot = self.claim_slot(parent_beacon_chain_header, slot).await?;
 
         debug!(%slot, "Starting block authorship");
 
