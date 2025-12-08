@@ -138,6 +138,192 @@ where
     CI: ChainInfo<Block>,
     CSS: ChainSyncStatus,
 {
+    /// Create a new slot worker
+    pub fn new(
+        SlotWorkerOptions {
+            block_builder,
+            block_import,
+            beacon_chain_info,
+            chain_info,
+            chain_sync_status,
+            force_authoring,
+            new_slot_notification_sender,
+            block_sealing_notification_sender,
+            segment_headers_store,
+            consensus_constants,
+            pot_verifier,
+        }: SlotWorkerOptions<BB, BI, BCI, CI, CSS>,
+    ) -> Self {
+        Self {
+            block_builder,
+            block_import,
+            beacon_chain_info,
+            chain_info,
+            chain_sync_status,
+            force_authoring,
+            new_slot_notification_sender,
+            block_sealing_notification_sender,
+            segment_headers_store,
+            pending_solutions: BTreeMap::new(),
+            pot_checkpoints: BTreeMap::new(),
+            consensus_constants,
+            pot_verifier,
+            _pos_table: PhantomData,
+        }
+    }
+
+    /// Run slot worker
+    pub async fn run(mut self, mut slot_info_stream: PotSlotInfoStream) {
+        let mut maybe_last_processed_slot = None;
+
+        loop {
+            let PotSlotInfo { slot, checkpoints } = match slot_info_stream.recv().await {
+                Ok(slot_info) => slot_info,
+                Err(error) => match error {
+                    broadcast::error::RecvError::Closed => {
+                        info!("No Slot info senders available. Exiting slot worker.");
+                        return;
+                    }
+                    broadcast::error::RecvError::Lagged(skipped_notifications) => {
+                        debug!(
+                            "Slot worker is lagging. Skipped {} slot notification(s)",
+                            skipped_notifications
+                        );
+                        continue;
+                    }
+                },
+            };
+            if let Some(last_processed_slot) = maybe_last_processed_slot
+                && last_processed_slot >= slot
+            {
+                // Already processed
+                continue;
+            }
+            maybe_last_processed_slot.replace(slot);
+
+            self.store_checkpoints(slot, checkpoints);
+
+            let best_beacon_chain_header = self.beacon_chain_info.best_header();
+            let best_beacon_chain_header = best_beacon_chain_header.header();
+            self.on_new_slot(slot, checkpoints, best_beacon_chain_header);
+
+            if self.chain_sync_status.is_syncing() {
+                debug!(%slot, "Skipping proposal slot due to sync");
+                continue;
+            }
+
+            // Slots that we claim must be `block_authoring_delay` behind the best slot we know of
+            let Some(slot_to_claim) =
+                slot.checked_sub(self.consensus_constants.block_authoring_delay)
+            else {
+                trace!("Skipping a very early slot during chain start");
+                continue;
+            };
+
+            let (best_header, best_block_details) = self.chain_info.best_header_with_details();
+            let best_header = best_header.header();
+
+            // TODO: `.send()` is a hack for compiler bug, see:
+            //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
+            let Some(block_builder_result) = self
+                .produce_block(
+                    slot_to_claim,
+                    best_header,
+                    &best_block_details,
+                    best_beacon_chain_header,
+                )
+                .send()
+                .await
+            else {
+                continue;
+            };
+
+            let block_import_fut = match self.block_import.import(
+                block_builder_result.block,
+                BlockOrigin::LocalBlockBuilder {
+                    block_details: block_builder_result.block_details,
+                },
+            ) {
+                Ok(block_import_fut) => block_import_fut,
+                Err(error) => {
+                    error!(
+                        best_root = %*best_header.root(),
+                        %error,
+                        "Failed to queue a newly produced block for import"
+                    );
+                    continue;
+                }
+            };
+
+            match block_import_fut.await {
+                Ok(()) => {
+                    // Nothing else to do
+                }
+                Err(error) => {
+                    error!(
+                        best_root = %*best_header.root(),
+                        %error,
+                        "Failed to import a newly produced block"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Handle new slot: store checkpoints and generate notification for a farmer
+    fn store_checkpoints(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints) {
+        // Remove checkpoints from future slots, if present they are out of date anyway
+        self.pot_checkpoints
+            .retain(|&stored_slot, _checkpoints| stored_slot < slot);
+
+        self.pot_checkpoints.insert(slot, checkpoints);
+    }
+
+    /// Handle new slot: store checkpoints and generate notification for a farmer
+    fn on_new_slot(
+        &mut self,
+        slot: SlotNumber,
+        checkpoints: PotCheckpoints,
+        best_beacon_chain_header: &BeaconChainHeader<'_>,
+    ) {
+        if self.chain_sync_status.is_syncing() {
+            debug!("Skipping farming slot {slot} due to sync");
+            return;
+        }
+
+        let proof_of_time = checkpoints.output();
+
+        // NOTE: Best hash is not necessarily going to be the parent of the corresponding block, but
+        // solution range shouldn't be too far off
+        let solution_range = best_beacon_chain_header
+            .consensus_parameters()
+            .next_solution_range
+            .unwrap_or(
+                best_beacon_chain_header
+                    .consensus_parameters()
+                    .fixed_parameters
+                    .solution_range,
+            );
+        let new_slot_info = NewSlotInfo {
+            slot,
+            proof_of_time,
+            solution_range,
+        };
+        let (solution_sender, solution_receiver) =
+            mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);
+
+        if let Err(error) = self
+            .new_slot_notification_sender
+            .try_send(NewSlotNotification {
+                new_slot_info,
+                solution_sender,
+            })
+        {
+            warn!(%error, "Failed to send a new slot notification");
+        }
+
+        self.pending_solutions.insert(slot, solution_receiver);
+    }
     async fn claim_slot(
         &mut self,
         parent_header: &SharedBlockHeader<'_>,
@@ -392,193 +578,6 @@ where
             consensus_info,
             checkpoints,
         })
-    }
-
-    /// Create a new slot worker
-    pub fn new(
-        SlotWorkerOptions {
-            block_builder,
-            block_import,
-            beacon_chain_info,
-            chain_info,
-            chain_sync_status,
-            force_authoring,
-            new_slot_notification_sender,
-            block_sealing_notification_sender,
-            segment_headers_store,
-            consensus_constants,
-            pot_verifier,
-        }: SlotWorkerOptions<BB, BI, BCI, CI, CSS>,
-    ) -> Self {
-        Self {
-            block_builder,
-            block_import,
-            beacon_chain_info,
-            chain_info,
-            chain_sync_status,
-            force_authoring,
-            new_slot_notification_sender,
-            block_sealing_notification_sender,
-            segment_headers_store,
-            pending_solutions: BTreeMap::new(),
-            pot_checkpoints: BTreeMap::new(),
-            consensus_constants,
-            pot_verifier,
-            _pos_table: PhantomData,
-        }
-    }
-
-    /// Run slot worker
-    pub async fn run(mut self, mut slot_info_stream: PotSlotInfoStream) {
-        let mut maybe_last_processed_slot = None;
-
-        loop {
-            let PotSlotInfo { slot, checkpoints } = match slot_info_stream.recv().await {
-                Ok(slot_info) => slot_info,
-                Err(error) => match error {
-                    broadcast::error::RecvError::Closed => {
-                        info!("No Slot info senders available. Exiting slot worker.");
-                        return;
-                    }
-                    broadcast::error::RecvError::Lagged(skipped_notifications) => {
-                        debug!(
-                            "Slot worker is lagging. Skipped {} slot notification(s)",
-                            skipped_notifications
-                        );
-                        continue;
-                    }
-                },
-            };
-            if let Some(last_processed_slot) = maybe_last_processed_slot
-                && last_processed_slot >= slot
-            {
-                // Already processed
-                continue;
-            }
-            maybe_last_processed_slot.replace(slot);
-
-            self.store_checkpoints(slot, checkpoints);
-
-            let best_beacon_chain_header = self.beacon_chain_info.best_header();
-            let best_beacon_chain_header = best_beacon_chain_header.header();
-            self.on_new_slot(slot, checkpoints, best_beacon_chain_header);
-
-            if self.chain_sync_status.is_syncing() {
-                debug!(%slot, "Skipping proposal slot due to sync");
-                continue;
-            }
-
-            // Slots that we claim must be `block_authoring_delay` behind the best slot we know of
-            let Some(slot_to_claim) =
-                slot.checked_sub(self.consensus_constants.block_authoring_delay)
-            else {
-                trace!("Skipping a very early slot during chain start");
-                continue;
-            };
-
-            let (best_header, best_block_details) = self.chain_info.best_header_with_details();
-            let best_header = best_header.header();
-
-            // TODO: `.send()` is a hack for compiler bug, see:
-            //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
-            let Some(block_builder_result) = self
-                .produce_block(
-                    slot_to_claim,
-                    best_header,
-                    &best_block_details,
-                    best_beacon_chain_header,
-                )
-                .send()
-                .await
-            else {
-                continue;
-            };
-
-            let block_import_fut = match self.block_import.import(
-                block_builder_result.block,
-                BlockOrigin::LocalBlockBuilder {
-                    block_details: block_builder_result.block_details,
-                },
-            ) {
-                Ok(block_import_fut) => block_import_fut,
-                Err(error) => {
-                    error!(
-                        best_root = %*best_header.root(),
-                        %error,
-                        "Failed to queue a newly produced block for import"
-                    );
-                    continue;
-                }
-            };
-
-            match block_import_fut.await {
-                Ok(()) => {
-                    // Nothing else to do
-                }
-                Err(error) => {
-                    error!(
-                        best_root = %*best_header.root(),
-                        %error,
-                        "Failed to import a newly produced block"
-                    );
-                }
-            }
-        }
-    }
-
-    /// Handle new slot: store checkpoints and generate notification for a farmer
-    fn store_checkpoints(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints) {
-        // Remove checkpoints from future slots, if present they are out of date anyway
-        self.pot_checkpoints
-            .retain(|&stored_slot, _checkpoints| stored_slot < slot);
-
-        self.pot_checkpoints.insert(slot, checkpoints);
-    }
-
-    /// Handle new slot: store checkpoints and generate notification for a farmer
-    fn on_new_slot(
-        &mut self,
-        slot: SlotNumber,
-        checkpoints: PotCheckpoints,
-        best_beacon_chain_header: &BeaconChainHeader<'_>,
-    ) {
-        if self.chain_sync_status.is_syncing() {
-            debug!("Skipping farming slot {slot} due to sync");
-            return;
-        }
-
-        let proof_of_time = checkpoints.output();
-
-        // NOTE: Best hash is not necessarily going to be the parent of the corresponding block, but
-        // solution range shouldn't be too far off
-        let solution_range = best_beacon_chain_header
-            .consensus_parameters()
-            .next_solution_range
-            .unwrap_or(
-                best_beacon_chain_header
-                    .consensus_parameters()
-                    .fixed_parameters
-                    .solution_range,
-            );
-        let new_slot_info = NewSlotInfo {
-            slot,
-            proof_of_time,
-            solution_range,
-        };
-        let (solution_sender, solution_receiver) =
-            mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);
-
-        if let Err(error) = self
-            .new_slot_notification_sender
-            .try_send(NewSlotNotification {
-                new_slot_info,
-                solution_sender,
-            })
-        {
-            warn!(%error, "Failed to send a new slot notification");
-        }
-
-        self.pending_solutions.insert(slot, solution_receiver);
     }
 
     /// Called with slot for which block needs to be produced (if a suitable solution was found)
