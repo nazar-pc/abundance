@@ -1,9 +1,9 @@
 //! Slot worker drives block and vote production based on slots produced in
 //! [`ab_client_proof_of_time`].
 
-use ab_client_api::{BlockDetails, BlockOrigin, ChainInfo, ChainSyncStatus};
+use ab_client_api::{BlockOrigin, ChainInfo, ChainSyncStatus};
 use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
-use ab_client_block_builder::{BlockBuilder, BlockBuilderResult};
+use ab_client_block_builder::BlockBuilder;
 use ab_client_block_import::BlockImport;
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_proof_of_time::PotNextSlotInput;
@@ -232,48 +232,9 @@ where
                 continue;
             };
 
-            let (best_header, best_block_details) = self.chain_info.best_header_with_details();
-            let best_header = best_header.header();
-
             // TODO: `.send()` is a hack for compiler bug, see:
             //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
-            let Some(block_builder_result) = self
-                .produce_block(claimed_slot, best_header, &best_block_details)
-                .send()
-                .await
-            else {
-                continue;
-            };
-
-            let block_import_fut = match self.block_import.import(
-                block_builder_result.block,
-                BlockOrigin::LocalBlockBuilder {
-                    block_details: block_builder_result.block_details,
-                },
-            ) {
-                Ok(block_import_fut) => block_import_fut,
-                Err(error) => {
-                    error!(
-                        best_root = %*best_header.root(),
-                        %error,
-                        "Failed to queue a newly produced block for import"
-                    );
-                    continue;
-                }
-            };
-
-            match block_import_fut.await {
-                Ok(()) => {
-                    // Nothing else to do
-                }
-                Err(error) => {
-                    error!(
-                        best_root = %*best_header.root(),
-                        %error,
-                        "Failed to import a newly produced block"
-                    );
-                }
-            }
+            self.produce_block(claimed_slot).send().await;
         }
     }
 
@@ -588,12 +549,7 @@ where
         })
     }
 
-    async fn produce_block(
-        &mut self,
-        claimed_slot: ClaimedSlot,
-        parent_header: &<Block::Header as GenericOwnedBlockHeader>::Header<'_>,
-        parent_block_details: &BlockDetails,
-    ) -> Option<BlockBuilderResult<Block>> {
+    async fn produce_block(&mut self, claimed_slot: ClaimedSlot) {
         let slot = claimed_slot.consensus_info.slot;
 
         debug!(%slot, "Starting block authorship");
@@ -622,27 +578,27 @@ where
             }
         };
 
-        let parent_block_root = *parent_header.root();
+        let (best_header, best_block_details) = self.chain_info.best_header_with_details();
+        let best_header = best_header.header();
 
-        // TODO: `.send()` is a hack for compiler bug, see:
-        //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
+        let parent_block_root = *best_header.root();
+
         let block_builder_result = match self
             .block_builder
             .build(
                 &parent_block_root,
-                parent_header,
-                parent_block_details,
+                best_header,
+                &best_block_details,
                 &claimed_slot.consensus_info,
                 &claimed_slot.checkpoints,
                 seal_block,
             )
-            .send()
             .await
         {
             Ok(block_builder_result) => block_builder_result,
             Err(error) => {
                 error!(%slot, %parent_block_root, %error, "Failed to build a block");
-                return None;
+                return;
             }
         };
 
@@ -655,6 +611,34 @@ where
             "🔖 Built new block",
         );
 
-        Some(block_builder_result)
+        let block_import_fut = match self.block_import.import(
+            block_builder_result.block,
+            BlockOrigin::LocalBlockBuilder {
+                block_details: block_builder_result.block_details,
+            },
+        ) {
+            Ok(block_import_fut) => block_import_fut,
+            Err(error) => {
+                error!(
+                    best_root = %*best_header.root(),
+                    %error,
+                    "Failed to queue a newly produced block for import"
+                );
+                return;
+            }
+        };
+
+        match block_import_fut.await {
+            Ok(()) => {
+                // Nothing else to do
+            }
+            Err(error) => {
+                error!(
+                    best_root = %*best_header.root(),
+                    %error,
+                    "Failed to import a newly produced block"
+                );
+            }
+        }
     }
 }
