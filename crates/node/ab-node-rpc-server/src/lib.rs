@@ -4,7 +4,7 @@
 
 use ab_archiving::archiver::NewArchivedSegment;
 use ab_client_api::{ChainInfo, ChainSyncStatus};
-use ab_client_archiving::archiving::{ArchivedSegmentNotification, recreate_genesis_segment};
+use ab_client_archiving::{ArchivedSegmentNotification, recreate_genesis_segment};
 use ab_client_block_authoring::slot_worker::{BlockSealNotification, NewSlotNotification};
 use ab_client_consensus_common::ConsensusConstants;
 use ab_core_primitives::block::header::OwnedBlockHeaderSeal;

@@ -6,9 +6,7 @@ use crate::storage_backend::FileStorageBackend;
 use crate::{Error, PAGE_GROUP_SIZE};
 use ab_cli_utils::shutdown_signal;
 use ab_client_api::{ChainInfo, ChainSyncStatus};
-use ab_client_archiving::archiving::{
-    ArchiverTaskError, CreateObjectMappings, create_archiver_task,
-};
+use ab_client_archiving::{ArchiverTaskError, CreateObjectMappings, create_archiver_task};
 use ab_client_block_authoring::beacon_chain::BeaconChainBlockProducer;
 use ab_client_block_authoring::slot_worker::{SlotWorker, SlotWorkerOptions};
 use ab_client_block_builder::beacon_chain::BeaconChainBlockBuilder;
