@@ -2,7 +2,6 @@
 
 use crate::{BlockBuilder, BlockBuilderError, BlockBuilderResult};
 use ab_client_api::{BlockDetails, BlockMerkleMountainRange, ChainInfo, ContractSlotState};
-use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
     DeriveConsensusParametersError, derive_consensus_parameters,
@@ -67,7 +66,6 @@ impl From<BeaconChainBlockBuilderError> for BlockBuilderError {
 /// Beacon chain block builder
 #[derive(Debug)]
 pub struct BeaconChainBlockBuilder<CI> {
-    segment_headers_store: SegmentHeadersStore,
     consensus_constants: ConsensusConstants,
     chain_info: CI,
 }
@@ -107,7 +105,7 @@ where
         let (state_root, system_contract_states) = self.execute_block(parent_block_details)?;
 
         let block_builder = OwnedBeaconChainBlock::init(
-            self.segment_headers_store
+            self.chain_info
                 .segment_headers_for_block(block_number)
                 .into_iter()
                 .map(|segment_header| segment_header.segment_root),
@@ -152,13 +150,8 @@ where
     CI: ChainInfo<OwnedBeaconChainBlock>,
 {
     /// Create a new instance
-    pub fn new(
-        segment_headers_store: SegmentHeadersStore,
-        consensus_constants: ConsensusConstants,
-        chain_info: CI,
-    ) -> Self {
+    pub fn new(consensus_constants: ConsensusConstants, chain_info: CI) -> Self {
         Self {
-            segment_headers_store,
             consensus_constants,
             chain_info,
         }

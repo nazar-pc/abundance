@@ -6,10 +6,7 @@ use crate::storage_backend::FileStorageBackend;
 use crate::{Error, PAGE_GROUP_SIZE};
 use ab_cli_utils::shutdown_signal;
 use ab_client_api::{ChainInfo, ChainSyncStatus};
-use ab_client_archiving::archiving::{
-    ArchiverTaskError, CreateObjectMappings, create_archiver_task,
-};
-use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
+use ab_client_archiving::{ArchiverTaskError, CreateObjectMappings, create_archiver_task};
 use ab_client_block_authoring::beacon_chain::BeaconChainBlockProducer;
 use ab_client_block_authoring::slot_worker::{SlotWorker, SlotWorkerOptions};
 use ab_client_block_builder::beacon_chain::BeaconChainBlockBuilder;
@@ -464,10 +461,6 @@ impl Run {
             POT_VERIFIER_CACHE_SIZE,
         );
 
-        // TODO: This should move into the database
-        let segment_headers_store =
-            SegmentHeadersStore::new(consensus_constants.confirmation_depth_k);
-
         let best_beacon_chain_header = client_database.best_header();
 
         let pot_state = Arc::new(init_pot_state(
@@ -547,14 +540,10 @@ impl Run {
         // TODO: Better thread management, probably move to its own dedicated thread
         tokio::spawn(pot_source_worker.run());
 
-        let block_builder = BeaconChainBlockBuilder::new(
-            segment_headers_store.clone(),
-            consensus_constants,
-            client_database.clone(),
-        );
+        let block_builder =
+            BeaconChainBlockBuilder::new(consensus_constants, client_database.clone());
 
         let block_verification = BeaconChainBlockVerification::<PosTable, _, _>::new(
-            segment_headers_store.clone(),
             consensus_constants,
             pot_verifier.clone(),
             client_database.clone(),
@@ -617,7 +606,7 @@ impl Run {
             archived_segment_notification_receiver,
             // TODO: Correct values once networking stack is integrated
             dsn_bootstrap_nodes: Vec::new(),
-            segment_headers_store: segment_headers_store.clone(),
+            chain_info: client_database.clone(),
             chain_sync_status: chain_sync_status.clone(),
             erasure_coding: erasure_coding.clone(),
         });
@@ -640,7 +629,6 @@ impl Run {
         // TODO: Initialize in a blocking task
         let archiver_task = tokio::task::block_in_place(|| {
             Handle::current().block_on(create_archiver_task(
-                segment_headers_store.clone(),
                 client_database.clone(),
                 block_importing_notification_receiver,
                 archived_segment_notification_sender,
@@ -663,7 +651,6 @@ impl Run {
             force_authoring,
             new_slot_notification_sender,
             block_sealing_notification_sender,
-            segment_headers_store,
             consensus_constants,
             pot_verifier,
         });

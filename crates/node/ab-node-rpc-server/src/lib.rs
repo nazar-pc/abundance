@@ -3,9 +3,8 @@
 #![feature(try_blocks)]
 
 use ab_archiving::archiver::NewArchivedSegment;
-use ab_client_api::ChainSyncStatus;
-use ab_client_archiving::archiving::{ArchivedSegmentNotification, recreate_genesis_segment};
-use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
+use ab_client_api::{ChainInfo, ChainSyncStatus};
+use ab_client_archiving::{ArchivedSegmentNotification, recreate_genesis_segment};
 use ab_client_block_authoring::slot_worker::{BlockSealNotification, NewSlotNotification};
 use ab_client_consensus_common::ConsensusConstants;
 use ab_core_primitives::block::header::OwnedBlockHeaderSeal;
@@ -158,7 +157,7 @@ impl CachedArchivedSegment {
 
 /// Farmer RPC configuration
 #[derive(Debug)]
-pub struct FarmerRpcConfig<CSS> {
+pub struct FarmerRpcConfig<CI, CSS> {
     /// Genesis beacon beacon chain block
     pub genesis_block: OwnedBeaconChainBlock,
     /// Consensus constants
@@ -173,8 +172,8 @@ pub struct FarmerRpcConfig<CSS> {
     pub archived_segment_notification_receiver: mpsc::Receiver<ArchivedSegmentNotification>,
     /// DSN bootstrap nodes
     pub dsn_bootstrap_nodes: Vec<Multiaddr>,
-    /// Segment headers store
-    pub segment_headers_store: SegmentHeadersStore,
+    /// Beacon chain info
+    pub chain_info: CI,
     /// Chain sync status
     pub chain_sync_status: CSS,
     /// Erasure coding instance
@@ -403,15 +402,16 @@ impl FarmerRpcWorker {
 
 /// Implements the [`FarmerRpcApiServer`] trait for farmer to connect to
 #[derive(Debug)]
-pub struct FarmerRpc<CSS>
+pub struct FarmerRpc<CI, CSS>
 where
+    CI: ChainInfo<OwnedBeaconChainBlock>,
     CSS: ChainSyncStatus,
 {
     genesis_block: OwnedBeaconChainBlock,
     solution_response_senders: Arc<Mutex<LruMap<SlotNumber, mpsc::Sender<Solution>>>>,
     block_sealing_senders: Arc<Mutex<BlockSignatureSenders>>,
     dsn_bootstrap_nodes: Vec<Multiaddr>,
-    segment_headers_store: SegmentHeadersStore,
+    chain_info: CI,
     cached_archived_segment: Arc<Mutex<Option<CachedArchivedSegment>>>,
     archived_segment_acknowledgement_senders:
         Arc<Mutex<ArchivedSegmentHeaderAcknowledgementSenders>>,
@@ -431,12 +431,13 @@ where
 /// to every subscriber, after which the RPC server waits for the same number of
 /// `submitSolutionResponse` requests with `SolutionResponse` in them or until
 /// timeout is exceeded. The first valid solution for a particular slot wins, others are ignored.
-impl<CSS> FarmerRpc<CSS>
+impl<CI, CSS> FarmerRpc<CI, CSS>
 where
+    CI: ChainInfo<OwnedBeaconChainBlock>,
     CSS: ChainSyncStatus,
 {
     /// Creates a new instance of the `FarmerRpc` handler.
-    pub fn new(config: FarmerRpcConfig<CSS>) -> (Self, FarmerRpcWorker) {
+    pub fn new(config: FarmerRpcConfig<CI, CSS>) -> (Self, FarmerRpcWorker) {
         let block_authoring_delay = u64::from(config.consensus_constants.block_authoring_delay);
         let block_authoring_delay = usize::try_from(block_authoring_delay)
             .expect("Block authoring delay will never exceed usize on any platform; qed");
@@ -458,7 +459,7 @@ where
             solution_response_senders: Arc::clone(&solution_response_senders),
             block_sealing_senders: Arc::clone(&block_sealing_senders),
             dsn_bootstrap_nodes: config.dsn_bootstrap_nodes,
-            segment_headers_store: config.segment_headers_store,
+            chain_info: config.chain_info,
             cached_archived_segment: Arc::clone(&cached_archived_segment),
             archived_segment_acknowledgement_senders: Arc::default(),
             chain_sync_status: config.chain_sync_status,
@@ -490,13 +491,14 @@ where
 }
 
 #[async_trait]
-impl<CSS> FarmerRpcApiServer for FarmerRpc<CSS>
+impl<CI, CSS> FarmerRpcApiServer for FarmerRpc<CI, CSS>
 where
+    CI: ChainInfo<OwnedBeaconChainBlock>,
     CSS: ChainSyncStatus,
 {
     fn get_farmer_app_info(&self) -> Result<FarmerAppInfo, Error> {
         let last_segment_index = self
-            .segment_headers_store
+            .chain_info
             .max_segment_index()
             .unwrap_or(SegmentIndex::ZERO);
 
@@ -687,7 +689,7 @@ where
 
         Ok(segment_indices
             .into_iter()
-            .map(|segment_index| self.segment_headers_store.get_segment_header(segment_index))
+            .map(|segment_index| self.chain_info.get_segment_header(segment_index))
             .collect())
     }
 
@@ -704,14 +706,14 @@ where
         };
 
         let last_segment_index = self
-            .segment_headers_store
+            .chain_info
             .max_segment_index()
             .unwrap_or(SegmentIndex::ZERO);
 
         let mut last_segment_headers = (SegmentIndex::ZERO..=last_segment_index)
             .rev()
             .take(limit as usize)
-            .map(|segment_index| self.segment_headers_store.get_segment_header(segment_index))
+            .map(|segment_index| self.chain_info.get_segment_header(segment_index))
             .collect::<Vec<_>>();
 
         last_segment_headers.reverse();

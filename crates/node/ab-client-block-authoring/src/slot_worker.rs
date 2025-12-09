@@ -3,7 +3,6 @@
 
 use crate::{BlockProducer, ClaimedSlot};
 use ab_client_api::{ChainInfo, ChainSyncStatus};
-use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
@@ -81,9 +80,6 @@ pub struct SlotWorkerOptions<BP, BCI, CSS> {
     pub new_slot_notification_sender: mpsc::Sender<NewSlotNotification>,
     /// Sender for block sealing notifications
     pub block_sealing_notification_sender: mpsc::Sender<BlockSealNotification>,
-    // TODO: Should be super segments instead for verification purposes
-    /// Persistent storage of segment headers
-    pub segment_headers_store: SegmentHeadersStore,
     /// Consensus constants
     pub consensus_constants: ConsensusConstants,
     /// Proof of time verifier
@@ -99,7 +95,6 @@ pub struct SlotWorker<PosTable, BP, BCI, CSS> {
     force_authoring: bool,
     new_slot_notification_sender: mpsc::Sender<NewSlotNotification>,
     block_sealing_notification_sender: mpsc::Sender<BlockSealNotification>,
-    segment_headers_store: SegmentHeadersStore,
     /// Solution receivers for challenges that were sent to farmers and expected to be received
     /// eventually
     pending_solutions: BTreeMap<SlotNumber, mpsc::Receiver<Solution>>,
@@ -126,7 +121,6 @@ where
             force_authoring,
             new_slot_notification_sender,
             block_sealing_notification_sender,
-            segment_headers_store,
             consensus_constants,
             pot_verifier,
         }: SlotWorkerOptions<BP, BCI, CSS>,
@@ -138,7 +132,6 @@ where
             force_authoring,
             new_slot_notification_sender,
             block_sealing_notification_sender,
-            segment_headers_store,
             pending_solutions: BTreeMap::new(),
             pot_checkpoints: BTreeMap::new(),
             consensus_constants,
@@ -460,7 +453,7 @@ where
                 )
                 .segment_index();
             let maybe_segment_root = self
-                .segment_headers_store
+                .beacon_chain_info
                 .get_segment_header(segment_index)
                 .map(|segment_header| segment_header.segment_root);
 
@@ -485,7 +478,7 @@ where
                 }
             };
             let sector_expiration_check_segment_root = self
-                .segment_headers_store
+                .beacon_chain_info
                 .get_segment_header(sector_expiration_check_segment_index)
                 .map(|segment_header| segment_header.segment_root);
 

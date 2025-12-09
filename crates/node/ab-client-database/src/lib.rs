@@ -62,19 +62,22 @@ mod storage_backend_adapter;
 
 use crate::page_group::block::StorageItemBlock;
 use crate::page_group::block::block::StorageItemBlockBlock;
+use crate::page_group::block::segment_headers::StorageItemBlockSegmentHeaders;
 use crate::storage_backend::ClientDatabaseStorageBackend;
 use crate::storage_backend_adapter::{
     StorageBackendAdapter, StorageItemHandlerArg, StorageItemHandlers, WriteLocation,
 };
 use ab_client_api::{
     BlockDetails, BlockMerkleMountainRange, ChainInfo, ChainInfoWrite, ContractSlotState,
-    PersistBlockError, ReadBlockError,
+    PersistBlockError, PersistSegmentHeadersError, ReadBlockError,
 };
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
-use ab_core_primitives::block::{BlockNumber, BlockRoot};
+use ab_core_primitives::block::{BlockNumber, BlockRoot, GenericBlock};
+use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
+use ab_core_primitives::shard::RealShardKind;
 use ab_io_type::trivial_type::TrivialType;
 use async_lock::{
     RwLock as AsyncRwLock, RwLockUpgradableReadGuard, RwLockWriteGuard as AsyncRwLockWriteGuard,
@@ -288,6 +291,12 @@ pub enum ClientDatabaseError {
         /// Page offset where storage item is found
         page_offset: u32,
     },
+    /// Invalid segment headers
+    #[error("Invalid segment headers at offset {page_offset}")]
+    InvalidSegmentHeaders {
+        /// Page offset where storage item is found
+        page_offset: u32,
+    },
     /// Failed to adjust ancestor block forks
     #[error("Failed to adjust ancestor block forks")]
     FailedToAdjustAncestorBlockForks,
@@ -460,6 +469,80 @@ where
     blocks: VecDeque<SmallVec<[ClientDatabaseBlock<Block>; 2]>>,
 }
 
+#[derive(Debug)]
+struct SegmentHeadersCache {
+    segment_headers_cache: Vec<SegmentHeader>,
+}
+
+impl SegmentHeadersCache {
+    #[inline(always)]
+    fn last_segment_header(&self) -> Option<SegmentHeader> {
+        self.segment_headers_cache.last().cloned()
+    }
+
+    #[inline(always)]
+    fn max_segment_index(&self) -> Option<SegmentIndex> {
+        self.segment_headers_cache
+            .last()
+            .map(|segment_header| segment_header.segment_index.as_inner())
+    }
+
+    #[inline(always)]
+    fn get_segment_header(&self, segment_index: SegmentIndex) -> Option<SegmentHeader> {
+        self.segment_headers_cache
+            .get(u64::from(segment_index) as usize)
+            .copied()
+    }
+
+    /// Returns actually added segments (some might have been skipped)
+    fn add_segment_headers(
+        &mut self,
+        mut segment_headers: Vec<SegmentHeader>,
+    ) -> Result<Vec<SegmentHeader>, PersistSegmentHeadersError> {
+        self.segment_headers_cache.reserve(segment_headers.len());
+
+        let mut maybe_last_segment_index = self.max_segment_index();
+
+        if let Some(last_segment_index) = maybe_last_segment_index {
+            // Skip already stored segment headers
+            segment_headers.retain(|segment_header| {
+                segment_header.segment_index.as_inner() > last_segment_index
+            });
+        }
+
+        // Check all input segment headers to see which ones are not stored yet and verifying that
+        // segment indices are monotonically increasing
+        for segment_header in segment_headers.iter().copied() {
+            let segment_index = segment_header.segment_index();
+            match maybe_last_segment_index {
+                Some(last_segment_index) => {
+                    if segment_index != last_segment_index + SegmentIndex::ONE {
+                        return Err(PersistSegmentHeadersError::MustFollowLastSegmentIndex {
+                            segment_index,
+                            last_segment_index,
+                        });
+                    }
+
+                    self.segment_headers_cache.push(segment_header);
+                    maybe_last_segment_index.replace(segment_index);
+                }
+                None => {
+                    if segment_index != SegmentIndex::ZERO {
+                        return Err(PersistSegmentHeadersError::FirstSegmentIndexZero {
+                            segment_index,
+                        });
+                    }
+
+                    self.segment_headers_cache.push(segment_header);
+                    maybe_last_segment_index.replace(segment_index);
+                }
+            }
+        }
+
+        Ok(segment_headers)
+    }
+}
+
 // TODO: Hide implementation details
 #[derive(Debug)]
 struct State<Block, StorageBackend>
@@ -467,6 +550,7 @@ where
     Block: GenericOwnedBlock,
 {
     data: StateData<Block>,
+    segment_headers_cache: SegmentHeadersCache,
     storage_backend_adapter: AsyncRwLock<StorageBackendAdapter<StorageBackend>>,
 }
 
@@ -563,14 +647,14 @@ where
 {
     #[inline]
     fn best_root(&self) -> BlockRoot {
-        // Blocking read lock is fine because the only place where write lock is taken is short and
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
         // all other locks are read locks
         self.inner.state.read_blocking().best_tip().root
     }
 
     #[inline]
     fn best_header(&self) -> Block::Header {
-        // Blocking read lock is fine because the only place where write lock is taken is short and
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
         // all other locks are read locks
         self.inner
             .state
@@ -582,7 +666,7 @@ where
 
     #[inline]
     fn best_header_with_details(&self) -> (Block::Header, BlockDetails) {
-        // Blocking read lock is fine because the only place where write lock is taken is short and
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
         // all other locks are read locks
         let state = self.inner.state.read_blocking();
         let best_block = state.best_block();
@@ -602,7 +686,7 @@ where
         ancestor_block_number: BlockNumber,
         descendant_block_root: &BlockRoot,
     ) -> Option<Block::Header> {
-        // Blocking read lock is fine because the only place where write lock is taken is short and
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
         // all other locks are read locks
         let state = self.inner.state.read_blocking();
         let best_number = state.best_tip().number;
@@ -666,7 +750,7 @@ where
 
     #[inline]
     fn header(&self, block_root: &BlockRoot) -> Option<Block::Header> {
-        // Blocking read lock is fine because the only place where write lock is taken is short and
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
         // all other locks are read locks
         let state = self.inner.state.read_blocking();
         let best_number = state.best_tip().number;
@@ -688,7 +772,7 @@ where
 
     #[inline]
     fn header_with_details(&self, block_root: &BlockRoot) -> Option<(Block::Header, BlockDetails)> {
-        // Blocking read lock is fine because the only place where write lock is taken is short and
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
         // all other locks are read locks
         let state = self.inner.state.read_blocking();
         let best_number = state.best_tip().number;
@@ -745,12 +829,15 @@ where
                             .read_storage_item::<StorageItemBlock>(write_location)
                             .await?;
 
-                        #[expect(
-                            clippy::infallible_destructuring_match,
-                            reason = "Only a single variant for now"
-                        )]
                         let storage_item_block = match storage_item {
                             StorageItemBlock::Block(storage_item_block) => storage_item_block,
+                            StorageItemBlock::SegmentHeaders(_) => {
+                                return Err(ReadBlockError::StorageItemReadError {
+                                    error: io::Error::other(
+                                        "Unexpected storage item: SegmentHeaders",
+                                    ),
+                                });
+                            }
                         };
 
                         let StorageItemBlockBlock {
@@ -768,6 +855,117 @@ where
         }
 
         unreachable!("Known block root always has block candidate associated with it; qed")
+    }
+
+    #[inline]
+    fn last_segment_header(&self) -> Option<SegmentHeader> {
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
+        // all other locks are read locks
+        let state = self.inner.state.read_blocking();
+        state.segment_headers_cache.last_segment_header()
+    }
+
+    #[inline]
+    fn max_segment_index(&self) -> Option<SegmentIndex> {
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
+        // all other locks are read locks
+        let state = self.inner.state.read_blocking();
+
+        state.segment_headers_cache.max_segment_index()
+    }
+
+    #[inline]
+    fn get_segment_header(&self, segment_index: SegmentIndex) -> Option<SegmentHeader> {
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
+        // all other locks are read locks
+        let state = self.inner.state.read_blocking();
+
+        state
+            .segment_headers_cache
+            .get_segment_header(segment_index)
+    }
+
+    #[inline]
+    fn segment_headers_for_block(&self, block_number: BlockNumber) -> Vec<SegmentHeader> {
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
+        // all other locks are read locks
+        let state = self.inner.state.read_blocking();
+
+        let Some(last_segment_index) = state.segment_headers_cache.max_segment_index() else {
+            // Not initialized
+            return Vec::new();
+        };
+
+        // Special case for the initial segment (for beacon chain genesis block)
+        if Block::Block::SHARD_KIND == RealShardKind::BeaconChain
+            && block_number == BlockNumber::ONE
+        {
+            // If there is a segment index present, and we store monotonically increasing segment
+            // headers, then the first header exists
+            return vec![
+                state
+                    .segment_headers_cache
+                    .get_segment_header(SegmentIndex::ZERO)
+                    .expect("Segment headers are stored in monotonically increasing order; qed"),
+            ];
+        }
+
+        if last_segment_index == SegmentIndex::ZERO {
+            // Genesis segment already included in block #1
+            return Vec::new();
+        }
+
+        let mut current_segment_index = last_segment_index;
+        loop {
+            // If the current segment index present, and we store monotonically increasing segment
+            // headers, then the current segment header exists as well.
+            let current_segment_header = state
+                .segment_headers_cache
+                .get_segment_header(current_segment_index)
+                .expect("Segment headers are stored in monotonically increasing order; qed");
+
+            // The block immediately after the archived segment adding the confirmation depth
+            let target_block_number = current_segment_header.last_archived_block.number()
+                + BlockNumber::ONE
+                + self.inner.options.confirmation_depth_k;
+            if target_block_number == block_number {
+                let mut headers_for_block = vec![current_segment_header];
+
+                // Check block spanning multiple segments
+                let last_archived_block_number = current_segment_header.last_archived_block.number;
+                let mut segment_index = current_segment_index - SegmentIndex::ONE;
+
+                while let Some(segment_header) = state
+                    .segment_headers_cache
+                    .get_segment_header(segment_index)
+                {
+                    if segment_header.last_archived_block.number == last_archived_block_number {
+                        headers_for_block.insert(0, segment_header);
+                        segment_index -= SegmentIndex::ONE;
+                    } else {
+                        break;
+                    }
+                }
+
+                return headers_for_block;
+            }
+
+            // iterate segments further
+            if target_block_number > block_number {
+                // no need to check the initial segment
+                if current_segment_index > SegmentIndex::ONE {
+                    current_segment_index -= SegmentIndex::ONE
+                } else {
+                    break;
+                }
+            } else {
+                // No segment headers required
+                return Vec::new();
+            }
+        }
+
+        // No segment headers required
+        Vec::new()
     }
 }
 
@@ -849,6 +1047,39 @@ where
 
         Ok(())
     }
+
+    async fn persist_segment_headers(
+        &self,
+        segment_headers: Vec<SegmentHeader>,
+    ) -> Result<(), PersistSegmentHeadersError> {
+        let mut state = self.inner.state.write().await;
+
+        let added_segment_headers = state
+            .segment_headers_cache
+            .add_segment_headers(segment_headers)?;
+
+        if added_segment_headers.is_empty() {
+            return Ok(());
+        }
+
+        // Convert write lock into upgradable read lock to allow reads, while preventing segment
+        // headers modifications
+        // TODO: This assumes both guarantees in https://github.com/smol-rs/async-lock/issues/100
+        //  are satisfied. If not, blocking read locks in other places will cause issues.
+        let state = AsyncRwLockWriteGuard::downgrade_to_upgradable(state);
+
+        let mut storage_backend_adapter = state.storage_backend_adapter.write().await;
+
+        storage_backend_adapter
+            .write_storage_item(StorageItemBlock::SegmentHeaders(
+                StorageItemBlockSegmentHeaders {
+                    segment_headers: added_segment_headers,
+                },
+            ))
+            .await?;
+
+        Ok(())
+    }
 }
 
 impl<Block, StorageBackend> ClientDatabase<Block, StorageBackend>
@@ -887,6 +1118,9 @@ where
             block_roots: HashMap::default(),
             blocks: VecDeque::new(),
         };
+        let mut segment_headers_cache = SegmentHeadersCache {
+            segment_headers_cache: Vec::new(),
+        };
 
         let options = ClientDatabaseInnerOptions {
             confirmation_depth_k,
@@ -906,12 +1140,26 @@ where
                     page_offset,
                     num_pages,
                 } = arg;
-                #[expect(
-                    clippy::infallible_destructuring_match,
-                    reason = "Only a single variant for now"
-                )]
                 let storage_item_block = match storage_item {
                     StorageItemBlock::Block(storage_item_block) => storage_item_block,
+                    StorageItemBlock::SegmentHeaders(segment_headers) => {
+                        let num_segment_headers = segment_headers.segment_headers.len();
+                        return match segment_headers_cache
+                            .add_segment_headers(segment_headers.segment_headers)
+                        {
+                            Ok(_) => Ok(()),
+                            Err(error) => {
+                                error!(
+                                    %page_offset,
+                                    %num_segment_headers,
+                                    %error,
+                                    "Failed to add segment headers from storage item"
+                                );
+
+                                Err(ClientDatabaseError::InvalidSegmentHeaders { page_offset })
+                            }
+                        };
+                    }
                 };
 
                 // TODO: It would be nice to not allocate body here since we'll not use it here
@@ -1064,6 +1312,7 @@ where
 
         let state = State {
             data: state_data,
+            segment_headers_cache,
             storage_backend_adapter: AsyncRwLock::new(storage_backend_adapter),
         };
 
