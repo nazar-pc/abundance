@@ -57,18 +57,18 @@ impl StorageItemBlockBlock {
         mmr_len: u32,
         system_contract_states_len: u32,
     ) -> usize {
-        Self::block_prefix_size()
+        Self::prefix_size()
             + Self::block_content_size(header_len, body_len, mmr_len, system_contract_states_len)
     }
 
-    const fn block_prefix_size() -> usize {
+    const fn prefix_size() -> usize {
         // 4 lengths of header/block/mmr/num system contracts states
-        const BLOCK_PREFIX_SIZE: usize = size_of::<u32>() * 4;
-        // Ensure always aligned to `u128`
-        const _: () = {
-            assert!(BLOCK_PREFIX_SIZE == size_of::<u128>());
-        };
-        BLOCK_PREFIX_SIZE
+        const PREFIX_SIZE: usize = size_of::<u32>() * 4;
+        const {
+            // Ensure always aligned to `u128`
+            assert!(PREFIX_SIZE == size_of::<u128>());
+        }
+        PREFIX_SIZE
     }
 
     const fn block_content_size(
@@ -122,7 +122,7 @@ impl StorageItemBlockBlock {
         // Write all lengths
         {
             let prefix_bytes = buffer
-                .split_off_mut(..Self::block_prefix_size())
+                .split_off_mut(..Self::prefix_size())
                 .expect("Total length checked above; qed");
             let (header_len, remainder) = prefix_bytes.split_at_mut(size_of::<u32>());
             let (body_len, remainder) = remainder.split_at_mut(size_of::<u32>());
@@ -214,9 +214,12 @@ impl StorageItemBlockBlock {
 
     pub(super) fn read(mut buffer: &[u8]) -> Result<Self, StorageItemError> {
         let buffer_len = buffer.len();
-        let prefix_bytes = buffer.split_off(..Self::block_prefix_size()).ok_or(
-            StorageItemError::NeedMoreBytes(buffer_len - Self::block_prefix_size()),
-        )?;
+        let prefix_bytes =
+            buffer
+                .split_off(..Self::prefix_size())
+                .ok_or(StorageItemError::NeedMoreBytes(
+                    Self::prefix_size() - buffer_len,
+                ))?;
         let mut read_len = prefix_bytes.len();
 
         let (header_len, remainder) = prefix_bytes.split_at(size_of::<u32>());
@@ -229,7 +232,7 @@ impl StorageItemBlockBlock {
         let body_len =
             u32::from_le_bytes(body_len.try_into().expect("Correct length; qed")) as usize;
         let mmr_len = u32::from_le_bytes(mmr_len.try_into().expect("Correct length; qed")) as usize;
-        let num_system_contract_states_len = u32::from_le_bytes(
+        let num_system_contract_states = u32::from_le_bytes(
             num_system_contract_states
                 .try_into()
                 .expect("Correct length; qed"),
@@ -240,7 +243,7 @@ impl StorageItemBlockBlock {
             let header_bytes = buffer
                 .split_off(..header_len.next_multiple_of(size_of::<u128>()))
                 .ok_or(StorageItemError::NeedMoreBytes(
-                    buffer_len - header_len.next_multiple_of(size_of::<u128>()),
+                    header_len.next_multiple_of(size_of::<u128>()) - buffer_len,
                 ))?;
             let header = SharedAlignedBuffer::from_bytes(&header_bytes[..header_len]);
             read_len += header_bytes.len();
@@ -251,7 +254,7 @@ impl StorageItemBlockBlock {
             let buffer_len = buffer.len();
             let body_bytes = buffer
                 .split_off(..body_len)
-                .ok_or(StorageItemError::NeedMoreBytes(buffer_len - body_len))?;
+                .ok_or(StorageItemError::NeedMoreBytes(body_len - buffer_len))?;
             let body = SharedAlignedBuffer::from_bytes(body_bytes);
             read_len += body_bytes.len();
             body
@@ -261,7 +264,7 @@ impl StorageItemBlockBlock {
             let buffer_len = buffer.len();
             let mmr_raw_bytes = buffer
                 .split_off(..mmr_len)
-                .ok_or(StorageItemError::NeedMoreBytes(buffer_len - mmr_len))?;
+                .ok_or(StorageItemError::NeedMoreBytes(mmr_len - buffer_len))?;
 
             let mut mmr_bytes = MerkleMountainRangeBytes::default();
 
@@ -282,9 +285,8 @@ impl StorageItemBlockBlock {
             *mmr
         };
 
-        let mut system_contract_states = StdArc::<[ContractSlotState]>::new_uninit_slice(
-            num_system_contract_states_len as usize,
-        );
+        let mut system_contract_states =
+            StdArc::<[ContractSlotState]>::new_uninit_slice(num_system_contract_states as usize);
 
         for system_contract_state in
             // SAFETY: A single pointer and a single use
@@ -295,7 +297,7 @@ impl StorageItemBlockBlock {
                 let new_read_len = read_len.next_multiple_of(size_of::<u64>());
                 let buffer_len = buffer.len();
                 buffer.split_off(..(new_read_len - read_len)).ok_or(
-                    StorageItemError::NeedMoreBytes(buffer_len - (new_read_len - read_len)),
+                    StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len),
                 )?;
                 read_len = new_read_len;
             }
@@ -305,7 +307,7 @@ impl StorageItemBlockBlock {
                 let prefix_bytes = buffer
                     .split_off(..size_of::<SystemContractStatePrefix>())
                     .ok_or(StorageItemError::NeedMoreBytes(
-                        buffer_len - size_of::<SystemContractStatePrefix>(),
+                        size_of::<SystemContractStatePrefix>() - buffer_len,
                     ))?;
                 // SAFETY: This is a local database, so anything that is read that passes checksum
                 // verification is valid
@@ -325,7 +327,7 @@ impl StorageItemBlockBlock {
                 let new_read_len = read_len.next_multiple_of(size_of::<u128>());
                 let buffer_len = buffer.len();
                 buffer.split_off(..(new_read_len - read_len)).ok_or(
-                    StorageItemError::NeedMoreBytes(buffer_len - (new_read_len - read_len)),
+                    StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len),
                 )?;
                 read_len = new_read_len;
             }
@@ -333,7 +335,7 @@ impl StorageItemBlockBlock {
             let contents = {
                 let buffer_len = buffer.len();
                 let contents_bytes = buffer.split_off(..prefix.content_len as usize).ok_or(
-                    StorageItemError::NeedMoreBytes(buffer_len - prefix.content_len as usize),
+                    StorageItemError::NeedMoreBytes(prefix.content_len as usize - buffer_len),
                 )?;
                 let contents = SharedAlignedBuffer::from_bytes(contents_bytes);
                 read_len += contents_bytes.len();
