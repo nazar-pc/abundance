@@ -15,7 +15,6 @@ all-features = true
 
 [dependencies]
 ab-client-api = { workspace = true }
-ab-client-archiving = { workspace = true }
 ab-client-block-builder = { workspace = true }
 ab-client-block-import = { workspace = true }
 ab-client-consensus-common = { workspace = true }

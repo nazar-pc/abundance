@@ -1,6 +1,5 @@
 use crate::{BlockVerification, BlockVerificationError, GenericBody, GenericHeader};
 use ab_client_api::{BlockOrigin, ChainInfo, ChainSyncStatus};
-use ab_client_archiving::segment_headers_store::SegmentHeadersStore;
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
     DeriveConsensusParametersError, derive_consensus_parameters,
@@ -70,7 +69,6 @@ impl From<BeaconChainBlockVerificationError> for BlockVerificationError {
 
 #[derive(Debug)]
 pub struct BeaconChainBlockVerification<PosTable, CI, CSS> {
-    segment_headers_store: SegmentHeadersStore,
     consensus_constants: ConsensusConstants,
     pot_verifier: PotVerifier,
     chain_info: CI,
@@ -108,14 +106,12 @@ where
     /// Create a new instance
     #[inline(always)]
     pub fn new(
-        segment_headers_store: SegmentHeadersStore,
         consensus_constants: ConsensusConstants,
         pot_verifier: PotVerifier,
         chain_info: CI,
         chain_sync_status: CSS,
     ) -> Self {
         Self {
-            segment_headers_store,
             consensus_constants,
             pot_verifier,
             chain_info,
@@ -397,9 +393,7 @@ where
         own_segment_roots: &[SegmentRoot],
         _intermediate_shard_blocks: &IntermediateShardBlocksInfo<'_>,
     ) -> Result<(), BlockVerificationError> {
-        let expected_segment_headers = self
-            .segment_headers_store
-            .segment_headers_for_block(block_number);
+        let expected_segment_headers = self.chain_info.segment_headers_for_block(block_number);
         let correct_segment_roots = expected_segment_headers
             .iter()
             .map(|segment_header| &segment_header.segment_root)

@@ -63,6 +63,7 @@ where
         before.is_empty().then(|| slice.first_mut()).flatten()
     }
 
+    // TODO: Make this return an array instead of a slice
     /// Access the underlying byte representation of a data structure
     #[inline(always)]
     fn as_bytes(&self) -> &[u8] {
@@ -70,6 +71,7 @@ where
         unsafe { slice::from_raw_parts(ptr::from_ref(self).cast::<u8>(), size_of::<Self>()) }
     }
 
+    // TODO: Make this return an array instead of a slice
     /// Access the underlying mutable byte representation of a data structure.
     ///
     /// # Safety

@@ -89,7 +89,6 @@ name = "ab-client-block-authoring"
 version = "0.0.1"
 dependencies = [
  "ab-client-api",
- "ab-client-archiving",
  "ab-client-block-builder",
  "ab-client-block-import",
  "ab-client-consensus-common",
@@ -107,7 +106,6 @@ name = "ab-client-block-builder"
 version = "0.0.1"
 dependencies = [
  "ab-client-api",
- "ab-client-archiving",
  "ab-client-consensus-common",
  "ab-core-primitives",
  "anyhow",
@@ -141,7 +139,6 @@ name = "ab-client-block-verification"
 version = "0.0.1"
 dependencies = [
  "ab-client-api",
- "ab-client-archiving",
  "ab-client-consensus-common",
  "ab-client-proof-of-time",
  "ab-core-primitives",

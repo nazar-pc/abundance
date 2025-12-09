@@ -9,6 +9,7 @@ use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
+use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use rclite::Arc;
 use std::io;
@@ -102,6 +103,35 @@ pub enum PersistBlockError {
     },
 }
 
+/// Error for [`ChainInfoWrite::persist_segment_headers()`]
+#[derive(Debug, thiserror::Error)]
+pub enum PersistSegmentHeadersError {
+    /// Segment index must strictly follow the last segment index, can't store segment header
+    #[error(
+        "Segment index {segment_index} must strictly follow last segment index \
+        {last_segment_index}, can't store segment header"
+    )]
+    MustFollowLastSegmentIndex {
+        /// Segment index that was attempted to be inserted
+        segment_index: SegmentIndex,
+        /// Last segment index
+        last_segment_index: SegmentIndex,
+    },
+    /// The first segment index must be zero
+    #[error("First segment index must be zero, found {segment_index}")]
+    FirstSegmentIndexZero {
+        /// Segment index that was attempted to be inserted
+        segment_index: SegmentIndex,
+    },
+    /// Storage item write error
+    #[error("Storage item write error")]
+    StorageItemWriteError {
+        /// Low-level error
+        #[from]
+        error: io::Error,
+    },
+}
+
 // TODO: Split this into different more narrow traits
 /// Chain info.
 ///
@@ -113,7 +143,7 @@ pub enum PersistBlockError {
 /// there is an ongoing block import happening and its parent must exist until the import
 /// finishes.
 /// </div>
-pub trait ChainInfo<Block>: Clone + Send + Sync
+pub trait ChainInfo<Block>: Clone + Send + Sync + 'static
 where
     Block: GenericOwnedBlock,
 {
@@ -151,6 +181,18 @@ where
         &self,
         block_root: &BlockRoot,
     ) -> impl Future<Output = Result<Block, ReadBlockError>> + Send;
+
+    /// Returns last observed segment header
+    fn last_segment_header(&self) -> Option<SegmentHeader>;
+
+    /// Returns last observed segment index
+    fn max_segment_index(&self) -> Option<SegmentIndex>;
+
+    /// Get a single segment header
+    fn get_segment_header(&self, segment_index: SegmentIndex) -> Option<SegmentHeader>;
+
+    /// Get segment headers that are expected to be included at specified block number.
+    fn segment_headers_for_block(&self, block_number: BlockNumber) -> Vec<SegmentHeader>;
 }
 
 /// [`ChainInfo`] extension for writing information
@@ -164,6 +206,14 @@ where
         block: Block,
         block_details: BlockDetails,
     ) -> impl Future<Output = Result<(), PersistBlockError>> + Send;
+
+    /// Persist segment headers.
+    ///
+    /// Multiple can be inserted for efficiency purposes.
+    fn persist_segment_headers(
+        &self,
+        segment_headers: Vec<SegmentHeader>,
+    ) -> impl Future<Output = Result<(), PersistSegmentHeadersError>> + Send;
 }
 
 /// Chain sync status

@@ -11,29 +11,27 @@
 //! [`ConsensusConstants::confirmation_depth_k`](ab_client_consensus_common::ConsensusConstants::confirmation_depth_k)
 //! depth from the block being imported. Block import will then wait for archiver to acknowledge
 //! processing, which is necessary for ensuring that when the next block is imported, it will
-//! contain segment header of newly archived block (must happen exactly in the next block).
+//! contain a segment header of the newly archived block (must happen exactly in the next block).
 //!
 //! Archiving itself will also wait for acknowledgement by various subscribers before proceeding,
 //! which includes farmer subscription, in case of reference implementation via RPC.
 //!
-//! [`SegmentHeadersStore`] is maintained as a data structure containing all known (including future
-//! in case of syncing) segment headers. This data structure contents is then made available to
-//! other parts of the protocol that need to know what correct archival history of the blockchain
-//! looks like. For example, it is used during node sync and farmer plotting in order to verify
-//! pieces of archival history received from other network participants.
+//! Known segment headers contain all known (including future in case of syncing) segment headers.
+//! It is available to other parts of the protocol that need to know what the correct archival
+//! history of the blockchain looks like through [`ChainInfo`]. For example, it is used during node
+//! sync and farmer plotting to verify pieces of archival history received from other network participants.
 //!
 //! [`recreate_genesis_segment`] is a bit of a hack and is useful for deriving of the genesis
-//! segment that is special case since we don't have enough data in the blockchain history itself
-//! during genesis in order to do the archiving.
+//! segment that is a special case since we don't have enough data in the blockchain history itself
+//! during genesis to do the archiving.
 //!
 //! [`encode_block`] and [`decode_block`] are symmetric encoding/decoding functions turning
 //! Blocks into bytes and back.
 
-use crate::segment_headers_store::{SegmentHeaderStoreError, SegmentHeadersStore};
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_archiving::archiver::{Archiver, ArchiverInstantiationError, NewArchivedSegment};
 use ab_archiving::objects::{BlockObject, GlobalObject};
-use ab_client_api::ChainInfo;
+use ab_client_api::{ChainInfo, ChainInfoWrite, PersistSegmentHeadersError};
 use ab_client_consensus_common::{BlockImportingNotification, ConsensusConstants};
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::GenericBlockHeader;
@@ -49,7 +47,6 @@ use chacha20::rand_core::{RngCore, SeedableRng};
 use futures::channel::mpsc;
 use futures::prelude::*;
 use std::num::NonZeroU64;
-use std::slice;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, info, trace, warn};
@@ -144,7 +141,6 @@ impl CreateObjectMappings {
 
 async fn find_last_archived_block<Block, CI, COM>(
     chain_info: &CI,
-    segment_headers_store: &SegmentHeadersStore,
     best_block_number_to_archive: BlockNumber,
     best_block_root: &BlockRoot,
     create_object_mappings: Option<COM>,
@@ -154,7 +150,7 @@ where
     CI: ChainInfo<Block>,
     COM: Fn(&Block) -> Vec<BlockObject>,
 {
-    let max_segment_index = segment_headers_store.max_segment_index()?;
+    let max_segment_index = chain_info.max_segment_index()?;
 
     if max_segment_index == SegmentIndex::ZERO {
         // Just genesis, nothing else to check
@@ -163,7 +159,7 @@ where
 
     for segment_header in (SegmentIndex::ZERO..=max_segment_index)
         .rev()
-        .filter_map(|segment_index| segment_headers_store.get_segment_header(segment_index))
+        .filter_map(|segment_index| chain_info.get_segment_header(segment_index))
     {
         let last_archived_block_number = segment_header.last_archived_block.number();
 
@@ -226,13 +222,13 @@ pub fn encode_block<Block>(block: &Block) -> Vec<u8>
 where
     Block: GenericOwnedBlock,
 {
-    let is_genesis_block = Block::Block::SHARD_KIND == RealShardKind::BeaconChain
+    let is_beacon_chain_genesis_block = Block::Block::SHARD_KIND == RealShardKind::BeaconChain
         && block.header().header().prefix.number == BlockNumber::ZERO;
     let header_buffer = block.header().buffer();
     let body_buffer = block.body().buffer();
 
     // TODO: Extra allocation here is unfortunate, would be nice to avoid it
-    let mut encoded_block = Vec::with_capacity(if is_genesis_block {
+    let mut encoded_block = Vec::with_capacity(if is_beacon_chain_genesis_block {
         RecordedHistorySegment::SIZE
     } else {
         size_of::<u32>() * 2 + header_buffer.len() as usize + body_buffer.len() as usize
@@ -243,7 +239,7 @@ where
     encoded_block.extend_from_slice(header_buffer);
     encoded_block.extend_from_slice(body_buffer);
 
-    if is_genesis_block {
+    if is_beacon_chain_genesis_block {
         let encoded_block_length = encoded_block.len();
 
         // Encoding of the genesis block is extended with extra data such that the very first
@@ -302,12 +298,12 @@ pub enum ArchiverTaskError {
         #[from]
         error: ArchiverInstantiationError,
     },
-    /// Failed to add a new segment header to the segment headers store
-    #[error("Failed to add a new segment header to the segment headers store: {error}")]
-    SegmentHeaderStore {
+    /// Failed to persis a new segment header
+    #[error("Failed to persis a new segment header: {error}")]
+    PersistSegmentHeaders {
         /// Low-level error
         #[from]
-        error: SegmentHeaderStoreError,
+        error: PersistSegmentHeadersError,
     },
     /// Attempt to switch to a different fork beyond archiving depth
     #[error(
@@ -344,7 +340,6 @@ struct InitializedArchiver {
 }
 
 async fn initialize_archiver<Block, CI>(
-    segment_headers_store: &SegmentHeadersStore,
     chain_info: &CI,
     confirmation_depth_k: BlockNumber,
     create_object_mappings: CreateObjectMappings,
@@ -352,7 +347,7 @@ async fn initialize_archiver<Block, CI>(
 ) -> Result<InitializedArchiver, ArchiverTaskError>
 where
     Block: GenericOwnedBlock,
-    CI: ChainInfo<Block>,
+    CI: ChainInfoWrite<Block>,
 {
     let best_block_header = chain_info.best_header();
     let best_block_root = *best_block_header.header().root();
@@ -427,7 +422,6 @@ where
 
     let maybe_last_archived_block = find_last_archived_block(
         chain_info,
-        segment_headers_store,
         best_block_to_archive,
         &best_block_root,
         create_object_mappings
@@ -552,7 +546,9 @@ where
                     .collect();
 
                 if !new_segment_headers.is_empty() {
-                    segment_headers_store.add_segment_headers(&new_segment_headers)?;
+                    chain_info
+                        .persist_segment_headers(new_segment_headers)
+                        .await?;
                 }
 
                 if block_number_to_archive == blocks_to_archive_to {
@@ -577,7 +573,7 @@ where
 /// NOTE: Archiver is doing blocking operations and must run in a dedicated task.
 ///
 /// Archiver is only able to move forward and doesn't support reorgs. Upon restart, it will check
-/// [`SegmentHeadersStore`] and chain history to reconstruct the "current" state it was in before
+/// segments in [`ChainInfo`] and chain history to reconstruct the "current" state it was in before
 /// the last shutdown and continue incrementally archiving blockchain history from there.
 ///
 /// Archiving is triggered by block importing notification (`block_importing_notification_receiver`)
@@ -592,7 +588,6 @@ where
 /// Once a new segment is archived, a notification (`archived_segment_notification_sender`) will be
 /// sent and archiver will be paused until all receivers have provided an acknowledgement for it.
 pub async fn create_archiver_task<Block, CI>(
-    segment_headers_store: SegmentHeadersStore,
     chain_info: CI,
     mut block_importing_notification_receiver: mpsc::Receiver<BlockImportingNotification>,
     mut archived_segment_notification_sender: mpsc::Sender<ArchivedSegmentNotification>,
@@ -602,7 +597,7 @@ pub async fn create_archiver_task<Block, CI>(
 ) -> Result<impl Future<Output = Result<(), ArchiverTaskError>> + Send + 'static, ArchiverTaskError>
 where
     Block: GenericOwnedBlock,
-    CI: ChainInfo<Block> + 'static,
+    CI: ChainInfoWrite<Block> + 'static,
 {
     if create_object_mappings.is_enabled() {
         info!(
@@ -613,9 +608,8 @@ where
         info!("Not creating object mappings");
     }
 
-    let maybe_archiver = if segment_headers_store.max_segment_index().is_none() {
+    let maybe_archiver = if chain_info.max_segment_index().is_none() {
         let initialize_archiver_fut = initialize_archiver(
-            &segment_headers_store,
             &chain_info,
             consensus_constants.confirmation_depth_k,
             create_object_mappings,
@@ -631,7 +625,6 @@ where
             Some(archiver) => archiver,
             None => {
                 let initialize_archiver_fut = initialize_archiver(
-                    &segment_headers_store,
                     &chain_info,
                     consensus_constants.confirmation_depth_k,
                     create_object_mappings,
@@ -661,7 +654,7 @@ where
                 }
             };
 
-            let last_archived_block_number = segment_headers_store
+            let last_archived_block_number = chain_info
                 .last_segment_header()
                 .expect("Exists after archiver initialization; qed")
                 .last_archived_block
@@ -699,7 +692,6 @@ where
             // previously existing blocks
             if best_archived_block_number + BlockNumber::ONE != block_number_to_archive {
                 let initialize_archiver_fut = initialize_archiver(
-                    &segment_headers_store,
                     &chain_info,
                     consensus_constants.confirmation_depth_k,
                     create_object_mappings,
@@ -736,7 +728,6 @@ where
 
             (best_archived_block_root, best_archived_block_number) = archive_block(
                 &mut archiver,
-                segment_headers_store.clone(),
                 &chain_info,
                 &mut archived_segment_notification_sender,
                 best_archived_block_root,
@@ -755,7 +746,6 @@ where
 #[allow(clippy::too_many_arguments)]
 async fn archive_block<Block, CI>(
     archiver: &mut Archiver,
-    segment_headers_store: SegmentHeadersStore,
     chain_info: &CI,
     // TODO: Probably remove
     // object_mapping_notification_sender: SubspaceNotificationSender<ObjectMappingNotification>,
@@ -767,7 +757,7 @@ async fn archive_block<Block, CI>(
 ) -> Result<(BlockRoot, BlockNumber), ArchiverTaskError>
 where
     Block: GenericOwnedBlock,
-    CI: ChainInfo<Block>,
+    CI: ChainInfoWrite<Block>,
 {
     let header = chain_info
         .ancestor_header(block_number_to_archive, best_block_root)
@@ -825,7 +815,9 @@ where
     for archived_segment in block_outcome.archived_segments {
         let segment_header = archived_segment.segment_header;
 
-        segment_headers_store.add_segment_headers(slice::from_ref(&segment_header))?;
+        chain_info
+            .persist_segment_headers(vec![segment_header])
+            .await?;
 
         send_archived_segment_notification(archived_segment_notification_sender, archived_segment)
             .await;
