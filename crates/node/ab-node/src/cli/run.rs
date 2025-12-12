@@ -27,7 +27,7 @@ use ab_core_primitives::pot::{PotParametersChange, PotSeed};
 use ab_direct_io_file::DirectIoFile;
 use ab_erasure_coding::ErasureCoding;
 use ab_networking::libp2p::Multiaddr;
-use ab_node_rpc_server::{FarmerRpc, FarmerRpcApiServer, FarmerRpcConfig};
+use ab_node_rpc_server::{FarmerRpcConfig, FarmerRpcWorker};
 use ab_proof_of_space::chia::ChiaTable;
 use bytesize::ByteSize;
 use clap::{Parser, ValueEnum};
@@ -36,7 +36,6 @@ use futures::channel::mpsc;
 use futures::prelude::*;
 use futures::select;
 use futures::task::noop_waker_ref;
-use jsonrpsee::server::Server;
 use rclite::Arc;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
@@ -293,7 +292,7 @@ pub(crate) struct Run {
     #[arg(long)]
     tmp: bool,
     // TODO: This is only for farmer, would be nice to have a binary protocol instead of JSON-RPC
-    /// IP and port (TCP) on which to listen for farmer RPC requests.
+    /// IP and port (TCP) on which to listen for farmer RPC requests
     #[arg(long, default_value_t = SocketAddr::new(
         IpAddr::V4(Ipv4Addr::LOCALHOST),
         9944,
@@ -596,7 +595,8 @@ impl Run {
 
         let erasure_coding = ErasureCoding::new();
 
-        let (farmer_rpc, farmer_rpc_worker) = FarmerRpc::new(FarmerRpcConfig {
+        let farmer_rpc_worker_fut = FarmerRpcWorker::new(FarmerRpcConfig {
+            listen_on: farmer_rpc_listen_on,
             genesis_block,
             consensus_constants,
             // TODO: Query it from an actual chain
@@ -610,21 +610,9 @@ impl Run {
             chain_sync_status: chain_sync_status.clone(),
             erasure_coding: erasure_coding.clone(),
         });
-
-        let server = Server::builder()
-            .build(farmer_rpc_listen_on)
+        let farmer_rpc_worker = farmer_rpc_worker_fut
             .await
             .map_err(|error| RunError::FarmerRpcServer { error })?;
-
-        {
-            let address = server
-                .local_addr()
-                .map_err(|error| RunError::FarmerRpcServer { error })?;
-            info!(%address, "Started farmer RPC server");
-        }
-
-        // TODO: Better thread management, probably move to its own dedicated thread
-        tokio::spawn(farmer_rpc_worker.run());
 
         // TODO: Initialize in a blocking task
         let archiver_task = tokio::task::block_in_place(|| {
@@ -674,7 +662,7 @@ impl Run {
         });
 
         // TODO: Better thread management, probably move to its own dedicated thread
-        tokio::spawn(server.start(farmer_rpc.into_rpc()).stopped());
+        tokio::spawn(farmer_rpc_worker.run());
 
         // TODO: Better thread management, probably move to its own dedicated thread
         tokio::spawn(async move { run_informer(&client_database, INFORMER_INTERVAL).await });

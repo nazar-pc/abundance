@@ -35,7 +35,6 @@ bytesize = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 core_affinity = { workspace = true }
 futures = { workspace = true, features = ["alloc"] }
-jsonrpsee = { workspace = true, features = ["server"] }
 mimalloc = { workspace = true }
 rclite = { workspace = true }
 tempfile = { workspace = true }

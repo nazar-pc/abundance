@@ -25,7 +25,7 @@ ab-farmer-components = { workspace = true }
 ab-farmer-rpc-primitives = { workspace = true }
 ab-networking = { workspace = true }
 futures = { workspace = true, features = ["alloc"] }
-jsonrpsee = { workspace = true, features = ["server-core", "macros"] }
+jsonrpsee = { workspace = true, features = ["server", "macros"] }
 parking_lot = { workspace = true }
 schnellru = { workspace = true }
 serde = { workspace = true, features = ["alloc", "derive"] }
