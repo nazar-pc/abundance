@@ -50,7 +50,7 @@ pub fn select_shader_features_limits(
     let adapter_limits = adapter.limits();
 
     if adapter_features.contains(SHADER_BASELINE_FEATURES)
-        && adapter_limits.min_subgroup_size >= MIN_SUBGROUP_SIZE
+        && adapter.get_info().subgroup_min_size >= MIN_SUBGROUP_SIZE
     {
         Some((SHADER, SHADER_BASELINE_FEATURES, adapter_limits))
     } else {
