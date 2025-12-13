@@ -14,10 +14,6 @@ include = [
 [package.metadata.docs.rs]
 all-features = true
 
-[lib]
-# SPIR-V target requires `dylib`
-crate-type = ["dylib", "lib"]
-
 # TODO: Benches
 
 [dependencies]
