@@ -101,14 +101,21 @@ jobs:
         if: runner.os != 'Windows'
 
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
-        if: runner.os == 'Linux' || runner.os == 'Windows'
+        if: runner.os == 'Linux'
 
       # Use Mold linker for shorter build times
-      - name: Use Mold linker on Linux and Windows
+      - name: Use Mold linker on Linux
         shell: bash
         run: |
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
-        if: runner.os == 'Linux' || runner.os == 'Windows'
+        if: runner.os == 'Linux'
+
+      # Use LLD linker for shorter build times
+      - name: Use LLD linker on Windows
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=rust-lld" >> $GITHUB_ENV
+        if: runner.os == 'Windows'
 
       - name: cargo clippy
         run: |
@@ -232,14 +239,21 @@ jobs:
           tool: cargo-nextest
 
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
-        if: runner.os == 'Linux' || runner.os == 'Windows'
+        if: runner.os == 'Linux'
 
       # Use Mold linker for shorter build times
-      - name: Use Mold linker on Linux and Windows
+      - name: Use Mold linker on Linux
         shell: bash
         run: |
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
-        if: runner.os == 'Linux' || runner.os == 'Windows'
+        if: runner.os == 'Linux'
+
+      # Use LLD linker for shorter build times
+      - name: Use LLD linker on Windows
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=rust-lld" >> $GITHUB_ENV
+        if: runner.os == 'Windows'
 
       # TODO: This is a workaround for https://github.com/RustCrypto/stream-ciphers/issues/426
       - name: Miri aarch64 workaround
@@ -436,14 +450,21 @@ jobs:
         if: runner.os != 'Windows'
 
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
-        if: runner.os == 'Linux' || runner.os == 'Windows'
+        if: runner.os == 'Linux'
 
       # Use Mold linker for shorter build times
-      - name: Use Mold linker on Linux and Windows
+      - name: Use Mold linker on Linux
         shell: bash
         run: |
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
-        if: runner.os == 'Linux' || runner.os == 'Windows'
+        if: runner.os == 'Linux'
+
+      # Use LLD linker for shorter build times
+      - name: Use LLD linker on Windows
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=rust-lld" >> $GITHUB_ENV
+        if: runner.os == 'Windows'
 
       # Increase the inlining threshold to make sure the compiler can see that some functions do not panic.
       # Native CPU and LTO to allow the compiler to apply more optimizations and prove lack of panics in more cases.
