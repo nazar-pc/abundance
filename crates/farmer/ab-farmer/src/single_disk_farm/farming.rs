@@ -55,7 +55,7 @@ where
     while let Some(slot_info) = slot_info_notifications.next().await {
         debug!(?slot_info, "New slot");
 
-        let slot = slot_info.slot_number;
+        let slot = slot_info.slot;
 
         // Error means farmer is still solving for previous slot, which is too late, and we need to
         // skip this slot
@@ -248,7 +248,7 @@ where
     let mut non_fatal_errors = 0;
 
     while let Some(slot_info) = slot_info_notifications.next().await {
-        let slot = slot_info.slot_number;
+        let slot = slot_info.slot;
 
         // Take mutex briefly to make sure farming is allowed right now
         global_mutex.lock().await;

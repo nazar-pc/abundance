@@ -7,7 +7,8 @@ use ab_core_primitives::segments::{HistorySize, LastArchivedBlock, SegmentHeader
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo, SlotInfo,
+    SolutionResponse,
 };
 use ab_networking::libp2p::identity;
 use ab_networking::libp2p::kad::RecordKey;
@@ -127,6 +128,13 @@ impl NodeClient for MockNodeClient {
             .await
             .unwrap();
         Ok(())
+    }
+
+    async fn update_shard_membership_info(
+        &self,
+        _info: FarmerShardMembershipInfo,
+    ) -> anyhow::Result<()> {
+        unimplemented!()
     }
 }
 

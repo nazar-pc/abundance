@@ -11,10 +11,12 @@ use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
 use ab_blake3::single_block_keyed_hash;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
-use blake3::OUT_LEN;
-use core::fmt;
+use blake3::{Hash, OUT_LEN};
 use core::simd::Simd;
-use derive_more::{Add, AddAssign, Deref, DerefMut, Display, From, Into, Sub, SubAssign};
+use core::{fmt, mem};
+use derive_more::{
+    Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, From, Into, Sub, SubAssign,
+};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "scale-codec")]
@@ -433,6 +435,136 @@ pub struct SolutionVerifyParams {
 pub trait SolutionPotVerifier {
     /// Check whether proof created earlier is valid
     fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool;
+}
+
+/// Entropy used for shard membership assignment
+#[derive(
+    Default,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    From,
+    Into,
+    AsRef,
+    AsMut,
+    Deref,
+    DerefMut,
+    TrivialType,
+)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[repr(C)]
+pub struct ShardMembershipEntropy([u8; ShardMembershipEntropy::SIZE]);
+
+impl fmt::Display for ShardMembershipEntropy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct ShardMembershipEntropyBinary([u8; ShardMembershipEntropy::SIZE]);
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct ShardMembershipEntropyHex(#[serde(with = "hex")] [u8; ShardMembershipEntropy::SIZE]);
+
+#[cfg(feature = "serde")]
+impl Serialize for ShardMembershipEntropy {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if serializer.is_human_readable() {
+            ShardMembershipEntropyHex(self.0).serialize(serializer)
+        } else {
+            ShardMembershipEntropyBinary(self.0).serialize(serializer)
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for ShardMembershipEntropy {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self(if deserializer.is_human_readable() {
+            ShardMembershipEntropyHex::deserialize(deserializer)?.0
+        } else {
+            ShardMembershipEntropyBinary::deserialize(deserializer)?.0
+        }))
+    }
+}
+
+impl fmt::Debug for ShardMembershipEntropy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+impl AsRef<[u8]> for ShardMembershipEntropy {
+    #[inline(always)]
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl AsMut<[u8]> for ShardMembershipEntropy {
+    #[inline(always)]
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+impl ShardMembershipEntropy {
+    /// Size in bytes
+    pub const SIZE: usize = PotOutput::SIZE;
+
+    /// Create a new instance
+    #[inline(always)]
+    pub const fn new(bytes: [u8; Self::SIZE]) -> Self {
+        Self(bytes)
+    }
+
+    /// Get internal representation
+    #[inline(always)]
+    pub const fn as_bytes(&self) -> &[u8; Self::SIZE] {
+        &self.0
+    }
+
+    /// Convenient conversion from slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
+        // SAFETY: `ShardMembershipEntropy` is `#[repr(C)]` and guaranteed to have the same memory
+        // layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion to slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+        // SAFETY: `ShardMembershipEntropy` is `#[repr(C)]` and guaranteed to have the same memory
+        // layout
+        unsafe { mem::transmute(value) }
+    }
 }
 
 /// Farmer solution for slot challenge.

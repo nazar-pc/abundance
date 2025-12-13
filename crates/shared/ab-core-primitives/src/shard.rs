@@ -179,9 +179,19 @@ impl ShardIndex {
             Some(ShardKind::IntermediateShard | ShardKind::Phantom) => parent.is_beacon_chain(),
             Some(ShardKind::LeafShard) => {
                 // Check that the least significant bits match
-                self.0 & 0b11_1111_1111 == parent.0 & 0b11_1111_1111
+                self.0 & 0b11_1111_1111 == parent.0
             }
             None => false,
+        }
+    }
+
+    /// Get index of the parent shard (for leaf and intermediate shards)
+    #[inline]
+    pub const fn parent_shard(self) -> Option<ShardIndex> {
+        match self.shard_kind()? {
+            ShardKind::BeaconChain => None,
+            ShardKind::IntermediateShard | ShardKind::Phantom => Some(ShardIndex::BEACON_CHAIN),
+            ShardKind::LeafShard => Some(Self(self.0 & 0b11_1111_1111)),
         }
     }
 
@@ -205,4 +215,29 @@ impl ShardIndex {
             }
         })
     }
+}
+
+/// Number of shards in the network
+#[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[repr(C)]
+pub struct NumShards {
+    /// The number of intermediate shards
+    pub intermediate_shards: u16,
+    /// The number of leaf shards per intermediate shard
+    pub leaf_shards_per_intermediate_shard: u16,
+}
+
+impl NumShards {
+    /// Total number of leaf shards in the network
+    #[inline(always)]
+    pub fn num_leaf_shards(&self) -> u32 {
+        self.intermediate_shards as u32 * self.leaf_shards_per_intermediate_shard as u32
+    }
+
+    // TODO: APIs for enumerating/iterating shards based on the specified fields
 }

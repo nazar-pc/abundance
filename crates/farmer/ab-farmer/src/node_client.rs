@@ -14,7 +14,8 @@ pub mod rpc_node_client;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use ab_farmer_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo, SlotInfo,
+    SolutionResponse,
 };
 use async_trait::async_trait;
 use futures::Stream;
@@ -65,9 +66,17 @@ pub trait NodeClient: fmt::Debug + Send + Sync + 'static {
         &self,
         segment_index: SegmentIndex,
     ) -> anyhow::Result<()>;
+
+    // TODO: Move into `NodeClientExt`?
+    /// Must be called while there is an active `shard_membership_entropy_update` subscription
+    async fn update_shard_membership_info(
+        &self,
+        info: FarmerShardMembershipInfo,
+    ) -> anyhow::Result<()>;
 }
 
-/// Node Client extension methods that are not necessary for farmer as a library, but might be useful for an app
+/// Node Client extension methods that are not necessary for a farmer as a library but might be
+/// useful for an app
 #[async_trait]
 pub trait NodeClientExt: NodeClient {
     /// Get the cached segment headers for the given segment indices.

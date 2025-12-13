@@ -21,7 +21,8 @@ use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_farmer_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo, SlotInfo,
+    SolutionResponse,
 };
 use anyhow::anyhow;
 use async_nats::HeaderValue;
@@ -75,7 +76,7 @@ impl GenericBroadcast for ClusterControllerSlotInfoBroadcast {
         //  be simplified to just a slot number
         Some(HeaderValue::from(format!(
             "slot-info-{}",
-            self.slot_info.slot_number
+            self.slot_info.slot
         )))
     }
 }
@@ -486,11 +487,11 @@ impl NodeClient for ClusterNodeClient {
                     let slot_info = broadcast.slot_info;
 
                     let maybe_slot_info = if let Some(last_slot_number) = last_slot_number
-                        && last_slot_number >= slot_info.slot_number
+                        && last_slot_number >= slot_info.slot
                     {
                         None
                     } else {
-                        last_slot_number.replace(slot_info.slot_number);
+                        last_slot_number.replace(slot_info.slot);
                         *last_slot_info_instance.lock() = broadcast.instance;
 
                         Some(slot_info)
@@ -595,6 +596,14 @@ impl NodeClient for ClusterNodeClient {
         // Acknowledgement is unnecessary/unsupported
         Ok(())
     }
+
+    async fn update_shard_membership_info(
+        &self,
+        _info: FarmerShardMembershipInfo,
+    ) -> anyhow::Result<()> {
+        // Controller aggregates these on its own
+        Ok(())
+    }
 }
 
 /// Create controller service that handles things like broadcasting information (for example slot
@@ -690,7 +699,7 @@ where
     while let Some(slot_info) = slot_info_notifications.next().await {
         debug!(?slot_info, "New slot");
 
-        let slot = slot_info.slot_number;
+        let slot = slot_info.slot;
 
         if let Err(error) = nats_client
             .broadcast(

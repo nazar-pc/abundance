@@ -1,6 +1,7 @@
 use crate::PosTable;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
+use ab_core_primitives::shard::NumShards;
 use ab_core_primitives::solutions::SolutionRange;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
@@ -181,10 +182,15 @@ where
                         let options = PlotAuditOptions::<PosTable> {
                             public_key_hash,
                             slot_info: SlotInfo {
-                                slot_number: SlotNumber::ZERO,
+                                slot: SlotNumber::ZERO,
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
+                                entropy: Default::default(),
+                                num_shards: NumShards {
+                                    intermediate_shards: 0,
+                                    leaf_shards_per_intermediate_shard: 0,
+                                },
                             },
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
@@ -212,10 +218,15 @@ where
                         let options = PlotAuditOptions::<PosTable> {
                             public_key_hash,
                             slot_info: SlotInfo {
-                                slot_number: SlotNumber::ZERO,
+                                slot: SlotNumber::ZERO,
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
+                                entropy: Default::default(),
+                                num_shards: NumShards {
+                                    intermediate_shards: 0,
+                                    leaf_shards_per_intermediate_shard: 0,
+                                },
                             },
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
@@ -241,10 +252,15 @@ where
                         let options = PlotAuditOptions::<PosTable> {
                             public_key_hash,
                             slot_info: SlotInfo {
-                                slot_number: SlotNumber::ZERO,
+                                slot: SlotNumber::ZERO,
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
+                                entropy: Default::default(),
+                                num_shards: NumShards {
+                                    intermediate_shards: 0,
+                                    leaf_shards_per_intermediate_shard: 0,
+                                },
                             },
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
@@ -334,10 +350,15 @@ where
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key_hash,
                 slot_info: SlotInfo {
-                    slot_number: SlotNumber::ZERO,
+                    slot: SlotNumber::ZERO,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
+                    entropy: Default::default(),
+                    num_shards: NumShards {
+                        intermediate_shards: 0,
+                        leaf_shards_per_intermediate_shard: 0,
+                    },
                 },
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,
@@ -378,10 +399,15 @@ where
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key_hash,
                 slot_info: SlotInfo {
-                    slot_number: SlotNumber::ZERO,
+                    slot: SlotNumber::ZERO,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
+                    entropy: Default::default(),
+                    num_shards: NumShards {
+                        intermediate_shards: 0,
+                        leaf_shards_per_intermediate_shard: 0,
+                    },
                 },
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,
@@ -420,10 +446,15 @@ where
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key_hash,
                 slot_info: SlotInfo {
-                    slot_number: SlotNumber::ZERO,
+                    slot: SlotNumber::ZERO,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
+                    entropy: Default::default(),
+                    num_shards: NumShards {
+                        intermediate_shards: 0,
+                        leaf_shards_per_intermediate_shard: 0,
+                    },
                 },
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,

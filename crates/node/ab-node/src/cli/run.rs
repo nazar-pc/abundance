@@ -592,6 +592,7 @@ impl Run {
             mpsc::channel(0);
         let (archived_segment_notification_sender, archived_segment_notification_receiver) =
             mpsc::channel(0);
+        let (shard_membership_updates_sender, shard_membership_updates_receiver) = mpsc::channel(0);
 
         let erasure_coding = ErasureCoding::new();
 
@@ -604,6 +605,7 @@ impl Run {
             new_slot_notification_receiver,
             block_sealing_notification_receiver,
             archived_segment_notification_receiver,
+            shard_membership_updates_sender,
             // TODO: Correct values once networking stack is integrated
             dsn_bootstrap_nodes: Vec::new(),
             chain_info: client_database.clone(),
@@ -649,9 +651,13 @@ impl Run {
         // TODO: Code below is just a placeholder
         tokio::spawn(async move {
             let mut to_gossip_receiver = to_gossip_receiver.fuse();
+            let mut shard_membership_updates_receiver = shard_membership_updates_receiver.fuse();
 
             select! {
                 _ = to_gossip_receiver.next() => {
+                    // TODO
+                }
+                _ = shard_membership_updates_receiver.next() => {
                     // TODO
                 }
             }

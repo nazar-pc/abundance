@@ -4,7 +4,8 @@ use crate::node_client::{NodeClient, NodeClientExt};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use ab_farmer_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, SlotInfo, SolutionResponse,
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo, SlotInfo,
+    SolutionResponse,
 };
 use async_lock::Semaphore;
 use async_trait::async_trait;
@@ -155,6 +156,16 @@ impl NodeClient for RpcNodeClient {
                 "acknowledgeArchivedSegmentHeader",
                 rpc_params![&segment_index],
             )
+            .await?)
+    }
+
+    async fn update_shard_membership_info(
+        &self,
+        info: FarmerShardMembershipInfo,
+    ) -> anyhow::Result<()> {
+        Ok(self
+            .client
+            .request("updateShardMembershipInfo", rpc_params![&info])
             .await?)
     }
 }

@@ -3,6 +3,7 @@
 use crate::block::BlockRoot;
 use crate::hashes::Blake3Hash;
 use crate::pieces::RecordChunk;
+use crate::solutions::ShardMembershipEntropy;
 use ab_blake3::single_block_hash;
 use ab_io_type::trivial_type::TrivialType;
 use core::iter::Step;
@@ -484,6 +485,12 @@ impl PotOutput {
             single_block_hash(&bytes_to_hash)
                 .expect("Less than a single block worth of bytes; qed"),
         )
+    }
+
+    /// Derive shard membership entropy
+    #[inline]
+    pub fn shard_membership_entropy(&self) -> ShardMembershipEntropy {
+        ShardMembershipEntropy::new(self.0)
     }
 
     /// Convenient conversion from slice of underlying representation for efficiency purposes

@@ -4,7 +4,9 @@ use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::block::header::OwnedBlockHeaderSeal;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
-use ab_core_primitives::solutions::{Solution, SolutionRange};
+use ab_core_primitives::segments::HistorySize;
+use ab_core_primitives::shard::NumShards;
+use ab_core_primitives::solutions::{ShardMembershipEntropy, Solution, SolutionRange};
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_networking::libp2p::Multiaddr;
 use parity_scale_codec::{Decode, Encode, EncodeLike, Input, Output};
@@ -13,6 +15,10 @@ use std::time::Duration;
 
 /// Defines a limit for number of segments that can be requested over RPC
 pub const MAX_SEGMENT_HEADERS_PER_REQUEST: usize = 1000;
+// TODO: This is a workaround for https://github.com/paritytech/jsonrpsee/issues/1617 and should be
+//  removed once that issue is resolved
+/// Shard membership expiration
+pub const SHARD_MEMBERSHIP_EXPIRATION: Duration = Duration::from_mins(1);
 
 /// Information necessary for farmer application
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,11 +103,15 @@ impl Decode for FarmerAppInfo {
 #[serde(rename_all = "camelCase")]
 pub struct SlotInfo {
     /// Slot number
-    pub slot_number: SlotNumber,
+    pub slot: SlotNumber,
     /// Global slot challenge
     pub global_challenge: Blake3Hash,
     /// Acceptable solution range for block authoring
     pub solution_range: SolutionRange,
+    /// Current shard membership entropy
+    pub entropy: ShardMembershipEntropy,
+    /// The number of shards in the network
+    pub num_shards: NumShards,
 }
 
 /// Response of a slot challenge consisting of an optional solution and
@@ -135,4 +145,16 @@ pub struct BlockSealResponse {
     pub pre_seal_hash: Blake3Hash,
     /// The seal itself
     pub seal: OwnedBlockHeaderSeal,
+}
+
+/// Farmer shard membership info
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FarmerShardMembershipInfo {
+    /// Public key hash of the plot identity
+    pub public_key_hash: Blake3Hash,
+    /// Seed used to derive the shard commitment (typically a hash of the private key)
+    pub shard_commitment_seed: Blake3Hash,
+    /// History sizes
+    pub history_sizes: Vec<HistorySize>,
 }

@@ -16,8 +16,9 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
 use ab_core_primitives::sectors::SectorId;
 use ab_core_primitives::segments::HistorySize;
+use ab_core_primitives::shard::NumShards;
 use ab_core_primitives::solutions::{
-    Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
+    ShardMembershipEntropy, Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
     SolutionVerifyPieceCheckParams,
 };
 use ab_proof_of_space::Table;
@@ -43,6 +44,10 @@ pub struct NewSlotInfo {
     pub proof_of_time: PotOutput,
     /// Acceptable solution range for block authoring
     pub solution_range: SolutionRange,
+    /// Current shard membership entropy
+    pub entropy: ShardMembershipEntropy,
+    /// The number of shards in the network
+    pub num_shards: NumShards,
 }
 
 /// New slot notification with slot information and sender for a solution for the slot.
@@ -277,6 +282,13 @@ where
             slot,
             proof_of_time,
             solution_range,
+            // TODO: Actual value here
+            entropy: Default::default(),
+            // TODO: Actual value here
+            num_shards: NumShards {
+                intermediate_shards: 0,
+                leaf_shards_per_intermediate_shard: 0,
+            },
         };
         let (solution_sender, solution_receiver) =
             mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);
@@ -293,6 +305,7 @@ where
 
         self.pending_solutions.insert(slot, solution_receiver);
     }
+
     async fn claim_slot(
         &mut self,
         parent_beacon_chain_header: &BeaconChainHeader<'_>,
