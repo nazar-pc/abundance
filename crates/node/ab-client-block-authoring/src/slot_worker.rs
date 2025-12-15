@@ -174,15 +174,64 @@ where
             }
             maybe_last_processed_slot.replace(slot);
 
-            self.store_checkpoints(slot, checkpoints);
+            // Store checkpoints
+            {
+                // Remove checkpoints from future slots, if present they are out of date anyway
+                self.pot_checkpoints
+                    .retain(|&stored_slot, _checkpoints| stored_slot < slot);
+
+                self.pot_checkpoints.insert(slot, checkpoints);
+            }
 
             let best_beacon_chain_header = self.beacon_chain_info.best_header();
             let best_beacon_chain_header = best_beacon_chain_header.header();
-            self.on_new_slot(slot, checkpoints, best_beacon_chain_header);
 
             if self.chain_sync_status.is_syncing() {
-                debug!(%slot, "Skipping proposal slot due to sync");
-                continue;
+                debug!(%slot, "Skipping farming due to syncing");
+                return;
+            }
+
+            let proof_of_time = checkpoints.output();
+
+            // Send slot notification to farmers
+            {
+                // NOTE: Best bock is not necessarily going to be the parent of the corresponding
+                // block once it is created, but solution range shouldn't be too far off by then
+                let solution_range = best_beacon_chain_header
+                    .consensus_parameters()
+                    .next_solution_range
+                    .unwrap_or(
+                        best_beacon_chain_header
+                            .consensus_parameters()
+                            .fixed_parameters
+                            .solution_range,
+                    );
+                let new_slot_info = NewSlotInfo {
+                    slot,
+                    proof_of_time,
+                    solution_range,
+                    // TODO: Actual value here
+                    entropy: Default::default(),
+                    // TODO: Actual value here
+                    num_shards: NumShards {
+                        intermediate_shards: 0,
+                        leaf_shards_per_intermediate_shard: 0,
+                    },
+                };
+                let (solution_sender, solution_receiver) =
+                    mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);
+
+                if let Err(error) =
+                    self.new_slot_notification_sender
+                        .try_send(NewSlotNotification {
+                            new_slot_info,
+                            solution_sender,
+                        })
+                {
+                    warn!(%error, "Failed to send a new slot notification");
+                }
+
+                self.pending_solutions.insert(slot, solution_receiver);
             }
 
             // Slots that we claim must be `block_authoring_delay` behind the best slot we know of
@@ -242,68 +291,6 @@ where
                 .send()
                 .await;
         }
-    }
-
-    /// Handle new slot: store checkpoints and generate notification for a farmer
-    fn store_checkpoints(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints) {
-        // Remove checkpoints from future slots, if present they are out of date anyway
-        self.pot_checkpoints
-            .retain(|&stored_slot, _checkpoints| stored_slot < slot);
-
-        self.pot_checkpoints.insert(slot, checkpoints);
-    }
-
-    /// Handle new slot: store checkpoints and generate notification for a farmer
-    fn on_new_slot(
-        &mut self,
-        slot: SlotNumber,
-        checkpoints: PotCheckpoints,
-        best_beacon_chain_header: &BeaconChainHeader<'_>,
-    ) {
-        if self.chain_sync_status.is_syncing() {
-            debug!("Skipping farming slot {slot} due to sync");
-            return;
-        }
-
-        let proof_of_time = checkpoints.output();
-
-        // NOTE: Best hash is not necessarily going to be the parent of the corresponding block, but
-        // solution range shouldn't be too far off
-        let solution_range = best_beacon_chain_header
-            .consensus_parameters()
-            .next_solution_range
-            .unwrap_or(
-                best_beacon_chain_header
-                    .consensus_parameters()
-                    .fixed_parameters
-                    .solution_range,
-            );
-        let new_slot_info = NewSlotInfo {
-            slot,
-            proof_of_time,
-            solution_range,
-            // TODO: Actual value here
-            entropy: Default::default(),
-            // TODO: Actual value here
-            num_shards: NumShards {
-                intermediate_shards: 0,
-                leaf_shards_per_intermediate_shard: 0,
-            },
-        };
-        let (solution_sender, solution_receiver) =
-            mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);
-
-        if let Err(error) = self
-            .new_slot_notification_sender
-            .try_send(NewSlotNotification {
-                new_slot_info,
-                solution_sender,
-            })
-        {
-            warn!(%error, "Failed to send a new slot notification");
-        }
-
-        self.pending_solutions.insert(slot, solution_receiver);
     }
 
     async fn claim_slot(
