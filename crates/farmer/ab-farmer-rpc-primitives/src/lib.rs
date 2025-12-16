@@ -154,7 +154,7 @@ pub struct FarmerShardMembershipInfo {
     /// Public key hash of the plot identity
     pub public_key_hash: Blake3Hash,
     /// Seed used to derive the shard commitment (typically a hash of the private key)
-    pub shard_commitment_seed: Blake3Hash,
+    pub shard_commitments_seed: Blake3Hash,
     /// History sizes
     pub history_sizes: Vec<HistorySize>,
 }

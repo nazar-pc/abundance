@@ -51,6 +51,7 @@ use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::file_ext::FileExt;
 use ab_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed, sector_size};
+use ab_farmer_components::shard_commitment::ShardCommitmentsRootsCache;
 use ab_farmer_rpc_primitives::{FarmerAppInfo, SolutionResponse};
 use ab_networking::KnownPeersManager;
 use ab_proof_of_space::Table;
@@ -117,6 +118,8 @@ pub enum SingleDiskFarmInfo {
         genesis_root: BlockRoot,
         /// Public key of identity used for farm creation
         public_key: Ed25519PublicKey,
+        /// Seed used for deriving shard commitments
+        shard_commitments_seed: Blake3Hash,
         /// How many pieces does one sector contain.
         pieces_in_sector: u16,
         /// How much space in bytes is allocated for this farm
@@ -132,6 +135,7 @@ impl SingleDiskFarmInfo {
         id: FarmId,
         genesis_root: BlockRoot,
         public_key: Ed25519PublicKey,
+        shard_commitments_seed: Blake3Hash,
         pieces_in_sector: u16,
         allocated_space: u64,
     ) -> Self {
@@ -139,6 +143,7 @@ impl SingleDiskFarmInfo {
             id,
             genesis_root,
             public_key,
+            shard_commitments_seed,
             pieces_in_sector,
             allocated_space,
         }
@@ -210,6 +215,15 @@ impl SingleDiskFarmInfo {
     pub fn public_key(&self) -> &Ed25519PublicKey {
         let Self::V0 { public_key, .. } = self;
         public_key
+    }
+
+    /// Seed used for deriving shard commitments
+    pub fn shard_commitments_seed(&self) -> &Blake3Hash {
+        let Self::V0 {
+            shard_commitments_seed,
+            ..
+        } = self;
+        shard_commitments_seed
     }
 
     /// How many pieces does one sector contain.
@@ -742,6 +756,7 @@ struct SingleDiskFarmInit {
 pub struct SingleDiskFarm {
     farmer_protocol_info: FarmerProtocolInfo,
     single_disk_farm_info: SingleDiskFarmInfo,
+    shard_commitments_roots_cache: ShardCommitmentsRootsCache,
     /// Metadata of all sectors plotted so far
     sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     pieces_in_sector: u16,
@@ -910,6 +925,8 @@ impl SingleDiskFarm {
         };
 
         let public_key = *single_disk_farm_info.public_key();
+        let shard_commitments_roots_cache =
+            ShardCommitmentsRootsCache::new(*single_disk_farm_info.shard_commitments_seed());
         let pieces_in_sector = single_disk_farm_info.pieces_in_sector();
         let sector_size = sector_size(pieces_in_sector);
 
@@ -964,6 +981,7 @@ impl SingleDiskFarm {
             AsyncJoinOnDrop::new(farming_plot_fut, false).await??;
 
         let plotting_join_handle = task::spawn_blocking({
+            let shard_commitments_roots_cache = shard_commitments_roots_cache.clone();
             let sectors_metadata = Arc::clone(&sectors_metadata);
             let handlers = Arc::clone(&handlers);
             let sectors_being_modified = Arc::clone(&sectors_being_modified);
@@ -984,6 +1002,7 @@ impl SingleDiskFarm {
                     sectors_to_plot_receiver,
                     sector_plotting_options: SectorPlottingOptions {
                         public_key,
+                        shard_commitments_roots_cache,
                         node_client: &node_client,
                         pieces_in_sector,
                         sector_size,
@@ -1048,6 +1067,7 @@ impl SingleDiskFarm {
 
         let plotting_scheduler_options = PlottingSchedulerOptions {
             public_key_hash,
+            shard_commitments_roots_cache: shard_commitments_roots_cache.clone(),
             sectors_indices_left_to_plot,
             target_sector_count,
             last_archived_segment_index: farmer_app_info.protocol_info.history_size.segment_index(),
@@ -1075,6 +1095,7 @@ impl SingleDiskFarm {
         }));
 
         let farming_join_handle = task::spawn_blocking({
+            let shard_commitments_roots_cache = shard_commitments_roots_cache.clone();
             let erasure_coding = erasure_coding.clone();
             let handlers = Arc::clone(&handlers);
             let sectors_being_modified = Arc::clone(&sectors_being_modified);
@@ -1098,6 +1119,7 @@ impl SingleDiskFarm {
 
                     let farming_options = FarmingOptions {
                         public_key_hash,
+                        shard_commitments_roots_cache,
                         reward_address,
                         node_client,
                         plot_audit,
@@ -1146,6 +1168,7 @@ impl SingleDiskFarm {
 
         let (piece_reader, reading_fut) = DiskPieceReader::new::<PosTable>(
             public_key_hash,
+            shard_commitments_roots_cache.clone(),
             pieces_in_sector,
             plot_file,
             Arc::clone(&sectors_metadata),
@@ -1201,6 +1224,7 @@ impl SingleDiskFarm {
         let farm = Self {
             farmer_protocol_info: farmer_app_info.protocol_info,
             single_disk_farm_info,
+            shard_commitments_roots_cache,
             sectors_metadata,
             pieces_in_sector,
             total_sectors_count: target_sector_count,
@@ -1312,6 +1336,7 @@ impl SingleDiskFarm {
                         FarmId::new(),
                         farmer_app_info.genesis_root,
                         public_key,
+                        identity.shard_commitments_seed(),
                         max_pieces_in_sector,
                         allocated_space,
                     );
@@ -1629,6 +1654,7 @@ impl SingleDiskFarm {
     pub fn plotted_sectors(&self) -> SingleDiskPlottedSectors {
         SingleDiskPlottedSectors {
             public_key_hash: self.single_disk_farm_info.public_key().hash(),
+            shard_commitments_roots_cache: self.shard_commitments_roots_cache.clone(),
             pieces_in_sector: self.pieces_in_sector,
             farmer_protocol_info: self.farmer_protocol_info,
             sectors_metadata: Arc::clone(&self.sectors_metadata),

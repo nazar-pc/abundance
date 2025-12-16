@@ -6,11 +6,13 @@
 
 use crate::proving::SolutionCandidates;
 use crate::sector::{SectorContentsMap, SectorMetadataChecksummed, sector_size};
+use crate::shard_commitment::ShardCommitmentsRootsCache;
 use crate::{ReadAtOffset, ReadAtSync};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::RecordChunk;
 use ab_core_primitives::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
-use ab_core_primitives::solutions::{SolutionDistance, SolutionRange};
+use ab_core_primitives::shard::NumShards;
+use ab_core_primitives::solutions::{ShardMembershipEntropy, SolutionDistance, SolutionRange};
 use rayon::prelude::*;
 use std::collections::HashSet;
 use std::io;
@@ -52,8 +54,13 @@ pub(crate) struct ChunkCandidate {
 /// Audit a single sector and generate a stream of solutions.
 ///
 /// This is primarily helpful in test environment, prefer [`audit_plot_sync`] for auditing real plots.
+// TODO: Struct for arguments
+#[expect(clippy::too_many_arguments)]
 pub fn audit_sector_sync<'a, Sector>(
     public_key_hash: &'a Blake3Hash,
+    shard_commitments_roots_cache: &'a ShardCommitmentsRootsCache,
+    shard_membership_entropy: ShardMembershipEntropy,
+    num_shards: NumShards,
     global_challenge: &Blake3Hash,
     solution_range: SolutionRange,
     sector: Sector,
@@ -68,7 +75,12 @@ where
         s_bucket_audit_index,
         s_bucket_audit_size,
         s_bucket_audit_offset_in_sector,
-    } = collect_sector_auditing_details(public_key_hash, global_challenge, sector_metadata);
+    } = collect_sector_auditing_details(
+        public_key_hash,
+        shard_commitments_roots_cache,
+        global_challenge,
+        sector_metadata,
+    );
 
     let mut s_bucket = vec![0; s_bucket_audit_size];
     sector
@@ -93,6 +105,9 @@ where
         solution_candidates: SolutionCandidates::new(
             public_key_hash,
             sector_id,
+            shard_commitments_roots_cache,
+            shard_membership_entropy,
+            num_shards,
             s_bucket_audit_index,
             sector,
             sector_metadata,
@@ -108,8 +123,13 @@ where
 ///
 /// Plot is assumed to contain concatenated series of sectors as created by functions in
 /// [`plotting`](crate::plotting) module earlier.
+// TODO: Struct for arguments
+#[expect(clippy::too_many_arguments)]
 pub fn audit_plot_sync<'a, 'b, Plot>(
     public_key_hash: &'a Blake3Hash,
+    shard_commitments_roots_cache: &'a ShardCommitmentsRootsCache,
+    shard_membership_entropy: ShardMembershipEntropy,
+    num_shards: NumShards,
     global_challenge: &Blake3Hash,
     solution_range: SolutionRange,
     plot: &'a Plot,
@@ -124,7 +144,12 @@ where
         .par_iter()
         .map(|sector_metadata| {
             (
-                collect_sector_auditing_details(public_key_hash, global_challenge, sector_metadata),
+                collect_sector_auditing_details(
+                    public_key_hash,
+                    shard_commitments_roots_cache,
+                    global_challenge,
+                    sector_metadata,
+                ),
                 sector_metadata,
             )
         })
@@ -171,6 +196,9 @@ where
                 solution_candidates: SolutionCandidates::new(
                     public_key_hash,
                     sector_auditing_info.sector_id,
+                    shard_commitments_roots_cache,
+                    shard_membership_entropy,
+                    num_shards,
                     sector_auditing_info.s_bucket_audit_index,
                     sector,
                     sector_metadata,
@@ -193,11 +221,13 @@ struct SectorAuditingDetails {
 
 fn collect_sector_auditing_details(
     public_key_hash: &Blake3Hash,
+    shard_commitments_roots_cache: &ShardCommitmentsRootsCache,
     global_challenge: &Blake3Hash,
     sector_metadata: &SectorMetadataChecksummed,
 ) -> SectorAuditingDetails {
     let sector_id = SectorId::new(
         public_key_hash,
+        &shard_commitments_roots_cache.get(sector_metadata.history_size),
         sector_metadata.sector_index,
         sector_metadata.history_size,
     );

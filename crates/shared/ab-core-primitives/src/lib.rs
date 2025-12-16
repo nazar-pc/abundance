@@ -23,6 +23,7 @@ pub mod block;
 pub mod checksum;
 pub mod ed25519;
 pub mod hashes;
+mod nano_u256;
 pub mod pieces;
 pub mod pos;
 pub mod pot;

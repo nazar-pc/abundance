@@ -3,6 +3,7 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::Record;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::HistorySize;
+use ab_core_primitives::solutions::ShardCommitmentHash;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::plotting::{CpuRecordsEncoder, RecordsEncoder};
 use ab_proof_of_space::Table;
@@ -32,9 +33,15 @@ fn basic() {
     );
 
     let public_key_hash = Blake3Hash::from([1; _]);
+    let shard_commitments_root = &ShardCommitmentHash::default();
     let sector_index = SectorIndex::new(1);
     let history_size = HistorySize::ONE;
-    let sector_id = SectorId::new(&public_key_hash, sector_index, history_size);
+    let sector_id = SectorId::new(
+        &public_key_hash,
+        shard_commitments_root,
+        sector_index,
+        history_size,
+    );
 
     let source_records = {
         let mut records = Record::new_zero_vec(1);

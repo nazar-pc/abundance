@@ -474,8 +474,8 @@ where
                         futures_timer::Delay::new(BLOCK_SEALING_TIMEOUT),
                         Box::pin(forward_signature_fut),
                     )
-                        .map(|_| ())
-                        .boxed(),
+                    .map(|_| ())
+                    .boxed(),
                 );
 
                 // This will be sent to the farmer

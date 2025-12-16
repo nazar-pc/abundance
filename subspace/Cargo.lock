@@ -154,6 +154,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.5",
  "rayon",
+ "schnellru",
  "serde",
  "thiserror 2.0.17",
  "tokio",

@@ -374,6 +374,7 @@ where
 
             let sector_id = SectorId::new(
                 &solution.public_key_hash,
+                &solution.shard_commitment.root,
                 solution.sector_index,
                 solution.history_size,
             );

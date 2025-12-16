@@ -23,6 +23,7 @@ use ab_farmer_components::ReadAtSync;
 use ab_farmer_components::auditing::{AuditingError, audit_plot_sync};
 use ab_farmer_components::proving::{ProvableSolutions, ProvingError};
 use ab_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed};
+use ab_farmer_components::shard_commitment::ShardCommitmentsRootsCache;
 use ab_farmer_rpc_primitives::{SlotInfo, SolutionResponse};
 use ab_proof_of_space::{Table, TableGenerator};
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock};
@@ -78,6 +79,8 @@ where
 {
     /// Public key of the farm
     pub public_key_hash: &'a Blake3Hash,
+    /// Cache for shard commitments roots
+    pub shard_commitments_roots_cache: &'a ShardCommitmentsRootsCache,
     /// Slot info for the audit
     pub slot_info: SlotInfo,
     /// Metadata of all sectors plotted so far
@@ -135,6 +138,7 @@ where
     {
         let PlotAuditOptions {
             public_key_hash,
+            shard_commitments_roots_cache,
             slot_info,
             sectors_metadata,
             erasure_coding,
@@ -144,6 +148,9 @@ where
 
         let audit_results = audit_plot_sync(
             public_key_hash,
+            shard_commitments_roots_cache,
+            slot_info.shard_membership_entropy,
+            slot_info.num_shards,
             &slot_info.global_challenge,
             slot_info.solution_range,
             &self.0,
@@ -187,6 +194,7 @@ where
 
 pub(super) struct FarmingOptions<NC, PlotAudit> {
     pub(super) public_key_hash: Blake3Hash,
+    pub(super) shard_commitments_roots_cache: ShardCommitmentsRootsCache,
     // TODO: Use `reward_address` in the future
     #[expect(
         dead_code,
@@ -219,6 +227,7 @@ where
 {
     let FarmingOptions {
         public_key_hash,
+        shard_commitments_roots_cache,
         // TODO: Use `reward_address` in the future
         reward_address: _,
         node_client,
@@ -268,6 +277,7 @@ where
 
                     plot_audit.audit(PlotAuditOptions::<PosTable> {
                         public_key_hash: &public_key_hash,
+                        shard_commitments_roots_cache: &shard_commitments_roots_cache,
                         slot_info,
                         sectors_metadata: &sectors_metadata,
                         erasure_coding: &erasure_coding,

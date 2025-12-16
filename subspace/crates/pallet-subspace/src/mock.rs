@@ -10,7 +10,7 @@ use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, HistorySize, LastArchivedBlock, SegmentHeader, SegmentIndex, SegmentRoot,
 };
-use ab_core_primitives::solutions::{Solution, SolutionRange};
+use ab_core_primitives::solutions::{Solution, SolutionRange, SolutionShardCommitment};
 use frame_support::traits::{ConstU128, OnInitialize};
 use frame_support::{derive_impl, parameter_types};
 use schnorrkel::Keypair;
@@ -101,6 +101,11 @@ pub fn go_to_block(keypair: &Keypair, block: u64, slot: SlotNumber) {
         slot,
         Solution {
             public_key_hash: Ed25519PublicKey::from(keypair.public.to_bytes()).hash(),
+            shard_commitment: SolutionShardCommitment {
+                root: Default::default(),
+                proof: [Default::default(); _],
+                leaf: Default::default(),
+            },
             record_root: Default::default(),
             record_proof: Default::default(),
             chunk,

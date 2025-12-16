@@ -10,12 +10,16 @@ use crate::reading::{
 use crate::sector::{
     SectorContentsMap, SectorContentsMapFromBytesError, SectorMetadataChecksummed,
 };
+use crate::shard_commitment::{ShardCommitmentsRootsCache, derive_solution_shard_commitment};
 use crate::{ReadAt, ReadAtSync};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunk};
 use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SBucket, SectorId};
-use ab_core_primitives::solutions::{ChunkProof, Solution, SolutionDistance};
+use ab_core_primitives::shard::NumShards;
+use ab_core_primitives::solutions::{
+    ChunkProof, ShardMembershipEntropy, Solution, SolutionDistance,
+};
 use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_proof_of_space::PosProofs;
@@ -85,6 +89,9 @@ where
 {
     public_key_hash: &'a Blake3Hash,
     sector_id: SectorId,
+    shard_commitments_roots_cache: &'a ShardCommitmentsRootsCache,
+    shard_membership_entropy: ShardMembershipEntropy,
+    num_shards: NumShards,
     s_bucket: SBucket,
     sector: Sector,
     sector_metadata: &'a SectorMetadataChecksummed,
@@ -99,6 +106,9 @@ where
         Self {
             public_key_hash: self.public_key_hash,
             sector_id: self.sector_id,
+            shard_commitments_roots_cache: self.shard_commitments_roots_cache,
+            shard_membership_entropy: self.shard_membership_entropy,
+            num_shards: self.num_shards,
             s_bucket: self.s_bucket,
             sector: self.sector.clone(),
             sector_metadata: self.sector_metadata,
@@ -111,9 +121,13 @@ impl<'a, Sector> SolutionCandidates<'a, Sector>
 where
     Sector: ReadAtSync + 'a,
 {
+    #[expect(clippy::too_many_arguments, reason = "Private API")]
     pub(crate) fn new(
         public_key_hash: &'a Blake3Hash,
         sector_id: SectorId,
+        shard_commitments_roots_cache: &'a ShardCommitmentsRootsCache,
+        shard_membership_entropy: ShardMembershipEntropy,
+        num_shards: NumShards,
         s_bucket: SBucket,
         sector: Sector,
         sector_metadata: &'a SectorMetadataChecksummed,
@@ -122,6 +136,9 @@ where
         Self {
             public_key_hash,
             sector_id,
+            shard_commitments_roots_cache,
+            shard_membership_entropy,
+            num_shards,
             s_bucket,
             sector,
             sector_metadata,
@@ -151,6 +168,9 @@ where
         SolutionsIterator::<'a, _, _>::new(
             self.public_key_hash,
             self.sector_id,
+            self.shard_commitments_roots_cache,
+            self.shard_membership_entropy,
+            self.num_shards,
             self.s_bucket,
             self.sector,
             self.sector_metadata,
@@ -170,6 +190,9 @@ where
 {
     public_key_hash: &'a Blake3Hash,
     sector_id: SectorId,
+    shard_commitments_roots_cache: &'a ShardCommitmentsRootsCache,
+    shard_membership_entropy: ShardMembershipEntropy,
+    num_shards: NumShards,
     s_bucket: SBucket,
     sector_metadata: &'a SectorMetadataChecksummed,
     s_bucket_offsets: Box<[u32; Record::NUM_S_BUCKETS]>,
@@ -266,14 +289,24 @@ where
                 .nth(usize::from(self.s_bucket))
                 .expect("Chunk offset is valid, hence corresponding proof exists; qed");
 
+            let history_size = self.sector_metadata.history_size;
+            let shard_commitment = derive_solution_shard_commitment(
+                &self.shard_commitments_roots_cache.shard_commitments_seed(),
+                &self.shard_commitments_roots_cache.get(history_size),
+                history_size,
+                &self.shard_membership_entropy,
+                self.num_shards,
+            );
+
             Solution {
                 public_key_hash: *self.public_key_hash,
+                shard_commitment,
                 record_root: record_metadata.root,
                 record_proof: record_metadata.proof,
                 chunk,
                 chunk_proof: ChunkProof::from(chunk_proof),
                 proof_of_space,
-                history_size: self.sector_metadata.history_size,
+                history_size,
                 sector_index: self.sector_metadata.sector_index,
                 piece_offset,
                 padding: [0; _],
@@ -311,6 +344,9 @@ where
     fn new(
         public_key_hash: &'a Blake3Hash,
         sector_id: SectorId,
+        shard_commitments_roots_cache: &'a ShardCommitmentsRootsCache,
+        shard_membership_entropy: ShardMembershipEntropy,
+        num_shards: NumShards,
         s_bucket: SBucket,
         sector: Sector,
         sector_metadata: &'a SectorMetadataChecksummed,
@@ -359,6 +395,9 @@ where
         Ok(Self {
             public_key_hash,
             sector_id,
+            shard_commitments_roots_cache,
+            shard_membership_entropy,
+            num_shards,
             s_bucket,
             sector_metadata,
             s_bucket_offsets,

@@ -434,6 +434,7 @@ where
 
         let sector_id = SectorId::new(
             &pre_digest.solution.public_key_hash,
+            &pre_digest.solution.shard_commitment.root,
             pre_digest.solution.sector_index,
             pre_digest.solution.history_size,
         );
