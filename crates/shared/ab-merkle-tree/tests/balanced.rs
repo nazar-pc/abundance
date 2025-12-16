@@ -49,7 +49,7 @@ where
     [(); ensure_supported_n(N)]:,
     [(); N.ilog2() as usize + 1]:,
     [(); compute_root_only_large_stack_size(N)]:,
-    [(); N_U64.ilog2() as usize + 1]:,
+    [(); N_U64.next_power_of_two().ilog2() as usize + 1]:,
 {
     assert!(N as u64 == N_U64);
 

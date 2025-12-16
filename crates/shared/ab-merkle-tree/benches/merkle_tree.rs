@@ -85,7 +85,7 @@ where
 
 fn unbalanced<const MAX_N: usize, const MAX_N_U64: u64>(c: &mut Criterion)
 where
-    [(); MAX_N_U64.ilog2() as usize + 1]:,
+    [(); MAX_N_U64.next_power_of_two().ilog2() as usize + 1]:,
 {
     // SAFETY: Data structure filled with zeroes is a valid invariant
     let mut input = unsafe { Box::<[[u8; 32]; MAX_N]>::new_zeroed().assume_init() };

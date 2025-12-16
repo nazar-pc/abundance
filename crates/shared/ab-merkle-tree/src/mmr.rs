@@ -16,18 +16,18 @@ use core::ops::{Deref, DerefMut};
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct MmrPeaks<const MAX_N: u64>
 where
-    [(); MAX_N.ilog2() as usize + 1]:,
+    [(); MAX_N.next_power_of_two().ilog2() as usize]:,
 {
     /// Number of leaves in MMR
     pub num_leaves: u64,
     /// MMR peaks, first [`Self::num_peaks()`] elements are occupied by values, the rest are ignored
     /// and do not need to be retained.
-    pub peaks: [[u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
+    pub peaks: [[u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize],
 }
 
 impl<const MAX_N: u64> MmrPeaks<MAX_N>
 where
-    [(); MAX_N.ilog2() as usize + 1]:,
+    [(); MAX_N.next_power_of_two().ilog2() as usize]:,
 {
     /// Number of peaks stored in [`Self::peaks`] that are occupied by actual values
     #[inline(always)]
@@ -124,16 +124,16 @@ const _: () = {
 #[repr(C)]
 pub struct MerkleMountainRange<const MAX_N: u64>
 where
-    [(); MAX_N.ilog2() as usize + 1]:,
+    [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
 {
     num_leaves: u64,
     // Stack of intermediate nodes per tree level
-    stack: [[u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
+    stack: [[u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1],
 }
 
 impl<const MAX_N: u64> Default for MerkleMountainRange<MAX_N>
 where
-    [(); MAX_N.ilog2() as usize + 1]:,
+    [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
@@ -145,7 +145,7 @@ where
 // TODO: Think harder about proof generation and verification API here
 impl<const MAX_N: u64> MerkleMountainRange<MAX_N>
 where
-    [(); MAX_N.ilog2() as usize + 1]:,
+    [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
 {
     /// Create an empty instance
     #[inline(always)]
@@ -153,7 +153,7 @@ where
     pub fn new() -> Self {
         Self {
             num_leaves: 0,
-            stack: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
+            stack: [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1],
         }
     }
 
@@ -165,7 +165,7 @@ where
     pub fn from_peaks(peaks: &MmrPeaks<MAX_N>) -> Option<Self> {
         let mut result = Self {
             num_leaves: peaks.num_leaves,
-            stack: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
+            stack: [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1],
         };
 
         // Convert peaks (where all occupied entries are all at the beginning of the list instead)
@@ -269,7 +269,7 @@ where
     pub fn peaks(&self) -> MmrPeaks<MAX_N> {
         let mut result = MmrPeaks {
             num_leaves: self.num_leaves,
-            peaks: [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
+            peaks: [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize],
         };
 
         // Convert stack (where occupied entries are at corresponding offsets) to peaks (where all
@@ -374,8 +374,7 @@ where
     ) -> Option<([u8; OUT_LEN], Vec<[u8; OUT_LEN]>)> {
         // SAFETY: Inner value is `MaybeUninit`
         let mut proof = unsafe {
-            Box::<[MaybeUninit<[u8; OUT_LEN]>; MAX_N.ilog2() as usize + 1]>::new_uninit()
-                .assume_init()
+            Box::<[MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize]>::new_uninit().assume_init()
         };
 
         let (root, proof_length) = self.add_leaf_and_compute_proof_inner(leaf, &mut proof)?;
@@ -399,7 +398,7 @@ where
     pub fn add_leaf_and_compute_proof_in<'proof>(
         &mut self,
         leaf: &[u8; OUT_LEN],
-        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.ilog2() as usize + 1],
+        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize],
     ) -> Option<([u8; OUT_LEN], &'proof mut [[u8; OUT_LEN]])> {
         let (root, proof_length) = self.add_leaf_and_compute_proof_inner(leaf, proof)?;
 
@@ -419,7 +418,7 @@ where
     pub fn add_leaf_and_compute_proof_inner(
         &mut self,
         leaf: &[u8; OUT_LEN],
-        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.ilog2() as usize + 1],
+        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize],
     ) -> Option<([u8; OUT_LEN], usize)> {
         let mut proof_length = 0;
 

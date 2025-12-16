@@ -45,12 +45,12 @@ impl UnbalancedMerkleTree {
         leaves: Iter,
     ) -> Option<[u8; OUT_LEN]>
     where
-        [(); MAX_N.ilog2() as usize + 1]:,
+        [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
         Item: Into<[u8; OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1];
+        let mut stack = [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1];
         let mut num_leaves = 0_u64;
 
         for hash in leaves {
@@ -111,7 +111,7 @@ impl UnbalancedMerkleTree {
 
     /// Compute Merkle Tree root and generate a proof for the `leaf` at `target_index`.
     ///
-    /// Returns `Some(root, proof)` on success, `None` if index is outside of list of leaves.
+    /// Returns `Some((root, proof))` on success, `None` if index is outside of list of leaves.
     ///
     /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
     /// usage.
@@ -122,16 +122,15 @@ impl UnbalancedMerkleTree {
         target_index: usize,
     ) -> Option<([u8; OUT_LEN], Vec<[u8; OUT_LEN]>)>
     where
-        [(); MAX_N.ilog2() as usize + 1]:,
+        [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
         Item: Into<[u8; OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1];
+        let mut stack = [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1];
         // SAFETY: Inner value is `MaybeUninit`
         let mut proof = unsafe {
-            Box::<[MaybeUninit<[u8; OUT_LEN]>; MAX_N.ilog2() as usize + 1]>::new_uninit()
-                .assume_init()
+            Box::<[MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize]>::new_uninit().assume_init()
         };
 
         let (root, proof_length) =
@@ -150,7 +149,7 @@ impl UnbalancedMerkleTree {
 
     /// Compute Merkle Tree root and generate a proof for the `leaf` at `target_index`.
     ///
-    /// Returns `Some(root, proof)` on success, `None` if index is outside of list of leaves.
+    /// Returns `Some((root, proof))` on success, `None` if index is outside of list of leaves.
     ///
     /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
     /// usage.
@@ -159,15 +158,15 @@ impl UnbalancedMerkleTree {
     pub fn compute_root_and_proof_in<'a, 'proof, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
         target_index: usize,
-        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.ilog2() as usize + 1],
+        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize],
     ) -> Option<([u8; OUT_LEN], &'proof mut [[u8; OUT_LEN]])>
     where
-        [(); MAX_N.ilog2() as usize + 1]:,
+        [(); MAX_N.next_power_of_two().ilog2() as usize + 1]:,
         Item: Into<[u8; OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; MAX_N.ilog2() as usize + 1];
+        let mut stack = [[0u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1];
 
         let (root, proof_length) =
             Self::compute_root_and_proof_inner(leaves, target_index, &mut stack, proof)?;
@@ -186,11 +185,10 @@ impl UnbalancedMerkleTree {
     fn compute_root_and_proof_inner<'a, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
         target_index: usize,
-        stack: &mut [[u8; OUT_LEN]; MAX_N.ilog2() as usize + 1],
-        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.ilog2() as usize + 1],
+        stack: &mut [[u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize + 1],
+        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; MAX_N.next_power_of_two().ilog2() as usize],
     ) -> Option<([u8; OUT_LEN], usize)>
     where
-        [(); MAX_N.ilog2() as usize + 1]:,
         Item: Into<[u8; OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
