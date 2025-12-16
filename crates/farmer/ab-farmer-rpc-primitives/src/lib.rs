@@ -106,10 +106,10 @@ pub struct SlotInfo {
     pub slot: SlotNumber,
     /// Global slot challenge
     pub global_challenge: Blake3Hash,
-    /// Acceptable solution range for block authoring
+    /// Acceptable solution range for farmer audits
     pub solution_range: SolutionRange,
-    /// Current shard membership entropy
-    pub entropy: ShardMembershipEntropy,
+    /// Shard membership entropy
+    pub shard_membership_entropy: ShardMembershipEntropy,
     /// The number of shards in the network
     pub num_shards: NumShards,
 }

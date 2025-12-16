@@ -31,6 +31,7 @@ pub struct ConsensusConstants {
     pub block_authoring_delay: SlotNumber,
     /// Proof-of-time consensus constants
     pub pot: PotConsensusConstants,
+    // TODO: Non-zero block number would be nice
     /// Period of time in blocks after which the solution range is adjusted
     pub retarget_interval: BlockNumber,
     /// Slot probability
@@ -45,6 +46,16 @@ pub struct ConsensusConstants {
     pub min_sector_lifetime: HistorySize,
     /// Max block timestamp drift allowed
     pub max_block_timestamp_drift: BlockTimestamp,
+    // TODO: Non-zero slot number would be nice
+    /// Number of slots between shard rotations.
+    ///
+    /// Every this number of slots PoT entropy is taken to calculate the next shard assignment.
+    pub shard_rotation_interval: SlotNumber,
+    /// Delay in slots for next shard rotation.
+    ///
+    /// Delay after shard assignment is revealed before it actually takes effect (essentially the
+    /// amount of time for a node to sync the corresponding shard).
+    pub shard_rotation_delay: SlotNumber,
 }
 
 /// Notification with information about the block that is about to be imported and acknowledgement

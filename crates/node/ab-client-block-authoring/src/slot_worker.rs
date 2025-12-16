@@ -4,6 +4,7 @@
 use crate::{BlockProducer, ClaimedSlot};
 use ab_client_api::{ChainInfo, ChainSyncStatus};
 use ab_client_consensus_common::ConsensusConstants;
+use ab_client_consensus_common::consensus_parameters::shard_membership_entropy_source;
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
@@ -29,7 +30,7 @@ use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use std::time::Duration;
 use tokio::sync::broadcast;
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
 const PENDING_SOLUTIONS_CHANNEL_CAPACITY: usize = 10;
@@ -44,8 +45,8 @@ pub struct NewSlotInfo {
     pub proof_of_time: PotOutput,
     /// Acceptable solution range for block authoring
     pub solution_range: SolutionRange,
-    /// Current shard membership entropy
-    pub entropy: ShardMembershipEntropy,
+    /// Shard membership entropy
+    pub shard_membership_entropy: ShardMembershipEntropy,
     /// The number of shards in the network
     pub num_shards: NumShards,
 }
@@ -89,6 +90,13 @@ pub struct SlotWorkerOptions<BP, BCI, CSS> {
     pub consensus_constants: ConsensusConstants,
     /// Proof of time verifier
     pub pot_verifier: PotVerifier,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct LastProcessedSlot {
+    slot: SlotNumber,
+    shard_membership_interval_index: u64,
+    shard_membership_entropy: ShardMembershipEntropy,
 }
 
 /// Slot worker responsible for block production
@@ -147,7 +155,12 @@ where
 
     /// Run slot worker
     pub async fn run(mut self, mut slot_info_stream: PotSlotInfoStream) {
-        let mut maybe_last_processed_slot = None;
+        // Initialize with placeholder values
+        let mut last_processed_slot = LastProcessedSlot {
+            slot: SlotNumber::ZERO,
+            shard_membership_interval_index: u64::MAX,
+            shard_membership_entropy: Default::default(),
+        };
 
         loop {
             let PotSlotInfo { slot, checkpoints } = match slot_info_stream.recv().await {
@@ -166,13 +179,15 @@ where
                     }
                 },
             };
-            if let Some(last_processed_slot) = maybe_last_processed_slot
-                && last_processed_slot >= slot
-            {
+
+            if last_processed_slot.slot >= slot {
                 // Already processed
                 continue;
             }
-            maybe_last_processed_slot.replace(slot);
+            last_processed_slot.slot = slot;
+
+            let best_beacon_chain_header = self.beacon_chain_info.best_header();
+            let best_beacon_chain_header = best_beacon_chain_header.header();
 
             // Store checkpoints
             {
@@ -183,13 +198,50 @@ where
                 self.pot_checkpoints.insert(slot, checkpoints);
             }
 
-            let best_beacon_chain_header = self.beacon_chain_info.best_header();
-            let best_beacon_chain_header = best_beacon_chain_header.header();
-
             if self.chain_sync_status.is_syncing() {
                 debug!(%slot, "Skipping farming due to syncing");
                 return;
             }
+
+            // Find shard membership entropy for the slot
+            let shard_membership_entropy = {
+                let shard_membership_interval_index = slot
+                    .saturating_sub(self.consensus_constants.shard_rotation_delay)
+                    .as_u64()
+                    / self.consensus_constants.shard_rotation_interval.as_u64();
+
+                if last_processed_slot.shard_membership_interval_index
+                    == shard_membership_interval_index
+                {
+                    // Use cached value
+                    last_processed_slot.shard_membership_entropy
+                } else {
+                    let shard_membership_entropy_source_fut = shard_membership_entropy_source(
+                        &self.beacon_chain_info,
+                        slot,
+                        self.pot_checkpoints.values(),
+                        best_beacon_chain_header,
+                        self.consensus_constants.shard_rotation_interval,
+                        self.consensus_constants.shard_rotation_delay,
+                        self.consensus_constants.block_authoring_delay,
+                    );
+                    let shard_membership_entropy = match shard_membership_entropy_source_fut.await {
+                        Ok(shard_membership_entropy) => shard_membership_entropy,
+                        Err(error) => {
+                            error!(%error, "Failed to find shard membership entropy");
+                            break;
+                        }
+                    };
+
+                    last_processed_slot = LastProcessedSlot {
+                        slot,
+                        shard_membership_interval_index,
+                        shard_membership_entropy,
+                    };
+
+                    shard_membership_entropy
+                }
+            };
 
             let proof_of_time = checkpoints.output();
 
@@ -210,13 +262,10 @@ where
                     slot,
                     proof_of_time,
                     solution_range,
-                    // TODO: Actual value here
-                    entropy: Default::default(),
-                    // TODO: Actual value here
-                    num_shards: NumShards {
-                        intermediate_shards: 0,
-                        leaf_shards_per_intermediate_shard: 0,
-                    },
+                    shard_membership_entropy,
+                    // TODO: Actual value here, probably should come from fixed parameters
+                    num_shards: NumShards::new(0, 0)
+                        .expect("Values are statically known to be valid; qed"),
                 };
                 let (solution_sender, solution_receiver) =
                     mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);

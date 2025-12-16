@@ -2,6 +2,7 @@
 
 use ab_io_type::trivial_type::TrivialType;
 use core::num::{NonZeroU32, NonZeroU128};
+use core::ops::RangeInclusive;
 use derive_more::Display;
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -9,6 +10,10 @@ use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+
+const INTERMEDIATE_SHARDS_RANGE: RangeInclusive<u32> = 1..=1023;
+const INTERMEDIATE_SHARD_BITS: u32 = 10;
+const INTERMEDIATE_SHARD_MASK: u32 = u32::MAX >> (u32::BITS - INTERMEDIATE_SHARD_BITS);
 
 /// A kind of shard.
 ///
@@ -109,7 +114,6 @@ impl ShardIndex {
     pub const MAX_ADDRESSES_PER_SHARD: NonZeroU128 =
         NonZeroU128::new(2u128.pow(108)).expect("Not zero; qed");
 
-    // TODO: Remove once traits work in const environment and `From` could be used
     /// Create shard index from `u32`.
     ///
     /// Returns `None` if `shard_index > ShardIndex::MAX_SHARD_INDEX`
@@ -142,17 +146,17 @@ impl ShardIndex {
     /// Whether the shard index corresponds to an intermediate shard
     #[inline(always)]
     pub const fn is_intermediate_shard(&self) -> bool {
-        self.0 >= 1 && self.0 <= 1023
+        self.0 >= *INTERMEDIATE_SHARDS_RANGE.start() && self.0 <= *INTERMEDIATE_SHARDS_RANGE.end()
     }
 
     /// Whether the shard index corresponds to an intermediate shard
     #[inline(always)]
     pub const fn is_leaf_shard(&self) -> bool {
-        if self.0 <= 1023 || self.0 > Self::MAX_SHARD_INDEX {
+        if self.0 <= *INTERMEDIATE_SHARDS_RANGE.end() || self.0 > Self::MAX_SHARD_INDEX {
             return false;
         }
 
-        self.0 & 0b11_1111_1111 != 0
+        self.0 & INTERMEDIATE_SHARD_MASK != 0
     }
 
     /// Whether the shard index corresponds to a real shard
@@ -164,56 +168,54 @@ impl ShardIndex {
     /// Whether the shard index corresponds to a phantom shard
     #[inline(always)]
     pub const fn is_phantom_shard(&self) -> bool {
-        if self.0 <= 1023 || self.0 > Self::MAX_SHARD_INDEX {
+        if self.0 <= *INTERMEDIATE_SHARDS_RANGE.end() || self.0 > Self::MAX_SHARD_INDEX {
             return false;
         }
 
-        self.0 & 0b11_1111_1111 == 0
+        self.0 & INTERMEDIATE_SHARD_MASK == 0
     }
 
     /// Check if this shard is a child shard of `parent`
-    #[inline]
+    #[inline(always)]
     pub const fn is_child_of(self, parent: Self) -> bool {
         match self.shard_kind() {
             Some(ShardKind::BeaconChain) => false,
             Some(ShardKind::IntermediateShard | ShardKind::Phantom) => parent.is_beacon_chain(),
             Some(ShardKind::LeafShard) => {
                 // Check that the least significant bits match
-                self.0 & 0b11_1111_1111 == parent.0
+                self.0 & INTERMEDIATE_SHARD_MASK == parent.0
             }
             None => false,
         }
     }
 
     /// Get index of the parent shard (for leaf and intermediate shards)
-    #[inline]
+    #[inline(always)]
     pub const fn parent_shard(self) -> Option<ShardIndex> {
         match self.shard_kind()? {
             ShardKind::BeaconChain => None,
             ShardKind::IntermediateShard | ShardKind::Phantom => Some(ShardIndex::BEACON_CHAIN),
-            ShardKind::LeafShard => Some(Self(self.0 & 0b11_1111_1111)),
+            ShardKind::LeafShard => Some(Self(self.0 & INTERMEDIATE_SHARD_MASK)),
         }
     }
 
     /// Get shard kind
     #[inline(always)]
     pub const fn shard_kind(&self) -> Option<ShardKind> {
-        Some(match self.0 {
-            0 => ShardKind::BeaconChain,
-            1..=1023 => ShardKind::IntermediateShard,
-            shard_index => {
-                if shard_index > Self::MAX_SHARD_INDEX {
-                    return None;
-                }
-
-                // Check if the least significant bits correspond to the beacon chain
-                if shard_index & 0b11_1111_1111 == 0 {
-                    ShardKind::Phantom
-                } else {
-                    ShardKind::LeafShard
-                }
-            }
-        })
+        if self.0 == Self::BEACON_CHAIN.0 {
+            Some(ShardKind::BeaconChain)
+        } else if self.0 >= *INTERMEDIATE_SHARDS_RANGE.start()
+            && self.0 <= *INTERMEDIATE_SHARDS_RANGE.end()
+        {
+            Some(ShardKind::IntermediateShard)
+        } else if self.0 > Self::MAX_SHARD_INDEX {
+            None
+        } else if self.0 & INTERMEDIATE_SHARD_MASK == 0 {
+            // Check if the least significant bits correspond to the beacon chain
+            Some(ShardKind::Phantom)
+        } else {
+            Some(ShardKind::LeafShard)
+        }
     }
 }
 
@@ -227,17 +229,75 @@ impl ShardIndex {
 #[repr(C)]
 pub struct NumShards {
     /// The number of intermediate shards
-    pub intermediate_shards: u16,
+    intermediate_shards: u16,
     /// The number of leaf shards per intermediate shard
-    pub leaf_shards_per_intermediate_shard: u16,
+    leaf_shards_per_intermediate_shard: u16,
 }
 
 impl NumShards {
+    /// Create a new instance from a number of intermediate shards and leaf shards per
+    /// intermediate shard.
+    ///
+    /// Returns `None` if inputs are invalid.
+    ///
+    /// This is typically only necessary for low-level code.
+    #[inline(always)]
+    pub const fn new(
+        intermediate_shards: u16,
+        leaf_shards_per_intermediate_shard: u16,
+    ) -> Option<Self> {
+        if intermediate_shards
+            > (*INTERMEDIATE_SHARDS_RANGE.end() - *INTERMEDIATE_SHARDS_RANGE.start() + 1) as u16
+        {
+            return None;
+        }
+
+        let num_shards = Self {
+            intermediate_shards,
+            leaf_shards_per_intermediate_shard,
+        };
+
+        if num_shards.num_leaf_shards() > ShardIndex::MAX_SHARDS.get() {
+            return None;
+        }
+
+        Some(num_shards)
+    }
+
+    /// The number of intermediate shards
+    #[inline(always)]
+    pub const fn intermediate_shards(self) -> u16 {
+        self.intermediate_shards
+    }
+    /// The number of leaf shards per intermediate shard
+    #[inline(always)]
+    pub const fn leaf_shards_per_intermediate_shard(self) -> u16 {
+        self.leaf_shards_per_intermediate_shard
+    }
+
     /// Total number of leaf shards in the network
     #[inline(always)]
-    pub fn num_leaf_shards(&self) -> u32 {
+    pub const fn num_leaf_shards(&self) -> u32 {
         self.intermediate_shards as u32 * self.leaf_shards_per_intermediate_shard as u32
     }
 
+    /// Iterator over all intermediate shards
+    #[inline(always)]
+    pub fn iter_intermediate_shards(&self) -> impl Iterator<Item = ShardIndex> {
+        INTERMEDIATE_SHARDS_RANGE
+            .take(usize::from(self.intermediate_shards))
+            .map(ShardIndex)
+    }
+
+    /// Iterator over all intermediate shards
+    #[inline(always)]
+    pub fn iter_leaf_shards(&self) -> impl Iterator<Item = ShardIndex> {
+        self.iter_intermediate_shards()
+            .flat_map(|intermediate_shard| {
+                (0..self.leaf_shards_per_intermediate_shard as u32).map(move |leaf_shard_index| {
+                    ShardIndex((leaf_shard_index << INTERMEDIATE_SHARD_BITS) | intermediate_shard.0)
+                })
+            })
+    }
     // TODO: APIs for enumerating/iterating shards based on the specified fields
 }

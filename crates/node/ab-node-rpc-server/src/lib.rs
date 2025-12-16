@@ -341,7 +341,7 @@ where
             slot,
             proof_of_time,
             solution_range,
-            entropy,
+            shard_membership_entropy,
             num_shards,
         } = new_slot_info;
 
@@ -358,8 +358,8 @@ where
         let slot_info = SlotInfo {
             slot,
             global_challenge,
-            solution_range,
-            entropy,
+            solution_range: solution_range.to_farmer_solution_range(num_shards),
+            shard_membership_entropy,
             num_shards,
         };
         let slot_info = serde_json::value::to_raw_value(&slot_info)

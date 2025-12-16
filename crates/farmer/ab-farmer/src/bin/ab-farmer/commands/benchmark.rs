@@ -186,11 +186,9 @@ where
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
-                                entropy: Default::default(),
-                                num_shards: NumShards {
-                                    intermediate_shards: 0,
-                                    leaf_shards_per_intermediate_shard: 0,
-                                },
+                                shard_membership_entropy: Default::default(),
+                                num_shards: NumShards::new(0, 0)
+                                    .expect("Values are statically known to be valid; qed"),
                             },
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
@@ -222,11 +220,9 @@ where
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
-                                entropy: Default::default(),
-                                num_shards: NumShards {
-                                    intermediate_shards: 0,
-                                    leaf_shards_per_intermediate_shard: 0,
-                                },
+                                shard_membership_entropy: Default::default(),
+                                num_shards: NumShards::new(0, 0)
+                                    .expect("Values are statically known to be valid; qed"),
                             },
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
@@ -256,11 +252,9 @@ where
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
-                                entropy: Default::default(),
-                                num_shards: NumShards {
-                                    intermediate_shards: 0,
-                                    leaf_shards_per_intermediate_shard: 0,
-                                },
+                                shard_membership_entropy: Default::default(),
+                                num_shards: NumShards::new(0, 0)
+                                    .expect("Values are statically known to be valid; qed"),
                             },
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
@@ -354,11 +348,9 @@ where
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
-                    entropy: Default::default(),
-                    num_shards: NumShards {
-                        intermediate_shards: 0,
-                        leaf_shards_per_intermediate_shard: 0,
-                    },
+                    shard_membership_entropy: Default::default(),
+                    num_shards: NumShards::new(0, 0)
+                        .expect("Values are statically known to be valid; qed"),
                 },
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,
@@ -403,11 +395,9 @@ where
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
-                    entropy: Default::default(),
-                    num_shards: NumShards {
-                        intermediate_shards: 0,
-                        leaf_shards_per_intermediate_shard: 0,
-                    },
+                    shard_membership_entropy: Default::default(),
+                    num_shards: NumShards::new(0, 0)
+                        .expect("Values are statically known to be valid; qed"),
                 },
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,
@@ -450,11 +440,9 @@ where
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
-                    entropy: Default::default(),
-                    num_shards: NumShards {
-                        intermediate_shards: 0,
-                        leaf_shards_per_intermediate_shard: 0,
-                    },
+                    shard_membership_entropy: Default::default(),
+                    num_shards: NumShards::new(0, 0)
+                        .expect("Values are statically known to be valid; qed"),
                 },
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,

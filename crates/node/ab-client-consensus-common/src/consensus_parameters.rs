@@ -1,14 +1,14 @@
 use crate::{ConsensusConstants, PotConsensusConstants};
-use ab_client_api::ChainInfo;
+use ab_client_api::{ChainInfo, ReadBlockError};
 use ab_core_primitives::block::header::{
-    BlockHeaderConsensusInfo, BlockHeaderConsensusParameters, BlockHeaderFixedConsensusParameters,
-    BlockHeaderPotParametersChange,
+    BeaconChainHeader, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
+    BlockHeaderFixedConsensusParameters, BlockHeaderPotParametersChange,
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::pieces::RecordChunk;
-use ab_core_primitives::pot::{PotOutput, PotParametersChange, SlotNumber};
-use ab_core_primitives::solutions::SolutionRange;
+use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
+use ab_core_primitives::solutions::{ShardMembershipEntropy, SolutionRange};
 use std::num::NonZeroU32;
 
 struct SolutionRanges {
@@ -275,4 +275,192 @@ where
         slot_iterations,
         parameters_change,
     })
+}
+
+/// Error for [`shard_membership_entropy_source`]
+#[derive(Debug, thiserror::Error)]
+pub enum ShardMembershipEntropySourceError {
+    /// Failed to find a beacon chain block with the shard membership entropy source
+    #[error(
+        "Failed to find a beacon chain block {block_number} with the shard membership entropy \
+        source for slot {slot} and entropy source slot {entropy_source_slot}"
+    )]
+    FailedToFindBeaconChainBlock {
+        /// Entropy source slot
+        entropy_source_slot: SlotNumber,
+        /// Slot for which the entropy was requested
+        slot: SlotNumber,
+        /// Block number that was not found
+        block_number: BlockNumber,
+    },
+    /// Failed to read a beacon chain block with the shard membership entropy source
+    #[error(
+        "Failed to read a beacon chain block {block_number} ({block_root:?}) with the shard \
+        membership entropy source source for slot {slot} and entropy source slot \
+        {entropy_source_slot}: {error}"
+    )]
+    FailedToReadBeaconChainBlock {
+        /// Entropy source slot
+        entropy_source_slot: SlotNumber,
+        /// Slot for which the entropy was requested
+        slot: SlotNumber,
+        /// Block number
+        block_number: BlockNumber,
+        /// Block root
+        block_root: BlockRoot,
+        /// Low-level error
+        error: ReadBlockError,
+    },
+    /// Failed to extract PoT checkpoints from extra checkpoints provided
+    #[error(
+        "Failed to extract PoT checkpoints from extra checkpoints provided for slot {slot} and \
+        entropy source slot {entropy_source_slot} (best beacon chain block future slot \
+        {best_beacon_chain_block_future_slot})"
+    )]
+    FailedToExtractExtraPotCheckpoints {
+        /// Entropy source slot
+        entropy_source_slot: SlotNumber,
+        /// Slot for which the entropy was requested
+        slot: SlotNumber,
+        /// Future slot of the beacon chain block
+        best_beacon_chain_block_future_slot: SlotNumber,
+    },
+    /// Failed to extract PoT checkpoints from a beacon chain block with the shard membership \
+    /// entropy source
+    #[error(
+        "Failed to extract PoT checkpoints ({num_pot_checkpoints} total) from a beacon chain block \
+        {block_number} ({block_root:?}, future slot {future_slot}) with the shard membership \
+        entropy source source for slot {slot} and entropy source slot {entropy_source_slot}"
+    )]
+    FailedToExtractPotCheckpoints {
+        /// Entropy source slot
+        entropy_source_slot: SlotNumber,
+        /// Slot for which the entropy was requested
+        slot: SlotNumber,
+        /// Block number
+        block_number: BlockNumber,
+        /// Block root
+        block_root: BlockRoot,
+        /// Future slot of the block
+        future_slot: SlotNumber,
+        /// Number of PoT checkpoints in the block
+        num_pot_checkpoints: usize,
+    },
+}
+
+/// Find shard membership entropy for a specified slot.
+///
+/// `extra_checkpoints` contains extra checkpoints up to `slot` (inclusive) that may not be found in
+/// the best beacon chain block yet.
+pub async fn shard_membership_entropy_source<'a, BCI, Checkpoints>(
+    beacon_chain_info: &BCI,
+    slot: SlotNumber,
+    extra_checkpoints: Checkpoints,
+    best_beacon_chain_header: &BeaconChainHeader<'_>,
+    shard_rotation_interval: SlotNumber,
+    shard_rotation_delay: SlotNumber,
+    block_authoring_delay: SlotNumber,
+) -> Result<ShardMembershipEntropy, ShardMembershipEntropySourceError>
+where
+    BCI: ChainInfo<OwnedBeaconChainBlock>,
+    Checkpoints: DoubleEndedIterator<Item = &'a PotCheckpoints>,
+{
+    let entropy_source_slot = SlotNumber::new(
+        slot.saturating_sub(shard_rotation_delay).as_u64() / shard_rotation_interval.as_u64()
+            * shard_rotation_interval.as_u64(),
+    );
+
+    if entropy_source_slot == SlotNumber::ZERO {
+        // TODO: Use PoT seed maybe?
+        // Special case for the very first interval
+        return Ok(ShardMembershipEntropy::default());
+    }
+
+    let best_beacon_chain_root = &*best_beacon_chain_header.root();
+    let best_beacon_chain_block_future_slot =
+        best_beacon_chain_header.consensus_info.slot + block_authoring_delay;
+
+    if best_beacon_chain_block_future_slot < entropy_source_slot {
+        // Necessary PoT checkpoints are not yet a part of the beacon chain, so extract them from
+        // extra checkpoints instead
+        let pot_checkpoints = extra_checkpoints
+            .rev()
+            .nth((slot - entropy_source_slot).as_u64() as usize)
+            .ok_or(
+                ShardMembershipEntropySourceError::FailedToExtractExtraPotCheckpoints {
+                    entropy_source_slot,
+                    slot,
+                    best_beacon_chain_block_future_slot,
+                },
+            )?;
+
+        return Ok(pot_checkpoints.output().shard_membership_entropy());
+    }
+
+    let mut current_block = (
+        *best_beacon_chain_root,
+        best_beacon_chain_header.prefix.number,
+        best_beacon_chain_block_future_slot,
+    );
+    loop {
+        let (_block_root, block_number, block_future_slot) = current_block;
+        if block_number == BlockNumber::ZERO || block_future_slot == entropy_source_slot {
+            // Found already
+            break;
+        }
+
+        let block_number_to_check = block_number - BlockNumber::ONE;
+
+        let header = beacon_chain_info
+            .ancestor_header(block_number_to_check, best_beacon_chain_root)
+            .ok_or(
+                ShardMembershipEntropySourceError::FailedToFindBeaconChainBlock {
+                    entropy_source_slot,
+                    slot,
+                    block_number: block_number_to_check,
+                },
+            )?;
+        let header = header.header();
+
+        let new_block_future_slot = header.consensus_info.slot + block_authoring_delay;
+
+        if new_block_future_slot < entropy_source_slot {
+            // This block can't contain checkpoints for `entropy_source_slot`
+            break;
+        }
+
+        current_block = (*header.root(), block_number_to_check, new_block_future_slot);
+    }
+
+    let (block_root, block_number, block_future_slot) = current_block;
+    let source_block = beacon_chain_info
+        .block(&block_root)
+        .await
+        .map_err(
+            |error| ShardMembershipEntropySourceError::FailedToReadBeaconChainBlock {
+                entropy_source_slot,
+                slot,
+                block_number,
+                block_root,
+                error,
+            },
+        )?;
+
+    let pot_checkpoints = source_block.body.body().pot_checkpoints();
+    let pot_checkpoints = pot_checkpoints
+        .iter()
+        .rev()
+        .nth((block_future_slot - entropy_source_slot).as_u64() as usize)
+        .ok_or(
+            ShardMembershipEntropySourceError::FailedToExtractPotCheckpoints {
+                entropy_source_slot,
+                slot,
+                block_number,
+                block_root,
+                future_slot: block_future_slot,
+                num_pot_checkpoints: pot_checkpoints.len(),
+            },
+        )?;
+
+    Ok(pot_checkpoints.output().shard_membership_entropy())
 }

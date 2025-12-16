@@ -30,6 +30,12 @@ const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
     ),
     min_sector_lifetime: HistorySize::new(NonZeroU64::new(4).expect("Not zero; qed")),
     max_block_timestamp_drift: BlockTimestamp::from_millis(30_000),
+    shard_rotation_interval: SlotNumber::new(3600),
+    shard_rotation_delay: SlotNumber::new(1800),
+};
+
+const _: () = {
+    assert!(CONSENSUS_CONSTANTS.shard_rotation_interval.as_u64() > 0);
 };
 
 // TODO: Placeholder data structure, should probably be replaced with something else

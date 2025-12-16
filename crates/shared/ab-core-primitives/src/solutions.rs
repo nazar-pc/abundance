@@ -8,10 +8,11 @@ use crate::pos::{PosProof, PosSeed};
 use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
+use crate::shard::NumShards;
 use ab_blake3::single_block_keyed_hash;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
-use blake3::{Hash, OUT_LEN};
+use blake3::OUT_LEN;
 use core::simd::Simd;
 use core::{fmt, mem};
 use derive_more::{
@@ -179,6 +180,24 @@ impl SolutionRange {
 
         // Take solution range into account
         pieces / self.0
+    }
+
+    /// Expands the global solution range to a solution range that a farmer should use for audits.
+    ///
+    /// Global solution range is updated based on the beacon chain information, while a farmer also
+    /// creates intermediate shard and leaf shard solutions with a wider solution range.
+    #[inline]
+    pub const fn to_farmer_solution_range(self, num_shards: NumShards) -> Self {
+        let mut shards = num_shards.num_leaf_shards();
+        if shards == 0 {
+            // No leaf shards
+            shards = num_shards.intermediate_shards() as u32;
+        }
+        if shards == 0 {
+            // Just the beacon chain
+            shards = 1;
+        }
+        Self(self.0.saturating_mul(shards as u64))
     }
 
     /// Bidirectional distance between two solution ranges

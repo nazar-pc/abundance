@@ -407,11 +407,9 @@ where
                 slot: slot_number,
                 global_challenge,
                 solution_range: new_slot_info.solution_range,
-                entropy: Default::default(),
-                num_shards: NumShards {
-                    intermediate_shards: 0,
-                    leaf_shards_per_intermediate_shard: 0,
-                },
+                shard_membership_entropy: Default::default(),
+                num_shards: NumShards::new(0, 0)
+                    .expect("Values are statically known to be valid; qed"),
             }
         };
         let stream = self
@@ -476,8 +474,8 @@ where
                         futures_timer::Delay::new(BLOCK_SEALING_TIMEOUT),
                         Box::pin(forward_signature_fut),
                     )
-                    .map(|_| ())
-                    .boxed(),
+                        .map(|_| ())
+                        .boxed(),
                 );
 
                 // This will be sent to the farmer
