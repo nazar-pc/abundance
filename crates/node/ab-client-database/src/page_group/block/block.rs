@@ -214,12 +214,9 @@ impl StorageItemBlockBlock {
 
     pub(super) fn read(mut buffer: &[u8]) -> Result<Self, StorageItemError> {
         let buffer_len = buffer.len();
-        let prefix_bytes =
-            buffer
-                .split_off(..Self::prefix_size())
-                .ok_or(StorageItemError::NeedMoreBytes(
-                    Self::prefix_size() - buffer_len,
-                ))?;
+        let prefix_bytes = buffer
+            .split_off(..Self::prefix_size())
+            .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
         let mut read_len = prefix_bytes.len();
 
         let (header_len, remainder) = prefix_bytes.split_at(size_of::<u32>());
@@ -242,9 +239,11 @@ impl StorageItemBlockBlock {
             let buffer_len = buffer.len();
             let header_bytes = buffer
                 .split_off(..header_len.next_multiple_of(size_of::<u128>()))
-                .ok_or(StorageItemError::NeedMoreBytes(
-                    header_len.next_multiple_of(size_of::<u128>()) - buffer_len,
-                ))?;
+                .ok_or_else(|| {
+                    StorageItemError::NeedMoreBytes(
+                        header_len.next_multiple_of(size_of::<u128>()) - buffer_len,
+                    )
+                })?;
             let header = SharedAlignedBuffer::from_bytes(&header_bytes[..header_len]);
             read_len += header_bytes.len();
             header
@@ -254,7 +253,7 @@ impl StorageItemBlockBlock {
             let buffer_len = buffer.len();
             let body_bytes = buffer
                 .split_off(..body_len)
-                .ok_or(StorageItemError::NeedMoreBytes(body_len - buffer_len))?;
+                .ok_or_else(|| StorageItemError::NeedMoreBytes(body_len - buffer_len))?;
             let body = SharedAlignedBuffer::from_bytes(body_bytes);
             read_len += body_bytes.len();
             body
@@ -264,7 +263,7 @@ impl StorageItemBlockBlock {
             let buffer_len = buffer.len();
             let mmr_raw_bytes = buffer
                 .split_off(..mmr_len)
-                .ok_or(StorageItemError::NeedMoreBytes(mmr_len - buffer_len))?;
+                .ok_or_else(|| StorageItemError::NeedMoreBytes(mmr_len - buffer_len))?;
 
             let mut mmr_bytes = MerkleMountainRangeBytes::default();
 
@@ -306,9 +305,11 @@ impl StorageItemBlockBlock {
                 let buffer_len = buffer.len();
                 let prefix_bytes = buffer
                     .split_off(..size_of::<SystemContractStatePrefix>())
-                    .ok_or(StorageItemError::NeedMoreBytes(
-                        size_of::<SystemContractStatePrefix>() - buffer_len,
-                    ))?;
+                    .ok_or_else(|| {
+                        StorageItemError::NeedMoreBytes(
+                            size_of::<SystemContractStatePrefix>() - buffer_len,
+                        )
+                    })?;
                 // SAFETY: This is a local database, so anything that is read that passes checksum
                 // verification is valid
                 let prefix = unsafe {
