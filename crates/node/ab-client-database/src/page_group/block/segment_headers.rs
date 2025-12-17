@@ -88,12 +88,9 @@ impl StorageItemBlockSegmentHeaders {
 
     pub(super) fn read(mut buffer: &[u8]) -> Result<Self, StorageItemError> {
         let buffer_len = buffer.len();
-        let prefix_bytes =
-            buffer
-                .split_off(..Self::prefix_size())
-                .ok_or(StorageItemError::NeedMoreBytes(
-                    buffer_len - Self::prefix_size(),
-                ))?;
+        let prefix_bytes = buffer
+            .split_off(..Self::prefix_size())
+            .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
 
         let (num_segment_headers, mut remainder) = prefix_bytes.split_at(size_of::<u32>());
 

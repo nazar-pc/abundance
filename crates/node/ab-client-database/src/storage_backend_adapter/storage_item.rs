@@ -159,12 +159,9 @@ where
         } = self.storage_item.write(buffer)?;
 
         let buffer_len = buffer.len();
-        let suffix_bytes =
-            buffer
-                .split_off_mut(..Self::suffix_size())
-                .ok_or(StorageItemError::NeedMoreBytes(
-                    buffer_len - Self::suffix_size(),
-                ))?;
+        let suffix_bytes = buffer
+            .split_off_mut(..Self::suffix_size())
+            .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::suffix_size() - buffer_len))?;
 
         let (before_checksum, checksum_bytes) =
             prefix_bytes.split_at_mut(size_of::<u64>() + size_of::<u8>() + size_of::<u32>());
@@ -244,12 +241,9 @@ where
         )?;
 
         let buffer_len = buffer.len();
-        let suffix_bytes =
-            buffer
-                .split_off(..Self::suffix_size())
-                .ok_or(StorageItemError::NeedMoreBytes(
-                    buffer_len - Self::suffix_size(),
-                ))?;
+        let suffix_bytes = buffer
+            .split_off(..Self::suffix_size())
+            .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::suffix_size() - buffer_len))?;
         let (storage_item_checksum_bytes, prefix_checksum_repeat_bytes) =
             suffix_bytes.split_at(size_of::<Blake3Hash>());
 
