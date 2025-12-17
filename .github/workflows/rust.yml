@@ -300,15 +300,15 @@ jobs:
 
           & {
             # See https://github.com/mmozeiko/build-mesa/releases for updates
-            $version = "25.2.5"
+            $version = "25.3.1"
             if ("${{ runner.arch }}" -eq "ARM64") {
               $arch = "arm64"
               $archJson = "aarch64"
-              $expectedHash = "94f19af7f14988ba7f292f258690b2c0f2e9aa84943e7d2d06a80308e054002b"
+              $expectedHash = "b58fca49de23c9c60656017d0302e27f2d91658c7f1e33c891cd8d4c4507e6b5"
             } else {
               $arch = "x64"
               $archJson = "x86_64"
-              $expectedHash = "4a88e27ea1ec6fa02d52873fe9ed95566dc7766540cb9f76d310b896c7b0060a"
+              $expectedHash = "32e0719760c8d72e18834ca98ff25854fcec2173a5da9018b230e4c90677ae90"
             }
 
             $url = "https://github.com/mmozeiko/build-mesa/releases/download/$version/mesa-lavapipe-$arch-$version.7z"
