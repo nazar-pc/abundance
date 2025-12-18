@@ -1,11 +1,15 @@
 use crate::importing_blocks::{ImportingBlockHandle, ImportingBlocks, ParentBlockImportStatus};
 use crate::{BlockImport, BlockImportError};
-use ab_client_api::{BlockDetails, BlockOrigin, ChainInfoWrite};
+use ab_client_api::{BlockDetails, BlockOrigin, ChainInfo, ChainInfoWrite};
 use ab_client_block_verification::{BlockVerification, BlockVerificationError};
 use ab_client_consensus_common::BlockImportingNotification;
+use ab_client_consensus_common::consensus_parameters::{
+    DeriveConsensusParametersChainInfo, DeriveConsensusParametersConsensusInfo,
+};
 use ab_client_consensus_common::state::GlobalState;
 use ab_core_primitives::block::header::owned::OwnedBeaconChainHeader;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
+use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_proof_of_space::Table;
 use futures::channel::mpsc;
@@ -33,6 +37,44 @@ impl From<BeaconChainBlockImportError> for BlockImportError {
     fn from(error: BeaconChainBlockImportError) -> Self {
         Self::Custom {
             error: error.into(),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct VerificationChainInfo<'a, CI> {
+    chain_info: &'a CI,
+    importing_blocks: &'a ImportingBlocks<OwnedBeaconChainHeader>,
+}
+
+impl<'a, CI> DeriveConsensusParametersChainInfo for VerificationChainInfo<'a, CI>
+where
+    CI: ChainInfo<OwnedBeaconChainBlock>,
+{
+    fn ancestor_header_consensus_info(
+        &self,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
+    ) -> Option<DeriveConsensusParametersConsensusInfo> {
+        if let Some(consensus_info) = self
+            .chain_info
+            .ancestor_header_consensus_info(ancestor_block_number, descendant_block_root)
+        {
+            return Some(consensus_info);
+        }
+
+        let mut current_block_root = *descendant_block_root;
+        loop {
+            let importing_entry = self.importing_blocks.get(&current_block_root)?;
+            let header = importing_entry.header().header();
+
+            if header.prefix.number == ancestor_block_number {
+                return Some(DeriveConsensusParametersConsensusInfo::from_consensus_info(
+                    header.consensus_info,
+                ));
+            }
+
+            current_block_root = *header.root();
         }
     }
 }
@@ -167,19 +209,32 @@ where
         // TODO: `.send()` is a hack for compiler bug, see:
         //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
         self.block_verification
-            .verify(parent_header, &parent_block_mmr_root, header, body, origin)
+            .verify_concurrent(
+                parent_header,
+                &parent_block_mmr_root,
+                header,
+                body,
+                &origin,
+                &VerificationChainInfo {
+                    chain_info: &self.chain_info,
+                    importing_blocks: &self.importing_blocks,
+                },
+            )
             .send()
             .await
             .map_err(BeaconChainBlockImportError::from)?;
 
-        if parent_block_import_status.has_failed() {
-            // Early exit to avoid extra work
-            return Err(BlockImportError::ParentBlockImportFailed);
-        }
-
         let Some(system_contract_states) = parent_block_import_status.wait().await else {
             return Err(BlockImportError::ParentBlockImportFailed);
         };
+
+        // TODO: `.send()` is a hack for compiler bug, see:
+        //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
+        self.block_verification
+            .verify_sequential(parent_header, &parent_block_mmr_root, header, body, &origin)
+            .send()
+            .await
+            .map_err(BeaconChainBlockImportError::from)?;
 
         let global_state = GlobalState::new(&system_contract_states);
 

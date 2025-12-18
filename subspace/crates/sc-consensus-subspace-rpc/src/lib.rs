@@ -234,12 +234,8 @@ where
     pub fn new(config: FarmerRpcConfig<Client, CSS, AS>) -> Result<Self, ApiError> {
         let info = config.client.info();
         let best_hash = info.best_hash;
-        let genesis_hash = BlockRoot::new(
-            info.genesis_hash
-                .as_ref()
-                .try_into()
-                .expect("Genesis root must always be convertible into BlockRoot; qed"),
-        );
+        let mut genesis_hash = BlockRoot::default();
+        genesis_hash.copy_from_slice(info.genesis_hash.as_ref());
         let runtime_api = config.client.runtime_api();
         let chain_constants = runtime_api.chain_constants(best_hash)?;
         // While the number can technically change in runtime, farmer will not adjust to it on the

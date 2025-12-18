@@ -44,14 +44,6 @@ impl<BlockHeader> ParentBlockImportStatus<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
 {
-    /// Check if the corresponding block import has failed
-    pub(crate) fn has_failed(&self) -> bool {
-        match self {
-            Self::Importing { entry } => entry.has_failed(),
-            Self::Imported { .. } => false,
-        }
-    }
-
     /// Wait for the corresponding block to be imported.
     ///
     /// Returns `Some(system_contract_states)` if a block was imported successfully and `None`
@@ -112,15 +104,6 @@ where
     #[inline(always)]
     pub(crate) fn mmr(&self) -> &Arc<BlockMerkleMountainRange> {
         &self.inner.mmr
-    }
-
-    /// Check if the corresponding block import has failed
-    #[inline(always)]
-    pub(crate) fn has_failed(&self) -> bool {
-        match self.inner.system_contract_states.try_read() {
-            Some(success) => success.is_none(),
-            None => false,
-        }
     }
 
     /// Wait for the corresponding block to be imported.

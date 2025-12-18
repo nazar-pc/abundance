@@ -2,7 +2,6 @@
 
 use ab_io_type::trivial_type::TrivialType;
 use blake3::{Hash, OUT_LEN};
-use core::array::TryFromSliceError;
 use core::{fmt, mem};
 use derive_more::{AsMut, AsRef, Deref, DerefMut, From, Into};
 #[cfg(feature = "scale-codec")]
@@ -106,22 +105,6 @@ impl AsMut<[u8]> for Blake3Hash {
     #[inline(always)]
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
-    }
-}
-
-impl From<&[u8; Self::SIZE]> for Blake3Hash {
-    #[inline(always)]
-    fn from(value: &[u8; Self::SIZE]) -> Self {
-        Self(*value)
-    }
-}
-
-impl TryFrom<&[u8]> for Blake3Hash {
-    type Error = TryFromSliceError;
-
-    #[inline(always)]
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        Ok(Self(value.try_into()?))
     }
 }
 

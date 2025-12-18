@@ -22,17 +22,20 @@ use ab_farmer_rpc_primitives::{
 };
 use ab_networking::libp2p::Multiaddr;
 use futures::channel::{mpsc, oneshot};
-use futures::{StreamExt, select};
+use futures::{FutureExt, StreamExt, select};
 use jsonrpsee::core::{SubscriptionResult, async_trait};
 use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::server::{Server, ServerConfig};
 use jsonrpsee::types::{ErrorObject, ErrorObjectOwned, SubscriptionId};
 use jsonrpsee::{PendingSubscriptionSink, SubscriptionSink, TrySendError};
 use parking_lot::Mutex;
 use schnellru::{ByLength, LruMap};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::io;
+use std::net::SocketAddr;
 use std::sync::{Arc, Weak};
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 /// Top-level error type for the RPC handler.
 #[derive(Debug, thiserror::Error)]
@@ -158,6 +161,8 @@ impl CachedArchivedSegment {
 /// Farmer RPC configuration
 #[derive(Debug)]
 pub struct FarmerRpcConfig<CI, CSS> {
+    /// IP and port (TCP) on which to listen for farmer RPC requests
+    pub listen_on: SocketAddr,
     /// Genesis beacon beacon chain block
     pub genesis_block: OwnedBeaconChainBlock,
     /// Consensus constants
@@ -182,7 +187,13 @@ pub struct FarmerRpcConfig<CI, CSS> {
 
 /// Worker that drives RPC server tasks
 #[derive(Debug)]
-pub struct FarmerRpcWorker {
+pub struct FarmerRpcWorker<CI, CSS>
+where
+    CI: ChainInfo<OwnedBeaconChainBlock>,
+    CSS: ChainSyncStatus,
+{
+    server: Option<Server>,
+    rpc: Option<FarmerRpc<CI, CSS>>,
     new_slot_notification_receiver: mpsc::Receiver<NewSlotNotification>,
     block_sealing_notification_receiver: mpsc::Receiver<BlockSealNotification>,
     archived_segment_notification_receiver: mpsc::Receiver<ArchivedSegmentNotification>,
@@ -196,11 +207,81 @@ pub struct FarmerRpcWorker {
     archived_segment_header_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
 }
 
-impl FarmerRpcWorker {
+impl<CI, CSS> FarmerRpcWorker<CI, CSS>
+where
+    CI: ChainInfo<OwnedBeaconChainBlock>,
+    CSS: ChainSyncStatus,
+{
+    /// Creates a new farmer RPC worker
+    pub async fn new(config: FarmerRpcConfig<CI, CSS>) -> io::Result<Self> {
+        let server = Server::builder()
+            .set_config(ServerConfig::builder().ws_only().build())
+            .build(config.listen_on)
+            .await?;
+
+        let address = server.local_addr()?;
+        info!(%address, "Started farmer RPC server");
+
+        let block_authoring_delay = u64::from(config.consensus_constants.block_authoring_delay);
+        let block_authoring_delay = usize::try_from(block_authoring_delay)
+            .expect("Block authoring delay will never exceed usize on any platform; qed");
+        let solution_response_senders_capacity = u32::try_from(block_authoring_delay)
+            .expect("Always a tiny constant in the protocol; qed");
+
+        let slot_info_subscriptions = Arc::default();
+        let block_sealing_subscriptions = Arc::default();
+
+        let solution_response_senders = Arc::new(Mutex::new(LruMap::new(ByLength::new(
+            solution_response_senders_capacity,
+        ))));
+        let block_sealing_senders = Arc::default();
+        let archived_segment_header_subscriptions = Arc::default();
+        let cached_archived_segment = Arc::default();
+
+        let rpc = FarmerRpc {
+            genesis_block: config.genesis_block,
+            solution_response_senders: Arc::clone(&solution_response_senders),
+            block_sealing_senders: Arc::clone(&block_sealing_senders),
+            dsn_bootstrap_nodes: config.dsn_bootstrap_nodes,
+            chain_info: config.chain_info,
+            cached_archived_segment: Arc::clone(&cached_archived_segment),
+            archived_segment_acknowledgement_senders: Arc::default(),
+            chain_sync_status: config.chain_sync_status,
+            consensus_constants: config.consensus_constants,
+            max_pieces_in_sector: config.max_pieces_in_sector,
+            slot_info_subscriptions: Arc::clone(&slot_info_subscriptions),
+            block_sealing_subscriptions: Arc::clone(&block_sealing_subscriptions),
+            archived_segment_header_subscriptions: Arc::clone(
+                &archived_segment_header_subscriptions,
+            ),
+            erasure_coding: config.erasure_coding,
+        };
+
+        Ok(Self {
+            server: Some(server),
+            rpc: Some(rpc),
+            new_slot_notification_receiver: config.new_slot_notification_receiver,
+            block_sealing_notification_receiver: config.block_sealing_notification_receiver,
+            archived_segment_notification_receiver: config.archived_segment_notification_receiver,
+            solution_response_senders,
+            block_sealing_senders,
+            cached_archived_segment,
+            archived_segment_acknowledgement_senders: Arc::new(Default::default()),
+            slot_info_subscriptions,
+            block_sealing_subscriptions,
+            archived_segment_header_subscriptions,
+        })
+    }
+
     /// Drive RPC server tasks
     pub async fn run(mut self) {
+        let server = self.server.take().expect("Called only once from here; qed");
+        let rpc = self.rpc.take().expect("Called only once from here; qed");
+        let mut server_fut = server.start(rpc.into_rpc()).stopped().boxed().fuse();
+
         loop {
             select! {
+                _ = server_fut => {}
                 maybe_new_slot_notification = self.new_slot_notification_receiver.next() => {
                     let Some(new_slot_notification) = maybe_new_slot_notification else {
                         break;
@@ -402,7 +483,7 @@ impl FarmerRpcWorker {
 
 /// Implements the [`FarmerRpcApiServer`] trait for farmer to connect to
 #[derive(Debug)]
-pub struct FarmerRpc<CI, CSS>
+struct FarmerRpc<CI, CSS>
 where
     CI: ChainInfo<OwnedBeaconChainBlock>,
     CSS: ChainSyncStatus,
@@ -422,72 +503,6 @@ where
     block_sealing_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
     archived_segment_header_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
     erasure_coding: ErasureCoding,
-}
-
-/// [`FarmerRpc`] is used for notifying subscribers about the arrival of new slots and for
-/// submission of solutions (or lack thereof).
-///
-/// Internally every time slot notifier emits information about a new slot, a notification is sent
-/// to every subscriber, after which the RPC server waits for the same number of
-/// `submitSolutionResponse` requests with `SolutionResponse` in them or until
-/// timeout is exceeded. The first valid solution for a particular slot wins, others are ignored.
-impl<CI, CSS> FarmerRpc<CI, CSS>
-where
-    CI: ChainInfo<OwnedBeaconChainBlock>,
-    CSS: ChainSyncStatus,
-{
-    /// Creates a new instance of the `FarmerRpc` handler.
-    pub fn new(config: FarmerRpcConfig<CI, CSS>) -> (Self, FarmerRpcWorker) {
-        let block_authoring_delay = u64::from(config.consensus_constants.block_authoring_delay);
-        let block_authoring_delay = usize::try_from(block_authoring_delay)
-            .expect("Block authoring delay will never exceed usize on any platform; qed");
-        let solution_response_senders_capacity = u32::try_from(block_authoring_delay)
-            .expect("Always a tiny constant in the protocol; qed");
-
-        let slot_info_subscriptions = Arc::default();
-        let block_sealing_subscriptions = Arc::default();
-
-        let solution_response_senders = Arc::new(Mutex::new(LruMap::new(ByLength::new(
-            solution_response_senders_capacity,
-        ))));
-        let block_sealing_senders = Arc::default();
-        let archived_segment_header_subscriptions = Arc::default();
-        let cached_archived_segment = Arc::default();
-
-        let rpc = Self {
-            genesis_block: config.genesis_block,
-            solution_response_senders: Arc::clone(&solution_response_senders),
-            block_sealing_senders: Arc::clone(&block_sealing_senders),
-            dsn_bootstrap_nodes: config.dsn_bootstrap_nodes,
-            chain_info: config.chain_info,
-            cached_archived_segment: Arc::clone(&cached_archived_segment),
-            archived_segment_acknowledgement_senders: Arc::default(),
-            chain_sync_status: config.chain_sync_status,
-            consensus_constants: config.consensus_constants,
-            max_pieces_in_sector: config.max_pieces_in_sector,
-            slot_info_subscriptions: Arc::clone(&slot_info_subscriptions),
-            block_sealing_subscriptions: Arc::clone(&block_sealing_subscriptions),
-            archived_segment_header_subscriptions: Arc::clone(
-                &archived_segment_header_subscriptions,
-            ),
-            erasure_coding: config.erasure_coding,
-        };
-
-        let worker = FarmerRpcWorker {
-            new_slot_notification_receiver: config.new_slot_notification_receiver,
-            block_sealing_notification_receiver: config.block_sealing_notification_receiver,
-            archived_segment_notification_receiver: config.archived_segment_notification_receiver,
-            solution_response_senders,
-            block_sealing_senders,
-            cached_archived_segment,
-            archived_segment_acknowledgement_senders: Arc::new(Default::default()),
-            slot_info_subscriptions,
-            block_sealing_subscriptions,
-            archived_segment_header_subscriptions,
-        };
-
-        (rpc, worker)
-    }
 }
 
 #[async_trait]

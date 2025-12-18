@@ -257,13 +257,11 @@ where
 
     let pot_verifier = PotVerifier::new(
         PotSeed::from_genesis(
-            &BlockRoot::new(
-                client_info
-                    .genesis_hash
-                    .as_ref()
-                    .try_into()
-                    .expect("Genesis root must always be convertible into BlockRoot; qed"),
-            ),
+            &{
+                let mut genesis_hash = BlockRoot::default();
+                genesis_hash.copy_from_slice(client_info.genesis_hash.as_ref());
+                genesis_hash
+            },
             pot_external_entropy,
         ),
         POT_VERIFIER_CACHE_SIZE,
@@ -812,7 +810,7 @@ where
         let (timekeeper_source, proof_receiver) = Timekeeper::new(
             rclite::Arc::clone(&pot_state),
             pot_verifier.clone(),
-            chain_constants.slot_duration(),
+            subspace_link.chain_constants().slot_duration(),
         );
         timekeeper_proof_receiver.replace(proof_receiver);
 

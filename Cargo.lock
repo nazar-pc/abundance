@@ -603,7 +603,6 @@ dependencies = [
  "clap",
  "core_affinity",
  "futures",
- "jsonrpsee",
  "mimalloc",
  "rclite",
  "tempfile",
