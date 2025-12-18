@@ -2,7 +2,7 @@ use crate::{BlockVerification, BlockVerificationError, GenericBody, GenericHeade
 use ab_client_api::{BlockOrigin, ChainInfo, ChainSyncStatus};
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
-    DeriveConsensusParametersError, derive_consensus_parameters,
+    DeriveConsensusParametersChainInfo, DeriveConsensusParametersError, derive_consensus_parameters,
 };
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::verifier::PotVerifier;
@@ -84,15 +84,39 @@ where
     CSS: ChainSyncStatus,
 {
     #[inline(always)]
-    async fn verify(
+    async fn verify_concurrent<BCI>(
         &self,
         parent_header: &GenericHeader<'_, OwnedBeaconChainBlock>,
         parent_block_mmr_root: &Blake3Hash,
         header: &GenericHeader<'_, OwnedBeaconChainBlock>,
         body: &GenericBody<'_, OwnedBeaconChainBlock>,
-        origin: BlockOrigin,
+        origin: &BlockOrigin,
+        beacon_chain_info: &BCI,
+    ) -> Result<(), BlockVerificationError>
+    where
+        BCI: DeriveConsensusParametersChainInfo,
+    {
+        self.verify_concurrent(
+            parent_header,
+            parent_block_mmr_root,
+            header,
+            body,
+            origin,
+            beacon_chain_info,
+        )
+        .await
+    }
+
+    #[inline(always)]
+    async fn verify_sequential(
+        &self,
+        parent_header: &GenericHeader<'_, OwnedBeaconChainBlock>,
+        parent_block_mmr_root: &Blake3Hash,
+        header: &GenericHeader<'_, OwnedBeaconChainBlock>,
+        body: &GenericBody<'_, OwnedBeaconChainBlock>,
+        origin: &BlockOrigin,
     ) -> Result<(), BlockVerificationError> {
-        self.verify(parent_header, parent_block_mmr_root, header, body, origin)
+        self.verify_sequential(parent_header, parent_block_mmr_root, header, body, origin)
             .await
     }
 }
@@ -174,15 +198,19 @@ where
         Ok(())
     }
 
-    fn check_consensus_parameters(
+    fn check_consensus_parameters<BCI>(
         &self,
         parent_block_root: &BlockRoot,
         parent_header: &BeaconChainHeader<'_>,
         header: &BeaconChainHeader<'_>,
-    ) -> Result<(), BeaconChainBlockVerificationError> {
+        beacon_chain_info: &BCI,
+    ) -> Result<(), BeaconChainBlockVerificationError>
+    where
+        BCI: DeriveConsensusParametersChainInfo,
+    {
         let derived_consensus_parameters = derive_consensus_parameters(
             &self.consensus_constants,
-            &self.chain_info,
+            beacon_chain_info,
             parent_block_root,
             parent_header.consensus_parameters(),
             parent_header.consensus_info.slot,
@@ -413,15 +441,19 @@ where
         Ok(())
     }
 
-    async fn verify(
+    async fn verify_concurrent<BCI>(
         &self,
         parent_header: &BeaconChainHeader<'_>,
         parent_block_mmr_root: &Blake3Hash,
         header: &BeaconChainHeader<'_>,
         body: &BeaconChainBody<'_>,
-        _origin: BlockOrigin,
-    ) -> Result<(), BlockVerificationError> {
-        trace!(header = ?header, "Verifying");
+        _origin: &BlockOrigin,
+        beacon_chain_info: &BCI,
+    ) -> Result<(), BlockVerificationError>
+    where
+        BCI: DeriveConsensusParametersChainInfo,
+    {
+        trace!(header = ?header, "Verify concurrent");
 
         let parent_block_root = parent_header.root();
 
@@ -447,7 +479,12 @@ where
 
         self.check_header_prefix(parent_header.prefix, parent_block_mmr_root, header.prefix)?;
 
-        self.check_consensus_parameters(&parent_block_root, parent_header, header)?;
+        self.check_consensus_parameters(
+            &parent_block_root,
+            parent_header,
+            header,
+            beacon_chain_info,
+        )?;
 
         if !header.is_sealed_correctly() {
             return Err(BlockVerificationError::InvalidSeal);
@@ -481,13 +518,44 @@ where
             self.full_pot_verification(block_number),
         )?;
 
+        // TODO: Do something about equivocation?
+
+        Ok(())
+    }
+
+    async fn verify_sequential(
+        &self,
+        // TODO: Probable remove these unused arguments
+        _parent_header: &BeaconChainHeader<'_>,
+        _parent_block_mmr_root: &Blake3Hash,
+        header: &BeaconChainHeader<'_>,
+        body: &BeaconChainBody<'_>,
+        _origin: &BlockOrigin,
+    ) -> Result<(), BlockVerificationError> {
+        trace!(header = ?header, "Verify sequential");
+
+        let block_number = header.prefix.number;
+
+        let best_header = self.chain_info.best_header();
+        let best_header = best_header.header();
+        let best_number = best_header.prefix.number;
+
+        // Reject block below archiving point
+        if block_number + self.consensus_constants.confirmation_depth_k < best_number {
+            debug!(
+                ?header,
+                %best_number,
+                "Rejecting a block below the archiving point"
+            );
+
+            return Err(BlockVerificationError::BelowArchivingPoint);
+        }
+
         self.check_body(
             block_number,
             body.own_segment_roots(),
             body.intermediate_shard_blocks(),
         )?;
-
-        // TODO: Do something about equivocation?
 
         Ok(())
     }
