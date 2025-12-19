@@ -356,9 +356,9 @@ where
     // pipeline of the node, before block is imported. This can result in subsequent request for
     // farmer app info to return old data, meaning we're replotting exactly the same sector that
     // just expired.
-    let farmer_app_info = loop {
-        let farmer_app_info = match node_client.farmer_app_info().await {
-            Ok(farmer_app_info) => farmer_app_info,
+    let protocol_info = loop {
+        let protocol_info = match node_client.farmer_app_info().await {
+            Ok(farmer_app_info) => farmer_app_info.protocol_info,
             Err(error) => {
                 return PlotSingleSectorResult::FatalError(PlottingError::FailedToGetFarmerInfo {
                     error,
@@ -367,11 +367,11 @@ where
         };
 
         if let Some(old_sector_metadata) = &maybe_old_sector_metadata
-            && farmer_app_info.protocol_info.history_size <= old_sector_metadata.history_size
+            && protocol_info.history_size <= old_sector_metadata.history_size
         {
-            if farmer_app_info.protocol_info.min_sector_lifetime == HistorySize::ONE {
+            if protocol_info.min_sector_lifetime == HistorySize::ONE {
                 debug!(
-                    current_history_size = %farmer_app_info.protocol_info.history_size,
+                    current_history_size = %protocol_info.history_size,
                     old_sector_history_size = %old_sector_metadata.history_size,
                     "Latest protocol history size is not yet newer than old sector history \
                     size, wait for a bit and try again"
@@ -380,7 +380,7 @@ where
                 continue;
             } else {
                 debug!(
-                    current_history_size = %farmer_app_info.protocol_info.history_size,
+                    current_history_size = %protocol_info.history_size,
                     old_sector_history_size = %old_sector_metadata.history_size,
                     "Skipped sector plotting, likely redundant due to redundant archived \
                     segment notification"
@@ -389,12 +389,11 @@ where
             }
         }
 
-        break farmer_app_info;
+        break protocol_info;
     };
 
     let (progress_sender, mut progress_receiver) = mpsc::channel(10);
-    let shard_commitments_root =
-        shard_commitments_roots_cache.get(farmer_app_info.protocol_info.history_size);
+    let shard_commitments_root = shard_commitments_roots_cache.get(protocol_info.history_size);
 
     // Initiate plotting
     plotter
@@ -402,7 +401,7 @@ where
             *public_key,
             shard_commitments_root,
             sector_index,
-            farmer_app_info.protocol_info,
+            protocol_info,
             *pieces_in_sector,
             replotting,
             progress_sender,
@@ -451,7 +450,7 @@ where
                     *public_key,
                     shard_commitments_root,
                     sector_index,
-                    farmer_app_info.protocol_info,
+                    protocol_info,
                     *pieces_in_sector,
                     replotting,
                     retry_progress_sender,
@@ -480,9 +479,9 @@ where
                             plotted_sector.sector_id.derive_piece_index(
                                 piece_offset,
                                 old_history_size,
-                                farmer_app_info.protocol_info.max_pieces_in_sector,
-                                farmer_app_info.protocol_info.recent_segments,
-                                farmer_app_info.protocol_info.recent_history_fraction,
+                                protocol_info.max_pieces_in_sector,
+                                protocol_info.recent_segments,
+                                protocol_info.recent_history_fraction,
                             )
                         })
                         .collect_into(&mut piece_indexes);
