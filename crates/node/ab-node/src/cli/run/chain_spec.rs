@@ -30,8 +30,12 @@ const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
     ),
     min_sector_lifetime: HistorySize::new(NonZeroU64::new(4).expect("Not zero; qed")),
     max_block_timestamp_drift: BlockTimestamp::from_millis(30_000),
-    shard_rotation_interval: SlotNumber::new(3600),
-    shard_rotation_delay: SlotNumber::new(1800),
+    // TODO: Reduced values just for testing to hit potential bugs sooner
+    // shard_rotation_interval: SlotNumber::new(3600),
+    shard_rotation_interval: SlotNumber::new(36),
+    // TODO: Reduced values just for testing to hit potential bugs sooner
+    // shard_rotation_delay: SlotNumber::new(1800),
+    shard_rotation_delay: SlotNumber::new(18),
 };
 
 const _: () = {
