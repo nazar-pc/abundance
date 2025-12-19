@@ -15,13 +15,8 @@ use ab_core_primitives::block::header::{
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
-use ab_core_primitives::sectors::SectorId;
-use ab_core_primitives::segments::HistorySize;
 use ab_core_primitives::shard::NumShards;
-use ab_core_primitives::solutions::{
-    ShardMembershipEntropy, Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
-    SolutionVerifyPieceCheckParams,
-};
+use ab_core_primitives::solutions::{ShardMembershipEntropy, Solution, SolutionRange};
 use ab_proof_of_space::Table;
 use futures::StreamExt;
 use futures::channel::{mpsc, oneshot};
@@ -155,7 +150,12 @@ where
 
     /// Run slot worker
     pub async fn run(mut self, mut slot_info_stream: PotSlotInfoStream) {
-        // Initialize with placeholder values
+        // Cache of shard membership entropy initialized with placeholder values.
+        //
+        // NOTE: This cache is imperfect and will produce invalid value in case there are PoT
+        // reorgs below `ConsensusConstants::shard_rotation_delay` slots, but that should be
+        // extremely unlikely in practice, especially in a production network where this delay will
+        // likely be measured in tens of minutes.
         let mut last_processed_slot = LastProcessedSlot {
             slot: SlotNumber::ZERO,
             shard_membership_interval_index: u64::MAX,
@@ -247,17 +247,13 @@ where
 
             // Send slot notification to farmers
             {
+                let consensus_parameters = best_beacon_chain_header.consensus_parameters();
                 // NOTE: Best bock is not necessarily going to be the parent of the corresponding
-                // block once it is created, but solution range shouldn't be too far off by then
-                let solution_range = best_beacon_chain_header
-                    .consensus_parameters()
+                // block once it is created, but solution range and number of shards should be the
+                // same most of the time
+                let solution_range = consensus_parameters
                     .next_solution_range
-                    .unwrap_or(
-                        best_beacon_chain_header
-                            .consensus_parameters()
-                            .fixed_parameters
-                            .solution_range,
-                    );
+                    .unwrap_or(consensus_parameters.fixed_parameters.solution_range);
                 let new_slot_info = NewSlotInfo {
                     slot,
                     proof_of_time,
@@ -361,10 +357,6 @@ where
         }
 
         let parent_consensus_parameters = parent_beacon_chain_header.consensus_parameters();
-
-        let solution_range = parent_consensus_parameters
-            .next_solution_range
-            .unwrap_or(parent_consensus_parameters.fixed_parameters.solution_range);
 
         let parent_pot_parameters_change = parent_consensus_parameters
             .pot_parameters_change
@@ -478,119 +470,21 @@ where
 
         let mut maybe_consensus_info = None;
 
-        // TODO: Consider skipping most/all checks here and do them in block import instead
         while let Some(solution) = solution_receiver.next().await {
-            let sector_id = SectorId::new(
-                &solution.public_key_hash,
-                &solution.shard_commitment.root,
-                solution.sector_index,
-                solution.history_size,
-            );
-
-            // TODO: Query it from an actual chain
-            // let history_size = runtime_api.history_size(parent_block_root).ok()?;
-            // let max_pieces_in_sector = runtime_api.max_pieces_in_sector(parent_block_root).ok()?;
-            let history_size = HistorySize::ONE;
-            let max_pieces_in_sector = 1000;
-
-            let segment_index = sector_id
-                .derive_piece_index(
-                    solution.piece_offset,
-                    solution.history_size,
-                    max_pieces_in_sector,
-                    self.consensus_constants.recent_segments,
-                    self.consensus_constants.recent_history_fraction,
-                )
-                .segment_index();
-            let maybe_segment_root = self
-                .beacon_chain_info
-                .get_segment_header(segment_index)
-                .map(|segment_header| segment_header.segment_root);
-
-            let segment_root = match maybe_segment_root {
-                Some(segment_root) => segment_root,
-                None => {
-                    warn!(
-                        %slot,
-                        %segment_index,
-                        "Segment root not found",
-                    );
-                    continue;
-                }
-            };
-            let sector_expiration_check_segment_index = match solution
-                .history_size
-                .sector_expiration_check(self.consensus_constants.min_sector_lifetime)
-            {
-                Some(sector_expiration_check) => sector_expiration_check.segment_index(),
-                None => {
-                    continue;
-                }
-            };
-            let sector_expiration_check_segment_root = self
-                .beacon_chain_info
-                .get_segment_header(sector_expiration_check_segment_index)
-                .map(|segment_header| segment_header.segment_root);
-
-            let solution_verification_result = solution.verify::<PosTable>(
-                slot,
-                &SolutionVerifyParams {
+            if maybe_consensus_info.is_none() {
+                debug!(%slot, "🚜 Claimed slot");
+                maybe_consensus_info.replace(BlockHeaderConsensusInfo {
+                    slot,
                     proof_of_time,
-                    solution_range,
-                    piece_check_params: Some(SolutionVerifyPieceCheckParams {
-                        max_pieces_in_sector,
-                        segment_root,
-                        recent_segments: self.consensus_constants.recent_segments,
-                        recent_history_fraction: self.consensus_constants.recent_history_fraction,
-                        min_sector_lifetime: self.consensus_constants.min_sector_lifetime,
-                        current_history_size: history_size,
-                        sector_expiration_check_segment_root,
-                    }),
-                },
-            );
-
-            match solution_verification_result {
-                Ok(()) => {
-                    if maybe_consensus_info.is_none() {
-                        debug!(%slot, "🚜 Claimed slot");
-                        maybe_consensus_info.replace(BlockHeaderConsensusInfo {
-                            slot,
-                            proof_of_time,
-                            future_proof_of_time,
-                            solution,
-                        });
-                    } else {
-                        debug!(
-                            %slot,
-                            "Skipping a solution that has quality sufficient for block because \
-                            slot has already been claimed",
-                        );
-                    }
-                }
-                Err(error @ SolutionVerifyError::OutsideSolutionRange { .. }) => {
-                    // Solution range might have just adjusted, but when a farmer was auditing it
-                    // didn't know about this, so downgrade the warning to a debug message
-                    if parent_consensus_parameters.next_solution_range.is_some() {
-                        debug!(
-                            %slot,
-                            %error,
-                            "Invalid solution received",
-                        );
-                    } else {
-                        warn!(
-                            %slot,
-                            %error,
-                            "Invalid solution received",
-                        );
-                    }
-                }
-                Err(error) => {
-                    warn!(
-                        %slot,
-                        %error,
-                        "Invalid solution received",
-                    );
-                }
+                    future_proof_of_time,
+                    solution,
+                });
+            } else {
+                debug!(
+                    %slot,
+                    "Skipping a solution that has quality sufficient for block because \
+                    slot has already been claimed",
+                );
             }
         }
 
