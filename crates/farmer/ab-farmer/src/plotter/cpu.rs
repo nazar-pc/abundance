@@ -8,6 +8,7 @@ use crate::thread_pool_manager::PlottingThreadPoolManager;
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
+use ab_core_primitives::solutions::ShardCommitmentHash;
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
@@ -91,6 +92,7 @@ where
     async fn plot_sector(
         &self,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -107,6 +109,7 @@ where
             start,
             downloading_permit,
             public_key,
+            shard_commitments_root,
             sector_index,
             farmer_protocol_info,
             pieces_in_sector,
@@ -119,6 +122,7 @@ where
     async fn try_plot_sector(
         &self,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -135,6 +139,7 @@ where
             start,
             downloading_permit,
             public_key,
+            shard_commitments_root,
             sector_index,
             farmer_protocol_info,
             pieces_in_sector,
@@ -230,6 +235,7 @@ where
         start: Instant,
         downloading_permit: SemaphoreGuardArc,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -280,6 +286,7 @@ where
 
                     let downloaded_sector_fut = download_sector(DownloadSectorOptions {
                         public_key_hash,
+                        shard_commitments_root: &shard_commitments_root,
                         sector_index,
                         piece_getter: &piece_getter,
                         farmer_protocol_info,

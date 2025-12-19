@@ -57,7 +57,7 @@ impl Identity {
         IdentityFileContents { secret_key: [0; _] }.encoded_size()
     }
 
-    /// Opens the existing identity, or creates a new one.
+    /// Opens the existing identity, or creates a new one
     pub fn open_or_create<B: AsRef<Path>>(base_directory: B) -> Result<Self, IdentityError> {
         if let Some(identity) = Self::open(base_directory.as_ref())? {
             Ok(identity)
@@ -66,7 +66,7 @@ impl Identity {
         }
     }
 
-    /// Opens the existing identity, returns `Ok(None)` if it doesn't exist.
+    /// Opens the existing identity, returns `Ok(None)` if it doesn't exist
     pub fn open<B: AsRef<Path>>(base_directory: B) -> Result<Option<Self>, IdentityError> {
         let identity_file = base_directory.as_ref().join(Self::FILE_NAME);
         if identity_file.exists() {
@@ -84,7 +84,7 @@ impl Identity {
         }
     }
 
-    /// Creates new identity, overrides identity that might already exist.
+    /// Creates new identity, overrides identity that might already exist
     pub fn create<B: AsRef<Path>>(base_directory: B) -> Result<Self, IdentityError> {
         let identity_file = base_directory.as_ref().join(Self::FILE_NAME);
         debug!("Generating new keypair");
@@ -107,12 +107,17 @@ impl Identity {
         Ok(Self { signing_key })
     }
 
-    /// Returns the public key of the identity.
+    /// Returns the public key of the identity
     pub fn public_key(&self) -> Ed25519PublicKey {
         Ed25519PublicKey::from(VerificationKey::from(&self.signing_key))
     }
 
-    /// Returns the secret key of the identity.
+    /// Seed used for deriving shard commitments
+    pub fn shard_commitments_seed(&self) -> Blake3Hash {
+        Blake3Hash::from(blake3::hash(&self.secret_key()))
+    }
+
+    /// Returns the secret key of the identity
     pub fn secret_key(&self) -> [u8; 32] {
         self.signing_key.into()
     }

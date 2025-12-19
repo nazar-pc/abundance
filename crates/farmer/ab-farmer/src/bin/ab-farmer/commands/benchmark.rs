@@ -1,6 +1,7 @@
 use crate::PosTable;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
+use ab_core_primitives::shard::NumShards;
 use ab_core_primitives::solutions::SolutionRange;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
@@ -9,6 +10,7 @@ use ab_farmer::single_disk_farm::farming::{PlotAudit, PlotAuditOptions};
 use ab_farmer::single_disk_farm::{SingleDiskFarm, SingleDiskFarmInfo, SingleDiskFarmSummary};
 use ab_farmer::utils::{recommended_number_of_farming_threads, tokio_rayon_spawn_handler};
 use ab_farmer_components::sector::sector_size;
+use ab_farmer_components::shard_commitment::ShardCommitmentsRootsCache;
 use ab_farmer_rpc_primitives::SlotInfo;
 use ab_proof_of_space::Table;
 use anyhow::anyhow;
@@ -18,7 +20,7 @@ use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::hint::black_box;
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU16, NonZeroUsize};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -151,6 +153,8 @@ where
     } = audit_options;
 
     let public_key_hash = &single_disk_farm_info.public_key().hash();
+    let shard_commitments_roots_cache =
+        &ShardCommitmentsRootsCache::new(*single_disk_farm_info.shard_commitments_seed());
     let sector_size = sector_size(single_disk_farm_info.pieces_in_sector());
     let erasure_coding = ErasureCoding::new();
     let table_generator = PosTable::generator();
@@ -180,11 +184,15 @@ where
                     |global_challenge| {
                         let options = PlotAuditOptions::<PosTable> {
                             public_key_hash,
+                            shard_commitments_roots_cache,
                             slot_info: SlotInfo {
-                                slot_number: SlotNumber::ZERO,
+                                slot: SlotNumber::ZERO,
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
+                                shard_membership_entropy: Default::default(),
+                                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
+                                    .expect("Values are statically known to be valid; qed"),
                             },
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
@@ -211,11 +219,15 @@ where
                     |global_challenge| {
                         let options = PlotAuditOptions::<PosTable> {
                             public_key_hash,
+                            shard_commitments_roots_cache,
                             slot_info: SlotInfo {
-                                slot_number: SlotNumber::ZERO,
+                                slot: SlotNumber::ZERO,
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
+                                shard_membership_entropy: Default::default(),
+                                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
+                                    .expect("Values are statically known to be valid; qed"),
                             },
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
@@ -240,11 +252,15 @@ where
                     |global_challenge| {
                         let options = PlotAuditOptions::<PosTable> {
                             public_key_hash,
+                            shard_commitments_roots_cache,
                             slot_info: SlotInfo {
-                                slot_number: SlotNumber::ZERO,
+                                slot: SlotNumber::ZERO,
                                 global_challenge: Blake3Hash::from(global_challenge),
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
+                                shard_membership_entropy: Default::default(),
+                                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
+                                    .expect("Values are statically known to be valid; qed"),
                             },
                             sectors_metadata: &sectors_metadata,
                             erasure_coding: &erasure_coding,
@@ -310,6 +326,8 @@ where
     } = prove_options;
 
     let public_key_hash = &single_disk_farm_info.public_key().hash();
+    let shard_commitments_roots_cache =
+        &ShardCommitmentsRootsCache::new(*single_disk_farm_info.shard_commitments_seed());
     let erasure_coding = ErasureCoding::new();
     let table_generator = PosTable::generator();
 
@@ -333,11 +351,15 @@ where
             let plot_audit = PlotAudit::new(&plot);
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key_hash,
+                shard_commitments_roots_cache,
                 slot_info: SlotInfo {
-                    slot_number: SlotNumber::ZERO,
+                    slot: SlotNumber::ZERO,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
+                    shard_membership_entropy: Default::default(),
+                    num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
+                        .expect("Values are statically known to be valid; qed"),
                 },
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,
@@ -377,11 +399,15 @@ where
             let plot_audit = PlotAudit::new(&plot);
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key_hash,
+                shard_commitments_roots_cache,
                 slot_info: SlotInfo {
-                    slot_number: SlotNumber::ZERO,
+                    slot: SlotNumber::ZERO,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
+                    shard_membership_entropy: Default::default(),
+                    num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
+                        .expect("Values are statically known to be valid; qed"),
                 },
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,
@@ -419,11 +445,15 @@ where
             let plot_audit = PlotAudit::new(&plot);
             let mut options = PlotAuditOptions::<PosTable> {
                 public_key_hash,
+                shard_commitments_roots_cache,
                 slot_info: SlotInfo {
-                    slot_number: SlotNumber::ZERO,
+                    slot: SlotNumber::ZERO,
                     global_challenge: Blake3Hash::from(rand::random::<[u8; 32]>()),
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
+                    shard_membership_entropy: Default::default(),
+                    num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
+                        .expect("Values are statically known to be valid; qed"),
                 },
                 sectors_metadata: &sectors_metadata,
                 erasure_coding: &erasure_coding,

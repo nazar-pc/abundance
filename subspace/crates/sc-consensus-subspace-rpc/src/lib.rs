@@ -9,12 +9,13 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
+use ab_core_primitives::shard::NumShards;
 use ab_core_primitives::solutions::Solution;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo,
-    SolutionResponse,
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo,
+    MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo, SolutionResponse,
 };
 use ab_networking::libp2p::Multiaddr;
 use futures::channel::mpsc;
@@ -128,6 +129,12 @@ pub trait FarmerRpcApi {
 
     #[method(name = "lastSegmentHeaders")]
     async fn last_segment_headers(&self, limit: u32) -> Result<Vec<Option<SegmentHeader>>, Error>;
+
+    #[method(name = "updateShardMembershipInfo")]
+    fn update_shard_membership_info(
+        &self,
+        info: Vec<FarmerShardMembershipInfo>,
+    ) -> Result<(), Error>;
 }
 
 #[derive(Default)]
@@ -397,9 +404,12 @@ where
 
             // This will be sent to the farmer
             SlotInfo {
-                slot_number,
+                slot: slot_number,
                 global_challenge,
                 solution_range: new_slot_info.solution_range,
+                shard_membership_entropy: Default::default(),
+                num_shards: NumShards::new(0, 0)
+                    .expect("Values are statically known to be valid; qed"),
             }
         };
         let stream = self
@@ -741,5 +751,12 @@ where
         last_segment_headers.reverse();
 
         Ok(last_segment_headers)
+    }
+
+    fn update_shard_membership_info(
+        &self,
+        _info: Vec<FarmerShardMembershipInfo>,
+    ) -> Result<(), Error> {
+        Ok(())
     }
 }

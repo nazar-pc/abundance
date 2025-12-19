@@ -3,6 +3,7 @@
 use crate::plotter::{Plotter, SectorPlottingProgress};
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
+use ab_core_primitives::solutions::ShardCommitmentHash;
 use ab_farmer_components::FarmerProtocolInfo;
 use async_trait::async_trait;
 use event_listener::Event;
@@ -51,6 +52,7 @@ impl Plotter for PoolPlotter {
     async fn plot_sector(
         &self,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -62,6 +64,7 @@ impl Plotter for PoolPlotter {
                 if plotter
                     .try_plot_sector(
                         public_key,
+                        shard_commitments_root,
                         sector_index,
                         farmer_protocol_info,
                         pieces_in_sector,
@@ -90,6 +93,7 @@ impl Plotter for PoolPlotter {
     async fn try_plot_sector(
         &self,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -100,6 +104,7 @@ impl Plotter for PoolPlotter {
             if plotter
                 .try_plot_sector(
                     public_key,
+                    shard_commitments_root,
                     sector_index,
                     farmer_protocol_info,
                     pieces_in_sector,

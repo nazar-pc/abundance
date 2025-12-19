@@ -11,6 +11,7 @@ pub mod pool;
 
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
+use ab_core_primitives::solutions::ShardCommitmentHash;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::plotting::PlottedSector;
 use async_trait::async_trait;
@@ -87,9 +88,12 @@ pub trait Plotter: fmt::Debug {
     /// Plot one sector, sending sector plotting events via the provided stream.
     ///
     /// Future returns once plotting is successfully scheduled (for backpressure purposes).
+    // TODO: Struct for arguments
+    #[expect(clippy::too_many_arguments)]
     async fn plot_sector(
         &self,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -101,9 +105,12 @@ pub trait Plotter: fmt::Debug {
     ///
     /// Returns `true` if plotting started successfully and `false` if there is no capacity to start
     /// plotting immediately.
+    // TODO: Struct for arguments
+    #[expect(clippy::too_many_arguments)]
     async fn try_plot_sector(
         &self,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -126,6 +133,7 @@ where
     async fn plot_sector(
         &self,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -135,6 +143,7 @@ where
         self.as_ref()
             .plot_sector(
                 public_key,
+                shard_commitments_root,
                 sector_index,
                 farmer_protocol_info,
                 pieces_in_sector,
@@ -148,6 +157,7 @@ where
     async fn try_plot_sector(
         &self,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -157,6 +167,7 @@ where
         self.as_ref()
             .try_plot_sector(
                 public_key,
+                shard_commitments_root,
                 sector_index,
                 farmer_protocol_info,
                 pieces_in_sector,

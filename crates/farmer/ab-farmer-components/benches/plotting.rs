@@ -1,11 +1,13 @@
 use ab_archiving::archiver::Archiver;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::plotting::{CpuRecordsEncoder, PlotSectorOptions, plot_sector};
 use ab_farmer_components::sector::sector_size;
+use ab_farmer_components::shard_commitment::derive_shard_commitments_root;
 use ab_proof_of_space::Table;
 use ab_proof_of_space::chia::ChiaTable;
 use chacha20::ChaCha8Rng;
@@ -28,6 +30,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let public_key = Ed25519PublicKey::default();
     let public_key_hash = &public_key.hash();
+    let shard_commitments_seed = &Blake3Hash::default();
     let sector_index = SectorIndex::ZERO;
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let mut input = RecordedHistorySegment::new_boxed();
@@ -56,6 +59,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         ),
         min_sector_lifetime: HistorySize::new(NonZeroU64::new(4).unwrap()),
     };
+    let shard_commitments_root =
+        &derive_shard_commitments_root(shard_commitments_seed, farmer_protocol_info.history_size);
 
     let sector_size = sector_size(pieces_in_sector);
     let mut sector_bytes = Vec::new();
@@ -66,6 +71,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             block_on(plot_sector(PlotSectorOptions {
                 public_key_hash: black_box(public_key_hash),
+                shard_commitments_root: black_box(shard_commitments_root),
                 sector_index: black_box(sector_index),
                 piece_getter: black_box(&archived_history_segment),
                 farmer_protocol_info: black_box(farmer_protocol_info),

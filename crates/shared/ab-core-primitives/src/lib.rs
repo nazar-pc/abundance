@@ -3,6 +3,7 @@
 #![cfg_attr(any(target_os = "none", target_os = "unknown"), no_std)]
 #![warn(rust_2018_idioms, missing_debug_implementations, missing_docs)]
 #![feature(
+    const_cmp,
     const_convert,
     const_trait_impl,
     const_try,
@@ -23,6 +24,7 @@ pub mod block;
 pub mod checksum;
 pub mod ed25519;
 pub mod hashes;
+mod nano_u256;
 pub mod pieces;
 pub mod pos;
 pub mod pot;

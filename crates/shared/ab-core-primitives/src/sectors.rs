@@ -1,14 +1,14 @@
 //! Sectors-related data structures.
 
-mod nano_u256;
 #[cfg(test)]
 mod tests;
 
 use crate::hashes::Blake3Hash;
+use crate::nano_u256::NanoU256;
 use crate::pieces::{PieceIndex, PieceOffset, Record};
 use crate::pos::PosSeed;
-use crate::sectors::nano_u256::NanoU256;
 use crate::segments::{HistorySize, SegmentRoot};
+use crate::solutions::ShardCommitmentHash;
 use ab_blake3::{single_block_hash, single_block_keyed_hash};
 use ab_io_type::trivial_type::TrivialType;
 use core::hash::Hash;
@@ -160,13 +160,17 @@ impl SectorId {
     #[inline]
     pub fn new(
         public_key_hash: &Blake3Hash,
+        shard_commitments_root: &ShardCommitmentHash,
         sector_index: SectorIndex,
         history_size: HistorySize,
     ) -> Self {
-        let mut bytes_to_hash = [0; SectorIndex::SIZE + HistorySize::SIZE as usize];
+        let mut bytes_to_hash =
+            [0; SectorIndex::SIZE + HistorySize::SIZE as usize + ShardCommitmentHash::SIZE];
         bytes_to_hash[..SectorIndex::SIZE].copy_from_slice(&sector_index.to_bytes());
-        bytes_to_hash[SectorIndex::SIZE..]
+        bytes_to_hash[SectorIndex::SIZE..][..HistorySize::SIZE as usize]
             .copy_from_slice(&history_size.as_non_zero_u64().get().to_le_bytes());
+        bytes_to_hash[SectorIndex::SIZE + HistorySize::SIZE as usize..]
+            .copy_from_slice(shard_commitments_root.as_bytes());
         // TODO: Is keyed hash really needed here?
         Self(Blake3Hash::new(
             single_block_keyed_hash(public_key_hash, &bytes_to_hash)

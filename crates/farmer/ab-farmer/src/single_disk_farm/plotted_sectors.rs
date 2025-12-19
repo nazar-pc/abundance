@@ -5,6 +5,7 @@ use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::plotting::PlottedSector;
 use ab_farmer_components::sector::SectorMetadataChecksummed;
+use ab_farmer_components::shard_commitment::ShardCommitmentsRootsCache;
 use async_lock::RwLock as AsyncRwLock;
 use async_trait::async_trait;
 use futures::{Stream, stream};
@@ -14,6 +15,7 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct SingleDiskPlottedSectors {
     pub(super) public_key_hash: Blake3Hash,
+    pub(super) shard_commitments_roots_cache: ShardCommitmentsRootsCache,
     pub(super) pieces_in_sector: u16,
     pub(super) farmer_protocol_info: FarmerProtocolInfo,
     pub(super) sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
@@ -33,6 +35,9 @@ impl PlottedSectors for SingleDiskPlottedSectors {
                 move |(sector_index, sector_metadata)| {
                     let sector_id = SectorId::new(
                         &self.public_key_hash,
+                        &self
+                            .shard_commitments_roots_cache
+                            .get(sector_metadata.history_size),
                         sector_index,
                         sector_metadata.history_size,
                     );

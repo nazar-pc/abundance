@@ -20,8 +20,10 @@ ab-client-proof-of-time = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["scale-codec"] }
 ab-proof-of-space = { workspace = true }
 anyhow = { workspace = true }
+async-lock = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["thread_rng"] }
 rayon = { workspace = true }
+schnellru = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 

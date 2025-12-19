@@ -11,6 +11,7 @@ use crate::plotter::{Plotter, SectorPlottingProgress};
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
+use ab_core_primitives::solutions::ShardCommitmentHash;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::plotting::PlottedSector;
 use ab_farmer_components::sector::sector_size;
@@ -108,6 +109,7 @@ enum ClusterSectorPlottingProgress {
 #[derive(Debug, Clone, Encode, Decode)]
 struct ClusterPlotterPlotSectorRequest {
     public_key: Ed25519PublicKey,
+    shard_commitments_root: ShardCommitmentHash,
     sector_index: SectorIndex,
     farmer_protocol_info: FarmerProtocolInfo,
     pieces_in_sector: u16,
@@ -156,6 +158,7 @@ impl Plotter for ClusterPlotter {
     async fn plot_sector(
         &self,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -197,6 +200,7 @@ impl Plotter for ClusterPlotter {
             start,
             sector_encoding_permit,
             public_key,
+            shard_commitments_root,
             sector_index,
             farmer_protocol_info,
             pieces_in_sector,
@@ -208,6 +212,7 @@ impl Plotter for ClusterPlotter {
     async fn try_plot_sector(
         &self,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -226,6 +231,7 @@ impl Plotter for ClusterPlotter {
             start,
             sector_encoding_permit,
             public_key,
+            shard_commitments_root,
             sector_index,
             farmer_protocol_info,
             pieces_in_sector,
@@ -298,6 +304,7 @@ impl ClusterPlotter {
         start: Instant,
         sector_encoding_permit: OwnedSemaphorePermit,
         public_key: Ed25519PublicKey,
+        shard_commitments_root: ShardCommitmentHash,
         sector_index: SectorIndex,
         farmer_protocol_info: FarmerProtocolInfo,
         pieces_in_sector: u16,
@@ -357,6 +364,7 @@ impl ClusterPlotter {
                     .stream_request(
                         &ClusterPlotterPlotSectorRequest {
                             public_key,
+                            shard_commitments_root,
                             sector_index,
                             farmer_protocol_info,
                             pieces_in_sector,
@@ -839,6 +847,7 @@ async fn process_plot_sector_request<P>(
 {
     let ClusterPlotterPlotSectorRequest {
         public_key,
+        shard_commitments_root,
         sector_index,
         farmer_protocol_info,
         pieces_in_sector,
@@ -853,6 +862,7 @@ async fn process_plot_sector_request<P>(
         if !plotter
             .try_plot_sector(
                 public_key,
+                shard_commitments_root,
                 sector_index,
                 farmer_protocol_info,
                 pieces_in_sector,

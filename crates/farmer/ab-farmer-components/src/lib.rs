@@ -8,6 +8,7 @@
     int_roundings,
     iter_array_chunks,
     iter_collect_into,
+    maybe_uninit_array_assume_init,
     never_type,
     portable_simd,
     try_blocks
@@ -25,6 +26,7 @@ pub mod proving;
 pub mod reading;
 pub mod sector;
 mod segment_reconstruction;
+pub mod shard_commitment;
 
 use crate::file_ext::FileExt;
 use ab_core_primitives::segments::HistorySize;

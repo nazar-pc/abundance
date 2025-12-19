@@ -6,8 +6,8 @@ use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::segments::{SegmentHeader, SegmentIndex};
 use ab_farmer_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo,
-    SolutionResponse,
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo,
+    MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo, SolutionResponse,
 };
 use async_lock::{
     Mutex as AsyncMutex, RwLock as AsyncRwLock,
@@ -170,11 +170,11 @@ where
                 let mut last_slot_number = None;
                 while let Some(slot_info) = slot_info_subscription.next().await {
                     if let Some(last_slot_number) = last_slot_number
-                        && last_slot_number >= slot_info.slot_number
+                        && last_slot_number >= slot_info.slot
                     {
                         continue;
                     }
-                    last_slot_number.replace(slot_info.slot_number);
+                    last_slot_number.replace(slot_info.slot);
 
                     if let Err(error) = slot_info_sender.send(Some(slot_info)) {
                         warn!(%error, "Failed to proxy slot info notification");
@@ -395,6 +395,13 @@ where
     ) -> anyhow::Result<()> {
         // Not supported
         Ok(())
+    }
+
+    async fn update_shard_membership_info(
+        &self,
+        info: FarmerShardMembershipInfo,
+    ) -> anyhow::Result<()> {
+        self.inner.update_shard_membership_info(info).await
     }
 }
 

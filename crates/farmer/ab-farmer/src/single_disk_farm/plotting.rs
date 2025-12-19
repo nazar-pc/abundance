@@ -14,6 +14,7 @@ use ab_core_primitives::segments::{HistorySize, SegmentHeader, SegmentIndex};
 use ab_farmer_components::file_ext::FileExt;
 use ab_farmer_components::plotting::PlottedSector;
 use ab_farmer_components::sector::SectorMetadataChecksummed;
+use ab_farmer_components::shard_commitment::ShardCommitmentsRootsCache;
 use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock, Semaphore, SemaphoreGuard};
 use futures::channel::{mpsc, oneshot};
 use futures::stream::FuturesOrdered;
@@ -85,6 +86,7 @@ pub enum PlottingError {
 
 pub(super) struct SectorPlottingOptions<'a, NC> {
     pub(super) public_key: Ed25519PublicKey,
+    pub(super) shard_commitments_roots_cache: ShardCommitmentsRootsCache,
     pub(super) node_client: &'a NC,
     pub(super) pieces_in_sector: u16,
     pub(super) sector_size: usize,
@@ -296,6 +298,7 @@ where
 {
     let SectorPlottingOptions {
         public_key,
+        shard_commitments_roots_cache,
         node_client,
         pieces_in_sector,
         sector_size,
@@ -347,6 +350,7 @@ where
 
     let start = Instant::now();
 
+    // TODO: Minimize history size diversity here to reduce diversity of shard assignment
     // This `loop` is a workaround for edge-case in local setup if expiration is configured to 1.
     // In that scenario we get replotting notification essentially straight from block import
     // pipeline of the node, before block is imported. This can result in subsequent request for
@@ -389,11 +393,14 @@ where
     };
 
     let (progress_sender, mut progress_receiver) = mpsc::channel(10);
+    let shard_commitments_root =
+        shard_commitments_roots_cache.get(farmer_app_info.protocol_info.history_size);
 
     // Initiate plotting
     plotter
         .plot_sector(
             *public_key,
+            shard_commitments_root,
             sector_index,
             farmer_app_info.protocol_info,
             *pieces_in_sector,
@@ -442,6 +449,7 @@ where
             plotter
                 .plot_sector(
                     *public_key,
+                    shard_commitments_root,
                     sector_index,
                     farmer_app_info.protocol_info,
                     *pieces_in_sector,
@@ -694,6 +702,7 @@ async fn plot_single_sector_internal(
 
 pub(super) struct PlottingSchedulerOptions<NC> {
     pub(super) public_key_hash: Blake3Hash,
+    pub(super) shard_commitments_roots_cache: ShardCommitmentsRootsCache,
     pub(super) sectors_indices_left_to_plot: Range<SectorIndex>,
     pub(super) target_sector_count: u16,
     pub(super) last_archived_segment_index: SegmentIndex,
@@ -716,6 +725,7 @@ where
 {
     let PlottingSchedulerOptions {
         public_key_hash,
+        shard_commitments_roots_cache,
         sectors_indices_left_to_plot,
         target_sector_count,
         last_archived_segment_index,
@@ -753,6 +763,7 @@ where
 
     let send_plotting_notifications_fut = send_plotting_notifications(
         public_key_hash,
+        &shard_commitments_roots_cache,
         sectors_indices_left_to_plot,
         target_sector_count,
         min_sector_lifetime,
@@ -821,6 +832,7 @@ struct SectorToReplot {
 #[allow(clippy::too_many_arguments)]
 async fn send_plotting_notifications<NC>(
     public_key_hash: Blake3Hash,
+    shard_commitments_roots_cache: &ShardCommitmentsRootsCache,
     sectors_indices_left_to_plot: Range<SectorIndex>,
     target_sector_count: u16,
     min_sector_lifetime: HistorySize,
@@ -912,6 +924,7 @@ where
                 continue;
             }
 
+            let shard_commitments_root = shard_commitments_roots_cache.get(history_size);
             if let Some(expiration_check_segment_index) = history_size
                 .sector_expiration_check(min_sector_lifetime)
                 .map(|expiration_check_history_size| expiration_check_history_size.segment_index())
@@ -934,7 +947,12 @@ where
                 if let Some(sector_expiration_check_segment_root) =
                     maybe_sector_expiration_check_segment_root
                 {
-                    let sector_id = SectorId::new(&public_key_hash, sector_index, history_size);
+                    let sector_id = SectorId::new(
+                        &public_key_hash,
+                        &shard_commitments_root,
+                        sector_index,
+                        history_size,
+                    );
                     let expiration_history_size = sector_id
                         .derive_expiration_history_size(
                             history_size,

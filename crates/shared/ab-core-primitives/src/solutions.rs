@@ -8,13 +8,16 @@ use crate::pos::{PosProof, PosSeed};
 use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
+use crate::shard::{NumShards, RealShardKind, ShardIndex, ShardKind};
 use ab_blake3::single_block_keyed_hash;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
-use blake3::OUT_LEN;
-use core::fmt;
+use blake3::{Hash, OUT_LEN};
 use core::simd::Simd;
-use derive_more::{Add, AddAssign, Deref, DerefMut, Display, From, Into, Sub, SubAssign};
+use core::{fmt, mem};
+use derive_more::{
+    Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, From, Into, Sub, SubAssign,
+};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "scale-codec")]
@@ -179,6 +182,28 @@ impl SolutionRange {
         pieces / self.0
     }
 
+    /// Expands the global solution range to a solution range that corresponds to a leaf shard.
+    ///
+    /// Global solution range is updated based on the beacon chain information, while a farmer also
+    /// creates intermediate shard and leaf shard solutions with a wider solution range.
+    #[inline]
+    pub const fn to_leaf_shard(self, num_shards: NumShards) -> Self {
+        Self(
+            self.0
+                .saturating_mul(u64::from(num_shards.leaf_shards().get())),
+        )
+    }
+
+    /// Expands the global solution range to a solution range that corresponds to an intermediate
+    /// shard
+    #[inline]
+    pub const fn to_intermediate_shard(self, num_shards: NumShards) -> Self {
+        Self(
+            self.0
+                .saturating_mul(u64::from(num_shards.intermediate_shards().get())),
+        )
+    }
+
     /// Bidirectional distance between two solution ranges
     #[inline]
     pub const fn bidirectional_distance(self, other: Self) -> SolutionDistance {
@@ -285,7 +310,7 @@ impl Serialize for ChunkProof {
             // SAFETY: `ChunkProofHexHash` is `#[repr(C)]` and guaranteed to have the
             // same memory layout
             ChunkProofHex(unsafe {
-                core::mem::transmute::<
+                mem::transmute::<
                     [[u8; OUT_LEN]; ChunkProof::NUM_HASHES],
                     [ChunkProofHexHash; ChunkProof::NUM_HASHES],
                 >(self.0)
@@ -308,7 +333,7 @@ impl<'de> Deserialize<'de> for ChunkProof {
             // SAFETY: `ChunkProofHexHash` is `#[repr(C)]` and guaranteed to have the
             // same memory layout
             unsafe {
-                core::mem::transmute::<
+                mem::transmute::<
                     [ChunkProofHexHash; ChunkProof::NUM_HASHES],
                     [[u8; OUT_LEN]; ChunkProof::NUM_HASHES],
                 >(ChunkProofHex::deserialize(deserializer)?.0)
@@ -387,6 +412,32 @@ pub enum SolutionVerifyError {
     /// Invalid proof of space
     #[error("Invalid proof of space")]
     InvalidProofOfSpace,
+    /// Invalid shard commitment
+    #[error("Invalid shard commitment")]
+    InvalidShardCommitment,
+    /// Invalid input shard
+    #[error("Invalid input shard {shard_index} ({shard_kind:?})")]
+    InvalidInputShard {
+        /// Input shard index
+        shard_index: ShardIndex,
+        /// Input shard kind
+        shard_kind: Option<ShardKind>,
+    },
+    /// Invalid solution shard
+    #[error(
+        "Invalid solution shard {solution_shard_index} (parent {solution_parent_shard_index:?}), \
+        expected shard {expected_shard_index} ({expected_shard_kind:?})"
+    )]
+    InvalidSolutionShard {
+        /// Solution shard index
+        solution_shard_index: ShardIndex,
+        /// Solution shard index
+        solution_parent_shard_index: Option<ShardIndex>,
+        /// Expected shard index
+        expected_shard_index: ShardIndex,
+        /// Expected shard kind
+        expected_shard_kind: RealShardKind,
+    },
     /// Invalid chunk proof
     #[error("Invalid chunk proof")]
     InvalidChunkProof,
@@ -419,10 +470,16 @@ pub struct SolutionVerifyPieceCheckParams {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 pub struct SolutionVerifyParams {
+    /// Shard for which the solution is built
+    pub shard_index: ShardIndex,
     /// Proof of time for which solution is built
     pub proof_of_time: PotOutput,
     /// Solution range
     pub solution_range: SolutionRange,
+    /// Shard membership entropy
+    pub shard_membership_entropy: ShardMembershipEntropy,
+    /// The number of shards in the network
+    pub num_shards: NumShards,
     /// Parameters for checking piece validity.
     ///
     /// If `None`, piece validity check will be skipped.
@@ -433,6 +490,319 @@ pub struct SolutionVerifyParams {
 pub trait SolutionPotVerifier {
     /// Check whether proof created earlier is valid
     fn is_proof_valid(seed: &PosSeed, s_bucket: SBucket, proof: &PosProof) -> bool;
+}
+
+/// Entropy used for shard membership assignment
+#[derive(
+    Default,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    From,
+    Into,
+    AsRef,
+    AsMut,
+    Deref,
+    DerefMut,
+    TrivialType,
+)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[repr(C)]
+pub struct ShardMembershipEntropy([u8; ShardMembershipEntropy::SIZE]);
+
+impl fmt::Display for ShardMembershipEntropy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct ShardMembershipEntropyBinary([u8; ShardMembershipEntropy::SIZE]);
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct ShardMembershipEntropyHex(#[serde(with = "hex")] [u8; ShardMembershipEntropy::SIZE]);
+
+#[cfg(feature = "serde")]
+impl Serialize for ShardMembershipEntropy {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if serializer.is_human_readable() {
+            ShardMembershipEntropyHex(self.0).serialize(serializer)
+        } else {
+            ShardMembershipEntropyBinary(self.0).serialize(serializer)
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for ShardMembershipEntropy {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self(if deserializer.is_human_readable() {
+            ShardMembershipEntropyHex::deserialize(deserializer)?.0
+        } else {
+            ShardMembershipEntropyBinary::deserialize(deserializer)?.0
+        }))
+    }
+}
+
+impl fmt::Debug for ShardMembershipEntropy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+impl AsRef<[u8]> for ShardMembershipEntropy {
+    #[inline(always)]
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl AsMut<[u8]> for ShardMembershipEntropy {
+    #[inline(always)]
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+impl ShardMembershipEntropy {
+    /// Size in bytes
+    pub const SIZE: usize = PotOutput::SIZE;
+
+    /// Create a new instance
+    #[inline(always)]
+    pub const fn new(bytes: [u8; Self::SIZE]) -> Self {
+        Self(bytes)
+    }
+
+    /// Get internal representation
+    #[inline(always)]
+    pub const fn as_bytes(&self) -> &[u8; Self::SIZE] {
+        &self.0
+    }
+
+    /// Convenient conversion from slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
+        // SAFETY: `ShardMembershipEntropy` is `#[repr(C)]` and guaranteed to have the same memory
+        // layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion to slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+        // SAFETY: `ShardMembershipEntropy` is `#[repr(C)]` and guaranteed to have the same memory
+        // layout
+        unsafe { mem::transmute(value) }
+    }
+}
+
+/// Reduced hash used for shard assignment
+#[derive(
+    Default,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    From,
+    Into,
+    AsRef,
+    AsMut,
+    Deref,
+    DerefMut,
+    TrivialType,
+)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[repr(C)]
+pub struct ShardCommitmentHash([u8; ShardCommitmentHash::SIZE]);
+
+impl fmt::Display for ShardCommitmentHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct ShardCommitmentHashBinary([u8; ShardCommitmentHash::SIZE]);
+
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct ShardCommitmentHashHex(#[serde(with = "hex")] [u8; ShardCommitmentHash::SIZE]);
+
+#[cfg(feature = "serde")]
+impl Serialize for ShardCommitmentHash {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if serializer.is_human_readable() {
+            ShardCommitmentHashHex(self.0).serialize(serializer)
+        } else {
+            ShardCommitmentHashBinary(self.0).serialize(serializer)
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for ShardCommitmentHash {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self(if deserializer.is_human_readable() {
+            ShardCommitmentHashHex::deserialize(deserializer)?.0
+        } else {
+            ShardCommitmentHashBinary::deserialize(deserializer)?.0
+        }))
+    }
+}
+
+impl fmt::Debug for ShardCommitmentHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+impl AsRef<[u8]> for ShardCommitmentHash {
+    #[inline(always)]
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl AsMut<[u8]> for ShardCommitmentHash {
+    #[inline(always)]
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+impl From<Hash> for ShardCommitmentHash {
+    #[inline(always)]
+    fn from(value: Hash) -> Self {
+        let bytes = value.as_bytes();
+        Self(*bytes)
+        // Self([
+        //     bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+        // ])
+    }
+}
+
+impl ShardCommitmentHash {
+    // TODO: Reduce to 8 bytes once Merkle Tree implementation exists that produces such hashes
+    /// Size in bytes
+    pub const SIZE: usize = 32;
+
+    /// Create a new instance
+    #[inline(always)]
+    pub const fn new(hash: [u8; Self::SIZE]) -> Self {
+        Self(hash)
+    }
+
+    /// Get internal representation
+    #[inline(always)]
+    pub const fn as_bytes(&self) -> &[u8; Self::SIZE] {
+        &self.0
+    }
+
+    /// Convenient conversion from slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
+        // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
+        // layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from array of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn array_from_repr<const N: usize>(value: [[u8; Self::SIZE]; N]) -> [Self; N] {
+        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/61956
+        // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
+        // layout
+        unsafe { mem::transmute_copy(&value) }
+    }
+
+    /// Convenient conversion to a slice of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+        // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
+        // layout
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion to an array of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn repr_from_array<const N: usize>(value: [Self; N]) -> [[u8; Self::SIZE]; N] {
+        // TODO: Should have been transmute, but https://github.com/rust-lang/rust/issues/61956
+        // SAFETY: `ShardCommitmentHash` is `#[repr(C)]` and guaranteed to have the same memory
+        // layout
+        unsafe { mem::transmute_copy(&value) }
+    }
+}
+
+/// Information about shard commitments in the solution
+#[derive(Clone, Copy, Debug, Eq, PartialEq, TrivialType)]
+#[cfg_attr(
+    feature = "scale-codec",
+    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[repr(C)]
+pub struct SolutionShardCommitment {
+    /// Root of the Merkle Tree of shard commitments
+    pub root: ShardCommitmentHash,
+    /// Proof for the shard commitment used the solution
+    pub proof: [ShardCommitmentHash; SolutionShardCommitment::NUM_LEAVES.ilog2() as usize],
+    /// Shard commitment leaf used for the solution
+    pub leaf: ShardCommitmentHash,
+}
+
+impl SolutionShardCommitment {
+    /// Number of leaves in a Merkle Tree of shard commitments
+    pub const NUM_LEAVES: usize = 2_u32.pow(20) as usize;
 }
 
 /// Farmer solution for slot challenge.
@@ -447,6 +817,8 @@ pub trait SolutionPotVerifier {
 pub struct Solution {
     /// Public key of the farmer that created the solution
     pub public_key_hash: Blake3Hash,
+    /// Farmer's shard commitment
+    pub shard_commitment: SolutionShardCommitment,
     /// Record root that can use used to verify that piece was included in blockchain history
     pub record_root: RecordRoot,
     /// Proof for above record root
@@ -472,6 +844,11 @@ impl Solution {
     pub fn genesis_solution() -> Self {
         Self {
             public_key_hash: Ed25519PublicKey::default().hash(),
+            shard_commitment: SolutionShardCommitment {
+                root: Default::default(),
+                proof: [Default::default(); _],
+                leaf: Default::default(),
+            },
             record_root: RecordRoot::default(),
             record_proof: RecordProof::default(),
             chunk: RecordChunk::default(),
@@ -494,12 +871,79 @@ impl Solution {
         PotVerifier: SolutionPotVerifier,
     {
         let SolutionVerifyParams {
+            shard_index,
             proof_of_time,
             solution_range,
+            shard_membership_entropy,
+            num_shards,
             piece_check_params,
         } = params;
 
-        let sector_id = SectorId::new(&self.public_key_hash, self.sector_index, self.history_size);
+        let shard_kind = shard_index
+            .shard_kind()
+            .and_then(|shard_kind| shard_kind.to_real())
+            .ok_or(SolutionVerifyError::InvalidInputShard {
+                shard_index: *shard_index,
+                shard_kind: shard_index.shard_kind(),
+            })?;
+
+        let (solution_shard_index, shard_commitment_index) = num_shards
+            .derive_shard_index_and_shard_commitment_index(
+                &self.shard_commitment.root,
+                shard_membership_entropy,
+                self.history_size,
+            );
+
+        // Adjust solution range according to shard kind
+        let solution_range = match shard_kind {
+            RealShardKind::BeaconChain => *solution_range,
+            RealShardKind::IntermediateShard => {
+                if solution_shard_index.parent_shard() != Some(*shard_index) {
+                    return Err(SolutionVerifyError::InvalidSolutionShard {
+                        solution_shard_index,
+                        solution_parent_shard_index: solution_shard_index.parent_shard(),
+                        expected_shard_index: *shard_index,
+                        expected_shard_kind: RealShardKind::IntermediateShard,
+                    });
+                }
+
+                solution_range.to_intermediate_shard(*num_shards)
+            }
+            RealShardKind::LeafShard => {
+                if solution_shard_index != *shard_index {
+                    return Err(SolutionVerifyError::InvalidSolutionShard {
+                        solution_shard_index,
+                        solution_parent_shard_index: solution_shard_index.parent_shard(),
+                        expected_shard_index: *shard_index,
+                        expected_shard_kind: RealShardKind::LeafShard,
+                    });
+                }
+
+                solution_range.to_leaf_shard(*num_shards)
+            }
+        };
+
+        // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
+        //  allows the code to compile. Constant 65536 is hardcoded here and below for compilation
+        //  to succeed.
+        const {
+            assert!(SolutionShardCommitment::NUM_LEAVES == 1048576);
+        }
+        if !BalancedMerkleTree::<1048576>::verify(
+            &self.shard_commitment.root,
+            &ShardCommitmentHash::repr_from_array(self.shard_commitment.proof),
+            shard_commitment_index as usize,
+            *self.shard_commitment.leaf,
+        ) {
+            return Err(SolutionVerifyError::InvalidShardCommitment);
+        }
+
+        let sector_id = SectorId::new(
+            &self.public_key_hash,
+            &self.shard_commitment.root,
+            self.sector_index,
+            self.history_size,
+        );
 
         let global_challenge = proof_of_time.derive_global_challenge(slot);
         let sector_slot_challenge = sector_id.derive_sector_slot_challenge(&global_challenge);
@@ -520,9 +964,9 @@ impl Solution {
         let solution_distance =
             SolutionDistance::calculate(&global_challenge, &masked_chunk, &sector_slot_challenge);
 
-        if !solution_distance.is_within(*solution_range) {
+        if !solution_distance.is_within(solution_range) {
             return Err(SolutionVerifyError::OutsideSolutionRange {
-                solution_range: *solution_range,
+                solution_range,
                 solution_distance,
             });
         }
@@ -530,9 +974,9 @@ impl Solution {
         // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
         //  allows the code to compile. Constant 65536 is hardcoded here and below for compilation
         //  to succeed.
-        const _: () = {
+        const {
             assert!(Record::NUM_S_BUCKETS == 65536);
-        };
+        }
         // Check that chunk belongs to the record
         if !BalancedMerkleTree::<65536>::verify(
             &self.record_root,

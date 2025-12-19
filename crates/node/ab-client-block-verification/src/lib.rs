@@ -3,7 +3,10 @@
 pub mod beacon_chain;
 
 use ab_client_api::BlockOrigin;
-use ab_client_consensus_common::consensus_parameters::DeriveConsensusParametersChainInfo;
+use ab_client_consensus_common::consensus_parameters::{
+    DeriveConsensusParametersChainInfo, ShardMembershipEntropySourceChainInfo,
+    ShardMembershipEntropySourceError,
+};
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
@@ -37,6 +40,13 @@ pub enum BlockVerificationError {
         expected: Vec<SegmentRoot>,
         /// Actual segment roots (invalid)
         actual: Vec<SegmentRoot>,
+    },
+    /// Shard membership entropy source error
+    #[error("Shard membership entropy source error: {error}")]
+    ShardMembershipEntropySource {
+        /// Low-level error
+        #[from]
+        error: ShardMembershipEntropySourceError,
     },
     /// Custom verification error
     #[error("Custom verification error: {error}")]
@@ -81,7 +91,7 @@ where
         beacon_chain_info: &BCI,
     ) -> impl Future<Output = Result<(), BlockVerificationError>> + Send
     where
-        BCI: DeriveConsensusParametersChainInfo;
+        BCI: DeriveConsensusParametersChainInfo + ShardMembershipEntropySourceChainInfo;
 
     /// Complementary to [`Self::verify_concurrent()`] that expects the parent block to be already
     /// successfully imported.

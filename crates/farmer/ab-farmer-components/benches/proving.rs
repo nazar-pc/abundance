@@ -6,7 +6,8 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, RecordedHistorySegment};
-use ab_core_primitives::solutions::SolutionRange;
+use ab_core_primitives::shard::NumShards;
+use ab_core_primitives::solutions::{ShardMembershipEntropy, SolutionRange};
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::auditing::audit_plot_sync;
@@ -16,6 +17,9 @@ use ab_farmer_components::plotting::{
 };
 use ab_farmer_components::sector::{
     SectorContentsMap, SectorMetadata, SectorMetadataChecksummed, sector_size,
+};
+use ab_farmer_components::shard_commitment::{
+    ShardCommitmentsRootsCache, derive_shard_commitments_root,
 };
 use ab_proof_of_space::chia::ChiaTable;
 use ab_proof_of_space::{Table, TableGenerator};
@@ -27,7 +31,7 @@ use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::hint::black_box;
 use std::io::Write;
-use std::num::NonZeroU64;
+use std::num::{NonZeroU16, NonZeroU64};
 use std::{env, fs, slice};
 
 type PosTable = ChiaTable;
@@ -51,6 +55,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let public_key = &Ed25519PublicKey::default();
     let public_key_hash = &public_key.hash();
+    let shard_commitments_seed = &Blake3Hash::default();
+    let shard_membership_entropy = ShardMembershipEntropy::default();
+    let num_shards = NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN).unwrap();
     let sector_index = SectorIndex::ZERO;
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let mut input = RecordedHistorySegment::new_boxed();
@@ -80,6 +87,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         min_sector_lifetime: HistorySize::new(NonZeroU64::new(4).unwrap()),
     };
     let solution_range = SolutionRange::MAX;
+    let shard_commitments_root =
+        &derive_shard_commitments_root(shard_commitments_seed, farmer_protocol_info.history_size);
+    let shard_commitments_roots_cache = &ShardCommitmentsRootsCache::new(*shard_commitments_seed);
 
     let sector_size = sector_size(pieces_in_sector);
 
@@ -108,6 +118,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             PlottedSector {
                 sector_id: SectorId::new(
                     public_key_hash,
+                    shard_commitments_root,
                     sector_index,
                     farmer_protocol_info.history_size,
                 ),
@@ -124,6 +135,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
         let plotted_sector = block_on(plot_sector(PlotSectorOptions {
             public_key_hash,
+            shard_commitments_root,
             sector_index,
             piece_getter: &archived_history_segment,
             farmer_protocol_info,
@@ -161,6 +173,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
         let audit_results = audit_plot_sync(
             public_key_hash,
+            shard_commitments_roots_cache,
+            shard_membership_entropy,
+            num_shards,
             &global_challenge,
             solution_range,
             &plotted_sector_bytes,
@@ -241,6 +256,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
             let audit_results = audit_plot_sync(
                 public_key_hash,
+                shard_commitments_roots_cache,
+                shard_membership_entropy,
+                num_shards,
                 global_challenge,
                 solution_range,
                 &plot_file,

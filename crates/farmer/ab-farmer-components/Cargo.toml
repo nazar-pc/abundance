@@ -46,6 +46,7 @@ anyhow = { workspace = true }
 async-lock = { workspace = true, features = ["std"] }
 backoff = { workspace = true, features = ["futures", "tokio"] }
 blake3 = { workspace = true, features = ["rayon"] }
+schnellru = { workspace = true }
 fs2 = { workspace = true }
 futures = { workspace = true, features = ["std", "executor"] }
 libc = { workspace = true }

@@ -3,14 +3,14 @@ use core::ops::Rem;
 // Minimal `u256` implementation that is needed for sectors and optimized for producing the
 // remainder of division by `u64`
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) struct NanoU256 {
+pub(crate) struct NanoU256 {
     lo: u128,
     hi: u128,
 }
 
 impl NanoU256 {
     #[inline(always)]
-    pub(super) const fn from_le_bytes(bytes: [u8; 32]) -> Self {
+    pub(crate) const fn from_le_bytes(bytes: [u8; 32]) -> Self {
         let lo = u128::from_le_bytes([
             bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
             bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],

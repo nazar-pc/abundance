@@ -164,7 +164,7 @@ impl OwnedBeaconChainBlockBuilder {
         prefix: &BlockHeaderPrefix,
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
-        consensus_parameters: BlockHeaderConsensusParameters<'_>,
+        consensus_parameters: &BlockHeaderConsensusParameters<'_>,
     ) -> Result<OwnedBeaconChainBlockUnsealed, OwnedBeaconChainHeaderError> {
         let body = self.body;
         let header = OwnedBeaconChainHeader::from_parts(

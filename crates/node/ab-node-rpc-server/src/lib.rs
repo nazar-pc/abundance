@@ -5,7 +5,9 @@
 use ab_archiving::archiver::NewArchivedSegment;
 use ab_client_api::{ChainInfo, ChainSyncStatus};
 use ab_client_archiving::{ArchivedSegmentNotification, recreate_genesis_segment};
-use ab_client_block_authoring::slot_worker::{BlockSealNotification, NewSlotNotification};
+use ab_client_block_authoring::slot_worker::{
+    BlockSealNotification, NewSlotInfo, NewSlotNotification,
+};
 use ab_client_consensus_common::ConsensusConstants;
 use ab_core_primitives::block::header::OwnedBlockHeaderSeal;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
@@ -17,17 +19,19 @@ use ab_core_primitives::solutions::Solution;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_rpc_primitives::{
-    BlockSealInfo, BlockSealResponse, FarmerAppInfo, MAX_SEGMENT_HEADERS_PER_REQUEST, SlotInfo,
-    SolutionResponse,
+    BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo,
+    MAX_SEGMENT_HEADERS_PER_REQUEST, SHARD_MEMBERSHIP_EXPIRATION, SlotInfo, SolutionResponse,
 };
 use ab_networking::libp2p::Multiaddr;
 use futures::channel::{mpsc, oneshot};
-use futures::{FutureExt, StreamExt, select};
+use futures::{FutureExt, SinkExt, StreamExt, select};
 use jsonrpsee::core::{SubscriptionResult, async_trait};
 use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::server::{Server, ServerConfig};
 use jsonrpsee::types::{ErrorObject, ErrorObjectOwned, SubscriptionId};
-use jsonrpsee::{PendingSubscriptionSink, SubscriptionSink, TrySendError};
+use jsonrpsee::{
+    ConnectionId, Extensions, PendingSubscriptionSink, SubscriptionSink, TrySendError,
+};
 use parking_lot::Mutex;
 use schnellru::{ByLength, LruMap};
 use std::collections::HashMap;
@@ -35,6 +39,7 @@ use std::collections::hash_map::Entry;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::{Arc, Weak};
+use std::time::Instant;
 use tracing::{debug, error, info, warn};
 
 /// Top-level error type for the RPC handler.
@@ -58,14 +63,12 @@ pub enum Error {
 
 impl From<Error> for ErrorObjectOwned {
     fn from(error: Error) -> Self {
-        match &error {
-            Error::SolutionWasIgnored { .. } => {
-                ErrorObject::owned(0, error.to_string(), None::<()>)
-            }
-            Error::SegmentHeadersLengthExceeded { .. } => {
-                ErrorObject::owned(1, error.to_string(), None::<()>)
-            }
-        }
+        let code = match &error {
+            Error::SolutionWasIgnored { .. } => 0,
+            Error::SegmentHeadersLengthExceeded { .. } => 1,
+        };
+
+        ErrorObject::owned(code, error.to_string(), None::<()>)
     }
 }
 
@@ -123,6 +126,12 @@ pub trait FarmerRpcApi {
 
     #[method(name = "lastSegmentHeaders")]
     async fn last_segment_headers(&self, limit: u32) -> Result<Vec<Option<SegmentHeader>>, Error>;
+
+    #[method(name = "updateShardMembershipInfo", with_extensions)]
+    async fn update_shard_membership_info(
+        &self,
+        info: Vec<FarmerShardMembershipInfo>,
+    ) -> Result<(), Error>;
 }
 
 #[derive(Debug, Default)]
@@ -158,6 +167,17 @@ impl CachedArchivedSegment {
     }
 }
 
+#[derive(Debug)]
+struct ShardMembershipConnectionsState {
+    last_update: Instant,
+    info: Vec<FarmerShardMembershipInfo>,
+}
+
+#[derive(Debug, Default)]
+struct ShardMembershipConnections {
+    connections: HashMap<ConnectionId, ShardMembershipConnectionsState>,
+}
+
 /// Farmer RPC configuration
 #[derive(Debug)]
 pub struct FarmerRpcConfig<CI, CSS> {
@@ -175,6 +195,8 @@ pub struct FarmerRpcConfig<CI, CSS> {
     pub block_sealing_notification_receiver: mpsc::Receiver<BlockSealNotification>,
     /// Archived segment notifications
     pub archived_segment_notification_receiver: mpsc::Receiver<ArchivedSegmentNotification>,
+    /// Shard membership updates
+    pub shard_membership_updates_sender: mpsc::Sender<Vec<FarmerShardMembershipInfo>>,
     /// DSN bootstrap nodes
     pub dsn_bootstrap_nodes: Vec<Multiaddr>,
     /// Beacon chain info
@@ -235,8 +257,8 @@ where
             solution_response_senders_capacity,
         ))));
         let block_sealing_senders = Arc::default();
-        let archived_segment_header_subscriptions = Arc::default();
         let cached_archived_segment = Arc::default();
+        let archived_segment_header_subscriptions = Arc::default();
 
         let rpc = FarmerRpc {
             genesis_block: config.genesis_block,
@@ -254,6 +276,8 @@ where
             archived_segment_header_subscriptions: Arc::clone(
                 &archived_segment_header_subscriptions,
             ),
+            shard_membership_connections: Arc::default(),
+            shard_membership_updates_sender: config.shard_membership_updates_sender,
             erasure_coding: config.erasure_coding,
         };
 
@@ -313,24 +337,30 @@ where
             solution_sender,
         } = new_slot_notification;
 
-        let slot_number = new_slot_info.slot;
+        let NewSlotInfo {
+            slot,
+            proof_of_time,
+            solution_range,
+            shard_membership_entropy,
+            num_shards,
+        } = new_slot_info;
 
         // Store solution sender so that we can retrieve it when solution comes from
         // the farmer
         let mut solution_response_senders = self.solution_response_senders.lock();
-        if solution_response_senders.peek(&slot_number).is_none() {
-            solution_response_senders.insert(slot_number, solution_sender);
+        if solution_response_senders.peek(&slot).is_none() {
+            solution_response_senders.insert(slot, solution_sender);
         }
 
-        let global_challenge = new_slot_info
-            .proof_of_time
-            .derive_global_challenge(slot_number);
+        let global_challenge = proof_of_time.derive_global_challenge(slot);
 
         // This will be sent to the farmer
         let slot_info = SlotInfo {
-            slot_number,
+            slot,
             global_challenge,
-            solution_range: new_slot_info.solution_range,
+            solution_range: solution_range.to_leaf_shard(num_shards),
+            shard_membership_entropy,
+            num_shards,
         };
         let slot_info = serde_json::value::to_raw_value(&slot_info)
             .expect("Serialization of slot info never fails; qed");
@@ -416,13 +446,16 @@ where
 
         let segment_index = archived_segment.segment_header.segment_index();
 
+        // TODO: Combine `archived_segment_header_subscriptions` and
+        //  `archived_segment_acknowledgement_senders` under the same lock to avoid potential
+        //  accidental deadlock with future changed
         self.archived_segment_header_subscriptions
             .lock()
             .retain_mut(|sink| {
                 let subscription_id = sink.subscription_id();
 
                 // Store acknowledgment sender so that we can retrieve it when acknowledgment
-                // comes from the farmer, but only if unsafe APIs are allowed
+                // comes from the farmer
                 let mut archived_segment_acknowledgement_senders =
                     self.archived_segment_acknowledgement_senders.lock();
 
@@ -502,6 +535,8 @@ where
     slot_info_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
     block_sealing_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
     archived_segment_header_subscriptions: Arc<Mutex<Vec<SubscriptionSink>>>,
+    shard_membership_connections: Arc<Mutex<ShardMembershipConnections>>,
+    shard_membership_updates_sender: mpsc::Sender<Vec<FarmerShardMembershipInfo>>,
     erasure_coding: ErasureCoding,
 }
 
@@ -635,7 +670,7 @@ where
             && let Err(error) = sender.try_send(())
             && !error.is_disconnected()
         {
-            warn!("Failed to acknowledge archived segment: {error}");
+            warn!(%error, "Failed to acknowledge archived segment");
         }
 
         debug!(%segment_index, "Acknowledged archived segment.");
@@ -734,5 +769,52 @@ where
         last_segment_headers.reverse();
 
         Ok(last_segment_headers)
+    }
+
+    async fn update_shard_membership_info(
+        &self,
+        extensions: &Extensions,
+        info: Vec<FarmerShardMembershipInfo>,
+    ) -> Result<(), Error> {
+        let connection_id = extensions
+            .get::<ConnectionId>()
+            .expect("`ConnectionId` is always present; qed");
+
+        let shard_membership = {
+            let mut shard_membership_connections = self.shard_membership_connections.lock();
+
+            // TODO: This is a workaround for https://github.com/paritytech/jsonrpsee/issues/1617
+            //  and should be replaced with cleanup on disconnection once that issue is resolved
+            shard_membership_connections
+                .connections
+                .retain(|_connection_id, state| {
+                    state.last_update.elapsed() >= SHARD_MEMBERSHIP_EXPIRATION
+                });
+
+            shard_membership_connections.connections.insert(
+                *connection_id,
+                ShardMembershipConnectionsState {
+                    last_update: Instant::now(),
+                    info,
+                },
+            );
+
+            shard_membership_connections
+                .connections
+                .values()
+                .flat_map(|state| state.info.clone())
+                .collect::<Vec<_>>()
+        };
+
+        if let Err(error) = self
+            .shard_membership_updates_sender
+            .clone()
+            .send(shard_membership)
+            .await
+        {
+            warn!(%error, "Failed to send shard membership update");
+        }
+
+        Ok(())
     }
 }

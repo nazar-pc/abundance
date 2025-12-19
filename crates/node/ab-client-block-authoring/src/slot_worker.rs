@@ -4,6 +4,7 @@
 use crate::{BlockProducer, ClaimedSlot};
 use ab_client_api::{ChainInfo, ChainSyncStatus};
 use ab_client_consensus_common::ConsensusConstants;
+use ab_client_consensus_common::consensus_parameters::shard_membership_entropy_source;
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::source::{PotSlotInfo, PotSlotInfoStream};
 use ab_client_proof_of_time::verifier::PotVerifier;
@@ -14,12 +15,8 @@ use ab_core_primitives::block::header::{
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
-use ab_core_primitives::sectors::SectorId;
-use ab_core_primitives::segments::HistorySize;
-use ab_core_primitives::solutions::{
-    Solution, SolutionRange, SolutionVerifyError, SolutionVerifyParams,
-    SolutionVerifyPieceCheckParams,
-};
+use ab_core_primitives::shard::NumShards;
+use ab_core_primitives::solutions::{ShardMembershipEntropy, Solution, SolutionRange};
 use ab_proof_of_space::Table;
 use futures::StreamExt;
 use futures::channel::{mpsc, oneshot};
@@ -28,7 +25,7 @@ use std::collections::BTreeMap;
 use std::marker::PhantomData;
 use std::time::Duration;
 use tokio::sync::broadcast;
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 
 /// Large enough size for any practical purposes, there shouldn't be even this many solutions.
 const PENDING_SOLUTIONS_CHANNEL_CAPACITY: usize = 10;
@@ -43,6 +40,10 @@ pub struct NewSlotInfo {
     pub proof_of_time: PotOutput,
     /// Acceptable solution range for block authoring
     pub solution_range: SolutionRange,
+    /// Shard membership entropy
+    pub shard_membership_entropy: ShardMembershipEntropy,
+    /// The number of shards in the network
+    pub num_shards: NumShards,
 }
 
 /// New slot notification with slot information and sender for a solution for the slot.
@@ -84,6 +85,13 @@ pub struct SlotWorkerOptions<BP, BCI, CSS> {
     pub consensus_constants: ConsensusConstants,
     /// Proof of time verifier
     pub pot_verifier: PotVerifier,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct LastProcessedSlot {
+    slot: SlotNumber,
+    shard_membership_interval_index: u64,
+    shard_membership_entropy: ShardMembershipEntropy,
 }
 
 /// Slot worker responsible for block production
@@ -142,7 +150,17 @@ where
 
     /// Run slot worker
     pub async fn run(mut self, mut slot_info_stream: PotSlotInfoStream) {
-        let mut maybe_last_processed_slot = None;
+        // Cache of shard membership entropy initialized with placeholder values.
+        //
+        // NOTE: This cache is imperfect and will produce invalid value in case there are PoT
+        // reorgs below `ConsensusConstants::shard_rotation_delay` slots, but that should be
+        // extremely unlikely in practice, especially in a production network where this delay will
+        // likely be measured in tens of minutes.
+        let mut last_processed_slot = LastProcessedSlot {
+            slot: SlotNumber::ZERO,
+            shard_membership_interval_index: u64::MAX,
+            shard_membership_entropy: Default::default(),
+        };
 
         loop {
             let PotSlotInfo { slot, checkpoints } = match slot_info_stream.recv().await {
@@ -161,23 +179,102 @@ where
                     }
                 },
             };
-            if let Some(last_processed_slot) = maybe_last_processed_slot
-                && last_processed_slot >= slot
-            {
+
+            if last_processed_slot.slot >= slot {
                 // Already processed
                 continue;
             }
-            maybe_last_processed_slot.replace(slot);
-
-            self.store_checkpoints(slot, checkpoints);
+            last_processed_slot.slot = slot;
 
             let best_beacon_chain_header = self.beacon_chain_info.best_header();
             let best_beacon_chain_header = best_beacon_chain_header.header();
-            self.on_new_slot(slot, checkpoints, best_beacon_chain_header);
+
+            // Store checkpoints
+            {
+                // Remove checkpoints from future slots, if present they are out of date anyway
+                self.pot_checkpoints
+                    .retain(|&stored_slot, _checkpoints| stored_slot < slot);
+
+                self.pot_checkpoints.insert(slot, checkpoints);
+            }
 
             if self.chain_sync_status.is_syncing() {
-                debug!(%slot, "Skipping proposal slot due to sync");
-                continue;
+                debug!(%slot, "Skipping farming due to syncing");
+                return;
+            }
+
+            // Find shard membership entropy for the slot
+            let shard_membership_entropy = {
+                let shard_membership_interval_index = slot
+                    .saturating_sub(self.consensus_constants.shard_rotation_delay)
+                    .as_u64()
+                    / self.consensus_constants.shard_rotation_interval.as_u64();
+
+                if last_processed_slot.shard_membership_interval_index
+                    == shard_membership_interval_index
+                {
+                    // Use cached value
+                    last_processed_slot.shard_membership_entropy
+                } else {
+                    let shard_membership_entropy_source_fut = shard_membership_entropy_source(
+                        &self.beacon_chain_info,
+                        slot,
+                        self.pot_checkpoints.values(),
+                        best_beacon_chain_header,
+                        self.consensus_constants.shard_rotation_interval,
+                        self.consensus_constants.shard_rotation_delay,
+                        self.consensus_constants.block_authoring_delay,
+                    );
+                    let shard_membership_entropy = match shard_membership_entropy_source_fut.await {
+                        Ok(shard_membership_entropy) => shard_membership_entropy,
+                        Err(error) => {
+                            error!(%error, "Failed to find shard membership entropy");
+                            break;
+                        }
+                    };
+
+                    last_processed_slot = LastProcessedSlot {
+                        slot,
+                        shard_membership_interval_index,
+                        shard_membership_entropy,
+                    };
+
+                    shard_membership_entropy
+                }
+            };
+
+            let proof_of_time = checkpoints.output();
+
+            // Send slot notification to farmers
+            {
+                let consensus_parameters = best_beacon_chain_header.consensus_parameters();
+                // NOTE: Best bock is not necessarily going to be the parent of the corresponding
+                // block once it is created, but solution range and number of shards should be the
+                // same most of the time
+                let solution_range = consensus_parameters
+                    .next_solution_range
+                    .unwrap_or(consensus_parameters.fixed_parameters.solution_range);
+                let new_slot_info = NewSlotInfo {
+                    slot,
+                    proof_of_time,
+                    solution_range,
+                    shard_membership_entropy,
+                    num_shards: consensus_parameters.fixed_parameters.num_shards,
+                };
+                let (solution_sender, solution_receiver) =
+                    mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);
+
+                if let Err(error) =
+                    self.new_slot_notification_sender
+                        .try_send(NewSlotNotification {
+                            new_slot_info,
+                            solution_sender,
+                        })
+                {
+                    warn!(%error, "Failed to send a new slot notification");
+                }
+
+                self.pending_solutions.insert(slot, solution_receiver);
             }
 
             // Slots that we claim must be `block_authoring_delay` behind the best slot we know of
@@ -239,60 +336,6 @@ where
         }
     }
 
-    /// Handle new slot: store checkpoints and generate notification for a farmer
-    fn store_checkpoints(&mut self, slot: SlotNumber, checkpoints: PotCheckpoints) {
-        // Remove checkpoints from future slots, if present they are out of date anyway
-        self.pot_checkpoints
-            .retain(|&stored_slot, _checkpoints| stored_slot < slot);
-
-        self.pot_checkpoints.insert(slot, checkpoints);
-    }
-
-    /// Handle new slot: store checkpoints and generate notification for a farmer
-    fn on_new_slot(
-        &mut self,
-        slot: SlotNumber,
-        checkpoints: PotCheckpoints,
-        best_beacon_chain_header: &BeaconChainHeader<'_>,
-    ) {
-        if self.chain_sync_status.is_syncing() {
-            debug!("Skipping farming slot {slot} due to sync");
-            return;
-        }
-
-        let proof_of_time = checkpoints.output();
-
-        // NOTE: Best hash is not necessarily going to be the parent of the corresponding block, but
-        // solution range shouldn't be too far off
-        let solution_range = best_beacon_chain_header
-            .consensus_parameters()
-            .next_solution_range
-            .unwrap_or(
-                best_beacon_chain_header
-                    .consensus_parameters()
-                    .fixed_parameters
-                    .solution_range,
-            );
-        let new_slot_info = NewSlotInfo {
-            slot,
-            proof_of_time,
-            solution_range,
-        };
-        let (solution_sender, solution_receiver) =
-            mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);
-
-        if let Err(error) = self
-            .new_slot_notification_sender
-            .try_send(NewSlotNotification {
-                new_slot_info,
-                solution_sender,
-            })
-        {
-            warn!(%error, "Failed to send a new slot notification");
-        }
-
-        self.pending_solutions.insert(slot, solution_receiver);
-    }
     async fn claim_slot(
         &mut self,
         parent_beacon_chain_header: &BeaconChainHeader<'_>,
@@ -312,10 +355,6 @@ where
         }
 
         let parent_consensus_parameters = parent_beacon_chain_header.consensus_parameters();
-
-        let solution_range = parent_consensus_parameters
-            .next_solution_range
-            .unwrap_or(parent_consensus_parameters.fixed_parameters.solution_range);
 
         let parent_pot_parameters_change = parent_consensus_parameters
             .pot_parameters_change
@@ -429,118 +468,21 @@ where
 
         let mut maybe_consensus_info = None;
 
-        // TODO: Consider skipping most/all checks here and do them in block import instead
         while let Some(solution) = solution_receiver.next().await {
-            let sector_id = SectorId::new(
-                &solution.public_key_hash,
-                solution.sector_index,
-                solution.history_size,
-            );
-
-            // TODO: Query it from an actual chain
-            // let history_size = runtime_api.history_size(parent_block_root).ok()?;
-            // let max_pieces_in_sector = runtime_api.max_pieces_in_sector(parent_block_root).ok()?;
-            let history_size = HistorySize::ONE;
-            let max_pieces_in_sector = 1000;
-
-            let segment_index = sector_id
-                .derive_piece_index(
-                    solution.piece_offset,
-                    solution.history_size,
-                    max_pieces_in_sector,
-                    self.consensus_constants.recent_segments,
-                    self.consensus_constants.recent_history_fraction,
-                )
-                .segment_index();
-            let maybe_segment_root = self
-                .beacon_chain_info
-                .get_segment_header(segment_index)
-                .map(|segment_header| segment_header.segment_root);
-
-            let segment_root = match maybe_segment_root {
-                Some(segment_root) => segment_root,
-                None => {
-                    warn!(
-                        %slot,
-                        %segment_index,
-                        "Segment root not found",
-                    );
-                    continue;
-                }
-            };
-            let sector_expiration_check_segment_index = match solution
-                .history_size
-                .sector_expiration_check(self.consensus_constants.min_sector_lifetime)
-            {
-                Some(sector_expiration_check) => sector_expiration_check.segment_index(),
-                None => {
-                    continue;
-                }
-            };
-            let sector_expiration_check_segment_root = self
-                .beacon_chain_info
-                .get_segment_header(sector_expiration_check_segment_index)
-                .map(|segment_header| segment_header.segment_root);
-
-            let solution_verification_result = solution.verify::<PosTable>(
-                slot,
-                &SolutionVerifyParams {
+            if maybe_consensus_info.is_none() {
+                debug!(%slot, "🚜 Claimed slot");
+                maybe_consensus_info.replace(BlockHeaderConsensusInfo {
+                    slot,
                     proof_of_time,
-                    solution_range,
-                    piece_check_params: Some(SolutionVerifyPieceCheckParams {
-                        max_pieces_in_sector,
-                        segment_root,
-                        recent_segments: self.consensus_constants.recent_segments,
-                        recent_history_fraction: self.consensus_constants.recent_history_fraction,
-                        min_sector_lifetime: self.consensus_constants.min_sector_lifetime,
-                        current_history_size: history_size,
-                        sector_expiration_check_segment_root,
-                    }),
-                },
-            );
-
-            match solution_verification_result {
-                Ok(()) => {
-                    if maybe_consensus_info.is_none() {
-                        debug!(%slot, "🚜 Claimed slot");
-                        maybe_consensus_info.replace(BlockHeaderConsensusInfo {
-                            slot,
-                            proof_of_time,
-                            future_proof_of_time,
-                            solution,
-                        });
-                    } else {
-                        debug!(
-                            %slot,
-                            "Skipping a solution that has quality sufficient for block because \
-                            slot has already been claimed",
-                        );
-                    }
-                }
-                Err(error @ SolutionVerifyError::OutsideSolutionRange { .. }) => {
-                    // Solution range might have just adjusted, but when a farmer was auditing it
-                    // didn't know about this, so downgrade the warning to a debug message
-                    if parent_consensus_parameters.next_solution_range.is_some() {
-                        debug!(
-                            %slot,
-                            %error,
-                            "Invalid solution received",
-                        );
-                    } else {
-                        warn!(
-                            %slot,
-                            %error,
-                            "Invalid solution received",
-                        );
-                    }
-                }
-                Err(error) => {
-                    warn!(
-                        %slot,
-                        %error,
-                        "Invalid solution received",
-                    );
-                }
+                    future_proof_of_time,
+                    solution,
+                });
+            } else {
+                debug!(
+                    %slot,
+                    "Skipping a solution that has quality sufficient for block because \
+                    slot has already been claimed",
+                );
             }
         }
 
