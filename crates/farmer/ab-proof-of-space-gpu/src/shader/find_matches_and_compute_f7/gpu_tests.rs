@@ -145,7 +145,7 @@ async fn find_matches_and_compute_f7(
         backend_options: BackendOptions::from_env_or_default(),
     });
 
-    let adapters = instance.enumerate_adapters(backends);
+    let adapters = instance.enumerate_adapters(backends).await;
     let mut result = None;
 
     for adapter in adapters {
@@ -253,7 +253,7 @@ async fn find_matches_and_compute_f7_adapter(
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: None,
         bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[],
+        immediate_size: 0,
     });
 
     let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
