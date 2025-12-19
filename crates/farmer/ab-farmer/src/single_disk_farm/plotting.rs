@@ -20,6 +20,7 @@ use futures::channel::{mpsc, oneshot};
 use futures::stream::FuturesOrdered;
 use futures::{FutureExt, SinkExt, StreamExt, select};
 use parity_scale_codec::Encode;
+use parking_lot::RwLock;
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::future::Future;
@@ -128,6 +129,15 @@ where
 
     let sector_plotting_options = &sector_plotting_options;
     let plotting_semaphore = Semaphore::new(max_plotting_sectors_per_farm.get());
+    let max_used_history_size = RwLock::new(
+        sectors_metadata
+            .read()
+            .await
+            .iter()
+            .map(|sector_metadata| sector_metadata.history_size)
+            .max()
+            .unwrap_or(HistorySize::ONE),
+    );
     let mut sectors_being_plotted = FuturesOrdered::new();
     // Channel size is intentionally unbounded for easier analysis, but it is bounded by plotting
     // semaphore in practice due to permit stored in `SectorPlottingResult`
@@ -167,6 +177,7 @@ where
                     sectors_metadata,
                     sectors_being_modified,
                     &plotting_semaphore,
+                    &max_used_history_size,
                 )
                     .instrument(info_span!("", %sector_index))
                     .fuse();
@@ -290,6 +301,7 @@ async fn plot_single_sector<'a, NC>(
     sectors_metadata: &'a AsyncRwLock<Vec<SectorMetadataChecksummed>>,
     sectors_being_modified: &'a AsyncRwLock<HashSet<SectorIndex>>,
     plotting_semaphore: &'a Semaphore,
+    max_used_history_size: &RwLock<HistorySize>,
 ) -> PlotSingleSectorResult<
     impl Future<Output = Result<SectorPlottingResult<'a>, PlottingError>> + 'a,
 >
@@ -350,13 +362,12 @@ where
 
     let start = Instant::now();
 
-    // TODO: Minimize history size diversity here to reduce diversity of shard assignment
-    // This `loop` is a workaround for edge-case in local setup if expiration is configured to 1.
-    // In that scenario we get replotting notification essentially straight from block import
-    // pipeline of the node, before block is imported. This can result in subsequent request for
+    // This `loop` is a workaround for an edge-case in local setup if expiration is configured to 1.
+    // In that scenario we get a replotting notification essentially straight from a block import
+    // pipeline of the node, before the block is imported. This can result in a later request for
     // farmer app info to return old data, meaning we're replotting exactly the same sector that
     // just expired.
-    let protocol_info = loop {
+    let mut protocol_info = loop {
         let protocol_info = match node_client.farmer_app_info().await {
             Ok(farmer_app_info) => farmer_app_info.protocol_info,
             Err(error) => {
@@ -391,6 +402,23 @@ where
 
         break protocol_info;
     };
+
+    // Maintain the current max history size unless it is too old. This reduces the diversity of
+    // shard assignment, making it easier for farmers to run nodes.
+    {
+        let mut max_used_history_size = max_used_history_size.write();
+        if maybe_old_sector_metadata
+            .as_ref()
+            .map(|sector_metadata| sector_metadata.history_size)
+            != Some(*max_used_history_size)
+        {
+            // TODO: This may hypothetically result in plotting expired sectors. Add sector
+            //  expiration check in the future if it ends up being a real concern.
+            protocol_info.history_size = *max_used_history_size;
+        } else {
+            *max_used_history_size = protocol_info.history_size;
+        }
+    }
 
     let (progress_sender, mut progress_receiver) = mpsc::channel(10);
     let shard_commitments_root = shard_commitments_roots_cache.get(protocol_info.history_size);
