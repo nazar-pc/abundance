@@ -1,10 +1,11 @@
 use crate::importing_blocks::{ImportingBlockHandle, ImportingBlocks, ParentBlockImportStatus};
 use crate::{BlockImport, BlockImportError};
-use ab_client_api::{BlockDetails, BlockOrigin, ChainInfo, ChainInfoWrite};
+use ab_client_api::{BlockDetails, BlockOrigin, ChainInfo, ChainInfoWrite, ReadBlockError};
 use ab_client_block_verification::{BlockVerification, BlockVerificationError};
 use ab_client_consensus_common::BlockImportingNotification;
 use ab_client_consensus_common::consensus_parameters::{
     DeriveConsensusParametersChainInfo, DeriveConsensusParametersConsensusInfo,
+    ShardMembershipEntropySourceChainInfo,
 };
 use ab_client_consensus_common::state::GlobalState;
 use ab_core_primitives::block::body::owned::OwnedBeaconChainBody;
@@ -86,6 +87,51 @@ where
         // between iterations in the above loop
         self.chain_info
             .ancestor_header_consensus_info(ancestor_block_number, descendant_block_root)
+    }
+}
+
+impl<'a, CI> ShardMembershipEntropySourceChainInfo for VerificationChainInfo<'a, CI>
+where
+    CI: ChainInfo<OwnedBeaconChainBlock>,
+{
+    fn ancestor_header(
+        &self,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
+    ) -> Option<OwnedBeaconChainHeader> {
+        if let Some(header) = self
+            .chain_info
+            .ancestor_header(ancestor_block_number, descendant_block_root)
+        {
+            return Some(header);
+        }
+
+        let mut current_block_root = *descendant_block_root;
+        loop {
+            let Some(importing_entry) = self.importing_blocks.get(&current_block_root) else {
+                break;
+            };
+            let header = importing_entry.header();
+
+            if header.header().prefix.number == ancestor_block_number {
+                return Some(header.clone());
+            }
+
+            current_block_root = *header.header().root();
+        }
+
+        // Query again in case of a race condition where previously importing block was imported in
+        // between iterations in the above loop
+        self.chain_info
+            .ancestor_header(ancestor_block_number, descendant_block_root)
+    }
+
+    async fn body(&self, block_root: &BlockRoot) -> Result<OwnedBeaconChainBody, ReadBlockError> {
+        if let Some(importing_entry) = self.importing_blocks.get(block_root) {
+            Ok(importing_entry.body().clone())
+        } else {
+            Ok(self.chain_info.block(block_root).await?.body)
+        }
     }
 }
 

@@ -1,5 +1,7 @@
 use crate::{ConsensusConstants, PotConsensusConstants};
 use ab_client_api::{ChainInfo, ReadBlockError};
+use ab_core_primitives::block::body::owned::OwnedBeaconChainBody;
+use ab_core_primitives::block::header::owned::OwnedBeaconChainHeader;
 use ab_core_primitives::block::header::{
     BeaconChainHeader, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
     BlockHeaderFixedConsensusParameters, BlockHeaderPotParametersChange,
@@ -277,6 +279,39 @@ where
     })
 }
 
+/// Chain info for [`shard_membership_entropy_source()`].
+///
+/// Must have access to enough parent blocks.
+pub trait ShardMembershipEntropySourceChainInfo: Send + Sync {
+    fn ancestor_header(
+        &self,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
+    ) -> Option<OwnedBeaconChainHeader>;
+
+    fn body(
+        &self,
+        block_root: &BlockRoot,
+    ) -> impl Future<Output = Result<OwnedBeaconChainBody, ReadBlockError>> + Send;
+}
+
+impl<T> ShardMembershipEntropySourceChainInfo for T
+where
+    T: ChainInfo<OwnedBeaconChainBlock>,
+{
+    fn ancestor_header(
+        &self,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
+    ) -> Option<OwnedBeaconChainHeader> {
+        ChainInfo::ancestor_header(self, ancestor_block_number, descendant_block_root)
+    }
+
+    async fn body(&self, block_root: &BlockRoot) -> Result<OwnedBeaconChainBody, ReadBlockError> {
+        Ok(ChainInfo::block(self, block_root).await?.body)
+    }
+}
+
 /// Error for [`shard_membership_entropy_source`]
 #[derive(Debug, thiserror::Error)]
 pub enum ShardMembershipEntropySourceError {
@@ -362,7 +397,7 @@ pub async fn shard_membership_entropy_source<'a, BCI, Checkpoints>(
     block_authoring_delay: SlotNumber,
 ) -> Result<ShardMembershipEntropy, ShardMembershipEntropySourceError>
 where
-    BCI: ChainInfo<OwnedBeaconChainBlock>,
+    BCI: ShardMembershipEntropySourceChainInfo,
     Checkpoints: DoubleEndedIterator<Item = &'a PotCheckpoints>,
 {
     let entropy_source_slot = SlotNumber::new(
@@ -433,20 +468,17 @@ where
     }
 
     let (block_root, block_number, block_future_slot) = current_block;
-    let source_block = beacon_chain_info
-        .block(&block_root)
-        .await
-        .map_err(
-            |error| ShardMembershipEntropySourceError::FailedToReadBeaconChainBlock {
-                entropy_source_slot,
-                slot,
-                block_number,
-                block_root,
-                error,
-            },
-        )?;
+    let source_body = beacon_chain_info.body(&block_root).await.map_err(|error| {
+        ShardMembershipEntropySourceError::FailedToReadBeaconChainBlock {
+            entropy_source_slot,
+            slot,
+            block_number,
+            block_root,
+            error,
+        }
+    })?;
 
-    let pot_checkpoints = source_block.body.body().pot_checkpoints();
+    let pot_checkpoints = source_body.body().pot_checkpoints();
     let pot_checkpoints = pot_checkpoints
         .iter()
         .rev()
