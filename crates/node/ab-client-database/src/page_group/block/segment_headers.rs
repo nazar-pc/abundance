@@ -71,9 +71,9 @@ impl StorageItemBlockSegmentHeaders {
                 .split_off_mut(..size_of_val(self.segment_headers.as_slice()))
                 .expect("Total length checked above; qed");
 
+            // TODO: It'd be nice to not have `size_of()` call, but there is no
+            //  `MaybeUninit::transpose_mut()` or similar for type inference to work
             for (bytes, segment_header) in segment_headers_bytes
-                // TODO: Constant will be inferred once `.as_bytes()` returns an array instead of
-                //  slice
                 .as_chunks_mut::<{ size_of::<SegmentHeader>() }>()
                 .0
                 .iter_mut()

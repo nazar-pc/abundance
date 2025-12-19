@@ -1,4 +1,10 @@
-#![feature(maybe_uninit_slice, ptr_as_uninit)]
+#![expect(incomplete_features, reason = "generic_const_exprs")]
+#![feature(
+    cast_maybe_uninit,
+    generic_const_exprs,
+    ptr_as_ref_unchecked,
+    ptr_as_uninit
+)]
 #![no_std]
 
 pub mod bool;

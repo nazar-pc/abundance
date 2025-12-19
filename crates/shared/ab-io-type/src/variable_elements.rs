@@ -278,7 +278,7 @@ where
         let capacity = capacity as u32;
 
         DerefWrapper(Self {
-            elements: NonNull::new(MaybeUninit::slice_as_mut_ptr(uninit)).expect("Not null; qed"),
+            elements: NonNull::new(uninit.as_mut_ptr().cast_init()).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity,
         })

@@ -218,7 +218,6 @@ impl BlockHeaderFixedConsensusParameters {
             pot_slot_iterations[3],
         ]);
         let slot_iterations = NonZeroU32::new(slot_iterations)?;
-        // TODO: Unaligned APIs for `TrivialType`
         // SAFETY: All bit patterns are valid
         let num_shards = unsafe {
             bytes

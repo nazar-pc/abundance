@@ -2,8 +2,8 @@ use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata
 use crate::{DerefWrapper, IoType};
 pub use ab_trivial_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
+use core::ptr;
 use core::ptr::NonNull;
-use core::{ptr, slice};
 
 /// Simple wrapper data type that is designed in such a way that its serialization/deserialization
 /// is the same as the type itself.
@@ -63,24 +63,22 @@ where
         before.is_empty().then(|| slice.first_mut()).flatten()
     }
 
-    // TODO: Make this return an array instead of a slice
     /// Access the underlying byte representation of a data structure
     #[inline(always)]
-    fn as_bytes(&self) -> &[u8] {
+    fn as_bytes(&self) -> &[u8; size_of::<Self>()] {
         // SAFETY: All bits are valid for reading as bytes, see `TrivialType` description
-        unsafe { slice::from_raw_parts(ptr::from_ref(self).cast::<u8>(), size_of::<Self>()) }
+        unsafe { ptr::from_ref(self).cast::<[u8; _]>().as_ref_unchecked() }
     }
 
-    // TODO: Make this return an array instead of a slice
     /// Access the underlying mutable byte representation of a data structure.
     ///
     /// # Safety
     /// While calling this function is technically safe, modifying returned memory buffer may result
     /// in broken invariants of underlying data structure and should be done with extra care.
     #[inline(always)]
-    unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
+    unsafe fn as_bytes_mut(&mut self) -> &mut [u8; size_of::<Self>()] {
         // SAFETY: All bits are valid for reading as bytes, see `TrivialType` description
-        unsafe { slice::from_raw_parts_mut(ptr::from_mut(self).cast::<u8>(), size_of::<Self>()) }
+        unsafe { ptr::from_mut(self).cast::<[u8; _]>().as_mut_unchecked() }
     }
 }
 

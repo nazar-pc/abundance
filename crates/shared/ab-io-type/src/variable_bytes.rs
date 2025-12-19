@@ -253,7 +253,7 @@ impl<const RECOMMENDED_ALLOCATION: u32> VariableBytes<RECOMMENDED_ALLOCATION> {
         let capacity = capacity as u32;
 
         DerefWrapper(Self {
-            bytes: NonNull::new(MaybeUninit::slice_as_mut_ptr(uninit)).expect("Not null; qed"),
+            bytes: NonNull::new(uninit.as_mut_ptr().cast_init()).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity,
         })
