@@ -259,9 +259,7 @@ where
                     proof_of_time,
                     solution_range,
                     shard_membership_entropy,
-                    // TODO: Actual value here, probably should come from fixed parameters
-                    num_shards: NumShards::new(0, 0)
-                        .expect("Values are statically known to be valid; qed"),
+                    num_shards: consensus_parameters.fixed_parameters.num_shards,
                 };
                 let (solution_sender, solution_receiver) =
                     mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);

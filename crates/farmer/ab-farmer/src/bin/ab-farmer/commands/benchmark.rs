@@ -20,7 +20,7 @@ use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::hint::black_box;
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU16, NonZeroUsize};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -191,7 +191,7 @@ where
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
                                 shard_membership_entropy: Default::default(),
-                                num_shards: NumShards::new(1, 1)
+                                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                                     .expect("Values are statically known to be valid; qed"),
                             },
                             sectors_metadata: &sectors_metadata,
@@ -226,7 +226,7 @@ where
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
                                 shard_membership_entropy: Default::default(),
-                                num_shards: NumShards::new(1, 1)
+                                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                                     .expect("Values are statically known to be valid; qed"),
                             },
                             sectors_metadata: &sectors_metadata,
@@ -259,7 +259,7 @@ where
                                 // No solution will be found, pure audit
                                 solution_range: SolutionRange::MIN,
                                 shard_membership_entropy: Default::default(),
-                                num_shards: NumShards::new(1, 1)
+                                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                                     .expect("Values are statically known to be valid; qed"),
                             },
                             sectors_metadata: &sectors_metadata,
@@ -358,7 +358,7 @@ where
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
                     shard_membership_entropy: Default::default(),
-                    num_shards: NumShards::new(1, 1)
+                    num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                         .expect("Values are statically known to be valid; qed"),
                 },
                 sectors_metadata: &sectors_metadata,
@@ -406,7 +406,7 @@ where
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
                     shard_membership_entropy: Default::default(),
-                    num_shards: NumShards::new(1, 1)
+                    num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                         .expect("Values are statically known to be valid; qed"),
                 },
                 sectors_metadata: &sectors_metadata,
@@ -452,7 +452,7 @@ where
                     // Solution is guaranteed to be found
                     solution_range: SolutionRange::MAX,
                     shard_membership_entropy: Default::default(),
-                    num_shards: NumShards::new(1, 1)
+                    num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN)
                         .expect("Values are statically known to be valid; qed"),
                 },
                 sectors_metadata: &sectors_metadata,

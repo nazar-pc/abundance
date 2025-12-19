@@ -358,7 +358,7 @@ where
         let slot_info = SlotInfo {
             slot,
             global_challenge,
-            solution_range: solution_range.to_farmer_solution_range(num_shards),
+            solution_range: solution_range.to_leaf_shard(num_shards),
             shard_membership_entropy,
             num_shards,
         };

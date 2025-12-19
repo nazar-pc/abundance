@@ -8,7 +8,7 @@ use crate::pos::{PosProof, PosSeed};
 use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{HistorySize, SegmentIndex, SegmentRoot};
-use crate::shard::NumShards;
+use crate::shard::{NumShards, RealShardKind, ShardIndex, ShardKind};
 use ab_blake3::single_block_keyed_hash;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
@@ -182,22 +182,26 @@ impl SolutionRange {
         pieces / self.0
     }
 
-    /// Expands the global solution range to a solution range that a farmer should use for audits.
+    /// Expands the global solution range to a solution range that corresponds to a leaf shard.
     ///
     /// Global solution range is updated based on the beacon chain information, while a farmer also
     /// creates intermediate shard and leaf shard solutions with a wider solution range.
     #[inline]
-    pub const fn to_farmer_solution_range(self, num_shards: NumShards) -> Self {
-        let mut shards = num_shards.num_leaf_shards();
-        if shards == 0 {
-            // No leaf shards
-            shards = num_shards.intermediate_shards() as u32;
-        }
-        if shards == 0 {
-            // Just the beacon chain
-            shards = 1;
-        }
-        Self(self.0.saturating_mul(shards as u64))
+    pub const fn to_leaf_shard(self, num_shards: NumShards) -> Self {
+        Self(
+            self.0
+                .saturating_mul(u64::from(num_shards.leaf_shards().get())),
+        )
+    }
+
+    /// Expands the global solution range to a solution range that corresponds to an intermediate
+    /// shard
+    #[inline]
+    pub const fn to_intermediate_shard(self, num_shards: NumShards) -> Self {
+        Self(
+            self.0
+                .saturating_mul(u64::from(num_shards.intermediate_shards().get())),
+        )
     }
 
     /// Bidirectional distance between two solution ranges
@@ -306,7 +310,7 @@ impl Serialize for ChunkProof {
             // SAFETY: `ChunkProofHexHash` is `#[repr(C)]` and guaranteed to have the
             // same memory layout
             ChunkProofHex(unsafe {
-                core::mem::transmute::<
+                mem::transmute::<
                     [[u8; OUT_LEN]; ChunkProof::NUM_HASHES],
                     [ChunkProofHexHash; ChunkProof::NUM_HASHES],
                 >(self.0)
@@ -329,7 +333,7 @@ impl<'de> Deserialize<'de> for ChunkProof {
             // SAFETY: `ChunkProofHexHash` is `#[repr(C)]` and guaranteed to have the
             // same memory layout
             unsafe {
-                core::mem::transmute::<
+                mem::transmute::<
                     [ChunkProofHexHash; ChunkProof::NUM_HASHES],
                     [[u8; OUT_LEN]; ChunkProof::NUM_HASHES],
                 >(ChunkProofHex::deserialize(deserializer)?.0)
@@ -408,6 +412,32 @@ pub enum SolutionVerifyError {
     /// Invalid proof of space
     #[error("Invalid proof of space")]
     InvalidProofOfSpace,
+    /// Invalid shard commitment
+    #[error("Invalid shard commitment")]
+    InvalidShardCommitment,
+    /// Invalid input shard
+    #[error("Invalid input shard {shard_index} ({shard_kind:?})")]
+    InvalidInputShard {
+        /// Input shard index
+        shard_index: ShardIndex,
+        /// Input shard kind
+        shard_kind: Option<ShardKind>,
+    },
+    /// Invalid solution shard
+    #[error(
+        "Invalid solution shard {solution_shard_index} (parent {solution_parent_shard_index:?}), \
+        expected shard {expected_shard_index} ({expected_shard_kind:?})"
+    )]
+    InvalidSolutionShard {
+        /// Solution shard index
+        solution_shard_index: ShardIndex,
+        /// Solution shard index
+        solution_parent_shard_index: Option<ShardIndex>,
+        /// Expected shard index
+        expected_shard_index: ShardIndex,
+        /// Expected shard kind
+        expected_shard_kind: RealShardKind,
+    },
     /// Invalid chunk proof
     #[error("Invalid chunk proof")]
     InvalidChunkProof,
@@ -440,10 +470,16 @@ pub struct SolutionVerifyPieceCheckParams {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 pub struct SolutionVerifyParams {
+    /// Shard for which the solution is built
+    pub shard_index: ShardIndex,
     /// Proof of time for which solution is built
     pub proof_of_time: PotOutput,
     /// Solution range
     pub solution_range: SolutionRange,
+    /// Shard membership entropy
+    pub shard_membership_entropy: ShardMembershipEntropy,
+    /// The number of shards in the network
+    pub num_shards: NumShards,
     /// Parameters for checking piece validity.
     ///
     /// If `None`, piece validity check will be skipped.
@@ -835,13 +871,71 @@ impl Solution {
         PotVerifier: SolutionPotVerifier,
     {
         let SolutionVerifyParams {
+            shard_index,
             proof_of_time,
             solution_range,
+            shard_membership_entropy,
+            num_shards,
             piece_check_params,
         } = params;
 
-        // TODO: Verify shard segment commitment, shard assignment and solution range adjusted
-        //  accordingly
+        let shard_kind = shard_index
+            .shard_kind()
+            .and_then(|shard_kind| shard_kind.to_real())
+            .ok_or(SolutionVerifyError::InvalidInputShard {
+                shard_index: *shard_index,
+                shard_kind: shard_index.shard_kind(),
+            })?;
+
+        let solution_shard_index =
+            num_shards.derive_shard_index(&self.shard_commitment.root, shard_membership_entropy);
+
+        // Adjust solution range according to shard kind
+        let solution_range = match shard_kind {
+            RealShardKind::BeaconChain => *solution_range,
+            RealShardKind::IntermediateShard => {
+                if solution_shard_index.parent_shard() != Some(*shard_index) {
+                    return Err(SolutionVerifyError::InvalidSolutionShard {
+                        solution_shard_index,
+                        solution_parent_shard_index: solution_shard_index.parent_shard(),
+                        expected_shard_index: *shard_index,
+                        expected_shard_kind: RealShardKind::IntermediateShard,
+                    });
+                }
+
+                solution_range.to_intermediate_shard(*num_shards)
+            }
+            RealShardKind::LeafShard => {
+                if solution_shard_index != *shard_index {
+                    return Err(SolutionVerifyError::InvalidSolutionShard {
+                        solution_shard_index,
+                        solution_parent_shard_index: solution_shard_index.parent_shard(),
+                        expected_shard_index: *shard_index,
+                        expected_shard_kind: RealShardKind::LeafShard,
+                    });
+                }
+
+                solution_range.to_leaf_shard(*num_shards)
+            }
+        };
+
+        // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
+        //  allows the code to compile. Constant 65536 is hardcoded here and below for compilation
+        //  to succeed.
+        const {
+            assert!(SolutionShardCommitment::NUM_LEAVES == 1048576);
+        }
+        if !BalancedMerkleTree::<1048576>::verify(
+            &self.shard_commitment.root,
+            &ShardCommitmentHash::repr_from_array(self.shard_commitment.proof),
+            num_shards.derive_shard_commitment_index(
+                &self.shard_commitment.root,
+                shard_membership_entropy,
+            ) as usize,
+            *self.shard_commitment.leaf,
+        ) {
+            return Err(SolutionVerifyError::InvalidShardCommitment);
+        }
 
         let sector_id = SectorId::new(
             &self.public_key_hash,
@@ -869,9 +963,9 @@ impl Solution {
         let solution_distance =
             SolutionDistance::calculate(&global_challenge, &masked_chunk, &sector_slot_challenge);
 
-        if !solution_distance.is_within(*solution_range) {
+        if !solution_distance.is_within(solution_range) {
             return Err(SolutionVerifyError::OutsideSolutionRange {
-                solution_range: *solution_range,
+                solution_range,
                 solution_distance,
             });
         }
@@ -879,9 +973,9 @@ impl Solution {
         // TODO: This is a workaround for https://github.com/rust-lang/rust/issues/139866 that
         //  allows the code to compile. Constant 65536 is hardcoded here and below for compilation
         //  to succeed.
-        const _: () = {
+        const {
             assert!(Record::NUM_S_BUCKETS == 65536);
-        };
+        }
         // Check that chunk belongs to the record
         if !BalancedMerkleTree::<65536>::verify(
             &self.record_root,

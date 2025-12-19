@@ -28,7 +28,7 @@ use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::hint::black_box;
 use std::io::Write;
-use std::num::NonZeroU64;
+use std::num::{NonZeroU16, NonZeroU64};
 use std::{env, fs, slice};
 
 type PosTable = ChiaTable;
@@ -54,7 +54,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let public_key_hash = &public_key.hash();
     let shard_commitments_seed = &Blake3Hash::default();
     let shard_membership_entropy = ShardMembershipEntropy::default();
-    let num_shards = NumShards::new(1, 1).unwrap();
+    let num_shards = NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN).unwrap();
     let sector_index = SectorIndex::ZERO;
     let mut rng = ChaCha8Rng::from_seed(Default::default());
     let mut input = RecordedHistorySegment::new_boxed();

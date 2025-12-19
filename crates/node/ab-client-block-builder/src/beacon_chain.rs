@@ -120,7 +120,7 @@ where
                 &header_prefix,
                 state_root,
                 consensus_info,
-                consensus_parameters.as_ref(),
+                &consensus_parameters.as_ref(),
             )
             .map_err(BeaconChainBlockBuilderError::from)?;
 

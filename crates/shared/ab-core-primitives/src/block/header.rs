@@ -13,7 +13,7 @@ use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use crate::hashes::Blake3Hash;
 use crate::pot::{PotOutput, PotParametersChange, SlotNumber};
 use crate::segments::SuperSegmentRoot;
-use crate::shard::{RealShardKind, ShardIndex, ShardKind};
+use crate::shard::{NumShards, NumShardsUnchecked, RealShardKind, ShardIndex, ShardKind};
 use crate::solutions::{Solution, SolutionRange};
 use ab_blake3::{BLOCK_LEN, single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
@@ -181,6 +181,8 @@ pub struct BlockHeaderFixedConsensusParameters {
     /// Corresponds to the slot that is right after the parent block's slot.
     /// It can change before the slot of this block (see [`PotParametersChange`]).
     pub slot_iterations: NonZeroU32,
+    /// Number of shards in the network
+    pub num_shards: NumShards,
 }
 
 impl BlockHeaderFixedConsensusParameters {
@@ -194,6 +196,7 @@ impl BlockHeaderFixedConsensusParameters {
         // Layout here is as follows:
         // * solution range: SolutionRange as unaligned bytes
         // * PoT slot iterations: NonZeroU32 as unaligned little-endian bytes
+        // * number of shards: NumShards as unaligned little-endian bytes
 
         let solution_range = bytes.split_off(..size_of::<SolutionRange>())?;
         let solution_range = SolutionRange::from_bytes([
@@ -215,11 +218,22 @@ impl BlockHeaderFixedConsensusParameters {
             pot_slot_iterations[3],
         ]);
         let slot_iterations = NonZeroU32::new(slot_iterations)?;
+        // TODO: Unaligned APIs for `TrivialType`
+        // SAFETY: All bit patterns are valid
+        let num_shards = unsafe {
+            bytes
+                .split_off(..size_of::<NumShardsUnchecked>())?
+                .as_ptr()
+                .cast::<NumShardsUnchecked>()
+                .read_unaligned()
+        };
+        let num_shards = NumShards::try_from(num_shards).ok()?;
 
         Some((
             Self {
                 solution_range,
                 slot_iterations,
+                num_shards,
             },
             bytes,
         ))
@@ -351,6 +365,7 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
         + u8::SIZE
         + <SuperSegmentRoot as TrivialType>::SIZE
         + <SolutionRange as TrivialType>::SIZE
+        + <NumShardsUnchecked as TrivialType>::SIZE
         + size_of::<BlockHeaderPotParametersChange>() as u32;
     /// Bitmask for presence of `super_segment_root` field
     pub const SUPER_SEGMENT_ROOT_MASK: u8 = 0b_0000_0001;
@@ -449,12 +464,14 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
         let BlockHeaderFixedConsensusParameters {
             solution_range,
             slot_iterations,
+            num_shards,
         } = fixed_parameters;
 
         // TODO: Keyed hash
         let mut hasher = blake3::Hasher::new();
         hasher.update(solution_range.as_bytes());
         hasher.update(&slot_iterations.get().to_le_bytes());
+        hasher.update(NumShardsUnchecked::from(*num_shards).as_bytes());
 
         if let Some(super_segment_root) = super_segment_root {
             hasher.update(super_segment_root.as_bytes());
@@ -907,7 +924,7 @@ impl<'a> BeaconChainHeader<'a> {
             self.shared.result,
             self.shared.consensus_info,
             &self.child_shard_blocks,
-            self.consensus_parameters,
+            &self.consensus_parameters,
         )
         .expect("`self` is always a valid invariant; qed");
 

@@ -135,6 +135,7 @@ where
         fixed_parameters: BlockHeaderFixedConsensusParameters {
             solution_range: solution_ranges.current,
             slot_iterations: pot_info.slot_iterations,
+            num_shards: parent_consensus_parameters.fixed_parameters.num_shards,
         },
         next_solution_range: solution_ranges.next,
         pot_parameters_change: pot_info

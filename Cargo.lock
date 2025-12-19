@@ -144,8 +144,10 @@ dependencies = [
  "ab-core-primitives",
  "ab-proof-of-space",
  "anyhow",
+ "async-lock",
  "rand 0.10.0-rc.5",
  "rayon",
+ "schnellru",
  "thiserror 2.0.17",
  "tracing",
 ]

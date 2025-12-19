@@ -3,11 +3,12 @@
 use crate::block::BlockRoot;
 use crate::block::header::{
     BeaconChainHeader, BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
-    BlockHeaderConsensusParameters, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
-    BlockHeaderSealType, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
+    BlockHeaderConsensusParameters, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
+    BlockHeaderResult, BlockHeaderSeal, BlockHeaderSealType, GenericBlockHeader,
+    IntermediateShardHeader, LeafShardHeader,
 };
 use crate::hashes::Blake3Hash;
-use crate::shard::RealShardKind;
+use crate::shard::{NumShardsUnchecked, RealShardKind};
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
@@ -123,7 +124,7 @@ impl OwnedBeaconChainHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         child_shard_blocks: &[BlockRoot],
-        consensus_parameters: BlockHeaderConsensusParameters<'_>,
+        consensus_parameters: &BlockHeaderConsensusParameters<'_>,
     ) -> Result<OwnedBeaconChainHeaderUnsealed, OwnedBeaconChainHeaderError> {
         let mut buffer =
             OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(child_shard_blocks));
@@ -146,9 +147,21 @@ impl OwnedBeaconChainHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         child_shard_blocks: &[BlockRoot],
-        consensus_parameters: BlockHeaderConsensusParameters<'_>,
+        consensus_parameters: &BlockHeaderConsensusParameters<'_>,
         buffer: &mut OwnedAlignedBuffer,
     ) -> Result<(), OwnedBeaconChainHeaderError> {
+        let BlockHeaderConsensusParameters {
+            fixed_parameters,
+            super_segment_root,
+            next_solution_range,
+            pot_parameters_change,
+        } = consensus_parameters;
+        let BlockHeaderFixedConsensusParameters {
+            solution_range,
+            slot_iterations,
+            num_shards,
+        } = fixed_parameters;
+
         let num_blocks = child_shard_blocks.len();
         let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
             OwnedBeaconChainHeaderError::TooManyChildShardBlocks { actual: num_blocks }
@@ -178,34 +191,26 @@ impl OwnedBeaconChainHeader {
         // TODO: Would be nice for `BlockHeaderBeaconChainParameters` to have API to write this by
         //  itself
         {
-            let true = buffer.append(
-                &consensus_parameters
-                    .fixed_parameters
-                    .solution_range
-                    .to_bytes(),
-            ) else {
+            let true = buffer.append(&solution_range.to_bytes()) else {
                 unreachable!("Fixed size data structures that are guaranteed to fit; qed");
             };
-            let true = buffer.append(
-                &consensus_parameters
-                    .fixed_parameters
-                    .slot_iterations
-                    .get()
-                    .to_le_bytes(),
-            ) else {
+            let true = buffer.append(&slot_iterations.get().to_le_bytes()) else {
+                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            };
+            let true = buffer.append(NumShardsUnchecked::from(*num_shards).as_bytes()) else {
                 unreachable!("Fixed size data structures that are guaranteed to fit; qed");
             };
 
             let bitflags = {
                 let mut bitflags = 0u8;
 
-                if consensus_parameters.super_segment_root.is_some() {
+                if super_segment_root.is_some() {
                     bitflags |= BlockHeaderConsensusParameters::SUPER_SEGMENT_ROOT_MASK;
                 }
-                if consensus_parameters.next_solution_range.is_some() {
+                if next_solution_range.is_some() {
                     bitflags |= BlockHeaderConsensusParameters::NEXT_SOLUTION_RANGE_MASK;
                 }
-                if consensus_parameters.pot_parameters_change.is_some() {
+                if pot_parameters_change.is_some() {
                     bitflags |= BlockHeaderConsensusParameters::POT_PARAMETERS_CHANGE_MASK;
                 }
 
@@ -216,19 +221,19 @@ impl OwnedBeaconChainHeader {
                 unreachable!("Fixed size data structures that are guaranteed to fit; qed");
             };
 
-            if let Some(super_segment_root) = consensus_parameters.super_segment_root {
+            if let Some(super_segment_root) = super_segment_root {
                 let true = buffer.append(super_segment_root.as_ref()) else {
                     unreachable!("Fixed size data structures that are guaranteed to fit; qed");
                 };
             }
 
-            if let Some(next_solution_range) = consensus_parameters.next_solution_range {
+            if let Some(next_solution_range) = next_solution_range {
                 let true = buffer.append(&next_solution_range.to_bytes()) else {
                     unreachable!("Fixed size data structures that are guaranteed to fit; qed");
                 };
             }
 
-            if let Some(pot_parameters_change) = consensus_parameters.pot_parameters_change {
+            if let Some(pot_parameters_change) = pot_parameters_change {
                 let true = buffer.append(&pot_parameters_change.slot.to_bytes()) else {
                     unreachable!("Fixed size data structures that are guaranteed to fit; qed");
                 };

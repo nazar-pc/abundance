@@ -4,15 +4,15 @@ use crate::nano_u256::NanoU256;
 use crate::solutions::{ShardCommitmentHash, ShardMembershipEntropy, SolutionShardCommitment};
 use ab_blake3::single_block_keyed_hash;
 use ab_io_type::trivial_type::TrivialType;
-use core::num::{NonZeroU32, NonZeroU128};
+use core::num::{NonZeroU16, NonZeroU32, NonZeroU128};
 use core::ops::RangeInclusive;
 use derive_more::Display;
 #[cfg(feature = "scale-codec")]
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{Decode, Encode, Input, MaxEncodedLen};
 #[cfg(feature = "scale-codec")]
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 const INTERMEDIATE_SHARDS_RANGE: RangeInclusive<u32> = 1..=1023;
 const INTERMEDIATE_SHARD_BITS: u32 = 10;
@@ -222,7 +222,9 @@ impl ShardIndex {
     }
 }
 
-/// Number of shards in the network
+/// Unchecked number of shards in the network.
+///
+/// Should be converted into [`NumShards`] before use.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
 #[cfg_attr(
     feature = "scale-codec",
@@ -230,11 +232,79 @@ impl ShardIndex {
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
+pub struct NumShardsUnchecked {
+    /// The number of intermediate shards
+    pub intermediate_shards: u16,
+    /// The number of leaf shards per intermediate shard
+    pub leaf_shards_per_intermediate_shard: u16,
+}
+
+impl From<NumShards> for NumShardsUnchecked {
+    fn from(value: NumShards) -> Self {
+        Self {
+            intermediate_shards: value.intermediate_shards.get(),
+            leaf_shards_per_intermediate_shard: value.leaf_shards_per_intermediate_shard.get(),
+        }
+    }
+}
+
+/// Number of shards in the network
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, TypeInfo, MaxEncodedLen))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct NumShards {
     /// The number of intermediate shards
-    intermediate_shards: u16,
+    intermediate_shards: NonZeroU16,
     /// The number of leaf shards per intermediate shard
-    leaf_shards_per_intermediate_shard: u16,
+    leaf_shards_per_intermediate_shard: NonZeroU16,
+}
+
+#[cfg(feature = "scale-codec")]
+impl Decode for NumShards {
+    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+        let intermediate_shards = Decode::decode(input)
+            .map_err(|error| error.chain("Could not decode `NumShards::intermediate_shards`"))?;
+        let leaf_shards_per_intermediate_shard = Decode::decode(input).map_err(|error| {
+            error.chain("Could not decode `NumShards::leaf_shards_per_intermediate_shard`")
+        })?;
+
+        Self::new(intermediate_shards, leaf_shards_per_intermediate_shard)
+            .ok_or_else(|| "Invalid `NumShards`".into())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for NumShards {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct NumShards {
+            intermediate_shards: NonZeroU16,
+            leaf_shards_per_intermediate_shard: NonZeroU16,
+        }
+
+        let num_shards_inner = NumShards::deserialize(deserializer)?;
+
+        Self::new(
+            num_shards_inner.intermediate_shards,
+            num_shards_inner.leaf_shards_per_intermediate_shard,
+        )
+        .ok_or_else(|| serde::de::Error::custom("Invalid `NumShards`"))
+    }
+}
+
+impl TryFrom<NumShardsUnchecked> for NumShards {
+    type Error = ();
+
+    fn try_from(value: NumShardsUnchecked) -> Result<Self, Self::Error> {
+        Self::new(
+            NonZeroU16::new(value.intermediate_shards).ok_or(())?,
+            NonZeroU16::new(value.leaf_shards_per_intermediate_shard).ok_or(())?,
+        )
+        .ok_or(())
+    }
 }
 
 impl NumShards {
@@ -246,10 +316,10 @@ impl NumShards {
     /// This is typically only necessary for low-level code.
     #[inline(always)]
     pub const fn new(
-        intermediate_shards: u16,
-        leaf_shards_per_intermediate_shard: u16,
+        intermediate_shards: NonZeroU16,
+        leaf_shards_per_intermediate_shard: NonZeroU16,
     ) -> Option<Self> {
-        if intermediate_shards
+        if intermediate_shards.get()
             > (*INTERMEDIATE_SHARDS_RANGE.end() - *INTERMEDIATE_SHARDS_RANGE.start() + 1) as u16
         {
             return None;
@@ -260,7 +330,7 @@ impl NumShards {
             leaf_shards_per_intermediate_shard,
         };
 
-        if num_shards.num_leaf_shards() > ShardIndex::MAX_SHARDS.get() {
+        if num_shards.leaf_shards() > ShardIndex::MAX_SHARDS {
             return None;
         }
 
@@ -269,26 +339,30 @@ impl NumShards {
 
     /// The number of intermediate shards
     #[inline(always)]
-    pub const fn intermediate_shards(self) -> u16 {
+    pub const fn intermediate_shards(self) -> NonZeroU16 {
         self.intermediate_shards
     }
     /// The number of leaf shards per intermediate shard
     #[inline(always)]
-    pub const fn leaf_shards_per_intermediate_shard(self) -> u16 {
+    pub const fn leaf_shards_per_intermediate_shard(self) -> NonZeroU16 {
         self.leaf_shards_per_intermediate_shard
     }
 
     /// Total number of leaf shards in the network
     #[inline(always)]
-    pub const fn num_leaf_shards(&self) -> u32 {
-        self.intermediate_shards as u32 * self.leaf_shards_per_intermediate_shard as u32
+    pub const fn leaf_shards(&self) -> NonZeroU32 {
+        NonZeroU32::new(
+            self.intermediate_shards.get() as u32
+                * self.leaf_shards_per_intermediate_shard.get() as u32,
+        )
+        .expect("Not zero; qed")
     }
 
     /// Iterator over all intermediate shards
     #[inline(always)]
     pub fn iter_intermediate_shards(&self) -> impl Iterator<Item = ShardIndex> {
         INTERMEDIATE_SHARDS_RANGE
-            .take(usize::from(self.intermediate_shards))
+            .take(usize::from(self.intermediate_shards.get()))
             .map(ShardIndex)
     }
 
@@ -297,9 +371,13 @@ impl NumShards {
     pub fn iter_leaf_shards(&self) -> impl Iterator<Item = ShardIndex> {
         self.iter_intermediate_shards()
             .flat_map(|intermediate_shard| {
-                (0..self.leaf_shards_per_intermediate_shard as u32).map(move |leaf_shard_index| {
-                    ShardIndex((leaf_shard_index << INTERMEDIATE_SHARD_BITS) | intermediate_shard.0)
-                })
+                (0..u32::from(self.leaf_shards_per_intermediate_shard.get())).map(
+                    move |leaf_shard_index| {
+                        ShardIndex(
+                            (leaf_shard_index << INTERMEDIATE_SHARD_BITS) | intermediate_shard.0,
+                        )
+                    },
+                )
             })
     }
 
@@ -308,32 +386,19 @@ impl NumShards {
     pub fn derive_shard_index(
         &self,
         shard_commitments_root: &ShardCommitmentHash,
-        shard_membership_entropy: ShardMembershipEntropy,
+        shard_membership_entropy: &ShardMembershipEntropy,
     ) -> ShardIndex {
-        // The complexity of this whole function is primarily caused by the fact that the invariant
-        // of the total number of shards can't be fully enforced here
-        let total_shards_to_consider = self.num_leaf_shards().clamp(
-            self.intermediate_shards.max(1) as u32,
-            ShardIndex::MAX_SHARDS.get(),
-        );
-
         let hash =
             single_block_keyed_hash(shard_commitments_root, shard_membership_entropy.as_bytes())
                 .expect("Input is smaller than block size; qed");
         // Going through `NanoU256` because the total number of shards is not guaranteed to be a
         // power of two
         let shard_index_offset =
-            NanoU256::from_le_bytes(hash) % u64::from(total_shards_to_consider);
+            NanoU256::from_le_bytes(hash) % u64::from(self.leaf_shards().get());
 
-        if self.num_leaf_shards() == 0 {
-            self.iter_intermediate_shards()
-                .nth(shard_index_offset as usize)
-                .unwrap_or(ShardIndex::BEACON_CHAIN)
-        } else {
-            self.iter_leaf_shards()
-                .nth(shard_index_offset as usize)
-                .unwrap_or(ShardIndex::BEACON_CHAIN)
-        }
+        self.iter_leaf_shards()
+            .nth(shard_index_offset as usize)
+            .unwrap_or(ShardIndex::BEACON_CHAIN)
     }
 
     /// Derive shard commitment index that should be used in a solution.
