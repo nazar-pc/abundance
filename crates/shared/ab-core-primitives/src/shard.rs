@@ -1,8 +1,9 @@
 //! Shard-related primitives
 
 use crate::nano_u256::NanoU256;
+use crate::segments::HistorySize;
 use crate::solutions::{ShardCommitmentHash, ShardMembershipEntropy, SolutionShardCommitment};
-use ab_blake3::single_block_keyed_hash;
+use ab_blake3::single_block_hash;
 use ab_io_type::trivial_type::TrivialType;
 use core::num::{NonZeroU16, NonZeroU32, NonZeroU128};
 use core::ops::RangeInclusive;
@@ -387,10 +388,21 @@ impl NumShards {
         &self,
         shard_commitments_root: &ShardCommitmentHash,
         shard_membership_entropy: &ShardMembershipEntropy,
+        history_size: HistorySize,
     ) -> ShardIndex {
-        let hash =
-            single_block_keyed_hash(shard_commitments_root, shard_membership_entropy.as_bytes())
-                .expect("Input is smaller than block size; qed");
+        let hash = single_block_hash(&{
+            let mut bytes_to_hash = [0u8; ShardCommitmentHash::SIZE
+                + ShardMembershipEntropy::SIZE
+                + HistorySize::SIZE as usize];
+            bytes_to_hash[..ShardCommitmentHash::SIZE]
+                .copy_from_slice(shard_commitments_root.as_bytes());
+            bytes_to_hash[ShardCommitmentHash::SIZE..][..ShardMembershipEntropy::SIZE]
+                .copy_from_slice(shard_membership_entropy.as_bytes());
+            bytes_to_hash[ShardCommitmentHash::SIZE + ShardMembershipEntropy::SIZE..]
+                .copy_from_slice(history_size.as_bytes());
+            bytes_to_hash
+        })
+        .expect("Input is smaller than block size; qed");
         // Going through `NanoU256` because the total number of shards is not guaranteed to be a
         // power of two
         let shard_index_offset =
@@ -409,14 +421,67 @@ impl NumShards {
         &self,
         shard_commitments_root: &ShardCommitmentHash,
         shard_membership_entropy: &ShardMembershipEntropy,
+        history_size: HistorySize,
     ) -> u32 {
-        let hash =
-            single_block_keyed_hash(shard_commitments_root, shard_membership_entropy.as_bytes())
-                .expect("Input is smaller than block size; qed");
+        let hash = single_block_hash(&{
+            let mut bytes_to_hash = [0u8; ShardCommitmentHash::SIZE
+                + ShardMembershipEntropy::SIZE
+                + HistorySize::SIZE as usize];
+            bytes_to_hash[..ShardCommitmentHash::SIZE]
+                .copy_from_slice(shard_commitments_root.as_bytes());
+            bytes_to_hash[ShardCommitmentHash::SIZE..][..ShardMembershipEntropy::SIZE]
+                .copy_from_slice(shard_membership_entropy.as_bytes());
+            bytes_to_hash[ShardCommitmentHash::SIZE + ShardMembershipEntropy::SIZE..]
+                .copy_from_slice(history_size.as_bytes());
+            bytes_to_hash
+        })
+        .expect("Input is smaller than block size; qed");
         const {
             assert!(SolutionShardCommitment::NUM_LEAVES.is_power_of_two());
         }
         u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]])
             % SolutionShardCommitment::NUM_LEAVES as u32
+    }
+
+    /// More efficient version of [`Self::derive_shard_index()`] and
+    /// [`Self::derive_shard_commitment_index()`] in a single call, see those functions for details
+    #[inline]
+    pub fn derive_shard_index_and_shard_commitment_index(
+        &self,
+        shard_commitments_root: &ShardCommitmentHash,
+        shard_membership_entropy: &ShardMembershipEntropy,
+        history_size: HistorySize,
+    ) -> (ShardIndex, u32) {
+        let hash = single_block_hash(&{
+            let mut bytes_to_hash = [0u8; ShardCommitmentHash::SIZE
+                + ShardMembershipEntropy::SIZE
+                + HistorySize::SIZE as usize];
+            bytes_to_hash[..ShardCommitmentHash::SIZE]
+                .copy_from_slice(shard_commitments_root.as_bytes());
+            bytes_to_hash[ShardCommitmentHash::SIZE..][..ShardMembershipEntropy::SIZE]
+                .copy_from_slice(shard_membership_entropy.as_bytes());
+            bytes_to_hash[ShardCommitmentHash::SIZE + ShardMembershipEntropy::SIZE..]
+                .copy_from_slice(history_size.as_bytes());
+            bytes_to_hash
+        })
+        .expect("Input is smaller than block size; qed");
+
+        // Going through `NanoU256` because the total number of shards is not guaranteed to be a
+        // power of two
+        let shard_index_offset =
+            NanoU256::from_le_bytes(hash) % u64::from(self.leaf_shards().get());
+
+        let shard_index = self
+            .iter_leaf_shards()
+            .nth(shard_index_offset as usize)
+            .unwrap_or(ShardIndex::BEACON_CHAIN);
+
+        const {
+            assert!(SolutionShardCommitment::NUM_LEAVES.is_power_of_two());
+        }
+        let shard_commitment_index = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]])
+            % SolutionShardCommitment::NUM_LEAVES as u32;
+
+        (shard_index, shard_commitment_index)
     }
 }

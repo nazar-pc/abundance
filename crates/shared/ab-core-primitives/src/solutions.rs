@@ -887,8 +887,12 @@ impl Solution {
                 shard_kind: shard_index.shard_kind(),
             })?;
 
-        let solution_shard_index =
-            num_shards.derive_shard_index(&self.shard_commitment.root, shard_membership_entropy);
+        let (solution_shard_index, shard_commitment_index) = num_shards
+            .derive_shard_index_and_shard_commitment_index(
+                &self.shard_commitment.root,
+                shard_membership_entropy,
+                self.history_size,
+            );
 
         // Adjust solution range according to shard kind
         let solution_range = match shard_kind {
@@ -928,10 +932,7 @@ impl Solution {
         if !BalancedMerkleTree::<1048576>::verify(
             &self.shard_commitment.root,
             &ShardCommitmentHash::repr_from_array(self.shard_commitment.proof),
-            num_shards.derive_shard_commitment_index(
-                &self.shard_commitment.root,
-                shard_membership_entropy,
-            ) as usize,
+            shard_commitment_index as usize,
             *self.shard_commitment.leaf,
         ) {
             return Err(SolutionVerifyError::InvalidShardCommitment);

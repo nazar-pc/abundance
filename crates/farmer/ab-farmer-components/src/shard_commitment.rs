@@ -112,9 +112,11 @@ pub fn derive_solution_shard_commitment(
         hasher.finalize_xof()
     };
 
-    let leaf_index = num_shards
-        .derive_shard_commitment_index(shard_commitments_root, shard_membership_entropy)
-        as usize;
+    let leaf_index = num_shards.derive_shard_commitment_index(
+        shard_commitments_root,
+        shard_membership_entropy,
+        history_size,
+    ) as usize;
 
     let mut leaf = [0; _];
     let mut index = 0;
