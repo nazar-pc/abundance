@@ -270,7 +270,7 @@ where
 // Refuse to compile on non-64-bit platforms, offsets may fail on those when converting from u64 to
 // usize depending on chain parameters
 const _: () = {
-    assert!(std::mem::size_of::<usize>() >= std::mem::size_of::<u64>());
+    assert!(size_of::<usize>() >= size_of::<u64>());
 };
 
 /// Information about the protocol necessary for farmer operation
