@@ -11,7 +11,7 @@
   "linker-flavor": "ld.lld",
   "llvm-target": "x86_64-unknown-none-elf",
   "max-atomic-width": 64,
-  "panic-strategy": "abort",
+  "panic-strategy": "immediate-abort",
   "plt-by-default": false,
   "position-independent-executables": true,
   "relro-level": "full",
