@@ -3,8 +3,8 @@ use ab_client_api::{BlockOrigin, ChainInfo, ChainSyncStatus};
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
     DeriveConsensusParametersChainInfo, DeriveConsensusParametersError,
-    ShardMembershipEntropySourceChainInfo, ShardMembershipEntropySourceError,
-    derive_consensus_parameters, shard_membership_entropy_source,
+    ShardMembershipEntropySourceChainInfo, derive_consensus_parameters,
+    shard_membership_entropy_source,
 };
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::verifier::PotVerifier;
@@ -19,20 +19,14 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
 use ab_core_primitives::segments::SegmentRoot;
 use ab_core_primitives::shard::ShardIndex;
-use ab_core_primitives::solutions::{
-    ShardMembershipEntropy, SolutionVerifyError, SolutionVerifyParams,
-};
+use ab_core_primitives::solutions::{SolutionVerifyError, SolutionVerifyParams};
 use ab_proof_of_space::Table;
-use async_lock::RwLock;
 use rand::prelude::*;
 use rayon::prelude::*;
-use schnellru::{ByLength, LruMap};
 use std::iter;
 use std::marker::PhantomData;
 use std::time::SystemTime;
 use tracing::{debug, trace};
-
-const SHARD_MEMBERSHIP_ENTROPY_CACHE: ByLength = ByLength::new(32);
 
 /// Errors for [`BeaconChainBlockVerification`]
 #[derive(Debug, thiserror::Error)]
@@ -82,8 +76,6 @@ pub struct BeaconChainBlockVerification<PosTable, CI, CSS> {
     pot_verifier: PotVerifier,
     chain_info: CI,
     chain_sync_status: CSS,
-    // TODO: Replace LRU with `VecDeque` for efficiency
-    shard_membership_entropy_cache: RwLock<LruMap<u64, ShardMembershipEntropy, ByLength>>,
     _pos_table: PhantomData<PosTable>,
 }
 
@@ -151,9 +143,6 @@ where
             pot_verifier,
             chain_info,
             chain_sync_status,
-            shard_membership_entropy_cache: RwLock::new(LruMap::new(
-                SHARD_MEMBERSHIP_ENTROPY_CACHE,
-            )),
             _pos_table: PhantomData,
         }
     }
@@ -505,9 +494,13 @@ where
         }
 
         // Find shard membership entropy for the slot
-        let shard_membership_entropy = self
-            .shard_membership_entropy(header, body, best_header, beacon_chain_info)
-            .await?;
+        let shard_membership_entropy = shard_membership_entropy_source(
+            header.prefix.number,
+            best_header,
+            self.consensus_constants.shard_rotation_interval,
+            self.consensus_constants.shard_rotation_delay,
+            beacon_chain_info,
+        )?;
 
         // Verify that the solution is valid
         consensus_info
@@ -580,77 +573,5 @@ where
         )?;
 
         Ok(())
-    }
-
-    async fn shard_membership_entropy<BCI>(
-        &self,
-        header: &BeaconChainHeader<'_>,
-        body: &BeaconChainBody<'_>,
-        best_header: &BeaconChainHeader<'_>,
-        beacon_chain_info: &BCI,
-    ) -> Result<ShardMembershipEntropy, ShardMembershipEntropySourceError>
-    where
-        BCI: ShardMembershipEntropySourceChainInfo,
-    {
-        let slot = header.consensus_info.slot;
-
-        let shard_membership_interval_index = slot
-            .saturating_sub(self.consensus_constants.shard_rotation_delay)
-            .as_u64()
-            / self.consensus_constants.shard_rotation_interval.as_u64();
-
-        let maybe_shard_membership_entropy = self
-            .shard_membership_entropy_cache
-            .read()
-            .await
-            .peek(&shard_membership_interval_index)
-            .copied();
-
-        if let Some(entropy) = maybe_shard_membership_entropy {
-            return Ok(entropy);
-        }
-
-        let entropy_source_slot = SlotNumber::new(
-            slot.saturating_sub(self.consensus_constants.shard_rotation_delay)
-                .as_u64()
-                / self.consensus_constants.shard_rotation_interval.as_u64()
-                * self.consensus_constants.shard_rotation_interval.as_u64(),
-        );
-        let maybe_last_confirmed_slot = best_header
-            .prefix
-            .number
-            .checked_sub(self.consensus_constants.confirmation_depth_k)
-            .and_then(|confirmed_block_number| {
-                self.chain_info
-                    .ancestor_header(confirmed_block_number, &best_header.root())
-            })
-            .map(|header| header.header().consensus_info.slot);
-
-        let shard_membership_entropy_source_fut = shard_membership_entropy_source(
-            beacon_chain_info,
-            slot,
-            body.pot_checkpoints()
-                .iter()
-                .rev()
-                .skip(self.consensus_constants.block_authoring_delay.as_u64() as usize)
-                .rev(),
-            best_header,
-            self.consensus_constants.shard_rotation_interval,
-            self.consensus_constants.shard_rotation_delay,
-            self.consensus_constants.block_authoring_delay,
-        );
-        let shard_membership_entropy = shard_membership_entropy_source_fut.await?;
-
-        if let Some(last_confirmed_slot) = maybe_last_confirmed_slot
-            && last_confirmed_slot >= entropy_source_slot
-        {
-            // Store confirmed value in a cache
-            self.shard_membership_entropy_cache
-                .write()
-                .await
-                .insert(shard_membership_interval_index, shard_membership_entropy);
-        }
-
-        Ok(shard_membership_entropy)
     }
 }

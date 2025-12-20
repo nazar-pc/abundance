@@ -33,11 +33,11 @@ const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
     // TODO: Should shard rotation be measured in beacon chain blocks instead of slots? See original
     //  PR description for details: https://github.com/nazar-pc/abundance/pull/476
     // TODO: Reduced values just for testing to hit potential bugs sooner
-    // shard_rotation_interval: SlotNumber::new(3600),
-    shard_rotation_interval: SlotNumber::new(36),
+    // shard_rotation_interval: BlockNumber::new(360),
+    shard_rotation_interval: BlockNumber::new(36),
     // TODO: Reduced values just for testing to hit potential bugs sooner
-    // shard_rotation_delay: SlotNumber::new(1800),
-    shard_rotation_delay: SlotNumber::new(18),
+    // shard_rotation_delay: BlockNumber::new(180),
+    shard_rotation_delay: BlockNumber::new(18),
 };
 
 const _: () = {
