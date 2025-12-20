@@ -449,13 +449,6 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         RenameRule::ScreamingSnakeCase.apply_to_variant(&struct_name_str)
     );
     Ok(quote! {
-        #[cfg(all(feature = "guest", not(any(unix, windows))))]
-        #[panic_handler]
-        fn panic(_info: &::core::panic::PanicInfo<'_>) -> ! {
-            // TODO: Might need something different than this in practice
-            loop {}
-        }
-
         /// Main contract metadata
         ///
         /// Enabled with `guest` feature to appear in the final binary, also prevents from
