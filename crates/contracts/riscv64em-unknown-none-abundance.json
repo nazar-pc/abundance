@@ -1,0 +1,37 @@
+{
+  "arch": "riscv64",
+  "code-model": "medium",
+  "cpu": "generic-rv64",
+  "crt-objects-fallback": "false",
+  "data-layout": "e-m:e-p:64:64-i64:64-i128:128-n32:64-S64",
+  "only-cdylib": true,
+  "executables": false,
+  "eh-frame-header": false,
+  "emit-debug-gdb-scripts": false,
+  "features": "+e,+m",
+  "linker": "rust-lld",
+  "linker-flavor": "ld.lld",
+  "llvm-abiname": "lp64e",
+  "llvm-target": "riscv64",
+  "max-atomic-width": 64,
+  "panic-strategy": "abort",
+  "position-independent-executables": true,
+  "relro-level": "full",
+  "static-position-independent-executables": true,
+  "target-pointer-width": 64,
+  "relocation-model": "pie",
+  "singlethread": true,
+  "dynamic-linking": true,
+  "default-visibility": "hidden",
+  "pre-link-args": {
+    "ld": [
+      "--hash-style=gnu",
+      "--no-rosegment",
+      "--apply-dynamic-relocs",
+      "-Bsymbolic"
+    ]
+  },
+  "dll-prefix": "",
+  "dll-suffix": ".contract",
+  "env": "abundance"
+}
