@@ -46,16 +46,17 @@ pub struct ConsensusConstants {
     pub min_sector_lifetime: HistorySize,
     /// Max block timestamp drift allowed
     pub max_block_timestamp_drift: BlockTimestamp,
-    // TODO: Non-zero slot number would be nice
-    /// Number of slots between shard rotations.
+    // TODO: Non-zero block number would be nice
+    /// Number of beacon chain blocks between shard rotations.
     ///
-    /// Every this number of slots PoT entropy is taken to calculate the next shard assignment.
-    pub shard_rotation_interval: SlotNumber,
-    /// Delay in slots for next shard rotation.
+    /// Every this number of beacon chain blocks PoT entropy is taken to calculate the next shard
+    /// assignment.
+    pub shard_rotation_interval: BlockNumber,
+    /// Delay in beacon chain blocks for the next shard rotation.
     ///
     /// Delay after shard assignment is revealed before it actually takes effect (essentially the
     /// amount of time for a node to sync the corresponding shard).
-    pub shard_rotation_delay: SlotNumber,
+    pub shard_rotation_delay: BlockNumber,
 }
 
 /// Notification with information about the block that is about to be imported and acknowledgement

@@ -87,13 +87,6 @@ pub struct SlotWorkerOptions<BP, BCI, CSS> {
     pub pot_verifier: PotVerifier,
 }
 
-#[derive(Debug, Copy, Clone)]
-struct LastProcessedSlot {
-    slot: SlotNumber,
-    shard_membership_interval_index: u64,
-    shard_membership_entropy: ShardMembershipEntropy,
-}
-
 /// Slot worker responsible for block production
 #[derive(Debug)]
 pub struct SlotWorker<PosTable, BP, BCI, CSS> {
@@ -150,17 +143,7 @@ where
 
     /// Run slot worker
     pub async fn run(mut self, mut slot_info_stream: PotSlotInfoStream) {
-        // Cache of shard membership entropy initialized with placeholder values.
-        //
-        // NOTE: This cache is imperfect and will produce invalid value in case there are PoT
-        // reorgs below `ConsensusConstants::shard_rotation_delay` slots, but that should be
-        // extremely unlikely in practice, especially in a production network where this delay will
-        // likely be measured in tens of minutes.
-        let mut last_processed_slot = LastProcessedSlot {
-            slot: SlotNumber::ZERO,
-            shard_membership_interval_index: u64::MAX,
-            shard_membership_entropy: Default::default(),
-        };
+        let mut last_processed_slot = SlotNumber::ZERO;
 
         loop {
             let PotSlotInfo { slot, checkpoints } = match slot_info_stream.recv().await {
@@ -180,11 +163,11 @@ where
                 },
             };
 
-            if last_processed_slot.slot >= slot {
+            if last_processed_slot >= slot {
                 // Already processed
                 continue;
             }
-            last_processed_slot.slot = slot;
+            last_processed_slot = slot;
 
             let best_beacon_chain_header = self.beacon_chain_info.best_header();
             let best_beacon_chain_header = best_beacon_chain_header.header();
@@ -203,43 +186,22 @@ where
                 return;
             }
 
-            // Find shard membership entropy for the slot
-            let shard_membership_entropy = {
-                let shard_membership_interval_index = slot
-                    .saturating_sub(self.consensus_constants.shard_rotation_delay)
-                    .as_u64()
-                    / self.consensus_constants.shard_rotation_interval.as_u64();
-
-                if last_processed_slot.shard_membership_interval_index
-                    == shard_membership_interval_index
-                {
-                    // Use cached value
-                    last_processed_slot.shard_membership_entropy
-                } else {
-                    let shard_membership_entropy_source_fut = shard_membership_entropy_source(
-                        &self.beacon_chain_info,
-                        slot,
-                        self.pot_checkpoints.values(),
-                        best_beacon_chain_header,
-                        self.consensus_constants.shard_rotation_interval,
-                        self.consensus_constants.shard_rotation_delay,
-                        self.consensus_constants.block_authoring_delay,
-                    );
-                    let shard_membership_entropy = match shard_membership_entropy_source_fut.await {
-                        Ok(shard_membership_entropy) => shard_membership_entropy,
-                        Err(error) => {
-                            error!(%error, "Failed to find shard membership entropy");
-                            break;
-                        }
-                    };
-
-                    last_processed_slot = LastProcessedSlot {
-                        slot,
-                        shard_membership_interval_index,
-                        shard_membership_entropy,
-                    };
-
-                    shard_membership_entropy
+            // TODO: Maybe handle the boundary in some way, like checking already received
+            //  solutions (which are waiting for future PoT to produce a block) or send both entropy
+            //  sources at the interval boundary
+            // NOTE: Beacon chain block number may change before the next block is produced,
+            // rendering the entropy source invalid, but it should not happen often.
+            let shard_membership_entropy = match shard_membership_entropy_source(
+                best_beacon_chain_header.prefix.number,
+                best_beacon_chain_header,
+                self.consensus_constants.shard_rotation_interval,
+                self.consensus_constants.shard_rotation_delay,
+                &self.beacon_chain_info,
+            ) {
+                Ok(shard_membership_entropy) => shard_membership_entropy,
+                Err(error) => {
+                    error!(%error, "Failed to find shard membership entropy");
+                    break;
                 }
             };
 
