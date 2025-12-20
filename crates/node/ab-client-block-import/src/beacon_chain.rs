@@ -8,7 +8,6 @@ use ab_client_consensus_common::consensus_parameters::{
     ShardMembershipEntropySourceChainInfo,
 };
 use ab_client_consensus_common::state::GlobalState;
-use ab_core_primitives::block::body::owned::OwnedBeaconChainBody;
 use ab_core_primitives::block::header::owned::OwnedBeaconChainHeader;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
@@ -49,7 +48,7 @@ impl From<BeaconChainBlockImportError> for BlockImportError {
 #[derive(Debug)]
 struct VerificationChainInfo<'a, CI> {
     chain_info: &'a CI,
-    importing_blocks: &'a ImportingBlocks<OwnedBeaconChainHeader, OwnedBeaconChainBody>,
+    importing_blocks: &'a ImportingBlocks<OwnedBeaconChainHeader>,
 }
 
 impl<'a, CI> DeriveConsensusParametersChainInfo for VerificationChainInfo<'a, CI>
@@ -132,7 +131,7 @@ where
 pub struct BeaconChainBlockImport<PosTable, CI, BV> {
     chain_info: CI,
     block_verification: BV,
-    importing_blocks: ImportingBlocks<OwnedBeaconChainHeader, OwnedBeaconChainBody>,
+    importing_blocks: ImportingBlocks<OwnedBeaconChainHeader>,
     block_importing_notification_sender: mpsc::Sender<BlockImportingNotification>,
     block_import_notification_sender: mpsc::Sender<OwnedBeaconChainBlock>,
     _pos_table: PhantomData<PosTable>,
@@ -190,11 +189,7 @@ where
 
         let importing_handle = self
             .importing_blocks
-            .insert(
-                block.header.clone(),
-                block.body.clone(),
-                Arc::new(block_mmr),
-            )
+            .insert(block.header.clone(), Arc::new(block_mmr))
             .ok_or(BlockImportError::AlreadyImporting)?;
 
         if self
@@ -246,11 +241,8 @@ where
         parent_block_mmr_root: Blake3Hash,
         block: OwnedBeaconChainBlock,
         origin: BlockOrigin,
-        importing_handle: ImportingBlockHandle<OwnedBeaconChainHeader, OwnedBeaconChainBody>,
-        parent_block_import_status: ParentBlockImportStatus<
-            OwnedBeaconChainHeader,
-            OwnedBeaconChainBody,
-        >,
+        importing_handle: ImportingBlockHandle<OwnedBeaconChainHeader>,
+        parent_block_import_status: ParentBlockImportStatus<OwnedBeaconChainHeader>,
     ) -> Result<(), BlockImportError> {
         let parent_header = parent_header.header();
         let header = block.header.header();

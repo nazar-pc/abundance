@@ -1,7 +1,6 @@
 use crate::importing_blocks::private::ImportingBlockEntryInner;
 use ab_client_api::{BlockMerkleMountainRange, ContractSlotState};
 use ab_core_primitives::block::BlockRoot;
-use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use async_lock::{RwLock, RwLockWriteGuard};
@@ -23,29 +22,27 @@ mod private {
 
     // Needs to be public to appear in `impl Deref for ImportingBlockEntry`
     #[derive(Debug)]
-    pub struct ImportingBlockEntryInner<BlockHeader, BlockBody> {
+    pub struct ImportingBlockEntryInner<BlockHeader> {
         pub(super) block_root: BlockRoot,
         pub(super) header: BlockHeader,
-        pub(super) body: BlockBody,
         pub(super) mmr: Arc<BlockMerkleMountainRange>,
         pub(super) system_contract_states: RwLock<Option<StdArc<[ContractSlotState]>>>,
     }
 }
 
 #[derive(Debug)]
-pub(crate) enum ParentBlockImportStatus<BlockHeader, BlockBody> {
+pub(crate) enum ParentBlockImportStatus<BlockHeader> {
     Importing {
-        entry: ImportingBlockEntry<BlockHeader, BlockBody>,
+        entry: ImportingBlockEntry<BlockHeader>,
     },
     Imported {
         system_contract_states: StdArc<[ContractSlotState]>,
     },
 }
 
-impl<BlockHeader, BlockBody> ParentBlockImportStatus<BlockHeader, BlockBody>
+impl<BlockHeader> ParentBlockImportStatus<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
-    BlockBody: GenericOwnedBlockBody,
 {
     /// Wait for the corresponding block to be imported.
     ///
@@ -62,12 +59,12 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct ImportingBlockEntry<BlockHeader, BlockBody> {
-    inner: Arc<ImportingBlockEntryInner<BlockHeader, BlockBody>>,
+pub(crate) struct ImportingBlockEntry<BlockHeader> {
+    inner: Arc<ImportingBlockEntryInner<BlockHeader>>,
 }
 
-impl<BlockHeader, BlockBody> Deref for ImportingBlockEntry<BlockHeader, BlockBody> {
-    type Target = ImportingBlockEntryInner<BlockHeader, BlockBody>;
+impl<BlockHeader> Deref for ImportingBlockEntry<BlockHeader> {
+    type Target = ImportingBlockEntryInner<BlockHeader>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -75,21 +72,19 @@ impl<BlockHeader, BlockBody> Deref for ImportingBlockEntry<BlockHeader, BlockBod
 }
 
 // SAFETY: Heap-allocated data structure, points to the same memory if moved
-unsafe impl<BlockHeader, BlockBody> StableDeref for ImportingBlockEntry<BlockHeader, BlockBody> {}
+unsafe impl<BlockHeader> StableDeref for ImportingBlockEntry<BlockHeader> {}
 
-impl<BlockHeader, BlockBody> ImportingBlockEntry<BlockHeader, BlockBody>
+impl<BlockHeader> ImportingBlockEntry<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
-    BlockBody: GenericOwnedBlockBody,
 {
-    fn new(header: BlockHeader, body: BlockBody, mmr: Arc<BlockMerkleMountainRange>) -> Self {
+    fn new(header: BlockHeader, mmr: Arc<BlockMerkleMountainRange>) -> Self {
         let block_root = *header.header().root();
 
         Self {
             inner: Arc::new(ImportingBlockEntryInner {
                 block_root,
                 header,
-                body,
                 mmr,
                 system_contract_states: RwLock::new(None),
             }),
@@ -104,11 +99,6 @@ where
     #[inline(always)]
     pub(crate) fn header(&self) -> &BlockHeader {
         &self.inner.header
-    }
-
-    #[inline(always)]
-    pub(crate) fn body(&self) -> &BlockBody {
-        &self.inner.body
     }
 
     #[inline(always)]
@@ -167,23 +157,22 @@ unsafe impl<'a> Yokeable<'a> for ImportingBlockHandleGuard<'static> {
 
 /// A handle to block that is being imported.
 ///
-/// The corresponding entry will be removed from [`ImportingBlocks`] when this instance is dropped.
+/// The corresponding entry will be removed from [`ImportingBlocks<BlockHeader>`] when this instance
+/// is dropped.
 #[derive(Debug)]
-pub(crate) struct ImportingBlockHandle<BlockHeader, BlockBody>
+pub(crate) struct ImportingBlockHandle<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
-    BlockBody: GenericOwnedBlockBody,
 {
-    guard: Yoke<ImportingBlockHandleGuard<'static>, ImportingBlockEntry<BlockHeader, BlockBody>>,
-    importing_blocks: ImportingBlocks<BlockHeader, BlockBody>,
+    guard: Yoke<ImportingBlockHandleGuard<'static>, ImportingBlockEntry<BlockHeader>>,
+    importing_blocks: ImportingBlocks<BlockHeader>,
 }
 
-impl<BlockHeader, BlockBody> Deref for ImportingBlockHandle<BlockHeader, BlockBody>
+impl<BlockHeader> Deref for ImportingBlockHandle<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
-    BlockBody: GenericOwnedBlockBody,
 {
-    type Target = ImportingBlockEntry<BlockHeader, BlockBody>;
+    type Target = ImportingBlockEntry<BlockHeader>;
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
@@ -191,10 +180,9 @@ where
     }
 }
 
-impl<BlockHeader, BlockBody> Drop for ImportingBlockHandle<BlockHeader, BlockBody>
+impl<BlockHeader> Drop for ImportingBlockHandle<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
-    BlockBody: GenericOwnedBlockBody,
 {
     #[inline]
     fn drop(&mut self) {
@@ -203,15 +191,14 @@ where
     }
 }
 
-impl<BlockHeader, BlockBody> ImportingBlockHandle<BlockHeader, BlockBody>
+impl<BlockHeader> ImportingBlockHandle<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
-    BlockBody: GenericOwnedBlockBody,
 {
     #[inline]
     fn new(
-        entry: ImportingBlockEntry<BlockHeader, BlockBody>,
-        importing_blocks: ImportingBlocks<BlockHeader, BlockBody>,
+        entry: ImportingBlockEntry<BlockHeader>,
+        importing_blocks: ImportingBlocks<BlockHeader>,
     ) -> Self {
         Self {
             guard: Yoke::attach_to_cart(entry, |entry_inner| {
@@ -232,14 +219,13 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct ImportingBlocks<BlockHeader, BlockBody> {
-    list: Arc<Mutex<VecDeque<ImportingBlockEntry<BlockHeader, BlockBody>>>>,
+pub(crate) struct ImportingBlocks<BlockHeader> {
+    list: Arc<Mutex<VecDeque<ImportingBlockEntry<BlockHeader>>>>,
 }
 
-impl<BlockHeader, BlockBody> ImportingBlocks<BlockHeader, BlockBody>
+impl<BlockHeader> ImportingBlocks<BlockHeader>
 where
     BlockHeader: GenericOwnedBlockHeader,
-    BlockBody: GenericOwnedBlockBody,
 {
     #[inline(always)]
     pub(crate) fn new() -> Self {
@@ -255,10 +241,9 @@ where
     pub(crate) fn insert(
         &self,
         header: BlockHeader,
-        body: BlockBody,
         mmr: Arc<BlockMerkleMountainRange>,
-    ) -> Option<ImportingBlockHandle<BlockHeader, BlockBody>> {
-        let new_entry = ImportingBlockEntry::new(header, body, mmr);
+    ) -> Option<ImportingBlockHandle<BlockHeader>> {
+        let new_entry = ImportingBlockEntry::new(header, mmr);
         let handle = ImportingBlockHandle::new(new_entry.clone(), self.clone());
 
         let mut list = self.list.lock();
@@ -286,10 +271,7 @@ where
         }
     }
 
-    pub(crate) fn get(
-        &self,
-        block_root: &BlockRoot,
-    ) -> Option<ImportingBlockEntry<BlockHeader, BlockBody>> {
+    pub(crate) fn get(&self, block_root: &BlockRoot) -> Option<ImportingBlockEntry<BlockHeader>> {
         // The back element is the most likely one to be returned, though it is not guaranteed
         self.list
             .lock()
