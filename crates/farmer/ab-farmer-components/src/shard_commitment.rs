@@ -100,6 +100,7 @@ pub fn derive_shard_commitments_root(
 
 /// Derive solution shard commitment
 pub fn derive_solution_shard_commitment(
+    public_key_hash: &Blake3Hash,
     shard_commitments_seed: &Blake3Hash,
     shard_commitments_root: &ShardCommitmentHash,
     history_size: HistorySize,
@@ -113,6 +114,7 @@ pub fn derive_solution_shard_commitment(
     };
 
     let leaf_index = num_shards.derive_shard_commitment_index(
+        public_key_hash,
         shard_commitments_root,
         shard_membership_entropy,
         history_size,

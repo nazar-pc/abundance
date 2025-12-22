@@ -192,7 +192,7 @@ where
             // NOTE: Beacon chain block number may change before the next block is produced,
             // rendering the entropy source invalid, but it should not happen often.
             let shard_membership_entropy = match shard_membership_entropy_source(
-                best_beacon_chain_header.prefix.number,
+                best_beacon_chain_header.prefix.number + BlockNumber::ONE,
                 best_beacon_chain_header,
                 self.consensus_constants.shard_rotation_interval,
                 self.consensus_constants.shard_rotation_delay,
