@@ -889,6 +889,7 @@ impl Solution {
 
         let (solution_shard_index, shard_commitment_index) = num_shards
             .derive_shard_index_and_shard_commitment_index(
+                &self.public_key_hash,
                 &self.shard_commitment.root,
                 shard_membership_entropy,
                 self.history_size,

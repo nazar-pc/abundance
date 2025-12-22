@@ -1,9 +1,10 @@
 //! Shard-related primitives
 
+use crate::hashes::Blake3Hash;
 use crate::nano_u256::NanoU256;
 use crate::segments::HistorySize;
 use crate::solutions::{ShardCommitmentHash, ShardMembershipEntropy, SolutionShardCommitment};
-use ab_blake3::single_block_hash;
+use ab_blake3::single_block_keyed_hash;
 use ab_io_type::trivial_type::TrivialType;
 use core::num::{NonZeroU16, NonZeroU32, NonZeroU128};
 use core::ops::RangeInclusive;
@@ -386,11 +387,12 @@ impl NumShards {
     #[inline]
     pub fn derive_shard_index(
         &self,
+        public_key_hash: &Blake3Hash,
         shard_commitments_root: &ShardCommitmentHash,
         shard_membership_entropy: &ShardMembershipEntropy,
         history_size: HistorySize,
     ) -> ShardIndex {
-        let hash = single_block_hash(&{
+        let hash = single_block_keyed_hash(public_key_hash, &{
             let mut bytes_to_hash = [0u8; ShardCommitmentHash::SIZE
                 + ShardMembershipEntropy::SIZE
                 + HistorySize::SIZE as usize];
@@ -419,11 +421,12 @@ impl NumShards {
     #[inline]
     pub fn derive_shard_commitment_index(
         &self,
+        public_key_hash: &Blake3Hash,
         shard_commitments_root: &ShardCommitmentHash,
         shard_membership_entropy: &ShardMembershipEntropy,
         history_size: HistorySize,
     ) -> u32 {
-        let hash = single_block_hash(&{
+        let hash = single_block_keyed_hash(public_key_hash, &{
             let mut bytes_to_hash = [0u8; ShardCommitmentHash::SIZE
                 + ShardMembershipEntropy::SIZE
                 + HistorySize::SIZE as usize];
@@ -448,11 +451,12 @@ impl NumShards {
     #[inline]
     pub fn derive_shard_index_and_shard_commitment_index(
         &self,
+        public_key_hash: &Blake3Hash,
         shard_commitments_root: &ShardCommitmentHash,
         shard_membership_entropy: &ShardMembershipEntropy,
         history_size: HistorySize,
     ) -> (ShardIndex, u32) {
-        let hash = single_block_hash(&{
+        let hash = single_block_keyed_hash(public_key_hash, &{
             let mut bytes_to_hash = [0u8; ShardCommitmentHash::SIZE
                 + ShardMembershipEntropy::SIZE
                 + HistorySize::SIZE as usize];

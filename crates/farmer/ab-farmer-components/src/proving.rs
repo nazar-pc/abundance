@@ -291,6 +291,7 @@ where
 
             let history_size = self.sector_metadata.history_size;
             let shard_commitment = derive_solution_shard_commitment(
+                self.public_key_hash,
                 &self.shard_commitments_roots_cache.shard_commitments_seed(),
                 &self.shard_commitments_roots_cache.get(history_size),
                 history_size,
