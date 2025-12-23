@@ -18,7 +18,7 @@ use ab_io_type::metadata::MAX_METADATA_CAPACITY;
 pub enum ContractMetadataKind {
     /// Main contract metadata.
     ///
-    /// Contracts are encoded af follows:
+    /// Contracts are encoded as follows:
     /// * Encoding of the state type as described in [`IoTypeMetadataKind`]
     /// * Encoding of the `#[slot]` type as described in [`IoTypeMetadataKind`]
     /// * Encoding of the `#[tmp]` type as described in [`IoTypeMetadataKind`]
@@ -35,7 +35,7 @@ pub enum ContractMetadataKind {
     Contract,
     /// Trait metadata.
     ///
-    /// Traits are encoded af follows:
+    /// Traits are encoded as follows:
     /// * Length of trait name in bytes (u8)
     /// * Trait name as UTF-8 bytes
     /// * Number of methods (u8)
@@ -46,7 +46,7 @@ pub enum ContractMetadataKind {
 
     /// `#[init]` method.
     ///
-    /// Initializers are encoded af follows:
+    /// Initializers are encoded as follows:
     /// * Length of method name in bytes (u8)
     /// * Method name as UTF-8 bytes
     /// * Number of named arguments (u8, excluding state argument `&self` or `&mut self`, but
