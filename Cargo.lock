@@ -257,6 +257,7 @@ dependencies = [
 name = "ab-contracts-macros-impl"
 version = "0.0.1"
 dependencies = [
+ "ab-contracts-common",
  "ident_case",
  "proc-macro2",
  "quote",

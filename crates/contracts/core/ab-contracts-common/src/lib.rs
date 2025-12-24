@@ -13,6 +13,8 @@ use core::ops::Deref;
 use core::ptr::NonNull;
 pub use error::{ContractError, CustomContractErrorCode, ExitCode};
 
+/// The name of the static variable that contains contract metadata
+pub const METADATA_STATIC_NAME_PREFIX: &str = "__ab_metadata_";
 /// Max allowed size of the contract code
 pub const MAX_CODE_SIZE: u32 = 1024 * 1024;
 /// Max number of arguments in a method.
