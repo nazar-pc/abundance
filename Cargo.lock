@@ -218,7 +218,12 @@ dependencies = [
 name = "ab-contract-file"
 version = "0.0.1"
 dependencies = [
+ "ab-contracts-common",
  "ab-io-type",
+ "ouroboros",
+ "replace_with",
+ "thiserror 2.0.17",
+ "tracing",
 ]
 
 [[package]]
