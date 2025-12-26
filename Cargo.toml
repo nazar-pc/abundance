@@ -64,7 +64,7 @@ bech32 = { version = "0.11.1", default-features = false }
 blake3 = { version = "1.8.2", default-features = false }
 bytes = { version = "1.11.0", default-features = false }
 bytesize = { version = "2.3.1", default-features = false }
-cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "5926363c2d4484ea0c30e4186ea71db70c01c04c", default-features = false }
+cargo-gpu-install = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "70160693564611ca85e17a3c441da93ee642d29a", default-features = false }
 chacha20 = { version = "0.10.0-rc.5", default-features = false }
 clap = { version = "4.5.53", features = ["derive"] }
 const_format = "0.2.35"
@@ -122,7 +122,7 @@ serde_json = "1.0.145"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0-rc.3", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "5719b273fd1fa8207e6e4537fed8c1f8175d4cc8" }
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "a30bd43db45f2bfe260051f44141e5eaffcbb4b0" }
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.27.2", default-features = false, features = ["derive"] }
 syn = "2.0.111"
