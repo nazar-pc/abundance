@@ -418,7 +418,7 @@ fn parse_exports<'a>(
 fn extract_host_call_fn_offset(
     input_file: &[u8],
     parsed_exports: &mut HashMap<&str, ParsedExport>,
-) -> anyhow::Result<u32> {
+) -> anyhow::Result<u64> {
     let Some(host_call_fn) = parsed_exports.remove(HOST_CALL_FN) else {
         return Ok(0);
     };
@@ -465,9 +465,7 @@ fn extract_host_call_fn_offset(
         ));
     }
 
-    host_call_fn_offset
-        .try_into()
-        .context("Host call offset is over 32-bit")
+    Ok(host_call_fn_offset)
 }
 
 /// Checks if two consecutive u32 words encode:
@@ -605,7 +603,7 @@ pub(crate) fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
     let header_size = size_of::<ContractFileHeader>();
     let functions_metadata_size =
         size_of::<ContractFileFunctionMetadata>() * metadata_methods.len();
-    let header_with_functions_metadata_size = (header_size + functions_metadata_size) as u32;
+    let header_with_functions_metadata_size = (header_size + functions_metadata_size) as u64;
 
     let mut output_file = Vec::new();
 
@@ -618,21 +616,23 @@ pub(crate) fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
         read_only_section_memory_size: ro_data_memory_size
             .try_into()
             .context("Read-only section size is over 32-bit")?,
-        metadata_offset: (u64::from(header_with_functions_metadata_size)
-            + (metadata_offset - ro_data_offset))
+        metadata_offset: (metadata_offset - ro_data_offset + header_with_functions_metadata_size)
             .try_into()
             .context("Metadata offset is over 32-bit")?,
         metadata_size: metadata_size
             .try_into()
             .context("Metadata size is over 32-bit")?,
-        host_call_fn_offset,
+        host_call_fn_offset: (host_call_fn_offset - ro_data_offset
+            + header_with_functions_metadata_size)
+            .try_into()
+            .context("Host call offset is over 32-bit")?,
     };
     output_file.extend_from_slice(contract_file_header.as_bytes());
 
     // Write metadata of each method
     for metadata_method in metadata_methods {
         let contract_file_function_metadata = ContractFileFunctionMetadata {
-            offset: (metadata_method.offset - ro_data_offset)
+            offset: (metadata_method.offset - ro_data_offset + header_with_functions_metadata_size)
                 .try_into()
                 .context("Method offset is over 32-bit")?,
             size: metadata_method
