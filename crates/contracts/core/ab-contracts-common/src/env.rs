@@ -53,8 +53,8 @@ unsafe extern "C" {
 }
 
 /// Internal wrapper around [`__ab_host_call_import()`] that will always have a single copy (never
-/// inlined) in and will be possible to locate in the final binary for inspection and rewriting if
-/// necessary while completely ignoring relocation of `__ab_host_call_import()`
+/// inlined) in the binary and will be possible to locate in the final binary for inspection and
+/// rewriting if necessary while completely ignoring relocation of `__ab_host_call_import()`
 #[cfg(feature = "guest")]
 #[unsafe(no_mangle)]
 #[inline(never)]
