@@ -44,7 +44,7 @@ rand = { workspace = true }
 
 # TODO: This will be built in the shader as well, figure out a way to avoid that
 [build-dependencies]
-cargo-gpu = { workspace = true }
+cargo-gpu-install = { workspace = true }
 
 [lints]
 workspace = true

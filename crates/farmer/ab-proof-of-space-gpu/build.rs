@@ -1,4 +1,5 @@
-use cargo_gpu::spirv_builder::{Capability, MetadataPrintout, SpirvMetadata};
+use cargo_gpu_install::install::Install;
+use cargo_gpu_install::spirv_builder::{Capability, MetadataPrintout, SpirvMetadata};
 use std::error::Error;
 use std::path::PathBuf;
 use std::{env, fs};
@@ -27,7 +28,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let shader_crate = PathBuf::from(cargo_manifest_dir);
 
-        let backend = cargo_gpu::Install::from_shader_crate(shader_crate.clone()).run()?;
+        let backend = Install::from_shader_crate(shader_crate.clone()).run()?;
 
         // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/461
         // SAFETY: Single-threaded
