@@ -338,7 +338,7 @@ impl const GenericRegister for Reg {
             4 => Some(Self::Tp),
             5 => Some(Self::T0),
             6 => Some(Self::T1),
-            7 => Some(Self::T3),
+            7 => Some(Self::T2),
             8 => Some(Self::S0),
             9 => Some(Self::S1),
             10 => Some(Self::A0),
