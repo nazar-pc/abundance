@@ -3,8 +3,8 @@ use ab_contract_file::{CONTRACT_FILE_MAGIC, ContractFileFunctionMetadata, Contra
 use ab_contracts_common::metadata::decode::MetadataDecoder;
 use ab_contracts_common::{HOST_CALL_FN, HOST_CALL_FN_IMPORT, METADATA_STATIC_NAME_PREFIX};
 use ab_io_type::trivial_type::TrivialType;
-use ab_riscv_primitives::instruction::Instruction;
-use ab_riscv_primitives::registers::Reg;
+use ab_riscv_primitives::instruction::Rv64Instruction;
+use ab_riscv_primitives::registers::EReg;
 use anyhow::Context;
 use object::elf::{
     EF_RISCV_RVE, ELFCLASS64, ELFDATA2LSB, ELFMAG, ELFOSABI_GNU, EM_RISCV, ET_DYN, FileHeader64,
@@ -474,22 +474,22 @@ fn extract_host_call_fn_offset(
 ///
 /// Returns true if the pattern matches exactly (including imm=0 for auipc).
 pub fn is_auipc_jalr_tailcall(first: u32, second: u32) -> bool {
-    let first = Instruction::decode(first);
-    let second = Instruction::decode(second);
+    let first = Rv64Instruction::<EReg>::decode(first);
+    let second = Rv64Instruction::<EReg>::decode(second);
 
     if let (
-        Instruction::Auipc {
+        Rv64Instruction::Auipc {
             rd: auipc_rd,
             imm: _,
         },
-        Instruction::Jalr {
+        Rv64Instruction::Jalr {
             rd: jalr_rd,
             rs1: jalr_rs1,
             imm: _,
         },
     ) = (first, second)
     {
-        auipc_rd == jalr_rs1 && jalr_rd == Reg::Zero
+        auipc_rd == jalr_rs1 && jalr_rd == EReg::Zero
     } else {
         false
     }
