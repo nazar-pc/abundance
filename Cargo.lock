@@ -215,6 +215,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-contract-file"
+version = "0.0.1"
+dependencies = [
+ "ab-io-type",
+]
+
+[[package]]
 name = "ab-contract-playground"
 version = "0.0.1"
 dependencies = [
@@ -257,6 +264,7 @@ dependencies = [
 name = "ab-contracts-macros-impl"
 version = "0.0.1"
 dependencies = [
+ "ab-contracts-common",
  "ident_case",
  "proc-macro2",
  "quote",
@@ -692,6 +700,10 @@ dependencies = [
  "no-panic",
  "thiserror 2.0.17",
 ]
+
+[[package]]
+name = "ab-riscv-primitives"
+version = "0.0.1"
 
 [[package]]
 name = "ab-system-contract-address-allocator"
@@ -1498,6 +1510,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "276a59bf2b2c967788139340c9f0c5b12d7fd6630315c15c217e559de85d2609"
 dependencies = [
  "serde_core",
+]
+
+[[package]]
+name = "cargo-ab-contract"
+version = "0.0.1"
+dependencies = [
+ "ab-aligned-buffer",
+ "ab-cli-utils",
+ "ab-contract-file",
+ "ab-contracts-common",
+ "ab-io-type",
+ "ab-riscv-primitives",
+ "anyhow",
+ "clap",
+ "object",
+ "tracing",
 ]
 
 [[package]]
@@ -4563,6 +4591,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "915b1b472bc21c53464d6c8461c9d3af805ba1ef837e1cac254428f4a77177b1"
 dependencies = [
  "malloc_buf",
+]
+
+[[package]]
+name = "object"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8b28f24bd43920cd8e0bc4f9c6553e8b93221c512cb9a1014987fc89d36f830"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]

@@ -299,7 +299,7 @@ impl TransactionPayloadBuilder {
     /// * Method context: [`TransactionMethodContext`]
     /// * Number of `#[slot]` arguments: `u8`
     /// * For each `#[slot]` argument:
-    ///     * [`TransactionSlot`]  as `u8`
+    ///     * [`TransactionSlot`] as `u8`
     /// * Number of `#[input]` arguments: `u8`
     /// * For each `#[input]` argument:
     ///     * [`TransactionInput`] for each `#[input]` argument as `u8`
@@ -314,7 +314,7 @@ impl TransactionPayloadBuilder {
     ///
     /// [`TransactionSlotType::Address`]: crate::payload::TransactionSlotType::Address
     /// [`TransactionInputType::Value`]: crate::payload::TransactionInputType::Value
-    // TODO: Figure out how sand make it possible to apply `no-panic` here
+    // TODO: Figure out how and make it possible to apply `no-panic` here
     pub fn into_aligned_bytes(mut self) -> Vec<u128> {
         // Fill bytes to make it multiple of `u128` before creating `u128`-based vector
         self.ensure_alignment(usize::from(MAX_ALIGNMENT));

@@ -25,13 +25,10 @@
   "default-visibility": "hidden",
   "pre-link-args": {
     "ld": [
-      "--hash-style=gnu",
-      "--no-rosegment",
-      "--apply-dynamic-relocs",
       "-Bsymbolic"
     ]
   },
   "dll-prefix": "",
-  "dll-suffix": ".contract",
+  "dll-suffix": ".contract.so",
   "env": "abundance"
 }

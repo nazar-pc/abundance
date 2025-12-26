@@ -36,7 +36,7 @@ backoff = { workspace = true, features = ["futures", "tokio"] }
 blake3 = { workspace = true }
 bytes = { workspace = true }
 bytesize = { workspace = true }
-clap = { workspace = true, features = ["derive"], optional = true }
+clap = { workspace = true, optional = true }
 criterion = { workspace = true, features = ["rayon", "async"], optional = true }
 derive_more = { workspace = true, features = ["full"] }
 ed25519-zebra = { workspace = true }

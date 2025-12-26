@@ -1,0 +1,20 @@
+[package]
+name = "ab-contract-file"
+description = "Utilities for working with contract files"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-io-type = { workspace = true }
+
+[lints]
+workspace = true

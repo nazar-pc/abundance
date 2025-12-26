@@ -9,6 +9,7 @@ use crate::contract::init::process_init_fn;
 use crate::contract::method::{ExtTraitComponents, MethodDetails};
 use crate::contract::update::{process_update_fn, process_update_fn_definition};
 use crate::contract::view::{process_view_fn, process_view_fn_definition};
+use ab_contracts_common::METADATA_STATIC_NAME_PREFIX;
 use ident_case::RenameRule;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{format_ident, quote};
@@ -182,10 +183,7 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
         }
     }
 
-    let static_name = format_ident!(
-        "{}_METADATA",
-        RenameRule::ScreamingSnakeCase.apply_to_variant(trait_name.to_string())
-    );
+    let static_name = format_ident!("{METADATA_STATIC_NAME_PREFIX}{}", trait_name);
     let ffi_mod_ident = format_ident!(
         "{}_ffi",
         RenameRule::SnakeCase.apply_to_variant(trait_name.to_string())
@@ -444,10 +442,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
     let ext_trait = generate_extension_trait(struct_name_ident, &trait_ext_components);
 
     let struct_name_str = struct_name_ident.to_string();
-    let static_name = format_ident!(
-        "{}_METADATA",
-        RenameRule::ScreamingSnakeCase.apply_to_variant(&struct_name_str)
-    );
+    let static_name = format_ident!("{METADATA_STATIC_NAME_PREFIX}{}", struct_name_str);
     Ok(quote! {
         /// Main contract metadata
         ///

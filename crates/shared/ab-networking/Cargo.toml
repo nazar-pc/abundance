@@ -21,7 +21,7 @@ async-trait = { workspace = true }
 backoff = { workspace = true, features = ["futures", "tokio"] }
 blake3 = { workspace = true }
 bytes = { workspace = true }
-clap = { workspace = true, features = ["color", "derive"] }
+clap = { workspace = true }
 derive_more = { workspace = true, features = ["full"] }
 event-listener-primitives = { workspace = true }
 fs2 = { workspace = true }

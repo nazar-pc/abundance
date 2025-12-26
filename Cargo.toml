@@ -25,6 +25,7 @@ ab-client-informer = { version = "0.0.1", path = "crates/node/ab-client-informer
 ab-cli-utils = { version = "0.0.1", path = "crates/shared/ab-cli-utils" }
 ab-direct-io-file = { version = "0.0.1", path = "crates/shared/ab-direct-io-file" }
 ab-client-proof-of-time = { version = "0.0.1", path = "crates/node/ab-client-proof-of-time" }
+ab-contract-file = { version = "0.0.1", path = "crates/contracts/core/ab-contract-file" }
 ab-contracts-common = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-common" }
 ab-contracts-macros = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros" }
 ab-contracts-macros-impl = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros-impl" }
@@ -44,6 +45,7 @@ ab-node-rpc-server = { version = "0.1.0", path = "crates/node/ab-node-rpc-server
 ab-proof-of-space = { version = "0.1.0", path = "crates/shared/ab-proof-of-space" }
 ab-proof-of-space-gpu = { version = "0.1.0", path = "crates/farmer/ab-proof-of-space-gpu" }
 ab-proof-of-time = { version = "0.1.0", path = "crates/shared/ab-proof-of-time" }
+ab-riscv-primitives = { version = "0.0.1", path = "crates/execution/ab-riscv-primitives" }
 ab-system-contract-address-allocator = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-address-allocator" }
 ab-system-contract-block = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-block" }
 ab-system-contract-code = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-code" }
@@ -64,7 +66,7 @@ bytes = { version = "1.11.0", default-features = false }
 bytesize = { version = "2.3.1", default-features = false }
 cargo-gpu = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "5926363c2d4484ea0c30e4186ea71db70c01c04c", default-features = false }
 chacha20 = { version = "0.10.0-rc.5", default-features = false }
-clap = "4.5.53"
+clap = { version = "4.5.53", features = ["derive"] }
 const_format = "0.2.35"
 core_affinity = "0.8.3"
 cpufeatures = "0.2.17"
@@ -96,6 +98,7 @@ multihash = "0.19.3"
 nohash-hasher = "0.2.0"
 no-panic = "0.1.35"
 num_cpus = "1.17.0"
+object = { version = "0.38.0", default-features = false }
 once_cell = { version = "1.21.3", default-features = false }
 ouroboros = "0.18.5"
 parity-scale-codec = { version = "3.7.5", default-features = false }
