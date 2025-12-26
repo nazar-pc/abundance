@@ -1,4 +1,5 @@
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
+use crate::unaligned::Unaligned;
 use crate::{DerefWrapper, IoType};
 pub use ab_trivial_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
@@ -26,19 +27,43 @@ where
     Self: Copy + 'static,
 {
     const SIZE: u32 = size_of::<Self>() as u32;
-    // TODO: Compact metadata without field and struct names
     /// Data structure metadata in binary form, describing shape and types of the contents, see
     /// [`IoTypeMetadataKind`] for encoding details.
     const METADATA: &[u8];
 
-    /// Create a reference to a type, which is represented by provided memory.
+    /// Read unaligned value from memory.
     ///
-    /// Memory must be correctly aligned, or else `None` will be returned, but padding beyond the
-    /// size of the type is allowed.
+    /// Returns `None` if the number of input bytes is not sufficient to represent the type.
     ///
     /// # Safety
-    /// Input bytes must be previously produced by taking underlying bytes of the same type. Using
-    /// anything else will result in UB.
+    /// Input bytes must be previously produced by taking underlying bytes of the same type, or else
+    /// the data structure might have unexpected contents. While technically not unsafe, this API
+    /// should be used very carefully and data structure invariants need to be checked manually.
+    #[inline(always)]
+    unsafe fn read_unaligned(bytes: &[u8]) -> Option<Self> {
+        // SAFETY: Guaranteed by function contract
+        Some(unsafe { Unaligned::<Self>::from_bytes(bytes)?.as_inner() })
+    }
+
+    /// Similar to [`Self::read_unaligned()`], but doesn't do any checks at all.
+    ///
+    /// # Safety
+    /// The number of bytes must be at least as big as the type itself.
+    #[inline(always)]
+    unsafe fn read_unaligned_unchecked(bytes: &[u8]) -> Self {
+        // SAFETY: Guaranteed by function contract
+        unsafe { Unaligned::<Self>::from_bytes_unchecked(bytes).as_inner() }
+    }
+
+    /// Create a reference to a type, which is represented by provided memory.
+    ///
+    /// Memory must be correctly aligned, or else `None` will be returned. Size must be sufficient,
+    /// padding beyond the size of the type is allowed.
+    ///
+    /// # Safety
+    /// Input bytes must be previously produced by taking underlying bytes of the same type, or else
+    /// the data structure might have unexpected contents. While technically not unsafe, this API
+    /// should be used very carefully and data structure invariants need to be checked manually.
     #[inline(always)]
     unsafe fn from_bytes(bytes: &[u8]) -> Option<&Self> {
         // SAFETY: For trivial types all bit patterns are valid
@@ -47,20 +72,41 @@ where
         before.is_empty().then(|| slice.first()).flatten()
     }
 
-    /// Create a mutable reference to a type, which is represented by provided memory.
-    ///
-    /// Memory must be correctly aligned, or else `None` will be returned, but padding beyond the
-    /// size of the type is allowed.
+    /// Similar to [`Self::from_bytes()`], but doesn't do any checks at all.
     ///
     /// # Safety
-    /// Input bytes must be previously produced by taking underlying bytes of the same type. Using
-    /// anything else will result in UB.
+    /// Size is at least as big as the type itself, and alignment is correct.
+    #[inline(always)]
+    unsafe fn from_bytes_unchecked(bytes: &[u8]) -> &Self {
+        // SAFETY: Guaranteed by function contract
+        unsafe { bytes.as_ptr().cast::<Self>().as_ref_unchecked() }
+    }
+
+    /// Create a mutable reference to a type, which is represented by provided memory.
+    ///
+    /// Memory must be correctly aligned, or else `None` will be returned. Size must be sufficient,
+    /// padding beyond the size of the type is allowed.
+    ///
+    /// # Safety
+    /// Input bytes must be previously produced by taking underlying bytes of the same type, or else
+    /// the data structure might have unexpected contents. While technically not unsafe, this API
+    /// should be used very carefully and data structure invariants need to be checked manually.
     #[inline(always)]
     unsafe fn from_bytes_mut(bytes: &mut [u8]) -> Option<&mut Self> {
         // SAFETY: For trivial types all bit patterns are valid
         let (before, slice, _) = unsafe { bytes.align_to_mut::<Self>() };
 
         before.is_empty().then(|| slice.first_mut()).flatten()
+    }
+
+    /// Similar to [`Self::from_bytes_mut()`], but doesn't do any checks at all.
+    ///
+    /// # Safety
+    /// Size is at least as big as the type itself, and alignment is correct.
+    #[inline(always)]
+    unsafe fn from_bytes_mut_unchecked(bytes: &mut [u8]) -> &mut Self {
+        // SAFETY: Guaranteed by function contract
+        unsafe { bytes.as_mut_ptr().cast::<Self>().as_mut_unchecked() }
     }
 
     /// Access the underlying byte representation of a data structure
