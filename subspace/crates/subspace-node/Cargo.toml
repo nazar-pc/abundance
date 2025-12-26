@@ -23,7 +23,7 @@ ab-cli-utils = { workspace = true }
 ab-core-primitives = { workspace = true }
 ab-networking = { workspace = true }
 ab-proof-of-space = { workspace = true }
-clap = { workspace = true, features = ["derive"] }
+clap = { workspace = true }
 fdlimit = { workspace = true }
 frame-support = { workspace = true }
 futures = { workspace = true }

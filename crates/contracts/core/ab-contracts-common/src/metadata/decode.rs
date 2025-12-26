@@ -49,6 +49,7 @@ pub enum MetadataDecodingError<'metadata> {
 }
 
 #[derive(Debug)]
+#[must_use = "Must be exhausted or the rest of decoding will be corrupted due to internal pointer not advancing correctly"]
 pub enum MetadataItem<'a, 'metadata> {
     Contract {
         /// State type name as bytes.
@@ -114,7 +115,7 @@ impl<'metadata> MetadataDecoder<'metadata> {
         &'a mut self,
     ) -> Option<Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>>> {
         if self.metadata.is_empty() {
-            return Some(Err(MetadataDecodingError::NotEnoughMetadata));
+            return None;
         }
 
         // Decode method kind
@@ -250,6 +251,7 @@ pub enum MethodsContainerKind {
 }
 
 #[derive(Debug)]
+#[must_use = "Must be exhausted or the rest of decoding will be corrupted due to internal pointer not advancing correctly"]
 pub struct MethodsMetadataDecoder<'a, 'metadata> {
     metadata: &'a mut &'metadata [u8],
     container_kind: MethodsContainerKind,
@@ -328,6 +330,7 @@ pub struct MethodMetadataItem<'metadata> {
 
 // TODO: Would be nice to also collect fingerprint at the end
 #[derive(Debug)]
+#[must_use = "Must be exhausted or the rest of decoding will be corrupted due to internal pointer not advancing correctly"]
 pub struct MethodMetadataDecoder<'a, 'metadata> {
     metadata: &'a mut &'metadata [u8],
     container_kind: MethodsContainerKind,
@@ -483,6 +486,7 @@ pub struct ArgumentMetadataItem<'metadata> {
 }
 
 #[derive(Debug)]
+#[must_use = "Must be exhausted or the rest of decoding will be corrupted due to internal pointer not advancing correctly"]
 pub struct ArgumentsMetadataDecoder<'a, 'metadata> {
     metadata: &'a mut &'metadata [u8],
     method_kind: MethodKind,

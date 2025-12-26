@@ -32,7 +32,7 @@ ab-networking = { workspace = true }
 ab-node-rpc-server = { workspace = true }
 ab-proof-of-space = { workspace = true }
 bytesize = { workspace = true }
-clap = { workspace = true, features = ["derive"] }
+clap = { workspace = true }
 core_affinity = { workspace = true }
 futures = { workspace = true, features = ["alloc"] }
 mimalloc = { workspace = true }

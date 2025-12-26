@@ -46,6 +46,24 @@ pub struct PreparedMethod<'a> {
     pub phantom: PhantomData<&'a ()>,
 }
 
+#[cfg(feature = "guest")]
+unsafe extern "C" {
+    /// Host-level API
+    fn __ab_host_call_import(method: *const PreparedMethod<'_>) -> crate::ExitCode;
+}
+
+/// Internal wrapper around [`__ab_host_call_import()`] that will always have a single copy (never
+/// inlined) in and will be possible to locate in the final binary for inspection and rewriting if
+/// necessary while completely ignoring relocation of `__ab_host_call_import()`
+#[cfg(feature = "guest")]
+#[unsafe(no_mangle)]
+#[inline(never)]
+#[doc(hidden)]
+pub extern "C" fn __ab_host_call(method: &PreparedMethod<'_>) -> crate::ExitCode {
+    // SAFETY: FFI call with correct argument, there are no other safety requirements
+    unsafe { __ab_host_call_import(method) }
+}
+
 /// Environment state
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -199,8 +217,7 @@ impl<'a> Env<'a> {
         }
         #[cfg(all(feature = "guest", not(feature = "executor")))]
         {
-            let _ = method;
-            todo!()
+            __ab_host_call(&method).into()
         }
         #[cfg(not(any(feature = "executor", feature = "guest")))]
         {
