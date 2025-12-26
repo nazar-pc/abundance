@@ -1,22 +1,173 @@
 use core::fmt;
 
+/// Generic register
+#[const_trait]
+pub const trait GenericRegister: fmt::Display + fmt::Debug + Copy + Sized {
+    /// Create a register from its bit representation
+    fn from_bits(bits: u8) -> Option<Self>;
+}
+
+/// A set of registers for RISC-V RV32E/RV64E
 #[derive(Debug, Default, Clone, Copy)]
-pub struct Registers {
+pub struct ERegisters {
     regs: [u64; 16],
 }
 
-impl Registers {
+impl ERegisters {
+    /// Initialize registers with the given values
+    #[inline(always)]
     pub const fn new(ra: u64, sp: u64, gp: u64, a0: u64) -> Self {
-        let mut instance = Self { regs: [0; _] };
+        let mut registers = Self { regs: [0; _] };
 
-        instance.write(Reg::Ra, ra);
-        instance.write(Reg::Sp, sp);
-        instance.write(Reg::Gp, gp);
-        instance.write(Reg::A0, a0);
+        registers.write(EReg::Ra, ra);
+        registers.write(EReg::Sp, sp);
+        registers.write(EReg::Gp, gp);
+        registers.write(EReg::A0, a0);
 
-        instance
+        registers
     }
 
+    /// Read register value
+    #[inline(always)]
+    pub const fn read(&self, reg: EReg) -> u64 {
+        if matches!(reg, EReg::Zero) {
+            // Always zero
+            return 0;
+        }
+
+        // SAFETY: register offset is always within bounds
+        *unsafe { self.regs.get_unchecked(reg.offset()) }
+    }
+
+    /// Write register value
+    #[inline(always)]
+    pub const fn write(&mut self, reg: EReg, value: u64) {
+        if matches!(reg, EReg::Zero) {
+            // Writes are ignored
+            return;
+        }
+
+        // SAFETY: register offset is always within bounds
+        *unsafe { self.regs.get_unchecked_mut(reg.offset()) } = value;
+    }
+}
+
+/// RISC-V register for RV64E.
+///
+/// For RV64I see [`Reg`].
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
+pub enum EReg {
+    /// Always zero: `x0`
+    Zero = 0,
+    /// Return address: `x1`
+    Ra = 1,
+    /// Stack pointer: `x2`
+    Sp = 2,
+    /// Global pointer: `x3`
+    Gp = 3,
+    /// Thread pointer: `x4`
+    Tp = 4,
+    /// Temporary/alternate return address: `x5`
+    T0 = 5,
+    /// Temporary: `x6`
+    T1 = 6,
+    /// Temporary: `x7`
+    T2 = 7,
+    /// Saved register/frame pointer: `x8`
+    S0 = 8,
+    /// Saved register: `x9`
+    S1 = 9,
+    /// Function argument/return value: `x10`
+    A0 = 10,
+    /// Function argument/return value: `x11`
+    A1 = 11,
+    /// Function argument: `x12`
+    A2 = 12,
+    /// Function argument: `x13`
+    A3 = 13,
+    /// Function argument: `x14`
+    A4 = 14,
+    /// Function argument: `x15`
+    A5 = 15,
+}
+
+impl fmt::Display for EReg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Zero => write!(f, "zero"),
+            Self::Ra => write!(f, "ra"),
+            Self::Sp => write!(f, "sp"),
+            Self::Gp => write!(f, "gp"),
+            Self::Tp => write!(f, "tp"),
+            Self::T0 => write!(f, "t0"),
+            Self::T1 => write!(f, "t1"),
+            Self::T2 => write!(f, "t2"),
+            Self::S0 => write!(f, "s0"),
+            Self::S1 => write!(f, "s1"),
+            Self::A0 => write!(f, "a0"),
+            Self::A1 => write!(f, "a1"),
+            Self::A2 => write!(f, "a2"),
+            Self::A3 => write!(f, "a3"),
+            Self::A4 => write!(f, "a4"),
+            Self::A5 => write!(f, "a5"),
+        }
+    }
+}
+
+impl const GenericRegister for EReg {
+    #[inline(always)]
+    fn from_bits(bits: u8) -> Option<Self> {
+        match bits {
+            0 => Some(Self::Zero),
+            1 => Some(Self::Ra),
+            2 => Some(Self::Sp),
+            3 => Some(Self::Gp),
+            4 => Some(Self::Tp),
+            5 => Some(Self::T0),
+            6 => Some(Self::T1),
+            7 => Some(Self::T2),
+            8 => Some(Self::S0),
+            9 => Some(Self::S1),
+            10 => Some(Self::A0),
+            11 => Some(Self::A1),
+            12 => Some(Self::A2),
+            13 => Some(Self::A3),
+            14 => Some(Self::A4),
+            15 => Some(Self::A5),
+            _ => None,
+        }
+    }
+}
+
+impl EReg {
+    #[inline(always)]
+    const fn offset(self) -> usize {
+        usize::from(self as u8)
+    }
+}
+
+/// A set of registers for RISC-V RV32I/RV64I
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Registers {
+    regs: [u64; 32],
+}
+
+impl Registers {
+    /// Initialize registers with the given values
+    #[inline(always)]
+    pub const fn new(ra: u64, sp: u64, gp: u64, a0: u64) -> Self {
+        let mut registers = Self { regs: [0; _] };
+
+        registers.write(Reg::Ra, ra);
+        registers.write(Reg::Sp, sp);
+        registers.write(Reg::Gp, gp);
+        registers.write(Reg::A0, a0);
+
+        registers
+    }
+
+    /// Read register value
     #[inline(always)]
     pub const fn read(&self, reg: Reg) -> u64 {
         if matches!(reg, Reg::Zero) {
@@ -28,6 +179,7 @@ impl Registers {
         *unsafe { self.regs.get_unchecked(reg.offset()) }
     }
 
+    /// Write register value
     #[inline(always)]
     pub const fn write(&mut self, reg: Reg, value: u64) {
         if matches!(reg, Reg::Zero) {
@@ -40,7 +192,9 @@ impl Registers {
     }
 }
 
-// Define the RISC-V registers for RV64E
+/// RISC-V register for RV64I.
+///
+/// For RV64E see [`EReg`].
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Reg {
@@ -76,6 +230,62 @@ pub enum Reg {
     A4 = 14,
     /// Function argument: `x15`
     A5 = 15,
+    /// Function argument: `x16`
+    A6 = 16,
+    /// Function argument: `x17`
+    A7 = 17,
+    /// Saved register: `x18`
+    S2 = 18,
+    /// Saved register: `x19`
+    S3 = 19,
+    /// Saved register: `x20`
+    S4 = 20,
+    /// Saved register: `x21`
+    S5 = 21,
+    /// Saved register: `x22`
+    S6 = 22,
+    /// Saved register: `x23`
+    S7 = 23,
+    /// Saved register: `x24`
+    S8 = 24,
+    /// Saved register: `x25`
+    S9 = 25,
+    /// Saved register: `x26`
+    S10 = 26,
+    /// Saved register: `x27`
+    S11 = 27,
+    /// Temporary: `x28`
+    T3 = 28,
+    /// Temporary: `x29`
+    T4 = 29,
+    /// Temporary: `x30`
+    T5 = 30,
+    /// Temporary: `x31`
+    T6 = 31,
+}
+
+impl const From<EReg> for Reg {
+    #[inline(always)]
+    fn from(reg: EReg) -> Self {
+        match reg {
+            EReg::Zero => Self::Zero,
+            EReg::Ra => Self::Ra,
+            EReg::Sp => Self::Sp,
+            EReg::Gp => Self::Gp,
+            EReg::Tp => Self::Tp,
+            EReg::T0 => Self::T0,
+            EReg::T1 => Self::T1,
+            EReg::T2 => Self::T2,
+            EReg::S0 => Self::S0,
+            EReg::S1 => Self::S1,
+            EReg::A0 => Self::A0,
+            EReg::A1 => Self::A1,
+            EReg::A2 => Self::A2,
+            EReg::A3 => Self::A3,
+            EReg::A4 => Self::A4,
+            EReg::A5 => Self::A5,
+        }
+    }
 }
 
 impl fmt::Display for Reg {
@@ -97,18 +307,29 @@ impl fmt::Display for Reg {
             Self::A3 => write!(f, "a3"),
             Self::A4 => write!(f, "a4"),
             Self::A5 => write!(f, "a5"),
+            Self::A6 => write!(f, "a6"),
+            Self::A7 => write!(f, "a7"),
+            Self::S2 => write!(f, "s2"),
+            Self::S3 => write!(f, "s3"),
+            Self::S4 => write!(f, "s4"),
+            Self::S5 => write!(f, "s5"),
+            Self::S6 => write!(f, "s6"),
+            Self::S7 => write!(f, "s7"),
+            Self::S8 => write!(f, "s8"),
+            Self::S9 => write!(f, "s9"),
+            Self::S10 => write!(f, "s10"),
+            Self::S11 => write!(f, "s11"),
+            Self::T3 => write!(f, "t3"),
+            Self::T4 => write!(f, "t4"),
+            Self::T5 => write!(f, "t5"),
+            Self::T6 => write!(f, "t6"),
         }
     }
 }
 
-impl Reg {
+impl const GenericRegister for Reg {
     #[inline(always)]
-    const fn offset(self) -> usize {
-        (self as u8) as usize
-    }
-
-    #[inline(always)]
-    pub const fn from_bits(bits: u32) -> Option<Self> {
+    fn from_bits(bits: u8) -> Option<Self> {
         match bits {
             0 => Some(Self::Zero),
             1 => Some(Self::Ra),
@@ -117,7 +338,7 @@ impl Reg {
             4 => Some(Self::Tp),
             5 => Some(Self::T0),
             6 => Some(Self::T1),
-            7 => Some(Self::T2),
+            7 => Some(Self::T3),
             8 => Some(Self::S0),
             9 => Some(Self::S1),
             10 => Some(Self::A0),
@@ -128,5 +349,12 @@ impl Reg {
             15 => Some(Self::A5),
             _ => None,
         }
+    }
+}
+
+impl Reg {
+    #[inline(always)]
+    const fn offset(self) -> usize {
+        usize::from(self as u8)
     }
 }
