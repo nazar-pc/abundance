@@ -1,5 +1,5 @@
 use ab_aligned_buffer::SharedAlignedBuffer;
-use ab_contract_file::{CONTRACT_FILE_MAGIC, ContractFileFunctionMetadata, ContractFileHeader};
+use ab_contract_file::{CONTRACT_FILE_MAGIC, ContractFileHeader, ContractFileMethodMetadata};
 use ab_contracts_common::metadata::decode::MetadataDecoder;
 use ab_contracts_common::{HOST_CALL_FN, HOST_CALL_FN_IMPORT, METADATA_STATIC_NAME_PREFIX};
 use ab_io_type::trivial_type::TrivialType;
@@ -571,14 +571,21 @@ pub(crate) fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
         code_size,
     } = parse_sections(&elf)?;
 
+    if metadata_size == 0 {
+        return Err(anyhow::anyhow!("Metadata not found"));
+    }
+
     check_imports(&elf)?;
 
     let mut parsed_exports = parse_exports(&elf)?;
 
     let host_call_fn_offset = extract_host_call_fn_offset(input_file, &mut parsed_exports)?;
 
-    if metadata_size == 0 {
-        return Err(anyhow::anyhow!("Metadata not found"));
+    if host_call_fn_offset != 0 && host_call_fn_offset < code_offset {
+        return Err(anyhow::anyhow!(
+            "Host call function offset {host_call_fn_offset} is before `.text` section offset \
+            {code_offset}"
+        ));
     }
 
     let metadata_bytes = input_file
@@ -601,9 +608,8 @@ pub(crate) fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
     }
 
     let header_size = size_of::<ContractFileHeader>();
-    let functions_metadata_size =
-        size_of::<ContractFileFunctionMetadata>() * metadata_methods.len();
-    let header_with_functions_metadata_size = (header_size + functions_metadata_size) as u64;
+    let methods_metadata_size = size_of::<ContractFileMethodMetadata>() * metadata_methods.len();
+    let header_with_methods_metadata_size = (header_size + methods_metadata_size) as u64;
 
     let mut output_file = Vec::new();
 
@@ -616,23 +622,30 @@ pub(crate) fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
         read_only_section_memory_size: ro_data_memory_size
             .try_into()
             .context("Read-only section size is over 32-bit")?,
-        metadata_offset: (metadata_offset - ro_data_offset + header_with_functions_metadata_size)
+        metadata_offset: (metadata_offset - ro_data_offset + header_with_methods_metadata_size)
             .try_into()
             .context("Metadata offset is over 32-bit")?,
         metadata_size: metadata_size
             .try_into()
-            .context("Metadata size is over 32-bit")?,
-        host_call_fn_offset: (host_call_fn_offset - ro_data_offset
-            + header_with_functions_metadata_size)
+            .context("Metadata size is over 16-bit")?,
+        num_methods: metadata_methods
+            .len()
             .try_into()
-            .context("Host call offset is over 32-bit")?,
+            .context("Number of methods is over 16-bit")?,
+        host_call_fn_offset: if host_call_fn_offset == 0 {
+            0
+        } else {
+            (host_call_fn_offset - ro_data_offset + header_with_methods_metadata_size)
+                .try_into()
+                .context("Host call offset is over 32-bit")?
+        },
     };
     output_file.extend_from_slice(contract_file_header.as_bytes());
 
     // Write metadata of each method
     for metadata_method in metadata_methods {
-        let contract_file_function_metadata = ContractFileFunctionMetadata {
-            offset: (metadata_method.offset - ro_data_offset + header_with_functions_metadata_size)
+        let contract_file_function_metadata = ContractFileMethodMetadata {
+            offset: (metadata_method.offset - ro_data_offset + header_with_methods_metadata_size)
                 .try_into()
                 .context("Method offset is over 32-bit")?,
             size: metadata_method
