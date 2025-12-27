@@ -101,6 +101,9 @@ pub enum Rv64Instruction<Reg> {
     Ecall,
     Ebreak,
 
+    // Unimplemented/illegal
+    Unimp,
+
     // Invalid instruction
     Invalid(u32),
 }
@@ -340,6 +343,10 @@ where
                         1 => Self::Ebreak,
                         _ => Self::Invalid(instruction),
                     }
+                } else if funct3 == 0b001 && rd_bits == 0 && rs1_bits == 0 && imm == 0xc00 {
+                    // `0xc0001073` is emitted as `unimp`/illegal instruction by various compilers,
+                    // including Rust when it hits a panic
+                    Self::Unimp
                 } else {
                     Self::Invalid(instruction)
                 }
@@ -433,6 +440,8 @@ where
 
             Self::Ecall => write!(f, "ecall"),
             Self::Ebreak => write!(f, "ebreak"),
+
+            Self::Unimp => write!(f, "unimp"),
 
             Self::Invalid(inst) => write!(f, "invalid 0x{:08x}", inst),
         }

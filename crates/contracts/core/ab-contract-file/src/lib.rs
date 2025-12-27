@@ -114,6 +114,19 @@ pub enum ContractFileParseError {
         /// Size of the file in bytes
         file_size: u32,
     },
+    /// Method offset is out of bounds of the file
+    #[error(
+        "Method offset is out of bounds of the file: offset {offset}, code section \
+        offset {code_section_offset} file_size {file_size}"
+    )]
+    MethodOutOfRange {
+        /// Offset of the method in bytes relative to the start of the file
+        offset: u32,
+        /// Offset of the code section in bytes relative to the start of the file
+        code_section_offset: u32,
+        /// Size of the file in bytes
+        file_size: u32,
+    },
     /// The host call function offset is out of bounds of the file
     #[error(
         "The host call function offset is out of bounds of the file: offset {offset}, code section \
@@ -194,7 +207,7 @@ impl<'a> ContractFile<'a> {
         mut contract_method: CM,
     ) -> Result<Self, ContractFileParseError>
     where
-        CM: FnMut(ContractFileMethod<'_>) -> Result<(), ContractFileParseError>,
+        CM: FnMut(ContractFileMethod<'a>) -> Result<(), ContractFileParseError>,
     {
         let file_size = u32::try_from(file_bytes.len()).map_err(|_error| {
             ContractFileParseError::FileTooLarge {
@@ -235,6 +248,10 @@ impl<'a> ContractFile<'a> {
 
         let read_only_padding_size =
             header.read_only_section_memory_size - header.read_only_section_file_size;
+        let read_only_section_offset = ContractFileHeader::SIZE
+            + u32::from(header.num_methods) * ContractFileMethodMetadata::SIZE;
+        let code_section_offset =
+            read_only_section_offset.saturating_add(header.read_only_section_file_size);
 
         {
             let mut contract_file_methods_metadata_iter = {
@@ -261,6 +278,14 @@ impl<'a> ContractFile<'a> {
                         return Err(ContractFileParseError::FileTooSmall {
                             num_methods: header.num_methods,
                             read_only_section_size: header.read_only_section_file_size,
+                            file_size,
+                        });
+                    }
+
+                    if contract_file_method_metadata.offset < code_section_offset {
+                        return Err(ContractFileParseError::MethodOutOfRange {
+                            offset: contract_file_method_metadata.offset,
+                            code_section_offset,
                             file_size,
                         });
                     }
@@ -309,7 +334,8 @@ impl<'a> ContractFile<'a> {
                             metadata_method_index: metadata_num_methods - 1,
                         })??;
                     contract_method(ContractFileMethod {
-                        address: contract_file_method_metadata.offset + read_only_padding_size,
+                        address: contract_file_method_metadata.offset - read_only_section_offset
+                            + read_only_padding_size,
                         method_metadata_item,
                         method_metadata_bytes,
                     })?;
@@ -323,11 +349,6 @@ impl<'a> ContractFile<'a> {
                 });
             }
         }
-
-        let read_only_section_offset = ContractFileHeader::SIZE
-            + u32::from(header.num_methods) * ContractFileMethodMetadata::SIZE;
-        let code_section_offset =
-            read_only_section_offset.saturating_add(header.read_only_section_file_size);
 
         if code_section_offset >= file_size {
             return Err(ContractFileParseError::FileTooSmall {
