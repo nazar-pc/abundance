@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CONTRACT_FILE_MAGIC"],"enum":["ContractFileParseError"],"struct":["ContractFile","ContractFileHeader","ContractFileMethod","ContractFileMethodMetadata"]};

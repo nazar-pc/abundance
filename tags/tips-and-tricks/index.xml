@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>tips-and-tricks on Project Abundance</title><link>https://abundance.build/tags/tips-and-tricks/</link><description>Recent content in tips-and-tricks on Project Abundance</description><generator>Hugo -- gohugo.io</generator><language>en</language><copyright>&lt;a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="license noopener noreferrer">CC0 1.0 Universal&lt;/a></copyright><lastBuildDate>Thu, 25 Sep 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://abundance.build/tags/tips-and-tricks/index.xml" rel="self" type="application/rss+xml"/><item><title>Shorter GitHub Actions runs</title><link>https://abundance.build/blog/2025-09-25-shorter-github-actions-runs/</link><pubDate>Thu, 25 Sep 2025 00:00:00 +0000</pubDate><guid>https://abundance.build/blog/2025-09-25-shorter-github-actions-runs/</guid><description>&lt;p>This is just a short note about something that was not possible to do as cleanly before.&lt;/p>
+&lt;p>If you worked with GitHub Actions for a meaningful period of time, and especially for testing Rust code, you will know
+that Windows runners are really slow. They are easily the bottleneck in many workflows and until recently there was no
+good way around it without turning the whole workflow into a mess. Thankfully, GitHub Actions recently introduced
+support for &lt;a
+href="https://github.blog/changelog/2025-09-18-actions-yaml-anchors-and-non-public-workflow-templates/"
+target="_blank"
+>Yaml anchors&lt;/a> in workflow files, which allows to reuse parts of the workflow instead of copy-pasting them.&lt;/p></description></item></channel></rss>
