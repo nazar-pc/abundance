@@ -109,6 +109,14 @@ impl<'metadata> MetadataDecoder<'metadata> {
         }
     }
 
+    /// The number of bytes left in the metadata that were not processed yet
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn remaining_metadata_bytes(&self) -> usize {
+        self.metadata.len()
+    }
+
+    // TODO: Helper method to decode all methods, ideally as a single iterator
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn decode_next<'a>(
@@ -273,6 +281,20 @@ impl<'a, 'metadata> MethodsMetadataDecoder<'a, 'metadata> {
         }
     }
 
+    /// Remaining methods in the decoder
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn remaining_methods(&self) -> u8 {
+        self.remaining
+    }
+
+    /// The number of bytes left in the metadata that were not processed yet
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn remaining_metadata_bytes(&self) -> usize {
+        self.metadata.len()
+    }
+
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn decode_next<'b>(&'b mut self) -> Option<MethodMetadataDecoder<'b, 'metadata>> {
@@ -318,7 +340,7 @@ impl MethodKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct MethodMetadataItem<'metadata> {
     /// Method name as bytes.
     ///
@@ -344,6 +366,13 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
             metadata,
             container_kind,
         }
+    }
+
+    /// The number of bytes left in the metadata that were not processed yet
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn remaining_metadata_bytes(&self) -> usize {
+        self.metadata.len()
     }
 
     #[inline]
@@ -494,6 +523,13 @@ pub struct ArgumentsMetadataDecoder<'a, 'metadata> {
 }
 
 impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
+    /// The number of bytes left in the metadata that were not processed yet
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn remaining_metadata_bytes(&self) -> usize {
+        self.metadata.len()
+    }
+
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn decode_next<'a>(
