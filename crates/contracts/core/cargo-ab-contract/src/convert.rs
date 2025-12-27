@@ -571,14 +571,21 @@ pub(crate) fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
         code_size,
     } = parse_sections(&elf)?;
 
+    if metadata_size == 0 {
+        return Err(anyhow::anyhow!("Metadata not found"));
+    }
+
     check_imports(&elf)?;
 
     let mut parsed_exports = parse_exports(&elf)?;
 
     let host_call_fn_offset = extract_host_call_fn_offset(input_file, &mut parsed_exports)?;
 
-    if metadata_size == 0 {
-        return Err(anyhow::anyhow!("Metadata not found"));
+    if host_call_fn_offset != 0 && host_call_fn_offset < code_offset {
+        return Err(anyhow::anyhow!(
+            "Host call function offset {host_call_fn_offset} is before `.text` section offset \
+            {code_offset}"
+        ));
     }
 
     let metadata_bytes = input_file
@@ -625,10 +632,13 @@ pub(crate) fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
             .len()
             .try_into()
             .context("Number of methods is over 16-bit")?,
-        host_call_fn_offset: (host_call_fn_offset - ro_data_offset
-            + header_with_methods_metadata_size)
-            .try_into()
-            .context("Host call offset is over 32-bit")?,
+        host_call_fn_offset: if host_call_fn_offset == 0 {
+            0
+        } else {
+            (host_call_fn_offset - ro_data_offset + header_with_methods_metadata_size)
+                .try_into()
+                .context("Host call offset is over 32-bit")?
+        },
     };
     output_file.extend_from_slice(contract_file_header.as_bytes());
 
