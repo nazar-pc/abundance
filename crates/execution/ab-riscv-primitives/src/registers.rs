@@ -2,12 +2,26 @@
 mod tests;
 
 use core::fmt;
+use core::marker::Destruct;
 
 /// Generic register
 #[const_trait]
-pub const trait GenericRegister: fmt::Display + fmt::Debug + Copy + Sized {
+pub const trait GenericRegister:
+    fmt::Display + fmt::Debug + [const] Destruct + Copy + Sized
+{
     /// Create a register from its bit representation
     fn from_bits(bits: u8) -> Option<Self>;
+}
+
+pub const trait GenericRegisters<Reg>
+where
+    Reg: GenericRegister,
+{
+    /// Read register value
+    fn read(&self, reg: Reg) -> u64;
+
+    /// Write register value
+    fn write(&mut self, reg: Reg, value: u64);
 }
 
 /// A set of registers for RISC-V RV32E/RV64E
@@ -16,23 +30,9 @@ pub struct ERegisters {
     regs: [u64; 16],
 }
 
-impl ERegisters {
-    /// Initialize registers with the given values
+impl const GenericRegisters<EReg> for ERegisters {
     #[inline(always)]
-    pub const fn new(ra: u64, sp: u64, gp: u64, a0: u64) -> Self {
-        let mut registers = Self { regs: [0; _] };
-
-        registers.write(EReg::Ra, ra);
-        registers.write(EReg::Sp, sp);
-        registers.write(EReg::Gp, gp);
-        registers.write(EReg::A0, a0);
-
-        registers
-    }
-
-    /// Read register value
-    #[inline(always)]
-    pub const fn read(&self, reg: EReg) -> u64 {
+    fn read(&self, reg: EReg) -> u64 {
         if matches!(reg, EReg::Zero) {
             // Always zero
             return 0;
@@ -42,9 +42,8 @@ impl ERegisters {
         *unsafe { self.regs.get_unchecked(reg.offset()) }
     }
 
-    /// Write register value
     #[inline(always)]
-    pub const fn write(&mut self, reg: EReg, value: u64) {
+    fn write(&mut self, reg: EReg, value: u64) {
         if matches!(reg, EReg::Zero) {
             // Writes are ignored
             return;
@@ -120,7 +119,7 @@ impl fmt::Display for EReg {
 
 impl fmt::Debug for EReg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        fmt::Display::fmt(self, f)
     }
 }
 
@@ -162,23 +161,9 @@ pub struct Registers {
     regs: [u64; 32],
 }
 
-impl Registers {
-    /// Initialize registers with the given values
+impl const GenericRegisters<Reg> for Registers {
     #[inline(always)]
-    pub const fn new(ra: u64, sp: u64, gp: u64, a0: u64) -> Self {
-        let mut registers = Self { regs: [0; _] };
-
-        registers.write(Reg::Ra, ra);
-        registers.write(Reg::Sp, sp);
-        registers.write(Reg::Gp, gp);
-        registers.write(Reg::A0, a0);
-
-        registers
-    }
-
-    /// Read register value
-    #[inline(always)]
-    pub const fn read(&self, reg: Reg) -> u64 {
+    fn read(&self, reg: Reg) -> u64 {
         if matches!(reg, Reg::Zero) {
             // Always zero
             return 0;
@@ -188,9 +173,8 @@ impl Registers {
         *unsafe { self.regs.get_unchecked(reg.offset()) }
     }
 
-    /// Write register value
     #[inline(always)]
-    pub const fn write(&mut self, reg: Reg, value: u64) {
+    fn write(&mut self, reg: Reg, value: u64) {
         if matches!(reg, Reg::Zero) {
             // Writes are ignored
             return;
@@ -338,7 +322,7 @@ impl fmt::Display for Reg {
 
 impl fmt::Debug for Reg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        fmt::Display::fmt(self, f)
     }
 }
 

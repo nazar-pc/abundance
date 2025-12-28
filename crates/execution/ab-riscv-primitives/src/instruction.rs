@@ -6,6 +6,16 @@ mod tests;
 use crate::registers::GenericRegister;
 use core::fmt;
 
+/// Generic instruction
+pub const trait GenericInstruction: fmt::Display + fmt::Debug + Copy + Sized {
+    /// Decode a single instruction
+    fn decode(instruction: u32) -> Self;
+
+    /// Instruction size in bytes
+    fn size(&self) -> usize;
+}
+
+// TODO: Composable instruction via nested extensions?
 /// RISC-V RV64 instruction.
 ///
 /// Usage of RV64I or RV64E variant is defined by the register generic used.
@@ -111,15 +121,20 @@ pub enum Rv64Instruction<Reg> {
     Invalid(u32),
 }
 
-impl<Reg> Rv64Instruction<Reg>
+impl<Reg> const GenericInstruction for Rv64Instruction<Reg>
 where
-    Reg: GenericRegister,
+    Reg: [const] GenericRegister,
 {
-    /// Decode a single instruction
-    pub fn decode(instruction: u32) -> Self {
+    fn decode(instruction: u32) -> Self {
         Self::decode_internal(instruction).unwrap_or(Self::Invalid(instruction))
     }
 
+    fn size(&self) -> usize {
+        size_of::<u32>()
+    }
+}
+
+impl<Reg> Rv64Instruction<Reg> {
     const fn decode_internal(instruction: u32) -> Option<Self>
     where
         Reg: [const] GenericRegister,
@@ -448,7 +463,7 @@ where
 
             Self::Unimp => write!(f, "unimp"),
 
-            Self::Invalid(inst) => write!(f, "invalid {inst:#010x}"),
+            Self::Invalid(instruction) => write!(f, "invalid {instruction:#010x}"),
         }
     }
 }
@@ -459,6 +474,6 @@ where
     Reg: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        fmt::Display::fmt(self, f)
     }
 }

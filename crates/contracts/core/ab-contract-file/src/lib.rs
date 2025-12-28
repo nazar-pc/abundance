@@ -445,8 +445,8 @@ impl<'a> ContractFile<'a> {
                 .1
         };
 
-        // Simple case: no padding and memory exactly matches the file-backed sections
-        if read_only_padding_size == 0 && contract_memory.len() == source_bytes.len() {
+        // Simple case: memory exactly matches the file-backed sections
+        if contract_memory.len() == source_bytes.len() {
             contract_memory.write_copy_of_slice(source_bytes);
             return true;
         }

@@ -707,6 +707,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-riscv-interpreter"
+version = "0.0.1"
+dependencies = [
+ "ab-riscv-primitives",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "ab-riscv-primitives"
 version = "0.0.1"
 

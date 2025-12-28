@@ -1,6 +1,7 @@
 #![no_std]
 #![feature(
     const_convert,
+    const_destruct,
     const_index,
     const_option_ops,
     const_trait_impl,

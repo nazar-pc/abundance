@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use crate::registers::{EReg, ERegisters, GenericRegister, Reg, Registers};
+use crate::registers::{EReg, ERegisters, GenericRegister, GenericRegisters, Reg, Registers};
 use alloc::format;
 
 #[test]
@@ -180,21 +180,6 @@ fn test_ereg_to_reg_conversion() {
 }
 
 #[test]
-fn test_registers_new() {
-    let regs = Registers::new(0x1000, 0x2000, 0x3000, 0x4000);
-
-    assert_eq!(regs.read(Reg::Ra), 0x1000);
-    assert_eq!(regs.read(Reg::Sp), 0x2000);
-    assert_eq!(regs.read(Reg::Gp), 0x3000);
-    assert_eq!(regs.read(Reg::A0), 0x4000);
-
-    // Other registers should be zero
-    assert_eq!(regs.read(Reg::Zero), 0);
-    assert_eq!(regs.read(Reg::T0), 0);
-    assert_eq!(regs.read(Reg::A1), 0);
-}
-
-#[test]
 fn test_registers_read_write() {
     {
         // Basic read/write
@@ -276,21 +261,6 @@ fn test_registers_all_registers() {
 
     // Zero should still be zero
     assert_eq!(regs.read(Reg::Zero), 0);
-}
-
-#[test]
-fn test_eregisters_new() {
-    let regs = ERegisters::new(0x1000, 0x2000, 0x3000, 0x4000);
-
-    assert_eq!(regs.read(EReg::Ra), 0x1000);
-    assert_eq!(regs.read(EReg::Sp), 0x2000);
-    assert_eq!(regs.read(EReg::Gp), 0x3000);
-    assert_eq!(regs.read(EReg::A0), 0x4000);
-
-    // Other registers should be zero
-    assert_eq!(regs.read(EReg::Zero), 0);
-    assert_eq!(regs.read(EReg::T0), 0);
-    assert_eq!(regs.read(EReg::A1), 0);
 }
 
 #[test]
