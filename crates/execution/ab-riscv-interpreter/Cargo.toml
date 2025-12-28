@@ -1,0 +1,21 @@
+[package]
+name = "ab-riscv-interpreter"
+description = "RISC-V interpreter"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-riscv-primitives = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true
