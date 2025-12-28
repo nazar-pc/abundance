@@ -1,12 +1,15 @@
 //! This module defines the RISC-V instruction set for the RV64 architecture
 
+#[cfg(test)]
+mod tests;
+
 use crate::registers::GenericRegister;
 use core::fmt;
 
 /// RISC-V RV64 instruction.
 ///
 /// Usage of RV64I or RV64E variant is defined by the register generic used.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Rv64Instruction<Reg> {
     // R-type
     Add { rd: Reg, rs1: Reg, rs2: Reg },
@@ -191,7 +194,8 @@ where
                     0b111 => Self::Andi { rd, rs1, imm },
                     0b001 => {
                         let shamt = (instruction >> 20) & 0b11_1111;
-                        if funct7 == 0b0000000 {
+                        let funct6 = (instruction >> 26) & 0b11_1111;
+                        if funct6 == 0b000000 {
                             Self::Slli { rd, rs1, shamt }
                         } else {
                             Self::Invalid(instruction)
@@ -199,9 +203,10 @@ where
                     }
                     0b101 => {
                         let shamt = (instruction >> 20) & 0b11_1111;
-                        match funct7 {
-                            0b0000000 => Self::Srli { rd, rs1, shamt },
-                            0b0100000 => Self::Srai { rd, rs1, shamt },
+                        let funct6 = (instruction >> 26) & 0b11_1111;
+                        match funct6 {
+                            0b000000 => Self::Srli { rd, rs1, shamt },
+                            0b010000 => Self::Srai { rd, rs1, shamt },
                             _ => Self::Invalid(instruction),
                         }
                     }
@@ -443,7 +448,17 @@ where
 
             Self::Unimp => write!(f, "unimp"),
 
-            Self::Invalid(inst) => write!(f, "invalid 0x{:08x}", inst),
+            Self::Invalid(inst) => write!(f, "invalid {inst:#010x}"),
         }
+    }
+}
+
+impl<Reg> fmt::Debug for Rv64Instruction<Reg>
+where
+    Self: fmt::Display,
+    Reg: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
