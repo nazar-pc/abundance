@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use core::fmt;
 
 /// Generic register
@@ -55,7 +58,7 @@ impl ERegisters {
 /// RISC-V register for RV64E.
 ///
 /// For RV64I see [`Reg`].
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
 pub enum EReg {
     /// Always zero: `x0`
@@ -112,6 +115,12 @@ impl fmt::Display for EReg {
             Self::A4 => write!(f, "a4"),
             Self::A5 => write!(f, "a5"),
         }
+    }
+}
+
+impl fmt::Debug for EReg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
@@ -195,7 +204,7 @@ impl Registers {
 /// RISC-V register for RV64I.
 ///
 /// For RV64E see [`EReg`].
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Reg {
     /// Always zero: `x0`
@@ -327,6 +336,12 @@ impl fmt::Display for Reg {
     }
 }
 
+impl fmt::Debug for Reg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 impl const GenericRegister for Reg {
     #[inline(always)]
     fn from_bits(bits: u8) -> Option<Self> {
@@ -347,6 +362,22 @@ impl const GenericRegister for Reg {
             13 => Some(Self::A3),
             14 => Some(Self::A4),
             15 => Some(Self::A5),
+            16 => Some(Self::A6),
+            17 => Some(Self::A7),
+            18 => Some(Self::S2),
+            19 => Some(Self::S3),
+            20 => Some(Self::S4),
+            21 => Some(Self::S5),
+            22 => Some(Self::S6),
+            23 => Some(Self::S7),
+            24 => Some(Self::S8),
+            25 => Some(Self::S9),
+            26 => Some(Self::S10),
+            27 => Some(Self::S11),
+            28 => Some(Self::T3),
+            29 => Some(Self::T4),
+            30 => Some(Self::T5),
+            31 => Some(Self::T6),
             _ => None,
         }
     }
