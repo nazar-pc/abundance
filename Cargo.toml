@@ -155,10 +155,6 @@ reed-solomon-simd = { opt-level = 3 }
 inherits = "release"
 lto = "fat"
 
-[profile.contract]
-inherits = "production"
-strip = "symbols"
-
 [patch.crates-io]
 # TODO: Remove once 1.8.3 is released with https://github.com/BLAKE3-team/BLAKE3/pull/469
 blake3 = { version = "1.8.2", git = "https://github.com/BLAKE3-team/BLAKE3", rev = "c7f0d216e6fc834b742456b39546c9835baa1277" }
