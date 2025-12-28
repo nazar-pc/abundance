@@ -27,6 +27,7 @@ use futures::{FutureExt, Stream, StreamExt, select};
 use parity_scale_codec::{Decode, Encode};
 use std::any::type_name;
 use std::collections::VecDeque;
+use std::fmt;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -34,7 +35,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
-use std::{fmt, mem};
 use thiserror::Error;
 use tracing::{Instrument, debug, error, trace, warn};
 use ulid::Ulid;
@@ -955,10 +955,8 @@ impl NatsClient {
                         .await
                     {
                         Ok(Some(message)) => {
-                            if let Some(received_index) = message
-                                .payload
-                                .split_at_checked(mem::size_of::<u32>())
-                                .map(|(bytes, _)| {
+                            if let Some(received_index) =
+                                message.payload.get(..size_of::<u32>()).map(|bytes| {
                                     u32::from_le_bytes(
                                         bytes.try_into().expect("Correctly chunked slice; qed"),
                                     )

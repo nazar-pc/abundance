@@ -190,8 +190,8 @@ impl TransactionPayloadBuilder {
         let (input_type_details, output_type_details) = unsafe {
             let (input_type_details, output_type_details) =
                 input_output_type_details.split_at_unchecked(usize::from(num_input_arguments));
-            let (output_type_details, _) =
-                output_type_details.split_at_unchecked(usize::from(num_output_arguments));
+            let output_type_details =
+                output_type_details.get_unchecked(..usize::from(num_output_arguments));
 
             (
                 input_type_details.assume_init_ref(),

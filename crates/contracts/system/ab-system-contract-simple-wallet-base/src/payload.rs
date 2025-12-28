@@ -363,8 +363,8 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
         let (transaction_slots, transaction_inputs) = unsafe {
             let (transaction_slots, transaction_inputs) =
                 transaction_slots_inputs.split_at_unchecked(usize::from(num_slot_arguments));
-            let (transaction_inputs, _) =
-                transaction_inputs.split_at_unchecked(usize::from(num_input_arguments));
+            let transaction_inputs =
+                transaction_inputs.get_unchecked(..usize::from(num_input_arguments));
 
             (
                 transaction_slots.assume_init_ref(),
@@ -615,7 +615,7 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
                     .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
             } else {
                 // SAFETY: Subtracted value is always smaller than alignment
-                (_, self.payload) = unsafe { self.payload.split_at_unchecked(padding_bytes) };
+                self.payload = unsafe { self.payload.get_unchecked(padding_bytes..) };
             }
         }
         Ok(())
