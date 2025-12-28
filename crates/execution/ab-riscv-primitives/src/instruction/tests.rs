@@ -1,4 +1,4 @@
-use crate::instruction::Rv64Instruction;
+use crate::instruction::{GenericInstruction, Rv64Instruction};
 use crate::registers::{EReg, Reg};
 
 // Helper to create instruction with opcode

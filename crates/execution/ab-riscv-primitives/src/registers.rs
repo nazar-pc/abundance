@@ -2,10 +2,13 @@
 mod tests;
 
 use core::fmt;
+use core::marker::Destruct;
 
 /// Generic register
 #[const_trait]
-pub const trait GenericRegister: fmt::Display + fmt::Debug + Copy + Sized {
+pub const trait GenericRegister:
+    fmt::Display + fmt::Debug + [const] Destruct + Copy + Sized
+{
     /// Create a register from its bit representation
     fn from_bits(bits: u8) -> Option<Self>;
 }

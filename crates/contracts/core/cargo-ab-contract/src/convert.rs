@@ -3,7 +3,7 @@ use ab_contract_file::{CONTRACT_FILE_MAGIC, ContractFileHeader, ContractFileMeth
 use ab_contracts_common::metadata::decode::MetadataDecoder;
 use ab_contracts_common::{HOST_CALL_FN, HOST_CALL_FN_IMPORT, METADATA_STATIC_NAME_PREFIX};
 use ab_io_type::trivial_type::TrivialType;
-use ab_riscv_primitives::instruction::Rv64Instruction;
+use ab_riscv_primitives::instruction::{GenericInstruction, Rv64Instruction};
 use ab_riscv_primitives::registers::EReg;
 use anyhow::Context;
 use object::elf::{
