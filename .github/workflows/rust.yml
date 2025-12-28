@@ -563,7 +563,7 @@ jobs:
             contract="$(basename -- $contract_path)"
             echo "Checking \`$contract\`"
             # TODO: This uses x86-64-based target, but will have to change to riscv64e-based target eventually
-            cargo -Zgitoxide -Zgit rustc -Z build-std=core --crate-type cdylib --profile contract --target crates/contracts/riscv64em-unknown-none-abundance.json --package $contract --features $contract/guest
+            cargo -Zgitoxide -Zgit rustc -Z build-std=core --crate-type cdylib --profile production --target crates/contracts/riscv64em-unknown-none-abundance.json --package $contract --features $contract/guest
           done
 
   rust-all:
