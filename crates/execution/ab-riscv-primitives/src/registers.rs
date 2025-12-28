@@ -54,21 +54,6 @@ impl const GenericRegisters<EReg> for ERegisters {
     }
 }
 
-impl ERegisters {
-    /// Initialize registers with the given values
-    #[inline(always)]
-    pub const fn new(ra: u64, sp: u64, gp: u64, a0: u64) -> Self {
-        let mut registers = Self { regs: [0; _] };
-
-        registers.write(EReg::Ra, ra);
-        registers.write(EReg::Sp, sp);
-        registers.write(EReg::Gp, gp);
-        registers.write(EReg::A0, a0);
-
-        registers
-    }
-}
-
 /// RISC-V register for RV64E.
 ///
 /// For RV64I see [`Reg`].
@@ -197,21 +182,6 @@ impl const GenericRegisters<Reg> for Registers {
 
         // SAFETY: register offset is always within bounds
         *unsafe { self.regs.get_unchecked_mut(reg.offset()) } = value;
-    }
-}
-
-impl Registers {
-    /// Initialize registers with the given values
-    #[inline(always)]
-    pub const fn new(ra: u64, sp: u64, gp: u64, a0: u64) -> Self {
-        let mut registers = Self { regs: [0; _] };
-
-        registers.write(Reg::Ra, ra);
-        registers.write(Reg::Sp, sp);
-        registers.write(Reg::Gp, gp);
-        registers.write(Reg::A0, a0);
-
-        registers
     }
 }
 
