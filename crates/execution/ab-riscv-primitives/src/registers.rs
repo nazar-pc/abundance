@@ -120,7 +120,7 @@ impl fmt::Display for EReg {
 
 impl fmt::Debug for EReg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        fmt::Display::fmt(self, f)
     }
 }
 
@@ -338,7 +338,7 @@ impl fmt::Display for Reg {
 
 impl fmt::Debug for Reg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        fmt::Display::fmt(self, f)
     }
 }
 
