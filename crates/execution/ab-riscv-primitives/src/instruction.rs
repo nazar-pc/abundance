@@ -6,6 +6,8 @@ mod tests;
 use crate::registers::GenericRegister;
 use core::fmt;
 
+// TODO: Trait for generic instruction?
+// TODO: Composable instruction via nested extensions?
 /// RISC-V RV64 instruction.
 ///
 /// Usage of RV64I or RV64E variant is defined by the register generic used.

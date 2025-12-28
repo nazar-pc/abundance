@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use crate::registers::{EReg, ERegisters, GenericRegister, Reg, Registers};
+use crate::registers::{EReg, ERegisters, GenericRegister, GenericRegisters, Reg, Registers};
 use alloc::format;
 
 #[test]

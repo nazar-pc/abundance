@@ -10,10 +10,45 @@ pub const trait GenericRegister: fmt::Display + fmt::Debug + Copy + Sized {
     fn from_bits(bits: u8) -> Option<Self>;
 }
 
+pub const trait GenericRegisters<Reg>
+where
+    Reg: GenericRegister,
+{
+    /// Read register value
+    fn read(&self, reg: Reg) -> u64;
+
+    /// Write register value
+    fn write(&mut self, reg: Reg, value: u64);
+}
+
 /// A set of registers for RISC-V RV32E/RV64E
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ERegisters {
     regs: [u64; 16],
+}
+
+impl const GenericRegisters<EReg> for ERegisters {
+    #[inline(always)]
+    fn read(&self, reg: EReg) -> u64 {
+        if matches!(reg, EReg::Zero) {
+            // Always zero
+            return 0;
+        }
+
+        // SAFETY: register offset is always within bounds
+        *unsafe { self.regs.get_unchecked(reg.offset()) }
+    }
+
+    #[inline(always)]
+    fn write(&mut self, reg: EReg, value: u64) {
+        if matches!(reg, EReg::Zero) {
+            // Writes are ignored
+            return;
+        }
+
+        // SAFETY: register offset is always within bounds
+        *unsafe { self.regs.get_unchecked_mut(reg.offset()) } = value;
+    }
 }
 
 impl ERegisters {
@@ -28,30 +63,6 @@ impl ERegisters {
         registers.write(EReg::A0, a0);
 
         registers
-    }
-
-    /// Read register value
-    #[inline(always)]
-    pub const fn read(&self, reg: EReg) -> u64 {
-        if matches!(reg, EReg::Zero) {
-            // Always zero
-            return 0;
-        }
-
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked(reg.offset()) }
-    }
-
-    /// Write register value
-    #[inline(always)]
-    pub const fn write(&mut self, reg: EReg, value: u64) {
-        if matches!(reg, EReg::Zero) {
-            // Writes are ignored
-            return;
-        }
-
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked_mut(reg.offset()) } = value;
     }
 }
 
@@ -162,6 +173,30 @@ pub struct Registers {
     regs: [u64; 32],
 }
 
+impl const GenericRegisters<Reg> for Registers {
+    #[inline(always)]
+    fn read(&self, reg: Reg) -> u64 {
+        if matches!(reg, Reg::Zero) {
+            // Always zero
+            return 0;
+        }
+
+        // SAFETY: register offset is always within bounds
+        *unsafe { self.regs.get_unchecked(reg.offset()) }
+    }
+
+    #[inline(always)]
+    fn write(&mut self, reg: Reg, value: u64) {
+        if matches!(reg, Reg::Zero) {
+            // Writes are ignored
+            return;
+        }
+
+        // SAFETY: register offset is always within bounds
+        *unsafe { self.regs.get_unchecked_mut(reg.offset()) } = value;
+    }
+}
+
 impl Registers {
     /// Initialize registers with the given values
     #[inline(always)]
@@ -174,30 +209,6 @@ impl Registers {
         registers.write(Reg::A0, a0);
 
         registers
-    }
-
-    /// Read register value
-    #[inline(always)]
-    pub const fn read(&self, reg: Reg) -> u64 {
-        if matches!(reg, Reg::Zero) {
-            // Always zero
-            return 0;
-        }
-
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked(reg.offset()) }
-    }
-
-    /// Write register value
-    #[inline(always)]
-    pub const fn write(&mut self, reg: Reg, value: u64) {
-        if matches!(reg, Reg::Zero) {
-            // Writes are ignored
-            return;
-        }
-
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked_mut(reg.offset()) } = value;
     }
 }
 
