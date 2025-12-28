@@ -25,9 +25,7 @@ impl MethodFingerprint {
         else {
             return None;
         };
-        // The same as `&compact_metadata_scratch[..compact_metadata_size]`, but it is not allowed
-        // in const environment yet
-        let compact_metadata = compact_metadata_scratch.split_at(compact_metadata_size).0;
+        let compact_metadata = compact_metadata_scratch.get(..compact_metadata_size)?;
 
         Some(Self(Blake3Hash::new(const_hash(compact_metadata))))
     }

@@ -1,24 +1,14 @@
 use crate::metadata::{IoTypeDetails, IoTypeMetadataKind};
 use core::num::NonZeroU8;
 
-/// This macro is necessary to reduce boilerplate due to lack of `?` in const environment
-macro_rules! forward_option {
-    ($expr:expr) => {{
-        let Some(result) = $expr else {
-            return None;
-        };
-        result
-    }};
-}
-
 #[inline(always)]
 pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDetails, &[u8])> {
     if metadata.is_empty() {
         return None;
     }
 
-    let kind = forward_option!(IoTypeMetadataKind::try_from_u8(metadata[0]));
-    metadata = forward_option!(skip_n_bytes(metadata, 1));
+    let kind = IoTypeMetadataKind::try_from_u8(metadata[0])?;
+    metadata = skip_n_bytes(metadata, 1)?;
 
     match kind {
         IoTypeMetadataKind::Unit => Some((
@@ -114,12 +104,13 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             }
 
             let num_elements = metadata[0] as u32;
-            metadata = forward_option!(skip_n_bytes(metadata, size_of::<u8>()));
+            metadata = skip_n_bytes(metadata, size_of::<u8>())?;
 
             let type_details;
-            (type_details, metadata) = forward_option!(decode_type_details(metadata));
-            let recommended_capacity =
-                forward_option!(type_details.recommended_capacity.checked_mul(num_elements));
+            (type_details, metadata) = decode_type_details(metadata)?;
+            let recommended_capacity = type_details
+                .recommended_capacity
+                .checked_mul(num_elements)?;
             Some((
                 IoTypeDetails {
                     recommended_capacity,
@@ -134,14 +125,14 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             }
 
             let mut num_elements = [0; size_of::<u16>()];
-            (metadata, _) =
-                forward_option!(copy_n_bytes(metadata, &mut num_elements, size_of::<u16>()));
+            (metadata, _) = copy_n_bytes(metadata, &mut num_elements, size_of::<u16>())?;
             let num_elements = u16::from_le_bytes(num_elements) as u32;
 
             let type_details;
-            (type_details, metadata) = forward_option!(decode_type_details(metadata));
-            let recommended_capacity =
-                forward_option!(type_details.recommended_capacity.checked_mul(num_elements));
+            (type_details, metadata) = decode_type_details(metadata)?;
+            let recommended_capacity = type_details
+                .recommended_capacity
+                .checked_mul(num_elements)?;
             Some((
                 IoTypeDetails {
                     recommended_capacity,
@@ -156,14 +147,14 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             }
 
             let mut num_elements = [0; size_of::<u32>()];
-            (metadata, _) =
-                forward_option!(copy_n_bytes(metadata, &mut num_elements, size_of::<u32>()));
+            (metadata, _) = copy_n_bytes(metadata, &mut num_elements, size_of::<u32>())?;
             let num_elements = u32::from_le_bytes(num_elements);
 
             let type_details;
-            (type_details, metadata) = forward_option!(decode_type_details(metadata));
-            let recommended_capacity =
-                forward_option!(type_details.recommended_capacity.checked_mul(num_elements));
+            (type_details, metadata) = decode_type_details(metadata)?;
+            let recommended_capacity = type_details
+                .recommended_capacity
+                .checked_mul(num_elements)?;
             Some((
                 IoTypeDetails {
                     recommended_capacity,
@@ -188,7 +179,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             }
 
             let num_bytes = metadata[0] as u32;
-            metadata = forward_option!(skip_n_bytes(metadata, size_of::<u8>()));
+            metadata = skip_n_bytes(metadata, size_of::<u8>())?;
 
             Some((IoTypeDetails::bytes(num_bytes), metadata))
         }
@@ -198,8 +189,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             }
 
             let mut num_bytes = [0; size_of::<u16>()];
-            (metadata, _) =
-                forward_option!(copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>()));
+            (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>())?;
             let num_bytes = u16::from_le_bytes(num_bytes) as u32;
 
             Some((IoTypeDetails::bytes(num_bytes), metadata))
@@ -210,8 +200,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             }
 
             let mut num_bytes = [0; size_of::<u32>()];
-            (metadata, _) =
-                forward_option!(copy_n_bytes(metadata, &mut num_bytes, size_of::<u32>()));
+            (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u32>())?;
             let num_bytes = u32::from_le_bytes(num_bytes);
 
             Some((IoTypeDetails::bytes(num_bytes), metadata))
@@ -236,7 +225,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
                 return None;
             }
 
-            (_, metadata) = forward_option!(decode_type_details(metadata));
+            (_, metadata) = decode_type_details(metadata)?;
             Some((
                 IoTypeDetails {
                     recommended_capacity: 0,
@@ -251,7 +240,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             }
 
             let num_bytes = metadata[0] as u32;
-            metadata = forward_option!(skip_n_bytes(metadata, size_of::<u8>()));
+            metadata = skip_n_bytes(metadata, size_of::<u8>())?;
 
             Some((
                 IoTypeDetails::bytes(num_bytes + size_of::<u8>() as u32),
@@ -264,8 +253,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             }
 
             let mut num_bytes = [0; size_of::<u16>()];
-            (metadata, _) =
-                forward_option!(copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>()));
+            (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>())?;
             let num_bytes = u16::from_le_bytes(num_bytes) as u32;
 
             Some((
@@ -282,7 +270,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             }
 
             let type_details;
-            (type_details, metadata) = forward_option!(decode_type_details(metadata));
+            (type_details, metadata) = decode_type_details(metadata)?;
 
             Some((
                 IoTypeDetails::bytes(type_details.recommended_capacity),
@@ -311,7 +299,7 @@ const fn struct_type_details(
 
     // Skip struct name
     let struct_name_length = input[0] as usize;
-    input = forward_option!(skip_n_bytes(input, 1 + struct_name_length));
+    input = skip_n_bytes(input, 1 + struct_name_length)?;
 
     let mut field_count = if let Some(field_count) = field_count {
         field_count
@@ -321,7 +309,7 @@ const fn struct_type_details(
         }
 
         let field_count = input[0];
-        input = forward_option!(skip_n_bytes(input, 1));
+        input = skip_n_bytes(input, 1)?;
 
         field_count
     };
@@ -337,13 +325,13 @@ const fn struct_type_details(
         // Skip field name if needed
         if !tuple {
             let field_name_length = input[0] as usize;
-            input = forward_option!(skip_n_bytes(input, 1 + field_name_length));
+            input = skip_n_bytes(input, 1 + field_name_length)?;
         }
 
         // Capacity of argument's type
         let type_details;
-        (type_details, input) = forward_option!(decode_type_details(input));
-        capacity = forward_option!(capacity.checked_add(type_details.recommended_capacity));
+        (type_details, input) = decode_type_details(input)?;
+        capacity = capacity.checked_add(type_details.recommended_capacity)?;
         // TODO: `core::cmp::max()` isn't const yet due to trait bounds
         alignment = if type_details.alignment.get() > alignment {
             type_details.alignment.get()
@@ -375,7 +363,7 @@ const fn enum_capacity(
 
     // Skip enum name
     let enum_name_length = input[0] as usize;
-    input = forward_option!(skip_n_bytes(input, 1 + enum_name_length));
+    input = skip_n_bytes(input, 1 + enum_name_length)?;
 
     let mut variant_count = if let Some(variant_count) = variant_count {
         variant_count
@@ -385,7 +373,7 @@ const fn enum_capacity(
         }
 
         let variant_count = input[0];
-        input = forward_option!(skip_n_bytes(input, 1));
+        input = skip_n_bytes(input, 1)?;
 
         variant_count
     };
@@ -401,11 +389,8 @@ const fn enum_capacity(
         let variant_type_details;
 
         // Variant capacity as if it was a struct
-        (variant_type_details, input) = forward_option!(struct_type_details(
-            input,
-            if has_fields { None } else { Some(0) },
-            false
-        ));
+        (variant_type_details, input) =
+            struct_type_details(input, if has_fields { None } else { Some(0) }, false)?;
         // `+ 1` is for the discriminant
         let variant_capacity = variant_type_details.recommended_capacity + 1;
         // TODO: `core::cmp::max()` isn't const yet due to trait bounds
@@ -447,18 +432,13 @@ const fn enum_capacity(
 /// Copies `n` bytes from input to output and returns both input and output after `n` bytes offset
 #[inline(always)]
 const fn copy_n_bytes<'i, 'o>(
-    mut input: &'i [u8],
-    mut output: &'o mut [u8],
+    input: &'i [u8],
+    output: &'o mut [u8],
     n: usize,
 ) -> Option<(&'i [u8], &'o mut [u8])> {
-    if n > input.len() || n > output.len() {
-        return None;
-    }
+    let (source, input) = input.split_at_checked(n)?;
+    let (target, output) = output.split_at_mut_checked(n)?;
 
-    let source;
-    let target;
-    (source, input) = input.split_at(n);
-    (target, output) = output.split_at_mut(n);
     target.copy_from_slice(source);
 
     Some((input, output))
@@ -467,10 +447,5 @@ const fn copy_n_bytes<'i, 'o>(
 /// Skips `n` bytes and return remainder
 #[inline(always)]
 const fn skip_n_bytes(input: &[u8], n: usize) -> Option<&[u8]> {
-    if n > input.len() {
-        return None;
-    }
-
-    // `&input[n..]` not supported in const yet
-    Some(input.split_at(n).1)
+    input.get(n..)
 }
