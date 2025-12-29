@@ -13,6 +13,8 @@ use ab_contracts_common::metadata::decode::{
     MethodsMetadataDecoder,
 };
 use ab_io_type::trivial_type::TrivialType;
+use ab_riscv_primitives::instruction::{GenericInstruction, Rv64Instruction};
+use ab_riscv_primitives::registers::EReg;
 use core::iter;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;
@@ -140,6 +142,14 @@ pub enum ContractFileParseError {
         /// Size of the file in bytes
         file_size: u32,
     },
+    /// Host call function doesn't have auipc + jalr tailcall pattern
+    #[error("The host call function doesn't have auipc + jalr tailcall pattern: {first} {second}")]
+    InvalidHostCallFnPattern {
+        /// First instruction of the host call function
+        first: Rv64Instruction<EReg>,
+        /// Second instruction of the host call function
+        second: Rv64Instruction<EReg>,
+    },
     /// The read-only section file size is larger than the memory size
     #[error(
         "The read-only section file size is larger than the memory size: file_size {file_size}, \
@@ -175,6 +185,21 @@ pub enum ContractFileParseError {
         header_num_methods: u16,
         /// Number of methods in the actual metadata
         metadata_num_methods: u16,
+    },
+    /// Unexpected instruction encountered while parsing the code section
+    #[error("Unexpected instruction encountered while parsing the code section: {instruction}")]
+    UnexpectedInstruction {
+        /// Instruction
+        instruction: Rv64Instruction<EReg>,
+    },
+    /// Unexpected trailing code bytes encountered while parsing the code section
+    #[error(
+        "Unexpected trailing code bytes encountered while parsing the code section: {num_bytes} \
+        trailing bytes"
+    )]
+    UnexpectedTrailingCodeBytes {
+        /// Number of trailing bytes encountered
+        num_bytes: usize,
     },
 }
 
@@ -366,6 +391,159 @@ impl<'a> ContractFile<'a> {
                 code_section_offset,
                 file_size,
             });
+        }
+
+        if header.host_call_fn_offset != 0 {
+            let instructions_bytes = file_bytes
+                .get(header.host_call_fn_offset as usize..)
+                .ok_or(ContractFileParseError::HostCallFnOutOfRange {
+                    offset: header.host_call_fn_offset,
+                    code_section_offset,
+                    file_size,
+                })?
+                .get(..size_of::<[u32; 2]>())
+                .ok_or(ContractFileParseError::HostCallFnOutOfRange {
+                    offset: header.host_call_fn_offset,
+                    code_section_offset,
+                    file_size,
+                })?;
+
+            let first_instruction = u32::from_le_bytes([
+                instructions_bytes[0],
+                instructions_bytes[1],
+                instructions_bytes[2],
+                instructions_bytes[3],
+            ]);
+            let second_instruction = u32::from_le_bytes([
+                instructions_bytes[4],
+                instructions_bytes[5],
+                instructions_bytes[6],
+                instructions_bytes[7],
+            ]);
+
+            let first = Rv64Instruction::<EReg>::decode(first_instruction);
+            let second = Rv64Instruction::<EReg>::decode(second_instruction);
+
+            // TODO: Should it be canonicalized to a fixed immediate and temporary after conversion
+            //  from ELF?
+            // Checks if two consecutive instructions are:
+            //   auipc x?, 0x?
+            //   jalr  x0, offset(x?)
+            let matches_expected_pattern = if let (
+                Rv64Instruction::Auipc {
+                    rd: auipc_rd,
+                    imm: _,
+                },
+                Rv64Instruction::Jalr {
+                    rd: jalr_rd,
+                    rs1: jalr_rs1,
+                    imm: _,
+                },
+            ) = (first, second)
+            {
+                auipc_rd == jalr_rs1 && jalr_rd == EReg::Zero
+            } else {
+                false
+            };
+
+            if !matches_expected_pattern {
+                return Err(ContractFileParseError::InvalidHostCallFnPattern { first, second });
+            }
+        }
+
+        // Ensure code only consists of expected instructions
+        {
+            let mut remaining_code_file_bytes = &file_bytes[code_section_offset as usize..];
+            while let Some(instruction_bytes) =
+                remaining_code_file_bytes.split_off(..size_of::<u32>())
+            {
+                let instruction = u32::from_le_bytes([
+                    instruction_bytes[0],
+                    instruction_bytes[1],
+                    instruction_bytes[2],
+                    instruction_bytes[3],
+                ]);
+                let instruction = Rv64Instruction::<EReg>::decode(instruction);
+                match instruction {
+                    Rv64Instruction::Add { .. }
+                    | Rv64Instruction::Sub { .. }
+                    | Rv64Instruction::Sll { .. }
+                    | Rv64Instruction::Slt { .. }
+                    | Rv64Instruction::Sltu { .. }
+                    | Rv64Instruction::Xor { .. }
+                    | Rv64Instruction::Srl { .. }
+                    | Rv64Instruction::Sra { .. }
+                    | Rv64Instruction::Or { .. }
+                    | Rv64Instruction::And { .. }
+                    | Rv64Instruction::Mul { .. }
+                    | Rv64Instruction::Mulh { .. }
+                    | Rv64Instruction::Mulhsu { .. }
+                    | Rv64Instruction::Mulhu { .. }
+                    | Rv64Instruction::Div { .. }
+                    | Rv64Instruction::Divu { .. }
+                    | Rv64Instruction::Rem { .. }
+                    | Rv64Instruction::Remu { .. }
+                    | Rv64Instruction::Addw { .. }
+                    | Rv64Instruction::Subw { .. }
+                    | Rv64Instruction::Sllw { .. }
+                    | Rv64Instruction::Srlw { .. }
+                    | Rv64Instruction::Sraw { .. }
+                    | Rv64Instruction::Mulw { .. }
+                    | Rv64Instruction::Divw { .. }
+                    | Rv64Instruction::Divuw { .. }
+                    | Rv64Instruction::Remw { .. }
+                    | Rv64Instruction::Remuw { .. }
+                    | Rv64Instruction::Addi { .. }
+                    | Rv64Instruction::Slti { .. }
+                    | Rv64Instruction::Sltiu { .. }
+                    | Rv64Instruction::Xori { .. }
+                    | Rv64Instruction::Ori { .. }
+                    | Rv64Instruction::Andi { .. }
+                    | Rv64Instruction::Slli { .. }
+                    | Rv64Instruction::Srli { .. }
+                    | Rv64Instruction::Srai { .. }
+                    | Rv64Instruction::Addiw { .. }
+                    | Rv64Instruction::Slliw { .. }
+                    | Rv64Instruction::Srliw { .. }
+                    | Rv64Instruction::Sraiw { .. }
+                    | Rv64Instruction::Lb { .. }
+                    | Rv64Instruction::Lh { .. }
+                    | Rv64Instruction::Lw { .. }
+                    | Rv64Instruction::Ld { .. }
+                    | Rv64Instruction::Lbu { .. }
+                    | Rv64Instruction::Lhu { .. }
+                    | Rv64Instruction::Lwu { .. }
+                    | Rv64Instruction::Jalr { .. }
+                    | Rv64Instruction::Sb { .. }
+                    | Rv64Instruction::Sh { .. }
+                    | Rv64Instruction::Sw { .. }
+                    | Rv64Instruction::Sd { .. }
+                    | Rv64Instruction::Beq { .. }
+                    | Rv64Instruction::Bne { .. }
+                    | Rv64Instruction::Blt { .. }
+                    | Rv64Instruction::Bge { .. }
+                    | Rv64Instruction::Bltu { .. }
+                    | Rv64Instruction::Bgeu { .. }
+                    | Rv64Instruction::Lui { .. }
+                    | Rv64Instruction::Auipc { .. }
+                    | Rv64Instruction::Jal { .. }
+                    | Rv64Instruction::Ebreak
+                    | Rv64Instruction::Unimp => {
+                        // Expected instruction
+                    }
+                    Rv64Instruction::Fence { .. }
+                    | Rv64Instruction::Ecall
+                    | Rv64Instruction::Invalid(_) => {
+                        return Err(ContractFileParseError::UnexpectedInstruction { instruction });
+                    }
+                }
+            }
+
+            if !remaining_code_file_bytes.is_empty() {
+                return Err(ContractFileParseError::UnexpectedTrailingCodeBytes {
+                    num_bytes: remaining_code_file_bytes.len(),
+                });
+            }
         }
 
         Ok(Self {

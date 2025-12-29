@@ -3,8 +3,6 @@ use ab_contract_file::{CONTRACT_FILE_MAGIC, ContractFileHeader, ContractFileMeth
 use ab_contracts_common::metadata::decode::MetadataDecoder;
 use ab_contracts_common::{HOST_CALL_FN, HOST_CALL_FN_IMPORT, METADATA_STATIC_NAME_PREFIX};
 use ab_io_type::trivial_type::TrivialType;
-use ab_riscv_primitives::instruction::{GenericInstruction, Rv64Instruction};
-use ab_riscv_primitives::registers::EReg;
 use anyhow::Context;
 use object::elf::{
     EF_RISCV_RVE, ELFCLASS64, ELFDATA2LSB, ELFMAG, ELFOSABI_GNU, EM_RISCV, ET_DYN, FileHeader64,
@@ -430,7 +428,7 @@ fn extract_host_call_fn_offset(
         ));
     }
     let host_call_fn_offset = host_call_fn.offset;
-    let instructions_bytes = input_file
+    input_file
         .get(host_call_fn_offset as usize..)
         .with_context(|| {
             format!(
@@ -441,56 +439,7 @@ fn extract_host_call_fn_offset(
         .get(..size_of::<[u32; 2]>())
         .context("Not enough bytes to get instructions of host call function")?;
 
-    let first_instruction = u32::from_le_bytes([
-        instructions_bytes[0],
-        instructions_bytes[1],
-        instructions_bytes[2],
-        instructions_bytes[3],
-    ]);
-    let second_instruction = u32::from_le_bytes([
-        instructions_bytes[4],
-        instructions_bytes[5],
-        instructions_bytes[6],
-        instructions_bytes[7],
-    ]);
-
-    // TODO: Maybe optimize this to zeroed immediate and canonicalized temporary so it looks
-    //  canonical?
-    if !is_auipc_jalr_tailcall(first_instruction, second_instruction) {
-        return Err(anyhow::anyhow!(
-            "Host call function doesn't have auipc + jalr tailcall pattern: \
-            {first_instruction:#010x?} {second_instruction:#010x?}",
-        ));
-    }
-
     Ok(host_call_fn_offset)
-}
-
-/// Checks if two consecutive u32 words encode:
-///   auipc x?, 0x?
-///   jalr  x0, offset(x?)
-///
-/// Returns true if the pattern matches exactly (including imm=0 for auipc).
-pub fn is_auipc_jalr_tailcall(first: u32, second: u32) -> bool {
-    let first = Rv64Instruction::<EReg>::decode(first);
-    let second = Rv64Instruction::<EReg>::decode(second);
-
-    if let (
-        Rv64Instruction::Auipc {
-            rd: auipc_rd,
-            imm: _,
-        },
-        Rv64Instruction::Jalr {
-            rd: jalr_rd,
-            rs1: jalr_rs1,
-            imm: _,
-        },
-    ) = (first, second)
-    {
-        auipc_rd == jalr_rs1 && jalr_rd == EReg::Zero
-    } else {
-        false
-    }
 }
 
 fn parse_metadata_methods(

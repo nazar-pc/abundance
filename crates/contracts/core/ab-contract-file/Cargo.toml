@@ -16,6 +16,7 @@ all-features = true
 [dependencies]
 ab-io-type = { workspace = true }
 ab-contracts-common = { workspace = true }
+ab-riscv-primitives = { workspace = true }
 ouroboros = { workspace = true }
 replace_with = { workspace = true }
 thiserror = { workspace = true }
