@@ -232,14 +232,13 @@ impl<'a> ContractFile<'a> {
         }
 
         let metadata_bytes = file_bytes
-            .split_at_checked(header.metadata_offset as usize)
+            .get(header.metadata_offset as usize..)
             .ok_or(ContractFileParseError::MetadataOutOfRange {
                 offset: header.metadata_offset,
                 size: header.metadata_size,
                 file_size,
             })?
-            .1
-            .split_off(..header.metadata_size as usize)
+            .get(..header.metadata_size as usize)
             .ok_or(ContractFileParseError::MetadataOutOfRange {
                 offset: header.metadata_offset,
                 size: header.metadata_size,
@@ -410,10 +409,8 @@ impl<'a> ContractFile<'a> {
         // SAFETY: Protected internal invariant checked in constructor
         unsafe {
             self.bytes
-                .split_at_unchecked(header.metadata_offset as usize)
-                .1
-                .split_at_unchecked(header.metadata_size as usize)
-                .0
+                .get_unchecked(header.metadata_offset as usize..)
+                .get_unchecked(..header.metadata_size as usize)
         }
     }
 
@@ -441,8 +438,7 @@ impl<'a> ContractFile<'a> {
         // SAFETY: Protected internal invariant checked in constructor
         let source_bytes = unsafe {
             self.bytes
-                .split_at_unchecked(read_only_section_offset as usize)
-                .1
+                .get_unchecked(read_only_section_offset as usize..)
         };
 
         // Simple case: memory exactly matches the file-backed sections
@@ -465,11 +461,8 @@ impl<'a> ContractFile<'a> {
         };
 
         // SAFETY: Protected internal invariant checked in constructor
-        let read_only_file_source_bytes = unsafe {
-            source_bytes
-                .split_at_unchecked(self.read_only_section_file_size as usize)
-                .0
-        };
+        let (read_only_file_source_bytes, code_source_bytes) =
+            unsafe { source_bytes.split_at_unchecked(self.read_only_section_file_size as usize) };
         // Write read-only data
         read_only_file_target_bytes.write_copy_of_slice(read_only_file_source_bytes);
 
@@ -490,13 +483,6 @@ impl<'a> ContractFile<'a> {
 
         // Write read-only padding
         read_only_padding_bytes.write_filled(0);
-
-        // SAFETY: Protected internal invariant checked in constructor
-        let code_source_bytes = unsafe {
-            source_bytes
-                .split_at_unchecked(self.read_only_section_file_size as usize)
-                .1
-        };
 
         if code_source_bytes.len() != contract_memory.len() {
             trace!(
@@ -604,18 +590,18 @@ impl<'a> ContractFile<'a> {
 
         let read_only_padding_size =
             self.read_only_section_memory_size - self.read_only_section_file_size;
+        // SAFETY: Protected internal invariant checked in constructor
+        let contract_file_methods_metadata_bytes =
+            unsafe { self.bytes.get_unchecked(size_of::<ContractFileHeader>()..) };
 
         (0..self.num_methods).map(move |method_index| {
             // SAFETY: Protected internal invariant checked in constructor
             let contract_file_method_metadata_bytes = unsafe {
-                self.bytes
-                    .split_at_unchecked(
-                        size_of::<ContractFileHeader>()
-                            + method_index as usize * size_of::<ContractFileMethodMetadata>(),
+                contract_file_methods_metadata_bytes
+                    .get_unchecked(
+                        method_index as usize * size_of::<ContractFileMethodMetadata>()..,
                     )
-                    .1
-                    .split_at_unchecked(size_of::<ContractFileMethodMetadata>())
-                    .0
+                    .get_unchecked(..size_of::<ContractFileMethodMetadata>())
             };
             // SAFETY: Protected internal invariant checked in constructor
             let contract_file_method_metadata = unsafe {

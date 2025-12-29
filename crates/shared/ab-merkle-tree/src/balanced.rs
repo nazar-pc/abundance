@@ -252,7 +252,7 @@ where
             .iter()
             .enumerate()
         {
-            let (_parent_half, current_half) = parent_current.split_at_mut(BATCH_HASH_NUM_BLOCKS);
+            let current_half = &mut parent_current[BATCH_HASH_NUM_BLOCKS..];
 
             let current = hash_pairs::<BATCH_HASH_NUM_BLOCKS, _>(chunk_leaves);
             current_half.copy_from_slice(&current);
@@ -260,18 +260,16 @@ where
             // Every bit set to `1` corresponds to an active Merkle Tree level
             let lowest_active_levels = num_chunks.trailing_ones() as usize;
             for parent in &mut stack[..lowest_active_levels] {
-                let (parent_half, _current_half) =
-                    parent_current.split_at_mut(BATCH_HASH_NUM_BLOCKS);
+                let parent_half = &mut parent_current[..BATCH_HASH_NUM_BLOCKS];
                 parent_half.copy_from_slice(parent);
 
                 let current = hash_pairs::<BATCH_HASH_NUM_BLOCKS, _>(&parent_current);
 
-                let (_parent_half, current_half) =
-                    parent_current.split_at_mut(BATCH_HASH_NUM_BLOCKS);
+                let current_half = &mut parent_current[BATCH_HASH_NUM_BLOCKS..];
                 current_half.copy_from_slice(&current);
             }
 
-            let (_parent_half, current_half) = parent_current.split_at_mut(BATCH_HASH_NUM_BLOCKS);
+            let current_half = &mut parent_current[BATCH_HASH_NUM_BLOCKS..];
 
             // Place freshly computed 8 hashes into the first inactive level
             stack[lowest_active_levels].copy_from_slice(current_half);
@@ -311,7 +309,7 @@ where
                 left_proof[0].write(right_hash);
 
                 let left_proof = {
-                    let (_, shared_proof) = left_proof.split_at_mut(1);
+                    let shared_proof = &mut left_proof[1..];
 
                     let mut tree_hashes = self.tree.as_slice();
                     let mut parent_position = pair_index;
@@ -330,7 +328,7 @@ where
                         let other_hash =
                             unsafe { tree_hashes.get_unchecked(parent_other_position) };
                         hash.write(*other_hash);
-                        (_, tree_hashes) = tree_hashes.split_at(parent_level_size);
+                        tree_hashes = &tree_hashes[parent_level_size..];
 
                         parent_position /= 2;
                         parent_level_size /= 2;

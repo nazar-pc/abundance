@@ -1265,18 +1265,18 @@ where
             // SAFETY: Already initialized this many elements
             let (ys, positions, metadatas) = unsafe {
                 (
-                    ys.split_at_mut_unchecked(initialized_elements).1,
-                    positions.split_at_mut_unchecked(initialized_elements).1,
-                    metadatas.split_at_mut_unchecked(initialized_elements).1,
+                    ys.get_unchecked_mut(initialized_elements..),
+                    positions.get_unchecked_mut(initialized_elements..),
+                    metadatas.get_unchecked_mut(initialized_elements..),
                 )
             };
 
             // SAFETY: Preallocated length is an upper bound and is always sufficient
             let (ys, positions, metadatas) = unsafe {
                 (
-                    ys.split_at_mut_unchecked(matches.len()).0,
-                    positions.split_at_mut_unchecked(matches.len()).0,
-                    metadatas.split_at_mut_unchecked(matches.len()).0,
+                    ys.get_unchecked_mut(..matches.len()),
+                    positions.get_unchecked_mut(..matches.len()),
+                    metadatas.get_unchecked_mut(..matches.len()),
                 )
             };
 

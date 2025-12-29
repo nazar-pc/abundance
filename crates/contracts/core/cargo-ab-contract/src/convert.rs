@@ -431,17 +431,15 @@ fn extract_host_call_fn_offset(
     }
     let host_call_fn_offset = host_call_fn.offset;
     let instructions_bytes = input_file
-        .split_at_checked(host_call_fn_offset as usize)
+        .get(host_call_fn_offset as usize..)
         .with_context(|| {
             format!(
                 "Host call address {host_call_fn_offset} out of range of input file ({} bytes)",
                 input_file.len()
             )
         })?
-        .1
-        .split_at_checked(size_of::<[u32; 2]>())
-        .context("Not enough bytes to get instructions of host call function")?
-        .0;
+        .get(..size_of::<[u32; 2]>())
+        .context("Not enough bytes to get instructions of host call function")?;
 
     let first_instruction = u32::from_le_bytes([
         instructions_bytes[0],
@@ -589,17 +587,15 @@ pub(crate) fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
     }
 
     let metadata_bytes = input_file
-        .split_at_checked(metadata_offset as usize)
+        .get(metadata_offset as usize..)
         .with_context(|| {
             format!(
                 "Metadata offset {metadata_offset} out of range of input file ({} bytes)",
                 input_file.len()
             )
         })?
-        .1
-        .split_at_checked(metadata_size as usize)
-        .with_context(|| format!("Metadata size {metadata_size} is invalid"))?
-        .0;
+        .get(..metadata_size as usize)
+        .with_context(|| format!("Metadata size {metadata_size} is invalid"))?;
 
     let metadata_methods = parse_metadata_methods(&mut parsed_exports, metadata_bytes)?;
 

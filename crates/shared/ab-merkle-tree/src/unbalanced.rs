@@ -171,12 +171,7 @@ impl UnbalancedMerkleTree {
         let (root, proof_length) =
             Self::compute_root_and_proof_inner(leaves, target_index, &mut stack, proof)?;
         // SAFETY: Just correctly initialized `proof_length` elements
-        let proof = unsafe {
-            proof
-                .split_at_mut_unchecked(proof_length)
-                .0
-                .assume_init_mut()
-        };
+        let proof = unsafe { proof.get_unchecked_mut(..proof_length).assume_init_mut() };
 
         Some((root, proof))
     }

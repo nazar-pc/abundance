@@ -1,23 +1,13 @@
 use crate::metadata::IoTypeMetadataKind;
 
-/// This macro is necessary to reduce boilerplate due to lack of `?` in const environment
-macro_rules! forward_option {
-    ($expr:expr) => {{
-        let Some(result) = $expr else {
-            return None;
-        };
-        result
-    }};
-}
-
 #[inline(always)]
 pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
     if metadata.is_empty() {
         return None;
     }
 
-    let kind = forward_option!(IoTypeMetadataKind::try_from_u8(metadata[0]));
-    metadata = forward_option!(skip_n_bytes(metadata, 1));
+    let kind = IoTypeMetadataKind::try_from_u8(metadata[0])?;
+    metadata = skip_n_bytes(metadata, 1)?;
 
     Some(match kind {
         IoTypeMetadataKind::Unit => b"()",
@@ -82,7 +72,7 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
             }
 
             let type_name_length = metadata[0] as usize;
-            metadata = forward_option!(skip_n_bytes(metadata, 1));
+            metadata = skip_n_bytes(metadata, 1)?;
 
             if metadata.len() < type_name_length {
                 return None;
@@ -139,5 +129,5 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
 /// Skips `n` bytes and return remainder
 #[inline(always)]
 const fn skip_n_bytes(input: &[u8], n: usize) -> Option<&[u8]> {
-    Some(forward_option!(input.split_at_checked(n)).1)
+    input.get(n..)
 }

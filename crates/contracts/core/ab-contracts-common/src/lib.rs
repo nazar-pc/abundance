@@ -1,3 +1,4 @@
+#![feature(const_index, const_trait_impl, const_try)]
 #![no_std]
 
 pub mod env;

@@ -1,6 +1,9 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![feature(
     cast_maybe_uninit,
+    const_index,
+    const_trait_impl,
+    const_try,
     generic_const_exprs,
     ptr_as_ref_unchecked,
     ptr_as_uninit

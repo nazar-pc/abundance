@@ -403,12 +403,7 @@ where
         let (root, proof_length) = self.add_leaf_and_compute_proof_inner(leaf, proof)?;
 
         // SAFETY: Just correctly initialized `proof_length` elements
-        let proof = unsafe {
-            proof
-                .split_at_mut_unchecked(proof_length)
-                .0
-                .assume_init_mut()
-        };
+        let proof = unsafe { proof.get_unchecked_mut(..proof_length).assume_init_mut() };
 
         Some((root, proof))
     }
