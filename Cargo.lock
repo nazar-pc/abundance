@@ -1536,7 +1536,9 @@ dependencies = [
  "ab-contracts-common",
  "ab-io-type",
  "anyhow",
+ "cargo_metadata 0.23.1",
  "clap",
+ "dirs",
  "object",
  "tracing",
 ]
@@ -1547,7 +1549,7 @@ version = "0.1.0"
 source = "git+https://github.com/Rust-GPU/cargo-gpu?rev=70160693564611ca85e17a3c441da93ee642d29a#70160693564611ca85e17a3c441da93ee642d29a"
 dependencies = [
  "anyhow",
- "cargo_metadata",
+ "cargo_metadata 0.21.0",
  "directories",
  "log",
  "serde",
@@ -1561,6 +1563,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84982c6c0ae343635a3a4ee6dedef965513735c8b183caa7289fa6e27399ebd4"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "cargo-platform"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87a0c0e6148f11f01f32650a2ea02d532b2ad4e81d8bd41e6e565b5adc5e6082"
+dependencies = [
+ "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -1586,8 +1598,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5cfca2aaa699835ba88faf58a06342a314a950d2b9686165e038286c30316868"
 dependencies = [
  "camino",
- "cargo-platform",
+ "cargo-platform 0.2.0",
  "cargo-util-schemas",
+ "semver",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "cargo_metadata"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef987d17b0a113becdd19d3d0022d04d7ef41f9efe4f3fb63ac44ba61df3ade9"
+dependencies = [
+ "camino",
+ "cargo-platform 0.3.2",
  "semver",
  "serde",
  "serde_json",
@@ -2171,6 +2197,15 @@ name = "directories"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16f5094c54661b38d03bd7e50df373292118db60b585c08a411c6d840017fe7d"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3e8aa94d75141228480295a7d0e7feb620b1a5ad9f12bc40be62411e38cce4e"
 dependencies = [
  "dirs-sys",
 ]
@@ -5892,7 +5927,7 @@ name = "spirv-builder"
 version = "0.9.0"
 source = "git+https://github.com/Rust-GPU/rust-gpu?rev=a30bd43db45f2bfe260051f44141e5eaffcbb4b0#a30bd43db45f2bfe260051f44141e5eaffcbb4b0"
 dependencies = [
- "cargo_metadata",
+ "cargo_metadata 0.21.0",
  "log",
  "memchr",
  "raw-string",
