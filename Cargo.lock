@@ -220,6 +220,7 @@ version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
  "ab-io-type",
+ "ab-riscv-primitives",
  "ouroboros",
  "replace_with",
  "thiserror 2.0.17",
@@ -1534,7 +1535,6 @@ dependencies = [
  "ab-contract-file",
  "ab-contracts-common",
  "ab-io-type",
- "ab-riscv-primitives",
  "anyhow",
  "clap",
  "object",
