@@ -199,6 +199,7 @@ jobs:
             type: guest-feature
           - os: windows-2025
             type: guest-feature
+      fail-fast: false
 
     runs-on: ${{ matrix.os }}
     # Gives the slow cargo test jobs a head start
@@ -402,6 +403,7 @@ jobs:
             type: guest-feature
           - os: windows-2025
             type: guest-feature
+      fail-fast: false
 
     runs-on: ${{ matrix.os }}
     env:
@@ -429,6 +431,7 @@ jobs:
             type: guest-feature
           - os: windows-2025
             type: guest-feature
+      fail-fast: false
 
     runs-on: ${{ matrix.os }}
 
