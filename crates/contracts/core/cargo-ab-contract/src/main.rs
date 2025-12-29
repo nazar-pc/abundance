@@ -7,8 +7,9 @@ use ab_cli_utils::init_logger;
 use ab_contract_file::ContractFile;
 use anyhow::Context;
 use clap::Parser;
+use std::env;
 use std::fs::{read, write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Cargo extension for working with Abundance contracts
 #[derive(Debug, Parser)]
@@ -40,7 +41,19 @@ enum Command {
 pub fn main() -> anyhow::Result<()> {
     init_logger();
 
-    let command = Command::parse();
+    let cli = Cli::parse_from({
+        let mut args = env::args().collect::<Vec<_>>();
+        if args
+            .get(1)
+            .map(|arg| arg == "ab-contract")
+            .unwrap_or_default()
+        {
+            // Remove the first argument when running under Cargo
+            args.remove(1);
+        }
+
+        args
+    });
 
     match command {
         Command::Build => {
