@@ -66,6 +66,7 @@ blake3 = { version = "1.8.2", default-features = false }
 bytes = { version = "1.11.0", default-features = false }
 bytesize = { version = "2.3.1", default-features = false }
 cargo-gpu-install = { git = "https://github.com/Rust-GPU/cargo-gpu", rev = "70160693564611ca85e17a3c441da93ee642d29a", default-features = false }
+cargo_metadata = { version = "0.23.1" }
 chacha20 = { version = "0.10.0-rc.5", default-features = false }
 clap = { version = "4.5.53", features = ["derive"] }
 const_format = "0.2.35"
@@ -73,6 +74,7 @@ core_affinity = "0.8.3"
 cpufeatures = "0.2.17"
 criterion = { version = "0.8.0", default-features = false }
 derive_more = { version = "2.1.0", default-features = false }
+dirs = { version = "6.0.0" }
 # TODO: Switch to ed25519-dalek with RFC8032 / NIST validation criteria instead once
 #  https://github.com/dalek-cryptography/curve25519-dalek/issues/626 is resolved
 ed25519-zebra = { version = "4.1.0", default-features = false }

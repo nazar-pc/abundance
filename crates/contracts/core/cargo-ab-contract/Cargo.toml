@@ -19,8 +19,10 @@ ab-cli-utils = { workspace = true }
 ab-contract-file = { workspace = true }
 ab-contracts-common = { workspace = true }
 ab-io-type = { workspace = true }
+cargo_metadata = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true }
+dirs = { workspace = true }
 object = { workspace = true, features = ["elf", "read_core"] }
 tracing = { workspace = true, features = ["std"] }
 

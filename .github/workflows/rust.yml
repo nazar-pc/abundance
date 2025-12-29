@@ -199,6 +199,7 @@ jobs:
             type: guest-feature
           - os: windows-2025
             type: guest-feature
+      fail-fast: false
 
     runs-on: ${{ matrix.os }}
     # Gives the slow cargo test jobs a head start
@@ -402,6 +403,7 @@ jobs:
             type: guest-feature
           - os: windows-2025
             type: guest-feature
+      fail-fast: false
 
     runs-on: ${{ matrix.os }}
     env:
@@ -429,6 +431,7 @@ jobs:
             type: guest-feature
           - os: windows-2025
             type: guest-feature
+      fail-fast: false
 
     runs-on: ${{ matrix.os }}
 
@@ -562,8 +565,7 @@ jobs:
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
             echo "Checking \`$contract\`"
-            # TODO: This uses x86-64-based target, but will have to change to riscv64e-based target eventually
-            cargo -Zgitoxide -Zgit rustc -Z build-std=core --crate-type cdylib --profile production --target crates/contracts/riscv64em-unknown-none-abundance.json --package $contract --features $contract/guest
+            cargo run --bin cargo-ab-contract -- build --package $contract
           done
 
   rust-all:

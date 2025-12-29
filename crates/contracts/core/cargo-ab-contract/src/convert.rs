@@ -52,7 +52,8 @@ fn check_relocations(elf: &ElfFile<'_, FileHeader64<LittleEndian>>) -> anyhow::R
 
     if dynamic_relocations.next().is_some() {
         return Err(anyhow::anyhow!(
-            "Only a single PLT relocation for host function call import is allowed"
+            "Only a single PLT relocation for host function call import is allowed, make sure to \
+            build an optimized cdylib"
         ));
     }
 
@@ -78,7 +79,8 @@ fn check_relocations(elf: &ElfFile<'_, FileHeader64<LittleEndian>>) -> anyhow::R
 
     let RelocationTarget::Symbol(symbol_index) = relocation.target() else {
         return Err(anyhow::anyhow!(
-            "Only a single PLT relocation for host function call import is allowed"
+            "Only a single PLT relocation for host function call import is allowed, make sure to \
+            build an optimized cdylib"
         ));
     };
 
