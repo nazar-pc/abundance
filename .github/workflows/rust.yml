@@ -474,7 +474,7 @@ jobs:
       - name: Set up RUSTFLAGS
         shell: bash
         run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=5000 -C embed-bitcode -C lto -Z dylib-lto -C target-cpu=native" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=7000 -C embed-bitcode -C lto -Z dylib-lto -C target-cpu=native" >> $GITHUB_ENV
 
       - name: Ensure no panics in annotated code
         shell: bash
