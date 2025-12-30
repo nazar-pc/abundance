@@ -31,6 +31,7 @@ ab-contracts-macros = { version = "0.0.1", path = "crates/contracts/core/ab-cont
 ab-contracts-macros-impl = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-macros-impl" }
 ab-contracts-standards = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-standards" }
 ab-contracts-test-utils = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-test-utils" }
+ab-contracts-tooling = { version = "0.0.1", path = "crates/contracts/core/ab-contracts-tooling" }
 ab-core-primitives = { version = "0.1.0", path = "crates/shared/ab-core-primitives" }
 ab-data-retrieval = { version = "0.1.0", path = "crates/shared/ab-data-retrieval" }
 ab-erasure-coding = { version = "0.1.0", path = "crates/shared/ab-erasure-coding" }

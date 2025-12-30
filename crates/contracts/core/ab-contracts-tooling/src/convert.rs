@@ -1,3 +1,5 @@
+//! Convert RISC-V ELF `cdylib` into Abundance contract file format
+
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_contract_file::{CONTRACT_FILE_MAGIC, ContractFileHeader, ContractFileMethodMetadata};
 use ab_contracts_common::metadata::decode::MetadataDecoder;
@@ -497,7 +499,8 @@ fn parse_metadata_methods(
     Ok(metadata_methods)
 }
 
-pub(crate) fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
+/// Convert RISC-V ELF `cdylib` into Abundance contract file format
+pub fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
     let buffer = SharedAlignedBuffer::from_bytes(input_file);
     let elf =
         ElfFile64::<LittleEndian>::parse(buffer.as_slice()).context("Failed to parse ELF file")?;

@@ -1,12 +1,7 @@
-#![feature(try_blocks)]
-
-mod convert;
-mod target_specification;
-
-use crate::convert::convert;
-use crate::target_specification::TargetSpecification;
 use ab_cli_utils::init_logger;
 use ab_contract_file::ContractFile;
+use ab_contracts_tooling::convert::convert;
+use ab_contracts_tooling::target_specification::TargetSpecification;
 use anyhow::Context;
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
@@ -75,7 +70,8 @@ pub fn main() -> anyhow::Result<()> {
 
     match cli {
         Cli::TargetSpecPath => {
-            let target_specification = TargetSpecification::create()?;
+            let target_specification =
+                TargetSpecification::create(&TargetSpecification::default_base_dir()?)?;
 
             println!("{}", target_specification.path().display());
 
@@ -86,7 +82,8 @@ pub fn main() -> anyhow::Result<()> {
             features,
             profile,
         } => {
-            let target_specification = TargetSpecification::create()?;
+            let target_specification =
+                TargetSpecification::create(&TargetSpecification::default_base_dir()?)?;
 
             let mut command_builder = Command::new("cargo");
             command_builder.args([

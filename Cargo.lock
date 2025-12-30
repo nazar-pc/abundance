@@ -300,6 +300,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-contracts-tooling"
+version = "0.0.1"
+dependencies = [
+ "ab-aligned-buffer",
+ "ab-contract-file",
+ "ab-contracts-common",
+ "ab-io-type",
+ "anyhow",
+ "dirs",
+ "object",
+ "tracing",
+]
+
+[[package]]
 name = "ab-core-primitives"
 version = "0.1.0"
 dependencies = [
@@ -1530,17 +1544,12 @@ dependencies = [
 name = "cargo-ab-contract"
 version = "0.0.1"
 dependencies = [
- "ab-aligned-buffer",
  "ab-cli-utils",
  "ab-contract-file",
- "ab-contracts-common",
- "ab-io-type",
+ "ab-contracts-tooling",
  "anyhow",
  "cargo_metadata 0.23.1",
  "clap",
- "dirs",
- "object",
- "tracing",
 ]
 
 [[package]]
