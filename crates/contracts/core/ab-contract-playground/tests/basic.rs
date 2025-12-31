@@ -7,6 +7,8 @@ use ab_core_primitives::address::Address;
 use ab_core_primitives::balance::Balance;
 use ab_core_primitives::shard::ShardIndex;
 use ab_executor_native::NativeExecutor;
+use ab_io_type::maybe_data::MaybeData;
+use ab_io_type::trivial_type::TrivialType;
 use ab_system_contract_code::CodeExt;
 
 #[test]
@@ -82,6 +84,18 @@ fn basic() {
             env.playground_balance(playground_token, &alice).unwrap(),
             previous_alice_balance
         );
+        {
+            let mut balance = Balance::default();
+            let mut balance_size = 0;
+            env.playground_balance_output(
+                playground_token,
+                &alice,
+                &mut MaybeData::from_mut(&mut balance, &mut balance_size),
+            )
+            .unwrap();
+            assert_eq!(balance_size, Balance::SIZE);
+            assert_eq!(balance, previous_alice_balance);
+        }
         // Through `Fungible` trait
         assert_eq!(
             env.fungible_balance(playground_token, &alice).unwrap(),
