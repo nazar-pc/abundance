@@ -29,7 +29,7 @@ impl Deref for FlatPieces {
         // are preserved
         let pieces = unsafe {
             slice::from_raw_parts(
-                bytes.as_ptr() as *const [u8; Piece::SIZE],
+                bytes.as_ptr().cast::<[u8; Piece::SIZE]>(),
                 bytes.len() / Piece::SIZE,
             )
         };
@@ -45,7 +45,7 @@ impl DerefMut for FlatPieces {
         // are preserved
         let pieces = unsafe {
             slice::from_raw_parts_mut(
-                bytes.as_mut_ptr() as *mut [u8; Piece::SIZE],
+                bytes.as_mut_ptr().cast::<[u8; Piece::SIZE]>(),
                 bytes.len() / Piece::SIZE,
             )
         };

@@ -198,7 +198,7 @@ const fn hash1<const N: usize>(
             block_flags |= flags_end;
         }
         let block = {
-            let ptr = block.as_ptr() as *const BlockBytes;
+            let ptr = block.as_ptr().cast::<BlockBytes>();
             // SAFETY: Sliced off correct length above
             unsafe { &*ptr }
         };
@@ -236,7 +236,7 @@ pub(crate) const fn hash_many<const N: usize>(
         let o;
         (o, out) = out.split_at_mut(OUT_LEN);
         let o = {
-            let ptr = o.as_mut_ptr() as *mut [u8; OUT_LEN];
+            let ptr = o.as_mut_ptr().cast::<[u8; OUT_LEN]>();
             // SAFETY: Sliced off correct length above
             unsafe { &mut *ptr }
         };
