@@ -121,12 +121,13 @@ impl Playground {
     pub fn balance_output(
         #[slot] target: &MaybeData<Slot>,
         #[output] balance: &mut MaybeData<Balance>,
+        #[output] balance_2: &mut Balance,
     ) {
-        balance.replace(
-            target
-                .get()
-                .map_or_else(Balance::default, |slot| slot.balance),
-        );
+        let value = target
+            .get()
+            .map_or_else(Balance::default, |slot| slot.balance);
+        balance.replace(value);
+        *balance_2 = value;
     }
 
     #[view]

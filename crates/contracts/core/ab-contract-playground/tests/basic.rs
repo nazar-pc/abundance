@@ -87,10 +87,12 @@ fn basic() {
         {
             let mut balance = Balance::default();
             let mut balance_size = 0;
+            let mut balance_2 = Balance::default();
             env.playground_balance_output(
                 playground_token,
                 &alice,
                 &mut MaybeData::from_mut(&mut balance, &mut balance_size),
+                &mut balance_2,
             )
             .unwrap();
             assert_eq!(balance_size, Balance::SIZE);

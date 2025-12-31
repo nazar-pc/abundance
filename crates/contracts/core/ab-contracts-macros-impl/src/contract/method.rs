@@ -1283,18 +1283,24 @@ impl MethodDetails {
             method_args.push(quote! {
                 #arg_name: &mut #type_name,
             });
+            // NOTE: `size_field` is first in the list here intentionally!
+            // For all types except `TrivialType` the size field is non-null and a separate physical
+            // field in a data structure, so calling `as_mut_ptr()` followed by `size_mut_ptr()` is
+            // fine. It is not the case for `TrivialType` though, since `as_mut_ptr()` returns a
+            // pointer to the value itself, causing issues for `size_mut_ptr()` if it is called
+            // second.
             method_args_fields.push(quote! {
-                // SAFETY: This pointer is used as input to FFI call, and underlying data will only
-                // be modified there, also the pointer will not outlive the reference from which it
-                // was created despite copying
-                #ptr_field: unsafe {
-                    *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name)
-                },
                 // SAFETY: This pointer is used as input to FFI call, and underlying data will only
                 // be modified there, also the pointer will not outlive the reference from which it
                 // was created despite copying
                 #size_field: unsafe {
                     *::ab_contracts_macros::__private::IoType::size_mut_ptr(#arg_name)
+                },
+                // SAFETY: This pointer is used as input to FFI call, and underlying data will only
+                // be modified there, also the pointer will not outlive the reference from which it
+                // was created despite copying
+                #ptr_field: unsafe {
+                    *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name)
                 },
                 // SAFETY: This pointer is used as input to FFI call, and underlying data will not
                 // be modified, also the pointer will not outlive the reference from which it was
