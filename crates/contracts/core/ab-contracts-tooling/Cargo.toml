@@ -1,0 +1,28 @@
+[package]
+name = "ab-contracts-tooling"
+description = "Low-level tooling around Abundance contracts"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-aligned-buffer = { workspace = true }
+ab-contract-file = { workspace = true }
+ab-contracts-common = { workspace = true }
+ab-io-type = { workspace = true }
+anyhow = { workspace = true }
+cargo_metadata = { workspace = true }
+dirs = { workspace = true }
+object = { workspace = true, features = ["elf", "read_core"] }
+tracing = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

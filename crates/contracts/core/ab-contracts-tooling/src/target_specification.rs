@@ -1,3 +1,5 @@
+//! Abundance target specification for contracts
+
 use anyhow::Context;
 use dirs::cache_dir;
 use std::fs::{File, create_dir_all};
@@ -14,15 +16,11 @@ pub struct TargetSpecification {
 }
 
 impl TargetSpecification {
-    /// Create a target specification instance
-    pub fn create() -> anyhow::Result<Self> {
-        let app_dir = cache_dir()
-            .context("Failed to get cache directory")?
-            .join(env!("CARGO_PKG_NAME"));
-        create_dir_all(&app_dir)
-            .with_context(|| format!("Failed to create cache directory {}", app_dir.display()))?;
-
-        let path = app_dir.join("riscv64em-unknown-none-abundance.json");
+    /// Create a target specification instance.
+    ///
+    /// `base_directory` is used to store the target specification JSON file.
+    pub fn create(base_directory: &Path) -> anyhow::Result<Self> {
+        let path = base_directory.join("riscv64em-unknown-none-abundance.json");
         let mut file = File::options()
             .read(true)
             .write(true)
@@ -65,7 +63,19 @@ impl TargetSpecification {
         Ok(Self { path, _file: file })
     }
 
-    /// Get the path to the target specification file
+    /// Create (if not exists) and return the default base directory used for storing the target
+    /// specifications JSON file
+    pub fn default_base_dir() -> anyhow::Result<PathBuf> {
+        let app_dir = cache_dir()
+            .context("Failed to get cache directory")?
+            .join("ab-contracts");
+        create_dir_all(&app_dir)
+            .with_context(|| format!("Failed to create cache directory {}", app_dir.display()))?;
+
+        Ok(app_dir)
+    }
+
+    /// Get the path to the target specification JSON file
     pub fn path(&self) -> &Path {
         &self.path
     }
