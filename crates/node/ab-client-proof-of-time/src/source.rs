@@ -223,8 +223,8 @@ where
         if slot > self.last_slot_sent {
             self.last_slot_sent = slot;
 
-            // We don't care if block production is too slow or block production is not enabled on this
-            // node at all
+            // We don't care if block production is too slow or block production is not enabled on
+            // this node at all
             let _ = self.slot_sender.send(PotSlotInfo { slot, checkpoints });
         }
     }
@@ -247,8 +247,8 @@ where
             if proof.slot > self.last_slot_sent {
                 self.last_slot_sent = proof.slot;
 
-                // We don't care if block production is too slow or block production is not enabled on
-                // this node at all
+                // We don't care if block production is too slow or block production is not enabled
+                // on this node at all
                 let _ = self.slot_sender.send(PotSlotInfo {
                     slot: proof.slot,
                     checkpoints: proof.checkpoints,

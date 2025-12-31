@@ -74,7 +74,8 @@ impl Y {
 //
 // impl Position {
 //     /// Position that can't exist
-//     pub(super) const SENTINEL: Self = Self(u32::MAX >> (u32::BITS - (NUM_BUCKETS * MAX_BUCKET_SIZE).bit_width()));
+//     pub(super) const SENTINEL: Self =
+//        Self(u32::MAX >> (u32::BITS - (NUM_BUCKETS * MAX_BUCKET_SIZE).bit_width()));
 // }
 
 pub type Position = u32;

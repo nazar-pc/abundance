@@ -37,8 +37,8 @@ impl PieceByIndexRequest {
 pub struct PieceByIndexResponse {
     /// Piece, if found
     pub piece: Option<Piece>,
-    /// Additional pieces that requester is interested in and are cached locally, order from request
-    /// is not preserved
+    /// Additional pieces that requester is interested in and are cached locally, order from
+    /// request is not preserved
     pub cached_pieces: Vec<PieceIndex>,
 }
 

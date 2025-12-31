@@ -20,8 +20,8 @@ where
 {
     /// Number of leaves in MMR
     pub num_leaves: u64,
-    /// MMR peaks, first [`Self::num_peaks()`] elements are occupied by values, the rest are ignored
-    /// and do not need to be retained.
+    /// MMR peaks, first [`Self::num_peaks()`] elements are occupied by values, the rest are
+    /// ignored and do not need to be retained.
     pub peaks: [[u8; OUT_LEN]; MAX_N.next_power_of_two().ilog2() as usize],
 }
 

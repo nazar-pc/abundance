@@ -176,11 +176,10 @@ impl ConstChunkState {
 // several optimizations at the same time:
 // - Multithreading with Rayon.
 // - Parallel chunk hashing with SIMD.
-// - Parallel parent hashing with SIMD. Note that while SIMD chunk hashing
-//   maxes out at MAX_SIMD_DEGREE*CHUNK_LEN, parallel parent hashing continues
-//   to benefit from larger inputs, because more levels of the tree benefit can
-//   use full-width SIMD vectors for parent hashing. Without parallel parent
-//   hashing, we lose about 10% of overall throughput on AVX2 and AVX-512.
+// - Parallel parent hashing with SIMD. Note that while SIMD chunk hashing maxes out at
+//   MAX_SIMD_DEGREE*CHUNK_LEN, parallel parent hashing continues to benefit from larger inputs,
+//   because more levels of the tree benefit can use full-width SIMD vectors for parent hashing.
+//   Without parallel parent hashing, we lose about 10% of overall throughput on AVX2 and AVX-512.
 
 // Use SIMD parallelism to hash up to MAX_SIMD_DEGREE chunks at the same time
 // on a single thread. Write out the chunk chaining values and return the

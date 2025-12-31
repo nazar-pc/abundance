@@ -216,8 +216,8 @@ impl NodeRunner {
     /// Drives the main networking future forward.
     pub async fn run(&mut self) {
         if self.is_listening {
-            // Wait for listen addresses, otherwise we will get ephemeral addresses in external address candidates that
-            // we do not want
+            // Wait for listen addresses, otherwise we will get ephemeral addresses in external
+            // address candidates that we do not want
             loop {
                 if self.swarm.listeners().next().is_some() {
                     break;
@@ -1205,8 +1205,8 @@ impl NodeRunner {
             AutonatEvent::OutboundProbe(outbound_probe_event) => {
                 match outbound_probe_event {
                     OutboundProbeEvent::Request { peer, .. } => {
-                        // For outbound probe request add peer to allow list to ensure they can dial us back and not hit
-                        // global incoming connection limit
+                        // For outbound probe request add peer to allow list to ensure they can dial
+                        // us back and not hit global incoming connection limit
                         self.swarm
                             .behaviour_mut()
                             .connection_limits

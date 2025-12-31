@@ -364,8 +364,8 @@ async fn basic() {
                 },
             };
 
-            // Send twice because acknowledgement arrives early, sending twice doesn't have side effects, but ensures
-            // things were processed fully
+            // Send twice because acknowledgement arrives early, sending twice doesn't have side
+            // effects, but ensures things were processed fully
             for _ in 0..=1 {
                 archived_segment_headers_sender
                     .send(segment_header)

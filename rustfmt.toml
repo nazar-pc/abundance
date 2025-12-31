@@ -1,2 +1,6 @@
 edition = "2024"
 imports_granularity = "Module"
+newline_style = "Unix"
+comment_width = 100
+wrap_comments = true
+use_field_init_shorthand = true

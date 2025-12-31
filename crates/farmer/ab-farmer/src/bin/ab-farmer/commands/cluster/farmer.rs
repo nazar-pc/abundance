@@ -70,9 +70,9 @@ pub(super) struct FarmerArgs {
     tmp: Option<ByteSize>,
     /// Maximum number of pieces in a sector (can override protocol value to something lower).
     ///
-    /// This will make plotting of individual sectors faster, decrease load on CPU proving, but also
-    /// proportionally increase amount of disk reads during audits since every sector needs to be
-    /// audited and there will be more of them.
+    /// This will make plotting of individual sectors faster, decrease load on CPU proving, but
+    /// also proportionally increase amount of disk reads during audits since every sector
+    /// needs to be audited and there will be more of them.
     ///
     /// This is primarily for development and not recommended for regular users.
     #[arg(long)]
@@ -95,8 +95,8 @@ pub(super) struct FarmerArgs {
     /// How many sectors a will be plotted concurrently per farm.
     ///
     /// Defaults to 2, but can be decreased if there is a large number of farms available to
-    /// decrease peak memory usage, especially with slow disks, or slightly increased to utilize all
-    /// compute available in case of a single farm.
+    /// decrease peak memory usage, especially with slow disks, or slightly increased to utilize
+    /// all compute available in case of a single farm.
     ///
     /// Increasing this value is not recommended and can result in excessive RAM usage due to more
     /// sectors being stuck in-flight if writes to farm disk are too slow.

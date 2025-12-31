@@ -10,7 +10,8 @@
 //! Abstractions provided here cover a few use cases:
 //! * request/response (for example piece request)
 //! * request/stream of responses (for example a stream of plotted sectors of the farmer)
-//! * notifications (typically targeting a particular instance of an app) and corresponding subscriptions (for example solution notification)
+//! * notifications (typically targeting a particular instance of an app) and corresponding
+//!   subscriptions (for example solution notification)
 //! * broadcasts and corresponding subscriptions (for example slot info broadcast)
 
 use crate::utils::AsyncJoinOnDrop;
@@ -85,8 +86,8 @@ enum GenericStreamResponses<Response> {
         index: u32,
         /// Individual responses
         responses: VecDeque<Response>,
-        /// Subject where to send acknowledgement of received stream response indices, which acts as
-        /// a backpressure mechanism
+        /// Subject where to send acknowledgement of received stream response indices, which acts
+        /// as a backpressure mechanism
         ack_subject: String,
     },
     /// Remaining responses and this is the end of the stream.

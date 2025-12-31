@@ -54,7 +54,8 @@ pub enum MetadataItem<'a, 'metadata> {
     Contract {
         /// State type name as bytes.
         ///
-        /// Expected to be UTF-8, but must be parsed before printed as text, which is somewhat costly.
+        /// Expected to be UTF-8, but must be parsed before printed as text, which is somewhat
+        /// costly.
         state_type_name: &'metadata [u8],
         state_type_details: IoTypeDetails,
         slot_type_details: IoTypeDetails,
@@ -65,7 +66,8 @@ pub enum MetadataItem<'a, 'metadata> {
     Trait {
         /// Trait name as bytes.
         ///
-        /// Expected to be UTF-8, but must be parsed before printed as text, which is somewhat costly.
+        /// Expected to be UTF-8, but must be parsed before printed as text, which is somewhat
+        /// costly.
         trait_name: &'metadata [u8],
         num_methods: u8,
         decoder: MethodsMetadataDecoder<'a, 'metadata>,
@@ -662,7 +664,8 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                     }
                     ArgumentKind::Output => {
                         let last_argument = self.remaining == 0;
-                        // May be skipped for `#[init]`, see `ContractMetadataKind::Init` for details
+                        // May be skipped for `#[init]`, see `ContractMetadataKind::Init` for
+                        // details
                         if matches!((self.method_kind, last_argument), (MethodKind::Init, true)) {
                             None
                         } else {

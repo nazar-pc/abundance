@@ -348,11 +348,12 @@ where
             Ok(retrieved_segment_headers)
         } else {
             // We might be missing a requested segment header.
-            // Sync the cache with the node, applying a rate limit, and return cached segment headers.
+            // Sync the cache with the node, applying a rate limit, and return cached segment
+            // headers.
 
-            // If we took a write lock here, a queue of writers could starve all the readers, even if
-            // those writers would be rate-limited. So we take an upgradable read lock for the rate
-            // limit check.
+            // If we took a write lock here, a queue of writers could starve all the readers, even
+            // if those writers would be rate-limited. So we take an upgradable read lock for the
+            // rate limit check.
             let segment_headers = self.segment_headers.upgradable_read_arc().await;
 
             // Try again after acquiring the upgradeable read lock, in case another caller already

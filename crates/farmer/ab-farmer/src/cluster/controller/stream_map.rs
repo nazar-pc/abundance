@@ -32,7 +32,8 @@ impl<'a, Index, R: 'a> StreamMap<'a, Index, R>
 where
     Index: Eq + Hash + Copy + Unpin,
 {
-    /// When pushing a new task, it first checks if there is already a future for the given `index` in `in_progress`.
+    /// When pushing a new task, it first checks if there is already a future for the given `index`
+    /// in `in_progress`.
     ///   - If there is, the task is added to `queue`.
     ///   - If not, the task is directly added to `in_progress`.
     pub(super) fn push(&mut self, index: Index, fut: TaskFuture<'a, R>) {
@@ -57,8 +58,8 @@ where
         }
     }
 
-    /// Polls the next entry in `in_progress` and moves the next task from `queue` to `in_progress` if there is one.
-    /// If there are no more tasks to execute, returns `None`.
+    /// Polls the next entry in `in_progress` and moves the next task from `queue` to `in_progress`
+    /// if there is one. If there are no more tasks to execute, returns `None`.
     fn poll_next_entry(&mut self, cx: &mut Context<'_>) -> Poll<Option<(Index, R)>> {
         if let Some((index, res)) = std::task::ready!(self.in_progress.poll_next_unpin(cx)) {
             // Current task completed, remove from in_progress queue and check for more tasks

@@ -158,8 +158,8 @@ impl PiecesReconstructor {
         Ok(pieces.to_shared())
     }
 
-    /// Returns the missing piece for a segment using given set of pieces of a segment of the archived
-    /// history (any half of all pieces are required to be present).
+    /// Returns the missing piece for a segment using given set of pieces of a segment of the
+    /// archived history (any half of all pieces are required to be present).
     pub fn reconstruct_piece(
         &self,
         segment_pieces: &[Option<Piece>],

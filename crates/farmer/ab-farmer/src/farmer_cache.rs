@@ -1436,8 +1436,8 @@ impl FarmerCache {
                 }
 
                 for cache in self.plot_caches.caches.read().await.iter() {
-                    // Iterating over offsets in reverse order to both traverse elements in async code
-                    // and being able to efficiently remove entries without extra allocations
+                    // Iterating over offsets in reverse order to both traverse elements in async
+                    // code and being able to efficiently remove entries without extra allocations
                     for offset in (0..pieces_to_get_from_plot_cache.len()).rev() {
                         let (piece_index, key) = &pieces_to_get_from_plot_cache[offset];
 
@@ -1448,8 +1448,8 @@ impl FarmerCache {
                             tx.unbounded_send((*piece_index, Some(piece)))
                                 .expect("This future isn't polled after receiver is dropped; qed");
 
-                            // Due to iteration in reverse order and swapping using elements at the end,
-                            // this doesn't affect processing of the elements
+                            // Due to iteration in reverse order and swapping using elements at the
+                            // end, this doesn't affect processing of the elements
                             pieces_to_get_from_plot_cache.swap_remove(offset);
                         }
                     }

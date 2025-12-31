@@ -185,9 +185,9 @@ struct TimekeeperOptions {
 
     /// CPU cores that timekeeper can use.
     ///
-    /// At least 2 cores should be provided, if more cores than necessary are provided, random cores
-    /// out of provided will be utilized, if not enough cores are provided, timekeeper may occupy
-    /// random CPU cores.
+    /// At least 2 cores should be provided, if more cores than necessary are provided, random
+    /// cores out of provided will be utilized, if not enough cores are provided, timekeeper
+    /// may occupy random CPU cores.
     ///
     /// Comma-separated list of individual cores or ranges of cores.
     ///
