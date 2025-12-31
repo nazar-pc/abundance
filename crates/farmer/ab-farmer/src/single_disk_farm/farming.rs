@@ -122,7 +122,7 @@ where
     }
 
     /// Audit this plot
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     pub fn audit<'b, PosTable>(
         &'a self,
         options: PlotAuditOptions<'a, 'b, PosTable>,

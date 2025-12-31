@@ -1,11 +1,11 @@
-use crate::sync_from_dsn::PieceGetter;
 use crate::sync_from_dsn::segment_header_downloader::SegmentHeaderDownloader;
+use crate::sync_from_dsn::PieceGetter;
 use crate::utils::wait_for_block_import;
 use ab_archiving::reconstructor::Reconstructor;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::segments::SegmentIndex;
 use ab_data_retrieval::segment_downloading::{
-    SEGMENT_DOWNLOAD_RETRIES, SEGMENT_DOWNLOAD_RETRY_DELAY, download_segment_pieces,
+    download_segment_pieces, SEGMENT_DOWNLOAD_RETRIES, SEGMENT_DOWNLOAD_RETRY_DELAY,
 };
 use ab_erasure_coding::ErasureCoding;
 use ab_networking::Node;
@@ -15,10 +15,10 @@ use sc_consensus::{
     BlockImport, BlockImportParams, ForkChoiceStrategy, ImportedState, IncomingBlock, StateAction,
     StorageChanges,
 };
-use sc_consensus_subspace::archiver::{SegmentHeadersStore, decode_block};
+use sc_consensus_subspace::archiver::{decode_block, SegmentHeadersStore};
 use sc_network::{NetworkBlock, PeerId};
-use sc_network_sync::SyncingService;
 use sc_network_sync::service::network::NetworkServiceHandle;
+use sc_network_sync::SyncingService;
 use sc_subspace_sync_common::snap_sync_engine::SnapSyncingEngine;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
@@ -60,7 +60,7 @@ impl From<String> for Error {
 
 /// Run a snap sync, return an error if snap sync is impossible and user intervention is required.
 /// Otherwise, just log the error and return `Ok(())` so that regular sync continues.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) async fn snap_sync<Block, AS, Client, PG>(
     segment_headers_store: SegmentHeadersStore<AS>,
     node: Node,
@@ -242,7 +242,7 @@ where
     Ok(Some((target_segment_index, blocks)))
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 /// Synchronize the blockchain to the last archived block. Returns false when sync is skipped.
 async fn sync<PG, AS, Block, Client, IQS>(
     segment_headers_store: &SegmentHeadersStore<AS>,

@@ -748,7 +748,6 @@ where
 }
 
 /// Tries to archive `block_number` and returns new (or old if not changed) best archived block
-#[allow(clippy::too_many_arguments)]
 async fn archive_block<Block, CI>(
     archiver: &mut Archiver,
     chain_info: &CI,

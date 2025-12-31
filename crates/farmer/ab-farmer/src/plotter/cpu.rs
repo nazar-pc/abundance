@@ -158,7 +158,6 @@ where
     PosTable: Table,
 {
     /// Create a new instance
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         piece_getter: PG,
         downloading_semaphore: Arc<Semaphore>,
@@ -229,7 +228,7 @@ where
         self.handlers.plotting_progress.add(callback)
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     async fn plot_sector_internal<PS>(
         &self,
         start: Instant,

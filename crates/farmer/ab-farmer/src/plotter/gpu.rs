@@ -220,7 +220,7 @@ where
         self.handlers.plotting_progress.add(callback)
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     async fn plot_sector_internal<PS>(
         &self,
         start: Instant,

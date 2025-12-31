@@ -802,7 +802,6 @@ where
     anyhow::Ok(())
 }
 
-#[allow(clippy::type_complexity)]
 fn init_cpu_plotter<PG, PosTable>(
     cpu_plotting_options: CpuPlottingOptions,
     piece_getter: PG,

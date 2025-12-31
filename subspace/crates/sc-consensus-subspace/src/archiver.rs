@@ -44,12 +44,12 @@ use parity_scale_codec::{Decode, Encode};
 use parking_lot::RwLock;
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
-use rayon::ThreadPoolBuilder;
 use rayon::prelude::*;
+use rayon::ThreadPoolBuilder;
 use sc_client_api::{
     AuxStore, Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, LockImportRun,
 };
-use sc_utils::mpsc::{TracingUnboundedSender, tracing_unbounded};
+use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_subspace::SubspaceJustification;
@@ -60,8 +60,8 @@ use std::error::Error;
 use std::future::Future;
 use std::num::NonZeroU64;
 use std::slice;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, info, trace, warn};
 
@@ -256,10 +256,9 @@ where
         if block_number == BlockNumber::ONE {
             // If there is a segment index present, and we store monotonically increasing segment
             // headers, then the first header exists.
-            return vec![
-                self.get_segment_header(SegmentIndex::ZERO)
-                    .expect("Segment headers are stored in monotonically increasing order; qed"),
-            ];
+            return vec![self
+                .get_segment_header(SegmentIndex::ZERO)
+                .expect("Segment headers are stored in monotonically increasing order; qed")];
         }
 
         if last_segment_index == SegmentIndex::ZERO {
@@ -1108,7 +1107,7 @@ where
 }
 
 /// Tries to archive `block_number` and returns new (or old if not changed) best archived block
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn archive_block<Block, Backend, Client, AS>(
     archiver: &mut Archiver,
     segment_headers_store: SegmentHeadersStore<AS>,

@@ -68,7 +68,7 @@ impl Decode for ClusterFarmerId {
     }
 }
 
-#[allow(clippy::new_without_default)]
+#[expect(clippy::new_without_default)]
 impl ClusterFarmerId {
     /// Create a new cluster farmer ID
     pub fn new() -> Self {

@@ -8,7 +8,7 @@ use sc_service::ChainSpec;
 /// Commands for working with a node.
 #[derive(Debug, Parser)]
 #[clap(about, version)]
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 pub enum Cli {
     /// Run blockchain node
     Run(RunOptions),

@@ -50,7 +50,7 @@ impl DiskPieceReader {
     ///
     /// NOTE: Background future is async, but does blocking operations and should be running in
     /// dedicated thread.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub(super) fn new<PosTable>(
         public_key_hash: Blake3Hash,
         shard_commitments_roots_cache: ShardCommitmentsRootsCache,
@@ -109,7 +109,7 @@ impl DiskPieceReader {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn read_pieces<PosTable, S>(
     public_key_hash: Blake3Hash,
     shard_commitments_roots_cache: ShardCommitmentsRootsCache,

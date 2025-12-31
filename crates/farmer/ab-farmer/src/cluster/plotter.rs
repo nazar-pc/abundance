@@ -57,7 +57,7 @@ pub enum ClusterPlotterId {
     Ulid(Ulid),
 }
 
-#[allow(clippy::new_without_default)]
+#[expect(clippy::new_without_default)]
 impl ClusterPlotterId {
     /// Creates new ID
     pub fn new() -> Self {
@@ -298,7 +298,7 @@ impl ClusterPlotter {
         self.handlers.plotting_progress.add(callback)
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     async fn plot_sector_internal<PS>(
         &self,
         start: Instant,
@@ -562,7 +562,7 @@ enum ResponseProcessingResult {
     Continue,
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn process_response_notification<PS>(
     start: &Instant,
     free_instance: &str,

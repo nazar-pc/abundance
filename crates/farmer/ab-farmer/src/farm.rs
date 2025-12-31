@@ -94,7 +94,7 @@ impl Decode for PieceCacheId {
     }
 }
 
-#[allow(clippy::new_without_default)]
+#[expect(clippy::new_without_default)]
 impl PieceCacheId {
     /// Creates new ID
     #[inline]
@@ -517,7 +517,7 @@ impl Decode for FarmId {
     }
 }
 
-#[allow(clippy::new_without_default)]
+#[expect(clippy::new_without_default)]
 impl FarmId {
     /// Creates new ID
     #[inline]

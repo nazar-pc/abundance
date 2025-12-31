@@ -18,7 +18,6 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 type PosTable = ChiaTable;
 
-#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Parser)]
 #[clap(about, version)]
 enum Command {
