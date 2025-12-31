@@ -20,6 +20,8 @@ pub struct BuildOptions<'a> {
     pub profile: &'a str,
     /// Path to the target specification JSON file
     pub target_specification_path: &'a Path,
+    /// Custom target directory to use instead of the default one
+    pub target_dir: Option<&'a Path>,
 }
 
 /// Build a `cdylib` with the contract and return the path to the resulting ELF file
@@ -29,20 +31,24 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
         features,
         profile,
         target_specification_path,
+        target_dir,
     } = options;
 
     let mut command_builder = Command::new("cargo");
-    command_builder.args([
-        "rustc",
-        "-Z",
-        "build-std=core",
-        "--crate-type",
-        "cdylib",
-        "--target",
-        target_specification_path
-            .to_str()
-            .context("Path to target specification file is not valid UTF-8")?,
-    ]);
+    command_builder
+        .env_remove("RUSTFLAGS")
+        .env_remove("CARGO_ENCODED_RUSTFLAGS")
+        .args([
+            "rustc",
+            "-Z",
+            "build-std=core",
+            "--crate-type",
+            "cdylib",
+            "--target",
+            target_specification_path
+                .to_str()
+                .context("Path to target specification file is not valid UTF-8")?,
+        ]);
 
     if let Some(package) = package {
         command_builder.args([
@@ -59,6 +65,15 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
     }
 
     command_builder.args(["--profile", profile]);
+
+    if let Some(target_dir) = target_dir {
+        command_builder.args([
+            "--target-dir",
+            target_dir
+                .to_str()
+                .context("Path to target directory is not valid UTF-8")?,
+        ]);
+    }
 
     let metadata = MetadataCommand::new()
         .exec()
