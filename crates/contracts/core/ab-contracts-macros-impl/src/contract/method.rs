@@ -655,7 +655,7 @@ impl MethodDetails {
 
         // `internal_args_pointers` will generate pointers in `InternalArgs` fields
         let mut internal_args_pointers = Vec::new();
-        // `preparation` will generate code that is used before calling original function
+        // `preparation` will generate code used before calling the original function
         let mut preparation = Vec::new();
         // `original_fn_args` will generate arguments for calling original method implementation
         let mut original_fn_args = Vec::new();
@@ -677,7 +677,7 @@ impl MethodDetails {
                 });
 
                 original_fn_args.push(quote! {&mut *{
-                    // Ensure state type implements `IoType`, which is required for crossing
+                    // Ensure the state type implements `IoType`, which is required for crossing the
                     // host/guest boundary
                     const _: () = {
                         const fn assert_impl_io_type<T>()
@@ -700,7 +700,7 @@ impl MethodDetails {
                 });
 
                 original_fn_args.push(quote! {&*{
-                    // Ensure state type implements `IoType`, which is required for crossing
+                    // Ensure the state type implements `IoType`, which is required for crossing the
                     // host/guest boundary
                     const _: () = {
                         const fn assert_impl_io_type<T>()
@@ -720,14 +720,14 @@ impl MethodDetails {
             }
         }
 
-        // Optional environment argument with just a pointer
+        // Optional environment argument with just a pointer to data
         if let Some(env) = &self.env {
             let ptr_field = format_ident!("{}_ptr", env.arg_name);
             let assert_msg = format!("`{ptr_field}` pointer is misaligned");
             let mutability = env.mutability;
 
             internal_args_pointers.push(quote! {
-                // Use `Env` to check if method argument had the correct type at compile time
+                // Use `Env` to check if the method argument had the correct type at compile time
                 pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Env<'internal_args>>,
             });
 
@@ -744,7 +744,7 @@ impl MethodDetails {
             }
         }
 
-        // Optional tmp argument with pointer and size (+ capacity if mutable)
+        // Optional tmp argument with pointers to data and size (+ capacity if mutable)
         //
         // Also asserting that type is safe for memory copying.
         if let Some(tmp) = &self.tmp {
@@ -776,7 +776,7 @@ impl MethodDetails {
                 original_fn_args.push(quote! {&mut *{
                     // Ensure tmp type implements `IoTypeOptional`, which is required for handling
                     // of tmp that might be removed or not present and implies implementation of
-                    // `IoType`, which is required for crossing host/guest boundary
+                    // `IoType`, which is required for crossing the host/guest boundary
                     const _: () = {
                         const fn assert_impl_io_type_optional<T>()
                         where
@@ -800,7 +800,7 @@ impl MethodDetails {
                 original_fn_args.push(quote! {&*{
                     // Ensure tmp type implements `IoTypeOptional`, which is required for handling
                     // of tmp that might be removed or not present and implies implementation of
-                    // `IoType`, which is required for crossing host/guest boundary
+                    // `IoType`, which is required for crossing the host/guest boundary
                     const _: () = {
                         const fn assert_impl_io_type_optional<T>()
                         where
@@ -836,11 +836,12 @@ impl MethodDetails {
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
 
             internal_args_pointers.push(quote! {
-                // Use `Address` to check if method argument had the correct type at compile time
+                // Use `Address` to check if the method argument had the correct type at compile
+                // time
                 pub #address_ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Address>,
                 pub #ptr_field: ::core::ptr::NonNull<
                     <
-                        // Make sure `#[slot]` type matches expected type
+                        // Make sure the `#[slot]` type matches the expected type
                         <#self_type as ::ab_contracts_macros::__private::Contract>::Slot as ::ab_contracts_macros::__private::IoType
                     >::PointerType,
                 >,
@@ -855,9 +856,10 @@ impl MethodDetails {
                 });
 
                 quote! {&mut *{
-                    // Ensure slot type implements `IoTypeOptional`, which is required for handling
-                    // of slot that might be removed or not present and implies implementation of
-                    // `IoType`, which is required for crossing host/guest boundary
+                    // Ensure the slot type implements `IoTypeOptional`, which is required for
+                    // handling of slot that might be removed or not present and implies
+                    // implementation of `IoType`, which is required for crossing the host/guest
+                    // boundary
                     const _: () = {
                         const fn assert_impl_io_type_optional<T>()
                         where
@@ -879,9 +881,10 @@ impl MethodDetails {
                 });
 
                 quote! {&*{
-                    // Ensure slot type implements `IoTypeOptional`, which is required for handling
-                    // of slot that might be removed or not present and implies implementation of
-                    // `IoType`, which is required for crossing host/guest boundary
+                    // Ensure the slot type implements `IoTypeOptional`, which is required for
+                    // handling of slot that might be removed or not present and implies
+                    // implementation of `IoType`, which is required for crossing the host/guest
+                    // boundary
                     const _: () = {
                         const fn assert_impl_io_type_optional<T>()
                         where
@@ -915,7 +918,7 @@ impl MethodDetails {
             }
         }
 
-        // Inputs with a pointer and size.
+        // Inputs with pointers to data and size.
         // Also asserting that type is safe for memory copying.
         for input in &self.inputs {
             let type_name = &input.type_name;
@@ -933,8 +936,8 @@ impl MethodDetails {
             });
 
             original_fn_args.push(quote! {&*{
-                // Ensure input type implements `IoType`, which is required for crossing host/guest
-                // boundary
+                // Ensure the input type implements `IoType`, which is required for crossing the
+                // host/guest boundary
                 const _: () = {
                     const fn assert_impl_io_type<T>()
                     where
@@ -952,7 +955,7 @@ impl MethodDetails {
             }});
         }
 
-        // Outputs with a pointer, size and capacity.
+        // Outputs with pointers to data, size and capacity.
         // Also asserting that type is safe for memory copying.
         for output in &self.outputs {
             let type_name = &output.type_name;
@@ -1009,8 +1012,9 @@ impl MethodDetails {
                     pub ok_result_capacity: ::core::ptr::NonNull<::core::primitive::u32>,
                 });
 
-                // Ensure return type implements not only `IoType`, which is required for crossing
-                // host/guest boundary, but also `TrivialType` and result handling is trivial.
+                // Ensure the return type implements not only `IoType`, which is required for
+                // crossing host/guest boundary, but also `TrivialType` and result handling is
+                // trivial.
                 // `#[output]` must be used for a variable size result.
                 preparation.push(quote! {
                     debug_assert!(
@@ -1050,7 +1054,7 @@ impl MethodDetails {
 
         let result_var_name = format_ident!("result");
         let guest_fn = {
-            // Depending on whether `T` or `Result<T, ContractError>` is used as return type,
+            // Depending on whether `T` or `Result<T, ContractError>` is used as a return type,
             // generate different code for result handling
             let result_handling = match &self.return_type {
                 MethodReturnType::Unit(_) => {
@@ -1061,7 +1065,7 @@ impl MethodDetails {
                 }
                 MethodReturnType::Regular(_) => {
                     quote! {
-                        // Size ight be a null pointer for trivial types
+                        // Size might be a null pointer for trivial types
                         if !args.ok_result_size.is_null() {
                             args.ok_result_size.write(
                                 <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
@@ -1086,7 +1090,7 @@ impl MethodDetails {
                         // Write a result into `InternalArgs` if there is any, return exit code
                         match #result_var_name {
                             Ok(result) => {
-                                // Size ight be a null pointer for trivial types
+                                // Size might be a null pointer for trivial types
                                 if !args.ok_result_size.is_null() {
                                     args.ok_result_size.write(
                                         <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
@@ -1108,8 +1112,7 @@ impl MethodDetails {
                 quote! { #self_type }
             };
 
-            // Generate FFI function with original name (hiding original implementation), but
-            // exported as shortcut name
+            // Generate FFI function with the original name
             quote_spanned! {fn_sig.span() =>
                 /// FFI interface into a method, called by the host.
                 ///
@@ -1203,7 +1206,7 @@ impl MethodDetails {
         // Fields set on `Self` in `::new()` method
         let mut method_args_fields = Vec::new();
 
-        // For slots in external args only address is needed
+        // For slots in external args only the address pointer is needed
         for slot in &self.slots {
             let arg_name = &slot.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
@@ -1220,7 +1223,7 @@ impl MethodDetails {
             });
         }
 
-        // Inputs with a pointer and size
+        // Inputs with pointers to data and size
         for input in &self.inputs {
             let type_name = &input.type_name;
             let arg_name = &input.arg_name;
@@ -1255,7 +1258,7 @@ impl MethodDetails {
             });
         }
 
-        // Outputs with a pointer, size and capacity
+        // Outputs with pointers to data, size and capacity
         let mut outputs_iter = self.outputs.iter().peekable();
         while let Some(output) = outputs_iter.next() {
             let type_name = &output.type_name;
@@ -1312,9 +1315,9 @@ impl MethodDetails {
 
         let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
 
-        // Initializer's return type will be `()` for caller of `#[init]` since the state is stored
-        // by the host and not returned to the caller and explicit argument is not needed in
-        // `ExternalArgs` struct. Similarly, it is skipped for a unit return type.
+        // Initializer's return type will be `()` for the caller of `#[init]` since the state is
+        // stored by the host and not returned to the caller and explicit argument is not needed in
+        // the `ExternalArgs` struct. Similarly, it is skipped for a unit return type.
         if !(matches!(self.method_type, MethodType::Init) || self.return_type.unit_return_type()) {
             let return_type = &self.return_type.return_type();
 
@@ -1615,8 +1618,8 @@ impl MethodDetails {
             let type_name = &output.type_name;
             let arg_name = &output.arg_name;
 
-            // Initializer's return type will be `()` for caller of `#[init]`, state is stored by
-            // the host and not returned to the caller
+            // Initializer's return type will be `()` for the caller of `#[init]`, state is stored
+            // by the host and not returned to the caller
             if outputs_iter.is_empty()
                 && self.return_type.unit_return_type()
                 && matches!(self.method_type, MethodType::Init)
@@ -1644,9 +1647,9 @@ impl MethodDetails {
                 method_context: ::ab_contracts_macros::__private::MethodContext,
             }
         });
-        // Initializer's return type will be `()` for caller of `#[init]` since the state is stored
-        // by the host and not returned to the caller. Similarly, it is skipped for a unit return
-        // type.
+        // Initializer's return type will be `()` for the caller of `#[init]` since the state is
+        // stored by the host and not returned to the caller. Similarly, it is skipped for a unit
+        // return type.
         let method_signature = if matches!(self.method_type, MethodType::Init)
             || self.return_type.unit_return_type()
         {
