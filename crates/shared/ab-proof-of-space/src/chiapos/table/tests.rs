@@ -85,8 +85,8 @@ fn test_compute_f1_k22() {
 
 #[cfg(feature = "alloc")]
 fn check_match(yl: usize, yr: usize) -> bool {
-    let yl = yl as i64;
-    let yr = yr as i64;
+    let yl = (yl as u64).cast_signed();
+    let yr = (yr as u64).cast_signed();
     let param_b = i64::from(PARAM_B);
     let param_c = i64::from(PARAM_C);
     let param_bc = i64::from(PARAM_BC);
@@ -353,7 +353,7 @@ fn test_proofs_lower_bound() {
         let relative_deviation = chernoff_inner.sqrt();
         let lower_bound = expected_non_empty_count * (1.0 - relative_deviation);
 
-        lower_bound as u64
+        (lower_bound as i64).cast_unsigned()
     }
 
     /// Propagation rate for a truncation cap using the exact normal tail loss formula.
