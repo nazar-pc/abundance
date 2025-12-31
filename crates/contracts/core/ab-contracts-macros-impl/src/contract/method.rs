@@ -977,15 +977,14 @@ impl MethodDetails {
             });
 
             original_fn_args.push(quote! {&mut *{
-                // Ensure output type implements `IoTypeOptional`, which is required for handling of
-                // the initially uninitialized type and implies implementation of `IoType`, which is
-                // required for crossing host/guest boundary
+                // Ensure the output type implements `IoType`, which is required for crossing the
+                // host/guest boundary
                 const _: () = {
-                    const fn assert_impl_io_type_optional<T>()
+                    const fn assert_impl_io_type<T>()
                     where
-                        T: ::ab_contracts_macros::__private::IoTypeOptional,
+                        T: ::ab_contracts_macros::__private::IoType,
                     {}
-                    assert_impl_io_type_optional::<#type_name>();
+                    assert_impl_io_type::<#type_name>();
                 };
 
                 <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
@@ -1021,13 +1020,6 @@ impl MethodDetails {
                         args.ok_result_ptr.is_aligned(),
                         "`ok_result_ptr` pointer is misaligned"
                     );
-                    if !args.ok_result_size.is_null() {
-                        debug_assert_eq!(
-                            args.ok_result_size.read(),
-                            0,
-                            "`ok_result_size` must be zero initially",
-                        );
-                    }
                     debug_assert!(
                         args.ok_result_capacity.read() >=
                             <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,

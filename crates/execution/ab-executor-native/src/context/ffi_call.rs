@@ -706,13 +706,7 @@ where
                             copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
                         }
                         // Size (might be a null pointer for trivial types)
-                        let size_ptr =
-                            copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
-                        if !size_ptr.is_null() {
-                            // Override output size to be zero even if caller guest tried to put
-                            // something there
-                            size_ptr.write(0);
-                        }
+                        copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
                         // Capacity
                         copy_ptr!(external_args_cursor => internal_args_cursor as *const u32);
                     }

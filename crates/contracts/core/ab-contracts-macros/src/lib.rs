@@ -176,7 +176,8 @@ pub mod __private;
 /// available contact metadata.
 ///
 /// All fields in the data structure are pointers, some are read-only, some can be written to if
-/// changes need to be communicated back to the host.
+/// changes need to be communicated back to the host. `read-only` here means that the host will not
+/// read the value, even if the contract modifies it.
 ///
 /// ### `&self`
 ///
@@ -387,6 +388,8 @@ pub mod __private;
 /// the stack is undesirable, which is especially helpful in case of a variable-sized contract
 /// state.
 ///
+/// *`output_size` might be a null pointer if the output type is [`TrivialType`]!*
+///
 /// NOTE: In case `ReturnValue` in `-> ReturnValue` or `-> Result<ReturnValue, ContractError>` is
 /// `()`, it will be skipped in `InternalArgs`.
 ///
@@ -481,6 +484,11 @@ pub mod __private;
 /// method is `#[init]` or when `ReturnValue` is `()` in other cases. For `#[init]` method's return
 /// value is the contract's initial state and is processed by the execution environment itself. When
 /// `ReturnValue` is `()` then there is no point in having a pointer for it.
+///
+/// The host will propagate the current value that `output_size` points to to the caller, so that
+/// the callee can both read and write to it.
+///
+/// *`output_size` might be a null pointer if the output type is [`TrivialType`]!*
 ///
 /// ## Extension trait
 ///
