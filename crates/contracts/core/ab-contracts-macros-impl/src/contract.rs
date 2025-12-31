@@ -547,23 +547,27 @@ fn process_fn_definition(
     let Some(attr) = attrs.next() else {
         drop(attrs);
 
-        // Return unmodified original if no recognized arguments are present
+        // Return an unmodified original if no recognized arguments are present
         return Ok(MethodOutput::default());
     };
 
     if let Some(next_attr) = attrs.take(1).next() {
         return Err(Error::new(
             next_attr.span(),
-            "Function can only have one of `#[update]` or `#[view]` attributes specified",
+            format!(
+                "The method `{}` can only have one of `#[update]` or `#[view]` attributes specified",
+                trait_item_fn.sig.ident
+            ),
         ));
     }
 
-    // Make sure function doesn't have customized ABI
+    // Make sure the method doesn't have customized ABI
     if let Some(abi) = &trait_item_fn.sig.abi {
         return Err(Error::new(
             abi.span(),
             format!(
-                "Function with `#[{}]` attribute must have default ABI",
+                "The method `{}` with `#[{}]` attribute must have default ABI",
+                trait_item_fn.sig.ident,
                 attr.meta.path().segments[0].ident
             ),
         ));
@@ -612,34 +616,39 @@ fn process_fn(
     let Some(attr) = attrs.next() else {
         drop(attrs);
 
-        // Return unmodified original if no recognized arguments are present
+        // Return an unmodified original if no recognized arguments are present
         return Ok(MethodOutput::default());
     };
 
     if let Some(next_attr) = attrs.take(1).next() {
         return Err(Error::new(
             next_attr.span(),
-            "Function can only have one of `#[init]`, `#[update]` or `#[view]` attributes specified",
+            format!(
+                "The method `{}` can only have one of `#[init]`, `#[update]` or `#[view]` attributes specified",
+                impl_item_fn.sig.ident
+            ),
         ));
     }
 
-    // Make sure function is public if not a trait impl
+    // Make sure the method is public if not a trait impl
     if !(matches!(impl_item_fn.vis, Visibility::Public(_)) || trait_name.is_some()) {
         return Err(Error::new(
             impl_item_fn.sig.span(),
             format!(
-                "Function with `#[{}]` attribute must be public",
+                "The method `{}` with `#[{}]` attribute must be public",
+                impl_item_fn.sig.ident,
                 attr.meta.path().segments[0].ident
             ),
         ));
     }
 
-    // Make sure function doesn't have customized ABI
+    // Make sure the method doesn't have customized ABI
     if let Some(abi) = &impl_item_fn.sig.abi {
         return Err(Error::new(
             abi.span(),
             format!(
-                "Function with `#[{}]` attribute must have default ABI",
+                "The method `{}` with `#[{}]` attribute must have default ABI",
+                impl_item_fn.sig.ident,
                 attr.meta.path().segments[0].ident
             ),
         ));
