@@ -53,7 +53,7 @@ fn hash_chunk(input: &[u8], key: CVWords, flags: u8) -> Option<[u8; OUT_LEN]> {
     Some(*le_bytes_from_words_32(&cv))
 }
 
-/// Hashing function for at most single chunk worth of bytes.
+/// Hashing function for at most single chunk ([`CHUNK_LEN`]) worth of bytes.
 ///
 /// Returns `None` if the input length exceeds one chunk.
 #[inline]
@@ -62,7 +62,7 @@ pub fn single_chunk_hash(input: &[u8]) -> Option<[u8; OUT_LEN]> {
     hash_chunk(input, *IV, 0)
 }
 
-/// The keyed hash function for at most a single chunk worth of bytes.
+/// The keyed hash function for at most a single chunk ([`CHUNK_LEN`]) worth of bytes.
 ///
 /// Returns `None` if the input length exceeds one chunk.
 #[inline]
@@ -72,7 +72,7 @@ pub fn single_chunk_keyed_hash(key: &[u8; KEY_LEN], input: &[u8]) -> Option<[u8;
     hash_chunk(input, key_words, KEYED_HASH)
 }
 
-// The key derivation function for at most a single chunk worth of bytes.
+// The key derivation function for at most a single chunk ([`CHUNK_LEN`]) worth of bytes.
 //
 // Returns `None` if either context or key material length exceed one chunk.
 #[inline]

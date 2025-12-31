@@ -92,6 +92,7 @@ pub fn main() -> anyhow::Result<()> {
                 features: features.as_deref(),
                 profile: &profile,
                 target_specification_path: target_specification.path(),
+                target_dir: None,
             })?;
 
             let mut command_builder = Command::new("cargo");

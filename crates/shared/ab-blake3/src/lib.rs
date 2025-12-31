@@ -45,7 +45,7 @@ pub const BLOCK_LEN: usize = 64;
 /// the maximum degree of parallelism used by the implementation equals the number of chunks.
 // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/312
 #[cfg(not(target_arch = "spirv"))]
-const CHUNK_LEN: usize = 1024;
+pub const CHUNK_LEN: usize = 1024;
 
 // While iterating the compression function within a chunk, the CV is
 // represented as words, to avoid doing two extra endianness conversions for
