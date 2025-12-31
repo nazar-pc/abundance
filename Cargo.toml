@@ -57,7 +57,7 @@ ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/
 ab-trivial-type-derive = { version = "0.0.1", path = "crates/shared/ab-trivial-type-derive" }
 aes = "0.9.0-rc.2"
 anyhow = { version = "1.0.100", default-features = false }
-async-lock = { version = "3.4.1", default-features = false }
+async-lock = { version = "3.4.2", default-features = false }
 async-nats = { version = "0.45.0", default-features = false, features = ["ring"] }
 async-trait = "0.1.89"
 # TODO: Migrate to maintained backon
@@ -73,8 +73,8 @@ clap = { version = "4.5.53", features = ["derive"] }
 const_format = "0.2.35"
 core_affinity = "0.8.3"
 cpufeatures = "0.2.17"
-criterion = { version = "0.8.0", default-features = false }
-derive_more = { version = "2.1.0", default-features = false }
+criterion = { version = "0.8.1", default-features = false }
+derive_more = { version = "2.1.1", default-features = false }
 dirs = { version = "6.0.0" }
 # TODO: Switch to ed25519-dalek with RFC8032 / NIST validation criteria instead once
 #  https://github.com/dalek-cryptography/curve25519-dalek/issues/626 is resolved
@@ -108,12 +108,12 @@ ouroboros = "0.18.5"
 parity-scale-codec = { version = "3.7.5", default-features = false }
 parking_lot = "0.12.5"
 pin-project = "1.1.10"
-proc-macro2 = "1.0.103"
+proc-macro2 = "1.0.104"
 prometheus-client = "0.22.3"
 quote = "1.0.42"
 rand = { version = "0.10.0-rc.5", default-features = false }
 rayon = "1.11.0"
-rclite = "0.4.0"
+rclite = "0.4.1"
 reed-solomon-simd = { version = "3.1.0", default-features = false }
 replace_with = { version = "0.1.8", default-features = false, features = ["nightly"] }
 scale-info = { version = "2.11.6", default-features = false }
@@ -122,20 +122,20 @@ schnorrkel = { version = "0.11.5", default-features = false }
 send-future = "0.1.0"
 seq-macro = "0.3.6"
 serde = { version = "1.0.228", default-features = false }
-serde_json = "1.0.145"
+serde_json = "1.0.148"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0-rc.3", default-features = false }
 smallvec = { version = "1.15.1", features = ["union"] }
 spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu", rev = "a30bd43db45f2bfe260051f44141e5eaffcbb4b0" }
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.27.2", default-features = false, features = ["derive"] }
-syn = "2.0.111"
-tempfile = "3.23.0"
+syn = "2.0.112"
+tempfile = "3.24.0"
 thiserror = { version = "2.0.17", default-features = false }
 thread-priority = "3.0.0"
 tokio = { version = "1.48.0", default-features = false }
 tokio-stream = "0.1.17"
-tracing = "0.1.43"
+tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 ulid = "1.2.1"
 unsigned-varint = "0.8.0"
