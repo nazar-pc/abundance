@@ -199,7 +199,7 @@ impl<Reg> Rv64Instruction<Reg> {
             0b0010011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
-                let imm = (instruction as i32) >> 20;
+                let imm = instruction.cast_signed() >> 20;
                 match funct3 {
                     0b000 => Self::Addi { rd, rs1, imm },
                     0b010 => Self::Slti { rd, rs1, imm },
@@ -232,7 +232,7 @@ impl<Reg> Rv64Instruction<Reg> {
             0b0011011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
-                let imm = (instruction as i32) >> 20;
+                let imm = instruction.cast_signed() >> 20;
                 let shamt = (instruction >> 20) & 0b1_1111; // 5-bit for W shifts
                 match funct3 {
                     0b000 => Self::Addiw { rd, rs1, imm },
@@ -255,7 +255,7 @@ impl<Reg> Rv64Instruction<Reg> {
             0b0000011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
-                let imm = (instruction as i32) >> 20;
+                let imm = instruction.cast_signed() >> 20;
                 match funct3 {
                     0b000 => Self::Lb { rd, rs1, imm },
                     0b001 => Self::Lh { rd, rs1, imm },
@@ -272,7 +272,7 @@ impl<Reg> Rv64Instruction<Reg> {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 if funct3 == 0b000 {
-                    let imm = (instruction as i32) >> 20;
+                    let imm = instruction.cast_signed() >> 20;
                     Self::Jalr { rd, rs1, imm }
                 } else {
                     Self::Invalid(instruction)
@@ -282,8 +282,8 @@ impl<Reg> Rv64Instruction<Reg> {
             0b0100011 => {
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
-                let imm11_5 = ((instruction >> 25) & 0b111_1111) as i32;
-                let imm4_0 = ((instruction >> 7) & 0b1_1111) as i32;
+                let imm11_5 = ((instruction >> 25) & 0b111_1111).cast_signed();
+                let imm4_0 = ((instruction >> 7) & 0b1_1111).cast_signed();
                 let imm = (imm11_5 << 5) | imm4_0;
                 // Sign extend
                 let imm = (imm << 20) >> 20;
@@ -299,10 +299,10 @@ impl<Reg> Rv64Instruction<Reg> {
             0b1100011 => {
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
-                let imm12 = ((instruction >> 31) & 1) as i32;
-                let imm10_5 = ((instruction >> 25) & 0b11_1111) as i32;
-                let imm4_1 = ((instruction >> 8) & 0b1111) as i32;
-                let imm11 = ((instruction >> 7) & 1) as i32;
+                let imm12 = ((instruction >> 31) & 1).cast_signed();
+                let imm10_5 = ((instruction >> 25) & 0b11_1111).cast_signed();
+                let imm4_1 = ((instruction >> 8) & 0b1111).cast_signed();
+                let imm11 = ((instruction >> 7) & 1).cast_signed();
                 let imm = (imm12 << 12) | (imm11 << 11) | (imm10_5 << 5) | (imm4_1 << 1);
                 // Sign extend
                 let imm = (imm << 19) >> 19;
@@ -319,22 +319,22 @@ impl<Reg> Rv64Instruction<Reg> {
             // Lui (U-type)
             0b0110111 => {
                 let rd = Reg::from_bits(rd_bits)?;
-                let imm = (instruction & 0xffff_f000) as i32;
+                let imm = (instruction & 0xffff_f000).cast_signed();
                 Self::Lui { rd, imm }
             }
             // Auipc (U-type)
             0b0010111 => {
                 let rd = Reg::from_bits(rd_bits)?;
-                let imm = (instruction & 0xffff_f000) as i32;
+                let imm = (instruction & 0xffff_f000).cast_signed();
                 Self::Auipc { rd, imm }
             }
             // Jal (J-type)
             0b1101111 => {
                 let rd = Reg::from_bits(rd_bits)?;
-                let imm20 = ((instruction >> 31) & 1) as i32;
-                let imm10_1 = ((instruction >> 21) & 0b11_1111_1111) as i32;
-                let imm11 = ((instruction >> 20) & 1) as i32;
-                let imm19_12 = ((instruction >> 12) & 0b1111_1111) as i32;
+                let imm20 = ((instruction >> 31) & 1).cast_signed();
+                let imm10_1 = ((instruction >> 21) & 0b11_1111_1111).cast_signed();
+                let imm11 = ((instruction >> 20) & 1).cast_signed();
+                let imm19_12 = ((instruction >> 12) & 0b1111_1111).cast_signed();
                 let imm = (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) | (imm10_1 << 1);
                 // Sign extend
                 let imm = (imm << 11) >> 11;

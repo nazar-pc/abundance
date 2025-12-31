@@ -115,7 +115,7 @@ impl CpuPlotterMetrics {
         );
 
         let plotting_capacity_total = Gauge::<i64, AtomicI64>::default();
-        plotting_capacity_total.set(total_capacity.get() as i64);
+        plotting_capacity_total.set((total_capacity.get() as u64).cast_signed());
         registry.register_with_unit(
             "plotting_capacity_total",
             "Plotting capacity total",

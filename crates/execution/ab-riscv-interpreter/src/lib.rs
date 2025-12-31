@@ -253,7 +253,7 @@ where
                 regs.write(rd, value);
             }
             Rv64Instruction::Slt { rd, rs1, rs2 } => {
-                let value = (regs.read(rs1) as i64) < (regs.read(rs2) as i64);
+                let value = regs.read(rs1).cast_signed() < regs.read(rs2).cast_signed();
                 regs.write(rd, value as u64);
             }
             Rv64Instruction::Sltu { rd, rs1, rs2 } => {
@@ -271,8 +271,8 @@ where
             }
             Rv64Instruction::Sra { rd, rs1, rs2 } => {
                 let shamt = regs.read(rs2) & 0x3f;
-                let value = (regs.read(rs1) as i64) >> shamt;
-                regs.write(rd, value as u64);
+                let value = regs.read(rs1).cast_signed() >> shamt;
+                regs.write(rd, value.cast_unsigned());
             }
             Rv64Instruction::Or { rd, rs1, rs2 } => {
                 let value = regs.read(rs1) | regs.read(rs2);
@@ -288,13 +288,16 @@ where
                 regs.write(rd, value);
             }
             Rv64Instruction::Mulh { rd, rs1, rs2 } => {
-                let (_lo, prod) = (regs.read(rs1) as i64).widening_mul(regs.read(rs2) as i64);
-                regs.write(rd, prod as u64);
+                let (_lo, prod) = regs
+                    .read(rs1)
+                    .cast_signed()
+                    .widening_mul(regs.read(rs2).cast_signed());
+                regs.write(rd, prod.cast_unsigned());
             }
             Rv64Instruction::Mulhsu { rd, rs1, rs2 } => {
-                let prod = (regs.read(rs1) as i64 as i128) * (regs.read(rs2) as i128);
+                let prod = (regs.read(rs1).cast_signed() as i128) * (regs.read(rs2) as i128);
                 let value = prod >> 64;
-                regs.write(rd, value as u64);
+                regs.write(rd, value.cast_unsigned() as u64);
             }
             Rv64Instruction::Mulhu { rd, rs1, rs2 } => {
                 let prod = (regs.read(rs1) as u128) * (regs.read(rs2) as u128);
@@ -302,8 +305,8 @@ where
                 regs.write(rd, value as u64);
             }
             Rv64Instruction::Div { rd, rs1, rs2 } => {
-                let dividend = regs.read(rs1) as i64;
-                let divisor = regs.read(rs2) as i64;
+                let dividend = regs.read(rs1).cast_signed();
+                let divisor = regs.read(rs2).cast_signed();
                 let value = if divisor == 0 {
                     -1i64
                 } else if dividend == i64::MIN && divisor == -1 {
@@ -311,7 +314,7 @@ where
                 } else {
                     dividend / divisor
                 };
-                regs.write(rd, value as u64);
+                regs.write(rd, value.cast_unsigned());
             }
             Rv64Instruction::Divu { rd, rs1, rs2 } => {
                 let dividend = regs.read(rs1);
@@ -324,8 +327,8 @@ where
                 regs.write(rd, value);
             }
             Rv64Instruction::Rem { rd, rs1, rs2 } => {
-                let dividend = regs.read(rs1) as i64;
-                let divisor = regs.read(rs2) as i64;
+                let dividend = regs.read(rs1).cast_signed();
+                let divisor = regs.read(rs2).cast_signed();
                 let value = if divisor == 0 {
                     dividend
                 } else if dividend == i64::MIN && divisor == -1 {
@@ -333,7 +336,7 @@ where
                 } else {
                     dividend % divisor
                 };
-                regs.write(rd, value as u64);
+                regs.write(rd, value.cast_unsigned());
             }
             Rv64Instruction::Remu { rd, rs1, rs2 } => {
                 let dividend = regs.read(rs1);
@@ -348,30 +351,30 @@ where
 
             Rv64Instruction::Addw { rd, rs1, rs2 } => {
                 let sum = (regs.read(rs1) as i32).wrapping_add(regs.read(rs2) as i32);
-                regs.write(rd, sum as i64 as u64);
+                regs.write(rd, (sum as i64).cast_unsigned());
             }
             Rv64Instruction::Subw { rd, rs1, rs2 } => {
                 let diff = (regs.read(rs1) as i32).wrapping_sub(regs.read(rs2) as i32);
-                regs.write(rd, diff as i64 as u64);
+                regs.write(rd, (diff as i64).cast_unsigned());
             }
             Rv64Instruction::Sllw { rd, rs1, rs2 } => {
                 let shamt = regs.read(rs2) & 0x1f;
                 let shifted = (regs.read(rs1) as u32) << shamt;
-                regs.write(rd, shifted as i32 as i64 as u64);
+                regs.write(rd, (shifted.cast_signed() as i64).cast_unsigned());
             }
             Rv64Instruction::Srlw { rd, rs1, rs2 } => {
                 let shamt = regs.read(rs2) & 0x1f;
                 let shifted = (regs.read(rs1) as u32) >> shamt;
-                regs.write(rd, shifted as i32 as i64 as u64);
+                regs.write(rd, (shifted.cast_signed() as i64).cast_unsigned());
             }
             Rv64Instruction::Sraw { rd, rs1, rs2 } => {
                 let shamt = regs.read(rs2) & 0x1f;
                 let shifted = (regs.read(rs1) as i32) >> shamt;
-                regs.write(rd, shifted as i64 as u64);
+                regs.write(rd, (shifted as i64).cast_unsigned());
             }
             Rv64Instruction::Mulw { rd, rs1, rs2 } => {
                 let prod = (regs.read(rs1) as i32).wrapping_mul(regs.read(rs2) as i32);
-                regs.write(rd, prod as i64 as u64);
+                regs.write(rd, (prod as i64).cast_unsigned());
             }
             Rv64Instruction::Divw { rd, rs1, rs2 } => {
                 let dividend = regs.read(rs1) as i32;
@@ -383,7 +386,7 @@ where
                 } else {
                     (dividend / divisor) as i64
                 };
-                regs.write(rd, value as u64);
+                regs.write(rd, value.cast_unsigned());
             }
             Rv64Instruction::Divuw { rd, rs1, rs2 } => {
                 let dividend = regs.read(rs1) as u32;
@@ -391,7 +394,7 @@ where
                 let value = if divisor == 0 {
                     u64::MAX
                 } else {
-                    (dividend / divisor) as i32 as i64 as u64
+                    ((dividend / divisor).cast_signed() as i64).cast_unsigned()
                 };
                 regs.write(rd, value);
             }
@@ -399,11 +402,11 @@ where
                 let dividend = regs.read(rs1) as i32;
                 let divisor = regs.read(rs2) as i32;
                 let value = if divisor == 0 {
-                    dividend as i64 as u64
+                    (dividend as i64).cast_unsigned()
                 } else if dividend == i32::MIN && divisor == -1 {
                     0
                 } else {
-                    (dividend % divisor) as i64 as u64
+                    ((dividend % divisor) as i64).cast_unsigned()
                 };
                 regs.write(rd, value);
             }
@@ -411,35 +414,35 @@ where
                 let dividend = regs.read(rs1) as u32;
                 let divisor = regs.read(rs2) as u32;
                 let value = if divisor == 0 {
-                    dividend as i32 as i64
+                    dividend.cast_signed() as i64
                 } else {
-                    (dividend % divisor) as i32 as i64
+                    (dividend % divisor).cast_signed() as i64
                 };
-                regs.write(rd, value as u64);
+                regs.write(rd, value.cast_unsigned());
             }
 
             Rv64Instruction::Addi { rd, rs1, imm } => {
-                let value = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let value = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 regs.write(rd, value);
             }
             Rv64Instruction::Slti { rd, rs1, imm } => {
-                let value = (regs.read(rs1) as i64) < (imm as i64);
+                let value = regs.read(rs1).cast_signed() < (imm as i64);
                 regs.write(rd, value as u64);
             }
             Rv64Instruction::Sltiu { rd, rs1, imm } => {
-                let value = regs.read(rs1) < (imm as i64 as u64);
+                let value = regs.read(rs1) < ((imm as i64).cast_unsigned());
                 regs.write(rd, value as u64);
             }
             Rv64Instruction::Xori { rd, rs1, imm } => {
-                let value = regs.read(rs1) ^ (imm as i64 as u64);
+                let value = regs.read(rs1) ^ ((imm as i64).cast_unsigned());
                 regs.write(rd, value);
             }
             Rv64Instruction::Ori { rd, rs1, imm } => {
-                let value = regs.read(rs1) | (imm as i64 as u64);
+                let value = regs.read(rs1) | ((imm as i64).cast_unsigned());
                 regs.write(rd, value);
             }
             Rv64Instruction::Andi { rd, rs1, imm } => {
-                let value = regs.read(rs1) & (imm as i64 as u64);
+                let value = regs.read(rs1) & ((imm as i64).cast_unsigned());
                 regs.write(rd, value);
             }
             Rv64Instruction::Slli { rd, rs1, shamt } => {
@@ -451,128 +454,131 @@ where
                 regs.write(rd, value);
             }
             Rv64Instruction::Srai { rd, rs1, shamt } => {
-                let value = (regs.read(rs1) as i64) >> shamt;
-                regs.write(rd, value as u64);
+                let value = regs.read(rs1).cast_signed() >> shamt;
+                regs.write(rd, value.cast_unsigned());
             }
 
             Rv64Instruction::Addiw { rd, rs1, imm } => {
                 let sum = (regs.read(rs1) as i32).wrapping_add(imm);
-                regs.write(rd, sum as i64 as u64);
+                regs.write(rd, (sum as i64).cast_unsigned());
             }
             Rv64Instruction::Slliw { rd, rs1, shamt } => {
                 let shifted = (regs.read(rs1) as u32) << shamt;
-                regs.write(rd, shifted as i32 as i64 as u64);
+                regs.write(rd, (shifted.cast_signed() as i64).cast_unsigned());
             }
             Rv64Instruction::Srliw { rd, rs1, shamt } => {
                 let shifted = (regs.read(rs1) as u32) >> shamt;
-                regs.write(rd, shifted as i32 as i64 as u64);
+                regs.write(rd, (shifted.cast_signed() as i64).cast_unsigned());
             }
             Rv64Instruction::Sraiw { rd, rs1, shamt } => {
                 let shifted = (regs.read(rs1) as i32) >> shamt;
-                regs.write(rd, shifted as i64 as u64);
+                regs.write(rd, (shifted as i64).cast_unsigned());
             }
 
             Rv64Instruction::Lb { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 let value = memory.read::<i8>(addr)? as i64;
-                regs.write(rd, value as u64);
+                regs.write(rd, value.cast_unsigned());
             }
             Rv64Instruction::Lh { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 let value = memory.read::<i16>(addr)? as i64;
-                regs.write(rd, value as u64);
+                regs.write(rd, value.cast_unsigned());
             }
             Rv64Instruction::Lw { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 let value = memory.read::<i32>(addr)? as i64;
-                regs.write(rd, value as u64);
+                regs.write(rd, value.cast_unsigned());
             }
             Rv64Instruction::Ld { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 let value = memory.read::<u64>(addr)?;
                 regs.write(rd, value);
             }
             Rv64Instruction::Lbu { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 let value = memory.read::<u8>(addr)?;
                 regs.write(rd, value as u64);
             }
             Rv64Instruction::Lhu { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 let value = memory.read::<u16>(addr)?;
                 regs.write(rd, value as u64);
             }
             Rv64Instruction::Lwu { rd, rs1, imm } => {
-                let addr = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 let value = memory.read::<u32>(addr)?;
                 regs.write(rd, value as u64);
             }
 
             Rv64Instruction::Jalr { rd, rs1, imm } => {
-                let target = (regs.read(rs1).wrapping_add(imm as i64 as u64)) & !1u64;
+                let target = (regs.read(rs1).wrapping_add((imm as i64).cast_unsigned())) & !1u64;
                 regs.write(rd, *pc);
                 *pc = target;
             }
 
             Rv64Instruction::Sb { rs1, rs2, imm } => {
-                let addr = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 memory.write(addr, regs.read(rs2) as u8)?;
             }
             Rv64Instruction::Sh { rs1, rs2, imm } => {
-                let addr = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 memory.write(addr, regs.read(rs2) as u16)?;
             }
             Rv64Instruction::Sw { rs1, rs2, imm } => {
-                let addr = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 memory.write(addr, regs.read(rs2) as u32)?;
             }
             Rv64Instruction::Sd { rs1, rs2, imm } => {
-                let addr = regs.read(rs1).wrapping_add(imm as i64 as u64);
+                let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 memory.write(addr, regs.read(rs2))?;
             }
 
             Rv64Instruction::Beq { rs1, rs2, imm } => {
                 if regs.read(rs1) == regs.read(rs2) {
-                    *pc = old_pc.wrapping_add(imm as i64 as u64);
+                    *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
                 }
             }
             Rv64Instruction::Bne { rs1, rs2, imm } => {
                 if regs.read(rs1) != regs.read(rs2) {
-                    *pc = old_pc.wrapping_add(imm as i64 as u64);
+                    *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
                 }
             }
             Rv64Instruction::Blt { rs1, rs2, imm } => {
-                if (regs.read(rs1) as i64) < (regs.read(rs2) as i64) {
-                    *pc = old_pc.wrapping_add(imm as i64 as u64);
+                if regs.read(rs1).cast_signed() < regs.read(rs2).cast_signed() {
+                    *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
                 }
             }
             Rv64Instruction::Bge { rs1, rs2, imm } => {
-                if (regs.read(rs1) as i64) >= (regs.read(rs2) as i64) {
-                    *pc = old_pc.wrapping_add(imm as i64 as u64);
+                if regs.read(rs1).cast_signed() >= regs.read(rs2).cast_signed() {
+                    *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
                 }
             }
             Rv64Instruction::Bltu { rs1, rs2, imm } => {
                 if regs.read(rs1) < regs.read(rs2) {
-                    *pc = old_pc.wrapping_add(imm as i64 as u64);
+                    *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
                 }
             }
             Rv64Instruction::Bgeu { rs1, rs2, imm } => {
                 if regs.read(rs1) >= regs.read(rs2) {
-                    *pc = old_pc.wrapping_add(imm as i64 as u64);
+                    *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
                 }
             }
 
             Rv64Instruction::Lui { rd, imm } => {
-                regs.write(rd, (imm as i64 as u64) << 12);
+                regs.write(rd, ((imm as i64).cast_unsigned()) << 12);
             }
 
             Rv64Instruction::Auipc { rd, imm } => {
-                regs.write(rd, old_pc.wrapping_add((imm as i64 as u64) << 12));
+                regs.write(
+                    rd,
+                    old_pc.wrapping_add(((imm as i64).cast_unsigned()) << 12),
+                );
             }
 
             Rv64Instruction::Jal { rd, imm } => {
                 regs.write(rd, *pc);
-                *pc = old_pc.wrapping_add(imm as i64 as u64);
+                *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
             }
 
             Rv64Instruction::Fence { .. } => {

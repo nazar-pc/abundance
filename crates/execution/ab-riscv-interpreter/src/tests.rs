@@ -344,7 +344,7 @@ fn test_srl() {
 fn test_sra() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    regs.write(EReg::A0, (-16i64) as u64);
+    regs.write(EReg::A0, (-16i64).cast_unsigned());
     regs.write(EReg::A1, 2);
 
     let instructions = vec![Rv64Instruction::Sra {
@@ -356,7 +356,7 @@ fn test_sra() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A2), (-4i64) as u64);
+    assert_eq!(regs.read(EReg::A2), (-4i64).cast_unsigned());
 }
 
 // Comparison Instructions
@@ -365,7 +365,7 @@ fn test_sra() {
 fn test_slt_less() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    regs.write(EReg::A0, (-5i64) as u64);
+    regs.write(EReg::A0, (-5i64).cast_unsigned());
     regs.write(EReg::A1, 10);
 
     let instructions = vec![Rv64Instruction::Slt {
@@ -385,7 +385,7 @@ fn test_slt_greater() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
     regs.write(EReg::A0, 10);
-    regs.write(EReg::A1, (-5i64) as u64);
+    regs.write(EReg::A1, (-5i64).cast_unsigned());
 
     let instructions = vec![Rv64Instruction::Slt {
         rd: EReg::A2,
@@ -404,7 +404,7 @@ fn test_sltu() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
     regs.write(EReg::A0, 5);
-    regs.write(EReg::A1, (-1i64) as u64);
+    regs.write(EReg::A1, (-1i64).cast_unsigned());
 
     let instructions = vec![Rv64Instruction::Sltu {
         rd: EReg::A2,
@@ -456,8 +456,8 @@ fn test_mulh() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    let (_, hi) = (i64::MAX).widening_mul(2);
-    assert_eq!(regs.read(EReg::A2), hi as u64);
+    let (_, hi) = i64::MAX.widening_mul(2);
+    assert_eq!(regs.read(EReg::A2), hi.cast_unsigned());
 }
 
 #[test]
@@ -484,7 +484,7 @@ fn test_mulhu() {
 fn test_mulhsu() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    regs.write(EReg::A0, (-2i64) as u64);
+    regs.write(EReg::A0, (-2i64).cast_unsigned());
     regs.write(EReg::A1, 3);
 
     let instructions = vec![Rv64Instruction::Mulhsu {
@@ -497,7 +497,7 @@ fn test_mulhsu() {
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     let prod = (-2i64 as i128) * (3i128);
-    assert_eq!(regs.read(EReg::A2), (prod >> 64) as u64);
+    assert_eq!(regs.read(EReg::A2), (prod >> 64).cast_unsigned() as u64);
 }
 
 // Division Instructions
@@ -518,7 +518,7 @@ fn test_div() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A2) as i64, 6);
+    assert_eq!(regs.read(EReg::A2).cast_signed(), 6);
 }
 
 #[test]
@@ -537,15 +537,15 @@ fn test_div_by_zero() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A2), (-1i64) as u64);
+    assert_eq!(regs.read(EReg::A2), (-1i64).cast_unsigned());
 }
 
 #[test]
 fn test_div_overflow() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    regs.write(EReg::A0, i64::MIN as u64);
-    regs.write(EReg::A1, (-1i64) as u64);
+    regs.write(EReg::A0, i64::MIN.cast_unsigned());
+    regs.write(EReg::A1, (-1i64).cast_unsigned());
 
     let instructions = vec![Rv64Instruction::Div {
         rd: EReg::A2,
@@ -556,7 +556,7 @@ fn test_div_overflow() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A2), i64::MIN as u64);
+    assert_eq!(regs.read(EReg::A2), i64::MIN.cast_unsigned());
 }
 
 #[test]
@@ -613,7 +613,7 @@ fn test_rem() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A2) as i64, 2);
+    assert_eq!(regs.read(EReg::A2).cast_signed(), 2);
 }
 
 #[test]
@@ -639,8 +639,8 @@ fn test_rem_by_zero() {
 fn test_rem_overflow() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    regs.write(EReg::A0, i64::MIN as u64);
-    regs.write(EReg::A1, (-1i64) as u64);
+    regs.write(EReg::A0, i64::MIN.cast_unsigned());
+    regs.write(EReg::A1, (-1i64).cast_unsigned());
 
     let instructions = vec![Rv64Instruction::Rem {
         rd: EReg::A2,
@@ -730,7 +730,7 @@ fn test_subw() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A2), (-1i64) as u64);
+    assert_eq!(regs.read(EReg::A2), (-1i64).cast_unsigned());
 }
 
 #[test]
@@ -825,7 +825,7 @@ fn test_divw() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A2) as i64, 6);
+    assert_eq!(regs.read(EReg::A2).cast_signed(), 6);
 }
 
 #[test]
@@ -844,15 +844,15 @@ fn test_divw_by_zero() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A2), (-1i64) as u64);
+    assert_eq!(regs.read(EReg::A2), (-1i64).cast_unsigned());
 }
 
 #[test]
 fn test_divw_overflow() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    regs.write(EReg::A0, i32::MIN as u32 as u64);
-    regs.write(EReg::A1, (-1i32) as u32 as u64);
+    regs.write(EReg::A0, i32::MIN.cast_unsigned() as u64);
+    regs.write(EReg::A1, (-1i32).cast_unsigned() as u64);
 
     let instructions = vec![Rv64Instruction::Divw {
         rd: EReg::A2,
@@ -863,7 +863,7 @@ fn test_divw_overflow() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A2), i32::MIN as i64 as u64);
+    assert_eq!(regs.read(EReg::A2), (i32::MIN as i64).cast_unsigned());
 }
 
 #[test]
@@ -946,8 +946,8 @@ fn test_remw_by_zero() {
 fn test_remw_overflow() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    regs.write(EReg::A0, i32::MIN as u32 as u64);
-    regs.write(EReg::A1, (-1i32) as u32 as u64);
+    regs.write(EReg::A0, i32::MIN.cast_unsigned() as u64);
+    regs.write(EReg::A1, (-1i32).cast_unsigned() as u64);
 
     let instructions = vec![Rv64Instruction::Remw {
         rd: EReg::A2,
@@ -996,7 +996,7 @@ fn test_remuw_by_zero() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A2) as i64, 20);
+    assert_eq!(regs.read(EReg::A2).cast_signed(), 20);
 }
 
 // Immediate Instructions
@@ -1041,7 +1041,7 @@ fn test_addi_negative() {
 fn test_slti() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    regs.write(EReg::A0, (-5i64) as u64);
+    regs.write(EReg::A0, (-5i64).cast_unsigned());
 
     let instructions = vec![Rv64Instruction::Slti {
         rd: EReg::A1,
@@ -1167,7 +1167,7 @@ fn test_srli() {
 fn test_srai() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    regs.write(EReg::A0, (-16i64) as u64);
+    regs.write(EReg::A0, (-16i64).cast_unsigned());
 
     let instructions = vec![Rv64Instruction::Srai {
         rd: EReg::A1,
@@ -1178,7 +1178,7 @@ fn test_srai() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A1), (-4i64) as u64);
+    assert_eq!(regs.read(EReg::A1), (-4i64).cast_unsigned());
 }
 
 #[test]
@@ -1274,7 +1274,7 @@ fn test_lb() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A1), (-5i64) as u64);
+    assert_eq!(regs.read(EReg::A1), (-5i64).cast_unsigned());
 }
 
 #[test]
@@ -1294,7 +1294,7 @@ fn test_lh() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A1), (-300i64) as u64);
+    assert_eq!(regs.read(EReg::A1), (-300i64).cast_unsigned());
 }
 
 #[test]
@@ -1314,7 +1314,7 @@ fn test_lw() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A1), (-100000i64) as u64);
+    assert_eq!(regs.read(EReg::A1), (-100000i64).cast_unsigned());
 }
 
 #[test]
@@ -1557,7 +1557,7 @@ fn test_bne_taken() {
 fn test_blt_taken() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    regs.write(EReg::A0, (-10i64) as u64);
+    regs.write(EReg::A0, (-10i64).cast_unsigned());
     regs.write(EReg::A1, 10);
 
     let instructions = vec![Rv64Instruction::Blt {
@@ -1772,7 +1772,7 @@ fn test_lui_negative() {
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A0), ((-1i64) << 12) as u64);
+    assert_eq!(regs.read(EReg::A0), ((-1i64) << 12).cast_unsigned());
 }
 
 #[test]

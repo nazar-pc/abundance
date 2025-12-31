@@ -341,7 +341,7 @@ where
     Sector: ReadAtSync + 'a,
     PosProofGenerator: (FnMut(&PosSeed) -> Box<PosProofs>) + 'a,
 {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn new(
         public_key_hash: &'a Blake3Hash,
         sector_id: SectorId,

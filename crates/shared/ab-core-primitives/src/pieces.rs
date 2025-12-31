@@ -441,8 +441,9 @@ impl Record {
             // `[[MaybeUninit<T>; M]; N]`
             let slice = unsafe {
                 slice::from_raw_parts_mut(
-                    slice.as_mut_ptr()
-                        as *mut [[mem::MaybeUninit<u8>; RecordChunk::SIZE]; Record::NUM_CHUNKS],
+                    slice
+                        .as_mut_ptr()
+                        .cast::<[[mem::MaybeUninit<u8>; RecordChunk::SIZE]; Record::NUM_CHUNKS]>(),
                     length,
                 )
             };

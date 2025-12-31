@@ -20,7 +20,7 @@ const fn make_i_type(opcode: u32, rd: u8, funct3: u8, rs1: u8, imm: u32) -> u32 
 }
 
 const fn make_s_type(opcode: u32, funct3: u8, rs1: u8, rs2: u8, imm: i32) -> u32 {
-    let imm = imm as u32;
+    let imm = imm.cast_unsigned();
     opcode
         | ((imm & 0x1f) << 7)
         | ((funct3 as u32) << 12)
@@ -30,7 +30,7 @@ const fn make_s_type(opcode: u32, funct3: u8, rs1: u8, rs2: u8, imm: i32) -> u32
 }
 
 const fn make_b_type(opcode: u32, funct3: u8, rs1: u8, rs2: u8, imm: i32) -> u32 {
-    let imm = imm as u32;
+    let imm = imm.cast_unsigned();
     let imm11 = (imm >> 11) & 1;
     let imm4_1 = (imm >> 1) & 0xf;
     let imm10_5 = (imm >> 5) & 0x3f;
@@ -51,7 +51,7 @@ const fn make_u_type(opcode: u32, rd: u8, imm: u32) -> u32 {
 }
 
 const fn make_j_type(opcode: u32, rd: u8, imm: i32) -> u32 {
-    let imm = imm as u32;
+    let imm = imm.cast_unsigned();
     let imm19_12 = (imm >> 12) & 0xff;
     let imm11 = (imm >> 11) & 1;
     let imm10_1 = (imm >> 1) & 0x3ff;
@@ -1223,7 +1223,7 @@ fn test_lui() {
         decoded,
         Rv64Instruction::Lui {
             rd: Reg::Ra,
-            imm: 0x12345000u32 as i32
+            imm: 0x12345000
         }
     );
 }
@@ -1238,7 +1238,7 @@ fn test_auipc() {
         decoded,
         Rv64Instruction::Auipc {
             rd: Reg::Ra,
-            imm: 0x12345000u32 as i32
+            imm: 0x12345000
         }
     );
 }

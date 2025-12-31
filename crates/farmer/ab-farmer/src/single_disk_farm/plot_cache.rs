@@ -91,8 +91,6 @@ impl DiskPlotCache {
         let cached_pieces = {
             let sectors_metadata = sectors_metadata.read_blocking();
             let mut element = vec![0; Self::element_size() as usize];
-            // Clippy complains about `RecordKey`, but it is not changing here, so it is fine
-            #[allow(clippy::mutable_key_type)]
             let mut map = HashMap::new();
             let mut next_offset = None;
 

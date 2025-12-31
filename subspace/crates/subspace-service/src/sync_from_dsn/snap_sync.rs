@@ -60,7 +60,7 @@ impl From<String> for Error {
 
 /// Run a snap sync, return an error if snap sync is impossible and user intervention is required.
 /// Otherwise, just log the error and return `Ok(())` so that regular sync continues.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) async fn snap_sync<Block, AS, Client, PG>(
     segment_headers_store: SegmentHeadersStore<AS>,
     node: Node,
@@ -242,7 +242,7 @@ where
     Ok(Some((target_segment_index, blocks)))
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 /// Synchronize the blockchain to the last archived block. Returns false when sync is skipped.
 async fn sync<PG, AS, Block, Client, IQS>(
     segment_headers_store: &SegmentHeadersStore<AS>,

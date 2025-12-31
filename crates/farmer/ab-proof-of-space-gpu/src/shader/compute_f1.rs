@@ -169,7 +169,7 @@ pub unsafe fn compute_f1(
         // TODO: More idiomatic version currently doesn't compile:
         //  https://github.com/Rust-GPU/rust-gpu/issues/241#issuecomment-3005693043
         let block_write_offset = block_index as usize * CHACHA8_BLOCK_WORDS;
-        #[allow(clippy::manual_memcpy, reason = "Doesn't compile under rust-gpu")]
+        #[expect(clippy::manual_memcpy, reason = "Doesn't compile under rust-gpu")]
         for offset in 0..CHACHA8_BLOCK_WORDS {
             chacha8_keystream[block_write_offset + offset] = block[offset];
         }

@@ -169,4 +169,17 @@ missing_debug_implementations = "warn"
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_arch, values("spirv"))'], priority = 1 }
 
 [workspace.lints.clippy]
+allow_attributes = "warn"
+# TODO: It'd be nice to have this, but there is way too much code that uses it correctly that would be very unergonomic
+#  to change. Waiting for a brave soul to do something about it eventually.
+# arithmetic_side_effects = "warn"
+as_pointer_underscore = "warn"
+as_ptr_cast_mut = "deny"
+assigning_clones = "warn"
+cast_possible_wrap = "warn"
+# TODO: It'd be nice to have this, but there is way too much code that uses it correctly that would be very unergonomic
+#  to change. Waiting for a brave soul to do something about it eventually.
+#cast_possible_truncation = "warn"
+cast_sign_loss = "warn"
+ptr_as_ptr = "warn"
 undocumented_unsafe_blocks = "warn"

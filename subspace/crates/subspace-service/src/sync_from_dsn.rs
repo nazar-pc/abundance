@@ -102,7 +102,7 @@ enum NotificationReason {
 
 /// Create node observer that will track node state and send notifications to worker to start sync
 /// from DSN.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(super) fn create_observer_and_worker<Block, AS, NB, Client, PG>(
     segment_headers_store: SegmentHeadersStore<AS>,
     network_service: Arc<dyn NetworkService>,
@@ -267,7 +267,7 @@ async fn create_substrate_network_observer(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn create_worker<Block, AS, IQS, NB, Client, PG>(
     segment_headers_store: SegmentHeadersStore<AS>,
     node: &Node,

@@ -271,7 +271,7 @@ impl From<SubstrateConfiguration> for Configuration {
 
 /// Subspace networking instantiation variant
 #[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 pub enum SubspaceNetworking {
     /// Use existing networking instance
     Reuse {

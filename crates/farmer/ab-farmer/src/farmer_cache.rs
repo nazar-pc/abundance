@@ -337,7 +337,6 @@ where
                         }
                     };
 
-                    #[allow(clippy::mutable_key_type)]
                     let mut cache_stored_pieces = HashMap::new();
                     let mut cache_free_offsets = Vec::new();
 

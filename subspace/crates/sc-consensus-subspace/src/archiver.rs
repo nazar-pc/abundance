@@ -1108,7 +1108,7 @@ where
 }
 
 /// Tries to archive `block_number` and returns new (or old if not changed) best archived block
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn archive_block<Block, Backend, Client, AS>(
     archiver: &mut Archiver,
     segment_headers_store: SegmentHeadersStore<AS>,

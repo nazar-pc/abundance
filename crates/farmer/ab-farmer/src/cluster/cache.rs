@@ -72,7 +72,7 @@ impl Decode for ClusterCacheId {
     }
 }
 
-#[allow(clippy::new_without_default)]
+#[expect(clippy::new_without_default)]
 impl ClusterCacheId {
     /// Creates new ID
     #[inline]

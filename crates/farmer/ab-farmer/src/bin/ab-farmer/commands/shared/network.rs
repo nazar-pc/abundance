@@ -78,7 +78,7 @@ pub(in super::super) struct NetworkArgs {
     pub(in super::super) external_addresses: Vec<Multiaddr>,
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(in super::super) fn configure_network<FarmIndex, NC>(
     protocol_prefix: String,
     base_path: &Path,
