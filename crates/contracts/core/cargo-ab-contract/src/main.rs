@@ -1,9 +1,9 @@
 use ab_cli_utils::init_logger;
 use ab_contract_file::ContractFile;
+use ab_contracts_tooling::build::{BuildOptions, build_cdylib};
 use ab_contracts_tooling::convert::convert;
 use ab_contracts_tooling::target_specification::TargetSpecification;
 use anyhow::Context;
-use cargo_metadata::MetadataCommand;
 use clap::Parser;
 use std::env;
 use std::fs::{read, write};
@@ -20,7 +20,9 @@ enum Cli {
     ///
     /// Note that unoptimized builds are not supported, hence `release` by default.
     Build {
-        /// Package to build
+        /// Package to build.
+        ///
+        /// A package in the current directory is built if not specified explicitly.
         #[arg(long, short = 'p')]
         package: Option<String>,
         /// Comma separated list of features to activate
@@ -85,6 +87,13 @@ pub fn main() -> anyhow::Result<()> {
             let target_specification =
                 TargetSpecification::create(&TargetSpecification::default_base_dir()?)?;
 
+            let cdylib_path = build_cdylib(BuildOptions {
+                package: package.as_deref(),
+                features: features.as_deref(),
+                profile: &profile,
+                target_specification_path: target_specification.path(),
+            })?;
+
             let mut command_builder = Command::new("cargo");
             command_builder.args([
                 "rustc",
@@ -99,69 +108,11 @@ pub fn main() -> anyhow::Result<()> {
                     .context("Path to target specification file is not valid UTF-8")?,
             ]);
 
-            if let Some(package) = &package {
-                command_builder.args([
-                    "--package",
-                    package,
-                    "--features",
-                    &format!("{package}/guest"),
-                ]);
-            } else {
-                command_builder.args(["--features", "guest"]);
-            }
-            if let Some(features) = features {
-                command_builder.args(["--features", &features]);
-            }
-
-            command_builder.args(["--profile", &profile]);
-
-            let metadata = MetadataCommand::new()
-                .exec()
-                .expect("Failed to fetch cargo metadata");
-
-            let cdylib_path = metadata
-                .target_directory
-                .as_std_path()
-                .join("riscv64em-unknown-none-abundance")
-                .join(&profile)
-                .join({
-                    let package_name = if let Some(package) = &package {
-                        package
-                    } else {
-                        let current_dir =
-                            env::current_dir().context("Failed to get current directory")?;
-                        let current_manifest = current_dir.join("Cargo.toml");
-                        metadata
-                            .packages
-                            .iter()
-                            .find_map(|package| {
-                                if package.manifest_path == current_manifest {
-                                    Some(&package.name)
-                                } else {
-                                    None
-                                }
-                            })
-                            .context("Failed to find package name")?
-                    };
-
-                    format!("{}.contract.so", package_name.replace('-', "_"))
-                });
-
-            println!("Building ELF cdylib at {}", cdylib_path.display());
-            println!("Command:");
-            println!("  {:?}", command_builder);
-
-            let status = command_builder
-                .status()
-                .context("Failed to build a contract")?;
-
-            if !status.success() {
-                return Err(anyhow::anyhow!("Failed to build a contract"));
-            }
-
             let contract_path = cdylib_path.with_extension("");
 
-            println!("Converting to `.contract` at {}", contract_path.display());
+            println!("Built ELF `cdylib` successfully, converting to `.contract` file:");
+            println!("  Input file: {}", cdylib_path.display());
+            println!("  Output file: {}", contract_path.display());
 
             let input_bytes = read(cdylib_path).context("Failed to read input file")?;
             let output_bytes = convert(&input_bytes)?;

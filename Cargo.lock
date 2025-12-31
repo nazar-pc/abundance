@@ -308,6 +308,7 @@ dependencies = [
  "ab-contracts-common",
  "ab-io-type",
  "anyhow",
+ "cargo_metadata 0.23.1",
  "dirs",
  "object",
  "tracing",
@@ -1548,7 +1549,6 @@ dependencies = [
  "ab-contract-file",
  "ab-contracts-tooling",
  "anyhow",
- "cargo_metadata 0.23.1",
  "clap",
 ]
 

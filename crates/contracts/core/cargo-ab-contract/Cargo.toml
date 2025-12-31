@@ -17,7 +17,6 @@ all-features = true
 ab-cli-utils = { workspace = true }
 ab-contract-file = { workspace = true }
 ab-contracts-tooling = { workspace = true }
-cargo_metadata = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true }
 
