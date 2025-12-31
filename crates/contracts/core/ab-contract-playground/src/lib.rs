@@ -118,21 +118,16 @@ impl Playground {
     }
 
     #[view]
-    pub fn balance2(#[slot] target: &MaybeData<Slot>, #[output] balance: &mut MaybeData<Balance>) {
-        balance.replace(
-            target
-                .get()
-                .map_or_else(Balance::default, |slot| slot.balance),
-        );
-    }
-
-    #[view]
-    pub fn balance3(#[slot] target: &MaybeData<Slot>, #[output] result: &mut MaybeData<Balance>) {
-        result.replace(
-            target
-                .get()
-                .map_or_else(Balance::default, |slot| slot.balance),
-        );
+    pub fn balance_output(
+        #[slot] target: &MaybeData<Slot>,
+        #[output] balance: &mut MaybeData<Balance>,
+        #[output] balance_2: &mut Balance,
+    ) {
+        let value = target
+            .get()
+            .map_or_else(Balance::default, |slot| slot.balance);
+        balance.replace(value);
+        *balance_2 = value;
     }
 
     #[view]

@@ -177,7 +177,7 @@ where
 
         DerefWrapper(Self {
             data: NonNull::from_mut(buffer),
-            size: NonNull::from_ref(size),
+            size: NonNull::from_mut(size),
         })
     }
 

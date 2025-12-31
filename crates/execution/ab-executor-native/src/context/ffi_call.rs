@@ -25,8 +25,8 @@ macro_rules! read_ptr {
     }};
 }
 
-/// Write a `$src` pointer of type `$ty` into `$internal`, advance `$internal` past written pointer
-/// and return pointer to the written location
+/// Write a `$src` pointer of type `$ty` into `$internal`, advance `$internal` past the written
+/// pointer, and return a pointer to the written location
 macro_rules! write_ptr {
     ($src:expr => $internal:ident as $ty:ty) => {{
         let ptr = NonNull::<*mut c_void>::cast::<$ty>($internal);
@@ -39,7 +39,7 @@ macro_rules! write_ptr {
 }
 
 /// Read a pointer from `$external`, write into `$internal`, advance both `$external` and
-/// `$internal` by pointer size and return read pointer
+/// `$internal` by pointer size, and return a read pointer
 macro_rules! copy_ptr {
     ($external:ident => $internal:ident as $ty:ty) => {{
         let ptr;
@@ -64,7 +64,7 @@ struct DelayedProcessingSlotReadOnly {
 
 #[derive(Copy, Clone)]
 struct DelayedProcessingSlotReadWrite {
-    /// Pointer to `InternalArgs` where guest will store a pointer to potentially updated slot
+    /// Pointer to `InternalArgs` where the guest will store a pointer to potentially updated slot
     /// contents
     data_ptr: NonNull<*mut u8>,
     /// Pointer to `InternalArgs` where guest will store potentially updated slot size,
@@ -279,7 +279,7 @@ impl<'env> MaybeEnv<Env<'env>, NestedSlots<'env>> {
         // SAFETY: Nothing is accessing `env` right now as per function signature
         let env = unsafe { env.as_mut_unchecked() };
         let env = env.get_mut();
-        // SAFETY: this is the correct original type and nothing else is referencing it right now
+        // SAFETY: this is the correct original type, and nothing else is referencing it right now
         let context = unsafe {
             &mut *ptr::from_mut::<dyn ExecutorContext + 'tmp>(env.get_mut_executor_context())
                 .cast::<NativeExecutorContext<'env>>()
@@ -303,8 +303,8 @@ pub(super) fn make_ffi_call<'slots, 'external_args, CreateNestedContext>(
 where
     CreateNestedContext: FnOnce(NestedSlots<'slots>, bool) -> NativeExecutorContext<'slots>,
 {
-    // Allocate a buffer that will contain incrementally built `InternalArgs` that method expects,
-    // according to its metadata.
+    // Allocate a buffer that will contain incrementally built `InternalArgs` that the method
+    // expects, according to its metadata.
     // `* 4` is due the worst case being to have a slot with 4 pointers: address + data + size +
     // capacity.
     let mut internal_args =
@@ -453,8 +453,8 @@ where
                 })
             };
 
-            // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above and
-            // aligned correctly
+            // SAFETY: `internal_args_cursor`'s memory is allocated with the sufficient size above
+            // and aligned correctly
             unsafe {
                 write_ptr!(state_bytes.as_ptr() => internal_args_cursor as *const u8);
                 write_ptr!(&result.size => internal_args_cursor as *const u32);
@@ -490,8 +490,8 @@ where
             // SAFETY: Number of arguments checked above
             let result = unsafe { delayed_processing.insert_rw(entry) };
 
-            // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above and
-            // aligned correctly
+            // SAFETY: `internal_args_cursor`'s memory is allocated with the sufficient size above
+            // and aligned correctly
             unsafe {
                 result.data_ptr =
                     write_ptr!(state_bytes.as_mut_ptr() => internal_args_cursor as *mut u8);
@@ -522,8 +522,8 @@ where
                 // Allocate and create a pointer now, the actual value will be inserted towards the
                 // end of the function
                 let env_ro = maybe_env.insert_ro().cast::<Env<'_>>();
-                // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
-                // and aligned correctly
+                // SAFETY: `internal_args_cursor`'s memory is allocated with the sufficient size
+                // above and aligned correctly
                 unsafe {
                     write_ptr!(env_ro => internal_args_cursor as *const Env<'_>);
                 }
@@ -539,8 +539,8 @@ where
                 // end of the function
                 let env_rw = maybe_env.insert_rw().cast::<Env<'_>>();
 
-                // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
-                // and aligned correctly
+                // SAFETY: `internal_args_cursor`'s memory is allocated with the sufficient size
+                // above and aligned correctly
                 unsafe {
                     write_ptr!(env_rw => internal_args_cursor as *mut Env<'_>);
                 }
@@ -580,8 +580,8 @@ where
                     })
                 };
 
-                // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
-                // and aligned correctly
+                // SAFETY: `internal_args_cursor`'s memory is allocated with the sufficient size
+                // above and aligned correctly
                 unsafe {
                     if !tmp {
                         write_ptr!(owner => internal_args_cursor as *const Address);
@@ -628,8 +628,8 @@ where
                 // SAFETY: Number of arguments checked above
                 let result = unsafe { delayed_processing.insert_rw(entry) };
 
-                // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size above
-                // and aligned correctly
+                // SAFETY: `internal_args_cursor`'s memory is allocated with the sufficient size
+                // above and aligned correctly
                 unsafe {
                     if !tmp {
                         write_ptr!(owner => internal_args_cursor as *const Address);
@@ -641,8 +641,8 @@ where
                 }
             }
             ArgumentKind::Input => {
-                // SAFETY: `external_args_cursor`'s must contain a pointers to input + size.
-                // `internal_args_cursor`'s memory is allocated with sufficient size above and
+                // SAFETY: `external_args_cursor`'s must contain pointers to input + size.
+                // `internal_args_cursor`'s memory is allocated with the sufficient size above and
                 // aligned correctly.
                 unsafe {
                     // Input
@@ -653,7 +653,8 @@ where
             }
             ArgumentKind::Output => {
                 let last_argument = argument_index == num_arguments - 1;
-                // `#[init]` method returns state of the contract and needs to be stored accordingly
+                // `#[init]` method returns the state of the contract and needs to be stored
+                // accordingly
                 if matches!((method_kind, last_argument), (MethodKind::Init, true)) {
                     if view_only {
                         return Err(ContractError::Forbidden);
@@ -683,7 +684,7 @@ where
                     // SAFETY: Number of arguments checked above
                     let result = unsafe { delayed_processing.insert_rw(entry) };
 
-                    // SAFETY: `internal_args_cursor`'s memory is allocated with sufficient size
+                    // SAFETY: `internal_args_cursor`'s memory is allocated with the sufficient size
                     // above and aligned correctly
                     unsafe {
                         result.data_ptr =
@@ -692,10 +693,10 @@ where
                         write_ptr!(&result.capacity => internal_args_cursor as *const u32);
                     }
                 } else {
-                    // SAFETY: `external_args_cursor`'s must contain a pointers to input + size
+                    // SAFETY: `external_args_cursor`'s must contain pointers to input + size
                     // + capacity.
-                    // `internal_args_cursor`'s memory is allocated with sufficient size above and
-                    // aligned correctly.
+                    // `internal_args_cursor`'s memory is allocated with the sufficient size above
+                    // and aligned correctly.
                     unsafe {
                         // Output
                         if last_argument && is_allocate_new_address_method {
@@ -705,13 +706,7 @@ where
                             copy_ptr!(external_args_cursor => internal_args_cursor as *mut u8);
                         }
                         // Size (might be a null pointer for trivial types)
-                        let size_ptr =
-                            copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
-                        if !size_ptr.is_null() {
-                            // Override output size to be zero even if caller guest tried to put
-                            // something there
-                            size_ptr.write(0);
-                        }
+                        copy_ptr!(external_args_cursor => internal_args_cursor as *mut u32);
                         // Capacity
                         copy_ptr!(external_args_cursor => internal_args_cursor as *const u32);
                     }
@@ -729,11 +724,11 @@ where
     };
 
     // Will only read initialized number of pointers, hence `NonNull<c_void>` even though there is
-    // likely slack capacity with uninitialized data
+    // likely free capacity with uninitialized data
     let internal_args = internal_args.cast::<NonNull<c_void>>();
 
     // SAFETY: FFI function was generated at the same time as corresponding `Args` and must match
-    // ABI of the fingerprint or else it wouldn't compile
+    // ABI of the fingerprint, or else it wouldn't compile
     let result = Result::<(), ContractError>::from(unsafe { ffi_fn(internal_args) });
 
     // SAFETY: No live references to `maybe_env`
@@ -748,7 +743,7 @@ where
     // Catch new address allocation and add it to new contracts in slots for code and other things
     // to become usable for it
     if let Some(new_address_ptr) = new_address_ptr {
-        // Assert that the API has expected shape
+        // Assert that the API has the expected shape
         let _: fn(&mut AddressAllocator, &mut Env<'_>) -> Result<Address, ContractError> =
             AddressAllocator::allocate_address;
         // SAFETY: Method call to address allocator succeeded, so it must have returned an address

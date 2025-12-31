@@ -59,7 +59,7 @@ pub mod __private;
 /// ## #\[view]
 ///
 /// Similar to `#[update]`, but can only access read-only view of the state and slots, can be called
-/// outside of block context and can only call other `#[view]` methods.
+/// outside of the block context and can only call other `#[view]` methods.
 ///
 /// The following arguments are supported by this method (must be in this order):
 /// * `&self`
@@ -105,8 +105,9 @@ pub mod __private;
 ///   and removes the need to construct [`ExternalArgs`] manually, providing nice strongly typed
 ///   methods instead, implemented for [`Env`] struct (for struct and trait implementation, trait
 ///   definitions)
-/// * Metadata as defined in [`ContractMetadataKind`] stored in `CONTRACT_METADATA` link section
-///   when compiled with `guest` feature enabled (for method, struct and trait implementation)
+/// * Metadata as defined in [`ContractMetadataKind`] stored in the `ab-contract-metadata` link
+///   section when compiled with `guest` feature enabled (for method, struct, and trait
+///   implementation)
 ///
 /// ## [`Contract`] trait implementation
 ///
@@ -171,11 +172,12 @@ pub mod __private;
 ///
 /// `InternalArgs` is generated for each method and is used as input to the above FFI functions. Its
 /// fields are generated based on function arguments, processing them in the same order as in
-/// function signature. It is possible for host to build this data structure dynamically using
+/// function signature. It is possible for the host to build this data structure dynamically using
 /// available contact metadata.
 ///
 /// All fields in the data structure are pointers, some are read-only, some can be written to if
-/// changes need to be communicated back to the host.
+/// changes need to be communicated back to the host. `read-only` here means that the host will not
+/// read the value, even if the contract modifies it.
 ///
 /// ### `&self`
 ///
@@ -373,20 +375,20 @@ pub mod __private;
 /// }
 /// ```
 ///
-/// Initially output is empty, but contract can write something useful there and written value will
-/// be propagated back to the caller to observe. `output_ptr` pointer *must not be changed* as the
-/// host will not follow it to the new address, the output size is fully constrained by capacity
-/// specified in `output_capacity`. The only exception is the last `#[output]` of `#[init]` method
-/// (or `ReturnValue` if present), which is the contract's initial state. In this case, its pointer
-/// can be changed to point to a different data structure and not being limited by `result_capacity`
-/// allocation from the host.
-///
-/// NOTE: Even in case the method call fails, the host may modify the contents of the output.
+/// Initially output is initialized by the caller (typically empty), but contract can write
+/// something useful there and written value will be propagated back to the caller to observe.
+/// `output_ptr` pointer *must not be changed* as the host will not follow it to the new address,
+/// the output size is fully constrained by capacity specified in `output_capacity`. The only
+/// exception is the last `#[output]` of `#[init]` method (or `ReturnValue` if present), which is
+/// the contract's initial state. In this case, its pointer can be changed to point to a different
+/// data structure and not being limited by `result_capacity` allocation from the host.
 ///
 /// `#[output]` may be used as an alternative to `-> ReturnValue` and
 /// `-> Result<ReturnValue, ContractError>` in case the data structure is large and allocation on
 /// the stack is undesirable, which is especially helpful in case of a variable-sized contract
 /// state.
+///
+/// *`output_size` might be a null pointer if the output type is [`TrivialType`]!*
 ///
 /// NOTE: In case `ReturnValue` in `-> ReturnValue` or `-> Result<ReturnValue, ContractError>` is
 /// `()`, it will be skipped in `InternalArgs`.
@@ -433,7 +435,7 @@ pub mod __private;
 /// host and not present in `ExternalArgs`.
 ///
 /// `ExternalArgs::new()` method is generated for convenient construction of the instance, though in
-/// most cases [Extension trait] is used with more convenient API.
+/// most cases [Extension trait] is used with a more convenient API.
 ///
 /// [Extension trait]: #extension-trait
 ///
@@ -480,13 +482,18 @@ pub mod __private;
 ///
 /// The arguments are skipped in `ExternalArgs` for the last `#[output]` or `ReturnValue` when
 /// method is `#[init]` or when `ReturnValue` is `()` in other cases. For `#[init]` method's return
-/// value is contract's initial state and is processed by execution environment itself. When
+/// value is the contract's initial state and is processed by the execution environment itself. When
 /// `ReturnValue` is `()` then there is no point in having a pointer for it.
+///
+/// The host will propagate the current value that `output_size` points to to the caller, so that
+/// the callee can both read and write to it.
+///
+/// *`output_size` might be a null pointer if the output type is [`TrivialType`]!*
 ///
 /// ## Extension trait
 ///
 /// Extension trait is just a convenient wrapper, whose safe methods take strongly typed arguments,
-/// construct `ExternalArgs` while respecting Rust safety invariants and calls [`Env::call()`] with
+/// construct `ExternalArgs` while respecting Rust safety invariants, and calls [`Env::call()`] with
 /// it. Extension trait usage is not mandatory, but it does make method calls much more convenient
 /// in most simple cases.
 ///
@@ -561,7 +568,8 @@ pub mod __private;
 /// There are several places where metadata is being generated, see [`ContractMetadataKind`] for
 /// details.
 ///
-/// First, `#[contract]` macro generates a public `METADATA` constant for each method individually.
+/// First, the `#[contract]` macro generates a public `METADATA` constant for each method
+/// individually.
 ///
 /// Second, for each trait that contract can implement `#[contract]` macro generates an associated
 /// constant `METADATA` that essentially aggregates metadata of all annotated methods.
@@ -571,8 +579,8 @@ pub mod __private;
 /// for traits described above.
 ///
 /// Lastly, for the whole contract as a project, both trait and contract metadata is concatenated
-/// and stored in `CONTRACT_METADATA` link section that can later be inspected externally to
-/// understand everything about contract's interfaces, auto-generate UI, etc.
+/// and stored in the `ab-contract-metadata` link section that can later be inspected externally to
+/// understand everything about the contract's interfaces, auto-generate UI, etc.
 ///
 /// [`Contract`]: ab_contracts_common::Contract
 /// [`TrivialType`]: ab_io_type::trivial_type::TrivialType
