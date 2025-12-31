@@ -456,7 +456,8 @@ async fn initialize_farm(
             let mut plotted_pieces_guard = plotted_pieces.write().await;
             plotted_pieces_guard.add_sector(farm_index, &plotted_sector);
 
-            // Drop the guard immediately to make sure other tasks are able to access the plotted pieces
+            // Drop the guard immediately to make sure other tasks are able to access the plotted
+            // pieces
             drop(plotted_pieces_guard);
 
             task::yield_now().await;

@@ -37,8 +37,8 @@ impl GenericRequest for CachedPieceByIndexRequest {
 }
 
 impl CachedPieceByIndexRequest {
-    /// Max number of cached piece indexes to accept per request, equals to the number of source shards in
-    /// a sector and fits nicely into a single TCP packet
+    /// Max number of cached piece indexes to accept per request, equals to the number of source
+    /// shards in a sector and fits nicely into a single TCP packet
     pub const RECOMMENDED_LIMIT: usize = 128;
 }
 
@@ -137,8 +137,8 @@ pub enum PieceResult {
 pub struct CachedPieceByIndexResponse {
     /// Piece result
     pub result: PieceResult,
-    /// Additional pieces that requester is interested in and are cached locally, order from request
-    /// is not preserved
+    /// Additional pieces that requester is interested in and are cached locally, order from
+    /// request is not preserved
     pub cached_pieces: Vec<PieceIndex>,
 }
 

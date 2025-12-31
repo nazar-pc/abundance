@@ -151,8 +151,8 @@ where
                 match StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
                     Ok(container) => container,
                     Err(_error) => {
-                        // Page group header fit the first page, so any deciding error indicates it is
-                        // not a valid page group header
+                        // Page group header fit the first page, so any deciding error indicates it
+                        // is not a valid page group header
                         return Err(ClientDatabaseError::Unformatted);
                     }
                 };

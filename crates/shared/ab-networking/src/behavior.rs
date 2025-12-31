@@ -42,8 +42,8 @@ pub(crate) struct BehaviorConfig {
     pub(crate) gossipsub: Option<GossipsubConfig>,
     /// The configuration for the [`RequestResponsesBehaviour`] protocol.
     pub(crate) request_response_protocols: Vec<Box<dyn RequestHandler>>,
-    /// The upper bound for the number of concurrent inbound + outbound streams for request/response
-    /// protocols.
+    /// The upper bound for the number of concurrent inbound + outbound streams for
+    /// request/response protocols.
     pub(crate) request_response_max_concurrent_streams: usize,
     /// Connection limits for the swarm.
     pub(crate) connection_limits: ConnectionLimits,

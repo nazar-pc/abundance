@@ -42,7 +42,8 @@ pub(crate) struct AuditOptions {
     /// Example:
     ///   /path/to/directory
     disk_farm: PathBuf,
-    /// Optional filter for benchmarks, must correspond to a part of benchmark name in order for benchmark to run
+    /// Optional filter for benchmarks, must correspond to a part of benchmark name in order for
+    /// benchmark to run
     filter: Option<String>,
 }
 
@@ -65,10 +66,11 @@ pub(crate) struct ProveOptions {
     /// Example:
     ///   /path/to/directory
     disk_farm: PathBuf,
-    /// Optional filter for benchmarks, must correspond to a part of benchmark name in order for benchmark to run
+    /// Optional filter for benchmarks, must correspond to a part of benchmark name in order for
+    /// benchmark to run
     filter: Option<String>,
-    /// Limit number of sectors audited to specified number, this limits amount of memory used by benchmark (normal
-    /// farming process doesn't use this much RAM)
+    /// Limit number of sectors audited to specified number, this limits amount of memory used by
+    /// benchmark (normal farming process doesn't use this much RAM)
     #[arg(long)]
     limit_sector_count: Option<usize>,
 }

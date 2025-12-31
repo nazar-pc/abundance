@@ -98,7 +98,8 @@ const RESERVED_PLOT_METADATA: u64 = 1024 * 1024;
 const RESERVED_FARM_INFO: u64 = 1024 * 1024;
 const NEW_SEGMENT_PROCESSING_DELAY: Duration = Duration::from_mins(10);
 
-/// Exclusive lock for single disk farm info file, ensuring no concurrent edits by cooperating processes is done
+/// Exclusive lock for single disk farm info file, ensuring no concurrent edits by cooperating
+/// processes is done
 #[derive(Debug)]
 #[must_use = "Lock file must be kept around or as long as farm is used"]
 pub struct SingleDiskFarmInfoLock {
@@ -190,8 +191,8 @@ impl SingleDiskFarmInfo {
         Ok(lock.then_some(SingleDiskFarmInfoLock { _file: file }))
     }
 
-    /// Try to acquire exclusive lock on the single disk farm info file, ensuring no concurrent edits by cooperating
-    /// processes is done
+    /// Try to acquire exclusive lock on the single disk farm info file, ensuring no concurrent
+    /// edits by cooperating processes is done
     pub fn try_lock(directory: &Path) -> io::Result<SingleDiskFarmInfoLock> {
         let file = File::open(directory.join(Self::FILE_NAME))?;
         fs4::fs_std::FileExt::try_lock_exclusive(&file)?;

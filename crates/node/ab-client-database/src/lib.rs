@@ -216,9 +216,9 @@ pub struct ClientDatabaseFormatOptions {
     ///
     /// [`AlignedPage`]: crate::storage_backend::AlignedPage
     ///
-    /// Each group always has a set of storage items with monotonically increasing sequence numbers.
-    /// The database only frees page groups for reuse when all storage items there are no longer in
-    /// use.
+    /// Each group always has a set of storage items with monotonically increasing sequence
+    /// numbers. The database only frees page groups for reuse when all storage items there are
+    /// no longer in use.
     ///
     /// A smaller number means storage can be reclaimed for reuse more quickly and higher
     /// concurrency during restart, but must not be too small that no storage item fits within a
@@ -372,8 +372,8 @@ where
 ///
 /// Originally all blocks are stored in memory. Once a block is soft-confirmed (see
 /// [`ClientDatabaseOptions::soft_confirmation_depth`]), it is persisted (likely on disk). Later
-///  when it is "confirmed" fully (see [`ClientDatabaseOptions::soft_confirmation_depth`]), it becomes
-/// irreversible.
+///  when it is "confirmed" fully (see [`ClientDatabaseOptions::soft_confirmation_depth`]), it
+/// becomes irreversible.
 #[derive(Debug)]
 enum ClientDatabaseBlock<Block>
 where
@@ -444,8 +444,8 @@ where
 {
     /// Tips of forks that have no descendants.
     ///
-    /// The current best block is at the front, the rest are in the order from most recently updated
-    /// towards the front to least recently at the back.
+    /// The current best block is at the front, the rest are in the order from most recently
+    /// updated towards the front to least recently at the back.
     fork_tips: VecDeque<ForkTip>,
     /// Map from block root to block number.
     ///
@@ -457,9 +457,9 @@ where
     /// The first element of the first entry corresponds to the best block.
     ///
     /// It is expected that in most block numbers there will be exactly one block, some two,
-    /// anything more than that will be very rare. The list of forks for a block number is organized
-    /// in such a way that the first entry at every block number corresponds to the canonical
-    /// version of the blockchain at any point in time.
+    /// anything more than that will be very rare. The list of forks for a block number is
+    /// organized in such a way that the first entry at every block number corresponds to the
+    /// canonical version of the blockchain at any point in time.
     ///
     /// A position withing this data structure is called "block offset". This is an ephemeral value
     /// and changes as new best blocks are added. Blocks at the same height are collectively called

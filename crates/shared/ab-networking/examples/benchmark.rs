@@ -83,7 +83,8 @@ struct Args {
     /// Multiaddresses of bootstrap nodes to connect to on startup, multiple are supported
     #[arg(long = "bootstrap-node", required = true)]
     bootstrap_nodes: Vec<Multiaddr>,
-    /// Determines whether we allow keeping non-global (private, shared, loopback..) addresses in Kademlia DHT.
+    /// Determines whether we allow keeping non-global (private, shared, loopback..) addresses in
+    /// Kademlia DHT.
     #[arg(long, default_value_t = false)]
     allow_private_ips: bool,
     /// Protocol version for libp2p stack, should be set as genesis hash of the blockchain for

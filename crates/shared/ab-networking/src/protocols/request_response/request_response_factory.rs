@@ -26,11 +26,11 @@
 //!   with the request itself. The remote then sends the size of the response as a LEB128 number,
 //!   followed with the response.
 //!
-//! - Requests have a certain time limit before they time out. This time includes the time it
-//!   takes to send/receive the request and response.
+//! - Requests have a certain time limit before they time out. This time includes the time it takes
+//!   to send/receive the request and response.
 //!
-//! - If provided, a ["requests processing"](ProtocolConfig::inbound_queue) channel
-//!   is used to handle incoming requests.
+//! - If provided, a ["requests processing"](ProtocolConfig::inbound_queue) channel is used to
+//!   handle incoming requests.
 //!
 //! Original file commit: <https://github.com/paritytech/substrate/commit/c2fc4b3ca0d7a15cc3f9cb1e5f441d99ec8d6e0b>
 

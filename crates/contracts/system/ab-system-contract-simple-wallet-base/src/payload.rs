@@ -222,7 +222,8 @@ pub enum TransactionPayloadDecoderError {
 pub struct TransactionPayloadDecoder<'a> {
     payload: &'a [u8],
     external_args_buffer: &'a mut [*mut c_void],
-    // TODO: Cast `output_buffer` into `&'a mut [MaybeUninit<u8>]` and remove `output_buffer_cursor`
+    // TODO: Cast `output_buffer` into `&'a mut [MaybeUninit<u8>]` and remove
+    //  `output_buffer_cursor`
     output_buffer: &'a mut [MaybeUninit<u128>],
     output_buffer_cursor: usize,
     output_buffer_offsets: &'a mut [MaybeUninit<(u32, u32)>],

@@ -13,7 +13,8 @@ impl ShaderBytes<[u8]> {
         assert!(align_of_val(self) == align_of::<u32>());
         let shader_bytes = &self.0;
 
-        // SAFETY: Correctly aligned, all bit patterns are valid, lifetime is static before and after
+        // SAFETY: Correctly aligned, all bit patterns are valid, lifetime is static before and
+        // after
         let shader_bytes = unsafe {
             slice::from_raw_parts(
                 shader_bytes.as_ptr().cast::<u32>(),

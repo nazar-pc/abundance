@@ -15,11 +15,11 @@ use std::task::{Context, Poll};
 // TODO: Upstream these capabilities
 pub(crate) struct Behaviour {
     inner: ConnectionLimitsBehaviour,
-    /// For every peer ID store both their expected IP addresses as well as number of incoming connection attempts
-    /// allowed before this allow list entry no longer has an effect
+    /// For every peer ID store both their expected IP addresses as well as number of incoming
+    /// connection attempts allowed before this allow list entry no longer has an effect
     incoming_allow_list: HashMap<PeerId, (HashSet<IpAddr>, usize)>,
-    /// For every peer ID store number of outgoing connection attempts allowed before this allow list entry no longer
-    /// has an effect
+    /// For every peer ID store number of outgoing connection attempts allowed before this allow
+    /// list entry no longer has an effect
     outgoing_allow_list: HashMap<PeerId, usize>,
 }
 
@@ -32,7 +32,8 @@ impl Behaviour {
         }
     }
 
-    /// Add to allow list some attempts of incoming connections from specified peer ID that will bypass global limits
+    /// Add to allow list some attempts of incoming connections from specified peer ID that will
+    /// bypass global limits
     pub(crate) fn add_to_incoming_allow_list<IpAddresses>(
         &mut self,
         peer: PeerId,

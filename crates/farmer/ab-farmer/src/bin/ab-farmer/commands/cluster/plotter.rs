@@ -28,8 +28,8 @@ const PLOTTING_RETRY_INTERVAL: Duration = Duration::from_secs(5);
 #[derive(Debug, Parser)]
 struct CpuPlottingOptions {
     /// How many sectors the farmer will download concurrently. Limits the memory usage of
-    /// the plotting process. Defaults to `--cpu-sector-encoding-concurrency` + 1 to download future
-    /// sector ahead of time.
+    /// the plotting process. Defaults to `--cpu-sector-encoding-concurrency` + 1 to download
+    /// future sector ahead of time.
     ///
     /// Increasing this value will cause higher memory usage.
     #[arg(long)]
@@ -54,8 +54,9 @@ struct CpuPlottingOptions {
     /// on UMA system and number of logical CPUs available in NUMA node on NUMA system or L3 cache
     /// groups on large CPUs.
     ///
-    /// The number of thread pools is defined by `--cpu-sector-encoding-concurrency` option. Different
-    /// thread pools might have different numbers of threads if NUMA nodes do not have the same size.
+    /// The number of thread pools is defined by `--cpu-sector-encoding-concurrency` option.
+    /// Different thread pools might have different numbers of threads if NUMA nodes do not
+    /// have the same size.
     ///
     /// Threads will be pinned to corresponding CPU cores at creation.
     #[arg(long)]

@@ -38,8 +38,8 @@ pub const fn concat_metadata_sources(sources: &[&[u8]]) -> ([u8; MAX_METADATA_CA
 pub struct IoTypeDetails {
     /// Recommended capacity that must be allocated by the host.
     ///
-    /// If actual data is larger, it will be passed down to the guest as it is, if smaller than host
-    /// must allocate the recommended capacity for guest anyway.
+    /// If actual data is larger, it will be passed down to the guest as it is, if smaller than the
+    /// host must allocate the recommended capacity for guest anyway.
     pub recommended_capacity: u32,
     /// Alignment of the type
     pub alignment: NonZeroU8,

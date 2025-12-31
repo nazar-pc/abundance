@@ -19,7 +19,8 @@
 //! Known segment headers contain all known (including future in case of syncing) segment headers.
 //! It is available to other parts of the protocol that need to know what the correct archival
 //! history of the blockchain looks like through [`ChainInfo`]. For example, it is used during node
-//! sync and farmer plotting to verify pieces of archival history received from other network participants.
+//! sync and farmer plotting to verify pieces of archival history received from other network
+//! participants.
 //!
 //! [`recreate_genesis_segment`] is a bit of a hack and is useful for deriving of the genesis
 //! segment that is a special case since we don't have enough data in the blockchain history itself
@@ -57,8 +58,8 @@ const ACKNOWLEDGEMENT_TIMEOUT: Duration = Duration::from_mins(2);
 // TODO: Maybe use or remove if database handles this completely on its own
 // /// How deep (in segments) should block be in order to be finalized.
 // ///
-// /// This is required for full nodes to not prune recent history such that keep-up sync in Substrate
-// /// works even without archival nodes (initial sync will be done from DSN).
+// /// This is required for full nodes to not prune recent history such that keep-up sync in
+// /// Substrate works even without archival nodes (initial sync will be done from DSN).
 // ///
 // /// Ideally, we'd decouple pruning from finalization, but it may require invasive changes in
 // /// Substrate and is not worth it right now.
@@ -82,7 +83,8 @@ pub struct ArchivedSegmentNotification {
 pub struct ObjectMappingNotification {
     /// Incremental object mappings for a block (and any previous block continuation).
     ///
-    /// The archived data won't be available in pieces until the entire segment is full and archived.
+    /// The archived data won't be available in pieces until the entire segment is full and
+    /// archived.
     pub object_mapping: Vec<GlobalObject>,
     /// The block that these mappings are from.
     pub block_number: BlockNumber,
@@ -355,12 +357,14 @@ where
 
     let mut best_block_to_archive = best_block_number.saturating_sub(confirmation_depth_k);
     // Choose a lower block number if we want to get mappings from that specific block.
-    // If we are continuing from where we left off, we don't need to change the block number to archive.
-    // If there is no path to this block from the tip due to snap sync, we'll start archiving from
-    // an earlier segment, then start mapping again once archiving reaches this block.
+    // If we are continuing from where we left off, we don't need to change the block number to
+    // archive. If there is no path to this block from the tip due to snap sync, we'll start
+    // archiving from an earlier segment, then start mapping again once archiving reaches this
+    // block.
     if let Some(block_number) = create_object_mappings.block() {
         // There aren't any mappings in the genesis block, so starting there is pointless.
-        // (And causes errors on restart, because genesis block data is never stored during snap sync.)
+        // (And causes errors on restart, because genesis block data is never stored during snap
+        // sync.)
         best_block_to_archive = best_block_to_archive.min(block_number);
     }
 
@@ -376,9 +380,9 @@ where
     }
 
     // TODO: Uncomment once API for object mapping is established
-    // // If the user chooses an object mapping start block we don't have data or state for, we can't
-    // // create mappings for it, so the node must exit with an error. We ignore genesis here, because
-    // // it doesn't have mappings.
+    // // If the user chooses an object mapping start block we don't have data or state for, we
+    // // can't create mappings for it, so the node must exit with an error. We ignore genesis
+    // // here, because it doesn't have mappings.
     // if create_object_mappings.is_enabled() && best_block_to_archive >= BlockNumber::ONE {
     //     let Some(best_block_to_archive_root) = client.root(NumberFor::<Block>::saturated_from(
     //         best_block_to_archive.as_u64(),
@@ -413,7 +417,8 @@ where
     //     //             format!(
     //     //                 "Missing state for mapping block {best_block_to_archive} \
     //     //                 root {best_block_to_archive_root}: {error}, \
-    //     //                 try a higher block number, or wipe your node and restart with `--sync full`"
+    //     //                 try a higher block number, or wipe your node and restart with
+    //     //                 `--sync full`"
     //     //             )
     //     //             .into(),
     //     //         )

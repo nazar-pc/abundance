@@ -460,7 +460,8 @@ fn thread_pool_core_indices_internal(
                 });
             }
         } else {
-            // If thread pool size is not fixed, create threads pools with `total_cpu_cores/thread_pools` threads
+            // If thread pool size is not fixed, create threads pools with
+            // `total_cpu_cores/thread_pools` threads
 
             let all_cpu_cores = all_cpu_cores
                 .iter()
@@ -541,8 +542,9 @@ fn create_plotting_thread_pool_manager_thread_pool_pair(
 /// (each thread to all cors in a set, not thread per core). Each thread will also have Tokio
 /// context available.
 ///
-/// The easiest way to obtain CPUs is using [`all_cpu_cores`], but [`thread_pool_core_indices`] in case
-/// support for user customizations is desired. They will then have to be composed into pairs for this function.
+/// The easiest way to obtain CPUs is using [`all_cpu_cores`], but [`thread_pool_core_indices`] in
+/// case support for user customizations is desired. They will then have to be composed into pairs
+/// for this function.
 pub fn create_plotting_thread_pool_manager<I>(
     mut cpu_core_sets: I,
     thread_priority: Option<ThreadPriority>,

@@ -101,8 +101,8 @@ async fn basic_request_response_works() {
     let mut swarm_0 = swarms.remove(0);
     let mut swarm_1 = swarms.remove(0);
 
-    // Ask `swarm_0` to dial `swarm_1`. There isn't any discovery mechanism in place in this test, so they wouldn't
-    // connect to each other.
+    // Ask `swarm_0` to dial `swarm_1`. There isn't any discovery mechanism in place in this test,
+    // so they wouldn't connect to each other.
     swarm_0.connect(&mut swarm_1).await;
 
     let peer_id_0 = *swarm_0.local_peer_id();
@@ -177,14 +177,14 @@ async fn max_response_size_exceeded() {
     let mut swarm_0 = swarms.remove(0);
     let mut swarm_1 = swarms.remove(0);
 
-    // Ask `swarm_0` to dial `swarm_1`. There isn't any discovery mechanism in place in this test, so they wouldn't
-    // connect to each other.
+    // Ask `swarm_0` to dial `swarm_1`. There isn't any discovery mechanism in place in this test,
+    // so they wouldn't connect to each other.
     swarm_0.connect(&mut swarm_1).await;
 
     let peer_id_0 = *swarm_0.local_peer_id();
 
-    // Running `swarm_0` in the background until a `InboundRequest` event happens, which is a hint about the test
-    // having ended.
+    // Running `swarm_0` in the background until a `InboundRequest` event happens, which is a hint
+    // about the test having ended.
     tokio::spawn(async move {
         loop {
             if let SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) =

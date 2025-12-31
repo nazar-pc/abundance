@@ -67,8 +67,8 @@ type FarmIndex = u8;
 #[derive(Debug, Parser)]
 struct CpuPlottingOptions {
     /// How many sectors a farmer will download concurrently. Limits memory usage of
-    /// the plotting process. Defaults to `--cpu-sector-encoding-concurrency` + 1 to download future
-    /// sector ahead of time.
+    /// the plotting process. Defaults to `--cpu-sector-encoding-concurrency` + 1 to download
+    /// future sector ahead of time.
     ///
     /// Increasing this value will cause higher memory usage.
     #[arg(long)]
@@ -94,7 +94,8 @@ struct CpuPlottingOptions {
     /// groups on large CPUs.
     ///
     /// Number of thread pools is defined by `--cpu-sector-encoding-concurrency` option, different
-    /// thread pools might have different number of threads if NUMA nodes do not have the same size.
+    /// thread pools might have different number of threads if NUMA nodes do not have the same
+    /// size.
     ///
     /// Threads will be pinned to corresponding CPU cores at creation.
     #[arg(long)]
@@ -116,7 +117,8 @@ struct CpuPlottingOptions {
     /// cache group on large CPUs.
     ///
     /// Number of thread pools is defined by `--cpu-sector-encoding-concurrency` option, different
-    /// thread pools might have different number of threads if NUMA nodes do not have the same size.
+    /// thread pools might have different number of threads if NUMA nodes do not have the same
+    /// size.
     ///
     /// Threads will be pinned to corresponding CPU cores at creation.
     #[arg(long)]
@@ -176,9 +178,9 @@ pub(crate) struct FarmingArgs {
     tmp: Option<ByteSize>,
     /// Maximum number of pieces in a sector (can override protocol value to something lower).
     ///
-    /// This will make plotting of individual sectors faster, decrease load on CPU proving, but also
-    /// proportionally increase amount of disk reads during audits since every sector needs to be
-    /// audited and there will be more of them.
+    /// This will make plotting of individual sectors faster, decrease load on CPU proving, but
+    /// also proportionally increase amount of disk reads during audits since every sector
+    /// needs to be audited and there will be more of them.
     ///
     /// This is primarily for development and not recommended for regular users.
     #[arg(long)]
@@ -208,8 +210,8 @@ pub(crate) struct FarmingArgs {
     /// How many sectors a will be plotted concurrently per farm.
     ///
     /// Defaults to 2, but can be decreased if there is a large number of farms available to
-    /// decrease peak memory usage, especially with slow disks, or slightly increased to utilize all
-    /// compute available in case of a single farm.
+    /// decrease peak memory usage, especially with slow disks, or slightly increased to utilize
+    /// all compute available in case of a single farm.
     ///
     /// Increasing this value is not recommended and can result in excessive RAM usage due to more
     /// sectors being stuck in-flight if writes to farm disk are too slow.
@@ -864,7 +866,8 @@ where
                 cpu_sector_encoding_concurrency,
             );
             if cpu_replotting_thread_pool_size.is_none() {
-                // The default behavior is to use all CPU cores, but for replotting we just want half
+                // The default behavior is to use all CPU cores, but for replotting we just want
+                // half
                 replotting_thread_pool_core_indices
                     .iter_mut()
                     .for_each(|set| set.truncate(set.cpu_cores().len() / 2));

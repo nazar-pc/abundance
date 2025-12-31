@@ -53,7 +53,8 @@ pub(crate) struct ChunkCandidate {
 
 /// Audit a single sector and generate a stream of solutions.
 ///
-/// This is primarily helpful in test environment, prefer [`audit_plot_sync`] for auditing real plots.
+/// This is primarily helpful in test environment, prefer [`audit_plot_sync`] for auditing real
+/// plots.
 // TODO: Struct for arguments
 #[expect(clippy::too_many_arguments)]
 pub fn audit_sector_sync<'a, Sector>(
