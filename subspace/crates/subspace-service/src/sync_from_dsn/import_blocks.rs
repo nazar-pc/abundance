@@ -1,22 +1,22 @@
-use crate::sync_from_dsn::segment_header_downloader::SegmentHeaderDownloader;
 use crate::sync_from_dsn::PieceGetter;
+use crate::sync_from_dsn::segment_header_downloader::SegmentHeaderDownloader;
 use ab_archiving::reconstructor::Reconstructor;
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::segments::SegmentIndex;
 use ab_data_retrieval::segment_downloading::{
-    download_segment_pieces, SEGMENT_DOWNLOAD_RETRIES, SEGMENT_DOWNLOAD_RETRY_DELAY,
+    SEGMENT_DOWNLOAD_RETRIES, SEGMENT_DOWNLOAD_RETRY_DELAY, download_segment_pieces,
 };
 use ab_erasure_coding::ErasureCoding;
 use sc_client_api::{AuxStore, BlockBackend, HeaderBackend};
-use sc_consensus::import_queue::ImportQueueService;
 use sc_consensus::IncomingBlock;
-use sc_consensus_subspace::archiver::{decode_block, encode_block, SegmentHeadersStore};
+use sc_consensus::import_queue::ImportQueueService;
+use sc_consensus_subspace::archiver::{SegmentHeadersStore, decode_block, encode_block};
 use sc_service::Error;
 use sc_tracing::tracing::{debug, info, trace};
 use sp_consensus::BlockOrigin;
+use sp_runtime::SaturatedConversion;
 use sp_runtime::generic::SignedBlock;
 use sp_runtime::traits::{Block as BlockT, Header, Zero};
-use sp_runtime::SaturatedConversion;
 use std::mem;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

@@ -1,12 +1,12 @@
 use crate::dsn::DsnConfig;
 use ab_data_retrieval::piece_getter::PieceGetter;
-use ab_networking::libp2p::Multiaddr;
 use ab_networking::Node;
+use ab_networking::libp2p::Multiaddr;
 use sc_chain_spec::ChainSpec;
 use sc_consensus_subspace::archiver::CreateObjectMappings;
 use sc_network::config::{
-    MultiaddrWithPeerId, NetworkBackendType, NetworkConfiguration, NodeKeyConfig, SetConfig,
-    SyncMode, TransportConfig, DEFAULT_KADEMLIA_REPLICATION_FACTOR,
+    DEFAULT_KADEMLIA_REPLICATION_FACTOR, MultiaddrWithPeerId, NetworkBackendType,
+    NetworkConfiguration, NodeKeyConfig, SetConfig, SyncMode, TransportConfig,
 };
 use sc_service::config::{
     ExecutorConfiguration, IpNetwork, KeystoreConfig, OffchainWorkerConfig, PrometheusConfig,
@@ -23,8 +23,8 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use tokio::runtime::Handle;
 
 /// The default max request size in MB, copied from Substrate

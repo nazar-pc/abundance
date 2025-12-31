@@ -70,7 +70,7 @@ where
         &'a self,
         piece_indices: Vec<PieceIndex>,
     ) -> anyhow::Result<
-        Box<dyn Stream<Item=(PieceIndex, anyhow::Result<Option<Piece>>)> + Send + Unpin + 'a>,
+        Box<dyn Stream<Item = (PieceIndex, anyhow::Result<Option<Piece>>)> + Send + Unpin + 'a>,
     > {
         let stream = self
             .0
@@ -115,20 +115,20 @@ pub(super) fn create_observer_and_worker<Block, AS, NB, Client, PG>(
     piece_getter: PG,
     erasure_coding: ErasureCoding,
 ) -> (
-    impl Future<Output=()> + Send + 'static,
-    impl Future<Output=Result<(), sc_service::Error>> + Send + 'static,
+    impl Future<Output = ()> + Send + 'static,
+    impl Future<Output = Result<(), sc_service::Error>> + Send + 'static,
 )
 where
     Block: BlockT,
     AS: AuxStore + Send + Sync + 'static,
     NB: NetworkBlock<Block::Hash, NumberFor<Block>> + Send + 'static,
     Client: HeaderBackend<Block>
-    + BlockBackend<Block>
-    + BlockchainEvents<Block>
-    + ProvideRuntimeApi<Block>
-    + Send
-    + Sync
-    + 'static,
+        + BlockBackend<Block>
+        + BlockchainEvents<Block>
+        + ProvideRuntimeApi<Block>
+        + Send
+        + Sync
+        + 'static,
     Client::Api: SubspaceApi<Block>,
     PG: PieceGetter + Send + Sync + 'static,
 {
@@ -152,7 +152,7 @@ where
             &piece_getter,
             &erasure_coding,
         )
-            .await
+        .await
     };
     (observer_fut, worker_fut)
 }
@@ -214,7 +214,7 @@ async fn create_imported_blocks_observer<Block, Client>(
             NO_IMPORTED_BLOCKS_TIMEOUT,
             import_notification_stream.next(),
         )
-            .await
+        .await
         {
             Ok(Some(_notification)) => {
                 // Do nothing
@@ -254,7 +254,7 @@ async fn create_substrate_network_observer(
         if is_online
             && !was_online
             && let Err(error) =
-            notifications_sender.try_send(NotificationReason::WentOnlineSubstrate)
+                notifications_sender.try_send(NotificationReason::WentOnlineSubstrate)
             && error.is_disconnected()
         {
             // Receiving side was closed
@@ -286,11 +286,11 @@ where
     IQS: ImportQueueService<Block> + ?Sized,
     NB: NetworkBlock<Block::Hash, NumberFor<Block>>,
     Client: HeaderBackend<Block>
-    + BlockBackend<Block>
-    + ProvideRuntimeApi<Block>
-    + Send
-    + Sync
-    + 'static,
+        + BlockBackend<Block>
+        + ProvideRuntimeApi<Block>
+        + Send
+        + Sync
+        + 'static,
     Client::Api: SubspaceApi<Block>,
     PG: PieceGetter,
 {
