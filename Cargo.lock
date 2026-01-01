@@ -250,6 +250,7 @@ dependencies = [
  "ab-core-primitives",
  "ab-io-type",
  "blake3",
+ "derive_destructure2",
  "derive_more 2.1.1",
  "no-panic",
  "thiserror 2.0.17",
@@ -2135,6 +2136,17 @@ checksum = "ececcb659e7ba858fb4f10388c250a7252eb0a27373f1a72b8748afdd248e587"
 dependencies = [
  "powerfmt",
  "serde_core",
+]
+
+[[package]]
+name = "derive_destructure2"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64b697ac90ff296f0fc031ee5a61c7ac31fb9fff50e3fb32873b09223613fc0c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.112",
 ]
 
 [[package]]
