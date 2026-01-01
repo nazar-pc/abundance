@@ -6,7 +6,7 @@ title: ""
 🚧 Project Abundance 🚧
 </h1>
 
-Researching next-gen blockchain architecture (as of 2025) to achieve ultimate scalability in permissionless setting and
+Researching next-gen blockchain architecture (as of 2026) to achieve ultimate scalability in permissionless setting and
 fully resolve Blockchain Trilemma. May or may not succeed but must be fun.
 
 <div class="flex justify-center">
