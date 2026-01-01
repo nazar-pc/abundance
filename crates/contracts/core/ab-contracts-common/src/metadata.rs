@@ -168,20 +168,20 @@ impl ContractMetadataKind {
     // TODO: Create wrapper type for metadata bytes and move this method there
     /// Produce compact metadata.
     ///
-    /// Compact metadata retains the shape, but throws some details. Specifically following
+    /// Compact metadata retains the shape but throws some details. Specifically, the following
     /// transformations are applied to metadata (crucially, method names are retained!):
-    /// * Struct, trait, enum and enum variant names removed (replaced with 0 bytes names)
+    /// * Struct, trait, enum, and enum variant names removed (replaced with 0 bytes names)
     /// * Structs and enum variants turned into tuple variants (removing field names)
-    /// * Method argument names removed (removing argument names)
+    /// * Method argument names removed
     ///
     /// This means that two methods with different argument names or struct field names, but the
     /// same shape otherwise are considered identical, allowing for limited future refactoring
     /// opportunities without changing compact metadata shape, which is important for
-    /// [`MethodFingerprint`].
+    /// [`MethodFingerprint`] (though [`Self::compact_external_args()`] is used by it internally).
     ///
     /// [`MethodFingerprint`]: crate::method::MethodFingerprint
     ///
-    /// Returns `None` if input is invalid or too long.
+    /// Returns `None` if the input is invalid or too long.
     pub const fn compact(metadata: &[u8]) -> Option<([u8; MAX_METADATA_CAPACITY], usize)> {
         compact_metadata(metadata, false)
     }
@@ -189,11 +189,13 @@ impl ContractMetadataKind {
     // TODO: Create wrapper type for metadata bytes and move this method there
     /// Produce compact metadata for `ExternalArgs`.
     ///
-    /// Similar to [`Self::compact()`] arguments that are not reflected in `ExternalArgs` will be
-    /// skipped since they don't impact `ExternalArgs` API. This is used for `MethodFingerprint`
-    /// derivation.
+    /// Similar to [`Self::compact()`], but arguments that are not reflected in `ExternalArgs` will
+    /// be skipped since they don't impact `ExternalArgs` API. This is used for
+    /// [`MethodFingerprint`] derivation.
     ///
-    /// Returns `None` if input is invalid or too long.
+    /// [`MethodFingerprint`]: crate::method::MethodFingerprint
+    ///
+    /// Returns `None` if the input is invalid or too long.
     pub const fn compact_external_args(
         metadata: &[u8],
     ) -> Option<([u8; MAX_METADATA_CAPACITY], usize)> {

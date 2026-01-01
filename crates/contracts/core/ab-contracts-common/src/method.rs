@@ -19,12 +19,8 @@ impl MethodFingerprint {
     /// `None` is returned for invalid metadata (see
     /// [`ContractMetadataKind::compact_external_args()`] for details).
     pub const fn new(method_metadata: &[u8]) -> Option<Self> {
-        // `?` is not supported in `const` environment
-        let Some((compact_metadata_scratch, compact_metadata_size)) =
-            ContractMetadataKind::compact_external_args(method_metadata)
-        else {
-            return None;
-        };
+        let (compact_metadata_scratch, compact_metadata_size) =
+            ContractMetadataKind::compact_external_args(method_metadata)?;
         let compact_metadata = compact_metadata_scratch.get(..compact_metadata_size)?;
 
         Some(Self(Blake3Hash::new(const_hash(compact_metadata))))

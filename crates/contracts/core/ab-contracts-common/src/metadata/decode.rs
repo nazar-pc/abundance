@@ -125,17 +125,13 @@ impl<'metadata> MetadataDecoder<'metadata> {
     pub fn decode_next<'a>(
         &'a mut self,
     ) -> Option<Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>>> {
-        if self.metadata.is_empty() {
-            return None;
-        }
-
         // Decode method kind
-        let Some(metadata_kind) = ContractMetadataKind::try_from_u8(self.metadata[0]) else {
+        let metadata_kind = *self.metadata.split_off_first()?;
+        let Some(metadata_kind) = ContractMetadataKind::try_from_u8(metadata_kind) else {
             return Some(Err(MetadataDecodingError::InvalidFirstMetadataByte {
-                byte: self.metadata[0],
+                byte: metadata_kind,
             }));
         };
-        self.metadata = &self.metadata[1..];
 
         self.found_something = true;
 
@@ -176,32 +172,30 @@ impl<'metadata> MetadataDecoder<'metadata> {
     fn decode_contract<'a>(
         &'a mut self,
     ) -> Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>> {
-        // Decode state type name without moving metadata cursor
+        // Decode state type name without moving the metadata cursor
         let state_type_name = IoTypeMetadataKind::type_name(self.metadata)
             .ok_or(MetadataDecodingError::FailedToDecodeStateTypeName)?;
 
-        // Decode recommended capacity of the state type
+        // Decode the recommended capacity of the state type
         let state_type_details;
         (state_type_details, self.metadata) = IoTypeMetadataKind::type_details(self.metadata)
             .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
-        // Decode recommended capacity of the `#[slot]` type
+        // Decode the recommended capacity of the `#[slot]` type
         let slot_type_details;
         (slot_type_details, self.metadata) = IoTypeMetadataKind::type_details(self.metadata)
             .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
-        // Decode recommended capacity of the `#[tmp]` type
+        // Decode the recommended capacity of the `#[tmp]` type
         let tmp_type_details;
         (tmp_type_details, self.metadata) = IoTypeMetadataKind::type_details(self.metadata)
             .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
-        if self.metadata.is_empty() {
-            return Err(MetadataDecodingError::NotEnoughMetadata);
-        }
-
         // Decode the number of methods
-        let num_methods = self.metadata[0];
-        self.metadata = &self.metadata[1..];
+        let num_methods = *self
+            .metadata
+            .split_off_first()
+            .ok_or(MetadataDecodingError::NotEnoughMetadata)?;
 
         Ok(MetadataItem::Contract {
             state_type_name,
@@ -222,25 +216,24 @@ impl<'metadata> MetadataDecoder<'metadata> {
     fn decode_trait<'a>(
         &'a mut self,
     ) -> Result<MetadataItem<'a, 'metadata>, MetadataDecodingError<'metadata>> {
-        if self.metadata.is_empty() {
-            return Err(MetadataDecodingError::NotEnoughMetadata);
-        }
-
         // Decode trait name
-        let trait_name_length = usize::from(self.metadata[0]);
-        self.metadata = &self.metadata[1..];
+        let trait_name_length = usize::from(
+            *self
+                .metadata
+                .split_off_first()
+                .ok_or(MetadataDecodingError::NotEnoughMetadata)?,
+        );
 
-        // +1 for number of arguments
-        if self.metadata.len() < trait_name_length + 1 {
-            return Err(MetadataDecodingError::NotEnoughMetadata);
-        }
-
-        let trait_name = &self.metadata[..trait_name_length];
-        self.metadata = &self.metadata[trait_name_length..];
+        let trait_name = self
+            .metadata
+            .split_off(..trait_name_length)
+            .ok_or(MetadataDecodingError::NotEnoughMetadata)?;
 
         // Decode the number of methods
-        let num_methods = self.metadata[0];
-        self.metadata = &self.metadata[1..];
+        let num_methods = *self
+            .metadata
+            .split_off_first()
+            .ok_or(MetadataDecodingError::NotEnoughMetadata)?;
 
         Ok(MetadataItem::Trait {
             trait_name,
@@ -413,14 +406,15 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
     > {
         let (metadata, container_kind) = self.destructure();
 
-        if metadata.is_empty() {
-            return Err(MetadataDecodingError::NotEnoughMetadata);
-        }
-
         // Decode method kind
-        let metadata_kind = ContractMetadataKind::try_from_u8(metadata[0])
-            .ok_or(MetadataDecodingError::InvalidFirstMetadataByte { byte: metadata[0] })?;
-        *metadata = &metadata[1..];
+        let metadata_kind = *metadata
+            .split_off_first()
+            .ok_or(MetadataDecodingError::NotEnoughMetadata)?;
+        let metadata_kind = ContractMetadataKind::try_from_u8(metadata_kind).ok_or(
+            MetadataDecodingError::InvalidFirstMetadataByte {
+                byte: metadata_kind,
+            },
+        )?;
 
         let method_kind = match metadata_kind {
             ContractMetadataKind::Init => MethodKind::Init,
@@ -469,25 +463,21 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
             });
         }
 
-        if metadata.is_empty() {
-            return Err(MetadataDecodingError::NotEnoughMetadata);
-        }
-
         // Decode method name
-        let method_name_length = usize::from(metadata[0]);
-        *metadata = &metadata[1..];
+        let method_name_length = usize::from(
+            *metadata
+                .split_off_first()
+                .ok_or(MetadataDecodingError::NotEnoughMetadata)?,
+        );
 
-        // +1 for number of arguments
-        if metadata.len() < method_name_length + 1 {
-            return Err(MetadataDecodingError::NotEnoughMetadata);
-        }
-
-        let method_name = &metadata[..method_name_length];
-        *metadata = &metadata[method_name_length..];
+        let method_name = metadata
+            .split_off(..method_name_length)
+            .ok_or(MetadataDecodingError::NotEnoughMetadata)?;
 
         // Decode the number of arguments
-        let num_arguments = metadata[0];
-        *metadata = &metadata[1..];
+        let num_arguments = *metadata
+            .split_off_first()
+            .ok_or(MetadataDecodingError::NotEnoughMetadata)?;
 
         let decoder = ArgumentsMetadataDecoder {
             metadata,
@@ -599,17 +589,16 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
     fn decode_argument<'a>(
         &'a mut self,
     ) -> Result<ArgumentMetadataItem<'metadata>, MetadataDecodingError<'metadata>> {
-        if self.metadata.is_empty() {
-            return Err(MetadataDecodingError::NotEnoughMetadata);
-        }
-
         // Decode method kind
-        let metadata_kind = ContractMetadataKind::try_from_u8(self.metadata[0]).ok_or(
+        let metadata_kind = *self
+            .metadata
+            .split_off_first()
+            .ok_or(MetadataDecodingError::NotEnoughMetadata)?;
+        let metadata_kind = ContractMetadataKind::try_from_u8(metadata_kind).ok_or(
             MetadataDecodingError::InvalidFirstMetadataByte {
-                byte: self.metadata[0],
+                byte: metadata_kind,
             },
         )?;
-        *self.metadata = &self.metadata[1..];
 
         let argument_kind = match metadata_kind {
             ContractMetadataKind::EnvRo => ArgumentKind::EnvRo,
@@ -675,21 +664,17 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             | ArgumentKind::SlotRw
             | ArgumentKind::Input
             | ArgumentKind::Output => {
-                if self.metadata.is_empty() {
-                    return Err(MetadataDecodingError::NotEnoughMetadata);
-                }
-
                 // Decode argument name
-                let argument_name_length = usize::from(self.metadata[0]);
-                *self.metadata = &self.metadata[1..];
-
-                // +1 for number of arguments
-                if self.metadata.len() < argument_name_length {
-                    return Err(MetadataDecodingError::NotEnoughMetadata);
-                }
-
-                let argument_name = &self.metadata[..argument_name_length];
-                *self.metadata = &self.metadata[argument_name_length..];
+                let argument_name_length = usize::from(
+                    *self
+                        .metadata
+                        .split_off_first()
+                        .ok_or(MetadataDecodingError::NotEnoughMetadata)?,
+                );
+                let argument_name = self
+                    .metadata
+                    .split_off(..argument_name_length)
+                    .ok_or(MetadataDecodingError::NotEnoughMetadata)?;
 
                 let recommended_capacity = match argument_kind {
                     ArgumentKind::EnvRo
