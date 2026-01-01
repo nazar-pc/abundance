@@ -5,7 +5,6 @@
 
 #![cfg_attr(target_arch = "spirv", no_std)]
 #![feature(
-    array_windows,
     bigint_helper_methods,
     generic_const_exprs,
     ptr_as_ref_unchecked,
@@ -16,13 +15,7 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 #![cfg_attr(
     all(test, not(target_arch = "spirv")),
-    feature(
-        const_convert,
-        const_trait_impl,
-        maybe_uninit_fill,
-        maybe_uninit_slice,
-        maybe_uninit_write_slice
-    )
+    feature(const_convert, const_trait_impl, maybe_uninit_fill)
 )]
 
 #[cfg(not(target_arch = "spirv"))]

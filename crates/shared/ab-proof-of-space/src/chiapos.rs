@@ -65,13 +65,13 @@ impl From<Box<Proofs<{ PosProof::K }>>> for Box<PosProofs> {
     fn from(proofs: Box<Proofs<{ PosProof::K }>>) -> Self {
         // Statically ensure types are the same
         const {
-            assert!(size_of::<Proofs<{ PosProof::K }>>() == size_of::<PosProofs>());
-            assert!(align_of::<Proofs<{ PosProof::K }>>() == align_of::<PosProofs>());
-            assert!(
-                offset_of!(Proofs<{ PosProof::K }>, found_proofs)
-                    == offset_of!(PosProofs, found_proofs)
-            );
-            assert!(offset_of!(Proofs<{ PosProof::K }>, proofs) == offset_of!(PosProofs, proofs));
+            // TODO: Latest nightly can't understand `{ PosProof::K }` for some reason, hence a
+            //  separate assert
+            assert!(PosProof::K == 20);
+            assert!(size_of::<Proofs<20>>() == size_of::<PosProofs>());
+            assert!(align_of::<Proofs<20>>() == align_of::<PosProofs>());
+            assert!(offset_of!(Proofs<20>, found_proofs) == offset_of!(PosProofs, found_proofs));
+            assert!(offset_of!(Proofs<20>, proofs) == offset_of!(PosProofs, proofs));
         }
         // SAFETY: Both structs have an identical layout with `#[repr(C)]` internals
         unsafe { Box::from_raw(Box::into_raw(proofs).cast()) }

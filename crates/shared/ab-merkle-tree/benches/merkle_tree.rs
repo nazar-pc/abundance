@@ -1,5 +1,5 @@
 #![expect(incomplete_features, reason = "generic_const_exprs")]
-#![feature(generic_const_exprs, maybe_uninit_slice)]
+#![feature(generic_const_exprs)]
 
 use ab_merkle_tree::balanced::{
     BalancedMerkleTree, compute_root_only_large_stack_size, ensure_supported_n,

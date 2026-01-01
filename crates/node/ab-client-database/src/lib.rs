@@ -50,8 +50,6 @@
     iter_collect_into,
     maybe_uninit_as_bytes,
     maybe_uninit_fill,
-    maybe_uninit_slice,
-    maybe_uninit_write_slice,
     push_mut,
     try_blocks
 )]

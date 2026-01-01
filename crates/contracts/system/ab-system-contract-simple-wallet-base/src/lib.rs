@@ -12,14 +12,7 @@
 //!   followed by [`SimpleWalletBase::increase_nonce`]
 //! * [`SimpleWalletBase::change_public_key`] is used for change public key to a different one
 
-#![feature(
-    maybe_uninit_as_bytes,
-    maybe_uninit_slice,
-    ptr_as_ref_unchecked,
-    slice_as_array,
-    try_blocks,
-    unchecked_shifts
-)]
+#![feature(maybe_uninit_as_bytes, ptr_as_ref_unchecked, try_blocks)]
 #![no_std]
 
 pub mod payload;

@@ -1,4 +1,4 @@
-#![feature(maybe_uninit_slice, trusted_len)]
+#![feature(trusted_len)]
 #![no_std]
 
 extern crate alloc;

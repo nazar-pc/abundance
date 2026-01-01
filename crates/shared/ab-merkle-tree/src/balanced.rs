@@ -305,7 +305,7 @@ where
     {
         let iter = self.leaves.as_chunks().0.iter().enumerate().flat_map(
             |(pair_index, &[left_hash, right_hash])| {
-                let mut left_proof = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); N.ilog2() as usize];
+                let mut left_proof = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); _];
                 left_proof[0].write(right_hash);
 
                 let left_proof = {
