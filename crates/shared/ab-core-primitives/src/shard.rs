@@ -11,8 +11,6 @@ use core::ops::RangeInclusive;
 use derive_more::Display;
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, Input, MaxEncodedLen};
-#[cfg(feature = "scale-codec")]
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -100,10 +98,7 @@ impl From<RealShardKind> for ShardKind {
 
 /// Shard index
 #[derive(Debug, Display, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct ShardIndex(u32);
@@ -228,10 +223,7 @@ impl ShardIndex {
 ///
 /// Should be converted into [`NumShards`] before use.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct NumShardsUnchecked {
@@ -252,7 +244,7 @@ impl From<NumShards> for NumShardsUnchecked {
 
 /// Number of shards in the network
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, TypeInfo, MaxEncodedLen))]
+#[cfg_attr(feature = "scale-codec", derive(Encode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct NumShards {
     /// The number of intermediate shards

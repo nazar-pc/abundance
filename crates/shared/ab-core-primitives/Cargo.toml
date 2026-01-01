@@ -28,7 +28,6 @@ once_cell = { workspace = true, features = ["alloc"], optional = true }
 parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
 rayon = { workspace = true, optional = true }
 rclite = { workspace = true, optional = true }
-scale-info = { workspace = true, features = ["derive"], optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 serde-big-array = { workspace = true }
 thiserror = { workspace = true }
@@ -50,7 +49,6 @@ alloc = [
 ]
 scale-codec = [
     "dep:parity-scale-codec",
-    "dep:scale-info",
     "ab-io-type/scale-codec",
     "alloc",
 ]

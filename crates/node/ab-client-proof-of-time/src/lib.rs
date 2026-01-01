@@ -5,11 +5,10 @@ pub mod verifier;
 
 use ab_core_primitives::pot::{PotOutput, PotParametersChange, PotSeed, SlotNumber};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
 use std::num::NonZeroU32;
 
 /// Next slot input for proof of time evaluation
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Decode, Encode, MaxEncodedLen)]
 pub struct PotNextSlotInput {
     /// Slot number
     pub slot: SlotNumber,

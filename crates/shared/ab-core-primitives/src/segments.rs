@@ -23,8 +23,6 @@ use derive_more::{
 };
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-#[cfg(feature = "scale-codec")]
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "serde")]
@@ -32,10 +30,7 @@ use serde_big_array::BigArray;
 
 /// Super segment root contained within beacon chain block
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct SuperSegmentRoot([u8; SuperSegmentRoot::SIZE]);
 
@@ -138,10 +133,7 @@ impl SuperSegmentRoot {
     DivAssign,
     TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct SegmentIndex(u64);
@@ -222,10 +214,7 @@ impl SegmentIndex {
 
 /// Segment root contained within segment header.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct SegmentRoot([u8; SegmentRoot::SIZE]);
 
@@ -335,10 +324,7 @@ impl SegmentRoot {
     DerefMut,
     TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 // Storing `SegmentIndex` to make all invariants valid
@@ -395,7 +381,7 @@ impl HistorySize {
 
 /// Progress of an archived block.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, TrivialType)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
@@ -437,7 +423,7 @@ impl ArchivedBlockProgress {
 
 /// Last archived block
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, TrivialType)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
@@ -480,7 +466,7 @@ impl LastArchivedBlock {
 /// segment headers that is used for quick and efficient verification that some `Piece`
 /// corresponds to the actual archival history of the blockchain.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, TrivialType)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]

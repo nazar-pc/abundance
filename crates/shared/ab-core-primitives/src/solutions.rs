@@ -20,8 +20,6 @@ use derive_more::{
 };
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-#[cfg(feature = "scale-codec")]
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
@@ -33,10 +31,7 @@ use serde_big_array::BigArray;
 #[derive(
     Debug, Display, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, From, Into,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct SolutionDistance(u64);
@@ -106,10 +101,7 @@ impl SolutionDistance {
     SubAssign,
     TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct SolutionRange(u64);
@@ -263,10 +255,7 @@ const _: () = {
 
 /// Proof for chunk contained within a record.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct ChunkProof([[u8; OUT_LEN]; ChunkProof::NUM_HASHES]);
 
@@ -510,10 +499,7 @@ pub trait SolutionPotVerifier {
     DerefMut,
     TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct ShardMembershipEntropy([u8; ShardMembershipEntropy::SIZE]);
 
@@ -640,10 +626,7 @@ impl ShardMembershipEntropy {
     DerefMut,
     TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct ShardCommitmentHash([u8; ShardCommitmentHash::SIZE]);
 
@@ -784,10 +767,7 @@ impl ShardCommitmentHash {
 
 /// Information about shard commitments in the solution
 #[derive(Clone, Copy, Debug, Eq, PartialEq, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
@@ -807,10 +787,7 @@ impl SolutionShardCommitment {
 
 /// Farmer solution for slot challenge.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]

@@ -20,8 +20,6 @@ use derive_more::{
 };
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-#[cfg(feature = "scale-codec")]
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -49,10 +47,7 @@ use serde::{Deserialize, Serialize};
     DivAssign,
     TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct SectorIndex(u16);
@@ -141,7 +136,7 @@ impl SectorSlotChallenge {
 
 /// Data structure representing sector ID in farmer's plot
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SectorId(Blake3Hash);
 
@@ -303,10 +298,7 @@ impl SectorId {
     Div,
     DivAssign,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct SBucket(u16);

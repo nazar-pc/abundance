@@ -7,10 +7,6 @@ use bytes::{Bytes, BytesMut};
 use core::ops::{Deref, DerefMut};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, EncodeLike, Input, Output};
-#[cfg(feature = "scale-codec")]
-use scale_info::build::Fields;
-#[cfg(feature = "scale-codec")]
-use scale_info::{Path, Type, TypeInfo};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -67,20 +63,6 @@ impl Decode for Piece {
         }
 
         Ok(Piece(CowBytes::Shared(bytes)))
-    }
-}
-
-#[cfg(feature = "scale-codec")]
-impl TypeInfo for Piece {
-    type Identity = Self;
-
-    fn type_info() -> Type {
-        Type::builder()
-            .path(Path::new("Piece", module_path!()))
-            .docs(&["A piece of archival history"])
-            .composite(
-                Fields::unnamed().field(|f| f.ty::<[u8; Piece::SIZE]>().type_name("PieceArray")),
-            )
     }
 }
 

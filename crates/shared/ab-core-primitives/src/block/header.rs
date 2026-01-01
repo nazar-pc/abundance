@@ -25,8 +25,6 @@ use core::{fmt, slice};
 use derive_more::{Deref, From};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-#[cfg(feature = "scale-codec")]
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use yoke::Yokeable;
@@ -70,10 +68,7 @@ where
 ///
 /// The prefix contains generic information known about the block before block creation starts.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
@@ -109,10 +104,7 @@ impl BlockHeaderPrefix {
 
 /// Consensus information in the block header
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
@@ -137,10 +129,7 @@ impl BlockHeaderConsensusInfo {
 
 /// Beacon chain info
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
@@ -167,10 +156,7 @@ impl BlockHeaderBeaconChainInfo {
 
 /// Consensus parameters (on the beacon chain)
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct BlockHeaderFixedConsensusParameters {
@@ -561,10 +547,7 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
 ///
 /// The result contains information that can only be computed after the block was created.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
@@ -593,10 +576,7 @@ impl BlockHeaderResult {
 
 /// Block header seal type
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(u8)]
@@ -621,10 +601,7 @@ impl BlockHeaderSealType {
 
 /// Ed25519 seal
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[repr(C)]
@@ -637,10 +614,7 @@ pub struct BlockHeaderEd25519Seal {
 
 /// Owned version of [`BlockHeaderSeal`]
 #[derive(Debug, Copy, Clone)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[non_exhaustive]

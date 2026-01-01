@@ -8,8 +8,6 @@ use derive_more::{Deref, From, Into};
 use ed25519_zebra::{Error, Signature, VerificationKey};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-#[cfg(feature = "scale-codec")]
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "serde")]
@@ -19,10 +17,7 @@ use serde_big_array::BigArray;
 #[derive(
     Default, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Deref, From, Into, TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct Ed25519PublicKey([u8; Ed25519PublicKey::SIZE]);
 
@@ -118,10 +113,7 @@ impl Ed25519PublicKey {
 
 /// Ed25519 signature
 #[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Deref, From, Into, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct Ed25519Signature([u8; Ed25519Signature::SIZE]);
 
