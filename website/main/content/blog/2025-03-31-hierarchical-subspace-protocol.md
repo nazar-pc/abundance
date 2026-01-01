@@ -1,5 +1,5 @@
 ---
-title: "Multi-shard Subspace Protocol"
+title: Hierarchical Subspace Protocol
 date: 2025-03-31
 draft: false
 description: Desigining a partitioned version of the Subspace protocol for increased scalability.
