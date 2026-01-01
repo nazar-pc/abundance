@@ -2,12 +2,7 @@ use crate::metadata::IoTypeMetadataKind;
 
 #[inline(always)]
 pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
-    if metadata.is_empty() {
-        return None;
-    }
-
-    let kind = IoTypeMetadataKind::try_from_u8(metadata[0])?;
-    metadata = skip_n_bytes(metadata, 1)?;
+    let kind = IoTypeMetadataKind::try_from_u8(*metadata.split_off_first()?)?;
 
     Some(match kind {
         IoTypeMetadataKind::Unit => b"()",
@@ -67,19 +62,9 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
         | IoTypeMetadataKind::EnumNoFields8
         | IoTypeMetadataKind::EnumNoFields9
         | IoTypeMetadataKind::EnumNoFields10 => {
-            if metadata.is_empty() {
-                return None;
-            }
+            let type_name_length = *metadata.split_off_first()?;
 
-            let type_name_length = metadata[0] as usize;
-            metadata = skip_n_bytes(metadata, 1)?;
-
-            if metadata.len() < type_name_length {
-                return None;
-            }
-
-            let (type_name, _) = metadata.split_at(type_name_length);
-            type_name
+            metadata.get(..usize::from(type_name_length))?
         }
         IoTypeMetadataKind::Array8b
         | IoTypeMetadataKind::Array16b
@@ -124,10 +109,4 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
         IoTypeMetadataKind::Address => b"Address",
         IoTypeMetadataKind::Balance => b"Balance",
     })
-}
-
-/// Skips `n` bytes and return remainder
-#[inline(always)]
-const fn skip_n_bytes(input: &[u8], n: usize) -> Option<&[u8]> {
-    input.get(n..)
 }

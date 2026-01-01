@@ -3,12 +3,7 @@ use core::num::NonZeroU8;
 
 #[inline(always)]
 pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDetails, &[u8])> {
-    if metadata.is_empty() {
-        return None;
-    }
-
-    let kind = IoTypeMetadataKind::try_from_u8(metadata[0])?;
-    metadata = skip_n_bytes(metadata, 1)?;
+    let kind = IoTypeMetadataKind::try_from_u8(*metadata.split_off_first()?)?;
 
     match kind {
         IoTypeMetadataKind::Unit => Some((
@@ -99,18 +94,13 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
         IoTypeMetadataKind::EnumNoFields9 => enum_capacity(metadata, Some(9), false),
         IoTypeMetadataKind::EnumNoFields10 => enum_capacity(metadata, Some(10), false),
         IoTypeMetadataKind::Array8b | IoTypeMetadataKind::VariableElements8b => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            let num_elements = metadata[0] as u32;
-            metadata = skip_n_bytes(metadata, size_of::<u8>())?;
+            let num_elements = *metadata.split_off_first()?;
 
             let type_details;
             (type_details, metadata) = decode_type_details(metadata)?;
             let recommended_capacity = type_details
                 .recommended_capacity
-                .checked_mul(num_elements)?;
+                .checked_mul(u32::from(num_elements))?;
             Some((
                 IoTypeDetails {
                     recommended_capacity,
@@ -174,14 +164,9 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
         IoTypeMetadataKind::ArrayU8x2028 => Some((IoTypeDetails::bytes(2028), metadata)),
         IoTypeMetadataKind::ArrayU8x4096 => Some((IoTypeDetails::bytes(4096), metadata)),
         IoTypeMetadataKind::VariableBytes8b => {
-            if metadata.is_empty() {
-                return None;
-            }
+            let num_bytes = *metadata.split_off_first()?;
 
-            let num_bytes = metadata[0] as u32;
-            metadata = skip_n_bytes(metadata, size_of::<u8>())?;
-
-            Some((IoTypeDetails::bytes(num_bytes), metadata))
+            Some((IoTypeDetails::bytes(u32::from(num_bytes)), metadata))
         }
         IoTypeMetadataKind::VariableBytes16b => {
             if metadata.is_empty() {
@@ -235,15 +220,10 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             ))
         }
         IoTypeMetadataKind::FixedCapacityBytes8b | IoTypeMetadataKind::FixedCapacityString8b => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            let num_bytes = metadata[0] as u32;
-            metadata = skip_n_bytes(metadata, size_of::<u8>())?;
+            let num_bytes = *metadata.split_off_first()?;
 
             Some((
-                IoTypeDetails::bytes(num_bytes + size_of::<u8>() as u32),
+                IoTypeDetails::bytes(u32::from(num_bytes) + size_of::<u8>() as u32),
                 metadata,
             ))
         }
@@ -293,39 +273,26 @@ const fn struct_type_details(
     field_count: Option<u8>,
     tuple: bool,
 ) -> Option<(IoTypeDetails, &[u8])> {
-    if input.is_empty() {
-        return None;
-    }
-
     // Skip struct name
-    let struct_name_length = input[0] as usize;
-    input = skip_n_bytes(input, 1 + struct_name_length)?;
+    let struct_name_length = *input.split_off_first()?;
+    // TODO: `split_off()` is not `const fn` yet, even unstably
+    input = input.get(usize::from(struct_name_length)..)?;
 
     let mut field_count = if let Some(field_count) = field_count {
         field_count
     } else {
-        if input.is_empty() {
-            return None;
-        }
-
-        let field_count = input[0];
-        input = skip_n_bytes(input, 1)?;
-
-        field_count
+        *input.split_off_first()?
     };
 
     // Capacity of arguments
     let mut capacity = 0u32;
     let mut alignment = 1u8;
     while field_count > 0 {
-        if input.is_empty() {
-            return None;
-        }
-
         // Skip field name if needed
         if !tuple {
-            let field_name_length = input[0] as usize;
-            input = skip_n_bytes(input, 1 + field_name_length)?;
+            let field_name_length = *input.split_off_first()?;
+            // TODO: `split_off()` is not `const fn` yet, even unstably
+            input = input.get(usize::from(field_name_length)..)?;
         }
 
         // Capacity of argument's type
@@ -357,25 +324,15 @@ const fn enum_capacity(
     variant_count: Option<u8>,
     has_fields: bool,
 ) -> Option<(IoTypeDetails, &[u8])> {
-    if input.is_empty() {
-        return None;
-    }
-
     // Skip enum name
-    let enum_name_length = input[0] as usize;
-    input = skip_n_bytes(input, 1 + enum_name_length)?;
+    let enum_name_length = *input.split_off_first()?;
+    // TODO: `split_off()` is not `const fn` yet, even unstably
+    input = input.get(usize::from(enum_name_length)..)?;
 
     let mut variant_count = if let Some(variant_count) = variant_count {
         variant_count
     } else {
-        if input.is_empty() {
-            return None;
-        }
-
-        let variant_count = input[0];
-        input = skip_n_bytes(input, 1)?;
-
-        variant_count
+        *input.split_off_first()?
     };
 
     // Capacity of variants
@@ -442,10 +399,4 @@ const fn copy_n_bytes<'i, 'o>(
     target.copy_from_slice(source);
 
     Some((input, output))
-}
-
-/// Skips `n` bytes and return remainder
-#[inline(always)]
-const fn skip_n_bytes(input: &[u8], n: usize) -> Option<&[u8]> {
-    input.get(n..)
 }

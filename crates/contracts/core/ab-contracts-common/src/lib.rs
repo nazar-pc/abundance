@@ -1,4 +1,10 @@
-#![feature(const_index, const_trait_impl, const_try)]
+#![feature(
+    const_convert,
+    const_index,
+    const_split_off_first_last,
+    const_trait_impl,
+    const_try
+)]
 #![no_std]
 
 pub mod env;

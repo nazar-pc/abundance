@@ -29,19 +29,13 @@ const fn compact_metadata_inner<'i, 'o>(
     mut output: &'o mut [u8],
     for_external_args: bool,
 ) -> Option<(&'i [u8], &'o mut [u8])> {
-    if input.is_empty() || output.is_empty() {
-        return None;
-    }
+    let contract_metadata_kind_input = *input.split_off_first()?;
+    let contract_metadata_kind_output = output.split_off_first_mut()?;
+    let contract_metadata_kind = ContractMetadataKind::try_from_u8(contract_metadata_kind_input)?;
 
-    let kind = ContractMetadataKind::try_from_u8(input[0])?;
-
-    match kind {
+    match contract_metadata_kind {
         ContractMetadataKind::Contract => {
-            (input, output) = copy_n_bytes(input, output, 1)?;
-
-            if input.is_empty() || output.is_empty() {
-                return None;
-            }
+            *contract_metadata_kind_output = contract_metadata_kind_input;
 
             // Compact contract state type
             (input, output) = IoTypeMetadataKind::compact(input, output)?;
@@ -50,50 +44,30 @@ const fn compact_metadata_inner<'i, 'o>(
             // Compact contract `#[tmp]` type
             (input, output) = IoTypeMetadataKind::compact(input, output)?;
 
-            if input.is_empty() {
-                return None;
-            }
-
-            let mut num_methods = input[0];
-            (input, output) = copy_n_bytes(input, output, 1)?;
+            let mut num_methods = *input.split_off_first()?;
+            *output.split_off_first_mut()? = num_methods;
 
             // Compact methods
             while num_methods > 0 {
-                if input.is_empty() {
-                    return None;
-                }
-
                 (input, output) = compact_metadata_inner(input, output, for_external_args)?;
 
                 num_methods -= 1;
             }
         }
         ContractMetadataKind::Trait => {
-            (input, output) = copy_n_bytes(input, output, 1)?;
-
-            if input.is_empty() || output.is_empty() {
-                return None;
-            }
+            *contract_metadata_kind_output = contract_metadata_kind_input;
 
             // Remove trait name
-            let trait_name_length = input[0] as usize;
-            output[0] = 0;
-            (input, output) = skip_n_bytes_io(input, output, 1)?;
-            input = skip_n_bytes(input, trait_name_length)?;
+            let trait_name_length = *input.split_off_first()?;
+            *output.split_off_first_mut()? = 0;
+            // TODO: `split_off()` is not `const fn` yet, even unstably
+            input = input.get(usize::from(trait_name_length)..)?;
 
-            if input.is_empty() {
-                return None;
-            }
-
-            let mut num_methods = input[0];
-            (input, output) = copy_n_bytes(input, output, 1)?;
+            let mut num_methods = *input.split_off_first()?;
+            *output.split_off_first_mut()? = num_methods;
 
             // Compact methods
             while num_methods > 0 {
-                if input.is_empty() {
-                    return None;
-                }
-
                 (input, output) = compact_metadata_inner(input, output, for_external_args)?;
 
                 num_methods -= 1;
@@ -105,63 +79,47 @@ const fn compact_metadata_inner<'i, 'o>(
         | ContractMetadataKind::UpdateStatefulRw
         | ContractMetadataKind::ViewStateless
         | ContractMetadataKind::ViewStateful => {
-            match kind {
-                ContractMetadataKind::Init => {
-                    (input, output) = copy_n_bytes(input, output, 1)?;
-                }
+            *contract_metadata_kind_output = match contract_metadata_kind {
+                ContractMetadataKind::Init => contract_metadata_kind_input,
                 ContractMetadataKind::UpdateStateless
                 | ContractMetadataKind::UpdateStatefulRo
                 | ContractMetadataKind::UpdateStatefulRw => {
                     if for_external_args {
                         // For `ExternalArgs` the kind of `#[update]` doesn't matter
-                        output[0] = ContractMetadataKind::UpdateStateless as u8;
-                        (input, output) = skip_n_bytes_io(input, output, 1)?;
+                        ContractMetadataKind::UpdateStateless as u8
                     } else {
-                        (input, output) = copy_n_bytes(input, output, 1)?;
+                        contract_metadata_kind_input
                     }
                 }
                 ContractMetadataKind::ViewStateless | ContractMetadataKind::ViewStateful => {
                     if for_external_args {
                         // For `ExternalArgs` the kind of `#[view]` doesn't matter
-                        output[0] = ContractMetadataKind::ViewStateless as u8;
-                        (input, output) = skip_n_bytes_io(input, output, 1)?;
+                        ContractMetadataKind::ViewStateless as u8
                     } else {
-                        (input, output) = copy_n_bytes(input, output, 1)?;
+                        contract_metadata_kind_input
                     }
                 }
                 _ => {
                     // Just matched above
                     unreachable!();
                 }
-            }
-
-            if input.is_empty() || output.is_empty() {
-                return None;
-            }
+            };
 
             // Copy method name
-            let method_name_length = input[0] as usize;
-            (input, output) = copy_n_bytes(input, output, 1 + method_name_length)?;
+            let method_name_length = *input.first()?;
+            (input, output) = copy_n_bytes(input, output, 1 + usize::from(method_name_length))?;
 
-            if input.is_empty() {
-                return None;
-            }
-
-            let mut num_arguments = input[0];
-            (input, output) = copy_n_bytes(input, output, 1)?;
+            let mut num_arguments = *input.split_off_first()?;
+            *output.split_off_first_mut()? = num_arguments;
 
             // Compact arguments
             while num_arguments > 0 {
-                if input.is_empty() {
-                    return None;
-                }
-
                 num_arguments -= 1;
 
                 (input, output) = compact_method_argument(
                     input,
                     output,
-                    kind,
+                    contract_metadata_kind,
                     num_arguments == 0,
                     for_external_args,
                 )?;
@@ -191,13 +149,10 @@ const fn compact_method_argument<'i, 'o>(
     last_argument: bool,
     for_external_args: bool,
 ) -> Option<(&'i [u8], &'o mut [u8])> {
-    if input.is_empty() || output.is_empty() {
-        return None;
-    }
+    let contract_metadata_kind_input = *input.split_off_first()?;
+    let contract_metadata_kind = ContractMetadataKind::try_from_u8(contract_metadata_kind_input)?;
 
-    let kind = ContractMetadataKind::try_from_u8(input[0])?;
-
-    match kind {
+    match contract_metadata_kind {
         ContractMetadataKind::Contract
         | ContractMetadataKind::Trait
         | ContractMetadataKind::Init
@@ -212,9 +167,9 @@ const fn compact_method_argument<'i, 'o>(
         ContractMetadataKind::EnvRo | ContractMetadataKind::EnvRw => {
             if for_external_args {
                 // For `ExternalArgs` `#[env]` doesn't matter
-                input = skip_n_bytes(input, 1)?;
             } else {
-                (input, output) = copy_n_bytes(input, output, 1)?;
+                let contract_metadata_kind_output = output.split_off_first_mut()?;
+                *contract_metadata_kind_output = contract_metadata_kind_input;
             }
             // Nothing else to do here, `#[env]` doesn't include metadata of its type
         }
@@ -222,23 +177,23 @@ const fn compact_method_argument<'i, 'o>(
         | ContractMetadataKind::TmpRw
         | ContractMetadataKind::SlotRo
         | ContractMetadataKind::SlotRw => {
-            match kind {
+            match contract_metadata_kind {
                 ContractMetadataKind::TmpRo | ContractMetadataKind::TmpRw => {
                     if for_external_args {
                         // For `ExternalArgs` `#[tmp]` doesn't matter
-                        input = skip_n_bytes(input, 1)?;
                     } else {
-                        (input, output) = copy_n_bytes(input, output, 1)?;
+                        let contract_metadata_kind_output = output.split_off_first_mut()?;
+                        *contract_metadata_kind_output = contract_metadata_kind_input;
                     }
                 }
                 ContractMetadataKind::SlotRo | ContractMetadataKind::SlotRw => {
-                    if for_external_args {
+                    let contract_metadata_kind_output = output.split_off_first_mut()?;
+                    *contract_metadata_kind_output = if for_external_args {
                         // For `ExternalArgs` the kind of `#[slot]` doesn't matter
-                        output[0] = ContractMetadataKind::SlotRo as u8;
-                        (input, output) = skip_n_bytes_io(input, output, 1)?;
+                        ContractMetadataKind::SlotRo as u8
                     } else {
-                        (input, output) = copy_n_bytes(input, output, 1)?;
-                    }
+                        contract_metadata_kind_input
+                    };
                 }
                 _ => {
                     // Just matched above
@@ -246,32 +201,25 @@ const fn compact_method_argument<'i, 'o>(
                 }
             }
 
-            if input.is_empty() || output.is_empty() {
-                return None;
-            }
-
             // Remove argument name
-            let argument_name_length = input[0] as usize;
-            output[0] = 0;
-            (input, output) = skip_n_bytes_io(input, output, 1)?;
-            input = skip_n_bytes(input, argument_name_length)?;
+            let argument_name_length = *input.split_off_first()?;
+            *output.split_off_first_mut()? = 0;
+            // TODO: `split_off()` is not `const fn` yet, even unstably
+            input = input.get(usize::from(argument_name_length)..)?;
         }
         ContractMetadataKind::Input | ContractMetadataKind::Output => {
-            (input, output) = copy_n_bytes(input, output, 1)?;
-
-            if input.is_empty() || output.is_empty() {
-                return None;
-            }
+            let contract_metadata_kind_output = output.split_off_first_mut()?;
+            *contract_metadata_kind_output = contract_metadata_kind_input;
 
             // Remove argument name
-            let argument_name_length = input[0] as usize;
-            output[0] = 0;
-            (input, output) = skip_n_bytes_io(input, output, 1)?;
-            input = skip_n_bytes(input, argument_name_length)?;
+            let argument_name_length = *input.split_off_first()?;
+            *output.split_off_first_mut()? = 0;
+            // TODO: `split_off()` is not `const fn` yet, even unstably
+            input = input.get(usize::from(argument_name_length)..)?;
 
             // May be skipped for `#[init]`, see `ContractMetadataKind::Init` for details
             let skip_argument_type = matches!(
-                (method_kind, kind, last_argument),
+                (method_kind, contract_metadata_kind, last_argument),
                 (
                     ContractMetadataKind::Init,
                     ContractMetadataKind::Output,
@@ -299,25 +247,6 @@ const fn copy_n_bytes<'i, 'o>(
     let (target, output) = output.split_at_mut_checked(n)?;
 
     target.copy_from_slice(source);
-
-    Some((input, output))
-}
-
-/// Skips `n` bytes and return remainder
-#[inline(always)]
-const fn skip_n_bytes(input: &[u8], n: usize) -> Option<&[u8]> {
-    input.get(n..)
-}
-
-/// Skips `n` bytes in input and output
-#[inline(always)]
-const fn skip_n_bytes_io<'i, 'o>(
-    input: &'i [u8],
-    output: &'o mut [u8],
-    n: usize,
-) -> Option<(&'i [u8], &'o mut [u8])> {
-    let input = input.get(n..)?;
-    let output = output.get_mut(n..)?;
 
     Some((input, output))
 }
