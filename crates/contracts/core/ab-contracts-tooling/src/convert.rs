@@ -462,7 +462,7 @@ fn parse_metadata_methods(
 
         let mut methods_metadata_decoder = metadata_item.into_decoder();
         while let Some(method_metadata_decoder) = methods_metadata_decoder.decode_next() {
-            let (mut arguments_metadata_decoder, method_metadata_item) =
+            let (_, method_metadata_item) =
                 method_metadata_decoder.decode_next().map_err(|error| {
                     anyhow::Error::msg(error.to_string())
                         .context("Failed to decode method metadata")
@@ -482,17 +482,6 @@ fn parse_metadata_methods(
                 .with_context(|| anyhow::anyhow!("Method {method_name} not found in symbols"))?;
 
             metadata_methods.push(symbol);
-
-            while let Some(maybe_argument_metadata_item) = arguments_metadata_decoder.decode_next()
-            {
-                // Must be decoded to completion to preserve the correct decoding order
-                let argument_metadata_item = maybe_argument_metadata_item.map_err(|error| {
-                    anyhow::Error::msg(error.to_string())
-                        .context("Failed to decode argument metadata item")
-                })?;
-
-                trace!(?argument_metadata_item, "Decoded argument metadata item");
-            }
         }
     }
 

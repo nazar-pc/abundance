@@ -125,10 +125,11 @@ impl TransactionPayloadBuilder {
     ) -> Result<(), TransactionPayloadBuilderError<'a>> {
         let mut external_args = *external_args;
 
-        let (mut metadata_decoder, method_metadata_item) =
+        let (metadata_decoder, method_metadata_item) =
             MethodMetadataDecoder::new(&mut method_metadata, MethodsContainerKind::Unknown)
                 .decode_next()
                 .map_err(TransactionPayloadBuilderError::MetadataDecodingError)?;
+        let mut metadata_decoder = metadata_decoder.without_auto_drain();
 
         let MethodMetadataItem {
             method_kind,

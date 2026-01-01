@@ -1,5 +1,7 @@
 use crate::metadata::ContractMetadataKind;
 use ab_io_type::metadata::{IoTypeDetails, IoTypeMetadataKind};
+use core::mem::ManuallyDrop;
+use derive_destructure2::destructure;
 
 /// Metadata decoding error
 #[derive(Debug, thiserror::Error)]
@@ -49,7 +51,6 @@ pub enum MetadataDecodingError<'metadata> {
 }
 
 #[derive(Debug)]
-#[must_use = "Must be exhausted or the rest of decoding will be corrupted due to internal pointer not advancing correctly"]
 pub enum MetadataItem<'a, 'metadata> {
     Contract {
         /// State type name as bytes.
@@ -261,11 +262,18 @@ pub enum MethodsContainerKind {
 }
 
 #[derive(Debug)]
-#[must_use = "Must be exhausted or the rest of decoding will be corrupted due to internal pointer not advancing correctly"]
 pub struct MethodsMetadataDecoder<'a, 'metadata> {
     metadata: &'a mut &'metadata [u8],
     container_kind: MethodsContainerKind,
     remaining: u8,
+}
+
+impl<'a, 'metadata> Drop for MethodsMetadataDecoder<'a, 'metadata> {
+    fn drop(&mut self) {
+        while let Some(_method_metadata_decoder) = self.decode_next() {
+            // Drain remaining methods if dropped early
+        }
+    }
 }
 
 impl<'a, 'metadata> MethodsMetadataDecoder<'a, 'metadata> {
@@ -353,11 +361,26 @@ pub struct MethodMetadataItem<'metadata> {
 }
 
 // TODO: Would be nice to also collect fingerprint at the end
-#[derive(Debug)]
-#[must_use = "Must be exhausted or the rest of decoding will be corrupted due to internal pointer not advancing correctly"]
+#[derive(Debug, destructure)]
 pub struct MethodMetadataDecoder<'a, 'metadata> {
     metadata: &'a mut &'metadata [u8],
     container_kind: MethodsContainerKind,
+}
+
+impl<'a, 'metadata> Drop for MethodMetadataDecoder<'a, 'metadata> {
+    fn drop(&mut self) {
+        let metadata_before = *self.metadata;
+
+        // Decode implicitly
+        if MethodMetadataDecoder::new(self.metadata, self.container_kind)
+            .decode_next()
+            .is_err()
+        {
+            // Restore original metadata if decoding failed so it fails decoding later, this is
+            // a compromise to avoid panics on `drop`
+            *self.metadata = metadata_before;
+        }
+    }
 }
 
 impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
@@ -388,17 +411,16 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
         ),
         MetadataDecodingError<'metadata>,
     > {
-        if self.metadata.is_empty() {
+        let (metadata, container_kind) = self.destructure();
+
+        if metadata.is_empty() {
             return Err(MetadataDecodingError::NotEnoughMetadata);
         }
 
         // Decode method kind
-        let metadata_kind = ContractMetadataKind::try_from_u8(self.metadata[0]).ok_or(
-            MetadataDecodingError::InvalidFirstMetadataByte {
-                byte: self.metadata[0],
-            },
-        )?;
-        *self.metadata = &self.metadata[1..];
+        let metadata_kind = ContractMetadataKind::try_from_u8(metadata[0])
+            .ok_or(MetadataDecodingError::InvalidFirstMetadataByte { byte: metadata[0] })?;
+        *metadata = &metadata[1..];
 
         let method_kind = match metadata_kind {
             ContractMetadataKind::Init => MethodKind::Init,
@@ -422,7 +444,7 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
             }
         };
 
-        let method_allowed = match self.container_kind {
+        let method_allowed = match container_kind {
             MethodsContainerKind::Contract | MethodsContainerKind::Unknown => match method_kind {
                 MethodKind::Init
                 | MethodKind::UpdateStateless
@@ -443,32 +465,32 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
         if !method_allowed {
             return Err(MetadataDecodingError::UnexpectedMethodKind {
                 method_kind,
-                container_kind: self.container_kind,
+                container_kind,
             });
         }
 
-        if self.metadata.is_empty() {
+        if metadata.is_empty() {
             return Err(MetadataDecodingError::NotEnoughMetadata);
         }
 
         // Decode method name
-        let method_name_length = usize::from(self.metadata[0]);
-        *self.metadata = &self.metadata[1..];
+        let method_name_length = usize::from(metadata[0]);
+        *metadata = &metadata[1..];
 
         // +1 for number of arguments
-        if self.metadata.len() < method_name_length + 1 {
+        if metadata.len() < method_name_length + 1 {
             return Err(MetadataDecodingError::NotEnoughMetadata);
         }
 
-        let method_name = &self.metadata[..method_name_length];
-        *self.metadata = &self.metadata[method_name_length..];
+        let method_name = &metadata[..method_name_length];
+        *metadata = &metadata[method_name_length..];
 
         // Decode the number of arguments
-        let num_arguments = self.metadata[0];
-        *self.metadata = &self.metadata[1..];
+        let num_arguments = metadata[0];
+        *metadata = &metadata[1..];
 
         let decoder = ArgumentsMetadataDecoder {
-            metadata: self.metadata,
+            metadata,
             method_kind,
             remaining: num_arguments,
         };
@@ -517,14 +539,40 @@ pub struct ArgumentMetadataItem<'metadata> {
 }
 
 #[derive(Debug)]
-#[must_use = "Must be exhausted or the rest of decoding will be corrupted due to internal pointer not advancing correctly"]
 pub struct ArgumentsMetadataDecoder<'a, 'metadata> {
     metadata: &'a mut &'metadata [u8],
     method_kind: MethodKind,
     remaining: u8,
 }
 
+impl<'a, 'metadata> Drop for ArgumentsMetadataDecoder<'a, 'metadata> {
+    fn drop(&mut self) {
+        let metadata_before = *self.metadata;
+        while let Some(maybe_argument_metadata_item) = self.decode_next() {
+            if maybe_argument_metadata_item.is_err() {
+                // Restore original metadata if decoding failed so it fails decoding later, this is
+                // a compromise to avoid panics on `drop`
+                *self.metadata = metadata_before;
+                break;
+            }
+        }
+    }
+}
+
 impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
+    /// Get a wrapped value that does not automatically drain the metadata on `drop`.
+    ///
+    /// The default behavior is to automatically drain the metadata on `drop` such that
+    /// contract/trait or method metadata decoding progresses successfully, even when the caller
+    /// doesn't care about arguments. This, however, generates more code and causes difficulties for
+    /// LLVM when it tries to optimize the code and especially when trying to prove the lack of
+    /// panics. Usually this method is not needed, but if you are having difficulties with
+    /// `no-panic` and either decoding a single method or drain arguments explicitly, you can use
+    /// this helper method to work around compiler limitations.
+    pub fn without_auto_drain(self) -> ManuallyDrop<Self> {
+        ManuallyDrop::new(self)
+    }
+
     /// The number of bytes left in the metadata that were not processed yet
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]

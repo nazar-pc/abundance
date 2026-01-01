@@ -327,22 +327,20 @@ impl<'a> ContractFile<'a> {
                 trace!(?metadata_item, "Decoded metadata item");
 
                 let mut methods_metadata_decoder = metadata_item.into_decoder();
-                while let Some(method_metadata_decoder) = methods_metadata_decoder.decode_next() {
+                loop {
+                    // This is used instead of `while let Some(method_metadata_decoder)` because the
+                    // compiler is not smart enough to understand where `method_metadata_decoder` is
+                    // dropped
+                    let Some(method_metadata_decoder) = methods_metadata_decoder.decode_next()
+                    else {
+                        break;
+                    };
+
                     let before_remaining_bytes = method_metadata_decoder.remaining_metadata_bytes();
-                    let (mut arguments_metadata_decoder, method_metadata_item) =
-                        method_metadata_decoder.decode_next()?;
+                    let (_, method_metadata_item) = method_metadata_decoder.decode_next()?;
 
                     trace!(?method_metadata_item, "Decoded method metadata item");
                     metadata_num_methods += 1;
-
-                    while let Some(maybe_argument_metadata_item) =
-                        arguments_metadata_decoder.decode_next()
-                    {
-                        // Must be decoded to completion to preserve the correct decoding order
-                        let argument_metadata_item = maybe_argument_metadata_item?;
-
-                        trace!(?argument_metadata_item, "Decoded argument metadata item");
-                    }
 
                     let method_metadata_bytes = remaining_metadata_bytes
                         .split_off(
@@ -715,18 +713,9 @@ impl<'a> ContractFile<'a> {
                         let before_remaining_bytes =
                             method_metadata_decoder.remaining_metadata_bytes();
 
-                        let (mut arguments_metadata_decoder, method_metadata_item) =
-                            method_metadata_decoder
-                                .decode_next()
-                                .expect("Input is valid according to function contract; qed");
-
-                        while let Some(maybe_argument_metadata_item) =
-                            arguments_metadata_decoder.decode_next()
-                        {
-                            // Must be decoded to completion to preserve the correct decoding order
-                            maybe_argument_metadata_item
-                                .expect("Input is valid according to function contract; qed");
-                        }
+                        let (_, method_metadata_item) = method_metadata_decoder
+                            .decode_next()
+                            .expect("Input is valid according to function contract; qed");
 
                         // SAFETY: Protected internal invariant checked in constructor
                         let method_metadata_bytes = unsafe {

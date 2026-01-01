@@ -19,6 +19,7 @@ ab-blake3 = { workspace = true }
 # NOTE: `blake3` is here only for `no-panic` feature
 blake3 = { workspace = true, optional = true }
 ab-io-type = { workspace = true }
+derive_destructure2 = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 no-panic = { workspace = true, optional = true }
 thiserror = { workspace = true }
