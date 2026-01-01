@@ -6,8 +6,6 @@ use core::{fmt, mem};
 use derive_more::{AsMut, AsRef, Deref, DerefMut, From, Into};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-#[cfg(feature = "scale-codec")]
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -29,10 +27,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
     DerefMut,
     TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct Blake3Hash([u8; Blake3Hash::SIZE]);
 

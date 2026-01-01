@@ -17,8 +17,6 @@ use derive_more::{
 };
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-#[cfg(feature = "scale-codec")]
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
@@ -28,10 +26,7 @@ use serde::{Deserializer, Serializer};
 #[derive(
     Debug, Display, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, From, Into,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct SlotDuration(u16);
@@ -83,10 +78,7 @@ impl SlotDuration {
     DivAssign,
     TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct SlotNumber(u64);
@@ -184,10 +176,7 @@ impl SlotNumber {
 
 /// Proof of time key(input to the encryption).
 #[derive(Default, Copy, Clone, Eq, PartialEq, From, Into, AsRef, AsMut, Deref, DerefMut)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 pub struct PotKey([u8; PotKey::SIZE]);
 
 impl fmt::Debug for PotKey {
@@ -267,10 +256,7 @@ impl PotKey {
 
 /// Proof of time seed
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash, From, Into, AsRef, AsMut, Deref, DerefMut)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 pub struct PotSeed([u8; PotSeed::SIZE]);
 
 impl fmt::Debug for PotSeed {
@@ -375,10 +361,7 @@ impl PotSeed {
     DerefMut,
     TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct PotOutput([u8; PotOutput::SIZE]);
 
@@ -510,10 +493,7 @@ impl PotOutput {
 
 /// Proof of time checkpoints, result of proving
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct PotCheckpoints([PotOutput; PotCheckpoints::NUM_CHECKPOINTS.get() as usize]);
 
@@ -551,10 +531,7 @@ impl PotCheckpoints {
 /// Corresponds to scheduled PoT parameters change, which is applied after the slot of this block.
 /// It is carried into the next blocks until it is applied on or before slot of the current block.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct PotParametersChange {

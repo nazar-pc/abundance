@@ -33,8 +33,6 @@ use derive_more::{
 };
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-#[cfg(feature = "scale-codec")]
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde_big_array::BigArray;
 
@@ -61,10 +59,7 @@ use serde_big_array::BigArray;
     Div,
     DivAssign,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct PieceIndex(u64);
@@ -169,10 +164,7 @@ impl PieceIndex {
     DivAssign,
     TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, MaxEncodedLen, TypeInfo)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct PieceOffset(u16);
@@ -248,10 +240,7 @@ impl PieceOffset {
     DerefMut,
     TrivialType,
 )]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(C)]
@@ -498,10 +487,7 @@ impl Record {
 
 /// Record root contained within a piece.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct RecordRoot([u8; RecordRoot::SIZE]);
 
@@ -642,10 +628,7 @@ impl RecordRoot {
 
 /// Record chunks root (source or parity) contained within a piece.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 pub struct RecordChunksRoot([u8; RecordChunksRoot::SIZE]);
 
 impl fmt::Debug for RecordChunksRoot {
@@ -770,10 +753,7 @@ impl RecordChunksRoot {
 
 /// Record proof contained within a piece.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Deref, DerefMut, From, Into, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct RecordProof([[u8; OUT_LEN]; RecordProof::NUM_HASHES]);
 

@@ -3,8 +3,6 @@ use crate::trivial_type::TrivialType;
 use core::fmt;
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, EncodeLike, MaxEncodedLen, Output};
-#[cfg(feature = "scale-codec")]
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -15,7 +13,7 @@ use serde::{Deserialize, Serialize, Serializer};
 /// the contents. For example, if `Data` is unaligned and has fields, it is not sounds having
 /// references to its fields. This data structure prevents such invalid invariants.
 #[derive(Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "scale-codec", derive(Decode, MaxEncodedLen, TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[repr(C, packed)]

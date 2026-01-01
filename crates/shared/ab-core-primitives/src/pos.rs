@@ -7,8 +7,6 @@ use core::fmt;
 use derive_more::{Deref, DerefMut, From, Into};
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
-#[cfg(feature = "scale-codec")]
-use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
@@ -36,10 +34,7 @@ impl PosSeed {
 
 /// Proof of space proof bytes.
 #[derive(Copy, Clone, Eq, PartialEq, Deref, DerefMut, From, Into, TrivialType)]
-#[cfg_attr(
-    feature = "scale-codec",
-    derive(Encode, Decode, TypeInfo, MaxEncodedLen)
-)]
+#[cfg_attr(feature = "scale-codec", derive(Encode, Decode, MaxEncodedLen))]
 #[repr(C)]
 pub struct PosProof([u8; PosProof::SIZE]);
 
