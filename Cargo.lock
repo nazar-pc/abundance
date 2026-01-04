@@ -435,6 +435,7 @@ dependencies = [
  "ab-system-contract-native-token",
  "ab-system-contract-simple-wallet-base",
  "ab-system-contract-state",
+ "arrayvec",
  "halfbrown",
  "thiserror 2.0.17",
  "tracing",

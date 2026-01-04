@@ -57,6 +57,7 @@ ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/
 ab-trivial-type-derive = { version = "0.0.1", path = "crates/shared/ab-trivial-type-derive" }
 aes = "0.9.0-rc.2"
 anyhow = { version = "1.0.100", default-features = false }
+arrayvec = { version = "0.7.6", default-features = false }
 async-lock = { version = "3.4.2", default-features = false }
 async-nats = { version = "0.45.0", default-features = false, features = ["ring"] }
 async-trait = "0.1.89"

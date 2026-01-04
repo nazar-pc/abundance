@@ -159,7 +159,8 @@ impl<'metadata> MetadataDecoder<'metadata> {
             | ContractMetadataKind::SlotRo
             | ContractMetadataKind::SlotRw
             | ContractMetadataKind::Input
-            | ContractMetadataKind::Output => {
+            | ContractMetadataKind::Output
+            | ContractMetadataKind::Return => {
                 Some(Err(MetadataDecodingError::ExpectedContractOrTrait {
                     metadata_kind,
                 }))
@@ -433,7 +434,8 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
             | ContractMetadataKind::SlotRo
             | ContractMetadataKind::SlotRw
             | ContractMetadataKind::Input
-            | ContractMetadataKind::Output => {
+            | ContractMetadataKind::Output
+            | ContractMetadataKind::Return => {
                 return Err(MetadataDecodingError::ExpectedMethodKind { metadata_kind });
             }
         };
@@ -512,6 +514,8 @@ pub enum ArgumentKind {
     Input,
     /// Corresponds to [`ContractMetadataKind::Output`]
     Output,
+    /// Corresponds to [`ContractMetadataKind::Return`]
+    Return,
 }
 
 #[derive(Debug)]
@@ -609,6 +613,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             ContractMetadataKind::SlotRw => ArgumentKind::SlotRw,
             ContractMetadataKind::Input => ArgumentKind::Input,
             ContractMetadataKind::Output => ArgumentKind::Output,
+            ContractMetadataKind::Return => ArgumentKind::Return,
             // The rest are not arguments and can't appear here
             ContractMetadataKind::Contract
             | ContractMetadataKind::Trait
@@ -635,13 +640,15 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                 | ArgumentKind::SlotRo
                 | ArgumentKind::SlotRw
                 | ArgumentKind::Input
-                | ArgumentKind::Output => true,
+                | ArgumentKind::Output
+                | ArgumentKind::Return => true,
             },
             MethodKind::ViewStateless | MethodKind::ViewStateful => match argument_kind {
                 ArgumentKind::EnvRo
                 | ArgumentKind::SlotRo
                 | ArgumentKind::Input
-                | ArgumentKind::Output => true,
+                | ArgumentKind::Output
+                | ArgumentKind::Return => true,
                 ArgumentKind::EnvRw
                 | ArgumentKind::TmpRo
                 | ArgumentKind::TmpRw
@@ -663,7 +670,8 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             | ArgumentKind::SlotRo
             | ArgumentKind::SlotRw
             | ArgumentKind::Input
-            | ArgumentKind::Output => {
+            | ArgumentKind::Output
+            | ArgumentKind::Return => {
                 // Decode argument name
                 let argument_name_length = usize::from(
                     *self
@@ -695,7 +703,7 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
 
                         Some(recommended_capacity)
                     }
-                    ArgumentKind::Output => {
+                    ArgumentKind::Output | ArgumentKind::Return => {
                         let last_argument = self.remaining == 0;
                         // May be skipped for `#[init]`, see `ContractMetadataKind::Init` for
                         // details

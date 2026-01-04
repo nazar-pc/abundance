@@ -5,7 +5,9 @@ mod tests;
 
 extern crate alloc;
 
-use crate::payload::{TransactionInput, TransactionMethodContext, TransactionSlot};
+use crate::payload::{
+    FfiDataSizeCapacityRo, TransactionInput, TransactionMethodContext, TransactionSlot,
+};
 use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, MetadataDecodingError, MethodMetadataDecoder, MethodMetadataItem,
@@ -27,6 +29,21 @@ const _: () = {
     // Make sure bit flags for all arguments will fit into a single u8 below
     assert!(MAX_TOTAL_METHOD_ARGS as u32 == u8::BITS);
 };
+
+/// Read from an external arguments pointer and move it forward.
+///
+/// # Safety
+/// `external_args` must have enough capacity for the read value, and the current offset must
+/// have the correct alignment for the type being read.
+#[inline(always)]
+unsafe fn read_external_args<T>(external_args: &mut NonNull<c_void>) -> T {
+    // SAFETY: guaranteed by this function signature
+    unsafe {
+        let value = external_args.cast::<T>().read();
+        *external_args = external_args.byte_add(size_of::<T>());
+        value
+    }
+}
 
 /// Errors for [`TransactionPayloadBuilder`]
 #[derive(Debug, thiserror::Error)]
@@ -92,7 +109,7 @@ impl TransactionPayloadBuilder {
         unsafe {
             self.with_method_call_untyped(
                 contract,
-                &external_args,
+                external_args,
                 Args::METADATA,
                 &Args::FINGERPRINT,
                 method_context,
@@ -116,14 +133,14 @@ impl TransactionPayloadBuilder {
     pub unsafe fn with_method_call_untyped<'a>(
         &mut self,
         contract: &Address,
-        external_args: &NonNull<*const c_void>,
+        external_args: NonNull<*const c_void>,
         mut method_metadata: &'a [u8],
         method_fingerprint: &MethodFingerprint,
         method_context: TransactionMethodContext,
         slot_output_index: &[Option<u8>],
         input_output_index: &[Option<u8>],
     ) -> Result<(), TransactionPayloadBuilderError<'a>> {
-        let mut external_args = *external_args;
+        let external_args = &mut external_args.cast::<c_void>();
 
         let (metadata_decoder, method_metadata_item) =
             MethodMetadataDecoder::new(&mut method_metadata, MethodsContainerKind::Unknown)
@@ -179,7 +196,7 @@ impl TransactionPayloadBuilder {
                         .write(item.type_details.unwrap_or(IoTypeDetails::bytes(0)));
                     num_input_arguments += 1;
                 }
-                ArgumentKind::Output => {
+                ArgumentKind::Output | ArgumentKind::Return => {
                     input_output_type_details
                         [usize::from(num_input_arguments + num_output_arguments)]
                     .write(item.type_details.unwrap_or(IoTypeDetails::bytes(0)));
@@ -234,11 +251,7 @@ impl TransactionPayloadBuilder {
 
         for slot_offset in 0..usize::from(num_slot_arguments) {
             // SAFETY: Method description requires the layout to correspond to metadata
-            let address = unsafe {
-                let address = external_args.cast::<NonNull<Address>>().read().as_ref();
-                external_args = external_args.offset(1);
-                address
-            };
+            let address = unsafe { read_external_args::<NonNull<Address>>(external_args).as_ref() };
 
             if slot_output_index
                 .get(slot_offset)
@@ -253,12 +266,13 @@ impl TransactionPayloadBuilder {
         for (input_offset, type_details) in input_type_details.iter().enumerate() {
             // SAFETY: Method description requires the layout to correspond to metadata
             let (size, data) = unsafe {
-                let data = external_args.cast::<NonNull<u8>>().read();
-                external_args = external_args.offset(1);
-                let size = external_args.cast::<NonNull<u32>>().read().read();
-                external_args = external_args.offset(1);
+                let FfiDataSizeCapacityRo {
+                    data_ptr,
+                    size,
+                    capacity: _,
+                } = read_external_args(external_args);
 
-                let data = slice::from_raw_parts(data.as_ptr().cast_const(), size as usize);
+                let data = slice::from_raw_parts(data_ptr.as_ptr().cast_const(), size as usize);
 
                 (size, data)
             };

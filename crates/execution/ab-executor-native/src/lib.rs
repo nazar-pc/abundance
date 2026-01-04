@@ -1,4 +1,10 @@
-#![feature(ptr_as_ref_unchecked, unsafe_cell_access)]
+#![feature(
+    const_convert,
+    const_trait_impl,
+    ptr_as_ref_unchecked,
+    slice_ptr_get,
+    unsafe_cell_access
+)]
 
 mod context;
 

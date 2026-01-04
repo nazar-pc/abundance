@@ -11,23 +11,23 @@ pub mod __private;
 /// [`TrivialType`] ([`IoType`] is implemented for all types that implement [`TrivialType`]).
 ///
 /// `#[contract]` macro will process *public* methods annotated with the following attributes:
-/// * `#[init]` - method that can be called to produce an initial state of the contract, called
-///   once during contacts lifetime
-/// * `#[update]` - method that can read and/or modify state and/or slots of the contact, may
-///   be called by user transaction directly or by another contract
-/// * `#[view]` - method that can only read blockchain data, can read state or slots of the
+/// * `#[init]` - a method that can be called to produce an initial state of the contract,
+///   called once during contacts lifetime
+/// * `#[update]` - a method that can read and/or modify state and/or slots of the contact;
+///   might be called by user transaction directly or by another contract
+/// * `#[view]` - a method that can only read blockchain data, can read state or slots of the
 ///   contract, but can't modify their contents
 ///
 /// Each argument (except `self`) of these methods has to be annotated with one of the
 /// following attributes (must be in this order):
-/// * `#[env]` - environment variable, used to access ephemeral execution environment, call
+/// * `#[env]` - an environment variable, used to access ephemeral execution environment, call
 ///   methods on other contracts, etc.
-/// * `#[tmp]` - temporary ephemeral value to store auxiliary data while processing a
+/// * `#[tmp]` - a temporary ephemeral value to store auxiliary data while processing a
 ///   transaction
-/// * `#[slot]` - slot corresponding to this contract
-/// * `#[input]` - method input coming from user transaction or invocation from another
+/// * `#[slot]` - a slot corresponding to this contract
+/// * `#[input]` - a method input coming from user transaction or invocation from another
 ///   contract
-/// * `#[output]` - method output, may serve as an alternative to returning values from a
+/// * `#[output]` - a method output serving as an alternative to returning values from a
 ///   function directly, useful to reduce stack usage
 ///
 /// # For struct implementation
@@ -36,7 +36,7 @@ pub mod __private;
 ///
 /// Initializer's purpose is to produce the initial state of the contract.
 ///
-/// The following arguments are supported by this method (must be in this order):
+/// This method type supports the following arguments (must be in this order):
 /// * `#[env]` read-only and read-write
 /// * `#[tmp]` read-only and read-write
 /// * `#[slot]` read-only and read-write
@@ -48,9 +48,10 @@ pub mod __private;
 ///
 /// ## #\[update]
 ///
-/// Generic method contract that can both update contract's own state and contents of slots.
+/// Generic method contract that can both update the contract's own state and contents of
+/// slots.
 ///
-/// The following arguments are supported by this method (must be in this order):
+/// This method type supports the following arguments (must be in this order):
 /// * `&self` or `&mut self` depending on whether state reads and/or modification are required
 /// * `#[env]` read-only and read-write
 /// * `#[tmp]` read-only and read-write
@@ -63,7 +64,7 @@ pub mod __private;
 /// Similar to `#[update]`, but can only access read-only view of the state and slots, can be
 /// called outside of the block context and can only call other `#[view]` methods.
 ///
-/// The following arguments are supported by this method (must be in this order):
+/// This method type supports the following arguments (must be in this order):
 /// * `&self`
 /// * `#[env]` read-only
 /// * `#[slot]` read-only
@@ -74,10 +75,10 @@ pub mod __private;
 ///
 /// ## #\[update]
 ///
-/// Generic method contract that can (in case of trait indirectly) both update contract's own
-/// state and contents of slots.
+/// Generic method contract that can (in case of trait indirectly) both update the contract's
+/// own state and contents of slots.
 ///
-/// The following arguments are supported by this method in trait context (must be in this
+/// This method type supports the following arguments in the trait context (must be in this
 /// order):
 /// * `#[env]` read-only and read-write
 /// * `#[input]`
@@ -86,10 +87,10 @@ pub mod __private;
 /// ## #\[view]
 ///
 /// Similar to `#[update]`, but can only access (in case of trait indirectly) read-only view of
-/// the state and slots, can be called outside of block context and can only call other
+/// the state and slots, can be called outside of the block context and can only call other
 /// `#[view]` methods.
 ///
-/// The following arguments are supported by this method in trait context (must be in this
+/// This method type supports the following arguments in the trait context (must be in this
 /// order):
 /// * `#[env]` read-only
 /// * `#[input]`
@@ -121,7 +122,7 @@ pub mod __private;
 ///
 /// ## FFI function
 ///
-/// Macro generates FFI function with C ABI that looks like this:
+/// Macro generates an FFI function with C ABI that looks like this:
 /// ```ignore
 /// #[cfg_attr(feature = "guest", unsafe(no_mangle))]
 /// pub unsafe extern "C" fn {prefix}_{method}(
@@ -186,13 +187,14 @@ pub mod __private;
 ///
 /// ### `&self`
 ///
-/// `&self` is a read-only state of the contract and generates two fields, both of which are
+/// `&self` is a read-only state of the contract and generates three fields, all of which are
 /// read-only:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs {
 ///     pub state_ptr: NonNull<<StructName as IoType>::PointerType>,
-///     pub state_size: NonNull<u32>,
+///     pub state_size: u32,
+///     pub state_capacity: u32,
 ///     // ...
 /// }
 /// ```
@@ -207,25 +209,25 @@ pub mod __private;
 /// #[repr(C)]
 /// pub struct InternalArgs {
 ///     pub state_ptr: NonNull<<StructName as IoType>::PointerType>,
-///     pub state_size: *mut u32,
-///     pub state_capacity: NonNull<u32>,
+///     pub state_size: u32,
+///     pub state_capacity: u32,
 ///     // ...
 /// }
 /// ```
 ///
 /// This allows a contract to not only read, but also change the current state of the contract.
 /// `state_capacity` is defined by both the type used and the size of the value used (whichever
-/// is bigger in case of a variable-sized types) and corresponds to the amount of memory that
-/// host allocated for the guest behind `state_ptr`. In the case of a variable-sized types,
-/// guest can replace`state_ptr` with a pointer to a guest-allocated region of memory that host
-/// must read updated value from. This is helpful in case increase of the value size beyond
+/// is bigger in the case of variable-sized types) and corresponds to the amount of memory that
+/// host allocated for the guest behind `state_ptr`. In the case of variable-sized types, guest
+/// can replace`state_ptr` with a pointer to a guest-allocated region of memory that the host
+/// must read updated value from. This is helpful in case an increase of the value size beyond
 /// allocated capacity is needed.
 ///
 /// ### `#[env] env: &Env`
 ///
-/// `#[env] env: &Env` is for accessing ephemeral environment with method calls restricted to
-/// `#[view]`. Since this is a system-provided data structure with known layout, only read-only
-/// pointer field is generated:
+/// `#[env] env: &Env` is for accessing an ephemeral environment with method calls restricted
+/// to `#[view]`. Since this is a system-provided data structure with a known layout, only
+/// read-only pointer field is generated:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs<'internal_args> {
@@ -238,7 +240,7 @@ pub mod __private;
 /// ### `#[env] env: &mut Env`
 ///
 /// `#[env] env: &Env` is for accessing ephemeral environment without method calls
-/// restrictions. Since this is a system-provided data structure with known layout, only
+/// restrictions. Since this is a system-provided data structure with a known layout, only
 /// read-write pointer field is generated:
 /// ```ignore
 /// #[repr(C)]
@@ -273,7 +275,8 @@ pub mod __private;
 ///
 /// `#[tmp] tmp: &MaybeData<Tmp>` is for accessing ephemeral value with auxiliary data and
 /// generates three fields, `tmp_ptr` and `tmp_size` can be written to, while `tmp_capacity` is
-/// read-only: ```ignore
+/// read-only:
+/// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs {
 ///     // ...
@@ -282,24 +285,24 @@ pub mod __private;
 ///             <StructName as Contract>::Tmp as IoType
 ///         >::PointerType,
 ///     >,
-///     pub tmp_size: *mut u32,
-///     pub tmp_capacity: NonNull<u32>,
+///     pub tmp_size: u32,
+///     pub tmp_capacity: u32,
 ///     // ...
 /// }
 /// ```
-/// 
+///
 /// This allows a contract to not only read, but also change the ephemeral value of the
 /// contract. `tmp_capacity` is defined by both the type used and the size of the value used
-/// (whichever is bigger in case of a variable-sized types) and corresponds to the amount of
-/// memory that host allocated for the guest behind `tmp_ptr`. In the case of a variable-sized
+/// (whichever is bigger in the case of variable-sized types) and corresponds to the amount of
+/// memory that host allocated for the guest behind `tmp_ptr`. In the case of variable-sized
 /// types, guest can replace`tmp_ptr` with a pointer to a guest-allocated region of memory that
-/// host must read updated value from. This is helpful in case increase of the value size
-/// beyond allocated capacity is needed.
+/// the host must read updated value from. This is helpful in case an increase of the value
+/// size beyond allocated capacity is needed.
 ///
 /// ### `#[slot] slot: &MaybeData<Slot>` and `#[slot] (address, slot): (&Address, &MaybeData<Slot>)`
 ///
-/// `#[slot] slot: &MaybeData<Slot>` and its variant with explicit address argument are for
-/// accessing slot data (that corresponds to optional `address` argument) and generates 3
+/// `#[slot] slot: &MaybeData<Slot>` and its variant with explicit address argument is for
+/// accessing slot data (that corresponds to an optional `address` argument) and generates four
 /// fields, all of which are read-only:
 /// ```ignore
 /// #[repr(C)]
@@ -311,17 +314,18 @@ pub mod __private;
 ///             <StructName as Contract>::Slot as IoType
 ///         >::PointerType,
 ///     >,
-///     pub slot_size: NonNull<u32>,
+///     pub slot_size: u32,
+///     pub slot_capacity: u32,
 ///     // ...
 /// }
 /// ```
-/// 
+///
 /// This allows a contract to read slot data.
 ///
 /// ### `#[slot] slot: &mut MaybeData<Slot>` and `#[slot] (address, slot): (&Address, &mut MaybeData<Slot>)`
 ///
 /// `#[slot] slot: &mut MaybeData<Slot>` and its variant with explicit address argument are for
-/// accessing slot data (that corresponds to optional `address` argument) and generates 4
+/// accessing slot data (that corresponds to optional `address` argument) and generates four
 /// fields, `slot_ptr` and `slot_size` can be written to, while `slot_address_ptr` and
 /// `slot_capacity` are read-only:
 /// ```ignore
@@ -334,70 +338,80 @@ pub mod __private;
 ///             <StructName as Contract>::Slot as IoType
 ///         >::PointerType,
 ///     >,
-///     pub slot_size: *mut u32,
-///     pub slot_capacity: NonNull<u32>,
+///     pub slot_size: u32,
+///     pub slot_capacity: u32,
 ///     // ...
 /// }
 /// ```
-/// 
+///
 /// This allows a contract to not only read, but also change slot data.
 /// `slot_capacity` is defined by both the type used and the size of the value used (whichever
-/// is bigger in case of a variable-sized types) and corresponds to the amount of memory that
-/// host allocated for the guest behind `slot_ptr`. In the case of a variable-sized types,
-/// guest can replace`slot_ptr` with a pointer to a guest-allocated region of memory that host
-/// must read updated value from. This is helpful in case increase of the value size beyond
-/// allocated capacity is needed.
+/// is bigger in the case of variable-sized types) and corresponds to the amount of memory that
+/// host allocated for the guest behind `slot_ptr`. In the case of variable-sized types,
+/// guest can replace`slot_ptr` with a pointer to a guest-allocated region of memory that the
+/// host must read updated value from. This is helpful in case an increase of the value size
+/// beyond allocated capacity is needed.
 ///
 /// Slot changes done by the method call will not be persisted if it returns an error.
 ///
 /// ### `#[input] input: &InputValue`
 ///
-/// `#[input] input: &InputValue` is a read-only input to the contract call and generates two
+/// `#[input] input: &InputValue` is a read-only input to the contract call and generates three
 /// fields, both of which are read-only:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs {
 ///     // ...
 ///     pub input_ptr: NonNull<<InputValue as IoType>::PointerType>,
-///     pub input_size: NonNull<u32>,
+///     pub input_size: u32,
+///     pub input_capacity: u32,
 ///     // ...
 /// }
 /// ```
-/// 
-/// ### `#[output] output: &mut MaybeData<OutputValue>` and `-> ReturnValue`/`-> Result<ReturnValue, ContractError>`
+///
+/// ### `#[output] output: &mut MaybeData<OutputValue>`
 ///
 /// `#[output] output: &mut MaybeData<OutputValue>` and regular return value is a read-write
-/// output to the contract call and generates tree fields, `output_ptr` and `output_size` can
+/// output to the contract call and generates three fields, `output_ptr` and `output_size` can
 /// be written to, while `output_capacity` is read-only:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs {
 ///     // ...
 ///     pub output_ptr: NonNull<<OutputValue as IoType>::PointerType>,
-///     pub output_size: *mut u32,
-///     pub output_capacity: NonNull<u32>,
+///     pub output_size: u32,
+///     pub output_capacity: u32,
 ///     // ...
 /// }
 /// ```
-/// 
+///
 /// Initially output is initialized by the caller (typically empty), but contract can write
 /// something useful there and written value will be propagated back to the caller to observe.
 /// `output_ptr` pointer *must not be changed* as the host will not follow it to the new
 /// address, the output size is fully constrained by capacity specified in `output_capacity`.
-/// The only exception is the last `#[output]` of `#[init]` method (or `ReturnValue` if
-/// present), which is the contract's initial state. In this case, its pointer can be changed
-/// to point to a different data structure and not being limited by `result_capacity`
-/// allocation from the host.
+/// The only exception is the last `#[output]` of `#[init]` method, which is the contract's
+/// initial state. In this case, its pointer can be changed to point to a different memory
+/// location and not being limited by `result_capacity` allocation from the host.
 ///
 /// `#[output]` may be used as an alternative to `-> ReturnValue` and
 /// `-> Result<ReturnValue, ContractError>` in case the data structure is large and allocation
 /// on the stack is undesirable, which is especially helpful in case of a variable-sized
 /// contract state.
 ///
-/// *`output_size` might be a null pointer if the output type is [`TrivialType`]!*
+/// ### `-> ReturnValue` and `-> Result<ReturnValue, ContractError>`
+///
+/// Return values (wrapped in `Result` or not) are only possible with [`TrivialType`] types,
+/// hence they don't need size and capacity as separate fields:
+/// ```ignore
+/// #[repr(C)]
+/// pub struct InternalArgs {
+///     // ...
+///     pub ok_result_ptr: NonNull<ReturnValue>,
+/// }
+/// ```
 ///
 /// NOTE: In case `ReturnValue` in `-> ReturnValue` or `-> Result<ReturnValue, ContractError>`
-/// is `()`, it will be skipped in `InternalArgs`.
+/// is `()`, it will be omitted in `InternalArgs`.
 ///
 ///
 /// ## [`ExternalArgs`] implementation
@@ -433,22 +447,23 @@ pub mod __private;
 ///     }
 /// }
 /// ```
-/// 
+///
 /// Struct name if generated by concatenating struct or trait name on which name was generated,
 /// method name, and `Args` suffix, which is done to make it more convenient to use externally.
 ///
 /// `&self`, `&mut self`, `#[env]` and `#[tmp]` arguments of the method are controlled fully by
 /// the host and not present in `ExternalArgs`.
 ///
-/// `ExternalArgs::new()` method is generated for convenient construction of the instance, though in
-/// most cases [Extension trait] is used with a more convenient API.
+/// `ExternalArgs::new()` method is generated for convenient construction of the instance,
+/// though in most cases [Extension trait] is used with a more convenient API.
 ///
 /// [Extension trait]: #extension-trait
 ///
 /// ### `#[slot]`
 ///
 /// Each `#[slot]` argument in `ExternalArgs` is represented by a single read-only address
-/// pointer: ```ignore
+/// pointer:
+/// ```ignore
 /// #[repr(C)]
 /// pub struct ExternalArgs {
 ///     // ...
@@ -459,19 +474,20 @@ pub mod __private;
 ///
 /// ### `#[input]`
 ///
-/// Each `#[input]` argument in `ExternalArgs` is represented by two read-only fields, pointer
-/// to data and its size:
+/// Each `#[input]` argument in `ExternalArgs` is represented by three read-only fields,
+/// a pointer to data, and size + capacity:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct ExternalArgs {
 ///     // ...
 ///     pub input_ptr: NonNull<<InputValue as IoType>::PointerType>,
-///     pub input_size: NonNull<u32>,
+///     pub input_size: u32,
+///     pub input_capacity: u32,
 ///     // ...
 /// }
 /// ```
 ///
-/// ### `#[output]` and `-> ReturnValue`/`-> Result<ReturnValue, ContractError>`
+/// ### `#[output]`, `-> ReturnValue` and `-> Result<ReturnValue, ContractError>`
 ///
 /// Each `#[output]` argument in `ExternalArgs` is represented by three fields, `output_ptr`
 /// and `output_size` can be written to, while `output_capacity` is read-only:
@@ -480,21 +496,29 @@ pub mod __private;
 /// pub struct ExternalArgs {
 ///     // ...
 ///     pub output_ptr: NonNull<<OutputValue as IoType>::PointerType>,
-///     pub output_size: *mut u32,
-///     pub output_capacity: NonNull<u32>,
+///     pub output_size: u32,
+///     pub output_capacity: u32,
 ///     // ...
 /// }
 /// ```
 ///
-/// The arguments are skipped in `ExternalArgs` for the last `#[output]` or `ReturnValue` when
+/// Each return value is represented by just a pointer since return type is [`TrivialType`] and
+/// don't need separate size and capacity fields:
+/// ```ignore
+/// #[repr(C)]
+/// pub struct ExternalArgs {
+///     // ...
+///     pub ok_result_ptr: NonNull<ReturnValue>,
+/// }
+/// ```
+///
+/// The arguments are omitted in `ExternalArgs` for the last `#[output]` or `ReturnValue` when
 /// method is `#[init]` or when `ReturnValue` is `()` in other cases. For `#[init]` method's
 /// return value is the contract's initial state and is processed by the execution environment
-/// itself. When `ReturnValue` is `()` then there is no point in having a pointer for it.
+/// itself. When `ReturnValue` is `()`, then there is no point in having a pointer for it.
 ///
 /// The host will propagate the current value that `output_size` points to to the caller, so
 /// that the callee can both read and write to it.
-///
-/// *`output_size` might be a null pointer if the output type is [`TrivialType`]!*
 ///
 /// ## Extension trait
 ///
@@ -504,8 +528,8 @@ pub mod __private;
 /// calls much more convenient in most simple cases.
 ///
 /// Generated methods reflect `ExternalArgs` fields with just context (except when calling
-/// `#[view]` method where context is not applicable) and the address of the contract being
-/// called added at the beginning:
+/// `#[view]` method where context is not applicable), and the address of the contract being
+/// called is added at the beginning:
 /// ```ignore
 /// // This
 /// impl Token {

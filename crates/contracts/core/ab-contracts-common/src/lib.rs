@@ -34,9 +34,9 @@ pub const MAX_CODE_SIZE: u32 = 1024 * 1024;
 /// the total number of method arguments.
 pub const MAX_TOTAL_METHOD_ARGS: u8 = 8;
 
-/// Method details used by native execution environment.
+/// Method details used by the native execution environment.
 ///
-/// `ffi_fn`'s argument is actually `NonNull<InternalArgs>` of corresponding method and must have
+/// `ffi_fn`'s argument is actually `NonNull<InternalArgs>` of a corresponding method and must have
 /// corresponding ABI.
 ///
 /// NOTE: It is unlikely to be necessary to interact with this directly.
@@ -45,7 +45,7 @@ pub const MAX_TOTAL_METHOD_ARGS: u8 = 8;
 pub struct NativeExecutorContactMethod {
     pub method_fingerprint: &'static MethodFingerprint,
     pub method_metadata: &'static [u8],
-    pub ffi_fn: unsafe extern "C" fn(NonNull<NonNull<c_void>>) -> ExitCode,
+    pub ffi_fn: unsafe extern "C" fn(NonNull<c_void>) -> ExitCode,
 }
 
 /// A trait that indicates the struct is a contact.
