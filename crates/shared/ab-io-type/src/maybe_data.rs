@@ -57,7 +57,7 @@ where
     #[track_caller]
     unsafe fn set_size(&mut self, size: u32) {
         debug_assert!(
-            size == 0 || size == self.size(),
+            size == 0 || size == Data::SIZE,
             "`set_size` called with invalid input {size} (self size {})",
             self.size()
         );
