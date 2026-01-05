@@ -19,7 +19,7 @@ pub const trait GenericInstruction: fmt::Display + fmt::Debug + Copy + Sized {
 /// RISC-V RV64 instruction.
 ///
 /// Usage of RV64I or RV64E variant is defined by the register generic used.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rv64Instruction<Reg> {
     // R-type
     Add { rd: Reg, rs1: Reg, rs2: Reg },
@@ -85,10 +85,10 @@ pub enum Rv64Instruction<Reg> {
     Jalr { rd: Reg, rs1: Reg, imm: i32 },
 
     // S-type
-    Sb { rs1: Reg, rs2: Reg, imm: i32 },
-    Sh { rs1: Reg, rs2: Reg, imm: i32 },
-    Sw { rs1: Reg, rs2: Reg, imm: i32 },
-    Sd { rs1: Reg, rs2: Reg, imm: i32 },
+    Sb { rs2: Reg, rs1: Reg, imm: i32 },
+    Sh { rs2: Reg, rs1: Reg, imm: i32 },
+    Sw { rs2: Reg, rs1: Reg, imm: i32 },
+    Sd { rs2: Reg, rs1: Reg, imm: i32 },
 
     // B-type
     Beq { rs1: Reg, rs2: Reg, imm: i32 },
@@ -288,10 +288,10 @@ impl<Reg> Rv64Instruction<Reg> {
                 // Sign extend
                 let imm = (imm << 20) >> 20;
                 match funct3 {
-                    0b000 => Self::Sb { rs1, rs2, imm },
-                    0b001 => Self::Sh { rs1, rs2, imm },
-                    0b010 => Self::Sw { rs1, rs2, imm },
-                    0b011 => Self::Sd { rs1, rs2, imm },
+                    0b000 => Self::Sb { rs2, rs1, imm },
+                    0b001 => Self::Sh { rs2, rs1, imm },
+                    0b010 => Self::Sw { rs2, rs1, imm },
+                    0b011 => Self::Sd { rs2, rs1, imm },
                     _ => Self::Invalid(instruction),
                 }
             }
@@ -438,10 +438,10 @@ where
 
             Self::Jalr { rd, rs1, imm } => write!(f, "jalr {}, {}({})", rd, imm, rs1),
 
-            Self::Sb { rs1, rs2, imm } => write!(f, "sb {}, {}({})", rs2, imm, rs1),
-            Self::Sh { rs1, rs2, imm } => write!(f, "sh {}, {}({})", rs2, imm, rs1),
-            Self::Sw { rs1, rs2, imm } => write!(f, "sw {}, {}({})", rs2, imm, rs1),
-            Self::Sd { rs1, rs2, imm } => write!(f, "sd {}, {}({})", rs2, imm, rs1),
+            Self::Sb { rs2, rs1, imm } => write!(f, "sb {}, {}({})", rs2, imm, rs1),
+            Self::Sh { rs2, rs1, imm } => write!(f, "sh {}, {}({})", rs2, imm, rs1),
+            Self::Sw { rs2, rs1, imm } => write!(f, "sw {}, {}({})", rs2, imm, rs1),
+            Self::Sd { rs2, rs1, imm } => write!(f, "sd {}, {}({})", rs2, imm, rs1),
 
             Self::Beq { rs1, rs2, imm } => write!(f, "beq {}, {}, {}", rs1, rs2, imm),
             Self::Bne { rs1, rs2, imm } => write!(f, "bne {}, {}, {}", rs1, rs2, imm),
@@ -465,15 +465,5 @@ where
 
             Self::Invalid(instruction) => write!(f, "invalid {instruction:#010x}"),
         }
-    }
-}
-
-impl<Reg> fmt::Debug for Rv64Instruction<Reg>
-where
-    Self: fmt::Display,
-    Reg: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self, f)
     }
 }
