@@ -566,14 +566,11 @@ where
             }
 
             Rv64Instruction::Lui { rd, imm } => {
-                regs.write(rd, ((imm as i64).cast_unsigned()) << 12);
+                regs.write(rd, (imm as i64).cast_unsigned());
             }
 
             Rv64Instruction::Auipc { rd, imm } => {
-                regs.write(
-                    rd,
-                    old_pc.wrapping_add(((imm as i64).cast_unsigned()) << 12),
-                );
+                regs.write(rd, old_pc.wrapping_add((imm as i64).cast_unsigned()));
             }
 
             Rv64Instruction::Jal { rd, imm } => {
