@@ -660,22 +660,19 @@ impl MethodDetails {
         // `original_fn_args` will generate arguments for calling original method implementation
         let mut original_fn_args = Vec::new();
 
-        // Optional state argument with pointer and size (+ capacity if mutable)
+        // Optional state argument
         if let Some(mutability) = self.state {
             internal_args_pointers.push(quote! {
                 pub self_ptr: ::core::ptr::NonNull<
                     <#self_type as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
+                /// Size of the contents `self_ptr` points to
+                pub self_size: ::core::primitive::u32,
+                /// Capacity of the allocated memory `self_ptr` points to
+                pub self_capacity: ::core::primitive::u32,
             });
 
             if mutability.is_some() {
-                internal_args_pointers.push(quote! {
-                    /// Size of the contents `self_ptr` points to
-                    pub self_size: *mut ::core::primitive::u32,
-                    /// Capacity of the allocated memory following `self_ptr` points to
-                    pub self_capacity: ::core::ptr::NonNull<::core::primitive::u32>,
-                });
-
                 original_fn_args.push(quote! {&mut *{
                     // Ensure the state type implements `IoType`, which is required for crossing the
                     // host/guest boundary
@@ -690,15 +687,10 @@ impl MethodDetails {
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.self_ptr,
                         &mut args.self_size,
-                        args.self_capacity.read(),
+                        args.self_capacity,
                     )
                 }});
             } else {
-                internal_args_pointers.push(quote! {
-                    /// Size of the contents `self_ptr` points to
-                    pub self_size: ::core::ptr::NonNull<::core::primitive::u32>,
-                });
-
                 original_fn_args.push(quote! {&*{
                     // Ensure the state type implements `IoType`, which is required for crossing the
                     // host/guest boundary
@@ -712,15 +704,14 @@ impl MethodDetails {
 
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.self_ptr,
-                        args.self_size.as_ref(),
-                        // Size matches capacity for immutable inputs
-                        args.self_size.read(),
+                        &args.self_size,
+                        args.self_capacity,
                     )
                 }});
             }
         }
 
-        // Optional environment argument with just a pointer to data
+        // Optional environment argument
         if let Some(env) = &self.env {
             let ptr_field = format_ident!("{}_ptr", env.arg_name);
             let assert_msg = format!("`{ptr_field}` pointer is misaligned");
@@ -744,9 +735,7 @@ impl MethodDetails {
             }
         }
 
-        // Optional tmp argument with pointers to data and size (+ capacity if mutable)
-        //
-        // Also asserting that type is safe for memory copying.
+        // Optional tmp argument
         if let Some(tmp) = &self.tmp {
             let type_name = &tmp.type_name;
             let mutability = tmp.mutability;
@@ -763,16 +752,13 @@ impl MethodDetails {
                         <#self_type as ::ab_contracts_macros::__private::Contract>::Tmp as ::ab_contracts_macros::__private::IoType
                     >::PointerType,
                 >,
+                #[doc = #size_doc]
+                pub #size_field: ::core::primitive::u32,
+                #[doc = #capacity_doc]
+                pub #capacity_field: ::core::primitive::u32,
             });
 
             if mutability.is_some() {
-                internal_args_pointers.push(quote! {
-                    #[doc = #size_doc]
-                    pub #size_field: *mut ::core::primitive::u32,
-                    #[doc = #capacity_doc]
-                    pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
-                });
-
                 original_fn_args.push(quote! {&mut *{
                     // Ensure tmp type implements `IoTypeOptional`, which is required for handling
                     // of tmp that might be removed or not present and implies implementation of
@@ -788,15 +774,10 @@ impl MethodDetails {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
-                        args.#capacity_field.read(),
+                        args.#capacity_field,
                     )
                 }});
             } else {
-                internal_args_pointers.push(quote! {
-                    #[doc = #size_doc]
-                    pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
-                });
-
                 original_fn_args.push(quote! {&*{
                     // Ensure tmp type implements `IoTypeOptional`, which is required for handling
                     // of tmp that might be removed or not present and implies implementation of
@@ -811,20 +792,16 @@ impl MethodDetails {
 
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
-                        args.#size_field.as_ref(),
-                        // Size matches capacity for immutable inputs
-                        args.#size_field.read(),
+                        &args.#size_field,
+                        args.#capacity_field,
                     )
                 }});
             }
         }
 
         // Slot arguments with:
-        // * in case address is used: pointer to address, pointer to slot and size (+ capacity if
-        //   mutable)
-        // * in case address is not used: pointer to slot and size (+ capacity if mutable)
-        //
-        // Also asserting that type is safe for memory copying.
+        // * in case address is used: a pointer to address, a pointer to slot and size + capacity
+        // * in case address is not used: a pointer to slot and size + capacity
         for slot in &self.slots {
             let type_name = &slot.type_name;
             let mutability = slot.mutability;
@@ -845,16 +822,13 @@ impl MethodDetails {
                         <#self_type as ::ab_contracts_macros::__private::Contract>::Slot as ::ab_contracts_macros::__private::IoType
                     >::PointerType,
                 >,
+                #[doc = #size_doc]
+                pub #size_field: ::core::primitive::u32,
+                #[doc = #capacity_doc]
+                pub #capacity_field: ::core::primitive::u32,
             });
 
             let arg_extraction = if mutability.is_some() {
-                internal_args_pointers.push(quote! {
-                    #[doc = #size_doc]
-                    pub #size_field: *mut ::core::primitive::u32,
-                    #[doc = #capacity_doc]
-                    pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
-                });
-
                 quote! {&mut *{
                     // Ensure the slot type implements `IoTypeOptional`, which is required for
                     // handling of slot that might be removed or not present and implies
@@ -871,15 +845,10 @@ impl MethodDetails {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
-                        args.#capacity_field.read(),
+                        args.#capacity_field,
                     )
                 }}
             } else {
-                internal_args_pointers.push(quote! {
-                    #[doc = #size_doc]
-                    pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
-                });
-
                 quote! {&*{
                     // Ensure the slot type implements `IoTypeOptional`, which is required for
                     // handling of slot that might be removed or not present and implies
@@ -895,9 +864,8 @@ impl MethodDetails {
 
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
-                        args.#size_field.as_ref(),
-                        // Size matches capacity for immutable inputs
-                        args.#size_field.read(),
+                        &args.#size_field,
+                        args.#capacity_field,
                     )
                 }}
             };
@@ -918,21 +886,24 @@ impl MethodDetails {
             }
         }
 
-        // Inputs with pointers to data and size.
-        // Also asserting that type is safe for memory copying.
+        // Inputs
         for input in &self.inputs {
             let type_name = &input.type_name;
             let arg_name = &input.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
             let size_field = format_ident!("{arg_name}_size");
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
+            let capacity_field = format_ident!("{arg_name}_capacity");
+            let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
                     <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
                 #[doc = #size_doc]
-                pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
+                pub #size_field: ::core::primitive::u32,
+                #[doc = #capacity_doc]
+                pub #capacity_field: ::core::primitive::u32,
             });
 
             original_fn_args.push(quote! {&*{
@@ -948,15 +919,13 @@ impl MethodDetails {
 
                 <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                     &args.#ptr_field,
-                    args.#size_field.as_ref(),
-                    // Size matches capacity for immutable inputs
-                    args.#size_field.read(),
+                    &args.#size_field,
+                    args.#capacity_field,
                 )
             }});
         }
 
-        // Outputs with pointers to data, size and capacity.
-        // Also asserting that type is safe for memory copying.
+        // Outputs
         for output in &self.outputs {
             let type_name = &output.type_name;
             let arg_name = &output.arg_name;
@@ -971,9 +940,9 @@ impl MethodDetails {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
                 #[doc = #size_doc]
-                pub #size_field: *mut ::core::primitive::u32,
+                pub #size_field: ::core::primitive::u32,
                 #[doc = #capacity_doc]
-                pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
+                pub #capacity_field: ::core::primitive::u32,
             });
 
             original_fn_args.push(quote! {&mut *{
@@ -990,7 +959,7 @@ impl MethodDetails {
                 <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                     &mut args.#ptr_field,
                     &mut args.#size_field,
-                    args.#capacity_field.read(),
+                    args.#capacity_field,
                 )
             }});
         }
@@ -1000,30 +969,28 @@ impl MethodDetails {
         let return_type = self.return_type.return_type();
 
         let internal_args_struct = {
-            // Result can be used through return type or argument, for argument no special handling
-            // of the return type is needed. Similarly, it is skipped for a unit return type.
+            // No special handling of the return type is needed for a unit return type
             if !self.return_type.unit_return_type() {
                 internal_args_pointers.push(quote! {
                     pub ok_result_ptr: ::core::ptr::NonNull<#return_type>,
-                    /// The size of the contents `ok_result_ptr` points to
-                    pub ok_result_size: *mut ::core::primitive::u32,
-                    /// Capacity of the allocated memory `ok_result_ptr` points to
-                    pub ok_result_capacity: ::core::ptr::NonNull<::core::primitive::u32>,
                 });
 
-                // Ensure the return type implements not only `IoType`, which is required for
-                // crossing host/guest boundary, but also `TrivialType` and result handling is
-                // trivial.
-                // `#[output]` must be used for a variable size result.
                 preparation.push(quote! {
+                    // Ensure the return type implements not only `IoType`, which is required for
+                    // crossing host/guest boundary, but also `TrivialType` and result handling is
+                    // trivial without the need to worry about size and capacity.
+                    // `#[output]` must be used for a variable size result.
+                    const _: () = {
+                        const fn assert_impl_trivial_type<T>()
+                        where
+                            T: ::ab_contracts_macros::__private::IoType,
+                        {}
+                        assert_impl_trivial_type::<#return_type>();
+                    };
+
                     debug_assert!(
                         args.ok_result_ptr.is_aligned(),
                         "`ok_result_ptr` pointer is misaligned"
-                    );
-                    debug_assert!(
-                        args.ok_result_capacity.read() >=
-                            <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
-                        "`ok_result_capacity` specified is invalid",
                     );
                 });
             }
@@ -1057,12 +1024,6 @@ impl MethodDetails {
                 }
                 MethodReturnType::Regular(_) => {
                     quote! {
-                        // Size might be a null pointer for trivial types
-                        if !args.ok_result_size.is_null() {
-                            args.ok_result_size.write(
-                                <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
-                            );
-                        }
                         args.ok_result_ptr.write(#result_var_name);
                         // Return exit code
                         ::ab_contracts_macros::__private::ExitCode::ok()
@@ -1082,12 +1043,6 @@ impl MethodDetails {
                         // Write a result into `InternalArgs` if there is any, return exit code
                         match #result_var_name {
                             Ok(result) => {
-                                // Size might be a null pointer for trivial types
-                                if !args.ok_result_size.is_null() {
-                                    args.ok_result_size.write(
-                                        <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
-                                    );
-                                }
                                 args.ok_result_ptr.write(result);
                                 // Return exit code
                                 ::ab_contracts_macros::__private::ExitCode::ok()
@@ -1157,7 +1112,7 @@ impl MethodDetails {
                     use super::*;
 
                     unsafe extern "C" fn #adapter_ffi_fn_name(
-                        ptr: ::core::ptr::NonNull<::core::ptr::NonNull<::core::ffi::c_void>>,
+                        ptr: ::core::ptr::NonNull<::core::ffi::c_void>,
                     ) -> ::ab_contracts_macros::__private::ExitCode {
                         // SAFETY: Caller must ensure correct ABI of the void pointer, little can be
                         // done here
@@ -1166,7 +1121,7 @@ impl MethodDetails {
 
                     pub const METHOD_FN_POINTER: ::ab_contracts_macros::__private::NativeExecutorContactMethod =
                         ::ab_contracts_macros::__private::NativeExecutorContactMethod {
-                            method_fingerprint: &<#args_struct_name as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
+                            method_fingerprint: &<#args_struct_name<'_> as ::ab_contracts_macros::__private::ExternalArgs>::FINGERPRINT,
                             method_metadata: METADATA,
                             ffi_fn: #adapter_ffi_fn_name,
                         };
@@ -1208,7 +1163,7 @@ impl MethodDetails {
             });
 
             method_args.push(quote! {
-                #arg_name: &::ab_contracts_macros::__private::Address,
+                #arg_name: &'a ::ab_contracts_macros::__private::Address,
             });
             method_args_fields.push(quote! {
                 #ptr_field: ::core::ptr::NonNull::from_ref(#arg_name),
@@ -1222,17 +1177,21 @@ impl MethodDetails {
             let ptr_field = format_ident!("{arg_name}_ptr");
             let size_field = format_ident!("{arg_name}_size");
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
+            let capacity_field = format_ident!("{arg_name}_capacity");
+            let capacity_doc = format!("Capacity of the contents `{ptr_field}` points to");
 
             external_args_fields.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
                     <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
                 #[doc = #size_doc]
-                pub #size_field: ::core::ptr::NonNull<::core::primitive::u32>,
+                pub #size_field: ::core::primitive::u32,
+                #[doc = #capacity_doc]
+                pub #capacity_field: ::core::primitive::u32,
             });
 
             method_args.push(quote! {
-                #arg_name: &#type_name,
+                #arg_name: &'a #type_name,
             });
             method_args_fields.push(quote! {
                 // SAFETY: This pointer is used as input to FFI call, and underlying data
@@ -1241,12 +1200,8 @@ impl MethodDetails {
                 #ptr_field: unsafe {
                     *::ab_contracts_macros::__private::IoType::as_ptr(#arg_name)
                 },
-                // SAFETY: This pointer is used as input to FFI call, and underlying data
-                // will not be modified, also the pointer will not outlive the reference
-                // from which it was created despite copying
-                #size_field: unsafe {
-                    *::ab_contracts_macros::__private::IoType::size_ptr(#arg_name)
-                },
+                #size_field: ::ab_contracts_macros::__private::IoType::size(#arg_name),
+                #capacity_field: ::ab_contracts_macros::__private::IoType::capacity(#arg_name),
             });
         }
 
@@ -1275,39 +1230,23 @@ impl MethodDetails {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
                 #[doc = #size_doc]
-                pub #size_field: *mut ::core::primitive::u32,
+                pub #size_field: ::core::primitive::u32,
                 #[doc = #capacity_doc]
-                pub #capacity_field: ::core::ptr::NonNull<::core::primitive::u32>,
+                pub #capacity_field: ::core::primitive::u32,
             });
 
             method_args.push(quote! {
-                #arg_name: &mut #type_name,
+                #arg_name: &'a mut #type_name,
             });
-            // NOTE: `size_field` is first in the list here intentionally!
-            // For all types except `TrivialType` the size field is non-null and a separate physical
-            // field in a data structure, so calling `as_mut_ptr()` followed by `size_mut_ptr()` is
-            // fine. It is not the case for `TrivialType` though, since `as_mut_ptr()` returns a
-            // pointer to the value itself, causing issues for `size_mut_ptr()` if it is called
-            // second.
             method_args_fields.push(quote! {
-                // SAFETY: This pointer is used as input to FFI call, and underlying data will only
-                // be modified there, also the pointer will not outlive the reference from which it
-                // was created despite copying
-                #size_field: unsafe {
-                    *::ab_contracts_macros::__private::IoType::size_mut_ptr(#arg_name)
-                },
                 // SAFETY: This pointer is used as input to FFI call, and underlying data will only
                 // be modified there, also the pointer will not outlive the reference from which it
                 // was created despite copying
                 #ptr_field: unsafe {
                     *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name)
                 },
-                // SAFETY: This pointer is used as input to FFI call, and underlying data will not
-                // be modified, also the pointer will not outlive the reference from which it was
-                // created despite copying
-                #capacity_field: unsafe {
-                    *::ab_contracts_macros::__private::IoType::capacity_ptr(#arg_name)
-                },
+                #size_field: ::ab_contracts_macros::__private::IoType::size(#arg_name),
+                #capacity_field: ::ab_contracts_macros::__private::IoType::capacity(#arg_name),
             });
         }
 
@@ -1321,26 +1260,16 @@ impl MethodDetails {
 
             external_args_fields.push(quote! {
                 pub ok_result_ptr: ::core::ptr::NonNull<#return_type>,
-                /// Size of the contents `ok_result_ptr` points to
-                pub ok_result_size: *mut ::core::primitive::u32,
-                /// Capacity of the allocated memory `ok_result_ptr` points to
-                pub ok_result_capacity: ::core::ptr::NonNull<::core::primitive::u32>,
             });
 
             method_args.push(quote! {
-                ok_result: &mut ::core::mem::MaybeUninit<#return_type>,
-                ok_result_size: &mut ::core::primitive::u32,
+                ok_result: &'a mut ::core::mem::MaybeUninit<#return_type>,
             });
             method_args_fields.push(quote! {
                 // SAFETY: Pointer created from an allocated struct
                 ok_result_ptr: unsafe {
                     ::core::ptr::NonNull::new_unchecked(ok_result.as_mut_ptr())
                 },
-                ok_result_size: ::core::ptr::from_mut(ok_result_size),
-                // This is for `TrivialType` and will never be modified
-                ok_result_capacity: ::core::ptr::NonNull::from_ref(
-                    &<#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
-                ),
             });
         }
         let args_struct_doc = format!(
@@ -1355,20 +1284,23 @@ impl MethodDetails {
             #[doc = #args_struct_doc]
             #[derive(::core::fmt::Debug)]
             #[repr(C)]
-            pub struct #args_struct_name {
+            pub struct #args_struct_name<'a> {
                 #( #external_args_fields )*
+                lifetime: ::core::marker::PhantomData<&'a ()>,
             }
 
             #[automatically_derived]
-            unsafe impl ::ab_contracts_macros::__private::ExternalArgs for #args_struct_name {
+            unsafe impl ::ab_contracts_macros::__private::ExternalArgs for #args_struct_name<'_> {
                 const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
                     ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA)
                         .expect("Metadata is statically correct; qed");
-                const METADATA: &[::core::primitive::u8] = METADATA;
+                const METADATA: &'static [::core::primitive::u8] = METADATA;
             }
 
-            impl #args_struct_name {
-                /// Create a new instance
+            impl<'a> #args_struct_name<'a> {
+                /// Create a new instance.
+                ///
+                /// NOTE: Make sure to query updated sizes of arguments after calling the contract.
                 #[allow(
                     clippy::new_without_default,
                     reason = "Do not want `Default` in auto-generated code"
@@ -1378,6 +1310,7 @@ impl MethodDetails {
                 ) -> Self {
                     Self {
                         #( #method_args_fields )*
+                        lifetime: ::core::marker::PhantomData,
                     }
                 }
             }
@@ -1489,7 +1422,7 @@ impl MethodDetails {
             };
             method_metadata.push(quote! {
                 &[
-                    ::ab_contracts_macros::__private::ContractMetadataKind::Output as ::core::primitive::u8,
+                    ::ab_contracts_macros::__private::ContractMetadataKind::Return as ::core::primitive::u8,
                     #arg_name_metadata,
                 ],
                 #with_type_metadata
@@ -1582,7 +1515,8 @@ impl MethodDetails {
         let mut preparation = Vec::new();
         let mut method_args = Vec::new();
         let mut external_args_args = Vec::new();
-        let mut result_processing = Vec::new();
+        let mut result_processing_before = Vec::new();
+        let mut result_processing_after = Vec::new();
 
         // Address of the contract
         method_args.push(quote_spanned! {fn_sig.span() =>
@@ -1615,6 +1549,8 @@ impl MethodDetails {
         while let Some(output) = outputs_iter.next() {
             let type_name = &output.type_name;
             let arg_name = &output.arg_name;
+            let size_var = format_ident!("macro_{arg_name}_size");
+            let size_field = format_ident!("{arg_name}_size");
 
             // Initializer's return type will be `()` for the caller of `#[init]`, state is stored
             // by the host and not returned to the caller
@@ -1629,6 +1565,15 @@ impl MethodDetails {
                 #arg_name: &mut #type_name,
             });
             external_args_args.push(quote_spanned! {fn_sig.span() => #arg_name });
+            result_processing_before.push(quote_spanned! {fn_sig.span() =>
+                let #size_var = args.#size_field;
+            });
+            result_processing_after.push(quote_spanned! {fn_sig.span() =>
+                // SAFETY: The host updates size correctly
+                unsafe {
+                    ::ab_contracts_macros::__private::IoType::set_size(#arg_name, #size_var);
+                }
+            });
         }
 
         let original_method_name = &fn_sig.ident;
@@ -1663,19 +1608,28 @@ impl MethodDetails {
             let return_type = self.return_type.return_type();
 
             preparation.push(quote_spanned! {fn_sig.span() =>
+                // Ensure the return type implements not only `IoType`, which is required for
+                // crossing host/guest boundary, but also `TrivialType` and result handling is
+                // trivial without the need to worry about size and capacity.
+                // `#[output]` must be used for a variable size result.
+                const _: () = {
+                    const fn assert_impl_trivial_type<T>()
+                    where
+                        T: ::ab_contracts_macros::__private::IoType,
+                    {}
+                    assert_impl_trivial_type::<#return_type>();
+                };
+
                 let mut ok_result = ::core::mem::MaybeUninit::uninit();
-                // While this will not change for `TrivialType`, the pointer will be written to and
-                // as such, the value needs to be given
-                let mut ok_result_size =
-                    <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE;
             });
             external_args_args.push(quote_spanned! {fn_sig.span() =>
-                &mut ok_result,
-                &mut ok_result_size
+                &mut ok_result
             });
-            result_processing.push(quote_spanned! {fn_sig.span() =>
-                // This is fine for `TrivialType` types
-                ok_result.assume_init()
+            result_processing_after.push(quote_spanned! {fn_sig.span() =>
+                // SAFETY: The non-error result indicates successful storing of the result
+                unsafe {
+                    ok_result.assume_init()
+                }
             });
 
             quote_spanned! {fn_sig.span() =>
@@ -1736,17 +1690,14 @@ impl MethodDetails {
 
                 self.call(contract, &mut args, #method_context_value)?;
 
-                // SAFETY: The non-error result above indicates successful storing of the result
-                #[allow(
-                    unused_unsafe,
-                    reason = "Sometimes there is no result to process and block is empty"
-                )]
+                #( #result_processing_before )*
+
                 #[allow(
                     clippy::let_unit_value,
                     reason = "Sometimes there is no result to process and block is empty"
                 )]
-                let result = unsafe {
-                    #( #result_processing )*
+                let result = {
+                    #( #result_processing_after )*
                 };
 
                 Ok(result)

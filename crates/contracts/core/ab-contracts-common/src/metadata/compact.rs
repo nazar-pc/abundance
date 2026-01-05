@@ -132,8 +132,9 @@ const fn compact_metadata_inner<'i, 'o>(
         | ContractMetadataKind::SlotRo
         | ContractMetadataKind::SlotRw
         | ContractMetadataKind::Input
-        | ContractMetadataKind::Output => {
-            // Can't start with argument
+        | ContractMetadataKind::Output
+        | ContractMetadataKind::Return => {
+            // Can't start with an argument
             return None;
         }
     }
@@ -207,7 +208,9 @@ const fn compact_method_argument<'i, 'o>(
             // TODO: `split_off()` is not `const fn` yet, even unstably
             input = input.get(usize::from(argument_name_length)..)?;
         }
-        ContractMetadataKind::Input | ContractMetadataKind::Output => {
+        ContractMetadataKind::Input
+        | ContractMetadataKind::Output
+        | ContractMetadataKind::Return => {
             let contract_metadata_kind_output = output.split_off_first_mut()?;
             *contract_metadata_kind_output = contract_metadata_kind_input;
 
@@ -222,7 +225,7 @@ const fn compact_method_argument<'i, 'o>(
                 (method_kind, contract_metadata_kind, last_argument),
                 (
                     ContractMetadataKind::Init,
-                    ContractMetadataKind::Output,
+                    ContractMetadataKind::Output | ContractMetadataKind::Return,
                     true
                 )
             );

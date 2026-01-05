@@ -13,10 +13,10 @@ use core::ptr::NonNull;
 /// call. Essentially, something executed with a context of a contract can be thought as done
 /// "on behalf" of that contract, which depending on circumstances may or may not be desired.
 ///
-/// Initially, context is [`Address::NULL`]. For each call into another contract, the context of the
-/// current method can be either preserved, reset to [`Address::NULL`] or replaced with the current
-/// contract's address. Those are the only options. Contracts do not have privileges to change
-/// context to the address of an arbitrary contract.
+/// Initially, the context is [`Address::NULL`]. For each call into another contract, the context of
+/// the current method can be either preserved, reset to [`Address::NULL`] or replaced with the
+/// current contract's address. Those are the only options. Contracts do not have privileges to
+/// change context to the address of an arbitrary contract.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
 #[repr(u8)]
 pub enum MethodContext {
@@ -24,7 +24,7 @@ pub enum MethodContext {
     Keep,
     /// Reset context to [`Address::NULL`]
     Reset,
-    /// Replace context with current contract's address
+    /// Replace context with the current contract's address
     Replace,
 }
 
@@ -33,13 +33,13 @@ pub enum MethodContext {
 #[repr(C)]
 #[must_use]
 pub struct PreparedMethod<'a> {
-    /// Address of the contract that contains a function to below fingerprint
+    /// Address of the contract that contains a function to the below fingerprint
     pub contract: Address,
     /// Fingerprint of the method being called
     pub fingerprint: MethodFingerprint,
-    /// Anonymous pointer to a struct that implements `ExternalArgs` of the method with above
+    /// Anonymous pointer to a struct that implements `ExternalArgs` of the method with the above
     /// `fingerprint`
-    pub external_args: NonNull<NonNull<c_void>>,
+    pub external_args: NonNull<c_void>,
     /// Context for method call
     pub method_context: MethodContext,
     /// Used to tie the lifetime to `ExternalArgs`
@@ -197,8 +197,7 @@ impl<'a> Env<'a> {
         PreparedMethod {
             contract,
             fingerprint: Args::FINGERPRINT,
-            // TODO: Method on `ExternalArgs` that returns an iterator over pointers
-            external_args: NonNull::from_mut(args).cast::<NonNull<c_void>>(),
+            external_args: NonNull::from_mut(args).cast::<c_void>(),
             method_context,
             phantom: PhantomData,
         }

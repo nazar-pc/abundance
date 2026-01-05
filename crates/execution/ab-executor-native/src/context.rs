@@ -20,7 +20,7 @@ pub(super) struct MethodDetails {
     pub(super) recommended_slot_capacity: u32,
     pub(super) recommended_tmp_capacity: u32,
     pub(super) method_metadata: &'static [u8],
-    pub(super) ffi_fn: unsafe extern "C" fn(NonNull<NonNull<c_void>>) -> ExitCode,
+    pub(super) ffi_fn: unsafe extern "C" fn(NonNull<c_void>) -> ExitCode,
 }
 
 #[derive(Debug)]

@@ -116,18 +116,47 @@ fn basic() {
         // Direct
         {
             let remaining_balance = env.playground_balance(playground_token, &alice).unwrap();
-            let code_balance = env.playground_balance(playground_token, &bob).unwrap();
+            let bob_balance = env.playground_balance(playground_token, &bob).unwrap();
 
             assert_eq!(remaining_balance, previous_alice_balance - amount);
-            assert_eq!(code_balance, previous_bob_balance + amount);
+            assert_eq!(bob_balance, previous_bob_balance + amount);
+
+            {
+                let mut balance = Balance::default();
+                let mut balance_size = 0;
+                let mut balance_2 = Balance::default();
+                env.playground_balance_output(
+                    playground_token,
+                    &bob,
+                    &mut MaybeData::from_mut(&mut balance, &mut balance_size),
+                    &mut balance_2,
+                )
+                .unwrap();
+                assert_eq!(balance_size, Balance::SIZE);
+                assert_eq!(balance, bob_balance);
+            }
+            {
+                let mut balance = Balance::default();
+                let mut balance_size = 0;
+                let mut balance_2 = Balance::default();
+                env.playground_balance_output(
+                    playground_token,
+                    &alice,
+                    &mut MaybeData::from_mut(&mut balance, &mut balance_size),
+                    &mut balance_2,
+                )
+                .unwrap();
+                assert_eq!(balance_size, Balance::SIZE);
+                assert_eq!(balance, remaining_balance);
+            }
         }
         // Through `Fungible` trait
         {
             let remaining_balance = env.fungible_balance(playground_token, &alice).unwrap();
-            let code_balance = env.fungible_balance(playground_token, &bob).unwrap();
+            let bob_balance = env.fungible_balance(playground_token, &bob).unwrap();
 
             assert_eq!(remaining_balance, previous_alice_balance - amount);
-            assert_eq!(code_balance, previous_bob_balance + amount);
+            assert_eq!(bob_balance, previous_bob_balance + amount);
         }
 
         previous_alice_balance -= amount;
@@ -140,18 +169,47 @@ fn basic() {
         // Direct
         {
             let remaining_balance = env.playground_balance(playground_token, &alice).unwrap();
-            let code_balance = env.playground_balance(playground_token, &bob).unwrap();
+            let bob_balance = env.playground_balance(playground_token, &bob).unwrap();
 
             assert_eq!(remaining_balance, previous_alice_balance - amount);
-            assert_eq!(code_balance, previous_bob_balance + amount);
+            assert_eq!(bob_balance, previous_bob_balance + amount);
+
+            {
+                let mut balance = Balance::default();
+                let mut balance_size = 0;
+                let mut balance_2 = Balance::default();
+                env.playground_balance_output(
+                    playground_token,
+                    &bob,
+                    &mut MaybeData::from_mut(&mut balance, &mut balance_size),
+                    &mut balance_2,
+                )
+                .unwrap();
+                assert_eq!(balance_size, Balance::SIZE);
+                assert_eq!(balance, bob_balance);
+            }
+            {
+                let mut balance = Balance::default();
+                let mut balance_size = 0;
+                let mut balance_2 = Balance::default();
+                env.playground_balance_output(
+                    playground_token,
+                    &bob,
+                    &mut MaybeData::from_mut(&mut balance, &mut balance_size),
+                    &mut balance_2,
+                )
+                .unwrap();
+                assert_eq!(balance_size, Balance::SIZE);
+                assert_eq!(balance, bob_balance);
+            }
         }
         // Through `Fungible` trait
         {
             let remaining_balance = env.fungible_balance(playground_token, &alice).unwrap();
-            let code_balance = env.fungible_balance(playground_token, &bob).unwrap();
+            let bob_balance = env.fungible_balance(playground_token, &bob).unwrap();
 
             assert_eq!(remaining_balance, previous_alice_balance - amount);
-            assert_eq!(code_balance, previous_bob_balance + amount);
+            assert_eq!(bob_balance, previous_bob_balance + amount);
         }
 
         // Can't transfer from `bob` when transaction is authored by `alice`

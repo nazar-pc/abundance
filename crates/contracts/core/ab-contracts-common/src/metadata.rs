@@ -62,19 +62,19 @@ pub enum ContractMetadataKind {
     ///   * [`Self::SlotRw`]
     ///   * [`Self::Input`]
     ///   * [`Self::Output`]
+    ///   * [`Self::Return`] (yes, this is considered to be an argument)
     /// * Length of the argument name in bytes (u8, except for [`Self::EnvRo`] and [`Self::EnvRw`])
     /// * Argument name as UTF-8 bytes (except for [`Self::EnvRo`] and [`Self::EnvRw`])
     /// * Only for [`Self::Input`] and [`Self::Output`] recursive metadata of argument's type as
-    ///   described in [`IoTypeMetadataKind`] with following exception:
-    ///   * For last [`Self::Output`] this is skipped if method is [`Self::Init`] (since it is
-    ///     statically known to be `Self`) and present otherwise
+    ///   described in [`IoTypeMetadataKind`] with the following exception:
+    ///   * For last [`Self::Output`] or [`Self::Return`] this is skipped if the method is
+    ///     [`Self::Init`] since it is statically known to be `Self` and present otherwise
     ///
     /// [`IoTypeMetadataKind`]: ab_io_type::metadata::IoTypeMetadataKind
     ///
-    /// NOTE: [`Self::Output`], regardless of whether it is a return type or explicit `#[output]`
-    /// argument is encoded as a separate argument and counts towards number of arguments. At the
-    /// same time, `self` doesn't count towards the number of arguments as it is implicitly defined
-    /// by the variant of this struct.
+    /// NOTE: [`Self::Return`] is encoded as a separate argument and counts towards the number of
+    /// arguments. At the same time, `self` doesn't count towards the number of arguments as it
+    /// is implicitly defined by the variant of this struct.
     Init,
     /// Stateless `#[update]` method (doesn't have `self` in its arguments).
     ///
@@ -128,13 +128,18 @@ pub enum ContractMetadataKind {
     ///
     /// Example: `#[input] balance: &Balance,`
     Input,
-    /// Explicit `#[output]` argument or `T` of [`Result<T, ContractError>`] return type or simply
-    /// return type if it is not fallible.
+    /// Explicit `#[output]` argument.
     ///
     /// NOTE: Skipped if return type's `T` is `()`.
     ///
     /// Example: `#[output] out: &mut VariableBytes<1024>,`
     Output,
+    /// `T` of [`Result<T, ContractError>`] return type or simply return type if it is not fallible.
+    ///
+    /// NOTE: Skipped if return type's `T` is `()`.
+    ///
+    /// Example: `-> Balance`
+    Return,
 }
 
 impl ContractMetadataKind {
@@ -159,6 +164,7 @@ impl ContractMetadataKind {
             13 => Self::SlotRw,
             14 => Self::Input,
             15 => Self::Output,
+            16 => Self::Return,
             _ => {
                 return None;
             }

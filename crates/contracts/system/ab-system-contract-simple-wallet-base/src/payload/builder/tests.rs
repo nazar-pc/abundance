@@ -51,7 +51,7 @@ fn payload_encode_decode() {
 
     let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
     let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
-    let mut output_buffer_offsets = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
+    let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
 
     // Untrusted
     {
@@ -59,7 +59,7 @@ fn payload_encode_decode() {
             &payload,
             &mut external_args_buffer,
             &mut output_buffer,
-            &mut output_buffer_offsets,
+            &mut output_buffer_details,
             |method_context| match method_context {
                 TransactionMethodContext::Null => MethodContext::Reset,
                 TransactionMethodContext::Wallet => MethodContext::Keep,
@@ -78,7 +78,7 @@ fn payload_encode_decode() {
         assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
         assert_eq!(
             // SAFETY: method argument is a single `u8`
-            unsafe { external_args.read().cast::<u8>().read() },
+            unsafe { external_args.cast::<*const u8>().read().read() },
             new_value
         );
         assert_eq!(method_context, MethodContext::Keep);
@@ -94,7 +94,7 @@ fn payload_encode_decode() {
             &payload,
             &mut external_args_buffer,
             &mut output_buffer,
-            &mut output_buffer_offsets,
+            &mut output_buffer_details,
             |method_context| match method_context {
                 TransactionMethodContext::Null => MethodContext::Reset,
                 TransactionMethodContext::Wallet => MethodContext::Keep,
@@ -114,7 +114,7 @@ fn payload_encode_decode() {
         assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
         assert_eq!(
             // SAFETY: method argument is a single `u8`
-            unsafe { external_args.read().cast::<u8>().read() },
+            unsafe { external_args.cast::<*const u8>().read().read() },
             new_value
         );
         assert_eq!(method_context, MethodContext::Keep);

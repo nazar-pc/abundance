@@ -244,23 +244,8 @@ where
     }
 
     #[inline(always)]
-    unsafe fn size_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
-        DerefWrapper(NonNull::from_ref(&T::SIZE))
-    }
-
-    #[inline(always)]
-    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = *mut u32> {
-        DerefWrapper(ptr::null_mut())
-    }
-
-    #[inline(always)]
     fn capacity(&self) -> u32 {
         self.size()
-    }
-
-    #[inline(always)]
-    unsafe fn capacity_ptr(&self) -> impl Deref<Target = NonNull<u32>> {
-        DerefWrapper(NonNull::from_ref(&Self::SIZE))
     }
 
     #[inline(always)]
@@ -291,7 +276,7 @@ where
     #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
-        _size: &'a mut *mut u32,
+        _size: &'a mut u32,
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");

@@ -87,13 +87,13 @@ impl<T> DerefMut for DerefWrapper<T> {
 /// Trait that is used for types that are crossing the host/guest boundary in contracts.
 ///
 /// Crucially, it is implemented for any type that implements [`TrivialType`] and for
-/// [`VariableBytes`](crate::variable_bytes::VariableBytes).
+/// [`VariableBytes`](variable_bytes::VariableBytes).
 ///
 /// # Safety
 /// This trait is used for types with memory transmutation capabilities, it must not be relied on
 /// with untrusted data. Serializing and deserializing of types that implement this trait is simply
 /// casting of underlying memory. As a result, all the types implementing this trait must not use
-/// implicit padding, unions or anything similar that might make it unsound to access any bits of
+/// implicit padding, unions, or anything similar that might make it unsound to access any bits of
 /// the type.
 ///
 /// Helper functions are provided to make casting to/from bytes a bit safer than it would otherwise,
@@ -109,49 +109,17 @@ pub unsafe trait IoType {
     /// Data structure metadata in binary form, describing shape and types of the contents, see
     /// [`IoTypeMetadataKind`] for encoding details
     ///
-    /// [`IoTypeMetadataKind`]: crate::metadata::IoTypeMetadataKind
+    /// [`IoTypeMetadataKind`]: metadata::IoTypeMetadataKind
     const METADATA: &[u8];
 
-    /// Pointer with trivial type that this `IoType` represents
+    /// Pointer with a trivial type that this `IoType` represents
     type PointerType: TrivialType;
 
     /// Number of bytes that are currently used to store data
     fn size(&self) -> u32;
 
-    /// Pointer to the number of bytes that are currently used to store data.
-    ///
-    /// # Safety
-    /// While calling this function is technically safe, it and allows to ignore many of its
-    /// invariants, so requires extra care. In particular, no modifications must be done to the
-    /// value while this returned pointer might be used and no changes must be done through the
-    /// returned pointer. Also, lifetimes are only superficial here and can be easily (and
-    /// incorrectly) ignored by using `Copy`.
-    unsafe fn size_ptr(&self) -> impl Deref<Target = NonNull<u32>>;
-
-    /// An exclusive pointer to the number of bytes that are currently used to store data.
-    ///
-    /// NOTE: Pointer might be `null` for [`TrivialType`]s that don't store size internally, in
-    /// which case type's capacity should be used as size.
-    ///
-    /// # Safety
-    /// While calling this function is technically safe, it and allows to ignore many of its
-    /// invariants, so requires extra care. In particular, the value's contents must not be read or
-    /// written to while returned point might be used. Also, lifetimes are only superficial here and
-    /// can be easily (and incorrectly) ignored by using `Copy`.
-    unsafe fn size_mut_ptr(&mut self) -> impl DerefMut<Target = *mut u32>;
-
     /// Number of bytes are allocated right now
     fn capacity(&self) -> u32;
-
-    /// Number of bytes are allocated right now
-    ///
-    /// # Safety
-    /// While calling this function is technically safe, it and allows to ignore many of its
-    /// invariants, so requires extra care. In particular, no modifications must be done to the
-    /// value while this returned pointer might be used and no changes must be done through the
-    /// returned pointer. Also, lifetimes are only superficial here and can be easily (and
-    /// incorrectly) ignored by using `Copy`.
-    unsafe fn capacity_ptr(&self) -> impl Deref<Target = NonNull<u32>>;
 
     /// Set the number of used bytes
     ///
@@ -164,11 +132,8 @@ pub unsafe trait IoType {
     /// Memory must be correctly aligned and sufficient in size, but padding beyond the size of the
     /// type is allowed. Memory behind a pointer must not be written to in the meantime either.
     ///
-    /// Only `size` are guaranteed to be allocated for types that can store variable amount of
-    /// data due to read-only nature of read-only access here.
-    ///
-    /// # Panics
-    /// Panics if `size` is a `null` pointer in case of non-[`TrivialType`]
+    /// Only `size` bytes are guaranteed to be allocated for types that can store a variable amount
+    /// of data due to the read-only nature of read-only access here.
     ///
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
@@ -185,15 +150,12 @@ pub unsafe trait IoType {
 
     /// Create a mutable reference to a type, which is represented by provided memory.
     ///
-    /// Memory must be correctly aligned and sufficient in size or else `None` will be returned, but
-    /// padding beyond the size of the type is allowed. Memory behind a pointer must not be read or
-    /// written to in the meantime either.
+    /// Memory must be correctly aligned and sufficient in size, or else `None` will be returned,
+    /// but padding beyond the size of the type is allowed. Memory behind a pointer must not be
+    /// read or written to in the meantime either.
     ///
-    /// `size` indicates how many bytes are used within larger allocation for types that can
-    /// store variable amount of data.
-    ///
-    /// # Panics
-    /// Panics if `size` is a `null` pointer in case of non-[`TrivialType`]
+    /// `size` indicates how many bytes are used within a larger allocation for types that can
+    /// store a variable amount of data.
     ///
     /// # Safety
     /// Input bytes must be previously produced by taking underlying bytes of the same type.
@@ -204,7 +166,7 @@ pub unsafe trait IoType {
     #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
-        size: &'a mut *mut u32,
+        size: &'a mut u32,
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a;
 

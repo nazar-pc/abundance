@@ -10,9 +10,9 @@
 //! * [`SimpleWalletBase::authorize`] is used for authorization
 //! * [`SimpleWalletBase::execute`] is used for executing method calls contained in the payload,
 //!   followed by [`SimpleWalletBase::increase_nonce`]
-//! * [`SimpleWalletBase::change_public_key`] is used for change public key to a different one
+//! * [`SimpleWalletBase::change_public_key`] is used to change a public key to a different one
 
-#![feature(maybe_uninit_as_bytes, ptr_as_ref_unchecked, try_blocks)]
+#![feature(maybe_uninit_as_bytes, ptr_as_ref_unchecked, slice_ptr_get, try_blocks)]
 #![no_std]
 
 pub mod payload;
@@ -27,6 +27,7 @@ use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::{TxHandlerPayload, TxHandlerSeal, TxHandlerSlots};
 use ab_core_primitives::transaction::TransactionHeader;
 use ab_io_type::trivial_type::TrivialType;
+use core::ffi::c_void;
 use core::mem::MaybeUninit;
 use core::ptr;
 use schnorrkel::PublicKey;
@@ -37,14 +38,16 @@ use schnorrkel::PublicKey;
 ///
 /// This constant is helpful for frontend/hardware wallet implementations.
 pub const SIGNING_CONTEXT: &[u8] = b"system-simple-wallet";
-/// Size of the buffer in pointers that is used for `ExternalArgs` pointers.
+/// Size of the buffer (in pointers) that is used for `ExternalArgs` pointers.
 ///
 /// This constant is helpful for transaction generation to check whether a created transaction
 /// doesn't exceed this limit.
 ///
-/// `#[slot]` argument using one pointer, `#[input]` two pointers and `#[output]` three pointers
-/// each.
-pub const EXTERNAL_ARGS_BUFFER_SIZE: usize = 3 * MAX_TOTAL_METHOD_ARGS as usize;
+/// `#[slot]` argument using one pointer, `#[input]` and `#[output]` use one pointer and size +
+/// capacity each.
+pub const EXTERNAL_ARGS_BUFFER_SIZE: usize = MAX_TOTAL_METHOD_ARGS as usize
+    * (size_of::<*mut c_void>() + size_of::<u32>() * 2)
+    / size_of::<*mut c_void>();
 /// Size of the buffer in `u128` elements that is used as a stack for storing outputs.
 ///
 /// This constant is helpful for transaction generation to check whether a created transaction
@@ -176,13 +179,13 @@ impl SimpleWalletBase {
 
         let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
         let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
-        let mut output_buffer_offsets = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
+        let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
 
         let mut payload_decoder = TransactionPayloadDecoder::new(
             payload.get_initialized(),
             &mut external_args_buffer,
             &mut output_buffer,
-            &mut output_buffer_offsets,
+            &mut output_buffer_details,
             |method_context| match method_context {
                 TransactionMethodContext::Null => MethodContext::Reset,
                 TransactionMethodContext::Wallet => MethodContext::Keep,
@@ -218,7 +221,7 @@ impl SimpleWalletBase {
         #[input] state: &WalletState,
         #[input] &public_key: &[u8; 32],
     ) -> Result<WalletState, ContractError> {
-        // Ensure public key is valid
+        // Ensure a public key is valid
         PublicKey::from_bytes(&public_key).map_err(|_error| ContractError::BadInput)?;
 
         Ok(WalletState {
