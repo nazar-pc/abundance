@@ -50,6 +50,12 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
                 .context("Path to target specification file is not valid UTF-8")?,
         ]);
 
+    if env::var("MIRI_SYSROOT").is_ok() {
+        command_builder
+            .env_remove("RUSTC")
+            .env_remove("RUSTC_WRAPPER");
+    }
+
     if let Some(package) = package {
         command_builder.args([
             "--package",
