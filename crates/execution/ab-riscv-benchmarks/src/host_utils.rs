@@ -5,7 +5,7 @@ use ab_riscv_interpreter::{
     BasicInt, ExecuteError, FetchInstructionResult, GenericInstructionHandler, VirtualMemory,
     VirtualMemoryError,
 };
-use ab_riscv_primitives::instruction::GenericInstruction;
+use ab_riscv_primitives::instruction::GenericBaseInstruction;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
 
@@ -216,7 +216,7 @@ impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Registers, Memory>
     GenericInstructionHandler<Instruction, Registers, Memory, &'static str>
     for TestInstructionHandler<RETURN_TRAP_ADDRESS>
 where
-    Instruction: GenericInstruction,
+    Instruction: GenericBaseInstruction,
     Memory: VirtualMemory,
 {
     #[inline(always)]

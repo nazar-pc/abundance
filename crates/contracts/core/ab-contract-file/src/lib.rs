@@ -8,8 +8,9 @@ use ab_contracts_common::metadata::decode::{
     MethodsMetadataDecoder,
 };
 use ab_io_type::trivial_type::TrivialType;
-use ab_riscv_primitives::instruction::{GenericInstruction, Rv64Instruction};
-use ab_riscv_primitives::registers::EReg;
+use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
+use ab_riscv_primitives::instruction::{GenericBaseInstruction, Rv64MInstruction};
+use ab_riscv_primitives::registers::EReg64;
 use core::iter;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;
@@ -141,9 +142,9 @@ pub enum ContractFileParseError {
     #[error("The host call function doesn't have auipc + jalr tailcall pattern: {first} {second}")]
     InvalidHostCallFnPattern {
         /// First instruction of the host call function
-        first: Rv64Instruction<EReg>,
+        first: Rv64MInstruction<EReg64>,
         /// Second instruction of the host call function
-        second: Rv64Instruction<EReg>,
+        second: Rv64MInstruction<EReg64>,
     },
     /// The read-only section file size is larger than the memory size
     #[error(
@@ -185,7 +186,7 @@ pub enum ContractFileParseError {
     #[error("Unexpected instruction encountered while parsing the code section: {instruction}")]
     UnexpectedInstruction {
         /// Instruction
-        instruction: Rv64Instruction<EReg>,
+        instruction: Rv64MInstruction<EReg64>,
     },
     /// Unexpected trailing code bytes encountered while parsing the code section
     #[error(
@@ -414,8 +415,8 @@ impl<'a> ContractFile<'a> {
                 instructions_bytes[7],
             ]);
 
-            let first = Rv64Instruction::<EReg>::decode(first_instruction);
-            let second = Rv64Instruction::<EReg>::decode(second_instruction);
+            let first = Rv64MInstruction::<EReg64>::decode(first_instruction);
+            let second = Rv64MInstruction::<EReg64>::decode(second_instruction);
 
             // TODO: Should it be canonicalized to a fixed immediate and temporary after conversion
             //  from ELF?
@@ -423,18 +424,18 @@ impl<'a> ContractFile<'a> {
             //   auipc x?, 0x?
             //   jalr  x0, offset(x?)
             let matches_expected_pattern = if let (
-                Rv64Instruction::Auipc {
+                Rv64MInstruction::Base(Rv64Instruction::Auipc {
                     rd: auipc_rd,
                     imm: _,
-                },
-                Rv64Instruction::Jalr {
+                }),
+                Rv64MInstruction::Base(Rv64Instruction::Jalr {
                     rd: jalr_rd,
                     rs1: jalr_rs1,
                     imm: _,
-                },
+                }),
             ) = (first, second)
             {
-                auipc_rd == jalr_rs1 && jalr_rd == EReg::Zero
+                auipc_rd == jalr_rs1 && jalr_rd == EReg64::Zero
             } else {
                 false
             };
@@ -456,77 +457,68 @@ impl<'a> ContractFile<'a> {
                     instruction_bytes[2],
                     instruction_bytes[3],
                 ]);
-                let instruction = Rv64Instruction::<EReg>::decode(instruction);
+                let instruction = Rv64MInstruction::<EReg64>::decode(instruction);
                 match instruction {
-                    Rv64Instruction::Add { .. }
-                    | Rv64Instruction::Sub { .. }
-                    | Rv64Instruction::Sll { .. }
-                    | Rv64Instruction::Slt { .. }
-                    | Rv64Instruction::Sltu { .. }
-                    | Rv64Instruction::Xor { .. }
-                    | Rv64Instruction::Srl { .. }
-                    | Rv64Instruction::Sra { .. }
-                    | Rv64Instruction::Or { .. }
-                    | Rv64Instruction::And { .. }
-                    | Rv64Instruction::Mul { .. }
-                    | Rv64Instruction::Mulh { .. }
-                    | Rv64Instruction::Mulhsu { .. }
-                    | Rv64Instruction::Mulhu { .. }
-                    | Rv64Instruction::Div { .. }
-                    | Rv64Instruction::Divu { .. }
-                    | Rv64Instruction::Rem { .. }
-                    | Rv64Instruction::Remu { .. }
-                    | Rv64Instruction::Addw { .. }
-                    | Rv64Instruction::Subw { .. }
-                    | Rv64Instruction::Sllw { .. }
-                    | Rv64Instruction::Srlw { .. }
-                    | Rv64Instruction::Sraw { .. }
-                    | Rv64Instruction::Mulw { .. }
-                    | Rv64Instruction::Divw { .. }
-                    | Rv64Instruction::Divuw { .. }
-                    | Rv64Instruction::Remw { .. }
-                    | Rv64Instruction::Remuw { .. }
-                    | Rv64Instruction::Addi { .. }
-                    | Rv64Instruction::Slti { .. }
-                    | Rv64Instruction::Sltiu { .. }
-                    | Rv64Instruction::Xori { .. }
-                    | Rv64Instruction::Ori { .. }
-                    | Rv64Instruction::Andi { .. }
-                    | Rv64Instruction::Slli { .. }
-                    | Rv64Instruction::Srli { .. }
-                    | Rv64Instruction::Srai { .. }
-                    | Rv64Instruction::Addiw { .. }
-                    | Rv64Instruction::Slliw { .. }
-                    | Rv64Instruction::Srliw { .. }
-                    | Rv64Instruction::Sraiw { .. }
-                    | Rv64Instruction::Lb { .. }
-                    | Rv64Instruction::Lh { .. }
-                    | Rv64Instruction::Lw { .. }
-                    | Rv64Instruction::Ld { .. }
-                    | Rv64Instruction::Lbu { .. }
-                    | Rv64Instruction::Lhu { .. }
-                    | Rv64Instruction::Lwu { .. }
-                    | Rv64Instruction::Jalr { .. }
-                    | Rv64Instruction::Sb { .. }
-                    | Rv64Instruction::Sh { .. }
-                    | Rv64Instruction::Sw { .. }
-                    | Rv64Instruction::Sd { .. }
-                    | Rv64Instruction::Beq { .. }
-                    | Rv64Instruction::Bne { .. }
-                    | Rv64Instruction::Blt { .. }
-                    | Rv64Instruction::Bge { .. }
-                    | Rv64Instruction::Bltu { .. }
-                    | Rv64Instruction::Bgeu { .. }
-                    | Rv64Instruction::Lui { .. }
-                    | Rv64Instruction::Auipc { .. }
-                    | Rv64Instruction::Jal { .. }
-                    | Rv64Instruction::Ebreak
-                    | Rv64Instruction::Unimp => {
-                        // Expected instruction
+                    Rv64MInstruction::A(_)
+                    | Rv64MInstruction::Base(
+                        Rv64Instruction::Add { .. }
+                        | Rv64Instruction::Sub { .. }
+                        | Rv64Instruction::Sll { .. }
+                        | Rv64Instruction::Slt { .. }
+                        | Rv64Instruction::Sltu { .. }
+                        | Rv64Instruction::Xor { .. }
+                        | Rv64Instruction::Srl { .. }
+                        | Rv64Instruction::Sra { .. }
+                        | Rv64Instruction::Or { .. }
+                        | Rv64Instruction::And { .. }
+                        | Rv64Instruction::Addw { .. }
+                        | Rv64Instruction::Subw { .. }
+                        | Rv64Instruction::Sllw { .. }
+                        | Rv64Instruction::Srlw { .. }
+                        | Rv64Instruction::Sraw { .. }
+                        | Rv64Instruction::Addi { .. }
+                        | Rv64Instruction::Slti { .. }
+                        | Rv64Instruction::Sltiu { .. }
+                        | Rv64Instruction::Xori { .. }
+                        | Rv64Instruction::Ori { .. }
+                        | Rv64Instruction::Andi { .. }
+                        | Rv64Instruction::Slli { .. }
+                        | Rv64Instruction::Srli { .. }
+                        | Rv64Instruction::Srai { .. }
+                        | Rv64Instruction::Addiw { .. }
+                        | Rv64Instruction::Slliw { .. }
+                        | Rv64Instruction::Srliw { .. }
+                        | Rv64Instruction::Sraiw { .. }
+                        | Rv64Instruction::Lb { .. }
+                        | Rv64Instruction::Lh { .. }
+                        | Rv64Instruction::Lw { .. }
+                        | Rv64Instruction::Ld { .. }
+                        | Rv64Instruction::Lbu { .. }
+                        | Rv64Instruction::Lhu { .. }
+                        | Rv64Instruction::Lwu { .. }
+                        | Rv64Instruction::Jalr { .. }
+                        | Rv64Instruction::Sb { .. }
+                        | Rv64Instruction::Sh { .. }
+                        | Rv64Instruction::Sw { .. }
+                        | Rv64Instruction::Sd { .. }
+                        | Rv64Instruction::Beq { .. }
+                        | Rv64Instruction::Bne { .. }
+                        | Rv64Instruction::Blt { .. }
+                        | Rv64Instruction::Bge { .. }
+                        | Rv64Instruction::Bltu { .. }
+                        | Rv64Instruction::Bgeu { .. }
+                        | Rv64Instruction::Lui { .. }
+                        | Rv64Instruction::Auipc { .. }
+                        | Rv64Instruction::Jal { .. }
+                        | Rv64Instruction::Ebreak
+                        | Rv64Instruction::Unimp,
+                    ) => { // Expected instruction
                     }
-                    Rv64Instruction::Fence { .. }
-                    | Rv64Instruction::Ecall
-                    | Rv64Instruction::Invalid(_) => {
+                    Rv64MInstruction::Base(
+                        Rv64Instruction::Fence { .. }
+                        | Rv64Instruction::Ecall
+                        | Rv64Instruction::Invalid(_),
+                    ) => {
                         return Err(ContractFileParseError::UnexpectedInstruction { instruction });
                     }
                 }

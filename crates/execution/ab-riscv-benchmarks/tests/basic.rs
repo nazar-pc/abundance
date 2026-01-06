@@ -7,8 +7,8 @@ use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, RISCV_CONTRACT_BYTES,
     TestInstructionHandler, TestMemory,
 };
-use ab_riscv_interpreter::execute_rv64;
-use ab_riscv_primitives::registers::{EReg, ERegisters, GenericRegisters};
+use ab_riscv_interpreter::execute_rv64m;
+use ab_riscv_primitives::registers::{EReg64, ERegisters64, GenericRegisters64};
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
@@ -49,7 +49,7 @@ where
         );
     }
 
-    let mut regs = ERegisters::default();
+    let mut regs = ERegisters64::default();
     let internal_args_addr = (MEMORY_BASE_ADDRESS + contract_memory_size as u64)
         .next_multiple_of(size_of::<u128>() as u64);
 
@@ -66,13 +66,13 @@ where
             .copy_from_slice(internal_args_bytes);
     }
 
-    regs.write(EReg::A0, internal_args_addr);
-    regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+    regs.write(EReg64::A0, internal_args_addr);
+    regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
     let mut pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
     let mut handler = TestInstructionHandler::<TRAP_ADDRESS>;
 
-    execute_rv64(&mut regs, &mut memory, &mut pc, &mut handler).unwrap();
+    execute_rv64m(&mut regs, &mut memory, &mut pc, &mut handler).unwrap();
 
     // SAFETY: Byte representation of `#[repr(C)]` without internal padding
     *unsafe {
