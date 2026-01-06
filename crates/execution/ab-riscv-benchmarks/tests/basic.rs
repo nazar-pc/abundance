@@ -7,8 +7,8 @@ use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, RISCV_CONTRACT_BYTES,
     TestInstructionHandler, TestMemory,
 };
-use ab_riscv_interpreter::execute_rv64;
 use ab_riscv_primitives::registers::{EReg, ERegisters, GenericRegisters};
+use ab_riscv_interpreter::execute_rv64m;
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
@@ -72,7 +72,7 @@ where
     let mut pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
     let mut handler = TestInstructionHandler::<TRAP_ADDRESS>;
 
-    execute_rv64(&mut regs, &mut memory, &mut pc, &mut handler).unwrap();
+    execute_rv64m(&mut regs, &mut memory, &mut pc, &mut handler).unwrap();
 
     // SAFETY: Byte representation of `#[repr(C)]` without internal padding
     *unsafe {
