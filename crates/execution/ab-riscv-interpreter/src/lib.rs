@@ -1,12 +1,12 @@
 #![feature(bigint_helper_methods)]
 #![no_std]
 
-pub mod m_ext;
+pub mod m_64_ext;
 pub mod rv64;
 #[cfg(test)]
 mod tests;
 
-use crate::m_ext::execute_m_ext;
+use crate::m_64_ext::execute_m_64_ext;
 use crate::rv64::execute_rv64;
 use ab_riscv_primitives::instruction::{
     GenericBaseInstruction, GenericInstruction, Rv64MInstruction,
@@ -246,7 +246,7 @@ where
 
         match instruction {
             Rv64MInstruction::A(instruction) => {
-                execute_m_ext(regs, instruction);
+                execute_m_64_ext(regs, instruction);
             }
             Rv64MInstruction::Base(instruction) => {
                 execute_rv64(regs, memory, pc, instruction_handlers, old_pc, instruction)?;

@@ -4,7 +4,7 @@ use crate::{
     BasicInt, ExecuteError, FetchInstructionResult, GenericInstructionHandler, VirtualMemory,
     VirtualMemoryError, execute_rv64m,
 };
-use ab_riscv_primitives::instruction::m_ext::MExtInstruction;
+use ab_riscv_primitives::instruction::m_64_ext::M64ExtInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::instruction::{GenericInstruction, Rv64MInstruction};
 use ab_riscv_primitives::registers::{EReg64, ERegisters64, GenericRegisters64};
@@ -430,7 +430,7 @@ fn test_mul() {
     regs.write(EReg64::A0, 7);
     regs.write(EReg64::A1, 8);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Mul {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mul {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -449,7 +449,7 @@ fn test_mulh() {
     regs.write(EReg64::A0, i64::MAX as u64);
     regs.write(EReg64::A1, 2);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Mulh {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mulh {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -469,7 +469,7 @@ fn test_mulhu() {
     regs.write(EReg64::A0, u64::MAX);
     regs.write(EReg64::A1, u64::MAX);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Mulhu {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mulhu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -489,7 +489,7 @@ fn test_mulhsu() {
     regs.write(EReg64::A0, (-2i64).cast_unsigned());
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Mulhsu {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mulhsu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -511,7 +511,7 @@ fn test_div() {
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Div {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Div {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -530,7 +530,7 @@ fn test_div_by_zero() {
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Div {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Div {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -549,7 +549,7 @@ fn test_div_overflow() {
     regs.write(EReg64::A0, i64::MIN.cast_unsigned());
     regs.write(EReg64::A1, (-1i64).cast_unsigned());
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Div {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Div {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -568,7 +568,7 @@ fn test_divu() {
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Divu {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -587,7 +587,7 @@ fn test_divu_by_zero() {
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Divu {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -606,7 +606,7 @@ fn test_rem() {
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Rem {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Rem {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -625,7 +625,7 @@ fn test_rem_by_zero() {
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Rem {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Rem {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -644,7 +644,7 @@ fn test_rem_overflow() {
     regs.write(EReg64::A0, i64::MIN.cast_unsigned());
     regs.write(EReg64::A1, (-1i64).cast_unsigned());
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Rem {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Rem {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -663,7 +663,7 @@ fn test_remu() {
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Remu {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
@@ -682,7 +682,7 @@ fn test_remu_by_zero() {
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(MExtInstruction::Remu {
+    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,

@@ -1,4 +1,4 @@
-//! M extension instructions for RISC-V
+//! M extension instructions for RISC-V RV64 base ISA
 
 #[cfg(test)]
 mod tests;
@@ -9,7 +9,7 @@ use core::fmt;
 
 /// RISC-V M instruction
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MExtInstruction<Reg> {
+pub enum M64ExtInstruction<Reg> {
     Mul { rd: Reg, rs1: Reg, rs2: Reg },
     Mulh { rd: Reg, rs1: Reg, rs2: Reg },
     Mulhsu { rd: Reg, rs1: Reg, rs2: Reg },
@@ -20,7 +20,7 @@ pub enum MExtInstruction<Reg> {
     Remu { rd: Reg, rs1: Reg, rs2: Reg },
 }
 
-impl<Reg> const GenericInstruction for MExtInstruction<Reg>
+impl<Reg> const GenericInstruction for M64ExtInstruction<Reg>
 where
     Reg: [const] GenericRegister64,
 {
@@ -66,7 +66,7 @@ where
     }
 }
 
-impl<Reg> fmt::Display for MExtInstruction<Reg>
+impl<Reg> fmt::Display for M64ExtInstruction<Reg>
 where
     Reg: fmt::Display,
 {
