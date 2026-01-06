@@ -722,6 +722,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-riscv-benchmarks"
+version = "0.0.1"
+dependencies = [
+ "ab-blake3",
+ "ab-contract-file",
+ "ab-contracts-macros",
+ "ab-contracts-tooling",
+ "ab-core-primitives",
+ "ab-io-type",
+ "ab-riscv-interpreter",
+ "ab-riscv-primitives",
+ "criterion",
+ "ed25519-zebra",
+]
+
+[[package]]
 name = "ab-riscv-interpreter"
 version = "0.0.1"
 dependencies = [
