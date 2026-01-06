@@ -28,11 +28,6 @@ pub enum Rv64Instruction<Reg> {
     Sllw { rd: Reg, rs1: Reg, rs2: Reg },
     Srlw { rd: Reg, rs1: Reg, rs2: Reg },
     Sraw { rd: Reg, rs1: Reg, rs2: Reg },
-    Mulw { rd: Reg, rs1: Reg, rs2: Reg },
-    Divw { rd: Reg, rs1: Reg, rs2: Reg },
-    Divuw { rd: Reg, rs1: Reg, rs2: Reg },
-    Remw { rd: Reg, rs1: Reg, rs2: Reg },
-    Remuw { rd: Reg, rs1: Reg, rs2: Reg },
 
     // I-type
     Addi { rd: Reg, rs1: Reg, imm: i32 },
@@ -146,12 +141,6 @@ where
                     (0b001, 0b0000000) => Self::Sllw { rd, rs1, rs2 },
                     (0b101, 0b0000000) => Self::Srlw { rd, rs1, rs2 },
                     (0b101, 0b0100000) => Self::Sraw { rd, rs1, rs2 },
-                    // M extension W
-                    (0b000, 0b0000001) => Self::Mulw { rd, rs1, rs2 },
-                    (0b100, 0b0000001) => Self::Divw { rd, rs1, rs2 },
-                    (0b101, 0b0000001) => Self::Divuw { rd, rs1, rs2 },
-                    (0b110, 0b0000001) => Self::Remw { rd, rs1, rs2 },
-                    (0b111, 0b0000001) => Self::Remuw { rd, rs1, rs2 },
                     _ => {
                         return None;
                     }
@@ -407,11 +396,6 @@ where
             Self::Sllw { rd, rs1, rs2 } => write!(f, "sllw {}, {}, {}", rd, rs1, rs2),
             Self::Srlw { rd, rs1, rs2 } => write!(f, "srlw {}, {}, {}", rd, rs1, rs2),
             Self::Sraw { rd, rs1, rs2 } => write!(f, "sraw {}, {}, {}", rd, rs1, rs2),
-            Self::Mulw { rd, rs1, rs2 } => write!(f, "mulw {}, {}, {}", rd, rs1, rs2),
-            Self::Divw { rd, rs1, rs2 } => write!(f, "divw {}, {}, {}", rd, rs1, rs2),
-            Self::Divuw { rd, rs1, rs2 } => write!(f, "divuw {}, {}, {}", rd, rs1, rs2),
-            Self::Remw { rd, rs1, rs2 } => write!(f, "remw {}, {}, {}", rd, rs1, rs2),
-            Self::Remuw { rd, rs1, rs2 } => write!(f, "remuw {}, {}, {}", rd, rs1, rs2),
 
             Self::Addi { rd, rs1, imm } => write!(f, "addi {}, {}, {}", rd, rs1, imm),
             Self::Slti { rd, rs1, imm } => write!(f, "slti {}, {}, {}", rd, rs1, imm),

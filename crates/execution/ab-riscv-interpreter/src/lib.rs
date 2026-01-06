@@ -4,7 +4,7 @@
 pub mod m_64_ext;
 pub mod rv64;
 #[cfg(test)]
-mod tests;
+mod tests_utils;
 
 use crate::m_64_ext::execute_m_64_ext;
 use crate::rv64::execute_rv64;

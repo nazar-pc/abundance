@@ -1,5 +1,8 @@
 //! Part of the interpreter responsible for RISC-V M extension
 
+#[cfg(test)]
+mod tests;
+
 use ab_riscv_primitives::instruction::m_64_ext::M64ExtInstruction;
 use ab_riscv_primitives::registers::{GenericRegister64, GenericRegisters64};
 
@@ -75,6 +78,56 @@ where
                 dividend % divisor
             };
             regs.write(rd, value);
+        }
+
+        // RV64 R-type W
+        M64ExtInstruction::Mulw { rd, rs1, rs2 } => {
+            let prod = (regs.read(rs1) as i32).wrapping_mul(regs.read(rs2) as i32);
+            regs.write(rd, (prod as i64).cast_unsigned());
+        }
+        M64ExtInstruction::Divw { rd, rs1, rs2 } => {
+            let dividend = regs.read(rs1) as i32;
+            let divisor = regs.read(rs2) as i32;
+            let value = if divisor == 0 {
+                -1i64
+            } else if dividend == i32::MIN && divisor == -1 {
+                i32::MIN as i64
+            } else {
+                (dividend / divisor) as i64
+            };
+            regs.write(rd, value.cast_unsigned());
+        }
+        M64ExtInstruction::Divuw { rd, rs1, rs2 } => {
+            let dividend = regs.read(rs1) as u32;
+            let divisor = regs.read(rs2) as u32;
+            let value = if divisor == 0 {
+                u64::MAX
+            } else {
+                ((dividend / divisor).cast_signed() as i64).cast_unsigned()
+            };
+            regs.write(rd, value);
+        }
+        M64ExtInstruction::Remw { rd, rs1, rs2 } => {
+            let dividend = regs.read(rs1) as i32;
+            let divisor = regs.read(rs2) as i32;
+            let value = if divisor == 0 {
+                (dividend as i64).cast_unsigned()
+            } else if dividend == i32::MIN && divisor == -1 {
+                0
+            } else {
+                ((dividend % divisor) as i64).cast_unsigned()
+            };
+            regs.write(rd, value);
+        }
+        M64ExtInstruction::Remuw { rd, rs1, rs2 } => {
+            let dividend = regs.read(rs1) as u32;
+            let divisor = regs.read(rs2) as u32;
+            let value = if divisor == 0 {
+                dividend.cast_signed() as i64
+            } else {
+                (dividend % divisor).cast_signed() as i64
+            };
+            regs.write(rd, value.cast_unsigned());
         }
     }
 }

@@ -476,11 +476,6 @@ impl<'a> ContractFile<'a> {
                         | Rv64Instruction::Sllw { .. }
                         | Rv64Instruction::Srlw { .. }
                         | Rv64Instruction::Sraw { .. }
-                        | Rv64Instruction::Mulw { .. }
-                        | Rv64Instruction::Divw { .. }
-                        | Rv64Instruction::Divuw { .. }
-                        | Rv64Instruction::Remw { .. }
-                        | Rv64Instruction::Remuw { .. }
                         | Rv64Instruction::Addi { .. }
                         | Rv64Instruction::Slti { .. }
                         | Rv64Instruction::Sltiu { .. }

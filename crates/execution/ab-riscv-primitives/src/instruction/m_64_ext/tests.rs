@@ -114,3 +114,73 @@ fn test_remu() {
         })
     );
 }
+
+#[test]
+fn test_mulw() {
+    let inst = make_r_type(0b0111011, 1, 0b000, 2, 3, 0b0000001);
+    let decoded = M64ExtInstruction::<Reg64>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(M64ExtInstruction::Mulw {
+            rd: Reg64::Ra,
+            rs1: Reg64::Sp,
+            rs2: Reg64::Gp
+        })
+    );
+}
+
+#[test]
+fn test_divw() {
+    let inst = make_r_type(0b0111011, 1, 0b100, 2, 3, 0b0000001);
+    let decoded = M64ExtInstruction::<Reg64>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(M64ExtInstruction::Divw {
+            rd: Reg64::Ra,
+            rs1: Reg64::Sp,
+            rs2: Reg64::Gp
+        })
+    );
+}
+
+#[test]
+fn test_divuw() {
+    let inst = make_r_type(0b0111011, 1, 0b101, 2, 3, 0b0000001);
+    let decoded = M64ExtInstruction::<Reg64>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(M64ExtInstruction::Divuw {
+            rd: Reg64::Ra,
+            rs1: Reg64::Sp,
+            rs2: Reg64::Gp
+        })
+    );
+}
+
+#[test]
+fn test_remw() {
+    let inst = make_r_type(0b0111011, 1, 0b110, 2, 3, 0b0000001);
+    let decoded = M64ExtInstruction::<Reg64>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(M64ExtInstruction::Remw {
+            rd: Reg64::Ra,
+            rs1: Reg64::Sp,
+            rs2: Reg64::Gp
+        })
+    );
+}
+
+#[test]
+fn test_remuw() {
+    let inst = make_r_type(0b0111011, 1, 0b111, 2, 3, 0b0000001);
+    let decoded = M64ExtInstruction::<Reg64>::try_decode(inst);
+    assert_eq!(
+        decoded,
+        Some(M64ExtInstruction::Remuw {
+            rd: Reg64::Ra,
+            rs1: Reg64::Sp,
+            rs2: Reg64::Gp
+        })
+    );
+}

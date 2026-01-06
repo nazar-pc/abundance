@@ -18,6 +18,13 @@ pub enum M64ExtInstruction<Reg> {
     Divu { rd: Reg, rs1: Reg, rs2: Reg },
     Rem { rd: Reg, rs1: Reg, rs2: Reg },
     Remu { rd: Reg, rs1: Reg, rs2: Reg },
+
+    // RV64M instructions
+    Mulw { rd: Reg, rs1: Reg, rs2: Reg },
+    Divw { rd: Reg, rs1: Reg, rs2: Reg },
+    Divuw { rd: Reg, rs1: Reg, rs2: Reg },
+    Remw { rd: Reg, rs1: Reg, rs2: Reg },
+    Remuw { rd: Reg, rs1: Reg, rs2: Reg },
 }
 
 impl<Reg> const GenericInstruction for M64ExtInstruction<Reg>
@@ -54,6 +61,22 @@ where
                     }
                 }
             }
+            // R-type W
+            0b0111011 => {
+                let rd = Reg::from_bits(rd_bits)?;
+                let rs1 = Reg::from_bits(rs1_bits)?;
+                let rs2 = Reg::from_bits(rs2_bits)?;
+                match (funct3, funct7) {
+                    (0b000, 0b0000001) => Self::Mulw { rd, rs1, rs2 },
+                    (0b100, 0b0000001) => Self::Divw { rd, rs1, rs2 },
+                    (0b101, 0b0000001) => Self::Divuw { rd, rs1, rs2 },
+                    (0b110, 0b0000001) => Self::Remw { rd, rs1, rs2 },
+                    (0b111, 0b0000001) => Self::Remuw { rd, rs1, rs2 },
+                    _ => {
+                        return None;
+                    }
+                }
+            }
             _ => {
                 return None;
             }
@@ -80,6 +103,12 @@ where
             Self::Divu { rd, rs1, rs2 } => write!(f, "divu {}, {}, {}", rd, rs1, rs2),
             Self::Rem { rd, rs1, rs2 } => write!(f, "rem {}, {}, {}", rd, rs1, rs2),
             Self::Remu { rd, rs1, rs2 } => write!(f, "remu {}, {}, {}", rd, rs1, rs2),
+
+            Self::Mulw { rd, rs1, rs2 } => write!(f, "mulw {}, {}, {}", rd, rs1, rs2),
+            Self::Divw { rd, rs1, rs2 } => write!(f, "divw {}, {}, {}", rd, rs1, rs2),
+            Self::Divuw { rd, rs1, rs2 } => write!(f, "divuw {}, {}, {}", rd, rs1, rs2),
+            Self::Remw { rd, rs1, rs2 } => write!(f, "remw {}, {}, {}", rd, rs1, rs2),
+            Self::Remuw { rd, rs1, rs2 } => write!(f, "remuw {}, {}, {}", rd, rs1, rs2),
         }
     }
 }
