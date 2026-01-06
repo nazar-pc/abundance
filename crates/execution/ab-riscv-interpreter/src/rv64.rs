@@ -3,7 +3,7 @@
 use crate::{ExecuteError, GenericInstructionHandler, VirtualMemory};
 use ab_riscv_primitives::instruction::Rv64MInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::registers::{GenericRegister, GenericRegisters};
+use ab_riscv_primitives::registers::{GenericRegister64, GenericRegisters64};
 use core::fmt;
 
 #[inline(always)]
@@ -16,8 +16,8 @@ pub fn execute_rv64<Reg, Registers, Memory, InstructionHandler, CustomError>(
     instruction: Rv64Instruction<Reg>,
 ) -> Result<(), ExecuteError<Rv64MInstruction<Reg>, CustomError>>
 where
-    Reg: GenericRegister,
-    Registers: GenericRegisters<Reg>,
+    Reg: GenericRegister64,
+    Registers: GenericRegisters64<Reg>,
     Memory: VirtualMemory,
     InstructionHandler:
         GenericInstructionHandler<Rv64MInstruction<Reg>, Registers, Memory, CustomError>,

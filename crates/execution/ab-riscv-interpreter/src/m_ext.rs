@@ -1,14 +1,14 @@
 //! Part of the interpreter responsible for RISC-V M extension
 
 use ab_riscv_primitives::instruction::m_ext::MExtInstruction;
-use ab_riscv_primitives::registers::{GenericRegister, GenericRegisters};
+use ab_riscv_primitives::registers::{GenericRegister64, GenericRegisters64};
 
 /// Execute instructions from M extension
 #[inline(always)]
 pub fn execute_m_ext<Reg, Registers>(regs: &mut Registers, instruction: MExtInstruction<Reg>)
 where
-    Reg: GenericRegister,
-    Registers: GenericRegisters<Reg>,
+    Reg: GenericRegister64,
+    Registers: GenericRegisters64<Reg>,
 {
     match instruction {
         MExtInstruction::Mul { rd, rs1, rs2 } => {

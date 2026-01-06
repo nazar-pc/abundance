@@ -1,7 +1,7 @@
 //! Base RISC-V RV64 instruction set
 
 use crate::instruction::{GenericBaseInstruction, GenericInstruction};
-use crate::registers::GenericRegister;
+use crate::registers::GenericRegister64;
 use core::fmt;
 
 #[cfg(test)]
@@ -102,7 +102,7 @@ pub enum Rv64Instruction<Reg> {
 
 impl<Reg> const GenericInstruction for Rv64Instruction<Reg>
 where
-    Reg: [const] GenericRegister,
+    Reg: [const] GenericRegister64,
 {
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -373,7 +373,7 @@ where
 
 impl<Reg> const GenericBaseInstruction for Rv64Instruction<Reg>
 where
-    Reg: [const] GenericRegister,
+    Reg: [const] GenericRegister64,
 {
     #[inline]
     fn decode(instruction: u32) -> Self {

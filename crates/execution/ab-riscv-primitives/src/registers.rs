@@ -4,17 +4,18 @@ mod tests;
 use core::fmt;
 use core::marker::Destruct;
 
-/// Generic register
-pub const trait GenericRegister:
+/// Generic 64-bit register
+pub const trait GenericRegister64:
     fmt::Display + fmt::Debug + [const] Destruct + Copy + Sized
 {
     /// Create a register from its bit representation
     fn from_bits(bits: u8) -> Option<Self>;
 }
 
-pub const trait GenericRegisters<Reg>
+/// A generic set of 64-bit registers
+pub const trait GenericRegisters64<Reg>
 where
-    Reg: GenericRegister,
+    Reg: GenericRegister64,
 {
     /// Read register value
     fn read(&self, reg: Reg) -> u64;
@@ -25,14 +26,14 @@ where
 
 /// A set of registers for RISC-V RV32E/RV64E
 #[derive(Debug, Default, Clone, Copy)]
-pub struct ERegisters {
+pub struct ERegisters64 {
     regs: [u64; 16],
 }
 
-impl const GenericRegisters<EReg> for ERegisters {
+impl const GenericRegisters64<EReg64> for ERegisters64 {
     #[inline(always)]
-    fn read(&self, reg: EReg) -> u64 {
-        if matches!(reg, EReg::Zero) {
+    fn read(&self, reg: EReg64) -> u64 {
+        if matches!(reg, EReg64::Zero) {
             // Always zero
             return 0;
         }
@@ -42,8 +43,8 @@ impl const GenericRegisters<EReg> for ERegisters {
     }
 
     #[inline(always)]
-    fn write(&mut self, reg: EReg, value: u64) {
-        if matches!(reg, EReg::Zero) {
+    fn write(&mut self, reg: EReg64, value: u64) {
+        if matches!(reg, EReg64::Zero) {
             // Writes are ignored
             return;
         }
@@ -55,10 +56,10 @@ impl const GenericRegisters<EReg> for ERegisters {
 
 /// RISC-V register for RV64E.
 ///
-/// For RV64I see [`Reg`].
+/// For RV64I see [`Reg64`].
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
-pub enum EReg {
+pub enum EReg64 {
     /// Always zero: `x0`
     Zero = 0,
     /// Return address: `x1`
@@ -93,7 +94,7 @@ pub enum EReg {
     A5 = 15,
 }
 
-impl fmt::Display for EReg {
+impl fmt::Display for EReg64 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Zero => write!(f, "zero"),
@@ -116,13 +117,13 @@ impl fmt::Display for EReg {
     }
 }
 
-impl fmt::Debug for EReg {
+impl fmt::Debug for EReg64 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
 
-impl const GenericRegister for EReg {
+impl const GenericRegister64 for EReg64 {
     #[inline(always)]
     fn from_bits(bits: u8) -> Option<Self> {
         match bits {
@@ -147,7 +148,7 @@ impl const GenericRegister for EReg {
     }
 }
 
-impl EReg {
+impl EReg64 {
     #[inline(always)]
     const fn offset(self) -> usize {
         usize::from(self as u8)
@@ -156,14 +157,14 @@ impl EReg {
 
 /// A set of registers for RISC-V RV32I/RV64I
 #[derive(Debug, Default, Clone, Copy)]
-pub struct Registers {
+pub struct Registers64 {
     regs: [u64; 32],
 }
 
-impl const GenericRegisters<Reg> for Registers {
+impl const GenericRegisters64<Reg64> for Registers64 {
     #[inline(always)]
-    fn read(&self, reg: Reg) -> u64 {
-        if matches!(reg, Reg::Zero) {
+    fn read(&self, reg: Reg64) -> u64 {
+        if matches!(reg, Reg64::Zero) {
             // Always zero
             return 0;
         }
@@ -173,8 +174,8 @@ impl const GenericRegisters<Reg> for Registers {
     }
 
     #[inline(always)]
-    fn write(&mut self, reg: Reg, value: u64) {
-        if matches!(reg, Reg::Zero) {
+    fn write(&mut self, reg: Reg64, value: u64) {
+        if matches!(reg, Reg64::Zero) {
             // Writes are ignored
             return;
         }
@@ -186,10 +187,10 @@ impl const GenericRegisters<Reg> for Registers {
 
 /// RISC-V register for RV64I.
 ///
-/// For RV64E see [`EReg`].
+/// For RV64E see [`EReg64`].
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
-pub enum Reg {
+pub enum Reg64 {
     /// Always zero: `x0`
     Zero = 0,
     /// Return address: `x1`
@@ -256,31 +257,31 @@ pub enum Reg {
     T6 = 31,
 }
 
-impl const From<EReg> for Reg {
+impl const From<EReg64> for Reg64 {
     #[inline(always)]
-    fn from(reg: EReg) -> Self {
+    fn from(reg: EReg64) -> Self {
         match reg {
-            EReg::Zero => Self::Zero,
-            EReg::Ra => Self::Ra,
-            EReg::Sp => Self::Sp,
-            EReg::Gp => Self::Gp,
-            EReg::Tp => Self::Tp,
-            EReg::T0 => Self::T0,
-            EReg::T1 => Self::T1,
-            EReg::T2 => Self::T2,
-            EReg::S0 => Self::S0,
-            EReg::S1 => Self::S1,
-            EReg::A0 => Self::A0,
-            EReg::A1 => Self::A1,
-            EReg::A2 => Self::A2,
-            EReg::A3 => Self::A3,
-            EReg::A4 => Self::A4,
-            EReg::A5 => Self::A5,
+            EReg64::Zero => Self::Zero,
+            EReg64::Ra => Self::Ra,
+            EReg64::Sp => Self::Sp,
+            EReg64::Gp => Self::Gp,
+            EReg64::Tp => Self::Tp,
+            EReg64::T0 => Self::T0,
+            EReg64::T1 => Self::T1,
+            EReg64::T2 => Self::T2,
+            EReg64::S0 => Self::S0,
+            EReg64::S1 => Self::S1,
+            EReg64::A0 => Self::A0,
+            EReg64::A1 => Self::A1,
+            EReg64::A2 => Self::A2,
+            EReg64::A3 => Self::A3,
+            EReg64::A4 => Self::A4,
+            EReg64::A5 => Self::A5,
         }
     }
 }
 
-impl fmt::Display for Reg {
+impl fmt::Display for Reg64 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Zero => write!(f, "zero"),
@@ -319,13 +320,13 @@ impl fmt::Display for Reg {
     }
 }
 
-impl fmt::Debug for Reg {
+impl fmt::Debug for Reg64 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
 
-impl const GenericRegister for Reg {
+impl const GenericRegister64 for Reg64 {
     #[inline(always)]
     fn from_bits(bits: u8) -> Option<Self> {
         match bits {
@@ -366,7 +367,7 @@ impl const GenericRegister for Reg {
     }
 }
 
-impl Reg {
+impl Reg64 {
     #[inline(always)]
     const fn offset(self) -> usize {
         usize::from(self as u8)

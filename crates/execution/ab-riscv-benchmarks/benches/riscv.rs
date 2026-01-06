@@ -6,8 +6,8 @@ use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, RISCV_CONTRACT_BYTES,
     TestInstructionHandler, TestMemory,
 };
-use ab_riscv_primitives::registers::{EReg, ERegisters, GenericRegisters};
 use ab_riscv_interpreter::execute_rv64m;
+use ab_riscv_primitives::registers::{EReg64, ERegisters64, GenericRegisters64};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
@@ -79,7 +79,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         );
     }
 
-    let mut regs = ERegisters::default();
+    let mut regs = ERegisters64::default();
     let internal_args_addr = (MEMORY_BASE_ADDRESS + contract_memory_size as u64)
         .next_multiple_of(size_of::<u128>() as u64);
     let mut handler = TestInstructionHandler::<TRAP_ADDRESS>;
@@ -122,8 +122,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("interpreter", |b| {
             b.iter(|| {
                 let mut pc = benchmarks_blake3_hash_chunk_addr;
-                regs.write(EReg::A0, internal_args_addr);
-                regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                regs.write(EReg64::A0, internal_args_addr);
+                regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
                 black_box(execute_rv64m(
                     black_box(&mut regs),
@@ -187,8 +187,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("interpreter/valid", |b| {
             b.iter(|| {
                 let mut pc = benchmarks_ed25519_verify_addr;
-                regs.write(EReg::A0, internal_args_addr);
-                regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                regs.write(EReg64::A0, internal_args_addr);
+                regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
                 black_box(execute_rv64m(
                     black_box(&mut regs),
@@ -224,8 +224,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("interpreter/invalid", |b| {
             b.iter(|| {
                 let mut pc = benchmarks_ed25519_verify_addr;
-                regs.write(EReg::A0, internal_args_addr);
-                regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                regs.write(EReg64::A0, internal_args_addr);
+                regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
                 black_box(execute_rv64m(
                     black_box(&mut regs),

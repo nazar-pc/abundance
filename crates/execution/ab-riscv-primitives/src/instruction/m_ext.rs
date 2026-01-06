@@ -4,7 +4,7 @@
 mod tests;
 
 use crate::instruction::GenericInstruction;
-use crate::registers::GenericRegister;
+use crate::registers::GenericRegister64;
 use core::fmt;
 
 /// RISC-V M instruction
@@ -22,7 +22,7 @@ pub enum MExtInstruction<Reg> {
 
 impl<Reg> const GenericInstruction for MExtInstruction<Reg>
 where
-    Reg: [const] GenericRegister,
+    Reg: [const] GenericRegister64,
 {
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
