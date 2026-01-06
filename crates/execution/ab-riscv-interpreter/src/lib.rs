@@ -1,15 +1,17 @@
 #![feature(bigint_helper_methods)]
 #![no_std]
 
+pub mod b_64_ext;
 pub mod m_64_ext;
 pub mod rv64;
 #[cfg(test)]
 mod tests_utils;
 
+use crate::b_64_ext::execute_b_zbc_64_ext;
 use crate::m_64_ext::execute_m_64_ext;
 use crate::rv64::execute_rv64;
 use ab_riscv_primitives::instruction::{
-    GenericBaseInstruction, GenericInstruction, Rv64MInstruction,
+    GenericBaseInstruction, GenericInstruction, Rv64MBZbcInstruction,
 };
 use ab_riscv_primitives::registers::{GenericRegister64, GenericRegisters64};
 use core::fmt;
@@ -217,19 +219,19 @@ where
     }
 }
 
-/// Execute RV64IM/RV64EM instructions
-pub fn execute_rv64m<Reg, Registers, Memory, InstructionHandler, CustomError>(
+/// Execute RV64IMBZbc/RV64EMBZbc instructions
+pub fn execute_rv64mbzbc<Reg, Registers, Memory, InstructionHandler, CustomError>(
     regs: &mut Registers,
     memory: &mut Memory,
     pc: &mut u64,
     instruction_handlers: &mut InstructionHandler,
-) -> Result<(), ExecuteError<Rv64MInstruction<Reg>, CustomError>>
+) -> Result<(), ExecuteError<Rv64MBZbcInstruction<Reg>, CustomError>>
 where
     Reg: GenericRegister64,
     Registers: GenericRegisters64<Reg>,
     Memory: VirtualMemory,
     InstructionHandler:
-        GenericInstructionHandler<Rv64MInstruction<Reg>, Registers, Memory, CustomError>,
+        GenericInstructionHandler<Rv64MBZbcInstruction<Reg>, Registers, Memory, CustomError>,
     CustomError: fmt::Display,
 {
     loop {
@@ -245,10 +247,13 @@ where
         };
 
         match instruction {
-            Rv64MInstruction::A(instruction) => {
+            Rv64MBZbcInstruction::A(instruction) => {
                 execute_m_64_ext(regs, instruction);
             }
-            Rv64MInstruction::Base(instruction) => {
+            Rv64MBZbcInstruction::B(instruction) => {
+                execute_b_zbc_64_ext(regs, instruction);
+            }
+            Rv64MBZbcInstruction::Base(instruction) => {
                 execute_rv64(regs, memory, pc, instruction_handlers, old_pc, instruction)?;
             }
         }

@@ -1,8 +1,8 @@
 extern crate alloc;
 
 use crate::tests_utils::{TEST_BASE_ADDR, TestInstructionHandler, setup_test};
-use crate::{ExecuteError, VirtualMemory, execute_rv64m};
-use ab_riscv_primitives::instruction::Rv64MInstruction;
+use crate::{ExecuteError, VirtualMemory, execute_rv64mbzbc};
+use ab_riscv_primitives::instruction::Rv64MBZbcInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::{EReg64, GenericRegisters64};
 use alloc::vec;
@@ -16,14 +16,14 @@ fn test_add() {
     regs.write(EReg64::A0, 10);
     regs.write(EReg64::A1, 20);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Add {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Add {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 30);
 }
@@ -35,14 +35,14 @@ fn test_add_overflow() {
     regs.write(EReg64::A0, u64::MAX);
     regs.write(EReg64::A1, 1);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Add {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Add {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // Wrapping behavior
     assert_eq!(regs.read(EReg64::A2), 0);
@@ -55,14 +55,14 @@ fn test_sub() {
     regs.write(EReg64::A0, 50);
     regs.write(EReg64::A1, 20);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sub {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sub {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 30);
 }
@@ -74,14 +74,14 @@ fn test_sub_underflow() {
     regs.write(EReg64::A0, 0);
     regs.write(EReg64::A1, 1);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sub {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sub {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), u64::MAX);
 }
@@ -95,14 +95,14 @@ fn test_and() {
     regs.write(EReg64::A0, 0b1111_0000);
     regs.write(EReg64::A1, 0b1010_1010);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::And {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::And {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 0b1010_0000);
 }
@@ -114,14 +114,14 @@ fn test_or() {
     regs.write(EReg64::A0, 0b1111_0000);
     regs.write(EReg64::A1, 0b0000_1111);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Or {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Or {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 0b1111_1111);
 }
@@ -133,14 +133,14 @@ fn test_xor() {
     regs.write(EReg64::A0, 0b1111_0000);
     regs.write(EReg64::A1, 0b1010_1010);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Xor {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Xor {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 0b0101_1010);
 }
@@ -154,14 +154,14 @@ fn test_sll() {
     regs.write(EReg64::A0, 1);
     regs.write(EReg64::A1, 4);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sll {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sll {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 16);
 }
@@ -174,14 +174,14 @@ fn test_sll_mask() {
     // High bits should be masked
     regs.write(EReg64::A1, 0x100);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sll {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sll {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // Only lower 6 bits used
     assert_eq!(regs.read(EReg64::A2), 1);
@@ -194,14 +194,14 @@ fn test_srl() {
     regs.write(EReg64::A0, 16);
     regs.write(EReg64::A1, 2);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Srl {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Srl {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 4);
 }
@@ -213,14 +213,14 @@ fn test_sra() {
     regs.write(EReg64::A0, (-16i64).cast_unsigned());
     regs.write(EReg64::A1, 2);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sra {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sra {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), (-4i64).cast_unsigned());
 }
@@ -234,14 +234,14 @@ fn test_slt_less() {
     regs.write(EReg64::A0, (-5i64).cast_unsigned());
     regs.write(EReg64::A1, 10);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Slt {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Slt {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 1);
 }
@@ -253,14 +253,14 @@ fn test_slt_greater() {
     regs.write(EReg64::A0, 10);
     regs.write(EReg64::A1, (-5i64).cast_unsigned());
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Slt {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Slt {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 0);
 }
@@ -272,14 +272,14 @@ fn test_sltu() {
     regs.write(EReg64::A0, 5);
     regs.write(EReg64::A1, (-1i64).cast_unsigned());
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sltu {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sltu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // 5 < MAX unsigned
     assert_eq!(regs.read(EReg64::A2), 1);
@@ -294,14 +294,14 @@ fn test_addw() {
     regs.write(EReg64::A0, 0x0000_0001_8000_0000);
     regs.write(EReg64::A1, 0x0000_0000_8000_0000);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Addw {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Addw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // Sign-extended result
     assert_eq!(regs.read(EReg64::A2), 0);
@@ -314,14 +314,14 @@ fn test_subw() {
     regs.write(EReg64::A0, 0x0000_0001_0000_0000);
     regs.write(EReg64::A1, 1);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Subw {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Subw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), (-1i64).cast_unsigned());
 }
@@ -333,14 +333,14 @@ fn test_sllw() {
     regs.write(EReg64::A0, 1);
     regs.write(EReg64::A1, 31);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sllw {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sllw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 0xFFFF_FFFF_8000_0000);
 }
@@ -352,14 +352,14 @@ fn test_srlw() {
     regs.write(EReg64::A0, 0xFFFF_FFFF_8000_0000);
     regs.write(EReg64::A1, 1);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Srlw {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Srlw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 0x0000_0000_4000_0000);
 }
@@ -371,14 +371,14 @@ fn test_sraw() {
     regs.write(EReg64::A0, 0xFFFF_FFFF_8000_0000);
     regs.write(EReg64::A1, 1);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sraw {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sraw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A2), 0xFFFF_FFFF_C000_0000);
 }
@@ -391,14 +391,14 @@ fn test_addi() {
 
     regs.write(EReg64::A0, 10);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Addi {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Addi {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 5,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 15);
 }
@@ -409,14 +409,14 @@ fn test_addi_negative() {
 
     regs.write(EReg64::A0, 10);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Addi {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Addi {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: -5,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 5);
 }
@@ -427,14 +427,14 @@ fn test_slti() {
 
     regs.write(EReg64::A0, (-5i64).cast_unsigned());
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Slti {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Slti {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 10,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 1);
 }
@@ -445,14 +445,14 @@ fn test_sltiu() {
 
     regs.write(EReg64::A0, 5);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sltiu {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sltiu {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: -1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 1);
 }
@@ -463,14 +463,14 @@ fn test_xori() {
 
     regs.write(EReg64::A0, 0xFF);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Xori {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Xori {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 0xAA,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 0x55);
 }
@@ -481,14 +481,14 @@ fn test_ori() {
 
     regs.write(EReg64::A0, 0xF0);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Ori {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Ori {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 0x0F,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 0xFF);
 }
@@ -499,14 +499,14 @@ fn test_andi() {
 
     regs.write(EReg64::A0, 0xFF);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Andi {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Andi {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 0x0F,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 0x0F);
 }
@@ -517,14 +517,14 @@ fn test_slli() {
 
     regs.write(EReg64::A0, 1);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Slli {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Slli {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         shamt: 4,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 16);
 }
@@ -535,14 +535,14 @@ fn test_srli() {
 
     regs.write(EReg64::A0, 16);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Srli {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Srli {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         shamt: 2,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 4);
 }
@@ -553,14 +553,14 @@ fn test_srai() {
 
     regs.write(EReg64::A0, (-16i64).cast_unsigned());
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Srai {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Srai {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         shamt: 2,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), (-4i64).cast_unsigned());
 }
@@ -572,14 +572,14 @@ fn test_addiw() {
     // -5 sign-extended
     regs.write(EReg64::A0, 0xFFFF_FFFF_FFFF_FFFB);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Addiw {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Addiw {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 5,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // -5 + 5 = 0
     assert_eq!(regs.read(EReg64::A1), 0);
@@ -591,14 +591,14 @@ fn test_slliw() {
 
     regs.write(EReg64::A0, 1);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Slliw {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Slliw {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         shamt: 31,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 0xFFFF_FFFF_8000_0000);
 }
@@ -609,14 +609,14 @@ fn test_srliw() {
 
     regs.write(EReg64::A0, 0xFFFF_FFFF_8000_0000);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Srliw {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Srliw {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         shamt: 1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 0x0000_0000_4000_0000);
 }
@@ -627,14 +627,14 @@ fn test_sraiw() {
 
     regs.write(EReg64::A0, 0xFFFF_FFFF_8000_0000);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sraiw {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sraiw {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         shamt: 1,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 0xFFFF_FFFF_C000_0000);
 }
@@ -649,14 +649,14 @@ fn test_lb() {
     mem.write::<i8>(data_addr + 10, -5).unwrap();
     regs.write(EReg64::A0, data_addr);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Lb {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Lb {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 10,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), (-5i64).cast_unsigned());
 }
@@ -669,14 +669,14 @@ fn test_lh() {
     mem.write::<i16>(data_addr, -300).unwrap();
     regs.write(EReg64::A0, data_addr);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Lh {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Lh {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), (-300i64).cast_unsigned());
 }
@@ -689,14 +689,14 @@ fn test_lw() {
     mem.write::<i32>(data_addr, -100000).unwrap();
     regs.write(EReg64::A0, data_addr);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Lw {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Lw {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), (-100000i64).cast_unsigned());
 }
@@ -709,14 +709,14 @@ fn test_ld() {
     mem.write::<u64>(data_addr, 0x1234_5678_9ABC_DEF0).unwrap();
     regs.write(EReg64::A0, data_addr);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Ld {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Ld {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 0x1234_5678_9ABC_DEF0);
 }
@@ -729,14 +729,14 @@ fn test_lbu() {
     mem.write::<u8>(data_addr, 0xFF).unwrap();
     regs.write(EReg64::A0, data_addr);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Lbu {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Lbu {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 0xFF);
 }
@@ -749,14 +749,14 @@ fn test_lhu() {
     mem.write::<u16>(data_addr, 0xFFFF).unwrap();
     regs.write(EReg64::A0, data_addr);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Lhu {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Lhu {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 0xFFFF);
 }
@@ -769,14 +769,14 @@ fn test_lwu() {
     mem.write::<u32>(data_addr, 0xFFFF_FFFF).unwrap();
     regs.write(EReg64::A0, data_addr);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Lwu {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Lwu {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A1), 0xFFFF_FFFF);
 }
@@ -791,14 +791,14 @@ fn test_sb() {
     regs.write(EReg64::A0, data_addr);
     regs.write(EReg64::A1, 0x12);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sb {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sb {
         rs1: EReg64::A0,
         rs2: EReg64::A1,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(mem.read::<u8>(data_addr).unwrap(), 0x12);
 }
@@ -811,14 +811,14 @@ fn test_sh() {
     regs.write(EReg64::A0, data_addr);
     regs.write(EReg64::A1, 0x1234);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sh {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sh {
         rs1: EReg64::A0,
         rs2: EReg64::A1,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(mem.read::<u16>(data_addr).unwrap(), 0x1234);
 }
@@ -831,14 +831,14 @@ fn test_sw() {
     regs.write(EReg64::A0, data_addr);
     regs.write(EReg64::A1, 0x1234_5678);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sw {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sw {
         rs1: EReg64::A0,
         rs2: EReg64::A1,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(mem.read::<u32>(data_addr).unwrap(), 0x1234_5678);
 }
@@ -851,14 +851,14 @@ fn test_sd() {
     regs.write(EReg64::A0, data_addr);
     regs.write(EReg64::A1, 0x1234_5678_9ABC_DEF0);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sd {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sd {
         rs1: EReg64::A0,
         rs2: EReg64::A1,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(mem.read::<u64>(data_addr).unwrap(), 0x1234_5678_9ABC_DEF0);
 }
@@ -872,7 +872,7 @@ fn test_beq_taken() {
     regs.write(EReg64::A0, 10);
     regs.write(EReg64::A1, 10);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Beq {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Beq {
         rs1: EReg64::A0,
         rs2: EReg64::A1,
         // Branch offset from PC before increment
@@ -881,7 +881,7 @@ fn test_beq_taken() {
 
     let mut handler = TestInstructionHandler::new(instructions);
     let initial_pc = pc;
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // Branch calculates: old_pc (stored before fetch incremented it) + offset
     // The implementation stores old_pc before PC is incremented
@@ -897,12 +897,12 @@ fn test_beq_not_taken() {
     regs.write(EReg64::A1, 20);
 
     let instructions = vec![
-        Rv64MInstruction::Base(Rv64Instruction::Beq {
+        Rv64MBZbcInstruction::Base(Rv64Instruction::Beq {
             rs1: EReg64::A0,
             rs2: EReg64::A1,
             imm: 8,
         }),
-        Rv64MInstruction::Base(Rv64Instruction::Addi {
+        Rv64MBZbcInstruction::Base(Rv64Instruction::Addi {
             rd: EReg64::A2,
             rs1: EReg64::Zero,
             // This should execute
@@ -911,7 +911,7 @@ fn test_beq_not_taken() {
     ];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // Verify the branch was NOT taken - next instruction executed
     assert_eq!(regs.read(EReg64::A2), 99);
@@ -924,7 +924,7 @@ fn test_bne_taken() {
     regs.write(EReg64::A0, 10);
     regs.write(EReg64::A1, 20);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Bne {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Bne {
         rs1: EReg64::A0,
         rs2: EReg64::A1,
         imm: 8,
@@ -932,7 +932,7 @@ fn test_bne_taken() {
 
     let mut handler = TestInstructionHandler::new(instructions);
     let initial_pc = pc;
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(pc, initial_pc.wrapping_add(8));
 }
@@ -944,7 +944,7 @@ fn test_blt_taken() {
     regs.write(EReg64::A0, (-10i64).cast_unsigned());
     regs.write(EReg64::A1, 10);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Blt {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Blt {
         rs1: EReg64::A0,
         rs2: EReg64::A1,
         imm: 12,
@@ -952,7 +952,7 @@ fn test_blt_taken() {
 
     let mut handler = TestInstructionHandler::new(instructions);
     let initial_pc = pc;
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(pc, initial_pc.wrapping_add(12));
 }
@@ -964,7 +964,7 @@ fn test_bge_taken() {
     regs.write(EReg64::A0, 10);
     regs.write(EReg64::A1, 10);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Bge {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Bge {
         rs1: EReg64::A0,
         rs2: EReg64::A1,
         imm: 16,
@@ -972,7 +972,7 @@ fn test_bge_taken() {
 
     let mut handler = TestInstructionHandler::new(instructions);
     let initial_pc = pc;
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(pc, initial_pc.wrapping_add(16));
 }
@@ -984,7 +984,7 @@ fn test_bltu_taken() {
     regs.write(EReg64::A0, 10);
     regs.write(EReg64::A1, 20);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Bltu {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Bltu {
         rs1: EReg64::A0,
         rs2: EReg64::A1,
         imm: 20,
@@ -992,7 +992,7 @@ fn test_bltu_taken() {
 
     let mut handler = TestInstructionHandler::new(instructions);
     let initial_pc = pc;
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(pc, initial_pc.wrapping_add(20));
 }
@@ -1004,7 +1004,7 @@ fn test_bgeu_taken() {
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 10);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Bgeu {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Bgeu {
         rs1: EReg64::A0,
         rs2: EReg64::A1,
         imm: 24,
@@ -1012,7 +1012,7 @@ fn test_bgeu_taken() {
 
     let mut handler = TestInstructionHandler::new(instructions);
     let initial_pc = pc;
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(pc, initial_pc.wrapping_add(24));
 }
@@ -1027,18 +1027,18 @@ fn test_jal() {
     regs.write(EReg64::A2, 0);
 
     let instructions = vec![
-        Rv64MInstruction::Base(Rv64Instruction::Jal {
+        Rv64MBZbcInstruction::Base(Rv64Instruction::Jal {
             rd: EReg64::Ra,
             // Skip next instruction
             imm: 8,
         }),
-        Rv64MInstruction::Base(Rv64Instruction::Addi {
+        Rv64MBZbcInstruction::Base(Rv64Instruction::Addi {
             rd: EReg64::A2,
             rs1: EReg64::Zero,
             // Should be skipped
             imm: 99,
         }),
-        Rv64MInstruction::Base(Rv64Instruction::Addi {
+        Rv64MBZbcInstruction::Base(Rv64Instruction::Addi {
             rd: EReg64::A2,
             rs1: EReg64::Zero,
             // Should execute
@@ -1047,7 +1047,7 @@ fn test_jal() {
     ];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // Return address
     assert_eq!(regs.read(EReg64::Ra), initial_pc + 4);
@@ -1064,18 +1064,18 @@ fn test_jalr() {
     regs.write(EReg64::A2, 0);
 
     let instructions = vec![
-        Rv64MInstruction::Base(Rv64Instruction::Jalr {
+        Rv64MBZbcInstruction::Base(Rv64Instruction::Jalr {
             rd: EReg64::Ra,
             rs1: EReg64::A0,
             imm: 0,
         }),
-        Rv64MInstruction::Base(Rv64Instruction::Addi {
+        Rv64MBZbcInstruction::Base(Rv64Instruction::Addi {
             rd: EReg64::A2,
             rs1: EReg64::Zero,
             // Should be skipped
             imm: 99,
         }),
-        Rv64MInstruction::Base(Rv64Instruction::Addi {
+        Rv64MBZbcInstruction::Base(Rv64Instruction::Addi {
             rd: EReg64::A2,
             rs1: EReg64::Zero,
             // Should execute
@@ -1084,7 +1084,7 @@ fn test_jalr() {
     ];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // Return address
     assert_eq!(regs.read(EReg64::Ra), initial_pc + 4);
@@ -1101,17 +1101,17 @@ fn test_jalr_clear_lsb() {
     regs.write(EReg64::A2, 0);
 
     let instructions = vec![
-        Rv64MInstruction::Base(Rv64Instruction::Jalr {
+        Rv64MBZbcInstruction::Base(Rv64Instruction::Jalr {
             rd: EReg64::Ra,
             rs1: EReg64::A0,
             imm: 0,
         }),
-        Rv64MInstruction::Base(Rv64Instruction::Addi {
+        Rv64MBZbcInstruction::Base(Rv64Instruction::Addi {
             rd: EReg64::A2,
             rs1: EReg64::Zero,
             imm: 99,
         }),
-        Rv64MInstruction::Base(Rv64Instruction::Addi {
+        Rv64MBZbcInstruction::Base(Rv64Instruction::Addi {
             rd: EReg64::A2,
             rs1: EReg64::Zero,
             imm: 42,
@@ -1119,7 +1119,7 @@ fn test_jalr_clear_lsb() {
     ];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::Ra), initial_pc + 4);
     // LSB cleared: 9 -> 8
@@ -1132,14 +1132,14 @@ fn test_jalr_clear_lsb() {
 fn test_lui() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Lui {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Lui {
         rd: EReg64::A0,
         // Already shifted - bits [31:12]
         imm: 0x12345000,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A0), 0x12345000u64);
 }
@@ -1148,14 +1148,14 @@ fn test_lui() {
 fn test_lui_negative() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Lui {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Lui {
         rd: EReg64::A0,
         // 0xFFFFF000 as upper 20 bits (already shifted)
         imm: 0xfffff000u32.cast_signed(),
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // Should be sign-extended: 0xfffffffffffff000
     assert_eq!(regs.read(EReg64::A0), 0xfffffffffffff000u64);
@@ -1167,14 +1167,14 @@ fn test_auipc() {
 
     let initial_pc = pc;
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Auipc {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Auipc {
         rd: EReg64::A0,
         // Already shifted - bits [31:12]
         imm: 0x12345000,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(
         regs.read(EReg64::A0),
@@ -1188,14 +1188,14 @@ fn test_auipc_negative() {
 
     let initial_pc = pc;
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Auipc {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Auipc {
         rd: EReg64::A0,
         // Negative immediate (all upper bits set)
         imm: 0xfffff000u32.cast_signed(),
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // Should wrap around: PC + sign_extend(0xfffff000)
     assert_eq!(
@@ -1210,14 +1210,14 @@ fn test_auipc_negative() {
 fn test_fence() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Fence {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Fence {
         pred: 0xF,
         succ: 0xF,
         fm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // Should execute without error (NOP in single-threaded)
 }
@@ -1226,10 +1226,10 @@ fn test_fence() {
 fn test_ebreak() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Ebreak)];
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Ebreak)];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // Should execute without error (NOP by default)
 }
@@ -1238,10 +1238,10 @@ fn test_ebreak() {
 fn test_ecall_unsupported() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Ecall)];
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Ecall)];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    let result = execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler);
+    let result = execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler);
 
     assert!(matches!(
         result,
@@ -1253,10 +1253,10 @@ fn test_ecall_unsupported() {
 fn test_unimp() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Unimp)];
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Unimp)];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    let result = execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler);
+    let result = execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler);
 
     assert!(matches!(result, Err(ExecuteError::UnimpInstruction { .. })));
 }
@@ -1270,14 +1270,14 @@ fn test_out_of_bounds_read() {
     // Invalid address
     regs.write(EReg64::A0, 0x0);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Ld {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Ld {
         rd: EReg64::A1,
         rs1: EReg64::A0,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    let result = execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler);
+    let result = execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler);
 
     assert!(matches!(result, Err(ExecuteError::MemoryAccess(_))));
 }
@@ -1290,14 +1290,14 @@ fn test_out_of_bounds_write() {
     regs.write(EReg64::A0, 0x0);
     regs.write(EReg64::A1, 42);
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Sd {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Sd {
         rs1: EReg64::A0,
         rs2: EReg64::A1,
         imm: 0,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    let result = execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler);
+    let result = execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler);
 
     assert!(matches!(result, Err(ExecuteError::MemoryAccess(_))));
 }
@@ -1308,14 +1308,14 @@ fn test_out_of_bounds_write() {
 fn test_write_to_zero_register() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Addi {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Addi {
         rd: EReg64::Zero,
         rs1: EReg64::Zero,
         imm: 100,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::Zero), 0);
 }
@@ -1324,14 +1324,14 @@ fn test_write_to_zero_register() {
 fn test_read_from_zero_register() {
     let (mut regs, mut mem, mut pc) = setup_test();
 
-    let instructions = vec![Rv64MInstruction::Base(Rv64Instruction::Add {
+    let instructions = vec![Rv64MBZbcInstruction::Base(Rv64Instruction::Add {
         rd: EReg64::A0,
         rs1: EReg64::Zero,
         rs2: EReg64::Zero,
     })];
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     assert_eq!(regs.read(EReg64::A0), 0);
 }
@@ -1355,19 +1355,19 @@ fn test_fibonacci() {
 
     for _ in 0..9 {
         // a3 = a1 + a2 (next fib number)
-        instructions.push(Rv64MInstruction::Base(Rv64Instruction::Add {
+        instructions.push(Rv64MBZbcInstruction::Base(Rv64Instruction::Add {
             rd: EReg64::A3,
             rs1: EReg64::A1,
             rs2: EReg64::A2,
         }));
         // a1 = a2 (shift window)
-        instructions.push(Rv64MInstruction::Base(Rv64Instruction::Add {
+        instructions.push(Rv64MBZbcInstruction::Base(Rv64Instruction::Add {
             rd: EReg64::A1,
             rs1: EReg64::A2,
             rs2: EReg64::Zero,
         }));
         // a2 = a3 (shift window)
-        instructions.push(Rv64MInstruction::Base(Rv64Instruction::Add {
+        instructions.push(Rv64MBZbcInstruction::Base(Rv64Instruction::Add {
             rd: EReg64::A2,
             rs1: EReg64::A3,
             rs2: EReg64::Zero,
@@ -1375,7 +1375,7 @@ fn test_fibonacci() {
     }
 
     let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
     // fib(10) = 55
     assert_eq!(regs.read(EReg64::A2), 55);

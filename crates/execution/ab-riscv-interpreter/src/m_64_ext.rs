@@ -1,4 +1,4 @@
-//! Part of the interpreter responsible for RISC-V M extension
+//! RV64 M extension
 
 #[cfg(test)]
 mod tests;
