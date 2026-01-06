@@ -50,6 +50,12 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
                 .context("Path to target specification file is not valid UTF-8")?,
         ]);
 
+    if env::var("MIRI_SYSROOT").is_ok() {
+        command_builder
+            .env_remove("RUSTC")
+            .env_remove("RUSTC_WRAPPER");
+    }
+
     if let Some(package) = package {
         command_builder.args([
             "--package",
@@ -66,22 +72,23 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
 
     command_builder.args(["--profile", profile]);
 
-    if let Some(target_dir) = target_dir {
+    let metadata = MetadataCommand::new()
+        .exec()
+        .context("Failed to fetch cargo metadata")?;
+
+    let target_directory = if let Some(target_dir) = target_dir {
         command_builder.args([
             "--target-dir",
             target_dir
                 .to_str()
                 .context("Path to target directory is not valid UTF-8")?,
         ]);
-    }
+        target_dir
+    } else {
+        metadata.target_directory.as_std_path()
+    };
 
-    let metadata = MetadataCommand::new()
-        .exec()
-        .context("Failed to fetch cargo metadata")?;
-
-    let cdylib_path = metadata
-        .target_directory
-        .as_std_path()
+    let cdylib_path = target_directory
         .join("riscv64em-unknown-none-abundance")
         .join(profile)
         .join({

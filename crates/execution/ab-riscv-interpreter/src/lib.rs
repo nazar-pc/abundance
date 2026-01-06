@@ -517,19 +517,19 @@ where
                 *pc = target;
             }
 
-            Rv64Instruction::Sb { rs1, rs2, imm } => {
+            Rv64Instruction::Sb { rs2, rs1, imm } => {
                 let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 memory.write(addr, regs.read(rs2) as u8)?;
             }
-            Rv64Instruction::Sh { rs1, rs2, imm } => {
+            Rv64Instruction::Sh { rs2, rs1, imm } => {
                 let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 memory.write(addr, regs.read(rs2) as u16)?;
             }
-            Rv64Instruction::Sw { rs1, rs2, imm } => {
+            Rv64Instruction::Sw { rs2, rs1, imm } => {
                 let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 memory.write(addr, regs.read(rs2) as u32)?;
             }
-            Rv64Instruction::Sd { rs1, rs2, imm } => {
+            Rv64Instruction::Sd { rs2, rs1, imm } => {
                 let addr = regs.read(rs1).wrapping_add((imm as i64).cast_unsigned());
                 memory.write(addr, regs.read(rs2))?;
             }
@@ -566,14 +566,11 @@ where
             }
 
             Rv64Instruction::Lui { rd, imm } => {
-                regs.write(rd, ((imm as i64).cast_unsigned()) << 12);
+                regs.write(rd, (imm as i64).cast_unsigned());
             }
 
             Rv64Instruction::Auipc { rd, imm } => {
-                regs.write(
-                    rd,
-                    old_pc.wrapping_add(((imm as i64).cast_unsigned()) << 12),
-                );
+                regs.write(rd, old_pc.wrapping_add((imm as i64).cast_unsigned()));
             }
 
             Rv64Instruction::Jal { rd, imm } => {

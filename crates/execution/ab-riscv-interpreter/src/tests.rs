@@ -1750,13 +1750,14 @@ fn test_lui() {
 
     let instructions = vec![Rv64Instruction::Lui {
         rd: EReg::A0,
-        imm: 0x12345,
+        // Already shifted - bits [31:12]
+        imm: 0x12345000,
     }];
 
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A0), (0x12345i64 << 12) as u64);
+    assert_eq!(regs.read(EReg::A0), 0x12345000u64);
 }
 
 #[test]
@@ -1765,14 +1766,15 @@ fn test_lui_negative() {
 
     let instructions = vec![Rv64Instruction::Lui {
         rd: EReg::A0,
-        // 0xFFFFF as 20-bit value
-        imm: -1,
+        // 0xFFFFF000 as upper 20 bits (already shifted)
+        imm: 0xfffff000u32.cast_signed(),
     }];
 
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
-    assert_eq!(regs.read(EReg::A0), ((-1i64) << 12).cast_unsigned());
+    // Should be sign-extended: 0xfffffffffffff000
+    assert_eq!(regs.read(EReg::A0), 0xfffffffffffff000u64);
 }
 
 #[test]
@@ -1783,15 +1785,35 @@ fn test_auipc() {
 
     let instructions = vec![Rv64Instruction::Auipc {
         rd: EReg::A0,
-        imm: 0x12345,
+        // Already shifted - bits [31:12]
+        imm: 0x12345000,
     }];
 
     let mut handler = TestInstructionHandler::new(instructions);
     execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
 
+    assert_eq!(regs.read(EReg::A0), initial_pc.wrapping_add(0x12345000u64));
+}
+
+#[test]
+fn test_auipc_negative() {
+    let (mut regs, mut mem, mut pc) = setup_test();
+
+    let initial_pc = pc;
+
+    let instructions = vec![Rv64Instruction::Auipc {
+        rd: EReg::A0,
+        // Negative immediate (all upper bits set)
+        imm: 0xfffff000u32.cast_signed(),
+    }];
+
+    let mut handler = TestInstructionHandler::new(instructions);
+    execute_rv64(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+
+    // Should wrap around: PC + sign_extend(0xfffff000)
     assert_eq!(
         regs.read(EReg::A0),
-        initial_pc.wrapping_add((0x12345i64 << 12) as u64)
+        initial_pc.wrapping_add(0xfffffffffffff000u64)
     );
 }
 

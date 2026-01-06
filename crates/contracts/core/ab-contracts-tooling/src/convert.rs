@@ -16,6 +16,7 @@ use object::{
     ObjectSymbolTable, RelocationFlags, RelocationTarget, SymbolKind, SymbolSection, U16, U32, U64,
 };
 use std::collections::HashMap;
+use std::iter;
 use tracing::{debug, trace};
 
 fn is_correct_header(header: &FileHeader64<LittleEndian>) -> bool {
@@ -117,13 +118,24 @@ fn check_relocations(elf: &ElfFile<'_, FileHeader64<LittleEndian>>) -> anyhow::R
 
 #[derive(Debug, Copy, Clone)]
 struct ParsedSections {
-    metadata_offset: u64,
-    metadata_size: u64,
-    ro_data_offset: u64,
-    ro_data_file_size: u64,
-    ro_data_memory_size: u64,
-    code_offset: u64,
-    code_size: u64,
+    /// Offset of the `ab-contract-metadata` section in the input file, relative to the beginning
+    /// of the file
+    metadata_section_offset: u64,
+    /// Size of the metadata section in the input file
+    metadata_section_size: u64,
+    /// Offset of the `.rodata` section in the input file, relative to the beginning of the file
+    rodata_section_offset: u64,
+    /// Size of the read-only data section in the input file
+    rodata_section_size: u64,
+    /// Padding between `ab-contract-metadata` and `.rodata` sections (if any) in the input file
+    metadata_rodata_padding: u64,
+    /// Size of the read-only memory region once `ab-contract-metadata` and `.rodata` sections are
+    /// loaded into memory, includes possible padding at the end before the `.text` section
+    ro_memory_size: u64,
+    /// Offset of the `.text` section in the input file, relative to the beginning of the file
+    code_section_offset: u64,
+    /// Size of the `.text` section in the input file
+    code_section_size: u64,
 }
 
 fn parse_sections(elf: &ElfFile<'_, FileHeader64<LittleEndian>>) -> anyhow::Result<ParsedSections> {
@@ -237,52 +249,44 @@ fn parse_sections(elf: &ElfFile<'_, FileHeader64<LittleEndian>>) -> anyhow::Resu
             None => (metadata_section_address, (metadata_section_offset, 0)),
         };
 
-    // TODO: Hypothetically `.rodata` can be before metadata and have padding, update if/when that
-    //  is the case
-    // Can be reordered, but always next to each other
-    if !(rodata_section_offset == metadata_section_offset + metadata_section_size
-        || metadata_section_offset == rodata_section_offset + rodata_section_size)
-    {
-        return Err(anyhow::anyhow!(
-            "Section `.rodata` and `ab-contract-metadata` are not next to each other: \
-            rodata_section_offset={rodata_section_offset}, \
-            rodata_section_size={rodata_section_size}, \
-            metadata_section_offset={metadata_section_offset}, \
-            metadata_section_size={metadata_section_size}"
-        ));
-    }
-
-    let ro_data_offset = metadata_section_offset.min(rodata_section_offset);
-
-    if ro_data_offset > code_section_offset {
+    if metadata_section_offset.max(rodata_section_offset) > code_section_offset {
         return Err(anyhow::anyhow!(
             "`.text` section must be after `.rodata` and `ab-contract-metadata` sections: \
-            ro_data_offset={ro_data_offset}, \
+            metadata_section_offset={metadata_section_offset}, \
+            rodata_section_offset={rodata_section_offset}, \
             code_section_offset={code_section_offset}"
         ));
     }
 
-    let ro_data_address = metadata_section_address.min(rodata_section_address);
-
     // Calculate in-memory read-only data size from addresses, such that after loading everything is
     // correct relatively to each other, even though some bytes may, technically, not belong to the
     // original read-only memory as such
-    let Some(ro_data_memory_size) = code_section_address.checked_sub(ro_data_address) else {
+    let Some(ro_memory_size) =
+        code_section_address.checked_sub(metadata_section_address.min(rodata_section_address))
+    else {
         return Err(anyhow::anyhow!(
             "`.text` section must be after `.rodata` and `ab-contract-metadata` sections: \
-            ro_data_address={ro_data_address}, \
+            metadata_section_address={metadata_section_address}, \
+            rodata_section_address={rodata_section_address}, \
             code_section_address={code_section_address}"
         ));
     };
 
+    let metadata_rodata_padding = if metadata_section_address < rodata_section_address {
+        (rodata_section_address - metadata_section_address) - metadata_section_size
+    } else {
+        (metadata_section_address - rodata_section_address) - rodata_section_size
+    };
+
     Ok(ParsedSections {
-        metadata_offset: metadata_section_offset,
-        metadata_size: metadata_section_size,
-        ro_data_offset,
-        ro_data_file_size: code_section_offset - ro_data_offset,
-        ro_data_memory_size,
-        code_offset: code_section_offset,
-        code_size: code_section_size,
+        metadata_section_offset,
+        metadata_section_size,
+        rodata_section_offset,
+        rodata_section_size,
+        metadata_rodata_padding,
+        ro_memory_size,
+        code_section_offset,
+        code_section_size,
     })
 }
 
@@ -503,16 +507,17 @@ pub fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
 
     check_relocations(&elf)?;
     let ParsedSections {
-        metadata_offset,
-        metadata_size,
-        ro_data_offset,
-        ro_data_file_size,
-        ro_data_memory_size,
-        code_offset,
-        code_size,
+        metadata_section_offset,
+        metadata_section_size,
+        rodata_section_offset,
+        rodata_section_size,
+        metadata_rodata_padding,
+        ro_memory_size,
+        code_section_offset,
+        code_section_size,
     } = parse_sections(&elf)?;
 
-    if metadata_size == 0 {
+    if metadata_section_size == 0 {
         return Err(anyhow::anyhow!("Metadata not found"));
     }
 
@@ -522,23 +527,23 @@ pub fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
 
     let host_call_fn_offset = extract_host_call_fn_offset(input_file, &mut parsed_exports)?;
 
-    if host_call_fn_offset != 0 && host_call_fn_offset < code_offset {
+    if host_call_fn_offset != 0 && host_call_fn_offset < code_section_offset {
         return Err(anyhow::anyhow!(
             "Host call function offset {host_call_fn_offset} is before `.text` section offset \
-            {code_offset}"
+            {code_section_offset}"
         ));
     }
 
     let metadata_bytes = input_file
-        .get(metadata_offset as usize..)
+        .get(metadata_section_offset as usize..)
         .with_context(|| {
             format!(
-                "Metadata offset {metadata_offset} out of range of input file ({} bytes)",
+                "Metadata offset {metadata_section_offset} out of range of input file ({} bytes)",
                 input_file.len()
             )
         })?
-        .get(..metadata_size as usize)
-        .with_context(|| format!("Metadata size {metadata_size} is invalid"))?;
+        .get(..metadata_section_size as usize)
+        .with_context(|| format!("Metadata size {metadata_section_size} is invalid"))?;
 
     let metadata_methods = parse_metadata_methods(&mut parsed_exports, metadata_bytes)?;
 
@@ -555,26 +560,42 @@ pub fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
     // Write file header
     let contract_file_header = ContractFileHeader {
         magic: CONTRACT_FILE_MAGIC,
-        read_only_section_file_size: ro_data_file_size
+        read_only_section_file_size: (metadata_section_size
+            + rodata_section_size
+            + metadata_rodata_padding)
             .try_into()
             .context("Read-only section size is over 32-bit")?,
-        read_only_section_memory_size: ro_data_memory_size
+        read_only_section_memory_size: ro_memory_size
             .try_into()
             .context("Read-only section size is over 32-bit")?,
-        metadata_offset: (metadata_offset - ro_data_offset + header_with_methods_metadata_size)
-            .try_into()
-            .context("Metadata offset is over 32-bit")?,
-        metadata_size: metadata_size
+        metadata_offset: {
+            let metadata_offset = if metadata_section_offset < rodata_section_offset {
+                header_with_methods_metadata_size
+            } else {
+                header_with_methods_metadata_size + rodata_section_size + metadata_rodata_padding
+            };
+
+            metadata_offset
+                .try_into()
+                .context("Metadata offset is over 32-bit")?
+        },
+        metadata_size: metadata_section_size
             .try_into()
             .context("Metadata size is over 16-bit")?,
         num_methods: metadata_methods
             .len()
             .try_into()
             .context("Number of methods is over 16-bit")?,
-        host_call_fn_offset: if host_call_fn_offset == 0 {
-            0
-        } else {
-            (host_call_fn_offset - ro_data_offset + header_with_methods_metadata_size)
+        host_call_fn_offset: {
+            let host_call_fn_offset = if host_call_fn_offset == 0 {
+                0
+            } else {
+                header_with_methods_metadata_size
+                    + (metadata_section_size + rodata_section_size + metadata_rodata_padding)
+                    + (host_call_fn_offset - code_section_offset)
+            };
+
+            host_call_fn_offset
                 .try_into()
                 .context("Host call offset is over 32-bit")?
         },
@@ -583,10 +604,11 @@ pub fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
 
     // Write metadata of each method
     for metadata_method in metadata_methods {
+        let offset = header_with_methods_metadata_size
+            + (metadata_section_size + rodata_section_size + metadata_rodata_padding)
+            + (metadata_method.offset - code_section_offset);
         let contract_file_function_metadata = ContractFileMethodMetadata {
-            offset: (metadata_method.offset - ro_data_offset + header_with_methods_metadata_size)
-                .try_into()
-                .context("Method offset is over 32-bit")?,
+            offset: offset.try_into().context("Method offset is over 32-bit")?,
             size: metadata_method
                 .size
                 .try_into()
@@ -595,9 +617,28 @@ pub fn convert(input_file: &[u8]) -> anyhow::Result<Vec<u8>> {
         output_file.extend_from_slice(contract_file_function_metadata.as_bytes());
     }
 
-    // Write read-only data and code
+    // Write `ab-contract-metadata` and `.rodata` sections with possible padding between them
+    if metadata_section_offset < rodata_section_offset {
+        output_file.extend_from_slice(
+            &input_file[metadata_section_offset as usize..][..metadata_section_size as usize],
+        );
+        output_file.extend(iter::repeat_n(0, metadata_rodata_padding as usize));
+        output_file.extend_from_slice(
+            &input_file[rodata_section_offset as usize..][..rodata_section_size as usize],
+        );
+    } else {
+        output_file.extend_from_slice(
+            &input_file[rodata_section_offset as usize..][..rodata_section_size as usize],
+        );
+        output_file.extend(iter::repeat_n(0, metadata_rodata_padding as usize));
+        output_file.extend_from_slice(
+            &input_file[metadata_section_offset as usize..][..metadata_section_size as usize],
+        );
+    }
+
+    // Write `.text` section
     output_file.extend_from_slice(
-        &input_file[ro_data_offset as usize..(code_offset + code_size) as usize],
+        &input_file[code_section_offset as usize..][..code_section_size as usize],
     );
 
     // TODO: Compress with zstd? If so, then read-only data can be expanded to the real size from

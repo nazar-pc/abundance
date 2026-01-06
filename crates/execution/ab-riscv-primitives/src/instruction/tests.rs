@@ -1044,8 +1044,8 @@ fn test_sb() {
     assert_eq!(
         decoded,
         Rv64Instruction::Sb {
-            rs1: Reg::Sp,
             rs2: Reg::Gp,
+            rs1: Reg::Sp,
             imm: 100
         }
     );
@@ -1058,8 +1058,8 @@ fn test_sh() {
     assert_eq!(
         decoded,
         Rv64Instruction::Sh {
-            rs1: Reg::Sp,
             rs2: Reg::Gp,
+            rs1: Reg::Sp,
             imm: 100
         }
     );
@@ -1072,8 +1072,8 @@ fn test_sw() {
     assert_eq!(
         decoded,
         Rv64Instruction::Sw {
-            rs1: Reg::Sp,
             rs2: Reg::Gp,
+            rs1: Reg::Sp,
             imm: 100
         }
     );
@@ -1088,8 +1088,8 @@ fn test_sd() {
         assert_eq!(
             decoded,
             Rv64Instruction::Sd {
-                rs1: Reg::Sp,
                 rs2: Reg::Gp,
+                rs1: Reg::Sp,
                 imm: 100
             }
         );
@@ -1102,8 +1102,8 @@ fn test_sd() {
         assert_eq!(
             decoded,
             Rv64Instruction::Sd {
-                rs1: Reg::Sp,
                 rs2: Reg::Gp,
+                rs1: Reg::Sp,
                 imm: -8
             }
         );
