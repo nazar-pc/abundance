@@ -4,7 +4,7 @@
 mod tests;
 
 use ab_riscv_primitives::instruction::b_64_ext::zbc_64_ext::Zbc64ExtInstruction;
-use ab_riscv_primitives::registers::{GenericRegister64, GenericRegisters64};
+use ab_riscv_primitives::registers::{GenericRegister, Registers};
 
 /// Carryless multiplication helper
 #[inline]
@@ -20,12 +20,10 @@ fn clmul_internal(a: u64, b: u64) -> u128 {
 
 /// Execute instructions from Zbc extension
 #[inline(always)]
-pub fn execute_zbc_64_ext<Reg, Registers>(
-    regs: &mut Registers,
-    instruction: Zbc64ExtInstruction<Reg>,
-) where
-    Reg: GenericRegister64,
-    Registers: GenericRegisters64<Reg>,
+pub fn execute_zbc_64_ext<Reg>(regs: &mut Registers<Reg>, instruction: Zbc64ExtInstruction<Reg>)
+where
+    Reg: GenericRegister<Type = u64>,
+    [(); Reg::N]:,
 {
     match instruction {
         Zbc64ExtInstruction::Clmul { rd, rs1, rs2 } => {

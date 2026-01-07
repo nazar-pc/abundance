@@ -1,4 +1,8 @@
 #![feature(bigint_helper_methods)]
+#![expect(incomplete_features, reason = "generic_const_exprs")]
+// TODO: This feature is not actually used in this crate, but is added as a workaround for
+//  https://github.com/rust-lang/rust/issues/141492
+#![feature(generic_const_exprs)]
 #![no_std]
 
 pub mod b_64_ext;
@@ -13,7 +17,7 @@ use crate::rv64::execute_rv64;
 use ab_riscv_primitives::instruction::{
     GenericBaseInstruction, GenericInstruction, Rv64MBZbcInstruction,
 };
-use ab_riscv_primitives::registers::{GenericRegister64, GenericRegisters64};
+use ab_riscv_primitives::registers::{GenericRegister, Registers};
 use core::fmt;
 use core::ops::ControlFlow;
 
@@ -125,15 +129,17 @@ pub enum FetchInstructionResult<Instruction> {
 }
 
 /// Custom handlers for instructions `ecall` and `ebreak`
-pub trait GenericInstructionHandler<Instruction, Registers, Memory, CustomError>
+pub trait GenericInstructionHandler<Instruction, Reg, Memory, CustomError>
 where
     Instruction: GenericInstruction,
+    Reg: GenericRegister,
+    [(); Reg::N]:,
     CustomError: fmt::Display,
 {
     /// Fetch a single instruction at a specified address and advance the program counter
     fn fetch_instruction(
         &mut self,
-        _regs: &mut Registers,
+        _regs: &mut Registers<Reg>,
         memory: &mut Memory,
         pc: &mut u64,
     ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, CustomError>>;
@@ -144,7 +150,7 @@ where
     /// the instruction itself.
     fn handle_ecall(
         &mut self,
-        regs: &mut Registers,
+        regs: &mut Registers<Reg>,
         memory: &mut Memory,
         pc: &mut u64,
         instruction: Instruction,
@@ -157,7 +163,7 @@ where
     #[inline(always)]
     fn handle_ebreak(
         &mut self,
-        _regs: &mut Registers,
+        _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
         _pc: &mut u64,
         _instruction: Instruction,
@@ -173,17 +179,19 @@ where
 #[derive(Debug, Default, Copy, Clone)]
 pub struct BasicInstructionHandler<const RETURN_TRAP_ADDRESS: u64>;
 
-impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Registers, Memory>
-    GenericInstructionHandler<Instruction, Registers, Memory, &'static str>
+impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Reg, Memory>
+    GenericInstructionHandler<Instruction, Reg, Memory, &'static str>
     for BasicInstructionHandler<RETURN_TRAP_ADDRESS>
 where
     Instruction: GenericBaseInstruction,
+    Reg: GenericRegister<Type = u64>,
+    [(); Reg::N]:,
     Memory: VirtualMemory,
 {
     #[inline(always)]
     fn fetch_instruction(
         &mut self,
-        _regs: &mut Registers,
+        _regs: &mut Registers<Reg>,
         memory: &mut Memory,
         pc: &mut u64,
     ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, &'static str>> {
@@ -207,7 +215,7 @@ where
     #[inline(always)]
     fn handle_ecall(
         &mut self,
-        _regs: &mut Registers,
+        _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
         pc: &mut u64,
         instruction: Instruction,
@@ -220,18 +228,18 @@ where
 }
 
 /// Execute RV64IMBZbc/RV64EMBZbc instructions
-pub fn execute_rv64mbzbc<Reg, Registers, Memory, InstructionHandler, CustomError>(
-    regs: &mut Registers,
+pub fn execute_rv64mbzbc<Reg, Memory, InstructionHandler, CustomError>(
+    regs: &mut Registers<Reg>,
     memory: &mut Memory,
     pc: &mut u64,
     instruction_handlers: &mut InstructionHandler,
 ) -> Result<(), ExecuteError<Rv64MBZbcInstruction<Reg>, CustomError>>
 where
-    Reg: GenericRegister64,
-    Registers: GenericRegisters64<Reg>,
+    Reg: GenericRegister<Type = u64>,
+    [(); Reg::N]:,
     Memory: VirtualMemory,
     InstructionHandler:
-        GenericInstructionHandler<Rv64MBZbcInstruction<Reg>, Registers, Memory, CustomError>,
+        GenericInstructionHandler<Rv64MBZbcInstruction<Reg>, Reg, Memory, CustomError>,
     CustomError: fmt::Display,
 {
     loop {

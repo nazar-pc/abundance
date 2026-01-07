@@ -10,7 +10,7 @@ use crate::instruction::b_64_ext::zba_64_ext::Zba64ExtInstruction;
 use crate::instruction::b_64_ext::zbb_64_ext::Zbb64ExtInstruction;
 use crate::instruction::b_64_ext::zbc_64_ext::Zbc64ExtInstruction;
 use crate::instruction::b_64_ext::zbs_64_ext::Zbs64ExtInstruction;
-use crate::registers::GenericRegister64;
+use crate::registers::GenericRegister;
 use core::fmt;
 
 /// RISC-V B (Zba + Zbb + Zbs) + Zbc instruction
@@ -24,7 +24,7 @@ pub enum BZbc64ExtInstruction<Reg> {
 
 impl<Reg> const GenericInstruction for BZbc64ExtInstruction<Reg>
 where
-    Reg: [const] GenericRegister64,
+    Reg: [const] GenericRegister<Type = u64>,
 {
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {

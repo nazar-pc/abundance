@@ -8,6 +8,7 @@ use ab_riscv_interpreter::{
     VirtualMemoryError,
 };
 use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use ab_riscv_primitives::registers::{GenericRegister, Registers};
 use alloc::vec::Vec;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
@@ -220,17 +221,19 @@ pub struct EagerTestInstructionHandler<const RETURN_TRAP_ADDRESS: u64, Instructi
     base_addr: u64,
 }
 
-impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Registers, Memory>
-    GenericInstructionHandler<Instruction, Registers, Memory, &'static str>
+impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Reg, Memory>
+    GenericInstructionHandler<Instruction, Reg, Memory, &'static str>
     for EagerTestInstructionHandler<RETURN_TRAP_ADDRESS, Instruction>
 where
     Instruction: GenericBaseInstruction,
+    Reg: GenericRegister<Type = u64>,
+    [(); Reg::N]:,
     Memory: VirtualMemory,
 {
     #[inline(always)]
     fn fetch_instruction(
         &mut self,
-        _regs: &mut Registers,
+        _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
         pc: &mut u64,
     ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, &'static str>> {
@@ -261,7 +264,7 @@ where
     #[inline(always)]
     fn handle_ecall(
         &mut self,
-        _regs: &mut Registers,
+        _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
         pc: &mut u64,
         instruction: Instruction,

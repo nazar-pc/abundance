@@ -1,41 +1,87 @@
 #[cfg(test)]
 mod tests;
 
+use crate::registers::private::{GenericRegisterInternal, PhantomRegister};
 use core::fmt;
+use core::hint::unreachable_unchecked;
 use core::marker::Destruct;
 
-/// Generic 64-bit register
-pub const trait GenericRegister64:
-    fmt::Display + fmt::Debug + [const] Destruct + Copy + Sized
+mod private {
+    use core::marker::PhantomData;
+
+    pub const trait GenericRegisterInternal<Type> {
+        const ZERO_REGISTER_VALUE: Type;
+
+        /// Whether the register is a zero register
+        fn is_zero(&self) -> bool;
+
+        /// Offset in a set of registers
+        fn offset(self) -> usize;
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct PhantomRegister<Type>(PhantomData<Type>);
+}
+
+/// Generic register
+pub const trait GenericRegister:
+    fmt::Display
+    + fmt::Debug
+    + [const] Eq
+    + [const] GenericRegisterInternal<Self::Type>
+    + [const] Destruct
+    + Copy
+    + Sized
 {
+    /// The number of general purpose registers.
+    ///
+    /// Canonically 32 unless E extension is used, in which case 16.
+    const N: usize;
+    /// Register type.
+    ///
+    /// `u32` for RV32 and `u64` for RV64.
+    type Type: [const] Default + fmt::Display + fmt::Debug + Copy + Sized;
+
     /// Create a register from its bit representation
     fn from_bits(bits: u8) -> Option<Self>;
 }
 
-/// A generic set of 64-bit registers
-pub const trait GenericRegisters64<Reg>
+/// A set of RISC-V registers
+#[derive(Debug, Clone, Copy)]
+pub struct Registers<Reg>
 where
-    Reg: GenericRegister64,
+    Reg: GenericRegister,
+    [(); Reg::N]:,
 {
-    /// Read register value
-    fn read(&self, reg: Reg) -> u64;
-
-    /// Write register value
-    fn write(&mut self, reg: Reg, value: u64);
+    regs: [Reg::Type; Reg::N],
 }
 
-/// A set of registers for RISC-V RV32E/RV64E
-#[derive(Debug, Default, Clone, Copy)]
-pub struct ERegisters64 {
-    regs: [u64; 16],
-}
-
-impl const GenericRegisters64<EReg64> for ERegisters64 {
+impl<Reg> Default for Registers<Reg>
+where
+    Reg: GenericRegister,
+    [(); Reg::N]: Default,
+{
     #[inline(always)]
-    fn read(&self, reg: EReg64) -> u64 {
-        if matches!(reg, EReg64::Zero) {
+    fn default() -> Self {
+        Self {
+            regs: [Reg::Type::default(); Reg::N],
+        }
+    }
+}
+
+const impl<Reg> Registers<Reg>
+where
+    Reg: GenericRegister + [const] Eq,
+    [(); Reg::N]:,
+{
+    #[inline(always)]
+    pub fn read(&self, reg: Reg) -> Reg::Type
+    where
+        Reg: [const] GenericRegister,
+    {
+        if reg.is_zero() {
             // Always zero
-            return 0;
+            return Reg::ZERO_REGISTER_VALUE;
         }
 
         // SAFETY: register offset is always within bounds
@@ -43,8 +89,11 @@ impl const GenericRegisters64<EReg64> for ERegisters64 {
     }
 
     #[inline(always)]
-    fn write(&mut self, reg: EReg64, value: u64) {
-        if matches!(reg, EReg64::Zero) {
+    pub fn write(&mut self, reg: Reg, value: Reg::Type)
+    where
+        Reg: [const] GenericRegister,
+    {
+        if reg.is_zero() {
             // Writes are ignored
             return;
         }
@@ -54,12 +103,12 @@ impl const GenericRegisters64<EReg64> for ERegisters64 {
     }
 }
 
-/// RISC-V register for RV64E.
+/// RISC-V register for RV32E/RV64E.
 ///
-/// For RV64I see [`Reg64`].
-#[derive(Clone, Copy, Eq, PartialEq)]
+/// Use `Type = u32` for RV32E and `Type = u64` for RV64E.
+#[derive(Clone, Copy)]
 #[repr(u8)]
-pub enum EReg64 {
+pub enum EReg<Type> {
     /// Always zero: `x0`
     Zero = 0,
     /// Return address: `x1`
@@ -92,9 +141,12 @@ pub enum EReg64 {
     A4 = 14,
     /// Function argument: `x15`
     A5 = 15,
+    /// Phantom register that is never constructed and is only used due to type system limitations
+    #[doc(hidden)]
+    Phantom(PhantomRegister<Type>),
 }
 
-impl fmt::Display for EReg64 {
+impl<Type> fmt::Display for EReg<Type> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Zero => write!(f, "zero"),
@@ -113,17 +165,131 @@ impl fmt::Display for EReg64 {
             Self::A3 => write!(f, "a3"),
             Self::A4 => write!(f, "a4"),
             Self::A5 => write!(f, "a5"),
+            Self::Phantom(_) => {
+                // SAFETY: Phantom register is never constructed
+                unsafe { unreachable_unchecked() }
+            }
         }
     }
 }
 
-impl fmt::Debug for EReg64 {
+impl<Type> fmt::Debug for EReg<Type> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
 
-impl const GenericRegister64 for EReg64 {
+impl<Type> const PartialEq for EReg<Type> {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        // This is quite ugly, but there doesn't seem to be a much better way with `Phantom` variant
+        matches!(
+            (self, other),
+            (Self::Zero, Self::Zero)
+                | (Self::Ra, Self::Ra)
+                | (Self::Sp, Self::Sp)
+                | (Self::Gp, Self::Gp)
+                | (Self::Tp, Self::Tp)
+                | (Self::T0, Self::T0)
+                | (Self::T1, Self::T1)
+                | (Self::T2, Self::T2)
+                | (Self::S0, Self::S0)
+                | (Self::S1, Self::S1)
+                | (Self::A0, Self::A0)
+                | (Self::A1, Self::A1)
+                | (Self::A2, Self::A2)
+                | (Self::A3, Self::A3)
+                | (Self::A4, Self::A4)
+                | (Self::A5, Self::A5)
+                | (Self::Phantom(_), Self::Phantom(_))
+        )
+    }
+}
+
+impl<Type> const Eq for EReg<Type> {}
+
+impl const GenericRegisterInternal<u32> for EReg<u32> {
+    const ZERO_REGISTER_VALUE: u32 = 0;
+
+    #[inline(always)]
+    fn is_zero(&self) -> bool {
+        matches!(self, Self::Zero)
+    }
+
+    #[inline(always)]
+    fn offset(self) -> usize {
+        // NOTE: `transmute()` is requited here, otherwise performance suffers A LOT for unknown
+        // reason
+        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
+        usize::from(unsafe { core::mem::transmute::<Self, u8>(self) })
+        // match self {
+        //     Self::Zero => 0,
+        //     Self::Ra => 1,
+        //     Self::Sp => 2,
+        //     Self::Gp => 3,
+        //     Self::Tp => 4,
+        //     Self::T0 => 5,
+        //     Self::T1 => 6,
+        //     Self::T2 => 7,
+        //     Self::S0 => 8,
+        //     Self::S1 => 9,
+        //     Self::A0 => 10,
+        //     Self::A1 => 11,
+        //     Self::A2 => 12,
+        //     Self::A3 => 13,
+        //     Self::A4 => 14,
+        //     Self::A5 => 15,
+        //     Self::Phantom(_) => {
+        //         // SAFETY: Phantom register is never constructed
+        //         unsafe { unreachable_unchecked() }
+        //     },
+        // }
+    }
+}
+
+impl const GenericRegisterInternal<u64> for EReg<u64> {
+    const ZERO_REGISTER_VALUE: u64 = 0;
+
+    #[inline(always)]
+    fn is_zero(&self) -> bool {
+        matches!(self, Self::Zero)
+    }
+
+    #[inline(always)]
+    fn offset(self) -> usize {
+        // NOTE: `transmute()` is requited here, otherwise performance suffers A LOT for unknown
+        // reason
+        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
+        usize::from(unsafe { core::mem::transmute::<Self, u8>(self) })
+        // match self {
+        //     Self::Zero => 0,
+        //     Self::Ra => 1,
+        //     Self::Sp => 2,
+        //     Self::Gp => 3,
+        //     Self::Tp => 4,
+        //     Self::T0 => 5,
+        //     Self::T1 => 6,
+        //     Self::T2 => 7,
+        //     Self::S0 => 8,
+        //     Self::S1 => 9,
+        //     Self::A0 => 10,
+        //     Self::A1 => 11,
+        //     Self::A2 => 12,
+        //     Self::A3 => 13,
+        //     Self::A4 => 14,
+        //     Self::A5 => 15,
+        //     Self::Phantom(_) => {
+        //         // SAFETY: Phantom register is never constructed
+        //         unsafe { unreachable_unchecked() }
+        //     },
+        // }
+    }
+}
+
+impl const GenericRegister for EReg<u32> {
+    const N: usize = 16;
+    type Type = u32;
+
     #[inline(always)]
     fn from_bits(bits: u8) -> Option<Self> {
         match bits {
@@ -148,49 +314,40 @@ impl const GenericRegister64 for EReg64 {
     }
 }
 
-impl EReg64 {
-    #[inline(always)]
-    const fn offset(self) -> usize {
-        usize::from(self as u8)
-    }
-}
+impl const GenericRegister for EReg<u64> {
+    const N: usize = 16;
+    type Type = u64;
 
-/// A set of registers for RISC-V RV32I/RV64I
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Registers64 {
-    regs: [u64; 32],
-}
-
-impl const GenericRegisters64<Reg64> for Registers64 {
     #[inline(always)]
-    fn read(&self, reg: Reg64) -> u64 {
-        if matches!(reg, Reg64::Zero) {
-            // Always zero
-            return 0;
+    fn from_bits(bits: u8) -> Option<Self> {
+        match bits {
+            0 => Some(Self::Zero),
+            1 => Some(Self::Ra),
+            2 => Some(Self::Sp),
+            3 => Some(Self::Gp),
+            4 => Some(Self::Tp),
+            5 => Some(Self::T0),
+            6 => Some(Self::T1),
+            7 => Some(Self::T2),
+            8 => Some(Self::S0),
+            9 => Some(Self::S1),
+            10 => Some(Self::A0),
+            11 => Some(Self::A1),
+            12 => Some(Self::A2),
+            13 => Some(Self::A3),
+            14 => Some(Self::A4),
+            15 => Some(Self::A5),
+            _ => None,
         }
-
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked(reg.offset()) }
-    }
-
-    #[inline(always)]
-    fn write(&mut self, reg: Reg64, value: u64) {
-        if matches!(reg, Reg64::Zero) {
-            // Writes are ignored
-            return;
-        }
-
-        // SAFETY: register offset is always within bounds
-        *unsafe { self.regs.get_unchecked_mut(reg.offset()) } = value;
     }
 }
 
-/// RISC-V register for RV64I.
+/// RISC-V register for RV32I/RV64I.
 ///
-/// For RV64E see [`EReg64`].
-#[derive(Clone, Copy, Eq, PartialEq)]
+/// Use `Type = u32` for RV32I and `Type = u64` for RV64I.
+#[derive(Clone, Copy)]
 #[repr(u8)]
-pub enum Reg64 {
+pub enum Reg<Type> {
     /// Always zero: `x0`
     Zero = 0,
     /// Return address: `x1`
@@ -255,33 +412,40 @@ pub enum Reg64 {
     T5 = 30,
     /// Temporary: `x31`
     T6 = 31,
+    /// Phantom register that is never constructed and is only used due to type system limitations
+    #[doc(hidden)]
+    Phantom(PhantomRegister<Type>),
 }
 
-impl const From<EReg64> for Reg64 {
+impl<Type> const From<EReg<u64>> for Reg<Type> {
     #[inline(always)]
-    fn from(reg: EReg64) -> Self {
+    fn from(reg: EReg<u64>) -> Self {
         match reg {
-            EReg64::Zero => Self::Zero,
-            EReg64::Ra => Self::Ra,
-            EReg64::Sp => Self::Sp,
-            EReg64::Gp => Self::Gp,
-            EReg64::Tp => Self::Tp,
-            EReg64::T0 => Self::T0,
-            EReg64::T1 => Self::T1,
-            EReg64::T2 => Self::T2,
-            EReg64::S0 => Self::S0,
-            EReg64::S1 => Self::S1,
-            EReg64::A0 => Self::A0,
-            EReg64::A1 => Self::A1,
-            EReg64::A2 => Self::A2,
-            EReg64::A3 => Self::A3,
-            EReg64::A4 => Self::A4,
-            EReg64::A5 => Self::A5,
+            EReg::Zero => Self::Zero,
+            EReg::Ra => Self::Ra,
+            EReg::Sp => Self::Sp,
+            EReg::Gp => Self::Gp,
+            EReg::Tp => Self::Tp,
+            EReg::T0 => Self::T0,
+            EReg::T1 => Self::T1,
+            EReg::T2 => Self::T2,
+            EReg::S0 => Self::S0,
+            EReg::S1 => Self::S1,
+            EReg::A0 => Self::A0,
+            EReg::A1 => Self::A1,
+            EReg::A2 => Self::A2,
+            EReg::A3 => Self::A3,
+            EReg::A4 => Self::A4,
+            EReg::A5 => Self::A5,
+            EReg::Phantom(_) => {
+                // SAFETY: Phantom register is never constructed
+                unsafe { unreachable_unchecked() }
+            }
         }
     }
 }
 
-impl fmt::Display for Reg64 {
+impl<Type> fmt::Display for Reg<Type> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Zero => write!(f, "zero"),
@@ -316,17 +480,179 @@ impl fmt::Display for Reg64 {
             Self::T4 => write!(f, "t4"),
             Self::T5 => write!(f, "t5"),
             Self::T6 => write!(f, "t6"),
+            Self::Phantom(_) => {
+                // SAFETY: Phantom register is never constructed
+                unsafe { unreachable_unchecked() }
+            }
         }
     }
 }
 
-impl fmt::Debug for Reg64 {
+impl<Type> fmt::Debug for Reg<Type> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
 
-impl const GenericRegister64 for Reg64 {
+impl<Type> const PartialEq for Reg<Type> {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        // This is quite ugly, but there doesn't seem to be a much better way with `Phantom` variant
+        matches!(
+            (self, other),
+            (Self::Zero, Self::Zero)
+                | (Self::Ra, Self::Ra)
+                | (Self::Sp, Self::Sp)
+                | (Self::Gp, Self::Gp)
+                | (Self::Tp, Self::Tp)
+                | (Self::T0, Self::T0)
+                | (Self::T1, Self::T1)
+                | (Self::T2, Self::T2)
+                | (Self::S0, Self::S0)
+                | (Self::S1, Self::S1)
+                | (Self::A0, Self::A0)
+                | (Self::A1, Self::A1)
+                | (Self::A2, Self::A2)
+                | (Self::A3, Self::A3)
+                | (Self::A4, Self::A4)
+                | (Self::A5, Self::A5)
+                | (Self::A6, Self::A6)
+                | (Self::A7, Self::A7)
+                | (Self::S2, Self::S2)
+                | (Self::S3, Self::S3)
+                | (Self::S4, Self::S4)
+                | (Self::S5, Self::S5)
+                | (Self::S6, Self::S6)
+                | (Self::S7, Self::S7)
+                | (Self::S8, Self::S8)
+                | (Self::S9, Self::S9)
+                | (Self::S10, Self::S10)
+                | (Self::S11, Self::S11)
+                | (Self::T3, Self::T3)
+                | (Self::T4, Self::T4)
+                | (Self::T5, Self::T5)
+                | (Self::T6, Self::T6)
+                | (Self::Phantom(_), Self::Phantom(_))
+        )
+    }
+}
+
+impl<Type> const Eq for Reg<Type> {}
+
+impl const GenericRegisterInternal<u32> for Reg<u32> {
+    const ZERO_REGISTER_VALUE: u32 = 0;
+
+    #[inline(always)]
+    fn is_zero(&self) -> bool {
+        matches!(self, Self::Zero)
+    }
+
+    #[inline(always)]
+    fn offset(self) -> usize {
+        // NOTE: `transmute()` is requited here, otherwise performance suffers A LOT for unknown
+        // reason
+        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
+        usize::from(unsafe { core::mem::transmute::<Self, u8>(self) })
+        // match self {
+        //     Self::Zero => 0,
+        //     Self::Ra => 1,
+        //     Self::Sp => 2,
+        //     Self::Gp => 3,
+        //     Self::Tp => 4,
+        //     Self::T0 => 5,
+        //     Self::T1 => 6,
+        //     Self::T2 => 7,
+        //     Self::S0 => 8,
+        //     Self::S1 => 9,
+        //     Self::A0 => 10,
+        //     Self::A1 => 11,
+        //     Self::A2 => 12,
+        //     Self::A3 => 13,
+        //     Self::A4 => 14,
+        //     Self::A5 => 15,
+        //     Self::A6 => 16,
+        //     Self::A7 => 17,
+        //     Self::S2 => 18,
+        //     Self::S3 => 19,
+        //     Self::S4 => 20,
+        //     Self::S5 => 21,
+        //     Self::S6 => 22,
+        //     Self::S7 => 23,
+        //     Self::S8 => 24,
+        //     Self::S9 => 25,
+        //     Self::S10 => 26,
+        //     Self::S11 => 27,
+        //     Self::T3 => 28,
+        //     Self::T4 => 29,
+        //     Self::T5 => 30,
+        //     Self::T6 => 31,
+        //     Self::Phantom(_) => {
+        //         // SAFETY: Phantom register is never constructed
+        //         unsafe { unreachable_unchecked() }
+        //     }
+        // }
+    }
+}
+
+impl const GenericRegisterInternal<u64> for Reg<u64> {
+    const ZERO_REGISTER_VALUE: u64 = 0;
+
+    #[inline(always)]
+    fn is_zero(&self) -> bool {
+        matches!(self, Self::Zero)
+    }
+
+    #[inline(always)]
+    fn offset(self) -> usize {
+        // NOTE: `transmute()` is requited here, otherwise performance suffers A LOT for unknown
+        // reason
+        // SAFETY: Enum is `#[repr(u8)]` and doesn't have any fields
+        usize::from(unsafe { core::mem::transmute::<Self, u8>(self) })
+        // match self {
+        //     Self::Zero => 0,
+        //     Self::Ra => 1,
+        //     Self::Sp => 2,
+        //     Self::Gp => 3,
+        //     Self::Tp => 4,
+        //     Self::T0 => 5,
+        //     Self::T1 => 6,
+        //     Self::T2 => 7,
+        //     Self::S0 => 8,
+        //     Self::S1 => 9,
+        //     Self::A0 => 10,
+        //     Self::A1 => 11,
+        //     Self::A2 => 12,
+        //     Self::A3 => 13,
+        //     Self::A4 => 14,
+        //     Self::A5 => 15,
+        //     Self::A6 => 16,
+        //     Self::A7 => 17,
+        //     Self::S2 => 18,
+        //     Self::S3 => 19,
+        //     Self::S4 => 20,
+        //     Self::S5 => 21,
+        //     Self::S6 => 22,
+        //     Self::S7 => 23,
+        //     Self::S8 => 24,
+        //     Self::S9 => 25,
+        //     Self::S10 => 26,
+        //     Self::S11 => 27,
+        //     Self::T3 => 28,
+        //     Self::T4 => 29,
+        //     Self::T5 => 30,
+        //     Self::T6 => 31,
+        //     Self::Phantom(_) => {
+        //         // SAFETY: Phantom register is never constructed
+        //         unsafe { unreachable_unchecked() }
+        //     }
+        // }
+    }
+}
+
+impl const GenericRegister for Reg<u32> {
+    const N: usize = 32;
+    type Type = u32;
+
     #[inline(always)]
     fn from_bits(bits: u8) -> Option<Self> {
         match bits {
@@ -367,9 +693,46 @@ impl const GenericRegister64 for Reg64 {
     }
 }
 
-impl Reg64 {
+impl const GenericRegister for Reg<u64> {
+    const N: usize = 32;
+    type Type = u64;
+
     #[inline(always)]
-    const fn offset(self) -> usize {
-        usize::from(self as u8)
+    fn from_bits(bits: u8) -> Option<Self> {
+        match bits {
+            0 => Some(Self::Zero),
+            1 => Some(Self::Ra),
+            2 => Some(Self::Sp),
+            3 => Some(Self::Gp),
+            4 => Some(Self::Tp),
+            5 => Some(Self::T0),
+            6 => Some(Self::T1),
+            7 => Some(Self::T2),
+            8 => Some(Self::S0),
+            9 => Some(Self::S1),
+            10 => Some(Self::A0),
+            11 => Some(Self::A1),
+            12 => Some(Self::A2),
+            13 => Some(Self::A3),
+            14 => Some(Self::A4),
+            15 => Some(Self::A5),
+            16 => Some(Self::A6),
+            17 => Some(Self::A7),
+            18 => Some(Self::S2),
+            19 => Some(Self::S3),
+            20 => Some(Self::S4),
+            21 => Some(Self::S5),
+            22 => Some(Self::S6),
+            23 => Some(Self::S7),
+            24 => Some(Self::S8),
+            25 => Some(Self::S9),
+            26 => Some(Self::S10),
+            27 => Some(Self::S11),
+            28 => Some(Self::T3),
+            29 => Some(Self::T4),
+            30 => Some(Self::T5),
+            31 => Some(Self::T6),
+            _ => None,
+        }
     }
 }

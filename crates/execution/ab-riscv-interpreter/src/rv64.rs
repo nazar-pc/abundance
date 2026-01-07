@@ -6,12 +6,12 @@ mod tests;
 use crate::{ExecuteError, GenericInstructionHandler, VirtualMemory};
 use ab_riscv_primitives::instruction::Rv64MBZbcInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::registers::{GenericRegister64, GenericRegisters64};
+use ab_riscv_primitives::registers::{GenericRegister, Registers};
 use core::fmt;
 
 #[inline(always)]
-pub fn execute_rv64<Reg, Registers, Memory, InstructionHandler, CustomError>(
-    regs: &mut Registers,
+pub fn execute_rv64<Reg, Memory, InstructionHandler, CustomError>(
+    regs: &mut Registers<Reg>,
     memory: &mut Memory,
     pc: &mut u64,
     instruction_handlers: &mut InstructionHandler,
@@ -19,11 +19,11 @@ pub fn execute_rv64<Reg, Registers, Memory, InstructionHandler, CustomError>(
     instruction: Rv64Instruction<Reg>,
 ) -> Result<(), ExecuteError<Rv64MBZbcInstruction<Reg>, CustomError>>
 where
-    Reg: GenericRegister64,
-    Registers: GenericRegisters64<Reg>,
+    Reg: GenericRegister<Type = u64>,
+    [(); Reg::N]:,
     Memory: VirtualMemory,
     InstructionHandler:
-        GenericInstructionHandler<Rv64MBZbcInstruction<Reg>, Registers, Memory, CustomError>,
+        GenericInstructionHandler<Rv64MBZbcInstruction<Reg>, Reg, Memory, CustomError>,
     CustomError: fmt::Display,
 {
     match instruction {

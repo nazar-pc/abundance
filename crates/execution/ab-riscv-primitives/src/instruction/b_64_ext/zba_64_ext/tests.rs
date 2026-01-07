@@ -1,18 +1,18 @@
 use crate::instruction::GenericInstruction;
 use crate::instruction::b_64_ext::zba_64_ext::Zba64ExtInstruction;
 use crate::instruction::test_utils::{make_i_type_with_shamt, make_r_type};
-use crate::registers::Reg64;
+use crate::registers::Reg;
 
 #[test]
 fn test_sh1add() {
     let inst = make_r_type(0b0110011, 1, 0b010, 2, 3, 0b0010000);
-    let decoded = Zba64ExtInstruction::<Reg64>::try_decode(inst);
+    let decoded = Zba64ExtInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Zba64ExtInstruction::Sh1add {
-            rd: Reg64::Ra,
-            rs1: Reg64::Sp,
-            rs2: Reg64::Gp
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Gp
         })
     );
 }
@@ -20,13 +20,13 @@ fn test_sh1add() {
 #[test]
 fn test_sh2add() {
     let inst = make_r_type(0b0110011, 1, 0b100, 2, 3, 0b0010000);
-    let decoded = Zba64ExtInstruction::<Reg64>::try_decode(inst);
+    let decoded = Zba64ExtInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Zba64ExtInstruction::Sh2add {
-            rd: Reg64::Ra,
-            rs1: Reg64::Sp,
-            rs2: Reg64::Gp
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Gp
         })
     );
 }
@@ -34,13 +34,13 @@ fn test_sh2add() {
 #[test]
 fn test_sh3add() {
     let inst = make_r_type(0b0110011, 1, 0b110, 2, 3, 0b0010000);
-    let decoded = Zba64ExtInstruction::<Reg64>::try_decode(inst);
+    let decoded = Zba64ExtInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Zba64ExtInstruction::Sh3add {
-            rd: Reg64::Ra,
-            rs1: Reg64::Sp,
-            rs2: Reg64::Gp
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Gp
         })
     );
 }
@@ -48,13 +48,13 @@ fn test_sh3add() {
 #[test]
 fn test_add_uw() {
     let inst = make_r_type(0b0111011, 1, 0b000, 2, 3, 0b0000100);
-    let decoded = Zba64ExtInstruction::<Reg64>::try_decode(inst);
+    let decoded = Zba64ExtInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Zba64ExtInstruction::AddUw {
-            rd: Reg64::Ra,
-            rs1: Reg64::Sp,
-            rs2: Reg64::Gp
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Gp
         })
     );
 }
@@ -62,12 +62,12 @@ fn test_add_uw() {
 #[test]
 fn test_slli_uw() {
     let inst = make_i_type_with_shamt(0b0111011, 1, 0b001, 2, 5, 0b000010);
-    let decoded = Zba64ExtInstruction::<Reg64>::try_decode(inst);
+    let decoded = Zba64ExtInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Zba64ExtInstruction::SlliUw {
-            rd: Reg64::Ra,
-            rs1: Reg64::Sp,
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
             shamt: 5
         })
     );
@@ -76,13 +76,13 @@ fn test_slli_uw() {
 #[test]
 fn test_sh1add_uw() {
     let inst = make_r_type(0b0111011, 1, 0b010, 2, 3, 0b0010000);
-    let decoded = Zba64ExtInstruction::<Reg64>::try_decode(inst);
+    let decoded = Zba64ExtInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Zba64ExtInstruction::Sh1addUw {
-            rd: Reg64::Ra,
-            rs1: Reg64::Sp,
-            rs2: Reg64::Gp
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Gp
         })
     );
 }
@@ -90,13 +90,13 @@ fn test_sh1add_uw() {
 #[test]
 fn test_sh2add_uw() {
     let inst = make_r_type(0b0111011, 1, 0b100, 2, 3, 0b0010000);
-    let decoded = Zba64ExtInstruction::<Reg64>::try_decode(inst);
+    let decoded = Zba64ExtInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Zba64ExtInstruction::Sh2addUw {
-            rd: Reg64::Ra,
-            rs1: Reg64::Sp,
-            rs2: Reg64::Gp
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Gp
         })
     );
 }
@@ -104,13 +104,13 @@ fn test_sh2add_uw() {
 #[test]
 fn test_sh3add_uw() {
     let inst = make_r_type(0b0111011, 1, 0b110, 2, 3, 0b0010000);
-    let decoded = Zba64ExtInstruction::<Reg64>::try_decode(inst);
+    let decoded = Zba64ExtInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Zba64ExtInstruction::Sh3addUw {
-            rd: Reg64::Ra,
-            rs1: Reg64::Sp,
-            rs2: Reg64::Gp
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Gp
         })
     );
 }
