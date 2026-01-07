@@ -24,7 +24,7 @@ use core::ptr::NonNull;
 /// ensure safety requirements are upheld.
 pub unsafe trait TrivialType
 where
-    Self: Copy + 'static,
+    Self: Copy,
 {
     const SIZE: u32 = size_of::<Self>() as u32;
     /// Data structure metadata in binary form, describing shape and types of the contents, see
