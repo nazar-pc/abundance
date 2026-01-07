@@ -668,6 +668,24 @@ impl<'a> ContractFile<'a> {
         true
     }
 
+    /// Get the complete code section with instructions
+    pub fn get_code(&self) -> &[u8] {
+        let read_only_section_offset = ContractFileHeader::SIZE
+            + u32::from(self.num_methods) * ContractFileMethodMetadata::SIZE;
+
+        // SAFETY: Protected internal invariant checked in constructor
+        let source_bytes = unsafe {
+            self.bytes
+                .get_unchecked(read_only_section_offset as usize..)
+        };
+
+        // SAFETY: Protected internal invariant checked in constructor
+        let (_read_only_file_source_bytes, code_source_bytes) =
+            unsafe { source_bytes.split_at_unchecked(self.read_only_section_file_size as usize) };
+
+        code_source_bytes
+    }
+
     /// Iterate over all methods in the contract
     pub fn iterate_methods(
         &self,
