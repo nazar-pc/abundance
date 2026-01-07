@@ -1,3 +1,5 @@
+extern crate alloc;
+
 use ab_blake3::{CHUNK_LEN, OUT_LEN};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::bool::Bool;
@@ -6,6 +8,7 @@ use ab_riscv_interpreter::{
     VirtualMemoryError,
 };
 use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use alloc::vec::Vec;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
 
@@ -208,13 +211,15 @@ impl<const MEMORY_SIZE: usize> TestMemory<MEMORY_SIZE> {
     }
 }
 
+/// Lazy instruction decoder decodes instructions lazily on demand.
+///
 /// `RETURN_TRAP_ADDRESS` is the address at which the interpreter will stop execution (gracefully)
 #[derive(Debug, Default, Copy, Clone)]
-pub struct TestInstructionHandler<const RETURN_TRAP_ADDRESS: u64>;
+pub struct LazyTestInstructionHandler<const RETURN_TRAP_ADDRESS: u64>;
 
 impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Registers, Memory>
     GenericInstructionHandler<Instruction, Registers, Memory, &'static str>
-    for TestInstructionHandler<RETURN_TRAP_ADDRESS>
+    for LazyTestInstructionHandler<RETURN_TRAP_ADDRESS>
 where
     Instruction: GenericBaseInstruction,
     Memory: VirtualMemory,
@@ -255,5 +260,82 @@ where
             address: *pc - instruction.size() as u64,
             instruction,
         })
+    }
+}
+
+/// Eager instruction handler eagerly decodes all instructions upfront.
+///
+/// `RETURN_TRAP_ADDRESS` is the address at which the interpreter will stop execution (gracefully)
+#[derive(Debug, Default, Clone)]
+pub struct EagerTestInstructionHandler<const RETURN_TRAP_ADDRESS: u64, Instruction> {
+    instructions: Vec<Instruction>,
+    base_addr: u64,
+}
+
+impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Registers, Memory>
+    GenericInstructionHandler<Instruction, Registers, Memory, &'static str>
+    for EagerTestInstructionHandler<RETURN_TRAP_ADDRESS, Instruction>
+where
+    Instruction: GenericBaseInstruction,
+    Memory: VirtualMemory,
+{
+    #[inline(always)]
+    fn fetch_instruction(
+        &mut self,
+        _regs: &mut Registers,
+        _memory: &mut Memory,
+        pc: &mut u64,
+    ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, &'static str>> {
+        let address = *pc;
+
+        if address == RETURN_TRAP_ADDRESS {
+            return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
+        }
+
+        if !address.is_multiple_of(size_of::<u32>() as u64) {
+            return Err(ExecuteError::UnalignedInstructionFetch { address });
+        }
+
+        let offset = address
+            .checked_sub(self.base_addr)
+            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })? as usize;
+        let instruction_offset = offset / size_of::<u32>();
+
+        let instruction = *self
+            .instructions
+            .get(instruction_offset)
+            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })?;
+        *pc += instruction.size() as u64;
+
+        Ok(FetchInstructionResult::Instruction(instruction))
+    }
+
+    #[inline(always)]
+    fn handle_ecall(
+        &mut self,
+        _regs: &mut Registers,
+        _memory: &mut Memory,
+        pc: &mut u64,
+        instruction: Instruction,
+    ) -> Result<(), ExecuteError<Instruction, &'static str>> {
+        Err(ExecuteError::UnsupportedInstruction {
+            address: *pc - instruction.size() as u64,
+            instruction,
+        })
+    }
+}
+
+impl<const RETURN_TRAP_ADDRESS: u64, Instruction>
+    EagerTestInstructionHandler<RETURN_TRAP_ADDRESS, Instruction>
+{
+    /// Create a new instance with the specified instructions and base address.
+    ///
+    /// Instructions are in the same order as they appear in the binary and base address corresponds
+    /// to the first instruction.
+    pub fn new(instructions: Vec<Instruction>, base_addr: u64) -> Self {
+        Self {
+            instructions,
+            base_addr,
+        }
     }
 }

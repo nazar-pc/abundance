@@ -3,10 +3,11 @@ use ab_contract_file::ContractFile;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
-    Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, RISCV_CONTRACT_BYTES,
-    TestInstructionHandler, TestMemory,
+    Blake3HashChunkInternalArgs, EagerTestInstructionHandler, Ed25519VerifyInternalArgs,
+    LazyTestInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
 };
 use ab_riscv_interpreter::execute_rv64mbzbc;
+use ab_riscv_primitives::instruction::{GenericBaseInstruction, Rv64MBZbcInstruction};
 use ab_riscv_primitives::registers::{EReg64, ERegisters64, GenericRegisters64};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_zebra::SigningKey;
@@ -61,6 +62,23 @@ fn criterion_benchmark(c: &mut Criterion) {
                 black_box(contract_file.iterate_methods()).count();
             });
         });
+
+        let code = contract_file.get_code();
+        group.bench_function("decode-instructions", |b| {
+            b.iter(|| {
+                let mut instructions = Vec::with_capacity(code.len() / size_of::<u32>());
+                for instruction in code.chunks_exact(size_of::<u32>()) {
+                    let instruction = u32::from_le_bytes([
+                        instruction[0],
+                        instruction[1],
+                        instruction[2],
+                        instruction[3],
+                    ]);
+                    instructions.push(Rv64MBZbcInstruction::<EReg64>::decode(instruction));
+                }
+                black_box(instructions);
+            });
+        });
     }
 
     let mut memory = TestMemory::<MEMORY_SIZE>::new(MEMORY_BASE_ADDRESS);
@@ -82,7 +100,23 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut regs = ERegisters64::default();
     let internal_args_addr = (MEMORY_BASE_ADDRESS + contract_memory_size as u64)
         .next_multiple_of(size_of::<u128>() as u64);
-    let mut handler = TestInstructionHandler::<TRAP_ADDRESS>;
+    let mut lazy_handler = LazyTestInstructionHandler::<TRAP_ADDRESS>;
+    let mut eager_handler = EagerTestInstructionHandler::<TRAP_ADDRESS, _>::new(
+        contract_file
+            .get_code()
+            .chunks_exact(size_of::<u32>())
+            .map(|instruction| {
+                let instruction = u32::from_le_bytes([
+                    instruction[0],
+                    instruction[1],
+                    instruction[2],
+                    instruction[3],
+                ]);
+                GenericBaseInstruction::decode(instruction)
+            })
+            .collect(),
+        MEMORY_BASE_ADDRESS + contract_file.header().read_only_section_memory_size as u64,
+    );
 
     {
         let mut group = c.benchmark_group("blake3_hash_chunk");
@@ -119,7 +153,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 .copy_from_slice(internal_args_bytes);
         }
 
-        group.bench_function("interpreter", |b| {
+        group.bench_function("interpreter/lazy", |b| {
             b.iter(|| {
                 let mut pc = benchmarks_blake3_hash_chunk_addr;
                 regs.write(EReg64::A0, internal_args_addr);
@@ -129,7 +163,23 @@ fn criterion_benchmark(c: &mut Criterion) {
                     black_box(&mut regs),
                     black_box(&mut memory),
                     black_box(&mut pc),
-                    black_box(&mut handler),
+                    black_box(&mut lazy_handler),
+                ))
+                .unwrap();
+            });
+        });
+
+        group.bench_function("interpreter/eager", |b| {
+            b.iter(|| {
+                let mut pc = benchmarks_blake3_hash_chunk_addr;
+                regs.write(EReg64::A0, internal_args_addr);
+                regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+
+                black_box(execute_rv64mbzbc(
+                    black_box(&mut regs),
+                    black_box(&mut memory),
+                    black_box(&mut pc),
+                    black_box(&mut eager_handler),
                 ))
                 .unwrap();
             });
@@ -142,24 +192,14 @@ fn criterion_benchmark(c: &mut Criterion) {
         let signing_key = SigningKey::from([1; _]);
         let public_key = Ed25519PublicKey::from(signing_key.verification_key());
         let message = [2; _];
-        let other_message = [3; _];
         let signature = Ed25519Signature::from(signing_key.sign(&message));
 
-        group.bench_function("native/valid", |b| {
+        group.bench_function("native", |b| {
             b.iter(|| {
                 black_box(Benchmarks::ed25519_verify(
                     black_box(&public_key),
                     black_box(&signature),
                     black_box(&message),
-                ));
-            });
-        });
-        group.bench_function("native/invalid", |b| {
-            b.iter(|| {
-                black_box(Benchmarks::ed25519_verify(
-                    black_box(&public_key),
-                    black_box(&signature),
-                    black_box(&other_message),
                 ));
             });
         });
@@ -184,7 +224,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 .copy_from_slice(internal_args_bytes);
         }
 
-        group.bench_function("interpreter/valid", |b| {
+        group.bench_function("interpreter/lazy", |b| {
             b.iter(|| {
                 let mut pc = benchmarks_ed25519_verify_addr;
                 regs.write(EReg64::A0, internal_args_addr);
@@ -194,34 +234,13 @@ fn criterion_benchmark(c: &mut Criterion) {
                     black_box(&mut regs),
                     black_box(&mut memory),
                     black_box(&mut pc),
-                    black_box(&mut handler),
+                    black_box(&mut lazy_handler),
                 ))
                 .unwrap();
             });
         });
 
-        {
-            let internal_args = Ed25519VerifyInternalArgs::new(
-                internal_args_addr,
-                public_key,
-                signature,
-                other_message,
-            );
-            // SAFETY: Byte representation of `#[repr(C)]` without internal padding
-            let internal_args_bytes = unsafe {
-                slice::from_raw_parts(
-                    ptr::from_ref(&internal_args).cast::<u8>(),
-                    size_of::<Ed25519VerifyInternalArgs>(),
-                )
-            };
-
-            memory
-                .get_mut_bytes(internal_args_addr, size_of::<Ed25519VerifyInternalArgs>())
-                .unwrap()
-                .copy_from_slice(internal_args_bytes);
-        }
-
-        group.bench_function("interpreter/invalid", |b| {
+        group.bench_function("interpreter/eager", |b| {
             b.iter(|| {
                 let mut pc = benchmarks_ed25519_verify_addr;
                 regs.write(EReg64::A0, internal_args_addr);
@@ -231,7 +250,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     black_box(&mut regs),
                     black_box(&mut memory),
                     black_box(&mut pc),
-                    black_box(&mut handler),
+                    black_box(&mut eager_handler),
                 ))
                 .unwrap();
             });
