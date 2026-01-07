@@ -5,7 +5,7 @@ use crate::{
     VirtualMemoryError,
 };
 use ab_riscv_primitives::instruction::{GenericInstruction, Rv64MBZbcInstruction};
-use ab_riscv_primitives::registers::{EReg64, ERegisters64};
+use ab_riscv_primitives::registers::{EReg, Registers};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
@@ -79,12 +79,12 @@ impl VirtualMemory for TestMemory {
 
 /// Custom instruction handler for tests that returns instructions from a sequence
 pub(crate) struct TestInstructionHandler {
-    instructions: Vec<Rv64MBZbcInstruction<EReg64>>,
+    instructions: Vec<Rv64MBZbcInstruction<EReg<u64>>>,
     index: usize,
 }
 
 impl TestInstructionHandler {
-    pub(crate) fn new(instructions: Vec<Rv64MBZbcInstruction<EReg64>>) -> Self {
+    pub(crate) fn new(instructions: Vec<Rv64MBZbcInstruction<EReg<u64>>>) -> Self {
         Self {
             instructions,
             index: 0,
@@ -92,18 +92,18 @@ impl TestInstructionHandler {
     }
 }
 
-impl GenericInstructionHandler<Rv64MBZbcInstruction<EReg64>, ERegisters64, TestMemory, &'static str>
+impl GenericInstructionHandler<Rv64MBZbcInstruction<EReg<u64>>, EReg<u64>, TestMemory, &'static str>
     for TestInstructionHandler
 {
     #[inline(always)]
     fn fetch_instruction(
         &mut self,
-        _regs: &mut ERegisters64,
+        _regs: &mut Registers<EReg<u64>>,
         _memory: &mut TestMemory,
         pc: &mut u64,
     ) -> Result<
-        FetchInstructionResult<Rv64MBZbcInstruction<EReg64>>,
-        ExecuteError<Rv64MBZbcInstruction<EReg64>, &'static str>,
+        FetchInstructionResult<Rv64MBZbcInstruction<EReg<u64>>>,
+        ExecuteError<Rv64MBZbcInstruction<EReg<u64>>, &'static str>,
     > {
         if *pc == TRAP_ADDRESS {
             return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
@@ -124,11 +124,11 @@ impl GenericInstructionHandler<Rv64MBZbcInstruction<EReg64>, ERegisters64, TestM
     #[inline(always)]
     fn handle_ecall(
         &mut self,
-        _regs: &mut ERegisters64,
+        _regs: &mut Registers<EReg<u64>>,
         _memory: &mut TestMemory,
         pc: &mut u64,
-        instruction: Rv64MBZbcInstruction<EReg64>,
-    ) -> Result<(), ExecuteError<Rv64MBZbcInstruction<EReg64>, &'static str>> {
+        instruction: Rv64MBZbcInstruction<EReg<u64>>,
+    ) -> Result<(), ExecuteError<Rv64MBZbcInstruction<EReg<u64>>, &'static str>> {
         Err(ExecuteError::UnsupportedInstruction {
             address: *pc - instruction.size() as u64,
             instruction,
@@ -136,8 +136,8 @@ impl GenericInstructionHandler<Rv64MBZbcInstruction<EReg64>, ERegisters64, TestM
     }
 }
 
-pub(crate) fn setup_test() -> (ERegisters64, TestMemory, u64) {
-    let regs = ERegisters64::default();
+pub(crate) fn setup_test() -> (Registers<EReg<u64>>, TestMemory, u64) {
+    let regs = Registers::default();
     let memory = TestMemory::new(8192, TEST_BASE_ADDR);
     let pc = TEST_BASE_ADDR;
     (regs, memory, pc)

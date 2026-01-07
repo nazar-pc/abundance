@@ -10,7 +10,7 @@ use ab_contracts_common::metadata::decode::{
 use ab_io_type::trivial_type::TrivialType;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::instruction::{GenericBaseInstruction, Rv64MBZbcInstruction};
-use ab_riscv_primitives::registers::EReg64;
+use ab_riscv_primitives::registers::EReg;
 use core::iter;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;
@@ -142,9 +142,9 @@ pub enum ContractFileParseError {
     #[error("The host call function doesn't have auipc + jalr tailcall pattern: {first} {second}")]
     InvalidHostCallFnPattern {
         /// First instruction of the host call function
-        first: Rv64MBZbcInstruction<EReg64>,
+        first: Rv64MBZbcInstruction<EReg<u64>>,
         /// Second instruction of the host call function
-        second: Rv64MBZbcInstruction<EReg64>,
+        second: Rv64MBZbcInstruction<EReg<u64>>,
     },
     /// The read-only section file size is larger than the memory size
     #[error(
@@ -186,7 +186,7 @@ pub enum ContractFileParseError {
     #[error("Unexpected instruction encountered while parsing the code section: {instruction}")]
     UnexpectedInstruction {
         /// Instruction
-        instruction: Rv64MBZbcInstruction<EReg64>,
+        instruction: Rv64MBZbcInstruction<EReg<u64>>,
     },
     /// Unexpected trailing code bytes encountered while parsing the code section
     #[error(
@@ -415,8 +415,8 @@ impl<'a> ContractFile<'a> {
                 instructions_bytes[7],
             ]);
 
-            let first = Rv64MBZbcInstruction::<EReg64>::decode(first_instruction);
-            let second = Rv64MBZbcInstruction::<EReg64>::decode(second_instruction);
+            let first = Rv64MBZbcInstruction::<EReg<u64>>::decode(first_instruction);
+            let second = Rv64MBZbcInstruction::<EReg<u64>>::decode(second_instruction);
 
             // TODO: Should it be canonicalized to a fixed immediate and temporary after conversion
             //  from ELF?
@@ -435,7 +435,7 @@ impl<'a> ContractFile<'a> {
                 }),
             ) = (first, second)
             {
-                auipc_rd == jalr_rs1 && jalr_rd == EReg64::Zero
+                auipc_rd == jalr_rs1 && jalr_rd == EReg::Zero
             } else {
                 false
             };
@@ -457,7 +457,7 @@ impl<'a> ContractFile<'a> {
                     instruction_bytes[2],
                     instruction_bytes[3],
                 ]);
-                let instruction = Rv64MBZbcInstruction::<EReg64>::decode(instruction);
+                let instruction = Rv64MBZbcInstruction::<EReg<u64>>::decode(instruction);
                 match instruction {
                     Rv64MBZbcInstruction::A(_)
                     | Rv64MBZbcInstruction::B(_)

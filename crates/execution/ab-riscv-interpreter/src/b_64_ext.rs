@@ -10,16 +10,14 @@ use crate::b_64_ext::zbb_64_ext::execute_zbb_64_ext;
 use crate::b_64_ext::zbc_64_ext::execute_zbc_64_ext;
 use crate::b_64_ext::zbs_64_ext::execute_zbs_64_ext;
 use ab_riscv_primitives::instruction::b_64_ext::BZbc64ExtInstruction;
-use ab_riscv_primitives::registers::{GenericRegister64, GenericRegisters64};
+use ab_riscv_primitives::registers::{GenericRegister, Registers};
 
 /// Execute instructions from B (Zba + Zbb + Zbs) + Zbc extensions
 #[inline(always)]
-pub fn execute_b_zbc_64_ext<Reg, Registers>(
-    regs: &mut Registers,
-    instruction: BZbc64ExtInstruction<Reg>,
-) where
-    Reg: GenericRegister64,
-    Registers: GenericRegisters64<Reg>,
+pub fn execute_b_zbc_64_ext<Reg>(regs: &mut Registers<Reg>, instruction: BZbc64ExtInstruction<Reg>)
+where
+    Reg: GenericRegister<Type = u64>,
+    [(); Reg::N]:,
 {
     match instruction {
         BZbc64ExtInstruction::Zba(instruction) => execute_zba_64_ext(regs, instruction),

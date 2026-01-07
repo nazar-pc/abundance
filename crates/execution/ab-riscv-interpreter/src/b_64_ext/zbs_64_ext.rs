@@ -4,16 +4,14 @@
 mod tests;
 
 use ab_riscv_primitives::instruction::b_64_ext::zbs_64_ext::Zbs64ExtInstruction;
-use ab_riscv_primitives::registers::{GenericRegister64, GenericRegisters64};
+use ab_riscv_primitives::registers::{GenericRegister, Registers};
 
 /// Execute instructions from Zbs extension
 #[inline(always)]
-pub fn execute_zbs_64_ext<Reg, Registers>(
-    regs: &mut Registers,
-    instruction: Zbs64ExtInstruction<Reg>,
-) where
-    Reg: GenericRegister64,
-    Registers: GenericRegisters64<Reg>,
+pub fn execute_zbs_64_ext<Reg>(regs: &mut Registers<Reg>, instruction: Zbs64ExtInstruction<Reg>)
+where
+    Reg: GenericRegister<Type = u64>,
+    [(); Reg::N]:,
 {
     match instruction {
         Zbs64ExtInstruction::Bset { rd, rs1, rs2 } => {

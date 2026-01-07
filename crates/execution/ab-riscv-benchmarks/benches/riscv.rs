@@ -1,14 +1,19 @@
+#![expect(incomplete_features, reason = "generic_const_exprs")]
+// TODO: This feature is not actually used in this crate, but is added as a workaround for
+//  https://github.com/rust-lang/rust/issues/141492
+#![feature(generic_const_exprs)]
+
 use ab_blake3::CHUNK_LEN;
 use ab_contract_file::ContractFile;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionHandler, Ed25519VerifyInternalArgs,
-    LazyTestInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
+    RISCV_CONTRACT_BYTES, TestMemory,
 };
-use ab_riscv_interpreter::execute_rv64mbzbc;
+use ab_riscv_interpreter::{BasicInstructionHandler, execute_rv64mbzbc};
 use ab_riscv_primitives::instruction::{GenericBaseInstruction, Rv64MBZbcInstruction};
-use ab_riscv_primitives::registers::{EReg64, ERegisters64, GenericRegisters64};
+use ab_riscv_primitives::registers::{EReg, Registers};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
@@ -74,7 +79,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                         instruction[2],
                         instruction[3],
                     ]);
-                    instructions.push(Rv64MBZbcInstruction::<EReg64>::decode(instruction));
+                    instructions.push(Rv64MBZbcInstruction::<EReg<u64>>::decode(instruction));
                 }
                 black_box(instructions);
             });
@@ -97,10 +102,10 @@ fn criterion_benchmark(c: &mut Criterion) {
         );
     }
 
-    let mut regs = ERegisters64::default();
+    let mut regs = Registers::<EReg<u64>>::default();
     let internal_args_addr = (MEMORY_BASE_ADDRESS + contract_memory_size as u64)
         .next_multiple_of(size_of::<u128>() as u64);
-    let mut lazy_handler = LazyTestInstructionHandler::<TRAP_ADDRESS>;
+    let mut lazy_handler = BasicInstructionHandler::<TRAP_ADDRESS>;
     let mut eager_handler = EagerTestInstructionHandler::<TRAP_ADDRESS, _>::new(
         contract_file
             .get_code()
@@ -156,8 +161,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("interpreter/lazy", |b| {
             b.iter(|| {
                 let mut pc = benchmarks_blake3_hash_chunk_addr;
-                regs.write(EReg64::A0, internal_args_addr);
-                regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                regs.write(EReg::A0, internal_args_addr);
+                regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
                 black_box(execute_rv64mbzbc(
                     black_box(&mut regs),
@@ -172,8 +177,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("interpreter/eager", |b| {
             b.iter(|| {
                 let mut pc = benchmarks_blake3_hash_chunk_addr;
-                regs.write(EReg64::A0, internal_args_addr);
-                regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                regs.write(EReg::A0, internal_args_addr);
+                regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
                 black_box(execute_rv64mbzbc(
                     black_box(&mut regs),
@@ -227,8 +232,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("interpreter/lazy", |b| {
             b.iter(|| {
                 let mut pc = benchmarks_ed25519_verify_addr;
-                regs.write(EReg64::A0, internal_args_addr);
-                regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                regs.write(EReg::A0, internal_args_addr);
+                regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
                 black_box(execute_rv64mbzbc(
                     black_box(&mut regs),
@@ -243,8 +248,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("interpreter/eager", |b| {
             b.iter(|| {
                 let mut pc = benchmarks_ed25519_verify_addr;
-                regs.write(EReg64::A0, internal_args_addr);
-                regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                regs.write(EReg::A0, internal_args_addr);
+                regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
                 black_box(execute_rv64mbzbc(
                     black_box(&mut regs),

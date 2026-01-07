@@ -4,7 +4,7 @@
 mod tests;
 
 use crate::instruction::GenericInstruction;
-use crate::registers::GenericRegister64;
+use crate::registers::GenericRegister;
 use core::fmt;
 
 /// RISC-V Zbs instruction (Single-bit instructions)
@@ -29,7 +29,7 @@ pub enum Zbs64ExtInstruction<Reg> {
 
 impl<Reg> const GenericInstruction for Zbs64ExtInstruction<Reg>
 where
-    Reg: [const] GenericRegister64,
+    Reg: [const] GenericRegister<Type = u64>,
 {
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
