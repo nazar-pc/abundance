@@ -8,7 +8,7 @@
   "executables": false,
   "eh-frame-header": false,
   "emit-debug-gdb-scripts": false,
-  "features": "+e,+m",
+  "features": "+e,+m,+b,+zbc",
   "linker": "rust-lld",
   "linker-flavor": "ld.lld",
   "llvm-abiname": "lp64e",

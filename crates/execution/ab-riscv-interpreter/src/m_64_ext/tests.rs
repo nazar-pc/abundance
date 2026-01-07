@@ -1,48 +1,48 @@
 extern crate alloc;
 
-use crate::execute_rv64m;
-use crate::tests_utils::{TestInstructionHandler, setup_test};
-use ab_riscv_primitives::instruction::Rv64MInstruction;
+use crate::m_64_ext::execute_m_64_ext;
 use ab_riscv_primitives::instruction::m_64_ext::M64ExtInstruction;
-use ab_riscv_primitives::registers::{EReg64, GenericRegisters64};
+use ab_riscv_primitives::registers::{EReg64, ERegisters64, GenericRegisters64};
 use alloc::vec;
 
 // Multiplication Instructions
 
 #[test]
 fn test_mul() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 7);
     regs.write(EReg64::A1, 8);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mul {
+    let instructions = vec![M64ExtInstruction::Mul {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 56);
 }
 
 #[test]
 fn test_mulh() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, i64::MAX as u64);
     regs.write(EReg64::A1, 2);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mulh {
+    let instructions = vec![M64ExtInstruction::Mulh {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     let (_, hi) = i64::MAX.widening_mul(2);
     assert_eq!(regs.read(EReg64::A2), hi.cast_unsigned());
@@ -50,19 +50,20 @@ fn test_mulh() {
 
 #[test]
 fn test_mulhu() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, u64::MAX);
     regs.write(EReg64::A1, u64::MAX);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mulhu {
+    let instructions = vec![M64ExtInstruction::Mulhu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     let prod = (u64::MAX as u128) * (u64::MAX as u128);
     assert_eq!(regs.read(EReg64::A2), (prod >> 64) as u64);
@@ -70,19 +71,20 @@ fn test_mulhu() {
 
 #[test]
 fn test_mulhsu() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, (-2i64).cast_unsigned());
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mulhsu {
+    let instructions = vec![M64ExtInstruction::Mulhsu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     let prod = (-2i64 as i128) * (3i128);
     assert_eq!(regs.read(EReg64::A2), (prod >> 64).cast_unsigned() as u64);
@@ -92,190 +94,200 @@ fn test_mulhsu() {
 
 #[test]
 fn test_div() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Div {
+    let instructions = vec![M64ExtInstruction::Div {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2).cast_signed(), 6);
 }
 
 #[test]
 fn test_div_by_zero() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Div {
+    let instructions = vec![M64ExtInstruction::Div {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), (-1i64).cast_unsigned());
 }
 
 #[test]
 fn test_div_overflow() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, i64::MIN.cast_unsigned());
     regs.write(EReg64::A1, (-1i64).cast_unsigned());
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Div {
+    let instructions = vec![M64ExtInstruction::Div {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), i64::MIN.cast_unsigned());
 }
 
 #[test]
 fn test_divu() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divu {
+    let instructions = vec![M64ExtInstruction::Divu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 6);
 }
 
 #[test]
 fn test_divu_by_zero() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divu {
+    let instructions = vec![M64ExtInstruction::Divu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), u64::MAX);
 }
 
 #[test]
 fn test_rem() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Rem {
+    let instructions = vec![M64ExtInstruction::Rem {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2).cast_signed(), 2);
 }
 
 #[test]
 fn test_rem_by_zero() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Rem {
+    let instructions = vec![M64ExtInstruction::Rem {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 20);
 }
 
 #[test]
 fn test_rem_overflow() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, i64::MIN.cast_unsigned());
     regs.write(EReg64::A1, (-1i64).cast_unsigned());
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Rem {
+    let instructions = vec![M64ExtInstruction::Rem {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 0);
 }
 
 #[test]
 fn test_remu() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remu {
+    let instructions = vec![M64ExtInstruction::Remu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 2);
 }
 
 #[test]
 fn test_remu_by_zero() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remu {
+    let instructions = vec![M64ExtInstruction::Remu {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 20);
 }
@@ -284,39 +296,41 @@ fn test_remu_by_zero() {
 
 #[test]
 fn test_mulw_basic() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 7);
     regs.write(EReg64::A1, 8);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mulw {
+    let instructions = vec![M64ExtInstruction::Mulw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 56);
 }
 
 #[test]
 fn test_mulw_overflow() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     // 0x7FFFFFFF * 2 = 0xFFFFFFFE (as i32) = -2
     regs.write(EReg64::A0, 0x7FFF_FFFF);
     regs.write(EReg64::A1, 2);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mulw {
+    let instructions = vec![M64ExtInstruction::Mulw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // Result should be sign-extended: 0xFFFFFFFFFFFFFFFE
     assert_eq!(regs.read(EReg64::A2), 0xFFFF_FFFF_FFFF_FFFE);
@@ -324,39 +338,41 @@ fn test_mulw_overflow() {
 
 #[test]
 fn test_mulw_negative() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, (-3i32).cast_unsigned() as u64);
     regs.write(EReg64::A1, 4);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mulw {
+    let instructions = vec![M64ExtInstruction::Mulw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), (-12i64).cast_unsigned());
 }
 
 #[test]
 fn test_mulw_ignores_upper_bits() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     // Upper 32 bits should be ignored
     regs.write(EReg64::A0, 0xDEAD_BEEF_0000_0007);
     regs.write(EReg64::A1, 0xCAFE_BABE_0000_0008);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Mulw {
+    let instructions = vec![M64ExtInstruction::Mulw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // 7 * 8 = 56
     assert_eq!(regs.read(EReg64::A2), 56);
@@ -364,57 +380,60 @@ fn test_mulw_ignores_upper_bits() {
 
 #[test]
 fn test_divw_basic() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divw {
+    let instructions = vec![M64ExtInstruction::Divw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 6);
 }
 
 #[test]
 fn test_divw_negative() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, (-20i32).cast_unsigned() as u64);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divw {
+    let instructions = vec![M64ExtInstruction::Divw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), (-6i64).cast_unsigned());
 }
 
 #[test]
 fn test_divw_by_zero() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divw {
+    let instructions = vec![M64ExtInstruction::Divw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // Division by zero returns -1 (sign-extended)
     assert_eq!(regs.read(EReg64::A2), (-1i64).cast_unsigned());
@@ -422,19 +441,20 @@ fn test_divw_by_zero() {
 
 #[test]
 fn test_divw_overflow() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, i32::MIN.cast_unsigned() as u64);
     regs.write(EReg64::A1, (-1i32).cast_unsigned() as u64);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divw {
+    let instructions = vec![M64ExtInstruction::Divw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // Overflow case: returns i32::MIN sign-extended
     assert_eq!(regs.read(EReg64::A2), (i32::MIN as i64).cast_unsigned());
@@ -442,58 +462,61 @@ fn test_divw_overflow() {
 
 #[test]
 fn test_divw_ignores_upper_bits() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     // Upper 32 bits should be ignored
     regs.write(EReg64::A0, 0xDEAD_BEEF_0000_0014); // 20 in lower 32 bits
     regs.write(EReg64::A1, 0xCAFE_BABE_0000_0003); // 3 in lower 32 bits
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divw {
+    let instructions = vec![M64ExtInstruction::Divw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 6);
 }
 
 #[test]
 fn test_divuw_basic() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divuw {
+    let instructions = vec![M64ExtInstruction::Divuw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 6);
 }
 
 #[test]
 fn test_divuw_large_unsigned() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 0xFFFF_FFFF); // u32::MAX
     regs.write(EReg64::A1, 2);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divuw {
+    let instructions = vec![M64ExtInstruction::Divuw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // 0xFFFFFFFF / 2 = 0x7FFFFFFF (sign-extended to 64-bit)
     assert_eq!(regs.read(EReg64::A2), 0x0000_0000_7FFF_FFFF);
@@ -501,19 +524,20 @@ fn test_divuw_large_unsigned() {
 
 #[test]
 fn test_divuw_by_zero() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divuw {
+    let instructions = vec![M64ExtInstruction::Divuw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // Division by zero returns u32::MAX sign-extended
     assert_eq!(regs.read(EReg64::A2), 0xFFFF_FFFF_FFFF_FFFF);
@@ -521,58 +545,61 @@ fn test_divuw_by_zero() {
 
 #[test]
 fn test_divuw_ignores_upper_bits() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     // Upper 32 bits should be ignored
     regs.write(EReg64::A0, 0xDEAD_BEEF_0000_0064); // 100 in lower 32 bits
     regs.write(EReg64::A1, 0xCAFE_BABE_0000_0005); // 5 in lower 32 bits
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Divuw {
+    let instructions = vec![M64ExtInstruction::Divuw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 20);
 }
 
 #[test]
 fn test_remw_basic() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remw {
+    let instructions = vec![M64ExtInstruction::Remw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 2);
 }
 
 #[test]
 fn test_remw_negative_dividend() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, (-20i32).cast_unsigned() as u64);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remw {
+    let instructions = vec![M64ExtInstruction::Remw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // -20 % 3 = -2 (sign-extended)
     assert_eq!(regs.read(EReg64::A2), (-2i64).cast_unsigned());
@@ -580,19 +607,20 @@ fn test_remw_negative_dividend() {
 
 #[test]
 fn test_remw_negative_divisor() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, (-3i32).cast_unsigned() as u64);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remw {
+    let instructions = vec![M64ExtInstruction::Remw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // 20 % -3 = 2
     assert_eq!(regs.read(EReg64::A2), 2);
@@ -600,19 +628,20 @@ fn test_remw_negative_divisor() {
 
 #[test]
 fn test_remw_by_zero() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remw {
+    let instructions = vec![M64ExtInstruction::Remw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // Remainder by zero returns dividend
     assert_eq!(regs.read(EReg64::A2), 20);
@@ -620,19 +649,20 @@ fn test_remw_by_zero() {
 
 #[test]
 fn test_remw_overflow() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, i32::MIN.cast_unsigned() as u64);
     regs.write(EReg64::A1, (-1i32).cast_unsigned() as u64);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remw {
+    let instructions = vec![M64ExtInstruction::Remw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // Overflow case: returns 0
     assert_eq!(regs.read(EReg64::A2), 0);
@@ -640,20 +670,21 @@ fn test_remw_overflow() {
 
 #[test]
 fn test_remw_ignores_upper_bits() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     // Upper 32 bits should be ignored
     regs.write(EReg64::A0, 0xDEAD_BEEF_0000_0017); // 23 in lower 32 bits
     regs.write(EReg64::A1, 0xCAFE_BABE_0000_0005); // 5 in lower 32 bits
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remw {
+    let instructions = vec![M64ExtInstruction::Remw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // 23 % 5 = 3
     assert_eq!(regs.read(EReg64::A2), 3);
@@ -661,38 +692,40 @@ fn test_remw_ignores_upper_bits() {
 
 #[test]
 fn test_remuw_basic() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 3);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remuw {
+    let instructions = vec![M64ExtInstruction::Remuw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 2);
 }
 
 #[test]
 fn test_remuw_large_unsigned() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 0xFFFF_FFFF); // u32::MAX
     regs.write(EReg64::A1, 10);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remuw {
+    let instructions = vec![M64ExtInstruction::Remuw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // 0xFFFFFFFF % 10 = 5 (sign-extended)
     assert_eq!(regs.read(EReg64::A2), 5);
@@ -700,19 +733,20 @@ fn test_remuw_large_unsigned() {
 
 #[test]
 fn test_remuw_by_zero() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 20);
     regs.write(EReg64::A1, 0);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remuw {
+    let instructions = vec![M64ExtInstruction::Remuw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // Remainder by zero returns dividend
     assert_eq!(regs.read(EReg64::A2), 20);
@@ -720,20 +754,21 @@ fn test_remuw_by_zero() {
 
 #[test]
 fn test_remuw_ignores_upper_bits() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     // Upper 32 bits should be ignored
     regs.write(EReg64::A0, 0xDEAD_BEEF_0000_0064); // 100 in lower 32 bits
     regs.write(EReg64::A1, 0xCAFE_BABE_0000_0007); // 7 in lower 32 bits
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remuw {
+    let instructions = vec![M64ExtInstruction::Remuw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // 100 % 7 = 2
     assert_eq!(regs.read(EReg64::A2), 2);
@@ -741,20 +776,21 @@ fn test_remuw_ignores_upper_bits() {
 
 #[test]
 fn test_remuw_negative_as_unsigned() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     // Set value that is negative as i32 but positive as u32
     regs.write(EReg64::A0, 0xFFFF_FFFF); // -1 as i32, u32::MAX as u32
     regs.write(EReg64::A1, 2);
 
-    let instructions = vec![Rv64MInstruction::A(M64ExtInstruction::Remuw {
+    let instructions = vec![M64ExtInstruction::Remuw {
         rd: EReg64::A2,
         rs1: EReg64::A0,
         rs2: EReg64::A1,
-    })];
+    }];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     // 0xFFFFFFFF % 2 = 1 (sign-extended)
     assert_eq!(regs.read(EReg64::A2), 1);
@@ -764,28 +800,29 @@ fn test_remuw_negative_as_unsigned() {
 
 #[test]
 fn test_mulw_divw_combination() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 7);
     regs.write(EReg64::A1, 8);
 
     let instructions = vec![
         // A2 = 7 * 8 = 56
-        Rv64MInstruction::A(M64ExtInstruction::Mulw {
+        M64ExtInstruction::Mulw {
             rd: EReg64::A2,
             rs1: EReg64::A0,
             rs2: EReg64::A1,
-        }),
+        },
         // A3 = 56 / 7 = 8
-        Rv64MInstruction::A(M64ExtInstruction::Divw {
+        M64ExtInstruction::Divw {
             rd: EReg64::A3,
             rs1: EReg64::A2,
             rs2: EReg64::A0,
-        }),
+        },
     ];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 56);
     assert_eq!(regs.read(EReg64::A3), 8);
@@ -793,28 +830,29 @@ fn test_mulw_divw_combination() {
 
 #[test]
 fn test_divw_remw_combination() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 23);
     regs.write(EReg64::A1, 5);
 
     let instructions = vec![
         // A2 = 23 / 5 = 4
-        Rv64MInstruction::A(M64ExtInstruction::Divw {
+        M64ExtInstruction::Divw {
             rd: EReg64::A2,
             rs1: EReg64::A0,
             rs2: EReg64::A1,
-        }),
+        },
         // A3 = 23 % 5 = 3
-        Rv64MInstruction::A(M64ExtInstruction::Remw {
+        M64ExtInstruction::Remw {
             rd: EReg64::A3,
             rs1: EReg64::A0,
             rs2: EReg64::A1,
-        }),
+        },
     ];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::A2), 4);
     assert_eq!(regs.read(EReg64::A3), 3);
@@ -822,27 +860,28 @@ fn test_divw_remw_combination() {
 
 #[test]
 fn test_rv64m_zero_register() {
-    let (mut regs, mut mem, mut pc) = setup_test();
+    let mut regs = ERegisters64::default();
 
     regs.write(EReg64::A0, 42);
 
     let instructions = vec![
         // Should not modify zero register
-        Rv64MInstruction::A(M64ExtInstruction::Mulw {
+        M64ExtInstruction::Mulw {
             rd: EReg64::Zero,
             rs1: EReg64::A0,
             rs2: EReg64::A0,
-        }),
+        },
         // Reading from zero should give 0
-        Rv64MInstruction::A(M64ExtInstruction::Mulw {
+        M64ExtInstruction::Mulw {
             rd: EReg64::A1,
             rs1: EReg64::Zero,
             rs2: EReg64::A0,
-        }),
+        },
     ];
 
-    let mut handler = TestInstructionHandler::new(instructions);
-    execute_rv64m(&mut regs, &mut mem, &mut pc, &mut handler).unwrap();
+    for instruction in instructions {
+        execute_m_64_ext(&mut regs, instruction);
+    }
 
     assert_eq!(regs.read(EReg64::Zero), 0);
     assert_eq!(regs.read(EReg64::A1), 0);

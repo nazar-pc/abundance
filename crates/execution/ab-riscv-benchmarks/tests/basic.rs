@@ -7,7 +7,7 @@ use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, RISCV_CONTRACT_BYTES,
     TestInstructionHandler, TestMemory,
 };
-use ab_riscv_interpreter::execute_rv64m;
+use ab_riscv_interpreter::execute_rv64mbzbc;
 use ab_riscv_primitives::registers::{EReg64, ERegisters64, GenericRegisters64};
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
@@ -72,7 +72,7 @@ where
     let mut pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
     let mut handler = TestInstructionHandler::<TRAP_ADDRESS>;
 
-    execute_rv64m(&mut regs, &mut memory, &mut pc, &mut handler).unwrap();
+    execute_rv64mbzbc(&mut regs, &mut memory, &mut pc, &mut handler).unwrap();
 
     // SAFETY: Byte representation of `#[repr(C)]` without internal padding
     *unsafe {
@@ -85,6 +85,8 @@ where
     }
 }
 
+// TODO: Unlock if it becomes fast enough to run in CI
+#[cfg_attr(miri, ignore)]
 #[test]
 fn blake3_hash_chunk() {
     let data_to_hash = [1; _];
@@ -98,6 +100,8 @@ fn blake3_hash_chunk() {
     assert_eq!(expected_hash, actual_hash);
 }
 
+// TODO: Unlock if it becomes fast enough to run in CI
+#[cfg_attr(miri, ignore)]
 #[test]
 fn ed25519_verify() {
     let signing_key = SigningKey::from([1; _]);

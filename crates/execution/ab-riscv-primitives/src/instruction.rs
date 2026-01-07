@@ -1,14 +1,16 @@
 //! This module defines the RISC-V instruction set for the RV64 architecture
 
+pub mod b_64_ext;
 pub mod m_64_ext;
 pub mod rv64;
 #[cfg(test)]
 mod test_utils;
 pub mod tuples;
 
+use crate::instruction::b_64_ext::BZbc64ExtInstruction;
 use crate::instruction::m_64_ext::M64ExtInstruction;
 use crate::instruction::rv64::Rv64Instruction;
-use crate::instruction::tuples::Tuple2Instruction;
+use crate::instruction::tuples::{Tuple2Instruction, Tuple3Instruction};
 use core::fmt;
 use core::marker::Destruct;
 
@@ -33,3 +35,9 @@ pub const trait GenericBaseInstruction: [const] GenericInstruction {
 ///
 /// Whether RV64I or RV64E base is used depends on the register type used.
 pub type Rv64MInstruction<Reg> = Tuple2Instruction<M64ExtInstruction<Reg>, Rv64Instruction<Reg>>;
+
+/// Type alias for RV64IMBZbc/RV64EMBZbc instruction.
+///
+/// Whether RV64I or RV64E base is used depends on the register type used.
+pub type Rv64MBZbcInstruction<Reg> =
+    Tuple3Instruction<M64ExtInstruction<Reg>, BZbc64ExtInstruction<Reg>, Rv64Instruction<Reg>>;

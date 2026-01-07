@@ -6,7 +6,7 @@ use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, RISCV_CONTRACT_BYTES,
     TestInstructionHandler, TestMemory,
 };
-use ab_riscv_interpreter::execute_rv64m;
+use ab_riscv_interpreter::execute_rv64mbzbc;
 use ab_riscv_primitives::registers::{EReg64, ERegisters64, GenericRegisters64};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_zebra::SigningKey;
@@ -125,7 +125,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 regs.write(EReg64::A0, internal_args_addr);
                 regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-                black_box(execute_rv64m(
+                black_box(execute_rv64mbzbc(
                     black_box(&mut regs),
                     black_box(&mut memory),
                     black_box(&mut pc),
@@ -190,7 +190,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 regs.write(EReg64::A0, internal_args_addr);
                 regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-                black_box(execute_rv64m(
+                black_box(execute_rv64mbzbc(
                     black_box(&mut regs),
                     black_box(&mut memory),
                     black_box(&mut pc),
@@ -227,7 +227,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 regs.write(EReg64::A0, internal_args_addr);
                 regs.write(EReg64::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-                black_box(execute_rv64m(
+                black_box(execute_rv64mbzbc(
                     black_box(&mut regs),
                     black_box(&mut memory),
                     black_box(&mut pc),
