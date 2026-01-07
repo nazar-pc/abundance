@@ -6,9 +6,9 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionHandler, Ed25519VerifyInternalArgs,
-    LazyTestInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
+    RISCV_CONTRACT_BYTES, TestMemory,
 };
-use ab_riscv_interpreter::{GenericInstructionHandler, execute_rv64mbzbc};
+use ab_riscv_interpreter::{BasicInstructionHandler, GenericInstructionHandler, execute_rv64mbzbc};
 use ab_riscv_primitives::instruction::{GenericBaseInstruction, Rv64MBZbcInstruction};
 use ab_riscv_primitives::registers::{EReg64, ERegisters64, GenericRegisters64};
 use ed25519_zebra::SigningKey;
@@ -108,7 +108,7 @@ fn blake3_hash_chunk_lazy() {
     let internal_args = call_method(
         "benchmarks_blake3_hash_chunk",
         |internal_args_addr| Blake3HashChunkInternalArgs::new(internal_args_addr, data_to_hash),
-        |_| LazyTestInstructionHandler::<TRAP_ADDRESS>,
+        |_| BasicInstructionHandler::<TRAP_ADDRESS>,
     );
     let actual_hash = internal_args.result();
 
@@ -163,7 +163,7 @@ fn ed25519_verify_valid_lazy() {
         |internal_args_addr| {
             Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, message)
         },
-        |_| LazyTestInstructionHandler::<TRAP_ADDRESS>,
+        |_| BasicInstructionHandler::<TRAP_ADDRESS>,
     );
 
     assert!(internal_args.result.get());
@@ -186,7 +186,7 @@ fn ed25519_verify_invalid_lazy() {
         |internal_args_addr| {
             Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, other_message)
         },
-        |_| LazyTestInstructionHandler::<TRAP_ADDRESS>,
+        |_| BasicInstructionHandler::<TRAP_ADDRESS>,
     );
 
     assert!(!internal_args.result.get());

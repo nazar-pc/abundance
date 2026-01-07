@@ -211,58 +211,6 @@ impl<const MEMORY_SIZE: usize> TestMemory<MEMORY_SIZE> {
     }
 }
 
-/// Lazy instruction decoder decodes instructions lazily on demand.
-///
-/// `RETURN_TRAP_ADDRESS` is the address at which the interpreter will stop execution (gracefully)
-#[derive(Debug, Default, Copy, Clone)]
-pub struct LazyTestInstructionHandler<const RETURN_TRAP_ADDRESS: u64>;
-
-impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Registers, Memory>
-    GenericInstructionHandler<Instruction, Registers, Memory, &'static str>
-    for LazyTestInstructionHandler<RETURN_TRAP_ADDRESS>
-where
-    Instruction: GenericBaseInstruction,
-    Memory: VirtualMemory,
-{
-    #[inline(always)]
-    fn fetch_instruction(
-        &mut self,
-        _regs: &mut Registers,
-        memory: &mut Memory,
-        pc: &mut u64,
-    ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, &'static str>> {
-        let address = *pc;
-
-        if address == RETURN_TRAP_ADDRESS {
-            return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
-        }
-
-        if !address.is_multiple_of(size_of::<u32>() as u64) {
-            return Err(ExecuteError::UnalignedInstructionFetch { address });
-        }
-
-        let instruction = memory.read(address)?;
-        let instruction = Instruction::decode(instruction);
-        *pc += instruction.size() as u64;
-
-        Ok(FetchInstructionResult::Instruction(instruction))
-    }
-
-    #[inline(always)]
-    fn handle_ecall(
-        &mut self,
-        _regs: &mut Registers,
-        _memory: &mut Memory,
-        pc: &mut u64,
-        instruction: Instruction,
-    ) -> Result<(), ExecuteError<Instruction, &'static str>> {
-        Err(ExecuteError::UnsupportedInstruction {
-            address: *pc - instruction.size() as u64,
-            instruction,
-        })
-    }
-}
-
 /// Eager instruction handler eagerly decodes all instructions upfront.
 ///
 /// `RETURN_TRAP_ADDRESS` is the address at which the interpreter will stop execution (gracefully)

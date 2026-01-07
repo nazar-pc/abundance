@@ -4,9 +4,9 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionHandler, Ed25519VerifyInternalArgs,
-    LazyTestInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory,
+    RISCV_CONTRACT_BYTES, TestMemory,
 };
-use ab_riscv_interpreter::execute_rv64mbzbc;
+use ab_riscv_interpreter::{BasicInstructionHandler, execute_rv64mbzbc};
 use ab_riscv_primitives::instruction::{GenericBaseInstruction, Rv64MBZbcInstruction};
 use ab_riscv_primitives::registers::{EReg64, ERegisters64, GenericRegisters64};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
@@ -100,7 +100,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut regs = ERegisters64::default();
     let internal_args_addr = (MEMORY_BASE_ADDRESS + contract_memory_size as u64)
         .next_multiple_of(size_of::<u128>() as u64);
-    let mut lazy_handler = LazyTestInstructionHandler::<TRAP_ADDRESS>;
+    let mut lazy_handler = BasicInstructionHandler::<TRAP_ADDRESS>;
     let mut eager_handler = EagerTestInstructionHandler::<TRAP_ADDRESS, _>::new(
         contract_file
             .get_code()
