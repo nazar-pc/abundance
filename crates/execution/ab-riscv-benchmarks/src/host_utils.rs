@@ -4,15 +4,18 @@ use ab_blake3::{CHUNK_LEN, OUT_LEN};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
-use ab_riscv_interpreter::rv64::Rv64SystemInstructionHandler;
+use ab_riscv_interpreter::b_64_ext::execute_b_zbc_64_ext;
+use ab_riscv_interpreter::m_64_ext::execute_m_64_ext;
+use ab_riscv_interpreter::rv64::{Rv64SystemInstructionHandler, execute_rv64};
 use ab_riscv_interpreter::{
     BasicInt, ExecuteError, FetchInstructionResult, GenericInstructionHandler, VirtualMemory,
     VirtualMemoryError,
 };
-use ab_riscv_primitives::instruction::GenericInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
+use ab_riscv_primitives::instruction::{GenericInstruction, Rv64MBZbcInstruction};
 use ab_riscv_primitives::registers::{GenericRegister, Registers};
 use alloc::vec::Vec;
+use core::fmt;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
 
@@ -302,4 +305,49 @@ impl<const RETURN_TRAP_ADDRESS: u64, Instruction>
             base_addr,
         }
     }
+}
+
+/// Execute RV64IMBZbc/RV64EMBZbc instructions
+pub fn execute<Reg, Memory, InstructionHandler, CustomError>(
+    regs: &mut Registers<Reg>,
+    memory: &mut Memory,
+    pc: &mut u64,
+    instruction_handlers: &mut InstructionHandler,
+) -> Result<(), ExecuteError<Rv64MBZbcInstruction<Reg>, CustomError>>
+where
+    Reg: GenericRegister<Type = u64>,
+    [(); Reg::N]:,
+    Memory: VirtualMemory,
+    InstructionHandler: GenericInstructionHandler<Rv64MBZbcInstruction<Reg>, Reg, Memory, CustomError>
+        + Rv64SystemInstructionHandler<Reg, Memory, CustomError>,
+    CustomError: fmt::Display,
+{
+    loop {
+        let old_pc = *pc;
+        let instruction = match instruction_handlers.fetch_instruction(regs, memory, pc)? {
+            FetchInstructionResult::Instruction(instruction) => instruction,
+            FetchInstructionResult::ControlFlow(ControlFlow::Continue(())) => {
+                continue;
+            }
+            FetchInstructionResult::ControlFlow(ControlFlow::Break(())) => {
+                break;
+            }
+        };
+
+        match instruction {
+            Rv64MBZbcInstruction::A(instruction) => {
+                execute_m_64_ext(regs, instruction);
+            }
+            Rv64MBZbcInstruction::B(instruction) => {
+                execute_b_zbc_64_ext(regs, instruction);
+            }
+            Rv64MBZbcInstruction::Base(instruction) => {
+                // TODO: More ergonomic way to map instruction type from the base type
+                execute_rv64(regs, memory, pc, instruction_handlers, old_pc, instruction)
+                    .map_err(ExecuteError::map_from_base)?;
+            }
+        }
+    }
+
+    Ok(())
 }

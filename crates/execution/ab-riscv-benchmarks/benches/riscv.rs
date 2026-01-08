@@ -9,9 +9,9 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionHandler, Ed25519VerifyInternalArgs,
-    RISCV_CONTRACT_BYTES, TestMemory,
+    RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
-use ab_riscv_interpreter::{BasicInstructionHandler, execute_rv64mbzbc};
+use ab_riscv_interpreter::BasicInstructionHandler;
 use ab_riscv_primitives::instruction::{GenericBaseInstruction, Rv64MBZbcInstruction};
 use ab_riscv_primitives::registers::{EReg, Registers};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
@@ -164,7 +164,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 regs.write(EReg::A0, internal_args_addr);
                 regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-                black_box(execute_rv64mbzbc(
+                black_box(execute(
                     black_box(&mut regs),
                     black_box(&mut memory),
                     black_box(&mut pc),
@@ -180,7 +180,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 regs.write(EReg::A0, internal_args_addr);
                 regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-                black_box(execute_rv64mbzbc(
+                black_box(execute(
                     black_box(&mut regs),
                     black_box(&mut memory),
                     black_box(&mut pc),
@@ -235,7 +235,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 regs.write(EReg::A0, internal_args_addr);
                 regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-                black_box(execute_rv64mbzbc(
+                black_box(execute(
                     black_box(&mut regs),
                     black_box(&mut memory),
                     black_box(&mut pc),
@@ -251,7 +251,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 regs.write(EReg::A0, internal_args_addr);
                 regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-                black_box(execute_rv64mbzbc(
+                black_box(execute(
                     black_box(&mut regs),
                     black_box(&mut memory),
                     black_box(&mut pc),
