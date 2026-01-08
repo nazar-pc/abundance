@@ -95,7 +95,7 @@ impl TestInstructionHandler {
     }
 }
 
-impl GenericInstructionHandler<Rv64Instruction<EReg<u64>>, EReg<u64>, TestMemory, &'static str>
+impl GenericInstructionHandler<Rv64Instruction<EReg<u64>>, TestMemory, &'static str>
     for TestInstructionHandler
 {
     #[inline(always)]

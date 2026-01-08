@@ -4,7 +4,7 @@
 #![feature(generic_const_exprs)]
 
 use ab_blake3::CHUNK_LEN;
-use ab_contract_file::ContractFile;
+use ab_contract_file::{ContractFile, Instruction};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
@@ -12,7 +12,7 @@ use ab_riscv_benchmarks::host_utils::{
     RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
 use ab_riscv_interpreter::BasicInstructionHandler;
-use ab_riscv_primitives::instruction::{GenericBaseInstruction, Rv64MBZbcInstruction};
+use ab_riscv_primitives::instruction::GenericBaseInstruction;
 use ab_riscv_primitives::registers::{EReg, Registers};
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_zebra::SigningKey;
@@ -79,7 +79,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                         instruction[2],
                         instruction[3],
                     ]);
-                    instructions.push(Rv64MBZbcInstruction::<EReg<u64>>::decode(instruction));
+                    instructions.push(Instruction::decode(instruction));
                 }
                 black_box(instructions);
             });

@@ -160,17 +160,16 @@ pub enum FetchInstructionResult<Instruction> {
 }
 
 /// Custom handlers for instructions `ecall` and `ebreak`
-pub trait GenericInstructionHandler<Instruction, Reg, Memory, CustomError>
+pub trait GenericInstructionHandler<Instruction, Memory, CustomError>
 where
     Instruction: GenericInstruction,
-    Reg: GenericRegister,
-    [(); Reg::N]:,
+    [(); Instruction::Reg::N]:,
     CustomError: fmt::Display,
 {
     /// Fetch a single instruction at a specified address and advance the program counter
     fn fetch_instruction(
         &mut self,
-        _regs: &mut Registers<Reg>,
+        _regs: &mut Registers<Instruction::Reg>,
         memory: &mut Memory,
         pc: &mut u64,
     ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, CustomError>>;
@@ -182,19 +181,18 @@ where
 #[derive(Debug, Default, Copy, Clone)]
 pub struct BasicInstructionHandler<const RETURN_TRAP_ADDRESS: u64>;
 
-impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Reg, Memory>
-    GenericInstructionHandler<Instruction, Reg, Memory, &'static str>
+impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Memory>
+    GenericInstructionHandler<Instruction, Memory, &'static str>
     for BasicInstructionHandler<RETURN_TRAP_ADDRESS>
 where
     Instruction: GenericBaseInstruction,
-    Reg: GenericRegister<Type = u64>,
-    [(); Reg::N]:,
+    [(); Instruction::Reg::N]:,
     Memory: VirtualMemory,
 {
     #[inline(always)]
     fn fetch_instruction(
         &mut self,
-        _regs: &mut Registers<Reg>,
+        _regs: &mut Registers<Instruction::Reg>,
         memory: &mut Memory,
         pc: &mut u64,
     ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, &'static str>> {

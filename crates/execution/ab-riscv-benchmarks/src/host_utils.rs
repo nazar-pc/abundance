@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use ab_blake3::{CHUNK_LEN, OUT_LEN};
+use ab_contract_file::Instruction;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
@@ -11,8 +12,8 @@ use ab_riscv_interpreter::{
     BasicInt, ExecuteError, FetchInstructionResult, GenericInstructionHandler, VirtualMemory,
     VirtualMemoryError,
 };
+use ab_riscv_primitives::instruction::GenericInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::instruction::{GenericInstruction, Rv64MBZbcInstruction};
 use ab_riscv_primitives::registers::{GenericRegister, Registers};
 use alloc::vec::Vec;
 use core::fmt;
@@ -227,19 +228,18 @@ pub struct EagerTestInstructionHandler<const RETURN_TRAP_ADDRESS: u64, Instructi
     base_addr: u64,
 }
 
-impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Reg, Memory>
-    GenericInstructionHandler<Instruction, Reg, Memory, &'static str>
+impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Memory>
+    GenericInstructionHandler<Instruction, Memory, &'static str>
     for EagerTestInstructionHandler<RETURN_TRAP_ADDRESS, Instruction>
 where
     Instruction: GenericInstruction,
-    Reg: GenericRegister<Type = u64>,
-    [(); Reg::N]:,
+    [(); Instruction::Reg::N]:,
     Memory: VirtualMemory,
 {
     #[inline(always)]
     fn fetch_instruction(
         &mut self,
-        _regs: &mut Registers<Reg>,
+        _regs: &mut Registers<Instruction::Reg>,
         _memory: &mut Memory,
         pc: &mut u64,
     ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, &'static str>> {
@@ -297,8 +297,8 @@ impl<const RETURN_TRAP_ADDRESS: u64, Instruction>
 {
     /// Create a new instance with the specified instructions and base address.
     ///
-    /// Instructions are in the same order as they appear in the binary and base address corresponds
-    /// to the first instruction.
+    /// Instructions are in the same order as they appear in the binary, and the base address
+    /// corresponds to the first instruction.
     pub fn new(instructions: Vec<Instruction>, base_addr: u64) -> Self {
         Self {
             instructions,
@@ -307,19 +307,17 @@ impl<const RETURN_TRAP_ADDRESS: u64, Instruction>
     }
 }
 
-/// Execute RV64IMBZbc/RV64EMBZbc instructions
-pub fn execute<Reg, Memory, InstructionHandler, CustomError>(
-    regs: &mut Registers<Reg>,
+/// Execute [`Instruction`]s
+pub fn execute<Memory, InstructionHandler, CustomError>(
+    regs: &mut Registers<<Instruction as GenericInstruction>::Reg>,
     memory: &mut Memory,
     pc: &mut u64,
     instruction_handlers: &mut InstructionHandler,
-) -> Result<(), ExecuteError<Rv64MBZbcInstruction<Reg>, CustomError>>
+) -> Result<(), ExecuteError<Instruction, CustomError>>
 where
-    Reg: GenericRegister<Type = u64>,
-    [(); Reg::N]:,
     Memory: VirtualMemory,
-    InstructionHandler: GenericInstructionHandler<Rv64MBZbcInstruction<Reg>, Reg, Memory, CustomError>
-        + Rv64SystemInstructionHandler<Reg, Memory, CustomError>,
+    InstructionHandler: GenericInstructionHandler<Instruction, Memory, CustomError>
+        + Rv64SystemInstructionHandler<<Instruction as GenericInstruction>::Reg, Memory, CustomError>,
     CustomError: fmt::Display,
 {
     loop {
@@ -335,13 +333,13 @@ where
         };
 
         match instruction {
-            Rv64MBZbcInstruction::A(instruction) => {
+            Instruction::A(instruction) => {
                 execute_m_64_ext(regs, instruction);
             }
-            Rv64MBZbcInstruction::B(instruction) => {
+            Instruction::B(instruction) => {
                 execute_b_zbc_64_ext(regs, instruction);
             }
-            Rv64MBZbcInstruction::Base(instruction) => {
+            Instruction::Base(instruction) => {
                 // TODO: More ergonomic way to map instruction type from the base type
                 execute_rv64(regs, memory, pc, instruction_handlers, old_pc, instruction)
                     .map_err(ExecuteError::map_from_base)?;
