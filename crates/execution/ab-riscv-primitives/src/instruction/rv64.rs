@@ -99,6 +99,8 @@ impl<Reg> const GenericInstruction for Rv64Instruction<Reg>
 where
     Reg: [const] GenericRegister<Type = u64>,
 {
+    type Base = Rv64Instruction<Reg>;
+
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
         let opcode = (instruction & 0b111_1111) as u8;
@@ -364,6 +366,13 @@ impl<Reg> const GenericBaseInstruction for Rv64Instruction<Reg>
 where
     Reg: [const] GenericRegister<Type = u64>,
 {
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn from_base(base: Self::Base) -> Self {
+        base
+    }
+
     #[inline]
     fn decode(instruction: u32) -> Self {
         if let Some(instruction) = Self::try_decode(instruction) {

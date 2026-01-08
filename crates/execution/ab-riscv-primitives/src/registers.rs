@@ -10,8 +10,6 @@ mod private {
     use core::marker::PhantomData;
 
     pub const trait GenericRegisterInternal<Type> {
-        const ZERO_REGISTER_VALUE: Type;
-
         /// Whether the register is a zero register
         fn is_zero(&self) -> bool;
 
@@ -81,7 +79,7 @@ where
     {
         if reg.is_zero() {
             // Always zero
-            return Reg::ZERO_REGISTER_VALUE;
+            return Reg::Type::default();
         }
 
         // SAFETY: register offset is always within bounds
@@ -209,8 +207,6 @@ impl<Type> const PartialEq for EReg<Type> {
 impl<Type> const Eq for EReg<Type> {}
 
 impl const GenericRegisterInternal<u32> for EReg<u32> {
-    const ZERO_REGISTER_VALUE: u32 = 0;
-
     #[inline(always)]
     fn is_zero(&self) -> bool {
         matches!(self, Self::Zero)
@@ -248,8 +244,6 @@ impl const GenericRegisterInternal<u32> for EReg<u32> {
 }
 
 impl const GenericRegisterInternal<u64> for EReg<u64> {
-    const ZERO_REGISTER_VALUE: u64 = 0;
-
     #[inline(always)]
     fn is_zero(&self) -> bool {
         matches!(self, Self::Zero)
@@ -540,8 +534,6 @@ impl<Type> const PartialEq for Reg<Type> {
 impl<Type> const Eq for Reg<Type> {}
 
 impl const GenericRegisterInternal<u32> for Reg<u32> {
-    const ZERO_REGISTER_VALUE: u32 = 0;
-
     #[inline(always)]
     fn is_zero(&self) -> bool {
         matches!(self, Self::Zero)
@@ -595,8 +587,6 @@ impl const GenericRegisterInternal<u32> for Reg<u32> {
 }
 
 impl const GenericRegisterInternal<u64> for Reg<u64> {
-    const ZERO_REGISTER_VALUE: u64 = 0;
-
     #[inline(always)]
     fn is_zero(&self) -> bool {
         matches!(self, Self::Zero)

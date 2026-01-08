@@ -10,6 +10,7 @@ use crate::instruction::b_64_ext::zba_64_ext::Zba64ExtInstruction;
 use crate::instruction::b_64_ext::zbb_64_ext::Zbb64ExtInstruction;
 use crate::instruction::b_64_ext::zbc_64_ext::Zbc64ExtInstruction;
 use crate::instruction::b_64_ext::zbs_64_ext::Zbs64ExtInstruction;
+use crate::instruction::rv64::Rv64Instruction;
 use crate::registers::GenericRegister;
 use core::fmt;
 
@@ -26,6 +27,8 @@ impl<Reg> const GenericInstruction for BZbc64ExtInstruction<Reg>
 where
     Reg: [const] GenericRegister<Type = u64>,
 {
+    type Base = Rv64Instruction<Reg>;
+
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
         if let Some(instruction) = Zba64ExtInstruction::<Reg>::try_decode(instruction) {

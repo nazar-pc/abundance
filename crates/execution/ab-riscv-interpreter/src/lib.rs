@@ -1,4 +1,4 @@
-#![feature(bigint_helper_methods)]
+#![feature(bigint_helper_methods, const_convert, const_trait_impl)]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
 //  https://github.com/rust-lang/rust/issues/141492
@@ -8,15 +8,10 @@
 pub mod b_64_ext;
 pub mod m_64_ext;
 pub mod rv64;
-#[cfg(test)]
-mod tests_utils;
 
-use crate::b_64_ext::execute_b_zbc_64_ext;
-use crate::m_64_ext::execute_m_64_ext;
-use crate::rv64::execute_rv64;
-use ab_riscv_primitives::instruction::{
-    GenericBaseInstruction, GenericInstruction, Rv64MBZbcInstruction,
-};
+use crate::rv64::Rv64SystemInstructionHandler;
+use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
+use ab_riscv_primitives::instruction::{GenericBaseInstruction, GenericInstruction};
 use ab_riscv_primitives::registers::{GenericRegister, Registers};
 use core::fmt;
 use core::ops::ControlFlow;
@@ -78,7 +73,7 @@ pub trait VirtualMemory {
 
 /// Execution errors
 #[derive(Debug, thiserror::Error)]
-pub enum ExecuteError<Instruction, Custom = &'static str>
+pub enum ExecuteError<Instruction, Custom>
 where
     Instruction: fmt::Display,
     Custom: fmt::Display,
@@ -119,6 +114,42 @@ where
     Custom(Custom),
 }
 
+impl<BaseInstruction, Custom> ExecuteError<BaseInstruction, Custom>
+where
+    BaseInstruction: GenericBaseInstruction,
+    Custom: fmt::Display,
+{
+    /// Map instruction type from lower-level base instruction
+    #[inline]
+    pub fn map_from_base<Instruction>(self) -> ExecuteError<Instruction, Custom>
+    where
+        Instruction: GenericBaseInstruction<Base = BaseInstruction>,
+    {
+        match self {
+            Self::UnalignedInstructionFetch { address } => {
+                ExecuteError::UnalignedInstructionFetch { address }
+            }
+            Self::MemoryAccess(error) => ExecuteError::MemoryAccess(error),
+            Self::UnsupportedInstruction {
+                address,
+                instruction,
+            } => ExecuteError::UnsupportedInstruction {
+                address,
+                instruction: Instruction::from_base(instruction),
+            },
+            Self::UnimpInstruction { address } => ExecuteError::UnimpInstruction { address },
+            Self::InvalidInstruction {
+                address,
+                instruction,
+            } => ExecuteError::InvalidInstruction {
+                address,
+                instruction,
+            },
+            Self::Custom(error) => ExecuteError::Custom(error),
+        }
+    }
+}
+
 /// Result of [`GenericInstructionHandler::fetch_instruction()`] call
 #[derive(Debug, Copy, Clone)]
 pub enum FetchInstructionResult<Instruction> {
@@ -129,48 +160,19 @@ pub enum FetchInstructionResult<Instruction> {
 }
 
 /// Custom handlers for instructions `ecall` and `ebreak`
-pub trait GenericInstructionHandler<Instruction, Reg, Memory, CustomError>
+pub trait GenericInstructionHandler<Instruction, Memory, CustomError>
 where
-    Instruction: GenericInstruction,
-    Reg: GenericRegister,
-    [(); Reg::N]:,
+    Instruction: GenericBaseInstruction,
+    [(); Instruction::Reg::N]:,
     CustomError: fmt::Display,
 {
     /// Fetch a single instruction at a specified address and advance the program counter
     fn fetch_instruction(
         &mut self,
-        _regs: &mut Registers<Reg>,
+        _regs: &mut Registers<Instruction::Reg>,
         memory: &mut Memory,
         pc: &mut u64,
     ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, CustomError>>;
-
-    /// Handle an `ecall` instruction.
-    ///
-    /// NOTE: the program counter here is the current value, meaning it is already incremented past
-    /// the instruction itself.
-    fn handle_ecall(
-        &mut self,
-        regs: &mut Registers<Reg>,
-        memory: &mut Memory,
-        pc: &mut u64,
-        instruction: Instruction,
-    ) -> Result<(), ExecuteError<Instruction, CustomError>>;
-
-    /// Handle an `ebreak` instruction.
-    ///
-    /// NOTE: the program counter here is the current value, meaning it is already incremented past
-    /// the instruction itself.
-    #[inline(always)]
-    fn handle_ebreak(
-        &mut self,
-        _regs: &mut Registers<Reg>,
-        _memory: &mut Memory,
-        _pc: &mut u64,
-        _instruction: Instruction,
-    ) -> Result<(), ExecuteError<Instruction, CustomError>> {
-        // NOP by default
-        Ok(())
-    }
 }
 
 /// Basic instruction handler implementation.
@@ -179,19 +181,18 @@ where
 #[derive(Debug, Default, Copy, Clone)]
 pub struct BasicInstructionHandler<const RETURN_TRAP_ADDRESS: u64>;
 
-impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Reg, Memory>
-    GenericInstructionHandler<Instruction, Reg, Memory, &'static str>
+impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Memory>
+    GenericInstructionHandler<Instruction, Memory, &'static str>
     for BasicInstructionHandler<RETURN_TRAP_ADDRESS>
 where
     Instruction: GenericBaseInstruction,
-    Reg: GenericRegister<Type = u64>,
-    [(); Reg::N]:,
+    [(); Instruction::Reg::N]:,
     Memory: VirtualMemory,
 {
     #[inline(always)]
     fn fetch_instruction(
         &mut self,
-        _regs: &mut Registers<Reg>,
+        _regs: &mut Registers<Instruction::Reg>,
         memory: &mut Memory,
         pc: &mut u64,
     ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, &'static str>> {
@@ -211,61 +212,27 @@ where
 
         Ok(FetchInstructionResult::Instruction(instruction))
     }
+}
 
+impl<const RETURN_TRAP_ADDRESS: u64, Reg, Memory>
+    Rv64SystemInstructionHandler<Reg, Memory, &'static str>
+    for BasicInstructionHandler<RETURN_TRAP_ADDRESS>
+where
+    Reg: GenericRegister<Type = u64>,
+    [(); Reg::N]:,
+    Memory: VirtualMemory,
+{
     #[inline(always)]
     fn handle_ecall(
         &mut self,
         _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
         pc: &mut u64,
-        instruction: Instruction,
-    ) -> Result<(), ExecuteError<Instruction, &'static str>> {
+        instruction: Rv64Instruction<Reg>,
+    ) -> Result<(), ExecuteError<Rv64Instruction<Reg>, &'static str>> {
         Err(ExecuteError::UnsupportedInstruction {
             address: *pc - instruction.size() as u64,
             instruction,
         })
     }
-}
-
-/// Execute RV64IMBZbc/RV64EMBZbc instructions
-pub fn execute_rv64mbzbc<Reg, Memory, InstructionHandler, CustomError>(
-    regs: &mut Registers<Reg>,
-    memory: &mut Memory,
-    pc: &mut u64,
-    instruction_handlers: &mut InstructionHandler,
-) -> Result<(), ExecuteError<Rv64MBZbcInstruction<Reg>, CustomError>>
-where
-    Reg: GenericRegister<Type = u64>,
-    [(); Reg::N]:,
-    Memory: VirtualMemory,
-    InstructionHandler:
-        GenericInstructionHandler<Rv64MBZbcInstruction<Reg>, Reg, Memory, CustomError>,
-    CustomError: fmt::Display,
-{
-    loop {
-        let old_pc = *pc;
-        let instruction = match instruction_handlers.fetch_instruction(regs, memory, pc)? {
-            FetchInstructionResult::Instruction(instruction) => instruction,
-            FetchInstructionResult::ControlFlow(ControlFlow::Continue(())) => {
-                continue;
-            }
-            FetchInstructionResult::ControlFlow(ControlFlow::Break(())) => {
-                break;
-            }
-        };
-
-        match instruction {
-            Rv64MBZbcInstruction::A(instruction) => {
-                execute_m_64_ext(regs, instruction);
-            }
-            Rv64MBZbcInstruction::B(instruction) => {
-                execute_b_zbc_64_ext(regs, instruction);
-            }
-            Rv64MBZbcInstruction::Base(instruction) => {
-                execute_rv64(regs, memory, pc, instruction_handlers, old_pc, instruction)?;
-            }
-        }
-    }
-
-    Ok(())
 }

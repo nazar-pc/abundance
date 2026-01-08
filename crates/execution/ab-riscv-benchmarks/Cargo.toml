@@ -28,11 +28,11 @@ ab-core-primitives = { workspace = true }
 ab-io-type = { workspace = true }
 
 [target.'cfg(not(target_env = "abundance"))'.dependencies]
+ab-contract-file = { workspace = true }
 ab-riscv-interpreter = { workspace = true }
 ab-riscv-primitives = { workspace = true }
 
 [dev-dependencies]
-ab-contract-file = { workspace = true }
 ed25519-zebra = { workspace = true }
 criterion = { workspace = true }
 

@@ -3,31 +3,40 @@
 use crate::instruction::{GenericBaseInstruction, GenericInstruction};
 use core::fmt;
 
-/// Tuple instruction that allows composing a base instruction type with an extension
+/// Tuple instruction that allows composing a base instruction type with an extension.
+///
+/// NOTE: All instructions in a tuple must use the same associated register type or else the
+/// compiler will produce a lot of very confusing errors.
 #[derive(Debug, Copy, Clone)]
-pub enum Tuple2Instruction<A, Base> {
+pub enum Tuple2Instruction<A, Base>
+where
+    A: GenericInstruction<Base = Base>,
+    Base: GenericBaseInstruction,
+{
     A(A),
     Base(Base),
 }
 
 impl<A, Base> fmt::Display for Tuple2Instruction<A, Base>
 where
-    A: fmt::Display,
-    Base: fmt::Display,
+    A: GenericInstruction<Base = Base>,
+    Base: GenericBaseInstruction,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Tuple2Instruction::A(a) => a.fmt(f),
-            Tuple2Instruction::Base(b) => b.fmt(f),
+            Tuple2Instruction::A(a) => fmt::Display::fmt(a, f),
+            Tuple2Instruction::Base(b) => fmt::Display::fmt(b, f),
         }
     }
 }
 
 impl<A, Base> const GenericInstruction for Tuple2Instruction<A, Base>
 where
-    A: [const] GenericInstruction,
+    A: [const] GenericInstruction<Base = Base>,
     Base: [const] GenericBaseInstruction,
 {
+    type Base = Base;
+
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
         if let Some(instruction) = A::try_decode(instruction) {
@@ -48,9 +57,16 @@ where
 
 impl<A, Base> const GenericBaseInstruction for Tuple2Instruction<A, Base>
 where
-    A: [const] GenericInstruction,
+    A: [const] GenericInstruction<Base = Base>,
     Base: [const] GenericBaseInstruction,
 {
+    type Reg = Base::Reg;
+
+    #[inline(always)]
+    fn from_base(base: Base) -> Self {
+        Self::Base(base)
+    }
+
     #[inline]
     fn decode(instruction: u32) -> Self {
         if let Some(instruction) = A::try_decode(instruction) {
@@ -61,9 +77,17 @@ where
     }
 }
 
-/// Tuple instruction that allows composing a base instruction type with two extensions
+/// Tuple instruction that allows composing a base instruction type with two extensions.
+///
+/// NOTE: All instructions in a tuple must use the same associated register type or else the
+/// compiler will produce a lot of very confusing errors.
 #[derive(Debug, Copy, Clone)]
-pub enum Tuple3Instruction<A, B, Base> {
+pub enum Tuple3Instruction<A, B, Base>
+where
+    A: GenericInstruction<Base = Base>,
+    B: GenericInstruction<Base = Base>,
+    Base: GenericBaseInstruction,
+{
     A(A),
     B(B),
     Base(Base),
@@ -71,25 +95,27 @@ pub enum Tuple3Instruction<A, B, Base> {
 
 impl<A, B, Base> fmt::Display for Tuple3Instruction<A, B, Base>
 where
-    A: fmt::Display,
-    B: fmt::Display,
-    Base: fmt::Display,
+    A: GenericInstruction<Base = Base>,
+    B: GenericInstruction<Base = Base>,
+    Base: GenericBaseInstruction,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Tuple3Instruction::A(a) => a.fmt(f),
-            Tuple3Instruction::B(b) => b.fmt(f),
-            Tuple3Instruction::Base(b) => b.fmt(f),
+            Tuple3Instruction::A(a) => fmt::Display::fmt(a, f),
+            Tuple3Instruction::B(b) => fmt::Display::fmt(b, f),
+            Tuple3Instruction::Base(b) => fmt::Display::fmt(b, f),
         }
     }
 }
 
 impl<A, B, Base> const GenericInstruction for Tuple3Instruction<A, B, Base>
 where
-    A: [const] GenericInstruction,
-    B: [const] GenericInstruction,
+    A: [const] GenericInstruction<Base = Base>,
+    B: [const] GenericInstruction<Base = Base>,
     Base: [const] GenericBaseInstruction,
 {
+    type Base = Base;
+
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
         if let Some(instruction) = A::try_decode(instruction) {
@@ -113,10 +139,17 @@ where
 
 impl<A, B, Base> const GenericBaseInstruction for Tuple3Instruction<A, B, Base>
 where
-    A: [const] GenericInstruction,
-    B: [const] GenericInstruction,
+    A: [const] GenericInstruction<Base = Base>,
+    B: [const] GenericInstruction<Base = Base>,
     Base: [const] GenericBaseInstruction,
 {
+    type Reg = Base::Reg;
+
+    #[inline(always)]
+    fn from_base(base: Base) -> Self {
+        Self::Base(base)
+    }
+
     #[inline]
     fn decode(instruction: u32) -> Self {
         if let Some(instruction) = A::try_decode(instruction) {

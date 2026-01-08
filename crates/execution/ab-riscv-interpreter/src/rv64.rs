@@ -3,27 +3,62 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{ExecuteError, GenericInstructionHandler, VirtualMemory};
-use ab_riscv_primitives::instruction::Rv64MBZbcInstruction;
+use crate::{ExecuteError, VirtualMemory};
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::{GenericRegister, Registers};
 use core::fmt;
 
+/// Custom handlers for instructions `ecall` and `ebreak`
+pub trait Rv64SystemInstructionHandler<Reg, Memory, CustomError>
+where
+    Reg: GenericRegister,
+    [(); Reg::N]:,
+    CustomError: fmt::Display,
+{
+    /// Handle an `ecall` instruction.
+    ///
+    /// NOTE: the program counter here is the current value, meaning it is already incremented past
+    /// the instruction itself.
+    fn handle_ecall(
+        &mut self,
+        regs: &mut Registers<Reg>,
+        memory: &mut Memory,
+        pc: &mut u64,
+        instruction: Rv64Instruction<Reg>,
+    ) -> Result<(), ExecuteError<Rv64Instruction<Reg>, CustomError>>;
+
+    /// Handle an `ebreak` instruction.
+    ///
+    /// NOTE: the program counter here is the current value, meaning it is already incremented past
+    /// the instruction itself.
+    #[inline(always)]
+    fn handle_ebreak(
+        &mut self,
+        _regs: &mut Registers<Reg>,
+        _memory: &mut Memory,
+        _pc: &mut u64,
+        _instruction: Rv64Instruction<Reg>,
+    ) -> Result<(), ExecuteError<Rv64Instruction<Reg>, CustomError>> {
+        // NOP by default
+        Ok(())
+    }
+}
+
+/// Execute instructions from a base RV64I/RV64I instruction set
 #[inline(always)]
 pub fn execute_rv64<Reg, Memory, InstructionHandler, CustomError>(
     regs: &mut Registers<Reg>,
     memory: &mut Memory,
     pc: &mut u64,
-    instruction_handlers: &mut InstructionHandler,
+    system_instruction_handlers: &mut InstructionHandler,
     old_pc: u64,
     instruction: Rv64Instruction<Reg>,
-) -> Result<(), ExecuteError<Rv64MBZbcInstruction<Reg>, CustomError>>
+) -> Result<(), ExecuteError<Rv64Instruction<Reg>, CustomError>>
 where
     Reg: GenericRegister<Type = u64>,
     [(); Reg::N]:,
     Memory: VirtualMemory,
-    InstructionHandler:
-        GenericInstructionHandler<Rv64MBZbcInstruction<Reg>, Reg, Memory, CustomError>,
+    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, CustomError>,
     CustomError: fmt::Display,
 {
     match instruction {
@@ -257,20 +292,10 @@ where
         }
 
         Rv64Instruction::Ecall => {
-            instruction_handlers.handle_ecall(
-                regs,
-                memory,
-                pc,
-                Rv64MBZbcInstruction::Base(Rv64Instruction::Ecall),
-            )?;
+            system_instruction_handlers.handle_ecall(regs, memory, pc, Rv64Instruction::Ecall)?;
         }
         Rv64Instruction::Ebreak => {
-            instruction_handlers.handle_ebreak(
-                regs,
-                memory,
-                pc,
-                Rv64MBZbcInstruction::Base(Rv64Instruction::Ebreak),
-            )?;
+            system_instruction_handlers.handle_ebreak(regs, memory, pc, Rv64Instruction::Ebreak)?;
         }
 
         Rv64Instruction::Unimp => {

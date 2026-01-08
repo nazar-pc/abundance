@@ -5,16 +5,16 @@
 #![feature(generic_const_exprs)]
 
 use ab_blake3::OUT_LEN;
-use ab_contract_file::ContractFile;
+use ab_contract_file::{ContractFile, Instruction, Register};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionHandler, Ed25519VerifyInternalArgs,
-    RISCV_CONTRACT_BYTES, TestMemory,
+    RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
-use ab_riscv_interpreter::{BasicInstructionHandler, ExecuteError, execute_rv64mbzbc};
-use ab_riscv_primitives::instruction::{GenericBaseInstruction, Rv64MBZbcInstruction};
-use ab_riscv_primitives::registers::{EReg, Registers};
+use ab_riscv_interpreter::{BasicInstructionHandler, ExecuteError};
+use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use ab_riscv_primitives::registers::Registers;
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
@@ -26,21 +26,21 @@ const MEMORY_SIZE: usize = 128 * 1024;
 
 fn run_lazy(
     _contract_file: &ContractFile<'_>,
-    regs: &mut Registers<EReg<u64>>,
+    regs: &mut Registers<Register>,
     memory: &mut TestMemory<MEMORY_SIZE>,
     pc: &mut u64,
-) -> Result<(), ExecuteError<Rv64MBZbcInstruction<EReg<u64>>, &'static str>> {
+) -> Result<(), ExecuteError<Instruction, &'static str>> {
     let mut handler = BasicInstructionHandler::<TRAP_ADDRESS>;
 
-    execute_rv64mbzbc(regs, memory, pc, &mut handler)
+    execute(regs, memory, pc, &mut handler)
 }
 
 fn run_eager(
     contract_file: &ContractFile<'_>,
-    regs: &mut Registers<EReg<u64>>,
+    regs: &mut Registers<Register>,
     memory: &mut TestMemory<MEMORY_SIZE>,
     pc: &mut u64,
-) -> Result<(), ExecuteError<Rv64MBZbcInstruction<EReg<u64>>, &'static str>> {
+) -> Result<(), ExecuteError<Instruction, &'static str>> {
     let mut handler = EagerTestInstructionHandler::<TRAP_ADDRESS, _>::new(
         contract_file
             .get_code()
@@ -58,7 +58,7 @@ fn run_eager(
         MEMORY_BASE_ADDRESS + contract_file.header().read_only_section_memory_size as u64,
     );
 
-    execute_rv64mbzbc(regs, memory, pc, &mut handler)
+    execute(regs, memory, pc, &mut handler)
 }
 
 fn call_method<IA, CIA, R>(method_name: &str, create_internal_args: CIA, run: R) -> IA
@@ -67,10 +67,10 @@ where
     CIA: FnOnce(u64) -> IA,
     R: FnOnce(
         &ContractFile<'_>,
-        &mut Registers<EReg<u64>>,
+        &mut Registers<Register>,
         &mut TestMemory<MEMORY_SIZE>,
         &mut u64,
-    ) -> Result<(), ExecuteError<Rv64MBZbcInstruction<EReg<u64>>, &'static str>>,
+    ) -> Result<(), ExecuteError<Instruction, &'static str>>,
 {
     let mut methods = HashMap::new();
     let contract_file = ContractFile::parse(RISCV_CONTRACT_BYTES, |contract_file_method| {
@@ -115,8 +115,8 @@ where
             .copy_from_slice(internal_args_bytes);
     }
 
-    regs.write(EReg::A0, internal_args_addr);
-    regs.write(EReg::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+    regs.write(Register::A0, internal_args_addr);
+    regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
     let mut pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
     run(&contract_file, &mut regs, &mut memory, &mut pc).unwrap();
