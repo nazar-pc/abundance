@@ -123,6 +123,14 @@ pub enum ContractFileParseError {
         /// Size of the file in bytes
         file_size: u32,
     },
+    /// Method is unaligned
+    #[error("Method is unaligned: file offset {file_offset}, memory address {memory_address}")]
+    MethodUnaligned {
+        /// Offset of the method in bytes relative to the start of the file
+        file_offset: u32,
+        /// Address of the method in bytes relative to the beginning of the initialized memory
+        memory_address: u32,
+    },
     /// Method offset is out of bounds of the file
     #[error(
         "Method offset is out of bounds of the file: offset {offset}, code section \
@@ -135,6 +143,17 @@ pub enum ContractFileParseError {
         code_section_offset: u32,
         /// Size of the file in bytes
         file_size: u32,
+    },
+    /// Host call function is unaligned
+    #[error(
+        "Host call function is unaligned: file offset {file_offset}, memory address \
+        {memory_address}"
+    )]
+    HostCallFnUnaligned {
+        /// Offset of the method in bytes relative to the start of the file
+        file_offset: u32,
+        /// Address of the method in bytes relative to the beginning of the initialized memory
+        memory_address: u32,
     },
     /// The host call function offset is out of bounds of the file
     #[error(
@@ -373,9 +392,18 @@ impl<'a> ContractFile<'a> {
                             header_num_methods: header.num_methods,
                             metadata_method_index: metadata_num_methods - 1,
                         })??;
+                    let address = contract_file_method_metadata.offset - read_only_section_offset
+                        + read_only_padding_size;
+
+                    if !address.is_multiple_of(size_of::<u32>() as u32) {
+                        return Err(ContractFileParseError::MethodUnaligned {
+                            file_offset: contract_file_method_metadata.offset,
+                            memory_address: address,
+                        });
+                    }
+
                     contract_method(ContractFileMethod {
-                        address: contract_file_method_metadata.offset - read_only_section_offset
-                            + read_only_padding_size,
+                        address,
                         method_metadata_item,
                         method_metadata_bytes,
                     })?;
@@ -398,18 +426,17 @@ impl<'a> ContractFile<'a> {
             });
         }
 
-        if header.host_call_fn_offset != 0
-            && (header.host_call_fn_offset >= file_size
-                || header.host_call_fn_offset < code_section_offset)
-        {
-            return Err(ContractFileParseError::HostCallFnOutOfRange {
-                offset: header.host_call_fn_offset,
-                code_section_offset,
-                file_size,
-            });
-        }
-
         if header.host_call_fn_offset != 0 {
+            if header.host_call_fn_offset >= file_size
+                || header.host_call_fn_offset < code_section_offset
+            {
+                return Err(ContractFileParseError::HostCallFnOutOfRange {
+                    offset: header.host_call_fn_offset,
+                    code_section_offset,
+                    file_size,
+                });
+            }
+
             let instructions_bytes = file_bytes
                 .get(header.host_call_fn_offset as usize..)
                 .ok_or(ContractFileParseError::HostCallFnOutOfRange {
@@ -464,6 +491,16 @@ impl<'a> ContractFile<'a> {
 
             if !matches_expected_pattern {
                 return Err(ContractFileParseError::InvalidHostCallFnPattern { first, second });
+            }
+
+            let address =
+                header.host_call_fn_offset - read_only_section_offset + read_only_padding_size;
+
+            if !address.is_multiple_of(size_of::<u32>() as u32) {
+                return Err(ContractFileParseError::HostCallFnUnaligned {
+                    file_offset: header.host_call_fn_offset,
+                    memory_address: address,
+                });
             }
         }
 
