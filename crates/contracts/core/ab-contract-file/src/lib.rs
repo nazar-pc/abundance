@@ -22,11 +22,13 @@ use tracing::{debug, trace};
 
 /// Magic bytes at the beginning of the file
 pub const CONTRACT_FILE_MAGIC: [u8; 4] = *b"ABC0";
-/// Instruction used/expected by the contract
+/// A register type used by contracts
+pub type Register = EReg<u64>;
+/// An instruction type used by contracts
 pub type Instruction = Tuple3Instruction<
-    M64ExtInstruction<EReg<u64>>,
-    BZbc64ExtInstruction<EReg<u64>>,
-    Rv64Instruction<EReg<u64>>,
+    M64ExtInstruction<Register>,
+    BZbc64ExtInstruction<Register>,
+    Rv64Instruction<Register>,
 >;
 
 /// Header of the contract file
@@ -444,7 +446,7 @@ impl<'a> ContractFile<'a> {
                 }),
             ) = (first, second)
             {
-                auipc_rd == jalr_rs1 && jalr_rd == EReg::Zero
+                auipc_rd == jalr_rs1 && jalr_rd == Register::Zero
             } else {
                 false
             };
