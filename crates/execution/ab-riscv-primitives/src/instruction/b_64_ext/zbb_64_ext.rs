@@ -4,6 +4,7 @@
 mod tests;
 
 use crate::instruction::GenericInstruction;
+use crate::instruction::rv64::Rv64Instruction;
 use crate::registers::GenericRegister;
 use core::fmt;
 
@@ -41,7 +42,7 @@ impl<Reg> const GenericInstruction for Zbb64ExtInstruction<Reg>
 where
     Reg: [const] GenericRegister<Type = u64>,
 {
-    type Reg = Reg;
+    type Base = Rv64Instruction<Reg>;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {

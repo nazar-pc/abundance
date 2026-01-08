@@ -12,8 +12,8 @@ use ab_riscv_interpreter::{
     BasicInt, ExecuteError, FetchInstructionResult, GenericInstructionHandler, VirtualMemory,
     VirtualMemoryError,
 };
-use ab_riscv_primitives::instruction::GenericInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
+use ab_riscv_primitives::instruction::{GenericBaseInstruction, GenericInstruction};
 use ab_riscv_primitives::registers::{GenericRegister, Registers};
 use alloc::vec::Vec;
 use core::fmt;
@@ -232,7 +232,7 @@ impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Memory>
     GenericInstructionHandler<Instruction, Memory, &'static str>
     for EagerTestInstructionHandler<RETURN_TRAP_ADDRESS, Instruction>
 where
-    Instruction: GenericInstruction,
+    Instruction: GenericBaseInstruction,
     [(); Instruction::Reg::N]:,
     Memory: VirtualMemory,
 {
@@ -309,7 +309,7 @@ impl<const RETURN_TRAP_ADDRESS: u64, Instruction>
 
 /// Execute [`Instruction`]s
 pub fn execute<Memory, InstructionHandler, CustomError>(
-    regs: &mut Registers<<Instruction as GenericInstruction>::Reg>,
+    regs: &mut Registers<<Instruction as GenericBaseInstruction>::Reg>,
     memory: &mut Memory,
     pc: &mut u64,
     instruction_handlers: &mut InstructionHandler,
@@ -317,7 +317,11 @@ pub fn execute<Memory, InstructionHandler, CustomError>(
 where
     Memory: VirtualMemory,
     InstructionHandler: GenericInstructionHandler<Instruction, Memory, CustomError>
-        + Rv64SystemInstructionHandler<<Instruction as GenericInstruction>::Reg, Memory, CustomError>,
+        + Rv64SystemInstructionHandler<
+            <Instruction as GenericBaseInstruction>::Reg,
+            Memory,
+            CustomError,
+        >,
     CustomError: fmt::Display,
 {
     loop {

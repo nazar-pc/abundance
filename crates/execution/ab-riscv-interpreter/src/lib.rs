@@ -162,7 +162,7 @@ pub enum FetchInstructionResult<Instruction> {
 /// Custom handlers for instructions `ecall` and `ebreak`
 pub trait GenericInstructionHandler<Instruction, Memory, CustomError>
 where
-    Instruction: GenericInstruction,
+    Instruction: GenericBaseInstruction,
     [(); Instruction::Reg::N]:,
     CustomError: fmt::Display,
 {

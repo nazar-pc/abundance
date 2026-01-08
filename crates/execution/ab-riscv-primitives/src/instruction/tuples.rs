@@ -10,7 +10,7 @@ use core::fmt;
 #[derive(Debug, Copy, Clone)]
 pub enum Tuple2Instruction<A, Base>
 where
-    A: GenericInstruction<Reg = Base::Reg>,
+    A: GenericInstruction<Base = Base>,
     Base: GenericBaseInstruction,
 {
     A(A),
@@ -19,7 +19,7 @@ where
 
 impl<A, Base> fmt::Display for Tuple2Instruction<A, Base>
 where
-    A: GenericInstruction<Reg = Base::Reg>,
+    A: GenericInstruction<Base = Base>,
     Base: GenericBaseInstruction,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -32,10 +32,10 @@ where
 
 impl<A, Base> const GenericInstruction for Tuple2Instruction<A, Base>
 where
-    A: [const] GenericInstruction<Reg = Base::Reg>,
+    A: [const] GenericInstruction<Base = Base>,
     Base: [const] GenericBaseInstruction,
 {
-    type Reg = Base::Reg;
+    type Base = Base;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -57,13 +57,13 @@ where
 
 impl<A, Base> const GenericBaseInstruction for Tuple2Instruction<A, Base>
 where
-    A: [const] GenericInstruction<Reg = Base::Reg>,
+    A: [const] GenericInstruction<Base = Base>,
     Base: [const] GenericBaseInstruction,
 {
-    type Base = Base;
+    type Reg = Base::Reg;
 
     #[inline(always)]
-    fn from_base(base: <Self as GenericBaseInstruction>::Base) -> Self {
+    fn from_base(base: Base) -> Self {
         Self::Base(base)
     }
 
@@ -84,8 +84,8 @@ where
 #[derive(Debug, Copy, Clone)]
 pub enum Tuple3Instruction<A, B, Base>
 where
-    A: GenericInstruction<Reg = Base::Reg>,
-    B: GenericInstruction<Reg = Base::Reg>,
+    A: GenericInstruction<Base = Base>,
+    B: GenericInstruction<Base = Base>,
     Base: GenericBaseInstruction,
 {
     A(A),
@@ -95,8 +95,8 @@ where
 
 impl<A, B, Base> fmt::Display for Tuple3Instruction<A, B, Base>
 where
-    A: GenericInstruction<Reg = Base::Reg>,
-    B: GenericInstruction<Reg = Base::Reg>,
+    A: GenericInstruction<Base = Base>,
+    B: GenericInstruction<Base = Base>,
     Base: GenericBaseInstruction,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -110,11 +110,11 @@ where
 
 impl<A, B, Base> const GenericInstruction for Tuple3Instruction<A, B, Base>
 where
-    A: [const] GenericInstruction<Reg = Base::Reg>,
-    B: [const] GenericInstruction<Reg = Base::Reg>,
+    A: [const] GenericInstruction<Base = Base>,
+    B: [const] GenericInstruction<Base = Base>,
     Base: [const] GenericBaseInstruction,
 {
-    type Reg = Base::Reg;
+    type Base = Base;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -139,14 +139,14 @@ where
 
 impl<A, B, Base> const GenericBaseInstruction for Tuple3Instruction<A, B, Base>
 where
-    A: [const] GenericInstruction<Reg = Base::Reg>,
-    B: [const] GenericInstruction<Reg = Base::Reg>,
+    A: [const] GenericInstruction<Base = Base>,
+    B: [const] GenericInstruction<Base = Base>,
     Base: [const] GenericBaseInstruction,
 {
-    type Base = Base;
+    type Reg = Base::Reg;
 
     #[inline(always)]
-    fn from_base(base: <Self as GenericBaseInstruction>::Base) -> Self {
+    fn from_base(base: Base) -> Self {
         Self::Base(base)
     }
 
