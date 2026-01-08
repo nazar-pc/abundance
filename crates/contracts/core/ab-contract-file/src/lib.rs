@@ -8,8 +8,11 @@ use ab_contracts_common::metadata::decode::{
     MethodsMetadataDecoder,
 };
 use ab_io_type::trivial_type::TrivialType;
+use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use ab_riscv_primitives::instruction::b_64_ext::BZbc64ExtInstruction;
+use ab_riscv_primitives::instruction::m_64_ext::M64ExtInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::instruction::{GenericBaseInstruction, Rv64MBZbcInstruction};
+use ab_riscv_primitives::instruction::tuples::Tuple3Instruction;
 use ab_riscv_primitives::registers::EReg;
 use core::iter;
 use core::iter::TrustedLen;
@@ -20,7 +23,11 @@ use tracing::{debug, trace};
 /// Magic bytes at the beginning of the file
 pub const CONTRACT_FILE_MAGIC: [u8; 4] = *b"ABC0";
 /// Instruction used/expected by the contract
-pub type Instruction = Rv64MBZbcInstruction<EReg<u64>>;
+pub type Instruction = Tuple3Instruction<
+    M64ExtInstruction<EReg<u64>>,
+    BZbc64ExtInstruction<EReg<u64>>,
+    Rv64Instruction<EReg<u64>>,
+>;
 
 /// Header of the contract file
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TrivialType)]

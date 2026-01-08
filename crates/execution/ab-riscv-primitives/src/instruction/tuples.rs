@@ -3,22 +3,29 @@
 use crate::instruction::{GenericBaseInstruction, GenericInstruction};
 use core::fmt;
 
-/// Tuple instruction that allows composing a base instruction type with an extension
+/// Tuple instruction that allows composing a base instruction type with an extension.
+///
+/// NOTE: All instructions in a tuple must use the same associated register type or else the
+/// compiler will produce a lot of very confusing errors.
 #[derive(Debug, Copy, Clone)]
-pub enum Tuple2Instruction<A, Base> {
+pub enum Tuple2Instruction<A, Base>
+where
+    A: GenericInstruction<Reg = Base::Reg>,
+    Base: GenericBaseInstruction,
+{
     A(A),
     Base(Base),
 }
 
 impl<A, Base> fmt::Display for Tuple2Instruction<A, Base>
 where
-    A: fmt::Display,
-    Base: fmt::Display,
+    A: GenericInstruction<Reg = Base::Reg>,
+    Base: GenericBaseInstruction,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Tuple2Instruction::A(a) => a.fmt(f),
-            Tuple2Instruction::Base(b) => b.fmt(f),
+            Tuple2Instruction::A(a) => fmt::Display::fmt(a, f),
+            Tuple2Instruction::Base(b) => fmt::Display::fmt(b, f),
         }
     }
 }
@@ -70,9 +77,17 @@ where
     }
 }
 
-/// Tuple instruction that allows composing a base instruction type with two extensions
+/// Tuple instruction that allows composing a base instruction type with two extensions.
+///
+/// NOTE: All instructions in a tuple must use the same associated register type or else the
+/// compiler will produce a lot of very confusing errors.
 #[derive(Debug, Copy, Clone)]
-pub enum Tuple3Instruction<A, B, Base> {
+pub enum Tuple3Instruction<A, B, Base>
+where
+    A: GenericInstruction<Reg = Base::Reg>,
+    B: GenericInstruction<Reg = Base::Reg>,
+    Base: GenericBaseInstruction,
+{
     A(A),
     B(B),
     Base(Base),
@@ -80,15 +95,15 @@ pub enum Tuple3Instruction<A, B, Base> {
 
 impl<A, B, Base> fmt::Display for Tuple3Instruction<A, B, Base>
 where
-    A: fmt::Display,
-    B: fmt::Display,
-    Base: fmt::Display,
+    A: GenericInstruction<Reg = Base::Reg>,
+    B: GenericInstruction<Reg = Base::Reg>,
+    Base: GenericBaseInstruction,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Tuple3Instruction::A(a) => a.fmt(f),
-            Tuple3Instruction::B(b) => b.fmt(f),
-            Tuple3Instruction::Base(b) => b.fmt(f),
+            Tuple3Instruction::A(a) => fmt::Display::fmt(a, f),
+            Tuple3Instruction::B(b) => fmt::Display::fmt(b, f),
+            Tuple3Instruction::Base(b) => fmt::Display::fmt(b, f),
         }
     }
 }
