@@ -27,6 +27,12 @@ pub const trait GenericInstruction:
 
 /// Generic base instruction
 pub const trait GenericBaseInstruction: [const] GenericInstruction {
+    /// Lower-level instruction like [`Rv64Instruction`]
+    type Base: GenericBaseInstruction;
+
+    /// Create an instruction from a lower-level base instruction
+    fn from_base(base: Self::Base) -> Self;
+
     /// Decode a single instruction
     fn decode(instruction: u32) -> Self;
 }

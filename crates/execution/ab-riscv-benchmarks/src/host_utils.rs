@@ -2,12 +2,15 @@ extern crate alloc;
 
 use ab_blake3::{CHUNK_LEN, OUT_LEN};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
+use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
+use ab_riscv_interpreter::rv64::Rv64SystemInstructionHandler;
 use ab_riscv_interpreter::{
     BasicInt, ExecuteError, FetchInstructionResult, GenericInstructionHandler, VirtualMemory,
     VirtualMemoryError,
 };
-use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use ab_riscv_primitives::instruction::GenericInstruction;
+use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::{GenericRegister, Registers};
 use alloc::vec::Vec;
 use core::mem::offset_of;
@@ -225,7 +228,7 @@ impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Reg, Memory>
     GenericInstructionHandler<Instruction, Reg, Memory, &'static str>
     for EagerTestInstructionHandler<RETURN_TRAP_ADDRESS, Instruction>
 where
-    Instruction: GenericBaseInstruction,
+    Instruction: GenericInstruction,
     Reg: GenericRegister<Type = u64>,
     [(); Reg::N]:,
     Memory: VirtualMemory,
@@ -260,15 +263,25 @@ where
 
         Ok(FetchInstructionResult::Instruction(instruction))
     }
+}
 
+impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Reg, Memory>
+    Rv64SystemInstructionHandler<Reg, Memory, &'static str>
+    for EagerTestInstructionHandler<RETURN_TRAP_ADDRESS, Instruction>
+where
+    Instruction: GenericInstruction,
+    Reg: GenericRegister<Type = u64>,
+    [(); Reg::N]:,
+    Memory: VirtualMemory,
+{
     #[inline(always)]
     fn handle_ecall(
         &mut self,
         _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
         pc: &mut u64,
-        instruction: Instruction,
-    ) -> Result<(), ExecuteError<Instruction, &'static str>> {
+        instruction: Rv64Instruction<Reg>,
+    ) -> Result<(), ExecuteError<Rv64Instruction<Reg>, &'static str>> {
         Err(ExecuteError::UnsupportedInstruction {
             address: *pc - instruction.size() as u64,
             instruction,

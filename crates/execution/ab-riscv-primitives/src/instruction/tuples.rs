@@ -51,6 +51,13 @@ where
     A: [const] GenericInstruction,
     Base: [const] GenericBaseInstruction,
 {
+    type Base = Base;
+
+    #[inline(always)]
+    fn from_base(base: <Self as GenericBaseInstruction>::Base) -> Self {
+        Self::Base(base)
+    }
+
     #[inline]
     fn decode(instruction: u32) -> Self {
         if let Some(instruction) = A::try_decode(instruction) {
@@ -117,6 +124,13 @@ where
     B: [const] GenericInstruction,
     Base: [const] GenericBaseInstruction,
 {
+    type Base = Base;
+
+    #[inline(always)]
+    fn from_base(base: <Self as GenericBaseInstruction>::Base) -> Self {
+        Self::Base(base)
+    }
+
     #[inline]
     fn decode(instruction: u32) -> Self {
         if let Some(instruction) = A::try_decode(instruction) {
