@@ -199,6 +199,9 @@ pub enum ContractFileParseError {
         /// Instruction
         instruction: Instruction,
     },
+    /// The code section is empty
+    #[error("The code section is empty")]
+    CodeEmpty,
     /// Unexpected trailing code bytes encountered while parsing the code section
     #[error(
         "Unexpected trailing code bytes encountered while parsing the code section: {num_bytes} \
@@ -207,6 +210,12 @@ pub enum ContractFileParseError {
     UnexpectedTrailingCodeBytes {
         /// Number of trailing bytes encountered
         num_bytes: usize,
+    },
+    /// The last instruction in the code section must be a jump instruction
+    #[error("The last instruction in the code section must be a jump instruction: {instruction}")]
+    LastInstructionMustBeJump {
+        /// Instruction that is expected to be a jump instruction
+        instruction: Instruction,
     },
 }
 
@@ -217,6 +226,8 @@ impl From<MetadataDecodingError<'_>> for ContractFileParseError {
     }
 }
 
+// TODO: Description of the file format, assumptions and invariants
+/// A container for a parsed contract file
 #[derive(Debug)]
 pub struct ContractFile<'a> {
     read_only_section_file_size: u32,
@@ -459,16 +470,17 @@ impl<'a> ContractFile<'a> {
         // Ensure code only consists of expected instructions
         {
             let mut remaining_code_file_bytes = &file_bytes[code_section_offset as usize..];
+
+            let mut instruction = Instruction::Base(Rv64Instruction::Unimp);
             while let Some(instruction_bytes) =
                 remaining_code_file_bytes.split_off(..size_of::<u32>())
             {
-                let instruction = u32::from_le_bytes([
+                instruction = Instruction::decode(u32::from_le_bytes([
                     instruction_bytes[0],
                     instruction_bytes[1],
                     instruction_bytes[2],
                     instruction_bytes[3],
-                ]);
-                let instruction = Instruction::decode(instruction);
+                ]));
                 match instruction {
                     Instruction::A(_)
                     | Instruction::B(_)
@@ -535,6 +547,23 @@ impl<'a> ContractFile<'a> {
                         return Err(ContractFileParseError::UnexpectedInstruction { instruction });
                     }
                 }
+            }
+
+            let is_jump_instruction = matches!(
+                instruction,
+                Instruction::Base(
+                    Rv64Instruction::Jalr { .. }
+                        | Rv64Instruction::Beq { .. }
+                        | Rv64Instruction::Bne { .. }
+                        | Rv64Instruction::Blt { .. }
+                        | Rv64Instruction::Bge { .. }
+                        | Rv64Instruction::Bltu { .. }
+                        | Rv64Instruction::Bgeu { .. }
+                        | Rv64Instruction::Jal { .. }
+                )
+            );
+            if !is_jump_instruction {
+                return Err(ContractFileParseError::LastInstructionMustBeJump { instruction });
             }
 
             if !remaining_code_file_bytes.is_empty() {
