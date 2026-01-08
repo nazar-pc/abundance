@@ -25,9 +25,11 @@ where
 
 impl<A, Base> const GenericInstruction for Tuple2Instruction<A, Base>
 where
-    A: [const] GenericInstruction,
+    A: [const] GenericInstruction<Reg = Base::Reg>,
     Base: [const] GenericBaseInstruction,
 {
+    type Reg = Base::Reg;
+
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
         if let Some(instruction) = A::try_decode(instruction) {
@@ -48,7 +50,7 @@ where
 
 impl<A, Base> const GenericBaseInstruction for Tuple2Instruction<A, Base>
 where
-    A: [const] GenericInstruction,
+    A: [const] GenericInstruction<Reg = Base::Reg>,
     Base: [const] GenericBaseInstruction,
 {
     type Base = Base;
@@ -93,10 +95,12 @@ where
 
 impl<A, B, Base> const GenericInstruction for Tuple3Instruction<A, B, Base>
 where
-    A: [const] GenericInstruction,
-    B: [const] GenericInstruction,
+    A: [const] GenericInstruction<Reg = Base::Reg>,
+    B: [const] GenericInstruction<Reg = Base::Reg>,
     Base: [const] GenericBaseInstruction,
 {
+    type Reg = Base::Reg;
+
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
         if let Some(instruction) = A::try_decode(instruction) {
@@ -120,8 +124,8 @@ where
 
 impl<A, B, Base> const GenericBaseInstruction for Tuple3Instruction<A, B, Base>
 where
-    A: [const] GenericInstruction,
-    B: [const] GenericInstruction,
+    A: [const] GenericInstruction<Reg = Base::Reg>,
+    B: [const] GenericInstruction<Reg = Base::Reg>,
     Base: [const] GenericBaseInstruction,
 {
     type Base = Base;

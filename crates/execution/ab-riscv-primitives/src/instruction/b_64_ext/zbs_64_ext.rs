@@ -31,6 +31,8 @@ impl<Reg> const GenericInstruction for Zbs64ExtInstruction<Reg>
 where
     Reg: [const] GenericRegister<Type = u64>,
 {
+    type Reg = Reg;
+
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
         let opcode = (instruction & 0b111_1111) as u8;

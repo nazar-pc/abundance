@@ -11,6 +11,7 @@ use crate::instruction::b_64_ext::BZbc64ExtInstruction;
 use crate::instruction::m_64_ext::M64ExtInstruction;
 use crate::instruction::rv64::Rv64Instruction;
 use crate::instruction::tuples::{Tuple2Instruction, Tuple3Instruction};
+use crate::registers::GenericRegister;
 use core::fmt;
 use core::marker::Destruct;
 
@@ -18,6 +19,9 @@ use core::marker::Destruct;
 pub const trait GenericInstruction:
     fmt::Display + fmt::Debug + [const] Destruct + Copy + Sized
 {
+    /// A register type used by the instruction
+    type Reg: GenericRegister;
+
     /// Try to decode a single valid instruction
     fn try_decode(instruction: u32) -> Option<Self>;
 

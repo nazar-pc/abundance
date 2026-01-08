@@ -26,6 +26,8 @@ impl<Reg> const GenericInstruction for BZbc64ExtInstruction<Reg>
 where
     Reg: [const] GenericRegister<Type = u64>,
 {
+    type Reg = Reg;
+
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
         if let Some(instruction) = Zba64ExtInstruction::<Reg>::try_decode(instruction) {
