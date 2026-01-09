@@ -47,7 +47,7 @@ where
     }
 
     #[inline(always)]
-    fn size(&self) -> usize {
+    fn size(&self) -> u8 {
         match self {
             Tuple2Instruction::A(a) => a.size(),
             Tuple2Instruction::Base(b) => b.size(),
@@ -128,7 +128,7 @@ where
     }
 
     #[inline(always)]
-    fn size(&self) -> usize {
+    fn size(&self) -> u8 {
         match self {
             Tuple3Instruction::A(a) => a.size(),
             Tuple3Instruction::B(b) => b.size(),

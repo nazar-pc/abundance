@@ -9,12 +9,13 @@ pub mod b_64_ext;
 pub mod m_64_ext;
 pub mod rv64;
 
-use crate::rv64::Rv64SystemInstructionHandler;
-use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::instruction::{GenericBaseInstruction, GenericInstruction};
-use ab_riscv_primitives::registers::{GenericRegister, Registers};
+use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use ab_riscv_primitives::registers::GenericRegister;
 use core::fmt;
+use core::marker::PhantomData;
 use core::ops::ControlFlow;
+
+type PC<Instruction> = <<Instruction as GenericBaseInstruction>::Reg as GenericRegister>::Type;
 
 /// Errors for [`VirtualMemory`]
 #[derive(Debug, thiserror::Error)]
@@ -65,25 +66,74 @@ pub trait VirtualMemory {
     where
         T: BasicInt;
 
+    /// Unchecked read a value from memory at the specified address.
+    ///
+    /// # Safety
+    /// The address and value must be in-bounds.
+    unsafe fn read_unchecked<T>(&self, address: u64) -> T
+    where
+        T: BasicInt;
+
     /// Write a value to memory at the specified address
     fn write<T>(&mut self, address: u64, value: T) -> Result<(), VirtualMemoryError>
     where
         T: BasicInt;
 }
 
+/// Program counter errors
+#[derive(Debug, thiserror::Error)]
+pub enum ProgramCounterError<Address, Custom>
+where
+    Address: fmt::Display,
+    Custom: fmt::Display,
+{
+    /// Unaligned instruction
+    #[error("Unaligned instruction at address {address}")]
+    UnalignedInstruction {
+        /// Address of the unaligned instruction fetch
+        address: Address,
+    },
+    /// Memory access error
+    #[error("Memory access error: {0}")]
+    MemoryAccess(#[from] VirtualMemoryError),
+    /// Custom error
+    #[error("Custom error: {0}")]
+    Custom(Custom),
+}
+
+/// Generic program counter
+pub trait ProgramCounter<Address, Memory, CustomError>
+where
+    Address: fmt::Display,
+    CustomError: fmt::Display,
+{
+    /// Get the current value of the program counter
+    fn get_pc(&self) -> Address;
+
+    /// Set the current value of the program counter
+    fn set_pc(
+        &mut self,
+        memory: &mut Memory,
+        pc: Address,
+    ) -> Result<ControlFlow<()>, ProgramCounterError<Address, CustomError>>;
+}
+
 /// Execution errors
 #[derive(Debug, thiserror::Error)]
-pub enum ExecuteError<Instruction, Custom>
+pub enum ExecutionError<Instruction, Custom>
 where
-    Instruction: fmt::Display,
+    Instruction: GenericBaseInstruction,
     Custom: fmt::Display,
 {
     /// Unaligned instruction fetch
     #[error("Unaligned instruction fetch at address {address}")]
     UnalignedInstructionFetch {
         /// Address of the unaligned instruction fetch
-        address: u64,
+        address: PC<Instruction>,
     },
+    /// Program counter error
+    #[error("Program counter error: {0}")]
+    ProgramCounter(#[from] ProgramCounterError<PC<Instruction>, Custom>),
     /// Memory access error
     #[error("Memory access error: {0}")]
     MemoryAccess(#[from] VirtualMemoryError),
@@ -91,7 +141,7 @@ where
     #[error("Unsupported instruction at address {address:#x}: {instruction}")]
     UnsupportedInstruction {
         /// Address of the unsupported instruction
-        address: u64,
+        address: PC<Instruction>,
         /// Instruction that caused the error
         instruction: Instruction,
     },
@@ -99,13 +149,13 @@ where
     #[error("Unimplemented/illegal instruction at address {address:#x}")]
     UnimpInstruction {
         /// Address of the `unimp` instruction
-        address: u64,
+        address: PC<Instruction>,
     },
     /// Invalid instruction
     #[error("Invalid instruction at address {address:#x}: {instruction:#010x}")]
     InvalidInstruction {
         /// Address of the invalid instruction
-        address: u64,
+        address: PC<Instruction>,
         /// Instruction that caused the error
         instruction: u32,
     },
@@ -114,43 +164,44 @@ where
     Custom(Custom),
 }
 
-impl<BaseInstruction, Custom> ExecuteError<BaseInstruction, Custom>
+impl<BaseInstruction, Custom> ExecutionError<BaseInstruction, Custom>
 where
     BaseInstruction: GenericBaseInstruction,
     Custom: fmt::Display,
 {
     /// Map instruction type from lower-level base instruction
     #[inline]
-    pub fn map_from_base<Instruction>(self) -> ExecuteError<Instruction, Custom>
+    pub fn map_from_base<Instruction>(self) -> ExecutionError<Instruction, Custom>
     where
-        Instruction: GenericBaseInstruction<Base = BaseInstruction>,
+        Instruction: GenericBaseInstruction<Reg = BaseInstruction::Reg, Base = BaseInstruction>,
     {
         match self {
             Self::UnalignedInstructionFetch { address } => {
-                ExecuteError::UnalignedInstructionFetch { address }
+                ExecutionError::UnalignedInstructionFetch { address }
             }
-            Self::MemoryAccess(error) => ExecuteError::MemoryAccess(error),
+            Self::MemoryAccess(error) => ExecutionError::MemoryAccess(error),
+            Self::ProgramCounter(error) => ExecutionError::ProgramCounter(error),
             Self::UnsupportedInstruction {
                 address,
                 instruction,
-            } => ExecuteError::UnsupportedInstruction {
+            } => ExecutionError::UnsupportedInstruction {
                 address,
                 instruction: Instruction::from_base(instruction),
             },
-            Self::UnimpInstruction { address } => ExecuteError::UnimpInstruction { address },
+            Self::UnimpInstruction { address } => ExecutionError::UnimpInstruction { address },
             Self::InvalidInstruction {
                 address,
                 instruction,
-            } => ExecuteError::InvalidInstruction {
+            } => ExecutionError::InvalidInstruction {
                 address,
                 instruction,
             },
-            Self::Custom(error) => ExecuteError::Custom(error),
+            Self::Custom(error) => ExecutionError::Custom(error),
         }
     }
 }
 
-/// Result of [`GenericInstructionHandler::fetch_instruction()`] call
+/// Result of [`GenericInstructionFetcher::fetch_instruction()`] call
 #[derive(Debug, Copy, Clone)]
 pub enum FetchInstructionResult<Instruction> {
     /// Instruction fetched successfully
@@ -159,80 +210,107 @@ pub enum FetchInstructionResult<Instruction> {
     ControlFlow(ControlFlow<()>),
 }
 
-/// Custom handlers for instructions `ecall` and `ebreak`
-pub trait GenericInstructionHandler<Instruction, Memory, CustomError>
+/// Generic instruction fetcher
+pub trait GenericInstructionFetcher<Instruction, Memory, CustomError>:
+    ProgramCounter<PC<Instruction>, Memory, CustomError>
 where
     Instruction: GenericBaseInstruction,
-    [(); Instruction::Reg::N]:,
     CustomError: fmt::Display,
 {
     /// Fetch a single instruction at a specified address and advance the program counter
     fn fetch_instruction(
         &mut self,
-        _regs: &mut Registers<Instruction::Reg>,
         memory: &mut Memory,
-        pc: &mut u64,
-    ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, CustomError>>;
+    ) -> Result<FetchInstructionResult<Instruction>, ExecutionError<Instruction, CustomError>>;
 }
 
-/// Basic instruction handler implementation.
-///
-/// `RETURN_TRAP_ADDRESS` is the address at which the interpreter will stop execution (gracefully).
-#[derive(Debug, Default, Copy, Clone)]
-pub struct BasicInstructionHandler<const RETURN_TRAP_ADDRESS: u64>;
-
-impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Memory>
-    GenericInstructionHandler<Instruction, Memory, &'static str>
-    for BasicInstructionHandler<RETURN_TRAP_ADDRESS>
+/// Basic instruction fetcher implementation
+#[derive(Debug, Copy, Clone)]
+pub struct BasicInstructionFetcher<Instruction, CustomError>
 where
     Instruction: GenericBaseInstruction,
-    [(); Instruction::Reg::N]:,
+{
+    return_trap_address: PC<Instruction>,
+    pc: PC<Instruction>,
+    _phantom: PhantomData<CustomError>,
+}
+
+impl<Instruction, Memory, CustomError> ProgramCounter<PC<Instruction>, Memory, CustomError>
+    for BasicInstructionFetcher<Instruction, CustomError>
+where
+    Instruction: GenericBaseInstruction,
     Memory: VirtualMemory,
+    CustomError: fmt::Display,
 {
     #[inline(always)]
+    fn get_pc(&self) -> PC<Instruction> {
+        self.pc
+    }
+
+    #[inline]
+    fn set_pc(
+        &mut self,
+        memory: &mut Memory,
+        pc: PC<Instruction>,
+    ) -> Result<ControlFlow<()>, ProgramCounterError<PC<Instruction>, CustomError>> {
+        if pc == self.return_trap_address {
+            return Ok(ControlFlow::Break(()));
+        }
+
+        if !pc.into().is_multiple_of(size_of::<u32>() as u64) {
+            return Err(ProgramCounterError::UnalignedInstruction { address: pc });
+        }
+
+        memory.read::<u32>(pc.into())?;
+
+        self.pc = pc;
+
+        Ok(ControlFlow::Continue(()))
+    }
+}
+
+impl<Instruction, Memory, CustomError> GenericInstructionFetcher<Instruction, Memory, CustomError>
+    for BasicInstructionFetcher<Instruction, CustomError>
+where
+    Instruction: GenericBaseInstruction,
+    Memory: VirtualMemory,
+    CustomError: fmt::Display,
+{
+    #[inline]
     fn fetch_instruction(
         &mut self,
-        _regs: &mut Registers<Instruction::Reg>,
         memory: &mut Memory,
-        pc: &mut u64,
-    ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, &'static str>> {
-        let address = *pc;
-
-        if address == RETURN_TRAP_ADDRESS {
-            return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
-        }
-
-        if !address.is_multiple_of(size_of::<u32>() as u64) {
-            return Err(ExecuteError::UnalignedInstructionFetch { address });
-        }
-
-        let instruction = memory.read(address)?;
+    ) -> Result<FetchInstructionResult<Instruction>, ExecutionError<Instruction, CustomError>> {
+        // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
+        // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
+        // one instruction can't result in out-of-bounds access.
+        let instruction = unsafe { memory.read_unchecked(self.pc.into()) };
         let instruction = Instruction::decode(instruction);
-        *pc += instruction.size() as u64;
+        self.pc += instruction.size().into();
 
         Ok(FetchInstructionResult::Instruction(instruction))
     }
 }
 
-impl<const RETURN_TRAP_ADDRESS: u64, Reg, Memory>
-    Rv64SystemInstructionHandler<Reg, Memory, &'static str>
-    for BasicInstructionHandler<RETURN_TRAP_ADDRESS>
+impl<Instruction, CustomError> BasicInstructionFetcher<Instruction, CustomError>
 where
-    Reg: GenericRegister<Type = u64>,
-    [(); Reg::N]:,
-    Memory: VirtualMemory,
+    Instruction: GenericBaseInstruction,
+    [(); Instruction::Reg::N]:,
 {
+    /// Create a new instance.
+    ///
+    /// `return_trap_address` is the address at which the interpreter will stop execution
+    /// (gracefully).
+    ///
+    /// # Safety
+    /// The program counter must be valid and aligned, the instructions processed must end with a
+    /// jump instruction.
     #[inline(always)]
-    fn handle_ecall(
-        &mut self,
-        _regs: &mut Registers<Reg>,
-        _memory: &mut Memory,
-        pc: &mut u64,
-        instruction: Rv64Instruction<Reg>,
-    ) -> Result<(), ExecuteError<Rv64Instruction<Reg>, &'static str>> {
-        Err(ExecuteError::UnsupportedInstruction {
-            address: *pc - instruction.size() as u64,
-            instruction,
-        })
+    pub unsafe fn new(return_trap_address: PC<Instruction>, pc: PC<Instruction>) -> Self {
+        Self {
+            return_trap_address,
+            pc,
+            _phantom: PhantomData,
+        }
     }
 }

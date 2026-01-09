@@ -23,8 +23,9 @@ pub const trait GenericInstruction:
     /// Try to decode a single valid instruction
     fn try_decode(instruction: u32) -> Option<Self>;
 
+    // TODO: `alignment` method in addition to size
     /// Instruction size in bytes
-    fn size(&self) -> usize;
+    fn size(&self) -> u8;
 }
 
 /// Generic base instruction

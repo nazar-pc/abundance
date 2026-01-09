@@ -5,6 +5,7 @@ use crate::registers::private::{GenericRegisterInternal, PhantomRegister};
 use core::fmt;
 use core::hint::unreachable_unchecked;
 use core::marker::Destruct;
+use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 mod private {
     use core::marker::PhantomData;
@@ -38,7 +39,18 @@ pub const trait GenericRegister:
     /// Register type.
     ///
     /// `u32` for RV32 and `u64` for RV64.
-    type Type: [const] Default + fmt::Display + fmt::Debug + Copy + Sized;
+    type Type: [const] Default
+        + [const] From<u8>
+        + [const] Into<u64>
+        + [const] Eq
+        + [const] Add
+        + [const] AddAssign
+        + [const] Sub
+        + [const] SubAssign
+        + fmt::Display
+        + fmt::Debug
+        + Copy
+        + Sized;
 
     /// Create a register from its bit representation
     fn from_bits(bits: u8) -> Option<Self>;
