@@ -1,7 +1,5 @@
 //! This module defines the RISC-V instruction set for the RV64 architecture
 
-pub mod b_64_ext;
-pub mod m_64_ext;
 pub mod rv64;
 #[cfg(test)]
 mod test_utils;

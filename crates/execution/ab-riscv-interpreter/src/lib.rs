@@ -5,8 +5,6 @@
 #![feature(generic_const_exprs)]
 #![no_std]
 
-pub mod b_64_ext;
-pub mod m_64_ext;
 pub mod rv64;
 
 use ab_riscv_primitives::instruction::BaseInstruction;
