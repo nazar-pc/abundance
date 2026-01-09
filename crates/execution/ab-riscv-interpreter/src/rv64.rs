@@ -4,9 +4,9 @@
 mod tests;
 
 use crate::{ExecutionError, ProgramCounter, VirtualMemory};
-use ab_riscv_primitives::instruction::GenericInstruction;
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::registers::{GenericRegister, Registers};
+use ab_riscv_primitives::registers::{Register, Registers};
 use core::fmt;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
@@ -14,7 +14,7 @@ use core::ops::ControlFlow;
 /// Custom handler for system instructions `ecall` and `ebreak`
 pub trait Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>
 where
-    Reg: GenericRegister<Type = u64>,
+    Reg: Register<Type = u64>,
     [(); Reg::N]:,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Display,
@@ -64,7 +64,7 @@ impl<Reg> Default for BasicRv64SystemInstructionHandler<Reg> {
 impl<Reg, Memory, PC, CustomError> Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>
     for BasicRv64SystemInstructionHandler<Rv64Instruction<Reg>>
 where
-    Reg: GenericRegister<Type = u64>,
+    Reg: Register<Type = u64>,
     [(); Reg::N]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
@@ -95,7 +95,7 @@ pub fn execute_rv64<Reg, Memory, PC, InstructionHandler, CustomError>(
     instruction: Rv64Instruction<Reg>,
 ) -> Result<ControlFlow<()>, ExecutionError<Rv64Instruction<Reg>, CustomError>>
 where
-    Reg: GenericRegister<Type = u64>,
+    Reg: Register<Type = u64>,
     [(); Reg::N]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,

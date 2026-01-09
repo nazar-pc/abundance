@@ -2,10 +2,10 @@ extern crate alloc;
 
 use crate::rv64::{Rv64SystemInstructionHandler, execute_rv64};
 use crate::{
-    BasicInt, ExecutionError, FetchInstructionResult, GenericInstructionFetcher, ProgramCounter,
+    BasicInt, ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
     ProgramCounterError, VirtualMemory, VirtualMemoryError,
 };
-use ab_riscv_primitives::instruction::GenericInstruction;
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::{EReg, Registers};
 use alloc::vec;
@@ -119,7 +119,7 @@ impl ProgramCounter<u64, TestMemory, &'static str> for TestInstructionFetcher {
     }
 }
 
-impl GenericInstructionFetcher<Rv64Instruction<EReg<u64>>, TestMemory, &'static str>
+impl InstructionFetcher<Rv64Instruction<EReg<u64>>, TestMemory, &'static str>
     for TestInstructionFetcher
 {
     #[inline]

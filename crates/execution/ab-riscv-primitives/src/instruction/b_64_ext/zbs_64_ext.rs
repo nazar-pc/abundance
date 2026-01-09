@@ -3,9 +3,9 @@
 #[cfg(test)]
 mod tests;
 
-use crate::instruction::GenericInstruction;
+use crate::instruction::Instruction;
 use crate::instruction::rv64::Rv64Instruction;
-use crate::registers::GenericRegister;
+use crate::registers::Register;
 use core::fmt;
 
 /// RISC-V Zbs instruction (Single-bit instructions)
@@ -28,9 +28,9 @@ pub enum Zbs64ExtInstruction<Reg> {
     Bexti { rd: Reg, rs1: Reg, shamt: u8 },
 }
 
-impl<Reg> const GenericInstruction for Zbs64ExtInstruction<Reg>
+impl<Reg> const Instruction for Zbs64ExtInstruction<Reg>
 where
-    Reg: [const] GenericRegister<Type = u64>,
+    Reg: [const] Register<Type = u64>,
 {
     type Base = Rv64Instruction<Reg>;
 

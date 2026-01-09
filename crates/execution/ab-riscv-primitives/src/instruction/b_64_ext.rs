@@ -5,13 +5,13 @@ pub mod zbb_64_ext;
 pub mod zbc_64_ext;
 pub mod zbs_64_ext;
 
-use crate::instruction::GenericInstruction;
+use crate::instruction::Instruction;
 use crate::instruction::b_64_ext::zba_64_ext::Zba64ExtInstruction;
 use crate::instruction::b_64_ext::zbb_64_ext::Zbb64ExtInstruction;
 use crate::instruction::b_64_ext::zbc_64_ext::Zbc64ExtInstruction;
 use crate::instruction::b_64_ext::zbs_64_ext::Zbs64ExtInstruction;
 use crate::instruction::rv64::Rv64Instruction;
-use crate::registers::GenericRegister;
+use crate::registers::Register;
 use core::fmt;
 
 /// RISC-V B (Zba + Zbb + Zbs) + Zbc instruction
@@ -23,9 +23,9 @@ pub enum BZbc64ExtInstruction<Reg> {
     Zbs(Zbs64ExtInstruction<Reg>),
 }
 
-impl<Reg> const GenericInstruction for BZbc64ExtInstruction<Reg>
+impl<Reg> const Instruction for BZbc64ExtInstruction<Reg>
 where
-    Reg: [const] GenericRegister<Type = u64>,
+    Reg: [const] Register<Type = u64>,
 {
     type Base = Rv64Instruction<Reg>;
 

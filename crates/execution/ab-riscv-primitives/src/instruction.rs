@@ -7,18 +7,18 @@ pub mod rv64;
 mod test_utils;
 pub mod tuples;
 
-use crate::registers::GenericRegister;
+use crate::registers::Register;
 use core::fmt;
 use core::marker::Destruct;
 
 /// Generic instruction
-pub const trait GenericInstruction:
+pub const trait Instruction:
     fmt::Display + fmt::Debug + [const] Destruct + Copy + Sized
 {
     /// Lower-level instruction like [`Rv64Instruction`]
     ///
     /// [`Rv64Instruction`]: rv64::Rv64Instruction
-    type Base: GenericBaseInstruction;
+    type Base: BaseInstruction;
 
     /// Try to decode a single valid instruction
     fn try_decode(instruction: u32) -> Option<Self>;
@@ -29,9 +29,9 @@ pub const trait GenericInstruction:
 }
 
 /// Generic base instruction
-pub const trait GenericBaseInstruction: [const] GenericInstruction {
+pub const trait BaseInstruction: [const] Instruction {
     /// A register type used by the instruction
-    type Reg: GenericRegister;
+    type Reg: Register;
 
     /// Create an instruction from a lower-level base instruction
     fn from_base(base: Self::Base) -> Self;

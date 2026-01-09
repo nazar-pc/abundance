@@ -9,10 +9,10 @@ use ab_riscv_interpreter::b_64_ext::execute_b_zbc_64_ext;
 use ab_riscv_interpreter::m_64_ext::execute_m_64_ext;
 use ab_riscv_interpreter::rv64::{BasicRv64SystemInstructionHandler, execute_rv64};
 use ab_riscv_interpreter::{
-    BasicInt, ExecutionError, FetchInstructionResult, GenericInstructionFetcher, ProgramCounter,
+    BasicInt, ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
     ProgramCounterError, VirtualMemory, VirtualMemoryError,
 };
-use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use ab_riscv_primitives::instruction::BaseInstruction;
 use ab_riscv_primitives::registers::Registers;
 use alloc::vec::Vec;
 use core::mem::offset_of;
@@ -281,8 +281,7 @@ where
     }
 }
 
-impl<Memory> GenericInstructionFetcher<Instruction, Memory, &'static str>
-    for EagerTestInstructionFetcher
+impl<Memory> InstructionFetcher<Instruction, Memory, &'static str> for EagerTestInstructionFetcher
 where
     Memory: VirtualMemory,
 {
@@ -331,14 +330,14 @@ impl EagerTestInstructionFetcher {
 }
 
 /// Execute [`Instruction`]s
-pub fn execute<Memory, InstructionFetcher>(
-    regs: &mut Registers<<Instruction as GenericBaseInstruction>::Reg>,
+pub fn execute<Memory, IF>(
+    regs: &mut Registers<<Instruction as BaseInstruction>::Reg>,
     memory: &mut Memory,
-    instruction_fetcher: &mut InstructionFetcher,
+    instruction_fetcher: &mut IF,
 ) -> Result<(), ExecutionError<Instruction, &'static str>>
 where
     Memory: VirtualMemory,
-    InstructionFetcher: GenericInstructionFetcher<Instruction, Memory, &'static str>,
+    IF: InstructionFetcher<Instruction, Memory, &'static str>,
 {
     let mut system_instruction_handler = BasicRv64SystemInstructionHandler::default();
     loop {

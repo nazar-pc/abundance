@@ -9,13 +9,13 @@ pub mod b_64_ext;
 pub mod m_64_ext;
 pub mod rv64;
 
-use ab_riscv_primitives::instruction::GenericBaseInstruction;
-use ab_riscv_primitives::registers::GenericRegister;
+use ab_riscv_primitives::instruction::BaseInstruction;
+use ab_riscv_primitives::registers::Register;
 use core::fmt;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
-type PC<Instruction> = <<Instruction as GenericBaseInstruction>::Reg as GenericRegister>::Type;
+type PC<Instruction> = <<Instruction as BaseInstruction>::Reg as Register>::Type;
 
 /// Errors for [`VirtualMemory`]
 #[derive(Debug, thiserror::Error)]
@@ -122,7 +122,7 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum ExecutionError<Instruction, Custom>
 where
-    Instruction: GenericBaseInstruction,
+    Instruction: BaseInstruction,
     Custom: fmt::Display,
 {
     /// Unaligned instruction fetch
@@ -164,16 +164,16 @@ where
     Custom(Custom),
 }
 
-impl<BaseInstruction, Custom> ExecutionError<BaseInstruction, Custom>
+impl<BI, Custom> ExecutionError<BI, Custom>
 where
-    BaseInstruction: GenericBaseInstruction,
+    BI: BaseInstruction,
     Custom: fmt::Display,
 {
     /// Map instruction type from lower-level base instruction
     #[inline]
     pub fn map_from_base<Instruction>(self) -> ExecutionError<Instruction, Custom>
     where
-        Instruction: GenericBaseInstruction<Reg = BaseInstruction::Reg, Base = BaseInstruction>,
+        Instruction: BaseInstruction<Reg = BI::Reg, Base = BI>,
     {
         match self {
             Self::UnalignedInstructionFetch { address } => {
@@ -201,7 +201,7 @@ where
     }
 }
 
-/// Result of [`GenericInstructionFetcher::fetch_instruction()`] call
+/// Result of [`InstructionFetcher::fetch_instruction()`] call
 #[derive(Debug, Copy, Clone)]
 pub enum FetchInstructionResult<Instruction> {
     /// Instruction fetched successfully
@@ -211,10 +211,10 @@ pub enum FetchInstructionResult<Instruction> {
 }
 
 /// Generic instruction fetcher
-pub trait GenericInstructionFetcher<Instruction, Memory, CustomError>:
+pub trait InstructionFetcher<Instruction, Memory, CustomError>:
     ProgramCounter<PC<Instruction>, Memory, CustomError>
 where
-    Instruction: GenericBaseInstruction,
+    Instruction: BaseInstruction,
     CustomError: fmt::Display,
 {
     /// Fetch a single instruction at a specified address and advance the program counter
@@ -228,7 +228,7 @@ where
 #[derive(Debug, Copy, Clone)]
 pub struct BasicInstructionFetcher<Instruction, CustomError>
 where
-    Instruction: GenericBaseInstruction,
+    Instruction: BaseInstruction,
 {
     return_trap_address: PC<Instruction>,
     pc: PC<Instruction>,
@@ -238,7 +238,7 @@ where
 impl<Instruction, Memory, CustomError> ProgramCounter<PC<Instruction>, Memory, CustomError>
     for BasicInstructionFetcher<Instruction, CustomError>
 where
-    Instruction: GenericBaseInstruction,
+    Instruction: BaseInstruction,
     Memory: VirtualMemory,
     CustomError: fmt::Display,
 {
@@ -269,10 +269,10 @@ where
     }
 }
 
-impl<Instruction, Memory, CustomError> GenericInstructionFetcher<Instruction, Memory, CustomError>
+impl<Instruction, Memory, CustomError> InstructionFetcher<Instruction, Memory, CustomError>
     for BasicInstructionFetcher<Instruction, CustomError>
 where
-    Instruction: GenericBaseInstruction,
+    Instruction: BaseInstruction,
     Memory: VirtualMemory,
     CustomError: fmt::Display,
 {
@@ -294,7 +294,7 @@ where
 
 impl<Instruction, CustomError> BasicInstructionFetcher<Instruction, CustomError>
 where
-    Instruction: GenericBaseInstruction,
+    Instruction: BaseInstruction,
     [(); Instruction::Reg::N]:,
 {
     /// Create a new instance.

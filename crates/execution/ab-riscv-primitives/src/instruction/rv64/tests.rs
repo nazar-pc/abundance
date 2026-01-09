@@ -1,4 +1,4 @@
-use crate::instruction::GenericBaseInstruction;
+use crate::instruction::BaseInstruction;
 use crate::instruction::rv64::Rv64Instruction;
 use crate::instruction::test_utils::{
     make_b_type, make_i_type, make_j_type, make_r_type, make_s_type, make_u_type,

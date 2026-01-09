@@ -1,6 +1,6 @@
 //! Composition tuples for instructions
 
-use crate::instruction::{GenericBaseInstruction, GenericInstruction};
+use crate::instruction::{BaseInstruction, Instruction};
 use core::fmt;
 
 /// Tuple instruction that allows composing a base instruction type with an extension.
@@ -10,8 +10,8 @@ use core::fmt;
 #[derive(Debug, Copy, Clone)]
 pub enum Tuple2Instruction<A, Base>
 where
-    A: GenericInstruction<Base = Base>,
-    Base: GenericBaseInstruction,
+    A: Instruction<Base = Base>,
+    Base: BaseInstruction,
 {
     A(A),
     Base(Base),
@@ -19,8 +19,8 @@ where
 
 impl<A, Base> fmt::Display for Tuple2Instruction<A, Base>
 where
-    A: GenericInstruction<Base = Base>,
-    Base: GenericBaseInstruction,
+    A: Instruction<Base = Base>,
+    Base: BaseInstruction,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -30,10 +30,10 @@ where
     }
 }
 
-impl<A, Base> const GenericInstruction for Tuple2Instruction<A, Base>
+impl<A, Base> const Instruction for Tuple2Instruction<A, Base>
 where
-    A: [const] GenericInstruction<Base = Base>,
-    Base: [const] GenericBaseInstruction,
+    A: [const] Instruction<Base = Base>,
+    Base: [const] BaseInstruction,
 {
     type Base = Base;
 
@@ -55,10 +55,10 @@ where
     }
 }
 
-impl<A, Base> const GenericBaseInstruction for Tuple2Instruction<A, Base>
+impl<A, Base> const BaseInstruction for Tuple2Instruction<A, Base>
 where
-    A: [const] GenericInstruction<Base = Base>,
-    Base: [const] GenericBaseInstruction,
+    A: [const] Instruction<Base = Base>,
+    Base: [const] BaseInstruction,
 {
     type Reg = Base::Reg;
 
@@ -84,9 +84,9 @@ where
 #[derive(Debug, Copy, Clone)]
 pub enum Tuple3Instruction<A, B, Base>
 where
-    A: GenericInstruction<Base = Base>,
-    B: GenericInstruction<Base = Base>,
-    Base: GenericBaseInstruction,
+    A: Instruction<Base = Base>,
+    B: Instruction<Base = Base>,
+    Base: BaseInstruction,
 {
     A(A),
     B(B),
@@ -95,9 +95,9 @@ where
 
 impl<A, B, Base> fmt::Display for Tuple3Instruction<A, B, Base>
 where
-    A: GenericInstruction<Base = Base>,
-    B: GenericInstruction<Base = Base>,
-    Base: GenericBaseInstruction,
+    A: Instruction<Base = Base>,
+    B: Instruction<Base = Base>,
+    Base: BaseInstruction,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -108,11 +108,11 @@ where
     }
 }
 
-impl<A, B, Base> const GenericInstruction for Tuple3Instruction<A, B, Base>
+impl<A, B, Base> const Instruction for Tuple3Instruction<A, B, Base>
 where
-    A: [const] GenericInstruction<Base = Base>,
-    B: [const] GenericInstruction<Base = Base>,
-    Base: [const] GenericBaseInstruction,
+    A: [const] Instruction<Base = Base>,
+    B: [const] Instruction<Base = Base>,
+    Base: [const] BaseInstruction,
 {
     type Base = Base;
 
@@ -137,11 +137,11 @@ where
     }
 }
 
-impl<A, B, Base> const GenericBaseInstruction for Tuple3Instruction<A, B, Base>
+impl<A, B, Base> const BaseInstruction for Tuple3Instruction<A, B, Base>
 where
-    A: [const] GenericInstruction<Base = Base>,
-    B: [const] GenericInstruction<Base = Base>,
-    Base: [const] GenericBaseInstruction,
+    A: [const] Instruction<Base = Base>,
+    B: [const] Instruction<Base = Base>,
+    Base: [const] BaseInstruction,
 {
     type Reg = Base::Reg;
 

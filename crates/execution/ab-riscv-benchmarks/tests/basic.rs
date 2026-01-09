@@ -13,7 +13,7 @@ use ab_riscv_benchmarks::host_utils::{
     RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
 use ab_riscv_interpreter::BasicInstructionFetcher;
-use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use ab_riscv_primitives::instruction::BaseInstruction;
 use ab_riscv_primitives::registers::Registers;
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
@@ -102,7 +102,7 @@ where
                                 instruction[2],
                                 instruction[3],
                             ]);
-                            GenericBaseInstruction::decode(instruction)
+                            BaseInstruction::decode(instruction)
                         })
                         .collect(),
                     TRAP_ADDRESS,

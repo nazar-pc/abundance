@@ -1,4 +1,4 @@
-use crate::instruction::GenericInstruction;
+use crate::instruction::Instruction;
 use crate::instruction::m_64_ext::M64ExtInstruction;
 use crate::instruction::test_utils::make_r_type;
 use crate::registers::Reg;

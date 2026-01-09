@@ -13,7 +13,7 @@ use ab_riscv_benchmarks::host_utils::{
     RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
 use ab_riscv_interpreter::{BasicInstructionFetcher, ProgramCounter};
-use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use ab_riscv_primitives::instruction::BaseInstruction;
 use ab_riscv_primitives::registers::Registers;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_zebra::SigningKey;
@@ -123,7 +123,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                         instruction[2],
                         instruction[3],
                     ]);
-                    GenericBaseInstruction::decode(instruction)
+                    BaseInstruction::decode(instruction)
                 })
                 .collect(),
             TRAP_ADDRESS,

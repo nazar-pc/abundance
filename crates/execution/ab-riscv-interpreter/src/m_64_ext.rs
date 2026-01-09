@@ -4,13 +4,13 @@
 mod tests;
 
 use ab_riscv_primitives::instruction::m_64_ext::M64ExtInstruction;
-use ab_riscv_primitives::registers::{GenericRegister, Registers};
+use ab_riscv_primitives::registers::{Register, Registers};
 
 /// Execute instructions from M extension
 #[inline(always)]
 pub fn execute_m_64_ext<Reg>(regs: &mut Registers<Reg>, instruction: M64ExtInstruction<Reg>)
 where
-    Reg: GenericRegister<Type = u64>,
+    Reg: Register<Type = u64>,
     [(); Reg::N]:,
 {
     match instruction {
