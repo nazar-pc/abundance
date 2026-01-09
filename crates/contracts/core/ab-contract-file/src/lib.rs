@@ -8,7 +8,7 @@ use ab_contracts_common::metadata::decode::{
     MethodsMetadataDecoder,
 };
 use ab_io_type::trivial_type::TrivialType;
-use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use ab_riscv_primitives::instruction::BaseInstruction;
 use ab_riscv_primitives::instruction::b_64_ext::BZbc64ExtInstruction;
 use ab_riscv_primitives::instruction::m_64_ext::M64ExtInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
@@ -123,6 +123,14 @@ pub enum ContractFileParseError {
         /// Size of the file in bytes
         file_size: u32,
     },
+    /// Method is unaligned
+    #[error("Method is unaligned: file offset {file_offset}, memory address {memory_address}")]
+    MethodUnaligned {
+        /// Offset of the method in bytes relative to the start of the file
+        file_offset: u32,
+        /// Address of the method in bytes relative to the beginning of the initialized memory
+        memory_address: u32,
+    },
     /// Method offset is out of bounds of the file
     #[error(
         "Method offset is out of bounds of the file: offset {offset}, code section \
@@ -135,6 +143,17 @@ pub enum ContractFileParseError {
         code_section_offset: u32,
         /// Size of the file in bytes
         file_size: u32,
+    },
+    /// Host call function is unaligned
+    #[error(
+        "Host call function is unaligned: file offset {file_offset}, memory address \
+        {memory_address}"
+    )]
+    HostCallFnUnaligned {
+        /// Offset of the method in bytes relative to the start of the file
+        file_offset: u32,
+        /// Address of the method in bytes relative to the beginning of the initialized memory
+        memory_address: u32,
     },
     /// The host call function offset is out of bounds of the file
     #[error(
@@ -199,6 +218,9 @@ pub enum ContractFileParseError {
         /// Instruction
         instruction: Instruction,
     },
+    /// The code section is empty
+    #[error("The code section is empty")]
+    CodeEmpty,
     /// Unexpected trailing code bytes encountered while parsing the code section
     #[error(
         "Unexpected trailing code bytes encountered while parsing the code section: {num_bytes} \
@@ -207,6 +229,12 @@ pub enum ContractFileParseError {
     UnexpectedTrailingCodeBytes {
         /// Number of trailing bytes encountered
         num_bytes: usize,
+    },
+    /// The last instruction in the code section must be a jump instruction
+    #[error("The last instruction in the code section must be a jump instruction: {instruction}")]
+    LastInstructionMustBeJump {
+        /// Instruction that is expected to be a jump instruction
+        instruction: Instruction,
     },
 }
 
@@ -217,6 +245,8 @@ impl From<MetadataDecodingError<'_>> for ContractFileParseError {
     }
 }
 
+// TODO: Description of the file format, assumptions and invariants
+/// A container for a parsed contract file
 #[derive(Debug)]
 pub struct ContractFile<'a> {
     read_only_section_file_size: u32,
@@ -362,9 +392,18 @@ impl<'a> ContractFile<'a> {
                             header_num_methods: header.num_methods,
                             metadata_method_index: metadata_num_methods - 1,
                         })??;
+                    let address = contract_file_method_metadata.offset - read_only_section_offset
+                        + read_only_padding_size;
+
+                    if !address.is_multiple_of(size_of::<u32>() as u32) {
+                        return Err(ContractFileParseError::MethodUnaligned {
+                            file_offset: contract_file_method_metadata.offset,
+                            memory_address: address,
+                        });
+                    }
+
                     contract_method(ContractFileMethod {
-                        address: contract_file_method_metadata.offset - read_only_section_offset
-                            + read_only_padding_size,
+                        address,
                         method_metadata_item,
                         method_metadata_bytes,
                     })?;
@@ -387,18 +426,17 @@ impl<'a> ContractFile<'a> {
             });
         }
 
-        if header.host_call_fn_offset != 0
-            && (header.host_call_fn_offset >= file_size
-                || header.host_call_fn_offset < code_section_offset)
-        {
-            return Err(ContractFileParseError::HostCallFnOutOfRange {
-                offset: header.host_call_fn_offset,
-                code_section_offset,
-                file_size,
-            });
-        }
-
         if header.host_call_fn_offset != 0 {
+            if header.host_call_fn_offset >= file_size
+                || header.host_call_fn_offset < code_section_offset
+            {
+                return Err(ContractFileParseError::HostCallFnOutOfRange {
+                    offset: header.host_call_fn_offset,
+                    code_section_offset,
+                    file_size,
+                });
+            }
+
             let instructions_bytes = file_bytes
                 .get(header.host_call_fn_offset as usize..)
                 .ok_or(ContractFileParseError::HostCallFnOutOfRange {
@@ -454,21 +492,32 @@ impl<'a> ContractFile<'a> {
             if !matches_expected_pattern {
                 return Err(ContractFileParseError::InvalidHostCallFnPattern { first, second });
             }
+
+            let address =
+                header.host_call_fn_offset - read_only_section_offset + read_only_padding_size;
+
+            if !address.is_multiple_of(size_of::<u32>() as u32) {
+                return Err(ContractFileParseError::HostCallFnUnaligned {
+                    file_offset: header.host_call_fn_offset,
+                    memory_address: address,
+                });
+            }
         }
 
         // Ensure code only consists of expected instructions
         {
             let mut remaining_code_file_bytes = &file_bytes[code_section_offset as usize..];
+
+            let mut instruction = Instruction::Base(Rv64Instruction::Unimp);
             while let Some(instruction_bytes) =
                 remaining_code_file_bytes.split_off(..size_of::<u32>())
             {
-                let instruction = u32::from_le_bytes([
+                instruction = Instruction::decode(u32::from_le_bytes([
                     instruction_bytes[0],
                     instruction_bytes[1],
                     instruction_bytes[2],
                     instruction_bytes[3],
-                ]);
-                let instruction = Instruction::decode(instruction);
+                ]));
                 match instruction {
                     Instruction::A(_)
                     | Instruction::B(_)
@@ -535,6 +584,23 @@ impl<'a> ContractFile<'a> {
                         return Err(ContractFileParseError::UnexpectedInstruction { instruction });
                     }
                 }
+            }
+
+            let is_jump_instruction = matches!(
+                instruction,
+                Instruction::Base(
+                    Rv64Instruction::Jalr { .. }
+                        | Rv64Instruction::Beq { .. }
+                        | Rv64Instruction::Bne { .. }
+                        | Rv64Instruction::Blt { .. }
+                        | Rv64Instruction::Bge { .. }
+                        | Rv64Instruction::Bltu { .. }
+                        | Rv64Instruction::Bgeu { .. }
+                        | Rv64Instruction::Jal { .. }
+                )
+            );
+            if !is_jump_instruction {
+                return Err(ContractFileParseError::LastInstructionMustBeJump { instruction });
             }
 
             if !remaining_code_file_bytes.is_empty() {

@@ -3,9 +3,9 @@
 #[cfg(test)]
 mod tests;
 
-use crate::instruction::GenericInstruction;
+use crate::instruction::Instruction;
 use crate::instruction::rv64::Rv64Instruction;
-use crate::registers::GenericRegister;
+use crate::registers::Register;
 use core::fmt;
 
 /// RISC-V Zbc instruction (Carryless multiplication)
@@ -16,9 +16,9 @@ pub enum Zbc64ExtInstruction<Reg> {
     Clmulr { rd: Reg, rs1: Reg, rs2: Reg },
 }
 
-impl<Reg> const GenericInstruction for Zbc64ExtInstruction<Reg>
+impl<Reg> const Instruction for Zbc64ExtInstruction<Reg>
 where
-    Reg: [const] GenericRegister<Type = u64>,
+    Reg: [const] Register<Type = u64>,
 {
     type Base = Rv64Instruction<Reg>;
 
@@ -53,8 +53,8 @@ where
     }
 
     #[inline(always)]
-    fn size(&self) -> usize {
-        size_of::<u32>()
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
     }
 }
 

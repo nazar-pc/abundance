@@ -9,14 +9,15 @@ use ab_riscv_interpreter::b_64_ext::execute_b_zbc_64_ext;
 use ab_riscv_interpreter::m_64_ext::execute_m_64_ext;
 use ab_riscv_interpreter::rv64::{Rv64SystemInstructionHandler, execute_rv64};
 use ab_riscv_interpreter::{
-    BasicInt, ExecuteError, FetchInstructionResult, GenericInstructionHandler, VirtualMemory,
-    VirtualMemoryError,
+    BasicInt, ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
+    ProgramCounterError, VirtualMemory, VirtualMemoryError,
 };
+use ab_riscv_primitives::instruction::BaseInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::instruction::{GenericBaseInstruction, GenericInstruction};
-use ab_riscv_primitives::registers::{GenericRegister, Registers};
+use ab_riscv_primitives::registers::{Register, Registers};
 use alloc::vec::Vec;
 use core::fmt;
+use core::marker::PhantomData;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
 
@@ -154,6 +155,21 @@ impl<const MEMORY_SIZE: usize> VirtualMemory for TestMemory<MEMORY_SIZE> {
         }
     }
 
+    unsafe fn read_unchecked<T>(&self, address: u64) -> T
+    where
+        T: BasicInt,
+    {
+        // SAFETY: Guaranteed by function contract
+        unsafe {
+            let offset = address.unchecked_sub(self.base_addr) as usize;
+            self.data
+                .as_ptr()
+                .cast::<T>()
+                .byte_add(offset)
+                .read_unaligned()
+        }
+    }
+
     fn write<T>(&mut self, address: u64, value: T) -> Result<(), VirtualMemoryError>
     where
         T: BasicInt,
@@ -219,38 +235,38 @@ impl<const MEMORY_SIZE: usize> TestMemory<MEMORY_SIZE> {
     }
 }
 
-/// Eager instruction handler eagerly decodes all instructions upfront.
-///
-/// `RETURN_TRAP_ADDRESS` is the address at which the interpreter will stop execution (gracefully)
+/// Eager instruction handler eagerly decodes all instructions upfront
 #[derive(Debug, Default, Clone)]
-pub struct EagerTestInstructionHandler<const RETURN_TRAP_ADDRESS: u64, Instruction> {
+pub struct EagerTestInstructionFetcher {
     instructions: Vec<Instruction>,
+    return_trap_address: u64,
     base_addr: u64,
+    instruction_offset: usize,
 }
 
-impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Memory>
-    GenericInstructionHandler<Instruction, Memory, &'static str>
-    for EagerTestInstructionHandler<RETURN_TRAP_ADDRESS, Instruction>
+impl<Memory> ProgramCounter<u64, Memory, &'static str> for EagerTestInstructionFetcher
 where
-    Instruction: GenericBaseInstruction,
-    [(); Instruction::Reg::N]:,
     Memory: VirtualMemory,
 {
     #[inline(always)]
-    fn fetch_instruction(
-        &mut self,
-        _regs: &mut Registers<Instruction::Reg>,
-        _memory: &mut Memory,
-        pc: &mut u64,
-    ) -> Result<FetchInstructionResult<Instruction>, ExecuteError<Instruction, &'static str>> {
-        let address = *pc;
+    fn get_pc(&self) -> u64 {
+        self.base_addr + self.instruction_offset as u64 * size_of::<u32>() as u64
+    }
 
-        if address == RETURN_TRAP_ADDRESS {
-            return Ok(FetchInstructionResult::ControlFlow(ControlFlow::Break(())));
+    #[inline]
+    fn set_pc(
+        &mut self,
+        _memory: &mut Memory,
+        pc: u64,
+    ) -> Result<ControlFlow<()>, ProgramCounterError<u64, &'static str>> {
+        let address = pc;
+
+        if address == self.return_trap_address {
+            return Ok(ControlFlow::Break(()));
         }
 
         if !address.is_multiple_of(size_of::<u32>() as u64) {
-            return Err(ExecuteError::UnalignedInstructionFetch { address });
+            return Err(ProgramCounterError::UnalignedInstruction { address });
         }
 
         let offset = address
@@ -258,75 +274,115 @@ where
             .ok_or(VirtualMemoryError::OutOfBoundsRead { address })? as usize;
         let instruction_offset = offset / size_of::<u32>();
 
-        let instruction = *self
-            .instructions
-            .get(instruction_offset)
-            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })?;
-        *pc += instruction.size() as u64;
+        if instruction_offset >= self.instructions.len() {
+            return Err(VirtualMemoryError::OutOfBoundsRead { address }.into());
+        }
+
+        self.instruction_offset = instruction_offset;
+
+        Ok(ControlFlow::Continue(()))
+    }
+}
+
+impl<Memory> InstructionFetcher<Instruction, Memory, &'static str> for EagerTestInstructionFetcher
+where
+    Memory: VirtualMemory,
+{
+    #[inline(always)]
+    fn fetch_instruction(
+        &mut self,
+        _memory: &mut Memory,
+    ) -> Result<FetchInstructionResult<Instruction>, ExecutionError<Instruction, &'static str>>
+    {
+        // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
+        // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
+        // one instruction can't result in out-of-bounds access.
+        let instruction = *unsafe { self.instructions.get_unchecked(self.instruction_offset) };
+        self.instruction_offset += 1;
 
         Ok(FetchInstructionResult::Instruction(instruction))
     }
 }
 
-impl<const RETURN_TRAP_ADDRESS: u64, Instruction, Reg, Memory>
-    Rv64SystemInstructionHandler<Reg, Memory, &'static str>
-    for EagerTestInstructionHandler<RETURN_TRAP_ADDRESS, Instruction>
+impl EagerTestInstructionFetcher {
+    /// Create a new instance with the specified instructions and base address.
+    ///
+    /// Instructions are in the same order as they appear in the binary, and the base address
+    /// corresponds to the first instruction.
+    ///
+    /// `return_trap_address` is the address at which the interpreter will stop execution
+    /// (gracefully).
+    ///
+    /// # Safety
+    /// The program counter must be valid and aligned, the instructions processed must end with a
+    /// jump instruction.
+    #[inline(always)]
+    pub unsafe fn new(
+        instructions: Vec<Instruction>,
+        return_trap_address: u64,
+        base_addr: u64,
+        pc: u64,
+    ) -> Self {
+        Self {
+            instructions,
+            return_trap_address,
+            base_addr,
+            instruction_offset: (pc - base_addr) as usize / size_of::<u32>(),
+        }
+    }
+}
+
+/// System instruction handler that does nothing
+#[derive(Debug, Clone, Copy)]
+pub struct NoopRv64SystemInstructionHandler<Reg> {
+    _phantom: PhantomData<Reg>,
+}
+
+impl<Reg> Default for NoopRv64SystemInstructionHandler<Reg> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<Reg, Memory, PC, CustomError> Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>
+    for NoopRv64SystemInstructionHandler<Rv64Instruction<Reg>>
 where
-    Instruction: GenericInstruction,
-    Reg: GenericRegister<Type = u64>,
+    Reg: Register<Type = u64>,
     [(); Reg::N]:,
     Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Display,
 {
     #[inline(always)]
     fn handle_ecall(
         &mut self,
         _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
-        pc: &mut u64,
-        instruction: Rv64Instruction<Reg>,
-    ) -> Result<(), ExecuteError<Rv64Instruction<Reg>, &'static str>> {
-        Err(ExecuteError::UnsupportedInstruction {
-            address: *pc - instruction.size() as u64,
-            instruction,
-        })
-    }
-}
-
-impl<const RETURN_TRAP_ADDRESS: u64, Instruction>
-    EagerTestInstructionHandler<RETURN_TRAP_ADDRESS, Instruction>
-{
-    /// Create a new instance with the specified instructions and base address.
-    ///
-    /// Instructions are in the same order as they appear in the binary, and the base address
-    /// corresponds to the first instruction.
-    pub fn new(instructions: Vec<Instruction>, base_addr: u64) -> Self {
-        Self {
-            instructions,
-            base_addr,
-        }
+        _program_counter: &mut PC,
+    ) -> Result<ControlFlow<()>, ExecutionError<Rv64Instruction<Reg>, CustomError>> {
+        // SAFETY: Contracts are statically known to not contain `ecall` instructions
+        // unsafe { unreachable_unchecked() }
+        // For some known reason this is faster than `unreachable_unchecked()`
+        Ok(ControlFlow::Continue(()))
     }
 }
 
 /// Execute [`Instruction`]s
-pub fn execute<Memory, InstructionHandler, CustomError>(
-    regs: &mut Registers<<Instruction as GenericBaseInstruction>::Reg>,
+pub fn execute<Memory, IF>(
+    regs: &mut Registers<<Instruction as BaseInstruction>::Reg>,
     memory: &mut Memory,
-    pc: &mut u64,
-    instruction_handlers: &mut InstructionHandler,
-) -> Result<(), ExecuteError<Instruction, CustomError>>
+    instruction_fetcher: &mut IF,
+) -> Result<(), ExecutionError<Instruction, &'static str>>
 where
     Memory: VirtualMemory,
-    InstructionHandler: GenericInstructionHandler<Instruction, Memory, CustomError>
-        + Rv64SystemInstructionHandler<
-            <Instruction as GenericBaseInstruction>::Reg,
-            Memory,
-            CustomError,
-        >,
-    CustomError: fmt::Display,
+    IF: InstructionFetcher<Instruction, Memory, &'static str>,
 {
+    let mut system_instruction_handler = NoopRv64SystemInstructionHandler::default();
     loop {
-        let old_pc = *pc;
-        let instruction = match instruction_handlers.fetch_instruction(regs, memory, pc)? {
+        let instruction = match instruction_fetcher.fetch_instruction(memory)? {
             FetchInstructionResult::Instruction(instruction) => instruction,
             FetchInstructionResult::ControlFlow(ControlFlow::Continue(())) => {
                 continue;
@@ -345,8 +401,22 @@ where
             }
             Instruction::Base(instruction) => {
                 // TODO: More ergonomic way to map instruction type from the base type
-                execute_rv64(regs, memory, pc, instruction_handlers, old_pc, instruction)
-                    .map_err(ExecuteError::map_from_base)?;
+                match execute_rv64(
+                    regs,
+                    memory,
+                    instruction_fetcher,
+                    &mut system_instruction_handler,
+                    instruction,
+                )
+                .map_err(ExecutionError::map_from_base)?
+                {
+                    ControlFlow::Continue(()) => {
+                        continue;
+                    }
+                    ControlFlow::Break(()) => {
+                        break;
+                    }
+                }
             }
         }
     }

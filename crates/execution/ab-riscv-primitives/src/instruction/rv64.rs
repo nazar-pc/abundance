@@ -1,7 +1,7 @@
 //! Base RISC-V RV64 instruction set
 
-use crate::instruction::{GenericBaseInstruction, GenericInstruction};
-use crate::registers::GenericRegister;
+use crate::instruction::{BaseInstruction, Instruction};
+use crate::registers::Register;
 use core::fmt;
 
 #[cfg(test)]
@@ -95,9 +95,9 @@ pub enum Rv64Instruction<Reg> {
     Invalid(u32),
 }
 
-impl<Reg> const GenericInstruction for Rv64Instruction<Reg>
+impl<Reg> const Instruction for Rv64Instruction<Reg>
 where
-    Reg: [const] GenericRegister<Type = u64>,
+    Reg: [const] Register<Type = u64>,
 {
     type Base = Rv64Instruction<Reg>;
 
@@ -357,14 +357,14 @@ where
     }
 
     #[inline(always)]
-    fn size(&self) -> usize {
-        size_of::<u32>()
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
     }
 }
 
-impl<Reg> const GenericBaseInstruction for Rv64Instruction<Reg>
+impl<Reg> const BaseInstruction for Rv64Instruction<Reg>
 where
-    Reg: [const] GenericRegister<Type = u64>,
+    Reg: [const] Register<Type = u64>,
 {
     type Reg = Reg;
 

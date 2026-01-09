@@ -5,15 +5,15 @@
 #![feature(generic_const_exprs)]
 
 use ab_blake3::OUT_LEN;
-use ab_contract_file::{ContractFile, Instruction, Register};
+use ab_contract_file::{ContractFile, Register};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
-    Blake3HashChunkInternalArgs, EagerTestInstructionHandler, Ed25519VerifyInternalArgs,
+    Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
     RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
-use ab_riscv_interpreter::{BasicInstructionHandler, ExecuteError};
-use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use ab_riscv_interpreter::BasicInstructionFetcher;
+use ab_riscv_primitives::instruction::BaseInstruction;
 use ab_riscv_primitives::registers::Registers;
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
@@ -24,53 +24,15 @@ const MEMORY_BASE_ADDRESS: u64 = 0x1000;
 const TRAP_ADDRESS: u64 = 0;
 const MEMORY_SIZE: usize = 128 * 1024;
 
-fn run_lazy(
-    _contract_file: &ContractFile<'_>,
-    regs: &mut Registers<Register>,
-    memory: &mut TestMemory<MEMORY_SIZE>,
-    pc: &mut u64,
-) -> Result<(), ExecuteError<Instruction, &'static str>> {
-    let mut handler = BasicInstructionHandler::<TRAP_ADDRESS>;
-
-    execute(regs, memory, pc, &mut handler)
+enum RunType {
+    Lazy,
+    Eager,
 }
 
-fn run_eager(
-    contract_file: &ContractFile<'_>,
-    regs: &mut Registers<Register>,
-    memory: &mut TestMemory<MEMORY_SIZE>,
-    pc: &mut u64,
-) -> Result<(), ExecuteError<Instruction, &'static str>> {
-    let mut handler = EagerTestInstructionHandler::<TRAP_ADDRESS, _>::new(
-        contract_file
-            .get_code()
-            .chunks_exact(size_of::<u32>())
-            .map(|instruction| {
-                let instruction = u32::from_le_bytes([
-                    instruction[0],
-                    instruction[1],
-                    instruction[2],
-                    instruction[3],
-                ]);
-                GenericBaseInstruction::decode(instruction)
-            })
-            .collect(),
-        MEMORY_BASE_ADDRESS + contract_file.header().read_only_section_memory_size as u64,
-    );
-
-    execute(regs, memory, pc, &mut handler)
-}
-
-fn call_method<IA, CIA, R>(method_name: &str, create_internal_args: CIA, run: R) -> IA
+fn call_method<IA, CIA>(method_name: &str, create_internal_args: CIA, run_type: RunType) -> IA
 where
     IA: Copy,
     CIA: FnOnce(u64) -> IA,
-    R: FnOnce(
-        &ContractFile<'_>,
-        &mut Registers<Register>,
-        &mut TestMemory<MEMORY_SIZE>,
-        &mut u64,
-    ) -> Result<(), ExecuteError<Instruction, &'static str>>,
 {
     let mut methods = HashMap::new();
     let contract_file = ContractFile::parse(RISCV_CONTRACT_BYTES, |contract_file_method| {
@@ -118,8 +80,41 @@ where
     regs.write(Register::A0, internal_args_addr);
     regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-    let mut pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
-    run(&contract_file, &mut regs, &mut memory, &mut pc).unwrap();
+    let pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
+    match run_type {
+        RunType::Lazy => {
+            // SAFETY: Program counter is trusted
+            let mut instruction_fetcher = unsafe { BasicInstructionFetcher::new(TRAP_ADDRESS, pc) };
+
+            execute(&mut regs, &mut memory, &mut instruction_fetcher).unwrap();
+        }
+        RunType::Eager => {
+            // SAFETY: Program counter is trusted
+            let mut instruction_fetcher = unsafe {
+                EagerTestInstructionFetcher::new(
+                    contract_file
+                        .get_code()
+                        .chunks_exact(size_of::<u32>())
+                        .map(|instruction| {
+                            let instruction = u32::from_le_bytes([
+                                instruction[0],
+                                instruction[1],
+                                instruction[2],
+                                instruction[3],
+                            ]);
+                            BaseInstruction::decode(instruction)
+                        })
+                        .collect(),
+                    TRAP_ADDRESS,
+                    MEMORY_BASE_ADDRESS
+                        + contract_file.header().read_only_section_memory_size as u64,
+                    pc,
+                )
+            };
+
+            execute(&mut regs, &mut memory, &mut instruction_fetcher).unwrap();
+        }
+    }
 
     // SAFETY: Byte representation of `#[repr(C)]` without internal padding
     *unsafe {
@@ -142,7 +137,7 @@ fn blake3_hash_chunk_lazy() {
     let internal_args = call_method(
         "benchmarks_blake3_hash_chunk",
         |internal_args_addr| Blake3HashChunkInternalArgs::new(internal_args_addr, data_to_hash),
-        run_lazy,
+        RunType::Lazy,
     );
     let actual_hash = internal_args.result();
 
@@ -157,7 +152,7 @@ fn blake3_hash_chunk_eager() {
     let internal_args = call_method(
         "benchmarks_blake3_hash_chunk",
         |internal_args_addr| Blake3HashChunkInternalArgs::new(internal_args_addr, data_to_hash),
-        run_eager,
+        RunType::Eager,
     );
     let actual_hash = internal_args.result();
 
@@ -180,7 +175,7 @@ fn ed25519_verify_valid_lazy() {
         |internal_args_addr| {
             Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, message)
         },
-        run_lazy,
+        RunType::Lazy,
     );
 
     assert!(internal_args.result.get());
@@ -203,7 +198,7 @@ fn ed25519_verify_invalid_lazy() {
         |internal_args_addr| {
             Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, other_message)
         },
-        run_lazy,
+        RunType::Lazy,
     );
 
     assert!(!internal_args.result.get());
@@ -225,7 +220,7 @@ fn ed25519_verify_valid_eager() {
         |internal_args_addr| {
             Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, message)
         },
-        run_eager,
+        RunType::Eager,
     );
 
     assert!(internal_args.result.get());
@@ -248,7 +243,7 @@ fn ed25519_verify_invalid_eager() {
         |internal_args_addr| {
             Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, other_message)
         },
-        run_eager,
+        RunType::Eager,
     );
 
     assert!(!internal_args.result.get());

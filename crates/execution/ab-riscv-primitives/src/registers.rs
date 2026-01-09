@@ -1,15 +1,16 @@
 #[cfg(test)]
 mod tests;
 
-use crate::registers::private::{GenericRegisterInternal, PhantomRegister};
+use crate::registers::private::{PhantomRegister, RegisterInternal};
 use core::fmt;
 use core::hint::unreachable_unchecked;
 use core::marker::Destruct;
+use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 mod private {
     use core::marker::PhantomData;
 
-    pub const trait GenericRegisterInternal<Type> {
+    pub const trait RegisterInternal<Type> {
         /// Whether the register is a zero register
         fn is_zero(&self) -> bool;
 
@@ -22,11 +23,11 @@ mod private {
 }
 
 /// Generic register
-pub const trait GenericRegister:
+pub const trait Register:
     fmt::Display
     + fmt::Debug
     + [const] Eq
-    + [const] GenericRegisterInternal<Self::Type>
+    + [const] RegisterInternal<Self::Type>
     + [const] Destruct
     + Copy
     + Sized
@@ -38,7 +39,18 @@ pub const trait GenericRegister:
     /// Register type.
     ///
     /// `u32` for RV32 and `u64` for RV64.
-    type Type: [const] Default + fmt::Display + fmt::Debug + Copy + Sized;
+    type Type: [const] Default
+        + [const] From<u8>
+        + [const] Into<u64>
+        + [const] Eq
+        + [const] Add
+        + [const] AddAssign
+        + [const] Sub
+        + [const] SubAssign
+        + fmt::Display
+        + fmt::Debug
+        + Copy
+        + Sized;
 
     /// Create a register from its bit representation
     fn from_bits(bits: u8) -> Option<Self>;
@@ -48,7 +60,7 @@ pub const trait GenericRegister:
 #[derive(Debug, Clone, Copy)]
 pub struct Registers<Reg>
 where
-    Reg: GenericRegister,
+    Reg: Register,
     [(); Reg::N]:,
 {
     regs: [Reg::Type; Reg::N],
@@ -56,7 +68,7 @@ where
 
 impl<Reg> Default for Registers<Reg>
 where
-    Reg: GenericRegister,
+    Reg: Register,
     [(); Reg::N]: Default,
 {
     #[inline(always)]
@@ -69,13 +81,13 @@ where
 
 const impl<Reg> Registers<Reg>
 where
-    Reg: GenericRegister + [const] Eq,
+    Reg: Register + [const] Eq,
     [(); Reg::N]:,
 {
     #[inline(always)]
     pub fn read(&self, reg: Reg) -> Reg::Type
     where
-        Reg: [const] GenericRegister,
+        Reg: [const] Register,
     {
         if reg.is_zero() {
             // Always zero
@@ -89,7 +101,7 @@ where
     #[inline(always)]
     pub fn write(&mut self, reg: Reg, value: Reg::Type)
     where
-        Reg: [const] GenericRegister,
+        Reg: [const] Register,
     {
         if reg.is_zero() {
             // Writes are ignored
@@ -206,7 +218,7 @@ impl<Type> const PartialEq for EReg<Type> {
 
 impl<Type> const Eq for EReg<Type> {}
 
-impl const GenericRegisterInternal<u32> for EReg<u32> {
+impl const RegisterInternal<u32> for EReg<u32> {
     #[inline(always)]
     fn is_zero(&self) -> bool {
         matches!(self, Self::Zero)
@@ -243,7 +255,7 @@ impl const GenericRegisterInternal<u32> for EReg<u32> {
     }
 }
 
-impl const GenericRegisterInternal<u64> for EReg<u64> {
+impl const RegisterInternal<u64> for EReg<u64> {
     #[inline(always)]
     fn is_zero(&self) -> bool {
         matches!(self, Self::Zero)
@@ -280,7 +292,7 @@ impl const GenericRegisterInternal<u64> for EReg<u64> {
     }
 }
 
-impl const GenericRegister for EReg<u32> {
+impl const Register for EReg<u32> {
     const N: usize = 16;
     type Type = u32;
 
@@ -308,7 +320,7 @@ impl const GenericRegister for EReg<u32> {
     }
 }
 
-impl const GenericRegister for EReg<u64> {
+impl const Register for EReg<u64> {
     const N: usize = 16;
     type Type = u64;
 
@@ -533,7 +545,7 @@ impl<Type> const PartialEq for Reg<Type> {
 
 impl<Type> const Eq for Reg<Type> {}
 
-impl const GenericRegisterInternal<u32> for Reg<u32> {
+impl const RegisterInternal<u32> for Reg<u32> {
     #[inline(always)]
     fn is_zero(&self) -> bool {
         matches!(self, Self::Zero)
@@ -586,7 +598,7 @@ impl const GenericRegisterInternal<u32> for Reg<u32> {
     }
 }
 
-impl const GenericRegisterInternal<u64> for Reg<u64> {
+impl const RegisterInternal<u64> for Reg<u64> {
     #[inline(always)]
     fn is_zero(&self) -> bool {
         matches!(self, Self::Zero)
@@ -639,7 +651,7 @@ impl const GenericRegisterInternal<u64> for Reg<u64> {
     }
 }
 
-impl const GenericRegister for Reg<u32> {
+impl const Register for Reg<u32> {
     const N: usize = 32;
     type Type = u32;
 
@@ -683,7 +695,7 @@ impl const GenericRegister for Reg<u32> {
     }
 }
 
-impl const GenericRegister for Reg<u64> {
+impl const Register for Reg<u64> {
     const N: usize = 32;
     type Type = u64;
 

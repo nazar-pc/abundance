@@ -3,16 +3,20 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{ExecuteError, VirtualMemory};
+use crate::{ExecutionError, ProgramCounter, VirtualMemory};
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::registers::{GenericRegister, Registers};
+use ab_riscv_primitives::registers::{Register, Registers};
 use core::fmt;
+use core::marker::PhantomData;
+use core::ops::ControlFlow;
 
-/// Custom handlers for instructions `ecall` and `ebreak`
-pub trait Rv64SystemInstructionHandler<Reg, Memory, CustomError>
+/// Custom handler for system instructions `ecall` and `ebreak`
+pub trait Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>
 where
-    Reg: GenericRegister,
+    Reg: Register<Type = u64>,
     [(); Reg::N]:,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     CustomError: fmt::Display,
 {
     /// Handle an `ecall` instruction.
@@ -23,9 +27,8 @@ where
         &mut self,
         regs: &mut Registers<Reg>,
         memory: &mut Memory,
-        pc: &mut u64,
-        instruction: Rv64Instruction<Reg>,
-    ) -> Result<(), ExecuteError<Rv64Instruction<Reg>, CustomError>>;
+        program_counter: &mut PC,
+    ) -> Result<ControlFlow<()>, ExecutionError<Rv64Instruction<Reg>, CustomError>>;
 
     /// Handle an `ebreak` instruction.
     ///
@@ -36,29 +39,67 @@ where
         &mut self,
         _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
-        _pc: &mut u64,
+        _pc: Reg::Type,
         _instruction: Rv64Instruction<Reg>,
-    ) -> Result<(), ExecuteError<Rv64Instruction<Reg>, CustomError>> {
+    ) {
         // NOP by default
-        Ok(())
     }
 }
 
-/// Execute instructions from a base RV64I/RV64I instruction set
-#[inline(always)]
-pub fn execute_rv64<Reg, Memory, InstructionHandler, CustomError>(
-    regs: &mut Registers<Reg>,
-    memory: &mut Memory,
-    pc: &mut u64,
-    system_instruction_handlers: &mut InstructionHandler,
-    old_pc: u64,
-    instruction: Rv64Instruction<Reg>,
-) -> Result<(), ExecuteError<Rv64Instruction<Reg>, CustomError>>
+/// Basic system instruction handler that does nothing on `ebreak` and returns an error on `ecall`.
+#[derive(Debug, Clone, Copy)]
+pub struct BasicRv64SystemInstructionHandler<Reg> {
+    _phantom: PhantomData<Reg>,
+}
+
+impl<Reg> Default for BasicRv64SystemInstructionHandler<Reg> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<Reg, Memory, PC, CustomError> Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>
+    for BasicRv64SystemInstructionHandler<Rv64Instruction<Reg>>
 where
-    Reg: GenericRegister<Type = u64>,
+    Reg: Register<Type = u64>,
     [(); Reg::N]:,
     Memory: VirtualMemory,
-    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, CustomError>,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Display,
+{
+    #[inline(always)]
+    fn handle_ecall(
+        &mut self,
+        _regs: &mut Registers<Reg>,
+        _memory: &mut Memory,
+        program_counter: &mut PC,
+    ) -> Result<ControlFlow<()>, ExecutionError<Rv64Instruction<Reg>, CustomError>> {
+        let instruction = Rv64Instruction::Ecall;
+        Err(ExecutionError::UnsupportedInstruction {
+            address: program_counter.get_pc() - Reg::Type::from(instruction.size()),
+            instruction,
+        })
+    }
+}
+
+/// Execute instructions from a base RV64I/RV64E instruction set
+#[inline(always)]
+pub fn execute_rv64<Reg, Memory, PC, InstructionHandler, CustomError>(
+    regs: &mut Registers<Reg>,
+    memory: &mut Memory,
+    program_counter: &mut PC,
+    system_instruction_handlers: &mut InstructionHandler,
+    instruction: Rv64Instruction<Reg>,
+) -> Result<ControlFlow<()>, ExecutionError<Rv64Instruction<Reg>, CustomError>>
+where
+    Reg: Register<Type = u64>,
+    [(); Reg::N]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>,
     CustomError: fmt::Display,
 {
     match instruction {
@@ -222,8 +263,10 @@ where
 
         Rv64Instruction::Jalr { rd, rs1, imm } => {
             let target = (regs.read(rs1).wrapping_add((imm as i64).cast_unsigned())) & !1u64;
-            regs.write(rd, *pc);
-            *pc = target;
+            regs.write(rd, program_counter.get_pc());
+            return program_counter
+                .set_pc(memory, target)
+                .map_err(ExecutionError::from);
         }
 
         Rv64Instruction::Sb { rs2, rs1, imm } => {
@@ -245,32 +288,62 @@ where
 
         Rv64Instruction::Beq { rs1, rs2, imm } => {
             if regs.read(rs1) == regs.read(rs2) {
-                *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
+                let old_pc = program_counter
+                    .get_pc()
+                    .wrapping_sub(instruction.size().into());
+                return program_counter
+                    .set_pc(memory, old_pc.wrapping_add((imm as i64).cast_unsigned()))
+                    .map_err(ExecutionError::from);
             }
         }
         Rv64Instruction::Bne { rs1, rs2, imm } => {
             if regs.read(rs1) != regs.read(rs2) {
-                *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
+                let old_pc = program_counter
+                    .get_pc()
+                    .wrapping_sub(instruction.size().into());
+                return program_counter
+                    .set_pc(memory, old_pc.wrapping_add((imm as i64).cast_unsigned()))
+                    .map_err(ExecutionError::from);
             }
         }
         Rv64Instruction::Blt { rs1, rs2, imm } => {
             if regs.read(rs1).cast_signed() < regs.read(rs2).cast_signed() {
-                *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
+                let old_pc = program_counter
+                    .get_pc()
+                    .wrapping_sub(instruction.size().into());
+                return program_counter
+                    .set_pc(memory, old_pc.wrapping_add((imm as i64).cast_unsigned()))
+                    .map_err(ExecutionError::from);
             }
         }
         Rv64Instruction::Bge { rs1, rs2, imm } => {
             if regs.read(rs1).cast_signed() >= regs.read(rs2).cast_signed() {
-                *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
+                let old_pc = program_counter
+                    .get_pc()
+                    .wrapping_sub(instruction.size().into());
+                return program_counter
+                    .set_pc(memory, old_pc.wrapping_add((imm as i64).cast_unsigned()))
+                    .map_err(ExecutionError::from);
             }
         }
         Rv64Instruction::Bltu { rs1, rs2, imm } => {
             if regs.read(rs1) < regs.read(rs2) {
-                *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
+                let old_pc = program_counter
+                    .get_pc()
+                    .wrapping_sub(instruction.size().into());
+                return program_counter
+                    .set_pc(memory, old_pc.wrapping_add((imm as i64).cast_unsigned()))
+                    .map_err(ExecutionError::from);
             }
         }
         Rv64Instruction::Bgeu { rs1, rs2, imm } => {
             if regs.read(rs1) >= regs.read(rs2) {
-                *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
+                let old_pc = program_counter
+                    .get_pc()
+                    .wrapping_sub(instruction.size().into());
+                return program_counter
+                    .set_pc(memory, old_pc.wrapping_add((imm as i64).cast_unsigned()))
+                    .map_err(ExecutionError::from);
             }
         }
 
@@ -279,12 +352,19 @@ where
         }
 
         Rv64Instruction::Auipc { rd, imm } => {
+            let old_pc = program_counter
+                .get_pc()
+                .wrapping_sub(instruction.size().into());
             regs.write(rd, old_pc.wrapping_add((imm as i64).cast_unsigned()));
         }
 
         Rv64Instruction::Jal { rd, imm } => {
-            regs.write(rd, *pc);
-            *pc = old_pc.wrapping_add((imm as i64).cast_unsigned());
+            let pc = program_counter.get_pc();
+            let old_pc = pc.wrapping_sub(instruction.size().into());
+            regs.write(rd, pc);
+            return program_counter
+                .set_pc(memory, old_pc.wrapping_add((imm as i64).cast_unsigned()))
+                .map_err(ExecutionError::from);
         }
 
         Rv64Instruction::Fence { .. } => {
@@ -292,23 +372,34 @@ where
         }
 
         Rv64Instruction::Ecall => {
-            system_instruction_handlers.handle_ecall(regs, memory, pc, Rv64Instruction::Ecall)?;
+            return system_instruction_handlers.handle_ecall(regs, memory, program_counter);
         }
         Rv64Instruction::Ebreak => {
-            system_instruction_handlers.handle_ebreak(regs, memory, pc, Rv64Instruction::Ebreak)?;
+            system_instruction_handlers.handle_ebreak(
+                regs,
+                memory,
+                program_counter.get_pc(),
+                Rv64Instruction::Ebreak,
+            );
         }
 
         Rv64Instruction::Unimp => {
-            return Err(ExecuteError::UnimpInstruction { address: old_pc });
+            let old_pc = program_counter
+                .get_pc()
+                .wrapping_sub(instruction.size().into());
+            return Err(ExecutionError::UnimpInstruction { address: old_pc });
         }
 
-        Rv64Instruction::Invalid(instruction) => {
-            return Err(ExecuteError::InvalidInstruction {
+        Rv64Instruction::Invalid(raw_instruction) => {
+            let old_pc = program_counter
+                .get_pc()
+                .wrapping_sub(instruction.size().into());
+            return Err(ExecutionError::InvalidInstruction {
                 address: old_pc,
-                instruction,
+                instruction: raw_instruction,
             });
         }
     }
 
-    Ok(())
+    Ok(ControlFlow::Continue(()))
 }

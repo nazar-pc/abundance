@@ -2,17 +2,18 @@
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
 //  https://github.com/rust-lang/rust/issues/141492
 #![feature(generic_const_exprs)]
+#![feature(control_flow_ok)]
 
 use ab_blake3::CHUNK_LEN;
 use ab_contract_file::{ContractFile, Instruction, Register};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
-    Blake3HashChunkInternalArgs, EagerTestInstructionHandler, Ed25519VerifyInternalArgs,
+    Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
     RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
-use ab_riscv_interpreter::BasicInstructionHandler;
-use ab_riscv_primitives::instruction::GenericBaseInstruction;
+use ab_riscv_interpreter::{BasicInstructionFetcher, ProgramCounter};
+use ab_riscv_primitives::instruction::BaseInstruction;
 use ab_riscv_primitives::registers::Registers;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_zebra::SigningKey;
@@ -105,23 +106,31 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut regs = Registers::<Register>::default();
     let internal_args_addr = (MEMORY_BASE_ADDRESS + contract_memory_size as u64)
         .next_multiple_of(size_of::<u128>() as u64);
-    let mut lazy_handler = BasicInstructionHandler::<TRAP_ADDRESS>;
-    let mut eager_handler = EagerTestInstructionHandler::<TRAP_ADDRESS, _>::new(
-        contract_file
-            .get_code()
-            .chunks_exact(size_of::<u32>())
-            .map(|instruction| {
-                let instruction = u32::from_le_bytes([
-                    instruction[0],
-                    instruction[1],
-                    instruction[2],
-                    instruction[3],
-                ]);
-                GenericBaseInstruction::decode(instruction)
-            })
-            .collect(),
-        MEMORY_BASE_ADDRESS + contract_file.header().read_only_section_memory_size as u64,
-    );
+    // SAFETY: Program counter is set later to the correct address
+    let mut lazy_instruction_fetcher = unsafe {
+        BasicInstructionFetcher::<Instruction, &'static str>::new(TRAP_ADDRESS, MEMORY_BASE_ADDRESS)
+    };
+    // SAFETY: Program counter is set later to the correct address
+    let mut eager_instruction_fetcher = unsafe {
+        EagerTestInstructionFetcher::new(
+            contract_file
+                .get_code()
+                .chunks_exact(size_of::<u32>())
+                .map(|instruction| {
+                    let instruction = u32::from_le_bytes([
+                        instruction[0],
+                        instruction[1],
+                        instruction[2],
+                        instruction[3],
+                    ]);
+                    BaseInstruction::decode(instruction)
+                })
+                .collect(),
+            TRAP_ADDRESS,
+            MEMORY_BASE_ADDRESS + contract_file.header().read_only_section_memory_size as u64,
+            MEMORY_BASE_ADDRESS,
+        )
+    };
 
     {
         let mut group = c.benchmark_group("blake3_hash_chunk");
@@ -160,15 +169,18 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         group.bench_function("interpreter/lazy", |b| {
             b.iter(|| {
-                let mut pc = benchmarks_blake3_hash_chunk_addr;
+                lazy_instruction_fetcher
+                    .set_pc(&mut memory, benchmarks_blake3_hash_chunk_addr)
+                    .unwrap()
+                    .continue_ok()
+                    .unwrap();
                 regs.write(Register::A0, internal_args_addr);
                 regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
                 black_box(execute(
                     black_box(&mut regs),
                     black_box(&mut memory),
-                    black_box(&mut pc),
-                    black_box(&mut lazy_handler),
+                    black_box(&mut lazy_instruction_fetcher),
                 ))
                 .unwrap();
             });
@@ -176,15 +188,18 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         group.bench_function("interpreter/eager", |b| {
             b.iter(|| {
-                let mut pc = benchmarks_blake3_hash_chunk_addr;
+                eager_instruction_fetcher
+                    .set_pc(&mut memory, benchmarks_blake3_hash_chunk_addr)
+                    .unwrap()
+                    .continue_ok()
+                    .unwrap();
                 regs.write(Register::A0, internal_args_addr);
                 regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
                 black_box(execute(
                     black_box(&mut regs),
                     black_box(&mut memory),
-                    black_box(&mut pc),
-                    black_box(&mut eager_handler),
+                    black_box(&mut eager_instruction_fetcher),
                 ))
                 .unwrap();
             });
@@ -231,15 +246,18 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         group.bench_function("interpreter/lazy", |b| {
             b.iter(|| {
-                let mut pc = benchmarks_ed25519_verify_addr;
+                lazy_instruction_fetcher
+                    .set_pc(&mut memory, benchmarks_ed25519_verify_addr)
+                    .unwrap()
+                    .continue_ok()
+                    .unwrap();
                 regs.write(Register::A0, internal_args_addr);
                 regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
                 black_box(execute(
                     black_box(&mut regs),
                     black_box(&mut memory),
-                    black_box(&mut pc),
-                    black_box(&mut lazy_handler),
+                    black_box(&mut lazy_instruction_fetcher),
                 ))
                 .unwrap();
             });
@@ -247,15 +265,18 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         group.bench_function("interpreter/eager", |b| {
             b.iter(|| {
-                let mut pc = benchmarks_ed25519_verify_addr;
+                eager_instruction_fetcher
+                    .set_pc(&mut memory, benchmarks_ed25519_verify_addr)
+                    .unwrap()
+                    .continue_ok()
+                    .unwrap();
                 regs.write(Register::A0, internal_args_addr);
                 regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
                 black_box(execute(
                     black_box(&mut regs),
                     black_box(&mut memory),
-                    black_box(&mut pc),
-                    black_box(&mut eager_handler),
+                    black_box(&mut eager_instruction_fetcher),
                 ))
                 .unwrap();
             });

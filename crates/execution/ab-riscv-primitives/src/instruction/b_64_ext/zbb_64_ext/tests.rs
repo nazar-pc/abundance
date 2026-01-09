@@ -1,4 +1,4 @@
-use crate::instruction::GenericInstruction;
+use crate::instruction::Instruction;
 use crate::instruction::b_64_ext::zbb_64_ext::Zbb64ExtInstruction;
 use crate::instruction::test_utils::{make_i_type_with_shamt, make_r_type};
 use crate::registers::Reg;
