@@ -7,14 +7,17 @@ use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
 use ab_riscv_interpreter::b_64_ext::execute_b_zbc_64_ext;
 use ab_riscv_interpreter::m_64_ext::execute_m_64_ext;
-use ab_riscv_interpreter::rv64::{BasicRv64SystemInstructionHandler, execute_rv64};
+use ab_riscv_interpreter::rv64::{Rv64SystemInstructionHandler, execute_rv64};
 use ab_riscv_interpreter::{
     BasicInt, ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
     ProgramCounterError, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::instruction::BaseInstruction;
-use ab_riscv_primitives::registers::Registers;
+use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
+use ab_riscv_primitives::registers::{Register, Registers};
 use alloc::vec::Vec;
+use core::fmt;
+use core::marker::PhantomData;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
 
@@ -329,6 +332,44 @@ impl EagerTestInstructionFetcher {
     }
 }
 
+/// System instruction handler that does nothing
+#[derive(Debug, Clone, Copy)]
+pub struct NoopRv64SystemInstructionHandler<Reg> {
+    _phantom: PhantomData<Reg>,
+}
+
+impl<Reg> Default for NoopRv64SystemInstructionHandler<Reg> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<Reg, Memory, PC, CustomError> Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>
+    for NoopRv64SystemInstructionHandler<Rv64Instruction<Reg>>
+where
+    Reg: Register<Type = u64>,
+    [(); Reg::N]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    CustomError: fmt::Display,
+{
+    #[inline(always)]
+    fn handle_ecall(
+        &mut self,
+        _regs: &mut Registers<Reg>,
+        _memory: &mut Memory,
+        _program_counter: &mut PC,
+    ) -> Result<ControlFlow<()>, ExecutionError<Rv64Instruction<Reg>, CustomError>> {
+        // SAFETY: Contracts are statically known to not contain `ecall` instructions
+        // unsafe { unreachable_unchecked() }
+        // For some known reason this is faster than `unreachable_unchecked()`
+        Ok(ControlFlow::Continue(()))
+    }
+}
+
 /// Execute [`Instruction`]s
 pub fn execute<Memory, IF>(
     regs: &mut Registers<<Instruction as BaseInstruction>::Reg>,
@@ -339,7 +380,7 @@ where
     Memory: VirtualMemory,
     IF: InstructionFetcher<Instruction, Memory, &'static str>,
 {
-    let mut system_instruction_handler = BasicRv64SystemInstructionHandler::default();
+    let mut system_instruction_handler = NoopRv64SystemInstructionHandler::default();
     loop {
         let instruction = match instruction_fetcher.fetch_instruction(memory)? {
             FetchInstructionResult::Instruction(instruction) => instruction,
