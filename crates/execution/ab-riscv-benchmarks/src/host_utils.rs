@@ -5,8 +5,8 @@ use ab_contract_file::Instruction;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
-use ab_riscv_interpreter::b_64_ext::execute_b_zbc_64_ext;
-use ab_riscv_interpreter::m_64_ext::execute_m_64_ext;
+use ab_riscv_interpreter::rv64::b::execute_b_zbc;
+use ab_riscv_interpreter::rv64::m::execute_m;
 use ab_riscv_interpreter::rv64::{Rv64SystemInstructionHandler, execute_rv64};
 use ab_riscv_interpreter::{
     BasicInt, ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
@@ -394,10 +394,10 @@ where
 
         match instruction {
             Instruction::A(instruction) => {
-                execute_m_64_ext(regs, instruction);
+                execute_m(regs, instruction);
             }
             Instruction::B(instruction) => {
-                execute_b_zbc_64_ext(regs, instruction);
+                execute_b_zbc(regs, instruction);
             }
             Instruction::Base(instruction) => {
                 // TODO: More ergonomic way to map instruction type from the base type

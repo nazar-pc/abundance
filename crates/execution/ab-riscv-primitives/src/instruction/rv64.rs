@@ -4,6 +4,8 @@ use crate::instruction::{BaseInstruction, Instruction};
 use crate::registers::Register;
 use core::fmt;
 
+pub mod b;
+pub mod m;
 #[cfg(test)]
 mod tests;
 

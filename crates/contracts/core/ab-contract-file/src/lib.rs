@@ -9,9 +9,9 @@ use ab_contracts_common::metadata::decode::{
 };
 use ab_io_type::trivial_type::TrivialType;
 use ab_riscv_primitives::instruction::BaseInstruction;
-use ab_riscv_primitives::instruction::b_64_ext::BZbc64ExtInstruction;
-use ab_riscv_primitives::instruction::m_64_ext::M64ExtInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
+use ab_riscv_primitives::instruction::rv64::b::Rv64BZbcInstruction;
+use ab_riscv_primitives::instruction::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::instruction::tuples::Tuple3Instruction;
 use ab_riscv_primitives::registers::EReg;
 use core::iter;
@@ -26,8 +26,8 @@ pub const CONTRACT_FILE_MAGIC: [u8; 4] = *b"ABC0";
 pub type Register = EReg<u64>;
 /// An instruction type used by contracts
 pub type Instruction = Tuple3Instruction<
-    M64ExtInstruction<Register>,
-    BZbc64ExtInstruction<Register>,
+    Rv64MInstruction<Register>,
+    Rv64BZbcInstruction<Register>,
     Rv64Instruction<Register>,
 >;
 
