@@ -10,15 +10,17 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
-    RISCV_CONTRACT_BYTES, TestMemory, execute,
+    NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
-use ab_riscv_interpreter::{BasicInstructionFetcher, ProgramCounter};
+use ab_riscv_interpreter::BasicInstructionFetcher;
+use ab_riscv_interpreter::rv64::Rv64InterpreterState;
 use ab_riscv_primitives::instruction::BaseInstruction;
 use ab_riscv_primitives::registers::Registers;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
 use std::hint::black_box;
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::{mem, ptr, slice};
 
@@ -103,33 +105,49 @@ fn criterion_benchmark(c: &mut Criterion) {
         );
     }
 
-    let mut regs = Registers::<Register>::default();
     let internal_args_addr = (MEMORY_BASE_ADDRESS + contract_memory_size as u64)
         .next_multiple_of(size_of::<u128>() as u64);
-    // SAFETY: Program counter is set later to the correct address
-    let mut lazy_instruction_fetcher = unsafe {
-        BasicInstructionFetcher::<Instruction, &'static str>::new(TRAP_ADDRESS, MEMORY_BASE_ADDRESS)
+
+    let mut lazy_state = Rv64InterpreterState {
+        regs: Registers::default(),
+        memory,
+        // SAFETY: Program counter is set later to the correct address
+        instruction_fetcher: unsafe {
+            BasicInstructionFetcher::<Instruction, &'static str>::new(
+                TRAP_ADDRESS,
+                MEMORY_BASE_ADDRESS,
+            )
+        },
+        system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
+        _phantom: PhantomData,
     };
-    // SAFETY: Program counter is set later to the correct address
-    let mut eager_instruction_fetcher = unsafe {
-        EagerTestInstructionFetcher::new(
-            contract_file
-                .get_code()
-                .chunks_exact(size_of::<u32>())
-                .map(|instruction| {
-                    let instruction = u32::from_le_bytes([
-                        instruction[0],
-                        instruction[1],
-                        instruction[2],
-                        instruction[3],
-                    ]);
-                    BaseInstruction::decode(instruction)
-                })
-                .collect(),
-            TRAP_ADDRESS,
-            MEMORY_BASE_ADDRESS + contract_file.header().read_only_section_memory_size as u64,
-            MEMORY_BASE_ADDRESS,
-        )
+
+    let mut eager_state = Rv64InterpreterState {
+        regs: Registers::default(),
+        memory,
+        // SAFETY: Program counter is set later to the correct address
+        instruction_fetcher: unsafe {
+            EagerTestInstructionFetcher::new(
+                contract_file
+                    .get_code()
+                    .chunks_exact(size_of::<u32>())
+                    .map(|instruction| {
+                        let instruction = u32::from_le_bytes([
+                            instruction[0],
+                            instruction[1],
+                            instruction[2],
+                            instruction[3],
+                        ]);
+                        BaseInstruction::decode(instruction)
+                    })
+                    .collect(),
+                TRAP_ADDRESS,
+                MEMORY_BASE_ADDRESS + contract_file.header().read_only_section_memory_size as u64,
+                MEMORY_BASE_ADDRESS,
+            )
+        },
+        system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
+        _phantom: PhantomData,
     };
 
     {
@@ -161,7 +179,13 @@ fn criterion_benchmark(c: &mut Criterion) {
                 )
             };
 
-            memory
+            lazy_state
+                .memory
+                .get_mut_bytes(internal_args_addr, size_of::<Blake3HashChunkInternalArgs>())
+                .unwrap()
+                .copy_from_slice(internal_args_bytes);
+            eager_state
+                .memory
                 .get_mut_bytes(internal_args_addr, size_of::<Blake3HashChunkInternalArgs>())
                 .unwrap()
                 .copy_from_slice(internal_args_bytes);
@@ -169,39 +193,33 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         group.bench_function("interpreter/lazy", |b| {
             b.iter(|| {
-                lazy_instruction_fetcher
-                    .set_pc(&mut memory, benchmarks_blake3_hash_chunk_addr)
+                lazy_state
+                    .set_pc(benchmarks_blake3_hash_chunk_addr)
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                regs.write(Register::A0, internal_args_addr);
-                regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                lazy_state.regs.write(Register::A0, internal_args_addr);
+                lazy_state
+                    .regs
+                    .write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-                black_box(execute(
-                    black_box(&mut regs),
-                    black_box(&mut memory),
-                    black_box(&mut lazy_instruction_fetcher),
-                ))
-                .unwrap();
+                black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
         });
 
         group.bench_function("interpreter/eager", |b| {
             b.iter(|| {
-                eager_instruction_fetcher
-                    .set_pc(&mut memory, benchmarks_blake3_hash_chunk_addr)
+                eager_state
+                    .set_pc(benchmarks_blake3_hash_chunk_addr)
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                regs.write(Register::A0, internal_args_addr);
-                regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                eager_state.regs.write(Register::A0, internal_args_addr);
+                eager_state
+                    .regs
+                    .write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-                black_box(execute(
-                    black_box(&mut regs),
-                    black_box(&mut memory),
-                    black_box(&mut eager_instruction_fetcher),
-                ))
-                .unwrap();
+                black_box(execute(black_box(&mut eager_state))).unwrap();
             });
         });
     }
@@ -238,7 +256,13 @@ fn criterion_benchmark(c: &mut Criterion) {
                 )
             };
 
-            memory
+            lazy_state
+                .memory
+                .get_mut_bytes(internal_args_addr, size_of::<Ed25519VerifyInternalArgs>())
+                .unwrap()
+                .copy_from_slice(internal_args_bytes);
+            eager_state
+                .memory
                 .get_mut_bytes(internal_args_addr, size_of::<Ed25519VerifyInternalArgs>())
                 .unwrap()
                 .copy_from_slice(internal_args_bytes);
@@ -246,39 +270,33 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         group.bench_function("interpreter/lazy", |b| {
             b.iter(|| {
-                lazy_instruction_fetcher
-                    .set_pc(&mut memory, benchmarks_ed25519_verify_addr)
+                lazy_state
+                    .set_pc(benchmarks_ed25519_verify_addr)
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                regs.write(Register::A0, internal_args_addr);
-                regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                lazy_state.regs.write(Register::A0, internal_args_addr);
+                lazy_state
+                    .regs
+                    .write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-                black_box(execute(
-                    black_box(&mut regs),
-                    black_box(&mut memory),
-                    black_box(&mut lazy_instruction_fetcher),
-                ))
-                .unwrap();
+                black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
         });
 
         group.bench_function("interpreter/eager", |b| {
             b.iter(|| {
-                eager_instruction_fetcher
-                    .set_pc(&mut memory, benchmarks_ed25519_verify_addr)
+                eager_state
+                    .set_pc(benchmarks_ed25519_verify_addr)
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                regs.write(Register::A0, internal_args_addr);
-                regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                eager_state.regs.write(Register::A0, internal_args_addr);
+                eager_state
+                    .regs
+                    .write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
-                black_box(execute(
-                    black_box(&mut regs),
-                    black_box(&mut memory),
-                    black_box(&mut eager_instruction_fetcher),
-                ))
-                .unwrap();
+                black_box(execute(black_box(&mut eager_state))).unwrap();
             });
         });
     }

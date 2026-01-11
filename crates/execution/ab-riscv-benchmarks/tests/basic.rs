@@ -10,13 +10,15 @@ use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, EagerTestInstructionFetcher, Ed25519VerifyInternalArgs,
-    RISCV_CONTRACT_BYTES, TestMemory, execute,
+    NoopRv64SystemInstructionHandler, RISCV_CONTRACT_BYTES, TestMemory, execute,
 };
 use ab_riscv_interpreter::BasicInstructionFetcher;
+use ab_riscv_interpreter::rv64::Rv64InterpreterState;
 use ab_riscv_primitives::instruction::BaseInstruction;
 use ab_riscv_primitives::registers::Registers;
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::{mem, ptr, slice};
 
@@ -81,16 +83,25 @@ where
     regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
 
     let pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
-    match run_type {
+    let memory = match run_type {
         RunType::Lazy => {
             // SAFETY: Program counter is trusted
-            let mut instruction_fetcher = unsafe { BasicInstructionFetcher::new(TRAP_ADDRESS, pc) };
+            let instruction_fetcher = unsafe { BasicInstructionFetcher::new(TRAP_ADDRESS, pc) };
 
-            execute(&mut regs, &mut memory, &mut instruction_fetcher).unwrap();
+            let mut state = Rv64InterpreterState {
+                regs,
+                memory,
+                instruction_fetcher,
+                system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
+                _phantom: PhantomData,
+            };
+            execute(&mut state).unwrap();
+
+            state.memory
         }
         RunType::Eager => {
             // SAFETY: Program counter is trusted
-            let mut instruction_fetcher = unsafe {
+            let instruction_fetcher = unsafe {
                 EagerTestInstructionFetcher::new(
                     contract_file
                         .get_code()
@@ -112,9 +123,18 @@ where
                 )
             };
 
-            execute(&mut regs, &mut memory, &mut instruction_fetcher).unwrap();
+            let mut state = Rv64InterpreterState {
+                regs,
+                memory,
+                instruction_fetcher,
+                system_instruction_handler: NoopRv64SystemInstructionHandler::default(),
+                _phantom: PhantomData,
+            };
+            execute(&mut state).unwrap();
+
+            state.memory
         }
-    }
+    };
 
     // SAFETY: Byte representation of `#[repr(C)]` without internal padding
     *unsafe {
