@@ -7,7 +7,9 @@ use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
 use ab_riscv_interpreter::rv64::b::execute_b_zbc;
 use ab_riscv_interpreter::rv64::m::execute_m;
-use ab_riscv_interpreter::rv64::{Rv64SystemInstructionHandler, execute_rv64};
+use ab_riscv_interpreter::rv64::{
+    Rv64InterpreterState, Rv64SystemInstructionHandler, execute_rv64,
+};
 use ab_riscv_interpreter::{
     BasicInt, ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
     ProgramCounterError, VirtualMemory, VirtualMemoryError,
@@ -125,7 +127,7 @@ impl Ed25519VerifyInternalArgs {
 }
 
 // Simple test memory implementation
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct TestMemory<const MEMORY_SIZE: usize> {
     data: [u8; MEMORY_SIZE],
     base_addr: u64,
@@ -334,8 +336,8 @@ impl EagerTestInstructionFetcher {
 
 /// System instruction handler that does nothing
 #[derive(Debug, Clone, Copy)]
-pub struct NoopRv64SystemInstructionHandler<Reg> {
-    _phantom: PhantomData<Reg>,
+pub struct NoopRv64SystemInstructionHandler<Instruction> {
+    _phantom: PhantomData<Instruction>,
 }
 
 impl<Reg> Default for NoopRv64SystemInstructionHandler<Reg> {
@@ -371,18 +373,25 @@ where
 }
 
 /// Execute [`Instruction`]s
+#[expect(clippy::type_complexity)]
 pub fn execute<Memory, IF>(
-    regs: &mut Registers<<Instruction as BaseInstruction>::Reg>,
-    memory: &mut Memory,
-    instruction_fetcher: &mut IF,
+    state: &mut Rv64InterpreterState<
+        <Instruction as BaseInstruction>::Reg,
+        Memory,
+        IF,
+        NoopRv64SystemInstructionHandler<Rv64Instruction<<Instruction as BaseInstruction>::Reg>>,
+        &'static str,
+    >,
 ) -> Result<(), ExecutionError<Instruction, &'static str>>
 where
     Memory: VirtualMemory,
     IF: InstructionFetcher<Instruction, Memory, &'static str>,
 {
-    let mut system_instruction_handler = NoopRv64SystemInstructionHandler::default();
     loop {
-        let instruction = match instruction_fetcher.fetch_instruction(memory)? {
+        let instruction = match state
+            .instruction_fetcher
+            .fetch_instruction(&mut state.memory)?
+        {
             FetchInstructionResult::Instruction(instruction) => instruction,
             FetchInstructionResult::ControlFlow(ControlFlow::Continue(())) => {
                 continue;
@@ -394,22 +403,14 @@ where
 
         match instruction {
             Instruction::A(instruction) => {
-                execute_m(regs, instruction);
+                execute_m(&mut state.regs, instruction);
             }
             Instruction::B(instruction) => {
-                execute_b_zbc(regs, instruction);
+                execute_b_zbc(&mut state.regs, instruction);
             }
             Instruction::Base(instruction) => {
                 // TODO: More ergonomic way to map instruction type from the base type
-                match execute_rv64(
-                    regs,
-                    memory,
-                    instruction_fetcher,
-                    &mut system_instruction_handler,
-                    instruction,
-                )
-                .map_err(ExecutionError::map_from_base)?
-                {
+                match execute_rv64(state, instruction).map_err(ExecutionError::map_from_base)? {
                     ControlFlow::Continue(()) => {
                         continue;
                     }
