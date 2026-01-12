@@ -29,10 +29,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
 
       - name: Configure cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # 5.0.1
         with:
           path: |
             ~/.cargo/registry
@@ -75,10 +75,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
 
       - name: Install Protoc
-        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # 3.0.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -88,7 +88,7 @@ jobs:
         if: runner.os == 'macOS'
 
       - name: Configure cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # 5.0.1
         with:
           path: |
             ~/.cargo/registry
@@ -209,10 +209,10 @@ jobs:
 
     steps: &test-steps
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
 
       - name: Install Protoc
-        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # 3.0.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -222,7 +222,7 @@ jobs:
         if: runner.os == 'macOS'
 
       - name: Configure cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # 5.0.1
         with:
           path: |
             ~/.cargo/registry
@@ -235,7 +235,7 @@ jobs:
         if: runner.os != 'Windows'
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@d12e869b89167df346dd0ff65da342d1fb1202fb # 2.53.2
+        uses: taiki-e/install-action@3522286d40783523f9c7880e33f785905b4c20d0 # 2.66.1
         with:
           tool: cargo-nextest
 
@@ -437,10 +437,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
 
       - name: Configure cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # 5.0.1
         with:
           path: |
             ~/.cargo/registry
@@ -548,10 +548,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
 
       - name: Configure cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # 5.0.1
         with:
           path: |
             ~/.cargo/registry
