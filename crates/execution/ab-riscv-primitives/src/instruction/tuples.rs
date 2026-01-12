@@ -47,6 +47,13 @@ where
     }
 
     #[inline(always)]
+    fn alignment() -> u8 {
+        // RISC-V instructions are 32-bit aligned by default but can be relaxed to 16-bit alignment
+        // when compressed instructions are involved
+        A::alignment().min(Base::alignment())
+    }
+
+    #[inline(always)]
     fn size(&self) -> u8 {
         match self {
             Tuple2Instruction::A(a) => a.size(),
@@ -125,6 +132,13 @@ where
         } else {
             Some(Self::Base(Base::try_decode(instruction)?))
         }
+    }
+
+    #[inline(always)]
+    fn alignment() -> u8 {
+        // RISC-V instructions are 32-bit aligned by default but can be relaxed to 16-bit alignment
+        // when compressed instructions are involved
+        A::alignment().min(B::alignment()).min(Base::alignment())
     }
 
     #[inline(always)]
