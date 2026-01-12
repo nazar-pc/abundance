@@ -5,7 +5,7 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ed25519_zebra::{SigningKey, VerificationKey};
 use parity_scale_codec::{Decode, Encode};
 use rand::TryRngCore;
-use rand::rngs::{OsError, OsRng};
+use rand::rngs::{SysError, SysRng};
 use std::path::Path;
 use std::{fmt, fs, io};
 use thiserror::Error;
@@ -28,7 +28,7 @@ pub enum IdentityError {
     Decoding(#[from] parity_scale_codec::Error),
     /// Failed to generate identity seed
     #[error("Failed to generate identity seed: {0}")]
-    IdentitySeedGeneration(#[from] OsError),
+    IdentitySeedGeneration(#[from] SysError),
 }
 
 /// `Identity` struct is an abstraction of public & secret key related operations.
@@ -91,7 +91,7 @@ impl Identity {
 
         let signing_key = SigningKey::from({
             let mut seed = [0u8; 32];
-            OsRng.try_fill_bytes(&mut seed)?;
+            SysRng.try_fill_bytes(&mut seed)?;
             seed
         });
 

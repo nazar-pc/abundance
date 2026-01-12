@@ -16,7 +16,7 @@ use futures::FutureExt;
 use futures::channel::oneshot;
 use page_group_header::StorageItemPageGroupHeader;
 use rand::TryRngCore;
-use rand::rngs::OsRng;
+use rand::rngs::SysRng;
 use replace_with::replace_with_or_abort_and_return;
 use std::cmp::Reverse;
 use std::collections::VecDeque;
@@ -310,7 +310,7 @@ where
             storage_item: StorageItemPageGroupHeader {
                 database_id: DatabaseId::new({
                     let mut id = [0; 32];
-                    OsRng.try_fill_bytes(&mut id)?;
+                    SysRng.try_fill_bytes(&mut id)?;
                     id
                 }),
                 database_version: Self::VERSION,
