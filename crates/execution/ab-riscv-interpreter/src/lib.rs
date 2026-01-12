@@ -255,7 +255,10 @@ where
             return Ok(ControlFlow::Break(()));
         }
 
-        if !pc.into().is_multiple_of(size_of::<u32>() as u64) {
+        if !pc
+            .into()
+            .is_multiple_of(u64::from(Instruction::alignment()))
+        {
             return Err(ProgramCounterError::UnalignedInstruction { address: pc });
         }
 

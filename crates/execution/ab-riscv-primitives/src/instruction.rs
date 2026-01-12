@@ -21,7 +21,9 @@ pub const trait Instruction:
     /// Try to decode a single valid instruction
     fn try_decode(instruction: u32) -> Option<Self>;
 
-    // TODO: `alignment` method in addition to size
+    /// Instruction alignment in bytes
+    fn alignment() -> u8;
+
     /// Instruction size in bytes
     fn size(&self) -> u8;
 }
