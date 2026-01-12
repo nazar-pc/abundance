@@ -10,37 +10,6 @@ If you have ideas that are not mentioned below, feel free to reach out and share
 
 There may or may not be funding available for these things.
 
-## Permissionless shard assignment
-
-> [!NOTE]
-> Research
-
-> [!IMPORTANT]
-> WIP
-
-In a sharded blockchain, we need an algorithm for assignment farmers to shards. The algorithm must be fully
-permissionless, also, ideally, distributing farmers uniformly across all shards.
-
-The important observation is that farmers have to plot before they can participate in consensus. This means it is both
-permissionless (unlike PoS) and requires some work being done beforehand, while the majority of the time farming is very
-energy-efficient (unlike PoW). This also provides inertia that isn't present in PoW where miners can quickly switch
-between networks and services like Nicehash can be used to attack the network for short periods of time fairly
-inexpensively.
-
-The idea is that it might be possible to assign plots to shards based on their identity and rotate around at some rate
-based on on-chain randomness. The size of a single plot is conceptually capped at ~65 TiB, also pieces expire over time
-as blockchain history growths (half of the plot expires every time history doubles in Subspace). Expiration in Subspace
-is implemented by farmers committing sectors (that plots are composed of) to a specific history size (which determines
-selection of pieces from the archived history).
-
-The intuition is that there might be a way to implement PoS-like rotation while leveraging the fact that an effort needs
-to be spent upfront to even be able to try to produce a block on a shard. Basis requirements are as follows:
-
-* Fully permissionless, no on-chain registration
-* Uniform distribution of farmers (plotted space) among shards
-* Rotation between shards over time to prevent malicious majority forming on any particular shard for consensus purposes
-* Simple, straightforward to analyze and implement (probably based on consistent hashing)
-
 ## RISC-V VM
 
 > [!NOTE]
@@ -107,7 +76,7 @@ We need a P2P networking stack. There is a prototype already, but it'll need to 
 and blockchain needs in mind. Some requirements:
 
 * TCP-based
-* Likely libp2p-based (strictly speaking, not a hard requirement, but very desirable for interoperability)
+* Likely pea2pea-based with Yamux and Noise (strictly speaking, not a hard requirement)
 * Low overhead and high performance
 * Zero-copy whenever possible
 * Support for custom gossip protocols (block and transaction propagation, proof-of-time notifications)
@@ -139,21 +108,14 @@ portion of rewards probabilistically ending up in a wallet of the developer/cont
 This doesn't solve the problem of discoverability though. One way or another, there should not be a big
 treasury/governance structure that is responsible for managing funds, it should be more direct and more distributed.
 
-## GPU plotting
+## GPU plotting performance improvements
 
 > [!NOTE]
 > Engineering
 
-> [!IMPORTANT]
-> WIP
-
-GPU plotting was inherited from [Subspace reference implementation], but due to getting rid of KZG it is temporarily a
-bit broken.
-
-It is being [re-written in Rust] using [rust-gpu] with the goal of running on Vulkan 1.2-capable devices (plus Metal on
-macOS), which includes both dGPUs from different vendors and iGPUs (which due to unified memory could benefit from extra
-memory-related optimizations). This should make plotting less expensive and hopefully even make farming viable on larger
-SBCs.
+GPU plotting was [re-written in Rust] using [rust-gpu] with the goal of running on Vulkan 1.2-capable devices (plus
+Metal on macOS). It works and has decent performance, but there must still be significant optimization opportunities
+left to explore, some of which might require improving rust-gpu itself first.
 
 [re-written in Rust]: https://github.com/nazar-pc/abundance/tree/2862d4ae59b60000e020bcbf38c4dcbd9a74f10e/crates/farmer/ab-proof-of-space-gpu
 

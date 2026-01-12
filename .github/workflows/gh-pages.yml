@@ -24,7 +24,7 @@ jobs:
       - name: Install mdbook with extra preprocessors
         uses: taiki-e/install-action@3522286d40783523f9c7880e33f785905b4c20d0 # 2.66.1
         with:
-          tool: mdbook@0.4,mdbook-alerts@0.7.0,mdbook-d2@0.3.4
+          tool: mdbook@0.5,mdbook-d2@0.3.8
 
       - name: D2 CLI
         run: |

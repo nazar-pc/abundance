@@ -2,13 +2,10 @@
 title = "Project Abundance"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 language = "en"
-multilingual = false
 
 [build]
 build-dir = "build"
 create-missing = false
-
-[preprocessor.alerts]
 
 [preprocessor.d2]
 dark-theme-id = "200"
