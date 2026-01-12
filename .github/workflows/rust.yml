@@ -77,10 +77,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
 
-      - name: Install Protoc
-        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # 3.0.0
+      - name: Install protoc (libp2p)
+        uses: taiki-e/install-action@3522286d40783523f9c7880e33f785905b4c20d0 # 2.66.1
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          tool: protoc
 
       # Needed for hwloc
       - name: Install automake and glibtoolize (macOS)
@@ -211,10 +211,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
 
-      - name: Install Protoc
-        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # 3.0.0
+      - name: Install cargo-nextest and protoc (libp2p)
+        uses: taiki-e/install-action@3522286d40783523f9c7880e33f785905b4c20d0 # 2.66.1
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          tool: cargo-nextest,protoc
 
       # Needed for hwloc
       - name: Install automake and glibtoolize (macOS)
@@ -233,11 +233,6 @@ jobs:
         # Cache on Windows is so slow, it is faster without it, see many reports like
         # https://github.com/actions/runner-images/issues/7320
         if: runner.os != 'Windows'
-
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@3522286d40783523f9c7880e33f785905b4c20d0 # 2.66.1
-        with:
-          tool: cargo-nextest
 
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
         if: runner.os == 'Linux'
