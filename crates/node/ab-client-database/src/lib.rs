@@ -80,7 +80,7 @@ use ab_io_type::trivial_type::TrivialType;
 use async_lock::{
     RwLock as AsyncRwLock, RwLockUpgradableReadGuard, RwLockWriteGuard as AsyncRwLockWriteGuard,
 };
-use rand::rngs::OsError;
+use rand::rngs::SysError;
 use rclite::Arc;
 use replace_with::replace_with_or_abort;
 use smallvec::{SmallVec, smallvec};
@@ -323,7 +323,7 @@ pub enum ClientDatabaseFormatError {
     FailedToGenerateDatabaseId {
         /// Low-level error
         #[from]
-        error: OsError,
+        error: SysError,
     },
     /// Database is already formatted yet
     #[error("Database is already formatted yet")]
