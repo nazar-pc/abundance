@@ -68,8 +68,25 @@ jobs:
           - together
           - individually
           - features
+        target:
+          - ""
+        include:
+          - os: ubuntu-24.04
+            type: together
+            target: "riscv64a23-unknown-linux-gnu"
+          - os: ubuntu-24.04
+            type: features
+            target: "riscv64a23-unknown-linux-gnu"
+          - os: ubuntu-24.04
+            type: individually
+            target: "riscv64a23-unknown-linux-gnu"
+      fail-fast: false
 
     runs-on: ${{ matrix.os }}
+    env:
+      command: >-
+        cargo -Zgitoxide -Zgit clippy
+        ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }}
     # Gives the slow cargo test jobs a head start
     needs: cargo-test-slow-head-start
 
@@ -81,6 +98,18 @@ jobs:
         uses: taiki-e/install-action@90558ad1e179036f31467972b00dec6cb80701fa # 2.66.3
         with:
           tool: protoc
+
+      - name: RISC-V support
+        run: |
+          echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
+          echo "CC_riscv64a23_unknown_linux_gnu=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CC_riscv64embzbc_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
+        if: contains(matrix.target, 'riscv64')
 
       # Needed for hwloc
       - name: Install automake and glibtoolize (macOS)
@@ -101,14 +130,14 @@ jobs:
         if: runner.os != 'Windows'
 
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.target == ''
 
       # Use Mold linker for shorter build times
       - name: Use Mold linker on Linux
         shell: bash
         run: |
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.target == ''
 
       # Use LLD linker for shorter build times
       - name: Use LLD linker on Windows
@@ -119,7 +148,7 @@ jobs:
 
       - name: cargo clippy
         run: |
-          cargo -Zgitoxide -Zgit clippy --locked --all-targets -- -D warnings
+          ${{ env.command }} --locked --all-targets -- -D warnings
         if: matrix.type == 'together'
 
       - name: cargo clippy (each crate individually)
@@ -131,7 +160,7 @@ jobs:
             fi
             crate="$(basename -- $crate_path)"
             echo "Checking \`$crate\` individually"
-            cargo -Zgitoxide -Zgit clippy --all-targets --package $crate -- -D warnings
+            ${{ env.command }} --all-targets --package $crate -- -D warnings
           done
         if: matrix.type == 'individually'
 
@@ -147,7 +176,7 @@ jobs:
               fi
               crate="$(basename -- $crate_path)"
               echo "Checking \`$feature\` in \`$crate\`"
-              cargo -Zgitoxide -Zgit clippy --all-targets --package $crate --features $crate/$feature -- -D warnings
+              ${{ env.command }} --all-targets --package $crate --features $crate/$feature -- -D warnings
             done
           done
 
@@ -156,7 +185,7 @@ jobs:
           for contract_path in crates/contracts/{example,system}/*; do
             contract="$(basename -- $contract_path)"
             echo "Checking \`guest\` in \`$contract\`"
-            cargo -Zgitoxide -Zgit clippy --all-targets --package $contract --features $contract/guest -- -D warnings
+            ${{ env.command }} --all-targets --package $contract --features $contract/guest -- -D warnings
           done
           for crate_path in crates/contracts/core/*; do
             # Not all crates have this feature
@@ -165,14 +194,14 @@ jobs:
             fi
             crate="$(basename -- $crate_path)"
             echo "Checking \`guest\` in \`$crate\`"
-            cargo -Zgitoxide -Zgit clippy --all-targets --package $crate --features $crate/guest -- -D warnings
+            ${{ env.command }} --all-targets --package $crate --features $crate/guest -- -D warnings
           done
 
           echo "Checking \`executor\` in \`ab-contracts-common\`"
-          cargo -Zgitoxide -Zgit clippy --all-targets --package ab-contracts-common --features ab-contracts-common/executor -- -D warnings
+          ${{ env.command }} --all-targets --package ab-contracts-common --features ab-contracts-common/executor -- -D warnings
 
           echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`"
-          cargo -Zgitoxide -Zgit clippy --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings
+          ${{ env.command }} --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder -- -D warnings
         if: matrix.type == 'features'
 
   cargo-test:
@@ -187,25 +216,48 @@ jobs:
         miri:
           - true
           - false
+        target:
+          - ""
         type:
           # `together` variant is running in a separate job, see `cargo-test-slow`
           # - together
           - features
-          - guest-feature
-        exclude:
-          - os: macos-26
+          # Only a few select targets are explicitly included with `guest-feature` below
+          # - guest-feature
+        # Test a few RISC-V targets (both Linux and one used for contracts) using Miri
+        include:
+          - os: ubuntu-24.04
+            miri: true
             type: guest-feature
-          - os: windows-11-arm
+            target: ""
+          - os: ubuntu-24.04
+            miri: false
             type: guest-feature
-          - os: windows-2025
+            target: ""
+
+          - os: ubuntu-24.04
+            miri: true
+            type: features
+            target: "riscv64a23-unknown-linux-gnu"
+          - os: ubuntu-24.04
+            miri: true
             type: guest-feature
+            target: "riscv64a23-unknown-linux-gnu"
+
+          # TODO: Tests will need custom allocator to work under this target
+          # - os: ubuntu-24.04
+          #   miri: true
+          #   type: guest-feature
+          #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64embzbc-unknown-none-abundance.json"
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
     # Gives the slow cargo test jobs a head start
     needs: cargo-test-slow-head-start
     env:
-      command: ${{ matrix.miri == true && 'miri nextest run' || 'nextest run' }}
+      command: >-
+        ${{ matrix.miri == true && 'miri nextest run' || 'nextest run' }}
+        ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }}
 
     steps: &test-steps
       - name: Checkout
@@ -215,6 +267,18 @@ jobs:
         uses: taiki-e/install-action@90558ad1e179036f31467972b00dec6cb80701fa # 2.66.3
         with:
           tool: cargo-nextest,protoc
+
+      - name: RISC-V support
+        run: |
+          echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
+          echo "CC_riscv64a23_unknown_linux_gnu=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CC_riscv64embzbc_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
+        if: contains(matrix.target, 'riscv64')
 
       # Needed for hwloc
       - name: Install automake and glibtoolize (macOS)
@@ -235,14 +299,14 @@ jobs:
         if: runner.os != 'Windows'
 
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.target == ''
 
       # Use Mold linker for shorter build times
       - name: Use Mold linker on Linux
         shell: bash
         run: |
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.target == ''
 
       # Use LLD linker for shorter build times
       - name: Use LLD linker on Windows
@@ -251,7 +315,7 @@ jobs:
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=rust-lld" >> $GITHUB_ENV
         if: runner.os == 'Windows'
 
-      # TODO: This is a workaround for https://github.com/RustCrypto/stream-ciphers/issues/426
+      # TODO: This is a workaround for https://github.com/rust-lang/miri/issues/3172#issuecomment-2986871634
       - name: Miri aarch64 workaround
         shell: bash
         run: |
@@ -387,22 +451,24 @@ jobs:
         miri:
           - true
           - false
+        target:
+          - ""
         type:
           - together
           # - features
           # - guest-feature
-        exclude:
-          - os: macos-26
-            type: guest-feature
-          - os: windows-11-arm
-            type: guest-feature
-          - os: windows-2025
-            type: guest-feature
+        include:
+          - os: ubuntu-24.04
+            miri: true
+            type: together
+            target: "riscv64a23-unknown-linux-gnu"
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
     env:
-      command: ${{ matrix.miri == true && 'miri nextest run' || 'nextest run' }}
+      command: >-
+        ${{ matrix.miri == true && 'miri nextest run' || 'nextest run' }}
+        ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }}
 
     steps: *test-steps
 
@@ -418,21 +484,47 @@ jobs:
         type:
           - default
           - features
-          - guest-feature
-        exclude:
-          - os: macos-26
-            type: guest-feature
-          - os: windows-11-arm
-            type: guest-feature
-          - os: windows-2025
-            type: guest-feature
+          # Only one target is explicitly included with `guest-feature` below
+          # - guest-feature
+        target:
+          - ""
+        # TODO: Un-comment RISC-V once https://github.com/rust-lang/cargo/issues/16509 is resolved to make logs
+        #  manageable
+        # include:
+        # - os: ubuntu-24.04
+        #   type: default
+        #   target: "riscv64a23-unknown-linux-gnu"
+        # - os: ubuntu-24.04
+        #   type: features
+        #   target: "riscv64a23-unknown-linux-gnu"
+
+        # TODO: Tests will need custom allocator to work under this target
+        # - os: ubuntu-24.04
+        #   type: guest-feature
+        #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64embzbc-unknown-none-abundance.json"
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
+    env:
+      command: >-
+        cargo -Zgitoxide -Zgit build
+        ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
+
+      - name: RISC-V support
+        run: |
+          echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
+          echo "CC_riscv64a23_unknown_linux_gnu=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CC_riscv64embzbc_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
+        if: contains(matrix.target, 'riscv64')
 
       - name: Configure cache
         uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # 5.0.1
@@ -448,14 +540,14 @@ jobs:
         if: runner.os != 'Windows'
 
       - uses: rui314/setup-mold@725a8794d15fc7563f59595bd9556495c0564878 # v1
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.target == ''
 
       # Use Mold linker for shorter build times
       - name: Use Mold linker on Linux
         shell: bash
         run: |
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.target == ''
 
       # Use LLD linker for shorter build times
       - name: Use LLD linker on Windows
@@ -476,7 +568,7 @@ jobs:
         run: |
           # TODO: This doesn't seem to work for now: https://users.rust-lang.org/t/compiler-optimizations-are-different-for-crate-itself-vs-dependency/130187?u=nazar-pc
           # So we end up building individual crates instead, which is unfortunate
-          # cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic
+          # ${{ env.command }} --release --all-targets --features no-panic
 
           # Ensure no panics in various crates
           for crate_path in crates/{contracts/{core,example,system},execution,farmer,node,shared}/*; do
@@ -486,7 +578,7 @@ jobs:
             fi
             crate="$(basename -- $crate_path)"
             echo "Checking \`$crate\`"
-            cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $crate
+            ${{ env.command }} --release --all-targets --features no-panic --package $crate
           done
         if: matrix.type == 'default'
 
@@ -502,14 +594,14 @@ jobs:
             fi
             crate="$(basename -- $crate_path)"
             echo "Checking \`alloc\` in \`$crate\`"
-            cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $crate --features $crate/alloc
+            ${{ env.command }} --release --all-targets --features no-panic --package $crate --features $crate/alloc
           done
 
           echo "Checking \`executor\` in \`ab-contracts-common\`"
-          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-contracts-common --features ab-contracts-common/executor
+          ${{ env.command }} --release --all-targets --features no-panic --package ab-contracts-common --features ab-contracts-common/executor
 
           echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`"
-          cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
+          ${{ env.command }} --release --all-targets --features no-panic --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder
         if: matrix.type == 'features'
 
       - name: Ensure no panics in annotated code (guest feature)
@@ -522,7 +614,7 @@ jobs:
             fi
             contract="$(basename -- $contract_path)"
             echo "Checking \`guest\` in \`$contract\`"
-            cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $contract --features $contract/guest
+            ${{ env.command }} --release --all-targets --features no-panic --package $contract --features $contract/guest
           done
           for contract_path in crates/contracts/core/*; do
             # Not all contracts have this feature yet
@@ -532,7 +624,7 @@ jobs:
             fi
             contract="$(basename -- $contract_path)"
             echo "Checking \`guest\` in \`$contract\`"
-            cargo -Zgitoxide -Zgit build --release --all-targets --features no-panic --package $contract --features $contract/guest
+            ${{ env.command }} --release --all-targets --features no-panic --package $contract --features $contract/guest
           done
         if: matrix.type == 'guest-feature' && runner.os == 'Linux'
 

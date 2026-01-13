@@ -1,5 +1,6 @@
 //! Build an ELF `cdylib` with the contract
 
+use crate::target_specification::TARGET_SPECIFICATION_NAME;
 use anyhow::Context;
 use cargo_metadata::MetadataCommand;
 use std::env;
@@ -89,8 +90,8 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
     };
 
     let cdylib_path = target_directory
-        .join("riscv64em-unknown-none-abundance")
-        .join(profile)
+        .join(TARGET_SPECIFICATION_NAME)
+        .join(if profile == "dev" { "debug" } else { "release" })
         .join({
             let package_name = if let Some(package) = package {
                 package

@@ -30,24 +30,18 @@ RUN \
     if [ $BUILDARCH != "arm64" ] && [ $TARGETARCH = "arm64" ]; then \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
           g++-aarch64-linux-gnu \
-          gcc-aarch64-linux-gnu \
-          libc6-dev-arm64-cross \
     ; fi
 
 RUN \
     if [ $BUILDARCH != "riscv64" ] && [ $TARGETARCH = "riscv64" ]; then \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
           g++-riscv64-linux-gnu \
-          gcc-riscv64-linux-gnu \
-          libc6-dev-riscv64-cross \
     ; fi
 
 RUN \
     if [ $BUILDARCH != "amd64" ] && [ $TARGETARCH = "amd64" ]; then \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
           g++-x86-64-linux-gnu \
-          gcc-x86-64-linux-gnu \
-          libc6-dev-amd64-cross \
     ; fi
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
