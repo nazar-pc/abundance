@@ -96,8 +96,8 @@ hwlocality = "1.0.0-alpha.11"
 ident_case = "1.0.1"
 jsonrpsee = "0.26.0"
 libc = "0.2.180"
-libp2p = { version = "0.56.0", git = "https://github.com/autonomys/rust-libp2p", rev = "0c2e22fe724e5101bc5ad5763b1c3d7aa452870a", default-features = false }
-libp2p-swarm-test = { version = "0.6.0", git = "https://github.com/autonomys/rust-libp2p", rev = "0c2e22fe724e5101bc5ad5763b1c3d7aa452870a" }
+libp2p = { version = "0.56.0", git = "https://github.com/autonomys/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea", default-features = false }
+libp2p-swarm-test = { version = "0.6.0", git = "https://github.com/autonomys/rust-libp2p", rev = "7e9532d65530ebd0cf92c53fc326948ee8467fea" }
 memmap2 = "0.9.9"
 mimalloc = "0.1.48"
 multihash = "0.19.3"
