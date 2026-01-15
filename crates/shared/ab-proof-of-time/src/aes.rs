@@ -10,7 +10,7 @@ use aes::Aes128;
 use aes::cipher::array::Array;
 use aes::cipher::{BlockCipherDecrypt, BlockCipherEncrypt, KeyInit};
 
-/// Creates the AES based proof.
+/// Creates an AES-based proof
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub(crate) fn create(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> PotCheckpoints {
@@ -52,13 +52,16 @@ fn create_generic(seed: PotSeed, key: PotKey, checkpoint_iterations: u32) -> Pot
     checkpoints
 }
 
-/// Verifies the AES based proof sequentially.
+/// Verifies an AES-based proof sequentially.
 ///
 /// Panics if `checkpoint_iterations` is not a multiple of `2`.
 #[inline(always)]
 // TODO: Figure out what is wrong with macOS here
 #[cfg_attr(
-    all(feature = "no-panic", not(target_os = "macos")),
+    all(
+        feature = "no-panic",
+        not(any(target_os = "macos", target_arch = "riscv64"))
+    ),
     no_panic::no_panic
 )]
 pub(crate) fn verify_sequential(
@@ -125,7 +128,10 @@ pub(crate) fn verify_sequential(
 
 // TODO: Figure out what is wrong with macOS here
 #[cfg_attr(
-    all(feature = "no-panic", not(target_os = "macos")),
+    all(
+        feature = "no-panic",
+        not(any(target_os = "macos", target_arch = "riscv64"))
+    ),
     no_panic::no_panic
 )]
 fn verify_sequential_generic(

@@ -488,20 +488,18 @@ jobs:
           # - guest-feature
         target:
           - ""
-        # TODO: Un-comment RISC-V once https://github.com/rust-lang/cargo/issues/16509 is resolved to make logs
-        #  manageable
-        # include:
-        # - os: ubuntu-24.04
-        #   type: default
-        #   target: "riscv64a23-unknown-linux-gnu"
-        # - os: ubuntu-24.04
-        #   type: features
-        #   target: "riscv64a23-unknown-linux-gnu"
+        include:
+          - os: ubuntu-24.04
+            type: default
+            target: "riscv64a23-unknown-linux-gnu"
+          - os: ubuntu-24.04
+            type: features
+            target: "riscv64a23-unknown-linux-gnu"
 
-        # TODO: Tests will need custom allocator to work under this target
-        # - os: ubuntu-24.04
-        #   type: guest-feature
-        #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64embzbc-unknown-none-abundance.json"
+          # TODO: Tests will need custom allocator to work under this target
+          # - os: ubuntu-24.04
+          #   type: guest-feature
+          #   target: "crates/contracts/core/ab-contracts-tooling/src/riscv64embzbc-unknown-none-abundance.json"
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -561,7 +559,7 @@ jobs:
       - name: Set up RUSTFLAGS
         shell: bash
         run: |
-          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=7000 -C embed-bitcode -C lto -Z dylib-lto -C target-cpu=native" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -Cllvm-args=--inline-threshold=7000 -C embed-bitcode -C lto -Z dylib-lto ${{ matrix.target == '' && '-C target-cpu=native' || '' }}" >> $GITHUB_ENV
 
       - name: Ensure no panics in annotated code
         shell: bash
@@ -647,6 +645,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      # TODO: Run clippy and `no-panic` on custom target for contracts too
       - name: Ensure contracts compile for a custom target
         run: |
           for contract_path in crates/contracts/{example,system}/*; do
