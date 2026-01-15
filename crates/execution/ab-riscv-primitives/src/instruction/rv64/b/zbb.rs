@@ -57,7 +57,7 @@ where
         let low6 = ((instruction >> 20) & 0x3f) as u8;
         let funct12 = ((instruction >> 20) & 0xfff) as u16;
 
-        Some(match opcode {
+        match opcode {
             // OP-IMM
             0b0010011 => {
                 let rd = Reg::from_bits(rd_bits)?;
@@ -66,35 +66,31 @@ where
                     0b001 => {
                         if funct6 == 0b011000 {
                             match low6 {
-                                0 => Self::Clz { rd, rs1 },
-                                1 => Self::Ctz { rd, rs1 },
-                                2 => Self::Cpop { rd, rs1 },
-                                4 => Self::Sextb { rd, rs1 },
-                                5 => Self::Sexth { rd, rs1 },
-                                _ => {
-                                    return None;
-                                }
+                                0 => Some(Self::Clz { rd, rs1 }),
+                                1 => Some(Self::Ctz { rd, rs1 }),
+                                2 => Some(Self::Cpop { rd, rs1 }),
+                                4 => Some(Self::Sextb { rd, rs1 }),
+                                5 => Some(Self::Sexth { rd, rs1 }),
+                                _ => None,
                             }
                         } else {
-                            return None;
+                            None
                         }
                     }
                     0b101 => {
                         if funct12 == 0b011010111000 {
-                            Self::Rev8 { rd, rs1 }
+                            Some(Self::Rev8 { rd, rs1 })
                         } else if funct6 == 0b011000 {
-                            Self::Rori {
+                            Some(Self::Rori {
                                 rd,
                                 rs1,
                                 shamt: low6,
-                            }
+                            })
                         } else {
-                            return None;
+                            None
                         }
                     }
-                    _ => {
-                        return None;
-                    }
+                    _ => None,
                 }
             }
             // OP / R-type
@@ -105,62 +101,56 @@ where
                 match funct3 {
                     0b001 => {
                         if funct7 == 0b0110000 {
-                            Self::Rol { rd, rs1, rs2 }
+                            Some(Self::Rol { rd, rs1, rs2 })
                         } else {
-                            return None;
+                            None
                         }
                     }
                     0b010 => {
                         if funct7 == 0b0000101 {
-                            Self::Min { rd, rs1, rs2 }
+                            Some(Self::Min { rd, rs1, rs2 })
                         } else {
-                            return None;
+                            None
                         }
                     }
                     0b011 => {
                         if funct7 == 0b0000101 {
-                            Self::Minu { rd, rs1, rs2 }
+                            Some(Self::Minu { rd, rs1, rs2 })
                         } else {
-                            return None;
+                            None
                         }
                     }
                     0b100 => match funct7 {
-                        0b0100000 => Self::Xnor { rd, rs1, rs2 },
-                        0b0000101 => Self::Max { rd, rs1, rs2 },
-                        _ => {
-                            return None;
-                        }
+                        0b0100000 => Some(Self::Xnor { rd, rs1, rs2 }),
+                        0b0000101 => Some(Self::Max { rd, rs1, rs2 }),
+                        _ => None,
                     },
                     0b101 => match funct7 {
-                        0b0110000 => Self::Ror { rd, rs1, rs2 },
+                        0b0110000 => Some(Self::Ror { rd, rs1, rs2 }),
                         0b0000101 => {
                             if rs2_bits == 0b00111 {
-                                Self::Orcb { rd, rs1 }
+                                Some(Self::Orcb { rd, rs1 })
                             } else {
-                                Self::Maxu { rd, rs1, rs2 }
+                                Some(Self::Maxu { rd, rs1, rs2 })
                             }
                         }
-                        _ => {
-                            return None;
-                        }
+                        _ => None,
                     },
                     0b110 => {
                         if funct7 == 0b0100000 {
-                            Self::Orn { rd, rs1, rs2 }
+                            Some(Self::Orn { rd, rs1, rs2 })
                         } else {
-                            return None;
+                            None
                         }
                     }
                     0b111 => {
                         if funct7 == 0b0100000 {
-                            Self::Andn { rd, rs1, rs2 }
+                            Some(Self::Andn { rd, rs1, rs2 })
                         } else {
-                            return None;
+                            None
                         }
                     }
-                    _ => {
-                        return None;
-                    }
+                    _ => None,
                 }
             }
             // OP-IMM-32
@@ -171,28 +161,24 @@ where
                     0b001 => {
                         if funct7 == 0b0110000 {
                             match rs2_bits {
-                                0 => Self::Clzw { rd, rs1 },
-                                1 => Self::Ctzw { rd, rs1 },
-                                2 => Self::Cpopw { rd, rs1 },
-                                _ => {
-                                    return None;
-                                }
+                                0 => Some(Self::Clzw { rd, rs1 }),
+                                1 => Some(Self::Ctzw { rd, rs1 }),
+                                2 => Some(Self::Cpopw { rd, rs1 }),
+                                _ => None,
                             }
                         } else {
-                            return None;
+                            None
                         }
                     }
                     0b101 => {
                         if funct7 == 0b0110000 {
                             let shamt = rs2_bits;
-                            Self::Roriw { rd, rs1, shamt }
+                            Some(Self::Roriw { rd, rs1, shamt })
                         } else {
-                            return None;
+                            None
                         }
                     }
-                    _ => {
-                        return None;
-                    }
+                    _ => None,
                 }
             }
             // OP-32
@@ -203,34 +189,30 @@ where
                 match funct3 {
                     0b001 => {
                         if funct7 == 0b0110000 {
-                            Self::Rolw { rd, rs1, rs2 }
+                            Some(Self::Rolw { rd, rs1, rs2 })
                         } else {
-                            return None;
+                            None
                         }
                     }
                     0b100 => {
                         if funct7 == 0b0000100 && rs2_bits == 0 {
-                            Self::Zexth { rd, rs1 }
+                            Some(Self::Zexth { rd, rs1 })
                         } else {
-                            return None;
+                            None
                         }
                     }
                     0b101 => {
                         if funct7 == 0b0110000 {
-                            Self::Rorw { rd, rs1, rs2 }
+                            Some(Self::Rorw { rd, rs1, rs2 })
                         } else {
-                            return None;
+                            None
                         }
                     }
-                    _ => {
-                        return None;
-                    }
+                    _ => None,
                 }
             }
-            _ => {
-                return None;
-            }
-        })
+            _ => None,
+        }
     }
 
     #[inline(always)]

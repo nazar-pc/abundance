@@ -31,25 +31,21 @@ where
         let rs2_bits = ((instruction >> 20) & 0x1f) as u8;
         let funct7 = ((instruction >> 25) & 0b111_1111) as u8;
 
-        Some(match opcode {
+        match opcode {
             // R-type
             0b0110011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    (0b001, 0b0000101) => Self::Clmul { rd, rs1, rs2 },
-                    (0b011, 0b0000101) => Self::Clmulh { rd, rs1, rs2 },
-                    (0b010, 0b0000101) => Self::Clmulr { rd, rs1, rs2 },
-                    _ => {
-                        return None;
-                    }
+                    (0b001, 0b0000101) => Some(Self::Clmul { rd, rs1, rs2 }),
+                    (0b011, 0b0000101) => Some(Self::Clmulh { rd, rs1, rs2 }),
+                    (0b010, 0b0000101) => Some(Self::Clmulr { rd, rs1, rs2 }),
+                    _ => None,
                 }
             }
-            _ => {
-                return None;
-            }
-        })
+            _ => None,
+        }
     }
 
     #[inline(always)]

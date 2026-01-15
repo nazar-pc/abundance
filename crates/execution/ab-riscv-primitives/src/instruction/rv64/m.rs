@@ -43,7 +43,7 @@ where
         let rs2_bits = ((instruction >> 20) & 0x1f) as u8;
         let funct7 = ((instruction >> 25) & 0b111_1111) as u8;
 
-        Some(match opcode {
+        match opcode {
             // R-type
             0b0110011 => {
                 let rd = Reg::from_bits(rd_bits)?;
@@ -51,17 +51,15 @@ where
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
                     // M extension
-                    (0b000, 0b0000001) => Self::Mul { rd, rs1, rs2 },
-                    (0b001, 0b0000001) => Self::Mulh { rd, rs1, rs2 },
-                    (0b010, 0b0000001) => Self::Mulhsu { rd, rs1, rs2 },
-                    (0b011, 0b0000001) => Self::Mulhu { rd, rs1, rs2 },
-                    (0b100, 0b0000001) => Self::Div { rd, rs1, rs2 },
-                    (0b101, 0b0000001) => Self::Divu { rd, rs1, rs2 },
-                    (0b110, 0b0000001) => Self::Rem { rd, rs1, rs2 },
-                    (0b111, 0b0000001) => Self::Remu { rd, rs1, rs2 },
-                    _ => {
-                        return None;
-                    }
+                    (0b000, 0b0000001) => Some(Self::Mul { rd, rs1, rs2 }),
+                    (0b001, 0b0000001) => Some(Self::Mulh { rd, rs1, rs2 }),
+                    (0b010, 0b0000001) => Some(Self::Mulhsu { rd, rs1, rs2 }),
+                    (0b011, 0b0000001) => Some(Self::Mulhu { rd, rs1, rs2 }),
+                    (0b100, 0b0000001) => Some(Self::Div { rd, rs1, rs2 }),
+                    (0b101, 0b0000001) => Some(Self::Divu { rd, rs1, rs2 }),
+                    (0b110, 0b0000001) => Some(Self::Rem { rd, rs1, rs2 }),
+                    (0b111, 0b0000001) => Some(Self::Remu { rd, rs1, rs2 }),
+                    _ => None,
                 }
             }
             // R-type W
@@ -70,20 +68,16 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    (0b000, 0b0000001) => Self::Mulw { rd, rs1, rs2 },
-                    (0b100, 0b0000001) => Self::Divw { rd, rs1, rs2 },
-                    (0b101, 0b0000001) => Self::Divuw { rd, rs1, rs2 },
-                    (0b110, 0b0000001) => Self::Remw { rd, rs1, rs2 },
-                    (0b111, 0b0000001) => Self::Remuw { rd, rs1, rs2 },
-                    _ => {
-                        return None;
-                    }
+                    (0b000, 0b0000001) => Some(Self::Mulw { rd, rs1, rs2 }),
+                    (0b100, 0b0000001) => Some(Self::Divw { rd, rs1, rs2 }),
+                    (0b101, 0b0000001) => Some(Self::Divuw { rd, rs1, rs2 }),
+                    (0b110, 0b0000001) => Some(Self::Remw { rd, rs1, rs2 }),
+                    (0b111, 0b0000001) => Some(Self::Remuw { rd, rs1, rs2 }),
+                    _ => None,
                 }
             }
-            _ => {
-                return None;
-            }
-        })
+            _ => None,
+        }
     }
 
     #[inline(always)]
