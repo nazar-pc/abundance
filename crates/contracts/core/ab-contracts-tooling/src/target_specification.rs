@@ -6,7 +6,9 @@ use std::fs::{File, create_dir_all};
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
-const TARGET_SPECIFICATION: &str = include_str!("riscv64em-unknown-none-abundance.json");
+pub(crate) const TARGET_SPECIFICATION_NAME: &str = "riscv64embzbc-unknown-none-abundance";
+const TARGET_SPECIFICATION_FILE_NAME: &str = "riscv64embzbc-unknown-none-abundance.json";
+const TARGET_SPECIFICATION: &str = include_str!("riscv64embzbc-unknown-none-abundance.json");
 
 /// Target specification for contracts
 #[derive(Debug)]
@@ -20,7 +22,7 @@ impl TargetSpecification {
     ///
     /// `base_directory` is used to store the target specification JSON file.
     pub fn create(base_directory: &Path) -> anyhow::Result<Self> {
-        let path = base_directory.join("riscv64em-unknown-none-abundance.json");
+        let path = base_directory.join(TARGET_SPECIFICATION_FILE_NAME);
         let mut file = File::options()
             .read(true)
             .write(true)
