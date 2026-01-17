@@ -746,8 +746,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "ab-riscv-macros"
+version = "0.0.1"
+dependencies = [
+ "ab-riscv-macros-common",
+ "ab-riscv-macros-impl",
+ "anyhow",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
+name = "ab-riscv-macros-common"
+version = "0.0.1"
+
+[[package]]
+name = "ab-riscv-macros-impl"
+version = "0.0.1"
+dependencies = [
+ "ab-riscv-macros-common",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "ab-riscv-primitives"
 version = "0.0.1"
+dependencies = [
+ "ab-riscv-macros",
+]
 
 [[package]]
 name = "ab-system-contract-address-allocator"

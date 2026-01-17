@@ -47,6 +47,9 @@ ab-proof-of-space = { version = "0.1.0", path = "crates/shared/ab-proof-of-space
 ab-proof-of-space-gpu = { version = "0.1.0", path = "crates/farmer/ab-proof-of-space-gpu" }
 ab-proof-of-time = { version = "0.1.0", path = "crates/shared/ab-proof-of-time" }
 ab-riscv-interpreter = { version = "0.0.1", path = "crates/execution/ab-riscv-interpreter" }
+ab-riscv-macros = { version = "0.0.1", path = "crates/execution/ab-riscv-macros" }
+ab-riscv-macros-common = { version = "0.0.1", path = "crates/execution/ab-riscv-macros-common" }
+ab-riscv-macros-impl = { version = "0.0.1", path = "crates/execution/ab-riscv-macros-impl" }
 ab-riscv-primitives = { version = "0.0.1", path = "crates/execution/ab-riscv-primitives" }
 ab-system-contract-address-allocator = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-address-allocator" }
 ab-system-contract-block = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-block" }

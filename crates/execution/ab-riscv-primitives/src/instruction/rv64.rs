@@ -2,6 +2,7 @@
 
 use crate::instruction::{BaseInstruction, Instruction};
 use crate::registers::Register;
+use ab_riscv_macros::instruction;
 use core::fmt;
 
 pub mod b;
@@ -10,6 +11,7 @@ pub mod m;
 mod tests;
 
 /// RISC-V RV64 instruction
+#[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rv64Instruction<Reg> {
     // R-type
@@ -97,6 +99,7 @@ pub enum Rv64Instruction<Reg> {
     Invalid(u32),
 }
 
+#[instruction]
 impl<Reg> const Instruction for Rv64Instruction<Reg>
 where
     Reg: [const] Register<Type = u64>,

@@ -1,24 +1,17 @@
 [package]
-name = "ab-riscv-primitives"
-description = "RISC-V primitives"
+name = "ab-riscv-macros-common"
+description = "Common utilities for RISC-V macros"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
-    "/build.rs",
     "/src",
     "/Cargo.toml",
 ]
 
 [package.metadata.docs.rs]
 all-features = true
-
-[dependencies]
-ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
-
-[build-dependencies]
-ab-riscv-macros = { workspace = true }
 
 [lints]
 workspace = true

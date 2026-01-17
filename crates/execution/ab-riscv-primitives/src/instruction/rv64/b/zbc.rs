@@ -6,9 +6,11 @@ mod tests;
 use crate::instruction::Instruction;
 use crate::instruction::rv64::Rv64Instruction;
 use crate::registers::Register;
+use ab_riscv_macros::instruction;
 use core::fmt;
 
 /// RISC-V RV64 Zbc instruction (Carryless multiplication)
+#[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rv64ZbcInstruction<Reg> {
     Clmul { rd: Reg, rs1: Reg, rs2: Reg },
@@ -16,6 +18,7 @@ pub enum Rv64ZbcInstruction<Reg> {
     Clmulr { rd: Reg, rs1: Reg, rs2: Reg },
 }
 
+#[instruction]
 impl<Reg> const Instruction for Rv64ZbcInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,

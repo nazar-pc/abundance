@@ -1,6 +1,6 @@
 [package]
-name = "ab-contracts-macros-impl"
-description = "Macros for contracts (implementation)"
+name = "ab-riscv-macros-impl"
+description = "Macros for RISC-V primitives and interpreter (implementation)"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
@@ -17,11 +17,10 @@ all-features = true
 proc-macro = true
 
 [dependencies]
-ab-contracts-common = { workspace = true }
-ident_case = { workspace = true }
+ab-riscv-macros-common = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
-syn = { workspace = true, features = ["extra-traits", "full"] }
+syn = { workspace = true, features = ["full"] }
 
 [lints]
 workspace = true

@@ -1,0 +1,29 @@
+[package]
+name = "ab-riscv-macros"
+description = "Macros for RISC-V primitives and interpreter"
+license = "0BSD"
+version = "0.0.1"
+authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
+edition = "2024"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+ab-riscv-macros-impl = { workspace = true, optional = true }
+ab-riscv-macros-common = { workspace = true }
+anyhow = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true, features = ["extra-traits", "full", "visit"] }
+
+[features]
+proc-macro = [
+    "dep:ab-riscv-macros-impl",
+]
+
+[lints]
+workspace = true

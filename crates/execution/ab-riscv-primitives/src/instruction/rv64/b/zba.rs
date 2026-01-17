@@ -6,9 +6,11 @@ mod tests;
 use crate::instruction::Instruction;
 use crate::instruction::rv64::Rv64Instruction;
 use crate::registers::Register;
+use ab_riscv_macros::instruction;
 use core::fmt;
 
 /// RISC-V RV64 Zba instruction (Address generation)
+#[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rv64ZbaInstruction<Reg> {
     AddUw { rd: Reg, rs1: Reg, rs2: Reg },
@@ -21,6 +23,7 @@ pub enum Rv64ZbaInstruction<Reg> {
     SlliUw { rd: Reg, rs1: Reg, shamt: u8 },
 }
 
+#[instruction]
 impl<Reg> const Instruction for Rv64ZbaInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,

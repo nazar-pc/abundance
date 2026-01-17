@@ -6,9 +6,11 @@ mod tests;
 use crate::instruction::Instruction;
 use crate::instruction::rv64::Rv64Instruction;
 use crate::registers::Register;
+use ab_riscv_macros::instruction;
 use core::fmt;
 
 /// RISC-V RV64 Zbb instruction (Basic bit manipulation)
+#[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rv64ZbbInstruction<Reg> {
     // RV64 Zbb instructions
@@ -38,6 +40,7 @@ pub enum Rv64ZbbInstruction<Reg> {
     Rev8 { rd: Reg, rs1: Reg },
 }
 
+#[instruction]
 impl<Reg> const Instruction for Rv64ZbbInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
