@@ -104,7 +104,6 @@ jobs:
           echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
-          echo "CC_riscv64a23_unknown_linux_gnu=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "CC_riscv64embzbc_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
           sudo apt-get update
@@ -273,7 +272,6 @@ jobs:
           echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
-          echo "CC_riscv64a23_unknown_linux_gnu=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "CC_riscv64embzbc_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
           sudo apt-get update
@@ -517,7 +515,6 @@ jobs:
           echo "command=${{ env.command }} -Zbuild-std" >> $GITHUB_ENV
           echo "RUSTFLAGS=${{ env.RUSTFLAGS }} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
-          echo "CC_riscv64a23_unknown_linux_gnu=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "CC_riscv64embzbc_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
           sudo apt-get update
