@@ -33,9 +33,6 @@ pub const trait BaseInstruction: [const] Instruction {
     /// A register type used by the instruction
     type Reg: Register;
 
-    /// Create an instruction from a lower-level base instruction
-    fn from_base(base: Self::Base) -> Self;
-
     /// Decode a single instruction
     fn decode(instruction: u32) -> Self;
 }

@@ -18,7 +18,6 @@ use ab_riscv_primitives::instruction::BaseInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::{Register, Registers};
 use alloc::vec::Vec;
-use core::fmt;
 use core::marker::PhantomData;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
@@ -294,7 +293,7 @@ where
     fn fetch_instruction(
         &mut self,
         _memory: &mut Memory,
-    ) -> Result<FetchInstructionResult<Instruction>, ExecutionError<Instruction, &'static str>>
+    ) -> Result<FetchInstructionResult<Instruction>, ExecutionError<u64, Instruction, &'static str>>
     {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
@@ -354,9 +353,6 @@ impl<Reg, Memory, PC, CustomError> Rv64SystemInstructionHandler<Reg, Memory, PC,
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: fmt::Display,
 {
     #[inline(always)]
     fn handle_ecall(
@@ -364,7 +360,7 @@ where
         _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Rv64Instruction<Reg>, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<u64, Rv64Instruction<Reg>, CustomError>> {
         // SAFETY: Contracts are statically known to not contain `ecall` instructions
         // unsafe { unreachable_unchecked() }
         // For some known reason this is faster than `unreachable_unchecked()`
@@ -382,7 +378,7 @@ pub fn execute<Memory, IF>(
         NoopRv64SystemInstructionHandler<Rv64Instruction<<Instruction as BaseInstruction>::Reg>>,
         &'static str,
     >,
-) -> Result<(), ExecutionError<Instruction, &'static str>>
+) -> Result<(), ExecutionError<u64, Instruction, &'static str>>
 where
     Memory: VirtualMemory,
     IF: InstructionFetcher<Instruction, Memory, &'static str>,
@@ -409,8 +405,10 @@ where
                 execute_b_zbc(&mut state.regs, instruction);
             }
             Instruction::Base(instruction) => {
-                // TODO: More ergonomic way to map instruction type from the base type
-                match execute_rv64(state, instruction).map_err(ExecutionError::map_from_base)? {
+                // TODO: Type inference is not working here for some mysterious reason
+                match execute_rv64(state, instruction).map_err(|error| {
+                    error.map_instruction::<_, fn(Rv64Instruction<<Instruction as BaseInstruction>::Reg>) -> Instruction>(Instruction::Base)
+                })? {
                     ControlFlow::Continue(()) => {
                         continue;
                     }

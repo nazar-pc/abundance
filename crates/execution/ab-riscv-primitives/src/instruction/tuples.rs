@@ -69,11 +69,6 @@ where
 {
     type Reg = Base::Reg;
 
-    #[inline(always)]
-    fn from_base(base: Base) -> Self {
-        Self::Base(base)
-    }
-
     #[inline]
     fn decode(instruction: u32) -> Self {
         if let Some(instruction) = A::try_decode(instruction) {
@@ -158,11 +153,6 @@ where
     Base: [const] BaseInstruction,
 {
     type Reg = Base::Reg;
-
-    #[inline(always)]
-    fn from_base(base: Base) -> Self {
-        Self::Base(base)
-    }
 
     #[inline]
     fn decode(instruction: u32) -> Self {

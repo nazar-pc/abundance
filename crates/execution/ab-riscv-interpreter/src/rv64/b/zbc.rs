@@ -3,8 +3,31 @@
 #[cfg(test)]
 mod tests;
 
+use crate::rv64::Rv64InterpreterState;
+use crate::{ExecutableInstruction, ExecutionError};
 use ab_riscv_primitives::instruction::rv64::b::zbc::Rv64ZbcInstruction;
 use ab_riscv_primitives::registers::{Register, Registers};
+use core::ops::ControlFlow;
+
+impl<Reg, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<
+        Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        CustomError,
+    > for Rv64ZbcInstruction<Reg>
+where
+    Reg: Register<Type = u64>,
+    [(); Reg::N]:,
+{
+    #[inline(always)]
+    fn execute(
+        self,
+        state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        execute_zbc(&mut state.regs, self);
+
+        Ok(ControlFlow::Continue(()))
+    }
+}
 
 /// Carryless multiplication helper
 #[cfg(any(miri, not(all(target_arch = "riscv64", target_feature = "zbc"))))]

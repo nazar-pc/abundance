@@ -3,8 +3,31 @@
 #[cfg(test)]
 mod tests;
 
+use crate::ExecutionError;
+use crate::rv64::{ExecutableInstruction, Rv64InterpreterState};
 use ab_riscv_primitives::instruction::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::registers::{Register, Registers};
+use core::ops::ControlFlow;
+
+impl<Reg, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<
+        Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        CustomError,
+    > for Rv64MInstruction<Reg>
+where
+    Reg: Register<Type = u64>,
+    [(); Reg::N]:,
+{
+    #[inline(always)]
+    fn execute(
+        self,
+        state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        execute_m(&mut state.regs, self);
+
+        Ok(ControlFlow::Continue(()))
+    }
+}
 
 /// Execute instructions from M extension
 #[inline(always)]

@@ -344,11 +344,6 @@ where
 {
     type Reg = Reg;
 
-    #[inline(always)]
-    fn from_base(base: Self::Base) -> Self {
-        base
-    }
-
     #[inline]
     fn decode(instruction: u32) -> Self {
         if let Some(instruction) = Self::try_decode(instruction) {

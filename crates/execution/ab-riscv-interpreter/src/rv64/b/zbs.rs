@@ -3,8 +3,31 @@
 #[cfg(test)]
 mod tests;
 
+use crate::rv64::Rv64InterpreterState;
+use crate::{ExecutableInstruction, ExecutionError};
 use ab_riscv_primitives::instruction::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::registers::{Register, Registers};
+use core::ops::ControlFlow;
+
+impl<Reg, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<
+        Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        CustomError,
+    > for Rv64ZbsInstruction<Reg>
+where
+    Reg: Register<Type = u64>,
+    [(); Reg::N]:,
+{
+    #[inline(always)]
+    fn execute(
+        self,
+        state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        execute_zbs(&mut state.regs, self);
+
+        Ok(ControlFlow::Continue(()))
+    }
+}
 
 /// Execute instructions from Zbs extension
 #[inline(always)]

@@ -3,13 +3,16 @@
 pub mod b;
 pub mod m;
 #[cfg(test)]
+mod test_utils;
+#[cfg(test)]
 mod tests;
 
-use crate::{ExecutionError, ProgramCounter, ProgramCounterError, VirtualMemory};
+use crate::{
+    ExecutableInstruction, ExecutionError, ProgramCounter, ProgramCounterError, VirtualMemory,
+};
 use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::{Register, Registers};
-use core::fmt;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
@@ -18,8 +21,6 @@ pub trait Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: fmt::Display,
 {
     /// Handle an `ecall` instruction.
     ///
@@ -30,7 +31,7 @@ where
         regs: &mut Registers<Reg>,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Rv64Instruction<Reg>, CustomError>>;
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Rv64Instruction<Reg>, CustomError>>;
 
     /// Handle an `ebreak` instruction.
     ///
@@ -68,9 +69,7 @@ impl<Reg, Memory, PC, CustomError> Rv64SystemInstructionHandler<Reg, Memory, PC,
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
-    Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: fmt::Display,
 {
     #[inline(always)]
     fn handle_ecall(
@@ -78,7 +77,7 @@ where
         _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Rv64Instruction<Reg>, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Rv64Instruction<Reg>, CustomError>> {
         let instruction = Rv64Instruction::Ecall;
         Err(ExecutionError::UnsupportedInstruction {
             address: program_counter.get_pc() - Reg::Type::from(instruction.size()),
@@ -95,10 +94,6 @@ pub struct Rv64InterpreterState<Reg, Memory, IF, InstructionHandler, CustomError
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
-    Memory: VirtualMemory,
-    IF: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, IF, CustomError>,
-    CustomError: fmt::Display,
 {
     /// Registers
     pub regs: Registers<Reg>,
@@ -117,10 +112,7 @@ impl<Reg, Memory, IF, InstructionHandler, CustomError>
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
-    Memory: VirtualMemory,
     IF: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, IF, CustomError>,
-    CustomError: fmt::Display,
 {
     /// Set program counter
     pub fn set_pc(
@@ -131,19 +123,39 @@ where
     }
 }
 
-/// Execute instructions from a base RV64I/RV64E instruction set
-#[inline(always)]
-pub fn execute_rv64<Reg, Memory, PC, InstructionHandler, CustomError>(
-    state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
-    instruction: Rv64Instruction<Reg>,
-) -> Result<ControlFlow<()>, ExecutionError<Rv64Instruction<Reg>, CustomError>>
+impl<Reg, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<
+        Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        CustomError,
+    > for Rv64Instruction<Reg>
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory, CustomError>,
     InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>,
-    CustomError: fmt::Display,
+{
+    #[inline(always)]
+    fn execute(
+        self,
+        state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        execute_rv64(state, self)
+    }
+}
+
+/// Execute instructions from a base RV64I/RV64E instruction set
+#[inline(always)]
+pub fn execute_rv64<Reg, Memory, PC, InstructionHandler, CustomError>(
+    state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+    instruction: Rv64Instruction<Reg>,
+) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Rv64Instruction<Reg>, CustomError>>
+where
+    Reg: Register<Type = u64>,
+    [(); Reg::N]:,
+    Memory: VirtualMemory,
+    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
+    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>,
 {
     match instruction {
         Rv64Instruction::Add { rd, rs1, rs2 } => {
