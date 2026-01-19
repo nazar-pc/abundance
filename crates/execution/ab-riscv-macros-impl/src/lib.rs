@@ -52,10 +52,10 @@ use proc_macro::TokenStream;
 /// Own instruction variants that do not have an explicit position will be placed at the end of the
 /// enum.
 ///
-/// # Enum implementation
+/// # Enum decoding implementation
 ///
-/// For enum implementations, the macro is applied to the implementation of `Instruction` trait and
-/// affects its `try_decode()` method:
+/// For enum decoding implementation, the macro is applied to the implementation of `Instruction`
+/// trait and affects its `try_decode()` method:
 /// ```rust,ignore
 /// #[instruction]
 /// impl<Reg> const Instruction for Rv64MInstruction<Reg>
@@ -70,6 +70,22 @@ use proc_macro::TokenStream;
 /// is quite fragile, so if you're calling internal functions, they might have to be re-exported
 /// since the macro will simply copy-paste the decoding logic as is. Similarly with missing imports,
 /// etc. Compiler should be able to guide you through errors reasonably well.
+///
+/// # Enum display implementation
+///
+/// For enum display implementation, the macro is applied to the implementation of
+/// `core::fmt::Display` trait and affects its `fmt()` method:
+/// ```rust,ignore
+/// #[instruction]
+/// impl<Reg> fmt::Display for Rv64MInstruction<Reg>
+/// where
+///     Reg: fmt::Display + Copy,
+/// {
+/// ```
+/// `fmt()` implementation will end up containing decoding logic for the full extended enum as
+/// mentioned above. The three major restrictions are that an enum must be generic over `Reg`
+/// register type, field types must have `Copy` bounds on them (like `Reg` in the example above),
+/// and the method body must consist of a single `match` statement.
 ///
 /// # `process_instruction_macros()`
 ///

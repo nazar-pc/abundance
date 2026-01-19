@@ -32,6 +32,11 @@ pub(super) struct PendingEnumImpl {
 }
 
 #[derive(Debug)]
+pub(super) struct PendingEnumDisplayImpl {
+    pub(super) item_impl: ItemImpl,
+}
+
+#[derive(Debug)]
 pub(super) struct KnownEnumExecutionImpl {
     pub(super) item_impl: ItemImpl,
     pub(super) source: Rc<Path>,
@@ -47,6 +52,7 @@ pub(super) struct State {
     pending_enum_definitions: Vec<PendingEnumDefinition>,
     known_enum_impls: HashMap<Ident, KnownEnumImpl>,
     pending_enum_impls: Vec<PendingEnumImpl>,
+    pending_enum_display_impls: Vec<PendingEnumDisplayImpl>,
     known_enum_execution_impls: HashMap<Ident, KnownEnumExecutionImpl>,
     pending_enum_execution_impls: Vec<PendingEnumExecutionImpl>,
 }
@@ -58,6 +64,7 @@ impl State {
             pending_enum_definitions: Vec::new(),
             known_enum_impls: HashMap::new(),
             pending_enum_impls: Vec::new(),
+            pending_enum_display_impls: Vec::new(),
             known_enum_execution_impls: HashMap::new(),
             pending_enum_execution_impls: Vec::new(),
         }
@@ -176,6 +183,18 @@ impl State {
 
     pub(super) fn add_pending_enum_impl(&mut self, pending_enum_impl: PendingEnumImpl) {
         self.pending_enum_impls.push(pending_enum_impl);
+    }
+
+    pub(super) fn take_pending_enum_display_impls(&mut self) -> Vec<PendingEnumDisplayImpl> {
+        mem::take(&mut self.pending_enum_display_impls)
+    }
+
+    pub(super) fn add_pending_enum_display_impl(
+        &mut self,
+        pending_enum_display_impl: PendingEnumDisplayImpl,
+    ) {
+        self.pending_enum_display_impls
+            .push(pending_enum_display_impl);
     }
 
     pub(super) fn take_pending_enum_impls(&mut self) -> Vec<PendingEnumImpl> {

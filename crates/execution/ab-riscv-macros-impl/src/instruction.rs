@@ -50,10 +50,46 @@ fn process_enum_impl(item_impl: ItemImpl) -> Result<TokenStream, Error> {
         .expect("Path is never empty; qed")
         .ident
         .clone();
-    let enum_file_path = format!("/{}_impl.rs", enum_name);
 
-    // Replace enum implementation with a processed impl stored in a Rust file
-    Ok(quote! {
-        include!(concat!(env!("OUT_DIR"), #enum_file_path));
-    })
+    let Some((_, trait_path, _)) = &item_impl.trait_ else {
+        return Err(Error::new(
+            item_impl.span(),
+            format!(
+                "Expected `#[instruction] impl Instruction for {0}` or \
+                `#[instruction] impl Display for {0}`, but no trait was not found",
+                item_impl.self_ty.to_token_stream()
+            ),
+        ));
+    };
+
+    let last_trait_segment_path = trait_path
+        .segments
+        .last()
+        .expect("Path is never empty; qed");
+
+    if last_trait_segment_path.ident == "Instruction" {
+        let enum_file_path = format!("/{}_decoding_impl.rs", enum_name);
+
+        // Replace enum implementation with a processed impl stored in a Rust file
+        Ok(quote! {
+            include!(concat!(env!("OUT_DIR"), #enum_file_path));
+        })
+    } else if last_trait_segment_path.ident == "Display" {
+        let enum_file_path = format!("/{}_display_impl.rs", enum_name);
+
+        // Replace enum implementation with a processed impl stored in a Rust file
+        Ok(quote! {
+            include!(concat!(env!("OUT_DIR"), #enum_file_path));
+        })
+    } else {
+        Err(Error::new(
+            item_impl.span(),
+            format!(
+                "Expected `impl` for `{}`, `#[instruction]` attribute must be added to a trait \
+                implementation, but trait `{}` is not supported",
+                item_impl.self_ty.to_token_stream(),
+                last_trait_segment_path.ident
+            ),
+        ))
+    }
 }
