@@ -219,6 +219,8 @@ version = "0.0.1"
 dependencies = [
  "ab-contracts-common",
  "ab-io-type",
+ "ab-riscv-interpreter",
+ "ab-riscv-macros",
  "ab-riscv-primitives",
  "ouroboros",
  "replace_with",

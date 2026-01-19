@@ -35,7 +35,7 @@ where
 
                 #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zbc")))]
                 let value = {
-                    let result = crate::rv64::b::zbc::clmul_internal(a, b);
+                    let result = clmul_internal(a, b);
                     result as u64
                 };
 
@@ -50,7 +50,7 @@ where
 
                 #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zbc")))]
                 let value = {
-                    let result = crate::rv64::b::zbc::clmul_internal(a, b);
+                    let result = clmul_internal(a, b);
                     (result >> 64) as u64
                 };
 
@@ -65,7 +65,7 @@ where
 
                 #[cfg(not(all(not(miri), target_arch = "riscv64", target_feature = "zbc")))]
                 let value = {
-                    let result = crate::rv64::b::zbc::clmul_internal(a, b);
+                    let result = clmul_internal(a, b);
                     (result >> 1) as u64
                 };
 
@@ -77,10 +77,7 @@ where
     }
 }
 
-// Needs to be made available to those inheriting instructions from Zbc, hence also calling this
-// function using absolute path
-#[doc(hidden)]
-/// Carryless multiplication helper
+/// Carryless multiplication helper, only useful for importing when inheriting instructions
 #[cfg(any(miri, not(all(target_arch = "riscv64", target_feature = "zbc"))))]
 #[inline(always)]
 pub fn clmul_internal(a: u64, b: u64) -> u128 {

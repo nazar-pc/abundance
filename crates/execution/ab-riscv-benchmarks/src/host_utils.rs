@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use ab_blake3::{CHUNK_LEN, OUT_LEN};
-use ab_contract_file::Instruction;
+use ab_contract_file::ContractInstruction;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
@@ -235,7 +235,7 @@ impl<const MEMORY_SIZE: usize> TestMemory<MEMORY_SIZE> {
 /// Eager instruction handler eagerly decodes all instructions upfront
 #[derive(Debug, Default, Clone)]
 pub struct EagerTestInstructionFetcher {
-    instructions: Vec<Instruction>,
+    instructions: Vec<ContractInstruction>,
     return_trap_address: u64,
     base_addr: u64,
     instruction_offset: usize,
@@ -281,7 +281,8 @@ where
     }
 }
 
-impl<Memory> InstructionFetcher<Instruction, Memory, &'static str> for EagerTestInstructionFetcher
+impl<Memory> InstructionFetcher<ContractInstruction, Memory, &'static str>
+    for EagerTestInstructionFetcher
 where
     Memory: VirtualMemory,
 {
@@ -289,8 +290,10 @@ where
     fn fetch_instruction(
         &mut self,
         _memory: &mut Memory,
-    ) -> Result<FetchInstructionResult<Instruction>, ExecutionError<u64, Instruction, &'static str>>
-    {
+    ) -> Result<
+        FetchInstructionResult<ContractInstruction>,
+        ExecutionError<u64, ContractInstruction, &'static str>,
+    > {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
         // one instruction can't result in out-of-bounds access.
@@ -315,7 +318,7 @@ impl EagerTestInstructionFetcher {
     /// jump instruction.
     #[inline(always)]
     pub unsafe fn new(
-        instructions: Vec<Instruction>,
+        instructions: Vec<ContractInstruction>,
         return_trap_address: u64,
         base_addr: u64,
         pc: u64,
@@ -364,20 +367,22 @@ where
     }
 }
 
-/// Execute [`Instruction`]s
+/// Execute [`ContractInstruction`]s
 #[expect(clippy::type_complexity)]
 pub fn execute<Memory, IF>(
     state: &mut Rv64InterpreterState<
-        <Instruction as BaseInstruction>::Reg,
+        <ContractInstruction as BaseInstruction>::Reg,
         Memory,
         IF,
-        NoopRv64SystemInstructionHandler<Rv64Instruction<<Instruction as BaseInstruction>::Reg>>,
+        NoopRv64SystemInstructionHandler<
+            Rv64Instruction<<ContractInstruction as BaseInstruction>::Reg>,
+        >,
         &'static str,
     >,
-) -> Result<(), ExecutionError<u64, Instruction, &'static str>>
+) -> Result<(), ExecutionError<u64, ContractInstruction, &'static str>>
 where
     Memory: VirtualMemory,
-    IF: InstructionFetcher<Instruction, Memory, &'static str>,
+    IF: InstructionFetcher<ContractInstruction, Memory, &'static str>,
 {
     loop {
         let instruction = match state
@@ -393,19 +398,7 @@ where
             }
         };
 
-        let control_flow = match instruction {
-            Instruction::A(instruction) => instruction
-                .execute(state)
-                .map_err(|error| error.map_instruction(Instruction::A))?,
-            Instruction::B(instruction) => instruction
-                .execute(state)
-                .map_err(|error| error.map_instruction(Instruction::B))?,
-            Instruction::Base(instruction) => instruction
-                .execute(state)
-                .map_err(|error| error.map_instruction(Instruction::Base))?,
-        };
-
-        match control_flow {
+        match instruction.execute(state)? {
             ControlFlow::Continue(()) => {
                 continue;
             }

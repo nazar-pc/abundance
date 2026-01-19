@@ -498,18 +498,26 @@ where
             }
 
             Self::Ecall => {
-                return state.system_instruction_handler.handle_ecall(
-                    &mut state.regs,
-                    &mut state.memory,
-                    &mut state.instruction_fetcher,
-                );
+                return state
+                    .system_instruction_handler
+                    .handle_ecall(
+                        &mut state.regs,
+                        &mut state.memory,
+                        &mut state.instruction_fetcher,
+                    )
+                    .map_err(|error| {
+                        error.map_instruction(|_instruction| {
+                            // This mapping helps with instruction type during inheritance
+                            Self::Ecall
+                        })
+                    });
             }
             Self::Ebreak => {
                 state.system_instruction_handler.handle_ebreak(
                     &mut state.regs,
                     &mut state.memory,
                     state.instruction_fetcher.get_pc(),
-                    Self::Ebreak,
+                    Rv64Instruction::<Reg>::Ebreak,
                 );
             }
 

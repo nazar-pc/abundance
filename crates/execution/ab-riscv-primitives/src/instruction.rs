@@ -3,7 +3,6 @@
 pub mod rv64;
 #[cfg(test)]
 mod test_utils;
-pub mod tuples;
 
 use crate::registers::Register;
 use core::fmt;

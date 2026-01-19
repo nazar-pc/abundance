@@ -5,7 +5,7 @@
 #![feature(control_flow_ok)]
 
 use ab_blake3::CHUNK_LEN;
-use ab_contract_file::{ContractFile, Instruction, Register};
+use ab_contract_file::{ContractFile, ContractInstruction, ContractRegister};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
@@ -82,7 +82,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                         instruction[2],
                         instruction[3],
                     ]);
-                    instructions.push(Instruction::decode(instruction));
+                    instructions.push(ContractInstruction::decode(instruction));
                 }
                 black_box(instructions);
             });
@@ -113,7 +113,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         memory,
         // SAFETY: Program counter is set later to the correct address
         instruction_fetcher: unsafe {
-            BasicInstructionFetcher::<Instruction, &'static str>::new(
+            BasicInstructionFetcher::<ContractInstruction, &'static str>::new(
                 TRAP_ADDRESS,
                 MEMORY_BASE_ADDRESS,
             )
@@ -198,10 +198,13 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                lazy_state.regs.write(Register::A0, internal_args_addr);
                 lazy_state
                     .regs
-                    .write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                    .write(ContractRegister::A0, internal_args_addr);
+                lazy_state.regs.write(
+                    ContractRegister::Sp,
+                    MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64,
+                );
 
                 black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
@@ -214,10 +217,13 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                eager_state.regs.write(Register::A0, internal_args_addr);
                 eager_state
                     .regs
-                    .write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                    .write(ContractRegister::A0, internal_args_addr);
+                eager_state.regs.write(
+                    ContractRegister::Sp,
+                    MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64,
+                );
 
                 black_box(execute(black_box(&mut eager_state))).unwrap();
             });
@@ -275,10 +281,13 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                lazy_state.regs.write(Register::A0, internal_args_addr);
                 lazy_state
                     .regs
-                    .write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                    .write(ContractRegister::A0, internal_args_addr);
+                lazy_state.regs.write(
+                    ContractRegister::Sp,
+                    MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64,
+                );
 
                 black_box(execute(black_box(&mut lazy_state))).unwrap();
             });
@@ -291,10 +300,13 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .unwrap()
                     .continue_ok()
                     .unwrap();
-                eager_state.regs.write(Register::A0, internal_args_addr);
                 eager_state
                     .regs
-                    .write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+                    .write(ContractRegister::A0, internal_args_addr);
+                eager_state.regs.write(
+                    ContractRegister::Sp,
+                    MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64,
+                );
 
                 black_box(execute(black_box(&mut eager_state))).unwrap();
             });
