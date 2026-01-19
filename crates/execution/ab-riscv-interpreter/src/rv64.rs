@@ -10,6 +10,7 @@ mod tests;
 use crate::{
     ExecutableInstruction, ExecutionError, ProgramCounter, ProgramCounterError, VirtualMemory,
 };
+use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::{Register, Registers};
@@ -123,6 +124,7 @@ where
     }
 }
 
+#[instruction_execution]
 impl<Reg, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
         Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,

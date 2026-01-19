@@ -741,6 +741,7 @@ dependencies = [
 name = "ab-riscv-interpreter"
 version = "0.0.1"
 dependencies = [
+ "ab-riscv-macros",
  "ab-riscv-primitives",
  "thiserror 2.0.17",
 ]

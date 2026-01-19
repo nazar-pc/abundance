@@ -4,6 +4,7 @@
 
 mod enum_definition;
 mod enum_impl;
+mod execution_impl;
 mod state;
 
 use crate::enum_definition::{
@@ -13,10 +14,14 @@ use crate::enum_definition::{
 use crate::enum_impl::{
     collect_enum_impls_from_dependencies, process_enum_impl, process_pending_enum_impls,
 };
+use crate::execution_impl::{
+    collect_enum_execution_impls_from_dependencies, process_execution_impl,
+    process_pending_enum_execution_impls,
+};
 use crate::state::State;
 use ab_riscv_macros_common::code_utils::pre_process_rust_code;
 #[cfg(feature = "proc-macro")]
-pub use ab_riscv_macros_impl::instruction;
+pub use ab_riscv_macros_impl::{instruction, instruction_execution};
 use anyhow::Context;
 use quote::ToTokens;
 use std::path::{Path, PathBuf};
@@ -47,6 +52,10 @@ pub fn process_instruction_macros() -> anyhow::Result<()> {
         let (item_impl, source) = maybe_enum_impl?;
         state.insert_known_enum_impl(item_impl, source)?;
     }
+    for maybe_enum_execution_impl in collect_enum_execution_impls_from_dependencies() {
+        let (item_impl, source) = maybe_enum_execution_impl?;
+        state.insert_known_enum_execution_impl(item_impl, source)?;
+    }
 
     for maybe_rust_file in rust_files_in(Path::new(&manifest_dir).join("src")) {
         let rust_file = maybe_rust_file.context("Failed to collect Rust files")?;
@@ -57,6 +66,7 @@ pub fn process_instruction_macros() -> anyhow::Result<()> {
 
     process_pending_enum_definitions(out_dir, &mut state)?;
     process_pending_enum_impls(out_dir, &mut state)?;
+    process_pending_enum_execution_impls(out_dir, &mut state)
 }
 
 fn rust_files_in(dir: PathBuf) -> Box<dyn Iterator<Item = io::Result<PathBuf>>> {
@@ -128,7 +138,7 @@ fn process_rust_file(source: Rc<Path>, out_dir: &Path, state: &mut State) -> any
                         .clone()
                 });
                 let type_name = item_impl.self_ty.clone();
-                if let Some(result) = process_enum_impl(item_impl, out_dir, state) {
+                if let Some(result) = process_enum_impl(item_impl.clone(), out_dir, state) {
                     result.with_context(|| {
                         format!(
                             "Failed to process impl block (`{:?}` for `{}`) in file `{}`",
@@ -137,6 +147,16 @@ fn process_rust_file(source: Rc<Path>, out_dir: &Path, state: &mut State) -> any
                             source.display()
                         )
                     })?;
+                } else if let Some(result) = process_execution_impl(item_impl, out_dir, state) {
+                    result.with_context(|| {
+                        format!(
+                            "Failed to process impl block (`{:?}` for `{}`) in file `{}`",
+                            trait_name.to_token_stream(),
+                            type_name.to_token_stream(),
+                            source.display()
+                        )
+                    })?;
+                    continue;
                 }
             }
             _ => {

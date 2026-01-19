@@ -5,10 +5,12 @@ mod tests;
 
 use crate::ExecutionError;
 use crate::rv64::{ExecutableInstruction, Rv64InterpreterState};
+use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::instruction::rv64::m::Rv64MInstruction;
 use ab_riscv_primitives::registers::Register;
 use core::ops::ControlFlow;
 
+#[instruction_execution]
 impl<Reg, Memory, PC, InstructionHandler, CustomError>
     ExecutableInstruction<
         Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,

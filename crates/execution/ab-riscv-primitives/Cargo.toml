@@ -10,6 +10,7 @@ include = [
     "/src",
     "/Cargo.toml",
 ]
+links = "ab-riscv-primitives"
 
 [package.metadata.docs.rs]
 all-features = true

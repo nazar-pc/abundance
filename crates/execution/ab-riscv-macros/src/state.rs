@@ -31,11 +31,24 @@ pub(super) struct PendingEnumImpl {
     pub(super) item_impl: ItemImpl,
 }
 
+#[derive(Debug)]
+pub(super) struct KnownEnumExecutionImpl {
+    pub(super) item_impl: ItemImpl,
+    pub(super) source: Rc<Path>,
+}
+
+#[derive(Debug)]
+pub(super) struct PendingEnumExecutionImpl {
+    pub(super) item_impl: ItemImpl,
+}
+
 pub(super) struct State {
     known_enum_definitions: HashMap<Ident, KnownEnumDefinition>,
     pending_enum_definitions: Vec<PendingEnumDefinition>,
     known_enum_impls: HashMap<Ident, KnownEnumImpl>,
     pending_enum_impls: Vec<PendingEnumImpl>,
+    known_enum_execution_impls: HashMap<Ident, KnownEnumExecutionImpl>,
+    pending_enum_execution_impls: Vec<PendingEnumExecutionImpl>,
 }
 
 impl State {
@@ -45,6 +58,8 @@ impl State {
             pending_enum_definitions: Vec::new(),
             known_enum_impls: HashMap::new(),
             pending_enum_impls: Vec::new(),
+            known_enum_execution_impls: HashMap::new(),
+            pending_enum_execution_impls: Vec::new(),
         }
     }
 
@@ -57,6 +72,13 @@ impl State {
 
     pub(super) fn get_known_enum_impl(&self, enum_name: &Ident) -> Option<&KnownEnumImpl> {
         self.known_enum_impls.get(enum_name)
+    }
+
+    pub(super) fn get_known_enum_execution_impl(
+        &self,
+        enum_name: &Ident,
+    ) -> Option<&KnownEnumExecutionImpl> {
+        self.known_enum_execution_impls.get(enum_name)
     }
 
     pub(super) fn insert_known_enum_definition(
@@ -114,6 +136,33 @@ impl State {
         Ok(())
     }
 
+    pub(super) fn insert_known_enum_execution_impl(
+        &mut self,
+        item_impl: ItemImpl,
+        source: Rc<Path>,
+    ) -> anyhow::Result<()> {
+        let enum_name = enum_name_from_impl(&item_impl);
+
+        if let Err(OccupiedError { entry, value }) = self.known_enum_execution_impls.try_insert(
+            enum_name.clone(),
+            KnownEnumExecutionImpl {
+                item_impl,
+                source: source.clone(),
+            },
+        ) && entry.get().item_impl != value.item_impl
+        {
+            return Err(anyhow::anyhow!(
+                "Execution implementation for enum `{}` is already defined in `{}`, a different \
+                duplicate found in `{}`",
+                enum_name,
+                entry.get().source.display(),
+                source.display(),
+            ));
+        }
+
+        Ok(())
+    }
+
     pub(super) fn add_pending_enum_definition(
         &mut self,
         pending_enum_definition: PendingEnumDefinition,
@@ -131,5 +180,17 @@ impl State {
 
     pub(super) fn take_pending_enum_impls(&mut self) -> Vec<PendingEnumImpl> {
         mem::take(&mut self.pending_enum_impls)
+    }
+
+    pub(super) fn add_pending_enum_execution_impl(
+        &mut self,
+        pending_enum_execution_impl: PendingEnumExecutionImpl,
+    ) {
+        self.pending_enum_execution_impls
+            .push(pending_enum_execution_impl);
+    }
+
+    pub(super) fn take_pending_enum_execution_impls(&mut self) -> Vec<PendingEnumExecutionImpl> {
+        mem::take(&mut self.pending_enum_execution_impls)
     }
 }

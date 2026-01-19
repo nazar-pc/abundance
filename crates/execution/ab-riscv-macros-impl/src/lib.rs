@@ -1,6 +1,7 @@
 //! See and use `ab-riscv-macros` crate instead, this is its implementation detail
 
 mod instruction;
+mod instruction_execution;
 
 use proc_macro::TokenStream;
 
@@ -85,6 +86,27 @@ use proc_macro::TokenStream;
 #[proc_macro_attribute]
 pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
     instruction::instruction(attr.into(), item.into())
+        .unwrap_or_else(|error| error.to_compile_error())
+        .into()
+}
+
+/// Processes `#[instruction_execution]` attribute on both enum execution implementations.
+///
+/// It must be applied to enum, whose definition is already annotated with `#[instruction]` macro.
+///
+/// Similarly to that macro, this macro will process the contents of the `ExecutableInstruction`
+/// trait implementation. `execute()` implementation will end up containing both inherited and own
+/// execution logic according to the ordering set in `#[instruction]`.
+///
+/// There are constraints on the `execute()` method body, it must have one or both (but nothing
+/// else) of the following:
+/// * matching in the following style: `match self { Self::Variant { .. } }`
+///   * note that `Self` must be used instead of the explicit type name, such that it works when
+///     inherited
+/// * `Ok(ControlFlow::Continue(()))` expression
+#[proc_macro_attribute]
+pub fn instruction_execution(attr: TokenStream, item: TokenStream) -> TokenStream {
+    instruction_execution::instruction_execution(attr.into(), item.into())
         .unwrap_or_else(|error| error.to_compile_error())
         .into()
 }
