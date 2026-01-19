@@ -140,262 +140,348 @@ where
         self,
         state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
     ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
-        execute_rv64(state, self)
-    }
-}
+        match self {
+            Self::Add { rd, rs1, rs2 } => {
+                let value = state.regs.read(rs1).wrapping_add(state.regs.read(rs2));
+                state.regs.write(rd, value);
+            }
+            Self::Sub { rd, rs1, rs2 } => {
+                let value = state.regs.read(rs1).wrapping_sub(state.regs.read(rs2));
+                state.regs.write(rd, value);
+            }
+            Self::Sll { rd, rs1, rs2 } => {
+                let shamt = state.regs.read(rs2) & 0x3f;
+                let value = state.regs.read(rs1) << shamt;
+                state.regs.write(rd, value);
+            }
+            Self::Slt { rd, rs1, rs2 } => {
+                let value = state.regs.read(rs1).cast_signed() < state.regs.read(rs2).cast_signed();
+                state.regs.write(rd, value as u64);
+            }
+            Self::Sltu { rd, rs1, rs2 } => {
+                let value = state.regs.read(rs1) < state.regs.read(rs2);
+                state.regs.write(rd, value as u64);
+            }
+            Self::Xor { rd, rs1, rs2 } => {
+                let value = state.regs.read(rs1) ^ state.regs.read(rs2);
+                state.regs.write(rd, value);
+            }
+            Self::Srl { rd, rs1, rs2 } => {
+                let shamt = state.regs.read(rs2) & 0x3f;
+                let value = state.regs.read(rs1) >> shamt;
+                state.regs.write(rd, value);
+            }
+            Self::Sra { rd, rs1, rs2 } => {
+                let shamt = state.regs.read(rs2) & 0x3f;
+                let value = state.regs.read(rs1).cast_signed() >> shamt;
+                state.regs.write(rd, value.cast_unsigned());
+            }
+            Self::Or { rd, rs1, rs2 } => {
+                let value = state.regs.read(rs1) | state.regs.read(rs2);
+                state.regs.write(rd, value);
+            }
+            Self::And { rd, rs1, rs2 } => {
+                let value = state.regs.read(rs1) & state.regs.read(rs2);
+                state.regs.write(rd, value);
+            }
 
-/// Execute instructions from a base RV64I/RV64E instruction set
-#[inline(always)]
-pub fn execute_rv64<Reg, Memory, PC, InstructionHandler, CustomError>(
-    state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
-    instruction: Rv64Instruction<Reg>,
-) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Rv64Instruction<Reg>, CustomError>>
-where
-    Reg: Register<Type = u64>,
-    [(); Reg::N]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    InstructionHandler: Rv64SystemInstructionHandler<Reg, Memory, PC, CustomError>,
-{
-    match instruction {
-        Rv64Instruction::Add { rd, rs1, rs2 } => {
-            let value = state.regs.read(rs1).wrapping_add(state.regs.read(rs2));
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Sub { rd, rs1, rs2 } => {
-            let value = state.regs.read(rs1).wrapping_sub(state.regs.read(rs2));
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Sll { rd, rs1, rs2 } => {
-            let shamt = state.regs.read(rs2) & 0x3f;
-            let value = state.regs.read(rs1) << shamt;
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Slt { rd, rs1, rs2 } => {
-            let value = state.regs.read(rs1).cast_signed() < state.regs.read(rs2).cast_signed();
-            state.regs.write(rd, value as u64);
-        }
-        Rv64Instruction::Sltu { rd, rs1, rs2 } => {
-            let value = state.regs.read(rs1) < state.regs.read(rs2);
-            state.regs.write(rd, value as u64);
-        }
-        Rv64Instruction::Xor { rd, rs1, rs2 } => {
-            let value = state.regs.read(rs1) ^ state.regs.read(rs2);
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Srl { rd, rs1, rs2 } => {
-            let shamt = state.regs.read(rs2) & 0x3f;
-            let value = state.regs.read(rs1) >> shamt;
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Sra { rd, rs1, rs2 } => {
-            let shamt = state.regs.read(rs2) & 0x3f;
-            let value = state.regs.read(rs1).cast_signed() >> shamt;
-            state.regs.write(rd, value.cast_unsigned());
-        }
-        Rv64Instruction::Or { rd, rs1, rs2 } => {
-            let value = state.regs.read(rs1) | state.regs.read(rs2);
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::And { rd, rs1, rs2 } => {
-            let value = state.regs.read(rs1) & state.regs.read(rs2);
-            state.regs.write(rd, value);
-        }
+            Self::Addw { rd, rs1, rs2 } => {
+                let sum = (state.regs.read(rs1) as i32).wrapping_add(state.regs.read(rs2) as i32);
+                state.regs.write(rd, (sum as i64).cast_unsigned());
+            }
+            Self::Subw { rd, rs1, rs2 } => {
+                let diff = (state.regs.read(rs1) as i32).wrapping_sub(state.regs.read(rs2) as i32);
+                state.regs.write(rd, (diff as i64).cast_unsigned());
+            }
+            Self::Sllw { rd, rs1, rs2 } => {
+                let shamt = state.regs.read(rs2) & 0x1f;
+                let shifted = (state.regs.read(rs1) as u32) << shamt;
+                state
+                    .regs
+                    .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
+            }
+            Self::Srlw { rd, rs1, rs2 } => {
+                let shamt = state.regs.read(rs2) & 0x1f;
+                let shifted = (state.regs.read(rs1) as u32) >> shamt;
+                state
+                    .regs
+                    .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
+            }
+            Self::Sraw { rd, rs1, rs2 } => {
+                let shamt = state.regs.read(rs2) & 0x1f;
+                let shifted = (state.regs.read(rs1) as i32) >> shamt;
+                state.regs.write(rd, (shifted as i64).cast_unsigned());
+            }
 
-        Rv64Instruction::Addw { rd, rs1, rs2 } => {
-            let sum = (state.regs.read(rs1) as i32).wrapping_add(state.regs.read(rs2) as i32);
-            state.regs.write(rd, (sum as i64).cast_unsigned());
-        }
-        Rv64Instruction::Subw { rd, rs1, rs2 } => {
-            let diff = (state.regs.read(rs1) as i32).wrapping_sub(state.regs.read(rs2) as i32);
-            state.regs.write(rd, (diff as i64).cast_unsigned());
-        }
-        Rv64Instruction::Sllw { rd, rs1, rs2 } => {
-            let shamt = state.regs.read(rs2) & 0x1f;
-            let shifted = (state.regs.read(rs1) as u32) << shamt;
-            state
-                .regs
-                .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
-        }
-        Rv64Instruction::Srlw { rd, rs1, rs2 } => {
-            let shamt = state.regs.read(rs2) & 0x1f;
-            let shifted = (state.regs.read(rs1) as u32) >> shamt;
-            state
-                .regs
-                .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
-        }
-        Rv64Instruction::Sraw { rd, rs1, rs2 } => {
-            let shamt = state.regs.read(rs2) & 0x1f;
-            let shifted = (state.regs.read(rs1) as i32) >> shamt;
-            state.regs.write(rd, (shifted as i64).cast_unsigned());
-        }
+            Self::Addi { rd, rs1, imm } => {
+                let value = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                state.regs.write(rd, value);
+            }
+            Self::Slti { rd, rs1, imm } => {
+                let value = state.regs.read(rs1).cast_signed() < (imm as i64);
+                state.regs.write(rd, value as u64);
+            }
+            Self::Sltiu { rd, rs1, imm } => {
+                let value = state.regs.read(rs1) < ((imm as i64).cast_unsigned());
+                state.regs.write(rd, value as u64);
+            }
+            Self::Xori { rd, rs1, imm } => {
+                let value = state.regs.read(rs1) ^ ((imm as i64).cast_unsigned());
+                state.regs.write(rd, value);
+            }
+            Self::Ori { rd, rs1, imm } => {
+                let value = state.regs.read(rs1) | ((imm as i64).cast_unsigned());
+                state.regs.write(rd, value);
+            }
+            Self::Andi { rd, rs1, imm } => {
+                let value = state.regs.read(rs1) & ((imm as i64).cast_unsigned());
+                state.regs.write(rd, value);
+            }
+            Self::Slli { rd, rs1, shamt } => {
+                let value = state.regs.read(rs1) << shamt;
+                state.regs.write(rd, value);
+            }
+            Self::Srli { rd, rs1, shamt } => {
+                let value = state.regs.read(rs1) >> shamt;
+                state.regs.write(rd, value);
+            }
+            Self::Srai { rd, rs1, shamt } => {
+                let value = state.regs.read(rs1).cast_signed() >> shamt;
+                state.regs.write(rd, value.cast_unsigned());
+            }
 
-        Rv64Instruction::Addi { rd, rs1, imm } => {
-            let value = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Slti { rd, rs1, imm } => {
-            let value = state.regs.read(rs1).cast_signed() < (imm as i64);
-            state.regs.write(rd, value as u64);
-        }
-        Rv64Instruction::Sltiu { rd, rs1, imm } => {
-            let value = state.regs.read(rs1) < ((imm as i64).cast_unsigned());
-            state.regs.write(rd, value as u64);
-        }
-        Rv64Instruction::Xori { rd, rs1, imm } => {
-            let value = state.regs.read(rs1) ^ ((imm as i64).cast_unsigned());
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Ori { rd, rs1, imm } => {
-            let value = state.regs.read(rs1) | ((imm as i64).cast_unsigned());
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Andi { rd, rs1, imm } => {
-            let value = state.regs.read(rs1) & ((imm as i64).cast_unsigned());
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Slli { rd, rs1, shamt } => {
-            let value = state.regs.read(rs1) << shamt;
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Srli { rd, rs1, shamt } => {
-            let value = state.regs.read(rs1) >> shamt;
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Srai { rd, rs1, shamt } => {
-            let value = state.regs.read(rs1).cast_signed() >> shamt;
-            state.regs.write(rd, value.cast_unsigned());
-        }
+            Self::Addiw { rd, rs1, imm } => {
+                let sum = (state.regs.read(rs1) as i32).wrapping_add(imm);
+                state.regs.write(rd, (sum as i64).cast_unsigned());
+            }
+            Self::Slliw { rd, rs1, shamt } => {
+                let shifted = (state.regs.read(rs1) as u32) << shamt;
+                state
+                    .regs
+                    .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
+            }
+            Self::Srliw { rd, rs1, shamt } => {
+                let shifted = (state.regs.read(rs1) as u32) >> shamt;
+                state
+                    .regs
+                    .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
+            }
+            Self::Sraiw { rd, rs1, shamt } => {
+                let shifted = (state.regs.read(rs1) as i32) >> shamt;
+                state.regs.write(rd, (shifted as i64).cast_unsigned());
+            }
 
-        Rv64Instruction::Addiw { rd, rs1, imm } => {
-            let sum = (state.regs.read(rs1) as i32).wrapping_add(imm);
-            state.regs.write(rd, (sum as i64).cast_unsigned());
-        }
-        Rv64Instruction::Slliw { rd, rs1, shamt } => {
-            let shifted = (state.regs.read(rs1) as u32) << shamt;
-            state
-                .regs
-                .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
-        }
-        Rv64Instruction::Srliw { rd, rs1, shamt } => {
-            let shifted = (state.regs.read(rs1) as u32) >> shamt;
-            state
-                .regs
-                .write(rd, (shifted.cast_signed() as i64).cast_unsigned());
-        }
-        Rv64Instruction::Sraiw { rd, rs1, shamt } => {
-            let shifted = (state.regs.read(rs1) as i32) >> shamt;
-            state.regs.write(rd, (shifted as i64).cast_unsigned());
-        }
+            Self::Lb { rd, rs1, imm } => {
+                let addr = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                let value = state.memory.read::<i8>(addr)? as i64;
+                state.regs.write(rd, value.cast_unsigned());
+            }
+            Self::Lh { rd, rs1, imm } => {
+                let addr = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                let value = state.memory.read::<i16>(addr)? as i64;
+                state.regs.write(rd, value.cast_unsigned());
+            }
+            Self::Lw { rd, rs1, imm } => {
+                let addr = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                let value = state.memory.read::<i32>(addr)? as i64;
+                state.regs.write(rd, value.cast_unsigned());
+            }
+            Self::Ld { rd, rs1, imm } => {
+                let addr = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                let value = state.memory.read::<u64>(addr)?;
+                state.regs.write(rd, value);
+            }
+            Self::Lbu { rd, rs1, imm } => {
+                let addr = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                let value = state.memory.read::<u8>(addr)?;
+                state.regs.write(rd, value as u64);
+            }
+            Self::Lhu { rd, rs1, imm } => {
+                let addr = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                let value = state.memory.read::<u16>(addr)?;
+                state.regs.write(rd, value as u64);
+            }
+            Self::Lwu { rd, rs1, imm } => {
+                let addr = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                let value = state.memory.read::<u32>(addr)?;
+                state.regs.write(rd, value as u64);
+            }
 
-        Rv64Instruction::Lb { rd, rs1, imm } => {
-            let addr = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            let value = state.memory.read::<i8>(addr)? as i64;
-            state.regs.write(rd, value.cast_unsigned());
-        }
-        Rv64Instruction::Lh { rd, rs1, imm } => {
-            let addr = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            let value = state.memory.read::<i16>(addr)? as i64;
-            state.regs.write(rd, value.cast_unsigned());
-        }
-        Rv64Instruction::Lw { rd, rs1, imm } => {
-            let addr = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            let value = state.memory.read::<i32>(addr)? as i64;
-            state.regs.write(rd, value.cast_unsigned());
-        }
-        Rv64Instruction::Ld { rd, rs1, imm } => {
-            let addr = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            let value = state.memory.read::<u64>(addr)?;
-            state.regs.write(rd, value);
-        }
-        Rv64Instruction::Lbu { rd, rs1, imm } => {
-            let addr = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            let value = state.memory.read::<u8>(addr)?;
-            state.regs.write(rd, value as u64);
-        }
-        Rv64Instruction::Lhu { rd, rs1, imm } => {
-            let addr = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            let value = state.memory.read::<u16>(addr)?;
-            state.regs.write(rd, value as u64);
-        }
-        Rv64Instruction::Lwu { rd, rs1, imm } => {
-            let addr = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            let value = state.memory.read::<u32>(addr)?;
-            state.regs.write(rd, value as u64);
-        }
+            Self::Jalr { rd, rs1, imm } => {
+                let target = (state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned()))
+                    & !1u64;
+                state.regs.write(rd, state.instruction_fetcher.get_pc());
+                return state
+                    .instruction_fetcher
+                    .set_pc(&mut state.memory, target)
+                    .map_err(ExecutionError::from);
+            }
 
-        Rv64Instruction::Jalr { rd, rs1, imm } => {
-            let target = (state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned()))
-                & !1u64;
-            state.regs.write(rd, state.instruction_fetcher.get_pc());
-            return state
-                .instruction_fetcher
-                .set_pc(&mut state.memory, target)
-                .map_err(ExecutionError::from);
-        }
+            Self::Sb { rs2, rs1, imm } => {
+                let addr = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                state.memory.write(addr, state.regs.read(rs2) as u8)?;
+            }
+            Self::Sh { rs2, rs1, imm } => {
+                let addr = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                state.memory.write(addr, state.regs.read(rs2) as u16)?;
+            }
+            Self::Sw { rs2, rs1, imm } => {
+                let addr = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                state.memory.write(addr, state.regs.read(rs2) as u32)?;
+            }
+            Self::Sd { rs2, rs1, imm } => {
+                let addr = state
+                    .regs
+                    .read(rs1)
+                    .wrapping_add((imm as i64).cast_unsigned());
+                state.memory.write(addr, state.regs.read(rs2))?;
+            }
 
-        Rv64Instruction::Sb { rs2, rs1, imm } => {
-            let addr = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            state.memory.write(addr, state.regs.read(rs2) as u8)?;
-        }
-        Rv64Instruction::Sh { rs2, rs1, imm } => {
-            let addr = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            state.memory.write(addr, state.regs.read(rs2) as u16)?;
-        }
-        Rv64Instruction::Sw { rs2, rs1, imm } => {
-            let addr = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            state.memory.write(addr, state.regs.read(rs2) as u32)?;
-        }
-        Rv64Instruction::Sd { rs2, rs1, imm } => {
-            let addr = state
-                .regs
-                .read(rs1)
-                .wrapping_add((imm as i64).cast_unsigned());
-            state.memory.write(addr, state.regs.read(rs2))?;
-        }
+            Self::Beq { rs1, rs2, imm } => {
+                if state.regs.read(rs1) == state.regs.read(rs2) {
+                    let old_pc = state
+                        .instruction_fetcher
+                        .get_pc()
+                        .wrapping_sub(self.size().into());
+                    return state
+                        .instruction_fetcher
+                        .set_pc(
+                            &mut state.memory,
+                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                        )
+                        .map_err(ExecutionError::from);
+                }
+            }
+            Self::Bne { rs1, rs2, imm } => {
+                if state.regs.read(rs1) != state.regs.read(rs2) {
+                    let old_pc = state
+                        .instruction_fetcher
+                        .get_pc()
+                        .wrapping_sub(self.size().into());
+                    return state
+                        .instruction_fetcher
+                        .set_pc(
+                            &mut state.memory,
+                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                        )
+                        .map_err(ExecutionError::from);
+                }
+            }
+            Self::Blt { rs1, rs2, imm } => {
+                if state.regs.read(rs1).cast_signed() < state.regs.read(rs2).cast_signed() {
+                    let old_pc = state
+                        .instruction_fetcher
+                        .get_pc()
+                        .wrapping_sub(self.size().into());
+                    return state
+                        .instruction_fetcher
+                        .set_pc(
+                            &mut state.memory,
+                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                        )
+                        .map_err(ExecutionError::from);
+                }
+            }
+            Self::Bge { rs1, rs2, imm } => {
+                if state.regs.read(rs1).cast_signed() >= state.regs.read(rs2).cast_signed() {
+                    let old_pc = state
+                        .instruction_fetcher
+                        .get_pc()
+                        .wrapping_sub(self.size().into());
+                    return state
+                        .instruction_fetcher
+                        .set_pc(
+                            &mut state.memory,
+                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                        )
+                        .map_err(ExecutionError::from);
+                }
+            }
+            Self::Bltu { rs1, rs2, imm } => {
+                if state.regs.read(rs1) < state.regs.read(rs2) {
+                    let old_pc = state
+                        .instruction_fetcher
+                        .get_pc()
+                        .wrapping_sub(self.size().into());
+                    return state
+                        .instruction_fetcher
+                        .set_pc(
+                            &mut state.memory,
+                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                        )
+                        .map_err(ExecutionError::from);
+                }
+            }
+            Self::Bgeu { rs1, rs2, imm } => {
+                if state.regs.read(rs1) >= state.regs.read(rs2) {
+                    let old_pc = state
+                        .instruction_fetcher
+                        .get_pc()
+                        .wrapping_sub(self.size().into());
+                    return state
+                        .instruction_fetcher
+                        .set_pc(
+                            &mut state.memory,
+                            old_pc.wrapping_add((imm as i64).cast_unsigned()),
+                        )
+                        .map_err(ExecutionError::from);
+                }
+            }
 
-        Rv64Instruction::Beq { rs1, rs2, imm } => {
-            if state.regs.read(rs1) == state.regs.read(rs2) {
+            Self::Lui { rd, imm } => {
+                state.regs.write(rd, (imm as i64).cast_unsigned());
+            }
+
+            Self::Auipc { rd, imm } => {
                 let old_pc = state
                     .instruction_fetcher
                     .get_pc()
-                    .wrapping_sub(instruction.size().into());
+                    .wrapping_sub(self.size().into());
+                state
+                    .regs
+                    .write(rd, old_pc.wrapping_add((imm as i64).cast_unsigned()));
+            }
+
+            Self::Jal { rd, imm } => {
+                let pc = state.instruction_fetcher.get_pc();
+                let old_pc = pc.wrapping_sub(self.size().into());
+                state.regs.write(rd, pc);
                 return state
                     .instruction_fetcher
                     .set_pc(
@@ -404,149 +490,47 @@ where
                     )
                     .map_err(ExecutionError::from);
             }
-        }
-        Rv64Instruction::Bne { rs1, rs2, imm } => {
-            if state.regs.read(rs1) != state.regs.read(rs2) {
-                let old_pc = state
-                    .instruction_fetcher
-                    .get_pc()
-                    .wrapping_sub(instruction.size().into());
-                return state
-                    .instruction_fetcher
-                    .set_pc(
-                        &mut state.memory,
-                        old_pc.wrapping_add((imm as i64).cast_unsigned()),
-                    )
-                    .map_err(ExecutionError::from);
-            }
-        }
-        Rv64Instruction::Blt { rs1, rs2, imm } => {
-            if state.regs.read(rs1).cast_signed() < state.regs.read(rs2).cast_signed() {
-                let old_pc = state
-                    .instruction_fetcher
-                    .get_pc()
-                    .wrapping_sub(instruction.size().into());
-                return state
-                    .instruction_fetcher
-                    .set_pc(
-                        &mut state.memory,
-                        old_pc.wrapping_add((imm as i64).cast_unsigned()),
-                    )
-                    .map_err(ExecutionError::from);
-            }
-        }
-        Rv64Instruction::Bge { rs1, rs2, imm } => {
-            if state.regs.read(rs1).cast_signed() >= state.regs.read(rs2).cast_signed() {
-                let old_pc = state
-                    .instruction_fetcher
-                    .get_pc()
-                    .wrapping_sub(instruction.size().into());
-                return state
-                    .instruction_fetcher
-                    .set_pc(
-                        &mut state.memory,
-                        old_pc.wrapping_add((imm as i64).cast_unsigned()),
-                    )
-                    .map_err(ExecutionError::from);
-            }
-        }
-        Rv64Instruction::Bltu { rs1, rs2, imm } => {
-            if state.regs.read(rs1) < state.regs.read(rs2) {
-                let old_pc = state
-                    .instruction_fetcher
-                    .get_pc()
-                    .wrapping_sub(instruction.size().into());
-                return state
-                    .instruction_fetcher
-                    .set_pc(
-                        &mut state.memory,
-                        old_pc.wrapping_add((imm as i64).cast_unsigned()),
-                    )
-                    .map_err(ExecutionError::from);
-            }
-        }
-        Rv64Instruction::Bgeu { rs1, rs2, imm } => {
-            if state.regs.read(rs1) >= state.regs.read(rs2) {
-                let old_pc = state
-                    .instruction_fetcher
-                    .get_pc()
-                    .wrapping_sub(instruction.size().into());
-                return state
-                    .instruction_fetcher
-                    .set_pc(
-                        &mut state.memory,
-                        old_pc.wrapping_add((imm as i64).cast_unsigned()),
-                    )
-                    .map_err(ExecutionError::from);
-            }
-        }
 
-        Rv64Instruction::Lui { rd, imm } => {
-            state.regs.write(rd, (imm as i64).cast_unsigned());
-        }
+            Self::Fence { .. } => {
+                // NOP for single-threaded
+            }
 
-        Rv64Instruction::Auipc { rd, imm } => {
-            let old_pc = state
-                .instruction_fetcher
-                .get_pc()
-                .wrapping_sub(instruction.size().into());
-            state
-                .regs
-                .write(rd, old_pc.wrapping_add((imm as i64).cast_unsigned()));
-        }
-
-        Rv64Instruction::Jal { rd, imm } => {
-            let pc = state.instruction_fetcher.get_pc();
-            let old_pc = pc.wrapping_sub(instruction.size().into());
-            state.regs.write(rd, pc);
-            return state
-                .instruction_fetcher
-                .set_pc(
+            Self::Ecall => {
+                return state.system_instruction_handler.handle_ecall(
+                    &mut state.regs,
                     &mut state.memory,
-                    old_pc.wrapping_add((imm as i64).cast_unsigned()),
-                )
-                .map_err(ExecutionError::from);
+                    &mut state.instruction_fetcher,
+                );
+            }
+            Self::Ebreak => {
+                state.system_instruction_handler.handle_ebreak(
+                    &mut state.regs,
+                    &mut state.memory,
+                    state.instruction_fetcher.get_pc(),
+                    Self::Ebreak,
+                );
+            }
+
+            Self::Unimp => {
+                let old_pc = state
+                    .instruction_fetcher
+                    .get_pc()
+                    .wrapping_sub(self.size().into());
+                return Err(ExecutionError::UnimpInstruction { address: old_pc });
+            }
+
+            Self::Invalid(raw_instruction) => {
+                let old_pc = state
+                    .instruction_fetcher
+                    .get_pc()
+                    .wrapping_sub(self.size().into());
+                return Err(ExecutionError::InvalidInstruction {
+                    address: old_pc,
+                    instruction: raw_instruction,
+                });
+            }
         }
 
-        Rv64Instruction::Fence { .. } => {
-            // NOP for single-threaded
-        }
-
-        Rv64Instruction::Ecall => {
-            return state.system_instruction_handler.handle_ecall(
-                &mut state.regs,
-                &mut state.memory,
-                &mut state.instruction_fetcher,
-            );
-        }
-        Rv64Instruction::Ebreak => {
-            state.system_instruction_handler.handle_ebreak(
-                &mut state.regs,
-                &mut state.memory,
-                state.instruction_fetcher.get_pc(),
-                Rv64Instruction::Ebreak,
-            );
-        }
-
-        Rv64Instruction::Unimp => {
-            let old_pc = state
-                .instruction_fetcher
-                .get_pc()
-                .wrapping_sub(instruction.size().into());
-            return Err(ExecutionError::UnimpInstruction { address: old_pc });
-        }
-
-        Rv64Instruction::Invalid(raw_instruction) => {
-            let old_pc = state
-                .instruction_fetcher
-                .get_pc()
-                .wrapping_sub(instruction.size().into());
-            return Err(ExecutionError::InvalidInstruction {
-                address: old_pc,
-                instruction: raw_instruction,
-            });
-        }
+        Ok(ControlFlow::Continue(()))
     }
-
-    Ok(ControlFlow::Continue(()))
 }

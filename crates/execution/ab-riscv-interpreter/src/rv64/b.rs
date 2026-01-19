@@ -5,38 +5,67 @@ pub mod zbb;
 pub mod zbc;
 pub mod zbs;
 
-use crate::rv64::b::zba::execute_zba;
-use crate::rv64::b::zbb::execute_zbb;
-use crate::rv64::b::zbc::execute_zbc;
-use crate::rv64::b::zbs::execute_zbs;
+use crate::rv64::Rv64InterpreterState;
+use crate::{ExecutableInstruction, ExecutionError};
 use ab_riscv_primitives::instruction::rv64::b::{Rv64BInstruction, Rv64BZbcInstruction};
-use ab_riscv_primitives::registers::{Register, Registers};
+use ab_riscv_primitives::registers::Register;
+use core::ops::ControlFlow;
 
-/// Execute instructions from B (Zba + Zbb + Zbs) extension
-#[inline(always)]
-pub fn execute_b<Reg>(regs: &mut Registers<Reg>, instruction: Rv64BInstruction<Reg>)
+impl<Reg, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<
+        Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        CustomError,
+    > for Rv64BInstruction<Reg>
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
 {
-    match instruction {
-        Rv64BInstruction::Zba(instruction) => execute_zba(regs, instruction),
-        Rv64BInstruction::Zbb(instruction) => execute_zbb(regs, instruction),
-        Rv64BInstruction::Zbs(instruction) => execute_zbs(regs, instruction),
+    #[inline(always)]
+    fn execute(
+        self,
+        state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        match self {
+            Self::Zba(instruction) => instruction
+                .execute(state)
+                .map_err(|error| error.map_instruction(Self::Zba)),
+            Self::Zbb(instruction) => instruction
+                .execute(state)
+                .map_err(|error| error.map_instruction(Self::Zbb)),
+            Self::Zbs(instruction) => instruction
+                .execute(state)
+                .map_err(|error| error.map_instruction(Self::Zbs)),
+        }
     }
 }
 
-/// Execute instructions from B (Zba + Zbb + Zbs) + Zbc extensions
-#[inline(always)]
-pub fn execute_b_zbc<Reg>(regs: &mut Registers<Reg>, instruction: Rv64BZbcInstruction<Reg>)
+impl<Reg, Memory, PC, InstructionHandler, CustomError>
+    ExecutableInstruction<
+        Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+        CustomError,
+    > for Rv64BZbcInstruction<Reg>
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
 {
-    match instruction {
-        Rv64BZbcInstruction::Zba(instruction) => execute_zba(regs, instruction),
-        Rv64BZbcInstruction::Zbb(instruction) => execute_zbb(regs, instruction),
-        Rv64BZbcInstruction::Zbc(instruction) => execute_zbc(regs, instruction),
-        Rv64BZbcInstruction::Zbs(instruction) => execute_zbs(regs, instruction),
+    #[inline(always)]
+    fn execute(
+        self,
+        state: &mut Rv64InterpreterState<Reg, Memory, PC, InstructionHandler, CustomError>,
+    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type, Self, CustomError>> {
+        match self {
+            Self::Zba(instruction) => instruction
+                .execute(state)
+                .map_err(|error| error.map_instruction(Self::Zba)),
+            Self::Zbb(instruction) => instruction
+                .execute(state)
+                .map_err(|error| error.map_instruction(Self::Zbb)),
+            Self::Zbc(instruction) => instruction
+                .execute(state)
+                .map_err(|error| error.map_instruction(Self::Zbc)),
+            Self::Zbs(instruction) => instruction
+                .execute(state)
+                .map_err(|error| error.map_instruction(Self::Zbs)),
+        }
     }
 }

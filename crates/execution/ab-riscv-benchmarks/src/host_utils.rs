@@ -5,14 +5,10 @@ use ab_contract_file::Instruction;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
-use ab_riscv_interpreter::rv64::b::execute_b_zbc;
-use ab_riscv_interpreter::rv64::m::execute_m;
-use ab_riscv_interpreter::rv64::{
-    Rv64InterpreterState, Rv64SystemInstructionHandler, execute_rv64,
-};
+use ab_riscv_interpreter::rv64::{Rv64InterpreterState, Rv64SystemInstructionHandler};
 use ab_riscv_interpreter::{
-    BasicInt, ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
-    ProgramCounterError, VirtualMemory, VirtualMemoryError,
+    BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult, InstructionFetcher,
+    ProgramCounter, ProgramCounterError, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::instruction::BaseInstruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
@@ -397,25 +393,24 @@ where
             }
         };
 
-        match instruction {
-            Instruction::A(instruction) => {
-                execute_m(&mut state.regs, instruction);
+        let control_flow = match instruction {
+            Instruction::A(instruction) => instruction
+                .execute(state)
+                .map_err(|error| error.map_instruction(Instruction::A))?,
+            Instruction::B(instruction) => instruction
+                .execute(state)
+                .map_err(|error| error.map_instruction(Instruction::B))?,
+            Instruction::Base(instruction) => instruction
+                .execute(state)
+                .map_err(|error| error.map_instruction(Instruction::Base))?,
+        };
+
+        match control_flow {
+            ControlFlow::Continue(()) => {
+                continue;
             }
-            Instruction::B(instruction) => {
-                execute_b_zbc(&mut state.regs, instruction);
-            }
-            Instruction::Base(instruction) => {
-                // TODO: Type inference is not working here for some mysterious reason
-                match execute_rv64(state, instruction).map_err(|error| {
-                    error.map_instruction::<_, fn(Rv64Instruction<<Instruction as BaseInstruction>::Reg>) -> Instruction>(Instruction::Base)
-                })? {
-                    ControlFlow::Continue(()) => {
-                        continue;
-                    }
-                    ControlFlow::Break(()) => {
-                        break;
-                    }
-                }
+            ControlFlow::Break(()) => {
+                break;
             }
         }
     }

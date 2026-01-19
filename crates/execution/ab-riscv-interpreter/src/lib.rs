@@ -157,7 +157,7 @@ pub enum ExecutionError<Address, I, Custom> {
 impl<Address, BI, Custom> ExecutionError<Address, BI, Custom> {
     /// Map instruction type
     #[inline]
-    pub fn map_instruction<I, M>(self, map: fn(BI) -> I) -> ExecutionError<Address, I, Custom> {
+    pub fn map_instruction<I>(self, map: fn(BI) -> I) -> ExecutionError<Address, I, Custom> {
         match self {
             Self::UnalignedInstructionFetch { address } => {
                 ExecutionError::UnalignedInstructionFetch { address }
