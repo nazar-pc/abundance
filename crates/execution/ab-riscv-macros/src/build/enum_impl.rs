@@ -1,9 +1,9 @@
 mod forbidden_checker;
 mod ignored_variants_remover;
 
-use crate::enum_impl::forbidden_checker::block_contains_forbidden_syntax;
-use crate::enum_impl::ignored_variants_remover::remove_ignored_variants;
-use crate::state::{PendingEnumDisplayImpl, PendingEnumImpl, State};
+use crate::build::enum_impl::forbidden_checker::block_contains_forbidden_syntax;
+use crate::build::enum_impl::ignored_variants_remover::remove_ignored_variants;
+use crate::build::state::{PendingEnumDisplayImpl, PendingEnumImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
 use quote::{ToTokens, format_ident, quote};

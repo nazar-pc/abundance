@@ -1,5 +1,5 @@
-use crate::enum_definition::InstructionDefinition;
-use crate::enum_impl::enum_name_from_impl;
+use crate::build::enum_definition::InstructionDefinition;
+use crate::build::enum_impl::enum_name_from_impl;
 use std::collections::HashMap;
 use std::collections::hash_map::OccupiedError;
 use std::mem;

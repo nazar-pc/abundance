@@ -20,7 +20,7 @@ ab-riscv-primitives = { workspace = true }
 thiserror = { workspace = true }
 
 [build-dependencies]
-ab-riscv-macros = { workspace = true }
+ab-riscv-macros = { workspace = true, features = ["build"] }
 
 [lints]
 workspace = true

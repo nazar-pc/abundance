@@ -15,12 +15,24 @@ all-features = true
 
 [dependencies]
 ab-riscv-macros-impl = { workspace = true, optional = true }
-ab-riscv-macros-common = { workspace = true }
-anyhow = { workspace = true }
-quote = { workspace = true }
-syn = { workspace = true, features = ["extra-traits", "full", "visit", "visit-mut"] }
+ab-riscv-macros-common = { workspace = true, optional = true }
+anyhow = { workspace = true, optional = true }
+quote = { workspace = true, optional = true }
+syn = { workspace = true, optional = true, features = ["extra-traits", "full", "visit", "visit-mut"] }
 
 [features]
+default = [
+    "build",
+    "proc-macro",
+]
+# Enable features needed for usage in `build.rs`
+build = [
+    "dep:ab-riscv-macros-common",
+    "dep:anyhow",
+    "dep:quote",
+    "dep:syn",
+]
+# Enable proc macro re-export
 proc-macro = [
     "dep:ab-riscv-macros-impl",
 ]

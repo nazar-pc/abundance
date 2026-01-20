@@ -1,8 +1,8 @@
 mod extract_matches;
 
-use crate::enum_impl::enum_name_from_impl;
-use crate::execution_impl::extract_matches::extract_variant_arms;
-use crate::state::{PendingEnumExecutionImpl, State};
+use crate::build::enum_impl::enum_name_from_impl;
+use crate::build::execution_impl::extract_matches::extract_variant_arms;
+use crate::build::state::{PendingEnumExecutionImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
 use quote::{ToTokens, quote};

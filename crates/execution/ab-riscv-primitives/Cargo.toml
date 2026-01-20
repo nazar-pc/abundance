@@ -19,7 +19,7 @@ all-features = true
 ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
 
 [build-dependencies]
-ab-riscv-macros = { workspace = true }
+ab-riscv-macros = { workspace = true, features = ["build"] }
 
 [lints]
 workspace = true

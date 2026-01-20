@@ -1,4 +1,4 @@
-use crate::state::{PendingEnumDefinition, State};
+use crate::build::state::{PendingEnumDefinition, State};
 use ab_riscv_macros_common::code_utils::pre_process_rust_code;
 use anyhow::Context;
 use quote::{ToTokens, format_ident};
