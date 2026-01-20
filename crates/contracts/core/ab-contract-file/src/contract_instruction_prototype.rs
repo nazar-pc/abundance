@@ -110,7 +110,7 @@ where
 
 /// Instructions that are less popular among contracts
 #[instruction(
-    ignore = [PopularInstruction],
+    ignore = [PopularInstruction, Fence, Ecall],
     inherit = [
         Rv64Instruction,
         Rv64MInstruction,
