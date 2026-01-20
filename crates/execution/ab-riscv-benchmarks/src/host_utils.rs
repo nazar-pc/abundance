@@ -1,24 +1,19 @@
 extern crate alloc;
 
 use ab_blake3::{CHUNK_LEN, OUT_LEN};
-use ab_contract_file::Instruction;
+use ab_contract_file::ContractInstruction;
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::IoType;
 use ab_io_type::bool::Bool;
-use ab_riscv_interpreter::rv64::b::execute_b_zbc;
-use ab_riscv_interpreter::rv64::m::execute_m;
-use ab_riscv_interpreter::rv64::{
-    Rv64InterpreterState, Rv64SystemInstructionHandler, execute_rv64,
-};
+use ab_riscv_interpreter::rv64::{Rv64InterpreterState, Rv64SystemInstructionHandler};
 use ab_riscv_interpreter::{
-    BasicInt, ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter,
-    ProgramCounterError, VirtualMemory, VirtualMemoryError,
+    BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult, InstructionFetcher,
+    ProgramCounter, ProgramCounterError, VirtualMemory, VirtualMemoryError,
 };
-use ab_riscv_primitives::instruction::BaseInstruction;
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::{Register, Registers};
 use alloc::vec::Vec;
-use core::fmt;
 use core::marker::PhantomData;
 use core::mem::offset_of;
 use core::ops::ControlFlow;
@@ -240,7 +235,7 @@ impl<const MEMORY_SIZE: usize> TestMemory<MEMORY_SIZE> {
 /// Eager instruction handler eagerly decodes all instructions upfront
 #[derive(Debug, Default, Clone)]
 pub struct EagerTestInstructionFetcher {
-    instructions: Vec<Instruction>,
+    instructions: Vec<ContractInstruction>,
     return_trap_address: u64,
     base_addr: u64,
     instruction_offset: usize,
@@ -286,7 +281,8 @@ where
     }
 }
 
-impl<Memory> InstructionFetcher<Instruction, Memory, &'static str> for EagerTestInstructionFetcher
+impl<Memory> InstructionFetcher<ContractInstruction, Memory, &'static str>
+    for EagerTestInstructionFetcher
 where
     Memory: VirtualMemory,
 {
@@ -294,8 +290,10 @@ where
     fn fetch_instruction(
         &mut self,
         _memory: &mut Memory,
-    ) -> Result<FetchInstructionResult<Instruction>, ExecutionError<Instruction, &'static str>>
-    {
+    ) -> Result<
+        FetchInstructionResult<ContractInstruction>,
+        ExecutionError<u64, ContractInstruction, &'static str>,
+    > {
         // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
         // through `Self::set_pc()` method that does bound check. Otherwise, advancing forward by
         // one instruction can't result in out-of-bounds access.
@@ -320,7 +318,7 @@ impl EagerTestInstructionFetcher {
     /// jump instruction.
     #[inline(always)]
     pub unsafe fn new(
-        instructions: Vec<Instruction>,
+        instructions: Vec<ContractInstruction>,
         return_trap_address: u64,
         base_addr: u64,
         pc: u64,
@@ -354,9 +352,6 @@ impl<Reg, Memory, PC, CustomError> Rv64SystemInstructionHandler<Reg, Memory, PC,
 where
     Reg: Register<Type = u64>,
     [(); Reg::N]:,
-    Memory: VirtualMemory,
-    PC: ProgramCounter<Reg::Type, Memory, CustomError>,
-    CustomError: fmt::Display,
 {
     #[inline(always)]
     fn handle_ecall(
@@ -364,7 +359,7 @@ where
         _regs: &mut Registers<Reg>,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Rv64Instruction<Reg>, CustomError>> {
+    ) -> Result<ControlFlow<()>, ExecutionError<u64, Rv64Instruction<Reg>, CustomError>> {
         // SAFETY: Contracts are statically known to not contain `ecall` instructions
         // unsafe { unreachable_unchecked() }
         // For some known reason this is faster than `unreachable_unchecked()`
@@ -372,20 +367,22 @@ where
     }
 }
 
-/// Execute [`Instruction`]s
+/// Execute [`ContractInstruction`]s
 #[expect(clippy::type_complexity)]
 pub fn execute<Memory, IF>(
     state: &mut Rv64InterpreterState<
-        <Instruction as BaseInstruction>::Reg,
+        <ContractInstruction as Instruction>::Reg,
         Memory,
         IF,
-        NoopRv64SystemInstructionHandler<Rv64Instruction<<Instruction as BaseInstruction>::Reg>>,
+        NoopRv64SystemInstructionHandler<
+            Rv64Instruction<<ContractInstruction as Instruction>::Reg>,
+        >,
         &'static str,
     >,
-) -> Result<(), ExecutionError<Instruction, &'static str>>
+) -> Result<(), ExecutionError<u64, ContractInstruction, &'static str>>
 where
     Memory: VirtualMemory,
-    IF: InstructionFetcher<Instruction, Memory, &'static str>,
+    IF: InstructionFetcher<ContractInstruction, Memory, &'static str>,
 {
     loop {
         let instruction = match state
@@ -401,23 +398,12 @@ where
             }
         };
 
-        match instruction {
-            Instruction::A(instruction) => {
-                execute_m(&mut state.regs, instruction);
+        match instruction.execute(state)? {
+            ControlFlow::Continue(()) => {
+                continue;
             }
-            Instruction::B(instruction) => {
-                execute_b_zbc(&mut state.regs, instruction);
-            }
-            Instruction::Base(instruction) => {
-                // TODO: More ergonomic way to map instruction type from the base type
-                match execute_rv64(state, instruction).map_err(ExecutionError::map_from_base)? {
-                    ControlFlow::Continue(()) => {
-                        continue;
-                    }
-                    ControlFlow::Break(()) => {
-                        break;
-                    }
-                }
+            ControlFlow::Break(()) => {
+                break;
             }
         }
     }

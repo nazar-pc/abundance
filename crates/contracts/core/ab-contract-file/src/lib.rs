@@ -1,18 +1,33 @@
 //! Utilities for working with contract files
 
-#![feature(maybe_uninit_as_bytes, maybe_uninit_fill, trusted_len)]
+#![feature(
+    bigint_helper_methods,
+    const_option_ops,
+    const_trait_impl,
+    maybe_uninit_as_bytes,
+    maybe_uninit_fill,
+    trusted_len,
+    const_try,
+    const_try_residual,
+    try_blocks
+)]
+#![expect(incomplete_features, reason = "generic_const_exprs")]
+// TODO: This feature is not actually used in this crate, but is added as a workaround for
+//  https://github.com/rust-lang/rust/issues/141492
+#![feature(generic_const_exprs)]
 #![no_std]
 
+pub mod contract_instruction_prototype;
+
+use crate::contract_instruction_prototype::{
+    ContractInstructionPrototype, NotPopularInstruction, PopularInstruction,
+};
 use ab_contracts_common::metadata::decode::{
     MetadataDecoder, MetadataDecodingError, MetadataItem, MethodMetadataItem,
     MethodsMetadataDecoder,
 };
 use ab_io_type::trivial_type::TrivialType;
-use ab_riscv_primitives::instruction::BaseInstruction;
-use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::instruction::rv64::b::Rv64BZbcInstruction;
-use ab_riscv_primitives::instruction::rv64::m::Rv64MInstruction;
-use ab_riscv_primitives::instruction::tuples::Tuple3Instruction;
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::registers::EReg;
 use core::iter;
 use core::iter::TrustedLen;
@@ -23,13 +38,9 @@ use tracing::{debug, trace};
 /// Magic bytes at the beginning of the file
 pub const CONTRACT_FILE_MAGIC: [u8; 4] = *b"ABC0";
 /// A register type used by contracts
-pub type Register = EReg<u64>;
+pub type ContractRegister = EReg<u64>;
 /// An instruction type used by contracts
-pub type Instruction = Tuple3Instruction<
-    Rv64MInstruction<Register>,
-    Rv64BZbcInstruction<Register>,
-    Rv64Instruction<Register>,
->;
+pub type ContractInstruction = ContractInstructionPrototype<ContractRegister>;
 
 /// Header of the contract file
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TrivialType)]
@@ -172,9 +183,9 @@ pub enum ContractFileParseError {
     #[error("The host call function doesn't have auipc + jalr tailcall pattern: {first} {second}")]
     InvalidHostCallFnPattern {
         /// First instruction of the host call function
-        first: Instruction,
+        first: ContractInstruction,
         /// Second instruction of the host call function
-        second: Instruction,
+        second: ContractInstruction,
     },
     /// The read-only section file size is larger than the memory size
     #[error(
@@ -212,11 +223,11 @@ pub enum ContractFileParseError {
         /// Number of methods in the actual metadata
         metadata_num_methods: u16,
     },
-    /// Unexpected instruction encountered while parsing the code section
-    #[error("Unexpected instruction encountered while parsing the code section: {instruction}")]
-    UnexpectedInstruction {
+    /// Invalid instruction encountered while parsing the code section
+    #[error("Invalid instruction encountered while parsing the code section: {instruction}")]
+    InvalidInstruction {
         /// Instruction
-        instruction: Instruction,
+        instruction: u32,
     },
     /// The code section is empty
     #[error("The code section is empty")]
@@ -234,7 +245,7 @@ pub enum ContractFileParseError {
     #[error("The last instruction in the code section must be a jump instruction: {instruction}")]
     LastInstructionMustBeJump {
         /// Instruction that is expected to be a jump instruction
-        instruction: Instruction,
+        instruction: ContractInstruction,
     },
 }
 
@@ -464,8 +475,16 @@ impl<'a> ContractFile<'a> {
                 instructions_bytes[7],
             ]);
 
-            let first = Instruction::decode(first_instruction);
-            let second = Instruction::decode(second_instruction);
+            let first = ContractInstruction::try_decode(first_instruction).ok_or(
+                ContractFileParseError::InvalidInstruction {
+                    instruction: first_instruction,
+                },
+            )?;
+            let second = ContractInstruction::try_decode(second_instruction).ok_or(
+                ContractFileParseError::InvalidInstruction {
+                    instruction: second_instruction,
+                },
+            )?;
 
             // TODO: Should it be canonicalized to a fixed immediate and temporary after conversion
             //  from ELF?
@@ -473,18 +492,18 @@ impl<'a> ContractFile<'a> {
             //   auipc x?, 0x?
             //   jalr  x0, offset(x?)
             let matches_expected_pattern = if let (
-                Instruction::Base(Rv64Instruction::Auipc {
+                ContractInstruction::Popular(PopularInstruction::Auipc {
                     rd: auipc_rd,
                     imm: _,
                 }),
-                Instruction::Base(Rv64Instruction::Jalr {
+                ContractInstruction::Popular(PopularInstruction::Jalr {
                     rd: jalr_rd,
                     rs1: jalr_rs1,
                     imm: _,
                 }),
             ) = (first, second)
             {
-                auipc_rd == jalr_rs1 && jalr_rd == Register::Zero
+                auipc_rd == jalr_rs1 && jalr_rd == ContractRegister::Zero
             } else {
                 false
             };
@@ -508,96 +527,35 @@ impl<'a> ContractFile<'a> {
         {
             let mut remaining_code_file_bytes = &file_bytes[code_section_offset as usize..];
 
-            let mut instruction = Instruction::Base(Rv64Instruction::Unimp);
+            let mut instruction = ContractInstruction::NotPopular(NotPopularInstruction::Unimp);
             while let Some(instruction_bytes) =
                 remaining_code_file_bytes.split_off(..size_of::<u32>())
             {
-                instruction = Instruction::decode(u32::from_le_bytes([
+                let instruction_word = u32::from_le_bytes([
                     instruction_bytes[0],
                     instruction_bytes[1],
                     instruction_bytes[2],
                     instruction_bytes[3],
-                ]));
-                match instruction {
-                    Instruction::A(_)
-                    | Instruction::B(_)
-                    | Instruction::Base(
-                        Rv64Instruction::Add { .. }
-                        | Rv64Instruction::Sub { .. }
-                        | Rv64Instruction::Sll { .. }
-                        | Rv64Instruction::Slt { .. }
-                        | Rv64Instruction::Sltu { .. }
-                        | Rv64Instruction::Xor { .. }
-                        | Rv64Instruction::Srl { .. }
-                        | Rv64Instruction::Sra { .. }
-                        | Rv64Instruction::Or { .. }
-                        | Rv64Instruction::And { .. }
-                        | Rv64Instruction::Addw { .. }
-                        | Rv64Instruction::Subw { .. }
-                        | Rv64Instruction::Sllw { .. }
-                        | Rv64Instruction::Srlw { .. }
-                        | Rv64Instruction::Sraw { .. }
-                        | Rv64Instruction::Addi { .. }
-                        | Rv64Instruction::Slti { .. }
-                        | Rv64Instruction::Sltiu { .. }
-                        | Rv64Instruction::Xori { .. }
-                        | Rv64Instruction::Ori { .. }
-                        | Rv64Instruction::Andi { .. }
-                        | Rv64Instruction::Slli { .. }
-                        | Rv64Instruction::Srli { .. }
-                        | Rv64Instruction::Srai { .. }
-                        | Rv64Instruction::Addiw { .. }
-                        | Rv64Instruction::Slliw { .. }
-                        | Rv64Instruction::Srliw { .. }
-                        | Rv64Instruction::Sraiw { .. }
-                        | Rv64Instruction::Lb { .. }
-                        | Rv64Instruction::Lh { .. }
-                        | Rv64Instruction::Lw { .. }
-                        | Rv64Instruction::Ld { .. }
-                        | Rv64Instruction::Lbu { .. }
-                        | Rv64Instruction::Lhu { .. }
-                        | Rv64Instruction::Lwu { .. }
-                        | Rv64Instruction::Jalr { .. }
-                        | Rv64Instruction::Sb { .. }
-                        | Rv64Instruction::Sh { .. }
-                        | Rv64Instruction::Sw { .. }
-                        | Rv64Instruction::Sd { .. }
-                        | Rv64Instruction::Beq { .. }
-                        | Rv64Instruction::Bne { .. }
-                        | Rv64Instruction::Blt { .. }
-                        | Rv64Instruction::Bge { .. }
-                        | Rv64Instruction::Bltu { .. }
-                        | Rv64Instruction::Bgeu { .. }
-                        | Rv64Instruction::Lui { .. }
-                        | Rv64Instruction::Auipc { .. }
-                        | Rv64Instruction::Jal { .. }
-                        | Rv64Instruction::Ebreak
-                        | Rv64Instruction::Unimp,
-                    ) => {
-                        // Expected instruction
-                    }
-                    Instruction::Base(
-                        Rv64Instruction::Fence { .. }
-                        | Rv64Instruction::Ecall
-                        | Rv64Instruction::Invalid(_),
-                    ) => {
-                        return Err(ContractFileParseError::UnexpectedInstruction { instruction });
-                    }
-                }
+                ]);
+                instruction = ContractInstruction::try_decode(instruction_word).ok_or(
+                    ContractFileParseError::InvalidInstruction {
+                        instruction: instruction_word,
+                    },
+                )?;
             }
 
             let is_jump_instruction = matches!(
                 instruction,
-                Instruction::Base(
-                    Rv64Instruction::Jalr { .. }
-                        | Rv64Instruction::Beq { .. }
-                        | Rv64Instruction::Bne { .. }
-                        | Rv64Instruction::Blt { .. }
-                        | Rv64Instruction::Bge { .. }
-                        | Rv64Instruction::Bltu { .. }
-                        | Rv64Instruction::Bgeu { .. }
-                        | Rv64Instruction::Jal { .. }
-                )
+                ContractInstruction::Popular(PopularInstruction::Jalr { .. })
+                    | ContractInstruction::NotPopular(
+                        NotPopularInstruction::Beq { .. }
+                            | NotPopularInstruction::Bne { .. }
+                            | NotPopularInstruction::Blt { .. }
+                            | NotPopularInstruction::Bge { .. }
+                            | NotPopularInstruction::Bltu { .. }
+                            | NotPopularInstruction::Bgeu { .. }
+                            | NotPopularInstruction::Jal { .. }
+                    )
             );
             if !is_jump_instruction {
                 return Err(ContractFileParseError::LastInstructionMustBeJump { instruction });

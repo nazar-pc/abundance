@@ -5,7 +5,7 @@
 #![feature(generic_const_exprs)]
 
 use ab_blake3::OUT_LEN;
-use ab_contract_file::{ContractFile, Register};
+use ab_contract_file::{ContractFile, ContractRegister};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
@@ -14,7 +14,7 @@ use ab_riscv_benchmarks::host_utils::{
 };
 use ab_riscv_interpreter::BasicInstructionFetcher;
 use ab_riscv_interpreter::rv64::Rv64InterpreterState;
-use ab_riscv_primitives::instruction::BaseInstruction;
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::registers::Registers;
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
@@ -79,13 +79,16 @@ where
             .copy_from_slice(internal_args_bytes);
     }
 
-    regs.write(Register::A0, internal_args_addr);
-    regs.write(Register::Sp, MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64);
+    regs.write(ContractRegister::A0, internal_args_addr);
+    regs.write(
+        ContractRegister::Sp,
+        MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64,
+    );
 
     let pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
     let memory = match run_type {
         RunType::Lazy => {
-            // SAFETY: Program counter is trusted
+            // SAFETY: Program counter and code is trusted
             let instruction_fetcher = unsafe { BasicInstructionFetcher::new(TRAP_ADDRESS, pc) };
 
             let mut state = Rv64InterpreterState {
@@ -113,7 +116,7 @@ where
                                 instruction[2],
                                 instruction[3],
                             ]);
-                            BaseInstruction::decode(instruction)
+                            Instruction::try_decode(instruction).unwrap()
                         })
                         .collect(),
                     TRAP_ADDRESS,

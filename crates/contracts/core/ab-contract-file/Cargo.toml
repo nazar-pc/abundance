@@ -9,6 +9,7 @@ include = [
     "/src",
     "/Cargo.toml",
 ]
+links = "ab-contract-file"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -16,11 +17,16 @@ all-features = true
 [dependencies]
 ab-io-type = { workspace = true }
 ab-contracts-common = { workspace = true }
+ab-riscv-interpreter = { workspace = true }
+ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
 ab-riscv-primitives = { workspace = true }
 ouroboros = { workspace = true }
 replace_with = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+
+[build-dependencies]
+ab-riscv-macros = { workspace = true, features = ["build"] }
 
 [lints]
 workspace = true

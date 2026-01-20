@@ -47,6 +47,9 @@ ab-proof-of-space = { version = "0.1.0", path = "crates/shared/ab-proof-of-space
 ab-proof-of-space-gpu = { version = "0.1.0", path = "crates/farmer/ab-proof-of-space-gpu" }
 ab-proof-of-time = { version = "0.1.0", path = "crates/shared/ab-proof-of-time" }
 ab-riscv-interpreter = { version = "0.0.1", path = "crates/execution/ab-riscv-interpreter" }
+ab-riscv-macros = { version = "0.0.1", path = "crates/execution/ab-riscv-macros", default-features = false }
+ab-riscv-macros-common = { version = "0.0.1", path = "crates/execution/ab-riscv-macros-common" }
+ab-riscv-macros-impl = { version = "0.0.1", path = "crates/execution/ab-riscv-macros-impl" }
 ab-riscv-primitives = { version = "0.0.1", path = "crates/execution/ab-riscv-primitives" }
 ab-system-contract-address-allocator = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-address-allocator" }
 ab-system-contract-block = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-block" }
@@ -110,6 +113,7 @@ ouroboros = "0.18.5"
 parity-scale-codec = { version = "3.7.5", default-features = false }
 parking_lot = "0.12.5"
 pin-project = "1.1.10"
+prettyplease = "0.2.37"
 proc-macro2 = "1.0.105"
 prometheus-client = "0.23.1"
 quote = "1.0.43"

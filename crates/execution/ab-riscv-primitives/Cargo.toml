@@ -6,14 +6,20 @@ version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
+    "/build.rs",
     "/src",
     "/Cargo.toml",
 ]
+links = "ab-riscv-primitives"
 
 [package.metadata.docs.rs]
 all-features = true
 
 [dependencies]
+ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
+
+[build-dependencies]
+ab-riscv-macros = { workspace = true, features = ["build"] }
 
 [lints]
 workspace = true

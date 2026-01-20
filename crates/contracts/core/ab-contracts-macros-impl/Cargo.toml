@@ -1,6 +1,6 @@
 [package]
 name = "ab-contracts-macros-impl"
-description = "Common code for contracts (implementation)"
+description = "Macros for contracts (implementation)"
 license = "0BSD"
 version = "0.0.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]

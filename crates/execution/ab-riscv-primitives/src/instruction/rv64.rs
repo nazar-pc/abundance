@@ -1,7 +1,8 @@
 //! Base RISC-V RV64 instruction set
 
-use crate::instruction::{BaseInstruction, Instruction};
+use crate::instruction::Instruction;
 use crate::registers::Register;
+use ab_riscv_macros::instruction;
 use core::fmt;
 
 pub mod b;
@@ -10,6 +11,7 @@ pub mod m;
 mod tests;
 
 /// RISC-V RV64 instruction
+#[instruction]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rv64Instruction<Reg> {
     // R-type
@@ -92,16 +94,14 @@ pub enum Rv64Instruction<Reg> {
 
     // Unimplemented/illegal
     Unimp,
-
-    // Invalid instruction
-    Invalid(u32),
 }
 
+#[instruction]
 impl<Reg> const Instruction for Rv64Instruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Base = Rv64Instruction<Reg>;
+    type Reg = Reg;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -112,26 +112,24 @@ where
         let rs2_bits = ((instruction >> 20) & 0x1f) as u8;
         let funct7 = ((instruction >> 25) & 0b111_1111) as u8;
 
-        Some(match opcode {
+        match opcode {
             // R-type
             0b0110011 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    (0b000, 0b0000000) => Self::Add { rd, rs1, rs2 },
-                    (0b000, 0b0100000) => Self::Sub { rd, rs1, rs2 },
-                    (0b001, 0b0000000) => Self::Sll { rd, rs1, rs2 },
-                    (0b010, 0b0000000) => Self::Slt { rd, rs1, rs2 },
-                    (0b011, 0b0000000) => Self::Sltu { rd, rs1, rs2 },
-                    (0b100, 0b0000000) => Self::Xor { rd, rs1, rs2 },
-                    (0b101, 0b0000000) => Self::Srl { rd, rs1, rs2 },
-                    (0b101, 0b0100000) => Self::Sra { rd, rs1, rs2 },
-                    (0b110, 0b0000000) => Self::Or { rd, rs1, rs2 },
-                    (0b111, 0b0000000) => Self::And { rd, rs1, rs2 },
-                    _ => {
-                        return None;
-                    }
+                    (0b000, 0b0000000) => Some(Self::Add { rd, rs1, rs2 }),
+                    (0b000, 0b0100000) => Some(Self::Sub { rd, rs1, rs2 }),
+                    (0b001, 0b0000000) => Some(Self::Sll { rd, rs1, rs2 }),
+                    (0b010, 0b0000000) => Some(Self::Slt { rd, rs1, rs2 }),
+                    (0b011, 0b0000000) => Some(Self::Sltu { rd, rs1, rs2 }),
+                    (0b100, 0b0000000) => Some(Self::Xor { rd, rs1, rs2 }),
+                    (0b101, 0b0000000) => Some(Self::Srl { rd, rs1, rs2 }),
+                    (0b101, 0b0100000) => Some(Self::Sra { rd, rs1, rs2 }),
+                    (0b110, 0b0000000) => Some(Self::Or { rd, rs1, rs2 }),
+                    (0b111, 0b0000000) => Some(Self::And { rd, rs1, rs2 }),
+                    _ => None,
                 }
             }
             // RV64 R-type W
@@ -140,14 +138,12 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    (0b000, 0b0000000) => Self::Addw { rd, rs1, rs2 },
-                    (0b000, 0b0100000) => Self::Subw { rd, rs1, rs2 },
-                    (0b001, 0b0000000) => Self::Sllw { rd, rs1, rs2 },
-                    (0b101, 0b0000000) => Self::Srlw { rd, rs1, rs2 },
-                    (0b101, 0b0100000) => Self::Sraw { rd, rs1, rs2 },
-                    _ => {
-                        return None;
-                    }
+                    (0b000, 0b0000000) => Some(Self::Addw { rd, rs1, rs2 }),
+                    (0b000, 0b0100000) => Some(Self::Subw { rd, rs1, rs2 }),
+                    (0b001, 0b0000000) => Some(Self::Sllw { rd, rs1, rs2 }),
+                    (0b101, 0b0000000) => Some(Self::Srlw { rd, rs1, rs2 }),
+                    (0b101, 0b0100000) => Some(Self::Sraw { rd, rs1, rs2 }),
+                    _ => None,
                 }
             }
             // I-type
@@ -156,37 +152,31 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let imm = instruction.cast_signed() >> 20;
                 match funct3 {
-                    0b000 => Self::Addi { rd, rs1, imm },
-                    0b010 => Self::Slti { rd, rs1, imm },
-                    0b011 => Self::Sltiu { rd, rs1, imm },
-                    0b100 => Self::Xori { rd, rs1, imm },
-                    0b110 => Self::Ori { rd, rs1, imm },
-                    0b111 => Self::Andi { rd, rs1, imm },
+                    0b000 => Some(Self::Addi { rd, rs1, imm }),
+                    0b010 => Some(Self::Slti { rd, rs1, imm }),
+                    0b011 => Some(Self::Sltiu { rd, rs1, imm }),
+                    0b100 => Some(Self::Xori { rd, rs1, imm }),
+                    0b110 => Some(Self::Ori { rd, rs1, imm }),
+                    0b111 => Some(Self::Andi { rd, rs1, imm }),
                     0b001 => {
                         let shamt = (instruction >> 20) & 0b11_1111;
                         let funct6 = (instruction >> 26) & 0b11_1111;
                         if funct6 == 0b000000 {
-                            Self::Slli { rd, rs1, shamt }
+                            Some(Self::Slli { rd, rs1, shamt })
                         } else {
-                            {
-                                return None;
-                            }
+                            None
                         }
                     }
                     0b101 => {
                         let shamt = (instruction >> 20) & 0b11_1111;
                         let funct6 = (instruction >> 26) & 0b11_1111;
                         match funct6 {
-                            0b000000 => Self::Srli { rd, rs1, shamt },
-                            0b010000 => Self::Srai { rd, rs1, shamt },
-                            _ => {
-                                return None;
-                            }
+                            0b000000 => Some(Self::Srli { rd, rs1, shamt }),
+                            0b010000 => Some(Self::Srai { rd, rs1, shamt }),
+                            _ => None,
                         }
                     }
-                    _ => {
-                        return None;
-                    }
+                    _ => None,
                 }
             }
             // RV64 I-type W
@@ -194,28 +184,23 @@ where
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let imm = instruction.cast_signed() >> 20;
-                let shamt = (instruction >> 20) & 0b1_1111; // 5-bit for W shifts
+                // 5-bit for W shifts
+                let shamt = (instruction >> 20) & 0b1_1111;
                 match funct3 {
-                    0b000 => Self::Addiw { rd, rs1, imm },
+                    0b000 => Some(Self::Addiw { rd, rs1, imm }),
                     0b001 => {
                         if funct7 == 0b0000000 {
-                            Self::Slliw { rd, rs1, shamt }
+                            Some(Self::Slliw { rd, rs1, shamt })
                         } else {
-                            {
-                                return None;
-                            }
+                            None
                         }
                     }
                     0b101 => match funct7 {
-                        0b0000000 => Self::Srliw { rd, rs1, shamt },
-                        0b0100000 => Self::Sraiw { rd, rs1, shamt },
-                        _ => {
-                            return None;
-                        }
+                        0b0000000 => Some(Self::Srliw { rd, rs1, shamt }),
+                        0b0100000 => Some(Self::Sraiw { rd, rs1, shamt }),
+                        _ => None,
                     },
-                    _ => {
-                        return None;
-                    }
+                    _ => None,
                 }
             }
             // Loads (I-type)
@@ -224,16 +209,14 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let imm = instruction.cast_signed() >> 20;
                 match funct3 {
-                    0b000 => Self::Lb { rd, rs1, imm },
-                    0b001 => Self::Lh { rd, rs1, imm },
-                    0b010 => Self::Lw { rd, rs1, imm },
-                    0b011 => Self::Ld { rd, rs1, imm },
-                    0b100 => Self::Lbu { rd, rs1, imm },
-                    0b101 => Self::Lhu { rd, rs1, imm },
-                    0b110 => Self::Lwu { rd, rs1, imm },
-                    _ => {
-                        return None;
-                    }
+                    0b000 => Some(Self::Lb { rd, rs1, imm }),
+                    0b001 => Some(Self::Lh { rd, rs1, imm }),
+                    0b010 => Some(Self::Lw { rd, rs1, imm }),
+                    0b011 => Some(Self::Ld { rd, rs1, imm }),
+                    0b100 => Some(Self::Lbu { rd, rs1, imm }),
+                    0b101 => Some(Self::Lhu { rd, rs1, imm }),
+                    0b110 => Some(Self::Lwu { rd, rs1, imm }),
+                    _ => None,
                 }
             }
             // Jalr (I-type)
@@ -242,11 +225,9 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 if funct3 == 0b000 {
                     let imm = instruction.cast_signed() >> 20;
-                    Self::Jalr { rd, rs1, imm }
+                    Some(Self::Jalr { rd, rs1, imm })
                 } else {
-                    {
-                        return None;
-                    }
+                    None
                 }
             }
             // S-type
@@ -259,13 +240,11 @@ where
                 // Sign extend
                 let imm = (imm << 20) >> 20;
                 match funct3 {
-                    0b000 => Self::Sb { rs2, rs1, imm },
-                    0b001 => Self::Sh { rs2, rs1, imm },
-                    0b010 => Self::Sw { rs2, rs1, imm },
-                    0b011 => Self::Sd { rs2, rs1, imm },
-                    _ => {
-                        return None;
-                    }
+                    0b000 => Some(Self::Sb { rs2, rs1, imm }),
+                    0b001 => Some(Self::Sh { rs2, rs1, imm }),
+                    0b010 => Some(Self::Sw { rs2, rs1, imm }),
+                    0b011 => Some(Self::Sd { rs2, rs1, imm }),
+                    _ => None,
                 }
             }
             // B-type
@@ -280,28 +259,26 @@ where
                 // Sign extend
                 let imm = (imm << 19) >> 19;
                 match funct3 {
-                    0b000 => Self::Beq { rs1, rs2, imm },
-                    0b001 => Self::Bne { rs1, rs2, imm },
-                    0b100 => Self::Blt { rs1, rs2, imm },
-                    0b101 => Self::Bge { rs1, rs2, imm },
-                    0b110 => Self::Bltu { rs1, rs2, imm },
-                    0b111 => Self::Bgeu { rs1, rs2, imm },
-                    _ => {
-                        return None;
-                    }
+                    0b000 => Some(Self::Beq { rs1, rs2, imm }),
+                    0b001 => Some(Self::Bne { rs1, rs2, imm }),
+                    0b100 => Some(Self::Blt { rs1, rs2, imm }),
+                    0b101 => Some(Self::Bge { rs1, rs2, imm }),
+                    0b110 => Some(Self::Bltu { rs1, rs2, imm }),
+                    0b111 => Some(Self::Bgeu { rs1, rs2, imm }),
+                    _ => None,
                 }
             }
             // Lui (U-type)
             0b0110111 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let imm = (instruction & 0xffff_f000).cast_signed();
-                Self::Lui { rd, imm }
+                Some(Self::Lui { rd, imm })
             }
             // Auipc (U-type)
             0b0010111 => {
                 let rd = Reg::from_bits(rd_bits)?;
                 let imm = (instruction & 0xffff_f000).cast_signed();
-                Self::Auipc { rd, imm }
+                Some(Self::Auipc { rd, imm })
             }
             // Jal (J-type)
             0b1101111 => {
@@ -313,22 +290,17 @@ where
                 let imm = (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) | (imm10_1 << 1);
                 // Sign extend
                 let imm = (imm << 11) >> 11;
-                Self::Jal { rd, imm }
+                Some(Self::Jal { rd, imm })
             }
             // Fence (I-type like, simplified for EM)
             0b0001111 => {
-                if funct3 == 0b000 {
-                    if rd_bits != 0 || rs1_bits != 0 {
-                        return None;
-                    }
+                if funct3 == 0b000 && rd_bits == 0 && rs1_bits == 0 {
                     let pred = ((instruction >> 24) & 0xf) as u8;
                     let succ = ((instruction >> 20) & 0xf) as u8;
                     let fm = ((instruction >> 28) & 0xf) as u8;
-                    Self::Fence { pred, succ, fm }
+                    Some(Self::Fence { pred, succ, fm })
                 } else {
-                    {
-                        return None;
-                    }
+                    None
                 }
             }
             // System instructions
@@ -336,26 +308,20 @@ where
                 let imm = (instruction >> 20) & 0xfff;
                 if funct3 == 0 && rd_bits == 0 && rs1_bits == 0 {
                     match imm {
-                        0 => Self::Ecall,
-                        1 => Self::Ebreak,
-                        _ => {
-                            return None;
-                        }
+                        0 => Some(Self::Ecall),
+                        1 => Some(Self::Ebreak),
+                        _ => None,
                     }
                 } else if funct3 == 0b001 && rd_bits == 0 && rs1_bits == 0 && imm == 0xc00 {
                     // `0xc0001073` is emitted as `unimp`/illegal instruction by various compilers,
                     // including Rust when it hits a panic
-                    Self::Unimp
+                    Some(Self::Unimp)
                 } else {
-                    {
-                        return None;
-                    }
+                    None
                 }
             }
-            _ => {
-                return None;
-            }
-        })
+            _ => None,
+        }
     }
 
     #[inline(always)]
@@ -366,27 +332,6 @@ where
     #[inline(always)]
     fn size(&self) -> u8 {
         size_of::<u32>() as u8
-    }
-}
-
-impl<Reg> const BaseInstruction for Rv64Instruction<Reg>
-where
-    Reg: [const] Register<Type = u64>,
-{
-    type Reg = Reg;
-
-    #[inline(always)]
-    fn from_base(base: Self::Base) -> Self {
-        base
-    }
-
-    #[inline]
-    fn decode(instruction: u32) -> Self {
-        if let Some(instruction) = Self::try_decode(instruction) {
-            instruction
-        } else {
-            Self::Invalid(instruction)
-        }
     }
 }
 
@@ -462,8 +407,6 @@ where
             Self::Ebreak => write!(f, "ebreak"),
 
             Self::Unimp => write!(f, "unimp"),
-
-            Self::Invalid(instruction) => write!(f, "invalid {instruction:#010x}"),
         }
     }
 }

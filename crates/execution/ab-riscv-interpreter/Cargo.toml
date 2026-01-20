@@ -9,13 +9,18 @@ include = [
     "/src",
     "/Cargo.toml",
 ]
+links = "ab-riscv-interpreter"
 
 [package.metadata.docs.rs]
 all-features = true
 
 [dependencies]
+ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
 ab-riscv-primitives = { workspace = true }
 thiserror = { workspace = true }
+
+[build-dependencies]
+ab-riscv-macros = { workspace = true, features = ["build"] }
 
 [lints]
 workspace = true
