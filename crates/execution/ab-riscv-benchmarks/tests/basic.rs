@@ -14,7 +14,7 @@ use ab_riscv_benchmarks::host_utils::{
 };
 use ab_riscv_interpreter::BasicInstructionFetcher;
 use ab_riscv_interpreter::rv64::Rv64InterpreterState;
-use ab_riscv_primitives::instruction::BaseInstruction;
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::registers::Registers;
 use ed25519_zebra::SigningKey;
 use std::collections::HashMap;
@@ -88,7 +88,7 @@ where
     let pc = MEMORY_BASE_ADDRESS + u64::from(*methods.get(method_name.as_bytes()).unwrap());
     let memory = match run_type {
         RunType::Lazy => {
-            // SAFETY: Program counter is trusted
+            // SAFETY: Program counter and code is trusted
             let instruction_fetcher = unsafe { BasicInstructionFetcher::new(TRAP_ADDRESS, pc) };
 
             let mut state = Rv64InterpreterState {
@@ -116,7 +116,7 @@ where
                                 instruction[2],
                                 instruction[3],
                             ]);
-                            BaseInstruction::decode(instruction)
+                            Instruction::try_decode(instruction).unwrap()
                         })
                         .collect(),
                     TRAP_ADDRESS,

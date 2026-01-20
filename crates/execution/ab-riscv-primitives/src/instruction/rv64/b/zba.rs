@@ -4,7 +4,6 @@
 mod tests;
 
 use crate::instruction::Instruction;
-use crate::instruction::rv64::Rv64Instruction;
 use crate::registers::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -28,7 +27,7 @@ impl<Reg> const Instruction for Rv64ZbaInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Base = Rv64Instruction<Reg>;
+    type Reg = Reg;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {

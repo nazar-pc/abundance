@@ -1,6 +1,6 @@
 //! Base RISC-V RV64 instruction set
 
-use crate::instruction::{BaseInstruction, Instruction};
+use crate::instruction::Instruction;
 use crate::registers::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -104,7 +104,7 @@ impl<Reg> const Instruction for Rv64Instruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Base = Rv64Instruction<Reg>;
+    type Reg = Reg;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -335,22 +335,6 @@ where
     #[inline(always)]
     fn size(&self) -> u8 {
         size_of::<u32>() as u8
-    }
-}
-
-impl<Reg> const BaseInstruction for Rv64Instruction<Reg>
-where
-    Reg: [const] Register<Type = u64>,
-{
-    type Reg = Reg;
-
-    #[inline]
-    fn decode(instruction: u32) -> Self {
-        if let Some(instruction) = Self::try_decode(instruction) {
-            instruction
-        } else {
-            Self::Invalid(instruction)
-        }
     }
 }
 

@@ -2,13 +2,13 @@ use ab_riscv_interpreter::rv64::b::zbc::clmul_internal;
 use ab_riscv_interpreter::rv64::{Rv64InterpreterState, Rv64SystemInstructionHandler};
 use ab_riscv_interpreter::{ExecutableInstruction, ExecutionError, ProgramCounter, VirtualMemory};
 use ab_riscv_macros::{instruction, instruction_execution};
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::instruction::rv64::b::zba::Rv64ZbaInstruction;
 use ab_riscv_primitives::instruction::rv64::b::zbb::Rv64ZbbInstruction;
 use ab_riscv_primitives::instruction::rv64::b::zbc::Rv64ZbcInstruction;
 use ab_riscv_primitives::instruction::rv64::b::zbs::Rv64ZbsInstruction;
 use ab_riscv_primitives::instruction::rv64::m::Rv64MInstruction;
-use ab_riscv_primitives::instruction::{BaseInstruction, Instruction};
 use ab_riscv_primitives::registers::{EReg, Register};
 use core::fmt;
 use core::ops::ControlFlow;
@@ -58,7 +58,7 @@ impl<Reg> const Instruction for PopularInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Base = Rv64Instruction<Reg>;
+    type Reg = EReg<u64>;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -126,7 +126,7 @@ impl<Reg> const Instruction for NotPopularInstruction<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Base = Rv64Instruction<Reg>;
+    type Reg = EReg<u64>;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -188,7 +188,7 @@ impl<Reg> const Instruction for ContractInstructionPrototype<Reg>
 where
     Reg: [const] Register<Type = u64>,
 {
-    type Base = Rv64Instruction<Reg>;
+    type Reg = EReg<u64>;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -207,20 +207,6 @@ where
     #[inline(always)]
     fn size(&self) -> u8 {
         size_of::<u32>() as u8
-    }
-}
-
-impl<Reg> const BaseInstruction for ContractInstructionPrototype<Reg>
-where
-    Reg: [const] Register<Type = u64>,
-{
-    type Reg = EReg<u64>;
-
-    #[inline(always)]
-    fn decode(instruction: u32) -> Self {
-        Self::try_decode(instruction).unwrap_or(Self::NotPopular(NotPopularInstruction::Invalid(
-            instruction,
-        )))
     }
 }
 

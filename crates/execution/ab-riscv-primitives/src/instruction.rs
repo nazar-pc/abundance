@@ -12,10 +12,8 @@ use core::marker::Destruct;
 pub const trait Instruction:
     fmt::Display + fmt::Debug + [const] Destruct + Copy + Sized
 {
-    /// Lower-level instruction like [`Rv64Instruction`]
-    ///
-    /// [`Rv64Instruction`]: rv64::Rv64Instruction
-    type Base: BaseInstruction;
+    /// A register type used by the instruction
+    type Reg: Register;
 
     /// Try to decode a single valid instruction
     fn try_decode(instruction: u32) -> Option<Self>;
@@ -25,13 +23,4 @@ pub const trait Instruction:
 
     /// Instruction size in bytes
     fn size(&self) -> u8;
-}
-
-/// Generic base instruction
-pub const trait BaseInstruction: [const] Instruction {
-    /// A register type used by the instruction
-    type Reg: Register;
-
-    /// Decode a single instruction
-    fn decode(instruction: u32) -> Self;
 }

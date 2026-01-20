@@ -14,7 +14,7 @@ use ab_riscv_benchmarks::host_utils::{
 };
 use ab_riscv_interpreter::BasicInstructionFetcher;
 use ab_riscv_interpreter::rv64::Rv64InterpreterState;
-use ab_riscv_primitives::instruction::BaseInstruction;
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::registers::Registers;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ed25519_zebra::SigningKey;
@@ -82,7 +82,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                         instruction[2],
                         instruction[3],
                     ]);
-                    instructions.push(ContractInstruction::decode(instruction));
+                    instructions.push(ContractInstruction::try_decode(instruction).unwrap());
                 }
                 black_box(instructions);
             });
@@ -111,7 +111,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut lazy_state = Rv64InterpreterState {
         regs: Registers::default(),
         memory,
-        // SAFETY: Program counter is set later to the correct address
+        // SAFETY: Program counter is set later to the correct address, all instructions are valid
+        // and contract ends with a jump
         instruction_fetcher: unsafe {
             BasicInstructionFetcher::<ContractInstruction, &'static str>::new(
                 TRAP_ADDRESS,
@@ -138,7 +139,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                             instruction[2],
                             instruction[3],
                         ]);
-                        BaseInstruction::decode(instruction)
+                        Instruction::try_decode(instruction).unwrap()
                     })
                     .collect(),
                 TRAP_ADDRESS,

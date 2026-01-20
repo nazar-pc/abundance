@@ -5,103 +5,16 @@ use crate::{
     Address, BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult,
     InstructionFetcher, ProgramCounter, ProgramCounterError, VirtualMemory, VirtualMemoryError,
 };
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
-use ab_riscv_primitives::instruction::{BaseInstruction, Instruction};
 use ab_riscv_primitives::registers::{EReg, Registers};
 use alloc::vec;
 use alloc::vec::Vec;
-use core::fmt;
 use core::marker::PhantomData;
 use core::ops::ControlFlow;
 
 pub(super) const TEST_BASE_ADDR: u64 = 0x1000;
 const TRAP_ADDRESS: u64 = 0;
-
-#[derive(Debug, Copy, Clone)]
-pub(super) enum TestInstruction<I>
-where
-    I: Instruction<Base = Rv64Instruction<EReg<u64>>>,
-{
-    Test(I),
-    Base(Rv64Instruction<EReg<u64>>),
-}
-
-impl<I> fmt::Display for TestInstruction<I>
-where
-    I: Instruction<Base = Rv64Instruction<EReg<u64>>>,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Test(instruction) => fmt::Display::fmt(instruction, f),
-            Self::Base(instruction) => fmt::Display::fmt(instruction, f),
-        }
-    }
-}
-
-impl<I> Instruction for TestInstruction<I>
-where
-    I: Instruction<Base = Rv64Instruction<EReg<u64>>>,
-{
-    type Base = I::Base;
-
-    #[inline(always)]
-    fn try_decode(instruction: u32) -> Option<Self> {
-        I::try_decode(instruction)
-            .map(Self::Test)
-            .or_else(|| Rv64Instruction::<EReg<u64>>::try_decode(instruction).map(Self::Base))
-    }
-
-    #[inline(always)]
-    fn alignment() -> u8 {
-        I::alignment().min(I::Base::alignment())
-    }
-
-    #[inline(always)]
-    fn size(&self) -> u8 {
-        match self {
-            TestInstruction::Test(instruction) => instruction.size(),
-            TestInstruction::Base(instruction) => instruction.size(),
-        }
-    }
-}
-
-impl<I> BaseInstruction for TestInstruction<I>
-where
-    I: Instruction<Base = Rv64Instruction<EReg<u64>>>,
-{
-    type Reg = EReg<u64>;
-
-    #[inline(always)]
-    fn decode(instruction: u32) -> Self {
-        I::try_decode(instruction)
-            .map(Self::Test)
-            .unwrap_or(Self::Base(Rv64Instruction::Invalid(instruction)))
-    }
-}
-
-impl<I> ExecutableInstruction<TestInterpreterState<TestInstruction<I>>, &'static str>
-    for TestInstruction<I>
-where
-    I: ExecutableInstruction<
-            TestInterpreterState<TestInstruction<I>>,
-            &'static str,
-            Base = Rv64Instruction<EReg<u64>>,
-        >,
-{
-    fn execute(
-        self,
-        state: &mut TestInterpreterState<TestInstruction<I>>,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64, Self, &'static str>> {
-        match self {
-            TestInstruction::Test(instruction) => instruction
-                .execute(state)
-                .map_err(|error| error.map_instruction(TestInstruction::Test)),
-            TestInstruction::Base(instruction) => instruction
-                .execute(state)
-                .map_err(|error| error.map_instruction(TestInstruction::Base)),
-        }
-    }
-}
 
 /// Simple test memory implementation
 pub(super) struct TestMemory {
@@ -192,7 +105,7 @@ pub(super) struct TestInstructionFetcher<I> {
 
 impl<I> ProgramCounter<u64, TestMemory, &'static str> for TestInstructionFetcher<I>
 where
-    I: Instruction<Base = Rv64Instruction<EReg<u64>>>,
+    I: Instruction<Reg = EReg<u64>>,
 {
     #[inline(always)]
     fn get_pc(&self) -> u64 {
@@ -212,7 +125,7 @@ where
 
 impl<I> InstructionFetcher<I, TestMemory, &'static str> for TestInstructionFetcher<I>
 where
-    I: BaseInstruction<Base = Rv64Instruction<EReg<u64>>>,
+    I: Instruction<Reg = EReg<u64>>,
 {
     #[inline]
     fn fetch_instruction(
@@ -240,7 +153,7 @@ pub(super) struct TestInstructionHandler;
 impl<I> Rv64SystemInstructionHandler<EReg<u64>, TestMemory, TestInstructionFetcher<I>, &'static str>
     for TestInstructionHandler
 where
-    I: BaseInstruction<Base = Rv64Instruction<EReg<u64>>>,
+    I: Instruction<Reg = EReg<u64>>,
 {
     #[inline(always)]
     fn handle_ecall(
@@ -298,25 +211,19 @@ pub(super) fn initialize_state<Instruction>(
 
 pub(super) fn initialize_test_instruction_state<I, Iter>(
     instructions: Iter,
-) -> TestInterpreterState<TestInstruction<I>>
+) -> TestInterpreterState<I>
 where
-    I: Instruction<Base = Rv64Instruction<EReg<u64>>>,
+    I: Instruction<Reg = EReg<u64>>,
     Iter: IntoIterator<Item = I>,
 {
-    initialize_state(
-        instructions
-            .into_iter()
-            .map(TestInstruction::Test)
-            .collect(),
-    )
+    initialize_state(instructions.into_iter().collect())
 }
 
 pub(super) fn execute<I>(
     state: &mut TestInterpreterState<I>,
 ) -> Result<(), ExecutionError<Address<I>, I, &'static str>>
 where
-    I: BaseInstruction<Base = Rv64Instruction<EReg<u64>>>
-        + ExecutableInstruction<TestInterpreterState<I>, &'static str>,
+    I: Instruction<Reg = EReg<u64>> + ExecutableInstruction<TestInterpreterState<I>, &'static str>,
 {
     loop {
         let instruction = match state

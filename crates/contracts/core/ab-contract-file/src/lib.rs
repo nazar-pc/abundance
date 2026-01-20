@@ -27,7 +27,7 @@ use ab_contracts_common::metadata::decode::{
     MethodsMetadataDecoder,
 };
 use ab_io_type::trivial_type::TrivialType;
-use ab_riscv_primitives::instruction::BaseInstruction;
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::registers::EReg;
 use core::iter;
 use core::iter::TrustedLen;
@@ -222,6 +222,12 @@ pub enum ContractFileParseError {
         header_num_methods: u16,
         /// Number of methods in the actual metadata
         metadata_num_methods: u16,
+    },
+    /// Invalid instruction encountered while parsing the code section
+    #[error("Invalid instruction encountered while parsing the code section: {instruction}")]
+    InvalidInstruction {
+        /// Instruction
+        instruction: u32,
     },
     /// Unexpected instruction encountered while parsing the code section
     #[error("Unexpected instruction encountered while parsing the code section: {instruction}")]
@@ -475,8 +481,16 @@ impl<'a> ContractFile<'a> {
                 instructions_bytes[7],
             ]);
 
-            let first = ContractInstruction::decode(first_instruction);
-            let second = ContractInstruction::decode(second_instruction);
+            let first = ContractInstruction::try_decode(first_instruction).ok_or(
+                ContractFileParseError::InvalidInstruction {
+                    instruction: first_instruction,
+                },
+            )?;
+            let second = ContractInstruction::try_decode(second_instruction).ok_or(
+                ContractFileParseError::InvalidInstruction {
+                    instruction: second_instruction,
+                },
+            )?;
 
             // TODO: Should it be canonicalized to a fixed immediate and temporary after conversion
             //  from ELF?
@@ -523,12 +537,17 @@ impl<'a> ContractFile<'a> {
             while let Some(instruction_bytes) =
                 remaining_code_file_bytes.split_off(..size_of::<u32>())
             {
-                instruction = ContractInstruction::decode(u32::from_le_bytes([
+                let instruction_word = u32::from_le_bytes([
                     instruction_bytes[0],
                     instruction_bytes[1],
                     instruction_bytes[2],
                     instruction_bytes[3],
-                ]));
+                ]);
+                instruction = ContractInstruction::try_decode(instruction_word).ok_or(
+                    ContractFileParseError::InvalidInstruction {
+                        instruction: instruction_word,
+                    },
+                )?;
                 // Intentionally exhaustive list of all instructions
                 match instruction {
                     ContractInstruction::Popular(

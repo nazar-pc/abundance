@@ -10,7 +10,7 @@ use ab_riscv_interpreter::{
     BasicInt, ExecutableInstruction, ExecutionError, FetchInstructionResult, InstructionFetcher,
     ProgramCounter, ProgramCounterError, VirtualMemory, VirtualMemoryError,
 };
-use ab_riscv_primitives::instruction::BaseInstruction;
+use ab_riscv_primitives::instruction::Instruction;
 use ab_riscv_primitives::instruction::rv64::Rv64Instruction;
 use ab_riscv_primitives::registers::{Register, Registers};
 use alloc::vec::Vec;
@@ -371,11 +371,11 @@ where
 #[expect(clippy::type_complexity)]
 pub fn execute<Memory, IF>(
     state: &mut Rv64InterpreterState<
-        <ContractInstruction as BaseInstruction>::Reg,
+        <ContractInstruction as Instruction>::Reg,
         Memory,
         IF,
         NoopRv64SystemInstructionHandler<
-            Rv64Instruction<<ContractInstruction as BaseInstruction>::Reg>,
+            Rv64Instruction<<ContractInstruction as Instruction>::Reg>,
         >,
         &'static str,
     >,
