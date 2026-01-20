@@ -94,9 +94,6 @@ pub enum Rv64Instruction<Reg> {
 
     // Unimplemented/illegal
     Unimp,
-
-    // Invalid instruction
-    Invalid(u32),
 }
 
 #[instruction]
@@ -410,8 +407,6 @@ where
             Self::Ebreak => write!(f, "ebreak"),
 
             Self::Unimp => write!(f, "unimp"),
-
-            Self::Invalid(instruction) => write!(f, "invalid {instruction:#010x}"),
         }
     }
 }

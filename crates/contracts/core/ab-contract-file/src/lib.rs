@@ -664,9 +664,7 @@ impl<'a> ContractFile<'a> {
                         // Expected instruction
                     }
                     ContractInstruction::NotPopular(
-                        NotPopularInstruction::Fence { .. }
-                        | NotPopularInstruction::Ecall
-                        | NotPopularInstruction::Invalid(_),
+                        NotPopularInstruction::Fence { .. } | NotPopularInstruction::Ecall,
                     ) => {
                         return Err(ContractFileParseError::UnexpectedInstruction { instruction });
                     }

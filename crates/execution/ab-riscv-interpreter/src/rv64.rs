@@ -528,17 +528,6 @@ where
                     .wrapping_sub(self.size().into());
                 return Err(ExecutionError::UnimpInstruction { address: old_pc });
             }
-
-            Self::Invalid(raw_instruction) => {
-                let old_pc = state
-                    .instruction_fetcher
-                    .get_pc()
-                    .wrapping_sub(self.size().into());
-                return Err(ExecutionError::InvalidInstruction {
-                    address: old_pc,
-                    instruction: raw_instruction,
-                });
-            }
         }
 
         Ok(ControlFlow::Continue(()))
