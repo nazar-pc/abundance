@@ -18,7 +18,7 @@ ab-riscv-macros-impl = { workspace = true, optional = true }
 ab-riscv-macros-common = { workspace = true }
 anyhow = { workspace = true }
 quote = { workspace = true }
-syn = { workspace = true, features = ["extra-traits", "full", "visit"] }
+syn = { workspace = true, features = ["extra-traits", "full", "visit", "visit-mut"] }
 
 [features]
 proc-macro = [

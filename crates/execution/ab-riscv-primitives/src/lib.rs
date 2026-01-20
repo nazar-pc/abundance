@@ -9,7 +9,9 @@
     const_ops,
     const_trait_impl,
     const_try,
-    generic_const_exprs
+    const_try_residual,
+    generic_const_exprs,
+    try_blocks
 )]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 

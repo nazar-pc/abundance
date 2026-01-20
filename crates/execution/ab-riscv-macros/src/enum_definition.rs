@@ -33,6 +33,8 @@ impl Parse for InstructionDefinition {
 pub(super) enum InstructionDefinitionItem {
     /// Specifies the order of instruction variants
     Reorder(Vec<Ident>),
+    /// Specifies ignored instruction variants or whole enums
+    Ignore(Vec<Ident>),
     /// Specifies the inherited instruction variants
     Inherit(Vec<Ident>),
 }
@@ -50,6 +52,7 @@ impl InstructionDefinitionItem {
 
         match key.to_string().as_str() {
             "reorder" => Ok(Self::Reorder(values.into_iter().collect())),
+            "ignore" => Ok(Self::Ignore(values.into_iter().collect())),
             "inherit" => Ok(Self::Inherit(values.into_iter().collect())),
             _ => Err(Error::new_spanned(key, "unknown instruction attribute key")),
         }
@@ -213,7 +216,9 @@ pub(super) fn process_enum_definition(
                 .context("Failed to parse `#[instruction(...)]` attribute")?;
 
             if instruction_definition.items.iter().any(|item| match item {
-                InstructionDefinitionItem::Reorder(_) => false,
+                InstructionDefinitionItem::Reorder(_) | InstructionDefinitionItem::Ignore(_) => {
+                    false
+                }
                 InstructionDefinitionItem::Inherit(enums) => enums
                     .iter()
                     .any(|enum_name| state.get_known_enum_definition(enum_name).is_none()),
@@ -225,7 +230,14 @@ pub(super) fn process_enum_definition(
                 return Ok(());
             }
 
-            process_enum_definition_inherited(instruction_definition, &mut item_enum, state)?
+            let Some(result) =
+                process_enum_definition_inherited(instruction_definition, item_enum, state)?
+            else {
+                return Ok(());
+            };
+            let dependencies;
+            (item_enum, dependencies) = result;
+            dependencies
         }
         Meta::NameValue(meta_name_value) => {
             return Err(anyhow::anyhow!(
@@ -248,15 +260,15 @@ fn process_enum_definition_with_variants(
 
 fn process_enum_definition_inherited(
     instruction_definition: InstructionDefinition,
-    item_enum: &mut ItemEnum,
+    mut item_enum: ItemEnum,
     state: &mut State,
-) -> anyhow::Result<Vec<Ident>> {
+) -> anyhow::Result<Option<(ItemEnum, Vec<Ident>)>> {
     let mut all_known_instructions = HashMap::<Ident, KnownInstruction>::new();
     let mut dependencies = Vec::new();
 
     for item in &instruction_definition.items {
         match item {
-            InstructionDefinitionItem::Reorder(_) => {
+            InstructionDefinitionItem::Reorder(_) | InstructionDefinitionItem::Ignore(_) => {
                 // Ignore for now
             }
             InstructionDefinitionItem::Inherit(inherit_enums) => {
@@ -299,20 +311,20 @@ fn process_enum_definition_inherited(
         }
     }
 
+    let mut included_instructions = HashSet::new();
+    let mut instructions = Vec::new();
+
     let mut own_instructions = item_enum
         .variants
         .iter()
         .map(|variant| (variant.ident.clone(), Rc::new(variant.clone())))
         .collect::<HashMap<_, _>>();
 
-    let mut included_instructions = HashSet::new();
-    let mut instructions = Vec::new();
-
-    for item in instruction_definition.items {
+    for item in &instruction_definition.items {
         match item {
             InstructionDefinitionItem::Reorder(reorder_variants) => {
                 for reorder_variant in reorder_variants {
-                    if included_instructions.contains(&reorder_variant) {
+                    if included_instructions.contains(reorder_variant) {
                         return Err(anyhow::anyhow!(
                             "Instruction `{}` in `#[instruction(...)]`'s `reorder` attribute is \
                             already included earlier",
@@ -322,10 +334,10 @@ fn process_enum_definition_inherited(
                     included_instructions.insert(reorder_variant.clone());
 
                     let instruction = if let Some(instruction) =
-                        own_instructions.remove(&reorder_variant)
+                        own_instructions.remove(reorder_variant)
                     {
                         instruction
-                    } else if let Some(instruction) = all_known_instructions.get(&reorder_variant) {
+                    } else if let Some(instruction) = all_known_instructions.get(reorder_variant) {
                         Rc::clone(&instruction.instruction)
                     } else {
                         return Err(anyhow::anyhow!(
@@ -337,9 +349,28 @@ fn process_enum_definition_inherited(
                     instructions.push(instruction);
                 }
             }
+            InstructionDefinitionItem::Ignore(ignore_items) => {
+                for ignore_item in ignore_items {
+                    if own_instructions.contains_key(ignore_item)
+                        || all_known_instructions.contains_key(ignore_item)
+                    {
+                        included_instructions.insert(ignore_item.clone());
+                    } else if let Some(known_enum) = state.get_known_enum_definition(ignore_item) {
+                        for known_instruction in &known_enum.instructions {
+                            included_instructions.insert(known_instruction.ident.clone());
+                        }
+                    } else {
+                        state.add_pending_enum_definition(PendingEnumDefinition {
+                            instruction_definition,
+                            item_enum,
+                        });
+                        return Ok(None);
+                    }
+                }
+            }
             InstructionDefinitionItem::Inherit(inherit_enums) => {
                 for inherit_enum in inherit_enums {
-                    let Some(known_enum) = state.get_known_enum_definition(&inherit_enum) else {
+                    let Some(known_enum) = state.get_known_enum_definition(inherit_enum) else {
                         return Err(anyhow::anyhow!(
                             "Unknown inherit enum `{}` in `#[instruction(...)]` attribute",
                             inherit_enum
@@ -357,9 +388,9 @@ fn process_enum_definition_inherited(
         }
     }
 
-    for own_instruction in own_instructions.into_values() {
+    for own_instruction in &item_enum.variants {
         if !included_instructions.contains(&own_instruction.ident) {
-            instructions.push(own_instruction);
+            instructions.push(Rc::new(own_instruction.clone()));
         }
     }
 
@@ -369,7 +400,7 @@ fn process_enum_definition_inherited(
             .map(|instruction| instruction.as_ref().clone()),
     );
 
-    Ok(dependencies)
+    Ok(Some((item_enum, dependencies)))
 }
 
 /// Process remaining enums that were waiting for dependencies
@@ -399,13 +430,14 @@ pub(super) fn process_pending_enum_definitions(
 
         for PendingEnumDefinition {
             instruction_definition,
-            mut item_enum,
+            item_enum,
         } in pending_enums
         {
-            let dependencies =
-                process_enum_definition_inherited(instruction_definition, &mut item_enum, state)?;
-
-            output_processed_enum_definition(item_enum, dependencies, out_dir, state)?;
+            if let Some((item_enum, dependencies)) =
+                process_enum_definition_inherited(instruction_definition, item_enum, state)?
+            {
+                output_processed_enum_definition(item_enum, dependencies, out_dir, state)?;
+            }
         }
     }
 

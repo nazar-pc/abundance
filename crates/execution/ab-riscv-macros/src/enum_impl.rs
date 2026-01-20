@@ -1,6 +1,8 @@
 mod forbidden_checker;
+mod ignored_variants_remover;
 
 use crate::enum_impl::forbidden_checker::block_contains_forbidden_syntax;
+use crate::enum_impl::ignored_variants_remover::remove_ignored_variants;
 use crate::state::{PendingEnumDisplayImpl, PendingEnumImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
@@ -198,15 +200,14 @@ pub(super) fn process_enum_decoding_impl(
         )
     })?;
 
-    // TODO: This can probably be refactored as an iterator without collecting into a vector
-    //  first
+    let Some(enum_definition) = state.get_known_enum_definition(&enum_name) else {
+        state.add_pending_enum_impl(PendingEnumImpl { item_impl });
+        return Ok(());
+    };
+
+    // TODO: This can probably be refactored as an iterator without collecting into a vector first
     let mut all_blocks = Vec::new();
     {
-        let Some(enum_definition) = state.get_known_enum_definition(&enum_name) else {
-            state.add_pending_enum_impl(PendingEnumImpl { item_impl });
-            return Ok(());
-        };
-
         let mut all_dependencies = HashSet::new();
         all_dependencies.insert(enum_name.clone());
         let mut new_dependencies = enum_definition.dependencies.clone();
@@ -240,17 +241,38 @@ pub(super) fn process_enum_decoding_impl(
         }
     }
 
+    let allowed_instruction = enum_definition
+        .instructions
+        .iter()
+        .map(|instruction| instruction.ident.clone())
+        .collect::<HashSet<_>>();
     // TODO: This simply concatenates individual decoding blocks, but it'd be much nicer to combine
     //  multiple `match` statements into one, merging branches with the same opcode. This,
     //  unfortunately, is much more complex, so skipped in the initial implementation.
-    let all_blocks = all_blocks.into_iter().chain(iter::once(&*try_decode_block));
+    let all_blocks = all_blocks
+        .into_iter()
+        .chain(iter::once(&*try_decode_block))
+        .cloned()
+        .map(|mut block| {
+            remove_ignored_variants(&mut block, &allowed_instruction);
+            block
+        });
 
     *try_decode_block = parse2(quote! {{
-        #( if let Some(decoded) = #all_blocks { Some(decoded) } else )*
+        #[allow(
+            clippy::if_same_then_else,
+            reason = "In presence of ignored instructions, simple replacement sometimes results in \
+            redundant code like `Some(None?)`"
+        )]
+        #( if let Some(decoded) = try { #all_blocks? } { Some(decoded) } else )*
 
         { None }
     }})
     .expect("Generated code is valid; qed");
+
+    item_impl
+        .attrs
+        .push(parse_quote! { #[automatically_derived] });
 
     output_processed_enum_decoding_impl(enum_name, item_impl, out_dir, state)
 }
@@ -310,57 +332,84 @@ pub(super) fn process_enum_display_impl(
         ));
     };
 
+    let allowed_instruction = enum_definition
+        .instructions
+        .iter()
+        .map(|instruction| instruction.ident.clone())
+        .collect::<HashSet<_>>();
+
+    expr_match.arms.retain(|arm| {
+        let path = match &arm.pat {
+            Pat::Struct(pat_struct) => &pat_struct.path,
+            Pat::TupleStruct(pat_tuple_struct) => &pat_tuple_struct.path,
+            Pat::Path(expr_path) => &expr_path.path,
+            _ => {
+                return false;
+            }
+        };
+
+        path.segments
+            .last()
+            .map_or_default(|path_segment| allowed_instruction.contains(&path_segment.ident))
+    });
+
     // The order of variants is not identical to the enum definition for simplicity. It should not
     // be performance-sensitive to justify the complexity.
-    expr_match.arms.extend(
-        variants_from_dependencies
-            .into_iter()
-            .map(|(variant, source_enum)| {
-                let variant_name = &variant.ident;
-                match &variant.fields {
-                    Fields::Named(fields_named) => {
-                        let field_names = fields_named
-                            .named
-                            .iter()
-                            .map(|field| &field.ident)
-                            .collect::<Vec<_>>();
+    expr_match
+        .arms
+        .extend(
+            variants_from_dependencies
+                .into_iter()
+                .filter_map(|(variant, source_enum)| {
+                    let variant_name = &variant.ident;
+                    if !allowed_instruction.contains(variant_name) {
+                        return None;
+                    }
 
-                        parse_quote! {
-                            Self::#variant_name {
-                                #( #field_names, )*
-                            } => ::core::fmt::Display::fmt(
-                                &#source_enum::<Reg>::#variant_name {
-                                    #( #field_names: *#field_names, )*
-                                },
+                    Some(match &variant.fields {
+                        Fields::Named(fields_named) => {
+                            let field_names = fields_named
+                                .named
+                                .iter()
+                                .map(|field| &field.ident)
+                                .collect::<Vec<_>>();
+
+                            parse_quote! {
+                                Self::#variant_name {
+                                    #( #field_names, )*
+                                } => ::core::fmt::Display::fmt(
+                                    &#source_enum::<Reg>::#variant_name {
+                                        #( #field_names: *#field_names, )*
+                                    },
+                                    #formatter_arg,
+                                )
+                            }
+                        }
+                        Fields::Unnamed(fields_unnamed) => {
+                            let fields = (0..fields_unnamed.unnamed.len())
+                                .map(|index| format_ident!("field_{}", index))
+                                .collect::<Vec<_>>();
+
+                            parse_quote! {
+                                Self::#variant_name(
+                                    #( #fields, )*
+                                ) => ::core::fmt::Display::fmt(
+                                    &#source_enum::<Reg>::#variant_name(
+                                        #( *#fields, )*
+                                    ),
+                                    #formatter_arg,
+                                )
+                            }
+                        }
+                        Fields::Unit => parse_quote! {
+                            Self::#variant_name => ::core::fmt::Display::fmt(
+                                &#source_enum::<Reg>::#variant_name,
                                 #formatter_arg,
                             )
-                        }
-                    }
-                    Fields::Unnamed(fields_unnamed) => {
-                        let fields = (0..fields_unnamed.unnamed.len())
-                            .map(|index| format_ident!("field_{}", index))
-                            .collect::<Vec<_>>();
-
-                        parse_quote! {
-                            Self::#variant_name(
-                                #( #fields, )*
-                            ) => ::core::fmt::Display::fmt(
-                                &#source_enum::<Reg>::#variant_name(
-                                    #( *#fields, )*
-                                ),
-                                #formatter_arg,
-                            )
-                        }
-                    }
-                    Fields::Unit => parse_quote! {
-                        Self::#variant_name => ::core::fmt::Display::fmt(
-                            &#source_enum::<Reg>::#variant_name,
-                            #formatter_arg,
-                        )
-                    },
-                }
-            }),
-    );
+                        },
+                    })
+                }),
+        );
 
     output_processed_enum_display_impl(enum_name, item_impl, out_dir)
 }

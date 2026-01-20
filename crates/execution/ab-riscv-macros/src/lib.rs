@@ -1,6 +1,11 @@
 //! Macros for RISC-V primitives
 
-#![feature(bool_to_result, map_try_insert, try_blocks)]
+#![feature(
+    bool_to_result,
+    map_try_insert,
+    result_option_map_or_default,
+    try_blocks
+)]
 
 mod enum_definition;
 mod enum_impl;

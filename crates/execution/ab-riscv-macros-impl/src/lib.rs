@@ -16,6 +16,7 @@ use proc_macro::TokenStream;
 /// ```rust,ignore
 /// #[instruction(
 ///     reorder = [C, Add],
+///     ignore = [E],
 ///     inherit = [BaseInstruction],
 ///     reorder = [D, A],
 /// )]
@@ -24,6 +25,7 @@ use proc_macro::TokenStream;
 ///     B(Reg),
 ///     C(Reg),
 ///     D(Reg),
+///     E(Reg),
 /// }
 /// ```
 ///
@@ -40,17 +42,25 @@ use proc_macro::TokenStream;
 /// }
 /// ```
 ///
-/// Note that both `reorder` and `inherit` attributes can be specified multiple times, and
+/// Note that both `reorder`, `ignore` and `inherit` attributes can be specified multiple times, and
 /// reordering can reference any variant from both the `BaseInstruction` and `Extended` enums.
 ///
 /// This, of course, only works when enums have compatible generics.
 ///
 /// All instruction enums in the project must have unique names. Individual instructions can be
-/// repeated between enums, but they must have the same exact variant definition and are assumed to
-/// be 100% compatible. Instructions of inherited enums that do not have an explicit position using
-/// `reorder` will be placed at the relative position of the enum reference in the `inherit` list.
-/// Own instruction variants that do not have an explicit position will be placed at the end of the
-/// enum.
+/// repeated between inherited enums, but they must have the same exact variant definition and are
+/// assumed to be 100% compatible.
+///
+/// Here is how the attributes are processed:
+/// * first, all own and inherited enum variants are collected into a set
+/// * then each attribute is processed in order of declaration
+///   * `reorder` indicated where the corresponding variant needs to be included
+///   * `ignore` removed individual variants or the whole enum from a set mentioned earlier (but
+///     instructions that were already "reordered" before will remain). Ignored list may contain
+///     enums that are not in the list of inherited enums.
+///   * `inherit` includes all remaining variants of the corresponding enum that were not explicitly
+///     reordered or ignored earlier
+///   * own variants that were not explicitly reordered or ignored are placed at the end of the enum
 ///
 /// # Enum decoding implementation
 ///

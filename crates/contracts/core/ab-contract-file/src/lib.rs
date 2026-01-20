@@ -7,7 +7,9 @@
     maybe_uninit_as_bytes,
     maybe_uninit_fill,
     trusted_len,
-    const_try
+    const_try,
+    const_try_residual,
+    try_blocks
 )]
 #![expect(incomplete_features, reason = "generic_const_exprs")]
 // TODO: This feature is not actually used in this crate, but is added as a workaround for
@@ -17,7 +19,9 @@
 
 pub mod contract_instruction_prototype;
 
-use crate::contract_instruction_prototype::ContractInstructionPrototype;
+use crate::contract_instruction_prototype::{
+    ContractInstructionPrototype, NotPopularInstruction, PopularInstruction,
+};
 use ab_contracts_common::metadata::decode::{
     MetadataDecoder, MetadataDecodingError, MetadataItem, MethodMetadataItem,
     MethodsMetadataDecoder,
@@ -480,15 +484,15 @@ impl<'a> ContractFile<'a> {
             //   auipc x?, 0x?
             //   jalr  x0, offset(x?)
             let matches_expected_pattern = if let (
-                ContractInstruction::Auipc {
+                ContractInstruction::Popular(PopularInstruction::Auipc {
                     rd: auipc_rd,
                     imm: _,
-                },
-                ContractInstruction::Jalr {
+                }),
+                ContractInstruction::Popular(PopularInstruction::Jalr {
                     rd: jalr_rd,
                     rs1: jalr_rs1,
                     imm: _,
-                },
+                }),
             ) = (first, second)
             {
                 auipc_rd == jalr_rs1 && jalr_rd == ContractRegister::Zero
@@ -515,7 +519,7 @@ impl<'a> ContractFile<'a> {
         {
             let mut remaining_code_file_bytes = &file_bytes[code_section_offset as usize..];
 
-            let mut instruction = ContractInstruction::Unimp;
+            let mut instruction = ContractInstruction::NotPopular(NotPopularInstruction::Unimp);
             while let Some(instruction_bytes) =
                 remaining_code_file_bytes.split_off(..size_of::<u32>())
             {
@@ -527,118 +531,124 @@ impl<'a> ContractFile<'a> {
                 ]));
                 // Intentionally exhaustive list of all instructions
                 match instruction {
-                    ContractInstruction::Mul { .. }
-                    | ContractInstruction::Mulh { .. }
-                    | ContractInstruction::Mulhsu { .. }
-                    | ContractInstruction::Mulhu { .. }
-                    | ContractInstruction::Div { .. }
-                    | ContractInstruction::Divu { .. }
-                    | ContractInstruction::Rem { .. }
-                    | ContractInstruction::Remu { .. }
-                    | ContractInstruction::Mulw { .. }
-                    | ContractInstruction::Divw { .. }
-                    | ContractInstruction::Divuw { .. }
-                    | ContractInstruction::Remw { .. }
-                    | ContractInstruction::Remuw { .. }
-                    | ContractInstruction::AddUw { .. }
-                    | ContractInstruction::Sh1add { .. }
-                    | ContractInstruction::Sh1addUw { .. }
-                    | ContractInstruction::Sh2add { .. }
-                    | ContractInstruction::Sh2addUw { .. }
-                    | ContractInstruction::Sh3add { .. }
-                    | ContractInstruction::Sh3addUw { .. }
-                    | ContractInstruction::SlliUw { .. }
-                    | ContractInstruction::Andn { .. }
-                    | ContractInstruction::Orn { .. }
-                    | ContractInstruction::Xnor { .. }
-                    | ContractInstruction::Clz { .. }
-                    | ContractInstruction::Clzw { .. }
-                    | ContractInstruction::Ctz { .. }
-                    | ContractInstruction::Ctzw { .. }
-                    | ContractInstruction::Cpop { .. }
-                    | ContractInstruction::Cpopw { .. }
-                    | ContractInstruction::Max { .. }
-                    | ContractInstruction::Maxu { .. }
-                    | ContractInstruction::Min { .. }
-                    | ContractInstruction::Minu { .. }
-                    | ContractInstruction::Sextb { .. }
-                    | ContractInstruction::Sexth { .. }
-                    | ContractInstruction::Zexth { .. }
-                    | ContractInstruction::Rol { .. }
-                    | ContractInstruction::Rolw { .. }
-                    | ContractInstruction::Ror { .. }
-                    | ContractInstruction::Rori { .. }
-                    | ContractInstruction::Roriw { .. }
-                    | ContractInstruction::Rorw { .. }
-                    | ContractInstruction::Orcb { .. }
-                    | ContractInstruction::Rev8 { .. }
-                    | ContractInstruction::Bset { .. }
-                    | ContractInstruction::Bseti { .. }
-                    | ContractInstruction::Bclr { .. }
-                    | ContractInstruction::Bclri { .. }
-                    | ContractInstruction::Binv { .. }
-                    | ContractInstruction::Binvi { .. }
-                    | ContractInstruction::Bext { .. }
-                    | ContractInstruction::Bexti { .. }
-                    | ContractInstruction::Clmul { .. }
-                    | ContractInstruction::Clmulh { .. }
-                    | ContractInstruction::Clmulr { .. }
-                    | ContractInstruction::Add { .. }
-                    | ContractInstruction::Sub { .. }
-                    | ContractInstruction::Sll { .. }
-                    | ContractInstruction::Slt { .. }
-                    | ContractInstruction::Sltu { .. }
-                    | ContractInstruction::Xor { .. }
-                    | ContractInstruction::Srl { .. }
-                    | ContractInstruction::Sra { .. }
-                    | ContractInstruction::Or { .. }
-                    | ContractInstruction::And { .. }
-                    | ContractInstruction::Addw { .. }
-                    | ContractInstruction::Subw { .. }
-                    | ContractInstruction::Sllw { .. }
-                    | ContractInstruction::Srlw { .. }
-                    | ContractInstruction::Sraw { .. }
-                    | ContractInstruction::Addi { .. }
-                    | ContractInstruction::Slti { .. }
-                    | ContractInstruction::Sltiu { .. }
-                    | ContractInstruction::Xori { .. }
-                    | ContractInstruction::Ori { .. }
-                    | ContractInstruction::Andi { .. }
-                    | ContractInstruction::Slli { .. }
-                    | ContractInstruction::Srli { .. }
-                    | ContractInstruction::Srai { .. }
-                    | ContractInstruction::Addiw { .. }
-                    | ContractInstruction::Slliw { .. }
-                    | ContractInstruction::Srliw { .. }
-                    | ContractInstruction::Sraiw { .. }
-                    | ContractInstruction::Lb { .. }
-                    | ContractInstruction::Lh { .. }
-                    | ContractInstruction::Lw { .. }
-                    | ContractInstruction::Ld { .. }
-                    | ContractInstruction::Lbu { .. }
-                    | ContractInstruction::Lhu { .. }
-                    | ContractInstruction::Lwu { .. }
-                    | ContractInstruction::Jalr { .. }
-                    | ContractInstruction::Sb { .. }
-                    | ContractInstruction::Sh { .. }
-                    | ContractInstruction::Sw { .. }
-                    | ContractInstruction::Sd { .. }
-                    | ContractInstruction::Beq { .. }
-                    | ContractInstruction::Bne { .. }
-                    | ContractInstruction::Blt { .. }
-                    | ContractInstruction::Bge { .. }
-                    | ContractInstruction::Bltu { .. }
-                    | ContractInstruction::Bgeu { .. }
-                    | ContractInstruction::Lui { .. }
-                    | ContractInstruction::Auipc { .. }
-                    | ContractInstruction::Jal { .. }
-                    | ContractInstruction::Ebreak
-                    | ContractInstruction::Unimp => {
+                    ContractInstruction::Popular(
+                        PopularInstruction::Ld { .. }
+                        | PopularInstruction::Sd { .. }
+                        | PopularInstruction::Add { .. }
+                        | PopularInstruction::Addi { .. }
+                        | PopularInstruction::Xor { .. }
+                        | PopularInstruction::Rori { .. }
+                        | PopularInstruction::Srli { .. }
+                        | PopularInstruction::Or { .. }
+                        | PopularInstruction::And { .. }
+                        | PopularInstruction::Slli { .. }
+                        | PopularInstruction::Lbu { .. }
+                        | PopularInstruction::Auipc { .. }
+                        | PopularInstruction::Jalr { .. }
+                        | PopularInstruction::Sb { .. }
+                        | PopularInstruction::Roriw { .. }
+                        | PopularInstruction::Sub { .. }
+                        | PopularInstruction::Sltu { .. }
+                        | PopularInstruction::Mulhu { .. }
+                        | PopularInstruction::Mul { .. }
+                        | PopularInstruction::Sh1add { .. },
+                    )
+                    | ContractInstruction::NotPopular(
+                        NotPopularInstruction::Mulh { .. }
+                        | NotPopularInstruction::Mulhsu { .. }
+                        | NotPopularInstruction::Div { .. }
+                        | NotPopularInstruction::Divu { .. }
+                        | NotPopularInstruction::Rem { .. }
+                        | NotPopularInstruction::Remu { .. }
+                        | NotPopularInstruction::Mulw { .. }
+                        | NotPopularInstruction::Divw { .. }
+                        | NotPopularInstruction::Divuw { .. }
+                        | NotPopularInstruction::Remw { .. }
+                        | NotPopularInstruction::Remuw { .. }
+                        | NotPopularInstruction::AddUw { .. }
+                        | NotPopularInstruction::Sh1addUw { .. }
+                        | NotPopularInstruction::Sh2add { .. }
+                        | NotPopularInstruction::Sh2addUw { .. }
+                        | NotPopularInstruction::Sh3add { .. }
+                        | NotPopularInstruction::Sh3addUw { .. }
+                        | NotPopularInstruction::SlliUw { .. }
+                        | NotPopularInstruction::Andn { .. }
+                        | NotPopularInstruction::Orn { .. }
+                        | NotPopularInstruction::Xnor { .. }
+                        | NotPopularInstruction::Clz { .. }
+                        | NotPopularInstruction::Clzw { .. }
+                        | NotPopularInstruction::Ctz { .. }
+                        | NotPopularInstruction::Ctzw { .. }
+                        | NotPopularInstruction::Cpop { .. }
+                        | NotPopularInstruction::Cpopw { .. }
+                        | NotPopularInstruction::Max { .. }
+                        | NotPopularInstruction::Maxu { .. }
+                        | NotPopularInstruction::Min { .. }
+                        | NotPopularInstruction::Minu { .. }
+                        | NotPopularInstruction::Sextb { .. }
+                        | NotPopularInstruction::Sexth { .. }
+                        | NotPopularInstruction::Zexth { .. }
+                        | NotPopularInstruction::Rol { .. }
+                        | NotPopularInstruction::Rolw { .. }
+                        | NotPopularInstruction::Ror { .. }
+                        | NotPopularInstruction::Rorw { .. }
+                        | NotPopularInstruction::Orcb { .. }
+                        | NotPopularInstruction::Rev8 { .. }
+                        | NotPopularInstruction::Bset { .. }
+                        | NotPopularInstruction::Bseti { .. }
+                        | NotPopularInstruction::Bclr { .. }
+                        | NotPopularInstruction::Bclri { .. }
+                        | NotPopularInstruction::Binv { .. }
+                        | NotPopularInstruction::Binvi { .. }
+                        | NotPopularInstruction::Bext { .. }
+                        | NotPopularInstruction::Bexti { .. }
+                        | NotPopularInstruction::Clmul { .. }
+                        | NotPopularInstruction::Clmulh { .. }
+                        | NotPopularInstruction::Clmulr { .. }
+                        | NotPopularInstruction::Sll { .. }
+                        | NotPopularInstruction::Slt { .. }
+                        | NotPopularInstruction::Srl { .. }
+                        | NotPopularInstruction::Sra { .. }
+                        | NotPopularInstruction::Addw { .. }
+                        | NotPopularInstruction::Subw { .. }
+                        | NotPopularInstruction::Sllw { .. }
+                        | NotPopularInstruction::Srlw { .. }
+                        | NotPopularInstruction::Sraw { .. }
+                        | NotPopularInstruction::Slti { .. }
+                        | NotPopularInstruction::Sltiu { .. }
+                        | NotPopularInstruction::Xori { .. }
+                        | NotPopularInstruction::Ori { .. }
+                        | NotPopularInstruction::Andi { .. }
+                        | NotPopularInstruction::Srai { .. }
+                        | NotPopularInstruction::Addiw { .. }
+                        | NotPopularInstruction::Slliw { .. }
+                        | NotPopularInstruction::Srliw { .. }
+                        | NotPopularInstruction::Sraiw { .. }
+                        | NotPopularInstruction::Lb { .. }
+                        | NotPopularInstruction::Lh { .. }
+                        | NotPopularInstruction::Lw { .. }
+                        | NotPopularInstruction::Lhu { .. }
+                        | NotPopularInstruction::Lwu { .. }
+                        | NotPopularInstruction::Sh { .. }
+                        | NotPopularInstruction::Sw { .. }
+                        | NotPopularInstruction::Beq { .. }
+                        | NotPopularInstruction::Bne { .. }
+                        | NotPopularInstruction::Blt { .. }
+                        | NotPopularInstruction::Bge { .. }
+                        | NotPopularInstruction::Bltu { .. }
+                        | NotPopularInstruction::Bgeu { .. }
+                        | NotPopularInstruction::Lui { .. }
+                        | NotPopularInstruction::Jal { .. }
+                        | NotPopularInstruction::Ebreak
+                        | NotPopularInstruction::Unimp,
+                    ) => {
                         // Expected instruction
                     }
-                    ContractInstruction::Fence { .. }
-                    | ContractInstruction::Ecall
-                    | ContractInstruction::Invalid(_) => {
+                    ContractInstruction::NotPopular(
+                        NotPopularInstruction::Fence { .. }
+                        | NotPopularInstruction::Ecall
+                        | NotPopularInstruction::Invalid(_),
+                    ) => {
                         return Err(ContractFileParseError::UnexpectedInstruction { instruction });
                     }
                 }
@@ -646,14 +656,16 @@ impl<'a> ContractFile<'a> {
 
             let is_jump_instruction = matches!(
                 instruction,
-                ContractInstruction::Jalr { .. }
-                    | ContractInstruction::Beq { .. }
-                    | ContractInstruction::Bne { .. }
-                    | ContractInstruction::Blt { .. }
-                    | ContractInstruction::Bge { .. }
-                    | ContractInstruction::Bltu { .. }
-                    | ContractInstruction::Bgeu { .. }
-                    | ContractInstruction::Jal { .. }
+                ContractInstruction::Popular(PopularInstruction::Jalr { .. })
+                    | ContractInstruction::NotPopular(
+                        NotPopularInstruction::Beq { .. }
+                            | NotPopularInstruction::Bne { .. }
+                            | NotPopularInstruction::Blt { .. }
+                            | NotPopularInstruction::Bge { .. }
+                            | NotPopularInstruction::Bltu { .. }
+                            | NotPopularInstruction::Bgeu { .. }
+                            | NotPopularInstruction::Jal { .. }
+                    )
             );
             if !is_jump_instruction {
                 return Err(ContractFileParseError::LastInstructionMustBeJump { instruction });
